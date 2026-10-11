@@ -62,6 +62,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -131,6 +132,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.fastForEach
 import androidx.core.net.toUri
 import androidx.core.view.WindowCompat
@@ -225,6 +227,7 @@ import com.dd3boh.outertune.ui.utils.dpadOverlayEscape
 import com.dd3boh.outertune.ui.utils.dpadTabBar
 import com.dd3boh.outertune.ui.utils.dpadBringIntoView
 import com.dd3boh.outertune.ui.utils.resetHeightOffset
+import com.dd3boh.outertune.ui.utils.shrinkToFit
 import com.dd3boh.outertune.utils.ActivityLauncherHelper
 import com.dd3boh.outertune.utils.InstallSource
 import com.dd3boh.outertune.utils.installSource
@@ -1641,13 +1644,7 @@ class MainActivity : ComponentActivity() {
                                                 )
                                             },
                                             label = {
-                                                if (!slimNav) {
-                                                    Text(
-                                                        text = stringResource(screen.titleId),
-                                                        maxLines = 1,
-                                                        overflow = TextOverflow.Ellipsis
-                                                    )
-                                                }
+                                                if (!slimNav) TabLabel(stringResource(screen.titleId))
                                             },
                                             onClick = {
                                                 if (playerBottomSheetState.isExpanded) {
@@ -1751,13 +1748,7 @@ class MainActivity : ComponentActivity() {
                                                 )
                                             },
                                             label = {
-                                                if (!slimNav) {
-                                                    Text(
-                                                        text = stringResource(screen.titleId),
-                                                        maxLines = 1,
-                                                        overflow = TextOverflow.Ellipsis
-                                                    )
-                                                }
+                                                if (!slimNav) TabLabel(stringResource(screen.titleId))
                                             },
                                             onClick = {
                                                 if (playerBottomSheetState.isExpanded) {
@@ -1981,6 +1972,20 @@ class MainActivity : ComponentActivity() {
         const val ACTION_PLAY_LIKED = "dev.skye.intertune.action.PLAY_LIKED"
     }
 }
+
+/**
+ * A tab's name under its icon, on one line. It gets smaller before it is cut: in French at a
+ * large font size "Bibliothèque" was "Bibliothè…". The padding keeps a name that fills its tab
+ * off the edge of the screen and off the name beside it.
+ */
+@Composable
+private fun TabLabel(text: String) = Text(
+    text = text,
+    autoSize = LocalTextStyle.current.shrinkToFit(smallest = 9.sp),
+    maxLines = 1,
+    overflow = TextOverflow.Ellipsis,
+    modifier = Modifier.padding(horizontal = 4.dp)
+)
 
 /**
  * Navigate to a bottom-bar / rail tab that is not the one currently shown.

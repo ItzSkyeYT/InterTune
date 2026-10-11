@@ -246,7 +246,7 @@ fun ArtistSongsScreen(
             state = lazyListState,
         )
 
-        FloatingTopBar(title = artist?.artist?.name.orEmpty(), navController = navController)
+        FloatingTopBar(title = artist?.artist?.name.orEmpty(), titleIsName = true, navController = navController)
 
 
         FloatingFooter(inSelectMode) {

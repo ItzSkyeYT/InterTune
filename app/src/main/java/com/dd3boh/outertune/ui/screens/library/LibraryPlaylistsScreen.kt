@@ -2,7 +2,6 @@ package com.dd3boh.outertune.ui.screens.library
 
 import android.content.pm.PackageManager
 import android.util.Log
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -34,7 +33,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults.Indicator
 import androidx.compose.material3.pulltorefresh.pullToRefresh
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -49,7 +47,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -84,6 +81,7 @@ import com.dd3boh.outertune.ui.component.LibraryPlaylistGridItem
 import com.dd3boh.outertune.ui.component.LibraryPlaylistListItem
 import com.dd3boh.outertune.ui.component.ScrollToTopManager
 import com.dd3boh.outertune.ui.component.SortHeader
+import com.dd3boh.outertune.ui.component.StoragePermissionBanner
 import com.dd3boh.outertune.ui.component.items.AutoPlaylistGridItem
 import com.dd3boh.outertune.ui.component.items.AutoPlaylistListItem
 import com.dd3boh.outertune.ui.dialog.CreatePlaylistDialog
@@ -164,22 +162,13 @@ fun LibraryPlaylistsScreen(
         }
         Column {
             if (localLibEnable && showStoragePerm) {
-                TextButton(
+                StoragePermissionBanner(
                     onClick = {
                         showStoragePerm =
                             false // allow user to hide error when clicked. This also makes the code a lot nicer too...
                         (context as MainActivity).permissionLauncher.launch(MEDIA_PERMISSION_LEVEL)
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.error)
-                ) {
-                    Text(
-                        text = stringResource(R.string.missing_media_permission_warning),
-                        color = Color.White,
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                }
+                    }
+                )
             }
 
             Row {

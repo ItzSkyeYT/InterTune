@@ -1541,4 +1541,6 @@
     <string name="login_signed_in_as">Compte connecté : %1$s</string>
     <string name="login_signed_in">Compte connecté</string>
     <string name="login_going_back">Retour à l\'écran précédent.</string>
+    <string name="android_auto_missing">Absent de votre voiture ?</string>
+    <string name="android_auto_missing_body">Android Auto n\'affiche que les applications installées par Google Play, il masque donc InterTune. Pour l\'ajouter : ouvrez les paramètres d\'Android Auto sur votre téléphone et touchez dix fois la ligne Version. Ouvrez ensuite les paramètres pour les développeurs depuis le menu en haut et activez Sources inconnues.</string>
 </resources>

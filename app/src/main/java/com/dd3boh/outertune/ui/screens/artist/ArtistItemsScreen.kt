@@ -345,7 +345,7 @@ fun ArtistItemsScreen(
         )
     }
 
-    FloatingTopBar(title = title, navController = navController)
+    FloatingTopBar(title = title, titleIsName = true, navController = navController)
 
     Box(
         modifier = Modifier.fillMaxSize()

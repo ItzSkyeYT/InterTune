@@ -124,5 +124,5 @@ fun BrowseScreen(
         }
     }
 
-    FloatingTopBar(title = title ?: "", navController = navController)
+    FloatingTopBar(title = title ?: "", titleIsName = true, navController = navController)
 }

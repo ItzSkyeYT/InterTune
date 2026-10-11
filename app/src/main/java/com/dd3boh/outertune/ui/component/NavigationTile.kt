@@ -16,6 +16,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -26,6 +27,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.dd3boh.outertune.ui.utils.canWrap
+import com.dd3boh.outertune.ui.utils.shrinkToFit
 
 @Composable
 fun NavigationTile(
@@ -56,13 +60,7 @@ fun NavigationTile(
             )
         }
 
-        Text(
-            text = title,
-            style = MaterialTheme.typography.labelMedium,
-            textAlign = TextAlign.Center,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
+        TileTitle(title)
     }
 }
 
@@ -127,15 +125,31 @@ fun NavigationTile(
             )
         }
 
-        // Two lines for a title wider than its quarter of the row: on a phone 393dp wide "Local
-        // scanner" is, and was cut to "Local scann...". The button above it stays where it is, and
-        // only a row that has such a title is a line taller.
-        Text(
-            text = title,
-            style = MaterialTheme.typography.labelMedium,
-            textAlign = TextAlign.Center,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
+        TileTitle(title)
     }
+}
+
+/**
+ * A tile's title, under its button.
+ *
+ * Two lines for a title wider than its quarter of the row: on a phone 393dp wide "Local scanner"
+ * is, and was cut to "Local scann...". The button above it stays where it is, and only a row
+ * that has such a title is a line taller.
+ *
+ * A word is never broken to make the second line. In French at a large font size "Statistiques"
+ * is wider than the tile, and was drawn as "Statistiqu" over "es": the title gets smaller until
+ * its words are whole, and a title of one word keeps to one line. Only a word still too wide at
+ * three quarters of the size is cut.
+ */
+@Composable
+private fun TileTitle(title: String) {
+    val style = MaterialTheme.typography.labelMedium
+    Text(
+        text = title,
+        style = style,
+        autoSize = style.shrinkToFit(smallest = 9.sp),
+        textAlign = TextAlign.Center,
+        maxLines = if (remember(title) { canWrap(title) }) 2 else 1,
+        overflow = TextOverflow.Ellipsis
+    )
 }

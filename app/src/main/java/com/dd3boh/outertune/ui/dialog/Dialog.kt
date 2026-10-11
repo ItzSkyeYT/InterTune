@@ -14,7 +14,6 @@ import android.text.format.Formatter
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -84,6 +83,7 @@ import com.dd3boh.outertune.constants.DialogCornerRadius
 import com.dd3boh.outertune.constants.SNACKBAR_VERY_SHORT
 import com.dd3boh.outertune.db.entities.FormatEntity
 import com.dd3boh.outertune.models.MediaMetadata
+import com.dd3boh.outertune.ui.component.ButtonsRow
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.utils.DialogAboveKeyboard
 import com.dd3boh.outertune.ui.utils.Landscape
@@ -155,7 +155,7 @@ fun DefaultDialog(
                 if (buttons != null) {
                     Spacer(Modifier.height(24.dp))
 
-                    Row(
+                    ButtonsRow(
                         modifier = Modifier.align(Alignment.End)
                     ) {
                         CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.primary) {
@@ -366,18 +366,15 @@ fun ActionPromptDialog(
 
             // bottom options
             // always have an ok, but explicit cancel/reset is optional
-            Row(
-                horizontalArrangement = Arrangement.End,
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            ButtonsRow(modifier = Modifier.fillMaxWidth()) {
                 if (onReset != null) {
-                    Row(modifier = Modifier.weight(1f)) {
-                        TextButton(
-                            onClick = { onReset() },
-                        ) {
-                            Text(stringResource(R.string.reset))
-                        }
+                    TextButton(
+                        onClick = { onReset() },
+                    ) {
+                        Text(stringResource(R.string.reset))
                     }
+                    // Reset at the start, the others at the end.
+                    Spacer(Modifier.weight(1f))
                 }
 
                 if (onCancel != null) {
@@ -462,18 +459,16 @@ fun CounterDialog(
 
                 // bottom options
                 // always have an ok, but explicit cancel/reset is optional
-                Row(
-                    horizontalArrangement = Arrangement.End,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    if (onReset != null)
-                        Row(modifier = Modifier.weight(1f)) {
-                            TextButton(
-                                onClick = { onReset() },
-                            ) {
-                                Text(stringResource(R.string.reset))
-                            }
+                ButtonsRow(modifier = Modifier.fillMaxWidth()) {
+                    if (onReset != null) {
+                        TextButton(
+                            onClick = { onReset() },
+                        ) {
+                            Text(stringResource(R.string.reset))
                         }
+                        // Reset at the start, the others at the end.
+                        Spacer(Modifier.weight(1f))
+                    }
 
                     TextButton(
                         onClick = { onConfirm(tempValue.intValue) }

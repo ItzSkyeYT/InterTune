@@ -29,6 +29,7 @@ import androidx.navigation.NavController
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
 import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
+import com.dd3boh.outertune.ui.screens.settings.fragments.AndroidAutoFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.AppearanceMiscFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.MediaControlButtonsFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.PlayerButtonsFrag
@@ -78,6 +79,7 @@ fun LookAndFeelSettings(
             // the player looks from outside the app, so they stand with the player's own buttons
             // and not under Player and audio, where they were looked for in vain.
             MediaControlButtonsFrag()
+            AndroidAutoFrag()
         }
         Spacer(modifier = Modifier.height(16.dp))
 
