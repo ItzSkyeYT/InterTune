@@ -181,6 +181,15 @@ object Unreleased {
     val EXPLANATION_LINKS = BuildConfig.DEBUG
 
     /**
+     * A small moving picture at the head of an explanation, in the manner of the ones Android's
+     * own Settings shows: drawn in the app from the theme's colours (ExplainPictures.kt), still
+     * on a phone with animations off, no words in it. One so far, to be judged: Fade between
+     * tracks. Without it an explanation is its words, as before. To drop it: this flag, the
+     * file, and the `picture` argument through Explain.kt and at the one row that gives it.
+     */
+    val EXPLAIN_PICTURES = BuildConfig.DEBUG
+
+    /**
      * "Ask YouTube Music's web client first" in the developer options: an experiment for the day
      * VISIONOS, the one client that serves whole songs, stops. With the switch on every song is
      * asked of WEB_REMIX before the chain as it is, with the signature timestamp and a po token

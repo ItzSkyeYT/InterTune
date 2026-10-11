@@ -60,6 +60,7 @@ fun ExplainButton(
     modifier: Modifier = Modifier,
     footer: String? = null,
     links: List<ExplainLink> = emptyList(),
+    picture: ExplainPicture? = null,
 ) {
     var open by rememberSaveable { mutableStateOf(false) }
 
@@ -69,6 +70,7 @@ fun ExplainButton(
             body = body,
             footer = footer,
             links = links,
+            picture = picture,
             onDismiss = { open = false },
         )
     }
@@ -99,6 +101,7 @@ fun ExplainDialog(
     onDismiss: () -> Unit,
     footer: String? = null,
     links: List<ExplainLink> = emptyList(),
+    picture: ExplainPicture? = null,
 ) {
     val uriHandler = LocalUriHandler.current
     DefaultDialog(
@@ -117,6 +120,10 @@ fun ExplainDialog(
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.explain_close)) }
         },
     ) {
+        if (picture != null && Unreleased.EXPLAIN_PICTURES) {
+            ExplainPicturePanel(picture, Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp))
+        }
+
         // Still capped, because a large font on a short phone would otherwise push the button off
         // the bottom, but high enough that nothing worth reading has to be scrolled to. The real
         // fix for scrolling is writing less, which is the other half of this change.
@@ -186,6 +193,7 @@ fun ExplainedPreference(
 fun ExplainedSwitchPreference(
     title: String,
     explanation: String,
+    picture: ExplainPicture? = null,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
@@ -201,7 +209,7 @@ fun ExplainedSwitchPreference(
     icon = icon,
     trailingContent = {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            ExplainButton(title = title, body = explanation, footer = footer, links = links)
+            ExplainButton(title = title, body = explanation, footer = footer, links = links, picture = picture)
 
             Spacer(Modifier.width(4.dp))
 
