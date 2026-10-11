@@ -510,4 +510,22 @@ class OptInCatchUpTest {
         }
         assertTrue("closing = stringResource(R.string.catch_up_all_answered, stringResource(R.string.catch_up_done))" in screen)
     }
+
+    @Test
+    fun `Developer shows the screen as a preview, and the app opens it for real`() {
+        val developer = code("ui/screens/settings/fragments/DeveloperFrag.kt")
+        assertTrue("Text(\"Show the catch-up questions\")" in developer)
+        assertEquals(1, Regex("""\bOptInCatchUp\(""").findAll(developer).count())
+        val shown = developer.substringAfter("OptInCatchUp(").substringBefore("\n        }")
+        assertTrue(shown, "preview = true" in shown)
+        // Its Done closes it, and the row touches nothing that is stored.
+        val row = developer.substringAfter("var catchUpPreview").substringBefore("Spacer(")
+        assertTrue(row, Regex("""onDone = \{ catchUpPreview = false }""").containsMatchIn(row))
+        assertFalse(row, "dataStore" in row)
+
+        val activity = code("MainActivity.kt")
+        val real = activity.substringAfter("if (catchUpOpen) {").substringBefore("activeCount.ping()")
+        assertTrue(real, "OptInCatchUp(" in real)
+        assertFalse(real, "preview" in real)
+    }
 }

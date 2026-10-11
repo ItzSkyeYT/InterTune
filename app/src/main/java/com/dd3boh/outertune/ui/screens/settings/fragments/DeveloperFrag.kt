@@ -32,6 +32,7 @@ import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Science
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -41,6 +42,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -75,6 +77,7 @@ import com.dd3boh.outertune.playback.HistoryAddressCheck
 import com.dd3boh.outertune.ui.component.ListPreference
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
+import com.dd3boh.outertune.ui.screens.OptInCatchUp
 import com.dd3boh.outertune.ui.screens.settings.SETTINGS_TAG
 import com.dd3boh.outertune.utils.Throttle
 import com.dd3boh.outertune.utils.dataStore
@@ -249,6 +252,18 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
                 }
             }
         )
+
+        // The catch-up screen for a look: as an install that was never asked anything gets it,
+        // and its Done closes it and stores nothing (OptInCatchUp's preview).
+        var catchUpPreview by rememberSaveable { mutableStateOf(false) }
+        PreferenceEntry(
+            title = { Text("Show the catch-up questions") },
+            icon = { Icon(Icons.Rounded.Tune, null) },
+            onClick = { catchUpPreview = true }
+        )
+        if (catchUpPreview) {
+            OptInCatchUp(appScope = coroutineScope, preview = true, onDone = { catchUpPreview = false })
+        }
 
 
         Spacer(Modifier.height(100.dp))
