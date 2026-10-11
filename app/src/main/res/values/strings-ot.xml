@@ -70,6 +70,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="auto_carry_on" translatable="false">Carry on</string>
     <string name="auto_now_playing" translatable="false">Now playing</string>
     <string name="auto_browse" translatable="false">Browse</string>
+    <string name="auto_nothing_here" translatable="false">Nothing here yet</string>
+    <string name="auto_search_hint" translatable="false">Say or type a song or an artist</string>
     <string name="auto_shuffle_liked" translatable="false">Liked songs</string>
     <string name="auto_shuffle_downloads" translatable="false">Downloads</string>
     <string name="auto_shuffled" translatable="false">Shuffled · %1$s</string>

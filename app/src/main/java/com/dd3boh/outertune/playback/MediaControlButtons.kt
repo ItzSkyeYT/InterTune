@@ -44,6 +44,13 @@ object MediaControlButtons {
      */
     private val BEFORE: List<MediaControlButton> = listOf(SHUFFLE, REPEAT, LIKE, RADIO)
 
+    /**
+     * The order in a car, where all of them show in one row and the first is the nearest to
+     * hand: the one answer to the song that is playing, then the two that change what comes
+     * next, and last repeat, which is set once if at all.
+     */
+    val CAR: List<MediaControlButton> = listOf(LIKE, SHUFFLE, RADIO, REPEAT)
+
     /** The picked buttons first, then the rest of [BEFORE] in its own order. */
     fun layout(chosen: List<MediaControlButton>): List<MediaControlButton> {
         val first = chosen.distinct().take(SLOTS)

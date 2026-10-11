@@ -348,6 +348,20 @@ class MusicService : MediaLibraryService(),
     lateinit var player: ExoPlayer
     private lateinit var mediaSession: MediaLibrarySession
 
+    /** The session as the system knows it: what the car is handed to draw its own player from. */
+    val platformToken: android.media.session.MediaSession.Token get() = mediaSession.platformToken
+
+    /** Whether a car is showing the player: its row of buttons is then laid out for a driver. */
+    private var inCar = false
+    private val carType by lazy { androidx.car.app.connection.CarConnection(this).type }
+    private val carWatch = androidx.lifecycle.Observer<Int> { type ->
+        val now = type != androidx.car.app.connection.CarConnection.CONNECTION_TYPE_NOT_CONNECTED
+        if (now != inCar) {
+            inCar = now
+            if (::mediaSession.isInitialized) updateNotification()
+        }
+    }
+
     // Player components
     @Inject
     lateinit var syncUtils: SyncUtils
@@ -757,6 +771,9 @@ class MusicService : MediaLibraryService(),
             // app's own screens read the player directly and never saw these.
             .setPeriodicPositionUpdateEnabled(false)
             .build()
+
+        // In a car the player's row of buttons is laid out for a driver (MediaControlButtons.CAR).
+        if (Unreleased.AUTO_REWORK) carType.observeForever(carWatch)
 
         player.repeatMode = dataStore.get(RepeatModeKey, REPEAT_MODE_OFF)
 
@@ -2299,7 +2316,8 @@ class MusicService : MediaLibraryService(),
      * show more. See [MediaControlButtons].
      */
     fun updateNotification() {
-        mediaSession.setCustomLayout(MediaControlButtons.layout(mediaControlButtons).map(::mediaControlButton))
+        val buttons = if (inCar) MediaControlButtons.CAR else MediaControlButtons.layout(mediaControlButtons)
+        mediaSession.setCustomLayout(buttons.map(::mediaControlButton))
     }
 
     private fun mediaControlButton(button: MediaControlButton): CommandButton {
@@ -3278,6 +3296,7 @@ class MusicService : MediaLibraryService(),
         // no scope this method cancels (see the comment at its launch site), so this is the only
         // way it can find out the service is gone before touching the queue board or the player.
         destroyed = true
+        if (Unreleased.AUTO_REWORK) carType.removeObserver(carWatch)
         headTracking.stop(glideHome = false)
         proximityVolume.stop()
         isRunning = false

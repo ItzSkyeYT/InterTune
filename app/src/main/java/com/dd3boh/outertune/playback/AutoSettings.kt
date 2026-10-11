@@ -11,6 +11,7 @@ import androidx.annotation.StringRes
 import androidx.car.app.CarAppService
 import androidx.car.app.CarContext
 import androidx.car.app.Screen
+import androidx.car.app.ScreenManager
 import androidx.car.app.Session
 import androidx.car.app.SessionInfo
 import androidx.car.app.constraints.ConstraintManager
@@ -32,7 +33,6 @@ import com.dd3boh.outertune.constants.AudioQuality
 import com.dd3boh.outertune.constants.AudioQualityKey
 import com.dd3boh.outertune.constants.AutoLoadMoreKey
 import com.dd3boh.outertune.constants.SkipSilenceKey
-import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.extensions.toEnum
 import com.dd3boh.outertune.utils.dataStore
 import kotlinx.coroutines.CoroutineScope
@@ -78,12 +78,7 @@ data class AutoSettings(
  * the only kind of screen an app is given there. Only a car's own software is let in.
  */
 class AutoSettingsService : CarAppService() {
-    override fun createHostValidator(): HostValidator {
-        val known = HostValidator.Builder(applicationContext)
-        // With the rework held back nothing points here, and nobody is let in.
-        if (Unreleased.AUTO_REWORK) known.addAllowedHosts(androidx.car.app.R.array.hosts_allowlist_sample)
-        return known.build()
-    }
+    override fun createHostValidator(): HostValidator = carHosts(this)
 
     override fun onCreateSession(sessionInfo: SessionInfo): Session = object : Session() {
         override fun onCreateScreen(intent: Intent): Screen = AutoSettingsScreen(carContext)
@@ -132,30 +127,34 @@ private class AutoSettingsScreen(carContext: CarContext) : Screen(carContext) {
     override fun onGetTemplate(): Template {
         val list = ListTemplate.Builder().titled(carContext, R.string.settings)
         val now = shown ?: return list.setLoading(true).build()
-        val most = carContext.getCarService(ConstraintManager::class.java).getContentLimit(ConstraintManager.CONTENT_LIMIT_TYPE_LIST)
-        val lines = ItemList.Builder()
-        for (line in AutoSettings.Line.entries.take(most)) {
-            lines.addItem(
-                when (line) {
-                    AutoSettings.Line.MORE -> switch(R.string.auto_load_more, now.more, AutoLoadMoreKey)
-                    AutoSettings.Line.QUALITY -> Row.Builder()
-                        .setTitle(carContext.getString(R.string.audio_quality))
-                        .addText(carContext.getString(now.quality.label))
-                        .setBrowsable(true)
-                        .setOnClickListener { screenManager.push(AutoQualityScreen(carContext)) }
-                        .build()
-                    AutoSettings.Line.LEVEL -> switch(R.string.audio_normalization, now.level, AudioNormalizationKey)
-                    AutoSettings.Line.SILENCE -> switch(R.string.skip_silence, now.silence, SkipSilenceKey)
-                }
-            )
-        }
-        return list.setSingleList(lines.build()).build()
+        return list.setSingleList(settingsLines(carContext, now, screenManager)).build()
     }
+}
 
-    private fun switch(@StringRes title: Int, on: Boolean, key: Preferences.Key<Boolean>) = Row.Builder()
-        .setTitle(carContext.getString(title))
-        .setToggle(Toggle.Builder { now -> carContext.save(key, now) }.setChecked(on).build())
+/** The lines of the settings: for the tab of the app's own screens, and for the screen an older car opens. */
+internal fun settingsLines(car: CarContext, now: AutoSettings, screens: ScreenManager): ItemList {
+    val most = car.getCarService(ConstraintManager::class.java).getContentLimit(ConstraintManager.CONTENT_LIMIT_TYPE_LIST)
+    fun switch(@StringRes title: Int, on: Boolean, key: Preferences.Key<Boolean>) = Row.Builder()
+        .setTitle(car.getString(title))
+        .setToggle(Toggle.Builder { chosen -> car.save(key, chosen) }.setChecked(on).build())
         .build()
+    val lines = ItemList.Builder()
+    for (line in AutoSettings.Line.entries.take(most)) {
+        lines.addItem(
+            when (line) {
+                AutoSettings.Line.MORE -> switch(R.string.auto_load_more, now.more, AutoLoadMoreKey)
+                AutoSettings.Line.QUALITY -> Row.Builder()
+                    .setTitle(car.getString(R.string.audio_quality))
+                    .addText(car.getString(now.quality.label))
+                    .setBrowsable(true)
+                    .setOnClickListener { screens.push(AutoQualityScreen(car)) }
+                    .build()
+                AutoSettings.Line.LEVEL -> switch(R.string.audio_normalization, now.level, AudioNormalizationKey)
+                AutoSettings.Line.SILENCE -> switch(R.string.skip_silence, now.silence, SkipSilenceKey)
+            }
+        )
+    }
+    return lines.build()
 }
 
 /** The qualities, one of them chosen: a tap chooses another and goes back. */

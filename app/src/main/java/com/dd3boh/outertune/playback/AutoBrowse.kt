@@ -49,8 +49,31 @@ object AutoBrowse {
     const val DOWNLOADED = "downloaded"
     const val PLAYLIST_PREFIX = "playlist/"
 
-    /** The songs in one row of covers: what can be taken in at a glance, two rows of the car's grid. */
+    /** The songs one row of Home brings: what plays on after the one that was tapped. */
     const val MOST = 12
+
+    /** How many of them are shown: two rows of the car's large tiles, taken in at a glance. */
+    const val SHOWN = 6
+
+    /** How one thing in a list of the car's is laid out: under which heading, and as a tile or as a row. */
+    data class Laid(val heading: String?, val tile: Boolean)
+
+    /**
+     * A list cut into the sections of a screen: each run of neighbours under one heading and laid
+     * out one way. A heading is said once, so of a row and the tiles after it under the same
+     * heading only the row's section carries it.
+     */
+    fun <T> sections(items: List<T>, laid: (T) -> Laid): List<Pair<Laid, List<T>>> {
+        val out = ArrayList<Pair<Laid, MutableList<T>>>()
+        var before: Laid? = null
+        for (item in items) {
+            val how = laid(item)
+            if (before == how) out.last().second += item
+            else out += Laid(how.heading.takeIf { it != before?.heading || before == null }, how.tile) to mutableListOf(item)
+            before = how
+        }
+        return out
+    }
 
     /** The songs of the library's own list and of Recent: more than that is not read at the wheel. */
     const val MOST_SONGS = 200

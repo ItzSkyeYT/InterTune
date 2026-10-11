@@ -221,8 +221,10 @@ class MediaLibrarySessionCallback @Inject constructor(
         pageSize: Int,
         params: MediaLibraryService.LibraryParams?,
     ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> = scope.future(Dispatchers.IO) {
-        // What is playing goes across the top of each of the car's tabs.
-        val bar = if (Unreleased.AUTO_REWORK && parentId in AutoBrowse.TABS) listOfNotNull(nowPlaying()) else emptyList()
+        // The app's own screens in the car (AutoCar) read this tree too. They have the car's
+        // small player in a corner, so no row of what is playing across the top of a tab.
+        val own = browser.packageName == context.packageName
+        val bar = if (Unreleased.AUTO_REWORK && !own && parentId in AutoBrowse.TABS) listOfNotNull(nowPlaying()) else emptyList()
         LibraryResult.ofItemList(
             bar + when (parentId) {
                 MusicService.ROOT -> if (Unreleased.AUTO_REWORK) carTabs() else listOf(
@@ -256,8 +258,8 @@ class MediaLibrarySessionCallback @Inject constructor(
                     )
                 )
 
-                AutoBrowse.HOME -> forYou()
-                AutoBrowse.LIBRARY -> carLibrary()
+                AutoBrowse.HOME -> forYou(carryOn = own)
+                AutoBrowse.LIBRARY -> carLibrary(heading = !own)
                 AutoBrowse.RECENT -> recentSongs().map { it.toMediaItem(parentId) }
                 MusicService.SONG -> librarySongs().map { it.toMediaItem(parentId) }
                 MusicService.ARTIST -> database.artistsInLibraryAsc().first().map { artist ->
@@ -704,10 +706,21 @@ class MediaLibrarySessionCallback @Inject constructor(
         )
     }
 
-    /** For you: lists to shuffle, then Home's own rows, each under its name. */
-    private suspend fun forYou(): List<MediaItem> {
+    /**
+     * For you: what starts music at one tap (the queue there is, lists to shuffle), then Home's
+     * own rows, each under its name. [carryOn] puts the queue there is among the tiles, for the
+     * screens that have no row of what is playing above them.
+     */
+    private suspend fun forYou(carryOn: Boolean): List<MediaItem> {
         val items = ArrayList<MediaItem>()
         val jump = context.getString(R.string.auto_jump_back_in)
+        if (carryOn) {
+            val playing = withContext(Dispatchers.Main) { service.player.currentMediaItem?.metadata }
+                ?: runCatching { database.getResumptionQueue()?.getCurrentSong() }.getOrNull()
+            if (playing != null) {
+                items += action("${AutoBrowse.RESUME}/queue", context.getString(R.string.auto_carry_on), playing.title, AutoArt.uri(context, AutoArt.SONG, playing.id), jump)
+            }
+        }
         val liked = database.likedSongsCount().first()
         if (liked > 1) {
             // A tile's name is cut after a dozen letters or so: the name says which songs, and
@@ -731,17 +744,19 @@ class MediaLibrarySessionCallback @Inject constructor(
         )
         for (section in AutoBrowse.SECTIONS) {
             val heading = context.getString(names.getValue(section))
-            items += homeSongs(section).map { it.toMediaItem("${AutoBrowse.HOME}/$section", group = heading) }
+            // The whole row plays on from the song tapped; only the first of it is shown.
+            items += homeSongs(section).take(AutoBrowse.SHOWN).map { it.toMediaItem("${AutoBrowse.HOME}/$section", group = heading) }
         }
         return items
     }
 
     /**
      * The library's ways in: what was played lately, covers for albums and artists, a list for
-     * songs. Under a heading of their own, or they read as more of what is playing above them.
+     * songs. Under a [heading] of their own where the row of what is playing is above them, or
+     * they read as more of it.
      */
-    private fun carLibrary(): List<MediaItem> {
-        val browse = context.getString(R.string.auto_browse)
+    private fun carLibrary(heading: Boolean): List<MediaItem> {
+        val browse = if (heading) context.getString(R.string.auto_browse) else null
         return listOf(
             browsableMediaItem(
                 AutoBrowse.RECENT, context.getString(R.string.auto_recent), null, drawableUri(R.drawable.auto_recent),
