@@ -404,6 +404,8 @@ fun ColumnScope.LocalScannerFrag() {
     }
     // scanner checkboxes
     Column(
+        // Apart, or the two labels, two or three lines each, read as one paragraph.
+        verticalArrangement = Arrangement.spacedBy(16.dp),
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 10.dp)
