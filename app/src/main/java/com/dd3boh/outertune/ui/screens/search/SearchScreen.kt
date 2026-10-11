@@ -49,6 +49,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastAny
 import androidx.core.net.toUri
@@ -205,7 +206,11 @@ fun SearchBarContainer(
                             SearchSource.LOCAL -> R.string.search_library
                             SearchSource.ONLINE -> R.string.search_yt_music
                         }
-                    )
+                    ),
+                    // The field is one line high. A hint too long for it used to wrap, and its
+                    // second line was cut through by the field's lower edge.
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             },
             leadingIcon = {

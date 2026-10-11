@@ -168,6 +168,7 @@ fun AccountScreen(
 
     FloatingTopBar(
         title = accountName,
+        titleIsName = true,
         navController = navController,
         actions = {
             if (isLoggedIn) {

@@ -235,7 +235,13 @@ fun ExplainedGroupTitle(
         text = title.uppercase(),
         style = MaterialTheme.typography.labelLarge,
         color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(16.dp),
+        // What the button leaves, and no more than the heading needs: after a heading of one line
+        // the button still comes straight away. Without the weight a heading long enough to wrap
+        // took the whole row, and the button was not drawn at all: "MEILLEURES RECOMMANDATIONS"
+        // at a large font size.
+        modifier = Modifier
+            .weight(1f, fill = false)
+            .padding(16.dp),
     )
 
     ExplainButton(title = title, body = explanation)

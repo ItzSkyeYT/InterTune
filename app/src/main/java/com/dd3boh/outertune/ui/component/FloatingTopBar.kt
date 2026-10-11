@@ -60,6 +60,7 @@ import com.dd3boh.outertune.ui.component.button.backButtonSurface
 import com.dd3boh.outertune.ui.utils.backToMain
 import com.dd3boh.outertune.ui.utils.GlassSpec
 import com.dd3boh.outertune.ui.utils.rememberGlassSpec
+import com.dd3boh.outertune.ui.utils.shrinkToFit
 
 /**
  * The top of a screen the way One UI 8 draws it: no bar at all, just a back circle and the title
@@ -73,6 +74,8 @@ import com.dd3boh.outertune.ui.utils.rememberGlassSpec
  * beneath it.
  *
  * [onBack] defaults to going up and [onLongBack], a long press on the circle, to the main screen.
+ * [titleIsName] is for a title that is somebody's name (an artist, an account) or comes from
+ * YouTube: see [TopBarTitle].
  */
 @Composable
 fun FloatingTopBar(
@@ -83,8 +86,9 @@ fun FloatingTopBar(
     onLongBack: () -> Unit = { navController.backToMain() },
     actions: @Composable RowScope.() -> Unit = {},
     windowInsets: WindowInsets = TopBarInsets,
+    titleIsName: Boolean = false,
 ) = FloatingTopBar(
-    titleContent = { if (!title.isNullOrEmpty()) TopBarTitle(title) },
+    titleContent = { if (!title.isNullOrEmpty()) TopBarTitle(title, shrinks = !titleIsName) },
     navController = navController,
     modifier = modifier,
     onBack = onBack,
@@ -198,14 +202,22 @@ val LocalTopBarUp = staticCompositionLocalOf<(() -> Unit)?> { null }
 val TopBarTitleStyle: TextStyle
     @Composable get() = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp, lineHeight = 22.sp, fontWeight = FontWeight.Bold)
 
-/** The title, bold, in a pill the height of the back circle. Nothing at all while it is empty. */
+/**
+ * The title, bold, in a pill the height of the back circle. Nothing at all while it is empty.
+ *
+ * [shrinks] is for a page's own title, which gets smaller before it is cut, down to three quarters
+ * of its size: in French at a large font size "Compte et Synchronisation" ended at "Synchronisa…".
+ * A name (a playlist's, an artist's) is cut at its full size, as names are everywhere else.
+ */
 @Composable
-fun TopBarTitle(text: String, modifier: Modifier = Modifier) {
+fun TopBarTitle(text: String, modifier: Modifier = Modifier, shrinks: Boolean = false) {
     if (text.isEmpty()) return
     TopBarPill(modifier) {
+        val style = TopBarTitleStyle
         Text(
             text = text,
-            style = TopBarTitleStyle,
+            style = style,
+            autoSize = if (shrinks) style.shrinkToFit(smallest = 13.5.sp) else null,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(horizontal = 18.dp),

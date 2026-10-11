@@ -606,6 +606,7 @@ fun ArtistScreen(
         FloatingTopBar(
             // Not beside the head, which says the name already and never scrolls away.
             title = if (!transparentAppBar && !twoPanes) artistPage?.artist?.title else null,
+            titleIsName = true,
             navController = navController,
             actions = {
                 TopBarActions {

@@ -28,7 +28,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -78,6 +77,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.ui.component.ButtonsRow
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
@@ -583,10 +583,8 @@ private fun TourBubble(
             } else {
                 Spacer(Modifier.height(14.dp))
             }
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
+            // Not a Row: in French the two buttons of the opening card are wider than the bubble.
+            ButtonsRow(modifier = Modifier.fillMaxWidth()) {
                 if (!isOffer) {
                     Text(
                         text = stringResource(R.string.walkthrough_progress, step, steps),
