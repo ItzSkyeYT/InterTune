@@ -91,6 +91,7 @@ import com.dd3boh.outertune.playback.TransitionFadeEnvelope
 import com.dd3boh.outertune.ui.component.EnumListPreference
 import com.dd3boh.outertune.ui.component.ListPreference
 import com.dd3boh.outertune.ui.component.ExplainButton
+import com.dd3boh.outertune.ui.component.ExplainPicture
 import com.dd3boh.outertune.ui.component.ExplainedSwitchPreference
 import com.dd3boh.outertune.ui.dialog.InfoLabel
 import com.dd3boh.outertune.ui.component.PreferenceEntry
@@ -571,6 +572,7 @@ fun ColumnScope.TransitionFadeFrag() {
         title = stringResource(R.string.transition_fade),
         description = stringResource(R.string.transition_fade_description),
         explanation = stringResource(R.string.transition_fade_explain),
+        picture = ExplainPicture.FADE,
         icon = { Icon(Icons.Rounded.Gradient, null) },
         checked = enabled,
         onCheckedChange = onEnabledChange,
