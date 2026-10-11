@@ -12,8 +12,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * A label that does not fit gets smaller before it is cut or broken, and the labels of one row
- * all take the size of the one that needs the smallest.
+ * A label that does not fit gets smaller before it is cut or broken, a heading before it takes a
+ * second line, and the labels of one row all take the size of the one that needs the smallest.
  * What decides the size is here; the measuring itself needs a device.
  */
 class TextFitTest {
@@ -91,6 +91,27 @@ class TextFitTest {
         assertTrue(canWrap("Scanner locale"))
         assertTrue(canWrap("Local scanner"))
         assertTrue(canWrap("Faites-moi"))
+    }
+
+    /** Setup's first heading: "Selamat datang di InterTune" is on one line from 24.5sp down. */
+    @Test
+    fun `a heading takes the largest size that puts it on one line`() {
+        val sizes = sizesToTry(largest = 28f, smallest = 21f)
+        assertEquals(28f, oneLineOrWhole(sizes, isOneLine = { true }, isWhole = { true }))
+        assertEquals(24.5f, oneLineOrWhole(sizes, isOneLine = { it <= 24.5f }, isWhole = { true }))
+        assertEquals(21f, oneLineOrWhole(sizes, isOneLine = { it <= 21f }, isWhole = { true }))
+    }
+
+    @Test
+    fun `a heading too long for one line at its smallest goes on two at its own size`() {
+        val sizes = sizesToTry(largest = 28f, smallest = 21f)
+        assertEquals(28f, oneLineOrWhole(sizes, isOneLine = { false }, isWhole = { true }))
+    }
+
+    @Test
+    fun `on two lines a heading still gets smaller before a word of it is broken`() {
+        val sizes = sizesToTry(largest = 28f, smallest = 21f)
+        assertEquals(23f, oneLineOrWhole(sizes, isOneLine = { false }, isWhole = { it <= 23f }))
     }
 
     /** Home's shortcuts in French at a large font size: only "Statistiques" has to shrink. */

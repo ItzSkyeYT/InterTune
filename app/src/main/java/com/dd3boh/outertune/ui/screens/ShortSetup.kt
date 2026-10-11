@@ -140,6 +140,7 @@ import com.dd3boh.outertune.constants.OOBE_VERSION
 import com.dd3boh.outertune.constants.OobeStatusKey
 import com.dd3boh.outertune.constants.applyNewInstallDefaults
 import com.dd3boh.outertune.constants.markFirstSetup
+import com.dd3boh.outertune.ui.utils.shrinkToOneLine
 import com.dd3boh.outertune.utils.InstallSource
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.installSource
@@ -826,12 +827,20 @@ private fun Modifier.moreBelow(scroll: ScrollState, page: Color, fromFoot: Boole
     }
 }
 
-/** A page's title and the sentence under it. */
+/**
+ * A page's title and the sentence under it.
+ *
+ * The first page's title ([large]) gets smaller, down to three quarters of its size, to keep to
+ * one line: the list under it is as long as the page, and in Russian a title of two lines
+ * pushed the last of its four cards under the button.
+ */
 @Composable
 private fun SetupHeading(title: String, body: String, large: Boolean = false) {
+    val style = if (large) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.headlineSmall
     Text(
         text = title,
-        style = if (large) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.headlineSmall,
+        style = style,
+        autoSize = if (large) style.shrinkToOneLine(smallest = 21.sp) else null,
         fontWeight = FontWeight.Bold,
         textAlign = TextAlign.Center,
         modifier = Modifier

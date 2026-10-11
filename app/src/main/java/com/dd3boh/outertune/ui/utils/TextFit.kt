@@ -102,6 +102,28 @@ private data class ShrinkToFit(
     }
 }
 
+/**
+ * For a heading that reads best on one line. It is drawn at this style's size when one line
+ * holds it, and otherwise at the largest size, down to [smallest], at which one line does. Only
+ * a heading too long for one line at [smallest] as well goes on two, at its own size again, or
+ * smaller where that would break a word (as [shrinkToFit]). On setup's first page "Добро
+ * пожаловать в InterTune" took two lines, and the line more pushed the last of the four cards
+ * under the button.
+ */
+fun TextStyle.shrinkToOneLine(smallest: TextUnit): TextAutoSize {
+    require(fontSize.isSp && smallest.isSp) { "sizes in sp, not $fontSize and $smallest" }
+    return ShrinkToOneLine(largest = fontSize, smallest = smallest)
+}
+
+private data class ShrinkToOneLine(val largest: TextUnit, val smallest: TextUnit) : TextAutoSize {
+    override fun TextAutoSizeLayoutScope.getFontSize(constraints: Constraints, text: AnnotatedString): TextUnit =
+        oneLineOrWhole(
+            sizes = sizesToTry(largest.value, smallest.value),
+            isOneLine = { size -> performLayout(constraints, text, size.sp).run { lineCount <= 1 && !hasVisualOverflow } },
+            isWhole = { size -> performLayout(constraints, text, size.sp).isWhole(text.text) },
+        ).sp
+}
+
 /** Nothing cut off at its end, and no line ended inside a word. */
 private fun TextLayoutResult.isWhole(text: String): Boolean {
     if (hasVisualOverflow || (lineCount > 0 && isLineEllipsized(lineCount - 1))) return false
@@ -124,6 +146,10 @@ internal fun sizesToTry(largest: Float, smallest: Float): List<Float> = buildLis
 /** The first of [sizes] at which the label [isWhole], or the last of them when it is whole at none. */
 internal fun largestWhole(sizes: List<Float>, isWhole: (Float) -> Boolean): Float =
     sizes.firstOrNull(isWhole) ?: sizes.last()
+
+/** The first of [sizes] at which the heading [isOneLine], or, when it is at none, the size it [isWhole] at on more lines. */
+internal fun oneLineOrWhole(sizes: List<Float>, isOneLine: (Float) -> Boolean, isWhole: (Float) -> Boolean): Float =
+    sizes.firstOrNull(isOneLine) ?: largestWhole(sizes, isWhole)
 
 /**
  * Whether one of the lines of [text], which end at [lineEnds], ends where its language lets no
