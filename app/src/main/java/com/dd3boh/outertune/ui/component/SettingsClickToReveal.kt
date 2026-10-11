@@ -79,9 +79,12 @@ fun ColumnScope.SettingsClickToReveal(
                 stateDescription = if (showContent) "Expanded" else "Collapsed"
             }
     ) {
+        // What the arrow leaves, and no more than the heading needs. A heading long enough to
+        // wrap took the whole row, and the arrow was not drawn at all: "INFORMATIONS SUR
+        // L'APPLICATION" at a large font size.
         PreferenceGroupTitle(
             title = title,
-            modifier = Modifier
+            modifier = Modifier.weight(1f, fill = false)
         )
         Icon(
             imageVector = Icons.Rounded.ExpandMore,
