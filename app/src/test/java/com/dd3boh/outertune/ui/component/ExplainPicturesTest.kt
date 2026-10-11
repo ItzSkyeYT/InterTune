@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.ui.component
 
+import com.dd3boh.outertune.playback.BinauralAudioProcessor
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -142,6 +143,123 @@ class ExplainPicturesTest {
             assertTrue(song.count { it == 1f } >= 3)
             assertTrue(song.count { it > 0f && it < 1f } >= 3)
             assertTrue(song.count { it == 0f } >= 2)
+        }
+    }
+
+    /** Every 240th of a second through two turns of the head. */
+    private val turning = generateSequence(0f) { it + 1f / 240f }.takeWhile { it < 2 * TURN_LOOP }.toList()
+
+    @Test
+    fun `the head opens facing the music, looks one way, then the other, and comes back`() {
+        assertEquals(0f, headTurn(0f), 0.001f)
+        val turns = turning.map { headTurn(it) }
+        assertTrue(turns.all { abs(it) <= TURN_MOST + 0.001f })
+        assertTrue(turns.max() > TURN_MOST * 0.98f)
+        assertTrue(turns.min() < -TURN_MOST * 0.98f)
+        // To the right first, and the second half of a loop is the first one mirrored.
+        assertTrue(headTurn(TURN_LOOP / 4f) > 0f)
+        for (at in listOf(0.3f, 1.1f, 2.6f, 4.9f)) {
+            assertEquals(headTurn(at), headTurn(at + TURN_LOOP), 0.02f)
+            assertEquals(headTurn(at), -headTurn(at + TURN_LOOP / 2f), 0.02f)
+        }
+    }
+
+    @Test
+    fun `the head never jerks, and holds its look before it turns back`() {
+        for (at in turning) {
+            val step = abs(headTurn(at + frame) - headTurn(at))
+            assertTrue("the head jumps $step degrees at $at", step <= 2f)
+        }
+        // A plain to and fro spends two fifths of its time past four fifths of the way.
+        val lingering = turning.count { abs(headTurn(it)) > TURN_MOST * 0.8f } / turning.size.toFloat()
+        assertTrue("the head only lingers $lingering of the time", lingering > 0.5f)
+    }
+
+    @Test
+    fun `the head turns past the speakers on both sides, and is held still turned`() {
+        // The speakers of that picture stand where the listener has set them, and unset that is
+        // where stereo is mixed for. The head turns further than that either way.
+        assertTrue(TURN_MOST > BinauralAudioProcessor.DEFAULT_STAGE_WIDTH)
+        assertTrue(abs(STILL_TURN) in 10f..TURN_MOST)
+    }
+
+    @Test
+    fun `wherever the slider puts the speakers, they are in the picture`() {
+        // A picture at least twice as wide as it is tall, which every place it is shown gives it.
+        val widths = generateSequence(BinauralAudioProcessor.MIN_STAGE_WIDTH) { it + 1f }
+            .takeWhile { it <= BinauralAudioProcessor.MAX_STAGE_WIDTH }.toList()
+        for (width in widths) {
+            val (right, down) = stageSpot(width)
+            assertTrue("$width degrees is off the side", right + STAGE_SPEAKER <= 1f)
+            assertTrue("$width degrees is off the top", down - STAGE_SPEAKER >= 0f)
+            assertTrue("$width degrees is off the foot", down + STAGE_SPEAKER <= 1f)
+        }
+        // Wider is further out and further round towards the ears, and never a jump for one degree.
+        for ((narrower, wider) in widths.zipWithNext()) {
+            assertTrue(stageSpot(wider).first > stageSpot(narrower).first)
+            assertTrue(stageSpot(wider).second > stageSpot(narrower).second)
+            assertTrue(stageSpot(wider).first - stageSpot(narrower).first < 0.012f)
+        }
+        // At a quarter turn they are level with the ears, and straight ahead is straight up.
+        assertEquals(STAGE_HEAD_AT, stageSpot(90f).second, 0.001f)
+        assertEquals(0f, stageSpot(0f).first, 0.001f)
+        // The listener's own head is in the picture too.
+        assertTrue(STAGE_HEAD_AT + STAGE_HEAD <= 1f)
+    }
+
+    @Test
+    fun `with none of the effect the sound is in the headphones, and it comes out as the effect grows`() {
+        val widths = generateSequence(BinauralAudioProcessor.MIN_STAGE_WIDTH) { it + 5f }
+            .takeWhile { it <= BinauralAudioProcessor.MAX_STAGE_WIDTH }.toList()
+        for (width in widths) {
+            // At nothing it is in the cup over the ear, wherever the speaker stands.
+            assertEquals(STAGE_EAR, stageSpot(width, 0f).first, 0.0001f)
+            assertEquals(STAGE_HEAD_AT, stageSpot(width, 0f).second, 0.0001f)
+            // At all of it, it is at its speaker.
+            assertEquals(stageSpot(width), stageSpot(width, 1f))
+            // In between it is further from the head with every step, and never jumps.
+            fun fromHead(out: Float) = stageSpot(width, out).let { (right, down) -> kotlin.math.hypot(right, STAGE_HEAD_AT - down) }
+            for (step in 1..100) {
+                val before = fromHead((step - 1) / 100f)
+                val now = fromHead(step / 100f)
+                assertTrue("at $width degrees, ${step}% is not further out than the step before", now > before)
+                assertTrue(now - before < 0.01f)
+            }
+        }
+        // More than all and less than none are all and none.
+        assertEquals(stageSpot(30f, 1f), stageSpot(30f, 1.4f))
+        assertEquals(stageSpot(30f, 0f), stageSpot(30f, -0.2f))
+    }
+
+    @Test
+    fun `the speakers open from narrow to wide and close again, without a jerk`() {
+        val loop = generateSequence(0f) { it + 1f / 240f }.takeWhile { it < 2 * WIDTH_LOOP }.toList()
+        val angles = loop.map { stageAngle(it) }
+        assertEquals(WIDTH_NARROW, stageAngle(0f), 0.01f)
+        assertTrue(angles.all { it >= WIDTH_NARROW - 0.01f && it <= WIDTH_WIDE + 0.01f })
+        assertTrue(angles.max() > WIDTH_WIDE - 0.5f)
+        for (at in loop) {
+            assertTrue(abs(stageAngle(at + frame) - stageAngle(at)) <= 2f)
+        }
+        for (at in listOf(0.4f, 1.9f, 3.3f)) assertEquals(stageAngle(at), stageAngle(at + WIDTH_LOOP), 0.02f)
+        // What the picture shows is inside what the slider can be set to, and holds still on a width of its own.
+        assertTrue(WIDTH_NARROW >= 15f && WIDTH_WIDE <= 90f)
+        assertTrue(STILL_WIDTH in WIDTH_NARROW..WIDTH_WIDE)
+    }
+
+    @Test
+    fun `a ripple is born and dies unseen, and they follow one another evenly`() {
+        for (number in 0 until RIPPLES) for (at in turning) {
+            val (far, strength) = ripple(number, at)
+            assertTrue(far >= 0f && far < 1f)
+            assertTrue(strength in 0f..1f)
+            // Near either end of its way it is nearly nothing.
+            if (far < 0.02f || far > 0.98f) assertTrue(strength < 0.1f)
+            assertTrue(abs(ripple(number, at + frame).second - strength) <= 0.05f)
+        }
+        for (at in listOf(0f, 0.5f, 1.3f)) {
+            val ways = (0 until RIPPLES).map { ripple(it, at).first }.sorted()
+            for ((a, b) in ways.zipWithNext()) assertEquals(1f / RIPPLES, b - a, 0.001f)
         }
     }
 }

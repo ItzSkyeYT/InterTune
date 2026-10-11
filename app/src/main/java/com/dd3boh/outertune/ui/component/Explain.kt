@@ -174,6 +174,7 @@ fun ExplainedPreference(
     icon: (@Composable () -> Unit)? = null,
     footer: String? = null,
     links: List<ExplainLink> = emptyList(),
+    picture: ExplainPicture? = null,
     onClick: (() -> Unit)? = null,
     isEnabled: Boolean = true,
 ) = PreferenceEntry(
@@ -182,7 +183,7 @@ fun ExplainedPreference(
     description = description,
     icon = icon,
     trailingContent = {
-        ExplainButton(title = title, body = explanation, footer = footer, links = links)
+        ExplainButton(title = title, body = explanation, footer = footer, links = links, picture = picture)
     },
     onClick = onClick,
     isEnabled = isEnabled,
