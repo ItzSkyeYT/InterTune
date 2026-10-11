@@ -76,7 +76,7 @@ class AutoArtProvider : ContentProvider() {
                 val square = if (cropped.width > PX) cropped.scale(PX, PX) else cropped
                 // Written beside it and moved into place, so that a second request for the same
                 // cover never reads half a file.
-                val part = File(out.parentFile, "${out.name}.${Thread.currentThread().id}.part")
+                val part = File(out.parentFile, "${out.name}.${System.nanoTime()}.part")
                 part.outputStream().use { square.compress(Bitmap.CompressFormat.PNG, 100, it) }
                 if (part.renameTo(out)) return@withContext out
                 part.delete()

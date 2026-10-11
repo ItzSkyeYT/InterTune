@@ -27,6 +27,14 @@ class MediaControlButtonsTest {
     }
 
     @Test
+    fun `in a car like comes first and none of the four is missing`() {
+        // All of them show in the car's row; the first is the nearest to the driver's hand.
+        assertEquals(LIKE, MediaControlButtons.CAR.first())
+        assertEquals(setOf(SHUFFLE, REPEAT, LIKE, RADIO), MediaControlButtons.CAR.toSet())
+        assertEquals(4, MediaControlButtons.CAR.size)
+    }
+
+    @Test
     fun `the two picked come first, in the order picked`() {
         assertEquals(listOf(LIKE, RADIO, SHUFFLE, REPEAT), MediaControlButtons.layout(listOf(LIKE, RADIO)))
         assertEquals(listOf(RADIO, LIKE, SHUFFLE, REPEAT), MediaControlButtons.layout(listOf(RADIO, LIKE)))

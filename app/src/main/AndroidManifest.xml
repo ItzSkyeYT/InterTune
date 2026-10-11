@@ -3,6 +3,8 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Asked of the car, not of the phone: to be drawn as a music app from templates. -->
+    <uses-permission android:name="androidx.car.app.MEDIA_TEMPLATES" />
     <!-- Lets the app hand a downloaded release to Android's installer. Android still asks the user
          to allow this app to install apps, and still shows its own confirmation for every install:
          nothing is installed without two explicit taps. -->
@@ -148,11 +150,42 @@
                 android:resource="@xml/shortcuts" />
         </activity>
 
-        <!-- Covers for Android Auto, which loads pictures from a content address and not from the web. Read only. -->
+        <!-- Covers for Android Auto, which loads pictures from a content address and not from the web. Read only,
+             and open to the car, which holds no permission of ours to ask for. -->
         <provider
             android:name=".playback.AutoArtProvider"
             android:authorities="${applicationId}.autoart"
-            android:exported="true" />
+            android:exported="true"
+            tools:ignore="ExportedContentProvider" />
+
+        <!-- The settings Android Auto opens from the cog over the app's tabs. It lets in a car's own software only. -->
+        <service
+            android:name=".playback.AutoSettingsService"
+            android:enabled="${carScreens}"
+            android:exported="true"
+            tools:ignore="ExportedService">
+            <intent-filter>
+                <action android:name="androidx.car.app.CarAppService" />
+                <category android:name="androidx.car.app.category.SETTINGS" />
+            </intent-filter>
+        </service>
+
+        <!-- The app's own screens in a car that draws a music app from templates (AutoCar). -->
+        <service
+            android:name=".playback.AutoCarService"
+            android:enabled="${carScreens}"
+            android:exported="true"
+            tools:ignore="ExportedService">
+            <intent-filter>
+                <action android:name="androidx.car.app.CarAppService" />
+                <category android:name="androidx.car.app.category.MEDIA" />
+            </intent-filter>
+        </service>
+
+        <!-- The oldest version of the car's screens that knows a settings screen. -->
+        <meta-data
+            android:name="androidx.car.app.minCarApiLevel"
+            android:value="6" />
 
         <provider
             android:name="androidx.core.content.FileProvider"
