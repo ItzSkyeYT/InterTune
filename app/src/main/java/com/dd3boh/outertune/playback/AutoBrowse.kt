@@ -16,9 +16,9 @@ import android.net.Uri
  * at once, and nothing to read down. So the first tab is "For you", rows of covers: the liked
  * songs and the downloads in a new order, then Home's own Quick picks, Keep listening and
  * Forgotten favourites. Playlists are a tab of covers, each opening on a row that shuffles it.
- * The library keeps albums and artists as covers and its songs newest first and no more than a
- * couple of hundred. The last tab is what was played lately. Across the top of every tab is
- * what is playing, a row to tap to get back to the player.
+ * The library opens on what was played lately, then albums and artists as covers and its songs
+ * newest first and no more than a couple of hundred. Across the top of every tab is what is
+ * playing, a row to tap to get back to the player.
  *
  * The ids: "home/<section>/<song>" for a song of a row of For you, "recent/<song>",
  * "shuffle/liked", "shuffle/downloaded" and "shuffle/playlist/<playlist>" for a list in a new
@@ -31,8 +31,14 @@ object AutoBrowse {
     const val SHUFFLE = "shuffle"
     const val RESUME = "resume"
 
-    /** The tabs, left to right. Each has what is playing across its top, and is told when that changes. */
-    val TABS = listOf(HOME, MusicService.PLAYLIST, LIBRARY, RECENT)
+    /**
+     * The tabs, left to right. Each has what is playing across its top, and the car is told when
+     * that changes: it keeps the tabs it was handed and asks for none of them again by itself.
+     * Told, it draws the tab in front again from its top, which is the price of the row being
+     * right. Three and not four: the car adds a tab of its own, "More", for the settings, and
+     * with four of ours the last one went in there with them.
+     */
+    val TABS = listOf(HOME, MusicService.PLAYLIST, LIBRARY)
 
     const val QUICK = "quick"
     const val KEEP = "keep"

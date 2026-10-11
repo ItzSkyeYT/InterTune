@@ -2550,7 +2550,8 @@ class MusicService : MediaLibraryService(),
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
         super.onMediaItemTransition(mediaItem, reason)
         noteTransition(mediaItem, reason)
-        // The car's tabs each show what is playing across their top: another song, another row.
+        // The car's tabs each show what is playing across their top, and the car keeps what it
+        // was handed: another song, and it is told.
         if (Unreleased.AUTO_REWORK && ::mediaSession.isInitialized) {
             AutoBrowse.TABS.forEach { mediaSession.notifyChildrenChanged(it, Int.MAX_VALUE, null) }
         }

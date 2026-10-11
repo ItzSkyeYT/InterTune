@@ -283,15 +283,15 @@ class MediaLibrarySessionCallback @Inject constructor(
                 MusicService.PLAYLIST -> {
                     val likedSongCount = database.likedSongsCount().first()
                     val downloadedSongCount = downloadUtil.downloads.value.size
-                    listOf(
-                        browsableMediaItem(
+                    val lists = listOf(
+                        likedSongCount to browsableMediaItem(
                             "${MusicService.PLAYLIST}/${PlaylistEntity.LIKED_PLAYLIST_ID}",
                             context.getString(R.string.liked_songs),
                             context.resources.getQuantityString(R.plurals.n_song, likedSongCount, likedSongCount),
                             if (Unreleased.AUTO_REWORK && likedSongCount > 0) AutoArt.uri(context, AutoArt.PLAYLIST, PlaylistEntity.LIKED_PLAYLIST_ID) else drawableUri(R.drawable.favorite),
                             MediaMetadata.MEDIA_TYPE_PLAYLIST
                         ),
-                        browsableMediaItem(
+                        downloadedSongCount to browsableMediaItem(
                             "${MusicService.PLAYLIST}/${PlaylistEntity.DOWNLOADED_PLAYLIST_ID}",
                             context.getString(R.string.downloaded_songs),
                             context.resources.getQuantityString(
@@ -303,7 +303,7 @@ class MediaLibrarySessionCallback @Inject constructor(
                             MediaMetadata.MEDIA_TYPE_PLAYLIST
                         )
                     ) + database.playlistInLibraryAsc().first().map { playlist ->
-                        browsableMediaItem(
+                        playlist.songCount to browsableMediaItem(
                             "${MusicService.PLAYLIST}/${playlist.id}",
                             playlist.playlist.name,
                             context.resources.getQuantityString(
@@ -315,6 +315,9 @@ class MediaLibrarySessionCallback @Inject constructor(
                             MediaMetadata.MEDIA_TYPE_PLAYLIST
                         )
                     }
+                    // Since the rework a list with nothing in it is left out: in the car it is a
+                    // tile that opens on nothing.
+                    lists.filter { (songs, _) -> !Unreleased.AUTO_REWORK || songs > 0 }.map { it.second }
                 }
 
                 else -> when {
@@ -341,6 +344,28 @@ class MediaLibrarySessionCallback @Inject constructor(
             },
             params
         )
+    }
+
+    /**
+     * A browser asking to be told when a list changes. Media3's own answer looks the list up as
+     * an item first (onGetItem), and that knows songs only here: every list was refused, so
+     * nothing said about a list afterwards ever reached the car. Since the rework a list is
+     * taken as it comes, because the car's tabs now change with the song and the car, which
+     * keeps what it was handed, has to be told.
+     */
+    override fun onSubscribe(
+        session: MediaLibrarySession,
+        browser: MediaSession.ControllerInfo,
+        parentId: String,
+        params: MediaLibraryService.LibraryParams?,
+    ): ListenableFuture<LibraryResult<Void>> {
+        if (!Unreleased.AUTO_REWORK) return super.onSubscribe(session, browser, parentId, params)
+        // As Media3 does once it has accepted: a browser of its own kind is sent the list at once,
+        // an older one (the car) has already asked for it.
+        if (browser.controllerVersion != MediaSession.ControllerInfo.LEGACY_CONTROLLER_VERSION) {
+            session.notifyChildrenChanged(browser, parentId, Int.MAX_VALUE, params)
+        }
+        return Futures.immediateFuture(LibraryResult.ofVoid())
     }
 
     override fun onGetItem(
@@ -643,7 +668,7 @@ class MediaLibrarySessionCallback @Inject constructor(
         single?.let { putInt(MediaConstants.EXTRAS_KEY_CONTENT_STYLE_SINGLE_ITEM, it) }
     }
 
-    /** The four tabs: something to play at once, the playlists, the library, what was played lately. */
+    /** The three tabs: something to play at once, the playlists, the library. */
     private fun carTabs(): List<MediaItem> = AutoBrowse.TABS.map { tab ->
         when (tab) {
             AutoBrowse.HOME -> browsableMediaItem(
@@ -656,14 +681,9 @@ class MediaLibrarySessionCallback @Inject constructor(
                 MediaMetadata.MEDIA_TYPE_FOLDER_PLAYLISTS, style(playable = LIST, browsable = GRID),
             )
 
-            AutoBrowse.LIBRARY -> browsableMediaItem(
+            else -> browsableMediaItem(
                 tab, context.getString(R.string.library), null, drawableUri(R.drawable.auto_library),
                 MediaMetadata.MEDIA_TYPE_FOLDER_MIXED, style(playable = LIST, browsable = LIST),
-            )
-
-            else -> browsableMediaItem(
-                tab, context.getString(R.string.auto_recent), null, drawableUri(R.drawable.auto_recent),
-                MediaMetadata.MEDIA_TYPE_PLAYLIST, style(playable = LIST),
             )
         }
     }
@@ -716,21 +736,31 @@ class MediaLibrarySessionCallback @Inject constructor(
         return items
     }
 
-    /** The library's three ways in: covers for albums and artists, a list for songs. */
-    private fun carLibrary(): List<MediaItem> = listOf(
-        browsableMediaItem(
-            MusicService.ALBUM, context.getString(R.string.albums), null, drawableUri(R.drawable.album),
-            MediaMetadata.MEDIA_TYPE_FOLDER_ALBUMS, style(playable = LIST, browsable = GRID),
-        ),
-        browsableMediaItem(
-            MusicService.ARTIST, context.getString(R.string.artists), null, drawableUri(R.drawable.artist),
-            MediaMetadata.MEDIA_TYPE_FOLDER_ARTISTS, style(playable = LIST, browsable = GRID),
-        ),
-        browsableMediaItem(
-            MusicService.SONG, context.getString(R.string.songs), null, drawableUri(R.drawable.music_note),
-            MediaMetadata.MEDIA_TYPE_PLAYLIST, style(playable = LIST),
-        ),
-    )
+    /**
+     * The library's ways in: what was played lately, covers for albums and artists, a list for
+     * songs. Under a heading of their own, or they read as more of what is playing above them.
+     */
+    private fun carLibrary(): List<MediaItem> {
+        val browse = context.getString(R.string.auto_browse)
+        return listOf(
+            browsableMediaItem(
+                AutoBrowse.RECENT, context.getString(R.string.auto_recent), null, drawableUri(R.drawable.auto_recent),
+                MediaMetadata.MEDIA_TYPE_PLAYLIST, style(playable = LIST, group = browse),
+            ),
+            browsableMediaItem(
+                MusicService.ALBUM, context.getString(R.string.albums), null, drawableUri(R.drawable.album),
+                MediaMetadata.MEDIA_TYPE_FOLDER_ALBUMS, style(playable = LIST, browsable = GRID, group = browse),
+            ),
+            browsableMediaItem(
+                MusicService.ARTIST, context.getString(R.string.artists), null, drawableUri(R.drawable.artist),
+                MediaMetadata.MEDIA_TYPE_FOLDER_ARTISTS, style(playable = LIST, browsable = GRID, group = browse),
+            ),
+            browsableMediaItem(
+                MusicService.SONG, context.getString(R.string.songs), null, drawableUri(R.drawable.music_note),
+                MediaMetadata.MEDIA_TYPE_PLAYLIST, style(playable = LIST, group = browse),
+            ),
+        )
+    }
 
     /** Something that plays at a tap and is not a song: the queue carried on with, a list shuffled. */
     private fun action(id: String, title: String, subtitle: String?, art: Uri?, group: String? = null, single: Int? = null) =

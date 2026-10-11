@@ -303,9 +303,9 @@ object Unreleased {
      * What Android Auto is shown, reworked for somebody who is driving (AutoBrowse): a first
      * tab, "For you", of covers that play at a tap (the liked songs and the downloads shuffled,
      * then Quick picks, Keep listening and Forgotten favourites), playlists as covers that open
-     * on a Shuffle row, a library of albums and artists as covers with its songs newest first
-     * and capped, and a tab of what was played lately. Across the top of every tab, what is
-     * playing: a row to tap to get back to the player. And covers at all: the car loads a
+     * on a Shuffle row, and a library that opens on what was played lately, with albums and
+     * artists as covers and its songs newest first and capped. Across the top of every tab,
+     * what is playing: a row to tap to get back to the player. And covers at all: the car loads a
      * picture from one of the app's own addresses and not from the web, so every cover was a
      * grey square; AutoArtProvider now serves them. Behind the cog the car puts over the tabs,
      * four of the phone's settings (AutoSettings), which is what the Car App Library is in the
@@ -317,7 +317,7 @@ object Unreleased {
      * AutoArtProvider with their entries in the manifest, "template" in automotive_app_desc.xml
      * and the Car App Library in the build, the branches that read the flag in
      * MediaLibrarySessionCallback and MusicService, the four kinds of request it added to
-     * PlayRequest, three drawables and eight strings.
+     * PlayRequest, three drawables and nine strings.
      */
     val AUTO_REWORK = BuildConfig.DEBUG
 }
