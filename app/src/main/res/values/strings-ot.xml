@@ -598,32 +598,32 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="oobe_complete_title">You\'re All Set!</string>
     <string name="oobe_complete">InterTune is set up and ready to use. Explore your music, discover new tracks, and enjoy the experience!</string>
 
-    <!-- The short setup (ShortSetup.kt), behind Unreleased.SHORT_SETUP. English only until its wording is agreed. -->
-    <string name="setup_welcome_body" translatable="false">Good to have you here. This is what you get.</string>
-    <string name="setup_does_youtube_music" translatable="false">All of YouTube Music</string>
-    <string name="setup_does_youtube_music_more" translatable="false">Signed in or not, as you like</string>
-    <string name="setup_does_files" translatable="false">Your own files</string>
-    <string name="setup_does_files_more" translatable="false">The music already on this device</string>
-    <string name="setup_does_downloads" translatable="false">Offline</string>
-    <string name="setup_does_downloads_more" translatable="false">Download songs, play them anywhere</string>
-    <string name="setup_does_picks" translatable="false">Picks that follow you</string>
-    <string name="setup_does_picks_more" translatable="false">Made on your phone from what you play</string>
-    <string name="setup_does_no_adverts" translatable="false">No adverts</string>
-    <string name="setup_does_no_adverts_more" translatable="false">Not between songs, not anywhere</string>
-    <string name="setup_sign_in_title" translatable="false">Sign in</string>
-    <string name="setup_sign_in_body" translatable="false">Your YouTube Music account brings your playlists, likes and recommendations here. The app works without one.</string>
-    <string name="setup_sign_in" translatable="false">Sign in to YouTube Music</string>
-    <string name="setup_signed_in_as" translatable="false">You are signed in as %1$s.</string>
-    <string name="setup_signed_in" translatable="false">You are signed in.</string>
-    <string name="setup_other_account" translatable="false">Use another account</string>
-    <string name="setup_choices_title" translatable="false">A few choices</string>
-    <string name="setup_choices_body" translatable="false">Each can be changed later in Settings.</string>
-    <string name="setup_updates_line" translatable="false">Looks on GitHub for a new version when you open the app.</string>
-    <string name="setup_updates_line_fdroid" translatable="false">F-Droid keeps your copy up to date. This looks on GitHub, where a release appears a little earlier.</string>
-    <string name="setup_questions_line" translatable="false">A short question on Home now and then, about what to build.</string>
-    <string name="setup_news_line" translatable="false">An announcement on Home now and then, like a new feature.</string>
-    <string name="setup_count_line" translatable="false">One short message a day that says this install is in use. Never what you play.</string>
-    <string name="setup_lastfm_line" translatable="false">Sends Last.fm the title and artist of each song you play, to find more like it.</string>
+    <!-- The short setup (ShortSetup.kt), on in every build from 0.11.5 (Unreleased.SHORT_SETUP). -->
+    <string name="setup_welcome_body">Good to have you here. This is what you get.</string>
+    <string name="setup_does_youtube_music">All of YouTube Music</string>
+    <string name="setup_does_youtube_music_more">Signed in or not, as you like</string>
+    <string name="setup_does_files">Your own files</string>
+    <string name="setup_does_files_more">The music already on this device</string>
+    <string name="setup_does_downloads">Offline</string>
+    <string name="setup_does_downloads_more">Download songs, play them anywhere</string>
+    <string name="setup_does_picks">Picks that follow you</string>
+    <string name="setup_does_picks_more">Made on your phone from what you play</string>
+    <string name="setup_does_no_adverts">No adverts</string>
+    <string name="setup_does_no_adverts_more">Not between songs, not anywhere</string>
+    <string name="setup_sign_in_title">Sign in</string>
+    <string name="setup_sign_in_body">Your YouTube Music account brings your playlists, likes and recommendations here. The app works without one.</string>
+    <string name="setup_sign_in">Sign in to YouTube Music</string>
+    <string name="setup_signed_in_as">You are signed in as %1$s.</string>
+    <string name="setup_signed_in">You are signed in.</string>
+    <string name="setup_other_account">Use another account</string>
+    <string name="setup_choices_title">A few choices</string>
+    <string name="setup_choices_body">Each can be changed later in Settings.</string>
+    <string name="setup_updates_line">Looks on GitHub for a new version when you open the app.</string>
+    <string name="setup_updates_line_fdroid">F-Droid keeps your copy up to date. This looks on GitHub, where a release appears a little earlier.</string>
+    <string name="setup_questions_line">A short question on Home now and then, about what to build.</string>
+    <string name="setup_news_line">An announcement on Home now and then, like a new feature.</string>
+    <string name="setup_count_line">One short message a day that says this install is in use. Never what you play.</string>
+    <string name="setup_lastfm_line">Sends Last.fm the title and artist of each song you play, to find more like it.</string>
 
 <!-- M3U -->
     <string name="import_failed_songs">Could not import</string>
@@ -1129,10 +1129,10 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="login_not_secure">Not a secure connection</string>
     <string name="login_reassurance_other_page">InterTune never sees your password. It keeps only the sign-in YouTube Music hands back.</string>
     <string name="login_no_page_yet">No page yet</string>
-    <!-- The sign-in page once the sign-in is made, behind Unreleased.LOGIN_RETURNS. English only until it is agreed. -->
-    <string name="login_signed_in_as" translatable="false">Signed in as %1$s</string>
-    <string name="login_signed_in" translatable="false">Signed in</string>
-    <string name="login_going_back" translatable="false">Taking you back.</string>
+    <!-- The sign-in page once the sign-in is made, on in every build from 0.11.5 (Unreleased.LOGIN_RETURNS). -->
+    <string name="login_signed_in_as">Signed in as %1$s</string>
+    <string name="login_signed_in">Signed in</string>
+    <string name="login_going_back">Taking you back.</string>
     <string name="lastfm_opt_in_title">Similar songs from Last.fm too?</string>
     <string name="lastfm_opt_in_body">Best recommendations finds songs like the ones you play. It can ask Last.fm as well as YouTube, then lean toward whichever finds you more that you keep. For that it sends Last.fm the title and artist of each song you play, and once, of the songs you played in the last month and the ones you liked. Nothing else, and no account. You can change this later in Settings, under Recommendations.</string>
     <string name="lastfm_opt_in_yes">Yes, use both</string>

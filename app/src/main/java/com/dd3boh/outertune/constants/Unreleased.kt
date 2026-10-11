@@ -122,13 +122,13 @@ object Unreleased {
      * automatic scan at start, which put the system's prompt over whatever was on screen at the
      * first start after setup (MediaPermissionAsk).
      *
-     * A first cut to look at on a phone, not agreed for a release: the wording, and whether
-     * "Tell me about updates" starts on (SetupChoices.UPDATES_DEFAULT), are still to decide.
-     * Without it setup is the old wizard, untouched. When it is agreed: set this to true, or
-     * delete it with the checks that read it, in AppNavGraph and MediaPermissionAsk, delete
-     * SetupWizard.kt with the strings only it uses, and make the setup_ strings translatable.
+     * Agreed for 0.11.5 on 10 Oct 2026 ("ship the onboarding in 0.11.5"): on in every build, its
+     * setup_ strings open to translators and in French. What is left is tidying: the flag with
+     * the checks that read it, in AppNavGraph and MediaPermissionAsk, and SetupWizard.kt with the
+     * strings only it uses, which nothing reaches any more. Whether "Tell me about updates"
+     * starts on (SetupChoices.UPDATES_DEFAULT) is as it was built: off.
      */
-    val SHORT_SETUP = BuildConfig.DEBUG
+    val SHORT_SETUP = true
 
     /**
      * A song whose own id YouTube calls gone, played from the id the same recording has now, and
@@ -157,11 +157,15 @@ object Unreleased {
      *
      * Its decisions are tested as logic, and seen on a Pixel 5: with a made-up sign-in cookie put
      * into the page, going back to setup, going back to the settings, and the line with Done; and
-     * with one real sign-in, from setup, on 9 Oct 2026. Not agreed for a release yet. When it is:
-     * set this to true, or delete it with the one check that reads it, in LoginScreen, and make
-     * login_signed_in_as, login_signed_in and login_going_back translatable.
+     * with one real sign-in, from setup, on 9 Oct 2026.
+     *
+     * On in every build from 0.11.5, with the short setup, which cannot do without it: its
+     * sign-in page says who is signed in when the page comes back, and offers "Use another
+     * account", which only means something if the page then opens signed out. Its three strings
+     * are open to translators and in French. Left to tidy: the flag and the checks that read it,
+     * in LoginScreen.
      */
-    val LOGIN_RETURNS = BuildConfig.DEBUG
+    val LOGIN_RETURNS = true
 
     /**
      * A setting named in an explanation is a link to it: a tap closes the explanation, opens the
