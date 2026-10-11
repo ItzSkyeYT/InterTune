@@ -168,7 +168,9 @@ fun AccountScreen(
 
     FloatingTopBar(
         title = accountName,
-        titleIsName = true,
+        // With nobody signed in the title is the app's own words, and gets smaller before it is
+        // cut, as a page's title does: in Brazilian Portuguese it ended at "à uma c…".
+        titleIsName = isLoggedIn,
         navController = navController,
         actions = {
             if (isLoggedIn) {
