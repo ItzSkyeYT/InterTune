@@ -4,7 +4,6 @@ import android.content.pm.PackageManager
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -187,10 +186,9 @@ fun LibraryAlbumsScreen(
                         AlbumSortType.SONG_COUNT -> R.string.sort_by_song_count
                         AlbumSortType.LENGTH -> R.string.sort_by_length
                     }
-                }
+                },
+                modifier = Modifier.weight(1f)
             )
-
-            Spacer(Modifier.weight(1f))
 
             Row(
                 verticalAlignment = Alignment.CenterVertically
@@ -199,7 +197,8 @@ fun LibraryAlbumsScreen(
                     Text(
                         text = pluralStringResource(R.plurals.n_album, albums.size, albums.size),
                         style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.secondary
+                        color = MaterialTheme.colorScheme.secondary,
+                        maxLines = 1
                     )
                 }
                 ActionDropdown(

@@ -140,6 +140,7 @@ import com.dd3boh.outertune.ui.component.HideOnScrollFAB
 import com.dd3boh.outertune.ui.component.LazyColumnScrollbar
 import com.dd3boh.outertune.ui.component.NavigationTile
 import com.dd3boh.outertune.ui.utils.LocalLandscape
+import com.dd3boh.outertune.ui.utils.SameTextSize
 import com.dd3boh.outertune.ui.component.NavigationTitle
 import com.dd3boh.outertune.ui.component.ScrollToTopManager
 import com.dd3boh.outertune.ui.component.items.AlbumGridItem
@@ -617,12 +618,15 @@ fun HomeScreen(
                     // its side a quarter of the row is 200dp, and the row a quarter of the
                     // height: there they are four pills at the start, title beside icon.
                     val tile = if (tilesBeside) Modifier else Modifier.weight(1f)
+                    // One size for the four titles: the smallest that any of them needs.
+                    val titleSize = remember { SameTextSize() }
                     NavigationTile(
                         title = stringResource(R.string.history),
                         icon = Icons.Rounded.History,
                         onClick = { navController.navigate("history") },
                         modifier = tile.tourTarget(Tour.HISTORY),
                         beside = tilesBeside,
+                        titleSize = titleSize,
                     )
 
                     NavigationTile(
@@ -631,6 +635,7 @@ fun HomeScreen(
                         onClick = { navController.navigate("stats") },
                         modifier = tile,
                         beside = tilesBeside,
+                        titleSize = titleSize,
                     )
 
                     if (localLibEnable) {
@@ -642,6 +647,7 @@ fun HomeScreen(
                             },
                             modifier = tile,
                             beside = tilesBeside,
+                            titleSize = titleSize,
                         )
                     }
 
@@ -653,6 +659,7 @@ fun HomeScreen(
                         },
                         modifier = tile,
                         beside = tilesBeside,
+                        titleSize = titleSize,
                     )
                 }
             }

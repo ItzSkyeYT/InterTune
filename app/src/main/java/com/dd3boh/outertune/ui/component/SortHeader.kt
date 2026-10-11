@@ -37,12 +37,20 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.PlaylistSongSortType
 import com.dd3boh.outertune.ui.component.button.ResizableIconButton
+import com.dd3boh.outertune.ui.utils.shrinkToFit
 
+/**
+ * What a list is sorted by, and which way: the name opens the choices, the arrow turns the order.
+ *
+ * In a row that has more after it (a count, the three dots), give it a weight. What comes after
+ * then keeps its size and its place, and the name has what is left.
+ */
 @Composable
 inline fun <reified T : Enum<T>> SortHeader(
     sortType: T,
@@ -58,11 +66,20 @@ inline fun <reified T : Enum<T>> SortHeader(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier.padding(vertical = 8.dp)
     ) {
+        // One line, in what the arrow leaves of the row, and no wider than its words. A long
+        // name gets smaller before it is cut: in Russian "Количество воспроизведений" took the
+        // whole row of the Songs tab, the count beside it went on two lines and the three dots
+        // after the count were not drawn at all.
+        val labelStyle = MaterialTheme.typography.labelLarge
         Text(
             text = stringResource(sortTypeText(sortType)),
             color = MaterialTheme.colorScheme.primary,
-            style = MaterialTheme.typography.labelLarge,
+            style = labelStyle,
+            autoSize = labelStyle.shrinkToFit(smallest = 10.5.sp),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
             modifier = Modifier
+                .weight(1f, fill = false)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = ripple(bounded = false)

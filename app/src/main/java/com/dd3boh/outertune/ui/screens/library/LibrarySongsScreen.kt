@@ -196,10 +196,9 @@ fun LibrarySongsScreen(
                         SongSortType.ARTIST -> R.string.sort_by_artist
                         SongSortType.PLAY_COUNT -> R.string.sort_by_play_count
                     }
-                }
+                },
+                modifier = Modifier.weight(1f)
             )
-
-            Spacer(Modifier.weight(1f))
 
             Row(
                 verticalAlignment = Alignment.CenterVertically
@@ -208,7 +207,8 @@ fun LibrarySongsScreen(
                     Text(
                         text = pluralStringResource(R.plurals.n_song, songs.size, songs.size),
                         style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.secondary
+                        color = MaterialTheme.colorScheme.secondary,
+                        maxLines = 1
                     )
                     Spacer(Modifier.width(4.dp))
                     ActionDropdown(

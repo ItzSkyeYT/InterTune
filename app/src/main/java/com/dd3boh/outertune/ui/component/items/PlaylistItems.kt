@@ -46,6 +46,7 @@ import com.dd3boh.outertune.constants.ThumbnailCornerRadius
 import com.dd3boh.outertune.db.entities.Playlist
 import com.dd3boh.outertune.db.entities.PlaylistEntity
 import com.dd3boh.outertune.ui.component.items.Icon.PlaylistIcon
+import com.dd3boh.outertune.ui.utils.SameTextSize
 import com.dd3boh.outertune.ui.utils.getNSongsString
 import com.dd3boh.outertune.utils.getThumbnailModel
 import kotlin.math.roundToInt
@@ -87,6 +88,7 @@ fun AutoPlaylistGridItem(
     thumbnail: ImageVector,
     modifier: Modifier = Modifier,
     fillMaxWidth: Boolean = false,
+    titleSize: SameTextSize? = null,
 ) = GridItem(
     title = playlist.name,
     subtitle = stringResource(id = R.string.auto_playlist),
@@ -111,6 +113,8 @@ fun AutoPlaylistGridItem(
         }
     },
     fillMaxWidth = fillMaxWidth,
+    shrinks = true,
+    titleSize = titleSize,
     modifier = modifier
 )
 

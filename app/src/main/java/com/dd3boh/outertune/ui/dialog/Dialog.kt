@@ -98,7 +98,7 @@ fun DefaultDialog(
     modifier: Modifier = Modifier,
     icon: (@Composable () -> Unit)? = null,
     title: (@Composable () -> Unit)? = null,
-    buttons: (@Composable RowScope.() -> Unit)? = null,
+    buttons: (@Composable () -> Unit)? = null,
     horizontalAlignment: Alignment.Horizontal = Alignment.CenterHorizontally,
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -234,7 +234,7 @@ fun TextFieldDialog(
         focusRequester.requestFocus()
     }
 
-    val buttons: @Composable RowScope.() -> Unit = {
+    val buttons: @Composable () -> Unit = {
         TextButton(onClick = onDismiss) {
             Text(text = stringResource(android.R.string.cancel))
         }
@@ -366,17 +366,19 @@ fun ActionPromptDialog(
 
             // bottom options
             // always have an ok, but explicit cancel/reset is optional
-            ButtonsRow(modifier = Modifier.fillMaxWidth()) {
-                if (onReset != null) {
-                    TextButton(
-                        onClick = { onReset() },
-                    ) {
-                        Text(stringResource(R.string.reset))
+            ButtonsRow(
+                modifier = Modifier.fillMaxWidth(),
+                // Reset at the start, the others at the end.
+                start = {
+                    if (onReset != null) {
+                        TextButton(
+                            onClick = { onReset() },
+                        ) {
+                            Text(stringResource(R.string.reset))
+                        }
                     }
-                    // Reset at the start, the others at the end.
-                    Spacer(Modifier.weight(1f))
-                }
-
+                },
+            ) {
                 if (onCancel != null) {
                     TextButton(
                         onClick = { onCancel() }
@@ -459,17 +461,19 @@ fun CounterDialog(
 
                 // bottom options
                 // always have an ok, but explicit cancel/reset is optional
-                ButtonsRow(modifier = Modifier.fillMaxWidth()) {
-                    if (onReset != null) {
-                        TextButton(
-                            onClick = { onReset() },
-                        ) {
-                            Text(stringResource(R.string.reset))
+                ButtonsRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    // Reset at the start, the others at the end.
+                    start = {
+                        if (onReset != null) {
+                            TextButton(
+                                onClick = { onReset() },
+                            ) {
+                                Text(stringResource(R.string.reset))
+                            }
                         }
-                        // Reset at the start, the others at the end.
-                        Spacer(Modifier.weight(1f))
-                    }
-
+                    },
+                ) {
                     TextButton(
                         onClick = { onConfirm(tempValue.intValue) }
                     ) {

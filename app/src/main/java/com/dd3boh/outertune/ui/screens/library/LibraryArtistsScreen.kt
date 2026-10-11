@@ -187,16 +187,16 @@ fun LibraryArtistsScreen(
                         ArtistSortType.NAME -> R.string.sort_by_name
                         ArtistSortType.SONG_COUNT -> R.string.sort_by_song_count
                     }
-                }
+                },
+                modifier = Modifier.weight(1f)
             )
-
-            Spacer(Modifier.weight(1f))
 
             artists?.let { artists ->
                 Text(
                     text = pluralStringResource(R.plurals.n_artist, artists.size, artists.size),
                     style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.secondary
+                    color = MaterialTheme.colorScheme.secondary,
+                    maxLines = 1
                 )
                 Spacer(Modifier.width(4.dp))
                 ActionDropdown(

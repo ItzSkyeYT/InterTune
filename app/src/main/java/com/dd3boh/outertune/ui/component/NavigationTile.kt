@@ -16,6 +16,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,6 +29,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.dd3boh.outertune.ui.utils.SameTextSize
 import com.dd3boh.outertune.ui.utils.canWrap
 import com.dd3boh.outertune.ui.utils.shrinkToFit
 
@@ -37,6 +39,7 @@ fun NavigationTile(
     @DrawableRes icon: Int,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    titleSize: SameTextSize? = null,
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -60,7 +63,7 @@ fun NavigationTile(
             )
         }
 
-        TileTitle(title)
+        TileTitle(title, titleSize)
     }
 }
 
@@ -68,6 +71,9 @@ fun NavigationTile(
  * [beside] puts the title beside the icon instead of under it, in one pill that is the button:
  * for a window too short to give a row of four buttons a hundred dp of its height, which is a
  * phone on its side (Landscape.kt).
+ *
+ * [titleSize] is for tiles side by side: handed the same one, their titles all take the size of
+ * the one that needs the smallest.
  */
 @Composable
 fun NavigationTile(
@@ -76,6 +82,7 @@ fun NavigationTile(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     beside: Boolean = false,
+    titleSize: SameTextSize? = null,
 ) {
     if (beside) {
         Row(
@@ -125,7 +132,7 @@ fun NavigationTile(
             )
         }
 
-        TileTitle(title)
+        TileTitle(title, titleSize)
     }
 }
 
@@ -139,17 +146,23 @@ fun NavigationTile(
  * A word is never broken to make the second line. In French at a large font size "Statistiques"
  * is wider than the tile, and was drawn as "Statistiqu" over "es": the title gets smaller until
  * its words are whole, and a title of one word keeps to one line. Only a word still too wide at
- * three quarters of the size is cut.
+ * three quarters of the size is cut. The titles of one row ([row]) get smaller together.
  */
 @Composable
-private fun TileTitle(title: String) {
+private fun TileTitle(title: String, row: SameTextSize?) {
     val style = MaterialTheme.typography.labelMedium
-    Text(
-        text = title,
-        style = style,
-        autoSize = style.shrinkToFit(smallest = 9.sp),
-        textAlign = TextAlign.Center,
-        maxLines = if (remember(title) { canWrap(title) }) 2 else 1,
-        overflow = TextOverflow.Ellipsis
-    )
+    val maxLines = if (remember(title) { canWrap(title) }) 2 else 1
+    val autoSize = if (row == null) style.shrinkToFit(smallest = 9.sp)
+    else style.shrinkToFit(smallest = 9.sp, text = title, row = row)
+    // Made again for each new autoSize: a Text does not see that one changed (see shrinkToFit).
+    key(autoSize) {
+        Text(
+            text = title,
+            style = style,
+            autoSize = autoSize,
+            textAlign = TextAlign.Center,
+            maxLines = maxLines,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
 }

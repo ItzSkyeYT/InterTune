@@ -8,6 +8,13 @@ package com.dd3boh.outertune.ui.utils
 
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.text.modifiers.TextAutoSizeLayoutScope
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
@@ -31,11 +38,90 @@ fun TextStyle.shrinkToFit(smallest: TextUnit): TextAutoSize {
     return ShrinkToFit(largest = fontSize, smallest = smallest)
 }
 
-private data class ShrinkToFit(val largest: TextUnit, val smallest: TextUnit) : TextAutoSize {
-    override fun TextAutoSizeLayoutScope.getFontSize(constraints: Constraints, text: AnnotatedString): TextUnit =
-        largestWhole(sizesToTry(largest.value, smallest.value)) { size ->
+/**
+ * [shrinkToFit] for one label of a [row] whose labels all take one size: this one is drawn no
+ * larger than the smallest of them needs. [text] is what it says, and what it goes by in the row.
+ *
+ * The Text it is handed to goes in a `key` of it. Text leaves autoSize out of what it compares to
+ * see whether anything changed (Compose 1.9): handed only a new one, it keeps the size it had.
+ * This call itself stays outside that key, or the label would be forgotten by its row each time.
+ */
+@Composable
+fun TextStyle.shrinkToFit(smallest: TextUnit, text: String, row: SameTextSize): TextAutoSize {
+    require(fontSize.isSp && smallest.isSp) { "sizes in sp, not $fontSize and $smallest" }
+    // A label that is gone (a tab taken off the bar) no longer holds the others down.
+    DisposableEffect(row, text) { onDispose { row.forget(text) } }
+    return ShrinkToFit(largest = fontSize, smallest = smallest, row = row, atMost = row.size)
+}
+
+/**
+ * One size for the labels of a row: the smallest any of them needs to be whole. Home's four
+ * shortcuts stand side by side, and so do the bottom bar's tabs. With each name shrunk by
+ * itself, "Statistiques" was smaller than "Historique" beside it, and "Bibliothèque" than the
+ * three other tabs.
+ *
+ * Made once for the row, with remember, and handed to each label's [shrinkToFit]. A label only
+ * learns what it needs when it is measured, which is after the row was composed: a row whose
+ * labels do not all fit is drawn once with each at its own size, and is right on the next frame.
+ */
+@Stable
+class SameTextSize {
+    private val needed = mutableStateMapOf<String, Float>()
+
+    /** The size the row is at, in sp: the smallest any label needs, and no limit while none has said. */
+    val size: Float by derivedStateOf { needed.values.minOrNull() ?: Float.POSITIVE_INFINITY }
+
+    /** [label] is whole at [size] and no larger. It says so while it is measured. */
+    internal fun needs(label: String, size: Float) = Snapshot.withoutReadObservation {
+        if (needed[label] != size) needed[label] = size
+    }
+
+    internal fun forget(label: String) {
+        needed.remove(label)
+    }
+}
+
+/**
+ * [row] and [atMost] are for a label of a row that takes one size (see [SameTextSize]): what the
+ * row is at when the label is composed. Alone, a label has neither.
+ */
+private data class ShrinkToFit(
+    val largest: TextUnit,
+    val smallest: TextUnit,
+    val row: SameTextSize? = null,
+    val atMost: Float = Float.POSITIVE_INFINITY,
+) : TextAutoSize {
+    override fun TextAutoSizeLayoutScope.getFontSize(constraints: Constraints, text: AnnotatedString): TextUnit {
+        val own = largestWhole(sizesToTry(largest.value, smallest.value)) { size ->
             performLayout(constraints, text, size.sp).isWhole(text.text)
-        }.sp
+        }
+        // What the row is at is in this very object, and the label is made again with a new one
+        // when that changes: a Text whose room did not change is not asked its size twice.
+        row?.needs(text.text, own)
+        return minOf(own, atMost).sp
+    }
+}
+
+/**
+ * For a heading that reads best on one line. It is drawn at this style's size when one line
+ * holds it, and otherwise at the largest size, down to [smallest], at which one line does. Only
+ * a heading too long for one line at [smallest] as well goes on two, at its own size again, or
+ * smaller where that would break a word (as [shrinkToFit]). On setup's first page "Добро
+ * пожаловать в InterTune" took two lines, and the line more pushed the last of the four cards
+ * under the button.
+ */
+fun TextStyle.shrinkToOneLine(smallest: TextUnit): TextAutoSize {
+    require(fontSize.isSp && smallest.isSp) { "sizes in sp, not $fontSize and $smallest" }
+    return ShrinkToOneLine(largest = fontSize, smallest = smallest)
+}
+
+private data class ShrinkToOneLine(val largest: TextUnit, val smallest: TextUnit) : TextAutoSize {
+    override fun TextAutoSizeLayoutScope.getFontSize(constraints: Constraints, text: AnnotatedString): TextUnit =
+        oneLineOrWhole(
+            sizes = sizesToTry(largest.value, smallest.value),
+            isOneLine = { size -> performLayout(constraints, text, size.sp).run { lineCount <= 1 && !hasVisualOverflow } },
+            isWhole = { size -> performLayout(constraints, text, size.sp).isWhole(text.text) },
+        ).sp
 }
 
 /** Nothing cut off at its end, and no line ended inside a word. */
@@ -60,6 +146,10 @@ internal fun sizesToTry(largest: Float, smallest: Float): List<Float> = buildLis
 /** The first of [sizes] at which the label [isWhole], or the last of them when it is whole at none. */
 internal fun largestWhole(sizes: List<Float>, isWhole: (Float) -> Boolean): Float =
     sizes.firstOrNull(isWhole) ?: sizes.last()
+
+/** The first of [sizes] at which the heading [isOneLine], or, when it is at none, the size it [isWhole] at on more lines. */
+internal fun oneLineOrWhole(sizes: List<Float>, isOneLine: (Float) -> Boolean, isWhole: (Float) -> Boolean): Float =
+    sizes.firstOrNull(isOneLine) ?: largestWhole(sizes, isWhole)
 
 /**
  * Whether one of the lines of [text], which end at [lineEnds], ends where its language lets no

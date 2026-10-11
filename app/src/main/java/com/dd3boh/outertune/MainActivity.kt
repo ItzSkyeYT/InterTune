@@ -107,6 +107,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -227,6 +228,7 @@ import com.dd3boh.outertune.ui.utils.dpadOverlayEscape
 import com.dd3boh.outertune.ui.utils.dpadTabBar
 import com.dd3boh.outertune.ui.utils.dpadBringIntoView
 import com.dd3boh.outertune.ui.utils.resetHeightOffset
+import com.dd3boh.outertune.ui.utils.SameTextSize
 import com.dd3boh.outertune.ui.utils.shrinkToFit
 import com.dd3boh.outertune.utils.ActivityLauncherHelper
 import com.dd3boh.outertune.utils.InstallSource
@@ -638,6 +640,8 @@ class MainActivity : ComponentActivity() {
                     windowSizeClass.windowHeightSizeClass == WindowHeightSizeClass.COMPACT
             val (enabledTabs) = rememberPreference(EnabledTabsKey, defaultValue = DEFAULT_ENABLED_TABS)
             val navigationItems = Screens.getScreens(enabledTabs)
+            // One size for the tabs' names, in the bar or in the rail: see TabLabel.
+            val tabNames = remember { SameTextSize() }
             val (defaultOpenTab, onDefaultOpenTabChange) = rememberPreference(
                 DefaultOpenTabKey,
                 defaultValue = Screens.Home.route
@@ -1644,7 +1648,7 @@ class MainActivity : ComponentActivity() {
                                                 )
                                             },
                                             label = {
-                                                if (!slimNav) TabLabel(stringResource(screen.titleId))
+                                                if (!slimNav) TabLabel(stringResource(screen.titleId), tabNames)
                                             },
                                             onClick = {
                                                 if (playerBottomSheetState.isExpanded) {
@@ -1748,7 +1752,7 @@ class MainActivity : ComponentActivity() {
                                                 )
                                             },
                                             label = {
-                                                if (!slimNav) TabLabel(stringResource(screen.titleId))
+                                                if (!slimNav) TabLabel(stringResource(screen.titleId), tabNames)
                                             },
                                             onClick = {
                                                 if (playerBottomSheetState.isExpanded) {
@@ -1977,15 +1981,24 @@ class MainActivity : ComponentActivity() {
  * A tab's name under its icon, on one line. It gets smaller before it is cut: in French at a
  * large font size "Bibliothèque" was "Bibliothè…". The padding keeps a name that fills its tab
  * off the edge of the screen and off the name beside it.
+ *
+ * The names of a bar ([names]) get smaller together: one tab in smaller letters than the three
+ * beside it read as a mistake.
  */
 @Composable
-private fun TabLabel(text: String) = Text(
-    text = text,
-    autoSize = LocalTextStyle.current.shrinkToFit(smallest = 9.sp),
-    maxLines = 1,
-    overflow = TextOverflow.Ellipsis,
-    modifier = Modifier.padding(horizontal = 4.dp)
-)
+private fun TabLabel(text: String, names: SameTextSize) {
+    val autoSize = LocalTextStyle.current.shrinkToFit(smallest = 9.sp, text = text, row = names)
+    // Made again for each new autoSize: a Text does not see that one changed (see shrinkToFit).
+    key(autoSize) {
+        Text(
+            text = text,
+            autoSize = autoSize,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 4.dp)
+        )
+    }
+}
 
 /**
  * Navigate to a bottom-bar / rail tab that is not the one currently shown.
