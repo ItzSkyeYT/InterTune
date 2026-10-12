@@ -18,11 +18,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
@@ -144,7 +146,11 @@ private fun LivingPicture(
         if (upright) LivingMotion(across, along) else LivingMotion(along, across)
     }
 
-    val coverThere = coverPlace() != null
+    // Whether there is a cover, and not where it is. Its place changes on every frame while the
+    // player's sheet or the strip of covers moves, and read here it had the whole picture
+    // composed again on each of those frames. Where the cover is, the drawing asks.
+    val place by rememberUpdatedState(coverPlace)
+    val coverThere by remember { derivedStateOf { place() != null } }
     motion.strength = strength
     motion.smoothing = smoothing
     motion.coverThere = coverThere
