@@ -189,6 +189,10 @@ fun ColumnScope.ProximityVolumeFrag() {
 
     if (!enabled) return
 
+    // The signal log is a measurement, not a feature: it writes down every Bluetooth device it
+    // hears, so only a debug build shows it.
+    if (!Unreleased.SIGNAL_LOG) return
+
     // Under the setting it belongs to, rather than on the recommendations developer screen where
     // it started. It is a distance measurement for this feature, and nobody would think to look
     // for it beside the engine's tuning constants.

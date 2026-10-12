@@ -333,4 +333,18 @@ object Unreleased {
      * PlayRequest, three drawables and nine strings.
      */
     val AUTO_REWORK = BuildConfig.DEBUG
+
+    /**
+     * "Bluetooth signal log", the row under "Quieter as you walk away" (ProximityProbe): the
+     * hundred second walk that answered whether signal strength can stand for distance. It
+     * writes down every Bluetooth device the phone hears, with its address and its name, which
+     * is right for a measurement and wrong for a release: 0.11 and 0.11.1 showed the row to
+     * anyone with the setting on, and kept the files where Android backs them up.
+     *
+     * Never in a release. A debug build keeps it for the day the measurement is wanted again,
+     * and writes to the cache. The app deletes the files those two releases left, at start
+     * (ProximityProbe.forgetOldLogs). To drop it: this flag, the row in PlayerFrag,
+     * ProximityProbe but for forgetOldLogs, and eleven strings.
+     */
+    val SIGNAL_LOG = BuildConfig.DEBUG
 }
