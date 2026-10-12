@@ -116,7 +116,7 @@
     <string name="clear_listen_history_description">Delete everything the app has recorded about what you have played.</string>
     <string name="pause_search_history_description">Stop saving what you search for.</string>
     <string name="clear_search_history_description">Delete every search the app has saved.</string>
-    <string name="sync_params_description">Read only means the app never changes anything in your YouTube Music account. Conflict resolution decides what happens when a playlist is different here and there.</string>
+    <string name="sync_params_description">\"Read write\" lets the app change your YouTube Music account: likes, library and playlists. \"Overwrite\" takes out of this phone\'s library whatever is not in the account.</string>
     <string name="enable_lrclib_description">Look for lyrics on LRCLIB, a free community lyrics database.</string>
     <string name="enable_kugou_description">Look for lyrics on KuGou. Its collection is large, and strongest for Chinese music.</string>
     <string name="audio_normalization_description">Even out the volume between songs, so one is not suddenly much louder than the last.</string>
@@ -243,7 +243,7 @@
     <string name="why_these_lean">Leaning toward: %1$s, %2$d of the %3$d cards on screen</string>
     <string name="adventurousness_description_lean_new">Set by Quick picks leaning toward songs you have never heard: %1$d of 20 cards.</string>
     <string name="recommendations_summary_too_early_choice">Too early to tell which way it is going since you changed what Quick picks leans toward.</string>
-    <string name="context_chips_info">The first chip is your usual row. The others lean it for now: \"Discover\" toward songs new to you, \"Favourites\" toward what you have liked, and \"Focus\", \"Chill\" and \"Party\" toward what you play while each is on. A chip stays on until you change it.</string>
+    <string name="context_chips_info">The first chip is your usual row. The others lean it until you change back: \"Discover\" toward songs new to you, \"Favourites\" toward songs you liked, \"Focus\", \"Chill\" and \"Party\" toward what you play while each is on. The last chip works on its own, with any of them.</string>
     <string name="share_link_kind_title">Links you share</string>
     <string name="share_link_youtube_music">YouTube Music link</string>
     <string name="share_link_page">A page for any music app</string>
