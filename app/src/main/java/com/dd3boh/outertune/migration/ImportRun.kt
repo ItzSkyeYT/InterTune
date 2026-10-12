@@ -84,6 +84,21 @@ class ImportRun private constructor(layout: Layout) {
         changed += index
     }
 
+    /**
+     * Picks the first result for every track that has results and no decision yet: the one that
+     * scored best, which is the one the review list shows first. A track somebody picked for or
+     * skipped keeps what it has. These are picks like any other, each to be changed, skipped or
+     * taken back by itself.
+     */
+    @Synchronized
+    fun pickFirsts() {
+        outcomes.forEachIndexed { i, outcome ->
+            if (outcome is Outcome.Review && choices[i] == null) {
+                outcome.candidates.firstOrNull()?.let { pick(i, it.candidate) }
+            }
+        }
+    }
+
     /** What is known of one track: its answer if it has one, and what was decided about it if anything was. */
     data class Slot(val outcome: Outcome?, val choice: Choice?)
 

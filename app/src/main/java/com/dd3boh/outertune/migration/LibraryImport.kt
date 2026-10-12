@@ -99,7 +99,17 @@ class LibraryImport internal constructor(
         val detail: String? = null,
         val createdPlaylists: Int = 0,
         val createdSongs: Int = 0,
-    )
+    ) {
+        /**
+         * Whether one tap for every song still to check is worth offering ([pickFirsts]). Only
+         * for more than a few of them: up to three, a tap each is no more work than a button to
+         * read. And only while the list stands still. During the lookups it is still growing, so
+         * "all" would not be all, and a button that came and went as songs landed would move
+         * the list under a finger. Once Create playlists has been tapped, a pick comes too late.
+         */
+        val offersFirsts: Boolean
+            get() = stage in LIST_STANDS_STILL && (progress?.undecided ?: 0) > FEW
+    }
 
     /** A file somebody chose: what it is called, and what is in it, or null when it could not be read. */
     class Picked(val name: String, val bytes: ByteArray?)
@@ -289,6 +299,14 @@ class LibraryImport internal constructor(
 
     fun undecide(index: Int) = decide { it.undecide(index) }
 
+    /**
+     * One tap in place of one for each song: the first result for every song still to check
+     * ([ImportRun.pickFirsts]). An export with no lengths sends every song it holds to the review
+     * list, and nobody goes through a thousand songs a tap at a time. Taken whenever a pick is,
+     * the lookups running or not. Whether to offer it is another matter: [State.offersFirsts].
+     */
+    fun pickFirsts() = decide { it.pickFirsts() }
+
     private fun decide(block: (ImportRun) -> Unit) {
         val run = run ?: return
         block(run)
@@ -445,6 +463,15 @@ class LibraryImport internal constructor(
 
         /** The stages Continue is offered in. */
         private val CAN_CONTINUE = setOf(Stage.STOPPED, Stage.OFFLINE, Stage.PAUSED)
+
+        /**
+         * The stages in which no lookup is adding to the review list and a pick still counts: a
+         * run that waits for Continue, and one that has every answer.
+         */
+        private val LIST_STANDS_STILL = CAN_CONTINUE + Stage.MATCHED
+
+        /** How many songs still to check are few enough to tap one by one. */
+        private const val FEW = 3
 
         /**
          * The folder under the app's own files where the import under way is kept. The backup

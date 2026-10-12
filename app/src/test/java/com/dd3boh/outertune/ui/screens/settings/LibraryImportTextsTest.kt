@@ -90,4 +90,65 @@ class LibraryImportTextsTest {
         // Offered the same two ways on as a run that was stopped by hand.
         assertTrue("LibraryImport.Stage.STOPPED, LibraryImport.Stage.OFFLINE, LibraryImport.Stage.PAUSED -> {" in screen)
     }
+
+    // The first result for every song still to check, in one tap.
+
+    private val forAll = "import_library_take_first_all"
+    private val forRest = "import_library_take_first_rest"
+    private val canChange = "import_library_take_first_note"
+
+    /** The values a text takes, as written: %1$d, %2$s. */
+    private fun placeholders(text: String) = Regex("""%(?:\d+\$)?[a-zA-Z]""").findAll(text).map { it.value }.sorted().toList()
+
+    @Test
+    fun `the French of each text takes the values the English takes`() {
+        val own = english.filterKeys { it.startsWith("import_library_") }
+        assertTrue("no text of the import takes a value", own.values.any { placeholders(it).isNotEmpty() })
+        for ((name, text) in own) assertEquals(name, placeholders(text), placeholders(french.getValue(name)))
+    }
+
+    @Test
+    fun `the tap that takes the first one for all says so in a few plain words, in both languages`() {
+        for ((language, texts) in listOf("English" to english, "French" to french)) {
+            for (name in listOf(forAll, forRest)) {
+                val text = texts.getValue(name)
+                assertTrue("$language: ${text.length} letters is long for a button", text.length <= 40)
+                assertFalse("$language: $text", text.any { it in ".!\u2014\u2013\n" })
+                assertTrue("$language: $text", placeholders(text).isEmpty())
+            }
+            val line = texts.getValue(canChange)
+            assertEquals("$language: $line", 1, sentences(line))
+            assertTrue("$language is ${line.split(' ').size} words", line.split(' ').size <= 14)
+            assertFalse("$language: $line", line.any { it in "!\u2014\u2013\n" })
+        }
+        // What it says is what it does: the first one, for all of them while nobody has decided
+        // anything by hand, and for the rest once somebody has, whose choices stay.
+        assertTrue("first" in english.getValue(forAll) && english.getValue(forAll).endsWith("for all"))
+        assertTrue("first" in english.getValue(forRest) && english.getValue(forRest).endsWith("for the rest"))
+        assertTrue("premier" in french.getValue(forAll) && french.getValue(forAll).endsWith("pour tous"))
+        assertTrue("premier" in french.getValue(forRest) && french.getValue(forRest).endsWith("pour les autres"))
+        // And the line under it says that nothing it picks is final.
+        assertTrue("changed" in english.getValue(canChange) && "playlists" in english.getValue(canChange))
+        assertTrue("modifiable" in french.getValue(canChange) && "playlists" in french.getValue(canChange))
+    }
+
+    @Test
+    fun `it stands where the review list starts, as words alone, and asks nothing before it acts`() {
+        val head = screen.substringAfter("item(key = \"review-title\")").substringBefore("items(progress.review")
+        assertTrue("it is not under the heading of the songs to check", "TakeFirst(" in head)
+        // Only when the session says it is worth offering: more than three songs waiting, and a
+        // list that the lookups are not still adding to.
+        assertTrue(Regex("""if \(state\.offersFirsts\) \{\s*TakeFirst\(""").containsMatchIn(head))
+        assertEquals(1, Regex("""\bTakeFirst\(""").findAll(screen.substringBefore("private fun TakeFirst(")).count())
+        // Straight to the session: no dialog stands between the tap and the picks.
+        assertTrue("onClick = session::pickFirsts," in head)
+        assertTrue("rest = progress.undecided < progress.review.size," in head)
+
+        val button = screen.substringAfter("private fun TakeFirst(").substringBefore("\n}\n")
+        assertTrue("words alone, where Create playlists is filled", "TextButton(" in button)
+        assertFalse(Regex("""\bButton\(""").containsMatchIn(button.replace("TextButton(", "")))
+        assertTrue("no smaller to the finger than the buttons of setup", ".heightIn(min = 48.dp)" in button)
+        assertTrue("if (rest) R.string.$forRest else R.string.$forAll" in button)
+        assertTrue("R.string.$canChange" in button)
+    }
 }
