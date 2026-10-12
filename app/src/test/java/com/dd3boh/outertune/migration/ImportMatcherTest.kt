@@ -58,6 +58,25 @@ class ImportMatcherTest {
     }
 
     @Test
+    fun `a file with no lengths sends even an exact name to review, the plain one first`() = runBlocking {
+        // TuneMyMusic's file has no length column at all. The name is all there is, and the live
+        // take has it too, so somebody looks.
+        val fake = FakeSearch(
+            mapOf(
+                "Blinding Lights The Weeknd" to listOf(
+                    song("Blinding Lights (Live)", "The Weeknd", 261, id = "live"),
+                    song("Blinding Lights", "The Weeknd", 200, id = "studio"),
+                )
+            )
+        )
+        val outcome = matcher(fake).resolve(track("Blinding Lights", "The Weeknd"))
+        assertTrue("got $outcome", outcome is Outcome.Review)
+        assertEquals(listOf("studio", "live"), (outcome as Outcome.Review).candidates.map { it.candidate.id })
+        // One search, as for any other song: asking again would not bring a length.
+        assertEquals(1, fake.queries.size)
+    }
+
+    @Test
     fun `only a remix and a live take goes to review with the candidates best first`() = runBlocking {
         val fake = FakeSearch(
             mapOf(

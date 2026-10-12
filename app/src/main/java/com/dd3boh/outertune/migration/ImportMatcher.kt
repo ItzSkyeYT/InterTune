@@ -12,10 +12,13 @@ import kotlin.coroutines.cancellation.CancellationException
 
 /** What searching for one track came to. */
 sealed interface Outcome {
-    /** Scored at or above [Scored.CONFIDENT]: imported without anybody looking. */
+    /** Scored at or above [Scored.CONFIDENT] with a length to go by ([Scored.confident]): imported without anybody looking. */
     data class Matched(val best: Scored) : Outcome
 
-    /** Something came back, but not confidently. The best few, best first, for a person to pick. */
+    /**
+     * Something came back, but not confidently, or with no length to tell it from another version.
+     * The best few, best first, for a person to pick.
+     */
     data class Review(val candidates: List<Scored>) : Outcome
 
     /** Nothing plausible came back, even searching for the title alone. */

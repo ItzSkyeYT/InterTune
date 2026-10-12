@@ -230,15 +230,53 @@ class TrackMatchTest {
     }
 
     @Test
-    fun `an export with no duration can still match on name alone`() {
+    fun `an export with no duration is found by its name, and waits to be checked`() {
         // Some exporters omit the column. Refusing everything from those would be worse than
-        // matching on two fields, so a missing duration is neutral rather than disqualifying.
+        // matching on two fields, so a missing duration is neutral rather than disqualifying, and
+        // a perfect name still scores above the threshold. It is not imported on that alone: a
+        // remix, a live take and a sped-up edit carry the same name, and of the six songs that
+        // went in wrong over 300 with the metadata rewritten, five had lost their length.
         val best = match(
             WantedTrack("Paranoid Android", "Radiohead", null),
             listOf(song("Paranoid Android", "Radiohead", 383)),
         )!!
 
-        assertTrue("a perfect name with no duration should pass, scored ${best.total}", best.confident)
+        assertTrue("a perfect name still scores as one, scored ${best.total}", best.total >= Scored.CONFIDENT)
+        assertFalse("a name alone must not go in without asking", best.confident)
+    }
+
+    @Test
+    fun `a result with no duration waits to be checked as well`() {
+        // The other side of the same gap: the file says how long the song is and YouTube does not,
+        // so there is still nothing to tell the song from an edit of it.
+        val best = match(
+            WantedTrack("Paranoid Android", "Radiohead", 383),
+            listOf(song("Paranoid Android", "Radiohead", null)),
+        )!!
+
+        assertFalse("a name alone must not go in without asking, scored ${best.total}", best.confident)
+    }
+
+    @Test
+    fun `with no duration the plain title still comes before its versions`() {
+        // What the review screen then shows first is still the likeliest one.
+        val candidates = listOf(
+            song("Midnight City (Extended Mix)", "M83", 431, id = "remix"),
+            song("Midnight City (Live)", "M83", 262, id = "live"),
+            song("Midnight City", "M83", 245, id = "original"),
+        )
+
+        assertEquals("original", match(WantedTrack("Midnight City", "M83", null), candidates)!!.candidate.id)
+    }
+
+    @Test
+    fun `two lengths that agree still let a perfect name in`() {
+        val best = match(
+            WantedTrack("Paranoid Android", "Radiohead", 383),
+            listOf(song("Paranoid Android", "Radiohead", 384)),
+        )!!
+
+        assertTrue("nothing changes for a file that has its lengths, scored ${best.total}", best.confident)
     }
 
     @Test
