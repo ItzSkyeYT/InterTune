@@ -47,6 +47,15 @@ class AsksFirstTest {
     }
 
     @Test
+    fun `the two notes about restoring stand under Restore, not at the foot of the page`() {
+        val frag = source("ui/screens/settings/fragments/BackupRestoreFrag.kt")
+        val afterRestore = frag.substringAfter("Tour.SETTING_RESTORE").substringBefore("Tour.SETTING_AUTO_BACKUP")
+        assertTrue("InfoLabel(stringResource(R.string.import_innertune_tooltip))" in afterRestore)
+        assertTrue("InfoLabel(stringResource(R.string.restore_lm_tooltip))" in afterRestore)
+        assertFalse("_tooltip" in source("ui/screens/settings/BackupSettings.kt"))
+    }
+
+    @Test
     fun `Clear in Song recognition waits for a yes`() {
         val screen = source("ui/screens/settings/RecognitionSettings.kt")
         assertTrue("onClick = { askClear = true }," in screen)
