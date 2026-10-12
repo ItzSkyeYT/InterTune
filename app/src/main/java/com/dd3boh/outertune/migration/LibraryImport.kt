@@ -20,42 +20,59 @@ import com.dd3boh.outertune.utils.ErrorText
 import com.dd3boh.outertune.utils.QueueToPlaylist
 import com.zionhuang.innertube.models.SongItem
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.io.File
 import java.time.LocalDateTime
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
- * The import that is under way, held for the life of the app rather than the screen.
+ * The import that is under way, held for the life of the app rather than the screen, and kept on
+ * the phone for longer than that.
  *
  * Matching a library is hundreds of paced searches, minutes of them, and nobody should have to
  * watch it. Leaving the screen does not stop it, coming back shows where it is, and a run that was
  * cancelled or lost its connection carries on from the first track it has no answer for.
  *
- * What it needs of the phone comes in through the constructor: reading the chosen file, the
- * search, and writing the playlists. The app hands it the real ones. A test hands it its own, and
- * runs a whole import with no phone, from the file to the playlists.
+ * Minutes is also long enough for Android to close an app that nobody is looking at. So what the
+ * file held, what each lookup came to and every pick and leave-out are written down as they come
+ * ([ImportStore]). The next time the import screen is opened the import is there again as it was
+ * left, stopped, and Continue looks up what is left. It is forgotten when it is over: Start over,
+ * another file, or the playlists made. Cancel does not forget it, as it only stops the lookups
+ * and says that what was found is kept.
+ *
+ * What it needs of the phone comes in through the constructor: where it is kept, reading the
+ * chosen file, the search, and writing the playlists. The app hands it the real ones. A test hands
+ * it its own, and runs a whole import with no phone, from the file to the playlists.
  */
 @Singleton
 class LibraryImport internal constructor(
+    private val store: ImportStore,
     private val readFile: suspend (Uri) -> Picked,
     private val matcher: () -> ImportMatcher,
     private val makePlaylists: suspend (List<Pair<String, List<SongItem>>>) -> Created,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+    /** How long a change waits to be written down, with whatever else changes meanwhile. */
+    private val saveAfter: suspend () -> Unit = { delay(SAVE_AFTER_MS) },
 ) {
     @Inject
     constructor(@ApplicationContext context: Context, database: MusicDatabase) : this(
+        store = ImportStore(File(context.filesDir, FOLDER)),
         readFile = { uri -> context.readPicked(uri) },
         matcher = { ImportMatcher(search = ImportSearch::songs) },
         makePlaylists = { lists -> database.makeImported(lists) },
@@ -91,8 +108,8 @@ class LibraryImport internal constructor(
     /**
      * Goes up each time the import starts again from nothing: another file, Start over. A job
      * keeps the number it was started under, and one that finds the number has moved on says
-     * nothing more, so a file that finished reading late cannot take the place of the one chosen
-     * after it.
+     * nothing more, so a file that finished reading late, or the import kept from last time,
+     * cannot take the place of the file chosen after it.
      */
     private var round = 0
     private var job: Job? = null
@@ -102,6 +119,71 @@ class LibraryImport internal constructor(
 
     private val _state = MutableStateFlow(State())
     val state: StateFlow<State> = _state
+
+    /**
+     * Everything that touches the kept import's files, one piece of work at a time and in the
+     * order it was asked for. A save asked for before Start over must not land after it and bring
+     * the import back, and no two writes may be at the same file.
+     */
+    private val disk = Channel<() -> Unit>(Channel.UNLIMITED)
+
+    /** Whether a save is already waiting out [saveAfter], so that the changes until then join it. */
+    private val saveWaiting = AtomicBoolean(false)
+
+    init {
+        scope.launch {
+            for (work in disk) {
+                try {
+                    work()
+                } catch (e: Exception) {
+                    // The import goes on in memory. It is only a restart that would lose it.
+                    Log.w(TAG, "Could not write the import down", e)
+                }
+            }
+        }
+        // An import the app was closed over. Its files are read off the main thread, and until
+        // they are the screen says it is reading, which it is, in place of offering a file.
+        if (runCatching { store.holdsOne() }.getOrDefault(false)) {
+            synchronized(lock) {
+                _state.value = State(stage = Stage.READING)
+                val mine = round
+                job = scope.launch { restore(mine) }
+            }
+        }
+    }
+
+    private suspend fun restore(mine: Int) {
+        val kept = try {
+            // Not once a file has been chosen meanwhile: read after that file had begun to be
+            // kept, this would come back with that file's own import and take its place.
+            fromDisk { if (synchronized(lock) { mine == round }) store.load() else null }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not read the kept import back", e)
+            null
+        }
+        synchronized(lock) {
+            if (mine != round) return
+            if (kept == null) {
+                Log.w(TAG, "An import was kept and could not be read back: starting from nothing")
+                _state.value = State()
+                return
+            }
+            if (kept.lostBlocks > 0) Log.w(TAG, "${kept.lostBlocks} blocks of the kept import could not be read: their songs are looked up again")
+            run = kept.run
+            _state.value = State(
+                // Stopped, whatever it was doing when the app closed. Nothing is asked of YouTube
+                // because the app was opened: somebody says Continue first.
+                stage = if (kept.run.complete()) Stage.MATCHED else Stage.STOPPED,
+                fileName = kept.fileName,
+                format = kept.format,
+                playlists = kept.run.playlists.size,
+                skippedRows = kept.skippedRows,
+                progress = kept.run.snapshot(),
+            )
+        }
+    }
 
     fun open(uri: Uri) = open { readFile(uri) }
 
@@ -151,6 +233,9 @@ class LibraryImport internal constructor(
                         playlists = parsed.playlists.size,
                         skippedRows = parsed.skippedRows,
                     )
+                    // Before the first lookup, so that an app closed a second from now still
+                    // comes back with the file.
+                    onDisk { store.begin(name, parsed.format, parsed.skippedRows, run) }
                 }
                 match(run)
             }
@@ -181,9 +266,11 @@ class LibraryImport internal constructor(
             job?.cancel()
             setStage(Stage.STOPPED, run)
         }
+        // Kept, and written down now: the screen says so, and the next thing may be the app closing.
+        saveNow()
     }
 
-    /** Forgets the file and everything matched from it. Nothing already created is touched. */
+    /** Forgets the file and everything matched from it, here and on disk. Nothing already created is touched. */
     fun reset() {
         synchronized(lock) { startAgain(Stage.IDLE) }
     }
@@ -198,6 +285,7 @@ class LibraryImport internal constructor(
         val run = run ?: return
         block(run)
         refresh(run)
+        saveSoon()
     }
 
     /** One local playlist per playlist in the file, named as the file names it. */
@@ -211,6 +299,9 @@ class LibraryImport internal constructor(
             job = scope.launch {
                 try {
                     val made = makePlaylists(run.playlistsToCreate())
+                    // The import is over, and only now: an app closed while the playlists were
+                    // being written comes back with the import as it was, to create them again.
+                    onDisk { store.end(run) }
                     synchronized(lock) {
                         if (run !== this@LibraryImport.run) return@launch
                         _state.update {
@@ -235,6 +326,7 @@ class LibraryImport internal constructor(
             matcher().run(run.tracks, run::isDone) { index, outcome ->
                 run.record(index, outcome)
                 refresh(run)
+                saveSoon()
             }
             setStage(Stage.MATCHED, run)
         } catch (e: SearchUnavailable) {
@@ -243,11 +335,60 @@ class LibraryImport internal constructor(
             Log.w(TAG, "Stopped matching: YouTube could not be reached", ErrorText.forLog(e))
             setStage(Stage.OFFLINE, run)
         }
+        // However it ended, nothing more comes by itself, so nothing is left waiting to be written.
+        saveNow()
     }
 
     /**
-     * Drops the import there is and whatever was working on it, and says [stage]. Under [lock].
-     * The number it gives back is the new round's, for the job that starts it.
+     * Writes down what has changed, a little later and all at once. A lookup lands about twice a
+     * second and a tap on the review screen as fast as a thumb moves, and a file written for each
+     * of them would be writing the same block over and over.
+     */
+    private fun saveSoon() {
+        if (!saveWaiting.compareAndSet(false, true)) return
+        scope.launch {
+            saveAfter()
+            // Before the save is asked for and not after: a change that finds this still set has
+            // to be one the save below is certain to see.
+            saveWaiting.set(false)
+            saveNow()
+        }
+    }
+
+    /** Writes down what has changed without waiting, for the moments after which nothing may follow. */
+    private fun saveNow() {
+        val run = run ?: return
+        onDisk { store.save(run) }
+    }
+
+    private fun onDisk(work: () -> Unit) {
+        disk.trySend(work)
+    }
+
+    /** [work] in its turn among the rest, and what it came to. */
+    private suspend fun <T> fromDisk(work: () -> T): T {
+        val answer = CompletableDeferred<T>()
+        onDisk {
+            try {
+                answer.complete(work())
+            } catch (e: Throwable) {
+                answer.completeExceptionally(e)
+            }
+        }
+        return answer.await()
+    }
+
+    /** For a test, which has no other way to know: everything asked of the disk so far is done. */
+    internal suspend fun written() = fromDisk { }
+
+    /** For a test: every change made so far is on the disk. */
+    internal suspend fun saved() {
+        while (saveWaiting.get() || fromDisk { run?.let(store::owes) == true }) delay(1)
+    }
+
+    /**
+     * Drops the import there is, in memory and on disk, and whatever was working on it, and says
+     * [stage]. Under [lock]. The number it gives back is the new round's, for the job that starts it.
      */
     private fun startAgain(stage: Stage): Int {
         round++
@@ -255,6 +396,7 @@ class LibraryImport internal constructor(
         job = null
         run = null
         _state.value = State(stage = stage)
+        onDisk { store.clear() }
         return round
     }
 
@@ -283,6 +425,16 @@ class LibraryImport internal constructor(
 
         /** The stages Continue is offered in. */
         private val CAN_CONTINUE = setOf(Stage.STOPPED, Stage.OFFLINE)
+
+        /** The folder under the app's own files where the import under way is kept. */
+        private const val FOLDER = "library-import"
+
+        /**
+         * A change is on the disk five seconds after it was made, at the latest. That is about a
+         * dozen lookups to make again if the app is killed, and one small file written every five
+         * seconds while a run lasts.
+         */
+        private const val SAVE_AFTER_MS = 5_000L
     }
 }
 

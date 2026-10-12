@@ -13,7 +13,9 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -21,25 +23,44 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 import java.io.IOException
+import java.nio.file.Files
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * The import as the screen drives it, from the file somebody chose to the playlists, with a
- * YouTube that is a map and a library that is a list. What the screen can ask for is all here:
- * a file, Cancel and Continue, a pick and a skip, Create playlists, Start over.
+ * YouTube that is a map, a library that is a list and a folder of its own for the app's files.
+ * What the screen can ask for is all here: a file, Cancel and Continue, a pick and a skip, Create
+ * playlists, Start over. So is what the screen cannot ask for and Android does anyway: the app
+ * killed in the middle, and started again.
  */
 class LibraryImportTest {
 
-    /** What the imports of one test run on, stopped when the test is over. */
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    /** Where the app keeps the import under way. It outlives every app of a test, as the phone's files do. */
+    private val dir: File = Files.createTempDirectory("library-import").toFile()
+
+    /** What each app of a test runs on. */
+    private val apps = CopyOnWriteArrayList<CoroutineScope>()
 
     @After
     fun stop() {
-        scope.cancel()
+        kill()
+        dir.deleteRecursively()
+    }
+
+    /**
+     * The app killed where it stands, as Android kills one for its memory: nothing of it runs
+     * again, nothing is told, and what is on the disk is all that is left.
+     */
+    private fun kill() {
+        apps.forEach { it.cancel() }
+        apps.clear()
     }
 
     private fun song(title: String, artist: String, seconds: Int?, id: String = "$title/$seconds") = SongItem(
@@ -94,7 +115,16 @@ class LibraryImportTest {
     /** How many times the library was asked to make playlists, whether it did or not. */
     private val askedToMake = java.util.concurrent.atomic.AtomicInteger()
 
-    private fun session(youTube: FakeYouTube) = LibraryImport(
+    /**
+     * The app started, with the import screen open on it: a new session over the files that are
+     * there. [saveAfter] is how long a change waits to be written; by default it does not wait.
+     */
+    private fun session(
+        youTube: FakeYouTube,
+        store: ImportStore = ImportStore(dir),
+        saveAfter: suspend () -> Unit = {},
+    ) = LibraryImport(
+        store = store,
         readFile = { error("a test hands its file over itself") },
         // No waiting between searches, only the chance for a cancelled run to notice.
         matcher = { ImportMatcher(search = youTube::search, wait = { yield() }) },
@@ -104,8 +134,15 @@ class LibraryImportTest {
             made.add(lists)
             LibraryImport.Created(lists.size, lists.sumOf { it.second.size })
         },
-        scope = scope,
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Default).also { apps.add(it) },
+        saveAfter = saveAfter,
     )
+
+    /** A YouTube nobody should be asking anything. */
+    private fun silent() = FakeYouTube(emptyMap())
+
+    /** Whether an import is kept on the disk, asked as an app starting would ask. */
+    private fun kept() = ImportStore(dir).holdsOne()
 
     /** [count] songs of one playlist as a plain CSV, each with its length. */
     private fun csv(count: Int) = buildString {
@@ -397,5 +434,245 @@ class LibraryImportTest {
         delay(300)
         assertEquals("second.csv", session.state.value.fileName)
         assertEquals(Stage.MATCHED, session.state.value.stage)
+    }
+
+    // The app closed, or killed, and started again.
+
+    @Test
+    fun `an import is there again when the app is started again, with every pick`() = runBlocking {
+        val before = session(hasMixed())
+        before.open("everything.csv", mixed)
+        before.reaches(Stage.MATCHED)
+        before.pick(1, edit)
+        before.saved()
+        val left = before.state.value
+        kill()
+
+        val youTube = silent()
+        val after = session(youTube)
+        // Not the page that offers a file, not even for a moment.
+        assertNotEquals(Stage.IDLE, after.state.value.stage)
+        assertEquals(left, after.reaches(Stage.MATCHED))
+        assertTrue("an import that comes back asks YouTube nothing", youTube.queries.isEmpty())
+
+        after.create()
+        assertEquals(3, after.reaches(Stage.CREATED).createdSongs)
+        assertEquals(
+            listOf("First" to listOf("one", "edit"), "Second" to listOf("one")),
+            made.single().map { (name, songs) -> name to songs.map { it.id } },
+        )
+    }
+
+    @Test
+    fun `killed in the middle of the lookups, it comes back stopped and Continue looks up the rest`() = runBlocking {
+        val first = has(6)
+        val fourth = first.holdSearch(at = 4)
+        val before = session(first)
+        before.open("mine.csv", csv(6))
+        fourth.isReached()
+        before.saved()
+        kill()
+
+        val youTube = has(6)
+        val after = session(youTube)
+        val stopped = after.reaches(Stage.STOPPED)
+        assertEquals("mine.csv", stopped.fileName)
+        assertEquals(ExportFormat.CSV, stopped.format)
+        assertEquals(1, stopped.playlists)
+        assertEquals(3, stopped.progress!!.checked)
+        assertEquals(6, stopped.progress!!.total)
+        // Nothing is looked up because the app was opened. Somebody says Continue.
+        delay(100)
+        assertTrue(youTube.queries.isEmpty())
+
+        after.resume()
+        assertEquals(6, after.reaches(Stage.MATCHED).progress!!.matched)
+        assertEquals(asked(4, 5, 6), youTube.queries)
+
+        // And what Continue found is kept like the rest.
+        after.saved()
+        kill()
+        assertEquals(6, session(silent()).reaches(Stage.MATCHED).progress!!.matched)
+    }
+
+    @Test
+    fun `what had not been written yet when the app was killed is looked up again, and the file is not lost`() = runBlocking {
+        val first = has(6)
+        val fourth = first.holdSearch(at = 4)
+        // An app killed before any of its changes had waited long enough to be written.
+        val before = session(first, saveAfter = { awaitCancellation() })
+        before.open("mine.csv", csv(6))
+        fourth.isReached()
+        before.written()
+        kill()
+
+        val youTube = has(6)
+        val after = session(youTube)
+        val stopped = after.reaches(Stage.STOPPED)
+        assertEquals(6, stopped.progress!!.total)
+        assertEquals(0, stopped.progress!!.checked)
+
+        after.resume()
+        assertEquals(6, after.reaches(Stage.MATCHED).progress!!.matched)
+        assertEquals(asked(1, 2, 3, 4, 5, 6), youTube.queries)
+    }
+
+    @Test
+    fun `a burst of picks is one write, and not one each`() = runBlocking {
+        val store = ImportStore(dir)
+        val wait = Channel<Unit>(Channel.UNLIMITED)
+        val session = session(hasMixed(), store, saveAfter = { wait.receive() })
+        session.open("everything.csv", mixed)
+        session.reaches(Stage.MATCHED)
+        // What the lookups found is written when they end, without waiting. The first of them
+        // also left a save waiting, which is let go here, and finds nothing more to write.
+        wait.send(Unit)
+        session.saved()
+        val written = store.written
+
+        repeat(5) {
+            session.pick(1, edit)
+            session.pick(1, live)
+            session.skip(0)
+            session.undecide(0)
+        }
+        session.written()
+        assertEquals("nothing is written while the changes are still coming", written, store.written)
+
+        wait.send(Unit)
+        session.saved()
+        assertEquals("twenty changes, one file", written + 1, store.written)
+
+        kill()
+        val back = session(silent()).reaches(Stage.MATCHED).progress!!
+        assertEquals("live", (back.review.single().choice as ImportRun.Choice.Picked).song.id)
+        assertFalse(back.matchedItems.single().leftOut)
+    }
+
+    @Test
+    fun `Cancel keeps the import, on the screen and on the disk`() = runBlocking {
+        val first = has(6)
+        val fourth = first.holdSearch(at = 4)
+        // Nothing would be written in time by itself: what is there after the kill, Cancel wrote.
+        val before = session(first, saveAfter = { awaitCancellation() })
+        before.open("mine.csv", csv(6))
+        fourth.isReached()
+        before.cancel()
+        before.written()
+        kill()
+
+        val after = session(silent()).reaches(Stage.STOPPED)
+        assertEquals(3, after.progress!!.checked)
+        assertEquals("mine.csv", after.fileName)
+    }
+
+    @Test
+    fun `Start over forgets it on the disk too`() = runBlocking {
+        val before = session(has(3))
+        before.open("mine.csv", csv(3))
+        before.reaches(Stage.MATCHED)
+        before.saved()
+        assertTrue(kept())
+
+        before.reset()
+        before.written()
+        assertFalse(kept())
+        kill()
+
+        assertEquals(LibraryImport.State(), session(silent()).state.value)
+    }
+
+    @Test
+    fun `Create playlists forgets it once the playlists are made, and not before`() = runBlocking {
+        val before = session(has(3))
+        before.open("mine.csv", csv(3))
+        before.reaches(Stage.MATCHED)
+
+        libraryFails = true
+        before.create()
+        withTimeout(10_000) { before.state.first { it.stage == Stage.MATCHED && askedToMake.get() == 1 } }
+        before.written()
+        assertTrue("an import whose playlists could not be made is still to do", kept())
+
+        libraryFails = false
+        before.create()
+        before.reaches(Stage.CREATED)
+        before.written()
+        assertFalse(kept())
+        kill()
+
+        // Killed on the page that says Made 1 playlist, before Done: there is nothing to make twice.
+        assertEquals(LibraryImport.State(), session(silent()).state.value)
+    }
+
+    @Test
+    fun `another file takes the place of the one that was kept`() = runBlocking {
+        val before = session(has(3))
+        before.open("first.csv", csv(3))
+        before.reaches(Stage.MATCHED)
+        before.saved()
+
+        before.open("second.csv", csv(2))
+        withTimeout(10_000) { before.state.first { it.fileName == "second.csv" && it.stage == Stage.MATCHED } }
+        before.saved()
+        kill()
+
+        val after = session(silent()).reaches(Stage.MATCHED)
+        assertEquals("second.csv", after.fileName)
+        assertEquals(2, after.progress!!.total)
+    }
+
+    @Test
+    fun `a file that would not open leaves nothing kept of the one before it`() = runBlocking {
+        val before = session(has(3))
+        before.open("first.csv", csv(3))
+        before.reaches(Stage.MATCHED)
+        before.saved()
+
+        before.open { LibraryImport.Picked("gone.csv", null) }
+        before.reaches(Stage.FAILED)
+        before.written()
+        kill()
+
+        // What the screen showed last is what comes back: no import.
+        assertEquals(LibraryImport.State(), session(silent()).state.value)
+    }
+
+    @Test
+    fun `an import that cannot be read back starts from the page that offers a file`() = runBlocking {
+        val before = session(has(3))
+        before.open("mine.csv", csv(3))
+        before.reaches(Stage.MATCHED)
+        before.saved()
+        kill()
+        File(dir, "import.json").writeText("{\"version\":1,\"tra")
+
+        val after = session(silent())
+        assertEquals(LibraryImport.State(), after.reaches(Stage.IDLE))
+        after.written()
+        assertFalse(kept())
+
+        // And it still imports.
+        after.open("mine.csv", csv(3))
+        assertEquals(3, after.reaches(Stage.MATCHED).progress!!.total)
+    }
+
+    @Test
+    fun `a file chosen while the kept import is still being read takes its place for good`() = runBlocking {
+        val before = session(has(3))
+        before.open("first.csv", csv(3))
+        before.reaches(Stage.MATCHED)
+        before.saved()
+        kill()
+
+        val after = session(has(2))
+        after.open("second.csv", csv(2))
+        withTimeout(10_000) { after.state.first { it.fileName == "second.csv" && it.stage == Stage.MATCHED } }
+        after.saved()
+        delay(100)
+        assertEquals("second.csv", after.state.value.fileName)
+        kill()
+
+        assertEquals("second.csv", session(silent()).reaches(Stage.MATCHED).fileName)
     }
 }

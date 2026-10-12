@@ -19,27 +19,33 @@ import com.zionhuang.innertube.models.SongItem
  * Plain Kotlin and synchronised, because the search runs off the main thread while the review
  * screen picks and skips on it.
  */
-class ImportRun(val parsed: ImportParse.Parsed) {
+class ImportRun private constructor(layout: Layout) {
 
-    val tracks: List<ImportedTrack>
-    private val playlistIndices: List<Pair<String, List<Int>>>
+    /** The file's songs once each, and each playlist by name with the places of its songs among them. */
+    private class Layout(val tracks: List<ImportedTrack>, val playlists: List<Pair<String, List<Int>>>)
 
-    init {
-        val seen = LinkedHashMap<String, Int>()
-        val unique = mutableListOf<ImportedTrack>()
-        playlistIndices = parsed.playlists.map { playlist ->
-            playlist.name to playlist.tracks.map { track ->
-                seen.getOrPut(track.key) {
-                    unique += track
-                    unique.lastIndex
-                }
-            }
-        }
-        tracks = unique
-    }
+    constructor(parsed: ImportParse.Parsed) : this(layoutOf(parsed))
+
+    /**
+     * A run as it was written down (ImportStore): the songs already once each, and the playlists
+     * already as places among them. What was found comes after, a track at a time, by [restore].
+     */
+    constructor(tracks: List<ImportedTrack>, playlists: List<Pair<String, List<Int>>>) : this(Layout(tracks, playlists))
+
+    val tracks: List<ImportedTrack> = layout.tracks
+
+    /** Each playlist of the file by name, in the file's order, with the places of its songs in [tracks]. */
+    val playlists: List<Pair<String, List<Int>>> = layout.playlists
 
     private val outcomes = arrayOfNulls<Outcome>(tracks.size)
     private val choices = HashMap<Int, Choice>()
+
+    /**
+     * The tracks whose answer or decision has changed since somebody last took the list, which
+     * is what is still to be written down. Kept here, beside what changes, so that a change and
+     * its mark cannot come apart between two threads.
+     */
+    private val changed = HashSet<Int>()
 
     sealed interface Choice {
         data class Picked(val song: SongItem) : Choice
@@ -49,25 +55,61 @@ class ImportRun(val parsed: ImportParse.Parsed) {
     @Synchronized
     fun isDone(index: Int) = outcomes[index] != null
 
+    /** Whether every track has its answer, so that nothing is left to look up. */
+    @Synchronized
+    fun complete() = outcomes.none { it == null }
+
     @Synchronized
     fun record(index: Int, outcome: Outcome) {
         outcomes[index] = outcome
+        changed += index
     }
 
     @Synchronized
     fun pick(index: Int, song: SongItem) {
         choices[index] = Choice.Picked(song)
+        changed += index
     }
 
     @Synchronized
     fun skip(index: Int) {
         choices[index] = Choice.Skipped
+        changed += index
     }
 
     /** Takes a pick or a skip back, so the track waits for a decision again. */
     @Synchronized
     fun undecide(index: Int) {
         choices.remove(index)
+        changed += index
+    }
+
+    /** What is known of one track: its answer if it has one, and what was decided about it if anything was. */
+    data class Slot(val outcome: Outcome?, val choice: Choice?)
+
+    /** The tracks from [from] up to but not [until], as they stand now, for writing them down. */
+    @Synchronized
+    fun slots(from: Int, until: Int): List<Slot> = (from until until).map { Slot(outcomes[it], choices[it]) }
+
+    /** Puts back what was known of a track when the run was written down. Not a change: it is on disk already. */
+    @Synchronized
+    fun restore(index: Int, slot: Slot) {
+        if (index !in outcomes.indices) return
+        outcomes[index] = slot.outcome
+        if (slot.choice != null) choices[index] = slot.choice else choices.remove(index)
+    }
+
+    @Synchronized
+    fun hasChanged() = changed.isNotEmpty()
+
+    /** The tracks changed since this was last asked, which are then no longer counted as changed. */
+    @Synchronized
+    fun takeChanged(): Set<Int> = changed.toSet().also { changed.clear() }
+
+    /** Counts [indices] as changed again, for a write of them that failed. */
+    @Synchronized
+    fun touch(indices: Collection<Int>) {
+        changed += indices
     }
 
     data class ReviewItem(val index: Int, val track: ImportedTrack, val candidates: List<Scored>, val choice: Choice?)
@@ -116,7 +158,7 @@ class ImportRun(val parsed: ImportParse.Parsed) {
      * is dropped.
      */
     @Synchronized
-    fun playlistsToCreate(): List<Pair<String, List<SongItem>>> = playlistIndices.mapNotNull { (name, indices) ->
+    fun playlistsToCreate(): List<Pair<String, List<SongItem>>> = playlists.mapNotNull { (name, indices) ->
         val songs = indices.mapNotNull { i ->
             when (val outcome = outcomes[i]) {
                 // A match can be taken out by hand, which is the answer to the few that are wrong.
@@ -126,5 +168,21 @@ class ImportRun(val parsed: ImportParse.Parsed) {
             }
         }.distinctBy { it.id }
         if (songs.isEmpty()) null else name to songs
+    }
+
+    private companion object {
+        fun layoutOf(parsed: ImportParse.Parsed): Layout {
+            val seen = LinkedHashMap<String, Int>()
+            val unique = mutableListOf<ImportedTrack>()
+            val playlists = parsed.playlists.map { playlist ->
+                playlist.name to playlist.tracks.map { track ->
+                    seen.getOrPut(track.key) {
+                        unique += track
+                        unique.lastIndex
+                    }
+                }
+            }
+            return Layout(unique, playlists)
+        }
     }
 }
