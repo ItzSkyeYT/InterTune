@@ -29,19 +29,34 @@ sealed interface Outcome {
 class SearchUnavailable(cause: Throwable) : Exception(cause)
 
 /**
+ * YouTube refused a search, or the app is already backing off because YouTube is refusing this
+ * connection. Not a failure to try again: asking again is what keeps a refusal up. The run stops
+ * where it is, with what it found, and waits for somebody to say continue.
+ */
+class SearchRefused(cause: Throwable? = null) : Exception(cause)
+
+/**
  * Searches YouTube for each imported track and decides what it is, using TrackMatch's scoring.
  *
  * [search] is YouTube.search with the songs filter in the app and a fake in tests. It throws when
- * the request fails; an empty list means YouTube answered and had nothing.
+ * the request fails; an empty list means YouTube answered and had nothing. A request that fails
+ * is tried again, twice. One that YouTube refused is not: [search] says so with [SearchRefused],
+ * which is passed on as it is.
  *
  * Paced: one request every [spacingMs], never a burst, because a library is hundreds of searches
  * and anything faster starts to look like scraping. Everything waits through [wait], so a
  * cancelled run stops at the next pause rather than at the end of the file.
+ *
+ * And before each request it asks [backingOff], which in the app is the back-off the downloads,
+ * the sync and the feeds already keep to (Throttle): YouTube is refusing this connection for now,
+ * and nothing that nobody is waiting on should be asking. An import is the largest pile of
+ * requests the app ever makes, and it used to go on through that.
  */
 class ImportMatcher(
     private val search: suspend (String) -> List<SongItem>,
     private val wait: suspend (Long) -> Unit = { delay(it) },
     private val spacingMs: Long = SPACING_MS,
+    private val backingOff: () -> Boolean = { false },
 ) {
     private var searched = false
 
@@ -93,10 +108,14 @@ class ImportMatcher(
         var attempt = 0
         while (true) {
             if (searched) wait(spacingMs)
+            // After the pause and not before it: the back-off may have begun while this waited.
+            if (backingOff()) throw SearchRefused()
             searched = true
             try {
                 return search(query)
             } catch (e: CancellationException) {
+                throw e
+            } catch (e: SearchRefused) {
                 throw e
             } catch (e: Exception) {
                 if (attempt >= RETRIES) throw SearchUnavailable(e)

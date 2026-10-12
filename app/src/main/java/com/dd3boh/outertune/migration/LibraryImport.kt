@@ -18,6 +18,7 @@ import com.dd3boh.outertune.db.entities.PlaylistSongMap
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.utils.ErrorText
 import com.dd3boh.outertune.utils.QueueToPlaylist
+import com.dd3boh.outertune.utils.Throttle
 import com.zionhuang.innertube.models.SongItem
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CompletableDeferred
@@ -47,7 +48,8 @@ import kotlin.coroutines.cancellation.CancellationException
  *
  * Matching a library is hundreds of paced searches, minutes of them, and nobody should have to
  * watch it. Leaving the screen does not stop it, coming back shows where it is, and a run that was
- * cancelled or lost its connection carries on from the first track it has no answer for.
+ * cancelled, lost its connection or was turned away by YouTube carries on from the first track it
+ * has no answer for.
  *
  * Minutes is also long enough for Android to close an app that nobody is looking at. So what the
  * file held, what each lookup came to and every pick and leave-out are written down as they come
@@ -74,11 +76,17 @@ class LibraryImport internal constructor(
     constructor(@ApplicationContext context: Context, database: MusicDatabase) : this(
         store = ImportStore(File(context.filesDir, FOLDER)),
         readFile = { uri -> context.readPicked(uri) },
-        matcher = { ImportMatcher(search = ImportSearch::songs) },
+        matcher = { ImportMatcher(search = ImportSearch::songs, backingOff = { Throttle.isBlocked }) },
         makePlaylists = { lists -> database.makeImported(lists) },
     )
 
-    enum class Stage { IDLE, READING, FAILED, MATCHING, STOPPED, OFFLINE, MATCHED, CREATING, CREATED }
+    /**
+     * Three of these are a run that is not running, keeps what it found and waits for Continue.
+     * STOPPED is Cancel, or the app closed over a run. OFFLINE is YouTube out of reach after three
+     * tries. PAUSED is YouTube refusing the searches, or the app backing off because YouTube is
+     * refusing it everything: nothing is asked again until somebody says so.
+     */
+    enum class Stage { IDLE, READING, FAILED, MATCHING, STOPPED, OFFLINE, PAUSED, MATCHED, CREATING, CREATED }
 
     data class State(
         val stage: Stage = Stage.IDLE,
@@ -329,6 +337,11 @@ class LibraryImport internal constructor(
                 saveSoon()
             }
             setStage(Stage.MATCHED, run)
+        } catch (e: SearchRefused) {
+            // A run that was cancelled as the refusal came stays as Cancel left it.
+            currentCoroutineContext().ensureActive()
+            Log.w(TAG, "Paused matching: YouTube refused a search, or the app is backing off", ErrorText.forLog(e))
+            setStage(Stage.PAUSED, run)
         } catch (e: SearchUnavailable) {
             // A run that was cancelled while its last try was failing stays as Cancel left it.
             currentCoroutineContext().ensureActive()
@@ -424,7 +437,7 @@ class LibraryImport internal constructor(
         const val MAX_BYTES = 20 * 1024 * 1024
 
         /** The stages Continue is offered in. */
-        private val CAN_CONTINUE = setOf(Stage.STOPPED, Stage.OFFLINE)
+        private val CAN_CONTINUE = setOf(Stage.STOPPED, Stage.OFFLINE, Stage.PAUSED)
 
         /** The folder under the app's own files where the import under way is kept. */
         private const val FOLDER = "library-import"

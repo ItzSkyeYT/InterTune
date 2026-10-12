@@ -112,6 +112,10 @@ class LibraryImportTest {
     @Volatile
     private var libraryFails = false
 
+    /** The app's back-off, which says YouTube is refusing this connection for now. */
+    @Volatile
+    private var backingOff = false
+
     /** How many times the library was asked to make playlists, whether it did or not. */
     private val askedToMake = java.util.concurrent.atomic.AtomicInteger()
 
@@ -127,7 +131,7 @@ class LibraryImportTest {
         store = store,
         readFile = { error("a test hands its file over itself") },
         // No waiting between searches, only the chance for a cancelled run to notice.
-        matcher = { ImportMatcher(search = youTube::search, wait = { yield() }) },
+        matcher = { ImportMatcher(search = youTube::search, wait = { yield() }, backingOff = { backingOff }) },
         makePlaylists = { lists ->
             askedToMake.incrementAndGet()
             if (libraryFails) throw IOException("the database is closed")
@@ -288,6 +292,88 @@ class LibraryImportTest {
         session.resume()
         assertEquals(5, session.reaches(Stage.MATCHED).progress!!.matched)
         assertEquals(asked(1, 2, 3, 3, 3, 3, 4, 5), youTube.queries)
+    }
+
+    // YouTube refusing.
+
+    @Test
+    fun `a search YouTube refuses pauses the run at once with what it found, and Continue goes on`() = runBlocking {
+        val youTube = has(5)
+        val third = youTube.holdSearch(at = 3)
+        val session = session(youTube)
+        session.open("mine.csv", csv(5))
+        third.isReached()
+
+        youTube.failing = SearchRefused(IOException("429 Too Many Requests"))
+        third.letGo.complete(Unit)
+        val paused = session.reaches(Stage.PAUSED)
+        assertEquals(2, paused.progress!!.checked)
+        // Asked once. A dropped connection is asked three times, and a refusal must not be.
+        assertEquals(asked(1, 2, 3), youTube.queries)
+
+        // Continue too soon is one more search, refused, and the run waits again.
+        session.resume()
+        withTimeout(10_000) { session.state.first { it.stage == Stage.PAUSED && youTube.queries.size == 4 } }
+        assertEquals(2, session.state.value.progress!!.checked)
+
+        youTube.failing = null
+        session.resume()
+        assertEquals(5, session.reaches(Stage.MATCHED).progress!!.matched)
+        assertEquals(asked(1, 2, 3, 3, 3, 4, 5), youTube.queries)
+    }
+
+    @Test
+    fun `while the app is backing off the run waits and asks nothing, Continue or not`() = runBlocking {
+        val youTube = has(4)
+        backingOff = true
+        val session = session(youTube)
+        session.open("mine.csv", csv(4))
+        val paused = session.reaches(Stage.PAUSED)
+        assertEquals(0, paused.progress!!.checked)
+        assertEquals(4, paused.progress!!.total)
+
+        session.resume()
+        session.reaches(Stage.PAUSED)
+        assertTrue("not one search goes out during the back-off", youTube.queries.isEmpty())
+
+        backingOff = false
+        session.resume()
+        assertEquals(4, session.reaches(Stage.MATCHED).progress!!.matched)
+        assertEquals(asked(1, 2, 3, 4), youTube.queries)
+    }
+
+    @Test
+    fun `a back-off that begins during a run pauses it before the next search`() = runBlocking {
+        val youTube = has(5)
+        val third = youTube.holdSearch(at = 3)
+        val session = session(youTube)
+        session.open("mine.csv", csv(5))
+        third.isReached()
+
+        backingOff = true
+        third.letGo.complete(Unit)
+        // The third was already asked and its answer counts. The fourth is not asked.
+        assertEquals(3, session.reaches(Stage.PAUSED).progress!!.checked)
+        assertEquals(asked(1, 2, 3), youTube.queries)
+    }
+
+    @Test
+    fun `a paused import is kept, and comes back stopped when the app is started again`() = runBlocking {
+        val youTube = has(5)
+        val third = youTube.holdSearch(at = 3)
+        // Nothing would be written in time by itself: what is there after the kill, the pause wrote.
+        val before = session(youTube, saveAfter = { awaitCancellation() })
+        before.open("mine.csv", csv(5))
+        third.isReached()
+        youTube.failing = SearchRefused()
+        third.letGo.complete(Unit)
+        before.reaches(Stage.PAUSED)
+        before.written()
+        kill()
+
+        val after = session(silent()).reaches(Stage.STOPPED)
+        assertEquals(2, after.progress!!.checked)
+        assertEquals(5, after.progress!!.total)
     }
 
     // Picks, and the playlists.

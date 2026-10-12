@@ -1713,6 +1713,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="import_library_start_over_body">Everything matched and picked from this file is dropped. Playlists already created stay as they are.</string>
     <string name="import_library_stopped">Stopped. What was found so far is kept, and Continue picks up where it left off.</string>
     <string name="import_library_offline">YouTube could not be reached. Check the connection, then continue.</string>
+    <string name="import_library_paused">Paused. YouTube is turning this connection away for now. What was found so far is kept: try Continue again later.</string>
     <string name="import_library_review_title">Check these (%1$d)</string>
     <string name="import_library_review_help">Tap the right version, or Skip. Anything you do not pick is left out.</string>
     <string name="import_library_missing_title">Not found (%1$d)</string>

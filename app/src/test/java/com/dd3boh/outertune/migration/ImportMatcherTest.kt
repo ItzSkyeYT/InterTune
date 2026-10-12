@@ -186,6 +186,54 @@ class ImportMatcherTest {
     }
 
     @Test
+    fun `a search that YouTube refused is not tried again`() = runBlocking {
+        var calls = 0
+        val refused = ImportMatcher(
+            search = { calls++; throw SearchRefused(IOException("429 Too Many Requests")) },
+            wait = {},
+        )
+        try {
+            refused.resolve(track("A", "x", seconds = 100))
+            fail("should have stopped")
+        } catch (expected: SearchRefused) {
+        }
+        // A dropped connection is asked three times. A refusal is asked once: asking is what keeps it up.
+        assertEquals(1, calls)
+    }
+
+    @Test
+    fun `nothing is asked while the app is backing off`() = runBlocking {
+        val fake = FakeSearch(mapOf("A x" to listOf(song("A", "x", 100))))
+        var backingOff = true
+        val matcher = ImportMatcher(search = fake::search, wait = {}, backingOff = { backingOff })
+        try {
+            matcher.resolve(track("A", "x", seconds = 100))
+            fail("should have stopped")
+        } catch (expected: SearchRefused) {
+        }
+        assertTrue(fake.queries.isEmpty())
+
+        backingOff = false
+        assertTrue(matcher.resolve(track("A", "x", seconds = 100)) is Outcome.Matched)
+    }
+
+    @Test
+    fun `a back-off that begins in the middle of a run stops it before the next search`() = runBlocking {
+        val fake = FakeSearch((1..4).associate { "Song $it x" to listOf(song("Song $it", "x", 100 + it)) })
+        val tracks = (1..4).map { track("Song $it", "x", seconds = 100 + it) }
+        val found = mutableListOf<Int>()
+        // The back-off begins as the second answer comes in.
+        val matcher = ImportMatcher(search = fake::search, wait = {}, backingOff = { fake.queries.size >= 2 })
+        try {
+            matcher.run(tracks, isDone = { false }, onResult = { index, _ -> found += index })
+            fail("should have stopped")
+        } catch (expected: SearchRefused) {
+        }
+        assertEquals(listOf(0, 1), found)
+        assertEquals(listOf("Song 1 x", "Song 2 x"), fake.queries)
+    }
+
+    @Test
     fun `a cancelled run keeps what it found and resumes where it stopped`() = runBlocking {
         val file = ImportParse.Parsed(
             ExportFormat.CSV,

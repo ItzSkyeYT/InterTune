@@ -1416,6 +1416,7 @@
     <string name="import_library_start_over_body">Tout ce qui a été trouvé et choisi dans ce fichier est abandonné. Les playlists déjà créées restent telles quelles.</string>
     <string name="import_library_stopped">Arrêté. Ce qui a été trouvé jusqu\'ici est gardé, et Continuer reprend là où l\'import s\'est arrêté.</string>
     <string name="import_library_offline">Impossible de joindre YouTube. Vérifiez la connexion, puis continuez.</string>
+    <string name="import_library_paused">En pause. YouTube refuse cette connexion pour l\'instant. Ce qui a été trouvé jusqu\'ici est gardé : réessayez Continuer plus tard.</string>
     <string name="import_library_review_title">À vérifier (%1$d)</string>
     <string name="import_library_review_help">Appuyez sur la bonne version, ou sur Passer. Tout ce que vous ne choisissez pas est laissé de côté.</string>
     <string name="import_library_missing_title">Introuvables (%1$d)</string>

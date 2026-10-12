@@ -401,6 +401,7 @@ class ErrorTextTest {
         "recognition/RecognitionEngine.kt" to "Mashup search for '\$query' failed",
         "recognition/RecognitionEngine.kt" to "Could not push",
         "migration/LibraryImport.kt" to "YouTube could not be reached",
+        "migration/LibraryImport.kt" to "YouTube refused a search",
         "utils/BackgroundChecks.kt" to "Update check failed",
         "utils/BackgroundChecks.kt" to "Poll check failed",
         "utils/UpdateInstaller.kt" to "Update download or install failed",

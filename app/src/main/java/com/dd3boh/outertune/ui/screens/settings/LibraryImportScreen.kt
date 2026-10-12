@@ -428,6 +428,7 @@ private fun Progress(
         when (state.stage) {
             LibraryImport.Stage.STOPPED -> Note(stringResource(R.string.import_library_stopped))
             LibraryImport.Stage.OFFLINE -> Note(stringResource(R.string.import_library_offline))
+            LibraryImport.Stage.PAUSED -> Note(stringResource(R.string.import_library_paused))
             LibraryImport.Stage.MATCHED -> {
                 val lists = progress?.kept ?: 0
                 Note(pluralStringResource(R.plurals.import_library_ready, lists, lists))
@@ -442,7 +443,7 @@ private fun Progress(
             when (state.stage) {
                 LibraryImport.Stage.MATCHING ->
                     OutlinedButton(onClick = onCancel) { Text(stringResource(R.string.import_library_cancel)) }
-                LibraryImport.Stage.STOPPED, LibraryImport.Stage.OFFLINE -> {
+                LibraryImport.Stage.STOPPED, LibraryImport.Stage.OFFLINE, LibraryImport.Stage.PAUSED -> {
                     Button(onClick = onResume) { Text(stringResource(R.string.import_library_continue)) }
                     OutlinedButton(onClick = onStartOver) { Text(stringResource(R.string.import_library_start_over)) }
                 }

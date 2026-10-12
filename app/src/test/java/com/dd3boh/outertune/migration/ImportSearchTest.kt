@@ -21,13 +21,16 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
+import java.io.IOException
 
 /**
- * How the import's searches go out.
+ * How the import's searches go out, and what a failed one is taken for.
  *
  * An import is hundreds of searches that nobody typed. They are not the account's searches, so
- * they carry no sign-in whatever "Use login for browsing content" says. No request is made here:
- * this reads what a search would send.
+ * they carry no sign-in whatever "Use login for browsing content" says; and when YouTube refuses
+ * one, the run waits for somebody to say continue, where asking again is what keeps a refusal up.
+ * No request is made here: the first half reads what a search would send, the second is given
+ * failures as the client reports them.
  */
 class ImportSearchTest {
 
@@ -106,5 +109,45 @@ class ImportSearchTest {
         val session = File("src/main/java/com/dd3boh/outertune/migration/LibraryImport.kt").readText()
         assertTrue("ImportSearch::songs" in session)
         assertFalse("the session searches by another way", "YouTube.search(" in session)
+    }
+
+
+    @Test
+    fun `the session gives its searches the app's own back-off to ask`() {
+        // What the downloads, the sync and the feeds ask before they go to YouTube unasked.
+        val session = File("src/main/java/com/dd3boh/outertune/migration/LibraryImport.kt").readText()
+        assertTrue(
+            "the import does not ask the app's back-off",
+            "ImportMatcher(search = ImportSearch::songs, backingOff = { Throttle.isBlocked })" in session,
+        )
+    }
+
+    // What a failed search is taken for. The status is what the client's ResponseException holds.
+
+    @Test
+    fun `too many requests and forbidden are YouTube refusing`() {
+        assertTrue(ImportSearch.refused(429, IllegalStateException("Client request invalid: 429 Too Many Requests")))
+        assertTrue(ImportSearch.refused(403, IllegalStateException("Client request invalid: 403 Forbidden")))
+    }
+
+    @Test
+    fun `the bot check is a refusal however deep its words are`() {
+        assertTrue(ImportSearch.refused(null, IllegalStateException("Sign in to confirm you’re not a bot")))
+        assertTrue(ImportSearch.refused(400, RuntimeException("search failed", IllegalStateException("Sign in to confirm you're not a bot"))))
+    }
+
+    @Test
+    fun `a connection that failed is not a refusal, and is tried again`() {
+        assertFalse(ImportSearch.refused(null, IOException("Unable to resolve host \"music.youtube.com\"")))
+        assertFalse(ImportSearch.refused(null, java.net.SocketTimeoutException("timeout")))
+        // YouTube's own trouble passes, and a page that moved says nothing about this connection.
+        assertFalse(ImportSearch.refused(500, IllegalStateException("Server error")))
+        assertFalse(ImportSearch.refused(503, IllegalStateException("Service unavailable")))
+        assertFalse(ImportSearch.refused(404, IllegalStateException("Not found")))
+    }
+
+    @Test
+    fun `the age gate of one song is not a refusal of the connection`() {
+        assertFalse(ImportSearch.refused(null, IllegalStateException("Sign in to confirm your age")))
     }
 }
