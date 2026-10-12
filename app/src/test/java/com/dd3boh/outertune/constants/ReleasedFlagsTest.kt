@@ -29,7 +29,7 @@ class ReleasedFlagsTest {
     /** On in every build, and so in a release. The second line went on for 0.11.5. */
     private val inEveryBuild = setOf(
         "ENGINE", "SHORT_SETUP", "LOGIN_RETURNS",
-        "STAND_INS", "VISIONOS_IDENTITIES", "WEB_FALLBACK", "LANDSCAPE",
+        "STAND_INS", "VISIONOS_IDENTITIES", "WEB_FALLBACK", "LANDSCAPE", "EXPLAIN_PICTURES",
     )
 
     private val sources = File("src/main/java/com/dd3boh/outertune")
@@ -123,5 +123,12 @@ class ReleasedFlagsTest {
     fun `a phone on its side gets its layout in every build`() {
         assertEquals(setOf("ui/utils/Landscape.kt"), readers("LANDSCAPE"))
         assertWritten("ui/utils/Landscape.kt", "val enabled: Boolean = Unreleased.LANDSCAPE,")
+    }
+
+    @Test
+    fun `the pictures in the explanations are in every build`() {
+        assertEquals(setOf("ui/component/Explain.kt", "ui/screens/settings/fragments/PlayerFrag.kt"), readers("EXPLAIN_PICTURES"))
+        assertWritten("ui/component/Explain.kt", "if (picture != null && Unreleased.EXPLAIN_PICTURES) {")
+        assertWritten("ui/screens/settings/fragments/PlayerFrag.kt", "val pictured = Unreleased.EXPLAIN_PICTURES")
     }
 }

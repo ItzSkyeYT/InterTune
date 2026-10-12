@@ -189,11 +189,18 @@ object Unreleased {
     /**
      * A small moving picture at the head of an explanation, in the manner of the ones Android's
      * own Settings shows: drawn in the app from the theme's colours (ExplainPictures.kt), still
-     * on a phone with animations off, no words in it. One so far, to be judged: Fade between
-     * tracks. Without it an explanation is its words, as before. To drop it: this flag, the
-     * file, and the `picture` argument through Explain.kt and at the one row that gives it.
+     * on a phone with animations off, no words in it. Four so far: Fade between tracks, head
+     * tracking and Quieter as you walk away, each in its explanation, and the sound stage, held
+     * over the sliders that set it, which then have no (i) of their own. Without it an
+     * explanation is its words, as before.
+     *
+     * On in every build from 0.11.5. It has no text of its own. In a release the stage picture
+     * has one slider under it, Stage width: the others it can show are SPATIAL_TUNING's and
+     * DIRECT_AMBIENT's, held back, and it draws them as they are without those. To drop it: this
+     * flag, the file, the `picture` argument through Explain.kt and at the rows that give it,
+     * and the picture over the stage sliders in PlayerFrag.
      */
-    val EXPLAIN_PICTURES = BuildConfig.DEBUG
+    val EXPLAIN_PICTURES = true
 
     /**
      * "Ask YouTube Music's web client first" in the developer options: an experiment for the day
