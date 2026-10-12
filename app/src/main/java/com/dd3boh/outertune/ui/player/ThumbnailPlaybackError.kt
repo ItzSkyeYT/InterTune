@@ -97,6 +97,9 @@ fun ThumbnailPlaybackError(
     // one: a single song YouTube age gates. Nothing is wrong with the app, the network or the
     // account, and the raw text says none of that.
     val isAgeGated = remember(error) { Throttle.isAgeGated(error) }
+    // And a song YouTube no longer serves, which every client turned down and no other copy of
+    // the recording could stand in for: "Unexpected SongUnavailable" under the same wrapper.
+    val isGone = remember(error) { YTPlayerUtils.isUnavailableSong(error) }
 
     var showStackTrace by remember { mutableStateOf(false) }
 
@@ -124,6 +127,8 @@ fun ThumbnailPlaybackError(
                     stringResource(R.string.err_youtube_busy)
                 } else if (isAgeGated) {
                     stringResource(R.string.err_age_restricted)
+                } else if (isGone) {
+                    stringResource(R.string.err_song_unavailable)
                 } else {
                     // What the error says of itself goes through ErrorText, here and below: a
                     // connection that failed names the phone's own address, and this screen is
