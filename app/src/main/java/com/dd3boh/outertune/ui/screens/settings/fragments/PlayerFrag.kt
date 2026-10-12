@@ -483,9 +483,10 @@ private fun rememberHeadTrackerSensor(): androidx.compose.runtime.State<android.
 /**
  * Whether the soundstage stays put when the listener turns their head.
  *
- * Hidden outright unless a tracker is published right now, rather than shown greyed out: on nearly
- * every phone this is not a thing that can be turned on, and a permanently dead switch reads as a
- * bug. Only meaningful alongside the headphone renderer, so it follows that setting too.
+ * Unless a tracker is published right now it is a row that says there is none, rather than a
+ * switch shown greyed out: on nearly every phone this is not a thing that can be turned on, and a
+ * permanently dead switch reads as a bug. Only meaningful alongside the headphone renderer, so it
+ * follows that setting too.
  */
 @Composable
 fun ColumnScope.HeadTrackingFrag() {

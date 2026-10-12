@@ -86,7 +86,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="link_wiki">Wiki</string>
     <string name="link_report">Report it</string>
     <string name="head_tracking_none">No head tracker on this phone.</string>
-    <string name="head_tracking_explain">The music stays where it is when you turn your head.\n\nNeeds headphones that report which way they are facing, and a phone that shares it. Most phones do not, so this is hidden unless yours does.</string>
+    <string name="head_tracking_explain">The music stays where it is when you turn your head.\n\nNeeds headphones that report which way they are facing, and a phone that passes it on. Most phones do not.</string>
     <string name="head_tracking_response">Tracking response</string>
     <string name="head_tracking_response_description">How quickly the sound reacts when you turn your head.</string>
     <string name="head_tracking_response_smooth">Smooth</string>
@@ -96,7 +96,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="head_tracking_response_explain">\"Smooth\" never overshoots but feels slightly behind. \"Quick\" and \"Instant\" feel immediate but can overshoot when you stop turning. \"Balanced\" sits between the two.</string>
     <string name="proximity_volume">Quieter as you walk away</string>
     <string name="proximity_volume_description">Treats your phone as where the music is coming from.</string>
-    <string name="proximity_volume_explain">Your phone becomes where the music comes from. Walk away and it gets quieter.\n\nIt judges distance from Bluetooth signal strength, which is rough, so it changes slowly and only a little. It never mutes.</string>
+    <string name="proximity_volume_explain">Walk away from your phone and the music slowly gets a little quieter, as if the phone were the speaker. It never mutes.\n\nNeeds Bluetooth headphones and Android\'s Nearby devices permission: distance is judged from their signal strength.</string>
     <string name="proximity_probe">Bluetooth signal log</string>
     <string name="proximity_probe_stop">Stop logging</string>
     <string name="proximity_probe_description">Check how well distance can be measured where you are.</string>
@@ -110,7 +110,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="proximity_step_done">Finished. You can pick the phone up.</string>
     <string name="head_tracking_3d">Follow tilting too</string>
     <string name="head_tracking_3d_description">Looking up, down or sideways moves the sound as well.</string>
-    <string name="head_tracking_3d_explain">Looking up and down moves the sound too, not just turning.\n\nUses a bit more battery, and restarts the current song when you switch it on.</string>
+    <string name="head_tracking_3d_explain">Looking up and down moves the sound too, not just turning.\n\nUses a bit more battery. The music stops for a moment each time you change this.</string>
     <string name="head_tracking_recentre">Recentre</string>
     <string name="head_tracking_calibrate">Calibrate</string>
     <string name="head_tracking_calibrate_never">Not calibrated. Tap, then look straight ahead and keep still.</string>
@@ -141,7 +141,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="adaptive_queue_note">Tuned to this session</string>
     <string name="adaptive_queue_note_detail">The end of this queue adjusts itself to what you have been playing over the last while. The next few songs stay put, and nothing changes while you are looking at it.</string>
     <string name="playback_auth_mode">Use my account to play</string>
-    <string name="playback_auth_mode_description">Whether playback may ask YouTube as your account, for songs it refuses anonymously.</string>
+    <string name="playback_auth_mode_description">Whether InterTune may ask YouTube for songs as your account. YouTube refuses some songs to anonymous requests.</string>
     <string name="playback_auth_never">Never</string>
     <string name="playback_auth_when_refused">Only when a song is refused</string>
     <string name="playback_auth_always">Always</string>
@@ -166,7 +166,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="file_path">File path</string>
     <string name="track_number">Track number</string>
     <string name="play_count">Play count</string>
-    <string name="playlist_add_local_to_synced_note">Note: Adding local songs to synced/remote playlists is unsupported. Any other combination is valid</string>
+    <string name="playlist_add_local_to_synced_note">Adding files from this phone to a playlist synced with YouTube Music is not supported.</string>
     <string name="playlist_missing_note">Playlists missing? Click here to enable sync read-write mode in settings</string>
     <string name="toggle_lyrics">Toggle lyrics</string>
 
@@ -254,7 +254,7 @@ while also allowing users to translate our app as well. New, specific strings to
 <!-- Content settings -->
     <string name="like_autodownload">Automatically download your liked songs</string>
     <string name="action_logout_tooltip">To fully log out, please sign out of your YouTube account in the web portal before using this logout button</string>
-    <string name="token_adv_login_description">Advanced: enter or update your login token here instead of signing in through the web page. A token the app cannot read is not accepted.</string>
+    <string name="token_adv_login_description">Advanced: enter or update your login token here instead of signing in through the web page. Anyone who has this token can use your YouTube account, so never share it. A token the app cannot read is not accepted.</string>
     <string name="token_hidden">Tap to show token</string>
     <string name="token_shown">Tap again to copy or edit</string>
     <string name="sync_conflict_add_only">Keep all local content, add new remote content</string>
@@ -545,8 +545,8 @@ while also allowing users to translate our app as well. New, specific strings to
 
 <!-- Backup and restore settings -->
     <string name="err_restore_incompatible_database">Could not restore incompatible database</string>
-    <string name="import_innertune_tooltip">Restoring InnerTune backups are supported, albeit a possibility of anomalies due to technical limitations. Forks are NOT supported.</string>
-	<string name="restore_lm_tooltip">For fresh installs of the app, custom download and local media scan paths may not work. To resolve this, remove and add them again.</string>
+    <string name="import_innertune_tooltip">Backups made by OuterTune or InnerTune can be restored, though some details of an InnerTune backup may come across wrong. Backups from other forks are not supported.</string>
+	<string name="restore_lm_tooltip">After a restore on a new install, your download and scan folders may stop working. Remove them and add them again.</string>
 
 <!-- Experimental settings -->
     <string name="dev_settings_title">Enable developer settings</string>
@@ -707,7 +707,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="clear_listen_history_description">Delete everything the app has recorded about what you have played.</string>
     <string name="pause_search_history_description">Stop saving what you search for.</string>
     <string name="clear_search_history_description">Delete every search the app has saved.</string>
-    <string name="sync_params_description">Read only means the app never changes anything in your YouTube Music account. Conflict resolution decides what happens when a playlist is different here and there.</string>
+    <string name="sync_params_description">\"Read write\" lets the app change your YouTube Music account: likes, library and playlists. \"Overwrite\" takes out of this phone\'s library whatever is not in the account.</string>
     <string name="enable_lrclib_description">Look for lyrics on LRCLIB, a free community lyrics database.</string>
     <string name="enable_kugou_description">Look for lyrics on KuGou. Its collection is large, and strongest for Chinese music.</string>
     <string name="audio_normalization_description">Even out the volume between songs, so one is not suddenly much louder than the last.</string>
@@ -723,7 +723,7 @@ while also allowing users to translate our app as well. New, specific strings to
     </plurals>
     <string name="share_audio_focus">Let other apps play at the same time</string>
     <string name="share_audio_focus_description">Play music over another app\'s sound instead of stopping it.</string>
-    <string name="share_audio_focus_explain">Normally, starting music here stops other apps. With this on, both play at once.\n\nInterTune also stops lowering itself for navigation and alarms. Calls mute it either way.</string>
+    <string name="share_audio_focus_explain">With this on, InterTune and another app play at once.\n\nInterTune also stops lowering itself for navigation and alarms. Calls mute it either way.</string>
     <string name="sleep_timer_notif_end_of_song">The music stops at the end of this song</string>
     <string name="sleep_timer_notif_chip">%1$d min</string>
     <plurals name="sleep_timer_notif_minutes">
@@ -885,7 +885,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="walkthrough_settings_title">All of it is a setting</string>
     <string name="recognise_settings_description">What happens when you ask InterTune to name what is playing.</string>
     <string name="recognise_keep_listening_desc">The big button keeps going until you stop it, instead of naming one song and finishing. The cards on the screen pick for one run.</string>
-    <string name="recognise_keep_listening_explain">A single listen takes about ten seconds. \"Keep listening\" carries on, adding each new song it hears, even with the screen off. It uses the microphone and the network the whole time, so it costs battery.</string>
+    <string name="recognise_keep_listening_explain">\"Keep listening\" carries on after the first song, adding each new one it hears, even with the screen off. It uses the microphone and the network the whole time, so it costs battery.</string>
     <string name="recognise_pause_title">Pause my music while listening</string>
     <string name="recognise_pause_desc">Only when the sound is coming from the phone itself.</string>
     <string name="recognise_clear_history_desc">Forget the songs recognised so far.</string>
@@ -1062,7 +1062,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="spatial_audio_status_platform_off">The phone has its own spatial audio, switched off.</string>
     <string name="spatial_audio_status_platform_on">The phone has its own spatial audio, switched on.</string>
     <string name="spatial_audio_status_unreadable">Could not read: %1$s</string>
-    <string name="spatial_audio_status_explain">The first line is what InterTune can use. It needs your phone to share which way your head is facing, and most phones do not.\n\nThe second line is your phone\'s own spatial audio. It is separate and does not affect InterTune.</string>
+    <string name="spatial_audio_status_explain">It says first whether InterTune can track your head on this phone, then whether the phone has spatial audio of its own. The phone\'s own is what \"Surround upmix\" relies on. Head tracking does not need it.</string>
     <string name="spatial_audio_needs_13">Needs Android 13 or later.</string>
     <string name="recommendations">Recommendations</string>
     <string name="queue_learn_off">Don\'t learn from this</string>
@@ -1124,7 +1124,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="quick_picks_showing_library">Showing your library\'s picks: not enough listening yet for Best recommendations</string>
     <string name="quick_picks_showing_youtube">Showing YouTube\'s picks: not enough listening yet for Best recommendations</string>
     <string name="rank_with_listening">Rank with your listening</string>
-    <string name="rank_with_listening_description">Order the Quick picks row, from whichever source, by what you tend to finish, search for and like. Off keeps the source\'s own order.</string>
+    <string name="rank_with_listening_description">Order the Quick picks row by what you tend to finish, search for and like. Off keeps the source\'s own order.</string>
     <string name="show_reasons">Show reasons</string>
     <string name="show_reasons_description">A line under each Best recommendations card saying what put it there.</string>
     <string name="adventurousness">Adventurousness</string>
@@ -1133,7 +1133,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="familiarity_description">How much of the Best recommendations row goes to songs you have heard well in the last two weeks and are due to hear again: %1$d of 20 cards. Songs you have worn out step back on their own.</string>
     <string name="why_these_lane_again">%1$d you come back to</string>
     <string name="new_songs_only">New songs only</string>
-    <string name="new_songs_only_description">Every card in the Best recommendations row is a song you have never played.</string>
+    <string name="new_songs_only_description">Every card in the Best recommendations row is a song new to you.</string>
     <string name="similar_source">Similar songs from</string>
     <string name="login_reassurance">This is Google\'s own sign-in page. InterTune never sees your password. It keeps only the sign-in YouTube Music hands back.</string>
     <string name="login_secure">Secure connection</string>
@@ -1498,18 +1498,18 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="rest_songs_i_skip_info">Skip a song you like or play often before its halfway point, and it stays out of the \"Best recommendations\" row for a week. A skip in the first thirty seconds does not count. You can lift a rest early on the \"Exclusions\" page.</string>
     <string name="recommendations_doing_info">Worked out on this phone from your own listening, and nothing leaves it unless you save a copy under \"Your data\". Give it a few weeks before you read much into the numbers.</string>
     <string name="recommendations_summary_info">\"Seen\" means a card was on screen for half a second, or you tapped it. \"Played\" means you heard a good part of that song, or liked it. A card you did not tap is judged a day later, so the newest are not counted yet.</string>
-    <string name="learn_from_listening_info">Each card it showed you is judged against what you did next, and that nudges how it scores cards like it. Off, it stops learning; your plays are still logged, so History and Stats are untouched. It all runs on the phone.</string>
+    <string name="learn_from_listening_info">\"Best recommendations\" learns from what you play and skip among the cards it shows you. Off, it stops learning; History and Stats carry on as before. It all happens on this phone.</string>
     <string name="shadow_comparison_info">The unseen row is built when Home opens and is never shown. A day later it is checked against what you went on to play; it teaches \"Best recommendations\" nothing. Off, the unseen line on this page stops filling in.</string>
-    <string name="recommendations_brier_info">Every card it shows carries its guess at how likely you are to play it. The first line puts the average guess beside how many were played: the closer the two, the better. The lines under it group the cards by the chance it gave them.</string>
+    <string name="recommendations_brier_info">Every card it shows carries its guess at how likely you are to play it. The lines under the first group the cards by the chance it gave them.</string>
     <string name="recommendations_reset_weights_info">It goes back to how it started, as if it had learned nothing. Your listens, exclusions and settings are kept, and \"Rebuild what it learned\" brings the learning back. It asks first.</string>
     <string name="forget_today_info">Every play started since midnight stops teaching, and what it learned is worked out again without them. It asks first, saying how many listens. A song that began before midnight belongs to yesterday and stays.</string>
     <string name="engine_developer_info">The engine\'s constants, each with its default: a number overrides one, an empty field restores it. They change the \"Best recommendations\" row only, not what it learns. Pull down on Home to see a change.</string>
-    <string name="export_engine_data_info">Saves what it has learned as a file of numbers, where you choose. No song titles, artists, play counts or dates, and nothing about your account or phone. Nothing is uploaded.</string>
+    <string name="export_engine_data_info">Saves what it has learned as a file of numbers, where you choose. No song titles, artists or play counts, and nothing about your account or phone; the only date in it is when the file was saved. Nothing is uploaded.</string>
     <string name="recommendations_learned_title_info">Everything below is kept in the app on this phone and never uploaded. A backup includes it. Under \"Privacy and history\", \"Pause listen history\" stops it being written and \"Clear listen history\" deletes it.</string>
     <string name="recommendations_where_from_info">Each place counts the times you started playing from there; the songs that play on after are not counted again. A song you chose yourself teaches it more than one that just played on, and a search counts most. \"Not recorded\" means the app did not note where it began.</string>
-    <string name="recommendations_recent_title_info">The last thirty listens it learns from, newest first. Each line says how the play ended, how much of the song you heard and where it was started from. \"Not learned from\" means you told it to forget that listen.</string>
-    <string name="context_chips_info">The first chip is your usual row. The others lean it for now: \"Discover\" toward songs new to you, \"Favourites\" toward what you have liked, and \"Focus\", \"Chill\" and \"Party\" toward what you play while each is on. A chip stays on until you change it.</string>
-    <string name="context_chips">Context chips</string>
+    <string name="recommendations_recent_title_info">The last thirty listens it learns from, newest first. Each line says how the play ended, how much of the song you heard and where it was started from. \"Not learned from\" means you told it to forget that listen, or it played from a queue set to \"Don\'t learn from this\".</string>
+    <string name="context_chips_info">The first chip is your usual row. The others lean it until you change back: \"Discover\" toward songs new to you, \"Favourites\" toward songs you liked, \"Focus\", \"Chill\" and \"Party\" toward what you play while each is on. The last chip works on its own, with any of them.</string>
+    <string name="context_chips">Quick picks chips</string>
     <string name="explain_what_this_does">What %1$s does</string>
     <string name="explain_close">Close</string>
 

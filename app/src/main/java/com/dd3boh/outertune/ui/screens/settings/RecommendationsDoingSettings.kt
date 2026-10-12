@@ -189,8 +189,10 @@ fun RecommendationsDoingSettings(
         // Held back for 0.11 with the engine: see Unreleased. The ledger below it ships either way.
         val graded = gradedByTeam
         // What each thing counts for: numbers only someone tuning the engine can read, so they sit
-        // under For developers, shown when the figures above are.
+        // under For developers, shown when the figures above are. The Brier score stands there
+        // too, where there is one to give.
         var showWeights = false
+        var brierScore: String? = null
         if (Unreleased.ENGINE && graded != null) {
             val teams = cardsByTeam(graded)
             val pairs = calibration.map { it.p.toDouble() to it.y.toDouble() }
@@ -275,29 +277,34 @@ fun RecommendationsDoingSettings(
                 )
 
                 // The Brier score is the honest measure but means nothing to most people, so the
-                // row compares what it expected with what happened, and the score waits at the foot
-                // of the "i" as a detail for whoever wants one number. It says how many cards it
-                // covers: only those from a scored row carry a guess, which can be fewer than the
-                // summary counts. Chances are "in 100" all the way down, cards plain counts. The
-                // footer says first whether its guesses beat the same chance for every card, named
-                // as the share played, then the score beside that bar, since a small number alone
-                // reads as good whatever it measures. With none played there is no score to give,
-                // and the footer says only that.
+                // row compares what it expected with what happened, and the score waits under For
+                // developers as a detail for whoever wants one number: at the foot of the "i" it
+                // made the explanation a page. It says how many cards it covers: only those from a
+                // scored row carry a guess, which can be fewer than the summary counts. Chances
+                // are "in 100" all the way down, cards plain counts. The footer of the "i" says
+                // whether its guesses beat the same chance for every card, named as the share
+                // played, and the score is given beside that bar, since a small number alone reads
+                // as good whatever it measures. With none played there is no score to give, and
+                // the footer says only that.
                 val brier = Calibration.brier(pairs)
                 val prediction = predictionOf(pairs)
                 val (expected, played) = per100Texts(prediction.expectedPer100, prediction.playedPer100, locale)
+                val foot = brierFooter(pairs)
+                brierScore = foot?.let { f ->
+                    if (f.score != null && f.reference != null) {
+                        pluralStringResource(R.plurals.recommendations_brier_description, pairs.size, f.score, pairs.size, f.reference)
+                    } else null
+                }
                 StatEntry(
                     title = stringResource(R.string.recommendations_brier),
                     explanation = stringResource(R.string.recommendations_brier_info),
-                    footer = brierFooter(pairs)?.let { f ->
+                    footer = foot?.let { f ->
                         when (f.verdict) {
                             BrierVerdict.NONE_PLAYED -> stringResource(R.string.recommendations_brier_none_played)
                             BrierVerdict.BETTER -> stringResource(R.string.recommendations_brier_better, played)
                             BrierVerdict.SAME -> stringResource(R.string.recommendations_brier_same, played)
                             BrierVerdict.WORSE -> stringResource(R.string.recommendations_brier_worse, played)
-                        } + (if (f.score != null && f.reference != null) {
-                            " " + pluralStringResource(R.plurals.recommendations_brier_description, pairs.size, f.score, pairs.size, f.reference)
-                        } else "")
+                        }
                     },
                     numbers = if (brier.isNaN()) stringResource(R.string.recommendations_nothing_yet)
                         else (listOf(
@@ -460,6 +467,15 @@ fun RecommendationsDoingSettings(
         if (Unreleased.ENGINE) {
             Spacer(Modifier.height(24.dp))
             PreferenceGroupTitle(title = stringResource(R.string.recommendations_developers_title))
+            // A plain line under the heading, set as the one under What it has to learn from.
+            brierScore?.let { score ->
+                Text(
+                    text = score,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+                )
+            }
             if (showWeights) {
                 WeightsEntry(weights, updates)
             }

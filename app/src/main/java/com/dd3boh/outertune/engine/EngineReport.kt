@@ -470,9 +470,10 @@ fun brierComparison(pairs: List<Pair<Double, Double>>): BrierVerdict? = when {
 }
 
 /**
- * The footer behind How well it predicts' "i": the verdict, then the score beside its bar. With no
- * card played there is no [score]: the bar is nought, which no real guess can beat, and a score
- * sentence ending "lower is better" beside it read as the guesses losing to guessing nothing.
+ * What How well it predicts says past its row: the verdict, at the foot of its "i", and the score
+ * beside its bar, which the page gives under For developers. With no card played there is no
+ * [score]: the bar is nought, which no real guess can beat, and a score sentence ending "lower is
+ * better" beside it read as the guesses losing to guessing nothing.
  */
 data class BrierFooter(val verdict: BrierVerdict, val score: Double?, val reference: Double?)
 

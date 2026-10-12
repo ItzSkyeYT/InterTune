@@ -529,3 +529,10 @@ interface SongsDao {
     fun nukeLocalSongs()
     // endregion
 }
+
+/**
+ * Whether a file on this phone is among [songIds], however many there are: asked a chunk at a
+ * time, as [SongsDao.songEntitiesByIds] wants, and no further than the first chunk that has one.
+ */
+fun SongsDao.anyLocalSong(songIds: List<String>, chunkSize: Int = 900): Boolean =
+    chunkSongIds(songIds, chunkSize).any { chunk -> songEntitiesByIds(chunk).any { it.isLocal } }
