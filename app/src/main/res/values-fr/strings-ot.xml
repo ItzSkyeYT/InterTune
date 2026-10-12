@@ -1391,8 +1391,8 @@
         <item quantity="other">Afficher %1$s de plus</item>
     </plurals>
     <string name="stats_show_fewer">Afficher moins</string>
-    <!-- Import from another service. Behind Unreleased.LIBRARY_IMPORT, debug builds only for now. -->
-    <string name="import_library_title">Importer depuis un autre service</string>
+    <!-- Import from another app. Behind Unreleased.LIBRARY_IMPORT, debug builds only for now. -->
+    <string name="import_library_title">Importer depuis une autre appli</string>
     <string name="import_library_entry">Récupérez vos playlists de Spotify, Apple Music et d\'autres, grâce à un fichier d\'export</string>
     <string name="import_library_intro">Exportez vos playlists dans un fichier, puis choisissez-le ici. Chaque titre est recherché sur YouTube Music, et les playlists sont créées sur ce téléphone.</string>
     <string name="import_library_spotify">Spotify : Exportify (exportify.app), une playlist ou vos titres aimés en CSV, ou tout dans un zip.</string>

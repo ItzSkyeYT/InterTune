@@ -42,7 +42,7 @@ object Unreleased {
     val ENGINE = true
 
     /**
-     * Import from another service, under Settings > Backup and restore: an export file from
+     * Import from another app, under Settings > Backup and restore: an export file from
      * Exportify, TuneMyMusic, Soundiiz or Apple Music, matched against YouTube with TrackMatch,
      * with a review screen for what it is unsure of, made into local playlists. Setup's first
      * page leads to it too, beside "I have a backup".
