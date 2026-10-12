@@ -118,8 +118,20 @@ class ImportSearchTest {
         val session = File("src/main/java/com/dd3boh/outertune/migration/LibraryImport.kt").readText()
         assertTrue(
             "the import does not ask the app's back-off",
-            "ImportMatcher(search = ImportSearch::songs, backingOff = { Throttle.isBlocked })" in session,
+            "ImportMatcher(search = ImportSearch::songs, backingOff = { Throttle.isBlocked }, " in session,
         )
+        // And which failures to wait out: the ones YouTube answered.
+        assertTrue("answered = ImportSearch::answered)" in session)
+    }
+
+    @Test
+    fun `an answer from YouTube that is not songs is told from a connection that is not there`() {
+        assertFalse(ImportSearch.answered(IOException("Unable to resolve host")))
+        assertFalse(ImportSearch.answered(SearchRefused()))
+        // The other side, a ResponseException, needs a response to be made of: what the matcher
+        // does with one is in ImportMatcherTest.
+        val search = File("src/main/java/com/dd3boh/outertune/migration/ImportSearch.kt").readText()
+        assertTrue("fun answered(failure: Throwable): Boolean = failure is ResponseException" in search)
     }
 
     // What a failed search is taken for. The status is what the client's ResponseException holds.

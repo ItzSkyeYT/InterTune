@@ -41,7 +41,9 @@ class SearchRefused(cause: Throwable? = null) : Exception(cause)
  * [search] is YouTube.search with the songs filter in the app and a fake in tests. It throws when
  * the request fails; an empty list means YouTube answered and had nothing. A request that fails
  * is tried again, twice. One that YouTube refused is not: [search] says so with [SearchRefused],
- * which is passed on as it is.
+ * which is passed on as it is. And one that YouTube answered, though not with songs ([answered]:
+ * a 400, a 500), is tried four more times over most of a minute: the connection is there, and
+ * what is wrong on YouTube's side takes longer to pass than a dropped packet.
  *
  * Paced: one request every [spacingMs], never a burst, because a library is hundreds of searches
  * and anything faster starts to look like scraping. Everything waits through [wait], so a
@@ -57,6 +59,7 @@ class ImportMatcher(
     private val wait: suspend (Long) -> Unit = { delay(it) },
     private val spacingMs: Long = SPACING_MS,
     private val backingOff: () -> Boolean = { false },
+    private val answered: (Throwable) -> Boolean = { false },
 ) {
     private var searched = false
 
@@ -118,8 +121,9 @@ class ImportMatcher(
             } catch (e: SearchRefused) {
                 throw e
             } catch (e: Exception) {
-                if (attempt >= RETRIES) throw SearchUnavailable(e)
-                wait(BACKOFF_MS * (attempt + 1))
+                val waits = if (answered(e)) PATIENT_WAITS_MS else RETRY_WAITS_MS
+                if (attempt >= waits.size) throw SearchUnavailable(e)
+                wait(waits[attempt])
                 attempt++
             }
         }
@@ -128,8 +132,18 @@ class ImportMatcher(
     companion object {
         /** About two and a half searches a second. */
         const val SPACING_MS = 400L
-        const val RETRIES = 2
-        const val BACKOFF_MS = 2_000L
+
+        /** The waits before each new try of a search that did not get through: two more tries. */
+        val RETRY_WAITS_MS = listOf(2_000L, 4_000L)
+
+        /**
+         * And of one that YouTube answered with something other than songs. Seven seconds used
+         * to be all a search got: YouTube answered one search of a 493-song import with "invalid
+         * argument" three times in those seconds, was itself again within the minute, and the
+         * import had stopped by then, saying YouTube could not be reached, with nobody there to
+         * tap Continue.
+         */
+        val PATIENT_WAITS_MS = listOf(2_000L, 5_000L, 15_000L, 30_000L)
 
         /** The first eight results, as MatchRateProbe scored them when the threshold was measured. */
         const val CANDIDATES_SCORED = 8
