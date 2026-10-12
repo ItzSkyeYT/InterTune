@@ -1111,13 +1111,16 @@ class MusicService : MediaLibraryService(),
                     .distinctUntilChanged()
                     .collectLatest(scope) { YTPlayerUtils.askWebClientFirst = it }
             }
-            // And the switch that takes VISIONOS for refused, behind Unreleased.WEB_FALLBACK.
-            if (Unreleased.WEB_FALLBACK) {
+            // And the switches that take VISIONOS for refused. They are a test tool, so they are
+            // read only where the developer options have their row, in a debug or preview build,
+            // whatever the two flags say. A restored backup can bring a switch that is on into a
+            // release, which has no row to turn it off with.
+            if (BuildConfig.DEBUG && Unreleased.WEB_FALLBACK) {
                 dataStore.data.map { it[VisionosRefusedKey] ?: false }
                     .distinctUntilChanged()
                     .collectLatest(scope) { YTPlayerUtils.takeVisionosForRefused(it) }
             }
-            if (Unreleased.VISIONOS_IDENTITIES) {
+            if (BuildConfig.DEBUG && Unreleased.VISIONOS_IDENTITIES) {
                 dataStore.data.map { it[OwnVisionosRefusedKey] ?: false }
                     .distinctUntilChanged()
                     .collectLatest(scope) { YTPlayerUtils.takeVisionosForRefused(it, onlyAsSaidHere = true) }
