@@ -1692,6 +1692,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="import_library_spotify">Spotify: Exportify (exportify.app) saves each playlist, and your liked songs, as a CSV file. Its Export All button makes a zip of every playlist, and that works too.</string>
     <string name="import_library_others">Apple Music, Deezer, Tidal and others: TuneMyMusic or Soundiiz can export your playlists to a CSV file. In Apple Music or iTunes on a computer, File, Library, Export Library works too, and brings every playlist at once.</string>
     <string name="import_library_review_note">Songs it is not sure about wait for you to check them. Nothing is added until you tap Create playlists.</string>
+    <string name="import_library_recommendations">The import brings your playlists. The recommendations learn only from what you play here, so they know nothing of what you liked or skipped in the other app.</string>
     <string name="import_library_premium">With YouTube Music Premium, YouTube\'s own transfer, under Settings, Privacy and data, can also move playlists over.</string>
     <string name="import_library_choose">Choose a file</string>
     <string name="import_library_reading">Reading the file</string>

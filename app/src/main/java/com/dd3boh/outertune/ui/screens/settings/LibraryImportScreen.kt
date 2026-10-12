@@ -298,6 +298,10 @@ private fun Intro() {
         Spacer(Modifier.height(8.dp))
         Text(stringResource(R.string.import_library_review_note), style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(8.dp))
+        // What an import does not bring, said before anybody spends an evening on one: playlists
+        // come over, and what the other app had learnt of its listener stays there.
+        Text(stringResource(R.string.import_library_recommendations), style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(8.dp))
         Text(
             stringResource(R.string.import_library_premium),
             style = MaterialTheme.typography.bodySmall,
