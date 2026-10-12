@@ -476,7 +476,8 @@ private fun Progress(
             LibraryImport.Stage.OFFLINE -> Note(stringResource(R.string.import_library_offline))
             LibraryImport.Stage.PAUSED -> Note(stringResource(R.string.import_library_paused))
             LibraryImport.Stage.MATCHED -> {
-                val lists = progress?.kept ?: 0
+                // The number the line of what was made will give, so the two agree.
+                val lists = progress?.ready ?: 0
                 Note(pluralStringResource(R.plurals.import_library_ready, lists, lists))
                 if (progress != null && progress.undecided > 0) {
                     Note(pluralStringResource(R.plurals.import_library_undecided, progress.undecided, progress.undecided))

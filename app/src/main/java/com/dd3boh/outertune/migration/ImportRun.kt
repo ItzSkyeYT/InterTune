@@ -138,12 +138,18 @@ class ImportRun private constructor(layout: Layout) {
         val matchedItems: List<MatchedItem>,
         val review: List<ReviewItem>,
         val notFound: List<ImportedTrack>,
+        /**
+         * How many songs Create playlists would put in, counted the way the line that says what
+         * was made counts them: once for each playlist a song is in, and once where two rows of
+         * a playlist came to the same song on YouTube. See [playlistsToCreate].
+         */
+        val ready: Int,
     ) {
         val matched: Int get() = matchedItems.size
         val undecided: Int get() = review.count { it.choice == null }
         val picked: Int get() = review.count { it.choice is Choice.Picked }
 
-        /** What Create playlists would put in: matches not taken out, and picks. */
+        /** The songs of the file that have their answer: matches not taken out, and picks. */
         val kept: Int get() = matchedItems.count { !it.leftOut } + picked
     }
 
@@ -162,7 +168,7 @@ class ImportRun private constructor(layout: Layout) {
                 null -> Unit
             }
         }
-        return Snapshot(tracks.size, checked, matched, review, notFound)
+        return Snapshot(tracks.size, checked, matched, review, notFound, ready = playlistsToCreate().sumOf { it.second.size })
     }
 
     /**
