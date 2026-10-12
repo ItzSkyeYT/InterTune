@@ -1805,6 +1805,9 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="home_play_at_random">Play something at random</string>
     <string name="view_as_list">Shown as a list</string>
     <string name="view_as_grid">Shown as a grid</string>
+    <string name="select_all">Select all</string>
+    <string name="deselect_all">Deselect all</string>
+    <string name="cancel_selection">Cancel selection</string>
     <string name="visionos_test" translatable="false">Pretend VISIONOS is blocked</string>
     <string name="visionos_test_off" translatable="false">Off</string>
     <string name="visionos_test_own" translatable="false">This app\'s version only</string>

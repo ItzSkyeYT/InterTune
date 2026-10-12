@@ -1505,6 +1505,9 @@
     <string name="home_play_at_random">Lancer quelque chose au hasard</string>
     <string name="view_as_list">Affiché en liste</string>
     <string name="view_as_grid">Affiché en grille</string>
+    <string name="select_all">Tout sélectionner</string>
+    <string name="deselect_all">Tout désélectionner</string>
+    <string name="cancel_selection">Annuler la sélection</string>
     <string name="setup_welcome_body">Ravis de vous voir ici. Voici ce qui vous attend.</string>
     <string name="setup_does_youtube_music">Tout YouTube Music</string>
     <string name="setup_does_youtube_music_more">Avec ou sans compte, à vous de voir</string>
