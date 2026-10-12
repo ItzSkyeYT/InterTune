@@ -299,7 +299,6 @@ fun ColumnScope.StageWidthFrag() {
         if (!Unreleased.SPATIAL_TUNING) return@Column
         StageSliderRow(
             title = stringResource(R.string.spatial_strength),
-            explanation = stringResource(R.string.spatial_strength_explain),
             description = stringResource(R.string.spatial_strength_value, strength),
             pictured = pictured,
         )
@@ -311,7 +310,6 @@ fun ColumnScope.StageWidthFrag() {
         )
         StageSliderRow(
             title = stringResource(R.string.spatial_room),
-            explanation = stringResource(R.string.spatial_room_explain),
             description = stringResource(R.string.spatial_room_value, room),
             pictured = pictured,
         )
@@ -331,7 +329,6 @@ fun ColumnScope.StageWidthFrag() {
         if (!Unreleased.DIRECT_AMBIENT) return@Column
         StageSliderRow(
             title = stringResource(R.string.spatial_ambience),
-            explanation = stringResource(R.string.spatial_ambience_explain),
             description = stringResource(R.string.spatial_ambience_value, ambience),
             pictured = pictured,
         )
@@ -348,11 +345,12 @@ fun ColumnScope.StageWidthFrag() {
  * The row over one of the sliders that set where the sound sits. With the picture over the
  * group it is the name and what is set and no more: the picture shows what the slider does, as
  * it is dragged, and an (i) beside every one of them was four buttons saying less than it does.
- * Without the picture the explanation is behind its (i), as it was.
+ * Without the picture Stage width has its explanation behind an (i), as it was. The others have
+ * none to give: they are only offered in builds that have the picture.
  */
 @Composable
-private fun StageSliderRow(title: String, explanation: String, description: String, pictured: Boolean) {
-    if (pictured) {
+private fun StageSliderRow(title: String, description: String, pictured: Boolean, explanation: String? = null) {
+    if (pictured || explanation == null) {
         PreferenceEntry(title = { Text(title) }, description = description, onClick = null)
     } else {
         ExplainedPreference(title = title, explanation = explanation, description = description)
@@ -485,9 +483,10 @@ private fun rememberHeadTrackerSensor(): androidx.compose.runtime.State<android.
 /**
  * Whether the soundstage stays put when the listener turns their head.
  *
- * Hidden outright unless a tracker is published right now, rather than shown greyed out: on nearly
- * every phone this is not a thing that can be turned on, and a permanently dead switch reads as a
- * bug. Only meaningful alongside the headphone renderer, so it follows that setting too.
+ * Unless a tracker is published right now it is a row that says there is none, rather than a
+ * switch shown greyed out: on nearly every phone this is not a thing that can be turned on, and a
+ * permanently dead switch reads as a bug. Only meaningful alongside the headphone renderer, so it
+ * follows that setting too.
  */
 @Composable
 fun ColumnScope.HeadTrackingFrag() {

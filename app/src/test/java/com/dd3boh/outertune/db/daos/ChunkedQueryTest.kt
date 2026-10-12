@@ -6,8 +6,10 @@
 
 package com.dd3boh.outertune.db.daos
 
+import com.dd3boh.outertune.db.entities.SongEntity
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.lang.reflect.Proxy
@@ -79,5 +81,43 @@ class ChunkedQueryTest {
         // The first X falls in the first chunk of 900 and the second in the next one.
         val adding = listOf("X") + (1..900).map { "song-$it" } + "X"
         assertEquals(listOf("X"), dao.playlistDuplicatesChunked("P", adding))
+    }
+
+    /** A song table in which [local] are files on the phone, counting the chunks it is asked for. */
+    private class Songs(private val local: Set<String>) {
+        var asked = 0
+        val dao = Proxy.newProxyInstance(
+            SongsDao::class.java.classLoader, arrayOf(SongsDao::class.java)
+        ) { _, method, args ->
+            check(method.name == "songEntitiesByIds") { "unexpected call to ${method.name}" }
+            asked++
+            val ids = (args[0] as List<*>).map { it as String }
+            check(ids.size <= 900) { "a chunk of ${ids.size} ids" }
+            // A song not stored yet has no row, as one from YouTube that was never played.
+            ids.filter { !it.startsWith("new-") }.map { SongEntity(id = it, title = it, isLocal = it in local, localPath = null) }
+        } as SongsDao
+    }
+
+    @Test
+    fun `a file from the phone among the songs is found, whichever chunk it falls in`() {
+        val ids = (1..2000).map { "song-$it" }
+        assertTrue(Songs(setOf("song-1")).dao.anyLocalSong(ids))
+        assertTrue(Songs(setOf("song-1500")).dao.anyLocalSong(ids))
+        assertTrue(Songs(setOf("song-2000")).dao.anyLocalSong(ids))
+        // No further than the chunk that has one.
+        val early = Songs(setOf("song-10"))
+        assertTrue(early.dao.anyLocalSong(ids))
+        assertEquals(1, early.asked)
+    }
+
+    @Test
+    fun `songs from YouTube alone, stored or not, are no file from the phone`() {
+        val ids = (1..1000).map { "song-$it" } + (1..1000).map { "new-$it" }
+        val songs = Songs(emptySet())
+        assertFalse(songs.dao.anyLocalSong(ids))
+        assertEquals(3, songs.asked)
+        // A local file that is not among the songs being added does not count.
+        assertFalse(Songs(setOf("elsewhere")).dao.anyLocalSong(ids))
+        assertFalse(Songs(setOf("song-1")).dao.anyLocalSong(emptyList()))
     }
 }

@@ -40,6 +40,7 @@ import com.dd3boh.outertune.constants.PlaylistSortType
 import com.dd3boh.outertune.constants.PlaylistSortTypeKey
 import com.dd3boh.outertune.constants.SyncMode
 import com.dd3boh.outertune.constants.YtmSyncModeKey
+import com.dd3boh.outertune.db.daos.anyLocalSong
 import com.dd3boh.outertune.db.daos.playlistDuplicatesChunked
 import com.dd3boh.outertune.db.daos.playlistIdBySongsChunked
 import com.dd3boh.outertune.db.entities.Playlist
@@ -100,6 +101,11 @@ fun AddToPlaylistDialog(
     var duplicates by remember {
         mutableStateOf(emptyList<String>())
     }
+    // Whether a file from this phone is among the songs. The note under Create playlist is only
+    // about those, and everyone was shown it every time.
+    var localAmongSongs by remember {
+        mutableStateOf(false)
+    }
 
     LaunchedEffect(Unit) {
         if (syncMode == SyncMode.RO) {
@@ -118,6 +124,12 @@ fun AddToPlaylistDialog(
             songIds?.let { s ->
                 playlistIdsSongParticipation = database.playlistIdBySongsChunked(s)
             }
+        }
+    }
+
+    LaunchedEffect(songIds) {
+        coroutineScope.launch(Dispatchers.IO) {
+            localAmongSongs = songIds?.let { s -> database.anyLocalSong(s) } ?: false
         }
     }
 
@@ -141,11 +153,13 @@ fun AddToPlaylistDialog(
             )
         }
 
-        item {
-            InfoLabel(
-                text = stringResource(R.string.playlist_add_local_to_synced_note),
-                modifier = Modifier.padding(horizontal = 20.dp)
-            )
+        if (localAmongSongs) {
+            item {
+                InfoLabel(
+                    text = stringResource(R.string.playlist_add_local_to_synced_note),
+                    modifier = Modifier.padding(horizontal = 20.dp)
+                )
+            }
         }
 
         item {

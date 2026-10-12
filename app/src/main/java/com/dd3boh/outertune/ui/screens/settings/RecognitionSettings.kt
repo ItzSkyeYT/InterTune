@@ -46,6 +46,7 @@ import com.dd3boh.outertune.ui.component.ExplainedSwitchPreference
 import com.dd3boh.outertune.ui.component.FloatingTopBar
 import com.dd3boh.outertune.ui.component.ListPreference
 import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
+import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
@@ -83,10 +84,9 @@ fun RecognitionSettings(
                 checked = keepListening,
                 onCheckedChange = onKeepListeningChange,
             )
-            ExplainedSwitchPreference(
+            SwitchPreference(
                 modifier = Modifier.tourTarget(Tour.SETTING_RECOGNISE_PAUSE),
-                title = stringResource(R.string.recognise_pause_title),
-                explanation = stringResource(R.string.recognise_pause_explain),
+                title = { Text(stringResource(R.string.recognise_pause_title)) },
                 description = stringResource(R.string.recognise_pause_desc),
                 checked = pauseOnSpeaker,
                 onCheckedChange = onPauseOnSpeakerChange,
@@ -99,9 +99,8 @@ fun RecognitionSettings(
                 checked = autoAdd,
                 onCheckedChange = onAutoAddChange,
             )
-            ExplainedSwitchPreference(
-                title = stringResource(R.string.recognise_keep_awake),
-                explanation = stringResource(R.string.recognise_keep_awake_explain),
+            SwitchPreference(
+                title = { Text(stringResource(R.string.recognise_keep_awake)) },
                 description = stringResource(R.string.recognise_keep_awake_desc),
                 checked = keepAwake,
                 onCheckedChange = onKeepAwakeChange,

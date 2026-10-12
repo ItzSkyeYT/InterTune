@@ -63,6 +63,9 @@ import com.dd3boh.outertune.ui.component.ExplainedGroupTitle
 import com.dd3boh.outertune.ui.component.ExplainedPreference
 import com.dd3boh.outertune.ui.component.ExplainedSwitchPreference
 import com.dd3boh.outertune.ui.component.FloatingTopBar
+import com.dd3boh.outertune.ui.component.PreferenceEntry
+import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
+import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.ui.screens.leanOptionName
 import com.dd3boh.outertune.utils.BuiltInKeys
 import com.dd3boh.outertune.utils.dataStore
@@ -116,10 +119,7 @@ fun RecommendationsSettings(
         modifier = Modifier.fillMaxHeight(),
         columnModifier = Modifier.padding(horizontal = 16.dp)
     ) {
-        ExplainedGroupTitle(
-            title = stringResource(R.string.recommendations_home_title),
-            explanation = stringResource(R.string.recommendations_home_title_info),
-        )
+        PreferenceGroupTitle(title = stringResource(R.string.recommendations_home_title))
         ExplainedSwitchPreference(
             modifier = Modifier.tourTarget(SettingJumps.TIDY_HOME_ROWS),
             title = stringResource(R.string.tidy_home_rows),
@@ -183,15 +183,16 @@ fun RecommendationsSettings(
                 checked = showReasons,
                 onCheckedChange = onShowReasonsChange,
             )
-            ExplainedPreference(
+            // No "i" on the two sliders: the line under each counts the cards as it is dragged.
+            PreferenceEntry(
                 modifier = Modifier.tourTarget(Tour.SETTING_ADVENTUROUSNESS),
-                title = stringResource(R.string.adventurousness),
-                explanation = stringResource(R.string.adventurousness_info),
+                title = { Text(stringResource(R.string.adventurousness)) },
                 // While Never heard leads the row the slider no longer sets this count, and the line says what does.
                 description = stringResource(
                     if (LeanChoice.newSetByChoice(lean, chip, newSongsOnly)) R.string.adventurousness_description_lean_new else R.string.adventurousness_description,
                     LeanChoice.newCards(lean, adventurousness / 100.0, familiarity / 100.0, chip, newSongsOnly),
                 ),
+                onClick = null,
             )
             Slider(
                 value = adventurousness.toFloat(),
@@ -199,11 +200,11 @@ fun RecommendationsSettings(
                 valueRange = 0f..100f,
                 modifier = Modifier.padding(horizontal = 16.dp),
             )
-            ExplainedPreference(
+            PreferenceEntry(
                 modifier = Modifier.tourTarget(SettingJumps.FAMILIARITY),
-                title = stringResource(R.string.familiarity),
-                explanation = stringResource(R.string.familiarity_info),
+                title = { Text(stringResource(R.string.familiarity)) },
                 description = stringResource(R.string.familiarity_description, LeanChoice.againCards(lean, adventurousness / 100.0, familiarity / 100.0, chip, newSongsOnly)),
+                onClick = null,
             )
             Slider(
                 value = familiarity.toFloat(),
@@ -245,7 +246,6 @@ fun RecommendationsSettings(
                     val mix = sourceMix
                     StatEntry(
                         title = stringResource(R.string.similar_mix),
-                        explanation = stringResource(R.string.similar_mix_info),
                         numbers = if (mix == null || !mix.compared) {
                             stringResource(R.string.similar_mix_none)
                         } else {
@@ -264,10 +264,7 @@ fun RecommendationsSettings(
             Spacer(Modifier.height(16.dp))
 
             // What it learns from, and what it is told to leave out.
-            ExplainedGroupTitle(
-                title = stringResource(R.string.recommendations_learning_title),
-                explanation = stringResource(R.string.recommendations_learning_title_info),
-            )
+            PreferenceGroupTitle(title = stringResource(R.string.recommendations_learning_title))
             ExplainedSwitchPreference(
                 modifier = Modifier.tourTarget(Tour.SETTING_LEARN_FROM_LISTENING),
                 title = stringResource(R.string.learn_from_listening),
@@ -285,9 +282,8 @@ fun RecommendationsSettings(
             )
             // Only means anything while rests are written, so it is only shown then.
             if (restSongsISkip) {
-                ExplainedSwitchPreference(
-                    title = stringResource(R.string.rests_everywhere),
-                    explanation = stringResource(R.string.rests_everywhere_info),
+                SwitchPreference(
+                    title = { Text(stringResource(R.string.rests_everywhere)) },
                     description = stringResource(R.string.rests_everywhere_description),
                     checked = restsEverywhere,
                     onCheckedChange = onRestsEverywhereChange,
@@ -313,9 +309,8 @@ fun RecommendationsSettings(
                 onClick = { navController.toSettings("settings/recommendations/doing") },
             )
             if (Unreleased.ENGINE) {
-                ExplainedPreference(
-                    title = stringResource(R.string.recommendations_data_title),
-                    explanation = stringResource(R.string.recommendations_data_info),
+                PreferenceEntry(
+                    title = { Text(stringResource(R.string.recommendations_data_title)) },
                     description = stringResource(R.string.recommendations_data_description),
                     icon = { Icon(Icons.Rounded.ManageHistory, null) },
                     onClick = { navController.toSettings("settings/recommendations/data") },

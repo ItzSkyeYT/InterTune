@@ -33,6 +33,7 @@ import com.dd3boh.outertune.engine.countForm
 import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
 import com.dd3boh.outertune.ui.component.ExplainedPreference
 import com.dd3boh.outertune.ui.component.FloatingTopBar
+import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
 import com.dd3boh.outertune.ui.dialog.DefaultDialog
 import com.dd3boh.outertune.viewmodels.AskNote
@@ -49,7 +50,8 @@ import java.util.Date
  * The buttons that change what the engine keeps: take a session or a day back, reset or rebuild
  * what it learned, and write it to a file or read it back. Every one that changes what it has
  * learned asks first, saying what will happen and how much; then each says what it did in place
- * of its description. Saving a copy changes nothing, so it does not ask.
+ * of its description. Saving a copy changes nothing, so it does not ask. A row has an "i" only
+ * where it says something neither the row's line nor the question does.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -94,9 +96,8 @@ fun RecommendationsDataSettings(
         )
 
         PreferenceGroupTitle(title = stringResource(R.string.recommendations_data_forget))
-        ExplainedPreference(
-            title = stringResource(R.string.forget_last_session),
-            explanation = stringResource(R.string.forget_last_session_info),
+        PreferenceEntry(
+            title = { Text(stringResource(R.string.forget_last_session)) },
             description = results[DataAction.FORGET_SESSION]?.let { resultText(it) } ?: stringResource(R.string.forget_last_session_description),
             onClick = { tap(DataAction.FORGET_SESSION) },
         )
@@ -115,9 +116,8 @@ fun RecommendationsDataSettings(
             description = results[DataAction.RESET]?.let { resultText(it) } ?: stringResource(R.string.recommendations_reset_weights_description),
             onClick = { tap(DataAction.RESET) },
         )
-        ExplainedPreference(
-            title = stringResource(R.string.recommendations_rebuild_weights),
-            explanation = stringResource(R.string.recommendations_rebuild_weights_info),
+        PreferenceEntry(
+            title = { Text(stringResource(R.string.recommendations_rebuild_weights)) },
             description = results[DataAction.REBUILD]?.let { resultText(it) } ?: stringResource(R.string.recommendations_rebuild_weights_description),
             onClick = { tap(DataAction.REBUILD) },
         )
@@ -130,9 +130,8 @@ fun RecommendationsDataSettings(
             description = results[DataAction.SAVE]?.let { resultText(it) } ?: stringResource(R.string.export_engine_data_description),
             onClick = { tap(DataAction.SAVE) },
         )
-        ExplainedPreference(
-            title = stringResource(R.string.import_engine_data),
-            explanation = stringResource(R.string.import_engine_data_info),
+        PreferenceEntry(
+            title = { Text(stringResource(R.string.import_engine_data)) },
             description = results[DataAction.LOAD]?.let { resultText(it) } ?: stringResource(R.string.import_engine_data_description),
             onClick = { tap(DataAction.LOAD) },
         )
