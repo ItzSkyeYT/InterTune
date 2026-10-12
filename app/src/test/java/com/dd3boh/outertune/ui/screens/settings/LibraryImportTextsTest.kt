@@ -53,6 +53,30 @@ class LibraryImportTextsTest {
     }
 
     @Test
+    fun `the page that offers the import is short enough to read standing up`() {
+        // Six paragraphs and about 165 words stood between the title and "Choose a file". What
+        // the next screen shows by itself is not said here, and each tool gets one line.
+        val intro = screen.substringAfter("private fun Intro()").substringBefore("@Composable")
+        val shown = Regex("""R\.string\.(import_library_[a-z0-9_]+)""").findAll(intro).map { it.groupValues[1] }.toList()
+        assertEquals(
+            listOf("import_library_intro", "import_library_spotify", "import_library_others", honest, "import_library_premium"),
+            shown,
+        )
+        for ((language, texts) in listOf("English" to english, "French" to french)) {
+            val words = shown.sumOf { texts.getValue(it).split(' ').size }
+            assertTrue("$language: $words words", words <= 112)
+            for (tool in listOf("import_library_spotify", "import_library_others")) {
+                assertTrue("$language, $tool", sentences(texts.getValue(tool)) <= 2)
+            }
+        }
+        // The tools are still named, and where Exportify lives.
+        assertTrue("exportify.app" in english.getValue("import_library_spotify") && "exportify.app" in french.getValue("import_library_spotify"))
+        for (tool in listOf("TuneMyMusic", "Soundiiz", "Apple Music")) {
+            assertTrue(tool, tool in english.getValue("import_library_others") && tool in french.getValue("import_library_others"))
+        }
+    }
+
+    @Test
     fun `it is two short sentences in plain words, in both languages`() {
         for ((language, texts) in listOf("English" to english, "French" to french)) {
             val text = texts.getValue(honest)
