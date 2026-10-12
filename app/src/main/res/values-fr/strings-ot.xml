@@ -1516,7 +1516,7 @@
     <string name="select_all">Tout sélectionner</string>
     <string name="deselect_all">Tout désélectionner</string>
     <string name="cancel_selection">Annuler la sélection</string>
-    <string name="setup_welcome_body">Ravis de vous voir ici. Voici ce qui vous attend.</string>
+    <string name="setup_welcome_body">Ravis de vous voir. Voici ce qui vous attend.</string>
     <string name="setup_does_youtube_music">Tout YouTube Music</string>
     <string name="setup_does_youtube_music_more">Avec ou sans compte, à vous de voir</string>
     <string name="setup_does_files">Vos propres fichiers</string>
@@ -1524,7 +1524,7 @@
     <string name="setup_does_downloads">Hors ligne</string>
     <string name="setup_does_downloads_more">Téléchargez des titres, écoutez-les partout</string>
     <string name="setup_does_picks">Des sélections qui vous suivent</string>
-    <string name="setup_does_picks_more">Créées sur votre téléphone, d\'après vos écoutes</string>
+    <string name="setup_does_picks_more">Selon vos écoutes, sur votre téléphone</string>
     <string name="setup_does_no_adverts">Aucune publicité</string>
     <string name="setup_does_no_adverts_more">Ni entre les titres, ni ailleurs</string>
     <string name="setup_sign_in_title">Connexion</string>
@@ -1533,7 +1533,7 @@
     <string name="setup_signed_in_as">Vous utilisez le compte %1$s.</string>
     <string name="setup_signed_in">Votre compte est connecté.</string>
     <string name="setup_other_account">Utiliser un autre compte</string>
-    <string name="setup_import_playlists">J\'ai des playlists</string>
+    <string name="setup_import_playlists">Importer depuis un autre service</string>
     <string name="setup_choices_title">Quelques questions</string>
     <string name="setup_choices_body">Vous pourrez changer d\'avis dans les paramètres.</string>
     <string name="setup_updates_question">Être prévenu des nouvelles versions ?</string>
