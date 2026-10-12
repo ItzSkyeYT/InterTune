@@ -170,7 +170,7 @@
     <string name="clear_image_cache_confirm">Voulez-vous vraiment vider le cache des images ? Toutes les vignettes d\'album existantes seront supprimées.</string>
     <string name="clear_song_cache_confirm">Êtes-vous sûr de vouloir vider le cache des chansons ?</string>
     <string name="dl_extra_path_title">Configurer des emplacements d’importation supplémentaires…</string>
-    <string name="dl_main_path_description">Sélectionner l\'emplacement de stockage des téléchargements</string>
+    <string name="dl_main_path_description">Choisissez un dossier vide : InterTune peut y modifier ou supprimer des fichiers.</string>
     <string name="dl_rescan_confirm">Souhaitez-vous réanalyser tous les dossiers de téléchargement maintenant ? Cela peut prendre quelques minutes selon la taille de votre bibliothèque.</string>
     <string name="oobe_ytm_integration">Intégration de YouTube Music</string>
     <string name="oobe_ytm_integration_description">Accédez à vos morceaux préférés en toute transparence</string>
@@ -200,7 +200,7 @@
     <string name="dl_migrate_description">Déplacer les téléchargements du stockage interne de l\'application vers le stockage externe de l\'appareil</string>
     <string name="dl_main_path_title">Définir un dossier de téléchargement externe…</string>
     <string name="dl_rescan_title">Réanalyser les dossiers de téléchargement…</string>
-    <string name="dl_extra_path_description">Les titres de ces dossiers n\'apparaîtront dans l\'application que si vous les avez déjà écoutés ou ajoutées à une playlist.</string>
+    <string name="dl_extra_path_description">Les titres de ces dossiers n\'apparaîtront dans l\'application que si vous les avez déjà écoutés ou ajoutés à une playlist. Ces dossiers sont seulement lus, jamais modifiés.</string>
     <string name="dl_calculate_size">Appuyez pour calculer la taille du téléchargement</string>
     <string name="dl_size_used_cache">Interne : %s utilisés</string>
     <string name="dl_size_used_main">Externe : %s utilisés</string>

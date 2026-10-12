@@ -524,12 +524,12 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="liked_autodownload_nothing_to_do">Your liked songs are already downloaded.</string>
     <string name="liked_autodownload_blocked">Paused. YouTube has temporarily stopped serving music to this connection, so downloads are waiting rather than failing. They carry on by themselves.</string>
     <string name="dl_extra_path_title">Configure extra import locations…</string>
-    <string name="dl_extra_path_description">Songs from these folders will only appear in the app if you\'ve played them before or added them to a playlist</string>
+    <string name="dl_extra_path_description">Songs from these folders will only appear in the app if you\'ve played them before or added them to a playlist. The folders are only read, never changed.</string>
     <string name="dl_migrate_title">Migrate downloads to external storage…</string>
     <string name="dl_migrate_description">Move downloads from the app\'s internal storage to the device\'s external storage</string>
     <string name="dl_migrate_confirm">This will migrate ALL internal downloads to \"%s\", and this action cannot be undone. Continue?</string>
     <string name="dl_main_path_title">Set external download folder…</string>
-    <string name="dl_main_path_description">Select downloads storage location</string>
+    <string name="dl_main_path_description">Pick an empty folder: InterTune may change or delete files in it.</string>
     <string name="dl_oobe_tooltip">Songs are downloaded to the app\'s private storage. To download to a folder you can reach, choose one here; you can change it later in Settings.</string>
     <string name="dl_rescan_title">Rescan download folders…</string>
     <string name="dl_rescan_description">Update the database and refresh the download registry if any files or folders have changed</string>

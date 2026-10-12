@@ -14,11 +14,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Downloading
 import androidx.compose.material.icons.rounded.FolderCopy
@@ -62,7 +59,6 @@ import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SettingsClickToReveal
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.ui.component.button.IconButton
-import com.dd3boh.outertune.ui.component.button.ResizableIconButton
 import com.dd3boh.outertune.ui.dialog.ActionPromptDialog
 import com.dd3boh.outertune.ui.dialog.DefaultDialog
 import com.dd3boh.outertune.ui.dialog.InfoLabel
@@ -127,9 +123,6 @@ fun ColumnScope.DownloadsFrag() {
         mutableStateOf(false)
     }
     var showClearConfirmDialog by remember {
-        mutableStateOf(false)
-    }
-    var showDlInfoDialog by remember {
         mutableStateOf(false)
     }
 
@@ -259,15 +252,6 @@ fun ColumnScope.DownloadsFrag() {
     if (downloadMainPathSize == -2L && downloadExtraPathSize == -2L) {
         PreferenceEntry(
             title = { Text(stringResource(R.string.dl_calculate_size)) },
-            // At the row's end, where the row keeps its room before the title gets the rest. It
-            // was in the title's own line, after the words: a title long enough to wrap took the
-            // whole line, and the button was not drawn at all. In German, French and five more.
-            trailingContent = {
-                ResizableIconButton(
-                    icon = Icons.Outlined.Info,
-                    onClick = { showDlInfoDialog = true },
-                )
-            },
             onClick = {
                 downloadMainPathSize = -1
                 downloadCacheSize = -1
@@ -447,6 +431,7 @@ fun ColumnScope.DownloadsFrag() {
                 FolderNesting.isSameOrInside(tempFilePath.toString(), it.toString())
             }
 
+            // The one warning that a download folder should be empty, where the folder is chosen.
             Text(
                 text = stringResource(R.string.dl_main_path_description),
                 style = MaterialTheme.typography.bodySmall,
@@ -525,34 +510,6 @@ fun ColumnScope.DownloadsFrag() {
                             downloadMainPathSize = downloadUtil.localMgr.getMainDlStorageUsage()
                             downloadExtraPathSize = downloadUtil.localMgr.getExtraDlStorageUsage()
                         }
-                    }
-                ) {
-                    Text(text = stringResource(android.R.string.ok))
-                }
-            }
-        )
-    }
-
-    if (showDlInfoDialog) {
-        DefaultDialog(
-            onDismiss = { showDlInfoDialog = false },
-            content = {
-                Column(
-                    modifier = Modifier
-                        .weight(1f, false)
-                        .verticalScroll(rememberScrollState())
-                ) {
-                    Text(
-                        text = stringResource(R.string.dl_storage_tooltip),
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier.padding(horizontal = 18.dp)
-                    )
-                }
-            },
-            buttons = {
-                TextButton(
-                    onClick = {
-                        showDlInfoDialog = false
                     }
                 ) {
                     Text(text = stringResource(android.R.string.ok))
