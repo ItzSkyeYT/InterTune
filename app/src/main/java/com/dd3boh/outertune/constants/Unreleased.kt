@@ -321,7 +321,7 @@ object Unreleased {
      * Tested as arithmetic and not yet judged by ear, which is the whole of what they are for.
      * Without it the three rows are not shown and the renderer is as it was. When it is agreed:
      * set this to true, or delete it with the checks that read it, in PlayerFrag and
-     * MusicService, and make its eight strings translatable.
+     * MusicService, and make its six strings translatable.
      */
     val SPATIAL_TUNING = BuildConfig.DEBUG
 
@@ -337,7 +337,7 @@ object Unreleased {
      * Measured and not yet heard: the one controlled listening test there is found no gain from
      * this kind of thing, so it is here to be judged by ear and dropped if it does not convince.
      * Its row is the last under the three of SPATIAL_TUNING and is shown only with them. To
-     * drop it: this flag, the row in PlayerFrag, the collector in MusicService, the key, three
+     * drop it: this flag, the row in PlayerFrag, the collector in MusicService, the key, two
      * strings, DirectAmbientSplit and everything named "air" in BinauralAudioProcessor.
      */
     val DIRECT_AMBIENT = BuildConfig.DEBUG

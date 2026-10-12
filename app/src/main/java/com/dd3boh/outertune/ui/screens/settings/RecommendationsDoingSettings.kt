@@ -105,8 +105,8 @@ import java.util.Locale
  *
  * It opens with one plain summary: how many of the cards Best recommendations showed were played,
  * and whether that is going up. Every figure below it carries a line saying what it means and
- * whether higher is better, with the full working behind its "i". Then what the engine has to
- * learn from, the last listens, and the weights and developer tuning, set apart at the foot.
+ * whether higher is better, and an "i" where that line leaves something out. Then what the engine
+ * has to learn from, the last listens, and the weights and developer tuning, set apart at the foot.
  *
  * Every stop the engine learns from is shown here, with the two facts about it that matter most,
  * because a recommendation that cannot explain itself is not one anybody should be asked to trust.
@@ -212,7 +212,6 @@ fun RecommendationsDoingSettings(
                 )
                 StatEntry(
                     title = stringResource(R.string.recommendations_wins),
-                    explanation = stringResource(R.string.recommendations_wins_info),
                     // In the summary's words, "about 1 in 100", so the same number does not look
                     // like two different ones.
                     numbers = teams.filter { it.cards.seen > 0 }.map { t ->
@@ -256,7 +255,6 @@ fun RecommendationsDoingSettings(
                 )
                 StatEntry(
                     title = stringResource(R.string.recommendations_held),
-                    explanation = stringResource(R.string.recommendations_held_info),
                     // A build is each time the row on screen changed, or the unseen one was built
                     // again: a refresh, which a reader can picture where "26 rows" was a puzzle.
                     // Each line says the songs it counts are those after its own refreshes, so two
@@ -339,19 +337,20 @@ fun RecommendationsDoingSettings(
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
         )
         ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-            ExplainedPreference(
-                title = pluralStringResource(R.plurals.recommendations_listens, listens, listens, counted),
-                explanation = stringResource(R.string.recommendations_listens_info),
+            // A count and the line under it, with no "i": what stood behind these was how the
+            // scoring weighs a listen or a card, which is not what the figure is.
+            PreferenceEntry(
+                title = { Text(pluralStringResource(R.plurals.recommendations_listens, listens, listens, counted)) },
                 description = stringResource(R.string.recommendations_listens_description),
+                onClick = null,
             )
-            ExplainedPreference(
-                title = pluralStringResource(R.plurals.recommendations_sessions, sessions, sessions),
-                explanation = stringResource(R.string.recommendations_sessions_info),
+            PreferenceEntry(
+                title = { Text(pluralStringResource(R.plurals.recommendations_sessions, sessions, sessions)) },
                 description = stringResource(R.string.recommendations_sessions_description),
+                onClick = null,
             )
             StatEntry(
                 title = stringResource(R.string.recommendations_how_they_ended),
-                explanation = stringResource(R.string.recommendations_how_they_ended_info),
                 // Split the way Recent listens names them, so "ended early" there is a count here.
                 numbers = endCounts(byEnd).joinToString(", ") { (label, n) -> "${endLabels[label]} $n" }
                     .ifBlank { stringResource(R.string.recommendations_nothing_yet) },
@@ -375,7 +374,6 @@ fun RecommendationsDoingSettings(
             val seen = cardsSeen(cardsSeenRows)
             StatEntry(
                 title = stringResource(R.string.recommendations_cards_seen),
-                explanation = stringResource(R.string.recommendations_impressions_info),
                 numbers = seen.map { r ->
                     val name = teamNames[r.team] ?: r.team.toString()
                     (if (onlyWaiting(r)) {
@@ -621,23 +619,23 @@ private fun TrendLine(trend: Trend, locale: Locale) {
 }
 
 /**
- * A figure with its explanation: the numbers where a setting's description would be, then one
- * plain line on what they mean and whether higher is better, and the full working behind the "i",
- * with [footer] under it for the precise figure a plain line leaves out. No [meaning] when the
- * numbers already say there is nothing to read.
+ * A figure: the numbers where a setting's description would be, then one plain line on what they
+ * mean and whether higher is better. Where that line leaves something out, [explanation] is behind
+ * an "i", with [footer] under it for the precise figure; where the line says it all there is no
+ * "i". No [meaning] when the numbers already say there is nothing to read.
  */
 @Composable
 internal fun StatEntry(
     title: String,
-    explanation: String,
     numbers: String,
     meaning: String?,
+    explanation: String? = null,
     footer: String? = null,
 ) = PreferenceEntry(
     title = { Text(title) },
     description = numbers,
     content = meaning?.let { m -> @Composable { MeaningLine(m) } },
-    trailingContent = { ExplainButton(title = title, body = explanation, footer = footer) },
+    trailingContent = explanation?.let { e -> @Composable { ExplainButton(title = title, body = e, footer = footer) } },
     onClick = null,
 )
 
@@ -666,7 +664,6 @@ private fun WeightsEntry(weights: List<EngineWeight>, updates: Int) {
         // you played, is one too, and it was never on screen. Cards would have counted more than
         // the page says it showed.
         title = pluralStringResource(R.plurals.recommendations_weights, updates, updates),
-        explanation = stringResource(R.string.recommendations_weights_info),
         numbers = Features.priors.keys.filter { it in weightNames }.joinToString("\n") { name ->
             val row = weights.firstOrNull { it.name == name }
             val prior = Features.priors[name]!!.value

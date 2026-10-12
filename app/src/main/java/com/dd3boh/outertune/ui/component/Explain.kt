@@ -45,10 +45,12 @@ import com.dd3boh.outertune.ui.screens.settings.explanationWithLinks
  * The little "i" beside a setting, and the dialog behind it.
  *
  * A recommendation engine that cannot say what it is doing is not one anybody should be asked to
- * trust, so every item the engine touches carries one of these. The row's own line says what the
- * thing is; this says, in two or three short sentences, what it does and what it costs. It used
- * to hold the mechanism as well, and grew to a page behind a button that nobody read to the end.
- * ExplanationsStayShortTest holds the length now.
+ * trust, so an item the engine touches carries one of these wherever its own line leaves
+ * something out. The row's own line says what the thing is; this says, in two or three short
+ * sentences, what it does and what it costs. It used to hold the mechanism as well, and grew to
+ * a page behind a button that nobody read to the end. ExplanationsStayShortTest holds the length
+ * now. One that only repeated its row's line, or told how the scoring weighs things and not what
+ * the figure is, was taken off again.
  *
  * The button is its own touch target, so it opens the explanation without toggling the switch or
  * following the row it sits on.
