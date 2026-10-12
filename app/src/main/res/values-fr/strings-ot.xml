@@ -1515,7 +1515,7 @@
     <string name="select_all">Tout sélectionner</string>
     <string name="deselect_all">Tout désélectionner</string>
     <string name="cancel_selection">Annuler la sélection</string>
-    <string name="setup_welcome_body">Ravis de vous voir ici. Voici ce qui vous attend.</string>
+    <string name="setup_welcome_body">Ravis de vous voir. Voici ce qui vous attend.</string>
     <string name="setup_does_youtube_music">Tout YouTube Music</string>
     <string name="setup_does_youtube_music_more">Avec ou sans compte, à vous de voir</string>
     <string name="setup_does_files">Vos propres fichiers</string>
@@ -1523,7 +1523,7 @@
     <string name="setup_does_downloads">Hors ligne</string>
     <string name="setup_does_downloads_more">Téléchargez des titres, écoutez-les partout</string>
     <string name="setup_does_picks">Des sélections qui vous suivent</string>
-    <string name="setup_does_picks_more">Créées sur votre téléphone, d\'après vos écoutes</string>
+    <string name="setup_does_picks_more">Selon vos écoutes, sur votre téléphone</string>
     <string name="setup_does_no_adverts">Aucune publicité</string>
     <string name="setup_does_no_adverts_more">Ni entre les titres, ni ailleurs</string>
     <string name="setup_sign_in_title">Connexion</string>
