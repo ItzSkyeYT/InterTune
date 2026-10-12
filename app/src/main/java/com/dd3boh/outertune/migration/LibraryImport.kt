@@ -363,8 +363,16 @@ class LibraryImport internal constructor(
         } catch (e: SearchUnavailable) {
             // A run that was cancelled while its last try was failing stays as Cancel left it.
             currentCoroutineContext().ensureActive()
-            Log.w(TAG, "Stopped matching: YouTube could not be reached", ErrorText.forLog(e))
-            setStage(Stage.OFFLINE, run)
+            // An error for an answer through most of a minute is YouTube turning the searches
+            // away in a way of its own: said as a pause, where "check the connection" would
+            // send somebody to look at a connection that is fine.
+            if (e.answered) {
+                Log.w(TAG, "Paused matching: YouTube kept answering with an error", ErrorText.forLog(e))
+                setStage(Stage.PAUSED, run)
+            } else {
+                Log.w(TAG, "Stopped matching: YouTube could not be reached", ErrorText.forLog(e))
+                setStage(Stage.OFFLINE, run)
+            }
         }
         // However it ended, nothing more comes by itself, so nothing is left waiting to be written.
         saveNow()
