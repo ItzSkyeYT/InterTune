@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material3.CardDefaults
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
@@ -384,6 +385,10 @@ private fun PinnedStagePicture(stage: SoundStage, foot: () -> Float) {
             // The card's own colour behind it, so that the rows going under it are gone and
             // not showing round its corners.
             .background(CardDefaults.elevatedCardColors().containerColor)
+            // And the touches that fall on it stop here: without this they went through to
+            // whatever row was under it, and a tap on the picture moved a slider nobody could
+            // see. A drag on it still scrolls the page, which hears of it on the way down.
+            .pointerInput(Unit) { }
             .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
         ExplainPicturePanel(picture = ExplainPicture.SOUND_STAGE, stage = stage)

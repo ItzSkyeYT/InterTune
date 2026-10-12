@@ -496,7 +496,8 @@ private fun DrawScope.stage(
                 val source = Offset(centre.x + side * behind.first * tall, behind.second * tall)
                 val wall = (behind.first - ROOM_HALF) * tall
                 val whole = hypot(source.x - centre.x, source.y - centre.y)
-                ripples(source, from = wall, to = whole - skull * 1.35f, shown = 0.45f * room * out, half = 13f)
+                // Faint and short: an echo is less than the sound it is the echo of.
+                ripples(source, from = wall, to = whole - skull * 1.35f, shown = 0.35f * room * out, half = 7f)
             }
         }
     }
@@ -548,7 +549,7 @@ private fun DrawScope.stage(
             val (spread, strength) = thump(number, seconds)
             drawCircle(
                 color = music.copy(alpha = 0.6f * strength * bass),
-                radius = skull * (0.55f + 0.75f * spread),
+                radius = skull * (0.5f + 0.55f * spread),
                 center = ear,
                 style = Stroke(width = line * 1.25f),
             )
