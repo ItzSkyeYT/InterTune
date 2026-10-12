@@ -265,6 +265,32 @@ class ImportMatcherTest {
     }
 
     @Test
+    fun `what is ready is what will be made, also when two rows come to one song`() {
+        // A service that holds the single and the album cut, and YouTube only one of them: two
+        // rows, two answers, one song in the playlist. "490 songs are ready" and then "484
+        // songs" made was what a file of 498 gave.
+        val single = track("Golf", "x", seconds = 200)
+        val album = track("Golf (Album Version)", "x", seconds = 201)
+        val other = track("Hotel", "x", seconds = 200)
+        val run = ImportRun(
+            ImportParse.Parsed(ExportFormat.EXPORTIFY, listOf(ImportedPlaylist("Only", listOf(single, album, other))), skippedRows = 0)
+        )
+        val golf = song("Golf", "x", 200)
+        run.record(0, Outcome.Matched(score(single.wanted(), golf)))
+        run.record(1, Outcome.Matched(score(album.wanted(), golf)))
+        run.record(2, Outcome.Matched(score(other.wanted(), song("Hotel", "x", 200))))
+
+        assertEquals(3, run.snapshot().kept)
+        assertEquals(2, run.snapshot().ready)
+        assertEquals(run.playlistsToCreate().sumOf { it.second.size }, run.snapshot().ready)
+        // One of the two taken out by hand changes nothing: the other still brings the song.
+        run.skip(1)
+        assertEquals(2, run.snapshot().ready)
+        run.skip(0)
+        assertEquals(1, run.snapshot().ready)
+    }
+
+    @Test
     fun `playlists come out in the file's order with picks in and skips out`() {
         val a = track("Alpha", "x", seconds = 200)
         val b = track("Bravo", "x", seconds = 200)
@@ -306,6 +332,9 @@ class ImportMatcherTest {
         assertEquals(listOf("First", "Second"), created.map { it.first })
         assertEquals(listOf("Alpha/200", "bravo-picked"), created[0].second.map { it.id })
         assertEquals(listOf("Echo/200", "Alpha/200"), created[1].second.map { it.id })
+        // Three songs of the file have their answer, and Alpha goes into two playlists.
+        assertEquals(3, snapshot.kept)
+        assertEquals(4, snapshot.ready)
 
         // Taking the pick back leaves Bravo out again, and counts it as undecided.
         run.undecide(1)
