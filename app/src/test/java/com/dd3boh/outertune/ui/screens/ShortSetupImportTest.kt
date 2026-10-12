@@ -114,10 +114,9 @@ class ShortSetupImportTest {
             assertTrue("$folder: ${text!!.length} letters is long for half the page", text.length <= 34)
             assertFalse(folder, '—' in text || '.' in text)
         }
-        // The words of the screen it opens, so that nobody wonders where the tap led.
-        assertEquals("Import from another service", strings("values").getValue("setup_import_playlists"))
-        assertEquals(strings("values").getValue("import_library_title"), strings("values").getValue("setup_import_playlists"))
-        assertEquals(strings("values-fr").getValue("import_library_title"), strings("values-fr").getValue("setup_import_playlists"))
+        // It says what it does, in the words of somebody who comes from another app.
+        assertEquals("Import from another app", strings("values").getValue("setup_import_playlists"))
+        assertTrue(strings("values-fr").getValue("setup_import_playlists").startsWith("Importer "))
     }
 
     @Test

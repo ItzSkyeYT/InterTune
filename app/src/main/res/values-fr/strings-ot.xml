@@ -1533,7 +1533,7 @@
     <string name="setup_signed_in_as">Vous utilisez le compte %1$s.</string>
     <string name="setup_signed_in">Votre compte est connecté.</string>
     <string name="setup_other_account">Utiliser un autre compte</string>
-    <string name="setup_import_playlists">Importer depuis un autre service</string>
+    <string name="setup_import_playlists">Importer depuis une autre appli</string>
     <string name="setup_choices_title">Quelques questions</string>
     <string name="setup_choices_body">Vous pourrez changer d\'avis dans les paramètres.</string>
     <string name="setup_updates_question">Être prévenu des nouvelles versions ?</string>
