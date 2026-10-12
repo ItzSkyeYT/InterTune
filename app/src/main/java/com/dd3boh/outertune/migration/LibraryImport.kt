@@ -368,6 +368,13 @@ class LibraryImport internal constructor(
         }
     }
 
+    /**
+     * Writes down what has changed without waiting out the seconds a change otherwise waits. The
+     * screen asks for it as it goes out of sight: a pick made a moment before the app is swiped
+     * away is a pick somebody made.
+     */
+    fun keep() = saveNow()
+
     /** Writes down what has changed without waiting, for the moments after which nothing may follow. */
     private fun saveNow() {
         val run = run ?: return

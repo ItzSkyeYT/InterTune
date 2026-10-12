@@ -636,6 +636,29 @@ class LibraryImportTest {
     }
 
     @Test
+    fun `a pick is written at once when the screen goes out of sight`() = runBlocking {
+        // Nothing would be written in time by itself: what is there after the kill, the screen asked for.
+        val before = session(hasMixed(), saveAfter = { awaitCancellation() })
+        before.open("everything.csv", mixed)
+        before.reaches(Stage.MATCHED)
+        before.pick(1, live)
+        before.skip(0)
+
+        before.keep()
+        before.written()
+        kill()
+
+        val back = session(silent()).reaches(Stage.MATCHED).progress!!
+        assertEquals("live", (back.review.single().choice as ImportRun.Choice.Picked).song.id)
+        assertTrue(back.matchedItems.single().leftOut)
+
+        // The screen asks as it stops being seen, and as it is left for another.
+        val screen = File("src/main/java/com/dd3boh/outertune/ui/screens/settings/LibraryImportScreen.kt").readText()
+        assertTrue("if (event == Lifecycle.Event.ON_STOP) session.keep()" in screen)
+        assertTrue(Regex("""onDispose \{\s*lifecycleOwner\.lifecycle\.removeObserver\(observer\)\s*session\.keep\(\)""").containsMatchIn(screen))
+    }
+
+    @Test
     fun `Cancel keeps the import, on the screen and on the disk`() = runBlocking {
         val first = has(6)
         val fourth = first.holdSearch(at = 4)
