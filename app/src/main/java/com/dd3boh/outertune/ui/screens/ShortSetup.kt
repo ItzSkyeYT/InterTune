@@ -28,6 +28,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -67,6 +68,7 @@ import androidx.compose.material.icons.rounded.OfflinePin
 import androidx.compose.material.icons.rounded.SdCard
 import androidx.compose.material.icons.rounded.Update
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FloatingActionButton
@@ -77,7 +79,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBarDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.contentColorFor
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
@@ -380,21 +381,43 @@ fun ShortSetup(
                                 SetupOverview(close = beside)
                             },
                             buttons = {
-                                SetupButton(
-                                    text = stringResource(R.string.oobe_use_backup),
-                                    primary = false,
-                                    enabled = !restoring,
-                                    busy = restoring,
-                                    onClick = { if (live) restoreLauncher.launch(arrayOf("application/octet-stream")) },
-                                )
                                 // Somebody who comes from another service has playlists there
                                 // and no backup of this app. The import is a screen of its own,
                                 // gone to as the sign-in page is, and left it comes back here.
+                                // The two stand side by side: one under the other, the second
+                                // took the room of the last line of the overview on a small phone.
                                 if (Unreleased.LIBRARY_IMPORT) {
-                                    SetupQuietButton(
-                                        text = stringResource(R.string.setup_import_playlists),
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(IntrinsicSize.Max),
+                                    ) {
+                                        SetupButton(
+                                            text = stringResource(R.string.oobe_use_backup),
+                                            modifier = Modifier.weight(1f).fillMaxHeight(),
+                                            primary = false,
+                                            narrow = true,
+                                            enabled = !restoring,
+                                            busy = restoring,
+                                            onClick = { if (live) restoreLauncher.launch(arrayOf("application/octet-stream")) },
+                                        )
+                                        SetupButton(
+                                            text = stringResource(R.string.setup_import_playlists),
+                                            modifier = Modifier.weight(1f).fillMaxHeight(),
+                                            primary = false,
+                                            narrow = true,
+                                            enabled = !restoring,
+                                            onClick = { if (live) navController.navigate("settings/backup/import") },
+                                        )
+                                    }
+                                } else {
+                                    SetupButton(
+                                        text = stringResource(R.string.oobe_use_backup),
+                                        primary = false,
                                         enabled = !restoring,
-                                        onClick = { if (live) navController.navigate("settings/backup/import") },
+                                        busy = restoring,
+                                        onClick = { if (live) restoreLauncher.launch(arrayOf("application/octet-stream")) },
                                     )
                                 }
                             },
@@ -853,19 +876,24 @@ private fun SetupHeading(title: String, body: String, large: Boolean = false) {
 /**
  * What a page offers beside going on, the width of the page: signing in is the filled one
  * ([primary]), and restoring a backup is tonal and not a bare line of text, being as good a way
- * as going on. [busy] puts a spinner before the words.
+ * as going on. [busy] puts a spinner before the words. Two of them share a row on the first page:
+ * each is given half of it through [modifier], and [narrow] leaves the words more of that half.
  */
 @Composable
 private fun SetupButton(
     text: String,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
     primary: Boolean = true,
     enabled: Boolean = true,
     busy: Boolean = false,
+    narrow: Boolean = false,
 ) {
-    val modifier = Modifier
+    val sized = Modifier
         .fillMaxWidth()
+        .then(modifier)
         .heightIn(min = 48.dp)
+    val padding = if (narrow) PaddingValues(horizontal = 12.dp, vertical = 8.dp) else ButtonDefaults.ContentPadding
     val label: @Composable () -> Unit = {
         if (busy) {
             CircularProgressIndicator(
@@ -877,30 +905,9 @@ private fun SetupButton(
         Text(text = text, textAlign = TextAlign.Center)
     }
     if (primary) {
-        Button(onClick = onClick, enabled = enabled, modifier = modifier) { label() }
+        Button(onClick = onClick, enabled = enabled, modifier = sized, contentPadding = padding) { label() }
     } else {
-        FilledTonalButton(onClick = onClick, enabled = enabled, modifier = modifier) { label() }
-    }
-}
-
-/**
- * A second thing a page offers, which fewer people want than its button: a line of words under
- * the button, as wide and as tall to the finger, and with nothing drawn behind it.
- */
-@Composable
-private fun SetupQuietButton(
-    text: String,
-    onClick: () -> Unit,
-    enabled: Boolean = true,
-) {
-    TextButton(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 48.dp),
-    ) {
-        Text(text = text, textAlign = TextAlign.Center)
+        FilledTonalButton(onClick = onClick, enabled = enabled, modifier = sized, contentPadding = padding) { label() }
     }
 }
 
