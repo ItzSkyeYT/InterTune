@@ -25,8 +25,11 @@ sealed interface Outcome {
     data object NotFound : Outcome
 }
 
-/** YouTube could not be reached after the retries. The run stops and can be resumed. */
-class SearchUnavailable(cause: Throwable) : Exception(cause)
+/**
+ * A search failed through every retry. The run stops and can be resumed. [answered] says that
+ * YouTube was reached each time and answered with an error, which is not a connection to check.
+ */
+class SearchUnavailable(cause: Throwable, val answered: Boolean = false) : Exception(cause)
 
 /**
  * YouTube refused a search, or the app is already backing off because YouTube is refusing this
@@ -122,7 +125,7 @@ class ImportMatcher(
                 throw e
             } catch (e: Exception) {
                 val waits = if (answered(e)) PATIENT_WAITS_MS else RETRY_WAITS_MS
-                if (attempt >= waits.size) throw SearchUnavailable(e)
+                if (attempt >= waits.size) throw SearchUnavailable(e, answered = answered(e))
                 wait(waits[attempt])
                 attempt++
             }

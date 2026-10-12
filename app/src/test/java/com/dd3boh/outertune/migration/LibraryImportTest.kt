@@ -127,11 +127,12 @@ class LibraryImportTest {
         youTube: FakeYouTube,
         store: ImportStore = ImportStore(dir),
         saveAfter: suspend () -> Unit = {},
+        answered: (Throwable) -> Boolean = { false },
     ) = LibraryImport(
         store = store,
         readFile = { error("a test hands its file over itself") },
         // No waiting between searches, only the chance for a cancelled run to notice.
-        matcher = { ImportMatcher(search = youTube::search, wait = { yield() }, backingOff = { backingOff }) },
+        matcher = { ImportMatcher(search = youTube::search, wait = { yield() }, backingOff = { backingOff }, answered = answered) },
         makePlaylists = { lists ->
             askedToMake.incrementAndGet()
             if (libraryFails) throw IOException("the database is closed")
@@ -292,6 +293,28 @@ class LibraryImportTest {
         session.resume()
         assertEquals(5, session.reaches(Stage.MATCHED).progress!!.matched)
         assertEquals(asked(1, 2, 3, 3, 3, 3, 4, 5), youTube.queries)
+    }
+
+    @Test
+    fun `a search YouTube keeps answering with an error pauses the run after five tries, and Continue picks it up`() = runBlocking {
+        // Seen on a 493-song import: "Request contains an invalid argument", three times in seven
+        // seconds, with a connection that was fine. Not said as "check the connection".
+        class OddAnswer : Exception("400 Request contains an invalid argument.")
+        val youTube = has(5)
+        val third = youTube.holdSearch(at = 3)
+        val session = session(youTube, answered = { it is OddAnswer })
+        session.open("mine.csv", csv(5))
+        third.isReached()
+
+        youTube.failing = OddAnswer()
+        third.letGo.complete(Unit)
+        val paused = session.reaches(Stage.PAUSED)
+        assertEquals(2, paused.progress!!.checked)
+        assertEquals(asked(1, 2, 3, 3, 3, 3, 3), youTube.queries)
+
+        youTube.failing = null
+        session.resume()
+        assertEquals(5, session.reaches(Stage.MATCHED).progress!!.matched)
     }
 
     // YouTube refusing.
