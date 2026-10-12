@@ -92,6 +92,42 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
 
+/**
+ * A question before something that cannot be taken back: what it does, Cancel, and the action
+ * under its own name. Laid out as the questions of Your data are.
+ */
+@Composable
+fun AskFirstDialog(
+    title: String,
+    text: String,
+    confirm: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    DefaultDialog(
+        onDismiss = onDismiss,
+        horizontalAlignment = Alignment.Start,
+        // Padded to line up with the text below, as ExplainDialog does.
+        title = {
+            Text(title, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp))
+        },
+        buttons = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(android.R.string.cancel))
+            }
+            TextButton(onClick = onConfirm) {
+                Text(confirm)
+            }
+        },
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+    }
+}
+
 @Composable
 fun DefaultDialog(
     onDismiss: () -> Unit,

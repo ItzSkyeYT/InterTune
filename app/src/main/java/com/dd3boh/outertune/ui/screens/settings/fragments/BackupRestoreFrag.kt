@@ -66,6 +66,8 @@ import com.dd3boh.outertune.constants.PlaylistFilter
 import com.dd3boh.outertune.constants.PlaylistSortType
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.extensions.tryOrNull
+import com.dd3boh.outertune.ui.dialog.AskFirstDialog
+import com.dd3boh.outertune.ui.dialog.InfoLabel
 import com.dd3boh.outertune.ui.component.ListPreference
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
@@ -108,10 +110,26 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
                 viewModel.backup(uri)
             }
         }
+    // A restore replaces the library and the settings that are on the phone, and the app restarts.
+    // It used to begin the moment a file was chosen. Now the file is held and the question is
+    // put: nothing is touched before the answer.
+    var toRestore by rememberSaveable { mutableStateOf<Uri?>(null) }
     val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
-            viewModel.restore(uri)
+            toRestore = uri
         }
+    }
+    toRestore?.let { file ->
+        AskFirstDialog(
+            title = stringResource(R.string.restore_ask_title),
+            text = stringResource(R.string.restore_ask_text),
+            confirm = stringResource(R.string.action_restore),
+            onConfirm = {
+                toRestore = null
+                viewModel.restore(file)
+            },
+            onDismiss = { toRestore = null },
+        )
     }
 
     // Every library playlist as an .m3u in a folder of the user's choosing. A one-off write, so
@@ -255,6 +273,12 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
             }
         )
     }
+    // Which backups a restore takes, and what may need doing after one: under the row they are
+    // about. Both stood at the foot of the page, below rows they say nothing of.
+    Spacer(modifier = Modifier.height(8.dp))
+    InfoLabel(stringResource(R.string.import_innertune_tooltip))
+    Spacer(modifier = Modifier.height(8.dp))
+    InfoLabel(stringResource(R.string.restore_lm_tooltip))
     Spacer(modifier = Modifier.height(16.dp))
 
     ElevatedCard(

@@ -29,7 +29,6 @@ import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
 import com.dd3boh.outertune.ui.component.FloatingTopBar
-import com.dd3boh.outertune.ui.dialog.InfoLabel
 import com.dd3boh.outertune.ui.screens.settings.fragments.BackupAndRestoreFrag
 import com.dd3boh.outertune.viewmodels.BackupRestoreViewModel
 
@@ -65,10 +64,6 @@ fun BackupSettings(
                 )
             }
         }
-        Spacer(modifier = Modifier.height(16.dp))
-        InfoLabel(stringResource(R.string.import_innertune_tooltip))
-        Spacer(modifier = Modifier.height(8.dp))
-        InfoLabel(stringResource(R.string.restore_lm_tooltip))
     }
 
     FloatingTopBar(title = stringResource(R.string.backup_restore), navController = navController)

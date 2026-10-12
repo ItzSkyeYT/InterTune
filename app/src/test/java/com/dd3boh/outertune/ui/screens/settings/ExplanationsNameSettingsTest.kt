@@ -13,7 +13,7 @@ import java.io.File
 /**
  * An explanation that names a setting, one of its choices, a button or a row writes the name in
  * quotation marks, as it stands in the app, so that it reads as something to go and find and not
- * as part of the sentence: "Tidy Home rows" and not Tidy Home rows. Asked for on 9 Oct 2026.
+ * as part of the sentence: "Quick picks source" and not Quick picks source. Asked for on 9 Oct 2026.
  *
  * Held for the names that cannot be mistaken for ordinary words, in the two languages written by
  * hand. English writes \"name\" in the file, French « name ». Home, History, Stats and Settings
@@ -82,9 +82,8 @@ class ExplanationsNameSettingsTest {
         )
 
         val ENGLISH = listOf(
-            "Quick picks source", "Quick picks", "Best recommendations", "Try both", "Tidy Home rows",
-            "Rank with your listening", "Discover something new", "Learn from listening", "Pause listen history",
-            "Clear listen history", "Rebuild what it learned", "Reset what it learned", "Privacy and history",
+            "Quick picks source", "Quick picks", "Best recommendations", "Try both", "Discover something new",
+            "Pause listen history", "Clear listen history", "Rebuild what it learned", "Privacy and history",
             "Your data", "Keep listening", "What you have heard", "Surround upmix", "Not this song",
             "Less of this artist", "Never this artist", "Last.fm only", "YouTube only", "Your library",
             "Songs that fit what I am playing now",
@@ -92,9 +91,8 @@ class ExplanationsNameSettingsTest {
 
         val FRENCH = listOf(
             "Source de la Sélection Rapide", "Sélection Rapide", "Meilleures recommandations", "Essayer les deux",
-            "Épurer les rangées de l\\'accueil", "Classer selon votre écoute", "Découvrir du nouveau",
-            "Apprendre de l\\'écoute", "Suspendre l\\'historique d\\'écoute", "Effacer l\\'historique d\\'écoute",
-            "Reconstruire l\\'apprentissage", "Réinitialiser l\\'apprentissage", "Confidentialité et historique",
+            "Découvrir du nouveau", "Suspendre l\\'historique d\\'écoute", "Effacer l\\'historique d\\'écoute",
+            "Reconstruire l\\'apprentissage", "Confidentialité et historique",
             "Vos données", "Écoute continue", "Ce que vous avez entendu", "Conversion surround", "Pas ce titre",
             "Moins de cet artiste", "Jamais cet artiste", "Last.fm uniquement", "YouTube uniquement",
             "Votre bibliothèque", "Des titres qui vont avec ce que j\\'écoute en ce moment",
