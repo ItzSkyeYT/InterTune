@@ -133,13 +133,15 @@ class LeanChoiceTest {
     }
 
     @Test
-    fun `with no choice the two sliders' lines count what they always did`() {
+    fun `with no choice the two sliders' lines count the row as it is built`() {
         for (adventurousness in 0..100) for (familiarity in 0..60 step 5) {
             val dial = adventurousness / 100.0
             val f = familiarity / 100.0
-            // The page's own arithmetic from before the choice existed.
-            assertEquals(quotas(20, dial, false)[Lane.EXPLORE], LeanChoice.newCards(Lean.AUTO, dial, f))
-            assertEquals(quotas(20, dial, false, EngineParams.DEFAULT.withFamiliarity(f))[Lane.AGAIN], LeanChoice.againCards(Lean.AUTO, dial, f))
+            // Both under both sliders, as the row itself is counted. The new songs' line used to
+            // leave Familiarity out, and was a card off the row wherever the rounding fell otherwise.
+            val row = quotas(20, dial, false, EngineParams.DEFAULT.withFamiliarity(f))
+            assertEquals(row[Lane.EXPLORE], LeanChoice.newCards(Lean.AUTO, dial, f))
+            assertEquals(row[Lane.AGAIN], LeanChoice.againCards(Lean.AUTO, dial, f))
         }
         assertEquals(2, LeanChoice.newCards(Lean.AUTO, 0.5, 0.25))
         assertEquals(4, LeanChoice.againCards(Lean.AUTO, 0.5, 0.25))

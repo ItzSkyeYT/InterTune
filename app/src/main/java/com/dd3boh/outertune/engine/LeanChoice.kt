@@ -35,6 +35,13 @@ sealed interface LeanLine {
 }
 
 /**
+ * The row as the Recommendations page's settings leave it: how many of its cards are of each
+ * kind, and the kind that leads it where a choice does. What the picture over those settings
+ * draws.
+ */
+data class RowMix(val cards: Map<Lane, Int>, val lead: Lane?)
+
+/**
  * Quick picks leans toward, as the Recommendations page offers it: the options, what is stored
  * for each, and the lines on the page that depend on the choice. Plain functions, so the JVM
  * tests cover them.
@@ -73,14 +80,26 @@ object LeanChoice {
      * The cards the Adventurousness line counts: the new-to-you lane's share of the row. While
      * the choice leads the row it is what the choice leaves that lane: twelve under Never heard
      * whatever the slider says, sixteen with Discover on. With no choice, or one that [chip] or
-     * [newOnly] has set aside, it is the count the line always gave.
+     * [newOnly] has set aside, it is the row's own count under both sliders: Familiarity takes no
+     * share from the new songs, but the row is twenty whole cards, and which kind is rounded up
+     * to its next card depends on all of them. Counted without it, this line said two where the
+     * row, and the picture of it over the sliders, had one.
      */
     fun newCards(choice: Lean, dial: Double, familiarity: Double, chip: Int = ContextChip.AUTO, newOnly: Boolean = false, p: EngineParams = EngineParams.DEFAULT): Int =
-        (leading(choice, dial, familiarity, chip, newOnly, p)?.quotas ?: quotas(p.rowSize, dial, false, p))[Lane.EXPLORE] ?: 0
+        (leading(choice, dial, familiarity, chip, newOnly, p)?.quotas ?: quotas(p.rowSize, dial, false, p.withFamiliarity(familiarity)))[Lane.EXPLORE] ?: 0
 
     /** The cards the Familiarity line counts: songs due again, of the row as the choice shapes it while it leads. */
     fun againCards(choice: Lean, dial: Double, familiarity: Double, chip: Int = ContextChip.AUTO, newOnly: Boolean = false, p: EngineParams = EngineParams.DEFAULT): Int =
         (leading(choice, dial, familiarity, chip, newOnly, p)?.quotas ?: quotas(p.rowSize, dial, false, p.withFamiliarity(familiarity)))[Lane.AGAIN] ?: 0
+
+    /**
+     * The whole row under these settings, in the shape the builder itself gives it (EngineRow.shape),
+     * so that the picture and the row agree whatever chip, choice or switch is on.
+     */
+    fun mix(choice: Lean, dial: Double, familiarity: Double, chip: Int = ContextChip.AUTO, newOnly: Boolean = false, p: EngineParams = EngineParams.DEFAULT): RowMix {
+        val shape = EngineRow.shape(p.withFamiliarity(familiarity), dial, newOnly, false, chip, choice)
+        return RowMix(Lane.entries.associateWith { shape.quotas[it] ?: 0 }, shape.lead)
+    }
 
     /** Whether the choice, not the Adventurousness slider, sets how many cards are new: Never heard while it leads the row. */
     fun newSetByChoice(choice: Lean, chip: Int, newOnly: Boolean, p: EngineParams = EngineParams.DEFAULT): Boolean =

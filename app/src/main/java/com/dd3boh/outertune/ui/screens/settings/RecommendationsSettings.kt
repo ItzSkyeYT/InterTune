@@ -6,6 +6,13 @@
 
 package com.dd3boh.outertune.ui.screens.settings
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
+import com.dd3boh.outertune.ui.component.RowPicturePanel
+import com.dd3boh.outertune.ui.screens.settings.fragments.PinnedPicture
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -165,60 +172,71 @@ fun RecommendationsSettings(
             val leanLine = remember(lean, quickPicksSource, chip, newSongsOnly, adventurousness) {
                 LeanChoice.line(lean, quickPicksSource, chip, newSongsOnly, adventurousness / 100.0)
             }
-            EnumListPreference(
-                modifier = Modifier.tourTarget(Tour.SETTING_QUICK_PICKS_LEAN),
-                title = { Text(leanTitle) },
-                icon = null,
-                trailingContent = { ExplainButton(leanTitle, leanInfo) },
-                content = leanLine?.let { line -> @Composable { MeaningLine(leanLineText(line)) } },
-                selectedValue = lean,
-                values = LeanChoice.options,
-                valueText = { stringResource(leanOptionName(it)) },
-                onValueSelected = { onLeanNameChange(LeanChoice.stored(it)) },
-            )
-            ExplainedSwitchPreference(
-                title = stringResource(R.string.show_reasons),
-                explanation = stringResource(R.string.show_reasons_info),
-                description = stringResource(R.string.show_reasons_description),
-                checked = showReasons,
-                onCheckedChange = onShowReasonsChange,
-            )
-            // No "i" on the two sliders: the line under each counts the cards as it is dragged.
-            PreferenceEntry(
-                modifier = Modifier.tourTarget(Tour.SETTING_ADVENTUROUSNESS),
-                title = { Text(stringResource(R.string.adventurousness)) },
-                // While Never heard leads the row the slider no longer sets this count, and the line says what does.
-                description = stringResource(
-                    if (LeanChoice.newSetByChoice(lean, chip, newSongsOnly)) R.string.adventurousness_description_lean_new else R.string.adventurousness_description,
-                    LeanChoice.newCards(lean, adventurousness / 100.0, familiarity / 100.0, chip, newSongsOnly),
-                ),
-                onClick = null,
-            )
-            Slider(
-                value = adventurousness.toFloat(),
-                onValueChange = { onAdventurousnessChange(it.toInt()) },
-                valueRange = 0f..100f,
-                modifier = Modifier.padding(horizontal = 16.dp),
-            )
-            PreferenceEntry(
-                modifier = Modifier.tourTarget(SettingJumps.FAMILIARITY),
-                title = { Text(stringResource(R.string.familiarity)) },
-                description = stringResource(R.string.familiarity_description, LeanChoice.againCards(lean, adventurousness / 100.0, familiarity / 100.0, chip, newSongsOnly)),
-                onClick = null,
-            )
-            Slider(
-                value = familiarity.toFloat(),
-                onValueChange = { onFamiliarityChange(it.toInt()) },
-                valueRange = 0f..60f,
-                modifier = Modifier.padding(horizontal = 16.dp),
-            )
-            ExplainedSwitchPreference(
-                title = stringResource(R.string.new_songs_only),
-                explanation = stringResource(R.string.new_songs_only_info),
-                description = stringResource(R.string.new_songs_only_description),
-                checked = newSongsOnly,
-                onCheckedChange = onNewSongsOnlyChange,
-            )
+            // The row as these settings leave it, twenty tiles in the colours of its five kinds of
+            // card, at the head of the controls that share it out and held in view while any of
+            // them is on screen: a tile turns as a slider is dragged, which is what the slider does.
+            val rowFoot = remember { mutableFloatStateOf(Float.MAX_VALUE) }
+            if (Unreleased.EXPLAIN_PICTURES) {
+                PinnedPicture(foot = { rowFoot.floatValue }, held = true, ground = MaterialTheme.colorScheme.surface) {
+                    RowPicturePanel(LeanChoice.mix(lean, adventurousness / 100.0, familiarity / 100.0, chip, newSongsOnly))
+                }
+            }
+            Column(Modifier.onGloballyPositioned { rowFoot.floatValue = it.positionInWindow().y + it.size.height }) {
+                EnumListPreference(
+                    modifier = Modifier.tourTarget(Tour.SETTING_QUICK_PICKS_LEAN),
+                    title = { Text(leanTitle) },
+                    icon = null,
+                    trailingContent = { ExplainButton(leanTitle, leanInfo) },
+                    content = leanLine?.let { line -> @Composable { MeaningLine(leanLineText(line)) } },
+                    selectedValue = lean,
+                    values = LeanChoice.options,
+                    valueText = { stringResource(leanOptionName(it)) },
+                    onValueSelected = { onLeanNameChange(LeanChoice.stored(it)) },
+                )
+                ExplainedSwitchPreference(
+                    title = stringResource(R.string.show_reasons),
+                    explanation = stringResource(R.string.show_reasons_info),
+                    description = stringResource(R.string.show_reasons_description),
+                    checked = showReasons,
+                    onCheckedChange = onShowReasonsChange,
+                )
+                // No "i" on the two sliders: the line under each counts the cards as it is dragged.
+                PreferenceEntry(
+                    modifier = Modifier.tourTarget(Tour.SETTING_ADVENTUROUSNESS),
+                    title = { Text(stringResource(R.string.adventurousness)) },
+                    // While Never heard leads the row the slider no longer sets this count, and the line says what does.
+                    description = stringResource(
+                        if (LeanChoice.newSetByChoice(lean, chip, newSongsOnly)) R.string.adventurousness_description_lean_new else R.string.adventurousness_description,
+                        LeanChoice.newCards(lean, adventurousness / 100.0, familiarity / 100.0, chip, newSongsOnly),
+                    ),
+                    onClick = null,
+                )
+                Slider(
+                    value = adventurousness.toFloat(),
+                    onValueChange = { onAdventurousnessChange(it.toInt()) },
+                    valueRange = 0f..100f,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
+                PreferenceEntry(
+                    modifier = Modifier.tourTarget(SettingJumps.FAMILIARITY),
+                    title = { Text(stringResource(R.string.familiarity)) },
+                    description = stringResource(R.string.familiarity_description, LeanChoice.againCards(lean, adventurousness / 100.0, familiarity / 100.0, chip, newSongsOnly)),
+                    onClick = null,
+                )
+                Slider(
+                    value = familiarity.toFloat(),
+                    onValueChange = { onFamiliarityChange(it.toInt()) },
+                    valueRange = 0f..60f,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
+                ExplainedSwitchPreference(
+                    title = stringResource(R.string.new_songs_only),
+                    explanation = stringResource(R.string.new_songs_only_info),
+                    description = stringResource(R.string.new_songs_only_description),
+                    checked = newSongsOnly,
+                    onCheckedChange = onNewSongsOnlyChange,
+                )
+            }
             // Needs the Last.fm key built into the app. A build without one, or a copy not signed with
             // the release key, has nothing to ask with, so the choice is not shown rather than shown
             // doing nothing, and the app acts as YouTube only.

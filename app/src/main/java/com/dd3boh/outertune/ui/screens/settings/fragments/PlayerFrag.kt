@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material3.CardDefaults
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -369,6 +370,20 @@ private fun StageSliderRow(title: String, description: String, pictured: Boolean
  */
 @Composable
 private fun PinnedStagePicture(stage: SoundStage, foot: () -> Float, held: Boolean) {
+    PinnedPicture(foot = foot, held = held, ground = CardDefaults.elevatedCardColors().containerColor) {
+        ExplainPicturePanel(picture = ExplainPicture.SOUND_STAGE, stage = stage)
+    }
+}
+
+/**
+ * A picture at the head of the controls that move it, held in view as [PinnedStagePicture] says.
+ * The Recommendations page holds the picture of its row the same way.
+ *
+ * @param ground the colour of what the controls stand on, drawn behind the picture so that the
+ * rows going under it are gone and not showing round its corners
+ */
+@Composable
+internal fun PinnedPicture(foot: () -> Float, held: Boolean, ground: Color, content: @Composable () -> Unit) {
     // Under the status bar and the page's own title, which floats over what scrolls.
     val ceiling = with(LocalDensity.current) { WindowInsets.statusBars.getTop(this) + 64.dp.toPx() }
     val stands = remember { mutableFloatStateOf(0f) }
@@ -387,16 +402,14 @@ private fun PinnedStagePicture(stage: SoundStage, foot: () -> Float, held: Boole
             .graphicsLayer {
                 translationY = stageShift(ceiling, stands.floatValue, tall.floatValue, foot(), held)
             }
-            // The card's own colour behind it, so that the rows going under it are gone and
-            // not showing round its corners.
-            .background(CardDefaults.elevatedCardColors().containerColor)
+            .background(ground)
             // And the touches that fall on it stop here: without this they went through to
             // whatever row was under it, and a tap on the picture moved a slider nobody could
             // see. A drag on it still scrolls the page, which hears of it on the way down.
             .pointerInput(Unit) { }
             .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
-        ExplainPicturePanel(picture = ExplainPicture.SOUND_STAGE, stage = stage)
+        content()
     }
 }
 
