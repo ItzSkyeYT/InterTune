@@ -48,7 +48,6 @@ import com.dd3boh.outertune.playback.BinauralAudioProcessor
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.rounded.Bluetooth
-import com.dd3boh.outertune.playback.ProximityProbe
 import kotlinx.coroutines.delay
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.PreferenceGroupTitle

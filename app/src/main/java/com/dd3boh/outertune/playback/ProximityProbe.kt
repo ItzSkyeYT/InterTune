@@ -36,7 +36,10 @@ import java.io.File
  * Measured rather than argued because the last several things guessed at in this area turned out
  * the other way when someone finally looked.
  *
- * Writes a CSV. Debug fixture, not a feature: nothing calls it unless someone presses the button.
+ * Writes a CSV. Debug fixture, not a feature: nothing calls it unless someone presses the button,
+ * and only a debug build has the button (Unreleased.SIGNAL_LOG). It names every device in
+ * earshot, so the file goes to the cache on shared storage, which no backup carries and from
+ * where adb can still pull it.
  */
 class ProximityProbe(private val context: Context) {
 
@@ -147,8 +150,10 @@ class ProximityProbe(private val context: Context) {
         val scanner = adapter?.takeIf { it.isEnabled }?.bluetoothLeScanner ?: return null
         if (!hasPermission()) return null
 
-        val out = File(context.getExternalFilesDir(null), "rssi-${System.currentTimeMillis()}.csv")
-        out.writeText("elapsed_ms,step,address,name,rssi_dbm\n")
+        val folder = context.externalCacheDir ?: return null
+        val out = File(folder, "rssi-${System.currentTimeMillis()}.csv")
+        runCatching { out.writeText("elapsed_ms,step,address,name,rssi_dbm\n") }
+            .onFailure { Log.w(TAG, "could not start the log: ${it.message}"); return null }
         file = out
         startedAt = SystemClock.elapsedRealtime()
         samples = 0
@@ -201,5 +206,23 @@ class ProximityProbe(private val context: Context) {
 
     companion object {
         private const val TAG = "ProximityProbe"
+
+        /** What 0.11 and 0.11.1 named a log: rssi-, the clock in milliseconds, .csv. */
+        private val OLD_LOG = Regex("""rssi-\d+\.csv""")
+
+        /**
+         * Deletes the logs 0.11 and 0.11.1 wrote to [folder], the app's folder on shared storage.
+         *
+         * Those two releases showed the button to anyone with "Quieter as you walk away" on, and
+         * each run left a file there naming every Bluetooth device nearby, in a folder Android
+         * backs up and carries to a new phone. Nothing in the app ever read one. Asked at every
+         * start and not once, so a file that comes back with a restored backup goes too.
+         */
+        fun forgetOldLogs(folder: File?) {
+            runCatching {
+                folder?.listFiles { file -> file.isFile && OLD_LOG.matches(file.name) }
+                    ?.forEach { it.delete() }
+            }
+        }
     }
 }

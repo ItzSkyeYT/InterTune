@@ -280,8 +280,9 @@
 
 
     <!--
-        Only for "Quieter as you walk away" under Player and audio and the signal log beneath it,
-        on Android 12 and up, and requested at the point of use rather than assumed at install.
+        Only for "Quieter as you walk away" under Player and audio, on Android 12 and up, and
+        requested at the point of use rather than assumed at install. A debug build has a signal
+        log beneath that setting as well, which listens to every device; a release does not.
         neverForLocation because nothing here wants to know where anyone is: the only question is
         how strong a signal from headphones already paired and connected happens to be.
     -->

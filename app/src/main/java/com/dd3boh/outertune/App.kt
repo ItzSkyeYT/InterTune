@@ -53,6 +53,7 @@ import com.dd3boh.outertune.constants.VisitorDataKey
 import com.dd3boh.outertune.extensions.toEnum
 import com.dd3boh.outertune.extensions.toInetSocketAddress
 import com.dd3boh.outertune.playback.PlayerLogger
+import com.dd3boh.outertune.playback.ProximityProbe
 import com.dd3boh.outertune.playback.StandInMemory
 import com.dd3boh.outertune.utils.CoilBitmapLoader
 import com.dd3boh.outertune.utils.CrashLog
@@ -95,6 +96,10 @@ class App : Application(), SingletonImageLoader.Factory {
         if (BuildConfig.DEBUG) {
             System.setProperty("kotlinx.coroutines.debug", "on")
         }
+
+        // 0.11 and 0.11.1 showed a test row that wrote the Bluetooth devices nearby to files in
+        // this folder, which Android backs up. Nothing ever read them, so they go.
+        GlobalScope.launch(Dispatchers.IO) { ProximityProbe.forgetOldLogs(getExternalFilesDir(null)) }
 
         instance = this;
         // Every request that changes the account asks this first, so "Read only" and signed out
