@@ -93,6 +93,10 @@ import kotlin.math.min
  *   not with a modifier's alpha: that one has the stretched picture drawn into a buffer the size
  *   of the screen at every redraw and then fades the buffer. This fades the small picture as it
  *   is stretched, which comes to the same on screen.
+ * @param covered true while it is on screen and none of it can be seen, because something that
+ *   lets nothing through lies over all of it: the player's queue, open. It asks for no frames
+ *   then, as when it is off screen, and goes on listening, so that it comes back knowing where
+ *   the song is in its shape.
  * @param coverPlace where the cover it stands behind is, in the root's measure, or null for none.
  *   The player's own by default; the sample in Settings has a small cover of its own.
  */
@@ -107,12 +111,13 @@ fun LivingBackground(
     colours: LivingColours,
     modifier: Modifier = Modifier,
     alpha: Float = 1f,
+    covered: Boolean = false,
     coverPlace: () -> Rect? = { PlayerCoverPlace.bounds },
 ) {
     // The grid is made for the room the picture is given, not for the window: in the player the
     // two are the same, in the Settings sample the picture is a strip.
     BoxWithConstraints(modifier) {
-        LivingPicture(cover, tap, playing, onScreen, strength, smoothing, colours, alpha, coverPlace, constraints.maxWidth, constraints.maxHeight)
+        LivingPicture(cover, tap, playing, onScreen, covered, strength, smoothing, colours, alpha, coverPlace, constraints.maxWidth, constraints.maxHeight)
     }
 }
 
@@ -122,6 +127,7 @@ private fun LivingPicture(
     tap: LevelTap?,
     playing: Boolean,
     onScreen: Boolean,
+    covered: Boolean,
     strength: Float,
     smoothing: Float,
     colours: LivingColours,
@@ -195,8 +201,10 @@ private fun LivingPicture(
 
     // coverThere is a key because the aura comes and goes with the cover, and has to be seen to
     // do it even while nothing else moves.
-    LaunchedEffect(onScreen, playing, covers, coverThere, motion, lifecycleOwner) {
-        if (!onScreen) {
+    LaunchedEffect(onScreen, covered, playing, covers, coverThere, motion, lifecycleOwner) {
+        // Covered, it is as good as off screen: nobody sees it move, and every frame of it would
+        // still have the window drawn again over it.
+        if (!onScreen || covered) {
             look.unseen = true
             return@LaunchedEffect
         }
@@ -242,11 +250,12 @@ private fun LivingPicture(
         }
     }
 
-    // The music is watched for as long as the picture is on screen, playing or not, and not from
-    // the effect above, which starts again at every pause, every cover and when the lyrics come
-    // up. Each of those took the last watcher away for a moment, the tap took the moment for
-    // music it had missed, and the song's shape started over: a pause in a build-up cost the
-    // drop. Nothing is offered to measure while nothing plays, so watching a pause costs nothing.
+    // The music is watched for as long as the picture is on screen, playing or not, covered or
+    // not, and not from the effect above, which starts again at every pause, every cover and when
+    // the lyrics come up. Each of those took the last watcher away for a moment, the tap took the
+    // moment for music it had missed, and the song's shape started over: a pause in a build-up
+    // cost the drop, and so would a look at the queue. Nothing is offered to measure while
+    // nothing plays, so watching a pause costs nothing.
     LaunchedEffect(tap, onScreen, still, lifecycleOwner) {
         if (tap == null || !onScreen || still) return@LaunchedEffect
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {

@@ -1423,7 +1423,7 @@ class LivingFieldTest {
         val source = java.io.File("src/main/java/com/dd3boh/outertune/ui/player/LivingBackground.kt").readText()
         val frames = source.substringAfter("repeatOnLifecycle(Lifecycle.State.STARTED) {").substringBefore("withFrameNanos")
         assertTrue("before the first frame of a new run", frames.contains("motion.arrive()"))
-        assertTrue("told that it was off screen by the player closing", source.substringAfter("if (!onScreen) {").substringBefore("}").contains("look.unseen = true"))
+        assertTrue("told that it was off screen by the player closing, or hidden by the queue opening over it", source.substringAfter("if (!onScreen || covered) {").substringBefore("}").contains("look.unseen = true"))
         assertTrue("and by the app leaving the screen", source.substringAfter("} finally {").substringBefore("PlayerCoverPlace").contains("look.unseen = true"))
     }
 
@@ -1724,6 +1724,17 @@ class LivingFieldTest {
         assertTrue(onFrame, onFrame.contains("if (motion.frame(now, redraws, playing, heard)) frame = now"))
         assertFalse("no step and no redraw of its own beside that", onFrame.contains("motion.step(") || onFrame.contains("motion.moveTo(") || onFrame.contains("frame++"))
         assertTrue("one pace for every picture in the app", source.contains("\nprivate val redraws = RedrawPace()"))
+    }
+
+    @Test
+    fun `under the open queue the background asks for no frames and goes on listening`() {
+        val source = java.io.File("src/main/java/com/dd3boh/outertune/ui/player/LivingBackground.kt").readText()
+        val frames = source.substringAfter("LaunchedEffect(onScreen, covered, playing, covers, coverThere, motion, lifecycleOwner) {").substringBefore("repeatOnLifecycle")
+        assertTrue("it leaves before a frame is asked for", frames.contains("if (!onScreen || covered) {") && frames.contains("return@LaunchedEffect"))
+        val watching = source.substringAfter("LaunchedEffect(tap, onScreen, still, lifecycleOwner) {").substringBefore("repeatOnLifecycle")
+        assertFalse("the watcher does not go with it, or a look at the queue would start the song's shape over", watching.contains("covered"))
+        val player = java.io.File("src/main/java/com/dd3boh/outertune/ui/player/Player.kt").readText()
+        assertTrue(player.contains("covered = queueHidesBackground(playerExpanded = state.isExpanded, queueSheetExpanded = queueSheetState.isExpanded)"))
     }
 
     @Test
