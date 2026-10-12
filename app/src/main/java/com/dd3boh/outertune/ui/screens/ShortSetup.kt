@@ -77,6 +77,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBarDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.contentColorFor
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
@@ -138,6 +139,7 @@ import com.dd3boh.outertune.constants.AccountNameKey
 import com.dd3boh.outertune.constants.InnerTubeCookieKey
 import com.dd3boh.outertune.constants.OOBE_VERSION
 import com.dd3boh.outertune.constants.OobeStatusKey
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.applyNewInstallDefaults
 import com.dd3boh.outertune.constants.markFirstSetup
 import com.dd3boh.outertune.ui.utils.shrinkToOneLine
@@ -181,7 +183,8 @@ private const val SETTLE_MS = 600L
  * Under every page is the row the wizard has under its own: back, a line that says how far
  * along, and on, which is a tick on the last page (SetupNavRow). It is outside the pages, so it
  * stays where it is while they change, and none of them can be without it. The pages keep only
- * what is not going on: restoring a backup, and signing in.
+ * what is not going on: restoring a backup, signing in, and, in a build that has the import
+ * (Unreleased.LIBRARY_IMPORT), bringing playlists over from another app.
  *
  * A page's button is never under the fold either: it stands below what scrolls, and beside it in
  * a window too short to stack the two, which is a phone on its side.
@@ -384,6 +387,16 @@ fun ShortSetup(
                                     busy = restoring,
                                     onClick = { if (live) restoreLauncher.launch(arrayOf("application/octet-stream")) },
                                 )
+                                // Somebody who comes from another service has playlists there
+                                // and no backup of this app. The import is a screen of its own,
+                                // gone to as the sign-in page is, and left it comes back here.
+                                if (Unreleased.LIBRARY_IMPORT) {
+                                    SetupQuietButton(
+                                        text = stringResource(R.string.setup_import_playlists),
+                                        enabled = !restoring,
+                                        onClick = { if (live) navController.navigate("settings/backup/import") },
+                                    )
+                                }
                             },
                         )
 
@@ -867,6 +880,27 @@ private fun SetupButton(
         Button(onClick = onClick, enabled = enabled, modifier = modifier) { label() }
     } else {
         FilledTonalButton(onClick = onClick, enabled = enabled, modifier = modifier) { label() }
+    }
+}
+
+/**
+ * A second thing a page offers, which fewer people want than its button: a line of words under
+ * the button, as wide and as tall to the finger, and with nothing drawn behind it.
+ */
+@Composable
+private fun SetupQuietButton(
+    text: String,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+) {
+    TextButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp),
+    ) {
+        Text(text = text, textAlign = TextAlign.Center)
     }
 }
 

@@ -620,6 +620,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="setup_signed_in_as">You are signed in as %1$s.</string>
     <string name="setup_signed_in">You are signed in.</string>
     <string name="setup_other_account">Use another account</string>
+    <!-- On setup's first page, under "I have a backup". It opens Import from another service. -->
+    <string name="setup_import_playlists">I have playlists in another app</string>
     <string name="setup_choices_title">A few questions</string>
     <string name="setup_choices_body">You can change your mind later in Settings.</string>
     <string name="setup_updates_question">Hear about new versions?</string>

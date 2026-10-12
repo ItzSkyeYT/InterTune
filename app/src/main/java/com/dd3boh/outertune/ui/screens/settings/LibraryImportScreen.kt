@@ -42,6 +42,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.alpha
@@ -63,6 +64,7 @@ import com.dd3boh.outertune.ui.component.FloatingTopBar
 import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
 import com.dd3boh.outertune.ui.component.items.YouTubeListItem
 import com.dd3boh.outertune.ui.dialog.ActionPromptDialog
+import com.dd3boh.outertune.ui.utils.backToMain
 import com.dd3boh.outertune.utils.joinByBullet
 import com.dd3boh.outertune.utils.makeTimeString
 import com.dd3boh.outertune.viewmodels.LibraryImportViewModel
@@ -74,6 +76,8 @@ import com.zionhuang.innertube.models.SongItem
  *
  * One screen through every stage, because the work lives in [LibraryImport] rather than here: the
  * screen only shows where that is, so leaving and coming back lands on the same place.
+ *
+ * Reached from Backup and restore, and from setup's first page, to which it goes back when left.
  */
 @Composable
 fun LibraryImportScreen(
@@ -269,7 +273,17 @@ fun LibraryImportScreen(
         }
     }
 
-    FloatingTopBar(title = stringResource(R.string.import_library_title), navController = navController)
+    // Opened from setup, the way out is back to setup, for a long press on Back as for a tap.
+    // Everywhere else a long press goes to the main screen, which is under setup, and setup is
+    // not left by walking round it.
+    val fromSetup = remember(navController) {
+        navController.previousBackStackEntry?.destination?.route == "setup_wizard"
+    }
+    FloatingTopBar(
+        title = stringResource(R.string.import_library_title),
+        navController = navController,
+        onLongBack = { if (fromSetup) navController.navigateUp() else navController.backToMain() },
+    )
 }
 
 private val CSV_TYPES = arrayOf(
