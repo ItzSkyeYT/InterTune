@@ -89,6 +89,10 @@ import kotlin.math.min
  * @param strength how strongly it answers the music, 0 to 1: the setting (LivingField.reach)
  * @param smoothing how softly, 0 to 1: the other setting (LivingField.ease)
  * @param colours what it is coloured from: the cover's main colours, or the cover itself
+ * @param alpha how much of the picture shows over what is behind it, 0 to 1. Asked for here and
+ *   not with a modifier's alpha: that one has the stretched picture drawn into a buffer the size
+ *   of the screen at every redraw and then fades the buffer. This fades the small picture as it
+ *   is stretched, which comes to the same on screen.
  * @param coverPlace where the cover it stands behind is, in the root's measure, or null for none.
  *   The player's own by default; the sample in Settings has a small cover of its own.
  */
@@ -102,12 +106,13 @@ fun LivingBackground(
     smoothing: Float,
     colours: LivingColours,
     modifier: Modifier = Modifier,
+    alpha: Float = 1f,
     coverPlace: () -> Rect? = { PlayerCoverPlace.bounds },
 ) {
     // The grid is made for the room the picture is given, not for the window: in the player the
     // two are the same, in the Settings sample the picture is a strip.
     BoxWithConstraints(modifier) {
-        LivingPicture(cover, tap, playing, onScreen, strength, smoothing, colours, coverPlace, constraints.maxWidth, constraints.maxHeight)
+        LivingPicture(cover, tap, playing, onScreen, strength, smoothing, colours, alpha, coverPlace, constraints.maxWidth, constraints.maxHeight)
     }
 }
 
@@ -120,6 +125,7 @@ private fun LivingPicture(
     strength: Float,
     smoothing: Float,
     colours: LivingColours,
+    alpha: Float,
     coverPlace: () -> Rect?,
     wide: Int,
     tall: Int,
@@ -253,7 +259,7 @@ private fun LivingPicture(
         }
     }
 
-    Canvas(Modifier.fillMaxSize().onGloballyPositioned { origin = it.positionInRoot() }.drawnSmall(stretch)) {
+    Canvas(Modifier.fillMaxSize().onGloballyPositioned { origin = it.positionInRoot() }.drawnSmall(stretch, alpha)) {
         @Suppress("UNUSED_VARIABLE")
         val redrawnAt = frame
         // The cover's place, or where it last was while the aura fades out after it.
@@ -354,9 +360,11 @@ private const val SMOOTHING = 2.5f
 /**
  * Lays the content out [SHRINK] times smaller than the room it is given and stretches it back to
  * fill that room, through a layer of its own so that it is the small picture that gets stretched
- * and not its drawing that gets scaled. [stretched] is told by how much, each way.
+ * and not its drawing that gets scaled. [stretched] is told by how much, each way. [alpha] is how
+ * much of the stretched picture shows: the layer's own, so that the picture is faded as one thing
+ * and nothing as big as the screen is drawn to fade it.
  */
-private fun Modifier.drawnSmall(stretched: MutableState<Offset>): Modifier = run {
+private fun Modifier.drawnSmall(stretched: MutableState<Offset>, alpha: Float): Modifier = run {
     var stretch by stretched
     layout { measurable, constraints ->
         if (!constraints.hasBoundedWidth || !constraints.hasBoundedHeight) {
@@ -373,6 +381,7 @@ private fun Modifier.drawnSmall(stretched: MutableState<Offset>): Modifier = run
         scaleY = stretch.y
         transformOrigin = TransformOrigin(0f, 0f)
         compositingStrategy = CompositingStrategy.Offscreen
+        this.alpha = alpha
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             renderEffect = BlurEffect(SMOOTHING, SMOOTHING, TileMode.Clamp)
         }

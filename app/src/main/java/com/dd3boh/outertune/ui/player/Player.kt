@@ -722,9 +722,10 @@ fun BottomSheetPlayer(
                         strength = livingStrength,
                         smoothing = livingSmoothing,
                         colours = livingColours,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .alpha(artworkAlpha)
+                        // its own, not a modifier's: that one costs a buffer the size of the
+                        // screen at every redraw
+                        alpha = artworkAlpha,
+                        modifier = Modifier.fillMaxSize()
                     )
                     Box(
                         modifier = Modifier
