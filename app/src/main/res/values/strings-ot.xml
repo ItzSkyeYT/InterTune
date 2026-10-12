@@ -150,6 +150,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="playback_auth_when_refused">Only when a song is refused</string>
     <string name="playback_auth_always">Always</string>
     <string name="err_age_restricted">YouTube will not play this one without an account old enough to see it. Other songs are unaffected.</string>
+    <string name="err_song_unavailable">YouTube no longer has this song, or does not serve it where you are. Other songs are unaffected.</string>
     <string name="err_copy_details">Copy error details</string>
 
 <!-- Sort menu -->
@@ -627,8 +628,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="setup_signed_in_as">You are signed in as %1$s.</string>
     <string name="setup_signed_in">You are signed in.</string>
     <string name="setup_other_account">Use another account</string>
-    <!-- On setup's first page, beside "I have a backup", each on half the page: one line of words, no more. It opens Import from another service. -->
-    <string name="setup_import_playlists">I have playlists</string>
+    <!-- On setup's first page, beside "I have a backup", each on half the page: two lines of words at most. It opens Import from another service (import_library_title). -->
+    <string name="setup_import_playlists">Import from another app</string>
     <string name="setup_choices_title">A few questions</string>
     <string name="setup_choices_body">You can change your mind later in Settings.</string>
     <string name="setup_updates_question">Hear about new versions?</string>
