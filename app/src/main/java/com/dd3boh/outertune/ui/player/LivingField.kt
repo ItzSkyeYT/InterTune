@@ -788,9 +788,9 @@ object LivingField {
 }
 
 /**
- * Where the picture is at one moment, for a grid of [columns] by [rows] patches. [step] moves it on
- * by the time since the last frame; the getters say where each patch is to be drawn. One instance
- * lives as long as the player's screen keeps its shape.
+ * Where the picture is at one moment, for a grid of [columns] by [rows] patches. [moveTo] moves it
+ * on to the moment of a frame, one [step] after another; the getters say where each patch is to be
+ * drawn. One instance lives as long as the player's screen keeps its shape.
  */
 class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = LivingField.ACROSS) {
     val count = columns * rows
@@ -1029,6 +1029,48 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
         }
     }
 
+    /** What is being heard at a moment, for [moveTo] to ask at each of its steps: the levels as [step] takes them, or null for nothing to go by. */
+    fun interface Heard {
+        fun at(nanos: Long): FloatArray?
+    }
+
+    /** The moment the picture has been moved on to, as the screen's frames tell the time. 0 before the first. */
+    private var movedTo = 0L
+
+    /**
+     * Moves on to the frame at [nanos], by the clock and in steps of its own: [STEPS_A_SECOND] to
+     * the second, however many frames the screen has in one and whichever of them the picture is
+     * drawn on. It used to take one step for every frame of the screen, as long as the frame was,
+     * which tied how it moved to how often it was drawn. Now it moves as fast drawn thirty times
+     * a second as drawn on every frame, and where it is at a moment does not depend on which
+     * frames came before.
+     *
+     * Each step is told what is heard as it ends ([heard]; without it, or with null for an
+     * answer, there is nothing to go by, as in [step]). The picture is taken to the step nearest
+     * the frame, so it is never more than half a step from the frame's own time. The first frame
+     * only starts the clock, and a long gap between two frames is not a leap in the picture: no
+     * more than [MOST_GAP_NANOS] of it is made up.
+     */
+    fun moveTo(nanos: Long, playing: Boolean, heard: Heard? = null) {
+        if (movedTo == 0L || nanos + STEP_NANOS < movedTo) movedTo = nanos
+        if (nanos - movedTo > MOST_GAP_NANOS) movedTo = nanos - MOST_GAP_NANOS
+        while (2 * (nanos - movedTo) >= STEP_NANOS) {
+            movedTo += STEP_NANOS
+            step(STEP_SECONDS, heard?.at(movedTo), playing)
+        }
+    }
+
+    /**
+     * A frame of the screen's, at [nanos]. When [pace] has the picture redrawn on it, the picture
+     * is moved on to it and this is true. When not, nothing of it is touched, and nothing is to be
+     * drawn.
+     */
+    fun frame(nanos: Long, pace: RedrawPace, playing: Boolean, heard: Heard? = null): Boolean {
+        if (!pace.due(nanos)) return false
+        moveTo(nanos, playing, heard)
+        return true
+    }
+
     /**
      * How far ahead of what is being heard the levels should be read, in seconds. The audio is
      * measured well before it is heard, so the picture can be started early by what it takes to
@@ -1179,50 +1221,64 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
         }
         return LivingField.lit(LivingField.colourful(from, 1.15f + 0.15f * by), min(LivingField.MOST_LIGHT, 1f + 0.30f * by))
     }
+
+    companion object {
+        /**
+         * The picture moves in steps of this many to the second ([moveTo]): what a 120 Hz screen
+         * gave it while it took a step for every frame, and that is the screen it was looked at
+         * and tuned on.
+         */
+        const val STEPS_A_SECOND = 120
+        const val STEP_NANOS = 1_000_000_000L / STEPS_A_SECOND
+        const val STEP_SECONDS = 1f / STEPS_A_SECOND
+
+        /** The most time one frame makes up for, in nanoseconds: a tenth of a second, as in [step]. */
+        const val MOST_GAP_NANOS = 100_000_000L
+    }
 }
 
 /**
  * Which of the screen's frames the picture is redrawn on.
  *
- * The picture is soft and slow, and everything drawn over it that looks through it (the glass
- * panels) is redrawn with it, so it is redrawn no more often than it takes to look smooth, which
- * is about [SMOOTH] times a second. But no less often either, where the screen can do that. It
- * used to wait until a sixtieth of a second had passed: every frame at 60 Hz and every second one
- * at 120 Hz as meant, but every second one at 90 Hz too, 45 a second, and every third at 144 Hz,
- * 48 a second, and that is a kick drawn a frame late every so often.
+ * Redrawing it is dear, and not for what it is itself: everything drawn over it that looks through
+ * it (the glass panels) is redrawn with it, and so is the rest of the window. Redrawn on every
+ * frame of a 90 Hz screen, the player took most of a core more than it does over a still
+ * background (a Pixel 5, 12 Oct 2026). The picture is soft and slow and does not need that. So it
+ * is redrawn [MOST_A_SECOND] times a second at most, and on the frames between two redraws nothing
+ * of it is touched: no step taken, nothing drawn. It moves by the clock ([LivingMotion.moveTo]),
+ * so how often it is drawn does not change how fast it moves.
  *
- * So the step is taken from the screen's own frame time, measured from the frames as they come:
- * every frame up to 90 Hz and a little over, every second one at 120 and at 144, every third at 180.
+ * The rule goes by the time since the last redraw and knows nothing about the screen: every
+ * second frame at 60 Hz, every third at 90, every fourth at 120, and every fifth at 144, which is
+ * 28.8 a second, the most that screen has under the limit. It was sixty a second and never less
+ * where the screen could do that, to have a kick drawn on its very frame. At thirty a kick can
+ * wait a thirtieth of a second for its frame.
  */
 class RedrawPace {
-    /** The screen's frame time as far as it is known, in nanoseconds: the shortest step from one frame to the next lately. */
-    var frameNanos = 0L
-        private set
-    private var last = 0L
     private var shown = 0L
 
-    /** A frame of the screen's, at [nanos]: true when the picture is to be redrawn on it. */
+    /**
+     * A frame of the screen's, at [nanos]: true when the picture is to be redrawn on it. Asked
+     * again about the same frame it answers the same, so that two pictures in one window (the
+     * player's, and the sample in Settings under it) share one pace and are redrawn on the same
+     * frames, not each on its own.
+     */
     fun due(nanos: Long): Boolean {
-        val step = nanos - last
-        if (last != 0L && step > 0L) {
-            // The shortest step is the screen's own, a longer one has a missed frame in it. What is
-            // known is let grow a little at every frame, or a screen that slowed down would never
-            // be found out.
-            frameNanos = if (frameNanos == 0L) step else min(step, frameNanos + frameNanos / 50)
-        }
-        last = nanos
-        // half a frame early, so that a frame is not let go by for a hair
-        if (shown != 0L && nanos - shown < everyNth(frameNanos) * frameNanos - frameNanos / 2) return false
+        val since = nanos - shown
+        if (shown != 0L && since > 0L && since < APART_NANOS) return false
         shown = nanos
         return true
     }
 
     companion object {
-        /** How many redraws a second look smooth. */
-        const val SMOOTH = 60
+        /** The most the picture is redrawn, in a second. */
+        const val MOST_A_SECOND = 30
 
-        /** On a screen whose frames are [frameNanos] apart, every which one is redrawn on: as few as give [SMOOTH] a second, or all but. */
-        fun everyNth(frameNanos: Long): Int =
-            if (frameNanos <= 0L) 1 else max(1, (1e9 / SMOOTH / frameNanos + 0.1).toInt())
+        /**
+         * Two redraws are at least this far apart, in nanoseconds: a thirtieth of a second less
+         * 2 ms, so that a frame which comes a hair early, or a screen that runs a little fast of
+         * its number, does not wait for the frame after.
+         */
+        const val APART_NANOS = 1_000_000_000L / MOST_A_SECOND - 2_000_000L
     }
 }

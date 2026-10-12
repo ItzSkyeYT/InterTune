@@ -72,6 +72,11 @@ import kotlin.math.min
  * picture and costs what the plain blurred cover costs. With battery saver on, or animations
  * turned off in the system, it does not move at all.
  *
+ * While it moves it is redrawn thirty times a second at most, whatever the screen can do
+ * ([RedrawPace]). What a redraw costs is not this picture, which is small: it is the glass panels
+ * over it, which look through it and are redrawn with it, and the rest of the window. On the
+ * screen's frames between two redraws nothing of it is stepped and nothing is drawn.
+ *
  * The cover takes up most of the player and hides what is behind it, so most of what answers the
  * music is an aura on the cover's own edge ([PlayerCoverPlace] says where that is), half of it
  * behind the cover and half spilling out round it.
@@ -198,20 +203,27 @@ private fun LivingPicture(
             }
             try {
                 val levels = FloatArray(MusicLevels.VALUES)
-                val pace = RedrawPace()
-                var last = 0L
+                var frameAt = 0L
+                // What is heard as each of the picture's steps ends. A step ends a little before
+                // the frame it is taken on, or a hair after, and the tap answers for the present:
+                // so it is asked that much less far ahead, or more. It is never asked backwards,
+                // and a step from further back than the lead, which takes a frame that came very
+                // late, is told what is heard now.
+                val heard = LivingMotion.Heard { at ->
+                    val aheadUs = (motion.lead() * 1_000_000).toLong() + (at - frameAt) / 1000
+                    levels.takeIf { playing && tap?.now(it, aheadUs) == true }
+                }
                 while (playing || !motion.atRest()) {
                     withFrameNanos { now ->
-                        val seconds = if (last == 0L) 0f else (now - last) / 1e9f
-                        last = now
-                        val heard = levels.takeIf { playing && tap?.now(it, (motion.lead() * 1_000_000).toLong()) == true }
-                        motion.step(seconds, heard, playing)
-                        // not on every frame of a fast screen: see RedrawPace
-                        if (pace.due(now)) frame = now
+                        frameAt = now
+                        // Thirty times a second at most, and on the screen's other frames nothing
+                        // is stepped and nothing drawn: see RedrawPace.
+                        if (motion.frame(now, redraws, playing, heard)) frame = now
                     }
                 }
-                // where it came to rest, in case the last step fell between two redraws
-                frame = last + 1
+                // At rest, or never moved at all: drawn once more, for the colours that arrived
+                // while nothing was drawn.
+                frame++
             } finally {
                 if (!lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) look.unseen = true
             }
@@ -283,6 +295,14 @@ private fun LivingPicture(
 object PlayerCoverPlace {
     var bounds by mutableStateOf<Rect?>(null)
 }
+
+/**
+ * The one pace every living picture in the app is redrawn at. Two can be up at once, the player's
+ * and the sample in Settings under it, and each with a pace of its own would have frames of its
+ * own: a window redrawn sixty times a second for two pictures redrawn thirty times each. Asked on
+ * the main thread only, where the frames come.
+ */
+private val redraws = RedrawPace()
 
 /** What the drawing keeps between frames, so that a frame allocates nothing. */
 private class Look {
