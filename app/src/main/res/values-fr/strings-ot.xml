@@ -1398,7 +1398,7 @@
     <string name="import_library_source_with_free">Avec %1$s, gratuit</string>
     <string name="import_library_source_with">Avec %1$s</string>
     <string name="import_library_source_with_or_computer">Avec %1$s, ou depuis un ordinateur</string>
-    <string name="import_library_source_other">Une autre appli, ou un fichier que j\'ai déjà</string>
+    <string name="import_library_source_other">Une autre appli, ou un fichier</string>
     <string name="import_library_source_other_title">Une autre appli</string>
     <string name="import_library_source_other_hint">Tout CSV avec le nom des titres</string>
     <string name="import_library_source_note_exportify">Gratuit et sans limite. Vos titres aimés sont aussi dans sa liste.</string>
