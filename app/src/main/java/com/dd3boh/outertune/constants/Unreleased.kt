@@ -231,9 +231,13 @@ object Unreleased {
      * only when VISIONOS gave no stream, a request each, and whichever serves is asked first from
      * then on. Both played whole songs on 9 and 10 Oct 2026 when the stream probe asked them.
      *
-     * Needs nothing else in the build. To ship: this to true.
+     * Needs nothing else in the build.
+     *
+     * On in every build from 0.11.5. It has no text of its own. Left to tidy: the flag and the
+     * checks that read it, in YTPlayerUtils, and in MusicService and DeveloperFrag for the
+     * developer options' "Pretend VISIONOS is blocked", which stays a debug and preview build's.
      */
-    val VISIONOS_IDENTITIES = BuildConfig.DEBUG
+    val VISIONOS_IDENTITIES = true
 
     /**
      * The theme takes as much colour from a cover as the cover has (CoverAccent). A black and

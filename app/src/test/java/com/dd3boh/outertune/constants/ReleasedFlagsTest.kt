@@ -29,7 +29,7 @@ class ReleasedFlagsTest {
     /** On in every build, and so in a release. The second line went on for 0.11.5. */
     private val inEveryBuild = setOf(
         "ENGINE", "SHORT_SETUP", "LOGIN_RETURNS",
-        "STAND_INS",
+        "STAND_INS", "VISIONOS_IDENTITIES",
     )
 
     private val sources = File("src/main/java/com/dd3boh/outertune")
@@ -97,5 +97,12 @@ class ReleasedFlagsTest {
             assertTrue("$name is not open to translators", "<string name=\"$name\">" in english)
             assertTrue("$name has no French", "<string name=\"$name\">" in french)
         }
+    }
+
+    @Test
+    fun `VISIONOS's other identities are in the chain of every build`() {
+        // Read by the chain, and for the developer options' test row and the switch it stores.
+        assertEquals(setOf("utils/YTPlayerUtils.kt", "playback/MusicService.kt", "ui/screens/settings/fragments/DeveloperFrag.kt"), readers("VISIONOS_IDENTITIES"))
+        assertWritten("utils/YTPlayerUtils.kt", "internal var identitiesInChain: Boolean = Unreleased.VISIONOS_IDENTITIES")
     }
 }
