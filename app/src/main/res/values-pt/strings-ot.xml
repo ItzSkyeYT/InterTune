@@ -9,7 +9,7 @@
     <string name="queue_remote_history">Histórico (remoto)</string>
     <string name="remote_history">Remoto</string>
     <string name="library_empty">Os conteúdos da sua biblioteca aparecerão aqui</string>
-    <string name="missing_media_permission_warning">As permissões de armazenamento são necessárias para a média local. Toque para conceder a permissão.</string>
+    <string name="missing_media_permission_warning">A permissão de armazenamento é necessária para a midia local. Clique para permitir.</string>
     <string name="queues_title">Filas</string>
     <string name="create_queue">Nova fila</string>
     <string name="song_added_to_queue">\"%s\" foi adicionado à fila</string>
@@ -382,4 +382,13 @@
     <string name="pure_black_description">Usar preto verdadeiro em vez de cinzento escuro. Num ecrã OLED isto também poupa alguma bateria.</string>
     <string name="min_playback_duration_short">Quanto de uma música tem de tocar para contar como reprodução.</string>
     <string name="throttle_banner_title">O YouTube pausou esta ligação</string>
+    <string name="back">Voltar</string>
+    <string name="queue_default_name">Fila</string>
+    <string name="save_queue_as_playlist">Fila salva como uma playlist</string>
+    <string name="saved_as_playlist">Salvo como uma playlist: %1$s</string>
+    <string name="spatial_audio">Áudio espacial</string>
+    <string name="spatial_audio_description">Expande a música para além da linha entre seus ouvidos.</string>
+    <string name="spatial_audio_off">Desativado</string>
+    <string name="spatial_audio_headphones">Fones de ouvido</string>
+    <string name="spatial_audio_surround">Mixagem envolvente</string>
 </resources>
