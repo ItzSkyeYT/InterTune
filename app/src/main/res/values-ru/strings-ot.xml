@@ -55,7 +55,7 @@
     <string name="grp_lyrics_format">Форматирование</string>
     <string name="grp_lyrics_parser">Парсер</string>
     <string name="grp_lyrics_source">Источники текстов</string>
-    <string name="grp_manual_scanner">Ручное сканироваие</string>
+    <string name="grp_manual_scanner">Ручное сканирование</string>
     <string name="player_background_blur">Размытие</string>
     <string name="player_background_default">Следовать теме</string>
     <string name="player_background_gradient">Градиент</string>
