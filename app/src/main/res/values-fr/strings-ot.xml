@@ -1233,7 +1233,7 @@
     <string name="widget_show_artist">Les noms des artistes</string>
     <string name="widget_show_heading">Le titre de la liste</string>
     <string name="widget_rounded_corners">Coins arrondis</string>
-    <!-- Recommendations: the little "i" beside every item, and what it opens -->
+    <!-- Recommendations: the little "i" beside an item, and what it opens -->
     <string name="tidy_home_rows_info">Aucune rangée de l\'accueil ne montre un titre déjà présent dans une rangée précédente, et les versions d\'un même titre (live, remasterisé, vidéo) comptent pour une. Rien ne comble les trous, donc une rangée peut être plus courte. Désactivé, vos exclusions ne filtrent plus que la rangée « Meilleures recommandations ».</string>
     <string name="rank_with_listening_info">Remet la « Sélection Rapide » dans un ordre qui vous convient : les titres que vous écoutez souvent, écoutés récemment ou aimés passent plutôt devant. Rien n\'est ajouté ni retiré. La rangée est laissée telle quelle quand « Meilleures recommandations » ou « Essayer les deux » la remplit.</string>
     <string name="recommendations_engine_title_info">La rangée compte vingt cartes : des titres proches de ce que vous écoutez, ceux auxquels vous revenez, d\'autres titres de vos artistes, d\'anciens favoris délaissés et quelques nouveautés. Ces réglages s\'appliquent quand « Source de la Sélection Rapide » est sur « Meilleures recommandations » ou « Essayer les deux ». Tirez l\'accueil vers le bas pour voir un changement.</string>

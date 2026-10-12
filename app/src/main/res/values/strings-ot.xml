@@ -1487,7 +1487,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="widget_show_heading">The list\'s heading</string>
     <string name="widget_rounded_corners">Rounded corners</string>
 
-<!-- Recommendations: the little "i" beside every item, and what it opens -->
+<!-- Recommendations: the little "i" beside an item, and what it opens -->
     <string name="tidy_home_rows_info">No Home row shows a song an earlier row already has, and versions of one song (live, remastered, video) count as the same. Nothing fills a gap, so a row can come up short. Off, your exclusions only filter the \"Best recommendations\" row.</string>
     <string name="rank_with_listening_info">Puts the \"Quick picks\" row in an order that suits you: songs you play often, played lately or liked tend to come first. Nothing is added or removed. It leaves the row alone when \"Best recommendations\" or \"Try both\" fills it.</string>
     <string name="recommendations_engine_title_info">The row is twenty cards: songs related to what you play, songs you keep coming back to, more from your artists, old favourites gone quiet, and a few new to you. These settings apply while \"Quick picks source\" is \"Best recommendations\" or \"Try both\". Pull down on Home to see a change.</string>
