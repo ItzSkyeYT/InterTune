@@ -142,8 +142,8 @@
     <string name="scanner_type_taglib">استخدام مستخرج البيانات الوصفية TagLib المدمج</string>
     <string name="scanner_type_ffmpeg_ext">استخدام مستخرج البيانات الوصفية FFmpeg. يتطلب تثبيت حزمة خارجية</string>
     <string name="pause_remote_listen_history">إيقاف مؤقت لمشاركة سجل الاستماع مع YouTube Music</string>
-    <string name="scanner_variant_rescan">اعادة فحص كامل المكتبة وتحديث \' metadata</string>
-    <string name="scanner_online_artist_linking">محاولة ربط ملف\' فنان مع YouTube Music</string>
+    <string name="scanner_variant_rescan">اعادة فحص كامل المكتبة وتحديث metadata</string>
+    <string name="scanner_online_artist_linking">محاولة ربط ملف فنان مع YouTube Music</string>
     <string name="dev_settings_title">تمكين إعدادات المطور</string>
     <string name="dev_settings_description">يكشف عن إعدادات متقدمة إضافية مخصصة للاستخدام التطويري</string>
     <string name="swipe_to_skip_title">اسحب أفقيًا لتغيير الأغنية</string>
@@ -173,7 +173,7 @@
     <string name="file_path">مسار الملف</string>
     <string name="track_number">عدد المسارات</string>
     <string name="help_contact_email_inquiries">استفسارات أخرى (انقر لنسخ البريد الإلكتروني)</string>
-    <string name="wiki">أسبوع</string>
+    <string name="wiki">ويكي</string>
     <string name="attribution_title">الإسناد</string>
     <string name="tablet_ui_title">فرض واجهة مستخدم الجهاز اللوحي</string>
     <string name="tablet_ui_title_description">تمكين واجهة أفقية مُحسّنة للشاشات الأكبر حجمًا بغض النظر عن حجم الشاشة الحالي</string>
