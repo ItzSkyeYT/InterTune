@@ -138,6 +138,7 @@ import com.dd3boh.outertune.ui.component.items.PlaylistThumbnail
 import com.dd3boh.outertune.ui.component.items.SongListItem
 import com.dd3boh.outertune.ui.dialog.DefaultDialog
 import com.dd3boh.outertune.ui.dialog.TextFieldDialog
+import com.dd3boh.outertune.ui.player.named
 import com.dd3boh.outertune.ui.utils.getNSongsString
 import com.dd3boh.outertune.utils.makeTimeString
 import com.dd3boh.outertune.utils.mayPushToYouTube
@@ -654,7 +655,8 @@ fun LocalPlaylistScreen(
                                 ) {
                                     Icon(
                                         imageVector = if (locked) Icons.Rounded.Lock else Icons.Rounded.LockOpen,
-                                        contentDescription = null
+                                        // Said as it stands, like the picture: whether the songs can be dragged.
+                                        contentDescription = stringResource(if (locked) R.string.playlist_order_locked else R.string.playlist_order_unlocked)
                                     )
                                 }
                             }
@@ -789,7 +791,7 @@ fun LocalPlaylistScreen(
                         ) {
                             Icon(
                                 Icons.Rounded.Search,
-                                contentDescription = null
+                                contentDescription = stringResource(R.string.search)
                             )
                         }
                     }
@@ -962,7 +964,7 @@ fun LocalPlaylistHeader(
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Edit,
-                            contentDescription = null
+                            contentDescription = stringResource(R.string.edit_playlist)
                         )
                     }
 
@@ -992,7 +994,7 @@ fun LocalPlaylistHeader(
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.Sync,
-                                contentDescription = null
+                                contentDescription = stringResource(R.string.action_sync)
                             )
                         }
                     }
@@ -1005,7 +1007,7 @@ fun LocalPlaylistHeader(
                                 ) {
                                     Icon(
                                         imageVector = Icons.Rounded.OfflinePin,
-                                        contentDescription = null
+                                        contentDescription = stringResource(R.string.remove_download)
                                     )
                                 }
                             }
@@ -1016,7 +1018,9 @@ fun LocalPlaylistHeader(
                                         songs.forEach { song ->
                                             downloadUtil.removeDownload(song.song.id)
                                         }
-                                    }
+                                    },
+                                    // The wheel has no words of its own, so the button says what a tap on it does.
+                                    modifier = Modifier.named(stringResource(R.string.cancel_download))
                                 ) {
                                     CircularProgressIndicator(
                                         strokeWidth = 2.dp,
@@ -1033,7 +1037,7 @@ fun LocalPlaylistHeader(
                                 ) {
                                     Icon(
                                         imageVector = Icons.Rounded.Download,
-                                        contentDescription = null
+                                        contentDescription = stringResource(R.string.action_download)
                                     )
                                 }
                             }
@@ -1048,7 +1052,7 @@ fun LocalPlaylistHeader(
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
-                                contentDescription = null
+                                contentDescription = stringResource(R.string.add_to_queue)
                             )
                         }
                     }

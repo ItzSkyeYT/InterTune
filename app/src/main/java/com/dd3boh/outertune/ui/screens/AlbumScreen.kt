@@ -106,6 +106,8 @@ import com.dd3boh.outertune.ui.component.shimmer.ShimmerHost
 import com.dd3boh.outertune.ui.component.shimmer.TextPlaceholder
 import com.dd3boh.outertune.ui.menu.AlbumMenu
 import com.dd3boh.outertune.ui.menu.YouTubeAlbumMenu
+import com.dd3boh.outertune.ui.player.likeName
+import com.dd3boh.outertune.ui.player.named
 import com.dd3boh.outertune.ui.utils.getNSongsString
 import com.dd3boh.outertune.ui.utils.linkStylesWithFocus
 import com.dd3boh.outertune.utils.LocalArtworkPath
@@ -278,7 +280,7 @@ fun AlbumScreen(
                         ) {
                             Icon(
                                 painter = painterResource(if (albumWithSongsLocal.album.bookmarkedAt != null) R.drawable.favorite else R.drawable.favorite_border),
-                                contentDescription = null,
+                                contentDescription = likeName(albumWithSongsLocal.album.bookmarkedAt != null),
                                 tint = if (albumWithSongsLocal.album.bookmarkedAt != null) MaterialTheme.colorScheme.error else LocalContentColor.current
                             )
                         }
@@ -295,7 +297,7 @@ fun AlbumScreen(
                                     ) {
                                         Icon(
                                             imageVector = Icons.Rounded.OfflinePin,
-                                            contentDescription = null
+                                            contentDescription = stringResource(R.string.remove_download)
                                         )
                                     }
                                 }
@@ -306,7 +308,9 @@ fun AlbumScreen(
                                             albumWithSongsLocal.songs.forEach { song ->
                                                 downloadUtil.removeDownload(song.id)
                                             }
-                                        }
+                                        },
+                                        // The wheel has no words of its own, so the button says what a tap on it does.
+                                        modifier = Modifier.named(stringResource(R.string.cancel_download))
                                     ) {
                                         CircularProgressIndicator(
                                             strokeWidth = 2.dp,
@@ -325,7 +329,7 @@ fun AlbumScreen(
                                     ) {
                                         Icon(
                                             Icons.Rounded.Download,
-                                            contentDescription = null
+                                            contentDescription = stringResource(R.string.action_download)
                                         )
                                     }
                                 }

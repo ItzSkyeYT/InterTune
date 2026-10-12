@@ -102,6 +102,7 @@ import com.dd3boh.outertune.ui.menu.YouTubeAlbumMenu
 import com.dd3boh.outertune.ui.menu.YouTubeArtistMenu
 import com.dd3boh.outertune.ui.menu.YouTubePlaylistMenu
 import com.dd3boh.outertune.ui.menu.YouTubeSongMenu
+import com.dd3boh.outertune.ui.player.likeName
 import com.dd3boh.outertune.ui.utils.HeaderBesideList
 import com.dd3boh.outertune.ui.utils.headerPaneInsets
 import com.dd3boh.outertune.ui.utils.Landscape
@@ -634,7 +635,7 @@ fun ArtistScreen(
                         Icon(
                             imageVector = if (libraryArtist?.artist?.bookmarkedAt != null) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                             tint = if (libraryArtist?.artist?.bookmarkedAt != null) MaterialTheme.colorScheme.error else LocalContentColor.current,
-                            contentDescription = null
+                            contentDescription = likeName(libraryArtist?.artist?.bookmarkedAt != null)
                         )
                     }
 
@@ -652,7 +653,7 @@ fun ArtistScreen(
                     ) {
                         Icon(
                             Icons.Rounded.Share,
-                            contentDescription = null
+                            contentDescription = stringResource(R.string.share)
                         )
                     }
                 }

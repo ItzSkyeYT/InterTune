@@ -122,6 +122,7 @@ import com.dd3boh.outertune.ui.component.TopBarTitle
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.component.items.SongListItem
 import com.dd3boh.outertune.ui.dialog.DefaultDialog
+import com.dd3boh.outertune.ui.player.named
 import com.dd3boh.outertune.ui.utils.getNSongsString
 import com.dd3boh.outertune.utils.getDownloadState
 import com.dd3boh.outertune.utils.makeTimeString
@@ -425,7 +426,7 @@ fun AutoPlaylistScreen(
                                             ) {
                                                 Icon(
                                                     Icons.Rounded.OfflinePin,
-                                                    contentDescription = null
+                                                    contentDescription = stringResource(R.string.remove_download)
                                                 )
                                             }
                                         }
@@ -436,7 +437,9 @@ fun AutoPlaylistScreen(
                                                     songs.forEach { song ->
                                                         downloadUtil.removeDownload(song.song.id)
                                                     }
-                                                }
+                                                },
+                                                // The wheel has no words of its own, so the button says what a tap on it does.
+                                                modifier = Modifier.named(stringResource(R.string.cancel_download))
                                             ) {
                                                 CircularProgressIndicator(
                                                     strokeWidth = 2.dp,
@@ -453,7 +456,7 @@ fun AutoPlaylistScreen(
                                             ) {
                                                 Icon(
                                                     Icons.Rounded.Download,
-                                                    contentDescription = null
+                                                    contentDescription = stringResource(R.string.action_download)
                                                 )
                                             }
                                         }
@@ -468,7 +471,7 @@ fun AutoPlaylistScreen(
                                     ) {
                                         Icon(
                                             Icons.AutoMirrored.Rounded.QueueMusic,
-                                            contentDescription = null
+                                            contentDescription = stringResource(R.string.add_to_queue)
                                         )
                                     }
                                 }
@@ -708,7 +711,7 @@ fun AutoPlaylistScreen(
                         ) {
                             Icon(
                                 Icons.Rounded.Search,
-                                contentDescription = null
+                                contentDescription = stringResource(R.string.search)
                             )
                         }
                     }

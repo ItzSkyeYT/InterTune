@@ -1505,6 +1505,10 @@
     <string name="home_play_at_random">Lancer quelque chose au hasard</string>
     <string name="view_as_list">Affiché en liste</string>
     <string name="view_as_grid">Affiché en grille</string>
+    <string name="playlist_order_locked">Ordre verrouillé</string>
+    <string name="playlist_order_unlocked">Ordre déverrouillé</string>
+    <string name="cancel_download">Annuler le téléchargement</string>
+    <string name="playlist_load_all">Charger toute la playlist</string>
     <string name="select_all">Tout sélectionner</string>
     <string name="deselect_all">Tout désélectionner</string>
     <string name="cancel_selection">Annuler la sélection</string>
