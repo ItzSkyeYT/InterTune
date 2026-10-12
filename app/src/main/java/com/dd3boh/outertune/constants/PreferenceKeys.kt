@@ -288,6 +288,14 @@ val OobeStatusKey = intPreferencesKey("oobeStatus")
  * in Developer sets it back to 0 for somebody who has been through setup before. See markFirstSetup.
  */
 val FirstSetupKey = booleanPreferencesKey("firstSetup")
+
+/**
+ * Set once this install has been told what signing in can cost: that YouTube may restrict or
+ * close an account used with the app. Setup says it on its sign-in page and the Account page in
+ * Settings says it beside the way in, so both set it. Whoever was signed in before either said
+ * anything is told once, in a dialog, on opening the app (accountNoticeOwed).
+ */
+val AccountNoticeSeenKey = booleanPreferencesKey("accountNoticeSeen")
 val SwipeToSkipKey = booleanPreferencesKey("swipeToSkip")
 
 /**

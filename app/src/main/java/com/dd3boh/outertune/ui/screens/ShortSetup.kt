@@ -454,6 +454,19 @@ fun ShortSetup(
                                         else -> stringResource(R.string.setup_signed_in_as, accountName)
                                     },
                                 )
+                                Spacer(Modifier.height(12.dp))
+                                // What it can cost, over the button that does it. It stays once
+                                // signed in: this is also the page where the account is changed.
+                                Text(
+                                    text = stringResource(R.string.account_notice_body),
+                                    // Even lines: left to itself the last one was a single word.
+                                    style = MaterialTheme.typography.bodySmall.copy(lineBreak = LineBreak.Heading),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 8.dp)
+                                )
                             },
                             buttons = {
                                 if (signedIn) {

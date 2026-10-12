@@ -41,6 +41,10 @@ If InterTune is useful to you, a star on this page helps other people find the r
 >
 > InterTune installs alongside OuterTune, so both can sit on the device at once: it ships as `dev.skye.intertune`, not upstream's `com.dd3boh.outertune`. That also means it cannot update an existing OuterTune install in place. Back up in OuterTune first (**Settings → Backup and restore**), then restore into InterTune from the same screen. Do not uninstall OuterTune until the restore has finished.
 
+> [!WARNING]
+>
+> Signing in is optional, and the app works without an account. If you do sign in, there is a small chance that YouTube restricts or closes the account you use. To keep your main account out of it, stay signed out, or sign in with a second account. Nothing on your phone depends on the account: the library, playlists and downloads live on the device.
+
 ## Screenshots
 
 <div align="center">

@@ -35,6 +35,7 @@ import com.dd3boh.outertune.constants.AccountChannelHandleKey
 import com.dd3boh.outertune.constants.AccountEmailKey
 import com.dd3boh.outertune.constants.AccountNameKey
 import com.dd3boh.outertune.constants.DataSyncIdKey
+import com.dd3boh.outertune.constants.AccountNoticeSeenKey
 import com.dd3boh.outertune.constants.InnerTubeCookieKey
 import com.dd3boh.outertune.constants.UseLoginForBrowse
 import com.dd3boh.outertune.constants.VisitorDataKey
@@ -62,6 +63,9 @@ fun ColumnScope.AccountFrag(navController: NavController) {
     val isLoggedIn = remember(innerTubeCookie) {
         "SAPISID" in parseCookieString(innerTubeCookie)
     }
+    // The note under these rows says what signing in can cost. Whoever signs in from here has had
+    // it before them, so the dialog that says it to people signed in earlier is not owed to them.
+    val (_, setAccountNoticeSeen) = rememberPreference(AccountNoticeSeenKey, defaultValue = false)
 
     // temp vars
     var showToken: Boolean by remember {
@@ -79,7 +83,10 @@ fun ColumnScope.AccountFrag(navController: NavController) {
                 ?: accountChannelHandle.takeIf { it.isNotEmpty() }
         } else null,
         icon = { Icon(Icons.Rounded.Person, null) },
-        onClick = { navController.navigate("login") }
+        onClick = {
+            setAccountNoticeSeen(true)
+            navController.navigate("login")
+        }
     )
     // The row used to snap in and out on login and logout.
     AnimatedVisibility(isLoggedIn) {
@@ -93,6 +100,7 @@ fun ColumnScope.AccountFrag(navController: NavController) {
             )
         }
     }
+    InfoLabel(text = stringResource(R.string.account_notice_body))
 
     PreferenceEntry(
         title = {
@@ -133,6 +141,8 @@ fun ColumnScope.AccountFrag(navController: NavController) {
             modifier = Modifier,
             initialTextFieldValue = TextFieldValue(text),
             onDone = { data ->
+                // Signing in by hand, with the same note on the page behind this dialog.
+                setAccountNoticeSeen(true)
                 data.split("\n").forEach {
                     if (it.startsWith("***INNERTUBE COOKIE*** =")) {
                         onInnerTubeCookieChange(it.substringAfter("***INNERTUBE COOKIE*** ="))

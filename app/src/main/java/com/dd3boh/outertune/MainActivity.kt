@@ -163,6 +163,8 @@ import com.dd3boh.outertune.constants.MinMiniPlayerHeight
 import com.dd3boh.outertune.constants.MiniPlayerHeight
 import com.dd3boh.outertune.constants.NavigationBarAnimationSpec
 import com.dd3boh.outertune.constants.NavigationBarHeight
+import com.dd3boh.outertune.constants.AccountNoticeSeenKey
+import com.dd3boh.outertune.constants.InnerTubeCookieKey
 import com.dd3boh.outertune.constants.OOBE_VERSION
 import com.dd3boh.outertune.constants.OobeStatusKey
 import com.dd3boh.outertune.constants.AnnouncementsEnabledKey
@@ -208,7 +210,10 @@ import com.dd3boh.outertune.constants.SimilarFromLastFmKey
 import com.dd3boh.outertune.constants.SimilarSourceKey
 import com.dd3boh.outertune.engine.SimilarSources
 import com.dd3boh.outertune.utils.lastFmQuestionAskable
+import com.dd3boh.outertune.ui.screens.AccountNoticeDialog
 import com.dd3boh.outertune.ui.screens.OptInCatchUp
+import com.dd3boh.outertune.ui.screens.accountNoticeOwed
+import com.dd3boh.outertune.ui.screens.isAccountCookie
 import com.dd3boh.outertune.ui.screens.catchUpOwed
 import com.dd3boh.outertune.ui.screens.Screens
 import com.dd3boh.outertune.ui.screens.search.SearchBarContainer
@@ -1407,6 +1412,22 @@ class MainActivity : ComponentActivity() {
                                 // tomorrow, so ask once more now that the preference is written.
                                 coroutineScope.launch { activeCount.ping() }
                             })
+                        }
+
+                        /*
+                         * What signing in can cost, for whoever was signed in before setup and
+                         * Settings said it (AccountNotice.kt). Once, and never over something
+                         * else: the questions, the welcome page, a tour and the offer of an
+                         * update were asked for or are owed an answer, so it waits for them to
+                         * be gone and comes up then.
+                         */
+                        val (accountNoticeSeen, setAccountNoticeSeen) = rememberPreference(AccountNoticeSeenKey, defaultValue = false)
+                        val accountCookie by rememberPreference(InnerTubeCookieKey, defaultValue = "")
+                        val signedIn = remember(accountCookie) { isAccountCookie(accountCookie) }
+                        if (accountNoticeOwed(setupDone = oobeStatus >= OOBE_VERSION, signedIn = signedIn, seen = accountNoticeSeen) &&
+                            !catchUpOpen && !welcomeOpen && !tourState.running && !tourFromWelcome && !updatePromptVisible
+                        ) {
+                            AccountNoticeDialog(onDone = { setAccountNoticeSeen(true) })
                         }
 
                         // Behind the expanded player or the walkthrough, the screen is still composed, and

@@ -223,6 +223,10 @@ fun markFirstSetup(prefs: MutablePreferences) {
 fun applyNewInstallDefaults(prefs: MutablePreferences) {
     val firstSetup = prefs[FirstSetupKey] == true
     prefs.remove(FirstSetupKey)
+    // Setup's sign-in page says what signing in can cost, so nobody who has been through setup is
+    // told again in a dialog. Skipped before that page, there is no account yet, and the way in
+    // from Settings says it too.
+    prefs[AccountNoticeSeenKey] = true
     if (firstSetup && prefs[QuickPicksSourceKey] == null && QuickPicksSource.ENGINE in QuickPicksSource.offered()) {
         prefs[QuickPicksSourceKey] = QuickPicksSource.ENGINE.name
     }
