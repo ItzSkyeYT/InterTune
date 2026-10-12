@@ -109,10 +109,12 @@ class ShortSetupImportTest {
         for (folder in listOf("values", "values-fr")) {
             val text = strings(folder)["setup_import_playlists"]
             assertTrue("no text in $folder", !text.isNullOrBlank())
-            assertTrue("$folder: ${text!!.length} letters is long for a button", text.length <= 40)
+            // Half the page, in one line: two lines of words made the row taller, and in French
+            // that again cut the last line of the overview on a Pixel 5.
+            assertTrue("$folder: ${text!!.length} letters is long for half the page", text.length <= 20)
             assertFalse(folder, '—' in text || '.' in text)
         }
-        assertEquals("I have playlists in another app", strings("values").getValue("setup_import_playlists"))
+        assertEquals("I have playlists", strings("values").getValue("setup_import_playlists"))
         // It reads beside the button above it, which says "I have a backup".
         assertTrue(strings("values").getValue("oobe_use_backup").startsWith("I have "))
         assertTrue(strings("values-fr").getValue("setup_import_playlists").startsWith("J'ai "))
