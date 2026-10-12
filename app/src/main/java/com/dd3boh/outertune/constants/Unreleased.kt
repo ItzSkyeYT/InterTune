@@ -45,7 +45,7 @@ object Unreleased {
      * Import from another service, under Settings > Backup and restore: an export file from
      * Exportify, TuneMyMusic, Soundiiz or Apple Music, matched against YouTube with TrackMatch,
      * with a review screen for what it is unsure of, made into local playlists. Setup's first
-     * page leads to it too, under "I have a backup".
+     * page leads to it too, beside "I have a backup".
      *
      * Not tied to any release yet. When one takes it, set this to true or delete it along with the
      * four checks that read it: in BackupSettings, the nav graph, SettingsTwoPane and ShortSetup.
