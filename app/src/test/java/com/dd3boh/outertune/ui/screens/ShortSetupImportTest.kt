@@ -13,8 +13,10 @@ import org.junit.Test
 import java.io.File
 
 /**
- * Setup's first page leads to the import: under "I have a backup", for somebody whose music is in
- * another app and who has no backup of this one.
+ * Setup's first page leads to the import: beside "I have a backup", for somebody whose music is in
+ * another app and who has no backup of this one. Beside and not under: one under the other, the
+ * second button took the room of the fifth line of what the app does, on the phone the page was
+ * fitted to (a Pixel 5: the line was cut in English and gone in French).
  *
  * It is there only while the import is (Unreleased.LIBRARY_IMPORT), it goes to the import screen
  * the way the second page goes to the sign-in page, and the import screen left goes back to setup
@@ -40,7 +42,7 @@ class ShortSetupImportTest {
             .associate { it.groupValues[1] to it.groupValues[2].replace("\\'", "'") }
 
     @Test
-    fun `the first page offers the import under its backup button`() {
+    fun `the first page offers the import after its backup button`() {
         val backupAt = buttons.indexOf("R.string.oobe_use_backup")
         val importAt = buttons.indexOf("R.string.setup_import_playlists")
         assertTrue("the backup button was not found", backupAt >= 0)
@@ -52,14 +54,27 @@ class ShortSetupImportTest {
 
     @Test
     fun `only while the import itself is there`() {
-        assertTrue(
-            buttons,
-            Regex("""if \(Unreleased\.LIBRARY_IMPORT\) \{\s*SetupQuietButton\(\s*text = stringResource\(R\.string\.setup_import_playlists\)""")
-                .containsMatchIn(buttons),
-        )
+        // With the import: the two buttons in one row. Without it: the backup button alone, the
+        // width of the page, as it was.
+        val with = buttons.substringAfter("if (Unreleased.LIBRARY_IMPORT) {").substringBefore("} else {")
+        val without = buttons.substringAfter("} else {")
+        assertTrue("no branch for a build with the import", "if (Unreleased.LIBRARY_IMPORT) {" in buttons && "} else {" in buttons)
+        assertTrue("R.string.setup_import_playlists" in with && "R.string.oobe_use_backup" in with)
+        assertTrue("R.string.oobe_use_backup" in without)
+        assertFalse("R.string.setup_import_playlists" in without)
         // And nowhere else on any page.
         assertEquals(1, Regex("""setup_import_playlists""").findAll(setup).count())
-        assertEquals(1, Regex("""\bSetupQuietButton\(""").findAll(setup.substringBefore("private fun SetupQuietButton(")).count())
+    }
+
+    @Test
+    fun `the two stand side by side, each half the page and as tall as the other`() {
+        val with = buttons.substringAfter("if (Unreleased.LIBRARY_IMPORT) {").substringBefore("} else {")
+        assertTrue("not in a row", Regex("""\bRow\(""").containsMatchIn(with))
+        assertTrue("the row is not as tall as its taller button", ".height(IntrinsicSize.Max)" in with)
+        assertEquals("each takes half", 2, Regex("""Modifier\.weight\(1f\)\.fillMaxHeight\(\)""").findAll(with).count())
+        // The same kind of button, both tonal: two ways of arriving with something, neither the
+        // page's main thing, which is going on.
+        assertEquals(2, Regex("""primary = false""").findAll(with).count())
     }
 
     @Test
@@ -77,16 +92,16 @@ class ShortSetupImportTest {
     @Test
     fun `it waits while a backup is being restored, as the button above it does`() {
         // The app restarts when a restore is done: nothing is started from this page meanwhile.
-        assertEquals(2, Regex("""enabled = !restoring""").findAll(buttons).count())
+        val with = buttons.substringAfter("if (Unreleased.LIBRARY_IMPORT) {").substringBefore("} else {")
+        assertEquals(2, Regex("""enabled = !restoring""").findAll(with).count())
     }
 
     @Test
-    fun `it is the quieter of the two, and no smaller to the finger`() {
-        val quiet = setup.substringAfter("private fun SetupQuietButton(").substringBefore("\n}\n")
-        assertTrue("words alone, where the backup button is filled", "TextButton(" in quiet)
-        assertFalse("FilledTonalButton(" in quiet || Regex("""\bButton\(""").containsMatchIn(quiet.replace("TextButton(", "")))
-        assertTrue(".heightIn(min = 48.dp)" in quiet)
-        assertTrue(".fillMaxWidth()" in quiet)
+    fun `no button is smaller to the finger than it was`() {
+        val button = setup.substringAfter("private fun SetupButton(").substringBefore("\n}\n")
+        assertTrue(".heightIn(min = 48.dp)" in button)
+        // Half the page is narrow for two lines of words: the padding at their sides is smaller there.
+        assertTrue("PaddingValues(horizontal = 12.dp, vertical = 8.dp)" in button)
     }
 
     @Test
