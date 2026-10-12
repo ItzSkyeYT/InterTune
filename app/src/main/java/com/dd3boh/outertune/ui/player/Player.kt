@@ -719,12 +719,14 @@ fun BottomSheetPlayer(
                         tap = playerConnection.service.levelTap,
                         playing = isPlaying,
                         onScreen = !state.isCollapsed && !state.isDismissed,
+                        covered = queueHidesBackground(playerExpanded = state.isExpanded, queueSheetExpanded = queueSheetState.isExpanded),
                         strength = livingStrength,
                         smoothing = livingSmoothing,
                         colours = livingColours,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .alpha(artworkAlpha)
+                        // its own, not a modifier's: that one costs a buffer the size of the
+                        // screen at every redraw
+                        alpha = artworkAlpha,
+                        modifier = Modifier.fillMaxSize()
                     )
                     Box(
                         modifier = Modifier
@@ -1879,6 +1881,19 @@ internal fun computeQueueSheetOpen(
     playerCollapsed: Boolean,
     playerDismissed: Boolean,
 ): Boolean = (queueSheetExpanded || tabletTwoPane) && !playerCollapsed && !playerDismissed
+
+/**
+ * Whether the queue hides all of what the player draws behind itself, so that a background which
+ * moves can stand still for as long: the player fully open and the queue's sheet fully open over
+ * it. The sheet is one flat colour from edge to edge and lets nothing through. Its bar, when
+ * that is a pane of glass, looks through the queue's own list and not through the player
+ * (QueueContent's listBackdrop).
+ *
+ * Fully open and nothing less, on both counts: a sheet on its way up or down is see-through
+ * for part of the way, and the background shows.
+ */
+internal fun queueHidesBackground(playerExpanded: Boolean, queueSheetExpanded: Boolean): Boolean =
+    playerExpanded && queueSheetExpanded
 
 /**
  * Lays the content out at its natural height, and when that is more than there is room for,

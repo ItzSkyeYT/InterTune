@@ -18,11 +18,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
@@ -72,6 +74,11 @@ import kotlin.math.min
  * picture and costs what the plain blurred cover costs. With battery saver on, or animations
  * turned off in the system, it does not move at all.
  *
+ * While it moves it is redrawn thirty times a second at most, whatever the screen can do
+ * ([RedrawPace]). What a redraw costs is not this picture, which is small: it is the glass panels
+ * over it, which look through it and are redrawn with it, and the rest of the window. On the
+ * screen's frames between two redraws nothing of it is stepped and nothing is drawn.
+ *
  * The cover takes up most of the player and hides what is behind it, so most of what answers the
  * music is an aura on the cover's own edge ([PlayerCoverPlace] says where that is), half of it
  * behind the cover and half spilling out round it.
@@ -82,6 +89,14 @@ import kotlin.math.min
  * @param strength how strongly it answers the music, 0 to 1: the setting (LivingField.reach)
  * @param smoothing how softly, 0 to 1: the other setting (LivingField.ease)
  * @param colours what it is coloured from: the cover's main colours, or the cover itself
+ * @param alpha how much of the picture shows over what is behind it, 0 to 1. Asked for here and
+ *   not with a modifier's alpha: that one has the stretched picture drawn into a buffer the size
+ *   of the screen at every redraw and then fades the buffer. This fades the small picture as it
+ *   is stretched, which comes to the same on screen.
+ * @param covered true while it is on screen and none of it can be seen, because something that
+ *   lets nothing through lies over all of it: the player's queue, open. It asks for no frames
+ *   then, as when it is off screen, and goes on listening, so that it comes back knowing where
+ *   the song is in its shape.
  * @param coverPlace where the cover it stands behind is, in the root's measure, or null for none.
  *   The player's own by default; the sample in Settings has a small cover of its own.
  */
@@ -95,12 +110,14 @@ fun LivingBackground(
     smoothing: Float,
     colours: LivingColours,
     modifier: Modifier = Modifier,
+    alpha: Float = 1f,
+    covered: Boolean = false,
     coverPlace: () -> Rect? = { PlayerCoverPlace.bounds },
 ) {
     // The grid is made for the room the picture is given, not for the window: in the player the
     // two are the same, in the Settings sample the picture is a strip.
     BoxWithConstraints(modifier) {
-        LivingPicture(cover, tap, playing, onScreen, strength, smoothing, colours, coverPlace, constraints.maxWidth, constraints.maxHeight)
+        LivingPicture(cover, tap, playing, onScreen, covered, strength, smoothing, colours, alpha, coverPlace, constraints.maxWidth, constraints.maxHeight)
     }
 }
 
@@ -110,9 +127,11 @@ private fun LivingPicture(
     tap: LevelTap?,
     playing: Boolean,
     onScreen: Boolean,
+    covered: Boolean,
     strength: Float,
     smoothing: Float,
     colours: LivingColours,
+    alpha: Float,
     coverPlace: () -> Rect?,
     wide: Int,
     tall: Int,
@@ -139,7 +158,11 @@ private fun LivingPicture(
         if (upright) LivingMotion(across, along) else LivingMotion(along, across)
     }
 
-    val coverThere = coverPlace() != null
+    // Whether there is a cover, and not where it is. Its place changes on every frame while the
+    // player's sheet or the strip of covers moves, and read here it had the whole picture
+    // composed again on each of those frames. Where the cover is, the drawing asks.
+    val place by rememberUpdatedState(coverPlace)
+    val coverThere by remember { derivedStateOf { place() != null } }
     motion.strength = strength
     motion.smoothing = smoothing
     motion.coverThere = coverThere
@@ -178,8 +201,10 @@ private fun LivingPicture(
 
     // coverThere is a key because the aura comes and goes with the cover, and has to be seen to
     // do it even while nothing else moves.
-    LaunchedEffect(onScreen, playing, covers, coverThere, motion, lifecycleOwner) {
-        if (!onScreen) {
+    LaunchedEffect(onScreen, covered, playing, covers, coverThere, motion, lifecycleOwner) {
+        // Covered, it is as good as off screen: nobody sees it move, and every frame of it would
+        // still have the window drawn again over it.
+        if (!onScreen || covered) {
             look.unseen = true
             return@LaunchedEffect
         }
@@ -198,31 +223,39 @@ private fun LivingPicture(
             }
             try {
                 val levels = FloatArray(MusicLevels.VALUES)
-                val pace = RedrawPace()
-                var last = 0L
+                var frameAt = 0L
+                // What is heard as each of the picture's steps ends. A step ends a little before
+                // the frame it is taken on, or a hair after, and the tap answers for the present:
+                // so it is asked that much less far ahead, or more. It is never asked backwards,
+                // and a step from further back than the lead, which takes a frame that came very
+                // late, is told what is heard now.
+                val heard = LivingMotion.Heard { at ->
+                    val aheadUs = (motion.lead() * 1_000_000).toLong() + (at - frameAt) / 1000
+                    levels.takeIf { playing && tap?.now(it, aheadUs) == true }
+                }
                 while (playing || !motion.atRest()) {
                     withFrameNanos { now ->
-                        val seconds = if (last == 0L) 0f else (now - last) / 1e9f
-                        last = now
-                        val heard = levels.takeIf { playing && tap?.now(it, (motion.lead() * 1_000_000).toLong()) == true }
-                        motion.step(seconds, heard, playing)
-                        // not on every frame of a fast screen: see RedrawPace
-                        if (pace.due(now)) frame = now
+                        frameAt = now
+                        // Thirty times a second at most, and on the screen's other frames nothing
+                        // is stepped and nothing drawn: see RedrawPace.
+                        if (motion.frame(now, redraws, playing, heard)) frame = now
                     }
                 }
-                // where it came to rest, in case the last step fell between two redraws
-                frame = last + 1
+                // At rest, or never moved at all: drawn once more, for the colours that arrived
+                // while nothing was drawn.
+                frame++
             } finally {
                 if (!lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) look.unseen = true
             }
         }
     }
 
-    // The music is watched for as long as the picture is on screen, playing or not, and not from
-    // the effect above, which starts again at every pause, every cover and when the lyrics come
-    // up. Each of those took the last watcher away for a moment, the tap took the moment for
-    // music it had missed, and the song's shape started over: a pause in a build-up cost the
-    // drop. Nothing is offered to measure while nothing plays, so watching a pause costs nothing.
+    // The music is watched for as long as the picture is on screen, playing or not, covered or
+    // not, and not from the effect above, which starts again at every pause, every cover and when
+    // the lyrics come up. Each of those took the last watcher away for a moment, the tap took the
+    // moment for music it had missed, and the song's shape started over: a pause in a build-up
+    // cost the drop, and so would a look at the queue. Nothing is offered to measure while
+    // nothing plays, so watching a pause costs nothing.
     LaunchedEffect(tap, onScreen, still, lifecycleOwner) {
         if (tap == null || !onScreen || still) return@LaunchedEffect
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -235,7 +268,7 @@ private fun LivingPicture(
         }
     }
 
-    Canvas(Modifier.fillMaxSize().onGloballyPositioned { origin = it.positionInRoot() }.drawnSmall(stretch)) {
+    Canvas(Modifier.fillMaxSize().onGloballyPositioned { origin = it.positionInRoot() }.drawnSmall(stretch, alpha)) {
         @Suppress("UNUSED_VARIABLE")
         val redrawnAt = frame
         // The cover's place, or where it last was while the aura fades out after it.
@@ -284,6 +317,14 @@ object PlayerCoverPlace {
     var bounds by mutableStateOf<Rect?>(null)
 }
 
+/**
+ * The one pace every living picture in the app is redrawn at. Two can be up at once, the player's
+ * and the sample in Settings under it, and each with a pace of its own would have frames of its
+ * own: a window redrawn sixty times a second for two pictures redrawn thirty times each. Asked on
+ * the main thread only, where the frames come.
+ */
+private val redraws = RedrawPace()
+
 /** What the drawing keeps between frames, so that a frame allocates nothing. */
 private class Look {
     var lastCover: Rect? = null
@@ -328,9 +369,11 @@ private const val SMOOTHING = 2.5f
 /**
  * Lays the content out [SHRINK] times smaller than the room it is given and stretches it back to
  * fill that room, through a layer of its own so that it is the small picture that gets stretched
- * and not its drawing that gets scaled. [stretched] is told by how much, each way.
+ * and not its drawing that gets scaled. [stretched] is told by how much, each way. [alpha] is how
+ * much of the stretched picture shows: the layer's own, so that the picture is faded as one thing
+ * and nothing as big as the screen is drawn to fade it.
  */
-private fun Modifier.drawnSmall(stretched: MutableState<Offset>): Modifier = run {
+private fun Modifier.drawnSmall(stretched: MutableState<Offset>, alpha: Float): Modifier = run {
     var stretch by stretched
     layout { measurable, constraints ->
         if (!constraints.hasBoundedWidth || !constraints.hasBoundedHeight) {
@@ -347,6 +390,7 @@ private fun Modifier.drawnSmall(stretched: MutableState<Offset>): Modifier = run
         scaleY = stretch.y
         transformOrigin = TransformOrigin(0f, 0f)
         compositingStrategy = CompositingStrategy.Offscreen
+        this.alpha = alpha
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             renderEffect = BlurEffect(SMOOTHING, SMOOTHING, TileMode.Clamp)
         }

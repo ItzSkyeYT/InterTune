@@ -1423,11 +1423,19 @@ class LivingFieldTest {
         val source = java.io.File("src/main/java/com/dd3boh/outertune/ui/player/LivingBackground.kt").readText()
         val frames = source.substringAfter("repeatOnLifecycle(Lifecycle.State.STARTED) {").substringBefore("withFrameNanos")
         assertTrue("before the first frame of a new run", frames.contains("motion.arrive()"))
-        assertTrue("told that it was off screen by the player closing", source.substringAfter("if (!onScreen) {").substringBefore("}").contains("look.unseen = true"))
+        assertTrue("told that it was off screen by the player closing, or hidden by the queue opening over it", source.substringAfter("if (!onScreen || covered) {").substringBefore("}").contains("look.unseen = true"))
         assertTrue("and by the app leaving the screen", source.substringAfter("} finally {").substringBefore("PlayerCoverPlace").contains("look.unseen = true"))
     }
 
     // How often it is redrawn
+
+    /** The frames of a screen of [hz] over [seconds], as the times they come at, the one that ends the last second with them. */
+    private fun frames(hz: Double, seconds: Double = 3.0, from: Long = 1_000_000_000L): LongArray =
+        LongArray(Math.round(seconds * hz).toInt() + 1) { from + Math.round(it * 1e9 / hz) }
+
+    /** Which of [frames] the picture is redrawn on, by their place in the row. */
+    private fun drawnOf(frames: LongArray, pace: RedrawPace = RedrawPace()): List<Int> =
+        frames.indices.filter { pace.due(frames[it]) }
 
     /** How many redraws a screen of [hz] gets in its third second, with every [missEvery]th frame missed if that is not 0. */
     private fun redraws(hz: Double, missEvery: Int = 0, pace: RedrawPace = RedrawPace(), from: Long = 1_000_000_000L): Int {
@@ -1440,27 +1448,293 @@ class LivingFieldTest {
     }
 
     @Test
-    fun `it is redrawn about sixty times a second, and never less where the screen can do sixty`() {
-        assertEquals("every frame at 60 Hz", 60, redraws(60.0))
-        assertEquals("and at 90 Hz, where it used to be every second one", 90, redraws(90.0))
-        assertEquals("every second one at 120 Hz", 60, redraws(120.0))
-        assertEquals("and at 144 Hz, where it used to be every third", 72, redraws(144.0))
-        assertEquals(60, redraws(180.0))
-        assertEquals(60, redraws(240.0))
+    fun `it is redrawn thirty times a second at most, whatever the screen can do`() {
+        assertEquals(30, RedrawPace.MOST_A_SECOND)
+        assertEquals("every second frame at 60 Hz", 30, redraws(60.0))
+        assertEquals("every third at 90 Hz, where it was every one", 30, redraws(90.0))
+        assertEquals("every fourth at 120 Hz", 30, redraws(120.0))
+        assertEquals(30, redraws(180.0))
+        assertEquals(30, redraws(240.0))
         assertEquals("a slow screen gets what it has", 30, redraws(30.0))
-        assertEquals(listOf(1, 1, 1, 2, 2, 3, 4), listOf(30.0, 60.0, 90.0, 120.0, 144.0, 180.0, 240.0).map { RedrawPace.everyNth(Math.round(1e9 / it)) })
-        assertEquals("a screen a hair slow of its number is still that screen", 2, RedrawPace.everyNth(Math.round(1e9 / 119.88)))
-        assertEquals(1, RedrawPace.everyNth(0L))
+        assertEquals(24, redraws(24.0))
+        // where thirty does not go into the screen's number, the most it has under thirty
+        assertEquals("every fifth at 144 Hz", 29, redraws(144.0))
+        assertEquals("every sixth at 165 Hz", 28, redraws(165.0))
+        assertEquals("every third at 75 Hz", 25, redraws(75.0))
+        assertEquals(25, redraws(50.0))
+        assertEquals("a screen a hair slow of its number is still that screen", 30, redraws(59.94))
+        assertEquals(30, redraws(119.88))
+
+        assertEquals("from the first frame on", List(31) { it * 3 }, drawnOf(frames(90.0, 1.0)))
+        assertEquals(List(31) { it * 2 }, drawnOf(frames(60.0, 1.0)))
+        assertEquals(List(31) { it * 4 }, drawnOf(frames(120.0, 1.0)))
     }
 
     @Test
-    fun `a missed frame does not slow it down, and a screen that changes its speed is followed`() {
-        assertTrue("120 Hz with every tenth frame missed: ${redraws(120.0, missEvery = 10)}", redraws(120.0, missEvery = 10) in 54..60)
-        assertTrue("60 Hz with every tenth missed: ${redraws(60.0, missEvery = 10)}", redraws(60.0, missEvery = 10) == 54)
+    fun `no two redraws are closer than a thirtieth of a second less a hair, on any screen`() {
+        assertEquals(31_333_333L, RedrawPace.APART_NANOS)
+        // every screen from 24 Hz to 240 Hz and the ones a little off their number, each with a frame missed now and then
+        val screens = (24..240).map { it.toDouble() } + listOf(59.94, 60.3, 61.5, 89.91, 90.4, 119.88, 143.86)
+        for (hz in screens) for (missEvery in listOf(0, 7)) {
+            val times = frames(hz, 4.0).filterIndexed { n, _ -> missEvery == 0 || n % missEvery != missEvery - 1 }.toLongArray()
+            val shown = drawnOf(times).map { times[it] }
+            val closest = shown.zipWithNext { a, b -> b - a }.min()
+            assertTrue("$hz Hz, a frame missed every $missEvery: two redraws ${closest / 1e6} ms apart", closest >= RedrawPace.APART_NANOS)
+            // which is at most thirty-two in any second, and that only on a screen that runs fast of its number
+            assertTrue("$hz Hz: ${shown.size} redraws in four seconds", shown.size <= 4 * 32)
+        }
+    }
+
+    @Test
+    fun `a frame that comes a hair early or late is still the frame`() {
+        // a 90 Hz screen whose frames come up to 0.6 ms off their time, now early, now late
+        val times = frames(90.0, 2.0).also { for (n in it.indices) it[n] += ((n * 37 % 13) - 6) * 100_000L }
+        assertEquals(List(61) { it * 3 }, drawnOf(times))
+    }
+
+    @Test
+    fun `a missed frame is made up on the one after, and a screen that changes its speed is followed at once`() {
+        // 90 Hz, and the frame the fourth redraw was due on never comes
+        val times = frames(90.0, 1.0).filterIndexed { n, _ -> n != 9 }.toLongArray()
+        assertEquals("the one after it stands in, and the pace goes on from there",
+            listOf(0L, 3L, 6L, 10L, 13L, 16L), drawnOf(times).take(6).map { Math.round((times[it] - times[0]) * 90 / 1e9) })
+        assertEquals("60 Hz with every tenth frame missed, none of them one it is drawn on", 30, redraws(60.0, missEvery = 10))
+        assertEquals("90 Hz with every tenth missed: each costs the one frame it waits", 27, redraws(90.0, missEvery = 10))
         val pace = RedrawPace()
         redraws(120.0, pace = pace)
-        assertEquals("three seconds at 120 Hz, then 60: every frame again within the second", 60, redraws(60.0, pace = pace, from = 4_000_000_000L))
-        assertEquals("and back", 60, redraws(120.0, pace = pace, from = 7_000_000_000L))
+        assertEquals("three seconds at 120 Hz, then 60", 30, redraws(60.0, pace = pace, from = 4_000_000_000L))
+        assertEquals("and back", 30, redraws(120.0, pace = pace, from = 7_000_000_000L))
+    }
+
+    @Test
+    fun `two pictures that share a pace are redrawn on the same frames`() {
+        val pace = RedrawPace()
+        val one = ArrayList<Int>()
+        val other = ArrayList<Int>()
+        val times = frames(90.0, 1.0)
+        for (n in times.indices) {
+            // both are asked about every frame, one after the other
+            if (pace.due(times[n])) one += n
+            if (pace.due(times[n])) other += n
+        }
+        assertEquals(List(31) { it * 3 }, one)
+        assertEquals("asked again about a frame, it says what it said", one, other)
+    }
+
+    // Moving by the clock
+
+    /**
+     * Music made up for these tests, as the levels at a moment: a kick every half second that
+     * fades over a sixth of one, a voice that comes and goes, and cymbals eight times a second,
+     * in frames of 20 ms as the analyser gives them.
+     */
+    private fun music(nanos: Long): FloatArray {
+        val ms = Math.floorDiv(nanos, 20_000_000L) * 20
+        val sinceKick = Math.floorMod(ms, 500L)
+        val bass = if (sinceKick < 160) 1f - sinceKick / 160f else 0.05f
+        val voice = (0.5 + 0.4 * kotlin.math.sin(2 * Math.PI * ms / 3100.0)).toFloat()
+        val top = if (Math.floorMod(ms, 125L) < 20) 0.9f else 0.1f
+        return floatArrayOf(bass, voice, top)
+    }
+
+    private val heard = LivingMotion.Heard { music(it) }
+
+    /** A picture with a cover standing in it as in the player: of the cover, or in ribbons. */
+    private fun pictured(ribbons: Boolean) =
+        (if (ribbons) apart() else motion().apply { turnTo(IntArray(count) { 0xff806040.toInt() }) }).coverAsInThePlayer()
+
+    @Test
+    fun `where the picture is at a moment does not depend on how often it is drawn`() {
+        val start = 7_000_000_000L
+        val four = 4.0
+        // frames that come as they please, a few milliseconds apart or most of a tenth of a second, and the last on the dot
+        val stutter = ArrayList<Long>().apply {
+            var at = start
+            var n = 0
+            while (at < start + 4_000_000_000L) {
+                add(at)
+                at += listOf(5L, 37L, 11L, 83L, 23L, 61L, 9L, 48L)[n++ % 8] * 1_000_000L
+            }
+            add(start + 4_000_000_000L)
+        }.toLongArray()
+        for (ribbons in listOf(false, true)) {
+            fun moved(times: LongArray, pace: RedrawPace? = null) = pictured(ribbons).apply {
+                for (now in times) if (pace == null) moveTo(now, true, heard) else frame(now, pace, true, heard)
+            }
+            // moved on at every frame of a 120 Hz screen, which is one step a frame
+            val every = moved(frames(120.0, four, start))
+            assertTrue("it has moved: ${every.drift}", every.drift > 2f)
+            val others = linkedMapOf(
+                "moved on at every frame of a 30 Hz screen" to moved(frames(30.0, four, start)),
+                "of a 60 Hz one" to moved(frames(60.0, four, start)),
+                "of a 90 Hz one" to moved(frames(90.0, four, start)),
+                "of a 144 Hz one" to moved(frames(144.0, four, start)),
+                "redrawn thirty times a second on a 60 Hz screen" to moved(frames(60.0, four, start), RedrawPace()),
+                "on a 90 Hz one" to moved(frames(90.0, four, start), RedrawPace()),
+                "on a 120 Hz one" to moved(frames(120.0, four, start), RedrawPace()),
+                "on frames that come as they please" to moved(stutter),
+            )
+            for ((how, other) in others) {
+                val said = "$how, ribbons $ribbons"
+                assertArrayEquals(said, every.shown, other.shown, 0f)
+                assertEquals(said, every.drift, other.drift, 0f)
+                assertEquals(said, every.pace, other.pace, 0f)
+                assertArrayEquals(said, every.auraShown, other.auraShown, 0f)
+                assertEquals(said, every.glowHeight(), other.glowHeight(), 0f)
+                assertEquals(said, every.glowStrength(), other.glowStrength(), 0f)
+                for (i in 0 until every.count) {
+                    assertEquals("$said, patch $i", every.x(i), other.x(i), 0f)
+                    assertEquals("$said, patch $i", every.y(i), other.y(i), 0f)
+                    assertEquals("$said, patch $i", every.radius(i), other.radius(i), 0f)
+                    assertEquals("$said, patch $i", every.color(i), other.color(i))
+                }
+                for (i in every.aura.indices) {
+                    assertEquals("$said, aura $i", every.auraRadius(i), other.auraRadius(i), 0f)
+                    assertEquals("$said, aura $i", every.auraColor(i), other.auraColor(i))
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `drawn thirty times a second it moves as it did when it took a step for every frame`() {
+        val start = 7_000_000_000L
+        // The music is read 63 ms ahead, as the picture reads it. That also keeps the analyser's
+        // frames, which here begin on round numbers, from changing on the very nanosecond a step ends.
+        val ahead = 63_000_000L
+        val aheadHeard = LivingMotion.Heard { music(it + ahead) }
+        // how far apart the two may be on each screen: as far along, the kick and the voice at the same instant, the cymbals
+        val within = mapOf(60.0 to Triple(0.01f, 0.03f, 0.15f), 90.0 to Triple(0.003f, 0.02f, 0.15f), 120.0 to Triple(0.0001f, 0.001f, 0.001f))
+        for ((hz, near) in within) for (ribbons in listOf(false, true)) {
+            val before = pictured(ribbons)
+            val now30 = pictured(ribbons)
+            val pace = RedrawPace()
+            var last = 0L
+            var redrawn = 0
+            var worst = 0f
+            var worstTop = 0f
+            val peakBefore = FloatArray(3)
+            val peakDrawn = FloatArray(3)
+            for (now in frames(hz, 20.0, start)) {
+                // as it was: one step for every frame of the screen, as long as the frame
+                before.step(if (last == 0L) 0f else (now - last) / 1e9f, music(now + ahead), true)
+                last = now
+                // the highest each range gets, once the picture has warmed up
+                if (now > start + 2_000_000_000L) for (b in 0..2) peakBefore[b] = maxOf(peakBefore[b], before.shown[b])
+                if (!now30.frame(now, pace, true, aheadHeard)) continue
+                if (now > start + 2_000_000_000L) for (b in 0..2) peakDrawn[b] = maxOf(peakDrawn[b], now30.shown[b])
+                redrawn++
+                worst = maxOf(worst, abs(before.shown[MusicLevels.BASS] - now30.shown[MusicLevels.BASS]), abs(before.shown[MusicLevels.MID] - now30.shown[MusicLevels.MID]))
+                worstTop = maxOf(worstTop, abs(before.shown[MusicLevels.HIGH] - now30.shown[MusicLevels.HIGH]))
+            }
+            val said = "$hz Hz, ribbons $ribbons"
+            assertEquals(said, 601, redrawn)
+            assertEquals("$said: as far along after twenty seconds", before.drift, now30.drift, before.drift * near.first)
+            assertTrue("$said: the kick and the voice as high at every redraw, $worst apart at worst", worst < near.second)
+            // a cymbal is over in a frame of the analyser's, and where a step falls in it was always the screen's doing
+            assertTrue("$said: the cymbals $worstTop apart at worst", worstTop < near.third)
+            // What a third of the frames costs: a hit is caught a little off its top. The kick's
+            // highest redraw is within 3% of the highest frame it used to have, a cymbal's within 22%.
+            val kick = peakDrawn[MusicLevels.BASS] / peakBefore[MusicLevels.BASS]
+            val cymbal = peakDrawn[MusicLevels.HIGH] / peakBefore[MusicLevels.HIGH]
+            assertTrue("$said: the kick at its highest redraw, $kick of what it was", kick > 0.97f && kick <= 1.001f)
+            assertTrue("$said: a cymbal at its highest redraw, $cymbal of what it was", cymbal > 0.78f && cymbal <= 1.001f)
+        }
+    }
+
+    @Test
+    fun `on the frames between two redraws nothing of it is touched`() {
+        val motion = pictured(true)
+        val pace = RedrawPace()
+        var asked = 0
+        val counted = LivingMotion.Heard { asked++; music(it) }
+        var redrawn = 0
+        for (now in frames(90.0, 2.0)) {
+            val drift = motion.drift
+            val shown = motion.shown.copyOf()
+            val askedBefore = asked
+            if (motion.frame(now, pace, true, counted)) {
+                redrawn++
+            } else {
+                assertEquals(drift, motion.drift, 0f)
+                assertArrayEquals(shown, motion.shown, 0f)
+                assertEquals("and the music is not asked about", askedBefore, asked)
+            }
+        }
+        assertEquals("every third frame of two seconds", 61, redrawn)
+        assertEquals("four steps to a redraw, each told what is heard as it ends", 240, asked)
+        assertEquals(120, LivingMotion.STEPS_A_SECOND)
+    }
+
+    @Test
+    fun `the first frame only starts the clock, and a long gap between two frames is not a leap`() {
+        val loud = LivingMotion.Heard { floatArrayOf(1f, 1f, 1f) }
+        val at = 3_000_000_000L
+        val first = motion().apply { moveTo(at, true, loud) }
+        assertEquals(0f, first.drift, 0f)
+        assertTrue(first.shown.all { it == 0f })
+        val tenth = motion().apply { moveTo(at, true, loud); moveTo(at + 100_000_000L, true, loud) }
+        val age = motion().apply { moveTo(at, true, loud); moveTo(at + 30_000_000_000L, true, loud) }
+        assertTrue("a tenth of a second on: ${tenth.shown[MusicLevels.BASS]}", tenth.shown[MusicLevels.BASS] > 0.9f && tenth.drift > 0f)
+        assertEquals("and no further after half a minute", tenth.drift, age.drift, 0f)
+        assertArrayEquals(tenth.shown, age.shown, 0f)
+        // it goes on from there at its own pace
+        val on = motion().apply { moveTo(at, true, loud); moveTo(at + 30_000_000_000L, true, loud); moveTo(at + 30_033_333_333L, true, loud) }
+        val twin = motion().apply { moveTo(at, true, loud); moveTo(at + 100_000_000L, true, loud); moveTo(at + 133_333_333L, true, loud) }
+        assertEquals(twin.drift, on.drift, 0f)
+        // a frame asked about twice moves it once, and with nothing to go by it drifts without breathing
+        val twice = motion().apply { moveTo(at, true, loud); moveTo(at + 100_000_000L, true, loud); moveTo(at + 100_000_000L, true, loud) }
+        assertEquals(tenth.drift, twice.drift, 0f)
+        val deaf = motion().apply { moveTo(at, true); moveTo(at + 100_000_000L, true) }
+        assertTrue(deaf.drift > 0f && deaf.shown.all { it == 0f })
+    }
+
+    @Test
+    fun `the music stopped, it comes to rest when it did, and from then on nothing is to move`() {
+        val start = 7_000_000_000L
+        val times = frames(90.0, 12.0, start)
+        val stops = start + 3_000_000_000L
+        // as it was: a step for every frame of a 90 Hz screen
+        val before = pictured(true)
+        var last = 0L
+        var restedBefore = 0L
+        for (now in times) {
+            before.step(if (last == 0L) 0f else (now - last) / 1e9f, if (now < stops) music(now) else null, now < stops)
+            last = now
+            if (now >= stops && before.atRest()) { restedBefore = now; break }
+        }
+        val now30 = pictured(true)
+        val pace = RedrawPace()
+        val silent = LivingMotion.Heard { if (it < stops) music(it) else null }
+        var rested = 0L
+        var redrawnAfter = 0
+        for (now in times) {
+            if (now30.frame(now, pace, now < stops, silent) && now >= stops) redrawnAfter++
+            if (now >= stops && now30.atRest()) { rested = now; break }
+        }
+        assertTrue("it used to take ${(restedBefore - stops) / 1e9} s", restedBefore - stops in 2_500_000_000L..4_500_000_000L)
+        assertTrue("and takes ${(rested - stops) / 1e9} s, the same to within two redraws", abs(rested - restedBefore) <= 70_000_000L)
+        assertTrue("redrawn $redrawnAfter times on the way, a third of the frames", redrawnAfter in 80..140)
+    }
+
+    @Test
+    fun `the background moves and redraws on the frames the pace gives it and on no others`() {
+        val source = java.io.File("src/main/java/com/dd3boh/outertune/ui/player/LivingBackground.kt").readText()
+        val onFrame = source.substringAfter("withFrameNanos { now ->").substringBefore("}")
+        assertTrue(onFrame, onFrame.contains("if (motion.frame(now, redraws, playing, heard)) frame = now"))
+        assertFalse("no step and no redraw of its own beside that", onFrame.contains("motion.step(") || onFrame.contains("motion.moveTo(") || onFrame.contains("frame++"))
+        assertTrue("one pace for every picture in the app", source.contains("\nprivate val redraws = RedrawPace()"))
+    }
+
+    @Test
+    fun `under the open queue the background asks for no frames and goes on listening`() {
+        val source = java.io.File("src/main/java/com/dd3boh/outertune/ui/player/LivingBackground.kt").readText()
+        val frames = source.substringAfter("LaunchedEffect(onScreen, covered, playing, covers, coverThere, motion, lifecycleOwner) {").substringBefore("repeatOnLifecycle")
+        assertTrue("it leaves before a frame is asked for", frames.contains("if (!onScreen || covered) {") && frames.contains("return@LaunchedEffect"))
+        val watching = source.substringAfter("LaunchedEffect(tap, onScreen, still, lifecycleOwner) {").substringBefore("repeatOnLifecycle")
+        assertFalse("the watcher does not go with it, or a look at the queue would start the song's shape over", watching.contains("covered"))
+        val player = java.io.File("src/main/java/com/dd3boh/outertune/ui/player/Player.kt").readText()
+        assertTrue(player.contains("covered = queueHidesBackground(playerExpanded = state.isExpanded, queueSheetExpanded = queueSheetState.isExpanded)"))
     }
 
     @Test
