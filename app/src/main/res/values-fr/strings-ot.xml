@@ -1394,9 +1394,24 @@
     <!-- Import from another app. Behind Unreleased.LIBRARY_IMPORT, debug builds only for now. -->
     <string name="import_library_title">Importer depuis une autre appli</string>
     <string name="import_library_entry">Récupérez vos playlists de Spotify, Apple Music et d\'autres, grâce à un fichier d\'export</string>
-    <string name="import_library_intro">Exportez vos playlists dans un fichier, puis choisissez-le ici. Chaque titre est recherché sur YouTube Music, et les playlists sont créées sur ce téléphone.</string>
-    <string name="import_library_spotify">Spotify : Exportify (exportify.app), une playlist ou vos titres aimés en CSV, ou tout dans un zip.</string>
-    <string name="import_library_others">Apple Music, Deezer, Tidal et autres : TuneMyMusic ou Soundiiz, en CSV. Ou Apple Music sur un ordinateur : Fichier, Bibliothèque, Exporter la bibliothèque.</string>
+    <string name="import_library_source_question">Où est votre musique aujourd\'hui ?</string>
+    <string name="import_library_source_with_free">Avec %1$s, gratuit</string>
+    <string name="import_library_source_with">Avec %1$s</string>
+    <string name="import_library_source_with_or_computer">Avec %1$s, ou depuis un ordinateur</string>
+    <string name="import_library_source_other">Une autre appli, ou un fichier</string>
+    <string name="import_library_source_other_title">Une autre appli</string>
+    <string name="import_library_source_other_hint">Tout CSV avec le nom des titres</string>
+    <string name="import_library_source_note_exportify">Gratuit et sans limite. Vos titres aimés sont aussi dans sa liste.</string>
+    <string name="import_library_source_note_tunemymusic">Gratuit jusqu\'à 500 titres. Ses fichiers ne donnent pas la durée des titres, donc vous confirmez chacun d\'un appui.</string>
+    <string name="import_library_source_note_computer">Sur un ordinateur, l\'app Musique d\'Apple exporte tout : Fichier, Bibliothèque, Exporter la bibliothèque.</string>
+    <string name="import_library_source_note_any_csv">Un CSV venu d\'ailleurs convient aussi, s\'il a une colonne avec le nom des titres.</string>
+    <string name="import_library_source_open">Ouvrir %1$s</string>
+    <string name="import_library_step_open_sign_in">Ouvrez %1$s et connectez-vous avec %2$s</string>
+    <string name="import_library_step_open_connect">Ouvrez %1$s et connectez %2$s</string>
+    <string name="import_library_step_open_any">Ouvrez %1$s et connectez votre appli</string>
+    <string name="import_library_step_export_exportify">Appuyez sur Export à côté d\'une playlist, ou sur Export All</string>
+    <string name="import_library_step_export_tunemymusic">Choisissez vos playlists, puis exportez-les dans un fichier CSV</string>
+    <string name="import_library_step_come_back">Revenez ici et choisissez le fichier</string>
     <string name="import_library_recommendations">L\'import apporte vos playlists. Les recommandations n\'apprennent que de ce que vous écoutez ici : elles ne savent rien de ce que vous aimiez ou passiez dans l\'autre application.</string>
     <string name="import_library_premium">Avec YouTube Music Premium, le transfert de YouTube, dans Paramètres, Confidentialité et données, peut aussi importer des playlists.</string>
     <string name="import_library_choose">Choisir un fichier</string>
