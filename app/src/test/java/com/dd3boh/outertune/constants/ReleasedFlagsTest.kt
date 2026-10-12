@@ -29,7 +29,7 @@ class ReleasedFlagsTest {
     /** On in every build, and so in a release. The second line went on for 0.11.5. */
     private val inEveryBuild = setOf(
         "ENGINE", "SHORT_SETUP", "LOGIN_RETURNS",
-        "STAND_INS", "VISIONOS_IDENTITIES", "WEB_FALLBACK", "LANDSCAPE", "EXPLAIN_PICTURES",
+        "STAND_INS", "VISIONOS_IDENTITIES", "WEB_FALLBACK", "LANDSCAPE", "EXPLAIN_PICTURES", "LIBRARY_IMPORT",
     )
 
     private val sources = File("src/main/java/com/dd3boh/outertune")
@@ -123,6 +123,21 @@ class ReleasedFlagsTest {
     fun `a phone on its side gets its layout in every build`() {
         assertEquals(setOf("ui/utils/Landscape.kt"), readers("LANDSCAPE"))
         assertWritten("ui/utils/Landscape.kt", "val enabled: Boolean = Unreleased.LANDSCAPE,")
+    }
+
+    @Test
+    fun `the import is in every build, in Settings and on setup's first page`() {
+        assertEquals(
+            setOf(
+                "ui/screens/settings/BackupSettings.kt",
+                "ui/navigation/AppNavGraph.kt",
+                "ui/screens/settings/SettingsTwoPane.kt",
+                "ui/screens/ShortSetup.kt",
+            ),
+            readers("LIBRARY_IMPORT"),
+        )
+        assertWritten("ui/screens/ShortSetup.kt", "if (Unreleased.LIBRARY_IMPORT) {")
+        assertWritten("ui/navigation/AppNavGraph.kt", "if (Unreleased.LIBRARY_IMPORT) {")
     }
 
     @Test

@@ -47,10 +47,13 @@ object Unreleased {
      * with a review screen for what it is unsure of, made into local playlists. Setup's first
      * page leads to it too, beside "I have a backup".
      *
-     * Not tied to any release yet. When one takes it, set this to true or delete it along with the
-     * four checks that read it: in BackupSettings, the nav graph, SettingsTwoPane and ShortSetup.
+     * On in every build from 0.11.5. Tried end to end on a Pixel 5 on 12 Oct 2026 with a file of 25
+     * songs: looked up, checked by hand, the app killed twice in the middle, the playlists made.
+     * Not tried: a whole real library, and what YouTube does at that many lookups. Left to tidy:
+     * this flag and the four checks that read it, in BackupSettings, the nav graph, SettingsTwoPane
+     * and ShortSetup.
      */
-    val LIBRARY_IMPORT = BuildConfig.DEBUG
+    val LIBRARY_IMPORT = true
 
     /**
      * "Links you share" under Look and feel: a song or an album can go out as a link to the share
