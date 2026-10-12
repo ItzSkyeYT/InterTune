@@ -164,14 +164,6 @@ fun RecommendationsSettings(
                 title = stringResource(R.string.recommendations_engine_title),
                 explanation = stringResource(R.string.recommendations_engine_title_info),
             )
-            // First in the group: it decides what most of the row is, and the sliders below
-            // share out what it leaves. The line under the choice says what it does as things
-            // stand, since another source, a chip or New songs only can each leave it waiting.
-            val leanTitle = stringResource(R.string.quick_picks_lean)
-            val leanInfo = stringResource(R.string.quick_picks_lean_info)
-            val leanLine = remember(lean, quickPicksSource, chip, newSongsOnly, adventurousness) {
-                LeanChoice.line(lean, quickPicksSource, chip, newSongsOnly, adventurousness / 100.0)
-            }
             // The row as these settings leave it, twenty tiles in the colours of its five kinds of
             // card, at the head of the controls that share it out and held in view while any of
             // them is on screen: a tile turns as a slider is dragged, which is what the slider does.
@@ -180,6 +172,14 @@ fun RecommendationsSettings(
                 PinnedPicture(foot = { rowFoot.floatValue }, held = true, ground = MaterialTheme.colorScheme.surface) {
                     RowPicturePanel(LeanChoice.mix(lean, adventurousness / 100.0, familiarity / 100.0, chip, newSongsOnly))
                 }
+            }
+            // First in the group: it decides what most of the row is, and the sliders below
+            // share out what it leaves. The line under the choice says what it does as things
+            // stand, since another source, a chip or New songs only can each leave it waiting.
+            val leanTitle = stringResource(R.string.quick_picks_lean)
+            val leanInfo = stringResource(R.string.quick_picks_lean_info)
+            val leanLine = remember(lean, quickPicksSource, chip, newSongsOnly, adventurousness) {
+                LeanChoice.line(lean, quickPicksSource, chip, newSongsOnly, adventurousness / 100.0)
             }
             Column(Modifier.onGloballyPositioned { rowFoot.floatValue = it.positionInWindow().y + it.size.height }) {
                 EnumListPreference(
