@@ -64,6 +64,7 @@ import com.dd3boh.outertune.ui.component.ExplainedPreference
 import com.dd3boh.outertune.ui.component.ExplainedSwitchPreference
 import com.dd3boh.outertune.ui.component.FloatingTopBar
 import com.dd3boh.outertune.ui.component.PreferenceEntry
+import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.ui.screens.leanOptionName
 import com.dd3boh.outertune.utils.BuiltInKeys
@@ -118,10 +119,7 @@ fun RecommendationsSettings(
         modifier = Modifier.fillMaxHeight(),
         columnModifier = Modifier.padding(horizontal = 16.dp)
     ) {
-        ExplainedGroupTitle(
-            title = stringResource(R.string.recommendations_home_title),
-            explanation = stringResource(R.string.recommendations_home_title_info),
-        )
+        PreferenceGroupTitle(title = stringResource(R.string.recommendations_home_title))
         ExplainedSwitchPreference(
             modifier = Modifier.tourTarget(SettingJumps.TIDY_HOME_ROWS),
             title = stringResource(R.string.tidy_home_rows),
@@ -266,10 +264,7 @@ fun RecommendationsSettings(
             Spacer(Modifier.height(16.dp))
 
             // What it learns from, and what it is told to leave out.
-            ExplainedGroupTitle(
-                title = stringResource(R.string.recommendations_learning_title),
-                explanation = stringResource(R.string.recommendations_learning_title_info),
-            )
+            PreferenceGroupTitle(title = stringResource(R.string.recommendations_learning_title))
             ExplainedSwitchPreference(
                 modifier = Modifier.tourTarget(Tour.SETTING_LEARN_FROM_LISTENING),
                 title = stringResource(R.string.learn_from_listening),

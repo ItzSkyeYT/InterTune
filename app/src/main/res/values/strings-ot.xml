@@ -53,11 +53,11 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="wait_to_reconnect">Wait to reconnect</string>
     <string name="err_youtube_busy">YouTube has temporarily stopped serving music to this internet connection. It is not your phone, your account or this song, and it clears by itself. Another network, such as mobile data, often works. Otherwise leave it a little while and try again.</string>
     <string name="spatial_audio">Spatial audio</string>
-    <string name="spatial_audio_description">Takes the music off the line between your ears.</string>
+    <string name="spatial_audio_description">Puts the music in front of you instead of inside your head.</string>
     <string name="spatial_audio_off">Off</string>
     <string name="spatial_audio_headphones">Headphones</string>
     <string name="spatial_audio_surround">Surround upmix</string>
-    <string name="spatial_audio_explain">Headphones put the music inside your head. This puts it in front of you instead.\n\n\"Headphones\" does it in the app, so it works on any phone. \"Surround upmix\" asks your phone to do it, which only helps if your phone supports it.</string>
+    <string name="spatial_audio_explain">\"Headphones\" does this in the app, so it works on any phone. \"Surround upmix\" asks your phone to do it, which only helps if your phone supports it.</string>
     <string name="spatial_strength" translatable="false">Strength</string>
     <string name="spatial_strength_value" translatable="false">%1$d%% of the effect</string>
     <string name="spatial_room" translatable="false">Room</string>
@@ -88,12 +88,12 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="head_tracking_none">No head tracker on this phone.</string>
     <string name="head_tracking_explain">The music stays where it is when you turn your head.\n\nNeeds headphones that report which way they are facing, and a phone that shares it. Most phones do not, so this is hidden unless yours does.</string>
     <string name="head_tracking_response">Tracking response</string>
-    <string name="head_tracking_response_description">How far ahead of your head the sound aims.</string>
+    <string name="head_tracking_response_description">How quickly the sound reacts when you turn your head.</string>
     <string name="head_tracking_response_smooth">Smooth</string>
     <string name="head_tracking_response_balanced">Balanced</string>
     <string name="head_tracking_response_quick">Quick</string>
     <string name="head_tracking_response_instant">Instant</string>
-    <string name="head_tracking_response_explain">Sound takes time to reach your ears, so the app aims slightly ahead of your head.\n\n\"Quick\" and \"Instant\" feel immediate but can overshoot when you stop turning. \"Smooth\" never overshoots but feels slightly behind.</string>
+    <string name="head_tracking_response_explain">\"Smooth\" never overshoots but feels slightly behind. \"Quick\" and \"Instant\" feel immediate but can overshoot when you stop turning. \"Balanced\" sits between the two.</string>
     <string name="proximity_volume">Quieter as you walk away</string>
     <string name="proximity_volume_description">Treats your phone as where the music is coming from.</string>
     <string name="proximity_volume_explain">Your phone becomes where the music comes from. Walk away and it gets quieter.\n\nIt judges distance from Bluetooth signal strength, which is rough, so it changes slowly and only a little. It never mutes.</string>
@@ -1488,7 +1488,6 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="widget_rounded_corners">Rounded corners</string>
 
 <!-- Recommendations: the little "i" beside every item, and what it opens -->
-    <string name="recommendations_home_title_info">\"Tidy Home rows\" and \"Rank with your listening\" act on songs once they have arrived, whatever fills \"Quick picks\". The first works on every recommendation row, the second only puts \"Quick picks\" in order.</string>
     <string name="tidy_home_rows_info">No Home row shows a song an earlier row already has, and versions of one song (live, remastered, video) count as the same. Nothing fills a gap, so a row can come up short. Off, your exclusions only filter the \"Best recommendations\" row.</string>
     <string name="rank_with_listening_info">Puts the \"Quick picks\" row in an order that suits you: songs you play often, played lately or liked tend to come first. Nothing is added or removed. It leaves the row alone when \"Best recommendations\" or \"Try both\" fills it.</string>
     <string name="recommendations_engine_title_info">The row is twenty cards: songs related to what you play, songs you keep coming back to, more from your artists, old favourites gone quiet, and a few new to you. These settings apply while \"Quick picks source\" is \"Best recommendations\" or \"Try both\". Pull down on Home to see a change.</string>
@@ -1497,10 +1496,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="show_reasons_info">Each card says the main reason it is there: a song it goes with, an artist you play, a like, or that it is new to you. A wildcard is a card picked at random to keep the row fresh.</string>
     <string name="exclusions_info">Long-press a card in \"Quick picks\" for \"Not this song\", \"Less of this artist\" (for a month) or \"Never this artist\". They only filter the recommendation rows, never search, your library or playlists. This page lists what is in force, and \"Lift\" removes one.</string>
     <string name="rest_songs_i_skip_info">Skip a song you like or play often before its halfway point, and it stays out of the \"Best recommendations\" row for a week. A skip in the first thirty seconds does not count. You can lift a rest early on the \"Exclusions\" page.</string>
-    <string name="recommendations_learning_title_info">\"Learn from listening\" decides whether it learns at all. Rests and exclusions keep songs out of the row: a rest lasts a week after a skip, an exclusion as long as you chose.</string>
     <string name="recommendations_doing_info">Worked out on this phone from your own listening, and nothing leaves it unless you save a copy under \"Your data\". Give it a few weeks before you read much into the numbers.</string>
     <string name="recommendations_summary_info">\"Seen\" means a card was on screen for half a second, or you tapped it. \"Played\" means you heard a good part of that song, or liked it. A card you did not tap is judged a day later, so the newest are not counted yet.</string>
-    <string name="recommendations_doing_title_info">Worked out on this phone from your own listening; nothing leaves it unless you save a copy under \"Your data\". Give it a few weeks: a card is judged a day late, and it learns only a little each day.</string>
     <string name="learn_from_listening_info">Each card it showed you is judged against what you did next, and that nudges how it scores cards like it. Off, it stops learning; your plays are still logged, so History and Stats are untouched. It all runs on the phone.</string>
     <string name="shadow_comparison_info">The unseen row is built when Home opens and is never shown. A day later it is checked against what you went on to play; it teaches \"Best recommendations\" nothing. Off, the unseen line on this page stops filling in.</string>
     <string name="recommendations_brier_info">Every card it shows carries its guess at how likely you are to play it. The first line puts the average guess beside how many were played: the closer the two, the better. The lines under it group the cards by the chance it gave them.</string>
@@ -1508,9 +1505,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="forget_today_info">Every play started since midnight stops teaching, and what it learned is worked out again without them. It asks first, saying how many listens. A song that began before midnight belongs to yesterday and stays.</string>
     <string name="engine_developer_info">The engine\'s constants, each with its default: a number overrides one, an empty field restores it. They change the \"Best recommendations\" row only, not what it learns. Pull down on Home to see a change.</string>
     <string name="export_engine_data_info">Saves what it has learned as a file of numbers, where you choose. No song titles, artists, play counts or dates, and nothing about your account or phone. Nothing is uploaded.</string>
-    <string name="recommendations_learned_title_info">Everything below is what it learns from, kept in the app on this phone and never uploaded. A backup includes it. Under \"Privacy and history\", \"Pause listen history\" stops it being written and \"Clear listen history\" deletes it.</string>
+    <string name="recommendations_learned_title_info">Everything below is kept in the app on this phone and never uploaded. A backup includes it. Under \"Privacy and history\", \"Pause listen history\" stops it being written and \"Clear listen history\" deletes it.</string>
     <string name="recommendations_where_from_info">Each place counts the times you started playing from there; the songs that play on after are not counted again. A song you chose yourself teaches it more than one that just played on, and a search counts most. \"Not recorded\" means the app did not note where it began.</string>
-    <string name="recommendations_signals_info">Each is stored with the moment it happened, and never leaves the phone. They are kept, not used: nothing that picks or orders your cards reads them yet. \"Pause listen history\" stops all of it.</string>
     <string name="recommendations_recent_title_info">The last thirty listens it learns from, newest first. Each line says how the play ended, how much of the song you heard and where it was started from. \"Not learned from\" means you told it to forget that listen.</string>
     <string name="context_chips_info">The first chip is your usual row. The others lean it for now: \"Discover\" toward songs new to you, \"Favourites\" toward what you have liked, and \"Focus\", \"Chill\" and \"Party\" toward what you play while each is on. A chip stays on until you change it.</string>
     <string name="context_chips">Context chips</string>

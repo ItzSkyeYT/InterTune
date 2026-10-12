@@ -206,10 +206,8 @@ fun RecommendationsDoingSettings(
             // held give a line for each. With no figures the switch stands alone, under no
             // heading, rather than under one that promises figures and has none.
             if (numbers) {
-                ExplainedGroupTitle(
-                    title = stringResource(R.string.recommendations_figures_title),
-                    explanation = stringResource(R.string.recommendations_doing_title_info),
-                )
+                // No "i" of its own: the row that opens this page has the same explanation.
+                PreferenceGroupTitle(title = stringResource(R.string.recommendations_figures_title))
                 StatEntry(
                     title = stringResource(R.string.recommendations_wins),
                     // In the summary's words, "about 1 in 100", so the same number does not look
@@ -386,10 +384,11 @@ fun RecommendationsDoingSettings(
                 }.joinToString("\n").ifBlank { stringResource(R.string.recommendations_nothing_yet) },
                 meaning = if (seen.isEmpty()) null else stringResource(R.string.recommendations_impressions_description),
             )
-            ExplainedPreference(
-                title = pluralStringResource(R.plurals.recommendations_signals, signals, signals),
-                explanation = stringResource(R.string.recommendations_signals_info),
+            // Where it is kept and what stops it is behind the heading's "i", for this row too.
+            PreferenceEntry(
+                title = { Text(pluralStringResource(R.plurals.recommendations_signals, signals, signals)) },
                 description = stringResource(R.string.recommendations_signals_description),
+                onClick = null,
             )
         }
         Spacer(Modifier.height(16.dp))

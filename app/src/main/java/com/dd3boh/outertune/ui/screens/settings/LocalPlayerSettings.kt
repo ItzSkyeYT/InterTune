@@ -50,7 +50,6 @@ import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
 import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.ui.dialog.DefaultDialog
-import com.dd3boh.outertune.ui.dialog.InfoLabel
 import com.dd3boh.outertune.ui.screens.settings.fragments.LocalScannerExtraFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.LocalScannerFrag
 import com.dd3boh.outertune.utils.rememberPreference
@@ -122,10 +121,6 @@ fun LocalPlayerSettings(
                 icon = { Icon(Icons.Rounded.Autorenew, null) },
                 checked = autoScan,
                 onCheckedChange = onAutoScanChange
-            )
-            InfoLabel(
-                text = stringResource(R.string.auto_scanner_tooltip),
-                modifier = Modifier.padding(top = 8.dp, bottom = 16.dp)
             )
         }
 
