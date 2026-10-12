@@ -105,10 +105,14 @@ object Unreleased {
      * A layout for a phone on its side (Landscape.kt): the navigation rail whenever the window is
      * short, the search pill and the mini player at their upright width instead of the width of
      * the screen, lists two rows abreast, and an album with its cover beside its songs. A first
-     * cut, not agreed for a release, and it does not reach every screen yet. When it is: set this
-     * to true, or delete it with the one check that reads it, the default of Landscape.enabled.
+     * cut, and it does not reach every screen yet.
+     *
+     * On in every build from 0.11.5. It has no text of its own. In a release Settings on a phone
+     * on its side is the four cards set two by two: the two panes are SETTINGS_TWO_PANE's, which
+     * is held back. Left to tidy: the flag and the one check that reads it, the default of
+     * Landscape.enabled.
      */
-    val LANDSCAPE = BuildConfig.DEBUG
+    val LANDSCAPE = true
 
     /**
      * A shorter first-run setup (ShortSetup.kt): three pages in place of six. What the app is,

@@ -29,7 +29,7 @@ class ReleasedFlagsTest {
     /** On in every build, and so in a release. The second line went on for 0.11.5. */
     private val inEveryBuild = setOf(
         "ENGINE", "SHORT_SETUP", "LOGIN_RETURNS",
-        "STAND_INS", "VISIONOS_IDENTITIES", "WEB_FALLBACK",
+        "STAND_INS", "VISIONOS_IDENTITIES", "WEB_FALLBACK", "LANDSCAPE",
     )
 
     private val sources = File("src/main/java/com/dd3boh/outertune")
@@ -117,5 +117,11 @@ class ReleasedFlagsTest {
         for (asset in listOf("yt.solver.lib.js", "yt.solver.core.js")) {
             assertTrue("$asset is not in the build", File("src/main/assets/solver/$asset").isFile)
         }
+    }
+
+    @Test
+    fun `a phone on its side gets its layout in every build`() {
+        assertEquals(setOf("ui/utils/Landscape.kt"), readers("LANDSCAPE"))
+        assertWritten("ui/utils/Landscape.kt", "val enabled: Boolean = Unreleased.LANDSCAPE,")
     }
 }
