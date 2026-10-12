@@ -44,35 +44,73 @@ class LibraryImportTextsTest {
         for (name in shown) assertTrue("$name is shown and is not a text", name in english)
     }
 
+    private fun body(name: String) = screen.substringAfter("private fun $name(").substringBefore("\n}\n")
+
     @Test
-    fun `the page that offers the import says what it does not bring`() {
-        val intro = screen.substringAfter("private fun Intro()").substringBefore("@Composable")
-        assertTrue("the sentence is not on the page that offers a file", "R.string.$honest" in intro)
-        // Before the small print about YouTube's own transfer, not after it.
-        assertTrue(intro.indexOf("R.string.$honest") < intro.indexOf("R.string.import_library_premium"))
+    fun `the page that offers the file says what an import does not bring`() {
+        // The steps of an app are where its file is chosen, and where an evening is about to be spent.
+        val steps = body("SourceSteps")
+        assertTrue("that page does not offer the file", "R.string.import_library_choose" in steps)
+        assertTrue("the sentence is not on the page that offers a file", "R.string.$honest" in steps)
+        // After the steps, not before them: the steps are what somebody came for.
+        assertTrue(steps.indexOf("R.string.$honest") > steps.indexOf("R.string.import_library_step_come_back"))
     }
 
     @Test
-    fun `the page that offers the import is short enough to read standing up`() {
-        // Six paragraphs and about 165 words stood between the title and "Choose a file". What
-        // the next screen shows by itself is not said here, and each tool gets one line.
-        val intro = screen.substringAfter("private fun Intro()").substringBefore("@Composable")
-        val shown = Regex("""R\.string\.(import_library_[a-z0-9_]+)""").findAll(intro).map { it.groupValues[1] }.toList()
+    fun `the first page is a list of apps to pick from, not paragraphs to read`() {
+        // It was six paragraphs about the tools. Now it asks one thing and lists the answers, one
+        // row an app, in the order of ImportSource.
+        val list = body("SourceList")
+        assertTrue("R.string.import_library_source_question" in list)
+        assertTrue("not a row for every app", "ImportSource.entries.forEach" in list && "PreferenceEntry(" in list)
+        val read = Regex("""R\.string\.(import_library_[a-z0-9_]+)""").findAll(list).map { it.groupValues[1] }.toSet()
+        // The question, what a row says of its tool, and the small print: nothing to read through.
         assertEquals(
-            listOf("import_library_intro", "import_library_spotify", "import_library_others", honest, "import_library_premium"),
-            shown,
+            setOf(
+                "import_library_source_question", "import_library_source_other", "import_library_source_other_hint",
+                "import_library_source_with_free", "import_library_source_with_or_computer", "import_library_source_with",
+                "import_library_premium",
+            ),
+            read,
         )
-        for ((language, texts) in listOf("English" to english, "French" to french)) {
-            val words = shown.sumOf { texts.getValue(it).split(' ').size }
-            assertTrue("$language: $words words", words <= 112)
-            for (tool in listOf("import_library_spotify", "import_library_others")) {
-                assertTrue("$language, $tool", sentences(texts.getValue(tool)) <= 2)
+        for (texts in listOf(english, french)) {
+            for (name in read - "import_library_premium") {
+                assertTrue("$name is ${texts.getValue(name)}", texts.getValue(name).split(' ').size <= 9)
             }
         }
-        // The tools are still named, and where Exportify lives.
-        assertTrue("exportify.app" in english.getValue("import_library_spotify") && "exportify.app" in french.getValue("import_library_spotify"))
-        for (tool in listOf("TuneMyMusic", "Soundiiz", "Apple Music")) {
-            assertTrue(tool, tool in english.getValue("import_library_others") && tool in french.getValue("import_library_others"))
+        // A tap on a row opens that app's steps, and Back from them is back to the list.
+        assertTrue("item(key = \"sources\") { SourceList(reading = reading, onChoose = { source = it }) }" in screen)
+        assertTrue("BackHandler(enabled = steps != null, onBack = backToSources)" in screen)
+        assertTrue("LocalTopBarUp provides (if (steps != null) backToSources else paneUp)" in screen)
+    }
+
+    @Test
+    fun `an app's page is three steps, the first with a button to its tool`() {
+        val steps = body("SourceSteps")
+        assertEquals(3, Regex("""\bStep\(""").findAll(steps).count())
+        assertTrue(Regex("""number = 1,[\s\S]*?number = 2,[\s\S]*?number = 3,""").containsMatchIn(steps))
+        // The button opens the address the app's entry holds, and nothing built on the way.
+        assertTrue("runCatching { uriHandler.openUri(from.address) }" in screen)
+        assertEquals(1, Regex("""openUri\(""").findAll(screen).count())
+        // Back from the browser the two steps done there are ticked, and the file's button is
+        // the filled one. Before, the tool's button is.
+        assertEquals(2, Regex("""done = visited""").findAll(steps).count())
+        assertTrue("visited -> Button(onClick = onFile)" in steps && "else -> OutlinedButton(onClick = onFile)" in steps)
+        assertTrue("if (visited) OutlinedButton(onClick = onOpen, content = content) else Button(onClick = onOpen, content = content)" in steps)
+        // Each step is a line, not a paragraph, and the names of the tool and the app are put in.
+        for (texts in listOf(english, french)) {
+            for (name in texts.keys.filter { it.startsWith("import_library_step_") }) {
+                assertTrue("$name is ${texts.getValue(name)}", texts.getValue(name).split(' ').size <= 12)
+                assertEquals(name, 0, sentences(texts.getValue(name)))
+            }
+            assertTrue(sentences(texts.getValue("import_library_source_note_exportify")) <= 2)
+            assertTrue(sentences(texts.getValue("import_library_source_note_tunemymusic")) <= 2)
+        }
+        // What is free is said so only where it is: Exportify with no limit, TuneMyMusic up to 500.
+        assertTrue("500" in english.getValue("import_library_source_note_tunemymusic") && "500" in french.getValue("import_library_source_note_tunemymusic"))
+        // Soundiiz gives a file on its paid plans only, so no text of the import sends anybody there.
+        for (texts in listOf(english, french)) {
+            assertFalse(texts.filterKeys { it.startsWith("import_library_") }.values.any { "Soundiiz" in it })
         }
     }
 

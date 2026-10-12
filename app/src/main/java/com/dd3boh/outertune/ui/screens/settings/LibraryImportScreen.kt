@@ -6,8 +6,10 @@
 
 package com.dd3boh.outertune.ui.screens.settings
 
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,6 +17,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,8 +30,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.OpenInNew
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -40,6 +47,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -50,6 +58,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -63,9 +72,12 @@ import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.migration.ImportParse
 import com.dd3boh.outertune.migration.ImportRun
+import com.dd3boh.outertune.migration.ImportSource
+import com.dd3boh.outertune.migration.ImportTool
 import com.dd3boh.outertune.migration.LibraryImport
 import com.dd3boh.outertune.ui.component.LocalTopBarUp
 import com.dd3boh.outertune.ui.component.FloatingTopBar
+import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
 import com.dd3boh.outertune.ui.component.items.YouTubeListItem
 import com.dd3boh.outertune.ui.dialog.ActionPromptDialog
@@ -130,6 +142,18 @@ fun LibraryImportScreen(
         }
     }
     val started = stage !in listOf(LibraryImport.Stage.IDLE, LibraryImport.Stage.READING, LibraryImport.Stage.FAILED)
+    // The app the music is in, once somebody has said which, and whether its tool was opened
+    // from here: back from the browser, the two steps done over there are ticked and the file is
+    // what is left to do.
+    var source by rememberSaveable { mutableStateOf<ImportSource?>(null) }
+    var visited by rememberSaveable { mutableStateOf(false) }
+    val uriHandler = LocalUriHandler.current
+    val steps = source.takeIf { !started }
+    val backToSources: () -> Unit = {
+        source = null
+        visited = false
+    }
+    BackHandler(enabled = steps != null, onBack = backToSources)
 
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         LazyColumn(
@@ -140,25 +164,27 @@ fun LibraryImportScreen(
                 .padding(horizontal = 16.dp),
         ) {
             if (!started) {
-                item(key = "intro") { Intro() }
+                val reading = stage == LibraryImport.Stage.READING
+                val from = source
+                if (from == null) {
+                    item(key = "sources") { SourceList(reading = reading, onChoose = { source = it }) }
+                } else {
+                    item(key = "steps") {
+                        SourceSteps(
+                            source = from,
+                            visited = visited,
+                            reading = reading,
+                            onOpen = {
+                                visited = true
+                                // A phone with no browser has nowhere to open it: the steps stay.
+                                runCatching { uriHandler.openUri(from.address) }
+                            },
+                            onFile = choose,
+                        )
+                    }
+                }
                 if (stage == LibraryImport.Stage.FAILED) {
                     item(key = "error") { Problem(state) }
-                }
-                item(key = "choose") {
-                    if (stage == LibraryImport.Stage.READING) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(16.dp),
-                        ) {
-                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                            Spacer(Modifier.width(12.dp))
-                            Text(stringResource(R.string.import_library_reading))
-                        }
-                    } else {
-                        Button(onClick = choose, modifier = Modifier.padding(16.dp)) {
-                            Text(stringResource(R.string.import_library_choose))
-                        }
-                    }
                 }
                 return@LazyColumn
             }
@@ -307,11 +333,15 @@ fun LibraryImportScreen(
     val fromSetup = remember(navController) {
         navController.previousBackStackEntry?.destination?.route == "setup_wizard"
     }
-    FloatingTopBar(
-        title = stringResource(R.string.import_library_title),
-        navController = navController,
-        onLongBack = { if (fromSetup) navController.navigateUp() else navController.backToMain() },
-    )
+    // From an app's steps the way back is to the list of apps, by the bar as by the Back key.
+    CompositionLocalProvider(LocalTopBarUp provides (if (steps != null) backToSources else paneUp)) {
+        FloatingTopBar(
+            title = steps?.let { sourceName(it) } ?: stringResource(R.string.import_library_title),
+            navController = navController,
+            onLongBack = { if (fromSetup) navController.navigateUp() else navController.backToMain() },
+            titleIsName = steps != null && steps != ImportSource.OTHER,
+        )
+    }
 }
 
 private val CSV_TYPES = arrayOf(
@@ -329,24 +359,214 @@ private val CSV_TYPES = arrayOf(
     "application/x-zip-compressed",
 )
 
+/** An app's own name, or for the row that stands for every other app, what the page calls it. */
 @Composable
-private fun Intro() {
-    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Text(stringResource(R.string.import_library_intro), style = MaterialTheme.typography.bodyLarge)
-        Spacer(Modifier.height(12.dp))
-        Text(stringResource(R.string.import_library_spotify), style = MaterialTheme.typography.bodyMedium)
-        Spacer(Modifier.height(8.dp))
-        Text(stringResource(R.string.import_library_others), style = MaterialTheme.typography.bodyMedium)
-        Spacer(Modifier.height(8.dp))
-        // What an import does not bring, said before anybody spends an evening on one: playlists
-        // come over, and what the other app had learnt of its listener stays there.
-        Text(stringResource(R.string.import_library_recommendations), style = MaterialTheme.typography.bodyMedium)
-        Spacer(Modifier.height(8.dp))
+private fun sourceName(source: ImportSource): String =
+    source.label.ifEmpty { stringResource(R.string.import_library_source_other_title) }
+
+/**
+ * The import's first page: where the music is now. A row for each app, saying which tool
+ * exports from it, and a tap on one opens its steps ([SourceSteps]). It used to be paragraphs
+ * about the tools, which is what somebody has to read before knowing which line is theirs.
+ */
+@Composable
+private fun SourceList(reading: Boolean, onChoose: (ImportSource) -> Unit) {
+    Column(modifier = Modifier.padding(vertical = 8.dp)) {
         Text(
-            stringResource(R.string.import_library_premium),
+            text = stringResource(R.string.import_library_source_question),
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        )
+        // A file chosen from "Import another file", with no app picked this time round.
+        if (reading) ReadingFile()
+        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+            ImportSource.entries.forEach { source ->
+                val tool = source.tool.label
+                PreferenceEntry(
+                    title = {
+                        Text(
+                            if (source == ImportSource.OTHER) stringResource(R.string.import_library_source_other)
+                            else source.label
+                        )
+                    },
+                    description = when {
+                        source == ImportSource.OTHER -> stringResource(R.string.import_library_source_other_hint)
+                        source.tool == ImportTool.EXPORTIFY -> stringResource(R.string.import_library_source_with_free, tool)
+                        source.alsoFromComputer -> stringResource(R.string.import_library_source_with_or_computer, tool)
+                        else -> stringResource(R.string.import_library_source_with, tool)
+                    },
+                    icon = { SourceBadge(source) },
+                    onClick = { onChoose(source) },
+                )
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        Text(
+            text = stringResource(R.string.import_library_premium),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp),
         )
+    }
+}
+
+/** The app's first letter on a disc: no app's logo is ours to show. */
+@Composable
+private fun SourceBadge(source: ImportSource) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .size(36.dp)
+            .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape),
+    ) {
+        if (source == ImportSource.OTHER) {
+            Icon(
+                Icons.Rounded.Description,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                modifier = Modifier.size(20.dp),
+            )
+        } else {
+            Text(
+                text = source.label.take(1),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+            )
+        }
+    }
+}
+
+/**
+ * The three steps for one app: open its tool, export there, come back and choose the file.
+ *
+ * [visited] is whether the tool was opened from here. Until then its button is the one that
+ * stands out; after, the two steps done in the browser are ticked and the file's button stands
+ * out. The file can be chosen at any time: somebody may have made it yesterday.
+ */
+@Composable
+private fun SourceSteps(
+    source: ImportSource,
+    visited: Boolean,
+    reading: Boolean,
+    onOpen: () -> Unit,
+    onFile: () -> Unit,
+) {
+    val tool = source.tool.label
+    Column(modifier = Modifier.padding(vertical = 8.dp)) {
+        Text(
+            text = stringResource(
+                if (source.tool == ImportTool.EXPORTIFY) R.string.import_library_source_note_exportify
+                else R.string.import_library_source_note_tunemymusic
+            ),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        )
+        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+            Step(
+                number = 1,
+                done = visited,
+                text = when {
+                    source == ImportSource.OTHER -> stringResource(R.string.import_library_step_open_any, tool)
+                    source.tool == ImportTool.EXPORTIFY ->
+                        stringResource(R.string.import_library_step_open_sign_in, tool, source.label)
+                    else -> stringResource(R.string.import_library_step_open_connect, tool, source.label)
+                },
+            ) {
+                val label = stringResource(R.string.import_library_source_open, tool)
+                val content: @Composable RowScope.() -> Unit = {
+                    Text(label)
+                    Spacer(Modifier.width(8.dp))
+                    Icon(Icons.AutoMirrored.Rounded.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
+                }
+                if (visited) OutlinedButton(onClick = onOpen, content = content) else Button(onClick = onOpen, content = content)
+            }
+            Step(
+                number = 2,
+                done = visited,
+                text = stringResource(
+                    if (source.tool == ImportTool.EXPORTIFY) R.string.import_library_step_export_exportify
+                    else R.string.import_library_step_export_tunemymusic
+                ),
+            )
+            Step(number = 3, done = false, text = stringResource(R.string.import_library_step_come_back)) {
+                when {
+                    reading -> ReadingFile()
+                    visited -> Button(onClick = onFile) { Text(stringResource(R.string.import_library_choose)) }
+                    else -> OutlinedButton(onClick = onFile) { Text(stringResource(R.string.import_library_choose)) }
+                }
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        // What an import does not bring, said before anybody spends an evening on one: playlists
+        // come over, and what the other app had learnt of its listener stays there.
+        Text(
+            text = stringResource(R.string.import_library_recommendations),
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+        val more = when {
+            source.alsoFromComputer -> R.string.import_library_source_note_computer
+            source == ImportSource.OTHER -> R.string.import_library_source_note_any_csv
+            else -> null
+        }
+        if (more != null) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = stringResource(more),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+        }
+    }
+}
+
+/** One step: its number on a ring, or a tick once it is done, its words, and under them what it offers to tap. */
+@Composable
+private fun Step(number: Int, done: Boolean, text: String, action: (@Composable () -> Unit)? = null) {
+    Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(16.dp)) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(28.dp)
+                .background(
+                    if (done) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                    CircleShape,
+                ),
+        ) {
+            if (done) {
+                Icon(
+                    Icons.Rounded.Check,
+                    contentDescription = stringResource(R.string.import_library_done),
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(18.dp),
+                )
+            } else {
+                Text(
+                    text = number.toString(),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        Spacer(Modifier.width(16.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 2.dp))
+            if (action != null) {
+                Spacer(Modifier.height(8.dp))
+                action()
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReadingFile() {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 8.dp)) {
+        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+        Spacer(Modifier.width(12.dp))
+        Text(stringResource(R.string.import_library_reading))
     }
 }
 
