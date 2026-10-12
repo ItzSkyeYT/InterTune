@@ -1,6 +1,21 @@
 package com.dd3boh.outertune.ui.screens.settings.fragments
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.material3.CardDefaults
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.zIndex
+import kotlin.math.max
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Autorenew
@@ -93,6 +108,7 @@ import com.dd3boh.outertune.ui.component.ListPreference
 import com.dd3boh.outertune.ui.component.ExplainButton
 import com.dd3boh.outertune.ui.component.ExplainPicture
 import com.dd3boh.outertune.ui.component.ExplainPicturePanel
+import com.dd3boh.outertune.ui.component.SoundStage
 import com.dd3boh.outertune.ui.component.ExplainedSwitchPreference
 import com.dd3boh.outertune.ui.dialog.InfoLabel
 import com.dd3boh.outertune.ui.component.PreferenceEntry
@@ -160,6 +176,7 @@ fun ColumnScope.ProximityVolumeFrag() {
         title = stringResource(R.string.proximity_volume),
         description = stringResource(R.string.proximity_volume_description),
         explanation = stringResource(R.string.proximity_volume_explain),
+        picture = ExplainPicture.PROXIMITY,
         checked = enabled,
         onCheckedChange = { want ->
             if (want && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -233,76 +250,149 @@ fun ColumnScope.StageWidthFrag() {
         StageWidthKey,
         defaultValue = BinauralAudioProcessor.DEFAULT_STAGE_WIDTH.toInt(),
     )
-    ExplainedPreference(
-        title = stringResource(R.string.stage_width),
-        explanation = stringResource(R.string.stage_width_explain),
-        picture = ExplainPicture.STAGE_WIDTH,
-        description = stringResource(R.string.stage_width_value, width),
-    )
     val (strength, onStrengthChange) = rememberPreference(SpatialStrengthKey, defaultValue = 100)
-    // The two speakers where the slider puts them, moving as it is dragged, and as far out of
-    // the headphones as Strength, the slider after this one, has the effect. Over the sliders
-    // and not under them, where the hand that drags would be in the way.
-    if (Unreleased.EXPLAIN_PICTURES) {
-        ExplainPicturePanel(
-            picture = ExplainPicture.STAGE_WIDTH,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-            either = width.toFloat(),
-            strength = if (Unreleased.SPATIAL_TUNING) strength / 100f else null,
+    val (room, onRoomChange) = rememberPreference(SpatialRoomKey, defaultValue = 0)
+    val (bassDirect, onBassDirectChange) = rememberPreference(SpatialBassDirectKey, defaultValue = false)
+    val (ambience, onAmbienceChange) = rememberPreference(SpatialAmbienceKey, defaultValue = 0)
+
+    // Where the sound sits round the listener, as these sliders have it, and moving as any of
+    // them is dragged: the two speakers where Stage width puts them, as far out of the
+    // headphones as Strength has the effect, the walls of the Room, the low notes at the ears
+    // where they are left alone, and the room sound of the recording as far to the sides as
+    // Ambience moves it. A control that is not offered in this build shows as it is without it.
+    val pictured = Unreleased.EXPLAIN_PICTURES
+    val foot = remember { mutableFloatStateOf(Float.MAX_VALUE) }
+    if (pictured) {
+        val tuning = Unreleased.SPATIAL_TUNING
+        PinnedStagePicture(
+            stage = SoundStage(
+                width = width.toFloat(),
+                strength = if (tuning) strength / 100f else 1f,
+                room = if (tuning) room / 100f else 0f,
+                ambience = if (tuning && Unreleased.DIRECT_AMBIENT) ambience / 100f else 0f,
+                bassAtEars = tuning && bassDirect,
+            ),
+            foot = { foot.floatValue },
         )
     }
-    Slider(
-        value = width.toFloat(),
-        onValueChange = { onWidthChange(it.toInt()) },
-        valueRange = BinauralAudioProcessor.MIN_STAGE_WIDTH..BinauralAudioProcessor.MAX_STAGE_WIDTH,
-        modifier = Modifier.padding(horizontal = 16.dp),
-    )
 
-    if (!Unreleased.SPATIAL_TUNING) return
-    ExplainedPreference(
-        title = stringResource(R.string.spatial_strength),
-        explanation = stringResource(R.string.spatial_strength_explain),
-        description = stringResource(R.string.spatial_strength_value, strength),
-    )
-    Slider(
-        value = strength.toFloat(),
-        onValueChange = { onStrengthChange(it.toInt()) },
-        valueRange = 0f..100f,
-        modifier = Modifier.padding(horizontal = 16.dp),
-    )
-    val (room, onRoomChange) = rememberPreference(SpatialRoomKey, defaultValue = 0)
-    ExplainedPreference(
-        title = stringResource(R.string.spatial_room),
-        explanation = stringResource(R.string.spatial_room_explain),
-        description = stringResource(R.string.spatial_room_value, room),
-    )
-    Slider(
-        value = room.toFloat(),
-        onValueChange = { onRoomChange(it.toInt()) },
-        valueRange = 0f..100f,
-        modifier = Modifier.padding(horizontal = 16.dp),
-    )
-    val (bassDirect, onBassDirectChange) = rememberPreference(SpatialBassDirectKey, defaultValue = false)
-    SwitchPreference(
-        title = { Text(stringResource(R.string.spatial_bass)) },
-        description = stringResource(R.string.spatial_bass_description),
-        checked = bassDirect,
-        onCheckedChange = onBassDirectChange,
-    )
+    Column(Modifier.onGloballyPositioned { foot.floatValue = it.positionInWindow().y + it.size.height }) {
+        StageSliderRow(
+            title = stringResource(R.string.stage_width),
+            explanation = stringResource(R.string.stage_width_explain),
+            description = stringResource(R.string.stage_width_value, width),
+            pictured = pictured,
+        )
+        Slider(
+            value = width.toFloat(),
+            onValueChange = { onWidthChange(it.toInt()) },
+            valueRange = BinauralAudioProcessor.MIN_STAGE_WIDTH..BinauralAudioProcessor.MAX_STAGE_WIDTH,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
 
-    if (!Unreleased.DIRECT_AMBIENT) return
-    val (ambience, onAmbienceChange) = rememberPreference(SpatialAmbienceKey, defaultValue = 0)
-    ExplainedPreference(
-        title = stringResource(R.string.spatial_ambience),
-        explanation = stringResource(R.string.spatial_ambience_explain),
-        description = stringResource(R.string.spatial_ambience_value, ambience),
-    )
-    Slider(
-        value = ambience.toFloat(),
-        onValueChange = { onAmbienceChange(it.toInt()) },
-        valueRange = 0f..100f,
-        modifier = Modifier.padding(horizontal = 16.dp),
-    )
+        if (!Unreleased.SPATIAL_TUNING) return@Column
+        StageSliderRow(
+            title = stringResource(R.string.spatial_strength),
+            explanation = stringResource(R.string.spatial_strength_explain),
+            description = stringResource(R.string.spatial_strength_value, strength),
+            pictured = pictured,
+        )
+        Slider(
+            value = strength.toFloat(),
+            onValueChange = { onStrengthChange(it.toInt()) },
+            valueRange = 0f..100f,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+        StageSliderRow(
+            title = stringResource(R.string.spatial_room),
+            explanation = stringResource(R.string.spatial_room_explain),
+            description = stringResource(R.string.spatial_room_value, room),
+            pictured = pictured,
+        )
+        Slider(
+            value = room.toFloat(),
+            onValueChange = { onRoomChange(it.toInt()) },
+            valueRange = 0f..100f,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+        SwitchPreference(
+            title = { Text(stringResource(R.string.spatial_bass)) },
+            description = stringResource(R.string.spatial_bass_description),
+            checked = bassDirect,
+            onCheckedChange = onBassDirectChange,
+        )
+
+        if (!Unreleased.DIRECT_AMBIENT) return@Column
+        StageSliderRow(
+            title = stringResource(R.string.spatial_ambience),
+            explanation = stringResource(R.string.spatial_ambience_explain),
+            description = stringResource(R.string.spatial_ambience_value, ambience),
+            pictured = pictured,
+        )
+        Slider(
+            value = ambience.toFloat(),
+            onValueChange = { onAmbienceChange(it.toInt()) },
+            valueRange = 0f..100f,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+    }
+}
+
+/**
+ * The row over one of the sliders that set where the sound sits. With the picture over the
+ * group it is the name and what is set and no more: the picture shows what the slider does, as
+ * it is dragged, and an (i) beside every one of them was four buttons saying less than it does.
+ * Without the picture the explanation is behind its (i), as it was.
+ */
+@Composable
+private fun StageSliderRow(title: String, explanation: String, description: String, pictured: Boolean) {
+    if (pictured) {
+        PreferenceEntry(title = { Text(title) }, description = description, onClick = null)
+    } else {
+        ExplainedPreference(title = title, explanation = explanation, description = description)
+    }
+}
+
+/**
+ * The picture of where the sound sits, at the head of the sliders that set it, and held in view
+ * under the page's title for as long as any of them is on screen. Left where it stands, it was
+ * scrolled off the top by the time a slider further down the group was under a finger, and a
+ * picture that moves with a slider has to be seen while the slider is dragged.
+ *
+ * @param foot where the group of sliders ends, down the window: the picture goes no lower
+ */
+@Composable
+private fun PinnedStagePicture(stage: SoundStage, foot: () -> Float) {
+    // Under the status bar and the page's own title, which floats over what scrolls.
+    val ceiling = with(LocalDensity.current) { WindowInsets.statusBars.getTop(this) + 64.dp.toPx() }
+    val stands = remember { mutableFloatStateOf(0f) }
+    val tall = remember { mutableFloatStateOf(0f) }
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            // Over the rows that scroll under it while it is held.
+            .zIndex(1f)
+            // Where it stands in the column, read before it is moved and only where it is
+            // drawn, so that scrolling composes nothing.
+            .onGloballyPositioned {
+                stands.floatValue = it.positionInWindow().y
+                tall.floatValue = it.size.height.toFloat()
+            }
+            .graphicsLayer {
+                translationY = (ceiling - stands.floatValue)
+                    .coerceIn(0f, max(0f, foot() - stands.floatValue - tall.floatValue))
+            }
+            // The card's own colour behind it, so that the rows going under it are gone and
+            // not showing round its corners.
+            .background(CardDefaults.elevatedCardColors().containerColor)
+            // And the touches that fall on it stop here: without this they went through to
+            // whatever row was under it, and a tap on the picture moved a slider nobody could
+            // see. A drag on it still scrolls the page, which hears of it on the way down.
+            .pointerInput(Unit) { }
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        ExplainPicturePanel(picture = ExplainPicture.SOUND_STAGE, stage = stage)
+    }
 }
 
 /** What the audio chain does to the stereo it is given. */

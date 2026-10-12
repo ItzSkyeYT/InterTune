@@ -232,22 +232,6 @@ class ExplainPicturesTest {
     }
 
     @Test
-    fun `the speakers open from narrow to wide and close again, without a jerk`() {
-        val loop = generateSequence(0f) { it + 1f / 240f }.takeWhile { it < 2 * WIDTH_LOOP }.toList()
-        val angles = loop.map { stageAngle(it) }
-        assertEquals(WIDTH_NARROW, stageAngle(0f), 0.01f)
-        assertTrue(angles.all { it >= WIDTH_NARROW - 0.01f && it <= WIDTH_WIDE + 0.01f })
-        assertTrue(angles.max() > WIDTH_WIDE - 0.5f)
-        for (at in loop) {
-            assertTrue(abs(stageAngle(at + frame) - stageAngle(at)) <= 2f)
-        }
-        for (at in listOf(0.4f, 1.9f, 3.3f)) assertEquals(stageAngle(at), stageAngle(at + WIDTH_LOOP), 0.02f)
-        // What the picture shows is inside what the slider can be set to, and holds still on a width of its own.
-        assertTrue(WIDTH_NARROW >= 15f && WIDTH_WIDE <= 90f)
-        assertTrue(STILL_WIDTH in WIDTH_NARROW..WIDTH_WIDE)
-    }
-
-    @Test
     fun `a ripple is born and dies unseen, and they follow one another evenly`() {
         for (number in 0 until RIPPLES) for (at in turning) {
             val (far, strength) = ripple(number, at)
@@ -261,5 +245,123 @@ class ExplainPicturesTest {
             val ways = (0 until RIPPLES).map { ripple(it, at).first }.sorted()
             for ((a, b) in ways.zipWithNext()) assertEquals(1f / RIPPLES, b - a, 0.001f)
         }
+    }
+
+    @Test
+    fun `the room holds the listener and the speakers wherever they stand`() {
+        val widths = generateSequence(BinauralAudioProcessor.MIN_STAGE_WIDTH) { it + 1f }
+            .takeWhile { it <= BinauralAudioProcessor.MAX_STAGE_WIDTH }.toList()
+        for (width in widths) {
+            val (right, down) = stageSpot(width)
+            assertTrue(right + STAGE_SPEAKER < ROOM_HALF - 0.1f)
+            assertTrue(down - STAGE_SPEAKER > ROOM_FRONT + 0.05f)
+        }
+        assertTrue(STAGE_HEAD_AT + STAGE_HEAD < ROOM_BACK)
+        // And the room itself is in the picture, which is at least twice as wide as it is tall.
+        assertTrue(ROOM_HALF < 1f && ROOM_FRONT > 0f && ROOM_BACK < 1f)
+    }
+
+    @Test
+    fun `an echo comes from as far behind the wall as the sound is in front of it`() {
+        for (width in listOf(15f, 30f, 60f, 90f)) for (out in listOf(0f, 0.5f, 1f)) {
+            val sound = stageSpot(width, out)
+            val echo = echoSpot(sound)
+            assertEquals(ROOM_HALF - sound.first, echo.first - ROOM_HALF, 0.0001f)
+            assertEquals(sound.second, echo.second, 0f)
+            assertTrue("the echo of $width degrees is inside the room", echo.first > ROOM_HALF)
+        }
+    }
+
+    @Test
+    fun `the room sound leaves its speaker for the listener's side, and goes no further`() {
+        for (width in listOf(15f, 30f, 44f, 75f, 90f)) {
+            assertEquals(width, ambienceAngle(width, 0f), 0f)
+            assertEquals(90f, ambienceAngle(width, 1f), 0.001f)
+            var before = ambienceAngle(width, 0f)
+            for (step in 1..100) {
+                val now = ambienceAngle(width, step / 100f)
+                assertTrue(now >= before && now <= 90.001f)
+                // A step of the slider is never a jump in the picture.
+                assertTrue(now - before <= 1f)
+                before = now
+            }
+            // More than all and less than none are all and none.
+            assertEquals(ambienceAngle(width, 1f), ambienceAngle(width, 3f), 0f)
+            assertEquals(ambienceAngle(width, 0f), ambienceAngle(width, -1f), 0f)
+        }
+    }
+
+    @Test
+    fun `the low rings round a cup are born and die unseen, one after the other`() {
+        for (number in 0 until THUMPS) for (at in turning) {
+            val (spread, strength) = thump(number, at)
+            assertTrue(spread >= 0f && spread < 1f)
+            assertTrue(strength in 0f..1f)
+            if (spread < 0.02f || spread > 0.98f) assertTrue(strength < 0.1f)
+            assertTrue(abs(thump(number, at + frame).second - strength) <= 0.06f)
+        }
+        val spreads = (0 until THUMPS).map { thump(it, 0.4f).first }.sorted()
+        for ((a, b) in spreads.zipWithNext()) assertEquals(1f / THUMPS, b - a, 0.001f)
+        // Slower than the ripples of the music: low notes.
+        assertTrue(THUMP_SECONDS > 1f)
+    }
+
+    @Test
+    fun `a stage that sets nothing but its width is the plain effect`() {
+        val plain = SoundStage(width = 30f)
+        assertEquals(1f, plain.strength, 0f)
+        assertEquals(0f, plain.room, 0f)
+        assertEquals(0f, plain.ambience, 0f)
+        assertTrue(!plain.bassAtEars)
+    }
+
+    /** Every 240th of a second through two walks away and back. */
+    private val walking = generateSequence(0f) { it + 1f / 240f }.takeWhile { it < 2 * WALK_LOOP }.toList()
+
+    @Test
+    fun `the listener starts beside the phone, walks to the far end and comes back, without a jerk`() {
+        assertEquals(0f, walkAway(0f), 0.001f)
+        assertEquals(1f, walkAway(WALK_LOOP / 2f), 0.001f)
+        for (at in walking) {
+            assertTrue(walkAway(at) in 0f..1f)
+            assertTrue(abs(walkAway(at + frame) - walkAway(at)) <= 0.02f)
+        }
+        for (at in listOf(0.5f, 2.2f, 4.1f)) assertEquals(walkAway(at), walkAway(at + WALK_LOOP), 0.001f)
+    }
+
+    @Test
+    fun `they face the way they walk, and turn round at each end`() {
+        // To the right on the way out and to the left on the way back.
+        assertTrue(walkFacing(WALK_LOOP * 0.25f) > 80f)
+        assertTrue(walkFacing(WALK_LOOP * 0.75f) < -80f)
+        for (at in walking) {
+            val going = walkAway(at + frame) - walkAway(at)
+            if (abs(going) > 0.001f) assertTrue("facing the wrong way at $at", walkFacing(at + frame / 2f) * going > 0f)
+            assertTrue(abs(walkFacing(at + frame) - walkFacing(at)) <= 4f)
+        }
+    }
+
+    @Test
+    fun `the music is quieter the further they are, changes only while they walk, and is never gone`() {
+        val levels = walking.map { walkLevel(it) }
+        assertTrue(levels.all { it >= WALK_QUIETEST - 0.001f && it <= 1f })
+        assertEquals(1f, walkLevel(0f), 0.001f)
+        assertEquals(WALK_QUIETEST, walkLevel(WALK_LOOP / 2f), 0.001f)
+        // Never gone, and far enough from full to be seen at a glance.
+        assertTrue(WALK_QUIETEST in 0.2f..0.4f)
+        for (at in walking) {
+            val walked = walkAway(at + frame) - walkAway(at)
+            val changed = walkLevel(at + frame) - walkLevel(at)
+            // Step for step with the walking: it changes as much as they move, the other way,
+            // and while they stand it holds.
+            assertEquals(-(1f - WALK_QUIETEST) * walked, changed, 0.0005f)
+            if (abs(walked) < 0.0005f) assertTrue("the music changes while they stand, at $at", abs(changed) < 0.0005f)
+        }
+        // Where they are says how loud it is, on the way out and on the way back alike.
+        assertEquals(walkLevel(WALK_LOOP * 0.2f), walkLevel(WALK_LOOP * 0.8f), 0.001f)
+        // Held still, it shows them part of the way out with the music already less.
+        assertTrue(walkAway(STILL_WALK) in 0.3f..0.9f)
+        assertTrue(walkLevel(STILL_WALK) < 0.9f)
+        assertTrue(walkFacing(STILL_WALK) > 45f)
     }
 }
