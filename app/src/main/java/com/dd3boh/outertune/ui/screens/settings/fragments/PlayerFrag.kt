@@ -277,6 +277,8 @@ fun ColumnScope.StageWidthFrag() {
                 bassAtEars = tuning && bassDirect,
             ),
             foot = { foot.floatValue },
+            // With Stage width alone there is no slider further down to keep it in view for.
+            held = tuning,
         )
     }
 
@@ -364,9 +366,11 @@ private fun StageSliderRow(title: String, explanation: String, description: Stri
  * picture that moves with a slider has to be seen while the slider is dragged.
  *
  * @param foot where the group of sliders ends, down the window: the picture goes no lower
+ * @param held false where the group is one slider: held there, the picture slid down over the
+ * slider it is to be seen beside, so it stays where it stands and scrolls with the page
  */
 @Composable
-private fun PinnedStagePicture(stage: SoundStage, foot: () -> Float) {
+private fun PinnedStagePicture(stage: SoundStage, foot: () -> Float, held: Boolean) {
     // Under the status bar and the page's own title, which floats over what scrolls.
     val ceiling = with(LocalDensity.current) { WindowInsets.statusBars.getTop(this) + 64.dp.toPx() }
     val stands = remember { mutableFloatStateOf(0f) }
@@ -383,8 +387,7 @@ private fun PinnedStagePicture(stage: SoundStage, foot: () -> Float) {
                 tall.floatValue = it.size.height.toFloat()
             }
             .graphicsLayer {
-                translationY = (ceiling - stands.floatValue)
-                    .coerceIn(0f, max(0f, foot() - stands.floatValue - tall.floatValue))
+                translationY = stageShift(ceiling, stands.floatValue, tall.floatValue, foot(), held)
             }
             // The card's own colour behind it, so that the rows going under it are gone and
             // not showing round its corners.
@@ -398,6 +401,14 @@ private fun PinnedStagePicture(stage: SoundStage, foot: () -> Float) {
         ExplainPicturePanel(picture = ExplainPicture.SOUND_STAGE, stage = stage)
     }
 }
+
+/**
+ * How far down from where it stands the stage picture is drawn, to stay under the page's title
+ * ([ceiling]) while the page scrolls: no further than the end of its sliders ([foot]), and not at
+ * all where it is not [held]. [stands] and [tall] are its own place and height in the window.
+ */
+internal fun stageShift(ceiling: Float, stands: Float, tall: Float, foot: Float, held: Boolean): Float =
+    if (!held) 0f else (ceiling - stands).coerceIn(0f, max(0f, foot - stands - tall))
 
 /** What the audio chain does to the stereo it is given. */
 @Composable
