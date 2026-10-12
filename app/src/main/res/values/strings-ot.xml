@@ -627,6 +627,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="setup_signed_in_as">You are signed in as %1$s.</string>
     <string name="setup_signed_in">You are signed in.</string>
     <string name="setup_other_account">Use another account</string>
+    <!-- On setup's first page, beside "I have a backup", each on half the page: one line of words, no more. It opens Import from another service. -->
+    <string name="setup_import_playlists">I have playlists</string>
     <string name="setup_choices_title">A few questions</string>
     <string name="setup_choices_body">You can change your mind later in Settings.</string>
     <string name="setup_updates_question">Hear about new versions?</string>
@@ -1189,8 +1191,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="exclusion_reason_artist_ban">Never this artist</string>
     <string name="exclusion_reason_snooze">Less of this artist, for a month</string>
     <string name="exclusion_reason_rest">Rested after a skip</string>
-    <string name="exclusion_reason_gone" translatable="false">No longer on YouTube</string>
-    <string name="error_cached_part_stale" translatable="false">The saved part of this song no longer matches what YouTube serves. Press play to load it again.</string>
+    <string name="exclusion_reason_gone">No longer on YouTube</string>
+    <string name="error_cached_part_stale">The saved part of this song no longer matches what YouTube serves. Press play to load it again.</string>
     <string name="menu_not_this_song">Not this song</string>
     <string name="menu_less_of_artist">Less of this artist</string>
     <string name="menu_never_artist">Never this artist</string>
@@ -1699,6 +1701,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="import_library_spotify">Spotify: Exportify (exportify.app) saves each playlist, and your liked songs, as a CSV file. Its Export All button makes a zip of every playlist, and that works too.</string>
     <string name="import_library_others">Apple Music, Deezer, Tidal and others: TuneMyMusic or Soundiiz can export your playlists to a CSV file. In Apple Music or iTunes on a computer, File, Library, Export Library works too, and brings every playlist at once.</string>
     <string name="import_library_review_note">Songs it is not sure about wait for you to check them. Nothing is added until you tap Create playlists.</string>
+    <string name="import_library_recommendations">The import brings your playlists. The recommendations learn only from what you play here, so they know nothing of what you liked or skipped in the other app.</string>
     <string name="import_library_premium">With YouTube Music Premium, YouTube\'s own transfer, under Settings, Privacy and data, can also move playlists over.</string>
     <string name="import_library_choose">Choose a file</string>
     <string name="import_library_reading">Reading the file</string>
@@ -1720,8 +1723,12 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="import_library_start_over_body">Everything matched and picked from this file is dropped. Playlists already created stay as they are.</string>
     <string name="import_library_stopped">Stopped. What was found so far is kept, and Continue picks up where it left off.</string>
     <string name="import_library_offline">YouTube could not be reached. Check the connection, then continue.</string>
+    <string name="import_library_paused">Paused. YouTube is turning this connection away for now. What was found so far is kept: try Continue again later.</string>
     <string name="import_library_review_title">Check these (%1$d)</string>
     <string name="import_library_review_help">Tap the right version, or Skip. Anything you do not pick is left out.</string>
+    <string name="import_library_take_first_all">Take the first one for all</string>
+    <string name="import_library_take_first_rest">Take the first one for the rest</string>
+    <string name="import_library_take_first_note">Each pick can still be changed until the playlists are created.</string>
     <string name="import_library_missing_title">Not found (%1$d)</string>
     <string name="import_library_missing_help">Nothing close came up for these, even searching for the title alone. They are left out.</string>
     <string name="import_library_skip">Skip</string>
@@ -1808,6 +1815,13 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="home_play_at_random">Play something at random</string>
     <string name="view_as_list">Shown as a list</string>
     <string name="view_as_grid">Shown as a grid</string>
+    <string name="playlist_order_locked">Order locked</string>
+    <string name="playlist_order_unlocked">Order unlocked</string>
+    <string name="cancel_download">Cancel download</string>
+    <string name="playlist_load_all">Load the whole playlist</string>
+    <string name="select_all">Select all</string>
+    <string name="deselect_all">Deselect all</string>
+    <string name="cancel_selection">Cancel selection</string>
     <string name="visionos_test" translatable="false">Pretend VISIONOS is blocked</string>
     <string name="visionos_test_off" translatable="false">Off</string>
     <string name="visionos_test_own" translatable="false">This app\'s version only</string>
