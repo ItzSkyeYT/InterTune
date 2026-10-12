@@ -13,7 +13,7 @@
     <string name="quick_picks_source">Quick picks source</string>
     <string name="quick_picks_source_youtube">YouTube Music</string>
     <string name="quick_picks_source_library">Your library</string>
-    <string name="quick_picks_source_description">Where the Quick picks row gets its songs. YouTube Music uses the shelf YouTube makes for your account, Your library uses songs related to what you play, and Best recommendations builds the row from how you listen. Try both alternates Best recommendations with another source.</string>
+    <string name="quick_picks_source_description">Where the \"Quick picks\" row gets its songs. \"YouTube Music\" uses the shelf YouTube makes for your account, \"Your library\" uses songs related to what you play, and \"Best recommendations\" builds the row from how you listen. \"Try both\" alternates \"Best recommendations\" with another source.</string>
     <string name="oobe_update_auto_description">Fetch it in the background so it is ready when you want it. Android still asks you to confirm.</string>
     <string name="oobe_polls_answered">You can change this any time in Settings, under Questions and news.</string>
     <string name="poll_title">A question from InterTune</string>
@@ -227,7 +227,7 @@
     <string name="quick_picks_lean_set_aside_chip">The %1$s chip on Home takes over while it is on.</string>
     <string name="quick_picks_lean_set_aside_new_only">New songs only takes over while it is on.</string>
     <string name="quick_picks_lean_new_only_strict">With New songs only on, Best recommendations picks only songs you have never even started, as long as there are enough.</string>
-    <string name="quick_picks_lean_info">Auto is the usual mix, from what Best recommendations has learned. Each other choice gives one kind of song most of its cards. Songs that fit what I am playing now also rebuilds Quick picks once you have listened to a few songs from elsewhere.</string>
+    <string name="quick_picks_lean_info">\"Auto\" is the usual mix, from what \"Best recommendations\" has learned. Each other choice gives one kind of song most of its cards. \"Songs that fit what I am playing now\" also rebuilds \"Quick picks\" once you have listened to a few songs from elsewhere.</string>
     <string name="quick_picks_leaning_new">Leaning toward songs you have never heard</string>
     <string name="quick_picks_leaning_artist">Leaning toward artists you keep coming back to</string>
     <string name="quick_picks_leaning_forgotten">Leaning toward things you loved and forgot about</string>
@@ -243,7 +243,7 @@
     <string name="why_these_lean">Leaning toward: %1$s, %2$d of the %3$d cards on screen</string>
     <string name="adventurousness_description_lean_new">Set by Quick picks leaning toward songs you have never heard: %1$d of 20 cards.</string>
     <string name="recommendations_summary_too_early_choice">Too early to tell which way it is going since you changed what Quick picks leans toward.</string>
-    <string name="context_chips_info">The first chip is your usual row. The others lean it for now: Discover toward songs new to you, Favourites toward what you have liked, and Focus, Chill and Party toward what you play while each is on. A chip stays on until you change it.</string>
+    <string name="context_chips_info">The first chip is your usual row. The others lean it for now: \"Discover\" toward songs new to you, \"Favourites\" toward what you have liked, and \"Focus\", \"Chill\" and \"Party\" toward what you play while each is on. A chip stays on until you change it.</string>
     <string name="share_link_kind_title">Links you share</string>
     <string name="share_link_youtube_music">YouTube Music link</string>
     <string name="share_link_page">A page for any music app</string>
