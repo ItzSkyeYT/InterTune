@@ -139,11 +139,13 @@ object Unreleased {
      * after the tap (9 Oct 2026). It sits on the path every song takes, and the hard part,
      * telling a copy from another take of the song, has met that one song of a real library and
      * no more. Without it a song that is gone fails as it always has, and nothing is searched
-     * for, noted or left out. When it is agreed: set this to true, or delete it with the one
-     * check that reads it, in StandIns, and make exclusion_reason_gone and
-     * error_cached_part_stale translatable.
+     * for, noted or left out.
+     *
+     * On in every build from 0.11.5, with its two texts, exclusion_reason_gone and
+     * error_cached_part_stale, open to translators and in French. Left to tidy: the flag and the
+     * one check that reads it, in StandIns.
      */
-    val STAND_INS = BuildConfig.DEBUG
+    val STAND_INS = true
 
     /**
      * The sign-in page says when the sign-in is made and goes back by itself to where it was

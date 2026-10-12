@@ -26,9 +26,10 @@ import java.io.File
  */
 class ReleasedFlagsTest {
 
-    /** On in every build, and so in a release. */
+    /** On in every build, and so in a release. The second line went on for 0.11.5. */
     private val inEveryBuild = setOf(
         "ENGINE", "SHORT_SETUP", "LOGIN_RETURNS",
+        "STAND_INS",
     )
 
     private val sources = File("src/main/java/com/dd3boh/outertune")
@@ -38,11 +39,24 @@ class ReleasedFlagsTest {
         .replace(Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL), "")
         .lines().joinToString("\n") { it.substringBefore("//") }
 
+    private fun code(file: File) = code(file.readText())
+
     /** Every flag with what it is set to, as written. */
     private val flags: Map<String, String> =
         Regex("""^\s*val ([A-Z][A-Z0-9_]*) = (.+?)\s*$""", RegexOption.MULTILINE)
-            .findAll(code(File(sources, "constants/Unreleased.kt").readText()))
+            .findAll(code(File(sources, "constants/Unreleased.kt")))
             .associate { it.groupValues[1] to it.groupValues[2] }
+
+    /** The files that read [flag], Unreleased.kt aside. */
+    private fun readers(flag: String): Set<String> = sources.walkTopDown()
+        .filter { it.extension == "kt" && it.name != "Unreleased.kt" }
+        .filter { Regex("""Unreleased\.$flag\b""").containsMatchIn(code(it)) }
+        .map { it.relativeTo(sources).path }
+        .toSet()
+
+    /** Whether [path] has the check [written] exactly so, with no condition added to it. */
+    private fun assertWritten(path: String, written: String) =
+        assertTrue("$path no longer has `$written` as it was", written in code(File(sources, path)).lines().map { it.trim() })
 
     @Test
     fun `a release has these flags on and no other`() {
@@ -64,5 +78,24 @@ class ReleasedFlagsTest {
         // than adding a name to the list above.
         assertEquals("BuildConfig.DEBUG", flags["WEB_CLIENT_FIRST"])
         assertFalse("WEB_CLIENT_FIRST" in inEveryBuild)
+    }
+
+    // ---- what went on for 0.11.5 ----
+    //
+    // For each: where it is read, and the check as it is written. A condition added to one of
+    // those checks, another flag or the kind of build, takes the feature from a release again
+    // with no flag here saying so. That is how the headers of the web client's address came to
+    // hang on a developer's switch that no release has.
+
+    @Test
+    fun `a song that is gone is played from its other id in every build, and its two texts are in French`() {
+        assertEquals(setOf("playback/StandIns.kt"), readers("STAND_INS"))
+        assertWritten("playback/StandIns.kt", "private val enabled: () -> Boolean = { Unreleased.STAND_INS },")
+        val english = File("src/main/res/values/strings-ot.xml").readText()
+        val french = File("src/main/res/values-fr/strings-ot.xml").readText()
+        for (name in listOf("exclusion_reason_gone", "error_cached_part_stale")) {
+            assertTrue("$name is not open to translators", "<string name=\"$name\">" in english)
+            assertTrue("$name has no French", "<string name=\"$name\">" in french)
+        }
     }
 }
