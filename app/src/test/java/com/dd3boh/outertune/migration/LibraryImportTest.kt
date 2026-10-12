@@ -36,9 +36,9 @@ import java.util.concurrent.CopyOnWriteArrayList
 /**
  * The import as the screen drives it, from the file somebody chose to the playlists, with a
  * YouTube that is a map, a library that is a list and a folder of its own for the app's files.
- * What the screen can ask for is all here: a file, Cancel and Continue, a pick and a skip, Create
- * playlists, Start over. So is what the screen cannot ask for and Android does anyway: the app
- * killed in the middle, and started again.
+ * What the screen can ask for is all here: a file, Cancel and Continue, a pick and a skip, the
+ * first result for every song at one tap, Create playlists, Start over. So is what the screen
+ * cannot ask for and Android does anyway: the app killed in the middle, and started again.
  */
 class LibraryImportTest {
 
@@ -477,6 +477,279 @@ class LibraryImportTest {
 
         assertTrue(made.isEmpty())
         assertEquals(Stage.STOPPED, session.state.value.stage)
+    }
+
+    // The first result for every song still to check, in one tap.
+
+    private fun studio(i: Int) = song("Song $i", "x", 100 + i, id = "studio-$i")
+    private fun live(i: Int) = song("Song $i (Live)", "x", 150, id = "live-$i")
+
+    /**
+     * Seven songs in two playlists. The first has its length and goes in without asking. The next
+     * five have none, as in an export with no length column, and wait to be checked however well
+     * the name matches. YouTube has nothing for the last.
+     */
+    private val lengthless = "Title,Artist,Duration,Playlist\n" +
+        "Song 1,x,101,First\n" +
+        "Song 2,x,,First\n" +
+        "Song 3,x,,First\n" +
+        "Song 4,x,,Second\n" +
+        "Song 5,x,,Second\n" +
+        "Song 6,x,,Second\n" +
+        "Song 7,x,,Second\n"
+
+    /**
+     * Two versions of each song that waits, the live one first, as a search may well list it. The
+     * import puts the closer match first, and that one is the first a tap for all takes.
+     */
+    private fun hasLengthless() = FakeYouTube(
+        mapOf("Song 1 x" to listOf(studio(1))) + (2..6).associate { "Song $it x" to listOf(live(it), studio(it)) }
+    )
+
+    /** [count] songs of one playlist in a file with no length column at all: every one of them waits. */
+    private fun noLengths(count: Int) = buildString {
+        append("Title,Artist\n")
+        for (i in 1..count) append("Song $i,x\n")
+    }
+
+    private fun hasTwoOfEach(count: Int) = FakeYouTube((1..count).associate { "Song $it x" to listOf(live(it), studio(it)) })
+
+    /** What stands against each song of the review list, in its order: the id picked, "skipped", or null while it waits. */
+    private fun LibraryImport.decided(): List<String?> = state.value.progress!!.review.map {
+        when (val choice = it.choice) {
+            is ImportRun.Choice.Picked -> choice.song.id
+            ImportRun.Choice.Skipped -> "skipped"
+            null -> null
+        }
+    }
+
+    @Test
+    fun `one tap takes the first result for every song still waiting, and for no other`() = runBlocking {
+        val session = session(hasLengthless())
+        session.open("everything.csv", lengthless)
+        val before = session.reaches(Stage.MATCHED).progress!!
+        // The closer match is listed first, whichever way round YouTube had them.
+        assertEquals(listOf("studio-2", "live-2"), before.review.first().candidates.map { it.candidate.id })
+        assertEquals(listOf(null, null, null, null, null), session.decided())
+
+        // By hand: the other version of one song, another skipped, and the one that matched left out.
+        session.pick(1, live(2))
+        session.skip(2)
+        session.skip(0)
+
+        session.pickFirsts()
+
+        assertEquals(listOf("live-2", "skipped", "studio-4", "studio-5", "studio-6"), session.decided())
+        val after = session.state.value.progress!!
+        assertTrue("a song left out by hand stays out", after.matchedItems.single().leftOut)
+        assertEquals("studio-1", after.matchedItems.single().best.candidate.id)
+        // A song YouTube does not have has no first result to take.
+        assertEquals(listOf("Song 7"), after.notFound.map { it.title })
+        assertEquals(Stage.MATCHED, session.state.value.stage)
+    }
+
+    @Test
+    fun `the counts follow it, and Create playlists makes what it took`() = runBlocking {
+        val session = session(hasLengthless())
+        session.open("everything.csv", lengthless)
+        var progress = session.reaches(Stage.MATCHED).progress!!
+        assertEquals(1, progress.matched)
+        assertEquals(5, progress.review.size)
+        assertEquals(1, progress.notFound.size)
+        // Ready to go into playlists: only the one that matched. Still to check: all five.
+        assertEquals(1, progress.kept)
+        assertEquals(5, progress.undecided)
+
+        session.pickFirsts()
+
+        progress = session.state.value.progress!!
+        assertEquals("the one that matched and the five it took", 6, progress.kept)
+        assertEquals(5, progress.picked)
+        assertEquals(0, progress.undecided)
+        // It decides, it does not move a song from one list to another.
+        assertEquals(1, progress.matched)
+        assertEquals(5, progress.review.size)
+        assertEquals(1, progress.notFound.size)
+        assertEquals(7, progress.checked)
+
+        session.create()
+        assertEquals(6, session.reaches(Stage.CREATED).createdSongs)
+        assertEquals(
+            listOf("First" to listOf("studio-1", "studio-2", "studio-3"), "Second" to listOf("studio-4", "studio-5", "studio-6")),
+            made.single().map { (name, songs) -> name to songs.map { it.id } },
+        )
+    }
+
+    @Test
+    fun `after it each song can still be changed, skipped or taken back`() = runBlocking {
+        val session = session(hasLengthless())
+        session.open("everything.csv", lengthless)
+        session.reaches(Stage.MATCHED)
+        session.pickFirsts()
+
+        // Its picks are picks like any other: another version, a skip, and one taken back.
+        session.pick(1, live(2))
+        session.skip(2)
+        session.undecide(3)
+
+        assertEquals(listOf("live-2", "skipped", null, "studio-5", "studio-6"), session.decided())
+        val progress = session.state.value.progress!!
+        assertEquals(1, progress.undecided)
+        assertEquals(4, progress.kept)
+
+        session.create()
+        assertEquals(4, session.reaches(Stage.CREATED).createdSongs)
+        assertEquals(
+            listOf("First" to listOf("studio-1", "live-2"), "Second" to listOf("studio-5", "studio-6")),
+            made.single().map { (name, songs) -> name to songs.map { it.id } },
+        )
+    }
+
+    @Test
+    fun `what it took is kept like any pick, and is there after the app was killed`() = runBlocking {
+        // Seven songs kept two to a file: what one tap takes is spread over three files.
+        val before = session(hasLengthless(), ImportStore(dir, block = 2))
+        before.open("everything.csv", lengthless)
+        before.reaches(Stage.MATCHED)
+        before.pick(1, live(2))
+        before.pickFirsts()
+        before.saved()
+        val left = before.state.value
+        kill()
+
+        val youTube = silent()
+        val after = session(youTube, ImportStore(dir, block = 2))
+        assertEquals(left, after.reaches(Stage.MATCHED))
+        assertEquals(listOf("live-2", "studio-3", "studio-4", "studio-5", "studio-6"), after.decided())
+        assertEquals(0, after.state.value.progress!!.undecided)
+        assertTrue("an import that comes back asks YouTube nothing", youTube.queries.isEmpty())
+
+        // And they are picks still: one can be skipped, and the playlists are made of the rest.
+        after.skip(5)
+        after.create()
+        assertEquals(5, after.reaches(Stage.CREATED).createdSongs)
+        assertEquals(
+            listOf("First" to listOf("studio-1", "live-2", "studio-3"), "Second" to listOf("studio-4", "studio-5")),
+            made.single().map { (name, songs) -> name to songs.map { it.id } },
+        )
+    }
+
+    @Test
+    fun `one tap is one write of each file it changed, and a second tap changes and writes nothing`() = runBlocking {
+        // Two songs to a file: [1, 2] [3, 4] [5, 6] [7].
+        val before = session(hasLengthless(), ImportStore(dir, block = 2))
+        before.open("everything.csv", lengthless)
+        before.reaches(Stage.MATCHED)
+        before.pick(1, live(2))
+        before.skip(2)
+        before.saved()
+        kill()
+
+        // The app started again over what was kept. No lookups run in it, so nothing is written
+        // but what the taps below ask for, and each of those waits to be let go.
+        val store = ImportStore(dir, block = 2)
+        val wait = Channel<Unit>(Channel.UNLIMITED)
+        val session = session(silent(), store, saveAfter = { wait.receive() })
+        session.reaches(Stage.MATCHED)
+        assertEquals("reading an import back writes nothing", 0, store.written)
+
+        // Still waiting: songs 4, 5 and 6, which are in the second and third files.
+        session.pickFirsts()
+        session.written()
+        assertEquals("nothing is written before its turn", 0, store.written)
+        wait.send(Unit)
+        session.saved()
+        assertEquals("the file of the song that matched and the file of the song not found are not written again", 2, store.written)
+
+        val once = session.state.value
+        session.pickFirsts()
+        wait.send(Unit)
+        session.saved()
+        session.written()
+        assertEquals(once, session.state.value)
+        assertEquals(2, store.written)
+        assertEquals(listOf("live-2", "skipped", "studio-4", "studio-5", "studio-6"), session.decided())
+    }
+
+    @Test
+    fun `during the lookups it takes what has been found so far, as a tap on one song does`() = runBlocking {
+        val youTube = hasTwoOfEach(6)
+        val fifth = youTube.holdSearch(at = 5)
+        val session = session(youTube)
+        session.open("mine.csv", noLengths(6))
+        fifth.isReached()
+        assertEquals(listOf(null, null, null, null), session.decided())
+
+        // A tap on one song is taken while the others are still being looked up.
+        session.pick(0, live(1))
+        assertEquals(listOf("live-1", null, null, null), session.decided())
+        // So is the tap for all, which is for all there are at that moment.
+        session.pickFirsts()
+        assertEquals(listOf("live-1", "studio-2", "studio-3", "studio-4"), session.decided())
+        assertEquals(Stage.MATCHING, session.state.value.stage)
+
+        // What is found after it was not there to take, and waits for a tap of its own.
+        fifth.letGo.complete(Unit)
+        val done = session.reaches(Stage.MATCHED).progress!!
+        assertEquals(listOf("live-1", "studio-2", "studio-3", "studio-4", null, null), session.decided())
+        assertEquals(2, done.undecided)
+        assertEquals(4, done.kept)
+    }
+
+    @Test
+    fun `it is offered when more than three songs wait and the list stands still`() = runBlocking {
+        assertFalse("with no import there is nothing to offer", LibraryImport.State().offersFirsts)
+        val youTube = hasTwoOfEach(5)
+        val fifth = youTube.holdSearch(at = 5)
+        val session = session(youTube)
+        session.open("mine.csv", noLengths(5))
+        fifth.isReached()
+        // Four wait, and the lookups are still bringing more: "all" would not be all of them.
+        assertEquals(4, session.state.value.progress!!.undecided)
+        assertFalse(session.state.value.offersFirsts)
+
+        session.cancel()
+        assertTrue("a stopped run adds nothing to its list", session.state.value.offersFirsts)
+        // Three left to check: a tap each is no more work than a button.
+        session.pick(0, studio(1))
+        assertFalse(session.state.value.offersFirsts)
+        session.undecide(0)
+        assertTrue(session.state.value.offersFirsts)
+        session.skip(3)
+        assertFalse("a skipped song is not waiting", session.state.value.offersFirsts)
+        session.undecide(3)
+
+        session.resume()
+        val waiting = session.reaches(Stage.MATCHED)
+        assertEquals(5, waiting.progress!!.undecided)
+        assertTrue(waiting.offersFirsts)
+        // The same five in every stage: offered where a run waits for Continue or has every answer,
+        // and not once Create playlists has been tapped, when a pick would come too late.
+        for (stage in Stage.entries) {
+            val offered = stage in setOf(Stage.STOPPED, Stage.OFFLINE, Stage.PAUSED, Stage.MATCHED)
+            assertEquals(stage.name, offered, waiting.copy(stage = stage).offersFirsts)
+        }
+
+        session.pickFirsts()
+        assertFalse("nothing is left to take", session.state.value.offersFirsts)
+    }
+
+    @Test
+    fun `with no import, or nothing waiting, it does nothing`() = runBlocking {
+        val session = session(has(3))
+        session.pickFirsts()
+        assertEquals(LibraryImport.State(), session.state.value)
+
+        // Every song matched: there is no review list.
+        session.open("mine.csv", csv(3))
+        val matched = session.reaches(Stage.MATCHED)
+        session.pickFirsts()
+        assertEquals(matched, session.state.value)
+        assertEquals(3, session.state.value.progress!!.kept)
+
+        session.reset()
+        session.pickFirsts()
+        assertEquals(LibraryImport.State(), session.state.value)
     }
 
     // Start over, and another file.

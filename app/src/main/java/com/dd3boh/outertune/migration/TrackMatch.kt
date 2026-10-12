@@ -87,7 +87,8 @@ data class Scored(
          * Since 12 Oct 2026 the number is not the whole rule: a track with no length to compare
          * goes to review whatever it scores (see [confident]), which takes those five out. The
          * price is an export with no length column, TuneMyMusic's for one: every song of it waits
-         * for a tap.
+         * for a tap. One tap can be for all of them, taking the first result of each
+         * (LibraryImport.pickFirsts).
          */
         const val CONFIDENT = 0.84
     }
