@@ -201,8 +201,10 @@ object Unreleased {
      * address goes to a solver instead (utils/cipher): yt-dlp's, run in a WebView. Everything
      * round the solver is built and tested with a stand-in for it. The solver's own two files
      * are in assets/solver since 10 Oct 2026, with their licence beside them, and with them the
-     * address plays. Delete it with the two checks that read it, in MusicService and
-     * DeveloperFrag, once it has served its purpose: the fallback below does not need it.
+     * address plays. Delete it with the three checks that read it, in MusicService, DeveloperFrag
+     * and YTPlayerUtils, once it has served its purpose: the fallback below does not need it.
+     * Nor does the fetching of a web client's address, which used to ask this switch whether to
+     * send the page's headers and now reads that off the address alone (WebStreamHeaders).
      */
     val WEB_CLIENT_FIRST = BuildConfig.DEBUG
 

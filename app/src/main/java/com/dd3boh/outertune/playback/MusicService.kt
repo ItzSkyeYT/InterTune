@@ -179,7 +179,6 @@ import com.dd3boh.outertune.utils.codecsOrEmpty
 import com.dd3boh.outertune.utils.contentLengthOrZero
 import com.dd3boh.outertune.utils.SongVersions
 import com.dd3boh.outertune.utils.StreamFamily
-import com.dd3boh.outertune.utils.WebStreamHeaders
 import com.dd3boh.outertune.utils.YTPlayerUtils
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.enumPreference
@@ -1901,13 +1900,12 @@ class MusicService : MediaLibraryService(),
                     .setUpstreamDataSourceFactory(
                         DefaultDataSource.Factory(
                             this,
-                            // Over the family the address was issued to, as its check was made.
+                            // Over the family the address was issued to, and a web client's
+                            // with its page's headers, as its check was made: see StreamFamily.Calls.
                             OkHttpDataSource.Factory(
                                 StreamFamily.Calls(
                                     OkHttpClient.Builder()
                                         .proxy(YouTube.proxy)
-                                        // The experiment's addresses are fetched as they were checked: see WebStreamHeaders.
-                                        .apply { if (Unreleased.WEB_CLIENT_FIRST) addInterceptor(WebStreamHeaders.interceptor) }
                                         .build()
                                 )
                             )

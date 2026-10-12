@@ -119,7 +119,8 @@ class DownloadUtil @Inject constructor(
         CacheDataSource.Factory()
             .setCache(playerCache)
             .setUpstreamDataSourceFactory(
-                // Over the family the address was issued to, as its check was made.
+                // Over the family the address was issued to, and a web client's with its page's
+                // headers, as its check was made: see StreamFamily.Calls.
                 OkHttpDataSource.Factory(
                     StreamFamily.Calls(
                         OkHttpClient.Builder()

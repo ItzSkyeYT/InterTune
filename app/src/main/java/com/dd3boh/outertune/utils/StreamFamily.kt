@@ -36,6 +36,11 @@ import okhttp3.Request
  * another address no longer decides whether a song plays. The check of a url, the player and
  * downloads all fetch through [Calls]. They have to agree: a check that passes over one family
  * says nothing of a player that fetches over the other.
+ *
+ * The same holds for what a web client's address is asked for with, the headers of the page it
+ * was issued to ([WebStreamHeaders]): a check made with them says nothing of a player or a
+ * download that asks without. So [Calls] puts those on as well, and nobody who fetches a stream
+ * has them to remember.
  */
 object StreamFamily {
     private val IPV4 = Regex("""\d{1,3}(\.\d{1,3}){3}""")
@@ -66,6 +71,9 @@ object StreamFamily {
      * proxy: the proxy's own connection decides the family then, as it does for /player.
      *
      * The other family is kept as the way out when the first does not connect: see [AddressPolicy].
+     *
+     * A call for a web client's address is made with its page's headers, whichever client of
+     * these makes it: see [WebStreamHeaders.on].
      */
     class Calls(private val base: OkHttpClient, private val system: Dns = Dns.SYSTEM) : Call.Factory {
         private val overV4 by lazy { keepingTo(IpFamily.V4) }
@@ -83,6 +91,7 @@ object StreamFamily {
             }
         }
 
-        override fun newCall(request: Request): Call = clientFor(request.url.toString()).newCall(request)
+        override fun newCall(request: Request): Call =
+            clientFor(request.url.toString()).newCall(WebStreamHeaders.on(request))
     }
 }
