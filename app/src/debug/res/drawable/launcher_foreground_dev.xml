@@ -1,0 +1,44 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- The release's drawing for a dark ground, with site tape across its foot. -->
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.78"
+        android:scaleY="0.78">
+        <path
+            android:pathData="M34,26 L34,82 L86,54 Z"
+            android:fillColor="#ffffff"
+            android:strokeColor="#ffffff"
+            android:strokeWidth="15"
+            android:strokeLineJoin="round" />
+        <path
+            android:pathData="M36,39 L45,39 L45,69 L36,69"
+            android:strokeColor="#17171a"
+            android:strokeWidth="6"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+        <path
+            android:pathData="M54,40 L54,68"
+            android:strokeColor="#17171a"
+            android:strokeWidth="5"
+            android:strokeLineCap="round" />
+        <path
+            android:pathData="M70,46 L63,46 L63,62 L70,62"
+            android:strokeColor="#17171a"
+            android:strokeWidth="6"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+    </group>
+    <!-- The tape, over the drawing and from edge to edge of the layer, so that no launcher's
+         mask finds where it ends. -->
+    <path
+        android:pathData="M0,70 L108,70 L108,82 L0,82 Z"
+        android:fillColor="#f6c700" />
+    <path
+        android:pathData="M-12,82 l6,0 l12,-12 l-6,0 Z M0,82 l6,0 l12,-12 l-6,0 Z M12,82 l6,0 l12,-12 l-6,0 Z M24,82 l6,0 l12,-12 l-6,0 Z M36,82 l6,0 l12,-12 l-6,0 Z M48,82 l6,0 l12,-12 l-6,0 Z M60,82 l6,0 l12,-12 l-6,0 Z M72,82 l6,0 l12,-12 l-6,0 Z M84,82 l6,0 l12,-12 l-6,0 Z M96,82 l6,0 l12,-12 l-6,0 Z"
+        android:fillColor="#17171a" />
+</vector>
