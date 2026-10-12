@@ -1719,6 +1719,9 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="import_library_paused">Paused. YouTube is turning this connection away for now. What was found so far is kept: try Continue again later.</string>
     <string name="import_library_review_title">Check these (%1$d)</string>
     <string name="import_library_review_help">Tap the right version, or Skip. Anything you do not pick is left out.</string>
+    <string name="import_library_take_first_all">Take the first one for all</string>
+    <string name="import_library_take_first_rest">Take the first one for the rest</string>
+    <string name="import_library_take_first_note">Each pick can still be changed until the playlists are created.</string>
     <string name="import_library_missing_title">Not found (%1$d)</string>
     <string name="import_library_missing_help">Nothing close came up for these, even searching for the title alone. They are left out.</string>
     <string name="import_library_skip">Skip</string>

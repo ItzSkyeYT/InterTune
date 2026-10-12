@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -195,6 +196,14 @@ fun LibraryImportScreen(
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
                         )
+                        if (state.offersFirsts) {
+                            TakeFirst(
+                                // "For all" is true only while nobody has picked or skipped by
+                                // hand. What was decided stays, so after that it is for the rest.
+                                rest = progress.undecided < progress.review.size,
+                                onClick = session::pickFirsts,
+                            )
+                        }
                     }
                 }
                 items(progress.review, key = { "review-${it.index}" }) { item ->
@@ -520,6 +529,36 @@ private fun Note(text: String) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 8.dp),
     )
+}
+
+/**
+ * One tap in place of one for each song still to check: it takes the first version listed, which
+ * is the one that matched best. An export with no lengths sends every song it holds to this list,
+ * and nobody goes through a thousand of them a tap at a time.
+ *
+ * Words alone, quieter than Create playlists, and nothing asks "are you sure": what it picks
+ * shows ticked at once and is changed a song at a time, which the line under it says. [rest] is
+ * whether somebody has already picked or skipped by hand, when "for all" would no longer be true.
+ */
+@Composable
+private fun TakeFirst(rest: Boolean, onClick: () -> Unit) {
+    Column(modifier = Modifier.padding(bottom = 8.dp)) {
+        TextButton(
+            onClick = onClick,
+            modifier = Modifier
+                // A text button sets its words in by 12dp: these 4 put them under the line above.
+                .padding(start = 4.dp)
+                .heightIn(min = 48.dp),
+        ) {
+            Text(stringResource(if (rest) R.string.import_library_take_first_rest else R.string.import_library_take_first_all))
+        }
+        Text(
+            text = stringResource(R.string.import_library_take_first_note),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+    }
 }
 
 /**

@@ -1422,6 +1422,9 @@
     <string name="import_library_paused">En pause. YouTube refuse cette connexion pour l\'instant. Ce qui a été trouvé jusqu\'ici est gardé : réessayez Continuer plus tard.</string>
     <string name="import_library_review_title">À vérifier (%1$d)</string>
     <string name="import_library_review_help">Appuyez sur la bonne version, ou sur Passer. Tout ce que vous ne choisissez pas est laissé de côté.</string>
+    <string name="import_library_take_first_all">Prendre le premier pour tous</string>
+    <string name="import_library_take_first_rest">Prendre le premier pour les autres</string>
+    <string name="import_library_take_first_note">Chaque choix reste modifiable jusqu\'à la création des playlists.</string>
     <string name="import_library_missing_title">Introuvables (%1$d)</string>
     <string name="import_library_missing_help">Rien d\'approchant n\'est ressorti pour ceux-ci, même en cherchant le nom seul. Ils sont laissés de côté.</string>
     <string name="import_library_skip">Passer</string>
