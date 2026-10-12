@@ -204,8 +204,12 @@ object YouTube {
             }
         }.map { (title, group) -> SearchSummary(title = title, items = group) }
 
-    suspend fun search(query: String, filter: SearchFilter): Result<SearchResult> = runCatching {
-        val response = innerTube.search(WEB_REMIX, query, filter.value).body<SearchResponse>()
+    /**
+     * [anonymous] makes the search as a visitor even when the app browses as the account
+     * ([useLoginForBrowse]): the library import asks that way, see InnerTube.searchRequest.
+     */
+    suspend fun search(query: String, filter: SearchFilter, anonymous: Boolean = false): Result<SearchResult> = runCatching {
+        val response = innerTube.search(WEB_REMIX, query, filter.value, anonymous = anonymous).body<SearchResponse>()
         val sections = response.contents?.tabbedSearchResultsRenderer?.tabs?.firstOrNull()
             ?.tabRenderer?.content?.sectionListRenderer?.contents.orEmpty()
 

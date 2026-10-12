@@ -6,7 +6,6 @@
 
 package com.dd3boh.outertune.migration
 
-import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.SongItem
 import kotlinx.coroutines.runBlocking
 import org.junit.Assume.assumeTrue
@@ -36,9 +35,7 @@ class ImportProbe {
         val text = requireNotNull(javaClass.getResourceAsStream("/import/probe_exportify.csv")).readBytes()
         val parsed = ImportFile.parse(ImportFile.decode(text), "Probe") as ImportParse.Parsed
         val run = ImportRun(parsed)
-        val matcher = ImportMatcher(search = { query ->
-            YouTube.search(query, YouTube.SearchFilter.FILTER_SONG).getOrThrow().items.filterIsInstance<SongItem>()
-        })
+        val matcher = ImportMatcher(search = ImportSearch::songs)
 
         // A dead connection is not a finding about matching, so it ends the probe without failing
         // whatever suite it was run inside.

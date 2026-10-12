@@ -18,7 +18,6 @@ import com.dd3boh.outertune.db.entities.PlaylistSongMap
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.utils.ErrorText
 import com.dd3boh.outertune.utils.QueueToPlaylist
-import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.SongItem
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -201,9 +200,7 @@ class LibraryImport @Inject constructor(
     private suspend fun match() {
         val run = run ?: return
         setStage(Stage.MATCHING, run)
-        val matcher = ImportMatcher(search = { query ->
-            YouTube.search(query, YouTube.SearchFilter.FILTER_SONG).getOrThrow().items.filterIsInstance<SongItem>()
-        })
+        val matcher = ImportMatcher(search = ImportSearch::songs)
         try {
             // Progress only, never the stage: a result that lands just after Cancel must not
             // turn a stopped run back into a running one on screen.
