@@ -1391,12 +1391,12 @@
         <item quantity="other">Afficher %1$s de plus</item>
     </plurals>
     <string name="stats_show_fewer">Afficher moins</string>
-    <!-- Import from another service. Behind Unreleased.LIBRARY_IMPORT, debug builds only for now. -->
-    <string name="import_library_title">Importer depuis un autre service</string>
+    <!-- Import from another app. Behind Unreleased.LIBRARY_IMPORT, debug builds only for now. -->
+    <string name="import_library_title">Importer depuis une autre appli</string>
     <string name="import_library_entry">Récupérez vos playlists de Spotify, Apple Music et d\'autres, grâce à un fichier d\'export</string>
-    <string name="import_library_intro">Exportez vos playlists dans un fichier avec l\'un des outils ci-dessous, puis choisissez ce fichier ici. Chaque titre est recherché sur YouTube Music, et les playlists sont créées sur ce téléphone.</string>
-    <string name="import_library_spotify">Spotify : Exportify (exportify.app) enregistre chaque playlist, et vos titres aimés, dans un fichier CSV. Son bouton Export All crée un zip de toutes les playlists, et cela fonctionne aussi.</string>
-    <string name="import_library_others">Apple Music, Deezer, Tidal et autres : TuneMyMusic ou Soundiiz peuvent exporter vos playlists dans un fichier CSV. Dans Apple Music ou iTunes sur un ordinateur, Fichier, Bibliothèque, Exporter la bibliothèque fonctionne aussi, et récupère toutes les playlists d\'un coup.</string>
+    <string name="import_library_intro">Exportez vos playlists dans un fichier, puis choisissez-le ici. Chaque titre est recherché sur YouTube Music, et les playlists sont créées sur ce téléphone.</string>
+    <string name="import_library_spotify">Spotify : Exportify (exportify.app), une playlist ou vos titres aimés en CSV, ou tout dans un zip.</string>
+    <string name="import_library_others">Apple Music, Deezer, Tidal et autres : TuneMyMusic ou Soundiiz, en CSV. Ou Apple Music sur un ordinateur : Fichier, Bibliothèque, Exporter la bibliothèque.</string>
     <string name="import_library_review_note">Les titres incertains attendent que vous les vérifiiez. Rien n\'est ajouté avant que vous appuyiez sur Créer les playlists.</string>
     <string name="import_library_recommendations">L\'import apporte vos playlists. Les recommandations n\'apprennent que de ce que vous écoutez ici : elles ne savent rien de ce que vous aimiez ou passiez dans l\'autre application.</string>
     <string name="import_library_premium">Avec YouTube Music Premium, le transfert de YouTube, dans Paramètres, Confidentialité et données, peut aussi importer des playlists.</string>

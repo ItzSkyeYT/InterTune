@@ -600,6 +600,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="setup_questions_line" translatable="false">A short question on Home now and then, about what to build.</string>
     <string name="setup_news_line" translatable="false">An announcement on Home now and then, like a new feature.</string>
     <string name="setup_more" translatable="false">More</string>
+    <string name="import_library_review_note">Songs it is not sure about wait for you to check them. Nothing is added until you tap Create playlists.</string>
 
     <!-- Downloads -->
     <string name="oobe_cache_subtitle">Choose a song cache size. This can help reduce internet or YouTube API playback issues</string>
@@ -628,7 +629,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="setup_signed_in_as">You are signed in as %1$s.</string>
     <string name="setup_signed_in">You are signed in.</string>
     <string name="setup_other_account">Use another account</string>
-    <!-- On setup's first page, beside "I have a backup", each on half the page: two lines of words at most. It opens Import from another service (import_library_title). -->
+    <!-- On setup's first page, beside "I have a backup", each on half the page: two lines of words at most. It opens the screen of the same name (import_library_title). -->
     <string name="setup_import_playlists">Import from another app</string>
     <string name="setup_choices_title">A few questions</string>
     <string name="setup_choices_body">You can change your mind later in Settings.</string>
@@ -1695,13 +1696,12 @@ while also allowing users to translate our app as well. New, specific strings to
     </plurals>
     <string name="stats_show_fewer">Show fewer</string>
 
-    <!-- Import from another service. Behind Unreleased.LIBRARY_IMPORT, debug builds only for now. -->
-    <string name="import_library_title">Import from another service</string>
+    <!-- Import from another app. Behind Unreleased.LIBRARY_IMPORT, debug builds only for now. -->
+    <string name="import_library_title">Import from another app</string>
     <string name="import_library_entry">Bring playlists over from Spotify, Apple Music and others, using an export file</string>
-    <string name="import_library_intro">Export your playlists to a file with one of the tools below, then choose that file here. Each song is looked up on YouTube Music, and the playlists are made on this phone.</string>
-    <string name="import_library_spotify">Spotify: Exportify (exportify.app) saves each playlist, and your liked songs, as a CSV file. Its Export All button makes a zip of every playlist, and that works too.</string>
-    <string name="import_library_others">Apple Music, Deezer, Tidal and others: TuneMyMusic or Soundiiz can export your playlists to a CSV file. In Apple Music or iTunes on a computer, File, Library, Export Library works too, and brings every playlist at once.</string>
-    <string name="import_library_review_note">Songs it is not sure about wait for you to check them. Nothing is added until you tap Create playlists.</string>
+    <string name="import_library_intro">Export your playlists to a file, then choose it here. Each song is looked up on YouTube Music, and the playlists are made on this phone.</string>
+    <string name="import_library_spotify">Spotify: Exportify (exportify.app), a playlist or your liked songs as CSV, or all of them as a zip.</string>
+    <string name="import_library_others">Apple Music, Deezer, Tidal and others: TuneMyMusic or Soundiiz, as CSV. Or Apple Music on a computer: File, Library, Export Library.</string>
     <string name="import_library_recommendations">The import brings your playlists. The recommendations learn only from what you play here, so they know nothing of what you liked or skipped in the other app.</string>
     <string name="import_library_premium">With YouTube Music Premium, YouTube\'s own transfer, under Settings, Privacy and data, can also move playlists over.</string>
     <string name="import_library_choose">Choose a file</string>
