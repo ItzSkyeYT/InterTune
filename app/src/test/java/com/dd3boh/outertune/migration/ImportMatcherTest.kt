@@ -186,6 +186,42 @@ class ImportMatcherTest {
     }
 
     @Test
+    fun `an answer that is no answer is waited out longer than a connection that is not there`() = runBlocking {
+        // YouTube answered one search of a long import with "invalid argument" three times in
+        // seven seconds, and was itself again within the minute.
+        class OddAnswer : Exception("400 Request contains an invalid argument.")
+        var calls = 0
+        val waits = mutableListOf<Long>()
+        val odd = ImportMatcher(
+            search = { calls++; if (calls <= 4) throw OddAnswer() else listOf(song("A", "x", 100)) },
+            wait = { waits += it },
+            answered = { it is OddAnswer },
+        )
+        assertTrue(odd.resolve(track("A", "x", seconds = 100)) is Outcome.Matched)
+        assertEquals(5, calls)
+        assertEquals(ImportMatcher.PATIENT_WAITS_MS, waits.filter { it != ImportMatcher.SPACING_MS })
+        assertTrue("most of a minute and no more", ImportMatcher.PATIENT_WAITS_MS.sum() in 30_000L..60_000L)
+
+        // It still gives up, and a connection that is not there is still said so within seconds.
+        val never = ImportMatcher(search = { throw OddAnswer() }, wait = {}, answered = { it is OddAnswer })
+        try {
+            never.resolve(track("A", "x", seconds = 100))
+            fail("should have stopped")
+        } catch (expected: SearchUnavailable) {
+        }
+        calls = 0
+        waits.clear()
+        val dead = ImportMatcher(search = { calls++; throw IOException("offline") }, wait = { waits += it }, answered = { it is OddAnswer })
+        try {
+            dead.resolve(track("A", "x", seconds = 100))
+            fail("should have stopped")
+        } catch (expected: SearchUnavailable) {
+        }
+        assertEquals(3, calls)
+        assertTrue(waits.sum() < 10_000L)
+    }
+
+    @Test
     fun `a search that YouTube refused is not tried again`() = runBlocking {
         var calls = 0
         val refused = ImportMatcher(

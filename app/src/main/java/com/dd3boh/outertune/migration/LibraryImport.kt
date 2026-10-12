@@ -76,7 +76,7 @@ class LibraryImport internal constructor(
     constructor(@ApplicationContext context: Context, database: MusicDatabase) : this(
         store = ImportStore(File(context.filesDir, FOLDER)),
         readFile = { uri -> context.readPicked(uri) },
-        matcher = { ImportMatcher(search = ImportSearch::songs, backingOff = { Throttle.isBlocked }) },
+        matcher = { ImportMatcher(search = ImportSearch::songs, backingOff = { Throttle.isBlocked }, answered = ImportSearch::answered) },
         makePlaylists = { lists -> database.makeImported(lists) },
     )
 

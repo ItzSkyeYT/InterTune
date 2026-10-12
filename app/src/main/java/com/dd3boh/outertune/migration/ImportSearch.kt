@@ -47,4 +47,11 @@ object ImportSearch {
      */
     fun refused(httpStatus: Int?, failure: Throwable): Boolean =
         httpStatus == 429 || httpStatus == 403 || Throttle.isBlock(failure)
+
+    /**
+     * Whether a search that failed got an answer from YouTube all the same, only not songs: a
+     * 400 or a 500, which the client hands over as a ResponseException. The matcher waits those
+     * out longer than a connection that is not there.
+     */
+    fun answered(failure: Throwable): Boolean = failure is ResponseException
 }
