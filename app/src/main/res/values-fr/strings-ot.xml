@@ -492,6 +492,7 @@
     <string name="playback_auth_when_refused">Seulement quand un titre est refusé</string>
     <string name="playback_auth_always">Toujours</string>
     <string name="err_age_restricted">YouTube ne lira pas ce titre sans un compte ayant l\'âge requis. Les autres titres ne sont pas concernés.</string>
+    <string name="err_song_unavailable">YouTube n\'a plus ce titre, ou ne le propose pas là où vous êtes. Les autres titres ne sont pas concernés.</string>
     <!-- Dialog -->
     <string name="create_sync_playlist_failed">Impossible de créer la playlist sur YouTube Music. Rien n\'a été créé ; réessayez une fois en ligne.</string>
     <!-- Sync -->

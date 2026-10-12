@@ -688,6 +688,21 @@ object YTPlayerUtils {
      */
     class SongUnavailable(reason: String?) : PlaybackException(reason, null, PlaybackException.ERROR_CODE_REMOTE_ERROR)
 
+    /**
+     * Whether [error] is a [SongUnavailable], or was caused by one. It reaches the player inside
+     * a loader's "unexpected" exception inside ExoPlayer's source error, so the type is looked
+     * for down the causes, a few deep and no further.
+     */
+    fun isUnavailableSong(error: Throwable?): Boolean {
+        var t = error
+        var depth = 0
+        while (t != null && depth++ < 8) {
+            if (t is SongUnavailable) return true
+            t = t.cause
+        }
+        return false
+    }
+
     data class PlaybackData(
         val audioConfig: PlayerResponse.PlayerConfig.AudioConfig?,
         val videoDetails: PlayerResponse.VideoDetails?,
