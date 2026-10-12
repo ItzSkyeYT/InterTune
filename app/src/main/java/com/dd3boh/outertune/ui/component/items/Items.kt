@@ -430,8 +430,8 @@ fun YouTubeListItem(
     isSelected: Boolean = false,
     badges: @Composable RowScope.() -> Unit = {
         val database = LocalDatabase.current
-        val song by database.song(item.id).collectAsState(initial = null)
-        val album by database.album(item.id).collectAsState(initial = null)
+        val song by remember(item.id) { database.song(item.id) }.collectAsState(initial = null)
+        val album by remember(item.id) { database.album(item.id) }.collectAsState(initial = null)
 
         if (item is SongItem && song?.song?.liked == true ||
             item is AlbumItem && album?.album?.bookmarkedAt != null
@@ -496,8 +496,8 @@ fun YouTubeGridItem(
     coroutineScope: CoroutineScope? = null,
     badges: @Composable RowScope.() -> Unit = {
         val database = LocalDatabase.current
-        val song by database.song(item.id).collectAsState(initial = null)
-        val album by database.album(item.id).collectAsState(initial = null)
+        val song by remember(item.id) { database.song(item.id) }.collectAsState(initial = null)
+        val album by remember(item.id) { database.album(item.id) }.collectAsState(initial = null)
 
         if (item is SongItem && song?.song?.liked == true ||
             item is AlbumItem && album?.album?.bookmarkedAt != null

@@ -64,7 +64,7 @@ fun YouTubeAlbumMenu(
     val database = LocalDatabase.current
     val downloadUtil = LocalDownloadUtil.current
     val playerConnection = LocalPlayerConnection.current ?: return
-    val album by database.albumWithOrderedSongs(albumItem.id).collectAsState(initial = null)
+    val album by remember(albumItem.id) { database.albumWithOrderedSongs(albumItem.id) }.collectAsState(initial = null)
     val coroutineScope = rememberCoroutineScope()
 
     var showChooseQueueDialog by rememberSaveable {

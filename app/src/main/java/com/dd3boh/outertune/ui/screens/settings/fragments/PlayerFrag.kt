@@ -852,7 +852,7 @@ fun LoudnessRepairEntry() {
     DisposableEffect(Unit) {
         onDispose { repair.acknowledge() }
     }
-    val missing by database.countFormatsMissingLoudness().collectAsState(initial = 0)
+    val missing by remember { database.countFormatsMissingLoudness() }.collectAsState(initial = 0)
 
     val description = when (val s = state) {
         is LoudnessRepair.State.Running ->

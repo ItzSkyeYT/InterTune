@@ -88,7 +88,7 @@ fun PlaylistMenu(
     val downloadUtil = LocalDownloadUtil.current
     val playerConnection = LocalPlayerConnection.current ?: return
     val isNetworkConnected = LocalNetworkConnected.current
-    val dbPlaylist by database.playlist(playlist.id).collectAsState(initial = playlist)
+    val dbPlaylist by remember(playlist.id) { database.playlist(playlist.id) }.collectAsState(initial = playlist)
     var songs by remember {
         mutableStateOf(emptyList<Song>())
     }

@@ -178,6 +178,7 @@ import com.dd3boh.outertune.playback.DownloadUtil
 import com.dd3boh.outertune.playback.MediaControllerViewModel
 import com.dd3boh.outertune.playback.MusicService
 import com.dd3boh.outertune.playback.PlayerConnection
+import com.dd3boh.outertune.ui.component.LocalHiddenByPlayer
 import com.dd3boh.outertune.ui.component.LocalPlayerSheet
 import com.dd3boh.outertune.ui.component.rememberBottomSheetState
 import com.dd3boh.outertune.ui.component.shimmer.ShimmerTheme
@@ -1414,6 +1415,11 @@ class MainActivity : ComponentActivity() {
                             derivedStateOf { playerBottomSheetState.progress >= 0.5f || tourState.running }
                         }
 
+                        // Out of sight altogether, which is later than covered: the player fully open.
+                        val pagesHiddenByPlayer = remember(playerBottomSheetState) {
+                            { playerBottomSheetState.isExpanded }
+                        }
+
                         // From the keys, Back on a tab's own screen first takes focus down to the
                         // tabs: other than scrolling to the very end of a long list, the only way
                         // there. The next Back does what it always did.
@@ -1836,7 +1842,11 @@ class MainActivity : ComponentActivity() {
                                         .fillMaxSize()
                                         .then(if (navGlass) Modifier.layerBackdrop(navHostBackdrop).graphicsLayer() else Modifier)
                                 ) {
-                                    navHost()
+                                    // Under the open player the pages cannot be seen, and what
+                                    // only moves for the eye holds still (PlayingIndicator).
+                                    CompositionLocalProvider(LocalHiddenByPlayer provides pagesHiddenByPlayer) {
+                                        navHost()
+                                    }
                                 }
 
                                 // Only this search bar gets the glass. The "search" destination composes another

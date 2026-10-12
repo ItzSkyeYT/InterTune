@@ -7,9 +7,10 @@ import androidx.room.PrimaryKey
 import org.apache.commons.lang3.RandomStringUtils
 import java.time.LocalDateTime
 
+/** A data class, like every row: a song carries its genres, and has to equal its own re-read. */
 @Immutable
 @Entity(tableName = "genre")
-class GenreEntity(
+data class GenreEntity(
     @PrimaryKey
     val id: String,
     val title: String,

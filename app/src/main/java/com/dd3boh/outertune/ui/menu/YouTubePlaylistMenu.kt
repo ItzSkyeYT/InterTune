@@ -77,7 +77,7 @@ fun YouTubePlaylistMenu(
     val database = LocalDatabase.current
     val downloadUtil = LocalDownloadUtil.current
     val playerConnection = LocalPlayerConnection.current ?: return
-    val dbPlaylist by database.playlistByBrowseId(playlist.id).collectAsState(initial = null)
+    val dbPlaylist by remember(playlist.id) { database.playlistByBrowseId(playlist.id) }.collectAsState(initial = null)
 
     var showChoosePlaylistDialog by rememberSaveable {
         mutableStateOf(false)

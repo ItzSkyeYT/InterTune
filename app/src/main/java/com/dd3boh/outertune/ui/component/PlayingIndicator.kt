@@ -16,6 +16,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -26,10 +28,17 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.ThumbnailCornerRadius
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlin.random.Random
 
+/**
+ * Whether the pages are out of sight under the open player. MainActivity says so for the pages;
+ * the player's own sheet, which is over them, keeps the default and is never hidden.
+ */
+val LocalHiddenByPlayer = staticCompositionLocalOf<() -> Boolean> { { false } }
 
 @Composable
 fun PlayingIndicator(
@@ -46,15 +55,24 @@ fun PlayingIndicator(
         }
     }
 
+    // The bars hold still while the open player covers the page they are on. Every step of
+    // theirs is a frame drawn for the whole window, and a page under the player kept taking them:
+    // 88 frames a second and half a processor core on a Pixel 5, for bars nobody could see.
+    val hidden = LocalHiddenByPlayer.current
     LaunchedEffect(isPlaying) {
-        animatables.forEach { animatable ->
-            launch {
-                while (true) {
-                    if (isPlaying)
-                        animatable.animateTo(Random.nextFloat() * 0.9f + 0.1f)
-                    else
-                        animatable.animateTo(0.15f)
-                    delay(50)
+        snapshotFlow { hidden() }.collectLatest { covered ->
+            if (covered) return@collectLatest
+            coroutineScope {
+                animatables.forEach { animatable ->
+                    launch {
+                        while (true) {
+                            if (isPlaying)
+                                animatable.animateTo(Random.nextFloat() * 0.9f + 0.1f)
+                            else
+                                animatable.animateTo(0.15f)
+                            delay(50)
+                        }
+                    }
                 }
             }
         }

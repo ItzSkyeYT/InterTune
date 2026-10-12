@@ -34,6 +34,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -119,13 +120,13 @@ fun SongMenu(
      * This read was removed in 63de271d while deleting auto-download-on-like; only the effect was
      * meant to go. YouTubeSongMenu still observes correctly, which is why its heart works.
      */
-    val songState = database.song(originalSong.id).collectAsState(initial = originalSong)
+    val songState = remember(originalSong.id) { database.song(originalSong.id) }.collectAsState(initial = originalSong)
     val song = songState.value ?: originalSong
     val download by LocalDownloadUtil.current.getDownload(originalSong.id).collectAsState(initial = null)
     val coroutineScope =
         CoroutineScope(syncCoroutine) // rememberCoroutineScope has exception "rememberCoroutineScope left the composition"
 
-    val currentFormatState = database.format(originalSong.id).collectAsState(initial = null)
+    val currentFormatState = remember(originalSong.id) { database.format(originalSong.id) }.collectAsState(initial = null)
     val currentFormat = currentFormatState.value
 
     var showEditDialog by rememberSaveable {
