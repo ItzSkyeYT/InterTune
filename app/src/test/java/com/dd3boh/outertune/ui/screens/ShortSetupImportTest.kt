@@ -125,6 +125,9 @@ class ShortSetupImportTest {
         // It says what it does, in the words of somebody who comes from another app.
         assertEquals("Import from another app", strings("values").getValue("setup_import_playlists"))
         assertTrue(strings("values-fr").getValue("setup_import_playlists").startsWith("Importer "))
+        // And the screen it opens has the button's name, so that nobody wonders where the tap led.
+        assertEquals(strings("values").getValue("import_library_title"), strings("values").getValue("setup_import_playlists"))
+        assertEquals(strings("values-fr").getValue("import_library_title"), strings("values-fr").getValue("setup_import_playlists"))
     }
 
     @Test

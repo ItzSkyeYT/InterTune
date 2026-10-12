@@ -76,7 +76,7 @@ import com.dd3boh.outertune.viewmodels.LibraryImportViewModel
 import com.zionhuang.innertube.models.SongItem
 
 /**
- * Import from another service: pick an export, watch it matched, check what it was unsure of,
+ * Import from another app: pick an export, watch it matched, check what it was unsure of,
  * then make the playlists.
  *
  * One screen through every stage, because the work lives in [LibraryImport] rather than here: the
