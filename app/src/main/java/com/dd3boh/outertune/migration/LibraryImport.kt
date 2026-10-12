@@ -446,7 +446,10 @@ class LibraryImport internal constructor(
         /** The stages Continue is offered in. */
         private val CAN_CONTINUE = setOf(Stage.STOPPED, Stage.OFFLINE, Stage.PAUSED)
 
-        /** The folder under the app's own files where the import under way is kept. */
+        /**
+         * The folder under the app's own files where the import under way is kept. The backup
+         * rules name it too (res/xml), to keep it out of the cloud backup.
+         */
         private const val FOLDER = "library-import"
 
         /**

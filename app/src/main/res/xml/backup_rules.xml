@@ -2,7 +2,8 @@
    Android 11 and earlier, where one set of rules covers the cloud backup and a transfer alike. The
    settings file holds the YouTube Music sign-in and the Last.fm session, the web view the sign-in
    pages open in keeps their cookies in app_webview, and the liked songs snapshot names the
-   account, so all three stay out of both.
+   account, so all three stay out of both. So does an import from another service that is under
+   way (library-import): megabytes that would count against the 25 MB the library has to fit in.
 -->
 <full-backup-content>
     <exclude
@@ -14,6 +15,9 @@
     <exclude
         domain="file"
         path="liked_sync/" />
+    <exclude
+        domain="file"
+        path="library-import/" />
     <exclude
         domain="file"
         path="./exoplayer" />

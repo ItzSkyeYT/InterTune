@@ -659,6 +659,24 @@ class LibraryImportTest {
     }
 
     @Test
+    fun `the import under way stays on the phone, out of the cloud backup`() {
+        // It is kept for the app being closed, not for another phone, and Android's cloud backup
+        // takes the app's files up to 25 MB in all or takes nothing: an import of some megabytes
+        // left half done must not be what costs somebody the backup of their library.
+        val session = File("src/main/java/com/dd3boh/outertune/migration/LibraryImport.kt").readText()
+        val folder = Regex("""private const val FOLDER = "([a-z-]+)"""").find(session)!!.groupValues[1]
+        assertTrue("ImportStore(File(context.filesDir, FOLDER))" in session)
+        val kept = Regex("""<exclude\s+domain="file"\s+path="$folder/"\s*/>""")
+
+        // Android 12 and later: out of the cloud backup, and still carried from one phone to another.
+        val rules = File("src/main/res/xml/data_extraction_rules.xml").readText()
+        assertTrue("in the cloud backup", kept.containsMatchIn(rules.substringAfter("<cloud-backup>").substringBefore("</cloud-backup>")))
+        assertFalse(kept.containsMatchIn(rules.substringAfter("<device-transfer>").substringBefore("</device-transfer>")))
+        // Android 11 and earlier, where one set of rules is both.
+        assertTrue(kept.containsMatchIn(File("src/main/res/xml/backup_rules.xml").readText()))
+    }
+
+    @Test
     fun `Cancel keeps the import, on the screen and on the disk`() = runBlocking {
         val first = has(6)
         val fourth = first.holdSearch(at = 4)
