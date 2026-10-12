@@ -39,9 +39,11 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.alpha
@@ -52,6 +54,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.R
@@ -63,6 +68,7 @@ import com.dd3boh.outertune.ui.component.FloatingTopBar
 import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
 import com.dd3boh.outertune.ui.component.items.YouTubeListItem
 import com.dd3boh.outertune.ui.dialog.ActionPromptDialog
+import com.dd3boh.outertune.ui.utils.backToMain
 import com.dd3boh.outertune.utils.joinByBullet
 import com.dd3boh.outertune.utils.makeTimeString
 import com.dd3boh.outertune.viewmodels.LibraryImportViewModel
@@ -74,6 +80,8 @@ import com.zionhuang.innertube.models.SongItem
  *
  * One screen through every stage, because the work lives in [LibraryImport] rather than here: the
  * screen only shows where that is, so leaving and coming back lands on the same place.
+ *
+ * Reached from Backup and restore, and from setup's first page, to which it goes back when left.
  */
 @Composable
 fun LibraryImportScreen(
@@ -90,6 +98,21 @@ fun LibraryImportScreen(
         if (uri != null) session.open(uri)
     }
     val choose = { picker.launch(CSV_TYPES) }
+
+    // A pick waits a few seconds before it is written down, with the picks that follow it. Not
+    // past the moment the screen goes out of sight, though, whether for another screen or because
+    // the app did: the next thing may be the app swiped away.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, session) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) session.keep()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            session.keep()
+        }
+    }
 
     val progress = state.progress
     val stage = state.stage
@@ -269,7 +292,17 @@ fun LibraryImportScreen(
         }
     }
 
-    FloatingTopBar(title = stringResource(R.string.import_library_title), navController = navController)
+    // Opened from setup, the way out is back to setup, for a long press on Back as for a tap.
+    // Everywhere else a long press goes to the main screen, which is under setup, and setup is
+    // not left by walking round it.
+    val fromSetup = remember(navController) {
+        navController.previousBackStackEntry?.destination?.route == "setup_wizard"
+    }
+    FloatingTopBar(
+        title = stringResource(R.string.import_library_title),
+        navController = navController,
+        onLongBack = { if (fromSetup) navController.navigateUp() else navController.backToMain() },
+    )
 }
 
 private val CSV_TYPES = arrayOf(
@@ -297,6 +330,10 @@ private fun Intro() {
         Text(stringResource(R.string.import_library_others), style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(8.dp))
         Text(stringResource(R.string.import_library_review_note), style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(8.dp))
+        // What an import does not bring, said before anybody spends an evening on one: playlists
+        // come over, and what the other app had learnt of its listener stays there.
+        Text(stringResource(R.string.import_library_recommendations), style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(8.dp))
         Text(
             stringResource(R.string.import_library_premium),
@@ -428,6 +465,7 @@ private fun Progress(
         when (state.stage) {
             LibraryImport.Stage.STOPPED -> Note(stringResource(R.string.import_library_stopped))
             LibraryImport.Stage.OFFLINE -> Note(stringResource(R.string.import_library_offline))
+            LibraryImport.Stage.PAUSED -> Note(stringResource(R.string.import_library_paused))
             LibraryImport.Stage.MATCHED -> {
                 val lists = progress?.kept ?: 0
                 Note(pluralStringResource(R.plurals.import_library_ready, lists, lists))
@@ -442,7 +480,7 @@ private fun Progress(
             when (state.stage) {
                 LibraryImport.Stage.MATCHING ->
                     OutlinedButton(onClick = onCancel) { Text(stringResource(R.string.import_library_cancel)) }
-                LibraryImport.Stage.STOPPED, LibraryImport.Stage.OFFLINE -> {
+                LibraryImport.Stage.STOPPED, LibraryImport.Stage.OFFLINE, LibraryImport.Stage.PAUSED -> {
                     Button(onClick = onResume) { Text(stringResource(R.string.import_library_continue)) }
                     OutlinedButton(onClick = onStartOver) { Text(stringResource(R.string.import_library_start_over)) }
                 }

@@ -32,9 +32,23 @@ data class Scored(
     val artist: Double,
     val duration: Double,
     val total: Double,
+    /**
+     * Whether there were two lengths to compare. False when the export gave none for the track or
+     * YouTube gave none for this result: [duration] is then the neutral score and says nothing.
+     */
+    val lengthCompared: Boolean,
 ) {
-    /** Whether this can be imported without a person looking at it. */
-    val confident: Boolean get() = total >= CONFIDENT
+    /**
+     * Whether this can be imported without a person looking at it: a score at or above
+     * [CONFIDENT], and a length that was compared.
+     *
+     * A name is not enough by itself. A remix, a live take and a sped-up edit all carry the song's
+     * title and artist, and what tells them apart is how long they are. With no length a perfect
+     * name still scores 0.875, over the threshold, and that is how five of the six wrong songs of
+     * the 30 Sep pass went in. They are sent to review now, the best first, where being right
+     * costs one tap.
+     */
+    val confident: Boolean get() = lengthCompared && total >= CONFIDENT
 
     companion object {
         /**
@@ -69,6 +83,11 @@ data class Scored(
          * A pass with versions written after a dash, as Spotify does, went from 75 to 81 percent
          * with none wrong. On the first 60, 0.84 is now the lowest threshold with nothing wrong in
          * the rewritten pass, where before it had one step to spare.
+         *
+         * Since 12 Oct 2026 the number is not the whole rule: a track with no length to compare
+         * goes to review whatever it scores (see [confident]), which takes those five out. The
+         * price is an export with no length column, TuneMyMusic's for one: every song of it waits
+         * for a tap.
          */
         const val CONFIDENT = 0.84
     }
@@ -102,7 +121,14 @@ fun score(wanted: WantedTrack, candidate: SongItem): Scored {
     // under any length. Multiplying rather than adding is what makes that true, so a perfect
     // duration cannot carry a candidate whose name is wrong.
     val naming = TITLE_WEIGHT * title + ARTIST_WEIGHT * artist
-    return Scored(candidate, title, artist, duration, naming * (DURATION_FLOOR + DURATION_LIFT * duration))
+    return Scored(
+        candidate = candidate,
+        title = title,
+        artist = artist,
+        duration = duration,
+        total = naming * (DURATION_FLOOR + DURATION_LIFT * duration),
+        lengthCompared = wanted.durationSeconds != null && candidate.duration != null,
+    )
 }
 
 /**
@@ -120,7 +146,9 @@ fun score(wanted: WantedTrack, candidate: SongItem): Scored {
  * five-minute song fussy about its fade.
  *
  * A missing duration scores neutral rather than zero: an exporter that omitted the column has said
- * nothing about the track, and punishing silence would reject whole services.
+ * nothing about the track, and punishing silence would push the right result down the list that
+ * somebody is about to pick from. What it cannot do is go in without that look: see
+ * [Scored.confident].
  */
 private fun durationScore(wanted: Int?, candidate: Int?): Double {
     if (wanted == null || candidate == null) return NEUTRAL_DURATION
@@ -269,7 +297,10 @@ private fun stripAccents(text: String): String =
 private const val TITLE_WEIGHT = 0.6
 private const val ARTIST_WEIGHT = 0.4
 
-/** A candidate with no usable duration still reaches [Scored.CONFIDENT] on a perfect name. */
+/**
+ * A candidate with no usable duration still reaches [Scored.CONFIDENT] on a perfect name, which
+ * keeps it at the head of the review list. The number no longer lets it in: [Scored.confident].
+ */
 private const val DURATION_FLOOR = 0.75
 private const val DURATION_LIFT = 0.25
 private const val NEUTRAL_DURATION = 0.5

@@ -139,14 +139,37 @@ class InnerTube {
         query: String? = null,
         params: String? = null,
         continuation: String? = null,
+        // True asks as a visitor whatever useLoginForBrowse says. See searchRequest.
+        anonymous: Boolean = false,
     ) = httpClient.post("search") {
-        ytClient(client, setLogin = useLoginForBrowse)
+        searchRequest(client, query, params, continuation, anonymous)
+    }
+
+    /**
+     * What a search sends, apart from where it goes.
+     *
+     * [anonymous] leaves the account out of it even when the app browses as the account: no
+     * cookie, no Authorization, and nobody the request is on behalf of. The visitor's id and the
+     * locale stay, as on every request of somebody signed out. It is for the library import,
+     * whose hundreds of lookups are not searches the account made.
+     *
+     * Apart from [search] so that what goes out can be read without a network.
+     */
+    fun HttpRequestBuilder.searchRequest(
+        client: YouTubeClient,
+        query: String?,
+        params: String?,
+        continuation: String?,
+        anonymous: Boolean,
+    ) {
+        val asAccount = useLoginForBrowse && !anonymous
+        ytClient(client, setLogin = asAccount)
         setBody(
             SearchBody(
                 context = client.toContext(
                     locale,
                     visitorData,
-                    if (useLoginForBrowse) dataSyncId else null
+                    if (asAccount) dataSyncId else null
                 ),
                 query = query,
                 params = params

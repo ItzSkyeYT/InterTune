@@ -58,6 +58,25 @@ class ImportMatcherTest {
     }
 
     @Test
+    fun `a file with no lengths sends even an exact name to review, the plain one first`() = runBlocking {
+        // TuneMyMusic's file has no length column at all. The name is all there is, and the live
+        // take has it too, so somebody looks.
+        val fake = FakeSearch(
+            mapOf(
+                "Blinding Lights The Weeknd" to listOf(
+                    song("Blinding Lights (Live)", "The Weeknd", 261, id = "live"),
+                    song("Blinding Lights", "The Weeknd", 200, id = "studio"),
+                )
+            )
+        )
+        val outcome = matcher(fake).resolve(track("Blinding Lights", "The Weeknd"))
+        assertTrue("got $outcome", outcome is Outcome.Review)
+        assertEquals(listOf("studio", "live"), (outcome as Outcome.Review).candidates.map { it.candidate.id })
+        // One search, as for any other song: asking again would not bring a length.
+        assertEquals(1, fake.queries.size)
+    }
+
+    @Test
     fun `only a remix and a live take goes to review with the candidates best first`() = runBlocking {
         val fake = FakeSearch(
             mapOf(
@@ -164,6 +183,54 @@ class ImportMatcherTest {
             fail("should have stopped")
         } catch (expected: SearchUnavailable) {
         }
+    }
+
+    @Test
+    fun `a search that YouTube refused is not tried again`() = runBlocking {
+        var calls = 0
+        val refused = ImportMatcher(
+            search = { calls++; throw SearchRefused(IOException("429 Too Many Requests")) },
+            wait = {},
+        )
+        try {
+            refused.resolve(track("A", "x", seconds = 100))
+            fail("should have stopped")
+        } catch (expected: SearchRefused) {
+        }
+        // A dropped connection is asked three times. A refusal is asked once: asking is what keeps it up.
+        assertEquals(1, calls)
+    }
+
+    @Test
+    fun `nothing is asked while the app is backing off`() = runBlocking {
+        val fake = FakeSearch(mapOf("A x" to listOf(song("A", "x", 100))))
+        var backingOff = true
+        val matcher = ImportMatcher(search = fake::search, wait = {}, backingOff = { backingOff })
+        try {
+            matcher.resolve(track("A", "x", seconds = 100))
+            fail("should have stopped")
+        } catch (expected: SearchRefused) {
+        }
+        assertTrue(fake.queries.isEmpty())
+
+        backingOff = false
+        assertTrue(matcher.resolve(track("A", "x", seconds = 100)) is Outcome.Matched)
+    }
+
+    @Test
+    fun `a back-off that begins in the middle of a run stops it before the next search`() = runBlocking {
+        val fake = FakeSearch((1..4).associate { "Song $it x" to listOf(song("Song $it", "x", 100 + it)) })
+        val tracks = (1..4).map { track("Song $it", "x", seconds = 100 + it) }
+        val found = mutableListOf<Int>()
+        // The back-off begins as the second answer comes in.
+        val matcher = ImportMatcher(search = fake::search, wait = {}, backingOff = { fake.queries.size >= 2 })
+        try {
+            matcher.run(tracks, isDone = { false }, onResult = { index, _ -> found += index })
+            fail("should have stopped")
+        } catch (expected: SearchRefused) {
+        }
+        assertEquals(listOf(0, 1), found)
+        assertEquals(listOf("Song 1 x", "Song 2 x"), fake.queries)
     }
 
     @Test

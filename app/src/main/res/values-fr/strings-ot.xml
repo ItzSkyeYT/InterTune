@@ -1397,6 +1397,7 @@
     <string name="import_library_spotify">Spotify : Exportify (exportify.app) enregistre chaque playlist, et vos titres aimés, dans un fichier CSV. Son bouton Export All crée un zip de toutes les playlists, et cela fonctionne aussi.</string>
     <string name="import_library_others">Apple Music, Deezer, Tidal et autres : TuneMyMusic ou Soundiiz peuvent exporter vos playlists dans un fichier CSV. Dans Apple Music ou iTunes sur un ordinateur, Fichier, Bibliothèque, Exporter la bibliothèque fonctionne aussi, et récupère toutes les playlists d\'un coup.</string>
     <string name="import_library_review_note">Les titres incertains attendent que vous les vérifiiez. Rien n\'est ajouté avant que vous appuyiez sur Créer les playlists.</string>
+    <string name="import_library_recommendations">L\'import apporte vos playlists. Les recommandations n\'apprennent que de ce que vous écoutez ici : elles ne savent rien de ce que vous aimiez ou passiez dans l\'autre application.</string>
     <string name="import_library_premium">Avec YouTube Music Premium, le transfert de YouTube, dans Paramètres, Confidentialité et données, peut aussi importer des playlists.</string>
     <string name="import_library_choose">Choisir un fichier</string>
     <string name="import_library_reading">Lecture du fichier</string>
@@ -1418,6 +1419,7 @@
     <string name="import_library_start_over_body">Tout ce qui a été trouvé et choisi dans ce fichier est abandonné. Les playlists déjà créées restent telles quelles.</string>
     <string name="import_library_stopped">Arrêté. Ce qui a été trouvé jusqu\'ici est gardé, et Continuer reprend là où l\'import s\'est arrêté.</string>
     <string name="import_library_offline">Impossible de joindre YouTube. Vérifiez la connexion, puis continuez.</string>
+    <string name="import_library_paused">En pause. YouTube refuse cette connexion pour l\'instant. Ce qui a été trouvé jusqu\'ici est gardé : réessayez Continuer plus tard.</string>
     <string name="import_library_review_title">À vérifier (%1$d)</string>
     <string name="import_library_review_help">Appuyez sur la bonne version, ou sur Passer. Tout ce que vous ne choisissez pas est laissé de côté.</string>
     <string name="import_library_missing_title">Introuvables (%1$d)</string>
@@ -1520,6 +1522,7 @@
     <string name="setup_signed_in_as">Vous utilisez le compte %1$s.</string>
     <string name="setup_signed_in">Votre compte est connecté.</string>
     <string name="setup_other_account">Utiliser un autre compte</string>
+    <string name="setup_import_playlists">J\'ai des playlists dans une autre appli</string>
     <string name="setup_choices_title">Quelques questions</string>
     <string name="setup_choices_body">Vous pourrez changer d\'avis dans les paramètres.</string>
     <string name="setup_updates_question">Être prévenu des nouvelles versions ?</string>

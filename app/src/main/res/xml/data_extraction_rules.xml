@@ -4,6 +4,10 @@
    snapshot names the account, so all three stay out of the cloud backup. A transfer straight from
    one phone to another still carries them. The library goes in the cloud backup while the app's
    data fits Android's 25 MB limit; the app's own backup carries the library and the settings.
+
+   An import from another service that is under way (library-import) is kept for the app being
+   closed, not for another phone, and can run to megabytes that would count against that limit.
+   It stays out of the cloud backup too. A transfer from one phone to another still carries it.
 -->
 <data-extraction-rules>
     <cloud-backup>
@@ -16,6 +20,9 @@
         <exclude
             domain="file"
             path="liked_sync/" />
+        <exclude
+            domain="file"
+            path="library-import/" />
         <exclude
             domain="file"
             path="./exoplayer" />

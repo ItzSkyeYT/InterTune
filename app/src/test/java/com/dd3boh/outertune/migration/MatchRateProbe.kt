@@ -295,7 +295,9 @@ class MatchRateProbe {
                 val best = match(wanted, candidates)
                 if (trace) println("MATCH   trace $mode #$i '${wanted.title}' (${wanted.durationSeconds}s) -> ${traced(track, best)}")
 
-                if (best != null) scores += best.total to sameRecording(track, best.candidate)
+                // Only what a threshold can let in: with no length compared, the pick goes to review
+                // whatever it scores (Scored.confident), so no threshold would have imported it.
+                if (best != null && best.lengthCompared) scores += best.total to sameRecording(track, best.candidate)
                 when {
                     best == null -> {
                         tally.nothing++

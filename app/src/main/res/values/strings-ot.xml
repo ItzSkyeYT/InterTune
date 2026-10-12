@@ -620,6 +620,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="setup_signed_in_as">You are signed in as %1$s.</string>
     <string name="setup_signed_in">You are signed in.</string>
     <string name="setup_other_account">Use another account</string>
+    <!-- On setup's first page, under "I have a backup". It opens Import from another service. -->
+    <string name="setup_import_playlists">I have playlists in another app</string>
     <string name="setup_choices_title">A few questions</string>
     <string name="setup_choices_body">You can change your mind later in Settings.</string>
     <string name="setup_updates_question">Hear about new versions?</string>
@@ -1692,6 +1694,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="import_library_spotify">Spotify: Exportify (exportify.app) saves each playlist, and your liked songs, as a CSV file. Its Export All button makes a zip of every playlist, and that works too.</string>
     <string name="import_library_others">Apple Music, Deezer, Tidal and others: TuneMyMusic or Soundiiz can export your playlists to a CSV file. In Apple Music or iTunes on a computer, File, Library, Export Library works too, and brings every playlist at once.</string>
     <string name="import_library_review_note">Songs it is not sure about wait for you to check them. Nothing is added until you tap Create playlists.</string>
+    <string name="import_library_recommendations">The import brings your playlists. The recommendations learn only from what you play here, so they know nothing of what you liked or skipped in the other app.</string>
     <string name="import_library_premium">With YouTube Music Premium, YouTube\'s own transfer, under Settings, Privacy and data, can also move playlists over.</string>
     <string name="import_library_choose">Choose a file</string>
     <string name="import_library_reading">Reading the file</string>
@@ -1713,6 +1716,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="import_library_start_over_body">Everything matched and picked from this file is dropped. Playlists already created stay as they are.</string>
     <string name="import_library_stopped">Stopped. What was found so far is kept, and Continue picks up where it left off.</string>
     <string name="import_library_offline">YouTube could not be reached. Check the connection, then continue.</string>
+    <string name="import_library_paused">Paused. YouTube is turning this connection away for now. What was found so far is kept: try Continue again later.</string>
     <string name="import_library_review_title">Check these (%1$d)</string>
     <string name="import_library_review_help">Tap the right version, or Skip. Anything you do not pick is left out.</string>
     <string name="import_library_missing_title">Not found (%1$d)</string>
