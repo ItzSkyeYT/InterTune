@@ -81,7 +81,7 @@ fun YouTubeSongMenu(
     val database = LocalDatabase.current
     val playerConnection = LocalPlayerConnection.current ?: return
 
-    val librarySong by database.song(song.id).collectAsState(initial = null)
+    val librarySong by remember(song.id) { database.song(song.id) }.collectAsState(initial = null)
     val download by LocalDownloadUtil.current.getDownload(song.id).collectAsState(initial = null)
     val artists = remember {
         song.artists.mapNotNull {

@@ -71,7 +71,7 @@ fun AlbumMenu(
     val playerConnection = LocalPlayerConnection.current ?: return
     val isNetworkConnected = LocalNetworkConnected.current
     val scope = rememberCoroutineScope()
-    val libraryAlbum by database.album(originalAlbum.id).collectAsState(initial = originalAlbum)
+    val libraryAlbum by remember(originalAlbum.id) { database.album(originalAlbum.id) }.collectAsState(initial = originalAlbum)
     val album = libraryAlbum ?: originalAlbum
     var songs by remember {
         mutableStateOf(emptyList<Song>())

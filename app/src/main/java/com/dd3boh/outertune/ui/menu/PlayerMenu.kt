@@ -124,9 +124,9 @@ fun PlayerMenu(
 
     val playerConnection = LocalPlayerConnection.current ?: return
     val playerVolume = playerConnection.service.playerVolume.collectAsState()
-    val currentFormatState = database.format(mediaMetadata.id).collectAsState(initial = null)
+    val currentFormatState = remember(mediaMetadata.id) { database.format(mediaMetadata.id) }.collectAsState(initial = null)
     val currentFormat = currentFormatState.value
-    val librarySong by database.song(mediaMetadata.id).collectAsState(initial = null)
+    val librarySong by remember(mediaMetadata.id) { database.song(mediaMetadata.id) }.collectAsState(initial = null)
     val coroutineScope = rememberCoroutineScope()
 
     val download by LocalDownloadUtil.current.getDownload(mediaMetadata.id).collectAsState(initial = null)
@@ -135,7 +135,7 @@ fun PlayerMenu(
     // only ever offered from the song list, so getting a track out of the playlist you were
     // listening to meant leaving the player, finding it again and opening a second menu.
     val syncMode by rememberEnumPreference(key = YtmSyncModeKey, defaultValue = SyncMode.RW)
-    val playlistsContaining by database.playlistsContaining(mediaMetadata.id).collectAsState(initial = emptyList())
+    val playlistsContaining by remember(mediaMetadata.id) { database.playlistsContaining(mediaMetadata.id) }.collectAsState(initial = emptyList())
     // The dao already keeps out playlists the app can never edit. While sync is read only, an
     // editable synced playlist cannot be written to either, so only local ones stay offered here,
     // matching LocalPlaylistScreen's own editable rule.
