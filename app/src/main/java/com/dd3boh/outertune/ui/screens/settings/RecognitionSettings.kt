@@ -23,6 +23,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -36,6 +39,7 @@ import com.dd3boh.outertune.constants.RecognisePauseOnSpeakerKey
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.dd3boh.outertune.recognition.MicrophoneListener
 import com.dd3boh.outertune.recognition.RecognitionViewModel
+import com.dd3boh.outertune.ui.dialog.AskFirstDialog
 import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
 import com.dd3boh.outertune.ui.component.ExplainedPreference
 import com.dd3boh.outertune.ui.component.ExplainedSwitchPreference
@@ -120,14 +124,28 @@ fun RecognitionSettings(
 
         Spacer(Modifier.height(16.dp))
 
+        // Up to 200 songs go at once and none comes back, so the tap is asked about first.
+        var askClear by rememberSaveable { mutableStateOf(false) }
         ElevatedCard(modifier = Modifier.fillMaxWidth()) {
             ExplainedPreference(
                 title = stringResource(R.string.recognise_clear_history),
                 explanation = stringResource(R.string.recognise_clear_history_explain),
                 description = stringResource(R.string.recognise_clear_history_desc),
-                // Both: reset empties this run, clearHistory empties what is remembered across
-                // runs. The entry says history, so it has to be the second one too.
-                onClick = { viewModel.reset(); viewModel.clearRecognised(); viewModel.clearHistory() },
+                onClick = { askClear = true },
+            )
+        }
+        if (askClear) {
+            AskFirstDialog(
+                title = stringResource(R.string.recognise_clear_ask_title),
+                text = stringResource(R.string.recognise_clear_ask_text),
+                confirm = stringResource(R.string.recognise_clear_history),
+                onConfirm = {
+                    askClear = false
+                    // Both: reset empties this run, clearHistory empties what is remembered across
+                    // runs. The entry says history, so it has to be the second one too.
+                    viewModel.reset(); viewModel.clearRecognised(); viewModel.clearHistory()
+                },
+                onDismiss = { askClear = false },
             )
         }
     }

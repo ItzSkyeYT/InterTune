@@ -735,6 +735,10 @@
     <string name="auto_backup_interval">Fréquence</string>
     <string name="backup_in_progress">Écriture de la sauvegarde…</string>
     <string name="restore_in_progress">Restauration de la sauvegarde…</string>
+    <string name="restore_ask_title">Restaurer cette sauvegarde ?</string>
+    <string name="restore_ask_text">Elle remplace la bibliothèque, les playlists, l\'historique et les réglages de ce téléphone, puis l\'application redémarre. Cette action est irréversible.</string>
+    <string name="recognise_clear_ask_title">Effacer les titres reconnus ?</string>
+    <string name="recognise_clear_ask_text">« Ce que vous avez entendu » et la liste de cette session sont vidés, et toute écoute en cours s\'arrête. Cette action est irréversible.</string>
     <string name="auto_backup_every_6h">Toutes les 6 heures</string>
     <string name="auto_backup_every_month">Tous les mois</string>
     <string name="auto_backup_every_6mo">Tous les 6 mois</string>

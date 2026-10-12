@@ -10,6 +10,9 @@
 package com.dd3boh.outertune
 
 import com.dd3boh.outertune.utils.BuiltInKeys
+import android.webkit.CookieManager
+import android.os.Looper
+import android.os.Handler
 import android.app.Application
 import android.content.Context
 import android.util.Log
@@ -287,6 +290,16 @@ class App : Application(), SingletonImageLoader.Factory {
                         LastFullSyncKey, LastLikeSongSyncKey, LastLibSongSyncKey, LastAlbumSyncKey,
                         LastArtistSyncKey, LastPlaylistSyncKey, LastRecentActivitySyncKey,
                     ).forEach { settings.remove(it) }
+                }
+            }
+            // The sign-in page keeps the same session in the web view's own cookies, which are
+            // not the app's to forget above: they stayed on the phone until that page was next
+            // opened. On the main thread, where the web view's parts are at home, and a phone
+            // with no web view has none to clear.
+            Handler(Looper.getMainLooper()).post {
+                runCatching {
+                    val cookies = CookieManager.getInstance()
+                    cookies.removeAllCookies { cookies.flush() }
                 }
             }
         }

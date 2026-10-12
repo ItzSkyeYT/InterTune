@@ -1018,6 +1018,11 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="auto_backup_interval">How often</string>
     <string name="backup_in_progress">Writing the backup…</string>
     <string name="restore_in_progress">Restoring the backup…</string>
+    <!-- Asked before a restore and before Song recognition's Clear: each wipes something at one tap. -->
+    <string name="restore_ask_title">Restore this backup?</string>
+    <string name="restore_ask_text">It replaces the library, playlists, history and settings on this phone, and the app restarts. This cannot be undone.</string>
+    <string name="recognise_clear_ask_title">Clear recognised songs?</string>
+    <string name="recognise_clear_ask_text">\"What you have heard\" and this session\'s list are emptied, and any listening in progress stops. This cannot be undone.</string>
     <string name="auto_backup_every_6h">Every 6 hours</string>
     <string name="auto_backup_every_month">Every month</string>
     <string name="auto_backup_every_6mo">Every 6 months</string>
