@@ -221,9 +221,14 @@ object Unreleased {
      * token made, no WebView opened.
      *
      * Needs the solver's files in the build (assets/solver) and does nothing without them.
-     * They are in the tree since 10 Oct 2026, so every build has them. To ship: this to true.
+     * They are in the tree since 10 Oct 2026, so every build has them.
+     *
+     * On in every build from 0.11.5. It has no text of its own. The developer options' "Pretend
+     * VISIONOS is blocked", by which it was heard taking over, stays a debug and preview build's
+     * (VisionosTest.offered). Left to tidy: the flag and the checks that read it, in
+     * YTPlayerUtils, and in MusicService and DeveloperFrag for that row.
      */
-    val WEB_FALLBACK = BuildConfig.DEBUG
+    val WEB_FALLBACK = true
 
     /**
      * VISIONOS under the two other versions and user agents other projects ask it with, written

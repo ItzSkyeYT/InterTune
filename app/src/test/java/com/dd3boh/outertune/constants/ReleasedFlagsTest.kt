@@ -29,7 +29,7 @@ class ReleasedFlagsTest {
     /** On in every build, and so in a release. The second line went on for 0.11.5. */
     private val inEveryBuild = setOf(
         "ENGINE", "SHORT_SETUP", "LOGIN_RETURNS",
-        "STAND_INS", "VISIONOS_IDENTITIES",
+        "STAND_INS", "VISIONOS_IDENTITIES", "WEB_FALLBACK",
     )
 
     private val sources = File("src/main/java/com/dd3boh/outertune")
@@ -104,5 +104,18 @@ class ReleasedFlagsTest {
         // Read by the chain, and for the developer options' test row and the switch it stores.
         assertEquals(setOf("utils/YTPlayerUtils.kt", "playback/MusicService.kt", "ui/screens/settings/fragments/DeveloperFrag.kt"), readers("VISIONOS_IDENTITIES"))
         assertWritten("utils/YTPlayerUtils.kt", "internal var identitiesInChain: Boolean = Unreleased.VISIONOS_IDENTITIES")
+    }
+
+    @Test
+    fun `the web client is in the chain of every build`() {
+        assertEquals(setOf("utils/YTPlayerUtils.kt", "playback/MusicService.kt", "ui/screens/settings/fragments/DeveloperFrag.kt"), readers("WEB_FALLBACK"))
+        // Not while the developer's switch asks the same client first, which is in no release,
+        // and only in a build with the solver's two files, which are in every build.
+        assertWritten("utils/YTPlayerUtils.kt", "val webInChain = Unreleased.WEB_FALLBACK && !trialOn && wire.canSolve()")
+        assertWritten("utils/YTPlayerUtils.kt", "val trialOn = Unreleased.WEB_CLIENT_FIRST && askWebClientFirst")
+        assertWritten("utils/YTPlayerUtils.kt", "if (!Unreleased.WEB_FALLBACK || !solverIsInThisBuild) return")
+        for (asset in listOf("yt.solver.lib.js", "yt.solver.core.js")) {
+            assertTrue("$asset is not in the build", File("src/main/assets/solver/$asset").isFile)
+        }
     }
 }
