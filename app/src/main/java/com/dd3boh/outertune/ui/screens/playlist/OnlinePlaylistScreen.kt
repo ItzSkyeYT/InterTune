@@ -128,6 +128,8 @@ import com.dd3boh.outertune.ui.component.shimmer.TextPlaceholder
 import com.dd3boh.outertune.ui.dialog.DefaultDialog
 import com.dd3boh.outertune.ui.menu.YouTubePlaylistMenu
 import com.dd3boh.outertune.ui.menu.YouTubeSongMenu
+import com.dd3boh.outertune.ui.player.likeName
+import com.dd3boh.outertune.ui.player.named
 import com.dd3boh.outertune.utils.getDownloadState
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.viewmodels.OnlinePlaylistViewModel
@@ -421,7 +423,7 @@ fun OnlinePlaylistScreen(
                                         painter = painterResource(
                                             if (dbPlaylist?.playlist?.bookmarkedAt != null) R.drawable.favorite else R.drawable.favorite_border
                                         ),
-                                        contentDescription = null,
+                                        contentDescription = likeName(dbPlaylist?.playlist?.bookmarkedAt != null),
                                         tint = if (dbPlaylist?.playlist?.bookmarkedAt != null) MaterialTheme.colorScheme.error else LocalContentColor.current
                                     )
                                 }
@@ -437,7 +439,7 @@ fun OnlinePlaylistScreen(
                                         ) {
                                             Icon(
                                                 Icons.Rounded.OfflinePin,
-                                                contentDescription = null
+                                                contentDescription = stringResource(R.string.remove_download)
                                             )
                                         }
                                     }
@@ -448,7 +450,9 @@ fun OnlinePlaylistScreen(
                                                 songs.forEach { song ->
                                                     downloadUtil.removeDownload(song.id)
                                                 }
-                                            }
+                                            },
+                                            // The wheel has no words of its own, so the button says what a tap on it does.
+                                            modifier = Modifier.named(stringResource(R.string.cancel_download))
                                         ) {
                                             CircularProgressIndicator(
                                                 strokeWidth = 2.dp,
@@ -472,7 +476,7 @@ fun OnlinePlaylistScreen(
                                         ) {
                                             Icon(
                                                 Icons.Rounded.Download,
-                                                contentDescription = null
+                                                contentDescription = stringResource(R.string.action_download)
                                             )
                                         }
                                     }
@@ -487,6 +491,8 @@ fun OnlinePlaylistScreen(
                                     viewModel.loadRemainingSongs()
                                 },
                                 enabled = !isLoading,
+                                // On the button, not on its picture, which gives way to a wheel while it loads.
+                                modifier = Modifier.named(stringResource(R.string.playlist_load_all)),
                             ) {
                                 if (isLoading) {
                                     CircularProgressIndicator(
@@ -791,7 +797,7 @@ fun OnlinePlaylistScreen(
                         ) {
                             Icon(
                                 Icons.Rounded.Search,
-                                contentDescription = null
+                                contentDescription = stringResource(R.string.search)
                             )
                         }
                     }

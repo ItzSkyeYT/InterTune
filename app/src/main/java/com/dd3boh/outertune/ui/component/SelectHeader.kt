@@ -87,7 +87,8 @@ fun RowScope.SelectHeader(
         ) {
             Icon(
                 imageVector = if (allSelected) Icons.Rounded.SelectAll else Icons.Rounded.Deselect,
-                contentDescription = null,
+                // What a tap does: allSelected is true while some are still left out.
+                contentDescription = stringResource(if (allSelected) R.string.select_all else R.string.deselect_all),
                 tint = LocalContentColor.current
             )
         }
@@ -98,7 +99,7 @@ fun RowScope.SelectHeader(
         ) {
             Icon(
                 Icons.Rounded.Close,
-                contentDescription = null
+                contentDescription = stringResource(R.string.cancel_selection)
             )
         }
     }

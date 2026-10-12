@@ -53,7 +53,7 @@ internal fun repeatName(mode: Int): String = stringResource(
     }
 )
 
-/** The heart says what a tap on it does. */
+/** The heart says what a tap on it does. The one at the head of an album, a playlist or an artist says it too. */
 @Composable
 internal fun likeName(liked: Boolean): String =
     stringResource(if (liked) R.string.action_remove_like else R.string.action_like)
