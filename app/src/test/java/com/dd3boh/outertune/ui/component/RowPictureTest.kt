@@ -29,25 +29,32 @@ class RowPictureTest {
     @Test
     fun `the tiles are the row's own cards, kind for kind, wherever the controls stand`() {
         for (lean in LeanChoice.options) for (adventurous in 0..100 step 5) for (familiar in 0..60 step 5) for (newOnly in listOf(false, true)) {
+            // With no chip on, the picture is the row the builder makes.
+            val mix = mix(lean, adventurous, familiar, ContextChip.AUTO, newOnly)
+            val shape = EngineRow.shape(EngineParams.DEFAULT.withFamiliarity(familiar / 100.0), adventurous / 100.0, newOnly, false, ContextChip.AUTO, lean)
+            assertEquals(shape.quotas.filterValues { it > 0 }, mix.cards.filterValues { it > 0 })
+            assertEquals(shape.lead, mix.lead)
             for (chip in listOf(ContextChip.AUTO, ContextChip.DISCOVER, ContextChip.FAVOURITES)) {
-                val mix = mix(lean, adventurous, familiar, chip, newOnly)
-                val shape = EngineRow.shape(EngineParams.DEFAULT.withFamiliarity(familiar / 100.0), adventurous / 100.0, newOnly, false, chip, lean)
-                assertEquals(shape.quotas.filterValues { it > 0 }, mix.cards.filterValues { it > 0 })
-                assertEquals(shape.lead, mix.lead)
-                val places = rowPlaces(mix)
+                val drawn = mix(lean, adventurous, familiar, chip, newOnly)
+                val places = rowPlaces(drawn)
                 assertEquals(ROW_PLACES, places.size)
-                assertEquals("$lean $adventurous $familiar $chip $newOnly", mix.cards.filterValues { it > 0 }, places.groupingBy { it }.eachCount())
+                assertEquals("$lean $adventurous $familiar $chip $newOnly", drawn.cards.filterValues { it > 0 }, places.groupingBy { it }.eachCount())
             }
         }
     }
 
     @Test
-    fun `it counts as the lines under the two sliders count`() {
-        for (lean in LeanChoice.options) for (adventurous in 0..100 step 10) for (familiar in 0..60 step 10) {
-            val mix = mix(lean, adventurous, familiar)
-            assertEquals(LeanChoice.againCards(lean, adventurous / 100.0, familiar / 100.0), mix.cards.getValue(Lane.AGAIN))
-            assertEquals(LeanChoice.newCards(lean, adventurous / 100.0, familiar / 100.0), mix.cards.getValue(Lane.EXPLORE))
+    fun `it counts as the lines under the two sliders count, chip or no chip`() {
+        for (chip in listOf(ContextChip.AUTO, ContextChip.DISCOVER, ContextChip.FAVOURITES)) {
+            for (lean in LeanChoice.options) for (adventurous in 0..100 step 10) for (familiar in 0..60 step 10) {
+                val mix = mix(lean, adventurous, familiar, chip)
+                assertEquals(LeanChoice.againCards(lean, adventurous / 100.0, familiar / 100.0, chip), mix.cards.getValue(Lane.AGAIN))
+                assertEquals(LeanChoice.newCards(lean, adventurous / 100.0, familiar / 100.0, chip), mix.cards.getValue(Lane.EXPLORE))
+            }
         }
+        // A chip on Home sets a choice aside, in the picture as in the row.
+        assertEquals(null, mix(Lean.ARTIST, chip = ContextChip.DISCOVER).lead)
+        assertEquals(Lane.ARTIST, mix(Lean.ARTIST).lead)
     }
 
     @Test

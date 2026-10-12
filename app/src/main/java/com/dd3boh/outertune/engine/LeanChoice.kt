@@ -93,12 +93,17 @@ object LeanChoice {
         (leading(choice, dial, familiarity, chip, newOnly, p)?.quotas ?: quotas(p.rowSize, dial, false, p.withFamiliarity(familiarity)))[Lane.AGAIN] ?: 0
 
     /**
-     * The whole row under these settings, in the shape the builder itself gives it (EngineRow.shape),
-     * so that the picture and the row agree whatever chip, choice or switch is on.
+     * The whole row as the page's own controls leave it, for the picture over them. It counts as
+     * the lines under the two sliders count, so the picture and the lines never disagree: the
+     * choice's shape while the choice leads the row, and otherwise the usual row under both
+     * sliders. New songs only, which is a switch of this page, makes every card new. A chip on
+     * Home sets the choice aside here as it does in the row, but its own leaning of the row for
+     * now is not drawn: the sliders' lines do not count it either.
      */
     fun mix(choice: Lean, dial: Double, familiarity: Double, chip: Int = ContextChip.AUTO, newOnly: Boolean = false, p: EngineParams = EngineParams.DEFAULT): RowMix {
-        val shape = EngineRow.shape(p.withFamiliarity(familiarity), dial, newOnly, false, chip, choice)
-        return RowMix(Lane.entries.associateWith { shape.quotas[it] ?: 0 }, shape.lead)
+        val leading = leading(choice, dial, familiarity, chip, newOnly, p)
+        val cards = leading?.quotas ?: quotas(p.rowSize, dial, newOnly, p.withFamiliarity(familiarity))
+        return RowMix(Lane.entries.associateWith { cards[it] ?: 0 }, leading?.lead)
     }
 
     /** Whether the choice, not the Adventurousness slider, sets how many cards are new: Never heard while it leads the row. */
