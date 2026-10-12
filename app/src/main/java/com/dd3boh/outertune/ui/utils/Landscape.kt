@@ -173,7 +173,7 @@ data class Landscape(
          */
         fun laidOutWidth(container: Int, laidOut: Int): Int = if (laidOut in 1 until container) laidOut else container
 
-        /** A window nothing is done for: what previews and tests get, and release builds. */
+        /** A window nothing is done for: what previews and tests get. */
         val Upright = Landscape(0.dp, 0.dp, enabled = false)
     }
 }

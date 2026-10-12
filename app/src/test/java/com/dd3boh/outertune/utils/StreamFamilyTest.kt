@@ -8,8 +8,14 @@ package com.dd3boh.outertune.utils
 
 import com.zionhuang.innertube.IpFamily.V4
 import com.zionhuang.innertube.IpFamily.V6
+import com.zionhuang.innertube.models.YouTubeClient
 import okhttp3.Dns
+import okhttp3.Interceptor
 import okhttp3.OkHttpClient
+import okhttp3.Protocol
+import okhttp3.Request
+import okhttp3.Response
+import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -24,9 +30,11 @@ import java.net.Proxy
 /**
  * A stream is fetched over the family its address was issued to.
  *
- * The first half is the rule. The second reads the source, as StreamAddressesTest does, because
- * the rule is worth nothing while one of the places that fetch a stream builds a client of its own:
- * the check then passes over one family and the player is refused over the other.
+ * The first part is the rule. The second is the other thing the same calls see to: a web client's
+ * address is asked for with its page's headers, by all of them. The last reads the source, as
+ * StreamAddressesTest does, because both are worth nothing while one of the places that fetch a
+ * stream builds a client of its own: the check then passes over one family, or with the headers,
+ * and the player is refused over the other, or without them.
  */
 class StreamFamilyTest {
     private val host = "https://rr2---sn-25ge7nzr.googlevideo.com/videoplayback"
@@ -127,6 +135,76 @@ class StreamFamilyTest {
         assertEquals(issuedToV4, call.request().url.toString())
         // Nothing is looked up or sent until the call is run, and this one never is.
         assertEquals(emptyList<String>(), asked)
+    }
+
+    // ---- what a web client's address is asked for with ----
+
+    /** Answers 200 to every request in place of the network, and keeps each as it was sent. */
+    private class Answering : Interceptor {
+        val sent = mutableListOf<Request>()
+
+        override fun intercept(chain: Interceptor.Chain): Response {
+            sent += chain.request()
+            return Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1).code(200).message("OK")
+                .body("".toResponseBody()).build()
+        }
+    }
+
+    /** A dns that fails the test if anything is looked up: no request here may reach the network. */
+    private val noNetwork = Dns { name -> throw AssertionError("$name was looked up") }
+
+    private fun webAddress(ip: String?) = "$host?expire=1791500000&ei=abc" + (ip?.let { "&ip=$it" } ?: "") + "&id=o-AB&itag=251&c=WEB_REMIX&n=SOLVED&sig=UNSCRAMBLED"
+
+    @Test
+    fun `a web client's address is asked for as its page asks, by every call and over either family`() {
+        // The check's client and the player's put the headers on themselves, and only in a build
+        // with the developer's switch for the web client; a download's never did. So a release
+        // would have checked and played the chain's own web client without them.
+        val answering = Answering()
+        val calls = StreamFamily.Calls(OkHttpClient.Builder().addInterceptor(answering).build(), noNetwork)
+        val addresses = listOf(webAddress("192.0.2.7"), webAddress("2001%3Adb8%3A12%3A3400%3A%3A7"), webAddress(null))
+
+        // As the check asks: once with HEAD, once for a few bytes far in.
+        for (address in addresses) {
+            calls.newCall(Request.Builder().head().url(address).build()).execute().close()
+            calls.newCall(Request.Builder().url(address).header("Range", "bytes=2097152-2097167").build()).execute().close()
+        }
+
+        assertEquals(6, answering.sent.size)
+        for (request in answering.sent) {
+            val what = "${request.method} ${StreamFamily.of(request.url.toString())}"
+            assertEquals(what, YouTubeClient.USER_AGENT_WEB, request.header("User-Agent"))
+            assertEquals(what, "https://music.youtube.com", request.header("Origin"))
+            assertEquals(what, "https://music.youtube.com/", request.header("Referer"))
+        }
+        assertEquals(listOf("HEAD", "GET", "HEAD", "GET", "HEAD", "GET"), answering.sent.map { it.method })
+        assertEquals("bytes=2097152-2097167", answering.sent[1].header("Range"))
+    }
+
+    @Test
+    fun `so is one fetched through a proxy`() {
+        val answering = Answering()
+        val proxied = OkHttpClient.Builder()
+            .proxy(Proxy(Proxy.Type.HTTP, InetSocketAddress.createUnresolved("proxy.example", 8080)))
+            .addInterceptor(answering)
+            .build()
+        StreamFamily.Calls(proxied, noNetwork).newCall(Request.Builder().head().url(webAddress("192.0.2.7")).build()).execute().close()
+        assertEquals("https://music.youtube.com", answering.sent.single().header("Origin"))
+    }
+
+    @Test
+    fun `an app client's address is asked for as it always was`() {
+        val answering = Answering()
+        val calls = StreamFamily.Calls(OkHttpClient.Builder().addInterceptor(answering).build(), noNetwork)
+        for (address in listOf(issuedToV4, issuedToV6, namesNone, "$issuedToV4&c=VISIONOS", "$issuedToV4&c=IOS")) {
+            calls.newCall(Request.Builder().head().url(address).build()).execute().close()
+        }
+        assertEquals(5, answering.sent.size)
+        for (request in answering.sent) {
+            assertNull(request.header("Origin"))
+            assertNull(request.header("Referer"))
+            assertNull("the http library names itself, further down than this", request.header("User-Agent"))
+        }
     }
 
     // ---- the places that fetch a stream ----

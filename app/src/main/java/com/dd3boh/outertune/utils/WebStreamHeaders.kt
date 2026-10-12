@@ -8,7 +8,7 @@ package com.dd3boh.outertune.utils
 
 import com.zionhuang.innertube.models.YouTubeClient
 import okhttp3.HttpUrl
-import okhttp3.Interceptor
+import okhttp3.Request
 
 /**
  * What a web client's stream address is fetched with.
@@ -21,10 +21,17 @@ import okhttp3.Interceptor
  * the player alike (9 Oct 2026).
  *
  * Which client an address belongs to is read from the address: its c parameter names the client
- * it was issued to. So the check and the player need not be told, and an address that was kept
+ * it was issued to. So nothing that fetches a stream need be told, and an address that was kept
  * and is played again later is fetched as it was checked.
  *
- * Only the experiment's clients are known here. Every other address goes out as it always has.
+ * And nothing but the address decides. The headers are put on where every fetch of a stream
+ * passes, [StreamFamily.Calls], in every build. They used to be put on where the check's client
+ * and the player's were built, and only in a build that has the developer options' "Ask YouTube
+ * Music's web client first". A release has no such switch, so there the web client the chain
+ * asks by itself (YTPlayerUtils.WEB_FALLBACK_CLIENT) would have had its address checked and
+ * played as the experiment's first plays were, and a download's client never had them at all.
+ *
+ * Only web clients are known here. Every other address goes out as it always has.
  */
 object WebStreamHeaders {
     private const val STREAM_HOST_SUFFIX = ".googlevideo.com"
@@ -48,14 +55,13 @@ object WebStreamHeaders {
         )
     }
 
-    /** Puts [of] on every request it applies to, the check's and the player's alike. */
-    val interceptor = Interceptor { chain ->
-        val request = chain.request()
+    /**
+     * [request] with [of] its address on it, over whatever it had set of them. A request for any
+     * other address is handed back as it is.
+     */
+    fun on(request: Request): Request {
         val headers = of(request.url)
-        if (headers.isEmpty()) {
-            chain.proceed(request)
-        } else {
-            chain.proceed(request.newBuilder().apply { headers.forEach { (name, value) -> header(name, value) } }.build())
-        }
+        if (headers.isEmpty()) return request
+        return request.newBuilder().apply { headers.forEach { (name, value) -> header(name, value) } }.build()
     }
 }

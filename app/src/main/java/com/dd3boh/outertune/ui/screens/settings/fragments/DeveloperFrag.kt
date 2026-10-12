@@ -109,6 +109,15 @@ internal enum class VisionosTest(val own: Boolean, val all: Boolean) {
 
         /** What can be chosen in a build with [identities] in its chain, and with the web client's [fallback]. */
         fun choices(identities: Boolean, fallback: Boolean) = listOfNotNull(OFF, OWN.takeIf { identities }, ALL.takeIf { fallback })
+
+        /**
+         * Whether a build has the row at all. It is a test tool, so only a build made for testing
+         * has it ([testBuild]: debug and preview), whatever its chain holds, and then only with
+         * something in the chain to hear take over. A release has the web client and the other
+         * identities in its chain from 0.11.5 and still has no such row, and MusicService does
+         * not read the two switches there either.
+         */
+        fun offered(testBuild: Boolean, identities: Boolean, fallback: Boolean) = testBuild && (identities || fallback)
     }
 }
 
@@ -170,7 +179,7 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
         if (BuildConfig.DEBUG) {
             HistoryAddressCheckRow()
         }
-        if (Unreleased.VISIONOS_IDENTITIES || Unreleased.WEB_FALLBACK) {
+        if (VisionosTest.offered(testBuild = BuildConfig.DEBUG, identities = Unreleased.VISIONOS_IDENTITIES, fallback = Unreleased.WEB_FALLBACK)) {
             // One row over the two keys. As two switches, "this app's VISIONOS" and "VISIONOS",
             // they read as one setting shown twice.
             ListPreference(

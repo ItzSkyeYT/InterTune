@@ -179,7 +179,6 @@ import com.dd3boh.outertune.utils.codecsOrEmpty
 import com.dd3boh.outertune.utils.contentLengthOrZero
 import com.dd3boh.outertune.utils.SongVersions
 import com.dd3boh.outertune.utils.StreamFamily
-import com.dd3boh.outertune.utils.WebStreamHeaders
 import com.dd3boh.outertune.utils.YTPlayerUtils
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.enumPreference
@@ -1112,13 +1111,16 @@ class MusicService : MediaLibraryService(),
                     .distinctUntilChanged()
                     .collectLatest(scope) { YTPlayerUtils.askWebClientFirst = it }
             }
-            // And the switch that takes VISIONOS for refused, behind Unreleased.WEB_FALLBACK.
-            if (Unreleased.WEB_FALLBACK) {
+            // And the switches that take VISIONOS for refused. They are a test tool, so they are
+            // read only where the developer options have their row, in a debug or preview build,
+            // whatever the two flags say. A restored backup can bring a switch that is on into a
+            // release, which has no row to turn it off with.
+            if (BuildConfig.DEBUG && Unreleased.WEB_FALLBACK) {
                 dataStore.data.map { it[VisionosRefusedKey] ?: false }
                     .distinctUntilChanged()
                     .collectLatest(scope) { YTPlayerUtils.takeVisionosForRefused(it) }
             }
-            if (Unreleased.VISIONOS_IDENTITIES) {
+            if (BuildConfig.DEBUG && Unreleased.VISIONOS_IDENTITIES) {
                 dataStore.data.map { it[OwnVisionosRefusedKey] ?: false }
                     .distinctUntilChanged()
                     .collectLatest(scope) { YTPlayerUtils.takeVisionosForRefused(it, onlyAsSaidHere = true) }
@@ -1901,13 +1903,12 @@ class MusicService : MediaLibraryService(),
                     .setUpstreamDataSourceFactory(
                         DefaultDataSource.Factory(
                             this,
-                            // Over the family the address was issued to, as its check was made.
+                            // Over the family the address was issued to, and a web client's
+                            // with its page's headers, as its check was made: see StreamFamily.Calls.
                             OkHttpDataSource.Factory(
                                 StreamFamily.Calls(
                                     OkHttpClient.Builder()
                                         .proxy(YouTube.proxy)
-                                        // The experiment's addresses are fetched as they were checked: see WebStreamHeaders.
-                                        .apply { if (Unreleased.WEB_CLIENT_FIRST) addInterceptor(WebStreamHeaders.interceptor) }
                                         .build()
                                 )
                             )

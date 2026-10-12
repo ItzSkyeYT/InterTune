@@ -105,10 +105,14 @@ object Unreleased {
      * A layout for a phone on its side (Landscape.kt): the navigation rail whenever the window is
      * short, the search pill and the mini player at their upright width instead of the width of
      * the screen, lists two rows abreast, and an album with its cover beside its songs. A first
-     * cut, not agreed for a release, and it does not reach every screen yet. When it is: set this
-     * to true, or delete it with the one check that reads it, the default of Landscape.enabled.
+     * cut, and it does not reach every screen yet.
+     *
+     * On in every build from 0.11.5. It has no text of its own. In a release Settings on a phone
+     * on its side is the four cards set two by two: the two panes are SETTINGS_TWO_PANE's, which
+     * is held back. Left to tidy: the flag and the one check that reads it, the default of
+     * Landscape.enabled.
      */
-    val LANDSCAPE = BuildConfig.DEBUG
+    val LANDSCAPE = true
 
     /**
      * A shorter first-run setup (ShortSetup.kt): three pages in place of six. What the app is,
@@ -139,11 +143,13 @@ object Unreleased {
      * after the tap (9 Oct 2026). It sits on the path every song takes, and the hard part,
      * telling a copy from another take of the song, has met that one song of a real library and
      * no more. Without it a song that is gone fails as it always has, and nothing is searched
-     * for, noted or left out. When it is agreed: set this to true, or delete it with the one
-     * check that reads it, in StandIns, and make exclusion_reason_gone and
-     * error_cached_part_stale translatable.
+     * for, noted or left out.
+     *
+     * On in every build from 0.11.5, with its two texts, exclusion_reason_gone and
+     * error_cached_part_stale, open to translators and in French. Left to tidy: the flag and the
+     * one check that reads it, in StandIns.
      */
-    val STAND_INS = BuildConfig.DEBUG
+    val STAND_INS = true
 
     /**
      * The sign-in page says when the sign-in is made and goes back by itself to where it was
@@ -183,11 +189,18 @@ object Unreleased {
     /**
      * A small moving picture at the head of an explanation, in the manner of the ones Android's
      * own Settings shows: drawn in the app from the theme's colours (ExplainPictures.kt), still
-     * on a phone with animations off, no words in it. One so far, to be judged: Fade between
-     * tracks. Without it an explanation is its words, as before. To drop it: this flag, the
-     * file, and the `picture` argument through Explain.kt and at the one row that gives it.
+     * on a phone with animations off, no words in it. Four so far: Fade between tracks, head
+     * tracking and Quieter as you walk away, each in its explanation, and the sound stage, held
+     * over the sliders that set it, which then have no (i) of their own. Without it an
+     * explanation is its words, as before.
+     *
+     * On in every build from 0.11.5. It has no text of its own. In a release the stage picture
+     * has one slider under it, Stage width: the others it can show are SPATIAL_TUNING's and
+     * DIRECT_AMBIENT's, held back, and it draws them as they are without those. To drop it: this
+     * flag, the file, the `picture` argument through Explain.kt and at the rows that give it,
+     * and the picture over the stage sliders in PlayerFrag.
      */
-    val EXPLAIN_PICTURES = BuildConfig.DEBUG
+    val EXPLAIN_PICTURES = true
 
     /**
      * "Ask YouTube Music's web client first" in the developer options: an experiment for the day
@@ -201,8 +214,10 @@ object Unreleased {
      * address goes to a solver instead (utils/cipher): yt-dlp's, run in a WebView. Everything
      * round the solver is built and tested with a stand-in for it. The solver's own two files
      * are in assets/solver since 10 Oct 2026, with their licence beside them, and with them the
-     * address plays. Delete it with the two checks that read it, in MusicService and
-     * DeveloperFrag, once it has served its purpose: the fallback below does not need it.
+     * address plays. Delete it with the three checks that read it, in MusicService, DeveloperFrag
+     * and YTPlayerUtils, once it has served its purpose: the fallback below does not need it.
+     * Nor does the fetching of a web client's address, which used to ask this switch whether to
+     * send the page's headers and now reads that off the address alone (WebStreamHeaders).
      */
     val WEB_CLIENT_FIRST = BuildConfig.DEBUG
 
@@ -217,9 +232,14 @@ object Unreleased {
      * token made, no WebView opened.
      *
      * Needs the solver's files in the build (assets/solver) and does nothing without them.
-     * They are in the tree since 10 Oct 2026, so every build has them. To ship: this to true.
+     * They are in the tree since 10 Oct 2026, so every build has them.
+     *
+     * On in every build from 0.11.5. It has no text of its own. The developer options' "Pretend
+     * VISIONOS is blocked", by which it was heard taking over, stays a debug and preview build's
+     * (VisionosTest.offered). Left to tidy: the flag and the checks that read it, in
+     * YTPlayerUtils, and in MusicService and DeveloperFrag for that row.
      */
-    val WEB_FALLBACK = BuildConfig.DEBUG
+    val WEB_FALLBACK = true
 
     /**
      * VISIONOS under the two other versions and user agents other projects ask it with, written
@@ -227,9 +247,13 @@ object Unreleased {
      * only when VISIONOS gave no stream, a request each, and whichever serves is asked first from
      * then on. Both played whole songs on 9 and 10 Oct 2026 when the stream probe asked them.
      *
-     * Needs nothing else in the build. To ship: this to true.
+     * Needs nothing else in the build.
+     *
+     * On in every build from 0.11.5. It has no text of its own. Left to tidy: the flag and the
+     * checks that read it, in YTPlayerUtils, and in MusicService and DeveloperFrag for the
+     * developer options' "Pretend VISIONOS is blocked", which stays a debug and preview build's.
      */
-    val VISIONOS_IDENTITIES = BuildConfig.DEBUG
+    val VISIONOS_IDENTITIES = true
 
     /**
      * The theme takes as much colour from a cover as the cover has (CoverAccent). A black and

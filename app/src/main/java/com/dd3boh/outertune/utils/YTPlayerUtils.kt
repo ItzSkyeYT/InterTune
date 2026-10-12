@@ -60,11 +60,12 @@ object YTPlayerUtils {
 
     private val httpClient = OkHttpClient.Builder()
         .proxy(YouTube.proxy)
-        // The experiment's addresses are checked as its player then fetches them: see WebStreamHeaders.
-        .apply { if (Unreleased.WEB_CLIENT_FIRST) addInterceptor(WebStreamHeaders.interceptor) }
         .build()
 
-    /** The check of a stream goes over the family its address was issued to: see [StreamFamily]. */
+    /**
+     * The check of a stream goes over the family its address was issued to, and a web client's
+     * with its page's headers, as the player then fetches it: see [StreamFamily.Calls].
+     */
     private val streamCalls = StreamFamily.Calls(httpClient)
 
     private val poTokenGenerator = PoTokenGenerator()

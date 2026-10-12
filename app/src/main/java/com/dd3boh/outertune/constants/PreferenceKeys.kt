@@ -389,8 +389,9 @@ val StandInsKey = stringPreferencesKey("standIns")
 val WebClientFirstKey = booleanPreferencesKey("webClientFirst")
 
 /**
- * The developer options' "Take VISIONOS for refused": to see the chain as on the day VISIONOS
- * stops, in debug builds only. See Unreleased.WEB_FALLBACK.
+ * The developer options' "Pretend VISIONOS is blocked", every version: to see the chain as on the
+ * day VISIONOS stops. A test tool, shown and read in debug and preview builds only, whatever
+ * Unreleased.WEB_FALLBACK says: see VisionosTest.offered.
  */
 val VisionosRefusedKey = booleanPreferencesKey("visionosTakenForRefused")
 
