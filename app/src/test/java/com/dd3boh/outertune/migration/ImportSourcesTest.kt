@@ -10,6 +10,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 import java.net.URI
 
 /**
@@ -53,6 +54,19 @@ class ImportSourcesTest {
         assertEquals(named.size, named.map { it.label }.toSet().size)
         assertEquals("", ImportSource.OTHER.label)
         assertEquals(listOf(ImportSource.APPLE_MUSIC), ImportSource.entries.filter { it.alsoFromComputer })
+    }
+
+    @Test
+    fun `every app named has its icon, and the row for any other app has none`() {
+        val screen = File("src/main/java/com/dd3boh/outertune/ui/screens/settings/LibraryImportScreen.kt").readText()
+        val icons = screen.substringAfter("private fun sourceIcon(").substringBefore("\n}\n")
+        for (source in ImportSource.entries - ImportSource.OTHER) {
+            val line = icons.lines().single { "ImportSource.${source.name} ->" in it }
+            val drawable = Regex("""R\.drawable\.([a-z_]+)""").find(line)!!.groupValues[1]
+            assertEquals("import_source_" + source.name.lowercase(), drawable)
+            assertTrue(drawable, File("src/main/res/drawable-nodpi/$drawable.png").isFile)
+        }
+        assertTrue("ImportSource.OTHER -> null" in icons)
     }
 
     @Test

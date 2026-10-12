@@ -9,6 +9,7 @@ package com.dd3boh.outertune.ui.screens.settings
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -56,9 +57,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -410,28 +414,52 @@ private fun SourceList(reading: Boolean, onChoose: (ImportSource) -> Unit) {
     }
 }
 
-/** The app's first letter on a disc: no app's logo is ours to show. */
+/**
+ * How an app's icon sits on its disc: filling it, or as a mark on white. A mark drawn in black or
+ * in one colour of its own needs a light ground under it on a dark page.
+ */
+private class SourceIcon(val drawable: Int, val fills: Boolean)
+
+/**
+ * The apps' own icons, each its owner's mark, here to name the app an import comes from. Kept at
+ * 144 px in drawable-nodpi: they are shown at 36 dp.
+ */
+private fun sourceIcon(source: ImportSource): SourceIcon? = when (source) {
+    ImportSource.SPOTIFY -> SourceIcon(R.drawable.import_source_spotify, fills = true)
+    ImportSource.APPLE_MUSIC -> SourceIcon(R.drawable.import_source_apple_music, fills = true)
+    ImportSource.DEEZER -> SourceIcon(R.drawable.import_source_deezer, fills = false)
+    ImportSource.TIDAL -> SourceIcon(R.drawable.import_source_tidal, fills = false)
+    ImportSource.AMAZON_MUSIC -> SourceIcon(R.drawable.import_source_amazon_music, fills = false)
+    ImportSource.SOUNDCLOUD -> SourceIcon(R.drawable.import_source_soundcloud, fills = true)
+    ImportSource.OTHER -> null
+}
+
+/** The app's icon on a disc, and a sheet of paper for the row that stands for any other app. */
 @Composable
 private fun SourceBadge(source: ImportSource) {
+    val icon = sourceIcon(source)
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
             .size(36.dp)
-            .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape),
+            .clip(CircleShape)
+            .background(
+                when {
+                    icon == null -> MaterialTheme.colorScheme.secondaryContainer
+                    icon.fills -> Color.Transparent
+                    else -> Color.White
+                }
+            ),
     ) {
-        if (source == ImportSource.OTHER) {
-            Icon(
+        when {
+            icon == null -> Icon(
                 Icons.Rounded.Description,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSecondaryContainer,
                 modifier = Modifier.size(20.dp),
             )
-        } else {
-            Text(
-                text = source.label.take(1),
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
-            )
+            icon.fills -> Image(painterResource(icon.drawable), contentDescription = null, modifier = Modifier.fillMaxSize())
+            else -> Image(painterResource(icon.drawable), contentDescription = null, modifier = Modifier.size(24.dp))
         }
     }
 }
