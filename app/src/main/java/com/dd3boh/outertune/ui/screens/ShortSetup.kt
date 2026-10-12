@@ -75,6 +75,7 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBarDefaults
 import androidx.compose.material3.Surface
@@ -122,6 +123,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
@@ -902,7 +904,13 @@ private fun SetupButton(
             )
             Spacer(Modifier.width(8.dp))
         }
-        Text(text = text, textAlign = TextAlign.Center)
+        // Two lines of about the same length when the words do not fit on one, and never a
+        // last word by itself.
+        Text(
+            text = text,
+            textAlign = TextAlign.Center,
+            style = LocalTextStyle.current.copy(lineBreak = LineBreak.Heading),
+        )
     }
     if (primary) {
         Button(onClick = onClick, enabled = enabled, modifier = sized, contentPadding = padding) { label() }

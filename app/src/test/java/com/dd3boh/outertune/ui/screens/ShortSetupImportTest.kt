@@ -78,6 +78,14 @@ class ShortSetupImportTest {
     }
 
     @Test
+    fun `words that take two lines are split evenly`() {
+        // Half a page is too narrow for "Import from another app", and what it was cut to at first
+        // was three words over "app".
+        val button = setup.substringAfter("private fun SetupButton(").substringBefore("\n}\n")
+        assertTrue("lineBreak = LineBreak.Heading" in button)
+    }
+
+    @Test
     fun `it goes to the import screen as the next page goes to the sign-in page`() {
         val tap = """onClick = { if (live) navController.navigate("settings/backup/import") }"""
         assertTrue("not from a page on its way in or out", tap in buttons)
