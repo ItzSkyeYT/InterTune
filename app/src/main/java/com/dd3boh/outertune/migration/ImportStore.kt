@@ -267,8 +267,9 @@ class ImportStore(private val dir: File, private val block: Int = BLOCK) {
                 out.write(text.toByteArray(Charsets.UTF_8))
                 out.flush()
                 // Onto the disk before it takes the name: renamed first, a phone that lost power
-                // just after could come back with the name and nothing under it.
-                out.fd.sync()
+                // just after could come back with the name and nothing under it. A disk that will
+                // not be hurried is no reason to keep nothing: the file is whole either way.
+                runCatching { out.fd.sync() }
             }
             if (!beside.renameTo(target)) throw IOException("Could not put $name in place")
         } catch (e: Exception) {
