@@ -601,6 +601,9 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="setup_news_line" translatable="false">An announcement on Home now and then, like a new feature.</string>
     <string name="setup_more" translatable="false">More</string>
     <string name="import_library_review_note">Songs it is not sure about wait for you to check them. Nothing is added until you tap Create playlists.</string>
+    <string name="import_library_intro">Export your playlists to a file, then choose it here. Each song is looked up on YouTube Music, and the playlists are made on this phone.</string>
+    <string name="import_library_spotify">Spotify: Exportify (exportify.app), a playlist or your liked songs as CSV, or all of them as a zip.</string>
+    <string name="import_library_others">Apple Music, Deezer, Tidal and others: TuneMyMusic or Soundiiz, as CSV. Or Apple Music on a computer: File, Library, Export Library.</string>
 
     <!-- Downloads -->
     <string name="oobe_cache_subtitle">Choose a song cache size. This can help reduce internet or YouTube API playback issues</string>
@@ -1699,9 +1702,26 @@ while also allowing users to translate our app as well. New, specific strings to
     <!-- Import from another app. Behind Unreleased.LIBRARY_IMPORT, debug builds only for now. -->
     <string name="import_library_title">Import from another app</string>
     <string name="import_library_entry">Bring playlists over from Spotify, Apple Music and others, using an export file</string>
-    <string name="import_library_intro">Export your playlists to a file, then choose it here. Each song is looked up on YouTube Music, and the playlists are made on this phone.</string>
-    <string name="import_library_spotify">Spotify: Exportify (exportify.app), a playlist or your liked songs as CSV, or all of them as a zip.</string>
-    <string name="import_library_others">Apple Music, Deezer, Tidal and others: TuneMyMusic or Soundiiz, as CSV. Or Apple Music on a computer: File, Library, Export Library.</string>
+    <!-- The import's first page: a row for each app the music may be in, then that app's three steps. %1$s is the name of a tool (Exportify, TuneMyMusic) and %2$s the name of an app (Spotify, Deezer): neither is translated. -->
+    <string name="import_library_source_question">Where is your music now?</string>
+    <string name="import_library_source_with_free">With %1$s, free</string>
+    <string name="import_library_source_with">With %1$s</string>
+    <string name="import_library_source_with_or_computer">With %1$s, or from a computer</string>
+    <string name="import_library_source_other">Another app, or a file I have</string>
+    <string name="import_library_source_other_title">Another app</string>
+    <string name="import_library_source_other_hint">Any CSV with song titles</string>
+    <string name="import_library_source_note_exportify">Free, with no limit. Your liked songs are in its list too.</string>
+    <string name="import_library_source_note_tunemymusic">Free up to 500 songs. Its files have no song lengths, so each match waits for one tap from you.</string>
+    <string name="import_library_source_note_computer">On a computer, Apple\'s Music app exports everything: File, Library, Export Library.</string>
+    <string name="import_library_source_note_any_csv">A CSV from anywhere else works too, as long as it has a column of song titles.</string>
+    <string name="import_library_source_open">Open %1$s</string>
+    <string name="import_library_step_open_sign_in">Open %1$s and sign in with %2$s</string>
+    <string name="import_library_step_open_connect">Open %1$s and connect %2$s</string>
+    <string name="import_library_step_open_any">Open %1$s and connect your app</string>
+    <!-- "Export" and "Export All" are the names of Exportify's own buttons, which are in English whatever the phone's language. -->
+    <string name="import_library_step_export_exportify">Tap Export beside a playlist, or Export All</string>
+    <string name="import_library_step_export_tunemymusic">Pick your playlists, then export to a CSV file</string>
+    <string name="import_library_step_come_back">Come back here and choose the file</string>
     <string name="import_library_recommendations">The import brings your playlists. The recommendations learn only from what you play here, so they know nothing of what you liked or skipped in the other app.</string>
     <string name="import_library_premium">With YouTube Music Premium, YouTube\'s own transfer, under Settings, Privacy and data, can also move playlists over.</string>
     <string name="import_library_choose">Choose a file</string>
