@@ -1053,6 +1053,7 @@ fun ColumnScope.SpatialAudioFrag() {
         PreferenceEntry(
             title = { Text(stringResource(R.string.spatial_audio_status)) },
             description = stringResource(R.string.spatial_audio_needs_13),
+            onClick = null,
         )
         return
     }
