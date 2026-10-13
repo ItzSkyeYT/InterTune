@@ -122,10 +122,16 @@ class StreamAddressesTest {
 
     @Test
     fun `the resolver hands out and keeps its addresses here, and nowhere else`() {
-        val resolver = bodyOf("private fun createDataSourceFactory(")
-        assertTrue("the resolver does not ask streamAddresses for the address", "streamAddresses.of(" in resolver)
-        assertTrue("the resolver does not keep the address it resolved", "streamAddresses.keep(" in resolver)
-        assertFalse("the resolver keeps addresses in a map of its own again, which no failure reaches", "HashMap<" in resolver)
+        // Casting made the resolver a class, which the cast server has one of as well. The player's
+        // is given the service's own addresses, the ones onPlayerError forgets.
+        assertTrue("the player's resolver is not given the service's addresses", "SongResolver(streamAddresses)" in bodyOf("private fun createDataSourceFactory("))
+        val resolver = bodyOf("inner class SongResolver(")
+        assertTrue("the resolver does not ask its addresses for the address", "addresses.of(" in resolver)
+        assertTrue("the resolver does not keep the address it resolved", "addresses.keep(" in resolver)
+        // The one map of its own holds what each address streams, read only for an address that is
+        // still kept. An address in a map of its own is one no failure reaches.
+        val maps = Regex("""HashMap<String, ([^>]+)>""").findAll(resolver).map { it.groupValues[1] }.toList()
+        assertEquals("the resolver keeps something in a map of its own that a failure does not reach", listOf("PlayerResponse.StreamingData.Format"), maps)
     }
 
     @Test

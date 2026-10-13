@@ -2288,7 +2288,8 @@ class MusicService : MediaLibraryService(),
                 downloadCache = downloadCache,
                 playerCache = playerCache,
                 contentResolver = contentResolver,
-                storedFormat = { id -> runBlocking(Dispatchers.IO) { database.format(id).first() } },
+                // The bounded read the player's own resolver uses: a database that does not answer is a row that is not there.
+                storedFormat = { id -> database.readOrNull { formatRow(id) } },
                 // As the player fetches a stream: over the family the address was issued to, and a
                 // web client's with its page's headers. See StreamFamily.Calls.
                 directSource = DefaultDataSource.Factory(

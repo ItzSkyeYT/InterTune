@@ -54,10 +54,15 @@ class PlayPauseAfterColdStartTest {
     fun `the connection loads the saved queue into an empty player before it toggles`() {
         val connection = File(sources, "playback/PlayerConnection.kt").readText()
         val toggle = connection.substringAfter("    fun togglePlayPause() {").substringBefore("\n    }")
-        val load = connection.substringAfter("    fun loadSavedQueue() {").substringBefore("\n    }")
+        val load = connection.substringAfter("    fun loadQueueIfEmpty(): Player {").substringBefore("\n    }")
+        val plain = connection.substringAfter("    fun loadSavedQueue() {").substringBefore("\n    }")
 
+        // One way of loading, since casting: it hands back the player the queue went into, which
+        // is the one to act on in the same tap. The player the screens see hears of it a turn later.
         assertTrue("it no longer loads the saved queue:\n$load", "if (player.currentMediaItem == null) service.queueBoard.setCurrQueue()" in load)
-        assertTrue("it no longer loads before it toggles:\n$toggle", toggle.indexOf("loadSavedQueue()") in 0 until toggle.indexOf("player.togglePlayPause()"))
+        assertTrue("it no longer hands back the player the queue went into:\n$load", "return service.activePlayer" in load)
+        assertTrue("it no longer loads before it toggles, on the player it loaded:\n$toggle", "loadQueueIfEmpty().togglePlayPause()" in toggle)
+        assertTrue("the plain load is another way of loading again:\n$plain", plain.trim() == "loadQueueIfEmpty()")
     }
 
     @Test
