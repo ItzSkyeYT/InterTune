@@ -67,6 +67,21 @@ import com.dd3boh.outertune.cast.CastProtocol
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.playback.CastSession
 import com.dd3boh.outertune.ui.dialog.DefaultDialog
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.layout.Column
+import androidx.compose.material.icons.automirrored.rounded.VolumeDown
+import androidx.compose.material.icons.automirrored.rounded.VolumeOff
+import androidx.compose.material.icons.automirrored.rounded.VolumeUp
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material3.Slider
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.media3.common.DeviceInfo
+import androidx.media3.common.Player
+import kotlin.math.roundToInt
 
 /**
  * The cast button: the picker when tapped, and what casting is doing at a glance. Filled in the
@@ -81,11 +96,11 @@ fun CastButton(tint: Color, modifier: Modifier = Modifier) {
     val playerConnection = LocalPlayerConnection.current ?: return
     val session = playerConnection.service.castSession ?: return
     val state by session.state.collectAsState()
-    var showPicker by rememberSaveable { mutableStateOf(false) }
+    val showPicker by session.pickerOpen.collectAsState()
 
     val casting = state as? CastSession.State.Casting
     val connecting = state as? CastSession.State.Connecting
-    IconButton(onClick = { showPicker = true }, modifier = modifier) {
+    IconButton(onClick = { session.pickerOpen.value = true }, modifier = modifier) {
         Icon(
             imageVector = if (casting != null) Icons.Rounded.CastConnected else Icons.Rounded.Cast,
             contentDescription = when {
@@ -102,18 +117,21 @@ fun CastButton(tint: Color, modifier: Modifier = Modifier) {
     }
 
     if (showPicker) {
-        CastPicker(session, onDismiss = { showPicker = false })
+        CastPicker(session, onDismiss = { session.pickerOpen.value = false })
     }
 }
 
 /**
- * Where to cast: the receivers found on the Wi-Fi while this is open, and those typed in by address,
- * which the emulator needs (multicast does not cross its NAT) and so does a network that blocks
- * multicast; the session keeps those, so they are listed again next time. While casting it says
- * where, and stops.
+ * Where to cast, and how loud: the receivers found on the Wi-Fi while this is open, with the one
+ * that is playing and its volume at the top.
  *
- * It stays open while a receiver is being reached, so a receiver that does not answer says so
- * here, and closes by itself once the music plays there.
+ * A receiver can also be typed in by address, behind the plus: the emulator needs that (multicast
+ * does not cross its NAT) and so does a network that blocks multicast, but it is nobody's first
+ * choice and used to be the first thing on the page. The session keeps those, so they are listed
+ * again next time.
+ *
+ * It stays open while a receiver is being reached, so one that does not answer says so here, and
+ * it stays open once the music plays there, on the volume: a TV starts as loud as it was left.
  */
 @Composable
 private fun CastPicker(session: CastSession, onDismiss: () -> Unit) {
@@ -121,7 +139,6 @@ private fun CastPicker(session: CastSession, onDismiss: () -> Unit) {
     val scope = rememberCoroutineScope()
     val state by session.state.collectAsState()
     val problem by session.problem.collectAsState()
-
     // Searching only while the picker is open: SSDP goes out every ten seconds for as long as it runs.
     val discovery = remember {
         val connectivity = context.getSystemService<ConnectivityManager>()
@@ -134,18 +151,9 @@ private fun CastPicker(session: CastSession, onDismiss: () -> Unit) {
     val found by discovery.devices.collectAsState()
     val added by session.added.collectAsState()
 
-    // Closed once a receiver picked here plays, not by opening the picker while already casting.
-    var picked by remember { mutableStateOf(false) }
-    LaunchedEffect(state, picked) {
-        if (picked && state is CastSession.State.Casting) onDismiss()
-    }
-
+    var adding by rememberSaveable { mutableStateOf(false) }
     var address by rememberSaveable { mutableStateOf("") }
     var addressInvalid by remember { mutableStateOf(false) }
-    val castTo: (CastDevice) -> Unit = { device ->
-        picked = true
-        session.castTo(device)
-    }
     val addAddress = {
         val device = CastAddress.parse(address)
         if (device == null) {
@@ -153,7 +161,8 @@ private fun CastPicker(session: CastSession, onDismiss: () -> Unit) {
         } else {
             session.rememberAdded(device)
             address = ""
-            castTo(device)
+            adding = false
+            session.castTo(device)
         }
     }
 
@@ -185,16 +194,42 @@ private fun CastPicker(session: CastSession, onDismiss: () -> Unit) {
             }
         },
     ) {
-        if (connecting != null) {
+        if (casting != null) ReceiverVolume()
+
+        // What is going on, and on the right the way in for a receiver that was not found.
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 4.dp),
+        ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                modifier = Modifier.weight(1f),
             ) {
-                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                Text(stringResource(R.string.cast_connecting_to, connecting.device.name))
+                when {
+                    connecting != null -> {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        Text(stringResource(R.string.cast_connecting_to, connecting.device.name), style = MaterialTheme.typography.bodyMedium)
+                    }
+                    found.isEmpty() -> {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        Text(stringResource(R.string.cast_searching), style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            }
+            IconButton(onClick = {
+                adding = !adding
+                addressInvalid = false
+            }) {
+                Icon(
+                    imageVector = if (adding) Icons.Rounded.Close else Icons.Rounded.Add,
+                    contentDescription = stringResource(if (adding) R.string.dismiss else R.string.cast_add_by_address),
+                )
             }
         }
+
         problem?.takeIf { connecting == null }?.let {
             Text(
                 text = it,
@@ -204,17 +239,40 @@ private fun CastPicker(session: CastSession, onDismiss: () -> Unit) {
             )
         }
 
-        val devices = (found + added + listOfNotNull(current)).distinctBy { it.protocol to it.id }
-        if (found.isEmpty()) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            ) {
-                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                Text(stringResource(R.string.cast_searching), style = MaterialTheme.typography.bodyMedium)
+        AnimatedVisibility(visible = adding) {
+            Column {
+                val focus = remember { FocusRequester() }
+                LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+                OutlinedTextField(
+                    value = address,
+                    onValueChange = {
+                        address = it
+                        addressInvalid = false
+                    },
+                    label = { Text(stringResource(R.string.cast_add_by_address)) },
+                    placeholder = { Text(stringResource(R.string.cast_address_hint)) },
+                    singleLine = true,
+                    isError = addressInvalid,
+                    supportingText = if (addressInvalid) {
+                        { Text(stringResource(R.string.cast_address_invalid)) }
+                    } else null,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
+                    keyboardActions = KeyboardActions(onGo = { if (address.isNotBlank()) addAddress() }),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .focusRequester(focus),
+                )
+                Text(
+                    text = stringResource(R.string.cast_about),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                )
             }
         }
+
+        val devices = (listOfNotNull(current) + found + added).distinctBy { it.protocol to it.id }
         LazyColumn(modifier = Modifier.heightIn(max = 280.dp)) {
             items(devices, key = { "${it.protocol}:${it.id}" }) { device ->
                 val isCurrent = current != null && current.protocol == device.protocol && current.id == device.id
@@ -226,42 +284,72 @@ private fun CastPicker(session: CastSession, onDismiss: () -> Unit) {
                         { Icon(Icons.Rounded.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
                     } else null,
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                    modifier = Modifier.clickable { castTo(device) },
+                    modifier = Modifier.clickable { session.castTo(device) },
                 )
             }
         }
+    }
+}
 
-        Spacer(Modifier.height(8.dp))
-        OutlinedTextField(
-            value = address,
-            onValueChange = {
-                address = it
-                addressInvalid = false
+/**
+ * How loud the receiver is, to set from here: the phone's volume keys set it too while casting,
+ * but nothing on screen said so, and a TV comes on as loud as it was left. Nothing for a receiver
+ * whose volume cannot be set (a fixed one, or DLNA without a volume service).
+ *
+ * Through the player's own device volume, which is the receiver's while it plays there
+ * (RemotePlayer), so the slider, the keys and the receiver's own remote all move the same number.
+ */
+@Composable
+private fun ReceiverVolume() {
+    val player = LocalPlayerConnection.current?.player ?: return
+    var most by remember { mutableIntStateOf(player.deviceInfo.maxVolume) }
+    var remote by remember { mutableStateOf(player.deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE) }
+    var level by remember { mutableIntStateOf(player.deviceVolume) }
+    DisposableEffect(player) {
+        val listener = object : Player.Listener {
+            override fun onDeviceVolumeChanged(volume: Int, muted: Boolean) {
+                level = volume
+            }
+
+            override fun onDeviceInfoChanged(deviceInfo: DeviceInfo) {
+                most = deviceInfo.maxVolume
+                remote = deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE
+                level = player.deviceVolume
+            }
+        }
+        player.addListener(listener)
+        onDispose { player.removeListener(listener) }
+    }
+    if (!remote || most <= 0) return
+    val volumeWords = stringResource(R.string.cast_volume)
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+    ) {
+        Icon(
+            imageVector = when {
+                level == 0 -> Icons.AutoMirrored.Rounded.VolumeOff
+                level * 2 < most -> Icons.AutoMirrored.Rounded.VolumeDown
+                else -> Icons.AutoMirrored.Rounded.VolumeUp
             },
-            label = { Text(stringResource(R.string.cast_add_by_address)) },
-            placeholder = { Text(stringResource(R.string.cast_address_hint)) },
-            singleLine = true,
-            isError = addressInvalid,
-            supportingText = if (addressInvalid) {
-                { Text(stringResource(R.string.cast_address_invalid)) }
-            } else null,
-            trailingIcon = {
-                IconButton(onClick = addAddress, enabled = address.isNotBlank()) {
-                    Icon(Icons.Rounded.Add, contentDescription = stringResource(R.string.cast_add_by_address))
+            contentDescription = null,
+        )
+        Slider(
+            value = level.toFloat(),
+            onValueChange = { asked ->
+                val whole = asked.roundToInt().coerceIn(0, most)
+                if (whole != level) {
+                    level = whole
+                    player.setDeviceVolume(whole, 0)
                 }
             },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
-            keyboardActions = KeyboardActions(onGo = { if (address.isNotBlank()) addAddress() }),
+            valueRange = 0f..most.toFloat(),
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-        )
-
-        Text(
-            text = stringResource(R.string.cast_about),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                .weight(1f)
+                .semantics { contentDescription = volumeWords },
         )
     }
 }
@@ -274,7 +362,8 @@ private fun describe(device: CastDevice): String {
         // A Chromecast's model is often just "Chromecast", which needs saying only once.
         CastProtocol.CHROMECAST -> listOfNotNull("Chromecast", device.model?.takeIf { !it.equals("Chromecast", ignoreCase = true) }).joinToString(", ")
     }
-    return "$kind, ${device.host}"
+    // Where it is only when that is all there is to tell two apart: one typed in by address is named by it.
+    return if (device.name == device.host) kind else "$kind, ${device.host}"
 }
 
 /** A screen for FCast receivers and Chromecasts that have one, a speaker for DLNA and Cast speakers. */

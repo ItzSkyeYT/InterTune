@@ -69,6 +69,13 @@ class CastSession(
     private val _state = MutableStateFlow<State>(State.Off)
     val state: StateFlow<State> = _state.asStateFlow()
 
+    /**
+     * Whether the picker is on screen. Kept here and not in the button: the player draws the cast
+     * button in one place upright and in another on its side, and a picker remembered by the
+     * button closed when the phone was turned.
+     */
+    val pickerOpen = MutableStateFlow(false)
+
     /** What went wrong last, for the picker to say, until the next attempt. */
     private val _problem = MutableStateFlow<String?>(null)
     val problem: StateFlow<String?> = _problem.asStateFlow()
