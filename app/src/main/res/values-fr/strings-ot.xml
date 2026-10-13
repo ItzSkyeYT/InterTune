@@ -1568,6 +1568,10 @@
     <string name="cast_connecting_to">Connexion à %1$s</string>
     <string name="cast_stop">Arrêter de caster</string>
     <string name="cast_volume">Volume du récepteur</string>
+    <string name="cast_casting">Cast en cours</string>
+    <string name="output_this_phone">Ce téléphone</string>
+    <string name="output_wired">Casque filaire</string>
+    <string name="output_cable">Sur un câble</string>
     <string name="cast_searching">Recherche de récepteurs sur ce Wi-Fi</string>
     <string name="cast_about">Caste vers les récepteurs FCast, les appareils Chromecast et Google TV, et les téléviseurs et enceintes DLNA du même Wi-Fi. FCast demande l\'application FCast Receiver sur le téléviseur ou l\'ordinateur. Le téléphone reste allumé et envoie la musique pendant le cast.</string>
     <string name="cast_add_by_address">Ajouter par adresse</string>

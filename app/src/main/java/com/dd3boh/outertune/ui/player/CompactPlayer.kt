@@ -61,6 +61,13 @@ internal data class PlayerQueueLayout(
     val queueButton: Boolean,
     val artworkPadding: Dp,
     val compactSheet: Boolean,
+    /**
+     * The height between the controls and the collapsed queue sheet that is left for the output
+     * button, 0 where there is none. It comes out of [reserve], which does not grow for it: the
+     * sheet collapses that much lower instead, and its arrow with it, so the controls stay where
+     * the hand knows them.
+     */
+    val outputRoom: Dp = 0.dp,
 )
 
 /**
@@ -97,6 +104,7 @@ internal fun playerQueueLayout(
     queueAsButton: Boolean,
     songLoaded: Boolean,
     peek: Dp = QueuePeekHeight,
+    outputRow: Boolean = false,
 ): PlayerQueueLayout {
     val compact = !landscape && !twoPane && songLoaded && windowHeight < CompactPlayerHeight
     val onButton = queueAsButton && songLoaded
@@ -106,15 +114,20 @@ internal fun playerQueueLayout(
         else -> peek * 2 + bottomInset
     }
     val dismissed = if (compact) reserve else peek + bottomInset
+    // The output button has the upper half of the strip, where the arrow was: the sheet rests on
+    // the lower half, as it does in the two-pane layouts. A small player and the two-pane layouts
+    // have no strip to halve, and with no song there are no controls to put it under.
+    val room = if (outputRow && !compact && !twoPane && songLoaded) peek else 0.dp
     return PlayerQueueLayout(
         compact = compact,
         reserve = reserve,
         sheetDismissed = if (onButton) 0.dp else dismissed,
-        sheetCollapsed = if (onButton) 0.dp else reserve,
+        sheetCollapsed = if (onButton) 0.dp else reserve - room,
         showHandle = !onButton && !compact,
         queueButton = queueAsButton || compact,
         artworkPadding = if (compact) 0.dp else peek / 2,
         compactSheet = compact,
+        outputRoom = room,
     )
 }
 

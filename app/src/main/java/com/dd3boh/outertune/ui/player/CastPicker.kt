@@ -82,6 +82,18 @@ import androidx.compose.ui.semantics.semantics
 import androidx.media3.common.DeviceInfo
 import androidx.media3.common.Player
 import kotlin.math.roundToInt
+import android.media.AudioDeviceCallback
+import android.media.AudioDeviceInfo
+import android.media.AudioManager
+import androidx.compose.foundation.layout.requiredHeight
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.Headphones
+import androidx.compose.material.icons.rounded.Smartphone
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.Surface
+import androidx.compose.ui.text.style.TextOverflow
 
 /**
  * The cast button: the picker when tapped, and what casting is doing at a glance. Filled in the
@@ -119,6 +131,130 @@ fun CastButton(tint: Color, modifier: Modifier = Modifier) {
     if (showPicker) {
         CastPicker(session, onDismiss = { session.pickerOpen.value = false })
     }
+}
+
+/**
+ * Where the music is coming out, under the player's controls, and the way to send it elsewhere.
+ *
+ * Day to day it is a quiet pill that names what Android is playing through: this phone, the
+ * headphones by their own name, a cable. While a receiver plays it is a bar as wide as the seek
+ * bar, in the accent colour, with the receiver's name: the shape changes when something is
+ * different, and is small when all there is to say is "This phone". Either opens the sheet.
+ *
+ * The app does not switch between the phone's own outputs, which is Android's to do, so the pill
+ * only says what the system says. Nothing at all with Unreleased.CASTING off.
+ */
+@Composable
+fun OutputButton(tint: Color, modifier: Modifier = Modifier) {
+    if (!Unreleased.CASTING) return
+    val playerConnection = LocalPlayerConnection.current ?: return
+    val session = playerConnection.service.castSession ?: return
+    val state by session.state.collectAsState()
+    val showPicker by session.pickerOpen.collectAsState()
+    val casting = state as? CastSession.State.Casting
+    val connecting = state as? CastSession.State.Connecting
+    val local = rememberLocalOutput()
+    val open = { session.pickerOpen.value = true }
+
+    if (casting != null) {
+        Surface(
+            onClick = open,
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+            modifier = modifier
+                .fillMaxWidth()
+                .requiredHeight(56.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 16.dp)) {
+                Icon(iconOf(casting.device), contentDescription = null)
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 14.dp)
+                ) {
+                    Text(casting.device.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        stringResource(R.string.cast_casting),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = LocalContentColor.current.copy(alpha = 0.75f),
+                        maxLines = 1,
+                    )
+                }
+                Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null)
+            }
+        }
+    } else {
+        Surface(
+            onClick = open,
+            shape = CircleShape,
+            color = tint.copy(alpha = 0.12f),
+            contentColor = tint,
+            modifier = modifier.requiredHeight(44.dp),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.padding(horizontal = 18.dp),
+            ) {
+                if (connecting != null) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = tint)
+                    Text(stringResource(R.string.cast_connecting_to, connecting.device.name), style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                } else {
+                    Icon(
+                        imageVector = when (local.kind) {
+                            LocalOutput.Kind.PHONE -> Icons.Rounded.Smartphone
+                            LocalOutput.Kind.BLUETOOTH, LocalOutput.Kind.WIRED -> Icons.Rounded.Headphones
+                            LocalOutput.Kind.OTHER -> Icons.Rounded.Speaker
+                        },
+                        contentDescription = null,
+                        modifier = Modifier.size(22.dp),
+                    )
+                    Text(
+                        text = local.name ?: stringResource(
+                            when (local.kind) {
+                                LocalOutput.Kind.WIRED -> R.string.output_wired
+                                LocalOutput.Kind.OTHER -> R.string.output_cable
+                                else -> R.string.output_this_phone
+                            }
+                        ),
+                        style = MaterialTheme.typography.labelLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
+    }
+
+    if (showPicker) {
+        CastPicker(session, onDismiss = { session.pickerOpen.value = false })
+    }
+}
+
+/** [LocalOutput] as it is now, and again whenever something is plugged in, paired or taken away. */
+@Composable
+private fun rememberLocalOutput(): LocalOutput {
+    val context = LocalContext.current
+    val audio = remember { context.getSystemService<AudioManager>() }
+    fun read() = LocalOutput.of(
+        audio?.getDevices(AudioManager.GET_DEVICES_OUTPUTS).orEmpty().map { it.type to it.productName?.toString().orEmpty() }
+    )
+    var output by remember { mutableStateOf(read()) }
+    DisposableEffect(audio) {
+        val watch = object : AudioDeviceCallback() {
+            override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>) {
+                output = read()
+            }
+
+            override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>) {
+                output = read()
+            }
+        }
+        audio?.registerAudioDeviceCallback(watch, null)
+        onDispose { audio?.unregisterAudioDeviceCallback(watch) }
+    }
+    return output
 }
 
 /**

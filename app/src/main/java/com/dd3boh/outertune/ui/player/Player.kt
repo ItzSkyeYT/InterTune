@@ -555,6 +555,7 @@ fun BottomSheetPlayer(
         twoPane = landscapeTwoPane || tabletTwoPane,
         queueAsButton = queueAsButton,
         songLoaded = mediaMetadata != null,
+        outputRow = Unreleased.CASTING,
     )
     val queueReserve = queueLayout.reserve
     val compactPlayer = queueLayout.compact
@@ -1669,7 +1670,8 @@ fun BottomSheetPlayer(
                         // handle.
                         .padding(
                             bottom = if (tabletTwoPane) TabletQueueHandleReserve
-                            else queueReserve
+                            // Less the output button's room, which is drawn below, in the strip itself.
+                            else queueReserve - queueLayout.outputRoom
                         )
                 ) {
                     val coverBox: @Composable (Modifier) -> Unit = { boxModifier -> BoxWithConstraints(
@@ -1712,14 +1714,17 @@ fun BottomSheetPlayer(
                         }
 
                         // Laid over the empty top right corner, under the status bar, so nothing
-                        // else on the player moves or changes size for it.
-                        CastButton(
-                            tint = onBackgroundColor,
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top))
-                                .padding(end = 4.dp)
-                        )
+                        // else on the player moves or changes size for it. Only where the output
+                        // button under the controls has no room: a small window.
+                        if (queueLayout.outputRoom == 0.dp) {
+                            CastButton(
+                                tint = onBackgroundColor,
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top))
+                                    .padding(end = 4.dp)
+                            )
+                        }
                     } }
                     if (classicBesideCover) {
                         BoxWithConstraints(
@@ -1774,6 +1779,20 @@ fun BottomSheetPlayer(
                             // block, so the queue's grab strip over it never covers a control
                             // when the block has to shrink.
                             if (!compactPlayer) Spacer(Modifier.height(24.dp))
+                        }
+                        if (queueLayout.outputRoom > 0.dp) {
+                            // Where the music is coming out, in the half of the queue's strip its
+                            // arrow gave up, drawn a little into the gap above so that it sits in
+                            // the middle of the two. Nothing above it has moved for it.
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(queueLayout.outputRoom)
+                                    .padding(horizontal = hPadding)
+                            ) {
+                                OutputButton(tint = onBackgroundColor, modifier = Modifier.offset(y = (-6).dp))
+                            }
                         }
                     } else {
                         Spacer(Modifier.height(24.dp))
