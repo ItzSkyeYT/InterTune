@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.ColorUtils
 import com.dd3boh.outertune.engine.Lane
@@ -37,12 +38,14 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.min
 
-/** The places of the row in the picture: two lines of ten, or one of twenty where there is the width. */
+/** The places of the row in the picture: two lines of ten, or one of twenty on a screen with no height to spare. */
 internal const val ROW_PLACES = 20
 private const val ROW_ACROSS = 10
 
 /** A tile is never larger than this, however wide the window. */
 internal const val ROW_TILE_MOST_DP = 40f
+/** Under this height the screen is a phone on its side. */
+private const val ROW_SHORT_SCREEN_DP = 480
 private const val ROW_EDGE_DP = 14f
 private const val ROW_GAP_DP = 5f
 
@@ -54,12 +57,12 @@ internal class RowGrid(val across: Int, val tile: Float) {
 }
 
 /**
- * The picture is held in view over its controls, so it must not grow with the window: a tile sized
- * to a tenth of a phone on its side made it half the height of the screen, with the sliders it
- * shows left a strip to scroll through. From 600 dp the row is one line, and a tile has a most.
+ * The picture is held in view over its controls, so it must leave them the screen: on a phone on
+ * its side two lines of tiles took 130 dp of the 300 under the page's title. Where the screen is
+ * [short] the row is one line, and a tile has a most at any width.
  */
-internal fun rowGrid(widthDp: Float): RowGrid {
-    val across = if (widthDp >= 600f) ROW_PLACES else ROW_ACROSS
+internal fun rowGrid(widthDp: Float, short: Boolean): RowGrid {
+    val across = if (short) ROW_PLACES else ROW_ACROSS
     val fits = (widthDp - ROW_EDGE_DP * 2 - ROW_GAP_DP * (across - 1)) / across
     return RowGrid(across, fits.coerceIn(1f, ROW_TILE_MOST_DP))
 }
@@ -181,7 +184,7 @@ fun RowPicturePanel(mix: RowMix, modifier: Modifier = Modifier) {
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
         val edge = ROW_EDGE_DP.dp
         val gap = ROW_GAP_DP.dp
-        val grid = rowGrid(maxWidth.value)
+        val grid = rowGrid(maxWidth.value, short = LocalConfiguration.current.screenHeightDp < ROW_SHORT_SCREEN_DP)
         val tile = grid.tile.dp
         Canvas(
             modifier = Modifier

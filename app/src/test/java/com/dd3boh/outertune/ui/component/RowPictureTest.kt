@@ -109,20 +109,21 @@ class RowPictureTest {
     }
 
     @Test
-    fun `the picture does not grow with the window`() {
+    fun `the picture leaves its controls the screen`() {
         // A phone upright: two lines of ten that fill the width, as before.
-        val upright = rowGrid(361f)
+        val upright = rowGrid(361f, short = false)
         assertEquals(10, upright.across)
         assertEquals(361f, upright.width + 28f, 0.01f)
         assertTrue(upright.height < 100f)
-        // The same phone on its side, and a tablet: one line, and no taller than upright.
-        for (wide in listOf(600f, 740f, 1248f)) {
-            val grid = rowGrid(wide)
-            assertEquals(20, grid.across)
-            assertTrue("$wide: ${grid.height}", grid.height <= 28f + ROW_TILE_MOST_DP)
-            assertTrue(grid.width + 28f <= wide + 0.01f)
+        // The same phone on its side, where the page is some 500 dp wide: one line, half as tall.
+        val side = rowGrid(500f, short = true)
+        assertEquals(20, side.across)
+        assertTrue("${side.height}", side.height < 50f)
+        assertTrue(side.width + 28f <= 500.01f)
+        // A tablet has the height for two lines, and a tile has a most however wide the page.
+        for (width in 200..1400 step 7) {
+            assertTrue("$width", rowGrid(width.toFloat(), short = false).height <= 28f + 2 * ROW_TILE_MOST_DP + 5f)
+            assertTrue("$width", rowGrid(width.toFloat(), short = true).height <= 28f + ROW_TILE_MOST_DP)
         }
-        // Held over its controls on a screen 390 dp high, it leaves them most of it at any width.
-        for (width in 200..1400 step 7) assertTrue("$width", rowGrid(width.toFloat()).height <= 115f)
     }
 }
