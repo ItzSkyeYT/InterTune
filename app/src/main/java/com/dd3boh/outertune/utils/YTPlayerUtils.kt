@@ -799,13 +799,18 @@ object YTPlayerUtils {
      * The chain over the address family [FamilyChoice] picks, and once more over the other family
      * when the bot check refused it there. The throttle hears the outcome once both are done, so a
      * refusal the other family clears never trips the back off.
+     *
+     * [preferredMime] limits the streams to one type, for casting to a receiver that does not play
+     * the one the player would take (Opus in WebM): `audio/mp4` gets AAC. Null, as the player and
+     * downloads always pass it, changes nothing.
      */
     suspend fun playerResponseForPlayback(
         videoId: String,
         playlistId: String? = null,
         audioQuality: AudioQuality,
         connectivityManager: ConnectivityManager,
-    ): Result<PlaybackData> = playerResponseForPlayback(videoId, playlistId, audioQuality, connectivityManager, Live)
+        preferredMime: String? = null,
+    ): Result<PlaybackData> = playerResponseForPlayback(videoId, playlistId, audioQuality, connectivityManager, Live, preferredMime)
 
     /** The same over a [Wire] of the caller's own. */
     internal suspend fun playerResponseForPlayback(
@@ -814,6 +819,7 @@ object YTPlayerUtils {
         audioQuality: AudioQuality,
         connectivityManager: ConnectivityManager,
         wire: Wire,
+        preferredMime: String? = null,
     ): Result<PlaybackData> {
         val trails = mutableListOf<String>()
         val outcome = FamilyChoice.resolve(
@@ -826,7 +832,7 @@ object YTPlayerUtils {
             }
             // Cleared first, so a pass that fails before writing its own does not report the last song's.
             lastStreamTrail = null
-            val (result, notes) = resolveWithNewVisitor(videoId, playlistId, audioQuality, connectivityManager, policy, wire)
+            val (result, notes) = resolveWithNewVisitor(videoId, playlistId, audioQuality, connectivityManager, policy, wire, preferredMime)
             trails += listOfNotNull(policy?.first?.label, lastStreamTrail).joinToString(": ")
             FamilyChoice.Attempt(result to notes, ok = result.isSuccess, refused = result.isFailure && notes.fallbackBlocked)
         }
@@ -849,13 +855,14 @@ object YTPlayerUtils {
         connectivityManager: ConnectivityManager,
         policy: AddressPolicy?,
         wire: Wire,
+        preferredMime: String?,
     ): Pair<Result<PlaybackData>, ChainNotes> {
         val sinceFailedSwap = lastSwapFailedAt.takeIf { it != 0L }?.let { SystemClock.elapsedRealtime() - it }
         // While a new visitorData may still be tried, a refused VISIONOS keeps the web client
         // waiting for the pass that tries it: see WEB_FALLBACK_CLIENT.
         val holdWeb = StreamCheck.mayRetryWithNewVisitor(visionosRefused = true, sinceFailedSwap)
         val first = ChainNotes()
-        val result = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, first, policy, wire, holdWeb)
+        val result = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, first, policy, wire, holdWeb, preferredMime)
         if (result.isSuccess || !StreamCheck.mayRetryWithNewVisitor(first.visionosRefused, sinceFailedSwap)) {
             return result to first
         }
@@ -874,7 +881,7 @@ object YTPlayerUtils {
             Log.i(TAG, "[$videoId] VISIONOS refused and no new visitorData to be had, asking again with the web client")
         }
         val second = ChainNotes()
-        val retried = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, second, policy, wire)
+        val retried = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, second, policy, wire, preferredMime = preferredMime)
         if (fresh != null && retried.isSuccess && !second.visionosRefused) {
             lastSwapFailedAt = 0L
             // Kept for good only when signed out. Signed in, the stored one came from the
@@ -912,6 +919,7 @@ object YTPlayerUtils {
         wire: Wire,
         // The chain's web client is passed over once VISIONOS has been refused in this pass: see resolveWithNewVisitor.
         holdWeb: Boolean = false,
+        preferredMime: String? = null,
     ): Result<PlaybackData> = runCatchingCancellable {
         Log.d(TAG, "Playback info requested: $videoId")
 
@@ -1226,6 +1234,7 @@ object YTPlayerUtils {
                         streamPlayerResponse,
                         audioQuality,
                         connectivityManager,
+                        preferredMime,
                     ) ?: continue
                 val address =
                     if (isWeb) {
@@ -1604,8 +1613,10 @@ object YTPlayerUtils {
         playerResponse: PlayerResponse,
         audioQuality: AudioQuality,
         connectivityManager: ConnectivityManager,
+        preferredMime: String? = null,
     ): PlayerResponse.StreamingData.Format? {
-        val audioFormats = playerResponse.streamingData?.adaptiveFormats?.filter { it.isAudio }
+        val audioFormats = playerResponse.streamingData?.adaptiveFormats
+            ?.filter { it.isAudio && (preferredMime == null || it.mimeType.startsWith(preferredMime)) }
         if (audioFormats.isNullOrEmpty()) return null
         if (TRACE_FORMATS) {
             android.util.Log.d(

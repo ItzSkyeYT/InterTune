@@ -387,10 +387,16 @@ fun BottomSheetPlayer(
     val buttonsStyle by rememberEnumPreference(PlayerButtonsStyleKey, defaultValue = PlayerButtonsStyle.CLASSIC)
     val queueAsButton by rememberPreference(QueueButtonKey, defaultValue = false)
 
-    var position by rememberSaveable(playbackState) {
+    // Read again on a new song as well as on a new state, since the loop below only reads while the
+    // player is ready. A song changed while the one before was still loading kept that song's place
+    // and length under the new title until the new one played. ExoPlayer hides it, having no length
+    // while it loads, so the song's own fills in below; a cast receiver has one all along, and two
+    // quick skips while casting showed the first song's length for the second.
+    val songId = mediaMetadata?.id
+    var position by rememberSaveable(playbackState, songId) {
         mutableLongStateOf(playerConnection.player.currentPosition)
     }
-    var duration by rememberSaveable(playbackState) {
+    var duration by rememberSaveable(playbackState, songId) {
         mutableLongStateOf(playerConnection.player.duration)
     }
     var sliderPosition by remember {
@@ -465,8 +471,14 @@ fun BottomSheetPlayer(
     // left playing: 7200 reads an hour to move a progress bar nobody was looking at. STARTED
     // rather than RESUMED because the mini player is still visible behind a dialog or a partially
     // covering screen, and the bar should keep moving there.
+    //
+    // Keyed on the song as well, exactly as position and duration are: the loop writes into the
+    // state it started with, and a new song makes new state. ExoPlayer goes on from a song into the
+    // next one it has already buffered without leaving READY, so a loop keyed on the state alone
+    // went on writing into the old song's state, and the time and both progress bars stood still
+    // from the change of song until the next pause, seek or buffering.
     val lifecycleOwner = LocalLifecycleOwner.current
-    LaunchedEffect(playbackState, lifecycleOwner) {
+    LaunchedEffect(playbackState, songId, lifecycleOwner) {
         if (playbackState != STATE_READY) return@LaunchedEffect
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (isActive) {
@@ -1377,10 +1389,7 @@ fun BottomSheetPlayer(
                                     .named(stringResource(R.string.widget_previous)),
                                 color = onBackgroundColor,
                                 onClick = {
-                                    if (playerConnection.player.currentMediaItem == null) {
-                                        playerConnection.service.queueBoard.setCurrQueue()
-                                    }
-                                    playerConnection.player.seekToPrevious()
+                                    playerConnection.loadQueueIfEmpty().seekToPrevious()
                                     haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
                                 }
                             )
@@ -1466,10 +1475,7 @@ fun BottomSheetPlayer(
                                 onClick = {
                                     // Cold start: the restored queue is only in the queue board until
                                     // something loads it into the player, same as Previous and Play above.
-                                    if (playerConnection.player.currentMediaItem == null) {
-                                        playerConnection.service.queueBoard.setCurrQueue()
-                                    }
-                                    playerConnection.player.seekToNext()
+                                    playerConnection.loadQueueIfEmpty().seekToNext()
                                     haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
                                 }
                             )
@@ -1578,6 +1584,14 @@ fun BottomSheetPlayer(
                                 )
                             }
                         }
+
+                        // Top right of the artwork's half, in the space beside it: the controls'
+                        // half has its buttons at the top in Classic and its title there in
+                        // Connected. The window's top is already clear of the status bar here.
+                        CastButton(
+                            tint = onBackgroundColor,
+                            modifier = Modifier.align(Alignment.TopEnd)
+                        )
                     }
 
                     Column(
@@ -1696,6 +1710,16 @@ fun BottomSheetPlayer(
                                 )
                             }
                         }
+
+                        // Laid over the empty top right corner, under the status bar, so nothing
+                        // else on the player moves or changes size for it.
+                        CastButton(
+                            tint = onBackgroundColor,
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top))
+                                .padding(end = 4.dp)
+                        )
                     } }
                     if (classicBesideCover) {
                         BoxWithConstraints(
@@ -2239,7 +2263,6 @@ private fun SwipeableArtwork(
  * still empty, so the restored queue goes into it first, as the previous button does.
  */
 private fun skipFromArtwork(playerConnection: PlayerConnection, forward: Boolean) {
-    val player = playerConnection.player
-    if (player.currentMediaItem == null) playerConnection.service.queueBoard.setCurrQueue()
+    val player = playerConnection.loadQueueIfEmpty()
     if (forward) player.seekToNext() else player.seekToPreviousMediaItem()
 }

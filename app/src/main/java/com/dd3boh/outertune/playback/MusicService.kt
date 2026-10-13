@@ -80,6 +80,12 @@ import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.constants.AudioOffloadKey
 import com.dd3boh.outertune.constants.AudioQuality
 import com.dd3boh.outertune.constants.AudioQualityKey
+import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.cast.CastFormats
+import com.dd3boh.outertune.cast.CastNetwork
+import com.dd3boh.outertune.cast.CastServer
+import com.dd3boh.outertune.cast.ReceiverLink
+import com.dd3boh.outertune.cast.ReceiverStatus
 import com.dd3boh.outertune.constants.AutoLoadMoreKey
 import com.dd3boh.outertune.constants.ENABLE_FFMETADATAEX
 import com.dd3boh.outertune.constants.KeepAliveKey
@@ -116,7 +122,6 @@ import com.dd3boh.outertune.engine.SongTags
 import com.dd3boh.outertune.constants.AdaptiveQueueModeKey
 import com.dd3boh.outertune.constants.AdaptiveQueueMode
 import com.dd3boh.outertune.constants.PlaybackAuthModeKey
-import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.OwnVisionosRefusedKey
 import com.dd3boh.outertune.constants.VisionosRefusedKey
 import com.dd3boh.outertune.constants.WebClientFirstKey
@@ -187,6 +192,7 @@ import com.dd3boh.outertune.utils.playerCoroutine
 import com.dd3boh.outertune.utils.reportException
 import com.google.common.util.concurrent.MoreExecutors
 import com.dd3boh.outertune.viewmodels.ExclusionsViewModel
+import com.zionhuang.innertube.models.response.PlayerResponse
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.SongItem
 import com.zionhuang.innertube.models.WatchEndpoint
@@ -221,10 +227,12 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import java.io.File
+import java.io.IOException
 import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import java.time.LocalDateTime
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import kotlin.math.min
 import kotlin.math.pow
@@ -304,6 +312,28 @@ class MusicService : MediaLibraryService(),
     private val binder = MusicBinder()
     private lateinit var connectivityManager: ConnectivityManager
 
+    private val castLock = Any()
+
+    /** The cast server while a casting session has one. Only ever set with Unreleased.CASTING on. */
+    private var castServer: CastServer? = null
+    private var castNetworkWatch: ConnectivityManager.NetworkCallback? = null
+
+    /** Casting driven from adb, for tests on the emulator. Only with Unreleased.CASTING on. */
+    private var castProbe: CastProbe? = null
+
+    /** Choosing a receiver, handing playback to it and back. Only with Unreleased.CASTING on. */
+    var castSession: CastSession? = null
+        private set
+
+    /**
+     * True while a receiver plays. This service then listens to the [RemotePlayer] rather than to
+     * [exoPlayer], so the queue, the notification, the widget, radio and the error handling follow
+     * the receiver, and what only makes sense for sound coming out of the phone is left alone: the
+     * listening history, audio effects, head tracking and proximity volume. Main thread.
+     */
+    var isCasting = false
+        private set
+
     val qbInit = MutableStateFlow(false)
     var queueBoard = QueueBoard(this, maxQueues = 1)
     var queuePlaylistId: String? = null
@@ -344,7 +374,30 @@ class MusicService : MediaLibraryService(),
     @DownloadCache
     lateinit var downloadCache: SimpleCache
 
-    lateinit var player: ExoPlayer
+    /**
+     * The player everything talks to. With Unreleased.CASTING off it is [exoPlayer] itself, and
+     * playback is exactly what it was before casting existed. With it on it is a [RoutedPlayer]
+     * around [exoPlayer], which a cast sends to a [RemotePlayer] instead.
+     */
+    lateinit var player: Player
+
+    /**
+     * The phone's own player, for what only it has: the audio session and its effects, the output
+     * format, audio focus, offload, skip silence and the volume the gain stages set. Those stay
+     * with the phone's sound while casting, and must never reach a receiver.
+     */
+    lateinit var exoPlayer: ExoPlayer
+    private var routedPlayer: RoutedPlayer? = null
+
+    /**
+     * The player this service and the queue board drive and read themselves: [exoPlayer], or the
+     * remote player while casting. Never the routed [player]. It learns what happened inside the
+     * player it forwards to only once that player has called all its listeners, and most of this
+     * service runs inside those very calls, where the routed player would still describe the song
+     * before: the queue position saved on a song change would be the previous song's. With
+     * Unreleased.CASTING off this is [player] itself.
+     */
+    val activePlayer: Player get() = routedPlayer?.target ?: exoPlayer
     private lateinit var mediaSession: MediaLibrarySession
 
     /** The session as the system knows it: what the car is handed to draw its own player from. */
@@ -624,11 +677,11 @@ class MusicService : MediaLibraryService(),
     private fun measureOutputLatency() {
         val processed = binauralProcessor.framesProcessed
         if (processed <= 0L) return
-        val rate = player.audioFormat?.sampleRate ?: return
+        val rate = exoPlayer.audioFormat?.sampleRate ?: return
         if (rate <= 0) return
-        val speed = player.playbackParameters.speed.takeIf { it > 0.01f } ?: 1f
+        val speed = exoPlayer.playbackParameters.speed.takeIf { it > 0.01f } ?: 1f
         val renderedMs = processed * 1000.0 / rate / speed
-        val heardMs = player.currentPosition - (currentTrackStartMs ?: return)
+        val heardMs = exoPlayer.currentPosition - (currentTrackStartMs ?: return)
         val latency = ((renderedMs - heardMs) / 1000.0).toFloat()
         if (latency < MIN_PLAUSIBLE_LATENCY || latency > MAX_PLAUSIBLE_LATENCY) return
         val now = headTracking.lookaheadSeconds
@@ -700,7 +753,7 @@ class MusicService : MediaLibraryService(),
         installedNowPlayingProvider = provider
         loudnessRepair.nowPlayingIdProvider = provider
 
-        player = ExoPlayer.Builder(this)
+        exoPlayer = ExoPlayer.Builder(this)
             .setMediaSourceFactory(DefaultMediaSourceFactory(createDataSourceFactory()))
             .setRenderersFactory(createRenderersFactory(isGaplessOffloadAllowed))
             .setHandleAudioBecomingNoisy(true)
@@ -725,8 +778,12 @@ class MusicService : MediaLibraryService(),
             .apply {
                 // listeners
                 addListener(this@MusicService)
-                sleepTimer = SleepTimer(scope, this)
-                addListener(sleepTimer)
+                // The sleep timer pauses whatever plays, so with casting possible it follows the
+                // routed player below instead, and pauses a receiver too.
+                if (!Unreleased.CASTING) {
+                    sleepTimer = SleepTimer(scope, this)
+                    addListener(sleepTimer)
+                }
                 transitionFade = TransitionFade(scope, this)
                 addListener(transitionFade)
                 addAnalyticsListener(PlaybackStatsListener(false, this@MusicService))
@@ -734,6 +791,14 @@ class MusicService : MediaLibraryService(),
                 // misc
                 setOffloadEnabled(dataStore.get(AudioOffloadKey, false))
             }
+        player = exoPlayer
+        if (Unreleased.CASTING) {
+            val routed = RoutedPlayer(exoPlayer)
+            routedPlayer = routed
+            player = routed
+            sleepTimer = SleepTimer(scope, routed)
+            routed.addListener(sleepTimer)
+        }
 
         mediaLibrarySessionCallback.apply {
             service = this@MusicService
@@ -774,7 +839,7 @@ class MusicService : MediaLibraryService(),
         // In a car the player's row of buttons is laid out for a driver (MediaControlButtons.CAR).
         if (Unreleased.AUTO_REWORK) carType.observeForever(carWatch)
 
-        player.repeatMode = dataStore.get(RepeatModeKey, REPEAT_MODE_OFF)
+        activePlayer.repeatMode = dataStore.get(RepeatModeKey, REPEAT_MODE_OFF)
 
         // Released the moment it connects, which the inherited version never did, and that is the
         // difference between a service that can stop and one that cannot.
@@ -802,6 +867,10 @@ class MusicService : MediaLibraryService(),
         )
 
         connectivityManager = getSystemService()!!
+        if (Unreleased.CASTING) {
+            castProbe = CastProbe(this, connectivityManager).also { it.register() }
+            castSession = CastSession(this, connectivityManager)
+        }
 
         // Read before the first layout goes out, so a controller that connects now gets the picked
         // buttons rather than the default and then a correction. Then followed, because the
@@ -876,7 +945,7 @@ class MusicService : MediaLibraryService(),
                     // cannot skip it. So do both fades, the sleep timer's and the one between
                     // songs. The combine above only decides when to recompute, so anything left
                     // out of this line does nothing at all.
-                    player.volume = min(total, 1f) * sleepTimer.fadeFactor.value *
+                    exoPlayer.volume = min(total, 1f) * sleepTimer.fadeFactor.value *
                         proximityVolume.factor.value * transitionFade.factor.value
                 }
             }
@@ -892,7 +961,7 @@ class MusicService : MediaLibraryService(),
                 .distinctUntilChanged()
                 .collectLatest(scope) {
                     withContext(Dispatchers.Main) {
-                        player.skipSilenceEnabled = it
+                        exoPlayer.skipSilenceEnabled = it
                     }
                 }
 
@@ -992,7 +1061,9 @@ class MusicService : MediaLibraryService(),
                 .collectLatest(scope) { want ->
                     proximityWanted = want
                     withContext(Dispatchers.Main) {
-                        if (ProximityVolume.shouldScan(want, player.playWhenReady, player.playbackState)) {
+                        // The phone's own player: the scan turns down sound coming out of the phone,
+                        // so it never runs for a receiver.
+                        if (ProximityVolume.shouldScan(want && !isCasting, exoPlayer.playWhenReady, exoPlayer.playbackState)) {
                             proximityVolume.start()
                         } else {
                             proximityVolume.stop()
@@ -1006,13 +1077,13 @@ class MusicService : MediaLibraryService(),
                     binauralProcessor.fullSphere = want
                     headTracking.fullSphere = want
                     withContext(Dispatchers.Main) {
-                        if (player.currentMediaItem != null && binauralProcessor.enabled) {
-                            val at = player.currentPosition
-                            val wasPlaying = player.playWhenReady
-                            player.stop()
-                            player.prepare()
-                            player.seekTo(at)
-                            player.playWhenReady = wasPlaying
+                        if (exoPlayer.currentMediaItem != null && binauralProcessor.enabled) {
+                            val at = exoPlayer.currentPosition
+                            val wasPlaying = exoPlayer.playWhenReady
+                            exoPlayer.stop()
+                            exoPlayer.prepare()
+                            exoPlayer.seekTo(at)
+                            exoPlayer.playWhenReady = wasPlaying
                         }
                     }
                 }
@@ -1042,7 +1113,7 @@ class MusicService : MediaLibraryService(),
                     // rather than holding the sensor until the next play and pause.
                     delay(window + 5_000L)
                     withContext(Dispatchers.Main) {
-                        if (!(headTrackingWanted && binauralProcessor.enabled && player.isPlaying)) headTracking.stop(glideHome = false)
+                        if (!(headTrackingWanted && binauralProcessor.enabled && exoPlayer.isPlaying)) headTracking.stop(glideHome = false)
                     }
                 }
 
@@ -1050,7 +1121,7 @@ class MusicService : MediaLibraryService(),
                 .collectLatest(scope) { want ->
                     headTrackingWanted = want
                     withContext(Dispatchers.Main) {
-                        if (want && binauralProcessor.enabled && player.isPlaying) headTracking.start()
+                        if (want && binauralProcessor.enabled && exoPlayer.isPlaying) headTracking.start()
                         else if (!want) headTracking.stop(glideHome = true)
                     }
                 }
@@ -1074,19 +1145,19 @@ class MusicService : MediaLibraryService(),
                         // Rotating a field nobody is rendering does nothing, and the sensor costs
                         // battery, so tracking follows the renderer rather than being independent.
                         if (!wantHeadphones) headTracking.stop(glideHome = false)
-                        else if (headTrackingWanted && player.isPlaying) headTracking.start()
+                        else if (headTrackingWanted && exoPlayer.isPlaying) headTracking.start()
                         // Offload hands the stream to the phone's low power audio path, which
                         // skips the processor chain entirely. Leaving it on would mean the
                         // setting appears to do nothing for anyone who turned offload on, with
                         // no way to tell why, so spatial audio takes it off itself.
                         applyOffload()
-                        if (player.currentMediaItem != null) {
-                            val at = player.currentPosition
-                            val wasPlaying = player.playWhenReady
-                            player.stop()
-                            player.prepare()
-                            player.seekTo(at)
-                            player.playWhenReady = wasPlaying
+                        if (exoPlayer.currentMediaItem != null) {
+                            val at = exoPlayer.currentPosition
+                            val wasPlaying = exoPlayer.playWhenReady
+                            exoPlayer.stop()
+                            exoPlayer.prepare()
+                            exoPlayer.seekTo(at)
+                            exoPlayer.playWhenReady = wasPlaying
                         }
                     }
                 }
@@ -1140,7 +1211,7 @@ class MusicService : MediaLibraryService(),
                 .distinctUntilChanged()
                 .collectLatest(scope) { share ->
                     withContext(Dispatchers.Main) {
-                        player.setAudioAttributes(musicAudioAttributes, !share)
+                        exoPlayer.setAudioAttributes(musicAudioAttributes, !share)
                     }
                 }
 
@@ -1297,9 +1368,9 @@ class MusicService : MediaLibraryService(),
                             // Only resume something that actually stalled. A flag that outlived its
                             // fault used to mean music starting by itself out of a pocket at the
                             // next network change.
-                            if (player.playbackState == STATE_IDLE) {
-                                player.prepare()
-                                player.play()
+                            if (activePlayer.playbackState == STATE_IDLE) {
+                                activePlayer.prepare()
+                                activePlayer.play()
                             }
                         }
                     }
@@ -1422,7 +1493,7 @@ class MusicService : MediaLibraryService(),
         if (mediaId in recoverySettled) return
         val song = database.song(mediaId).first()
         val mediaMetadata = withContext(Dispatchers.Main) {
-            player.findNextMediaItemById(mediaId)?.metadata
+            activePlayer.findNextMediaItemById(mediaId)?.metadata
         } ?: return
         val duration = song?.song?.duration?.takeIf { it != -1 }
             ?: mediaMetadata.duration.takeIf { it != -1 }
@@ -1525,7 +1596,7 @@ class MusicService : MediaLibraryService(),
     }
 
     fun toggleStartRadio() {
-        val mediaMetadata = player.currentMetadata ?: return
+        val mediaMetadata = activePlayer.currentMetadata ?: return
         playQueue(YouTubeQueue.radio(mediaMetadata), isRadio = true)
     }
 
@@ -1634,11 +1705,13 @@ class MusicService : MediaLibraryService(),
         }
 
         override fun start(playWhenReady: Boolean) {
-            player.prepare()
-            player.playWhenReady = playWhenReady
+            // The player a queue was just loaded into, on the phone or on a receiver: [player]
+            // hears of it a turn later.
+            activePlayer.prepare()
+            activePlayer.playWhenReady = playWhenReady
         }
 
-        override val wantsToPlay get() = QueueStart.wantsToPlay(player.playWhenReady, stoppedByError)
+        override val wantsToPlay get() = QueueStart.wantsToPlay(activePlayer.playWhenReady, stoppedByError)
     })
 
     /**
@@ -1664,7 +1737,7 @@ class MusicService : MediaLibraryService(),
                 queueBoard.getCurrentQueue()?.let { q ->
                     // The player's index means nothing while it holds nothing, which it does after
                     // a restart until play is pressed. See MultiQueueObject.playNextIndex.
-                    val playerIndex = player.currentMediaItemIndex.takeIf { player.currentMediaItem != null }
+                    val playerIndex = activePlayer.currentMediaItemIndex.takeIf { activePlayer.currentMediaItem != null }
                     queueBoard.addSongsToQueue(q, q.playNextIndex(playerIndex), items.mapNotNull { it.metadata })
                 }
             }
@@ -1694,7 +1767,7 @@ class MusicService : MediaLibraryService(),
     }
 
     fun triggerShuffle() {
-        val oldIndex = player.currentMediaItemIndex
+        val oldIndex = activePlayer.currentMediaItemIndex
         queueBoard.setCurrQueuePosIndex(oldIndex)
         val currentQueue = queueBoard.getCurrentQueue() ?: return
 
@@ -1769,9 +1842,9 @@ class MusicService : MediaLibraryService(),
             // player on a cold start, so waiting for them was the second wrong guess: fifteen
             // seconds passed and the player was still empty, because normally it is the UI that
             // asks for the queue when somebody presses play. Load it here instead.
-            if (player.mediaItemCount == 0) {
+            if (activePlayer.mediaItemCount == 0) {
                 val loaded = queueBoard.setCurrQueue(shouldResume = true)
-                if (loaded == null || player.mediaItemCount == 0) {
+                if (loaded == null || activePlayer.mediaItemCount == 0) {
                     Log.i(TAG, "Resume on launch asked for, but there is no queue to restore")
                     return@withContext
                 }
@@ -1783,8 +1856,8 @@ class MusicService : MediaLibraryService(),
             // playing, pause button and all, while never resolving a stream or opening an audio
             // track. Normally the UI's own play path does this, which is why nothing else needed it.
             Log.i(TAG, "Resuming playback on launch")
-            player.prepare()
-            player.play()
+            activePlayer.prepare()
+            activePlayer.play()
         }
     }
 
@@ -1797,9 +1870,9 @@ class MusicService : MediaLibraryService(),
      */
     fun deInitQueue(waitForSave: Boolean = true) {
         Log.i(TAG, "+deInitQueue()")
-        val pos = player.currentPosition
+        val pos = activePlayer.currentPosition
         // Null when the player holds nothing, which is most runs that never pressed play.
-        val playerSongId = player.currentMediaItem?.mediaId
+        val playerSongId = activePlayer.currentMediaItem?.mediaId
         queueBoard.shutdown()
         if (dataStore.get(PersistentQueueKey, true)) {
             if (waitForSave) {
@@ -1857,7 +1930,7 @@ class MusicService : MediaLibraryService(),
      */
     private fun applyOffload() {
         val needsOffloadOff = spatialUpmixProcessor.enabled || binauralProcessor.enabled || transitionFade.enabled
-        player.setOffloadEnabled(!needsOffloadOff && dataStore.get(AudioOffloadKey, false))
+        exoPlayer.setOffloadEnabled(!needsOffloadOff && dataStore.get(AudioOffloadKey, false))
     }
 
     private fun openAudioEffectSession() {
@@ -1876,7 +1949,7 @@ class MusicService : MediaLibraryService(),
         isAudioEffectSessionOpened = true
         sendBroadcast(
             Intent(AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION).apply {
-                putExtra(AudioEffect.EXTRA_AUDIO_SESSION, player.audioSessionId)
+                putExtra(AudioEffect.EXTRA_AUDIO_SESSION, exoPlayer.audioSessionId)
                 putExtra(AudioEffect.EXTRA_PACKAGE_NAME, packageName)
                 putExtra(AudioEffect.EXTRA_CONTENT_TYPE, AudioEffect.CONTENT_TYPE_MUSIC)
             }
@@ -1888,7 +1961,7 @@ class MusicService : MediaLibraryService(),
         isAudioEffectSessionOpened = false
         sendBroadcast(
             Intent(AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION).apply {
-                putExtra(AudioEffect.EXTRA_AUDIO_SESSION, player.audioSessionId)
+                putExtra(AudioEffect.EXTRA_AUDIO_SESSION, exoPlayer.audioSessionId)
                 putExtra(AudioEffect.EXTRA_PACKAGE_NAME, packageName)
             }
         )
@@ -1928,11 +2001,60 @@ class MusicService : MediaLibraryService(),
     }
 
     private fun createDataSourceFactory(): DataSource.Factory {
+        val resolver = SongResolver(streamAddresses)
         return ResolvingDataSource.Factory(createCacheDataSource()) { dataSpec ->
             val mediaId = dataSpec.key ?: error("No media id")
+            when (val resolved = resolver.resolve(mediaId, dataSpec.position, dataSpec.length)) {
+                is ResolvedSong.LocalFile -> dataSpec.withUri(resolved.file.toUri())
+                is ResolvedSong.Downloaded -> dataSpec.withUri(resolved.file.uri)
+                ResolvedSong.Cached -> dataSpec
+                is ResolvedSong.KnownStream -> dataSpec.withUri(resolved.url.toUri())
+                // Asked for whole, from where the player is to the song's end, as an address already
+                // known is one line up. It used to be the first 512 KB only. The player took those
+                // for the whole file, and the song went on because the cut fell inside an audio frame:
+                // the frame came up short, the load failed and was made again, and that second request
+                // ran to the end. Where the cut fell exactly between two frames nothing was short, the
+                // file simply ended, and so did the song, at about thirty seconds and without an error.
+                // The same songs every time, about one in three hundred. See WholeStreamRequestTest.
+                is ResolvedSong.NewStream -> dataSpec.withUri(resolved.data.streamUrl.toUri())
+            }
+        }
+    }
+
+    /**
+     * Decides where a song's bytes come from: a local file, a download, the caches, or a stream
+     * from YouTube, fetched when nothing nearer has the song.
+     *
+     * This was the body of the player's data source, and the player still asks it every time it
+     * opens a piece of a song. It came out so that the cast server asks the very same questions
+     * (ServiceCastSource): a song cast to a TV is found, upgraded, recovered and cached exactly as
+     * one played on the phone.
+     *
+     * The player's resolver is given the service's own [streamAddresses], so an address the player
+     * failed on is forgotten for it as before (onPlayerError). The cast server's keeps its own, so
+     * its resolves never disturb the player's.
+     */
+    inner class SongResolver(private val addresses: StreamAddresses = StreamAddresses()) {
+        /**
+         * What each address kept in [addresses] streams: a receiver is told the type before it
+         * asks for a byte. Concurrent because the cast server resolves on several threads at once.
+         */
+        private val formats = ConcurrentHashMap<String, PlayerResponse.StreamingData.Format>()
+
+        /** Drops the address kept for [mediaId], after it was refused, so the next resolve asks for one afresh. */
+        fun forgetStream(mediaId: String) {
+            addresses.playerFailedOn(mediaId)
+        }
+
+        /**
+         * Where the bytes of [mediaId] come from for a read of [length] bytes (C.LENGTH_UNSET for
+         * the rest of the song) from [position]. Blocking. Throws PlaybackException when the song
+         * cannot be had.
+         */
+        fun resolve(mediaId: String, position: Long, length: Long): ResolvedSong {
             Log.d(TAG, "PLAYING: song id = $mediaId")
 
-            val queued = queueBoard.getCurrentQueue()?.findSong(dataSpec.key ?: "")
+            val queued = queueBoard.getCurrentQueue()?.findSong(mediaId)
             // in the case of resumption, queueBoard may not be ready yet
             //
             // Then the song's own row says where its file is. A database that does not answer is
@@ -1940,7 +2062,7 @@ class MusicService : MediaLibraryService(),
             // the library has never seen. Given up for that one load: a file in a download folder
             // is not looked for, and a local file, which is nowhere else, fails as an unknown
             // video does instead of holding the player at buffering for good.
-            val stored = if (queued == null) database.readOrNull { songRow(dataSpec.key) } else null
+            val stored = if (queued == null) database.readOrNull { songRow(mediaId) } else null
             val localPath = queued?.localPath ?: stored?.localPath
             val isLocal = queued?.isLocal ?: (stored?.isLocal == true)
             // local song
@@ -1956,7 +2078,7 @@ class MusicService : MediaLibraryService(),
                         )
                     }
 
-                    return@Factory dataSpec.withUri(file.toUri())
+                    return ResolvedSong.LocalFile(file)
                 } else {
                     // A file deleted outside the app is still in the list until the next scan, so
                     // it is checked, and a song whose file has gone is played from the cache or
@@ -1964,14 +2086,14 @@ class MusicService : MediaLibraryService(),
                     val isDownloadNew = downloadUtil.localMgr.isExists(mediaId)?.takeIf { it.exists() }
                     isDownloadNew?.let {
                         Log.d(TAG, "PLAYING: Custom downloaded song")
-                        return@Factory dataSpec.withUri(it.uri)
+                        return ResolvedSong.Downloaded(it)
                     }
                 }
             }
 
             val isDownload =
-                downloadCache.isCached(mediaId, dataSpec.position, if (dataSpec.length >= 0) dataSpec.length else 1)
-            val isCache = playerCache.isCached(mediaId, dataSpec.position, CHUNK_LENGTH)
+                downloadCache.isCached(mediaId, position, if (length >= 0) length else 1)
+            val isCache = playerCache.isCached(mediaId, position, CHUNK_LENGTH)
             // A copy fetched at a lower setting is fetched again, once, at the higher one. Only
             // upwards: re-fetching to make something worse would spend data to lose quality, and
             // the bytes are already here. Downloads are left alone whatever the setting says,
@@ -1983,26 +2105,28 @@ class MusicService : MediaLibraryService(),
             //
             // And only with a network. Offline the fetch cannot succeed, and the copy here is the
             // only way the song plays at all.
-            val staleQuality = isCache && !isDownload && dataSpec.position == 0L &&
+            val staleQuality = isCache && !isDownload && position == 0L &&
                     isNetworkConnected.value && shouldUpgradeCached(mediaId)
             // Part of the song cached, met at its start while online. The stream is resolved before
             // the copy is used, and if it is not the stream the copy came from, the copy goes: the
             // rest of the song used to be fetched as whatever stream came back and written on from
             // where the copy stopped, two encodings in one file. Offline the copy plays as it is.
-            val partialCopy = !isDownload && dataSpec.position == 0L &&
+            val partialCopy = !isDownload && position == 0L &&
                     isNetworkConnected.value && playerCache.holdsPartFromStart(mediaId)
             if ((isDownload || isCache) && !staleQuality && !partialCopy) {
                 Log.d(TAG, "PLAYING: remote song (cache = ${isCache}, download = ${isDownload})")
                 offloadScope.launch { recoverSong(mediaId) }
-                return@Factory dataSpec
+                return ResolvedSong.Cached
             }
 
             // The address the song was given earlier, unless the player has failed on it since:
             // onPlayerError forgets it, and the try after that asks afresh below.
-            streamAddresses.of(mediaId, System.currentTimeMillis())?.takeIf { !staleQuality }?.let {
-                Log.d(TAG, "PLAYING: remote song (temp cache)")
-                offloadScope.launch { recoverSong(mediaId) }
-                return@Factory dataSpec.withUri(it.toUri())
+            addresses.of(mediaId, System.currentTimeMillis())?.takeIf { !staleQuality }?.let { address ->
+                formats[mediaId]?.let { format ->
+                    Log.d(TAG, "PLAYING: remote song (temp cache)")
+                    offloadScope.launch { recoverSong(mediaId) }
+                    return ResolvedSong.KnownStream(address, format)
+                }
             }
 
             Log.d(TAG, "PLAYING: remote song (online fetch)")
@@ -2016,7 +2140,7 @@ class MusicService : MediaLibraryService(),
                 // tried again next time.
                 if (staleQuality || partialCopy) {
                     Log.d(TAG, "PLAYING: remote song (cache kept, the new stream could not be fetched)", ErrorText.forLog(throwable))
-                    return@Factory dataSpec
+                    return ResolvedSong.Cached
                 }
                 when (throwable) {
                     is PlaybackException -> throw throwable
@@ -2055,7 +2179,7 @@ class MusicService : MediaLibraryService(),
             // next start of the song takes it from this stream alone. Only when the format row
             // says so beyond doubt, the same itag and another length: a row that cannot be read,
             // or another quality of the same upload, is left as it has always been.
-            if (dataSpec.position > 0L) {
+            if (position > 0L) {
                 val part = runCatching { database.readOrNull { formatRow(mediaId) } }.getOrNull()
                 if (anotherUpload(part?.itag, part?.contentLength, format.itag, format.contentLengthOrZero())) {
                     Log.w(TAG, "PLAYING: remote song (what is cached of it is another upload's, dropped; this load fails)")
@@ -2084,13 +2208,13 @@ class MusicService : MediaLibraryService(),
             // match: the copy is the song, and the stand-in only very likely is.
             if (staleQuality && (!playbackData.validated || standIn) && !partialCopy) {
                 Log.d(TAG, "PLAYING: remote song (cache kept, the new stream was ${if (standIn) "a stand-in's" else "not checked"})")
-                return@Factory dataSpec
+                return ResolvedSong.Cached
             }
             // The song from its start with nothing of it cached there, and parts further in: the
             // cache gives up a song's parts one at a time, the oldest first. They are held to the
             // test a part from the start is, or the song would be fetched from this stream as far
             // as them and carried on in theirs.
-            val laterParts = !staleQuality && !partialCopy && dataSpec.position == 0L &&
+            val laterParts = !staleQuality && !partialCopy && position == 0L &&
                     runCatching { playerCache.getCachedSpans(mediaId).isNotEmpty() }.getOrDefault(false)
             if (staleQuality) {
                 runCatching { playerCache.removeResource(mediaId) }
@@ -2131,16 +2255,174 @@ class MusicService : MediaLibraryService(),
 
             // Kept whether or not it answered its check. The rest of the song is fetched from it,
             // and the player failing on it is what takes it out again.
-            streamAddresses.keep(mediaId, streamUrl, System.currentTimeMillis() + (playbackData.streamExpiresInSeconds * 1000L))
-            // Asked for whole, from where the player is to the song's end, as an address already
-            // known is a few lines up. It used to be the first 512 KB only. The player took those
-            // for the whole file, and the song went on because the cut fell inside an audio frame:
-            // the frame came up short, the load failed and was made again, and that second request
-            // ran to the end. Where the cut fell exactly between two frames nothing was short, the
-            // file simply ended, and so did the song, at about thirty seconds and without an error.
-            // The same songs every time, about one in three hundred. See WholeStreamRequestTest.
-            dataSpec.withUri(streamUrl.toUri())
+            addresses.keep(mediaId, streamUrl, System.currentTimeMillis() + (playbackData.streamExpiresInSeconds * 1000L))
+            formats[mediaId] = format
+            return ResolvedSong.NewStream(playbackData)
         }
+    }
+
+    /**
+     * Starts the server a receiver fetches the queue's songs from, or returns the one already
+     * running.
+     *
+     * It listens on the phone's address on Wi-Fi, serves only songs in the current queue, finds
+     * them through a [SongResolver] of its own, and stops by itself when that Wi-Fi goes. Debug
+     * builds try port 47800 first and also listen on loopback there, so one adb forward covers
+     * every test run. Null with casting off, without Wi-Fi, or when no socket can be opened.
+     */
+    fun startCastServer(): CastServer? {
+        if (!Unreleased.CASTING) return null
+        synchronized(castLock) {
+            castServer?.let { running ->
+                if (running.isRunning) return running
+                stopCastServerLocked()
+            }
+            val wifi = CastNetwork.wifi(connectivityManager)
+            if (wifi == null) {
+                Log.i(TAG, "Casting needs Wi-Fi")
+                return null
+            }
+            val source = ServiceCastSource(
+                resolver = SongResolver(),
+                cacheSource = createCacheDataSource(),
+                downloadCache = downloadCache,
+                playerCache = playerCache,
+                contentResolver = contentResolver,
+                storedFormat = { id -> runBlocking(Dispatchers.IO) { database.format(id).first() } },
+                // As the player fetches a stream: over the family the address was issued to, and a
+                // web client's with its page's headers. See StreamFamily.Calls.
+                directSource = DefaultDataSource.Factory(
+                    this,
+                    OkHttpDataSource.Factory(StreamFamily.Calls(OkHttpClient.Builder().proxy(YouTube.proxy).build())),
+                ),
+                isLocalFile = { id -> queueBoard.getCurrentQueue()?.findSong(id)?.isLocal == true },
+                fetchAac = { id ->
+                    runBlocking(Dispatchers.IO) {
+                        YTPlayerUtils.playerResponseForPlayback(
+                            id,
+                            audioQuality = audioQualityNow(),
+                            connectivityManager = connectivityManager,
+                            preferredMime = CastFormats.AAC_MIME,
+                        )
+                    }.getOrThrow()
+                },
+            )
+            val server = CastServer(
+                source,
+                wifi.address,
+                isServable = { id -> queueBoard.getCurrentQueue()?.findSong(id) != null },
+                port = if (BuildConfig.DEBUG) CastServer.DEBUG_PORT else 0,
+                alsoLoopback = BuildConfig.DEBUG,
+            )
+            try {
+                server.start()
+            } catch (e: IOException) {
+                Log.w(TAG, "The cast server could not start", e)
+                return null
+            }
+            castServer = server
+            castNetworkWatch = CastNetwork.watch(connectivityManager, wifi) { stopCastServer(server) }
+            return server
+        }
+    }
+
+    /**
+     * Stops the cast server, which ends every song it is sending. With [only], stops it only if it
+     * is still that one, so a late word about an old network cannot stop a newer server.
+     */
+    fun stopCastServer(only: CastServer? = null) {
+        synchronized(castLock) {
+            if (only != null && castServer !== only) return
+            stopCastServerLocked()
+        }
+    }
+
+    private fun stopCastServerLocked() {
+        castNetworkWatch?.let { runCatching { connectivityManager.unregisterNetworkCallback(it) } }
+        castNetworkWatch = null
+        castServer?.stop()
+        castServer = null
+    }
+
+    /**
+     * Hands playback to a receiver. The queue, the song, where it is and whether it plays go to a new
+     * [RemotePlayer]; the screens, the notification and the queue board follow it through [player];
+     * and the phone's own player stops. It plays there if [play], or if the phone was playing when
+     * [play] is null. Null with casting off. Main thread.
+     *
+     * The phone's player is stopped and emptied, not just paused. A player holding a song keeps the
+     * rest of that song's cache locked, so the bytes the server reads for the receiver would not be
+     * cached (seen on the emulator, 27 Sep). Emptying it also closes the play in progress there as it
+     * stands, through the analytics listener that stays on it; with no transition behind it, it is
+     * recorded as a stop.
+     */
+    internal fun handOverTo(link: ReceiverLink, server: CastServer, play: Boolean?, onLost: (ReceiverStatus) -> Unit): RemotePlayer? {
+        val routed = routedPlayer ?: return null
+        val exo = exoPlayer
+        // After a cold start the saved queue waits unloaded until something plays, and a receiver
+        // handed the empty player got nothing: no song there, and a replay button on the phone.
+        // Loaded here instead, at the song and place it was left, as a play would load it.
+        if (exo.mediaItemCount == 0) queueBoard.setCurrQueue()
+        val remote = RemotePlayer(
+            Looper.getMainLooper(),
+            link,
+            server,
+            items = List(exo.mediaItemCount) { exo.getMediaItemAt(it) },
+            startIndex = exo.currentMediaItemIndex,
+            startMs = exo.currentPosition,
+            playWhenReady = play ?: exo.playWhenReady,
+            repeatMode = exo.repeatMode,
+            shuffle = exo.shuffleModeEnabled,
+            onLost = onLost,
+        )
+        exo.removeListener(this)
+        isCasting = true
+        checkpointJob?.cancel()
+        // The play in progress on the phone is closed by its own stats when the player is emptied
+        // below, as a stop: nothing has to be told to the play book here.
+        closeAudioEffectSession()
+        headTracking.stop(glideHome = false)
+        proximityVolume.stop()
+        routed.routeTo(remote)
+        remote.addListener(this)
+        exo.stop()
+        exo.clearMediaItems()
+        remote.prepare()
+        return remote
+    }
+
+    /**
+     * Takes playback back from [remote]: the phone's player gets the list as the cast left it (the
+     * queue board's changes went to the receiver), the song and the position the receiver had
+     * reached, and plays if [play]. Main thread.
+     */
+    internal fun takeBack(remote: RemotePlayer, play: Boolean) {
+        val routed = routedPlayer ?: return
+        val exo = exoPlayer
+        val items = List(remote.mediaItemCount) { remote.getMediaItemAt(it) }
+        val index = remote.currentMediaItemIndex
+        val position = remote.positionNow
+        remote.removeListener(this)
+        // Loaded before anything is routed to it, so the screens and the session go straight from
+        // the receiver's song to the same song here, never through an empty player.
+        if (items.isNotEmpty()) {
+            exo.setMediaItems(items, index.coerceIn(items.indices), position)
+            exo.setShuffleOrder(ShuffleOrder.UnshuffledShuffleOrder(items.size))
+            exo.prepare()
+        }
+        exo.repeatMode = remote.repeatMode
+        exo.shuffleModeEnabled = remote.shuffleModeEnabled
+        exo.playWhenReady = play
+        isCasting = false
+        routed.routeTo(exo)
+        exo.addListener(this)
+        remote.release()
+        // This service missed the new list going in, so it starts on the song as a new queue would.
+        noteTransition(exo.currentMediaItem, Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED)
+        currentMediaMetadata.value = activePlayer.currentMetadata
+        queueBoard.setCurrQueuePosIndex(activePlayer.currentMediaItemIndex)
+        updateWidget()
+        updateNotification()
     }
 
     /** What the setting says right now. Read live, because it can change between songs. */
@@ -2283,18 +2565,18 @@ class MusicService : MediaLibraryService(),
         }
         adaptiveTailActive.value = true
 
-        val current = player.currentMediaItemIndex
-        val count = player.mediaItemCount
+        val current = activePlayer.currentMediaItemIndex
+        val count = activePlayer.mediaItemCount
         val locked = if (strong) AdaptiveQueue.STRONG_LOCKED else AdaptiveQueue.LOCKED
         val start = AdaptiveQueue.tailStart(current, count, locked) ?: return
 
         val recent = (current downTo maxOf(0, current - TagFit.WINDOW + 1))
-            .mapNotNull { runCatching { player.getMediaItemAt(it).mediaMetadata.title?.toString() }.getOrNull() }
+            .mapNotNull { runCatching { activePlayer.getMediaItemAt(it).mediaMetadata.title?.toString() }.getOrNull() }
         val context = TagFit.context(recent.map { SongTags.of(it) })
         if (!context.known) return
 
         val tail = (start until count).mapNotNull { i ->
-            runCatching { i to player.getMediaItemAt(i).mediaMetadata.title?.toString() }.getOrNull()
+            runCatching { i to activePlayer.getMediaItemAt(i).mediaMetadata.title?.toString() }.getOrNull()
         }
         if (tail.isEmpty()) return
 
@@ -2309,7 +2591,7 @@ class MusicService : MediaLibraryService(),
         // Descending, so each removal cannot shift the index of the next one.
         plan.dropped.sortedByDescending { it.first }.forEach { (index, _) ->
             if (queueBoard.removeCurrentQueueSong(index)) {
-                runCatching { player.removeMediaItem(index) }
+                runCatching { activePlayer.removeMediaItem(index) }
             }
         }
         hiddenTailChanged.value = hiddenTailChanged.value + 1
@@ -2347,14 +2629,14 @@ class MusicService : MediaLibraryService(),
             // which sets player.shuffleModeEnabled and never touches the queue. So pressing it
             // moved the icon and left the label behind, sometimes for good.
             MediaControlButton.SHUFFLE ->
-                CommandButton.Builder(if (player.shuffleModeEnabled) CommandButton.ICON_SHUFFLE_ON else CommandButton.ICON_SHUFFLE_OFF)
-                    .setDisplayName(getString(if (player.shuffleModeEnabled) R.string.action_shuffle_off else R.string.action_shuffle_on))
+                CommandButton.Builder(if (activePlayer.shuffleModeEnabled) CommandButton.ICON_SHUFFLE_ON else CommandButton.ICON_SHUFFLE_OFF)
+                    .setDisplayName(getString(if (activePlayer.shuffleModeEnabled) R.string.action_shuffle_off else R.string.action_shuffle_on))
                     .setSessionCommand(CommandToggleShuffle)
                     .build()
 
             MediaControlButton.REPEAT ->
                 CommandButton.Builder(
-                    when (player.repeatMode) {
+                    when (activePlayer.repeatMode) {
                         REPEAT_MODE_OFF -> CommandButton.ICON_REPEAT_OFF
                         REPEAT_MODE_ONE -> CommandButton.ICON_REPEAT_ONE
                         REPEAT_MODE_ALL -> CommandButton.ICON_REPEAT_ALL
@@ -2363,7 +2645,7 @@ class MusicService : MediaLibraryService(),
                 )
                     .setDisplayName(
                         getString(
-                            when (player.repeatMode) {
+                            when (activePlayer.repeatMode) {
                                 REPEAT_MODE_OFF -> R.string.repeat_mode_off
                                 REPEAT_MODE_ONE -> R.string.repeat_mode_one
                                 REPEAT_MODE_ALL -> R.string.repeat_mode_all
@@ -2445,9 +2727,9 @@ class MusicService : MediaLibraryService(),
             delay(NetworkRetryPolicy.delayMillis(attempt))
             // Anything that recovered, or that the listener touched, has already cleared the flag,
             // and re-preparing a player that is not idle would restart the song under them.
-            if (!waitingForNetworkConnection.value || player.playbackState != STATE_IDLE) return@launch
-            player.prepare()
-            player.play()
+            if (!waitingForNetworkConnection.value || activePlayer.playbackState != STATE_IDLE) return@launch
+            activePlayer.prepare()
+            activePlayer.play()
         }
     }
 
@@ -2467,12 +2749,12 @@ class MusicService : MediaLibraryService(),
          * too many errors come up too quickly. Pause to show player "stopped" state
          */
         consecutivePlaybackErr += 2
-        val nextWindowIndex = player.nextMediaItemIndex
+        val nextWindowIndex = activePlayer.nextMediaItemIndex
 
         if (consecutivePlaybackErr <= MAX_PLAYER_CONSECUTIVE_ERR && nextWindowIndex != C.INDEX_UNSET) {
-            player.seekTo(nextWindowIndex, C.TIME_UNSET)
-            player.prepare()
-            player.play()
+            activePlayer.seekTo(nextWindowIndex, C.TIME_UNSET)
+            activePlayer.prepare()
+            activePlayer.play()
 
             Toast.makeText(this@MusicService, getString(R.string.err_play_next_on_error), Toast.LENGTH_SHORT).show()
             return
@@ -2486,13 +2768,13 @@ class MusicService : MediaLibraryService(),
             return
         }
         stoppedByError = true
-        player.pause()
+        activePlayer.pause()
         Toast.makeText(this@MusicService, getString(R.string.err_stop_on_too_many_errors), Toast.LENGTH_LONG).show()
     }
 
     fun stopOnError() {
         stoppedByError = true
-        player.pause()
+        activePlayer.pause()
         Toast.makeText(this@MusicService, getString(R.string.err_stop_on_error), Toast.LENGTH_LONG).show()
     }
 
@@ -2526,7 +2808,7 @@ class MusicService : MediaLibraryService(),
         val causeCode = generateSequence(error.cause) { it.cause }
             .filterIsInstance<PlaybackException>()
             .firstOrNull()?.errorCode
-        val localSong = player.currentMediaItem?.mediaId?.let { id ->
+        val localSong = activePlayer.currentMediaItem?.mediaId?.let { id ->
             queueBoard.getCurrentQueue()?.findSong(id)?.isLocal
         } == true
         if (NetworkRetryPolicy.waitsForNetwork(!isNetworkConnected.value, error.errorCode, causeCode, localSong)) {
@@ -2551,26 +2833,27 @@ class MusicService : MediaLibraryService(),
         updateWidget()
         // The stream is what costs battery, so it runs only while something is playing. Glide the
         // stage home on pause rather than dropping it, since the listener may well be mid-turn.
-        if (isPlaying && headTrackingWanted && binauralProcessor.enabled) {
+        // Both are about sound coming out of the phone, so neither starts for a receiver.
+        if (isPlaying && headTrackingWanted && binauralProcessor.enabled && !isCasting) {
             headTracking.start()
         } else if (!isPlaying) {
             headTracking.stop(glideHome = true)
         }
         // The proximity scan follows onEvents instead; see ProximityVolume.shouldScan.
-        if (isPlaying) {
-            player.currentMediaItem?.mediaId?.let { id -> currentStart(id)?.takeIf { !it.opened }?.let { openListen(id, it) } }
+        if (isPlaying && !isCasting) {
+            activePlayer.currentMediaItem?.mediaId?.let { id -> currentStart(id)?.takeIf { !it.opened }?.let { openListen(id, it) } }
         }
         if (!isPlaying) {
-            val pos = player.currentPosition
+            val pos = activePlayer.currentPosition
             // A pause is where a stop will have happened if the app dies now, so the open row
             // learns the position at once rather than at the next minute mark.
-            player.currentMediaItem?.mediaId?.let { id ->
+            activePlayer.currentMediaItem?.mediaId?.let { id ->
                 lastKnownPosition[id] = pos
                 currentStart(id)?.let { checkpointListen(it, pos) }
             }
             // Only while the player holds a song. Emptied while playing, it reports the stop once
             // the song has gone and reads 0:00, which is not where the queue stopped.
-            val q = queueBoard.getCurrentQueue()?.takeIf { player.currentMediaItem != null }
+            val q = queueBoard.getCurrentQueue()?.takeIf { activePlayer.currentMediaItem != null }
             q?.lastSongPos = pos
             // Written through at once, so a process the system kills while paused still comes back
             // where it was. Until now the position only reached the database in onDestroy.
@@ -2581,7 +2864,10 @@ class MusicService : MediaLibraryService(),
 
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
         super.onMediaItemTransition(mediaItem, reason)
-        noteTransition(mediaItem, reason)
+        // A cast play records nothing in the listening history for now. A row is closed by what the
+        // phone's own player reports, and it reports nothing while casting, so a row opened here
+        // would never be closed. Whether cast plays should count at all is still to be decided.
+        if (!isCasting) noteTransition(mediaItem, reason)
         // The car's tabs each show what is playing across their top, and the car keeps what it
         // was handed: another song, and it is told.
         if (Unreleased.AUTO_REWORK && ::mediaSession.isInitialized) {
@@ -2619,15 +2905,15 @@ class MusicService : MediaLibraryService(),
         // and left paused, which is what they asked for. The runaway guard is not weakened,
         // because that counts automatic skips and this is a hand on a button.
         if (reason == MEDIA_ITEM_TRANSITION_REASON_SEEK &&
-            (player.isPlaying || player.playbackState == STATE_IDLE)
+            (activePlayer.isPlaying || activePlayer.playbackState == STATE_IDLE)
         ) {
             val afterError = stoppedByError
             stoppedByError = false
-            player.prepare()
+            activePlayer.prepare()
             // playWhenReady carries the listener's intent, except after an error, where the app
             // cleared it on their behalf by pausing. Skipping then is them asking for the next
             // song, so it plays.
-            if (player.playWhenReady || afterError) player.play()
+            if (activePlayer.playWhenReady || afterError) activePlayer.play()
         }
 
         // Auto load more songs
@@ -2640,7 +2926,7 @@ class MusicService : MediaLibraryService(),
         if (autoLoadMore &&
             mediaItem != null &&
             reason != Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT &&
-            player.mediaItemCount - player.currentMediaItemIndex <= 5 &&
+            activePlayer.mediaItemCount - activePlayer.currentMediaItemIndex <= 5 &&
             playlistId != null // aka "hasNext"
         ) {
             Log.d(TAG, "onMediaItemTransition: Triggering queue auto load more")
@@ -2657,9 +2943,9 @@ class MusicService : MediaLibraryService(),
                 // which then played again. A cleared player is ended, not idle, so the state check
                 // let it through. Checked before the seed below moves on, since a page that is left
                 // out should not move the queue's next page on either.
-                val wanted = player.playbackState != STATE_IDLE &&
+                val wanted = activePlayer.playbackState != STATE_IDLE &&
                     songCount > 1 && // initial radio loading is handled by playQueue()
-                    player.mediaItemCount > 0 && qbInit.value &&
+                    activePlayer.mediaItemCount > 0 && qbInit.value &&
                     queueBoard.getCurrentQueue()?.id == q.id
                 if (!wanted) return@launch
                 // Seed the next page from something the listener actually finished.
@@ -2687,8 +2973,8 @@ class MusicService : MediaLibraryService(),
         // queue was on: swiping the mini player away moved the queue back to its first song at
         // 0:00, and the dismissal then saved it that way.
         if (mediaItem != null) {
-            q?.let { it.lastSongPos = ResumePoint.afterTransition(reason, player.currentPosition, it.lastSongPos) }
-            queueBoard.setCurrQueuePosIndex(player.currentMediaItemIndex)
+            q?.let { it.lastSongPos = ResumePoint.afterTransition(reason, activePlayer.currentPosition, it.lastSongPos) }
+            queueBoard.setCurrQueuePosIndex(activePlayer.currentMediaItemIndex)
         }
 
         // reshuffle queue when shuffle AND repeat all are enabled
@@ -2698,10 +2984,10 @@ class MusicService : MediaLibraryService(),
         // reshuffle, since repeat all already alternates them, and below three the reshuffle used
         // to let go of the playing song: half the time it made the other one current, and loading
         // that cut the new song off after 200 ms and started the other one again.
-        if (player.mediaItemCount > 2 &&
-            player.currentMediaItemIndex == player.mediaItemCount - 1 &&
+        if (activePlayer.mediaItemCount > 2 &&
+            activePlayer.currentMediaItemIndex == activePlayer.mediaItemCount - 1 &&
             (reason == MEDIA_ITEM_TRANSITION_REASON_AUTO || reason == MEDIA_ITEM_TRANSITION_REASON_SEEK) &&
-            player.shuffleModeEnabled && player.repeatMode == REPEAT_MODE_ALL
+            activePlayer.shuffleModeEnabled && activePlayer.repeatMode == REPEAT_MODE_ALL
         ) {
             scope.launch(SilentHandler) {
                 // or else race condition: Assertions.checkArgument(eventTime.realtimeMs >= currentPlaybackStateStartTimeMs) fails in updatePlaybackState()
@@ -2726,15 +3012,16 @@ class MusicService : MediaLibraryService(),
                 player.playbackState == Player.STATE_BUFFERING || player.playbackState == Player.STATE_READY
             // Music is coming out of the speaker again, so whatever stopped it is history.
             if (player.playbackState == Player.STATE_READY) stoppedByError = false
-            plays.playbackState(player.currentMediaItem?.mediaId, player.playbackState)
-            if (isBufferingOrReady && player.playWhenReady) {
+            if (!isCasting) plays.playbackState(player.currentMediaItem?.mediaId, player.playbackState)
+            if (isBufferingOrReady && player.playWhenReady && !isCasting) {
                 openAudioEffectSession()
             } else {
                 closeAudioEffectSession()
             }
             // The proximity scan is decided here rather than in onIsPlayingChanged, which fires on
-            // every seek and skip and not on a pause while buffering.
-            if (ProximityVolume.shouldScan(proximityWanted, player.playWhenReady, player.playbackState)) {
+            // every seek and skip and not on a pause while buffering. Never while casting: this
+            // player is then the receiver's, and the phone makes no sound to turn down.
+            if (ProximityVolume.shouldScan(proximityWanted && !isCasting, player.playWhenReady, player.playbackState)) {
                 proximityVolume.start()
             } else {
                 proximityVolume.stop()
@@ -2765,9 +3052,9 @@ class MusicService : MediaLibraryService(),
      * respecting on its own, since seeding radio from a rejection is how it got lost.
      */
     private fun lastCompletedId(): String? {
-        val current = player.currentMediaItemIndex
+        val current = activePlayer.currentMediaItemIndex
         for (i in current downTo maxOf(0, current - radioAnchorLookback)) {
-            val id = runCatching { player.getMediaItemAt(i).mediaId }.getOrNull() ?: continue
+            val id = runCatching { activePlayer.getMediaItemAt(i).mediaId }.getOrNull() ?: continue
             if (plays.leftAtItsEnd(id)) return id
         }
         return null
@@ -2794,9 +3081,9 @@ class MusicService : MediaLibraryService(),
         pendingOrigin = null
         // Going back is a choice, and it used to be counted as the opposite of one. See
         // AutoplayDepth, which holds the rule so a test can hold it to account.
-        val wentBack = AutoplayDepth.wentBack(reason, lastQueueIndex, player.currentMediaItemIndex)
+        val wentBack = AutoplayDepth.wentBack(reason, lastQueueIndex, activePlayer.currentMediaItemIndex)
         autoplayRun = AutoplayDepth.next(autoplayRun, chosen, wentBack, reason)
-        lastQueueIndex = player.currentMediaItemIndex
+        lastQueueIndex = activePlayer.currentMediaItemIndex
         checkpointJob?.cancel()
         val q = queueBoard.getCurrentQueue()
         val id = mediaItem?.mediaId ?: run { plays.transition(reason, null, null); return }
@@ -2815,7 +3102,7 @@ class MusicService : MediaLibraryService(),
         // A loaded item is not a listen: the queue restored at launch sits here unplayed. The row
         // opens when sound starts, which is now if playback carried straight over, and otherwise
         // in onIsPlayingChanged.
-        if (player.isPlaying) openListen(id, info)
+        if (activePlayer.isPlaying) openListen(id, info)
         checkpointJob = offloadScope.launch {
             while (true) {
                 delay(CHECKPOINT_MS)
@@ -2831,9 +3118,9 @@ class MusicService : MediaLibraryService(),
                 // write and have its reference point overwritten with a stale one.
                 val finished = withContext(Dispatchers.Main) {
                     when {
-                        player.currentMediaItem?.mediaId != id -> true
-                        !player.isPlaying -> false
-                        else -> { checkpointListen(info, player.currentPosition); false }
+                        activePlayer.currentMediaItem?.mediaId != id -> true
+                        !activePlayer.isPlaying -> false
+                        else -> { checkpointListen(info, activePlayer.currentPosition); false }
                     }
                 }
                 if (finished) break
@@ -2865,10 +3152,10 @@ class MusicService : MediaLibraryService(),
     private fun openListen(mediaId: String, info: StartInfo) {
         info.opened = true
         info.startedAt = System.currentTimeMillis()
-        info.startPositionMs = player.currentPosition.coerceAtLeast(0L)
+        info.startPositionMs = activePlayer.currentPosition.coerceAtLeast(0L)
         info.lastCheckpointPositionMs = info.startPositionMs
         if (listenHistoryPaused) { info.rowReady.complete(0L); return }
-        val metadata = player.currentMediaItem?.takeIf { it.mediaId == mediaId }?.metadata
+        val metadata = activePlayer.currentMediaItem?.takeIf { it.mediaId == mediaId }?.metadata
         database.transaction {
             runCatching {
                 // The row points at the song table, and recoverSong may still be fetching the
@@ -2964,12 +3251,12 @@ class MusicService : MediaLibraryService(),
     private val volumeReceiver = object : android.content.BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.getIntExtra("android.media.EXTRA_VOLUME_STREAM_TYPE", -1) != android.media.AudioManager.STREAM_MUSIC) return
-            if (!player.isPlaying) return
+            if (!activePlayer.isPlaying || isCasting) return
             val now = intent.getIntExtra("android.media.EXTRA_VOLUME_STREAM_VALUE", -1)
             val before = intent.getIntExtra("android.media.EXTRA_PREV_VOLUME_STREAM_VALUE", -1)
             if (now < 0 || before < 0 || now == before) return
-            val id = player.currentMediaItem?.mediaId ?: return
-            noteSignal(id, if (now > before) SignalKind.VOLUME_UP else SignalKind.VOLUME_DOWN, player.currentPosition, (now - before).toFloat())
+            val id = activePlayer.currentMediaItem?.mediaId ?: return
+            noteSignal(id, if (now > before) SignalKind.VOLUME_UP else SignalKind.VOLUME_DOWN, activePlayer.currentPosition, (now - before).toFloat())
         }
     }
 
@@ -2989,6 +3276,7 @@ class MusicService : MediaLibraryService(),
      */
     override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
         super.onPositionDiscontinuity(oldPosition, newPosition, reason)
+        if (isCasting) return
         val itemChanged = oldPosition.mediaItemIndex != newPosition.mediaItemIndex ||
             oldPosition.mediaItem?.mediaId != newPosition.mediaItem?.mediaId ||
             reason == Player.DISCONTINUITY_REASON_AUTO_TRANSITION
@@ -3255,7 +3543,7 @@ class MusicService : MediaLibraryService(),
             else -> null
         }
         lastRepeatMode = repeatMode
-        if (kind != null) player.currentMediaItem?.mediaId?.let { id -> noteSignal(id, kind, player.currentPosition) }
+        if (kind != null && !isCasting) activePlayer.currentMediaItem?.mediaId?.let { id -> noteSignal(id, kind, activePlayer.currentPosition) }
         updateNotification()
         offloadScope.launch {
             dataStore.edit { settings ->
@@ -3266,7 +3554,7 @@ class MusicService : MediaLibraryService(),
 
     override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
         val q = queueBoard.getCurrentQueue()
-        player.setShuffleOrder(ShuffleOrder.UnshuffledShuffleOrder(player.mediaItemCount))
+        exoPlayer.setShuffleOrder(ShuffleOrder.UnshuffledShuffleOrder(exoPlayer.mediaItemCount))
         if (q == null || q.shuffled == shuffleModeEnabled) {
             // The button reads the player's flag, so it has to be redrawn even when the queue has
             // nothing to change, or it shows the old state after a resume sets the flag.
@@ -3284,8 +3572,11 @@ class MusicService : MediaLibraryService(),
         // FG keep alive. Never skipped when media3 has to start the foreground: a service started
         // by a headset or the widget must reach startForeground, and a cold start is still
         // buffering, not playing, so skipping it here had Android kill the app ten seconds later.
-        if (startInForegroundRequired || player.isPlaying || !dataStore.get(KeepAliveKey, false)) {
-            super.onUpdateNotification(session, startInForegroundRequired)
+        //
+        // A cast keeps it in the foreground, paused too: the receiver fetches every song from the
+        // server here, and a service out of the foreground loses the network in Doze.
+        if (startInForegroundRequired || activePlayer.isPlaying || isCasting || !dataStore.get(KeepAliveKey, false)) {
+            super.onUpdateNotification(session, startInForegroundRequired || isCasting)
         }
     }
 
@@ -3299,7 +3590,7 @@ class MusicService : MediaLibraryService(),
             runCatching {
                 WidgetStore.setNowPlaying(this@MusicService) {
                     if (stopped) WidgetStore.NowState(currentMediaMetadata.value, false)
-                    else withContext(Dispatchers.Main) { WidgetStore.NowState(currentMediaMetadata.value, player.isPlaying) }
+                    else withContext(Dispatchers.Main) { WidgetStore.NowState(currentMediaMetadata.value, activePlayer.isPlaying) }
                 }
             }.onFailure { Log.w(TAG, "Could not update the widget", it) }
         }
@@ -3310,6 +3601,10 @@ class MusicService : MediaLibraryService(),
         // no scope this method cancels (see the comment at its launch site), so this is the only
         // way it can find out the service is gone before touching the queue board or the player.
         destroyed = true
+        // Back on the phone before anything is saved or released: the queue then saves the
+        // receiver's song and position, and the release below reaches the phone's own player.
+        castSession?.release()
+        castSession = null
         if (Unreleased.AUTO_REWORK) carType.removeObserver(carWatch)
         headTracking.stop(glideHome = false)
         proximityVolume.stop()
@@ -3336,6 +3631,11 @@ class MusicService : MediaLibraryService(),
         // long as it stays registered. The unregister in onCreate cannot let go of it: it runs on
         // the next instance, whose field is still empty.
         if (::connectivityObserver.isInitialized) runCatching { connectivityObserver.unregister() }
+        // A receiver left fetching from a service that is gone gets a closed connection and says
+        // so, rather than waiting on a socket nothing answers.
+        castProbe?.unregister()
+        castProbe = null
+        stopCastServer()
         Log.i(TAG, "Terminating MusicService.")
 
         // Only clear it if it is still ours; a newer service instance may already have replaced it.

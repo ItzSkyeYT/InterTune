@@ -41,7 +41,7 @@ class WholeStreamRequestTest {
     fun `a new address is handed over as it is, to be read to the song's end`() {
         assertTrue(
             "the address YouTube has just given is no longer what the player gets",
-            "dataSpec.withUri(streamUrl.toUri())\n" in whereTheBytesAre,
+            "is ResolvedSong.NewStream -> dataSpec.withUri(resolved.data.streamUrl.toUri())\n" in whereTheBytesAre,
         )
     }
 
@@ -49,6 +49,9 @@ class WholeStreamRequestTest {
     fun `nothing there asks for a part of a song`() {
         // subrange() on what goes back to the player is how a request was cut to 512 KB.
         assertFalse("a request is cut short again", ".subrange(" in whereTheBytesAre)
+        // Nor in what decides where the bytes are, which casting made a class of its own.
+        val resolver = service.substring(service.indexOf("inner class SongResolver"), service.indexOf("fun startCastServer"))
+        assertFalse("a request is cut short again", ".subrange(" in resolver)
     }
 
     @Test
