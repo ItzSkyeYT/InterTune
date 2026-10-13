@@ -1636,18 +1636,6 @@ fun BottomSheetPlayer(
                     }
                 }
                 }
-                // Where the music is coming out, laid over the bottom right corner of the
-                // controls' half: under the play row in Classic and under the row of buttons in
-                // Connected, where nothing else is. Laid over, so that nothing moves for it in a
-                // window that has no height to give.
-                OutputButton(
-                    tint = onBackgroundColor,
-                    wide = false,
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Bottom + WindowInsetsSides.End))
-                        .padding(end = 24.dp, bottom = 10.dp)
-                )
             } else {
                 /**
                  * Two panes on a tablet: player on the left, the up-next queue on the right.
@@ -1719,9 +1707,9 @@ fun BottomSheetPlayer(
                         }
 
                         // Laid over the empty top right corner, under the status bar, so nothing
-                        // else on the player moves or changes size for it. Only where the output
-                        // button under the controls has no room: a small window.
-                        if (queueLayout.outputRoom == 0.dp) {
+                        // else on the player moves or changes size for it. Only on a tablet's two
+                        // panes now: everywhere else the output button says and does more.
+                        if (tabletTwoPane) {
                             CastButton(
                                 tint = onBackgroundColor,
                                 modifier = Modifier
@@ -1867,6 +1855,27 @@ fun BottomSheetPlayer(
             backdrop = if (liquidGlass && Unreleased.GLASS_QUEUE) playerBackdrop else null,
             glassIntensity = glassIntensity,
         )
+
+        // Where the music is coming out, on a phone on its side, where there is no row for it
+        // under the controls: laid over the bottom right corner, under the play row with Classic
+        // buttons and under the row of buttons with Connected ones, so that nothing moves for it
+        // in a window with no height to give. A pill there even while casting: a bar would cover
+        // the controls.
+        //
+        // Drawn after the queue's sheet. Its collapsed strip lies across the bottom of the window,
+        // and under it the pill was seen and could not be pressed: the tap opened the queue. Gone
+        // once the queue is most of the way up. Not on a small upright window, where that corner
+        // is the play row's.
+        if (isLandscape && queueLayout.outputRoom == 0.dp && !tabletTwoPane && mediaMetadata != null && !queueCovers) {
+            OutputButton(
+                tint = onBackgroundColor,
+                wide = false,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Bottom + WindowInsetsSides.End))
+                    .padding(end = 24.dp, bottom = 10.dp)
+            )
+        }
     }
 }
 
