@@ -107,4 +107,22 @@ class RowPictureTest {
             assertTrue("$stretch", stretch.map { (it % 10) / 5 }.toSet().size == 2)
         }
     }
+
+    @Test
+    fun `the picture does not grow with the window`() {
+        // A phone upright: two lines of ten that fill the width, as before.
+        val upright = rowGrid(361f)
+        assertEquals(10, upright.across)
+        assertEquals(361f, upright.width + 28f, 0.01f)
+        assertTrue(upright.height < 100f)
+        // The same phone on its side, and a tablet: one line, and no taller than upright.
+        for (wide in listOf(600f, 740f, 1248f)) {
+            val grid = rowGrid(wide)
+            assertEquals(20, grid.across)
+            assertTrue("$wide: ${grid.height}", grid.height <= 28f + ROW_TILE_MOST_DP)
+            assertTrue(grid.width + 28f <= wide + 0.01f)
+        }
+        // Held over its controls on a screen 390 dp high, it leaves them most of it at any width.
+        for (width in 200..1400 step 7) assertTrue("$width", rowGrid(width.toFloat()).height <= 115f)
+    }
 }

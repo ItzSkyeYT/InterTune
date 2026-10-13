@@ -37,9 +37,32 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.min
 
-/** The places of the row in the picture, in two lines of ten. */
+/** The places of the row in the picture: two lines of ten, or one of twenty where there is the width. */
 internal const val ROW_PLACES = 20
 private const val ROW_ACROSS = 10
+
+/** A tile is never larger than this, however wide the window. */
+internal const val ROW_TILE_MOST_DP = 40f
+private const val ROW_EDGE_DP = 14f
+private const val ROW_GAP_DP = 5f
+
+/** How the tiles are laid out in a given width: how many across, and a tile's side, all in dp. */
+internal class RowGrid(val across: Int, val tile: Float) {
+    val lines: Int get() = ROW_PLACES / across
+    val width: Float get() = across * tile + (across - 1) * ROW_GAP_DP
+    val height: Float get() = ROW_EDGE_DP * 2 + lines * tile + (lines - 1) * ROW_GAP_DP
+}
+
+/**
+ * The picture is held in view over its controls, so it must not grow with the window: a tile sized
+ * to a tenth of a phone on its side made it half the height of the screen, with the sliders it
+ * shows left a strip to scroll through. From 600 dp the row is one line, and a tile has a most.
+ */
+internal fun rowGrid(widthDp: Float): RowGrid {
+    val across = if (widthDp >= 600f) ROW_PLACES else ROW_ACROSS
+    val fits = (widthDp - ROW_EDGE_DP * 2 - ROW_GAP_DP * (across - 1)) / across
+    return RowGrid(across, fits.coerceIn(1f, ROW_TILE_MOST_DP))
+}
 
 /**
  * The order the places are handed out in. Any stretch of it lies evenly over the row, so each kind
@@ -156,13 +179,14 @@ fun RowPicturePanel(mix: RowMix, modifier: Modifier = Modifier) {
         }
     }
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
-        val edge = 14.dp
-        val gap = 5.dp
-        val tile = (maxWidth - edge * 2 - gap * (ROW_ACROSS - 1)) / ROW_ACROSS
+        val edge = ROW_EDGE_DP.dp
+        val gap = ROW_GAP_DP.dp
+        val grid = rowGrid(maxWidth.value)
+        val tile = grid.tile.dp
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(edge * 2 + tile * (ROW_PLACES / ROW_ACROSS) + gap * (ROW_PLACES / ROW_ACROSS - 1))
+                .height(grid.height.dp)
                 .clip(RoundedCornerShape(20.dp))
                 .background(MaterialTheme.colorScheme.surfaceContainerLowest)
                 // A picture of what the lines under the sliders say in numbers: a screen reader is read those.
@@ -170,13 +194,15 @@ fun RowPicturePanel(mix: RowMix, modifier: Modifier = Modifier) {
         ) {
             val side = tile.toPx()
             val step = side + gap.toPx()
+            // Tiles at their most leave room at the sides: the row stands in the middle.
+            val left = (size.width - grid.width.dp.toPx()) / 2
             for (place in 0 until ROW_PLACES) {
                 // Born and gone at nothing, so the swell has no start and no end to see.
                 val through = turn[place].value
                 val grown = side * (1f + SWELL * 4f * through * (1f - through))
                 val centre = Offset(
-                    x = edge.toPx() + (place % ROW_ACROSS) * step + side / 2,
-                    y = edge.toPx() + (place / ROW_ACROSS) * step + side / 2,
+                    x = left + (place % grid.across) * step + side / 2,
+                    y = edge.toPx() + (place / grid.across) * step + side / 2,
                 )
                 drawRoundRect(
                     color = shown[place].value,
