@@ -652,6 +652,11 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="setup_signed_in_as">You are signed in as %1$s.</string>
     <string name="setup_signed_in">You are signed in.</string>
     <string name="setup_other_account">Use another account</string>
+    <!-- What signing in can cost. Said where somebody signs in (setup, and Account and sync in Settings) and once, in a dialog, to whoever was signed in before this was said anywhere. -->
+    <string name="account_notice_title">About your account</string>
+    <string name="account_notice_body">There is a small chance that YouTube restricts or closes an account used with this app. To keep your main account out of it, use the app signed out, or sign in with a second account.</string>
+    <!-- Under account_notice_body in the dialog. %1$s is the name of the Settings entry, grp_account_sync. -->
+    <string name="account_notice_signed_in">You are signed in. Signing out is in Settings, under %1$s.</string>
     <!-- On setup's first page, beside "I have a backup", each on half the page: two lines of words at most. It opens the screen of the same name (import_library_title). -->
     <string name="setup_import_playlists">Import from another app</string>
     <string name="setup_choices_title">A few questions</string>

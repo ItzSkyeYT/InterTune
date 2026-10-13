@@ -1555,6 +1555,9 @@
     <string name="setup_signed_in_as">Vous utilisez le compte %1$s.</string>
     <string name="setup_signed_in">Votre compte est connecté.</string>
     <string name="setup_other_account">Utiliser un autre compte</string>
+    <string name="account_notice_title">À propos de votre compte</string>
+    <string name="account_notice_body">Il existe un faible risque que YouTube restreigne ou ferme un compte utilisé avec cette application. Pour ne pas exposer votre compte principal, utilisez l\'application sans vous connecter, ou connectez-vous avec un second compte.</string>
+    <string name="account_notice_signed_in">Vous êtes connecté. La déconnexion se trouve dans Paramètres, sous %1$s.</string>
     <string name="setup_import_playlists">Importer depuis une autre appli</string>
     <string name="setup_choices_title">Quelques questions</string>
     <string name="setup_choices_body">Vous pourrez changer d\'avis dans les paramètres.</string>
