@@ -142,8 +142,13 @@ class ReleasedFlagsTest {
 
     @Test
     fun `the pictures in the explanations are in every build`() {
-        assertEquals(setOf("ui/component/Explain.kt", "ui/screens/settings/fragments/PlayerFrag.kt"), readers("EXPLAIN_PICTURES"))
+        assertEquals(
+            setOf("ui/component/Explain.kt", "ui/screens/settings/RecommendationsSettings.kt", "ui/screens/settings/fragments/PlayerFrag.kt"),
+            readers("EXPLAIN_PICTURES"),
+        )
         assertWritten("ui/component/Explain.kt", "if (picture != null && Unreleased.EXPLAIN_PICTURES) {")
         assertWritten("ui/screens/settings/fragments/PlayerFrag.kt", "val pictured = Unreleased.EXPLAIN_PICTURES")
+        // The picture of the row over the Best recommendations controls.
+        assertWritten("ui/screens/settings/RecommendationsSettings.kt", "if (Unreleased.EXPLAIN_PICTURES) {")
     }
 }
