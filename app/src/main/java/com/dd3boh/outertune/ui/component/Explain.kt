@@ -6,6 +6,8 @@
 
 package com.dd3boh.outertune.ui.component
 
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -40,6 +42,7 @@ import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.ui.dialog.DefaultDialog
 import com.dd3boh.outertune.ui.screens.settings.SettingJump
 import com.dd3boh.outertune.ui.screens.settings.explanationWithLinks
+import com.dd3boh.outertune.ui.utils.LocalLandscape
 
 /**
  * The little "i" beside a setting, and the dialog behind it.
@@ -122,45 +125,58 @@ fun ExplainDialog(
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.explain_close)) }
         },
     ) {
-        if (picture != null && Unreleased.EXPLAIN_PICTURES) {
-            ExplainPicturePanel(picture, Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp))
-        }
-
-        // Still capped, because a large font on a short phone would otherwise push the button off
-        // the bottom, but high enough that nothing worth reading has to be scrolled to. The real
-        // fix for scrolling is writing less, which is the other half of this change.
-        Text(
-            // A setting it names is a way to that setting: see SettingJumps.
-            text = if (Unreleased.EXPLANATION_LINKS) {
-                explanationWithLinks(body, own = title) { jump ->
-                    onDismiss()
-                    SettingJump.go(jump)
-                }
-            } else AnnotatedString(body),
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier
-                .heightIn(max = 480.dp)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp),
-        )
-
-        // For the settings that cannot work everywhere. Being told why is only half of it; the
-        // other half is being able to say so when the reason does not apply to you.
-        if (footer != null) {
-            Spacer(Modifier.height(12.dp))
+        val pictured = picture != null && Unreleased.EXPLAIN_PICTURES
+        // On a phone on its side the picture over the words took the whole dialog: the words had
+        // three lines, or none once the button was given its place. There the picture stands
+        // beside them, and they scroll in what is left.
+        val beside = pictured && LocalLandscape.current.active
+        val words: @Composable ColumnScope.() -> Unit = {
             Text(
-                text = footer,
+                // A setting it names is a way to that setting: see SettingJumps.
+                text = if (Unreleased.EXPLANATION_LINKS) {
+                    explanationWithLinks(body, own = title) { jump ->
+                        onDismiss()
+                        SettingJump.go(jump)
+                    }
+                } else AnnotatedString(body),
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 16.dp),
+                // Still capped, because a large font on a short phone would otherwise push the
+                // button off the bottom, but high enough that nothing worth reading has to be
+                // scrolled to. The real fix for scrolling is writing less, which is the other
+                // half of this change. Beside the picture the whole column scrolls instead.
+                modifier = (if (beside) Modifier else Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState()))
+                    .padding(horizontal = 16.dp),
             )
-        }
-        if (links.isNotEmpty()) {
-            Row(modifier = Modifier.padding(horizontal = 8.dp)) {
-                links.forEach { link ->
-                    TextButton(onClick = { uriHandler.openUri(link.url) }) { Text(link.label) }
+
+            // For the settings that cannot work everywhere. Being told why is only half of it; the
+            // other half is being able to say so when the reason does not apply to you.
+            if (footer != null) {
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = footer,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
+            }
+            if (links.isNotEmpty()) {
+                Row(modifier = Modifier.padding(horizontal = 8.dp)) {
+                    links.forEach { link ->
+                        TextButton(onClick = { uriHandler.openUri(link.url) }) { Text(link.label) }
+                    }
                 }
             }
+        }
+        if (beside) {
+            Row(modifier = Modifier.weight(1f, fill = false)) {
+                ExplainPicturePanel(picture!!, Modifier.weight(1f).padding(start = 16.dp))
+                Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()), content = words)
+            }
+        } else {
+            if (pictured) {
+                ExplainPicturePanel(picture!!, Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp))
+            }
+            words()
         }
         Spacer(Modifier.height(8.dp))
     }
