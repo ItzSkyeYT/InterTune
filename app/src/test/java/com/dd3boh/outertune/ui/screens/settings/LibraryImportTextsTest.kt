@@ -79,7 +79,10 @@ class LibraryImportTextsTest {
             }
         }
         // A tap on a row opens that app's steps, and Back from them is back to the list.
-        assertTrue("item(key = \"sources\") { SourceList(reading = reading, problem = problem, onChoose = { source = it }) }" in screen)
+        assertTrue("item(key = \"sources\") { SourceList(reading = reading, problem = problem, onChoose = { forgetProblem(); source = it }) }" in screen)
+        // And it goes with the page it was said on: another app's steps do not open on it.
+        assertTrue("val forgetProblem: () -> Unit = { if (stage == LibraryImport.Stage.FAILED) session.reset() }" in screen)
+        assertTrue("forgetProblem()\n        source = null" in screen)
         // A file that could not be read says so inside the page's own item, under the button
         // that chose it. As an item of its own it came last, under everything.
         assertTrue("item(key = \"error\")" !in screen)

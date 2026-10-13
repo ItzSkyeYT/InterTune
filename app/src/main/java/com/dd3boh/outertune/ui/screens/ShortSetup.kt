@@ -789,13 +789,13 @@ private fun SetupPage(
             ) {
                 // What stands beside the page scrolls too where it is taller than the screen: the
                 // sign-in page's note over its button, in large text, left the button under the fold.
-                val beside = rememberScrollState()
+                val besideScroll = rememberScrollState()
                 Column(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier
                         .widthIn(max = 360.dp)
-                        .moreBelow(beside, MaterialTheme.colorScheme.background)
-                        .verticalScroll(beside)
+                        .moreBelow(besideScroll, MaterialTheme.colorScheme.background)
+                        .verticalScroll(besideScroll)
                         .padding(vertical = 12.dp),
                     content = buttons,
                 )

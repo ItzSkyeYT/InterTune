@@ -153,7 +153,11 @@ fun LibraryImportScreen(
     var visited by rememberSaveable { mutableStateOf(false) }
     val uriHandler = LocalUriHandler.current
     val steps = source.takeIf { !started }
+    // A file that could not be read is said on the page it was chosen from, and goes with that
+    // page: under another app's steps it would be an error for a file nobody has chosen there.
+    val forgetProblem: () -> Unit = { if (stage == LibraryImport.Stage.FAILED) session.reset() }
     val backToSources: () -> Unit = {
+        forgetProblem()
         source = null
         visited = false
     }
@@ -175,7 +179,7 @@ fun LibraryImportScreen(
                 val problem: (@Composable () -> Unit)? =
                     if (stage == LibraryImport.Stage.FAILED) ({ Problem(state) }) else null
                 if (from == null) {
-                    item(key = "sources") { SourceList(reading = reading, problem = problem, onChoose = { source = it }) }
+                    item(key = "sources") { SourceList(reading = reading, problem = problem, onChoose = { forgetProblem(); source = it }) }
                 } else {
                     item(key = "steps") {
                         SourceSteps(
