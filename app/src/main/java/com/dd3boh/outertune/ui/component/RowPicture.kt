@@ -29,7 +29,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.ColorUtils
 import com.dd3boh.outertune.engine.Lane
@@ -44,7 +45,7 @@ private const val ROW_ACROSS = 10
 
 /** A tile is never larger than this, however wide the window. */
 internal const val ROW_TILE_MOST_DP = 40f
-/** Under this height the screen is a phone on its side. */
+/** A window under this height is a phone on its side, or half a split screen. */
 private const val ROW_SHORT_SCREEN_DP = 480
 private const val ROW_EDGE_DP = 14f
 private const val ROW_GAP_DP = 5f
@@ -184,7 +185,9 @@ fun RowPicturePanel(mix: RowMix, modifier: Modifier = Modifier) {
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
         val edge = ROW_EDGE_DP.dp
         val gap = ROW_GAP_DP.dp
-        val grid = rowGrid(maxWidth.value, short = LocalConfiguration.current.screenHeightDp < ROW_SHORT_SCREEN_DP)
+        // The window's height, which is what the picture is held in: half a split screen is short too.
+        val high = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.height.toDp() }
+        val grid = rowGrid(maxWidth.value, short = high < ROW_SHORT_SCREEN_DP.dp)
         val tile = grid.tile.dp
         Canvas(
             modifier = Modifier
