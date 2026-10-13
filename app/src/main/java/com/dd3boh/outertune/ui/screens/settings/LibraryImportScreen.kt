@@ -170,14 +170,19 @@ fun LibraryImportScreen(
             if (!started) {
                 val reading = stage == LibraryImport.Stage.READING
                 val from = source
+                // A file that could not be read says so where the eye is: under the button that
+                // chose it, not under the whole page, where the mini player can cover it.
+                val problem: (@Composable () -> Unit)? =
+                    if (stage == LibraryImport.Stage.FAILED) ({ Problem(state) }) else null
                 if (from == null) {
-                    item(key = "sources") { SourceList(reading = reading, onChoose = { source = it }) }
+                    item(key = "sources") { SourceList(reading = reading, problem = problem, onChoose = { source = it }) }
                 } else {
                     item(key = "steps") {
                         SourceSteps(
                             source = from,
                             visited = visited,
                             reading = reading,
+                            problem = problem,
                             onOpen = {
                                 visited = true
                                 // A phone with no browser has nowhere to open it: the steps stay.
@@ -186,9 +191,6 @@ fun LibraryImportScreen(
                             onFile = choose,
                         )
                     }
-                }
-                if (stage == LibraryImport.Stage.FAILED) {
-                    item(key = "error") { Problem(state) }
                 }
                 return@LazyColumn
             }
@@ -374,7 +376,7 @@ private fun sourceName(source: ImportSource): String =
  * about the tools, which is what somebody has to read before knowing which line is theirs.
  */
 @Composable
-private fun SourceList(reading: Boolean, onChoose: (ImportSource) -> Unit) {
+private fun SourceList(reading: Boolean, problem: (@Composable () -> Unit)?, onChoose: (ImportSource) -> Unit) {
     Column(modifier = Modifier.padding(vertical = 8.dp)) {
         Text(
             text = stringResource(R.string.import_library_source_question),
@@ -383,6 +385,7 @@ private fun SourceList(reading: Boolean, onChoose: (ImportSource) -> Unit) {
         )
         // A file chosen from "Import another file", with no app picked this time round.
         if (reading) ReadingFile()
+        problem?.invoke()
         ElevatedCard(modifier = Modifier.fillMaxWidth()) {
             ImportSource.entries.forEach { source ->
                 val tool = source.tool.label
@@ -476,6 +479,7 @@ private fun SourceSteps(
     source: ImportSource,
     visited: Boolean,
     reading: Boolean,
+    problem: (@Composable () -> Unit)?,
     onOpen: () -> Unit,
     onFile: () -> Unit,
 ) {
@@ -523,6 +527,9 @@ private fun SourceSteps(
                     visited -> Button(onClick = onFile) { Text(stringResource(R.string.import_library_choose)) }
                     else -> OutlinedButton(onClick = onFile) { Text(stringResource(R.string.import_library_choose)) }
                 }
+            }
+            if (problem != null) {
+                Box(modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp)) { problem() }
             }
         }
         Spacer(Modifier.height(12.dp))

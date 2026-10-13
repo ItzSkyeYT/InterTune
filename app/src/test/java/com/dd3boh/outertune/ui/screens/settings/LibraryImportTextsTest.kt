@@ -79,7 +79,11 @@ class LibraryImportTextsTest {
             }
         }
         // A tap on a row opens that app's steps, and Back from them is back to the list.
-        assertTrue("item(key = \"sources\") { SourceList(reading = reading, onChoose = { source = it }) }" in screen)
+        assertTrue("item(key = \"sources\") { SourceList(reading = reading, problem = problem, onChoose = { source = it }) }" in screen)
+        // A file that could not be read says so inside the page's own item, under the button
+        // that chose it. As an item of its own it came last, under everything.
+        assertTrue("item(key = \"error\")" !in screen)
+        assertTrue("problem?.invoke()" in list && "problem()" in body("SourceSteps"))
         assertTrue("BackHandler(enabled = steps != null, onBack = backToSources)" in screen)
         assertTrue("LocalTopBarUp provides (if (steps != null) backToSources else paneUp)" in screen)
     }
