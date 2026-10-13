@@ -36,6 +36,7 @@ enum class ImportSource(val label: String, val tool: ImportTool, val address: St
     TIDAL("Tidal", ImportTool.TUNEMYMUSIC, "https://www.tunemymusic.com/transfer/tidal-to-file"),
     AMAZON_MUSIC("Amazon Music", ImportTool.TUNEMYMUSIC, "https://www.tunemymusic.com/transfer/amazon-music-to-file"),
     SOUNDCLOUD("SoundCloud", ImportTool.TUNEMYMUSIC, "https://www.tunemymusic.com/transfer/soundcloud-to-file"),
+    QOBUZ("Qobuz", ImportTool.TUNEMYMUSIC, "https://www.tunemymusic.com/transfer/qobuz-to-file"),
     OTHER("", ImportTool.TUNEMYMUSIC, "https://www.tunemymusic.com/"),
     ;
 

@@ -438,6 +438,7 @@ private fun sourceIcon(source: ImportSource): SourceIcon? = when (source) {
     ImportSource.TIDAL -> SourceIcon(R.drawable.import_source_tidal, fills = false)
     ImportSource.AMAZON_MUSIC -> SourceIcon(R.drawable.import_source_amazon_music, fills = false)
     ImportSource.SOUNDCLOUD -> SourceIcon(R.drawable.import_source_soundcloud, fills = true)
+    ImportSource.QOBUZ -> SourceIcon(R.drawable.import_source_qobuz, fills = true)
     ImportSource.OTHER -> null
 }
 
