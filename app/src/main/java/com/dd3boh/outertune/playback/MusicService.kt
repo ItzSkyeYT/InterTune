@@ -1953,7 +1953,7 @@ class MusicService : MediaLibraryService(),
     private fun createDataSourceFactory(): DataSource.Factory {
         return ResolvingDataSource.Factory(createCacheDataSource()) { dataSpec ->
             val mediaId = dataSpec.key ?: error("No media id")
-            Log.d(TAG, "PLAYING: song id = $mediaId")
+            Log.i(TAG, "PLAYING: song id = $mediaId")
 
             val queued = queueBoard.getCurrentQueue()?.findSong(dataSpec.key ?: "")
             // in the case of resumption, queueBoard may not be ready yet
@@ -1969,7 +1969,7 @@ class MusicService : MediaLibraryService(),
             // local song
             if (localPath != null) {
                 if (isLocal) {
-                    Log.d(TAG, "PLAYING: local song")
+                    Log.i(TAG, "PLAYING: local song")
                     val file = File(localPath)
                     if (!file.exists()) {
                         throw PlaybackException(
@@ -1986,7 +1986,7 @@ class MusicService : MediaLibraryService(),
                     // streamed instead of failing.
                     val isDownloadNew = downloadUtil.localMgr.isExists(mediaId)?.takeIf { it.exists() }
                     isDownloadNew?.let {
-                        Log.d(TAG, "PLAYING: Custom downloaded song")
+                        Log.i(TAG, "PLAYING: Custom downloaded song")
                         return@Factory dataSpec.withUri(it.uri)
                     }
                 }
@@ -2015,7 +2015,7 @@ class MusicService : MediaLibraryService(),
             val partialCopy = !isDownload && dataSpec.position == 0L &&
                     isNetworkConnected.value && playerCache.holdsPartFromStart(mediaId)
             if ((isDownload || isCache) && !staleQuality && !partialCopy) {
-                Log.d(TAG, "PLAYING: remote song (cache = ${isCache}, download = ${isDownload})")
+                Log.i(TAG, "PLAYING: remote song (cache = ${isCache}, download = ${isDownload})")
                 offloadScope.launch { recoverSong(mediaId) }
                 return@Factory dataSpec
             }
@@ -2023,12 +2023,12 @@ class MusicService : MediaLibraryService(),
             // The address the song was given earlier, unless the player has failed on it since:
             // onPlayerError forgets it, and the try after that asks afresh below.
             streamAddresses.of(mediaId, System.currentTimeMillis())?.takeIf { !staleQuality }?.let {
-                Log.d(TAG, "PLAYING: remote song (temp cache)")
+                Log.i(TAG, "PLAYING: remote song (temp cache)")
                 offloadScope.launch { recoverSong(mediaId) }
                 return@Factory dataSpec.withUri(it.toUri())
             }
 
-            Log.d(TAG, "PLAYING: remote song (online fetch)")
+            Log.i(TAG, "PLAYING: remote song (online fetch)")
 
             val played = runBlocking(Dispatchers.IO) {
                 standIns.playbackData(mediaId)
@@ -2038,7 +2038,7 @@ class MusicService : MediaLibraryService(),
                 // than fail a song that plays fine, and leave its row as it is, so the upgrade is
                 // tried again next time.
                 if (staleQuality || partialCopy) {
-                    Log.d(TAG, "PLAYING: remote song (cache kept, the new stream could not be fetched)", ErrorText.forLog(throwable))
+                    Log.i(TAG, "PLAYING: remote song (cache kept, the new stream could not be fetched)", ErrorText.forLog(throwable))
                     return@Factory dataSpec
                 }
                 when (throwable) {
@@ -2106,7 +2106,7 @@ class MusicService : MediaLibraryService(),
             // Nor is a whole copy of the song given up for a stand-in's stream, however sure the
             // match: the copy is the song, and the stand-in only very likely is.
             if (staleQuality && (!playbackData.validated || standIn) && !partialCopy) {
-                Log.d(TAG, "PLAYING: remote song (cache kept, the new stream was ${if (standIn) "a stand-in's" else "not checked"})")
+                Log.i(TAG, "PLAYING: remote song (cache kept, the new stream was ${if (standIn) "a stand-in's" else "not checked"})")
                 return@Factory dataSpec
             }
             // The song from its start with nothing of it cached there, and parts further in: the
@@ -2126,7 +2126,7 @@ class MusicService : MediaLibraryService(),
                 // another upload, and its bytes are not the copy's. See sameStream.
                 val copy = runCatching { database.readOrNull { formatRow(mediaId) } }.getOrNull()
                 if (!sameStream(copy?.itag, copy?.contentLength, format.itag, format.contentLengthOrZero())) {
-                    Log.d(TAG, "PLAYING: remote song (partial copy was itag ${copy?.itag}, ${copy?.contentLength} bytes, the stream is ${format.itag}, ${format.contentLengthOrZero()} bytes, starting over)")
+                    Log.i(TAG, "PLAYING: remote song (partial copy was itag ${copy?.itag}, ${copy?.contentLength} bytes, the stream is ${format.itag}, ${format.contentLengthOrZero()} bytes, starting over)")
                     runCatching { playerCache.removeResource(mediaId) }
                         .onFailure { Log.w(TAG, "Could not drop the partial copy of $mediaId", it) }
                 }

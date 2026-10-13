@@ -69,6 +69,11 @@ import com.dd3boh.outertune.ui.component.SettingsClickToReveal
 import com.dd3boh.outertune.ui.component.button.IconLabelButton
 import com.dd3boh.outertune.utils.scanners.FFmpegScanner
 import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.FfmpegLibrary
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import com.dd3boh.outertune.ui.component.ProblemReportDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,6 +84,8 @@ fun AboutScreen(
     val context = LocalContext.current
     val clipboardManager = LocalClipboard.current
     val uriHandler = LocalUriHandler.current
+    var reportingProblem by rememberSaveable { mutableStateOf(false) }
+    if (reportingProblem) ProblemReportDialog(onDismiss = { reportingProblem = false })
 
     val showDebugInfo = BuildConfig.DEBUG || BuildConfig.BUILD_TYPE == "userdebug"
 
@@ -218,7 +225,8 @@ fun AboutScreen(
                 PreferenceEntry(
                     title = { Text(stringResource(R.string.help_bug_report_action)) },
                     onClick = {
-                        uriHandler.openUri(Links.ISSUES)
+                        // With the log to hand first, where there is one to show: see ProblemLog.
+                        if (Unreleased.PROBLEM_REPORT) reportingProblem = true else uriHandler.openUri(Links.ISSUES)
                     }
                 )
                 PreferenceEntry(

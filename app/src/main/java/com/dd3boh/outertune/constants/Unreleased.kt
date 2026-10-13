@@ -377,4 +377,16 @@ object Unreleased {
      * ProximityProbe but for forgetOldLogs, and eleven strings.
      */
     val SIGNAL_LOG = BuildConfig.DEBUG
+
+    /**
+     * "Submit a bug report" in About opens a page of the app's own instead of the browser: the
+     * last thing that went wrong as the phone's log has it, with what led up to it, to copy or to
+     * take to the bug form with the version and the phone already filled in (ProblemReportDialog,
+     * ProblemLog). Asked for on 13 Oct 2026, after a report of a fault that showed no message.
+     *
+     * Held back until the words are agreed. When they are: set this to true, or delete it with
+     * the check that reads it in AboutScreen, and make the nine problem_report strings
+     * translatable, with their French.
+     */
+    val PROBLEM_REPORT = BuildConfig.DEBUG
 }

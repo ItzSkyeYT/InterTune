@@ -1824,4 +1824,15 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="visionos_test_all" translatable="false">Every version</string>
     <string name="web_client_first" translatable="false">Ask YouTube Music\'s web client first</string>
     <string name="web_client_first_description" translatable="false">An experiment. Every song is asked of the web client before the usual ones.</string>
+
+    <!-- Report a problem, behind Unreleased.PROBLEM_REPORT: English only until the words are agreed -->
+    <string name="problem_report_title" translatable="false">Report a problem</string>
+    <string name="problem_report_found" translatable="false">This is the last thing that went wrong, as the app noted it, with what led up to it. It names the songs that were playing. Nothing leaves the phone unless you send it.</string>
+    <string name="problem_report_none" translatable="false">Nothing that looks like a fault has been noted since the app was opened. These are its last lines.</string>
+    <string name="problem_report_empty" translatable="false">The phone\'s log could not be read. The form still opens with the version and the phone filled in.</string>
+    <string name="problem_report_reading" translatable="false">Reading the log</string>
+    <string name="problem_report_form" translatable="false">Open the form</string>
+    <string name="problem_report_copy" translatable="false">Copy</string>
+    <string name="problem_report_copied" translatable="false">Copied</string>
+    <string name="problem_report_close" translatable="false">Close</string>
 </resources>
