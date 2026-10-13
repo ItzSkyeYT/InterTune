@@ -6,9 +6,12 @@
 
 package com.dd3boh.outertune.ui.screens
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -60,16 +63,20 @@ fun AccountNoticeDialog(onDone: () -> Unit) {
             }
         },
     ) {
-        Text(
-            text = stringResource(R.string.account_notice_body),
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(horizontal = 16.dp),
-        )
-        Spacer(Modifier.height(12.dp))
-        Text(
-            text = stringResource(R.string.account_notice_signed_in, stringResource(R.string.grp_account_sync)),
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(horizontal = 16.dp),
-        )
+        // The button is the only way out, so the words give way to it: on a phone on its side or
+        // with large text they scroll, and "Got it" stays on screen.
+        Column(modifier = Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
+            Text(
+                text = stringResource(R.string.account_notice_body),
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = stringResource(R.string.account_notice_signed_in, stringResource(R.string.grp_account_sync)),
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+        }
     }
 }

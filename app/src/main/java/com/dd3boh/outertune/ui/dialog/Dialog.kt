@@ -120,10 +120,14 @@ fun AskFirstDialog(
             }
         },
     ) {
+        // The words give way to the buttons where the window is short: they scroll.
         Text(
             text = text,
             style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.padding(horizontal = 16.dp),
+            modifier = Modifier
+                .weight(1f, fill = false)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp),
         )
     }
 }
