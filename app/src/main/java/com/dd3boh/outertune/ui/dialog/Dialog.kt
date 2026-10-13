@@ -190,7 +190,14 @@ fun DefaultDialog(
                     Spacer(Modifier.height(16.dp))
                 }
 
-                content()
+                // What the dialog says gives way to its buttons, never the other way round: left to
+                // itself a long text on a short screen (a phone on its side, large text) took the
+                // whole height and the buttons were not drawn at all.
+                Column(
+                    horizontalAlignment = horizontalAlignment,
+                    modifier = Modifier.weight(1f, fill = false),
+                    content = content,
+                )
 
                 if (buttons != null) {
                     Spacer(Modifier.height(24.dp))
