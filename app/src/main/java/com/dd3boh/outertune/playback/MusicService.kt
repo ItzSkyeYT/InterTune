@@ -2132,7 +2132,14 @@ class MusicService : MediaLibraryService(),
             // Kept whether or not it answered its check. The rest of the song is fetched from it,
             // and the player failing on it is what takes it out again.
             streamAddresses.keep(mediaId, streamUrl, System.currentTimeMillis() + (playbackData.streamExpiresInSeconds * 1000L))
-            dataSpec.withUri(streamUrl.toUri()).subrange(dataSpec.uriPositionOffset, CHUNK_LENGTH)
+            // Asked for whole, from where the player is to the song's end, as an address already
+            // known is a few lines up. It used to be the first 512 KB only. The player took those
+            // for the whole file, and the song went on because the cut fell inside an audio frame:
+            // the frame came up short, the load failed and was made again, and that second request
+            // ran to the end. Where the cut fell exactly between two frames nothing was short, the
+            // file simply ended, and so did the song, at about thirty seconds and without an error.
+            // The same songs every time, about one in three hundred. See WholeStreamRequestTest.
+            dataSpec.withUri(streamUrl.toUri())
         }
     }
 
