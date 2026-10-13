@@ -1048,9 +1048,17 @@ fun ColumnScope.SpatialAudioFrag() {
         }.getOrElse { context.getString(R.string.spatial_audio_status_unreadable, it.message ?: "") }
     }
 
+    if (summary == null) {
+        // Below Android 13 the row is one sentence, and the explanation speaks of the two it has above.
+        PreferenceEntry(
+            title = { Text(stringResource(R.string.spatial_audio_status)) },
+            description = stringResource(R.string.spatial_audio_needs_13),
+        )
+        return
+    }
     ExplainedPreference(
         title = stringResource(R.string.spatial_audio_status),
         explanation = stringResource(R.string.spatial_audio_status_explain),
-        description = summary ?: stringResource(R.string.spatial_audio_needs_13),
+        description = summary,
     )
 }

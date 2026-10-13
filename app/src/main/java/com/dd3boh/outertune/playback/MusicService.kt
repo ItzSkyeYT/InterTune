@@ -2471,10 +2471,16 @@ class MusicService : MediaLibraryService(),
             return
         }
 
+        // Nothing after it to skip to is not "too many errors": the last song of a queue failed once.
+        val tooMany = consecutivePlaybackErr > MAX_PLAYER_CONSECUTIVE_ERR
+        consecutivePlaybackErr = 0
+        if (!tooMany) {
+            stopOnError()
+            return
+        }
         stoppedByError = true
         player.pause()
         Toast.makeText(this@MusicService, getString(R.string.err_stop_on_too_many_errors), Toast.LENGTH_LONG).show()
-        consecutivePlaybackErr = 0
     }
 
     fun stopOnError() {
