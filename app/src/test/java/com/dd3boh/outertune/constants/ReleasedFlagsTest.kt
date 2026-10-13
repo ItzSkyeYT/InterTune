@@ -146,7 +146,7 @@ class ReleasedFlagsTest {
             setOf("ui/component/Explain.kt", "ui/screens/settings/RecommendationsSettings.kt", "ui/screens/settings/fragments/PlayerFrag.kt"),
             readers("EXPLAIN_PICTURES"),
         )
-        assertWritten("ui/component/Explain.kt", "if (picture != null && Unreleased.EXPLAIN_PICTURES) {")
+        assertWritten("ui/component/Explain.kt", "val pictured = picture != null && Unreleased.EXPLAIN_PICTURES")
         assertWritten("ui/screens/settings/fragments/PlayerFrag.kt", "val pictured = Unreleased.EXPLAIN_PICTURES")
         // The picture of the row over the Best recommendations controls.
         assertWritten("ui/screens/settings/RecommendationsSettings.kt", "if (Unreleased.EXPLAIN_PICTURES) {")
