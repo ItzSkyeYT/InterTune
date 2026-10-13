@@ -241,6 +241,8 @@ class CompactPlayerTest {
         // A small window, a two-pane layout, and a player with no song and so no controls.
         assertEquals(0.dp, playerQueueLayout(300.dp, inset, landscape = false, twoPane = false, queueAsButton = false, songLoaded = true, peek = peek, outputRow = true).outputRoom)
         assertEquals(0.dp, playerQueueLayout(800.dp, inset, landscape = true, twoPane = true, queueAsButton = false, songLoaded = true, peek = peek, outputRow = true).outputRoom)
+        // A phone on its side that is not wide enough for two panes: too short for one more row all the same.
+        assertEquals(0.dp, playerQueueLayout(360.dp, inset, landscape = true, twoPane = false, queueAsButton = false, songLoaded = true, peek = peek, outputRow = true).outputRoom)
         assertEquals(0.dp, playerQueueLayout(800.dp, inset, landscape = false, twoPane = false, queueAsButton = false, songLoaded = false, peek = peek, outputRow = true).outputRoom)
         // With the queue on its button the sheet is out of sight anyway, and the room is the same.
         val onButton = playerQueueLayout(800.dp, inset, landscape = false, twoPane = false, queueAsButton = true, songLoaded = true, peek = peek, outputRow = true)

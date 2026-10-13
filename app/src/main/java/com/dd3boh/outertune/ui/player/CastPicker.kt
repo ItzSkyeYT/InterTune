@@ -145,7 +145,7 @@ fun CastButton(tint: Color, modifier: Modifier = Modifier) {
  * only says what the system says. Nothing at all with Unreleased.CASTING off.
  */
 @Composable
-fun OutputButton(tint: Color, modifier: Modifier = Modifier) {
+fun OutputButton(tint: Color, modifier: Modifier = Modifier, wide: Boolean = true) {
     if (!Unreleased.CASTING) return
     val playerConnection = LocalPlayerConnection.current ?: return
     val session = playerConnection.service.castSession ?: return
@@ -156,7 +156,25 @@ fun OutputButton(tint: Color, modifier: Modifier = Modifier) {
     val local = rememberLocalOutput()
     val open = { session.pickerOpen.value = true }
 
-    if (casting != null) {
+    if (casting != null && !wide) {
+        // Laid over a corner, on a phone on its side: the pill, in the bar's colour.
+        Surface(
+            onClick = open,
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+            modifier = modifier.requiredHeight(44.dp),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.padding(horizontal = 18.dp),
+            ) {
+                Icon(iconOf(casting.device), contentDescription = null, modifier = Modifier.size(22.dp))
+                Text(casting.device.name, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    } else if (casting != null) {
         Surface(
             onClick = open,
             shape = RoundedCornerShape(20.dp),

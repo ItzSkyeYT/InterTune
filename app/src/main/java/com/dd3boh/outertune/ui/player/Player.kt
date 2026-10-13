@@ -1586,13 +1586,6 @@ fun BottomSheetPlayer(
                             }
                         }
 
-                        // Top right of the artwork's half, in the space beside it: the controls'
-                        // half has its buttons at the top in Classic and its title there in
-                        // Connected. The window's top is already clear of the status bar here.
-                        CastButton(
-                            tint = onBackgroundColor,
-                            modifier = Modifier.align(Alignment.TopEnd)
-                        )
                     }
 
                     Column(
@@ -1643,6 +1636,18 @@ fun BottomSheetPlayer(
                     }
                 }
                 }
+                // Where the music is coming out, laid over the bottom right corner of the
+                // controls' half: under the play row in Classic and under the row of buttons in
+                // Connected, where nothing else is. Laid over, so that nothing moves for it in a
+                // window that has no height to give.
+                OutputButton(
+                    tint = onBackgroundColor,
+                    wide = false,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Bottom + WindowInsetsSides.End))
+                        .padding(end = 24.dp, bottom = 10.dp)
+                )
             } else {
                 /**
                  * Two panes on a tablet: player on the left, the up-next queue on the right.

@@ -116,8 +116,10 @@ internal fun playerQueueLayout(
     val dismissed = if (compact) reserve else peek + bottomInset
     // The output button has the upper half of the strip, where the arrow was: the sheet rests on
     // the lower half, as it does in the two-pane layouts. A small player and the two-pane layouts
-    // have no strip to halve, and with no song there are no controls to put it under.
-    val room = if (outputRow && !compact && !twoPane && songLoaded) peek else 0.dp
+    // have no strip to halve, and with no song there are no controls to put it under. Nor on a
+    // phone on its side, whichever layout it gets: the window is too short for one more row, and
+    // the button sat on the play button there. It goes in a corner of the controls' half instead.
+    val room = if (outputRow && !compact && !twoPane && !landscape && songLoaded) peek else 0.dp
     return PlayerQueueLayout(
         compact = compact,
         reserve = reserve,
