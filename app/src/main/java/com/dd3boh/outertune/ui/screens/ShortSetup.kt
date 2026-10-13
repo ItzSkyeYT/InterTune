@@ -52,6 +52,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.text.modifiers.TextAutoSizeLayoutScope
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -786,9 +787,16 @@ private fun SetupPage(
                     .fillMaxHeight()
                     .padding(horizontal = 24.dp),
             ) {
+                // What stands beside the page scrolls too where it is taller than the screen: the
+                // sign-in page's note over its button, in large text, left the button under the fold.
+                val beside = rememberScrollState()
                 Column(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.widthIn(max = 360.dp),
+                    modifier = Modifier
+                        .widthIn(max = 360.dp)
+                        .moreBelow(beside, MaterialTheme.colorScheme.background)
+                        .verticalScroll(beside)
+                        .padding(vertical = 12.dp),
                     content = buttons,
                 )
             }
