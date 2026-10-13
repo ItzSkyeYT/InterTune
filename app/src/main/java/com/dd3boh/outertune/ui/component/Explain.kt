@@ -6,8 +6,8 @@
 
 package com.dd3boh.outertune.ui.component
 
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,6 +20,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -40,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.ui.dialog.DefaultDialog
+import com.dd3boh.outertune.ui.screens.moreBelow
 import com.dd3boh.outertune.ui.screens.settings.SettingJump
 import com.dd3boh.outertune.ui.screens.settings.explanationWithLinks
 import com.dd3boh.outertune.ui.utils.LocalLandscape
@@ -170,7 +172,15 @@ fun ExplainDialog(
         if (beside) {
             Row(modifier = Modifier.weight(1f, fill = false)) {
                 ExplainPicturePanel(picture!!, Modifier.weight(1f).padding(start = 16.dp))
-                Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()), content = words)
+                // The foot of the words fades while more of them lie below, as setup's pages do.
+                val more = rememberScrollState()
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .moreBelow(more, AlertDialogDefaults.containerColor)
+                        .verticalScroll(more),
+                    content = words,
+                )
             }
         } else {
             if (pictured) {
