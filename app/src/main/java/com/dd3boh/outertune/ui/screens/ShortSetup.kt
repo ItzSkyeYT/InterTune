@@ -454,21 +454,18 @@ fun ShortSetup(
                                         else -> stringResource(R.string.setup_signed_in_as, accountName)
                                     },
                                 )
-                                Spacer(Modifier.height(12.dp))
                                 // What it can cost, over the button that does it. It stays once
                                 // signed in: this is also the page where the account is changed.
-                                Text(
-                                    text = stringResource(R.string.account_notice_body),
-                                    // Even lines: left to itself the last one was a single word.
-                                    style = MaterialTheme.typography.bodySmall.copy(lineBreak = LineBreak.Heading),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 8.dp)
-                                )
+                                if (!beside) {
+                                    Spacer(Modifier.height(12.dp))
+                                    SetupAccountNote()
+                                }
                             },
                             buttons = {
+                                // On a phone on its side the button stands beside the page, and
+                                // the note under the page's words was below what the screen
+                                // shows: it goes with the button.
+                                if (beside) SetupAccountNote()
                                 if (signedIn) {
                                     // The sign-in page comes back here by itself, so this is
                                     // where a sign-in made as the wrong account is first seen,
@@ -826,6 +823,21 @@ private fun SetupPage(
             )
         }
     }
+}
+
+/** What signing in can cost (account_notice_body), as setup's sign-in page says it. */
+@Composable
+private fun SetupAccountNote() {
+    Text(
+        text = stringResource(R.string.account_notice_body),
+        // Even lines: left to itself the last one was a single word.
+        style = MaterialTheme.typography.bodySmall.copy(lineBreak = LineBreak.Heading),
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp)
+    )
 }
 
 /**

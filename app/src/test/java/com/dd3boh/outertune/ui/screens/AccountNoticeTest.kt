@@ -63,10 +63,14 @@ class AccountNoticeTest {
     fun `setup's sign-in page carries the note over its button`() {
         val setup = source("ui/screens/ShortSetup.kt")
         val heading = setup.indexOf("R.string.setup_sign_in_title")
-        val note = setup.indexOf("R.string.account_notice_body")
         val button = setup.indexOf("R.string.setup_sign_in)")
         assertTrue("the page was not found", heading > 0 && button > heading)
-        assertTrue("the note is not between the heading and the button", note in (heading + 1) until button)
+        // Upright under the page's words, and on a phone on its side at the head of the buttons,
+        // which stand beside the page there: over the button both times.
+        val page = setup.substring(heading, button)
+        assertTrue("if (!beside) {" in page && "if (beside) SetupAccountNote()" in page)
+        assertEquals(2, Regex("""SetupAccountNote\(\)""").findAll(page).count())
+        assertTrue("R.string.account_notice_body" in setup.substringAfter("private fun SetupAccountNote()").substringBefore("\n}\n"))
     }
 
     @Test
