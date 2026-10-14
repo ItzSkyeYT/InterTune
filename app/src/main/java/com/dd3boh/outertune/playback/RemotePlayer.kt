@@ -354,6 +354,7 @@ class RemotePlayer(
      * it had been made on the phone, which holds the queue and loads the next song itself.
      */
     private fun onRequest(request: RemoteRequest) {
+        Log.i(TAG, "Asked by the receiver: $request (next ${isCommandAvailable(Player.COMMAND_SEEK_TO_NEXT)}, previous ${isCommandAvailable(Player.COMMAND_SEEK_TO_PREVIOUS)})")
         when (request) {
             RemoteRequest.Next -> if (isCommandAvailable(Player.COMMAND_SEEK_TO_NEXT)) seekToNext()
             RemoteRequest.Previous -> if (isCommandAvailable(Player.COMMAND_SEEK_TO_PREVIOUS)) seekToPrevious()
