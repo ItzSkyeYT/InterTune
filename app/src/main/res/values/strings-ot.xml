@@ -1896,4 +1896,12 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="other">Up to %1$d lines</item>
     </plurals>
     <string name="lyrics_pick_cancel">Stop picking lines</string>
+
+    <!-- The About section of an artist's page (ArtistAbout). -->
+    <string name="artist_about_more">More</string>
+    <string name="artist_about_less">Less</string>
+    <plurals name="artist_subscribers">
+        <item quantity="one">%1$s subscriber</item>
+        <item quantity="other">%1$s subscribers</item>
+    </plurals>
 </resources>

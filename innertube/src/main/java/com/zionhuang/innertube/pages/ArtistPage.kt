@@ -10,6 +10,7 @@ import com.zionhuang.innertube.models.MusicResponsiveListItemRenderer
 import com.zionhuang.innertube.models.MusicShelfRenderer
 import com.zionhuang.innertube.models.MusicTwoRowItemRenderer
 import com.zionhuang.innertube.models.PlaylistItem
+import com.zionhuang.innertube.models.Run
 import com.zionhuang.innertube.models.SectionListRenderer
 import com.zionhuang.innertube.models.SongItem
 import com.zionhuang.innertube.models.YTItem
@@ -22,12 +23,42 @@ data class ArtistSection(
     val moreEndpoint: BrowseEndpoint?,
 )
 
+/**
+ * One piece of an artist's description: plain text, or a link when [url] is set. YouTube ends the
+ * description with the Wikipedia page it comes from and the licence, both as links, and shortens
+ * the licence's address in its text ("http://creativecommons.org/licenses/b..."), so the address is
+ * kept apart from the words shown.
+ */
+data class DescriptionPart(
+    val text: String,
+    val url: String? = null,
+)
+
 data class ArtistPage(
     val artist: ArtistItem,
     val sections: List<ArtistSection>,
-    val description: String?,
+    /** The description in its pieces; empty when the artist has none. */
+    val descriptionParts: List<DescriptionPart> = emptyList(),
+    /** The subscriber count alone, "7.19M", as YouTube writes numbers in the page's language. */
+    val subscriberCount: String? = null,
+    /** A whole phrase in the page's language, "74.4M monthly audience". */
+    val monthlyListeners: String? = null,
 ) {
+    /** The whole description as one text, or null when there is none. */
+    val description: String?
+        get() = descriptionParts.joinToString("") { it.text }.trim().ifEmpty { null }
+
     companion object {
+        /**
+         * The pieces of a description from YouTube's runs. Only the first run was read before,
+         * which cut the text at "From Wikipedia (" and left the bracket open.
+         */
+        fun descriptionParts(runs: List<Run>?): List<DescriptionPart> =
+            runs.orEmpty()
+                .filter { it.text.isNotEmpty() }
+                .map { DescriptionPart(text = it.text, url = it.navigationEndpoint?.urlEndpoint?.url) }
+
+
         fun fromSectionListRendererContent(content: SectionListRenderer.Content): ArtistSection? {
             return when {
                 content.musicShelfRenderer != null -> fromMusicShelfRenderer(content.musicShelfRenderer)

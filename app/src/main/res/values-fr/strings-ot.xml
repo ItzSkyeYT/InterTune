@@ -1717,4 +1717,12 @@
         <item quantity="other">%1$d lignes au plus</item>
     </plurals>
     <string name="lyrics_pick_cancel">Ne plus choisir de lignes</string>
+    <!-- The About section of an artist's page (ArtistAbout). -->
+    <string name="artist_about_more">Plus</string>
+    <string name="artist_about_less">Moins</string>
+    <plurals name="artist_subscribers">
+        <item quantity="one">%1$s abonné</item>
+        <item quantity="many">%1$s d\'abonnés</item>
+        <item quantity="other">%1$s abonnés</item>
+    </plurals>
 </resources>

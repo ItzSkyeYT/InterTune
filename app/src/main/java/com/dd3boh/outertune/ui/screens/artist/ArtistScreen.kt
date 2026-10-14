@@ -404,7 +404,19 @@ fun ArtistScreen(
                         }
 
                     }
-                } else artistPage?.sections?.fastForEach { section ->
+                }
+
+                // Before the songs and short, as YouTube Music has it under the name.
+                if (!showLocal && artistPage != null && hasAbout(artistPage)) {
+                    item(key = "about") {
+                        ArtistAbout(
+                            page = artistPage,
+                            modifier = Modifier.animateItem()
+                        )
+                    }
+                }
+
+                if (!showLocal) artistPage?.sections?.fastForEach { section ->
                     val isSongsSection = (section.items.firstOrNull() as? SongItem)?.album != null
 
                     item {

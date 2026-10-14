@@ -348,9 +348,22 @@ object YouTube {
     }
 
     suspend fun artist(browseId: String): Result<ArtistPage> = runCatching {
-        val response = innerTube.browse(WEB_REMIX, browseId).body<BrowseResponse>()
+        artistPage(browseId, innerTube.browse(WEB_REMIX, browseId).body<BrowseResponse>())
+    }
 
-        ArtistPage(
+    /**
+     * An artist's page from its browse response, apart from the request so that saved responses
+     * can be read offline (ArtistAboutTest).
+     */
+    fun artistPage(browseId: String, response: BrowseResponse): ArtistPage {
+        val header = response.header?.musicImmersiveHeaderRenderer
+        val sectionContents = response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()
+            ?.tabRenderer?.content?.sectionListRenderer?.contents
+        // The same text is in the head and in the About shelf at the foot of the page. A page
+        // with another kind of head has it only in the shelf.
+        val descriptionRuns = header?.description?.runs
+            ?: sectionContents?.firstNotNullOfOrNull { it.musicDescriptionShelfRenderer }?.description?.runs
+        return ArtistPage(
             artist = ArtistItem(
                 id = browseId,
                 title = response.header?.musicImmersiveHeaderRenderer?.title?.runs?.firstOrNull()?.text
@@ -372,7 +385,10 @@ object YouTube {
             sections = response.contents?.singleColumnBrowseResultsRenderer?.tabs?.firstOrNull()
                 ?.tabRenderer?.content?.sectionListRenderer?.contents
                 ?.mapNotNull(ArtistPage::fromSectionListRendererContent)!!,
-            description = response.header?.musicImmersiveHeaderRenderer?.description?.runs?.firstOrNull()?.text
+            descriptionParts = ArtistPage.descriptionParts(descriptionRuns),
+            subscriberCount = header?.subscriptionButton?.subscribeButtonRenderer?.subscriberCountText
+                ?.runs?.joinToString("") { it.text }?.trim()?.ifEmpty { null },
+            monthlyListeners = header?.monthlyListenerCount?.runs?.joinToString("") { it.text }?.trim()?.ifEmpty { null },
         )
     }
 
