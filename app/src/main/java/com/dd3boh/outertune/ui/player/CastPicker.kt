@@ -113,6 +113,20 @@ import androidx.compose.material.icons.rounded.Smartphone
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Surface
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.setProgress
+import coil3.compose.AsyncImage
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import androidx.core.content.ContextCompat
 
 /**
  * The cast button: the picker when tapped, and what casting is doing at a glance. Filled in the
@@ -411,9 +425,14 @@ private fun CastPicker(session: CastSession, onDismiss: () -> Unit) {
                 .padding(horizontal = 16.dp)
                 .padding(bottom = 12.dp),
         ) {
-            // What plays, lit, with its volume while it is a receiver.
+            NowPlayingHeader()
+            // What plays, lit, and the row is its volume: slid along, as Android's own output
+            // switcher has it (his pick of 14 Oct 2026, design A). The receiver's while casting,
+            // this phone's otherwise.
+            val receiverVolume = rememberReceiverVolume()
+            val phoneVolume = rememberPhoneVolume(phoneName)
             if (current == null) {
-                OutputRow(icon = phoneIcon, name = phoneName, line = null, lit = true, onClick = null)
+                OutputRow(icon = phoneIcon, name = phoneName, line = null, lit = true, onClick = null, volume = phoneVolume)
             } else {
                 OutputRow(
                     icon = iconOf(current),
@@ -422,9 +441,8 @@ private fun CastPicker(session: CastSession, onDismiss: () -> Unit) {
                     lit = true,
                     busy = connecting != null,
                     onClick = null,
-                ) {
-                    if (casting != null) ReceiverVolume()
-                }
+                    volume = receiverVolume.takeIf { casting != null },
+                )
             }
             problem?.takeIf { connecting == null }?.let {
                 Text(
@@ -511,7 +529,13 @@ private fun CastPicker(session: CastSession, onDismiss: () -> Unit) {
     }
 }
 
-/** One place the music can play, lit for the one that plays, with [under] beneath it there. */
+/** How loud a place plays, as the lit row shows and sets it: [level] from 0 to 1, read out as [words]. */
+private class OutputVolume(val level: Float, val words: String, val set: (Float) -> Unit)
+
+/**
+ * One place the music can play, lit for the one that plays. With [volume] the lit row is a slider
+ * as well: lit as far as the volume goes, and a drag or a tap along it sets it.
+ */
 @Composable
 private fun OutputRow(
     icon: ImageVector,
@@ -520,51 +544,109 @@ private fun OutputRow(
     lit: Boolean,
     onClick: (() -> Unit)?,
     busy: Boolean = false,
-    under: @Composable () -> Unit = {},
+    volume: OutputVolume? = null,
 ) {
-    val shape = RoundedCornerShape(20.dp)
+    val shape = RoundedCornerShape(28.dp)
+    val sliding = lit && volume != null
+    val fill = MaterialTheme.colorScheme.primary
     Surface(
         shape = shape,
-        color = if (lit) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
-        contentColor = if (lit) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+        color = when {
+            sliding -> fill.copy(alpha = 0.45f).compositeOver(MaterialTheme.colorScheme.surfaceContainerLow)
+            lit -> MaterialTheme.colorScheme.primaryContainer
+            else -> Color.Transparent
+        },
+        contentColor = when {
+            sliding -> MaterialTheme.colorScheme.onPrimary
+            lit -> MaterialTheme.colorScheme.onPrimaryContainer
+            else -> MaterialTheme.colorScheme.onSurface
+        },
         modifier = Modifier
             .fillMaxWidth()
+            .heightIn(min = 64.dp)
             .clip(shape)
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
-    ) {
-        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                if (busy) CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-                else Icon(icon, contentDescription = null, modifier = Modifier.size(26.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    line?.let {
-                        Text(
-                            it,
-                            style = MaterialTheme.typography.bodyMedium,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            color = LocalContentColor.current.copy(alpha = 0.75f),
-                        )
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .then(
+                if (sliding) Modifier
+                    .pointerInput(volume) {
+                        detectTapGestures { volume!!.set((it.x / size.width).coerceIn(0f, 1f)) }
                     }
+                    .pointerInput(volume) {
+                        detectHorizontalDragGestures { change, _ -> volume!!.set((change.position.x / size.width).coerceIn(0f, 1f)) }
+                    }
+                    .semantics {
+                        contentDescription = volume!!.words
+                        progressBarRangeInfo = ProgressBarRangeInfo(volume.level, 0f..1f)
+                        setProgress { asked -> volume.set(asked.coerceIn(0f, 1f)); true }
+                    }
+                else Modifier
+            ),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            modifier = Modifier
+                .then(if (sliding) Modifier.drawBehind { drawRect(fill, size = size.copy(width = size.width * volume!!.level)) } else Modifier)
+                .padding(horizontal = 18.dp, vertical = 10.dp),
+        ) {
+            if (busy) CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+            else Icon(icon, contentDescription = null, modifier = Modifier.size(26.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                line?.let {
+                    Text(
+                        it,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        color = LocalContentColor.current.copy(alpha = 0.8f),
+                    )
                 }
             }
-            under()
+        }
+    }
+}
+
+/** The song playing, small, at the top of the sheet: what is about to be sent somewhere. */
+@Composable
+private fun NowPlayingHeader() {
+    val connection = LocalPlayerConnection.current ?: return
+    val metadata by connection.mediaMetadata.collectAsState()
+    val song = metadata ?: return
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 10.dp),
+    ) {
+        AsyncImage(
+            model = song.thumbnailUrl,
+            contentDescription = null,
+            modifier = Modifier
+                .size(52.dp)
+                .clip(RoundedCornerShape(10.dp)),
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(song.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                song.artists.joinToString { it.name },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
 
 /**
- * How loud the receiver is, to set from here: the phone's volume keys set it too while casting,
- * but nothing on screen said so, and a TV comes on as loud as it was left. Nothing for a receiver
- * whose volume cannot be set (a fixed one, or DLNA without a volume service).
- *
- * Through the player's own device volume, which is the receiver's while it plays there
- * (RemotePlayer), so the slider, the keys and the receiver's own remote all move the same number.
+ * How loud the receiver is, while one plays: through the player's own device volume, which is the
+ * receiver's then (RemotePlayer), so the row, the volume keys and the receiver's own remote all
+ * move the same number. Null for a receiver whose volume cannot be set (a fixed one, or DLNA
+ * without a volume service), and while nothing is cast.
  */
 @Composable
-private fun ReceiverVolume() {
-    val player = LocalPlayerConnection.current?.player ?: return
+private fun rememberReceiverVolume(): OutputVolume? {
+    val player = LocalPlayerConnection.current?.player ?: return null
     var most by remember { mutableIntStateOf(player.deviceInfo.maxVolume) }
     var remote by remember { mutableStateOf(player.deviceInfo.playbackType == DeviceInfo.PLAYBACK_TYPE_REMOTE) }
     var level by remember { mutableIntStateOf(player.deviceVolume) }
@@ -583,37 +665,43 @@ private fun ReceiverVolume() {
         player.addListener(listener)
         onDispose { player.removeListener(listener) }
     }
-    if (!remote || most <= 0) return
-    val volumeWords = stringResource(R.string.cast_volume)
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-    ) {
-        Icon(
-            imageVector = when {
-                level == 0 -> Icons.AutoMirrored.Rounded.VolumeOff
-                level * 2 < most -> Icons.AutoMirrored.Rounded.VolumeDown
-                else -> Icons.AutoMirrored.Rounded.VolumeUp
-            },
-            contentDescription = null,
-        )
-        Slider(
-            value = level.toFloat(),
-            onValueChange = { asked ->
-                val whole = asked.roundToInt().coerceIn(0, most)
-                if (whole != level) {
-                    level = whole
-                    player.setDeviceVolume(whole, 0)
-                }
-            },
-            valueRange = 0f..most.toFloat(),
-            modifier = Modifier
-                .weight(1f)
-                .semantics { contentDescription = volumeWords },
-        )
+    if (!remote || most <= 0) return null
+    return OutputVolume(level.toFloat() / most, stringResource(R.string.cast_volume)) { asked ->
+        val whole = (asked * most).roundToInt().coerceIn(0, most)
+        if (whole != level) {
+            level = whole
+            player.setDeviceVolume(whole, 0)
+        }
+    }
+}
+
+/**
+ * How loud this phone plays music, the same number its volume keys move, followed as they move it.
+ * Read out as [words], the phone's name in the row.
+ */
+@Composable
+private fun rememberPhoneVolume(words: String): OutputVolume? {
+    val context = LocalContext.current
+    val audio = remember { context.getSystemService<AudioManager>() } ?: return null
+    val most = remember(audio) { audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC) }
+    var level by remember { mutableIntStateOf(audio.getStreamVolume(AudioManager.STREAM_MUSIC)) }
+    DisposableEffect(audio) {
+        val keys = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                level = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
+            }
+        }
+        // Not a documented broadcast, but the one the system sends when any volume changes.
+        ContextCompat.registerReceiver(context, keys, IntentFilter("android.media.VOLUME_CHANGED_ACTION"), ContextCompat.RECEIVER_NOT_EXPORTED)
+        onDispose { context.unregisterReceiver(keys) }
+    }
+    if (most <= 0) return null
+    return OutputVolume(level.toFloat() / most, words) { asked ->
+        val whole = (asked * most).roundToInt().coerceIn(0, most)
+        if (whole != level) {
+            level = whole
+            runCatching { audio.setStreamVolume(AudioManager.STREAM_MUSIC, whole, 0) }
+        }
     }
 }
 
