@@ -71,6 +71,7 @@ import com.dd3boh.outertune.ui.screens.settings.LibrarySettings
 import com.dd3boh.outertune.ui.screens.settings.LocalPlayerSettings
 import com.dd3boh.outertune.ui.screens.settings.LookAndFeelSettings
 import com.dd3boh.outertune.ui.screens.settings.LyricsSettings
+import com.dd3boh.outertune.ui.screens.settings.EqualizerSettings
 import com.dd3boh.outertune.ui.screens.settings.PlayerSettings
 import com.dd3boh.outertune.ui.screens.settings.PrivacySettings
 import com.dd3boh.outertune.ui.screens.settings.RecognitionSettings
@@ -395,6 +396,11 @@ fun NavGraphBuilder.appDestinations(
         }
         screen("settings/player") {
             PlayerSettings(navController, scrollBehavior)
+        }
+        if (Unreleased.EQUALIZER) {
+            screen("settings/player/equalizer") {
+                EqualizerSettings(navController, scrollBehavior)
+            }
         }
         screen("settings/storage") {
             StorageSettings(navController, scrollBehavior)

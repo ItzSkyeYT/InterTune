@@ -39,6 +39,7 @@ import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.AudioDecoderKey
 import com.dd3boh.outertune.constants.ENABLE_FFMETADATAEX
 import com.dd3boh.outertune.constants.KeepAliveKey
@@ -149,6 +150,7 @@ fun PlayerSettings(
             modifier = Modifier.fillMaxWidth()
         ) {
             AudioEffectsFrag()
+            if (Unreleased.EQUALIZER) EqualizerEntry(navController)
         }
         Spacer(modifier = Modifier.height(16.dp))
 

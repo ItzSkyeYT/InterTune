@@ -271,6 +271,10 @@ val EnableYouTubeCaptionsKey = booleanPreferencesKey("enableYouTubeCaptions")
 
 /** The order the lyrics sources are asked in: their ids joined by commas. See LyricsSources. */
 val LyricsSourceOrderKey = stringPreferencesKey("lyricsSourceOrder")
+
+/** The in-app equalizer (EqualizerAudioProcessor): on or off, and its ten gains as EqualizerPreset.format writes them. */
+val EqualizerEnabledKey = booleanPreferencesKey("equalizerEnabled")
+val EqualizerGainsKey = stringPreferencesKey("equalizerGains")
 val UseLoginForBrowse = booleanPreferencesKey("useLoginForBrowse")
 
 
