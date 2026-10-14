@@ -82,6 +82,18 @@ import androidx.compose.ui.semantics.semantics
 import androidx.media3.common.DeviceInfo
 import androidx.media3.common.Player
 import kotlin.math.roundToInt
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.ui.draw.clip
+import com.dd3boh.outertune.ui.utils.LocalLandscape
 import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
@@ -276,24 +288,27 @@ private fun rememberLocalOutput(): LocalOutput {
 }
 
 /**
- * Where to cast, and how loud: the receivers found on the Wi-Fi while this is open, with the one
- * that is playing and its volume at the top.
+ * Where the music plays, and how loud: a sheet from the bottom, under the output button that opens
+ * it. The device that plays stands first and lit, with its volume while it is a receiver; under it
+ * the others, this phone among them while casting, which is how casting stops, as on Spotify; and
+ * at the foot, quietly, the search and the way in for a receiver typed in by address.
  *
- * A receiver can also be typed in by address, behind the plus: the emulator needs that (multicast
- * does not cross its NAT) and so does a network that blocks multicast, but it is nobody's first
- * choice and used to be the first thing on the page. The session keeps those, so they are listed
- * again next time.
+ * It was a dialog in the middle of the screen, with a title, a line that searched, a plus at the
+ * top and Dismiss and Stop casting as words at the foot: "looks quite bad" (14 Oct 2026). Three
+ * looks for this were drawn for him (experiments/features/casting/sheet-designs): this is the shape
+ * all three share, and his pick sets the style of the rows.
  *
- * It stays open while a receiver is being reached, so one that does not answer says so here, and
- * it stays open once the music plays there, on the volume: a TV starts as loud as it was left.
+ * Searching runs only while it is open: SSDP goes out every ten seconds for as long as it runs. It
+ * stays open while a receiver is being reached, so one that does not answer says so here, and once
+ * the music plays there, on the volume: a TV starts as loud as it was left.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CastPicker(session: CastSession, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val state by session.state.collectAsState()
     val problem by session.problem.collectAsState()
-    // Searching only while the picker is open: SSDP goes out every ten seconds for as long as it runs.
     val discovery = remember {
         val connectivity = context.getSystemService<ConnectivityManager>()
         CastDiscovery(context.getSystemService<NsdManager>()!!, scope, network = { connectivity?.let { CastNetwork.wifi(it)?.network } })
@@ -304,6 +319,8 @@ private fun CastPicker(session: CastSession, onDismiss: () -> Unit) {
     }
     val found by discovery.devices.collectAsState()
     val added by session.added.collectAsState()
+    val local = rememberLocalOutput()
+    val landscape = LocalLandscape.current
 
     var adding by rememberSaveable { mutableStateOf(false) }
     var address by rememberSaveable { mutableStateOf("") }
@@ -323,124 +340,177 @@ private fun CastPicker(session: CastSession, onDismiss: () -> Unit) {
     val casting = state as? CastSession.State.Casting
     val connecting = state as? CastSession.State.Connecting
     val current = casting?.device ?: connecting?.device
+    val receivers = (found + added).distinctBy { it.protocol to it.id }
+        .filterNot { current != null && it.protocol == current.protocol && it.id == current.id }
+    val phoneName = local.name ?: stringResource(
+        when (local.kind) {
+            LocalOutput.Kind.WIRED -> R.string.output_wired
+            LocalOutput.Kind.OTHER -> R.string.output_cable
+            else -> R.string.output_this_phone
+        }
+    )
+    val phoneIcon = when (local.kind) {
+        LocalOutput.Kind.PHONE -> Icons.Rounded.Smartphone
+        LocalOutput.Kind.BLUETOOTH, LocalOutput.Kind.WIRED -> Icons.Rounded.Headphones
+        LocalOutput.Kind.OTHER -> Icons.Rounded.Speaker
+    }
 
-    DefaultDialog(
-        onDismiss = onDismiss,
-        horizontalAlignment = Alignment.Start,
-        icon = { Icon(if (casting != null) Icons.Rounded.CastConnected else Icons.Rounded.Cast, contentDescription = null) },
-        title = {
-            Text(
-                if (casting != null) stringResource(R.string.cast_playing_on, casting.device.name)
-                else stringResource(R.string.cast_to)
-            )
-        },
-        buttons = {
-            if (current != null) {
-                TextButton(onClick = {
-                    session.stop()
-                    onDismiss()
-                }) {
-                    Text(stringResource(R.string.cast_stop))
-                }
-            }
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.dismiss))
-            }
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        sheetMaxWidth = landscape.panelWidth(BottomSheetDefaults.SheetMaxWidth),
+        // In the middle of a wide window only the top and the bottom of the screen concern it: see BottomSheetMenu.
+        contentWindowInsets = {
+            if (landscape.active) WindowInsets.safeDrawing.only(WindowInsetsSides.Vertical) else WindowInsets.safeDrawing
         },
     ) {
-        if (casting != null) ReceiverVolume()
-
-        // What is going on, and on the right the way in for a receiver that was not found.
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
+        Column(
+            verticalArrangement = Arrangement.spacedBy(4.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 16.dp, end = 4.dp),
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 12.dp),
         ) {
+            // What plays, lit, with its volume while it is a receiver.
+            if (current == null) {
+                OutputRow(icon = phoneIcon, name = phoneName, line = null, lit = true, onClick = null)
+            } else {
+                OutputRow(
+                    icon = iconOf(current),
+                    name = current.name,
+                    line = if (connecting != null) stringResource(R.string.cast_connecting_to, current.name) else describe(current),
+                    lit = true,
+                    busy = connecting != null,
+                    onClick = null,
+                ) {
+                    if (casting != null) ReceiverVolume()
+                }
+            }
+            problem?.takeIf { connecting == null }?.let {
+                Text(
+                    text = it,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                )
+            }
+
+            // The other places it can play: this phone, which is how casting stops, and the receivers.
+            if (current != null) {
+                OutputRow(icon = phoneIcon, name = phoneName, line = null, lit = false, onClick = {
+                    session.stop()
+                    onDismiss()
+                })
+            }
+            receivers.forEach { device ->
+                OutputRow(icon = iconOf(device), name = device.name, line = describe(device), lit = false, onClick = { session.castTo(device) })
+            }
+
+            // At the foot, quietly: the search, and the way in by address.
+            if (found.isEmpty()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    Text(
+                        stringResource(R.string.cast_searching),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.weight(1f),
-            ) {
-                when {
-                    connecting != null -> {
-                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                        Text(stringResource(R.string.cast_connecting_to, connecting.device.name), style = MaterialTheme.typography.bodyMedium)
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable {
+                        adding = !adding
+                        addressInvalid = false
                     }
-                    found.isEmpty() -> {
-                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                        Text(stringResource(R.string.cast_searching), style = MaterialTheme.typography.bodyMedium)
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+            ) {
+                Icon(if (adding) Icons.Rounded.Close else Icons.Rounded.Add, contentDescription = null)
+                Text(stringResource(R.string.cast_add_by_address), style = MaterialTheme.typography.bodyLarge)
+            }
+            AnimatedVisibility(visible = adding) {
+                Column {
+                    val focus = remember { FocusRequester() }
+                    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+                    OutlinedTextField(
+                        value = address,
+                        onValueChange = {
+                            address = it
+                            addressInvalid = false
+                        },
+                        label = { Text(stringResource(R.string.cast_add_by_address)) },
+                        placeholder = { Text(stringResource(R.string.cast_address_hint)) },
+                        singleLine = true,
+                        isError = addressInvalid,
+                        supportingText = if (addressInvalid) {
+                            { Text(stringResource(R.string.cast_address_invalid)) }
+                        } else null,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
+                        keyboardActions = KeyboardActions(onGo = { if (address.isNotBlank()) addAddress() }),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .focusRequester(focus),
+                    )
+                    Text(
+                        text = stringResource(R.string.cast_about),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** One place the music can play, lit for the one that plays, with [under] beneath it there. */
+@Composable
+private fun OutputRow(
+    icon: ImageVector,
+    name: String,
+    line: String?,
+    lit: Boolean,
+    onClick: (() -> Unit)?,
+    busy: Boolean = false,
+    under: @Composable () -> Unit = {},
+) {
+    val shape = RoundedCornerShape(20.dp)
+    Surface(
+        shape = shape,
+        color = if (lit) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+        contentColor = if (lit) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                if (busy) CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                else Icon(icon, contentDescription = null, modifier = Modifier.size(26.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    line?.let {
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            color = LocalContentColor.current.copy(alpha = 0.75f),
+                        )
                     }
                 }
             }
-            IconButton(onClick = {
-                adding = !adding
-                addressInvalid = false
-            }) {
-                Icon(
-                    imageVector = if (adding) Icons.Rounded.Close else Icons.Rounded.Add,
-                    contentDescription = stringResource(if (adding) R.string.dismiss else R.string.cast_add_by_address),
-                )
-            }
-        }
-
-        problem?.takeIf { connecting == null }?.let {
-            Text(
-                text = it,
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            )
-        }
-
-        AnimatedVisibility(visible = adding) {
-            Column {
-                val focus = remember { FocusRequester() }
-                LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
-                OutlinedTextField(
-                    value = address,
-                    onValueChange = {
-                        address = it
-                        addressInvalid = false
-                    },
-                    label = { Text(stringResource(R.string.cast_add_by_address)) },
-                    placeholder = { Text(stringResource(R.string.cast_address_hint)) },
-                    singleLine = true,
-                    isError = addressInvalid,
-                    supportingText = if (addressInvalid) {
-                        { Text(stringResource(R.string.cast_address_invalid)) }
-                    } else null,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
-                    keyboardActions = KeyboardActions(onGo = { if (address.isNotBlank()) addAddress() }),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                        .focusRequester(focus),
-                )
-                Text(
-                    text = stringResource(R.string.cast_about),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                )
-            }
-        }
-
-        val devices = (listOfNotNull(current) + found + added).distinctBy { it.protocol to it.id }
-        LazyColumn(modifier = Modifier.heightIn(max = 280.dp)) {
-            items(devices, key = { "${it.protocol}:${it.id}" }) { device ->
-                val isCurrent = current != null && current.protocol == device.protocol && current.id == device.id
-                ListItem(
-                    headlineContent = { Text(device.name) },
-                    supportingContent = { Text(describe(device)) },
-                    leadingContent = { Icon(iconOf(device), contentDescription = null) },
-                    trailingContent = if (casting != null && isCurrent) {
-                        { Icon(Icons.Rounded.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
-                    } else null,
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                    modifier = Modifier.clickable { session.castTo(device) },
-                )
-            }
+            under()
         }
     }
 }
