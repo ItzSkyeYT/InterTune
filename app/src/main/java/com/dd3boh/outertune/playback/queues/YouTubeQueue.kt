@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.playback.queues
 
+import com.dd3boh.outertune.models.ContentFilter
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.zionhuang.innertube.YouTube
@@ -21,10 +22,12 @@ class YouTubeQueue(
         }
         endpoint = nextResult.endpoint
         continuation = nextResult.continuation
+        // The song it was started from stays even when it is one the switches hide: it was chosen.
+        val (items, start) = ContentFilter.current.radio(nextResult.items, nextResult.currentIndex ?: 0)
         return Queue.Status(
             title = nextResult.title,
-            items = nextResult.items.map { it.toMediaMetadata() },
-            mediaItemIndex = nextResult.currentIndex ?: 0
+            items = items.map { it.toMediaMetadata() },
+            mediaItemIndex = start
         )
     }
 
@@ -38,7 +41,7 @@ class YouTubeQueue(
             endpoint = nextResult.endpoint
         }
         continuation = nextResult?.continuation
-        return nextResult?.items?.map { it.toMediaMetadata() } ?: emptyList()
+        return nextResult?.items?.let(ContentFilter.current::apply)?.map { it.toMediaMetadata() } ?: emptyList()
     }
 
 //    fun getContinuationEndpoint(): String? {

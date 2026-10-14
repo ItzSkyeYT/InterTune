@@ -28,9 +28,19 @@ data class SongItem(
     override val explicit: Boolean = false,
     val endpoint: WatchEndpoint? = null,
     val setVideoId: String? = null,
+    /**
+     * What YouTube says the song is: an album's audio track (MUSIC_VIDEO_TYPE_ATV), a music video
+     * (OMV), an upload (UGC) or an episode. Null where the list it came from does not say.
+     */
+    val musicVideoType: String? = null,
 ) : YTItem() {
     override val shareLink: String
         get() = "https://music.youtube.com/watch?v=$id"
+
+    /** A music video or an upload, not an album's audio track. Unknown counts as a song. */
+    val isVideoSong: Boolean
+        get() = musicVideoType == WatchEndpoint.WatchEndpointMusicSupportedConfigs.WatchEndpointMusicConfig.MUSIC_VIDEO_TYPE_OMV ||
+            musicVideoType == WatchEndpoint.WatchEndpointMusicSupportedConfigs.WatchEndpointMusicConfig.MUSIC_VIDEO_TYPE_UGC
 }
 
 data class AlbumItem(

@@ -1673,4 +1673,11 @@
         <item quantity="many">%1$d nouveautés</item>
         <item quantity="other">%1$d nouveautés</item>
     </plurals>
+
+    <!-- What Home, search, artist pages and radio leave out (ContentFiltersFrag in Library and content). -->
+    <string name="hide_explicit_description">Les titres et albums marqués explicites n\'apparaissent plus dans l\'accueil, la recherche, les pages d\'artiste et ce qu\'ajoute une radio.</string>
+    <string name="hide_video_songs">Masquer les clips</string>
+    <string name="hide_video_songs_description">Seuls les titres d\'albums et de singles sont proposés, pas les clips ni les vidéos mises en ligne. Un titre que vous choisissez se lit quand même.</string>
+    <string name="hide_shorts">Masquer les Shorts</string>
+    <string name="hide_shorts_description">Les listes de Shorts YouTube n\'apparaissent plus dans l\'accueil, la recherche et les pages d\'artiste.</string>
 </resources>

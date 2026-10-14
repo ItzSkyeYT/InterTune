@@ -24,6 +24,7 @@ object NextPage {
     fun fromPlaylistPanelVideoRenderer(renderer: PlaylistPanelVideoRenderer): SongItem? {
         val longByLineRuns = renderer.longBylineText?.runs?.splitBySeparator() ?: return null
         return SongItem(
+            musicVideoType = renderer.musicVideoType,
             id = renderer.videoId ?: return null,
             title = renderer.title?.runs?.firstOrNull()?.text ?: return null,
             artists = longByLineRuns.firstOrNull()?.oddElements()?.map {

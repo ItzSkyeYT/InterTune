@@ -1,5 +1,11 @@
 package com.dd3boh.outertune.ui.screens.settings.fragments
 
+import com.dd3boh.outertune.constants.HideVideoSongsKey
+import com.dd3boh.outertune.constants.HideShortsKey
+import com.dd3boh.outertune.constants.HideExplicitKey
+import androidx.compose.material.icons.rounded.Smartphone
+import androidx.compose.material.icons.rounded.OndemandVideo
+import androidx.compose.material.icons.rounded.Explicit
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -268,5 +274,38 @@ fun ColumnScope.QuickPicksSourceFrag() {
                 QuickPicksSource.OFF -> stringResource(R.string.quick_picks_source_off)
             }
         }
+    )
+}
+
+/**
+ * Three switches that keep explicit songs, music videos and Shorts out of what YouTube offers:
+ * Home, search, artist pages and what a radio adds (ContentFilter). All three off by default.
+ */
+@Composable
+fun ColumnScope.ContentFiltersFrag() {
+    val (hideExplicit, onHideExplicitChange) = rememberPreference(HideExplicitKey, defaultValue = false)
+    val (hideVideoSongs, onHideVideoSongsChange) = rememberPreference(HideVideoSongsKey, defaultValue = false)
+    val (hideShorts, onHideShortsChange) = rememberPreference(HideShortsKey, defaultValue = false)
+
+    SwitchPreference(
+        title = { Text(stringResource(R.string.hide_explicit)) },
+        description = stringResource(R.string.hide_explicit_description),
+        icon = { Icon(Icons.Rounded.Explicit, null) },
+        checked = hideExplicit,
+        onCheckedChange = onHideExplicitChange
+    )
+    SwitchPreference(
+        title = { Text(stringResource(R.string.hide_video_songs)) },
+        description = stringResource(R.string.hide_video_songs_description),
+        icon = { Icon(Icons.Rounded.OndemandVideo, null) },
+        checked = hideVideoSongs,
+        onCheckedChange = onHideVideoSongsChange
+    )
+    SwitchPreference(
+        title = { Text(stringResource(R.string.hide_shorts)) },
+        description = stringResource(R.string.hide_shorts_description),
+        icon = { Icon(Icons.Rounded.Smartphone, null) },
+        checked = hideShorts,
+        onCheckedChange = onHideShortsChange
     )
 }

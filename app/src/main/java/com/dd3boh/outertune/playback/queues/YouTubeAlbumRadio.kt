@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.playback.queues
 
+import com.dd3boh.outertune.models.ContentFilter
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.zionhuang.innertube.YouTube
@@ -32,7 +33,8 @@ class YouTubeAlbumRadio(
             // same action worked on short ones. drop is the total version of the same slice and
             // returns empty instead of throwing, so the album plays and tops up from the
             // continuation on the next page.
-            items = (albumSongs + nextResult.items.drop(albumSongs.size)).map { it.toMediaMetadata() },
+            // The album as it is, since it was chosen; what the radio adds past it is filtered.
+            items = (albumSongs + ContentFilter.current.apply(nextResult.items.drop(albumSongs.size))).map { it.toMediaMetadata() },
             mediaItemIndex = nextResult.currentIndex ?: 0
         )
     }
@@ -44,6 +46,6 @@ class YouTubeAlbumRadio(
             YouTube.next(endpoint, continuation).getOrThrow()
         }
         continuation = nextResult.continuation
-        return nextResult.items.map { it.toMediaMetadata() }
+        return ContentFilter.current.apply(nextResult.items).map { it.toMediaMetadata() }
     }
 }

@@ -81,6 +81,7 @@ data class HomePage(
                 return when {
                     renderer.isSong -> {
                         SongItem(
+                            musicVideoType = renderer.musicVideoType,
                             id = renderer.navigationEndpoint.watchEndpoint?.videoId ?: return null,
                             title = renderer.title.runs?.firstOrNull()?.text ?: return null,
                             artists = listOfNotNull(renderer.subtitle?.runs?.firstOrNull()?.let {

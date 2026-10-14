@@ -1844,4 +1844,11 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="problem_report_copy">Copy</string>
     <string name="problem_report_copied">Copied</string>
     <string name="problem_report_close">Close</string>
+
+    <!-- What Home, search, artist pages and radio leave out (ContentFiltersFrag in Library and content). -->
+    <string name="hide_explicit_description">Songs and albums marked explicit stay out of Home, search, artist pages and what a radio adds.</string>
+    <string name="hide_video_songs">Hide music videos</string>
+    <string name="hide_video_songs_description">Only album and single tracks are offered, not music videos or uploads. A song you pick still plays.</string>
+    <string name="hide_shorts">Hide Shorts</string>
+    <string name="hide_shorts_description">Lists of YouTube Shorts stay out of Home, search and artist pages.</string>
 </resources>

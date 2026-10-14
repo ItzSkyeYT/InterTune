@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.viewmodels
 
+import com.dd3boh.outertune.models.ContentFilter
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -42,7 +43,7 @@ class ArtistViewModel @Inject constructor(
             isLoading.value = true
             YouTube.artist(artistId)
                 .onSuccess {
-                    artistPage = it
+                    artistPage = ContentFilter.current.artist(it)
                 }.onFailure {
                     reportException(it)
                 }

@@ -16,4 +16,8 @@ data class PlaylistPanelVideoRenderer(
     val unplayableText: Runs?,
     val menu: Menu?,
     val navigationEndpoint: NavigationEndpoint,
-)
+) {
+    /** The music video type the queue's song plays as. */
+    val musicVideoType: String?
+        get() = navigationEndpoint.watchEndpoint.musicVideoType
+}
