@@ -10,7 +10,9 @@ import java.net.URI
 
 /**
  * What the phone's own search is given when it asks InterTune: songs, artists, albums and
- * playlists of the library whose names hold the words, each with the link that opens it here.
+ * playlists of the library whose names hold the words, then what YouTube Music adds for words of
+ * three letters or more, each with the link that opens it here. Whatever is typed in the phone's
+ * search goes to YouTube Music while InterTune is switched on there, as it does to Spotify.
  *
  * One UI's search on the home screen ("Apps to search in") lists an app whose searchable says
  * includeInGlobalSearch, and reads the suggestions it serves; VLC is listed that way and YouTube,
@@ -56,6 +58,57 @@ object SystemSearch {
 
     /** Whether a library id is YouTube's, so its link opens it: a local file's is not. */
     fun onYouTube(isLocal: Boolean, id: String): Boolean = !isLocal && id.matches(ID)
+
+    /** Words from this many letters go to YouTube Music too, as the car's search does: fewer find nothing worth it. */
+    const val ONLINE_MIN_LETTERS = 3
+
+    /** What YouTube Music adds at most, after the library's. */
+    const val ONLINE_SONGS = 4
+    const val ONLINE_ARTISTS = 1
+    const val ONLINE_ALBUMS = 1
+
+    fun goesOnline(words: String): Boolean = words.trim().length >= ONLINE_MIN_LETTERS
+
+    /** The library's rows first, then what YouTube Music found that the library did not already give. */
+    fun merge(library: List<Row>, online: List<Row>): List<Row> {
+        val given = library.mapTo(HashSet()) { it.link }
+        return library + online.filter { given.add(it.link) }
+    }
+
+    /**
+     * When YouTube Music is asked. The phone asks again at every letter typed, and every question
+     * sent on would be a search from this address: a burst of them was followed by forty minutes
+     * of bot checks on 4 Oct 2026. So only the newest question goes ([isNewest], after the typing
+     * has paused), and never sooner than [gapMs] after the one before ([wait]).
+     */
+    class Pacing(private val gapMs: Long, private val now: () -> Long) {
+        private var latest = 0L
+        private var lastAt = Long.MIN_VALUE / 2
+
+        /** A question has come in: its number, newer than every one before it. */
+        @Synchronized fun ask(): Long = ++latest
+
+        @Synchronized fun isNewest(ticket: Long): Boolean = ticket == latest
+
+        /** How long to wait before asking YouTube Music now; the time it will be asked is taken. */
+        @Synchronized fun wait(): Long {
+            val time = now()
+            val at = maxOf(time, lastAt + gapMs)
+            lastAt = at
+            return at - time
+        }
+    }
+
+    /** The answers to the last few words asked, so typing back and forth asks nothing again. */
+    class Recent<V>(private val size: Int) {
+        private val kept = object : LinkedHashMap<String, V>(size, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, V>?) = this.size > this@Recent.size
+        }
+
+        @Synchronized operator fun get(words: String): V? = kept[key(words)]
+        @Synchronized operator fun set(words: String, value: V) { kept[key(words)] = value }
+        private fun key(words: String) = words.trim().lowercase()
+    }
 
     private const val SUGGEST_PATH = "search_suggest_query"
     private val ID = Regex("[A-Za-z0-9_-]+")

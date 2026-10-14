@@ -51,6 +51,46 @@ class SystemSearchTest {
         assertFalse(SystemSearch.onYouTube(true, "dQw4w9WgXcQ"))
     }
 
+    @Test
+    fun `YouTube Music is asked from three letters`() {
+        assertFalse(SystemSearch.goesOnline("da"))
+        assertFalse(SystemSearch.goesOnline("  da "))
+        assertTrue(SystemSearch.goesOnline("daf"))
+    }
+
+    @Test
+    fun `the library comes first and nothing is given twice`() {
+        val mine = SystemSearch.Row("song", "a", "One", "X", SystemSearch.songLink("a"))
+        val again = SystemSearch.Row("song", "a", "One", "X", SystemSearch.songLink("a"))
+        val more = SystemSearch.Row("song", "b", "Two", "Y", SystemSearch.songLink("b"))
+        assertEquals(listOf(mine, more), SystemSearch.merge(listOf(mine), listOf(again, more, more)))
+    }
+
+    @Test
+    fun `only the newest question goes, and never two within a second`() {
+        var clock = 10_000L
+        val pacing = SystemSearch.Pacing(1_000) { clock }
+        val first = pacing.ask()
+        val second = pacing.ask()
+        assertFalse("a letter typed since: the older question stays home", pacing.isNewest(first))
+        assertTrue(pacing.isNewest(second))
+        assertEquals(0L, pacing.wait())
+        clock += 300
+        assertEquals("the next one waits out the second", 700L, pacing.wait())
+        clock += 5_000
+        assertEquals(0L, pacing.wait())
+    }
+
+    @Test
+    fun `words asked again are answered from what was kept`() {
+        val recent = SystemSearch.Recent<Int>(2)
+        recent["Daft Punk"] = 1
+        assertEquals(1, recent[" daft punk "])
+        recent["b"] = 2
+        recent["c"] = 3
+        assertNull("the oldest goes", recent["daft punk"])
+    }
+
     private val src = File("src")
 
     @Test
