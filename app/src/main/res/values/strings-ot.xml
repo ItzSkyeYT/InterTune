@@ -715,6 +715,16 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="sync_params_description">\"Read write\" lets the app change your YouTube Music account: likes, library and playlists. \"Overwrite\" takes out of this phone\'s library whatever is not in the account.</string>
     <string name="enable_lrclib_description">Look for lyrics on LRCLIB, a free community lyrics database.</string>
     <string name="enable_kugou_description">Look for lyrics on KuGou. Its collection is large, and strongest for Chinese music.</string>
+    <!-- Lyrics sources (Unreleased.LYRICS_SOURCES): held back from translators until the words are agreed. -->
+    <string name="lyrics_sources" translatable="false">Lyrics sources</string>
+    <string name="lyrics_sources_hint" translatable="false">Asked from the top. The first timed lyrics found are shown, and plain words only when no source has timed ones.</string>
+    <string name="lyrics_source_youtube_captions" translatable="false">YouTube captions</string>
+    <string name="lyrics_source_youtube_captions_line" translatable="false">The video\'s own timed captions.</string>
+    <string name="lyrics_source_youtube_music" translatable="false">YouTube Music</string>
+    <string name="lyrics_source_youtube_music_line" translatable="false">The words YouTube Music shows, not timed.</string>
+    <string name="lyrics_source_lrclib" translatable="false">LRCLIB</string>
+    <string name="lyrics_source_kugou" translatable="false">KuGou</string>
+    <string name="lyrics_source_move" translatable="false">Move %1$s</string>
     <string name="audio_normalization_description">Even out the volume between songs, so one is not suddenly much louder than the last.</string>
     <string name="skip_silence_description">Skip silent gaps at the start and end of a track.</string>
     <string name="stop_music_on_task_clear_description">Stop the music when you swipe the app away from your recent apps.</string>

@@ -1,5 +1,8 @@
 package com.dd3boh.outertune.lyrics
 
+import com.dd3boh.outertune.constants.EnableYouTubeLyricsKey
+import com.dd3boh.outertune.utils.dataStore
+import com.dd3boh.outertune.utils.get
 import android.content.Context
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.WatchEndpoint
@@ -10,7 +13,7 @@ object YouTubeLyricsProvider : LyricsProvider {
     // The lyrics tab is plain words.
     override val offersSynced = false
 
-    override fun isEnabled(context: Context) = true
+    override fun isEnabled(context: Context) = context.dataStore[EnableYouTubeLyricsKey] ?: true
     override suspend fun getLyrics(query: LyricsQuery): Result<String> = runCatching {
         val nextResult = YouTube.next(WatchEndpoint(videoId = query.id)).getOrThrow()
         YouTube.lyrics(
