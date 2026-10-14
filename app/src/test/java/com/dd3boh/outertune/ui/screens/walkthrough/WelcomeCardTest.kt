@@ -58,7 +58,7 @@ class WelcomeCardTest {
 
     @Test
     fun `somebody on 0_11 who opens 0_11_5 gets one, saying how many things and since when`() {
-        assertEquals(WelcomeCard(count = 5, since = "0.11"), card(seen = v011))
+        assertEquals(WelcomeCard(count = 3, since = "0.11"), card(seen = v011))
     }
 
     @Test
@@ -71,7 +71,7 @@ class WelcomeCardTest {
     fun `0_11_1 brings no card, and somebody on it gets the one for 0_11_5`() {
         assertNull(card(seen = v011, build = v0111))
         assertNull(card(seen = v0111, build = v0111))
-        assertEquals(WelcomeCard(count = 5, since = "0.11"), card(seen = v0111))
+        assertEquals(WelcomeCard(count = 3, since = "0.11"), card(seen = v0111))
     }
 
     @Test
@@ -112,14 +112,14 @@ class WelcomeCardTest {
         assertEquals("0.11", releaseAt(88))
         assertEquals("a fix release is known by the release it fixes", "0.11", releaseAt(v0111))
         assertEquals("0.11.5", releaseAt(v0115))
-        assertEquals("0.11.5", releaseAt(v0115 + 30))
+        assertEquals("what 0.12 brings names the builds from its own on", "0.12", releaseAt(v0115 + 30))
     }
 
     @Test
     fun `somebody from before anything the list knows is given the number alone`() {
         assertNull(releaseAt(v0109))
         assertNull(releaseAt(0))
-        assertEquals(WelcomeCard(count = NEW_THINGS.size, since = null), card(seen = v0109))
+        assertEquals(WelcomeCard(count = NEW_THINGS.count { it.sinceVersionCode <= v0115 }, since = null), card(seen = v0109))
     }
 
     @Test

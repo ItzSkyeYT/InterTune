@@ -30,6 +30,7 @@ class WelcomeBackTest {
     private val v011 = 91           // 0.11 as it shipped
     private val v0111 = 92          // 0.11.1, fixes only: it took the number 0.11.5 was to have
     private val v0115 = 93          // the first build of 0.11.5
+    private val v012 = 94           // the first build 0.12 can be
 
     private fun ids(things: List<NewThing>) = things.map { it.id }
 
@@ -56,7 +57,7 @@ class WelcomeBackTest {
     @Test
     fun `somebody already on 0_11 is shown only what 0_11_5 added`() {
         val things = newThingsFor(v011, buildVersionCode = v0115)
-        assertEquals(listOf("living_blur", "share_links", "library_import", "explain_pictures", "problem_report"), ids(things))
+        assertEquals(listOf("library_import", "explain_pictures", "problem_report"), ids(things))
     }
 
     @Test
@@ -66,13 +67,13 @@ class WelcomeBackTest {
         // 0.11.1 would be told of things that build does not have, and then nothing on 0.11.5.
         assertEquals(emptyList<String>(), ids(newThingsFor(v011, buildVersionCode = v0111)))
         assertTrue(newThingsFor(v0109, buildVersionCode = v0111).all { it.release == "0.11" })
-        assertEquals(listOf("living_blur", "share_links", "library_import", "explain_pictures", "problem_report"), ids(newThingsFor(v0111, buildVersionCode = v0115)))
+        assertEquals(listOf("library_import", "explain_pictures", "problem_report"), ids(newThingsFor(v0111, buildVersionCode = v0115)))
     }
 
     @Test
     fun `somebody who skipped a release is shown both, the newest first`() {
         val things = newThingsFor(v0109, buildVersionCode = v0115)
-        assertEquals(NEW_THINGS.size, things.size)
+        assertEquals(NEW_THINGS.count { it.sinceVersionCode <= v0115 }, things.size)
         assertEquals(listOf("0.11.5", "0.11"), things.map { it.release }.distinct())
         // each release in one block: the page puts one heading over it
         val releases = things.map { it.release }
@@ -290,5 +291,12 @@ class WelcomeBackTest {
         assertEquals(Rect(0f, 300f, 900f, 700f), TourTargets[Tour.SETTINGS_YOU])
         TourTargets.forget(Tour.SETTINGS_YOU)
         assertFalse(TourTargets.known(Tour.SETTINGS_YOU))
+    }
+
+    @Test
+    fun `what is held back for 0_12 waits for it, and is shown to somebody on 0_11_5 when it comes`() {
+        // Living blur and Links for any music app: on in previews only, so 0.11.5 must not claim them.
+        assertTrue(newThingsFor(v011, buildVersionCode = v0115).none { it.release == "0.12" })
+        assertEquals(listOf("living_blur", "share_links"), ids(newThingsFor(v0115, buildVersionCode = v012)))
     }
 }

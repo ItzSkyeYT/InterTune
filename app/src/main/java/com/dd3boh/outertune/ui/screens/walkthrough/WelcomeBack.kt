@@ -39,6 +39,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -123,6 +124,7 @@ fun WelcomeBack(
             .fillMaxSize()
             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top))
     ) {
+        Box(modifier = Modifier.fillMaxSize()) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
@@ -210,6 +212,19 @@ fun WelcomeBack(
             ) {
                 Text(stringResource(R.string.welcome_back_done))
             }
+        }
+        // A way out that stays where it is, whatever has been scrolled: Done is at the very end of
+        // the page, a long way down on a phone, and the page had no other button to leave it by
+        // (his word, 14 Oct 2026). Over the page, so it has a background of its own.
+        FilledTonalIconButton(
+            onClick = onDone,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+                .padding(12.dp),
+        ) {
+            Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.welcome_back_done))
+        }
         }
     }
     }
