@@ -1915,7 +1915,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <!-- The recognition widget in the launcher's picker (recognition_widget_info). -->
     <string name="recognition_widget_description">One button that names the song playing around you.</string>
     <!-- The phone's own search (search/SystemSearch.kt), debug and preview builds only: held back from translators until the words are agreed. -->
-    <string name="system_search_description" translatable="false">Songs, artists, albums and playlists in your library.</string>
+    <string name="system_search_description" translatable="false">Songs, artists, albums and playlists in your library, then on YouTube Music.</string>
     <string name="system_search_artist" translatable="false">Artist</string>
     <string name="system_search_album" translatable="false">Album • %1$s</string>
     <string name="system_search_playlist" translatable="false">Playlist</string>

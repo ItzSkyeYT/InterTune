@@ -21,16 +21,30 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.playback.AutoArt
 import com.dd3boh.outertune.widget.WidgetEntryPoint
 import dagger.hilt.android.EntryPointAccessors
+import com.dd3boh.outertune.db.entities.AlbumEntity
+import com.dd3boh.outertune.db.entities.ArtistEntity
+import com.dd3boh.outertune.models.toMediaMetadata
+import com.zionhuang.innertube.YouTube
+import com.zionhuang.innertube.models.AlbumItem
+import com.zionhuang.innertube.models.ArtistItem
+import com.zionhuang.innertube.models.SongItem
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * The suggestions the phone's own search shows for InterTune (see [SystemSearch]): read only,
- * from the library on the phone, nothing asked of the network. The manifest lets only a search
- * holding GLOBAL_SEARCH read it, which One UI's home screen does and no ordinary app can.
+ * The suggestions the phone's own search shows for InterTune (see [SystemSearch]): read only, the
+ * library's first, then what YouTube Music adds once the words have three letters. The manifest
+ * lets only a search holding GLOBAL_SEARCH read it, which One UI's home screen does and no
+ * ordinary app can.
  */
 class SystemSearchProvider : ContentProvider() {
+
+    private val pacing = SystemSearch.Pacing(ONLINE_GAP_MS) { SystemClock.elapsedRealtime() }
+    private val recent = SystemSearch.Recent<List<SystemSearch.Row>>(24)
 
     override fun onCreate(): Boolean = true
 
@@ -45,15 +59,21 @@ class SystemSearchProvider : ContentProvider() {
             Log.i(TAG, "Asked with no words: $uri, selection $selection, ${selectionArgs?.size ?: 0} arguments")
             return cursor
         }
+        val ticket = pacing.ask()
         // A binder thread: the search waits for this, and gets nothing rather than a stall.
         val found = runCatching { runBlocking { withTimeoutOrNull(QUERY_MS) { rows(context, words) } } }
             .onFailure { Log.w(TAG, "Could not search the library for the phone's search", it) }
             .getOrNull()
+        val online = if (!SystemSearch.goesOnline(words)) null else runCatching {
+            runBlocking { withTimeoutOrNull(ONLINE_MS) { onlineRows(context, words, ticket) } }
+        }.onFailure { Log.w(TAG, "Could not ask YouTube Music for the phone's search", it) }.getOrNull()
         // Which way the phone asked, what came back and how long it took: a search that shows
         // nothing for the app is otherwise silent.
         Log.i(TAG, "Asked by ${callingPackage ?: "?"} for ${words.length} letters: " +
-            (found?.let { "${it.size} found" } ?: "nothing in time") + " in ${SystemClock.elapsedRealtime() - started} ms")
-        val rows = found.orEmpty()
+            (found?.let { "${it.size} from the library" } ?: "the library not in time") + ", " +
+            (online?.let { "${it.size} from YouTube Music" } ?: "YouTube Music not asked or not in time") +
+            " in ${SystemClock.elapsedRealtime() - started} ms")
+        val rows = SystemSearch.merge(found.orEmpty(), online.orEmpty())
         rows.forEachIndexed { i, row ->
             cursor.addRow(arrayOf<Any>(
                 i, row.title, row.subtitle, AutoArt.uri(context, row.kind, row.id).toString(),
@@ -79,6 +99,50 @@ class SystemSearchProvider : ContentProvider() {
         return songs + artists + albums + playlists
     }
 
+    /**
+     * What YouTube Music has for the words: a few songs, the top artist and the top album, from one
+     * search. Only for the newest question once the typing has paused (see [SystemSearch.Pacing]),
+     * and an answer is kept for the same words. What it finds is written into the table of songs,
+     * artists and albums seen, as anything shown in the app is, so a tap can play it and AutoArt
+     * can draw its cover; a row already there is left as it is.
+     */
+    private suspend fun onlineRows(context: Context, words: String, ticket: Long): List<SystemSearch.Row> {
+        recent[words]?.let { return it }
+        delay(SETTLE_MS)
+        if (!pacing.isNewest(ticket)) return emptyList()
+        val wait = pacing.wait()
+        if (wait > 0) {
+            delay(wait)
+            if (!pacing.isNewest(ticket)) return emptyList()
+        }
+        val items = withContext(Dispatchers.IO) { YouTube.searchSummary(words) }
+            .onFailure { Log.w(TAG, "YouTube Music gave the phone's search nothing", it) }
+            .getOrNull()?.summaries.orEmpty().flatMap { it.items }
+        if (items.isEmpty()) return emptyList()
+        val database = EntryPointAccessors.fromApplication(context, WidgetEntryPoint::class.java).database()
+        val rows = withContext(Dispatchers.IO) {
+            val songs = items.filterIsInstance<SongItem>().distinctBy { it.id }.take(SystemSearch.ONLINE_SONGS).map { song ->
+                runCatching { database.insert(song.toMediaMetadata()) }
+                SystemSearch.Row(AutoArt.SONG, song.id, song.title, song.artists.joinToString { it.name }, SystemSearch.songLink(song.id))
+            }
+            val artists = items.filterIsInstance<ArtistItem>().take(SystemSearch.ONLINE_ARTISTS).map { artist ->
+                runCatching { database.insert(ArtistEntity(id = artist.id, name = artist.title, thumbnailUrl = artist.thumbnail)) }
+                SystemSearch.Row(AutoArt.ARTIST, artist.id, artist.title, context.getString(R.string.system_search_artist), SystemSearch.artistLink(artist.id))
+            }
+            val albums = items.filterIsInstance<AlbumItem>().take(SystemSearch.ONLINE_ALBUMS).map { album ->
+                runCatching {
+                    database.insert(AlbumEntity(id = album.browseId, playlistId = album.playlistId, title = album.title, year = album.year,
+                        thumbnailUrl = album.thumbnail, songCount = 0, duration = 0))
+                }
+                SystemSearch.Row(AutoArt.ALBUM, album.browseId, album.title,
+                    context.getString(R.string.system_search_album, album.artists.orEmpty().joinToString { it.name }), SystemSearch.albumLink(album.browseId))
+            }
+            songs + artists + albums
+        }
+        recent[words] = rows
+        return rows
+    }
+
     override fun insert(uri: Uri, values: ContentValues?): Uri? = null
     override fun update(uri: Uri, values: ContentValues?, selection: String?, selectionArgs: Array<out String>?): Int = 0
     override fun delete(uri: Uri, selection: String?, selectionArgs: Array<out String>?): Int = 0
@@ -88,6 +152,15 @@ class SystemSearchProvider : ContentProvider() {
 
         /** How long the phone's search is kept waiting for the library, at most. */
         private const val QUERY_MS = 1_500L
+
+        /** How long it waits for YouTube Music on top, at most, the pause in the typing included. */
+        private const val ONLINE_MS = 3_000L
+
+        /** The pause in the typing before YouTube Music is asked. */
+        private const val SETTLE_MS = 400L
+
+        /** Never two searches of YouTube Music closer than this. */
+        private const val ONLINE_GAP_MS = 1_000L
 
         private val COLUMNS = arrayOf(
             BaseColumns._ID,
