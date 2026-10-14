@@ -104,6 +104,8 @@ fun LocalPlayerSettings(
                     showLmDisableDialog = true
                 } else {
                     onLocalLibEnableChange(it)
+                    // Turning it off took the Folders tab away (above), and nothing gave it back.
+                    onEnabledTabsChange(withFoldersTab(enabledTabs))
                     // Turning it on is asking for the music on the device, so this is where
                     // access to it is asked for (MediaPermissionAsk).
                     coroutineScope.launch { askForMusicOnTurningOn(context) }
@@ -187,4 +189,17 @@ fun LocalPlayerSettings(
     }
 
     FloatingTopBar(title = stringResource(R.string.local_player_settings_title), navController = navController)
+}
+
+/**
+ * [tabs] with the Folders tab back, for when local media is turned on again.
+ *
+ * Turning local media off takes the tab away, since it has nothing to show then, and turning it on
+ * again did not give it back: the Folders tab stayed hidden with local media on (issue #22). It
+ * goes before the library's tab, where it is by default, and the order of the others is kept.
+ */
+internal fun withFoldersTab(tabs: String): String {
+    if ('F' in tabs) return tabs
+    val library = tabs.indexOf('M')
+    return if (library >= 0) tabs.substring(0, library) + 'F' + tabs.substring(library) else tabs + 'F'
 }
