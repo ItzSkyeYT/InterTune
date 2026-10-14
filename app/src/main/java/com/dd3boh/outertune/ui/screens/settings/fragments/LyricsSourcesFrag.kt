@@ -121,7 +121,9 @@ fun LyricsSourcesEntry(modifier: Modifier = Modifier) {
         ) {
             LazyColumn(
                 state = listState,
+                // Gives way to the note under it when the dialog is short: the list scrolls.
                 modifier = Modifier
+                    .weight(1f, fill = false)
                     .padding(vertical = 12.dp)
                     .border(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), RoundedCornerShape(ThumbnailCornerRadius))
             ) {
