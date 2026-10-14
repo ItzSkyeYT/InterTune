@@ -1844,4 +1844,9 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="problem_report_copy">Copy</string>
     <string name="problem_report_copied">Copied</string>
     <string name="problem_report_close">Close</string>
+    <!-- The phone's own search (search/SystemSearch.kt), debug and preview builds only: held back from translators until the words are agreed. -->
+    <string name="system_search_description" translatable="false">Songs, artists, albums and playlists in your library.</string>
+    <string name="system_search_artist" translatable="false">Artist</string>
+    <string name="system_search_album" translatable="false">Album • %1$s</string>
+    <string name="system_search_playlist" translatable="false">Playlist</string>
 </resources>

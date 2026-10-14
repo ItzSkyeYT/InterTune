@@ -87,6 +87,8 @@ fun youtubeNavigator(
 
         is YouTubeLink.Channel -> navController.navigate("artist/${link.id}")
 
+        is YouTubeLink.Album -> navController.navigate("album/${link.id}")
+
         is YouTubeLink.Video -> coroutineScope.launch {
             withContext(Dispatchers.IO) {
                 YouTube.queue(listOf(link.id), link.playlistId)
