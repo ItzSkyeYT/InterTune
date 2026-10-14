@@ -384,9 +384,10 @@ object Unreleased {
      * take to the bug form with the version and the phone already filled in (ProblemReportDialog,
      * ProblemLog). Asked for on 13 Oct 2026, after a report of a fault that showed no message.
      *
-     * Held back until the words are agreed. When they are: set this to true, or delete it with
-     * the check that reads it in AboutScreen, and make the nine problem_report strings
-     * translatable, with their French.
+     * On in every build from 0.11.5 (his yes of 14 Oct 2026), its nine strings open to
+     * translators and in French. Known limit: it shows only what the phone's log still holds,
+     * which a busy phone turns over within the hour. Left to tidy: the flag and the check that
+     * reads it in AboutScreen.
      */
-    val PROBLEM_REPORT = BuildConfig.DEBUG
+    val PROBLEM_REPORT = true
 }

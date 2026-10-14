@@ -1560,4 +1560,13 @@
     <string name="login_going_back">Retour à l\'écran précédent.</string>
     <string name="android_auto_missing">Absent de votre voiture ?</string>
     <string name="android_auto_missing_body">Android Auto n\'affiche que les applications installées par Google Play, il masque donc InterTune. Pour l\'ajouter : ouvrez les paramètres d\'Android Auto sur votre téléphone et touchez dix fois la ligne Version. Ouvrez ensuite les paramètres pour les développeurs depuis le menu en haut et activez Sources inconnues.</string>
+    <string name="problem_report_title">Signaler un problème</string>
+    <string name="problem_report_found">Voici la dernière chose qui a mal tourné, telle que l\'application l\'a notée, avec ce qui l\'a précédée. Les titres en cours de lecture y figurent. Rien ne quitte le téléphone sauf si vous l\'envoyez.</string>
+    <string name="problem_report_none">Aucune erreur n\'a été notée depuis l\'ouverture de l\'application. Voici ses dernières lignes.</string>
+    <string name="problem_report_empty">Le journal du téléphone n\'a pas pu être lu. Le formulaire s\'ouvre quand même avec la version et le téléphone déjà remplis.</string>
+    <string name="problem_report_reading">Lecture du journal</string>
+    <string name="problem_report_form">Ouvrir le formulaire</string>
+    <string name="problem_report_copy">Copier</string>
+    <string name="problem_report_copied">Copié</string>
+    <string name="problem_report_close">Fermer</string>
 </resources>
