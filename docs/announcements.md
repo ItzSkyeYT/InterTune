@@ -48,7 +48,7 @@ Only `id`, `banner` and `title` are needed.
 | `actions` | Up to three buttons, each `{ "label": ..., "url": ... }`. The first is the big one. Every button also closes the announcement. With no buttons there is a single "Got it". |
 | `actionLabel`, `actionUrl` | The older single button. Still read, and ignored when `actions` is there. |
 | `startsAt`, `expiresAt` | When to start and stop showing it. `"2026-10-01"` is a day in UTC, and `expiresAt` runs to the end of that day. `"2026-10-01T18:00:00+02:00"` is an exact time. Milliseconds still work, and so does a timestamp in seconds. |
-| `minVersionCode`, `maxVersionCode` | Which builds show it. 0.10.9.5 is 89, 0.10.9.6 is 90, 0.11 is 91, 0.11.1 is 92. |
+| `minVersionCode`, `maxVersionCode` | Which builds show it. 0.10.9.5 is 89, 0.10.9.6 is 90, 0.11 is 91, 0.11.1 is 92, 0.11.5 is 93. |
 | `minSdk`, `maxSdk` | Which Android versions show it, as API levels, both ends included. See "Some phones only" below. |
 | `devices` | Which devices show it: a list of names. See "Some phones only" below. |
 | `translations` | The same words in other languages, keyed by language (`"fr"`) or language and region (`"pt-BR"`). Each can have `banner`, `title`, `body` and `actions`; anything left out comes from the main text. A translated button can leave out its `url`, and takes the address of the button in the same place. The first language on the phone's list that has a translation, or that the main text is written in (see `language`), wins; a phone with neither gets the main text. |
