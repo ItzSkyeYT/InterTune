@@ -1733,4 +1733,12 @@
     <string name="hide_shorts_description">Les listes de Shorts YouTube n\'apparaissent plus dans l\'accueil, la recherche et les pages d\'artiste.</string>
     <!-- The recognition widget in the launcher's picker (recognition_widget_info). -->
     <string name="recognition_widget_description">Un bouton qui trouve le titre qui passe autour de vous.</string>
+    <!-- The sleep timer on a schedule, under the sleep timer's fade in Player and audio (SleepScheduleFrag, ScheduledSleep). -->
+    <string name="sleep_schedule">Minuterie de sommeil programmée</string>
+    <string name="sleep_schedule_description">Chaque jour à partir de %1$s, la minuterie de sommeil se lance seule pour %2$s.</string>
+    <string name="sleep_schedule_explain">Elle se lance à cette heure si la musique joue, ou quand la musique démarre dans les 3 heures qui suivent. Une seule fois par jour : une minuterie que vous lancez vous-même compte pour ce jour-là, et après la minuterie, la musique que vous remettez continue.</string>
+    <string name="sleep_schedule_start">Commence à</string>
+    <string name="sleep_schedule_length">Durée de la minuterie</string>
+    <string name="time_of_day_type">Saisir l\'heure</string>
+    <string name="time_of_day_clock_face">Utiliser le cadran</string>
 </resources>
