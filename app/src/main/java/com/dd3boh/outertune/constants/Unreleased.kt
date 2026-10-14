@@ -66,6 +66,19 @@ object Unreleased {
     val SHARE_PAGE = BuildConfig.DEBUG
 
     /**
+     * Keep the queue up to date learns from what the listener does, not only from the words in
+     * titles: an artist skipped twice in a queue loses their other songs from its far end, a
+     * skipped song takes its other versions with it, a run of plain recordings sheds the slowed,
+     * sped up and nightcore versions ahead, and a like reaches as far as a skip
+     * (AdaptiveQueue.TurnedDown, AdaptiveQueue.plainRun). The limits stay: the next four songs are
+     * never touched, and at most 40% of the far end goes at once, 75% after a skip or a like.
+     *
+     * Unit tests only (AdaptiveLearnsTest), not yet run on a device. For 0.12. To ship: set this
+     * to true, or delete it with the three checks that read it, all in MusicService.
+     */
+    val ADAPTIVE_LEARNS = BuildConfig.DEBUG
+
+    /**
      * "Living blur" among the player background styles: the cover reduced to patches of colour
      * that breathe with the music (LivingBackground, LevelTap). A prototype to look at, not agreed
      * for any release. When it is: set this to true or delete it with the two checks that read

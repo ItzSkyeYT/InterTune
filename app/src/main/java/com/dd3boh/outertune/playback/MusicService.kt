@@ -1572,6 +1572,11 @@ class MusicService : MediaLibraryService(),
                 val song = it.toggleLike()
                 update(song)
                 downloadUtil.autoDownloadOnLike(song)
+                // A like is the clearest thing anyone says by pressing something, so the far end of
+                // the queue gets the reach a skip gets.
+                if (Unreleased.ADAPTIVE_LEARNS && song.liked && song.id == currentSong.value?.song?.id) {
+                    scope.launch { replanQueueTail(strong = true) }
+                }
             }
         }
     }
@@ -2352,15 +2357,24 @@ class MusicService : MediaLibraryService(),
         if (!context.known) return
 
         val tail = (start until count).mapNotNull { i ->
-            runCatching { i to player.getMediaItemAt(i).mediaMetadata.title?.toString() }.getOrNull()
+            runCatching {
+                val item = player.getMediaItemAt(i)
+                Triple(i, item.mediaMetadata.title?.toString(), item.metadata?.artists?.map { it.name }.orEmpty())
+            }.getOrNull()
         }
         if (tail.isEmpty()) return
 
+        val learns = Unreleased.ADAPTIVE_LEARNS
+        val turnedDown = if (learns) heard.turnedDown() else AdaptiveQueue.TurnedDown()
+        val plainRun = learns && AdaptiveQueue.plainRun(heard.titles(AdaptiveQueue.PLAIN_RUN))
         val plan = AdaptiveQueue.plan(
             tail,
             { it.second },
             context,
             dropShare = if (strong) AdaptiveQueue.STRONG_DROP_SHARE else AdaptiveQueue.MAX_DROP_SHARE,
+            artists = { it.third },
+            turnedDown = turnedDown,
+            plainRun = plainRun,
         )
         if (!plan.changed) return
 
@@ -2371,7 +2385,8 @@ class MusicService : MediaLibraryService(),
             }
         }
         hiddenTailChanged.value = hiddenTailChanged.value + 1
-        Log.d(TAG, "Adaptive queue: dropped ${plan.dropped.size} of ${tail.size} upcoming, strong=$strong")
+        Log.d(TAG, "Adaptive queue: dropped ${plan.dropped.size} of ${tail.size} upcoming, strong=$strong" +
+            if (learns) ", turned down ${turnedDown.artists.size} artists and ${turnedDown.songs.size} songs, plain run=$plainRun" else "")
     }
 
     /**
@@ -2668,8 +2683,21 @@ class MusicService : MediaLibraryService(),
         //
         // Going back is not a skip. It says nothing against the songs ahead, all of which were
         // either heard already or seen waiting, so it gets the ordinary pass.
+        //
+        // How the song just left ended is what the far end learns from: left early by moving on is
+        // a skip, run out by itself a song heard (see AdaptiveQueue.TurnedDown).
+        if (Unreleased.ADAPTIVE_LEARNS) heard.playing?.takeIf { it.id != mediaItem?.mediaId }?.let { left ->
+            when {
+                reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO -> heard.finished(left)
+                reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK && !transitionWentBack &&
+                    AdaptiveQueue.leftEarly(lastKnownPosition[left.id], left.durationSec) -> heard.skipped(left)
+            }
+        }
         mediaItem?.let {
-            heard.note(queueBoard.getCurrentQueue()?.id ?: 0L, it.mediaId, it.mediaMetadata.title?.toString())
+            heard.note(
+                queueBoard.getCurrentQueue()?.id ?: 0L, it.mediaId, it.mediaMetadata.title?.toString(),
+                it.metadata?.artists?.map { a -> a.name }.orEmpty(), it.metadata?.duration ?: -1,
+            )
             reachedInQueue.value = heard.reached.toSet()
         }
         replanQueueTail(strong = reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK && !transitionWentBack)

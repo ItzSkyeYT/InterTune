@@ -8,6 +8,7 @@ package com.dd3boh.outertune.playback
 
 import com.dd3boh.outertune.engine.SongTags
 import com.dd3boh.outertune.engine.TagFit
+import com.dd3boh.outertune.utils.SongVersions
 
 /**
  * Keeps the far end of the queue honest while the near end stays put.
@@ -74,6 +75,9 @@ object AdaptiveQueue {
         context: TagFit.Context,
         dropBelow: Double = DROP_BELOW,
         dropShare: Double = MAX_DROP_SHARE,
+        artists: (T) -> List<String> = { emptyList() },
+        turnedDown: TurnedDown = TurnedDown(),
+        plainRun: Boolean = false,
     ): Plan<T> {
         if (tail.isEmpty() || !context.known) return Plan(tail, emptyList())
 
@@ -84,9 +88,24 @@ object AdaptiveQueue {
         // wrong for deletion. Most music carries no qualifier at all, so acting on it here would
         // empty the queue of everything except the labelled quarter of the library, which is not
         // a rebalance, it is a purge.
+        //
+        // What the listener turned down in this queue goes first, ahead of anything a title says:
+        // a skip is an opinion about this song, a title only a guess about how it sounds.
         val scored = tail.map { item ->
-            val tags = SongTags.of(title(item))
-            item to if (tags.isEmpty()) 0.0 else TagFit.score(tags, context)
+            val name = title(item)
+            val by = artists(item)
+            val tags = SongTags.of(name)
+            item to when {
+                by.any { it.lowercase() in turnedDown.artists } -> TURNED_DOWN_FIT
+                name != null && turnedDown.songs.isNotEmpty() &&
+                    SongVersions.baseTitle(name, by.firstOrNull()) in turnedDown.songs -> TURNED_DOWN_FIT
+                tags.isEmpty() -> 0.0
+                // TagFit weighs a treated candidate by how treated the run is, and a plain run is
+                // not treated at all, so a slowed edit in the middle of plain recordings came out at
+                // nothing. After a run of them it is the same mistake as the other way round.
+                plainRun && tags.any { it in TREATMENTS } -> PLAIN_RUN_FIT
+                else -> TagFit.score(tags, context)
+            }
         }
         val budget = (tail.size * dropShare).toInt()
         if (budget <= 0) return Plan(tail, emptyList())
@@ -151,20 +170,27 @@ object AdaptiveQueue {
      */
     class Heard(private val recentCap: Int = RECENT_CAP, private val reachedCap: Int = REACHED_CAP) {
         private var queueId: Long? = null
-        private val recent = ArrayDeque<String?>()
+        private val recent = ArrayDeque<Song>()
         private val ids = LinkedHashSet<String>()
+        private val skipsByArtist = HashMap<String, Int>()
+        private val skippedSongs = LinkedHashSet<String>()
 
         /** The songs that have been current in this queue. A view, not a copy. */
         val reached: Set<String> get() = ids
 
+        /** The song noted last: the one playing, until the next is noted. */
+        val playing: Song? get() = recent.firstOrNull()
+
         /** [id], titled [title], became the song playing in the queue numbered [queue]. */
-        fun note(queue: Long, id: String, title: String?) {
+        fun note(queue: Long, id: String, title: String?, artists: List<String> = emptyList(), durationSec: Int = -1) {
             if (queue != queueId) {
                 queueId = queue
                 recent.clear()
                 ids.clear()
+                skipsByArtist.clear()
+                skippedSongs.clear()
             }
-            recent.addFirst(title)
+            recent.addFirst(Song(id, title, artists, durationSec))
             while (recent.size > recentCap) recent.removeLast()
             ids.remove(id)
             ids.add(id)
@@ -172,8 +198,72 @@ object AdaptiveQueue {
         }
 
         /** The titles of the last [n] songs heard, newest first, the one playing included. */
-        fun titles(n: Int): List<String?> = recent.take(n)
+        fun titles(n: Int): List<String?> = recent.take(n).map { it.title }
+
+        /** [song] was left early, by the listener moving on to a later one. */
+        fun skipped(song: Song) {
+            for (artist in song.artists.map { it.lowercase() }.distinct()) {
+                skipsByArtist[artist] = (skipsByArtist[artist] ?: 0) + 1
+            }
+            val base = song.title?.let { SongVersions.baseTitle(it, song.artists.firstOrNull()) }
+            if (!base.isNullOrBlank()) {
+                skippedSongs.remove(base)
+                skippedSongs.add(base)
+                while (skippedSongs.size > recentCap) skippedSongs.remove(skippedSongs.first())
+            }
+        }
+
+        /** [song] was heard to its end: whatever its artists were skipped for is forgiven. */
+        fun finished(song: Song) {
+            song.artists.forEach { skipsByArtist.remove(it.lowercase()) }
+        }
+
+        /** What [plan] should take out first. */
+        fun turnedDown(): TurnedDown = TurnedDown(
+            artists = skipsByArtist.filterValues { it >= ARTIST_SKIPS }.keys.toSet(),
+            songs = skippedSongs.toSet(),
+        )
     }
+
+    /** One song as it was heard: what it was, by whom, and how long it is (-1 when not known). */
+    data class Song(val id: String, val title: String?, val artists: List<String>, val durationSec: Int)
+
+    /**
+     * What the listener turned down in this queue: the artists skipped [ARTIST_SKIPS] times with
+     * none of their songs heard to the end since, in lower case, and the songs skipped, by
+     * [SongVersions.baseTitle], so their other versions go with them.
+     */
+    data class TurnedDown(val artists: Set<String> = emptySet(), val songs: Set<String> = emptySet())
+
+    /**
+     * Whether a song left at [leftAtMs] was turned down rather than let run out: less than half of
+     * it heard, or less than half a minute when its length is not known. Pressing next during the
+     * last chorus is not a verdict on the song.
+     */
+    fun leftEarly(leftAtMs: Long?, durationSec: Int): Boolean {
+        if (leftAtMs == null || leftAtMs < 0) return false
+        return if (durationSec > 0) leftAtMs < durationSec * 500L else leftAtMs < 30_000L
+    }
+
+    /**
+     * Whether the last [PLAIN_RUN] songs heard, newest first in [recentTitles], were all plain
+     * recordings: none slowed, sped up, nightcore, reverb, bass boosted, 8D or looped. A remix, an
+     * edit or a live take is still a plain recording for this, since it is often the only version.
+     */
+    fun plainRun(recentTitles: List<String?>): Boolean =
+        recentTitles.size >= PLAIN_RUN && recentTitles.take(PLAIN_RUN).none { t -> SongTags.of(t).any { it in TREATMENTS } }
+
+    /** Things done to a recording, as opposed to versions of it. */
+    val TREATMENTS = setOf("nightcore", "slowed", "sped", "reverb", "bassboost", "eightd", "loop")
+
+    /** Skips of one artist in a queue before their other songs go. One skip is a mood, two a pattern. */
+    const val ARTIST_SKIPS = 2
+
+    /** Songs in a row it takes to call a run plain. */
+    const val PLAIN_RUN = 4
+
+    private const val TURNED_DOWN_FIT = -1.0
+    private const val PLAIN_RUN_FIT = -0.5
 
     private const val RECENT_CAP = 16
     private const val REACHED_CAP = 2_000
