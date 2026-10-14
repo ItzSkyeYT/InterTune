@@ -36,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.constants.EnableBetterLyricsKey
 import com.dd3boh.outertune.constants.EnableKugouKey
 import com.dd3boh.outertune.constants.EnableLrcLibKey
 import com.dd3boh.outertune.constants.EnableYouTubeCaptionsKey
@@ -52,32 +53,35 @@ import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 
 /**
- * Lyrics sources: one row that opens the four sources in the order they are asked in, each with
+ * Lyrics sources: one row that opens the sources in the order they are asked in, each with
  * a tick to switch it off and a handle to drag it up or down, the way Arrange tabs does for tabs.
  * Nothing is kept until OK.
  */
 @Composable
 fun LyricsSourcesEntry(modifier: Modifier = Modifier) {
     val (savedOrder, onSavedOrder) = rememberPreference(LyricsSourceOrderKey, defaultValue = "")
+    val (betterLyrics, onBetterLyrics) = rememberPreference(EnableBetterLyricsKey, defaultValue = true)
     val (lrcLib, onLrcLib) = rememberPreference(EnableLrcLibKey, defaultValue = true)
     val (kugou, onKugou) = rememberPreference(EnableKugouKey, defaultValue = true)
     val (youTubeMusic, onYouTubeMusic) = rememberPreference(EnableYouTubeLyricsKey, defaultValue = true)
     val (captions, onCaptions) = rememberPreference(EnableYouTubeCaptionsKey, defaultValue = true)
     val on = mapOf(
-        LyricsSources.YOUTUBE_CAPTIONS to captions, LyricsSources.LRCLIB to lrcLib,
+        LyricsSources.BETTER_LYRICS to betterLyrics, LyricsSources.YOUTUBE_CAPTIONS to captions, LyricsSources.LRCLIB to lrcLib,
         LyricsSources.KUGOU to kugou, LyricsSources.YOUTUBE_MUSIC to youTubeMusic,
     )
     val switch = mapOf(
-        LyricsSources.YOUTUBE_CAPTIONS to onCaptions, LyricsSources.LRCLIB to onLrcLib,
+        LyricsSources.BETTER_LYRICS to onBetterLyrics, LyricsSources.YOUTUBE_CAPTIONS to onCaptions, LyricsSources.LRCLIB to onLrcLib,
         LyricsSources.KUGOU to onKugou, LyricsSources.YOUTUBE_MUSIC to onYouTubeMusic,
     )
     val names = mapOf(
+        LyricsSources.BETTER_LYRICS to stringResource(R.string.lyrics_source_better_lyrics),
         LyricsSources.YOUTUBE_CAPTIONS to stringResource(R.string.lyrics_source_youtube_captions),
         LyricsSources.LRCLIB to stringResource(R.string.lyrics_source_lrclib),
         LyricsSources.KUGOU to stringResource(R.string.lyrics_source_kugou),
         LyricsSources.YOUTUBE_MUSIC to stringResource(R.string.lyrics_source_youtube_music),
     )
     val lines = mapOf(
+        LyricsSources.BETTER_LYRICS to stringResource(R.string.lyrics_source_better_lyrics_line),
         LyricsSources.YOUTUBE_CAPTIONS to stringResource(R.string.lyrics_source_youtube_captions_line),
         LyricsSources.LRCLIB to stringResource(R.string.enable_lrclib_description),
         LyricsSources.KUGOU to stringResource(R.string.enable_kugou_description),

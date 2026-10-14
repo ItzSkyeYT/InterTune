@@ -723,6 +723,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="lyrics_source_youtube_music" translatable="false">YouTube Music</string>
     <string name="lyrics_source_youtube_music_line" translatable="false">The words YouTube Music shows, not timed.</string>
     <string name="lyrics_source_lrclib" translatable="false">LRCLIB</string>
+    <string name="lyrics_source_better_lyrics" translatable="false">Better Lyrics</string>
+    <string name="lyrics_source_better_lyrics_line" translatable="false">Timed word by word, when it has the song.</string>
     <string name="lyrics_source_kugou" translatable="false">KuGou</string>
     <string name="lyrics_source_move" translatable="false">Move %1$s</string>
     <string name="audio_normalization_description">Even out the volume between songs, so one is not suddenly much louder than the last.</string>

@@ -14,13 +14,17 @@ package com.dd3boh.outertune.lyrics
  * the end, so an old setting never leaves a source out; an id nothing knows any more is dropped.
  */
 object LyricsSources {
+    const val BETTER_LYRICS = "better_lyrics"
     const val YOUTUBE_CAPTIONS = "youtube_captions"
     const val LRCLIB = "lrclib"
     const val KUGOU = "kugou"
     const val YOUTUBE_MUSIC = "youtube_music"
 
-    /** The order they were always asked in, before anyone could change it. */
-    val DEFAULT = listOf(YOUTUBE_CAPTIONS, LRCLIB, KUGOU, YOUTUBE_MUSIC)
+    /**
+     * The order before anyone changes it: Better Lyrics first, since what it has is timed word by
+     * word, then the order the others were always asked in.
+     */
+    val DEFAULT = listOf(BETTER_LYRICS, YOUTUBE_CAPTIONS, LRCLIB, KUGOU, YOUTUBE_MUSIC)
 
     /** Every source, in the order [saved] gives and then the default one for the rest. */
     fun order(saved: String?): List<String> {
