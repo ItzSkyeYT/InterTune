@@ -1673,4 +1673,22 @@
         <item quantity="many">%1$d nouveautés</item>
         <item quantity="other">%1$d nouveautés</item>
     </plurals>
+
+    <!-- Copy and share in the lyrics view's menu, and the lines picked for a picture (LyricsCard) -->
+    <string name="lyrics_copy">Copier les paroles</string>
+    <string name="lyrics_copied">Paroles copiées</string>
+    <string name="lyrics_share">Partager les paroles</string>
+    <string name="lyrics_share_picture">Partager en image</string>
+    <string name="lyrics_pick_hint">Touchez les lignes à partager</string>
+    <plurals name="lyrics_picked">
+        <item quantity="one">%1$d ligne sur %2$d</item>
+        <item quantity="many">%1$d lignes sur %2$d</item>
+        <item quantity="other">%1$d lignes sur %2$d</item>
+    </plurals>
+    <plurals name="lyrics_pick_most">
+        <item quantity="one">%1$d ligne au plus</item>
+        <item quantity="many">%1$d lignes au plus</item>
+        <item quantity="other">%1$d lignes au plus</item>
+    </plurals>
+    <string name="lyrics_pick_cancel">Ne plus choisir de lignes</string>
 </resources>

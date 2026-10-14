@@ -1845,4 +1845,20 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="problem_report_copy">Copy</string>
     <string name="problem_report_copied">Copied</string>
     <string name="problem_report_close">Close</string>
+
+    <!-- Copy and share in the lyrics view's menu, and the lines picked for a picture (LyricsCard) -->
+    <string name="lyrics_copy">Copy lyrics</string>
+    <string name="lyrics_copied">Lyrics copied</string>
+    <string name="lyrics_share">Share lyrics</string>
+    <string name="lyrics_share_picture">Share as a picture</string>
+    <string name="lyrics_pick_hint">Tap the lines to share</string>
+    <plurals name="lyrics_picked">
+        <item quantity="one">%1$d of %2$d lines</item>
+        <item quantity="other">%1$d of %2$d lines</item>
+    </plurals>
+    <plurals name="lyrics_pick_most">
+        <item quantity="one">Up to %1$d line</item>
+        <item quantity="other">Up to %1$d lines</item>
+    </plurals>
+    <string name="lyrics_pick_cancel">Stop picking lines</string>
 </resources>

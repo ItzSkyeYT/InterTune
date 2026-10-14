@@ -1,7 +1,11 @@
 package com.dd3boh.outertune.ui.menu
 
 import android.app.SearchManager
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Intent
+import android.os.Build
+import android.widget.Toast
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -21,12 +25,15 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.FormatQuote
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material.icons.rounded.SyncAlt
 import androidx.compose.material3.CircularProgressIndicator
@@ -59,6 +66,7 @@ import com.dd3boh.outertune.constants.LyricTrimKey
 import com.dd3boh.outertune.constants.MultilineLrcKey
 import com.dd3boh.outertune.db.entities.LyricsEntity
 import com.dd3boh.outertune.extensions.isInternetConnected
+import com.dd3boh.outertune.lyrics.LyricsShare
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
 import com.dd3boh.outertune.ui.component.SettingsClickToReveal
@@ -82,9 +90,16 @@ fun LyricsMenu(
     onDismiss: () -> Unit,
     viewModel: LyricsMenuViewModel = hiltViewModel(),
     onRefreshRequest: (SemanticLyrics?) -> Unit,
+    /** The lyrics as the view shows them, a line each, or null while it shows none. */
+    shownLines: () -> List<String>? = { null },
+    /** Starts picking lines in the view, for a picture of them. */
+    onPickLines: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val database = LocalDatabase.current
+    // Copy and Share take the lyrics as they are on screen, so they are there for lyrics from a
+    // file or a provider alike, with or without a row of their own.
+    val shown = shownLines()?.takeIf { lines -> lines.any { it.isNotBlank() } }
 
     val multilineLrc by rememberPreference(MultilineLrcKey, defaultValue = true)
     val lyricTrim by rememberPreference(LyricTrimKey, defaultValue = false)
@@ -468,6 +483,44 @@ fun LyricsMenu(
             title = R.string.settings,
         ) {
             showSettings = true
+        }
+
+        // After the entries that were here, which stay where hands know them.
+        GridMenuItem(
+            icon = Icons.Rounded.ContentCopy,
+            title = R.string.lyrics_copy,
+            enabled = shown != null,
+        ) {
+            val song = mediaMetadataProvider()
+            context.getSystemService(ClipboardManager::class.java)
+                ?.setPrimaryClip(ClipData.newPlainText(song.title, LyricsShare.text(shown.orEmpty())))
+            // Android 13 and later show their own confirmation for every copy.
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                Toast.makeText(context, R.string.lyrics_copied, Toast.LENGTH_SHORT).show()
+            }
+            onDismiss()
+        }
+        GridMenuItem(
+            icon = Icons.Rounded.Share,
+            title = R.string.lyrics_share,
+            enabled = shown != null,
+        ) {
+            val song = mediaMetadataProvider()
+            val send = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, LyricsShare.message(song.title, song.artists.joinToString { it.name }, shown.orEmpty()))
+                putExtra(Intent.EXTRA_TITLE, song.title)
+            }
+            onDismiss()
+            context.startActivity(Intent.createChooser(send, null))
+        }
+        GridMenuItem(
+            icon = Icons.Rounded.FormatQuote,
+            title = R.string.lyrics_share_picture,
+            enabled = shown != null,
+        ) {
+            onDismiss()
+            onPickLines()
         }
     }
 }

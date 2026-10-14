@@ -11,10 +11,15 @@ package com.dd3boh.outertune.ui.component
 
 import android.annotation.SuppressLint
 import android.content.res.Configuration
+import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -48,14 +53,19 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
@@ -67,6 +77,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -94,6 +105,7 @@ import com.dd3boh.outertune.constants.Speed
 import com.dd3boh.outertune.db.entities.LyricsEntity
 import com.dd3boh.outertune.db.entities.LyricsEntity.Companion.uninitializedLyric
 import com.dd3boh.outertune.extensions.isPowerSaver
+import com.dd3boh.outertune.lyrics.LyricsShare
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.component.shimmer.ShimmerHost
 import com.dd3boh.outertune.ui.component.shimmer.TextPlaceholder
@@ -105,6 +117,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.akanework.gramophone.logic.utils.LrcUtils
 import org.akanework.gramophone.logic.utils.SemanticLyrics
@@ -164,8 +177,38 @@ fun Lyrics(
         lyricsModel = playerLyrics
     }
 
+    // Lines picked to share as a picture, by their place in [lines]. Picking starts with a long
+    // press on a line, or from the menu, and ends with Share, the cross, Back, or other lyrics.
+    var picking by remember { mutableStateOf(false) }
+    val picked = remember { mutableStateListOf<Int>() }
+    // The picked lines, while their picture is shown before it is sent.
+    var cardLines by remember { mutableStateOf<List<String>?>(null) }
+    val mostLines = pluralStringResource(R.plurals.lyrics_pick_most, LyricsShare.MOST_LINES, LyricsShare.MOST_LINES)
+
+    fun stopPicking() {
+        picking = false
+        picked.clear()
+    }
+
+    /** A line tapped or long pressed while picking: see [LyricsShare.toggle]. */
+    fun pick(index: Int) {
+        when (val result = LyricsShare.toggle(picked.toList(), index, lines.map { it.text })) {
+            is LyricsShare.Pick.Picked -> {
+                picked.clear()
+                picked.addAll(result.lines)
+            }
+
+            LyricsShare.Pick.Full -> Toast.makeText(context, mostLines, Toast.LENGTH_SHORT).show()
+
+            LyricsShare.Pick.Empty -> Unit
+        }
+    }
+
     LaunchedEffect(lyricsModel) {
         lines.clear()
+        picking = false
+        picked.clear()
+        cardLines = null
         lyricsModel?.let { model ->
             if (isSynced) {
                 val lyrics = lyricsModel as SemanticLyrics.SyncedLyrics
@@ -177,12 +220,11 @@ fun Lyrics(
                     lyricRefreshRate = Speed.SLOW.toLrcRefreshMillis()
                 }
             } else {
-                lines.add(
-                    LyricLine(
-                        model.joinedUnsyncedText(), 0L.toULong(), 0L.toULong(),
-                        null, null, false
-                    )
-                )
+                // A line each, as synced lyrics have, so that one can be picked to share. They
+                // stand with no room between them below, and read as the one block they were.
+                model.unsyncedText.forEach { (text, _) ->
+                    lines.add(LyricLine(text, 0L.toULong(), 0L.toULong(), null, null, false))
+                }
                 lyricRefreshRate = Speed.SLOW.toLrcRefreshMillis()
             }
         }
@@ -190,6 +232,8 @@ fun Lyrics(
 
     val textColor = MaterialTheme.colorScheme.secondary
     val prevTextColor = MaterialTheme.colorScheme.primary
+    val pickedColor = textColor.copy(alpha = 0.16f)
+    val lineIndication = LocalIndication.current
 
     var currentLineIndex by remember {
         mutableIntStateOf(-1)
@@ -257,8 +301,22 @@ fun Lyrics(
     }
 
     val lazyListState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
 
-    LaunchedEffect(currentLineIndex, lastPreviewTime) {
+    /**
+     * Brings line [index] up from under the picking bar, where a long press near the foot of a
+     * short view leaves it (a phone on its side, large text), so that the line just picked is seen.
+     */
+    fun keepClearOfBar(index: Int) {
+        val layout = lazyListState.layoutInfo
+        val line = layout.visibleItemsInfo.firstOrNull { it.index == index } ?: return
+        val lineFoot = line.offset + line.size - layout.viewportStartOffset
+        val barTop = layout.viewportEndOffset - layout.viewportStartOffset -
+            with(density) { (PickBarRoom + bottomPadding).toPx() }
+        if (lineFoot > barTop) scope.launch { lazyListState.animateScrollBy(lineFoot - barTop) }
+    }
+
+    LaunchedEffect(currentLineIndex, lastPreviewTime, picking) {
         /**
          * Count number of new lines in a lyric
          */
@@ -275,7 +333,9 @@ fun Lyrics(
             }
         }
 
-        if (!isSynced) return@LaunchedEffect
+        // Nothing moves under a finger picking lines. Once the picking ends, the song's line is
+        // scrolled to again.
+        if (!isSynced || picking) return@LaunchedEffect
         if (currentLineIndex != -1) {
             deferredCurrentLineIndex = currentLineIndex
             if (lastPreviewTime == 0L) {
@@ -358,6 +418,11 @@ fun Lyrics(
                         lyricFontSizeAdjusted = (lyricFontSizeAdjusted * 0.75).toInt()
                     }
 
+                    val isPicked = picking && index in picked
+                    // Unsynced lines touch, so picked ones side by side are lit as one block.
+                    val joinsAbove = isPicked && !isSynced && (index - 1) in picked
+                    val joinsBelow = isPicked && !isSynced && (index + 1) in picked
+                    val seeks = isSynced && lyricsClickable
                     Column(
                         horizontalAlignment = when (lyricsTextPosition) {
                             LyricsPosition.LEFT -> Alignment.Start
@@ -368,21 +433,77 @@ fun Lyrics(
                             .fillMaxWidth()
                             .padding(
                                 start = 24.dp,
-                                top = if (item.isTranslated) 0.dp else 8.dp,
+                                // Unsynced lines touch, with the room above and below them that the
+                                // one block they were had.
+                                top = when {
+                                    !isSynced -> if (index == 0) 8.dp else 0.dp
+                                    item.isTranslated -> 0.dp
+                                    else -> 8.dp
+                                },
                                 end = 24.dp,
-                                bottom = if (item.isTranslated) 16.dp else 8.dp,
+                                bottom = when {
+                                    !isSynced -> if (index == lines.lastIndex) 8.dp else 0.dp
+                                    item.isTranslated -> 16.dp
+                                    else -> 8.dp
+                                },
                             )
-                            // we allow clicking on blank lyrics, ignore item.isClickable
-                            .clickable(enabled = isSynced && lyricsClickable) {
-                                playerConnection.player.seekTo(item.start.toLong())
-                                currentLineIndex = index
-                                currentPos = item.start.toLong()
-                                lastPreviewTime = 0L
-                                haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                            // A picked line is lit from behind, out past its edges, so that
+                            // nothing moves when it is picked.
+                            .drawBehind {
+                                if (isPicked) {
+                                    val sideways = 12.dp.toPx()
+                                    val spill = (if (isSynced) 4.dp else 2.dp).toPx()
+                                    val round = CornerRadius(12.dp.toPx())
+                                    val top = if (joinsAbove) CornerRadius.Zero else round
+                                    val bottom = if (joinsBelow) CornerRadius.Zero else round
+                                    drawPath(
+                                        Path().apply {
+                                            addRoundRect(
+                                                RoundRect(
+                                                    left = -sideways,
+                                                    top = if (joinsAbove) 0f else -spill,
+                                                    right = size.width + sideways,
+                                                    bottom = size.height + if (joinsBelow) 0f else spill,
+                                                    topLeftCornerRadius = top,
+                                                    topRightCornerRadius = top,
+                                                    bottomRightCornerRadius = bottom,
+                                                    bottomLeftCornerRadius = bottom,
+                                                )
+                                            )
+                                        },
+                                        color = pickedColor,
+                                    )
+                                }
                             }
+                            // we allow clicking on blank lyrics, ignore item.isClickable
+                            // A long press picks the line to share, on lyrics of any kind; while
+                            // picking a tap does too, and does not seek.
+                            .combinedClickable(
+                                interactionSource = null,
+                                indication = if (picking || seeks) lineIndication else null,
+                                onLongClick = {
+                                    if (!picking) {
+                                        picked.clear()
+                                        picking = true
+                                    }
+                                    pick(index)
+                                    keepClearOfBar(index)
+                                },
+                                onClick = {
+                                    if (picking) {
+                                        pick(index)
+                                    } else if (seeks) {
+                                        playerConnection.player.seekTo(item.start.toLong())
+                                        currentLineIndex = index
+                                        currentPos = item.start.toLong()
+                                        lastPreviewTime = 0L
+                                        haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                                    }
+                                },
+                            )
                     ) {
                         if (currentPos.toULong() in item.start..item.end + 100.toULong() && lyricsFancy
-                            && item.words != null && !context.isPowerSaver()
+                            && item.words != null && !context.isPowerSaver() && !picking
                         ) { // word by word
                             // now do eye bleach to make lyric line babies
                             val style = LocalTextStyle.current.copy(
@@ -462,7 +583,10 @@ fun Lyrics(
                                 },
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.alpha(
-                                    if (!isSynced || isHighlighted) {
+                                    if (picking) {
+                                        // The picked lines stand out from the rest, whichever is being sung.
+                                        if (isPicked) 1f else 0.45f
+                                    } else if (!isSynced || isHighlighted) {
                                         1f
                                     } else if (isConsumed) {
                                         0.6f
@@ -510,7 +634,16 @@ fun Lyrics(
         }
 
         mediaMetadata?.let { mediaMetadata ->
-            Row(
+            // While lines are picked the view's own two buttons give way to the bar that shares
+            // them: neither closing the lyrics nor their menu is what anybody picking lines is after.
+            if (picking) LyricsPickBar(
+                picked = picked.size,
+                onCancel = ::stopPicking,
+                onShare = { cardLines = LyricsShare.pickedLines(lines.map { it.text }, picked) },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(start = 12.dp, end = 12.dp, bottom = bottomPadding)
+            ) else Row(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(end = 12.dp, bottom = bottomPadding)
@@ -545,6 +678,13 @@ fun Lyrics(
                                 mediaMetadataProvider = { mediaMetadata },
                                 onRefreshRequest = { lyricsModel = it },
                                 onDismiss = menuState::dismiss,
+                                shownLines = {
+                                    lines.map { it.text }.takeIf { lyricsModel != null && lyricsModel != uninitializedLyric }
+                                },
+                                onPickLines = {
+                                    picked.clear()
+                                    picking = true
+                                },
                             )
                         }
                     }
@@ -556,8 +696,24 @@ fun Lyrics(
                     )
                 }
             }
+
+            cardLines?.let { chosen ->
+                LyricsCardDialog(
+                    lines = chosen,
+                    song = mediaMetadata,
+                    onDismiss = { cardLines = null },
+                    onShared = {
+                        cardLines = null
+                        stopPicking()
+                    },
+                )
+            }
         }
     }
+
+    // Back stops the picking before it closes anything. Composed only while picking, which makes it
+    // the newest, so it comes before the player sheet's own.
+    if (picking) BackHandler(onBack = ::stopPicking)
 }
 
 @Composable
@@ -697,6 +853,9 @@ fun calculateLineProgress(line: LyricLine, currentPositionMs: Long): Float {
 }
 
 const val animateScrollDuration = 300L
+
+/** What the picking bar takes at the foot of the lyrics view: its own height and a little room over it. */
+private val PickBarRoom = 64.dp
 val LyricsPreviewTime = 7.seconds
 
 /**

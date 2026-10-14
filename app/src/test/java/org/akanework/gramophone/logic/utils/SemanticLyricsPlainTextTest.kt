@@ -14,9 +14,9 @@ import org.junit.Test
 /**
  * Lyrics with no timestamps at all fall through to the "recover only text information" branch of
  * [parseLrc]. It used to drop every blank line along with the rest of the structure, which
- * flattened multi-verse lyrics into one run with no gap. The join that turns the parsed lines back
- * into the text Lyrics.kt displays, [SemanticLyrics.joinedUnsyncedText], is the same function used
- * here, not a copy, so a regression in either the parser or the join shows up in this suite.
+ * flattened multi-verse lyrics into one run with no gap. Lyrics.kt shows the parsed lines one under
+ * another, so a blank one is the gap between verses on screen; this suite reads them joined back, one
+ * to a line, with [SemanticLyrics.joinedUnsyncedText], so a regression in the parser shows up here.
  *
  * multiLineEnabled is exercised at both its values: false here throughout, and true (the app's own
  * default, see LyricsHelper.kt) on the main gap case, since that flag runs an extra merge pass over
