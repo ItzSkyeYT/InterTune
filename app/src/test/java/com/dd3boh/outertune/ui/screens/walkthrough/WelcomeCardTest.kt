@@ -195,12 +195,14 @@ class WelcomeCardTest {
     }
 
     @Test
-    fun `its words are held back from translation, and are plain`() {
+    fun `its words are open to translators with their French, and are plain`() {
         val strings = File("src/main/res/values/strings-ot.xml").readLines()
+        val french = File("src/main/res/values-fr/strings-ot.xml").readText()
         for (name in listOf("welcome_card", "welcome_card_since", "welcome_card_see", "welcome_card_dismiss")) {
             val at = strings.indexOfFirst { "name=\"$name\"" in it }
             assertTrue("$name is not in strings-ot.xml", at >= 0)
-            assertTrue("$name can be translated", "translatable=\"false\"" in strings[at])
+            assertFalse("$name is held back from translators", "translatable=\"false\"" in strings[at])
+            assertTrue("$name has no French", "name=\"$name\"" in french)
             // A plural's words are on the lines under its name.
             val words = strings.drop(at).takeWhile { "</plurals>" !in it }.take(if ("<plurals" in strings[at]) 4 else 1)
             for (line in words) {

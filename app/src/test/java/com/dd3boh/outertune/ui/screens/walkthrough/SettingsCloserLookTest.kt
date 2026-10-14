@@ -165,13 +165,17 @@ class SettingsCloserLookTest {
     }
 
     @Test
-    fun `its texts are held back from translation with the rest of this work`() {
+    fun `its texts are open to translators with their French`() {
         val strings = File("src/main/res/values/strings-ot.xml").readLines()
+        val french = File("src/main/res/values-fr/strings-ot.xml").readText()
         val texts = SETTINGS_CLOSER_LOOK.map { stringName(it.body) }.toSet() + listOf("tour_closer_next_category", "tour_closer_entry")
         for (name in texts) {
             val line = strings.firstOrNull { "name=\"$name\"" in it }
             assertNotNull("$name is not in strings-ot.xml", line)
-            assertTrue("$name can be translated", "translatable=\"false\"" in line!!)
+            // Links you share waits for its page (Unreleased.SHARE_PAGE), and its words wait with it.
+            if (name.startsWith("new_share_links")) continue
+            assertFalse("$name is held back from translators", "translatable=\"false\"" in line!!)
+            assertTrue("$name has no French", "name=\"$name\"" in french)
             assertFalse("$name has an exclamation mark", '!' in line.substringAfter('>'))
             assertFalse("$name has a long dash", 0x2014.toChar() in line)
         }
