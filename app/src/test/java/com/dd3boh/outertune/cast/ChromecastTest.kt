@@ -194,4 +194,20 @@ class ChromecastTest {
         assertEquals("PING", ping.type)
         assertEquals(0, ping.requestId)
     }
+
+    @Test
+    fun `our own receiver's presses are read as requests, and nothing else is`() {
+        fun asked(text: String) = Chromecast.request(Chromecast.parse(text)!!)
+        assertEquals(RemoteRequest.Next, asked("""{"type":"NEXT"}"""))
+        assertEquals(RemoteRequest.Previous, asked("""{"type":"PREVIOUS"}"""))
+        assertEquals(RemoteRequest.Repeat(RemoteRepeat.ONE), asked("""{"type":"REPEAT","mode":"REPEAT_SINGLE"}"""))
+        assertEquals(RemoteRequest.Repeat(RemoteRepeat.ALL), asked("""{"type":"REPEAT","mode":"REPEAT_ALL_AND_SHUFFLE"}"""))
+        assertEquals(RemoteRequest.Repeat(RemoteRepeat.OFF), asked("""{"type":"REPEAT","mode":"REPEAT_OFF"}"""))
+        assertEquals(RemoteRequest.Shuffle(true), asked("""{"type":"SHUFFLE","on":true}"""))
+        // What is not understood is not acted on.
+        assertNull(asked("""{"type":"REPEAT","mode":"REPEAT_SOMETIMES"}"""))
+        assertNull(asked("""{"type":"SHUFFLE"}"""))
+        assertNull(asked("""{"type":"MEDIA_STATUS"}"""))
+        assertEquals("urn:x-cast:dev.skye.intertune", Chromecast.NS_INTERTUNE)
+    }
 }

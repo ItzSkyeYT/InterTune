@@ -12,6 +12,20 @@ import kotlin.math.abs
 /** What the player says it is doing while it casts, as media3's four states. */
 enum class RemotePhase { IDLE, BUFFERING, READY, ENDED }
 
+/**
+ * What a receiver asks of the phone: Next or Previous, repeat or shuffle, pressed on the TV's remote
+ * or in Google Home. The phone holds the queue, so it answers as if they were pressed on it. Only
+ * InterTune's own Chromecast receiver passes such presses on (Chromecast.NS_INTERTUNE).
+ */
+sealed interface RemoteRequest {
+    data object Next : RemoteRequest
+    data object Previous : RemoteRequest
+    data class Repeat(val mode: RemoteRepeat) : RemoteRequest
+    data class Shuffle(val on: Boolean) : RemoteRequest
+}
+
+enum class RemoteRepeat { OFF, ONE, ALL }
+
 /** A song handed to the remote player: its id, its length if known (ms, else -1), and the app's own item. */
 data class RemoteSong<T>(val mediaId: String, val durationMs: Long, val item: T)
 

@@ -14,6 +14,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -102,6 +105,9 @@ class ChromecastLink(
 
     private val _status = MutableStateFlow(ReceiverStatus())
     override val status: StateFlow<ReceiverStatus> = _status.asStateFlow()
+
+    private val _requests = MutableSharedFlow<RemoteRequest>(extraBufferCapacity = 16)
+    override val requests: Flow<RemoteRequest> = _requests.asSharedFlow()
 
     /** Our name on the virtual connection to the media player. */
     private val clientId = "client-${Random.nextInt(10_000, 100_000)}"
@@ -654,6 +660,10 @@ class ChromecastLink(
                 Chromecast.parseDevice(payload.body)?.let(::onDevice).orEmpty()
             } else emptyList()
             Chromecast.NS_MEDIA -> onMedia(payload)
+            Chromecast.NS_INTERTUNE -> {
+                Chromecast.request(payload)?.let { _requests.tryEmit(it) }
+                emptyList()
+            }
             else -> emptyList()
         }
         if (!saidGoodbye) sendQuietly(outgoing)
