@@ -14,6 +14,7 @@ import android.content.Intent
 import android.database.Cursor
 import android.database.MatrixCursor
 import android.net.Uri
+import android.os.SystemClock
 import android.provider.BaseColumns
 import android.util.Log
 import com.dd3boh.outertune.R
@@ -39,11 +40,20 @@ class SystemSearchProvider : ContentProvider() {
         val cursor = MatrixCursor(COLUMNS)
         val context = context?.applicationContext ?: return cursor
         val words = SystemSearch.words(uri.pathSegments, selectionArgs)
-        if (words.isEmpty()) return cursor
+        val started = SystemClock.elapsedRealtime()
+        if (words.isEmpty()) {
+            Log.i(TAG, "Asked with no words: $uri, selection $selection, ${selectionArgs?.size ?: 0} arguments")
+            return cursor
+        }
         // A binder thread: the search waits for this, and gets nothing rather than a stall.
-        val rows = runCatching { runBlocking { withTimeoutOrNull(QUERY_MS) { rows(context, words) } } }
+        val found = runCatching { runBlocking { withTimeoutOrNull(QUERY_MS) { rows(context, words) } } }
             .onFailure { Log.w(TAG, "Could not search the library for the phone's search", it) }
-            .getOrNull().orEmpty()
+            .getOrNull()
+        // Which way the phone asked, what came back and how long it took: a search that shows
+        // nothing for the app is otherwise silent.
+        Log.i(TAG, "Asked by ${callingPackage ?: "?"} for ${words.length} letters: " +
+            (found?.let { "${it.size} found" } ?: "nothing in time") + " in ${SystemClock.elapsedRealtime() - started} ms")
+        val rows = found.orEmpty()
         rows.forEachIndexed { i, row ->
             cursor.addRow(arrayOf<Any>(
                 i, row.title, row.subtitle, AutoArt.uri(context, row.kind, row.id).toString(),
