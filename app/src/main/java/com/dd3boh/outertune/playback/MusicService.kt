@@ -228,6 +228,9 @@ import java.time.LocalDateTime
 import javax.inject.Inject
 import kotlin.math.min
 import kotlin.math.pow
+import androidx.media3.exoplayer.source.LoadEventInfo
+import androidx.media3.exoplayer.source.MediaLoadData
+import java.io.IOException
 
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 /** Silence longer than this starts a new listening session. */
@@ -397,6 +400,16 @@ class MusicService : MediaLibraryService(),
 
     /** Where each streamed song is fetched from, until the player fails on it: see [StreamAddresses]. */
     private val streamAddresses = StreamAddresses()
+
+    /** Throws out a cached copy of a song that cannot be read: see [BadCachedCopy]. */
+    private val badCachedCopy = BadCachedCopy(
+        isCached = { id -> runCatching { playerCache.getCachedSpans(id).isNotEmpty() }.getOrDefault(false) },
+        online = { isNetworkConnected.value },
+        drop = { id ->
+            Log.w(TAG, "PLAYING: the cached copy of $id could not be read, it is thrown out and the song read whole")
+            runCatching { playerCache.removeResource(id) }.onFailure { Log.w(TAG, "Could not drop the cached copy of $id", it) }
+        },
+    )
 
     /**
      * Asks YouTube for a song's stream, and for the same recording under another id when the
@@ -730,6 +743,16 @@ class MusicService : MediaLibraryService(),
                 transitionFade = TransitionFade(scope, this)
                 addListener(transitionFade)
                 addAnalyticsListener(PlaybackStatsListener(false, this@MusicService))
+                // A song whose cached copy cannot be read is given up, so a retry reads it whole. See BadCachedCopy.
+                addAnalyticsListener(object : AnalyticsListener {
+                    override fun onLoadError(eventTime: AnalyticsListener.EventTime, loadEventInfo: LoadEventInfo, mediaLoadData: MediaLoadData, error: IOException, wasCanceled: Boolean) {
+                        if (!wasCanceled) badCachedCopy.loadFailed(loadEventInfo.dataSpec.key, error)
+                    }
+
+                    override fun onLoadCompleted(eventTime: AnalyticsListener.EventTime, loadEventInfo: LoadEventInfo, mediaLoadData: MediaLoadData) {
+                        badCachedCopy.loadCompleted(loadEventInfo.dataSpec.key)
+                    }
+                })
 
                 // misc
                 setOffloadEnabled(dataStore.get(AudioOffloadKey, false))
@@ -2516,6 +2539,7 @@ class MusicService : MediaLibraryService(),
         // the network, which returns, and before skipOnError, which makes the next song current.
         // See StreamAddresses.
         val failedId = PlayBook.itemOf(error, player.currentTimeline) ?: player.currentMediaItem?.mediaId
+        badCachedCopy.playerFailed(failedId, error)
         if (streamAddresses.playerFailedOn(failedId)) {
             Log.d(TAG, "PLAYING: the player failed on $failedId, its stream address will be asked for again")
         }
