@@ -559,9 +559,17 @@ fun BoxScope.QueueContent(
     // was now at that position rather than the one on screen, and tapping one played it. A change
     // to the hidden tail needs no key either: dropping songs changes the player's timeline, which
     // refills mutableSongs.
+    //
+    // Counted from the furthest song this queue has reached, not from the one playing. Counted from
+    // the one playing, going back to the first song folded away every song played since, and they
+    // seemed to vanish. See AdaptiveQueue.settledThrough.
+    val reachedInQueue by playerConnection.service.reachedInQueue.collectAsState()
     val visibleSongs: List<MediaMetadata> =
         if (!adaptiveTailActive || isSearching || detachedQueue != null) mutableSongs
-        else mutableSongs.take((currentWindowIndex + 1 + ADAPTIVE_VISIBLE_AHEAD).coerceIn(0, mutableSongs.size))
+        else {
+            val settled = AdaptiveQueue.settledThrough(currentWindowIndex, mutableSongs, { it.id }, reachedInQueue)
+            mutableSongs.take((settled + 1 + ADAPTIVE_VISIBLE_AHEAD).coerceIn(0, mutableSongs.size))
+        }
     val hiddenTailCount = if (isSearching) 0 else mutableSongs.size - visibleSongs.size
 
     // Refreshed while searching as well, and only the scroll waits for the search to close. It

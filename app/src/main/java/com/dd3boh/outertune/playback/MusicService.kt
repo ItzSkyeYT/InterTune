@@ -563,6 +563,18 @@ class MusicService : MediaLibraryService(),
     /** Bumped whenever the tail is replanned, so the queue view can redraw its summary. */
     val hiddenTailChanged = MutableStateFlow(0)
 
+    /** What has played in the current queue, in the order it was heard. See [AdaptiveQueue.Heard]. */
+    private val heard = AdaptiveQueue.Heard()
+
+    /**
+     * The songs that have been current in the current queue, for the queue view: everything up to
+     * the furthest of them stays on show, however far back the listener went.
+     */
+    val reachedInQueue = MutableStateFlow<Set<String>>(emptySet())
+
+    /** Whether the song that just started was reached by going back. Set in noteTransition. */
+    private var transitionWentBack = false
+
     /**
      * Bumped when songs go into a queue while the player holds nothing, which is how Play next and
      * Add to queue work before play after a restart. The artwork strip and the queue sheet read
@@ -2582,9 +2594,10 @@ class MusicService : MediaLibraryService(),
      * the short version is that the next few songs are untouchable, order is never rearranged, and
      * at most a fraction of the tail can go at once.
      *
-     * The session's character is read from the queue itself rather than from the database: the
-     * items just played are exactly "what you have been listening to in this sitting", and reading
-     * them costs nothing on a thread that must not block.
+     * The session's character is read from what this queue has played, in the order it was heard
+     * (AdaptiveQueue.Heard), rather than from the database: those songs are exactly "what you have
+     * been listening to in this sitting", and reading them costs nothing on a thread that must not
+     * block.
      */
     /**
      * @param strong the listener just said something clear, so reach further and lock less.
@@ -2608,10 +2621,15 @@ class MusicService : MediaLibraryService(),
         val current = activePlayer.currentMediaItemIndex
         val count = activePlayer.mediaItemCount
         val locked = if (strong) AdaptiveQueue.STRONG_LOCKED else AdaptiveQueue.LOCKED
-        val start = AdaptiveQueue.tailStart(current, count, locked) ?: return
+        // From the furthest song this queue has reached, not from the one playing: after going
+        // back, the songs in between were heard and the few after them seen. See settledThrough.
+        val ids = (0 until count).map { i -> runCatching { activePlayer.getMediaItemAt(i).mediaId }.getOrNull() }
+        val settled = AdaptiveQueue.settledThrough(current, ids, { it }, heard.reached)
+        val start = AdaptiveQueue.tailStart(settled, count, locked) ?: return
 
-        val recent = (current downTo maxOf(0, current - TagFit.WINDOW + 1))
-            .mapNotNull { runCatching { activePlayer.getMediaItemAt(it).mediaMetadata.title?.toString() }.getOrNull() }
+        // What was heard last, newest first. The places before the song playing are that only
+        // while playback moves forward: after going back to the first song they were nothing.
+        val recent = heard.titles(TagFit.WINDOW).filterNotNull()
         val context = TagFit.context(recent.map { SongTags.of(it) })
         if (!context.known) return
 
@@ -2933,7 +2951,14 @@ class MusicService : MediaLibraryService(),
         // ordinary ones, each taking its own share, where AdaptiveQueue promises never more than
         // one share at once. The radio top-up further down cannot be what the second pass was for
         // either: it is launched, not awaited, so its songs have not arrived by then.
-        replanQueueTail(strong = reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK)
+        //
+        // Going back is not a skip. It says nothing against the songs ahead, all of which were
+        // either heard already or seen waiting, so it gets the ordinary pass.
+        mediaItem?.let {
+            heard.note(queueBoard.getCurrentQueue()?.id ?: 0L, it.mediaId, it.mediaMetadata.title?.toString())
+            reachedInQueue.value = heard.reached.toSet()
+        }
+        replanQueueTail(strong = reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK && !transitionWentBack)
         // "Listening now" on Last.fm. Not a scrobble, not stored, and allowed to fail quietly.
         mediaItem?.metadata?.let { meta -> scope.launch { scrobbler.nowPlaying(meta) } }
         // +2 when and error happens, and -1 when transition. Thus when error, number increments by 1, else doesn't change
@@ -3131,6 +3156,7 @@ class MusicService : MediaLibraryService(),
         // Going back is a choice, and it used to be counted as the opposite of one. See
         // AutoplayDepth, which holds the rule so a test can hold it to account.
         val wentBack = AutoplayDepth.wentBack(reason, lastQueueIndex, activePlayer.currentMediaItemIndex)
+        transitionWentBack = wentBack
         autoplayRun = AutoplayDepth.next(autoplayRun, chosen, wentBack, reason)
         lastQueueIndex = activePlayer.currentMediaItemIndex
         checkpointJob?.cancel()
