@@ -91,6 +91,13 @@ class SystemSearchTest {
         assertNull("the oldest goes", recent["daft punk"])
     }
 
+    @Test
+    fun `no more than One UI shows of one app`() {
+        val most = SystemSearch.SONGS + SystemSearch.ARTISTS + SystemSearch.ALBUMS + SystemSearch.PLAYLISTS +
+            SystemSearch.ONLINE_SONGS + SystemSearch.ONLINE_ARTISTS + SystemSearch.ONLINE_ALBUMS
+        assertTrue("$most rows, One UI reads twenty", most <= SystemSearch.MOST)
+    }
+
     private val src = File("src")
 
     @Test
