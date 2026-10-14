@@ -7,6 +7,7 @@
 package com.dd3boh.outertune.playback
 
 import android.net.Uri
+import androidx.media3.common.C
 import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -79,5 +80,26 @@ class SessionPlayer(player: Player) : ForwardingPlayer(player) {
         // A picture is never worth the music: whatever a listener makes of this stays in here.
         runCatching { listeners.toList().forEach { it.onMediaMetadataChanged(now) } }
             .onFailure { reportException(it) }
+    }
+
+    /**
+     * How much of the song is loaded, in percent, as media3 asks it of the session's player every
+     * time it tells the system what is playing.
+     *
+     * media3 works it out from the buffered position and the length with a checked cast, and a
+     * phone (an HONOR on Android 16, 0.11.1) had a player whose buffered position was far outside
+     * the song: the cast failed ("Out of range: -4249598940685") on the main thread and the app
+     * closed, from a figure only the notification's progress bar uses (issue #21). Worked out here
+     * the same way, held between 0 and 100.
+     */
+    override fun getBufferedPercentage(): Int = bufferedPercent(bufferedPosition, duration)
+
+    companion object {
+        /** [position] of [duration] in whole percent, 0 to 100 whatever the two say. */
+        fun bufferedPercent(position: Long, duration: Long): Int = when {
+            position == C.TIME_UNSET || duration == C.TIME_UNSET -> 0
+            duration <= 0L -> 100
+            else -> (position.coerceIn(0L, duration) * 100 / duration).toInt()
+        }
     }
 }
