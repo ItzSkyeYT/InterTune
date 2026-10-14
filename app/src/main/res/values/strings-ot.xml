@@ -1844,4 +1844,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="problem_report_copy">Copy</string>
     <string name="problem_report_copied">Copied</string>
     <string name="problem_report_close">Close</string>
+
+    <!-- Show in Latin letters, in Settings > Lyrics and in the lyrics view's settings (LyricsLatin). -->
+    <string name="lyrics_latin_title">Show in Latin letters</string>
+    <string name="lyrics_latin_description">Lyrics in Japanese, Korean, Chinese, Russian and some other languages get a second line in Latin letters. Kanji stay as they are.</string>
 </resources>

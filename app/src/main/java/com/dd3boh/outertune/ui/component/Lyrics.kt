@@ -68,10 +68,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
@@ -86,6 +90,7 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.LyricClickable
 import com.dd3boh.outertune.constants.LyricFontSizeKey
 import com.dd3boh.outertune.constants.LyricKaraokeEnable
+import com.dd3boh.outertune.constants.LyricLatinKey
 import com.dd3boh.outertune.constants.LyricUpdateSpeed
 import com.dd3boh.outertune.constants.LyricsPosition
 import com.dd3boh.outertune.constants.LyricsTextPositionKey
@@ -94,6 +99,8 @@ import com.dd3boh.outertune.constants.Speed
 import com.dd3boh.outertune.db.entities.LyricsEntity
 import com.dd3boh.outertune.db.entities.LyricsEntity.Companion.uninitializedLyric
 import com.dd3boh.outertune.extensions.isPowerSaver
+import com.dd3boh.outertune.lyrics.LyricsLatin
+import com.dd3boh.outertune.lyrics.latinTools
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.component.shimmer.ShimmerHost
 import com.dd3boh.outertune.ui.component.shimmer.TextPlaceholder
@@ -147,6 +154,7 @@ fun Lyrics(
     val lyricsFancy by rememberPreference(LyricKaraokeEnable, false)
     val lyricsUpdateSpeed by rememberEnumPreference(LyricUpdateSpeed, Speed.MEDIUM)
     var lyricRefreshRate = lyricsUpdateSpeed.toLrcRefreshMillis()
+    val showLatin by rememberPreference(LyricLatinKey, false)
 
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
 
@@ -187,6 +195,27 @@ fun Lyrics(
             }
         }
     }
+
+    // Show in Latin letters: each line's Latin version (LyricsLatin), worked out once for the lyrics
+    // on screen and off the main thread, so that scrolling only looks it up. It is kept with the
+    // lyrics it was made from, so that none is shown under the next song's lines while theirs are
+    // worked out. A translation in the file gets none: it is not what is sung.
+    var latin by remember { mutableStateOf<Pair<SemanticLyrics, Map<String, String>>?>(null) }
+    LaunchedEffect(lyricsModel, showLatin) {
+        val model = lyricsModel
+        val tools = latinTools()
+        if (!showLatin || tools == null || model == null || model == uninitializedLyric) {
+            latin = null
+            return@LaunchedEffect
+        }
+        val sung = if (model is SemanticLyrics.SyncedLyrics) {
+            model.text.filterNot { it.isTranslated }.map { it.text }
+        } else {
+            model.unsyncedText.map { it.first }
+        }
+        latin = model to withContext(Dispatchers.Default) { LyricsLatin.of(sung, tools) }
+    }
+    val latinLines = latin?.takeIf { it.first === lyricsModel }?.second
 
     val textColor = MaterialTheme.colorScheme.secondary
     val prevTextColor = MaterialTheme.colorScheme.primary
@@ -357,6 +386,11 @@ fun Lyrics(
                     if (item.isTranslated) {
                         lyricFontSizeAdjusted = (lyricFontSizeAdjusted * 0.75).toInt()
                     }
+                    // Its Latin version goes under it at the size of a translation's line.
+                    val itemLatin = remember(item.text, item.isTranslated, latinLines) {
+                        if (item.isTranslated) null else latinLines?.let { LyricsLatin.under(item.text, it) }
+                    }
+                    val latinSize = (lyricFontSizeAdjusted * 0.75).toInt()
 
                     Column(
                         horizontalAlignment = when (lyricsTextPosition) {
@@ -445,6 +479,20 @@ fun Lyrics(
                                     )
                                 }
                             }
+                            // The words are timed on the line itself; its Latin version is shown whole while it is sung.
+                            itemLatin?.let { pairs ->
+                                Text(
+                                    text = pairs.mapNotNull { it.second }.joinToString("\n"),
+                                    fontSize = latinSize.sp,
+                                    color = textColor,
+                                    textAlign = when (lyricsTextPosition) {
+                                        LyricsPosition.LEFT -> TextAlign.Left
+                                        LyricsPosition.CENTER -> TextAlign.Center
+                                        LyricsPosition.RIGHT -> TextAlign.Right
+                                    },
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
 
 
                         } else { // regular
@@ -452,7 +500,7 @@ fun Lyrics(
                             val isHighlighted =
                                 ((index == displayedCurrentLineIndex || (index == displayedCurrentLineIndex + 1 && item.isTranslated)))
                             Text(
-                                text = item.text,
+                                text = remember(item.text, itemLatin, latinSize) { withLatin(item.text, itemLatin, latinSize) },
                                 fontSize = lyricFontSizeAdjusted.sp,
                                 color = if (isConsumed && !isHighlighted) prevTextColor else textColor,
                                 textAlign = when (lyricsTextPosition) {
@@ -632,6 +680,24 @@ fun splitTextToLines(
     }
 
     return lines
+}
+
+/**
+ * [text] as the lyrics view shows it: as it is, or with each of its lines' Latin version under it
+ * in [latin] (LyricsLatin.under), smaller, as a translation's line is.
+ */
+private fun withLatin(text: String, latin: List<Pair<String, String?>>?, latinSize: Int): AnnotatedString {
+    if (latin == null) return AnnotatedString(text)
+    return buildAnnotatedString {
+        latin.forEachIndexed { i, (line, inLatin) ->
+            if (i > 0) append('\n')
+            append(line)
+            if (inLatin != null) {
+                append('\n')
+                withStyle(SpanStyle(fontSize = latinSize.sp)) { append(inLatin) }
+            }
+        }
+    }
 }
 
 /**

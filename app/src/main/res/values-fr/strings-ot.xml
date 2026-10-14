@@ -1673,4 +1673,8 @@
         <item quantity="many">%1$d nouveautés</item>
         <item quantity="other">%1$d nouveautés</item>
     </plurals>
+
+    <!-- Show in Latin letters, in Settings > Lyrics and in the lyrics view's settings (LyricsLatin). -->
+    <string name="lyrics_latin_title">Afficher en lettres latines</string>
+    <string name="lyrics_latin_description">Les paroles en japonais, coréen, chinois, russe et quelques autres langues ont une deuxième ligne en lettres latines. Les kanji restent tels quels.</string>
 </resources>
