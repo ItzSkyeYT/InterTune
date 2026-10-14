@@ -23,8 +23,11 @@ import java.net.URI
  */
 object SystemSearch {
 
-    /** How many of each the phone is given, at most: songs first, as most searches are for one. */
-    const val SONGS = 5
+    /**
+     * How many of each the phone is given, at most: songs first, as most searches are for one. With
+     * what YouTube Music adds, twenty in all, which is as many as One UI shows of one app.
+     */
+    const val SONGS = 6
     const val ARTISTS = 2
     const val ALBUMS = 2
     const val PLAYLISTS = 2
@@ -63,7 +66,7 @@ object SystemSearch {
     const val ONLINE_MIN_LETTERS = 3
 
     /** What YouTube Music adds at most, after the library's. */
-    const val ONLINE_SONGS = 4
+    const val ONLINE_SONGS = 6
     const val ONLINE_ARTISTS = 1
     const val ONLINE_ALBUMS = 1
 
@@ -109,6 +112,19 @@ object SystemSearch {
         @Synchronized operator fun set(words: String, value: V) { kept[key(words)] = value }
         private fun key(words: String) = words.trim().lowercase()
     }
+
+    /** As many rows as One UI shows of one app: its home screen stops reading at twenty. */
+    const val MOST = 20
+
+    /**
+     * The column One UI reads to put an app's results under headings, as Samsung Music's "Tracks":
+     * rows with the same value go under one heading, in the order they first come.
+     *
+     * The big cards with large covers that Samsung Music and Spotify get are not on offer: One UI's
+     * home screen asks a list of its own apps and Spotify for them by name, and every other app
+     * gets plain rows (read from the home screen's code on One UI 8, 14 Oct 2026).
+     */
+    const val GROUP_COLUMN = "suggest_group"
 
     private const val SUGGEST_PATH = "search_suggest_query"
     private val ID = Regex("[A-Za-z0-9_-]+")

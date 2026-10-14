@@ -73,11 +73,17 @@ class SystemSearchProvider : ContentProvider() {
             (found?.let { "${it.size} from the library" } ?: "the library not in time") + ", " +
             (online?.let { "${it.size} from YouTube Music" } ?: "YouTube Music not asked or not in time") +
             " in ${SystemClock.elapsedRealtime() - started} ms")
-        val rows = SystemSearch.merge(found.orEmpty(), online.orEmpty())
+        val rows = SystemSearch.merge(found.orEmpty(), online.orEmpty()).take(SystemSearch.MOST)
+        // Under one heading per kind, as Samsung Music's Tracks: the library's songs first, then
+        // YouTube Music's, since a heading takes its rows in the order they come.
+        val headings = mapOf(
+            AutoArt.SONG to context.getString(R.string.songs), AutoArt.ARTIST to context.getString(R.string.artists),
+            AutoArt.ALBUM to context.getString(R.string.albums), AutoArt.PLAYLIST to context.getString(R.string.playlists),
+        )
         rows.forEachIndexed { i, row ->
             cursor.addRow(arrayOf<Any>(
                 i, row.title, row.subtitle, AutoArt.uri(context, row.kind, row.id).toString(),
-                Intent.ACTION_VIEW, row.link, SearchManager.SUGGEST_NEVER_MAKE_SHORTCUT,
+                Intent.ACTION_VIEW, row.link, SearchManager.SUGGEST_NEVER_MAKE_SHORTCUT, headings[row.kind].orEmpty(),
             ))
         }
         return cursor
@@ -170,6 +176,7 @@ class SystemSearchProvider : ContentProvider() {
             SearchManager.SUGGEST_COLUMN_INTENT_ACTION,
             SearchManager.SUGGEST_COLUMN_INTENT_DATA,
             SearchManager.SUGGEST_COLUMN_SHORTCUT_ID,
+            SystemSearch.GROUP_COLUMN,
         )
     }
 }
