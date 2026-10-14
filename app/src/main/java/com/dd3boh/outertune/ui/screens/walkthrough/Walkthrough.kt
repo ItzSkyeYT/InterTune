@@ -331,7 +331,6 @@ val NEW_THINGS = listOf(
             TourStop("import_row", Tour.ROW_BACKUP, Tour.ROUTE_SETTINGS, R.string.backup_restore, R.string.new_import_way, V0_11_5),
             TourStop("import_setting", Tour.SETTING_IMPORT, Tour.ROUTE_BACKUP, R.string.import_library_title, R.string.new_import_here, V0_11_5),
         ),
-        there = { Unreleased.LIBRARY_IMPORT },
     ),
     NewThing(
         id = "explain_pictures",
@@ -344,7 +343,6 @@ val NEW_THINGS = listOf(
             TourStop("explain_pictures_row", Tour.ROW_PLAYER, Tour.ROUTE_SETTINGS, R.string.player_and_audio, R.string.new_explain_pictures_way, V0_11_5),
             TourStop("explain_pictures_setting", Tour.SETTING_TRANSITION_FADE, Tour.ROUTE_PLAYER, R.string.transition_fade, R.string.new_explain_pictures_here, V0_11_5),
         ),
-        there = { Unreleased.EXPLAIN_PICTURES },
     ),
     NewThing(
         id = "problem_report",
@@ -357,7 +355,6 @@ val NEW_THINGS = listOf(
             TourStop("problem_report_row", Tour.ROW_ABOUT, Tour.ROUTE_SETTINGS, R.string.about, R.string.new_report_way, V0_11_5),
             TourStop("problem_report_setting", Tour.SETTING_BUG_REPORT, Tour.ROUTE_ABOUT, R.string.help_bug_report_action, R.string.new_report_here, V0_11_5),
         ),
-        there = { Unreleased.PROBLEM_REPORT },
     ),
     NewThing(
         id = "quick_picks",

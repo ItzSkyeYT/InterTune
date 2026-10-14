@@ -154,8 +154,8 @@ class ReleasedFlagsTest {
     }
 
     @Test
-    fun `Report a problem is in every build, from About and on the page of what is new`() {
-        assertEquals(setOf("ui/screens/settings/AboutScreen.kt", "ui/screens/walkthrough/Walkthrough.kt"), readers("PROBLEM_REPORT"))
+    fun `Report a problem is in every build, from About`() {
+        assertEquals(setOf("ui/screens/settings/AboutScreen.kt"), readers("PROBLEM_REPORT"))
         assertWritten("ui/screens/settings/AboutScreen.kt", "if (Unreleased.PROBLEM_REPORT) reportingProblem = true else uriHandler.openUri(Links.ISSUES)")
     }
 
