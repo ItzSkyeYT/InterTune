@@ -144,11 +144,13 @@ fun ColumnScope.LyricSourceFrag() {
     val (enableLrcLib, onEnableLrcLibChange) = rememberPreference(key = EnableLrcLibKey, defaultValue = true)
     val (preferLocalLyric, onPreferLocalLyric) = rememberPreference(LyricSourcePrefKey, defaultValue = true)
 
+    // One mark for the tour, on whichever row stands for the sources.
+    val sourcesRow = Modifier.tourTarget(Tour.SETTING_LYRICS_SOURCES)
     if (Unreleased.LYRICS_SOURCES) {
-        LyricsSourcesEntry(Modifier.tourTarget(Tour.SETTING_LYRICS_SOURCES))
+        LyricsSourcesEntry(sourcesRow)
     } else {
         SwitchPreference(
-            modifier = Modifier.tourTarget(Tour.SETTING_LYRICS_SOURCES),
+            modifier = sourcesRow,
             title = { Text(stringResource(R.string.enable_lrclib)) },
             description = stringResource(R.string.enable_lrclib_description),
             icon = { Icon(Icons.Rounded.Lyrics, null) },
