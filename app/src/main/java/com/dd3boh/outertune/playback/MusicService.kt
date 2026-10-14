@@ -21,6 +21,8 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.database.SQLException
+import android.media.AudioDeviceInfo
+import android.media.AudioManager
 import android.media.audiofx.AudioEffect
 import android.net.ConnectivityManager
 import android.os.Binder
@@ -127,6 +129,7 @@ import com.dd3boh.outertune.constants.OwnVisionosRefusedKey
 import com.dd3boh.outertune.constants.VisionosRefusedKey
 import com.dd3boh.outertune.constants.WebClientFirstKey
 import com.dd3boh.outertune.constants.PlaybackAuthMode
+import com.dd3boh.outertune.constants.ResumeOnBluetoothKey
 import com.dd3boh.outertune.constants.ResumePlaybackOnLaunchKey
 import com.dd3boh.outertune.constants.PlayerVolumeKey
 import com.dd3boh.outertune.constants.ProximityVolumeKey
@@ -744,6 +747,65 @@ class MusicService : MediaLibraryService(),
     private var proximityWanted = false
 
     /**
+     * Resume when Bluetooth connects: why the music stopped last, and the Bluetooth outputs the
+     * phone has, kept by [BluetoothResume]. Main thread only: the player reports there, and so do
+     * the audio manager's callback below and the setting's observer.
+     */
+    private val bluetoothResume = BluetoothResume()
+
+    /** Whether Resume when Bluetooth connects is on, which is when the outputs are watched. */
+    private var resumeOnBluetooth = false
+
+    /** The music starting again, a moment after a Bluetooth output connected. */
+    private var bluetoothResumeJob: Job? = null
+
+    private val bluetoothOutputs = object : android.media.AudioDeviceCallback() {
+        override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>?) {
+            bluetoothOutputsAdded(addedDevices.musicOutputs())
+        }
+
+        override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>?) {
+            bluetoothOutputsRemoved(removedDevices.musicOutputs())
+        }
+    }
+
+    /**
+     * Debug and preview builds only: a Bluetooth output that comes and goes on command, for a
+     * phone or an emulator with nothing to connect. It takes the path the audio manager's reports
+     * take, and does nothing while the setting is off, as the watch it stands in for is not
+     * running then. From a computer, with `connected` or `gone`:
+     *
+     *     adb shell am broadcast -p <package> -a <package>.FAKE_BLUETOOTH_OUTPUT --es state connected
+     *
+     * Nothing on the phone can send it: the sender has to hold DUMP, which adb's shell has and no
+     * app can.
+     */
+    private val fakeBluetoothOutput = object : android.content.BroadcastReceiver() {
+        /** Below every id the audio manager hands out, so a fake is never taken for a real one. */
+        private var next = -1
+        private val connected = ArrayList<Int>()
+
+        override fun onReceive(context: Context, intent: Intent) {
+            val state = intent.getStringExtra("state")
+            Log.i(TAG, "A fake Bluetooth output: $state${if (resumeOnBluetooth) "" else ", ignored with the setting off"}")
+            if (!resumeOnBluetooth) return
+            when (state) {
+                "connected" -> {
+                    val id = next--
+                    connected += id
+                    bluetoothOutputsAdded(listOf(id))
+                }
+
+                "gone" -> {
+                    bluetoothOutputsRemoved(connected.toList())
+                    connected.clear()
+                }
+            }
+        }
+    }
+    private var fakeBluetoothOutputRegistered = false
+
+    /**
      * One instance, shared by the builder below and by the observer that keeps the focus flag in
      * step with the setting. ExoPlayer rebuilds the AudioTrack only when the new attributes differ
      * from the old, so handing it the same object flips the flag alone: no gap in the sound and no
@@ -921,6 +983,16 @@ class MusicService : MediaLibraryService(),
         if (Unreleased.CASTING) {
             castProbe = CastProbe(this, connectivityManager).also { it.register() }
             castSession = CastSession(this, connectivityManager)
+        }
+
+        if (BuildConfig.DEBUG) {
+            runCatching {
+                androidx.core.content.ContextCompat.registerReceiver(
+                    this, fakeBluetoothOutput, android.content.IntentFilter("$packageName.FAKE_BLUETOOTH_OUTPUT"),
+                    android.Manifest.permission.DUMP, null, androidx.core.content.ContextCompat.RECEIVER_EXPORTED,
+                )
+                fakeBluetoothOutputRegistered = true
+            }.onFailure { Log.w(TAG, "Could not listen for a fake Bluetooth output", it) }
         }
 
         // Read before the first layout goes out, so a controller that connects now gets the picked
@@ -1120,6 +1192,12 @@ class MusicService : MediaLibraryService(),
                             proximityVolume.stop()
                         }
                     }
+                }
+
+            // Resume when Bluetooth connects. The outputs are watched only while it is on.
+            dataStore.data.map { it[ResumeOnBluetoothKey] ?: false }.distinctUntilChanged()
+                .collectLatest(scope) { on ->
+                    withContext(Dispatchers.Main) { watchBluetoothOutputs(on) }
                 }
 
             dataStore.data.map { it[HeadTracking3dKey] ?: false }.distinctUntilChanged()
@@ -2911,6 +2989,59 @@ class MusicService : MediaLibraryService(),
         ).show()
     }
 
+    override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+        super.onPlayWhenReadyChanged(playWhenReady, reason)
+        // Why the music stopped, for Resume when Bluetooth connects. Kept with the setting off as
+        // well: it is three fields, and the setting can be turned on after the stop.
+        bluetoothResume.playWhenReadyChanged(playWhenReady, reason, SystemClock.elapsedRealtime())
+    }
+
+    /**
+     * Starts or stops watching the Bluetooth outputs, as Resume when Bluetooth connects is turned
+     * on or off. What is connected as the watch begins is there already, not arriving.
+     */
+    private fun watchBluetoothOutputs(on: Boolean) {
+        if (on == resumeOnBluetooth) return
+        val audio = getSystemService<AudioManager>() ?: return
+        resumeOnBluetooth = on
+        if (on) {
+            bluetoothResume.outputsThere(audio.getDevices(AudioManager.GET_DEVICES_OUTPUTS).musicOutputs())
+            audio.registerAudioDeviceCallback(bluetoothOutputs, Handler(Looper.getMainLooper()))
+        } else {
+            audio.unregisterAudioDeviceCallback(bluetoothOutputs)
+            bluetoothResumeJob?.cancel()
+        }
+    }
+
+    /** The ids of the Bluetooth outputs for music among [this]: see [BluetoothResume.isMusicOutput]. */
+    private fun Array<out AudioDeviceInfo>?.musicOutputs(): List<Int> =
+        orEmpty().filter { BluetoothResume.isMusicOutput(it.type, it.isSink) }.map { it.id }
+
+    private fun bluetoothOutputsAdded(ids: List<Int>) {
+        if (!bluetoothResume.outputsAdded(ids) || !bluetoothResumeWanted()) return
+        bluetoothResumeJob?.cancel()
+        bluetoothResumeJob = scope.launch {
+            delay(BluetoothResume.SETTLE_MS)
+            // Asked again: a car may have sent a play or a pause of its own meanwhile, or the
+            // output may have gone again.
+            if (!bluetoothResume.anyOutput || !bluetoothResumeWanted()) return@launch
+            Log.i(TAG, "PLAYING: Bluetooth audio connected, and the music its output stopped plays again")
+            player.play()
+        }
+    }
+
+    private fun bluetoothOutputsRemoved(ids: List<Int>) {
+        bluetoothResume.outputsRemoved(ids, SystemClock.elapsedRealtime())
+    }
+
+    private fun bluetoothResumeWanted(): Boolean = bluetoothResume.shouldResume(
+        enabled = resumeOnBluetooth,
+        now = SystemClock.elapsedRealtime(),
+        playWhenReady = player.playWhenReady,
+        playbackState = player.playbackState,
+        hasSong = player.currentMediaItem != null,
+    )
+
     override fun onIsPlayingChanged(isPlaying: Boolean) {
         updateWidget()
         // The stream is what costs battery, so it runs only while something is playing. Glide the
@@ -3717,6 +3848,9 @@ class MusicService : MediaLibraryService(),
         // player, which is about to be released.
         updateWidget(stopped = true)
         if (volumeReceiverRegistered) runCatching { unregisterReceiver(volumeReceiver) }
+        // The audio manager holds the callback, and through it this instance, until it is let go.
+        if (resumeOnBluetooth) runCatching { getSystemService<AudioManager>()?.unregisterAudioDeviceCallback(bluetoothOutputs) }
+        if (fakeBluetoothOutputRegistered) runCatching { unregisterReceiver(fakeBluetoothOutput) }
         checkpointJob?.cancel()
         // The observers, the sleep timer and the retry and radio jobs end here. Nothing that has to
         // finish is on this scope: the last song's listen row and scrobble are reported when the
