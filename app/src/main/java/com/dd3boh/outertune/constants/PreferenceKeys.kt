@@ -111,6 +111,16 @@ val PersistentQueueKey = booleanPreferencesKey("persistentQueue")
  */
 val ResumePlaybackOnLaunchKey = booleanPreferencesKey("resumePlaybackOnLaunch")
 
+/**
+ * Start the music again when Bluetooth audio connects, if it stopped because the headphones, the
+ * car or the speaker it was playing through went away (BluetoothResume).
+ *
+ * Off by default, like the one above and for the same reason: it is sound without anybody
+ * pressing anything. Only music the output's going stopped is ever started again, and only by a
+ * playback service that is still running.
+ */
+val ResumeOnBluetoothKey = booleanPreferencesKey("resumeOnBluetooth")
+
 val SeekIncrementKey = stringPreferencesKey("seekIncrement")
 val SkipSilenceKey = booleanPreferencesKey("skipSilence")
 val SkipOnErrorKey = booleanPreferencesKey("skipOnError")

@@ -567,6 +567,8 @@
     <string name="share_audio_focus">Laisser d\'autres applications jouer en même temps</string>
     <string name="share_audio_focus_description">Lire la musique par-dessus le son d\'une autre application au lieu de l\'arrêter.</string>
     <string name="share_audio_focus_explain">Avec ceci activé, InterTune et une autre application jouent en même temps.\n\nInterTune cesse aussi de baisser son volume pour la navigation et les alarmes. Les appels coupent le son dans tous les cas.</string>
+    <string name="resume_on_bluetooth">Reprendre à la connexion Bluetooth</string>
+    <string name="resume_on_bluetooth_description">La musique arrêtée par la déconnexion de votre casque, de votre voiture ou de votre enceinte reprend si l\'audio Bluetooth se connecte dans les 30 minutes. Celle que vous mettez en pause reste en pause.</string>
     <string name="sleep_timer_notif_end_of_song">La musique s\'arrête à la fin de ce titre</string>
     <string name="sleep_timer_notif_chip">%1$d min</string>
     <plurals name="sleep_timer_notif_minutes">

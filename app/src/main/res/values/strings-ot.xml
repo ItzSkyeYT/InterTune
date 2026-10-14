@@ -729,6 +729,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="share_audio_focus">Let other apps play at the same time</string>
     <string name="share_audio_focus_description">Play music over another app\'s sound instead of stopping it.</string>
     <string name="share_audio_focus_explain">With this on, InterTune and another app play at once.\n\nInterTune also stops lowering itself for navigation and alarms. Calls mute it either way.</string>
+    <string name="resume_on_bluetooth">Resume when Bluetooth connects</string>
+    <string name="resume_on_bluetooth_description">Music that stopped when your headphones, car or speaker disconnected plays again if Bluetooth audio connects within 30 minutes. Music you paused stays paused.</string>
     <string name="sleep_timer_notif_end_of_song">The music stops at the end of this song</string>
     <string name="sleep_timer_notif_chip">%1$d min</string>
     <plurals name="sleep_timer_notif_minutes">
