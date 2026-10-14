@@ -287,6 +287,7 @@ fun SettingsTwoPane(
                             modifier = when (category.route) {
                                 Tour.ROUTE_LOOK_AND_FEEL -> Modifier.tourTarget(Tour.ROW_LOOK_AND_FEEL)
                                 "settings/player" -> Modifier.tourTarget(Tour.ROW_PLAYER)
+                                Tour.ROUTE_LIBRARY -> Modifier.tourTarget(Tour.ROW_LIBRARY)
                                 Tour.ROUTE_BACKUP -> Modifier.tourTarget(Tour.ROW_BACKUP)
                                 Tour.ROUTE_ABOUT -> Modifier.tourTarget(Tour.ROW_ABOUT)
                                 else -> Modifier

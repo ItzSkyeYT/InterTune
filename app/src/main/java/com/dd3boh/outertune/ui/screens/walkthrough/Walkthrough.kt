@@ -102,6 +102,12 @@ val TOUR_STOPS = listOf(
 private const val V0_11_5 = 93
 
 /**
+ * The first build 0.12 can ship as: what is held back for it is listed under it, so that somebody
+ * on 0.11.5 is shown it once 0.12 brings it. Raise it if a 0.11.x release comes between.
+ */
+private const val V0_12 = 94
+
+/**
  * A walk round Settings: its four groups, one bubble each.
  *
  * Settings is thirteen screens and the rows already say what is in each. What they do not give is
@@ -191,6 +197,7 @@ val SETTINGS_CLOSER_LOOK = listOf(
     closer("sync_mode", Tour.SETTING_SYNC_MODE, Tour.ROUTE_ACCOUNT, R.string.sync_mode, R.string.tour_closer_sync_mode),
 
     closer("quick_picks_source", Tour.SETTING_QUICK_PICKS_SOURCE, Tour.ROUTE_LIBRARY, R.string.quick_picks_source, R.string.tour_closer_quick_picks_source),
+    closer("share_links", Tour.SETTING_SHARE_LINKS, Tour.ROUTE_LIBRARY, R.string.share_link_kind_title, R.string.new_share_links_here),
     closer("content_language", Tour.SETTING_CONTENT_LANGUAGE, Tour.ROUTE_LIBRARY, R.string.content_language, R.string.tour_closer_content_language),
     closer("content_country", Tour.SETTING_CONTENT_COUNTRY, Tour.ROUTE_LIBRARY, R.string.content_country, R.string.tour_closer_content_country),
 
@@ -205,7 +212,6 @@ val SETTINGS_CLOSER_LOOK = listOf(
     closer("tab_arrangement", Tour.SETTING_TAB_ARRANGEMENT, Tour.ROUTE_LOOK_AND_FEEL, R.string.tab_arrangement, R.string.tour_closer_tab_arrangement),
     closer("default_tab", Tour.SETTING_DEFAULT_TAB, Tour.ROUTE_LOOK_AND_FEEL, R.string.default_open_tab, R.string.tour_closer_default_tab),
     // The sentence the welcome back page's own tour has for it, which already says what it does.
-    closer("share_links", Tour.SETTING_SHARE_LINKS, Tour.ROUTE_LOOK_AND_FEEL, R.string.share_link_kind_title, R.string.new_share_links_here),
 
     closer("auto_load_more", Tour.SETTING_AUTO_LOAD_MORE, Tour.ROUTE_PLAYER, R.string.auto_load_more, R.string.tour_closer_auto_load_more),
     closer("audio_quality", Tour.SETTING_AUDIO_QUALITY, Tour.ROUTE_PLAYER, R.string.audio_quality, R.string.tour_closer_audio_quality),
@@ -296,27 +302,27 @@ class Install(val quickPicksChips: Boolean = true)
 val NEW_THINGS = listOf(
     NewThing(
         id = "living_blur",
-        release = "0.11.5",
-        sinceVersionCode = V0_11_5,
+        release = "0.12",
+        sinceVersionCode = V0_12,
         title = R.string.new_living_blur_title,
         body = R.string.new_living_blur_body,
         icon = Icons.Rounded.GraphicEq,
         stops = listOf(
-            TourStop("living_blur_row", Tour.ROW_LOOK_AND_FEEL, Tour.ROUTE_SETTINGS, R.string.look_and_feel, R.string.new_living_blur_way, V0_11_5),
-            TourStop("living_blur_setting", Tour.SETTING_PLAYER_BACKGROUND, Tour.ROUTE_LOOK_AND_FEEL, R.string.player_background_style, R.string.new_living_blur_here, V0_11_5),
+            TourStop("living_blur_row", Tour.ROW_LOOK_AND_FEEL, Tour.ROUTE_SETTINGS, R.string.look_and_feel, R.string.new_living_blur_way, V0_12),
+            TourStop("living_blur_setting", Tour.SETTING_PLAYER_BACKGROUND, Tour.ROUTE_LOOK_AND_FEEL, R.string.player_background_style, R.string.new_living_blur_here, V0_12),
         ),
         there = { Unreleased.LIVING_BACKGROUND },
     ),
     NewThing(
         id = "share_links",
-        release = "0.11.5",
-        sinceVersionCode = V0_11_5,
+        release = "0.12",
+        sinceVersionCode = V0_12,
         title = R.string.new_share_links_title,
         body = R.string.new_share_links_body,
         icon = Icons.Rounded.Share,
         stops = listOf(
-            TourStop("share_links_row", Tour.ROW_LOOK_AND_FEEL, Tour.ROUTE_SETTINGS, R.string.look_and_feel, R.string.new_share_links_way, V0_11_5),
-            TourStop("share_links_setting", Tour.SETTING_SHARE_LINKS, Tour.ROUTE_LOOK_AND_FEEL, R.string.share_link_kind_title, R.string.new_share_links_here, V0_11_5),
+            TourStop("share_links_row", Tour.ROW_LIBRARY, Tour.ROUTE_SETTINGS, R.string.grp_library_and_content, R.string.new_share_links_way, V0_12),
+            TourStop("share_links_setting", Tour.SETTING_SHARE_LINKS, Tour.ROUTE_LIBRARY, R.string.share_link_kind_title, R.string.new_share_links_here, V0_12),
         ),
         there = { Unreleased.SHARE_PAGE },
     ),

@@ -190,6 +190,7 @@ object Tour {
     const val SETTINGS_REST = "settings_group_rest"
     const val ROW_LOOK_AND_FEEL = "settings_row_look_and_feel"
     const val ROW_PLAYER = "settings_row_player"
+    const val ROW_LIBRARY = "settings_row_library"
     const val ROW_BACKUP = "settings_row_backup"
     const val ROW_ABOUT = "settings_row_about"
     const val SETTING_IMPORT = "setting_import"

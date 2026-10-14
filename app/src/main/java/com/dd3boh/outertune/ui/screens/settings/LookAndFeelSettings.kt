@@ -110,7 +110,6 @@ fun LookAndFeelSettings(
             modifier = Modifier.fillMaxWidth()
         ) {
             SwipeGesturesFrag()
-            if (Unreleased.SHARE_PAGE) ShareLinksFrag()
         }
     }
 
