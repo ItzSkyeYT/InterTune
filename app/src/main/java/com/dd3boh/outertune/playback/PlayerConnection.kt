@@ -138,8 +138,7 @@ class PlayerConnection(
      * The loading is here now, for all of them. setCurrQueue never prepares; the toggle does.
      */
     fun togglePlayPause() {
-        loadSavedQueue()
-        player.togglePlayPause()
+        loadQueueIfEmpty().togglePlayPause()
     }
 
     /**
@@ -147,7 +146,7 @@ class PlayerConnection(
      * player must do first after a cold start. It never prepares and never plays.
      */
     fun loadSavedQueue() {
-        if (player.currentMediaItem == null) service.queueBoard.setCurrQueue()
+        loadQueueIfEmpty()
     }
 
     fun playQueue(
@@ -293,12 +292,32 @@ class PlayerConnection(
         player.removeListener(this)
     }
 
+    /**
+     * Loads the saved queue into the player when nothing is loaded yet, as after a cold start, and
+     * returns the player to act on in the same tap.
+     *
+     * That is the service's own player rather than [player]. With casting built in, [player] is the
+     * routed player, which only hears of what the queue board loaded on the main looper's next turn.
+     * Asked in the same tap it still held an empty list, so play did nothing, previous and a swipe
+     * on the artwork were ignored, and it took a second tap. With casting off they are one player.
+     */
+    fun loadQueueIfEmpty(): Player {
+        if (player.currentMediaItem == null) service.queueBoard.setCurrQueue()
+        return service.activePlayer
+    }
+
     fun softKillPlayer() {
         Log.i(TAG, "Stopping player and uninitializing queue")
         // Paused first, so the queue keeps the point its song had reached: the service saves it
         // on a pause while the song is still loaded. Cleared while playing, the player reports
-        // the stop only once the song has gone, too late to read where it was.
+        // the stop only once the song has gone, too late to read where it was. While casting the
+        // pause goes to the receiver, and the service, which listens to the receiver then, saves
+        // the receiver's point the same way.
         player.pause()
+        // Dismissing the player ends a cast too; the receiver would otherwise sit there with the
+        // phone still awake for it, and the cast button with it gone. After the pause, because
+        // the hand back loads the phone's player already paused and reports no pause to save.
+        service.castSession?.stop(play = false)
         player.clearMediaItems()
         // Called straight from the player sheet's swipe-to-dismiss gesture, on the UI thread: the
         // queue save must not block it, so it runs on the service's own scope instead of here.

@@ -387,10 +387,16 @@ fun BottomSheetPlayer(
     val buttonsStyle by rememberEnumPreference(PlayerButtonsStyleKey, defaultValue = PlayerButtonsStyle.CLASSIC)
     val queueAsButton by rememberPreference(QueueButtonKey, defaultValue = false)
 
-    var position by rememberSaveable(playbackState) {
+    // Read again on a new song as well as on a new state, since the loop below only reads while the
+    // player is ready. A song changed while the one before was still loading kept that song's place
+    // and length under the new title until the new one played. ExoPlayer hides it, having no length
+    // while it loads, so the song's own fills in below; a cast receiver has one all along, and two
+    // quick skips while casting showed the first song's length for the second.
+    val songId = mediaMetadata?.id
+    var position by rememberSaveable(playbackState, songId) {
         mutableLongStateOf(playerConnection.player.currentPosition)
     }
-    var duration by rememberSaveable(playbackState) {
+    var duration by rememberSaveable(playbackState, songId) {
         mutableLongStateOf(playerConnection.player.duration)
     }
     var sliderPosition by remember {
@@ -465,8 +471,14 @@ fun BottomSheetPlayer(
     // left playing: 7200 reads an hour to move a progress bar nobody was looking at. STARTED
     // rather than RESUMED because the mini player is still visible behind a dialog or a partially
     // covering screen, and the bar should keep moving there.
+    //
+    // Keyed on the song as well, exactly as position and duration are: the loop writes into the
+    // state it started with, and a new song makes new state. ExoPlayer goes on from a song into the
+    // next one it has already buffered without leaving READY, so a loop keyed on the state alone
+    // went on writing into the old song's state, and the time and both progress bars stood still
+    // from the change of song until the next pause, seek or buffering.
     val lifecycleOwner = LocalLifecycleOwner.current
-    LaunchedEffect(playbackState, lifecycleOwner) {
+    LaunchedEffect(playbackState, songId, lifecycleOwner) {
         if (playbackState != STATE_READY) return@LaunchedEffect
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (isActive) {
@@ -543,6 +555,7 @@ fun BottomSheetPlayer(
         twoPane = landscapeTwoPane || tabletTwoPane,
         queueAsButton = queueAsButton,
         songLoaded = mediaMetadata != null,
+        outputRow = Unreleased.CASTING,
     )
     val queueReserve = queueLayout.reserve
     val compactPlayer = queueLayout.compact
@@ -1377,10 +1390,7 @@ fun BottomSheetPlayer(
                                     .named(stringResource(R.string.widget_previous)),
                                 color = onBackgroundColor,
                                 onClick = {
-                                    if (playerConnection.player.currentMediaItem == null) {
-                                        playerConnection.service.queueBoard.setCurrQueue()
-                                    }
-                                    playerConnection.player.seekToPrevious()
+                                    playerConnection.loadQueueIfEmpty().seekToPrevious()
                                     haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
                                 }
                             )
@@ -1466,10 +1476,7 @@ fun BottomSheetPlayer(
                                 onClick = {
                                     // Cold start: the restored queue is only in the queue board until
                                     // something loads it into the player, same as Previous and Play above.
-                                    if (playerConnection.player.currentMediaItem == null) {
-                                        playerConnection.service.queueBoard.setCurrQueue()
-                                    }
-                                    playerConnection.player.seekToNext()
+                                    playerConnection.loadQueueIfEmpty().seekToNext()
                                     haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
                                 }
                             )
@@ -1578,6 +1585,7 @@ fun BottomSheetPlayer(
                                 )
                             }
                         }
+
                     }
 
                     Column(
@@ -1655,7 +1663,8 @@ fun BottomSheetPlayer(
                         // handle.
                         .padding(
                             bottom = if (tabletTwoPane) TabletQueueHandleReserve
-                            else queueReserve
+                            // Less the output button's room, which is drawn below, in the strip itself.
+                            else queueReserve - queueLayout.outputRoom
                         )
                 ) {
                     val coverBox: @Composable (Modifier) -> Unit = { boxModifier -> BoxWithConstraints(
@@ -1695,6 +1704,19 @@ fun BottomSheetPlayer(
                                     customMediaMetadata = it
                                 )
                             }
+                        }
+
+                        // Laid over the empty top right corner, under the status bar, so nothing
+                        // else on the player moves or changes size for it. Only on a tablet's two
+                        // panes now: everywhere else the output button says and does more.
+                        if (tabletTwoPane) {
+                            CastButton(
+                                tint = onBackgroundColor,
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top))
+                                    .padding(end = 4.dp)
+                            )
                         }
                     } }
                     if (classicBesideCover) {
@@ -1750,6 +1772,20 @@ fun BottomSheetPlayer(
                             // block, so the queue's grab strip over it never covers a control
                             // when the block has to shrink.
                             if (!compactPlayer) Spacer(Modifier.height(24.dp))
+                        }
+                        if (queueLayout.outputRoom > 0.dp) {
+                            // Where the music is coming out, in the half of the queue's strip its
+                            // arrow gave up, drawn a little into the gap above so that it sits in
+                            // the middle of the two. Nothing above it has moved for it.
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(queueLayout.outputRoom)
+                                    .padding(horizontal = hPadding)
+                            ) {
+                                OutputButton(tint = onBackgroundColor, modifier = Modifier.offset(y = (-6).dp))
+                            }
                         }
                     } else {
                         Spacer(Modifier.height(24.dp))
@@ -1819,6 +1855,27 @@ fun BottomSheetPlayer(
             backdrop = if (liquidGlass && Unreleased.GLASS_QUEUE) playerBackdrop else null,
             glassIntensity = glassIntensity,
         )
+
+        // Where the music is coming out, on a phone on its side, where there is no row for it
+        // under the controls: laid over the bottom right corner, under the play row with Classic
+        // buttons and under the row of buttons with Connected ones, so that nothing moves for it
+        // in a window with no height to give. A pill there even while casting: a bar would cover
+        // the controls.
+        //
+        // Drawn after the queue's sheet. Its collapsed strip lies across the bottom of the window,
+        // and under it the pill was seen and could not be pressed: the tap opened the queue. Gone
+        // once the queue is most of the way up. Not on a small upright window, where that corner
+        // is the play row's.
+        if (isLandscape && queueLayout.outputRoom == 0.dp && !tabletTwoPane && mediaMetadata != null && !queueCovers) {
+            OutputButton(
+                tint = onBackgroundColor,
+                wide = false,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Bottom + WindowInsetsSides.End))
+                    .padding(end = 24.dp, bottom = 10.dp)
+            )
+        }
     }
 }
 
@@ -2239,7 +2296,6 @@ private fun SwipeableArtwork(
  * still empty, so the restored queue goes into it first, as the previous button does.
  */
 private fun skipFromArtwork(playerConnection: PlayerConnection, forward: Boolean) {
-    val player = playerConnection.player
-    if (player.currentMediaItem == null) playerConnection.service.queueBoard.setCurrQueue()
+    val player = playerConnection.loadQueueIfEmpty()
     if (forward) player.seekToNext() else player.seekToPreviousMediaItem()
 }

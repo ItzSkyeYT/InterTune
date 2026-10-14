@@ -219,4 +219,34 @@ class CompactPlayerTest {
         // At 240 x 320 dp the space left for the cover is about 60dp.
         assertFalse(classicSideColumnsFit(60.dp))
     }
+
+    @Test
+    fun `the output button takes the upper half of the strip and the controls do not move for it`() {
+        val inset = 24.dp
+        val plain = playerQueueLayout(800.dp, inset, landscape = false, twoPane = false, queueAsButton = false, songLoaded = true, peek = peek)
+        val with = playerQueueLayout(800.dp, inset, landscape = false, twoPane = false, queueAsButton = false, songLoaded = true, peek = peek, outputRow = true)
+        // The player keeps the same height clear, so nothing above it moves.
+        assertEquals(plain.reserve, with.reserve)
+        assertEquals(peek, with.outputRoom)
+        assertEquals(0.dp, plain.outputRoom)
+        // The sheet, and the arrow at its top, rest one peek lower: on the bare peek, as in a two-pane layout.
+        assertEquals(plain.sheetCollapsed - peek, with.sheetCollapsed)
+        assertEquals(with.sheetDismissed, with.sheetCollapsed)
+        assertTrue(with.showHandle)
+    }
+
+    @Test
+    fun `no room is made for the output button where there is no strip to halve`() {
+        val inset = 24.dp
+        // A small window, a two-pane layout, and a player with no song and so no controls.
+        assertEquals(0.dp, playerQueueLayout(300.dp, inset, landscape = false, twoPane = false, queueAsButton = false, songLoaded = true, peek = peek, outputRow = true).outputRoom)
+        assertEquals(0.dp, playerQueueLayout(800.dp, inset, landscape = true, twoPane = true, queueAsButton = false, songLoaded = true, peek = peek, outputRow = true).outputRoom)
+        // A phone on its side that is not wide enough for two panes: too short for one more row all the same.
+        assertEquals(0.dp, playerQueueLayout(360.dp, inset, landscape = true, twoPane = false, queueAsButton = false, songLoaded = true, peek = peek, outputRow = true).outputRoom)
+        assertEquals(0.dp, playerQueueLayout(800.dp, inset, landscape = false, twoPane = false, queueAsButton = false, songLoaded = false, peek = peek, outputRow = true).outputRoom)
+        // With the queue on its button the sheet is out of sight anyway, and the room is the same.
+        val onButton = playerQueueLayout(800.dp, inset, landscape = false, twoPane = false, queueAsButton = true, songLoaded = true, peek = peek, outputRow = true)
+        assertEquals(peek, onButton.outputRoom)
+        assertEquals(0.dp, onButton.sheetCollapsed)
+    }
 }

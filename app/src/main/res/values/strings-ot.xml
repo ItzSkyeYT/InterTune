@@ -1845,4 +1845,28 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="problem_report_copy">Copy</string>
     <string name="problem_report_copied">Copied</string>
     <string name="problem_report_close">Close</string>
+    <!-- Casting, behind Unreleased.CASTING -->
+    <string name="cast">Cast</string>
+    <string name="cast_to">Cast to</string>
+    <string name="cast_playing_on">Playing on %1$s</string>
+    <string name="cast_connecting_to">Connecting to %1$s</string>
+    <string name="cast_stop">Stop casting</string>
+    <string name="cast_volume">Volume on the receiver</string>
+    <string name="cast_casting">Casting</string>
+    <string name="output_this_phone">This phone</string>
+    <string name="output_wired">Wired headphones</string>
+    <string name="output_cable">On a cable</string>
+    <string name="cast_searching">Looking for receivers on this Wi-Fi</string>
+    <string name="cast_about">Casts to FCast receivers, to Chromecast and Google TV devices, and to DLNA TVs and speakers on the same Wi-Fi. FCast needs the FCast Receiver app on the TV or computer. The phone stays awake and sends the music while it casts.</string>
+    <string name="cast_add_by_address">Add by address</string>
+    <string name="cast_address_hint">192.168.1.20 for FCast, chromecast 192.168.1.21, or a DLNA description URL</string>
+    <string name="cast_address_invalid">Not an address this can use</string>
+    <string name="cast_needs_wifi">Casting needs Wi-Fi</string>
+    <string name="cast_could_not_reach">Could not reach %1$s</string>
+    <string name="cast_not_a_receiver">%1$s is not a receiver this can cast to</string>
+    <string name="cast_hung_up">%1$s ended the connection</string>
+    <string name="cast_stopped_answering">%1$s stopped answering</string>
+    <string name="cast_lost_connection">Lost the connection to %1$s</string>
+    <string name="cast_lost">Casting stopped. %1$s. Paused on this phone.</string>
+    <string name="cast_ended_idle">Casting stopped after %1$d minutes with nothing playing.</string>
 </resources>
