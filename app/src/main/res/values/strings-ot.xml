@@ -776,8 +776,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="tour_settings_body">Nothing here is compulsory. All of it can be turned off in these settings.</string>
 
 
-    <!-- Welcome back: the page after an update, and the walk round Settings. A prototype shown in
-         debug builds only (Unreleased.WELCOME_BACK): not for translators until it ships. -->
+    <!-- The welcome back page after an update, and the walk round Settings (WelcomeBack.kt, Walkthrough.kt). -->
     <string name="welcome_back_title">Welcome back</string>
     <string name="welcome_back_body">Here is what is new since you were last here.</string>
     <string name="welcome_back_everything">What has been added lately, and where to find it.</string>
@@ -1835,7 +1834,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="web_client_first" translatable="false">Ask YouTube Music\'s web client first</string>
     <string name="web_client_first_description" translatable="false">An experiment. Every song is asked of the web client before the usual ones.</string>
 
-    <!-- Report a problem, behind Unreleased.PROBLEM_REPORT: English only until the words are agreed -->
+    <!-- Report a problem (ProblemReportDialog), opened from About. -->
     <string name="problem_report_title">Report a problem</string>
     <string name="problem_report_found">This is the last thing that went wrong, as the app noted it, with what led up to it. It names the songs that were playing. Nothing leaves the phone unless you send it.</string>
     <string name="problem_report_none">Nothing that looks like a fault has been noted since the app was opened. These are its last lines.</string>
