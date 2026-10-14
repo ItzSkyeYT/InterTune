@@ -238,9 +238,9 @@ class RemotePlayer(
 
     override fun handleSetDeviceVolume(deviceVolume: Int, flags: Int) = setVolume(deviceVolume)
 
-    override fun handleIncreaseDeviceVolume(flags: Int) = setVolume((volumeBeforeMute ?: deviceVolume) + 1)
+    override fun handleIncreaseDeviceVolume(flags: Int) = setVolume((volumeBeforeMute ?: deviceVolume) + KEY_STEP)
 
-    override fun handleDecreaseDeviceVolume(flags: Int) = setVolume((volumeBeforeMute ?: deviceVolume) - 1)
+    override fun handleDecreaseDeviceVolume(flags: Int) = setVolume((volumeBeforeMute ?: deviceVolume) - KEY_STEP)
 
     override fun handleSetDeviceMuted(muted: Boolean, flags: Int): ListenableFuture<*> {
         if (muted == (volumeBeforeMute != null)) return Futures.immediateVoidFuture()
@@ -416,7 +416,14 @@ class RemotePlayer(
         const val TAG = "RemotePlayer"
 
         /** Volume steps for the keys and the system panel: 5% each. */
-        const val MAX_VOLUME = 20
+        /**
+         * Steps of the receiver's volume: a hundred, so the cast sheet's row sets it smoothly (twenty
+         * felt rough under a finger, 14 Oct 2026). The volume keys still move it by [KEY_STEP].
+         */
+        const val MAX_VOLUME = 100
+
+        /** A press of a volume key: a twentieth, as before, or a hundred presses would cross the range. */
+        const val KEY_STEP = 5
 
         /** As the phone's own player is set up in MusicService. */
         const val SEEK_INCREMENT_MS = 5_000L

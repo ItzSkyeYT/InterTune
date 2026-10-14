@@ -83,6 +83,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.media3.common.DeviceInfo
 import androidx.media3.common.Player
 import kotlin.math.roundToInt
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.util.lerp
@@ -554,6 +557,11 @@ private fun OutputRow(
     // The gestures read the volume as it is now: keyed on the volume itself they restarted at every
     // step it moved, and a drag set it once and stopped.
     val currentVolume by rememberUpdatedState(volume)
+    // Where the finger is while it is down: the fill follows it exactly, between the steps the
+    // device has, and glides to the device's own level once the finger lifts or a key moves it.
+    var held by remember { mutableStateOf<Float?>(null) }
+    val glided by animateFloatAsState(volume?.level ?: 0f, animationSpec = spring(stiffness = Spring.StiffnessMediumLow), label = "volume")
+    val shown = held ?: glided
     val fill = MaterialTheme.colorScheme.primary
     Surface(
         shape = shape,
@@ -582,18 +590,21 @@ private fun OutputRow(
                         awaitEachGesture {
                             val down = awaitFirstDown(requireUnconsumed = false)
                             down.consume()
-                            currentVolume?.set((down.position.x / size.width).coerceIn(0f, 1f))
+                            held = (down.position.x / size.width).coerceIn(0f, 1f)
+                            currentVolume?.set(held!!)
                             while (true) {
                                 val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
                                 change.consume()
                                 if (!change.pressed) break
-                                currentVolume?.set((change.position.x / size.width).coerceIn(0f, 1f))
+                                held = (change.position.x / size.width).coerceIn(0f, 1f)
+                                currentVolume?.set(held!!)
                             }
+                            held = null
                         }
                     }
                     .semantics {
                         contentDescription = volume!!.words
-                        progressBarRangeInfo = ProgressBarRangeInfo(volume.level, 0f..1f)
+                        progressBarRangeInfo = ProgressBarRangeInfo(volume.level, 0f..1f, steps = 0)
                         setProgress { asked -> volume.set(asked.coerceIn(0f, 1f)); true }
                     }
                 else Modifier
@@ -603,7 +614,7 @@ private fun OutputRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             modifier = Modifier
-                .then(if (sliding) Modifier.drawBehind { drawRect(fill, size = size.copy(width = size.width * volume!!.level)) } else Modifier)
+                .then(if (sliding) Modifier.drawBehind { drawRect(fill, size = size.copy(width = size.width * shown)) } else Modifier)
                 .padding(horizontal = 18.dp, vertical = 10.dp),
         ) {
             if (busy) CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
