@@ -37,6 +37,8 @@ import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.ui.screens.settings.fragments.LocalizationFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.QuickPicksSourceFrag
 import com.dd3boh.outertune.utils.rememberPreference
+import com.dd3boh.outertune.ui.screens.settings.fragments.ShareLinksFrag
+import com.dd3boh.outertune.constants.Unreleased
 
 /**
  * What the app fills itself with.
@@ -71,6 +73,8 @@ fun LibrarySettings(
             modifier = Modifier.fillMaxWidth()
         ) {
             QuickPicksSourceFrag()
+            // What Share sends for a song or an album: content going out, not how the app looks.
+            if (Unreleased.SHARE_PAGE) ShareLinksFrag()
         }
         Spacer(modifier = Modifier.height(16.dp))
 

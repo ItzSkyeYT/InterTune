@@ -191,6 +191,7 @@ val SETTINGS_CLOSER_LOOK = listOf(
     closer("sync_mode", Tour.SETTING_SYNC_MODE, Tour.ROUTE_ACCOUNT, R.string.sync_mode, R.string.tour_closer_sync_mode),
 
     closer("quick_picks_source", Tour.SETTING_QUICK_PICKS_SOURCE, Tour.ROUTE_LIBRARY, R.string.quick_picks_source, R.string.tour_closer_quick_picks_source),
+    closer("share_links", Tour.SETTING_SHARE_LINKS, Tour.ROUTE_LIBRARY, R.string.share_link_kind_title, R.string.new_share_links_here),
     closer("content_language", Tour.SETTING_CONTENT_LANGUAGE, Tour.ROUTE_LIBRARY, R.string.content_language, R.string.tour_closer_content_language),
     closer("content_country", Tour.SETTING_CONTENT_COUNTRY, Tour.ROUTE_LIBRARY, R.string.content_country, R.string.tour_closer_content_country),
 
@@ -205,7 +206,6 @@ val SETTINGS_CLOSER_LOOK = listOf(
     closer("tab_arrangement", Tour.SETTING_TAB_ARRANGEMENT, Tour.ROUTE_LOOK_AND_FEEL, R.string.tab_arrangement, R.string.tour_closer_tab_arrangement),
     closer("default_tab", Tour.SETTING_DEFAULT_TAB, Tour.ROUTE_LOOK_AND_FEEL, R.string.default_open_tab, R.string.tour_closer_default_tab),
     // The sentence the welcome back page's own tour has for it, which already says what it does.
-    closer("share_links", Tour.SETTING_SHARE_LINKS, Tour.ROUTE_LOOK_AND_FEEL, R.string.share_link_kind_title, R.string.new_share_links_here),
 
     closer("auto_load_more", Tour.SETTING_AUTO_LOAD_MORE, Tour.ROUTE_PLAYER, R.string.auto_load_more, R.string.tour_closer_auto_load_more),
     closer("audio_quality", Tour.SETTING_AUDIO_QUALITY, Tour.ROUTE_PLAYER, R.string.audio_quality, R.string.tour_closer_audio_quality),
@@ -315,8 +315,8 @@ val NEW_THINGS = listOf(
         body = R.string.new_share_links_body,
         icon = Icons.Rounded.Share,
         stops = listOf(
-            TourStop("share_links_row", Tour.ROW_LOOK_AND_FEEL, Tour.ROUTE_SETTINGS, R.string.look_and_feel, R.string.new_share_links_way, V0_11_5),
-            TourStop("share_links_setting", Tour.SETTING_SHARE_LINKS, Tour.ROUTE_LOOK_AND_FEEL, R.string.share_link_kind_title, R.string.new_share_links_here, V0_11_5),
+            TourStop("share_links_row", Tour.ROW_LIBRARY, Tour.ROUTE_SETTINGS, R.string.grp_library_and_content, R.string.new_share_links_way, V0_11_5),
+            TourStop("share_links_setting", Tour.SETTING_SHARE_LINKS, Tour.ROUTE_LIBRARY, R.string.share_link_kind_title, R.string.new_share_links_here, V0_11_5),
         ),
         there = { Unreleased.SHARE_PAGE },
     ),

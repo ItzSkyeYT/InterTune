@@ -107,6 +107,7 @@ fun SettingsScreen(
                 onClick = { navController.navigate("settings/account_sync") }
             )
             PreferenceEntry(
+                modifier = Modifier.tourTarget(Tour.ROW_LIBRARY),
                 title = { Text(stringResource(R.string.grp_library_and_content)) },
                 description = stringResource(R.string.settings_library_description),
                 icon = { Icon(Icons.AutoMirrored.Rounded.LibraryBooks, null) },

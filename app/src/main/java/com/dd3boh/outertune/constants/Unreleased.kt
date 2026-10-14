@@ -58,10 +58,10 @@ object Unreleased {
     val LIBRARY_IMPORT = true
 
     /**
-     * "Links you share" under Look and feel: a song or an album can go out as a link to the share
+     * "Links you share" under Library and content: a song or an album can go out as a link to the share
      * page (ShareLinks.PAGE), where whoever opens it picks their own music app. Everything is in
      * place but the page itself is not public yet. When it is: set this to true, or delete it
-     * along with the two checks that read it, in LookAndFeelSettings and rememberShareLink.
+     * along with the two checks that read it, in LibrarySettings and rememberShareLink.
      */
     val SHARE_PAGE = BuildConfig.DEBUG
 
