@@ -269,10 +269,10 @@ object Unreleased {
      * gives what it always did.
      *
      * Its numbers were set on fourteen covers and looked at on a Pixel 5. Without it the theme
-     * is the cover's hue at full strength, as before. When it is agreed: set this to true, or
-     * delete it with the two checks that read it, both in Theme.kt.
+     * is the cover's hue at full strength, as before. On in every build from 0.11.5 (his yes of
+     * 14 Oct 2026). Left to tidy: the flag and the two checks that read it, both in Theme.kt.
      */
-    val COVER_ACCENT = BuildConfig.DEBUG
+    val COVER_ACCENT = true
 
     /**
      * With Liquid glass on, the bar at the foot of the queue is one pane of glass standing clear
@@ -280,11 +280,11 @@ object Unreleased {
      * the cover the player draws out of focus (QueueSheet's backdrop). The queue itself stays
      * one flat colour.
      *
-     * A first cut to look at, seen on a Pixel 5 and not on One UI. Without it the bar is as it
-     * was. When it is agreed: set this to true, or delete it with the one check that reads it,
-     * in Player.kt.
+     * Seen on a Pixel 5 and not on One UI. Without it the bar is as it was. On in every build
+     * from 0.11.5 (his yes of 14 Oct 2026). Left to tidy: the flag and the one check that reads
+     * it, in Player.kt.
      */
-    val GLASS_QUEUE = BuildConfig.DEBUG
+    val GLASS_QUEUE = true
 
     /**
      * Settings in a wide window, a phone on its side or a tablet, as two panes: the list of

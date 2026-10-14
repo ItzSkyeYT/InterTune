@@ -30,7 +30,7 @@ class ReleasedFlagsTest {
     private val inEveryBuild = setOf(
         "ENGINE", "SHORT_SETUP", "LOGIN_RETURNS",
         "STAND_INS", "VISIONOS_IDENTITIES", "WEB_FALLBACK", "LANDSCAPE", "EXPLAIN_PICTURES", "LIBRARY_IMPORT",
-        "PROBLEM_REPORT", "WELCOME_BACK",
+        "PROBLEM_REPORT", "WELCOME_BACK", "COVER_ACCENT", "GLASS_QUEUE",
     )
 
     private val sources = File("src/main/java/com/dd3boh/outertune")
