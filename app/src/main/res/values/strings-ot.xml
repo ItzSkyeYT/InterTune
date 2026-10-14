@@ -1941,4 +1941,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="sleep_schedule_length">Timer length</string>
     <string name="time_of_day_type">Type the time</string>
     <string name="time_of_day_clock_face">Use the clock face</string>
+
+    <!-- Show in Latin letters, in Settings > Lyrics and in the lyrics view's settings (LyricsLatin). -->
+    <string name="lyrics_latin_title">Show in Latin letters</string>
+    <string name="lyrics_latin_description">Lyrics in Japanese, Korean, Chinese, Russian and some other languages get a second line in Latin letters. Kanji stay as they are.</string>
 </resources>

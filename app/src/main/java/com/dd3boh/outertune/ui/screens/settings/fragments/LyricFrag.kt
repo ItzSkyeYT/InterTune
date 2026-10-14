@@ -19,6 +19,7 @@ import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material.icons.rounded.TextRotationAngledown
 import androidx.compose.material.icons.rounded.TouchApp
+import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -36,6 +37,7 @@ import com.dd3boh.outertune.constants.EnableLrcLibKey
 import com.dd3boh.outertune.constants.LyricClickable
 import com.dd3boh.outertune.constants.LyricFontSizeKey
 import com.dd3boh.outertune.constants.LyricKaraokeEnable
+import com.dd3boh.outertune.constants.LyricLatinKey
 import com.dd3boh.outertune.constants.LyricSourcePrefKey
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.LyricTrimKey
@@ -44,6 +46,7 @@ import com.dd3boh.outertune.constants.LyricsPosition
 import com.dd3boh.outertune.constants.LyricsTextPositionKey
 import com.dd3boh.outertune.constants.MultilineLrcKey
 import com.dd3boh.outertune.constants.Speed
+import com.dd3boh.outertune.lyrics.latinTools
 import com.dd3boh.outertune.ui.component.EnumListPreference
 import com.dd3boh.outertune.ui.component.ListPreference
 import com.dd3boh.outertune.ui.component.PreferenceEntry
@@ -61,6 +64,7 @@ fun ColumnScope.LyricFormatFrag() {
         defaultValue = LyricsPosition.CENTER
     )
     val (lyricFontSize, onLyricFontSizeChange) = rememberPreference(LyricFontSizeKey, defaultValue = 20)
+    val (lyricLatin, onLyricLatinChange) = rememberPreference(LyricLatinKey, defaultValue = false)
 
     var showFontSizeDialog by remember {
         mutableStateOf(false)
@@ -87,6 +91,16 @@ fun ColumnScope.LyricFormatFrag() {
         icon = { Icon(Icons.Rounded.TextFields, null) },
         onClick = { showFontSizeDialog = true }
     )
+    // Below Android 10 the phone has no transliteration to do it with (see latinTools).
+    if (latinTools() != null) {
+        SwitchPreference(
+            title = { Text(stringResource(R.string.lyrics_latin_title)) },
+            description = stringResource(R.string.lyrics_latin_description),
+            icon = { Icon(Icons.Rounded.Translate, null) },
+            checked = lyricLatin,
+            onCheckedChange = onLyricLatinChange
+        )
+    }
 
 
     /**

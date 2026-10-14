@@ -180,6 +180,12 @@ val LyricClickable = booleanPreferencesKey("lyricClickable")
 val LyricKaraokeEnable = booleanPreferencesKey("lyricKaraokeEnable")
 val LyricUpdateSpeed = stringPreferencesKey("lyricUpdateSpeed")
 
+/**
+ * Show in Latin letters: a line in Japanese, Korean, Chinese, Cyrillic, Greek or an Indian script
+ * gets its Latin version under it (LyricsLatin). Off by default, and not offered below Android 10.
+ */
+val LyricLatinKey = booleanPreferencesKey("lyricLatin")
+
 
 /**
  * Storage
