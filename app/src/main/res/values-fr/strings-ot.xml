@@ -1665,10 +1665,12 @@
     <string name="new_report_here">Ouvre la dernière erreur notée par l\'application. Rien ne quitte le téléphone sauf si vous l\'envoyez.</string>
     <plurals name="welcome_card_since">
         <item quantity="one">%1$d nouveauté depuis la %2$s</item>
+        <item quantity="many">%1$d nouveautés depuis la %2$s</item>
         <item quantity="other">%1$d nouveautés depuis la %2$s</item>
     </plurals>
     <plurals name="welcome_card">
         <item quantity="one">%1$d nouveauté</item>
+        <item quantity="many">%1$d nouveautés</item>
         <item quantity="other">%1$d nouveautés</item>
     </plurals>
 </resources>
