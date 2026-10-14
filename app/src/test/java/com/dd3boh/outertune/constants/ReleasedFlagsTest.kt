@@ -26,10 +26,11 @@ import java.io.File
  */
 class ReleasedFlagsTest {
 
-    /** On in every build, and so in a release. The second line went on for 0.11.5. */
+    /** On in every build, and so in a release. The second line went on for 0.11.5, the third on 14 Oct. */
     private val inEveryBuild = setOf(
         "ENGINE", "SHORT_SETUP", "LOGIN_RETURNS",
         "STAND_INS", "VISIONOS_IDENTITIES", "WEB_FALLBACK", "LANDSCAPE", "EXPLAIN_PICTURES", "LIBRARY_IMPORT",
+        "PROBLEM_REPORT", "WELCOME_BACK",
     )
 
     private val sources = File("src/main/java/com/dd3boh/outertune")
@@ -150,5 +151,21 @@ class ReleasedFlagsTest {
         assertWritten("ui/screens/settings/fragments/PlayerFrag.kt", "val pictured = Unreleased.EXPLAIN_PICTURES")
         // The picture of the row over the Best recommendations controls.
         assertWritten("ui/screens/settings/RecommendationsSettings.kt", "if (Unreleased.EXPLAIN_PICTURES) {")
+    }
+
+    @Test
+    fun `Report a problem is in every build, from About and on the page of what is new`() {
+        assertEquals(setOf("ui/screens/settings/AboutScreen.kt", "ui/screens/walkthrough/Walkthrough.kt"), readers("PROBLEM_REPORT"))
+        assertWritten("ui/screens/settings/AboutScreen.kt", "if (Unreleased.PROBLEM_REPORT) reportingProblem = true else uriHandler.openUri(Links.ISSUES)")
+    }
+
+    @Test
+    fun `the welcome back page and the closer look at Settings are in every build`() {
+        assertEquals(
+            setOf("ui/navigation/AppNavGraph.kt", "ui/screens/settings/AboutScreen.kt", "ui/screens/walkthrough/Walkthrough.kt"),
+            readers("WELCOME_BACK"),
+        )
+        assertWritten("ui/navigation/AppNavGraph.kt", "if (Unreleased.WELCOME_BACK) {")
+        assertWritten("ui/screens/settings/AboutScreen.kt", "if (Unreleased.WELCOME_BACK) {")
     }
 }
