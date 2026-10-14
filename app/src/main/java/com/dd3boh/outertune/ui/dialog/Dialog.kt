@@ -393,7 +393,10 @@ fun ActionPromptDialog(
                 .fillMaxWidth(0.8f)
                 .padding(16.dp)
         ) {
-            Column(modifier = Modifier.padding(12.dp)) {
+            // Weighted, so the buttons below are measured first and always stay on screen. A tall
+            // body (Arrange tabs, Lyrics sources) on a phone on its side at a large font pushed
+            // Reset, Cancel and OK out of the dialog, and only Back was left.
+            Column(modifier = Modifier.weight(1f, fill = false).padding(12.dp)) {
                 // title
                 if (titleBar != null) {
                     Row {
