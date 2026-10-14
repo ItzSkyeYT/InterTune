@@ -44,6 +44,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -115,6 +116,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.compositeOver
@@ -548,6 +551,9 @@ private fun OutputRow(
 ) {
     val shape = RoundedCornerShape(28.dp)
     val sliding = lit && volume != null
+    // The gestures read the volume as it is now: keyed on the volume itself they restarted at every
+    // step it moved, and a drag set it once and stopped.
+    val currentVolume by rememberUpdatedState(volume)
     val fill = MaterialTheme.colorScheme.primary
     Surface(
         shape = shape,
@@ -568,11 +574,22 @@ private fun OutputRow(
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .then(
                 if (sliding) Modifier
-                    .pointerInput(volume) {
-                        detectTapGestures { volume!!.set((it.x / size.width).coerceIn(0f, 1f)) }
-                    }
-                    .pointerInput(volume) {
-                        detectHorizontalDragGestures { change, _ -> volume!!.set((change.position.x / size.width).coerceIn(0f, 1f)) }
+                    // The row takes the finger the moment it lands and keeps it until it lifts: a
+                    // drag on a real phone is never quite level, and with the usual drag detectors
+                    // the sheet took the first up or down movement for a swipe to close it (his
+                    // S25U, 14 Oct 2026). Only how far along the row the finger is counts.
+                    .pointerInput(Unit) {
+                        awaitEachGesture {
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            down.consume()
+                            currentVolume?.set((down.position.x / size.width).coerceIn(0f, 1f))
+                            while (true) {
+                                val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
+                                change.consume()
+                                if (!change.pressed) break
+                                currentVolume?.set((change.position.x / size.width).coerceIn(0f, 1f))
+                            }
+                        }
                     }
                     .semantics {
                         contentDescription = volume!!.words
