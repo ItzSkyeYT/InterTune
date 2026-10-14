@@ -1673,4 +1673,7 @@
         <item quantity="many">%1$d nouveautés</item>
         <item quantity="other">%1$d nouveautés</item>
     </plurals>
+
+    <!-- The recognition widget in the launcher's picker (recognition_widget_info). -->
+    <string name="recognition_widget_description">Un bouton qui trouve le titre qui passe autour de vous.</string>
 </resources>

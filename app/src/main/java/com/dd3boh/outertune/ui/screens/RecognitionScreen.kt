@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.ui.screens
 
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.LibraryAdd
 import androidx.compose.material.icons.rounded.Close
@@ -160,6 +161,8 @@ fun RecognitionScreen(
     navController: NavController,
     scrollBehavior: TopAppBarScrollBehavior,
     viewModel: RecognitionViewModel = hiltViewModel(),
+    /** Opened from the tile or the widget: listen at once, as the big button does. */
+    startListening: Boolean = false,
 ) {
     val context = LocalContext.current
     val playerConnection = LocalPlayerConnection.current
@@ -283,6 +286,15 @@ fun RecognitionScreen(
         } else {
             permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
+    }
+
+    // The tile's or the widget's tap is a tap on the big button, made once: not again after a
+    // rotation, and not over a run already going, which the big button would stop.
+    var startOwed by rememberSaveable { mutableStateOf(startListening) }
+    LaunchedEffect(startOwed) {
+        if (!startOwed) return@LaunchedEffect
+        startOwed = false
+        if (!listening) listen(keepListeningDefault)
     }
 
     addToPlaylistFor?.let { song ->
