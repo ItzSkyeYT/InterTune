@@ -31,6 +31,7 @@ import com.dd3boh.outertune.cast.RemoteSong
 import com.dd3boh.outertune.cast.ReportAction
 import com.dd3boh.outertune.cast.SentSong
 import com.dd3boh.outertune.extensions.metadata
+import com.dd3boh.outertune.ui.utils.resize
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.CancellationException
@@ -316,7 +317,7 @@ class RemotePlayer(
                 title = song?.title,
                 artist = song?.artists?.joinToString { it.name }?.takeIf { it.isNotEmpty() },
                 album = song?.album?.title,
-                artworkUrl = song?.thumbnailUrl?.takeIf { it.startsWith("https://") || it.startsWith("http://") },
+                artworkUrl = castArtwork(song?.thumbnailUrl),
             )
             Log.i(TAG, "Sending $mediaId to ${link.device.name} as $choice (${offer.mimeType}), from ${load.startMs} ms")
             // Noted before the load, since a receiver can refuse the song before load returns. Loads
@@ -435,3 +436,17 @@ class RemotePlayer(
             .build()
     }
 }
+
+/** How wide a receiver is asked to show a cover: a TV's screen, not a phone's list. */
+internal const val CAST_ART_PX = 1200
+
+/**
+ * The cover a receiver is handed: the song's own, asked of the image host at a TV's size.
+ *
+ * A song is stored with the thumbnail of the list it was first seen in, often 120 pixels, and the
+ * TV drew that as it came, blurred (a real Chromecast, 14 Oct 2026); only now and then, because a
+ * song first met in the player is stored larger. Only a web address: a receiver cannot open a
+ * file on the phone.
+ */
+internal fun castArtwork(stored: String?): String? =
+    stored?.takeIf { it.startsWith("https://") || it.startsWith("http://") }?.resize(CAST_ART_PX, CAST_ART_PX)
