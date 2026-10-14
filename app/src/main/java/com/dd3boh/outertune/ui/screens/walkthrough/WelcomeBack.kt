@@ -64,6 +64,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.constants.PlayerLiquidGlassKey
+import com.dd3boh.outertune.utils.rememberPreference
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.vibrancy
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.ui.graphics.Color
+import androidx.compose.runtime.getValue
 
 /**
  * The welcome back page: what is new since somebody was last here, and a way to each thing.
@@ -110,6 +120,10 @@ fun WelcomeBack(
     onShowSettings: () -> Unit,
     onDone: () -> Unit,
 ) {
+    // With Liquid glass on, the close button is frosted over the page itself: the page is a window
+    // of its own, so it records its own content as the backdrop rather than the app's.
+    val liquidGlass by rememberPreference(PlayerLiquidGlassKey, defaultValue = false)
+    val pageBackdrop = rememberLayerBackdrop()
     Dialog(
         onDismissRequest = onDone,
         properties = DialogProperties(
@@ -128,6 +142,7 @@ fun WelcomeBack(
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
+                .then(if (liquidGlass) Modifier.layerBackdrop(pageBackdrop) else Modifier)
                 .fillMaxSize()
                 // Outside the scroll, so that nothing of the page is ever drawn under the
                 // navigation bar. Inside it the room for the bar came only at the end of the
@@ -218,10 +233,30 @@ fun WelcomeBack(
         // (his word, 14 Oct 2026). Over the page, so it has a background of its own.
         FilledTonalIconButton(
             onClick = onDone,
+            colors = if (liquidGlass) IconButtonDefaults.filledTonalIconButtonColors(containerColor = Color.Transparent)
+            else IconButtonDefaults.filledTonalIconButtonColors(),
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
-                .padding(12.dp),
+                .padding(12.dp)
+                .then(
+                    // Frosted as the player's own buttons are: blur and vibrancy under a wash of the
+                    // button's colour, and no rim, which made small controls read as outlines.
+                    if (liquidGlass) Modifier
+                        .clip(CircleShape)
+                        .drawBackdrop(
+                            backdrop = pageBackdrop,
+                            shape = { CircleShape },
+                            effects = {
+                                vibrancy()
+                                blur(10.dp.toPx())
+                            },
+                            highlight = { null },
+                            shadow = { null },
+                        )
+                        .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f), CircleShape)
+                    else Modifier
+                ),
         ) {
             Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.welcome_back_done))
         }
