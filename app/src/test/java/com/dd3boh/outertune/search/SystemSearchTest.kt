@@ -98,6 +98,16 @@ class SystemSearchTest {
         assertTrue("$most rows, One UI reads twenty", most <= SystemSearch.MOST)
     }
 
+    @Test
+    fun `words handed over by the phone's search open the app's own search for them`() {
+        val link = SystemSearch.searchLinkFor("android.intent.action.SEARCH", " daft punk & co ")
+        assertEquals("daft punk & co", SystemSearch.searchOf(link!!))
+        assertNull("not a search", SystemSearch.searchLinkFor("android.intent.action.VIEW", "daft punk"))
+        assertNull("no words", SystemSearch.searchLinkFor("android.intent.action.SEARCH", "  "))
+        assertNull(SystemSearch.searchOf("https://music.youtube.com/search?q=x"))
+        assertNull(SystemSearch.searchOf(SystemSearch.playlistLink("LPabcd1234")))
+    }
+
     private val src = File("src")
 
     @Test
