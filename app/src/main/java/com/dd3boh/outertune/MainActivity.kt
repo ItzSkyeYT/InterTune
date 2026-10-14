@@ -182,6 +182,7 @@ import com.dd3boh.outertune.playback.MediaControllerViewModel
 import com.dd3boh.outertune.playback.MusicService
 import com.dd3boh.outertune.playback.PlayerConnection
 import com.dd3boh.outertune.search.SystemSearch
+import com.dd3boh.outertune.utils.urlEncode
 import com.dd3boh.outertune.ui.component.LocalHiddenByPlayer
 import com.dd3boh.outertune.ui.component.LocalPlayerSheet
 import com.dd3boh.outertune.ui.component.rememberBottomSheetState
@@ -483,7 +484,10 @@ class MainActivity : ComponentActivity() {
         // A link tapped or shared later, held the same way and opened by the effect that opens
         // the launch intent's link. On a task whose process died it arrives here too, before the
         // first composition.
-        newIntentLink(intent.action, intent.dataString, intent.getStringExtra(Intent.EXTRA_TEXT))
+        newIntentLink(
+            intent.action, intent.dataString,
+            intent.getStringExtra(Intent.EXTRA_TEXT) ?: SystemSearch.searchLinkFor(intent.action, intent.getStringExtra(SearchManager.QUERY)),
+        )
             ?.let { pendingLink.link = it }
         if (intent.action == ACTION_PLAY_LIKED) playLikedWhenReady()
         if (intent.action == RecognitionShortcut.ACTION) pendingRecognition.asked = true
@@ -1099,7 +1103,8 @@ class MainActivity : ComponentActivity() {
                             launchLink(
                                 action = intent?.action,
                                 data = intent?.dataString,
-                                text = intent?.getStringExtra(Intent.EXTRA_TEXT),
+                                text = intent?.getStringExtra(Intent.EXTRA_TEXT)
+                                    ?: SystemSearch.searchLinkFor(intent?.action, intent?.getStringExtra(SearchManager.QUERY)),
                                 fromRecents = !freshLaunch(savedInstanceState != null, intent?.flags ?: 0),
                             )
                         )
@@ -1113,8 +1118,12 @@ class MainActivity : ComponentActivity() {
                         // A playlist of the library, tapped in the phone's own search (SystemSearch),
                         // has no YouTube page: it opens here.
                         val libraryPlaylist = SystemSearch.playlistOf(link)
+                        val searchWords = SystemSearch.searchOf(link)
                         if (libraryPlaylist != null) {
                             navController.navigate("local_playlist/$libraryPlaylist")
+                        } else if (searchWords != null) {
+                            // Words handed over by the phone's search: InterTune's own search for them.
+                            navController.navigate("search/${searchWords.urlEncode()}")
                         } else {
                             youtubeNavigator(
                                 this@MainActivity, navController, coroutineScope, connection, snackbarHostState, link.toUri()

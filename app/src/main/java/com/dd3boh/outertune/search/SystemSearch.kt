@@ -7,6 +7,8 @@
 package com.dd3boh.outertune.search
 
 import java.net.URI
+import java.net.URLDecoder
+import java.net.URLEncoder
 
 /**
  * What the phone's own search is given when it asks InterTune: songs, artists, albums and
@@ -58,6 +60,28 @@ object SystemSearch {
         if (uri.scheme != APP_SCHEME || uri.host != "playlist") return null
         return uri.path.orEmpty().trim('/').takeIf { it.matches(ID) }
     }
+
+    /**
+     * The link that opens the app's own search for [words]: the phone's search hands them over when
+     * InterTune is chosen to search in (ACTION_SEARCH, the words in SearchManager.QUERY), and
+     * MainActivity opens links, not words.
+     */
+    fun searchLink(words: String): String = "$APP_SCHEME://search/" + URLEncoder.encode(words.trim(), "UTF-8")
+
+    /** The link for an intent, when it is the phone's search handing words over, or null. */
+    fun searchLinkFor(action: String?, words: String?): String? =
+        if (action == ACTION_SEARCH && !words.isNullOrBlank()) searchLink(words) else null
+
+    /** The words a [searchLink] carries, or null for any other link. */
+    fun searchOf(link: String): String? {
+        val uri = runCatching { URI(link.trim()) }.getOrNull() ?: return null
+        if (uri.scheme != APP_SCHEME || uri.host != "search") return null
+        val raw = uri.rawPath.orEmpty().removePrefix("/")
+        return runCatching { URLDecoder.decode(raw, "UTF-8") }.getOrNull()?.trim()?.takeIf { it.isNotEmpty() }
+    }
+
+    /** Intent.ACTION_SEARCH, written out so that this stays free of Android and can be tested. */
+    private const val ACTION_SEARCH = "android.intent.action.SEARCH"
 
     /** Whether a library id is YouTube's, so its link opens it: a local file's is not. */
     fun onYouTube(isLocal: Boolean, id: String): Boolean = !isLocal && id.matches(ID)
