@@ -2539,9 +2539,17 @@ class MusicService : MediaLibraryService(),
         // the network, which returns, and before skipOnError, which makes the next song current.
         // See StreamAddresses.
         val failedId = PlayBook.itemOf(error, player.currentTimeline) ?: player.currentMediaItem?.mediaId
-        badCachedCopy.playerFailed(failedId, error)
+        val goOn = badCachedCopy.playerFailed(failedId, error)
         if (streamAddresses.playerFailedOn(failedId)) {
             Log.d(TAG, "PLAYING: the player failed on $failedId, its stream address will be asked for again")
+        }
+        // What failed was the song's cached copy, and it is gone: the song goes on from where it
+        // stopped, read from YouTube, instead of ending on an error that will not come again.
+        // Once: see BadCachedCopy.
+        if (goOn && failedId == player.currentMediaItem?.mediaId) {
+            Log.i(TAG, "PLAYING: $failedId goes on from where it stopped, without its cached copy")
+            player.prepare()
+            return
         }
 
         // Wait for reconnection, but only where a network could help. See waitsForNetwork: a

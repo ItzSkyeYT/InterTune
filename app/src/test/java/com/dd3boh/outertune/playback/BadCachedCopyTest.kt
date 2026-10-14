@@ -63,4 +63,23 @@ class BadCachedCopyTest {
         assertTrue(dropped.isEmpty())
         assertFalse(BadCachedCopy.isNetwork(unreadable))
     }
+
+    @Test
+    fun `a song whose copy was what failed goes on, once, until a load of it goes through`() {
+        assertTrue(doubt.playerFailed("song", unreadable))
+        assertEquals(listOf("song"), dropped)
+        // Its bytes failed again, from YouTube this time: it stops as it always did.
+        assertFalse(doubt.playerFailed("song", unreadable))
+        doubt.loadCompleted("song")
+        assertTrue("once it has played through, a later bad copy is gone past again", doubt.playerFailed("song", unreadable))
+    }
+
+    @Test
+    fun `nothing goes on that the network stopped, or that had no copy to blame`() {
+        assertFalse(doubt.playerFailed("song", UnknownHostException()))
+        assertFalse(doubt.playerFailed("other", unreadable))
+        online = false
+        assertFalse(doubt.playerFailed("song", unreadable))
+        assertTrue(dropped.isEmpty())
+    }
 }

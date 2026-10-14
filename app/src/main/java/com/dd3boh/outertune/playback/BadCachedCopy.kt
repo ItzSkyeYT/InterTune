@@ -26,6 +26,10 @@ import javax.net.ssl.SSLException
  * online and the copy is there: at once when the player gives up, and after [TRIES] failed loads
  * in a row while it is still retrying, which a retry then reads whole from YouTube. A copy that
  * was fine costs the song's data once more, which is the whole price of being wrong.
+ *
+ * When the player has given up, the song goes on from where it stopped instead of ending on an
+ * error that will not come again: once, until a load of it goes through, so that a song whose
+ * bytes fail from YouTube as well is not tried for ever.
  */
 internal class BadCachedCopy(
     private val isCached: (String) -> Boolean,
@@ -33,6 +37,9 @@ internal class BadCachedCopy(
     private val drop: (String) -> Unit,
 ) {
     private val failures = HashMap<String, Int>()
+
+    /** The song [playerFailed] last sent on again, until a load of it goes through. */
+    private var triedAgain: String? = null
 
     /** A load of [mediaId] failed, and the player may try it again. */
     fun loadFailed(mediaId: String?, error: Throwable) {
@@ -47,14 +54,24 @@ internal class BadCachedCopy(
 
     /** A load of [mediaId] went through: what failed before was passing. */
     fun loadCompleted(mediaId: String?) {
-        if (mediaId != null) failures.remove(mediaId)
-    }
-
-    /** The player gave up on [mediaId]. */
-    fun playerFailed(mediaId: String?, error: Throwable) {
         if (mediaId == null) return
         failures.remove(mediaId)
-        if (!isNetwork(error) && online() && isCached(mediaId)) drop(mediaId)
+        if (mediaId == triedAgain) triedAgain = null
+    }
+
+    /**
+     * The player gave up on [mediaId]. True when the song is to go on from where it stopped: its
+     * copy was what failed and is gone, and it has not been sent on already since a load of it
+     * last went through.
+     */
+    fun playerFailed(mediaId: String?, error: Throwable): Boolean {
+        if (mediaId == null) return false
+        failures.remove(mediaId)
+        if (isNetwork(error) || !online() || !isCached(mediaId)) return false
+        drop(mediaId)
+        if (mediaId == triedAgain) return false
+        triedAgain = mediaId
+        return true
     }
 
     companion object {
