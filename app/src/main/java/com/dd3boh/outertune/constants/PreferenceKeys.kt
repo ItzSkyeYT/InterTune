@@ -251,6 +251,10 @@ val PauseRemoteListenHistoryKey = booleanPreferencesKey("pauseRemoteListenHistor
 val PauseSearchHistoryKey = booleanPreferencesKey("pauseSearchHistory")
 val EnableKugouKey = booleanPreferencesKey("enableKugou")
 val EnableLrcLibKey = booleanPreferencesKey("enableLrcLib")
+
+/** The in-app equalizer (EqualizerAudioProcessor): on or off, and its ten gains as EqualizerPreset.format writes them. */
+val EqualizerEnabledKey = booleanPreferencesKey("equalizerEnabled")
+val EqualizerGainsKey = stringPreferencesKey("equalizerGains")
 val UseLoginForBrowse = booleanPreferencesKey("useLoginForBrowse")
 
 

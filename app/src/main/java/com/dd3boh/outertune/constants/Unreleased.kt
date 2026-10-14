@@ -66,6 +66,16 @@ object Unreleased {
     val SHARE_PAGE = BuildConfig.DEBUG
 
     /**
+     * The equalizer in the app (EqualizerAudioProcessor): ten bands from 31 Hz to 16 kHz, presets,
+     * under Player and audio. The processor is in every build's chain and passes everything through
+     * untouched unless this is on and the curve is not flat. Measured band by band in
+     * EqualizerAudioProcessorTest; not yet heard on a phone. For 0.12. To ship: set this to true,
+     * or delete it with the two checks that read it, in MusicService and PlayerSettings, and the
+     * one that registers its screen in AppNavGraph.
+     */
+    val EQUALIZER = BuildConfig.DEBUG
+
+    /**
      * "Living blur" among the player background styles: the cover reduced to patches of colour
      * that breathe with the music (LivingBackground, LevelTap). A prototype to look at, not agreed
      * for any release. When it is: set this to true or delete it with the two checks that read

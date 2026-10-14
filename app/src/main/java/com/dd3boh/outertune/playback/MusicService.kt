@@ -115,6 +115,8 @@ import com.dd3boh.outertune.constants.PersistentQueueKey
 import com.dd3boh.outertune.engine.TagFit
 import com.dd3boh.outertune.engine.SongTags
 import com.dd3boh.outertune.constants.AdaptiveQueueModeKey
+import com.dd3boh.outertune.constants.EqualizerEnabledKey
+import com.dd3boh.outertune.constants.EqualizerGainsKey
 import com.dd3boh.outertune.constants.AdaptiveQueueMode
 import com.dd3boh.outertune.constants.PlaybackAuthModeKey
 import com.dd3boh.outertune.constants.Unreleased
@@ -556,6 +558,9 @@ class MusicService : MediaLibraryService(),
      */
     val gainProcessor = GainAudioProcessor()
 
+    /** The equalizer in the app: untouched audio unless Unreleased.EQUALIZER is on and its curve is not flat. */
+    val equalizerProcessor = EqualizerAudioProcessor()
+
     // Player vars
     val currentMediaMetadata = MutableStateFlow<MediaMetadata?>(null)
 
@@ -992,6 +997,16 @@ class MusicService : MediaLibraryService(),
             dataStore.data.map { it[StageWidthKey] ?: BinauralAudioProcessor.DEFAULT_STAGE_WIDTH.toInt() }
                 .distinctUntilChanged()
                 .collectLatest(scope) { binauralProcessor.stageWidthDegrees = it.toFloat() }
+
+            // Read once a buffer as well: a band is heard moving as its slider moves.
+            dataStore.data.map { prefs ->
+                EqualizerAudioProcessor.Settings(
+                    Unreleased.EQUALIZER && (prefs[EqualizerEnabledKey] ?: false),
+                    EqualizerPreset.parse(prefs[EqualizerGainsKey]),
+                )
+            }
+                .distinctUntilChanged()
+                .collectLatest(scope) { equalizerProcessor.settings = it }
 
             // Both read by the renderer once a buffer, so they are heard as the slider moves.
             dataStore.data.map { it[SpatialStrengthKey] ?: 100 }
@@ -2247,8 +2262,9 @@ class MusicService : MediaLibraryService(),
                                 // Upmix last: gain works on the two channels it was written for,
                                 // and anything derived from them is derived from the gained
                                 // result rather than being gained separately. Only one of the two
-                                // spatial stages is ever on.
-                                arrayOf(gainProcessor, binauralProcessor, spatialUpmixProcessor),
+                                // spatial stages is ever on. The equalizer comes straight after the
+                                // gain, so spatial audio is handed the curve the listener chose.
+                                arrayOf(gainProcessor, equalizerProcessor, binauralProcessor, spatialUpmixProcessor),
                                 SilenceSkippingAudioProcessor(),
                                 SonicAudioProcessor()
                             )
@@ -2288,8 +2304,9 @@ class MusicService : MediaLibraryService(),
                                 // Upmix last: gain works on the two channels it was written for,
                                 // and anything derived from them is derived from the gained
                                 // result rather than being gained separately. Only one of the two
-                                // spatial stages is ever on.
-                                arrayOf(gainProcessor, binauralProcessor, spatialUpmixProcessor),
+                                // spatial stages is ever on. The equalizer comes straight after the
+                                // gain, so spatial audio is handed the curve the listener chose.
+                                arrayOf(gainProcessor, equalizerProcessor, binauralProcessor, spatialUpmixProcessor),
                                 SilenceSkippingAudioProcessor(),
                                 SonicAudioProcessor()
                             )
