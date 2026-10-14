@@ -26,6 +26,7 @@ import android.net.ConnectivityManager
 import android.os.Binder
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import android.widget.Toast
 import androidx.core.content.getSystemService
@@ -745,8 +746,24 @@ class MusicService : MediaLibraryService(),
                 addAnalyticsListener(PlaybackStatsListener(false, this@MusicService))
                 // A song whose cached copy cannot be read is given up, so a retry reads it whole. See BadCachedCopy.
                 addAnalyticsListener(object : AnalyticsListener {
+                    /** When each song's last failed load was written down: the player retries every few seconds. */
+                    private val failedLoadNoted = HashMap<String, Long>()
+
                     override fun onLoadError(eventTime: AnalyticsListener.EventTime, loadEventInfo: LoadEventInfo, mediaLoadData: MediaLoadData, error: IOException, wasCanceled: Boolean) {
-                        if (!wasCanceled) badCachedCopy.loadFailed(loadEventInfo.dataSpec.key, error)
+                        if (wasCanceled) return
+                        val id = loadEventInfo.dataSpec.key
+                        badCachedCopy.loadFailed(id, error)
+                        // A load that fails is retried without a word, and nothing was written until the
+                        // player gave up: a song that stopped said "no error" (issue #20), and Report a
+                        // problem had nothing to show. One line a minute a song at most, with its causes.
+                        val now = SystemClock.elapsedRealtime()
+                        val last = failedLoadNoted[id.orEmpty()]
+                        if (last == null || now - last >= 60_000L) {
+                            failedLoadNoted[id.orEmpty()] = now
+                            val causes = generateSequence(error as Throwable) { it.cause }.take(4)
+                                .joinToString(" <- ") { "${it.javaClass.simpleName}: ${it.message?.take(120)}" }
+                            Log.w(TAG, "PLAYING: a load of $id failed, the player tries again: ${ErrorText.withoutAddresses(causes)}")
+                        }
                     }
 
                     override fun onLoadCompleted(eventTime: AnalyticsListener.EventTime, loadEventInfo: LoadEventInfo, mediaLoadData: MediaLoadData) {
