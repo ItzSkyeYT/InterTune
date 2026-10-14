@@ -1911,4 +1911,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="hide_video_songs_description">Only album and single tracks are offered, not music videos or uploads. A song you pick still plays.</string>
     <string name="hide_shorts">Hide Shorts</string>
     <string name="hide_shorts_description">Lists of YouTube Shorts stay out of Home, search and artist pages.</string>
+
+    <!-- The recognition widget in the launcher's picker (recognition_widget_info). -->
+    <string name="recognition_widget_description">One button that names the song playing around you.</string>
 </resources>

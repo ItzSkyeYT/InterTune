@@ -1731,4 +1731,6 @@
     <string name="hide_video_songs_description">Seuls les titres d\'albums et de singles sont proposés, pas les clips ni les vidéos mises en ligne. Un titre que vous choisissez se lit quand même.</string>
     <string name="hide_shorts">Masquer les Shorts</string>
     <string name="hide_shorts_description">Les listes de Shorts YouTube n\'apparaissent plus dans l\'accueil, la recherche et les pages d\'artiste.</string>
+    <!-- The recognition widget in the launcher's picker (recognition_widget_info). -->
+    <string name="recognition_widget_description">Un bouton qui trouve le titre qui passe autour de vous.</string>
 </resources>
