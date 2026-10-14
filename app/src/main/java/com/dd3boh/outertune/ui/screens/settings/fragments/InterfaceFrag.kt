@@ -238,7 +238,10 @@ fun ColumnScope.TabArrangementFrag() {
             // tabs list
             LazyColumn(
                 state = lazyTabsListState,
+                // Gives way to the note under it when the dialog is short, as on a phone on its
+                // side at a large font: the list scrolls and the note stays in view.
                 modifier = Modifier
+                    .weight(1f, fill = false)
                     .padding(vertical = 12.dp)
                     .border(
                         2.dp,
@@ -316,7 +319,10 @@ fun ColumnScope.TabArrangementFrag() {
             // tabs list
             LazyColumn(
                 state = lazyFiltersListState,
+                // Gives way to the note under it when the dialog is short, as on a phone on its
+                // side at a large font: the list scrolls and the note stays in view.
                 modifier = Modifier
+                    .weight(1f, fill = false)
                     .padding(vertical = 12.dp)
                     .border(
                         2.dp,
