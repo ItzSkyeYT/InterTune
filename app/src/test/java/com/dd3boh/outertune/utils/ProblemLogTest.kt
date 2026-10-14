@@ -169,4 +169,22 @@ class ProblemLogTest {
         assertTrue("Nothing that looks like a fault. The last lines:" in text)
         assertFalse(">>> here" in text)
     }
+
+    @Test
+    fun `with no fault the phone's own warnings are left out`() {
+        // A clean start on the emulator, 14 Oct 2026: with nothing gone wrong these filled the page.
+        val phones = listOf(
+            "10-14 10:13:42.223 W/tertune.preview( 6711): Unexpected CPU variant for x86: x86_64.",
+            "10-14 10:13:43.842 W/System.err( 6711): SLF4J(W): No SLF4J providers were found.",
+            "10-14 10:13:44.092 W/libc    ( 6711): Access denied finding property \"ro.vendor.perf.scroll_opt\"",
+            "10-14 10:13:44.100 W/HWUI    ( 6711): Failed to initialize 101010-2 format, error = EGL_SUCCESS",
+            "10-14 10:13:45.956 E/ActivityThread( 6711): Failed to find provider info for com.google.android.gms.chimera",
+        )
+        val shown = words(ProblemLog.excerpt(phones + song + after))
+        listOf("tertune.preview", "SLF4J", "W/libc", "W/HWUI", "ActivityThread").forEach { name -> assertFalse("$name is shown", shown.any { name in it }) }
+        assertTrue(shown.any { "PLAYING: remote song (online fetch)" in it })
+        // A failed request's first line stays: it is the app's own.
+        val failed = "10-14 10:20:00.000 W/System.err( 6711): io.ktor.client.plugins.ClientRequestException: Client request invalid: 400"
+        assertTrue(words(ProblemLog.excerpt(song + failed)).any { "ClientRequestException" in it })
+    }
 }

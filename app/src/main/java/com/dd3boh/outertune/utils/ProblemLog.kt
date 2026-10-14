@@ -66,7 +66,7 @@ object ProblemLog {
 
     /** Warnings every phone writes for every song, whatever happens next. */
     private val CHATTER = setOf("AudioTrack", "LoudnessCodecController", "MediaCodec", "CCodec", "Codec2Client", "BufferQueueProducer")
-    private val CHATTER_WORDS = listOf("AIBinder_linkToDeath", "Failed to query component")
+    private val CHATTER_WORDS = listOf("AIBinder_linkToDeath", "Failed to query component", "SLF4J")
 
     fun parse(raw: String): Line? = SHAPE.find(raw)?.destructured?.let { (time, level, tag, message) ->
         Line(time, level[0], tag.trim(), message)
@@ -89,11 +89,18 @@ object ProblemLog {
     fun beginsFault(line: Line): Boolean =
         (line.level == 'E' || line.level == 'F') && line.tag in FAULTS_OF && !continues(line.message)
 
-    /** The last fault among [raw] with what led up to it, or the last lines when there is none. */
+    /**
+     * The last fault among [raw] with what led up to it, or the last lines when there is none.
+     *
+     * With no fault, only the app's and the player's own lines and the first line of a failed
+     * request: the phone's warnings around a fault can explain it, but on their own they are a
+     * page of noise (a clean start on the emulator filled the page with the graphics driver's and
+     * the C library's).
+     */
     fun excerpt(raw: List<String>): Excerpt {
         val kept = raw.mapNotNull(::parse).filter(::keep)
         val at = kept.indexOfLast(::beginsFault)
-        if (at < 0) return Excerpt(kept.takeLast(TAIL), null)
+        if (at < 0) return Excerpt(kept.filter { it.tag in FAULTS_OF || it.tag == "System.err" }.takeLast(TAIL), null)
         val from = (at - BEFORE).coerceAtLeast(0)
         return Excerpt(kept.subList(from, (at + 1 + AFTER).coerceAtMost(kept.size)), at - from)
     }
