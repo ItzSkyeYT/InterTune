@@ -24,12 +24,14 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -96,7 +98,7 @@ fun EqualizerSettings(
             for ((band, hz) in EqualizerAudioProcessor.BANDS.withIndex()) {
                 val label = bandLabel(hz)
                 val value = gains[band]
-                val valueText = "%+d dB".format(value.roundToInt())
+                val valueText = value.roundToInt().let { if (it == 0) "0 dB" else "%+d dB".format(it) }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -111,6 +113,8 @@ fun EqualizerSettings(
                         },
                         valueRange = -EqualizerAudioProcessor.MAX_DB..EqualizerAudioProcessor.MAX_DB,
                         steps = (EqualizerAudioProcessor.MAX_DB * 2).toInt() - 1,
+                        // A dB a step, but not 24 dots along every track: the value beside it says where it is.
+                        colors = SliderDefaults.colors(activeTickColor = Color.Transparent, inactiveTickColor = Color.Transparent),
                         modifier = Modifier.weight(1f).semantics { contentDescription = "$label, $valueText" },
                     )
                     Text(valueText, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.width(56.dp).padding(start = 8.dp))
