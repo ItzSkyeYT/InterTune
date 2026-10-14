@@ -7,6 +7,7 @@
  */
 package com.dd3boh.outertune.ui.screens.settings
 
+import com.dd3boh.outertune.ui.screens.settings.fragments.ContentFiltersFrag
 import com.dd3boh.outertune.ui.component.FloatingTopBar
 
 import androidx.compose.foundation.layout.Spacer
@@ -75,6 +76,7 @@ fun LibrarySettings(
             QuickPicksSourceFrag()
             // What Share sends for a song or an album: content going out, not how the app looks.
             if (Unreleased.SHARE_PAGE) ShareLinksFrag()
+            ContentFiltersFrag()
         }
         Spacer(modifier = Modifier.height(16.dp))
 

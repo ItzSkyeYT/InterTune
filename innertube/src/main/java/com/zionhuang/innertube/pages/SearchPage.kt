@@ -25,6 +25,7 @@ object SearchPage {
         return when {
             renderer.isSong -> {
                 SongItem(
+                    musicVideoType = renderer.musicVideoType,
                     id = renderer.playlistItemData?.videoId ?: return null,
                     title = renderer.flexColumns.firstOrNull()
                         ?.musicResponsiveListItemFlexColumnRenderer?.text?.runs

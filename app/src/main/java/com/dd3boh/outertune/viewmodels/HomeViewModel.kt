@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.viewmodels
 
+import com.dd3boh.outertune.models.ContentFilter
 import com.dd3boh.outertune.engine.PastSeeds
 import com.dd3boh.outertune.constants.EngineOverridesKey
 import com.dd3boh.outertune.engine.EngineTuning
@@ -825,6 +826,9 @@ class HomeViewModel @Inject constructor(
 
     private suspend fun tidyRowsNow() {
         val tidy = context.dataStore.get(TidyHomeRowsKey, true)
+        // What the switches under Library and content hide, out of every row YouTube fills. The
+        // rows from the library cannot be filtered: stored songs do not keep YouTube's marks.
+        val hidden = ContentFilter.current
         // The engine's row behind Quick picks, when it is the one showing (on its own or in Try
         // both), and its cards' lanes, for the lean's heading and what the pass keeps in place.
         val source = quickPicksSource()
@@ -832,13 +836,13 @@ class HomeViewModel @Inject constructor(
         val laneOf = engineRow?.let { r -> (r.cards + r.pool).associate { it.songId to it.lane } }.orEmpty()
         if (!tidy) {
             quickPicks.value = quickPicksPool.take(20)
-            ytQuickPicks.value = ytQuickPicksPool?.take(20)
+            ytQuickPicks.value = ytQuickPicksPool?.let(hidden::apply)?.take(20)
             leanOnScreen.value = leanOnScreenOf(engineRow, quickPicks.value.orEmpty(), laneOf, source)
             if (discoverBuilding.get() == 0) discover.value = discoverPool.take(20).takeIf { discoverWanted() }
             forgottenFavorites.value = forgottenPool.take(20)
             keepListening.value = keepListeningPool
-            similarRecommendations.value = similarPool
-            homePage.value = homePagePool
+            similarRecommendations.value = similarPool?.map { it.copy(items = hidden.apply(it.items)) }?.filter { it.items.isNotEmpty() }
+            homePage.value = homePagePool?.let(hidden::home)
             // The widget's lists come from here whichever way the rows were settled; with the
             // tidy pass off they used to stay empty or frozen.
             fillWidget(WidgetList.FORGOTTEN_FAVOURITES, forgottenFavorites.value.orEmpty().map { it.toMediaMetadata() })
@@ -878,7 +882,7 @@ class HomeViewModel @Inject constructor(
             return LeanRow.compose(quickPicksPool.filter { it.id in cardIds }, tidied, lead, 20, EngineParams.DEFAULT.columns, { it.id }, { laneOf[it.id] }, { it.artists.firstOrNull()?.name })
         }
         fun local(items: List<LocalItem>) = pass.row(items.filter { (it as? Song)?.song?.id !in goneIds }, false, { (it as? Song)?.song?.id }, { (it as? Song)?.song?.title }, { (it as? Song)?.artists?.firstOrNull()?.name }, { (it as? Song)?.artists?.firstOrNull()?.id })
-        fun yt(items: List<YTItem>, fresh: Boolean = false, maxPerArtist: Int = Int.MAX_VALUE) = pass.row(items.filter { (it as? SongItem)?.id !in goneIds }, fresh, { (it as? SongItem)?.id }, { (it as? SongItem)?.title }, { (it as? SongItem)?.artists?.firstOrNull()?.name }, { (it as? SongItem)?.artists?.firstOrNull()?.id }, { false }, maxPerArtist)
+        fun yt(items: List<YTItem>, fresh: Boolean = false, maxPerArtist: Int = Int.MAX_VALUE) = pass.row(items.filter { (it as? SongItem)?.id !in goneIds && !hidden.hides(it) }, fresh, { (it as? SongItem)?.id }, { (it as? SongItem)?.title }, { (it as? SongItem)?.artists?.firstOrNull()?.name }, { (it as? SongItem)?.artists?.firstOrNull()?.id }, { false }, maxPerArtist)
         // Whichever Quick picks row is on screen goes first; the other is not shown and must not
         // claim songs from the rows below it.
         val ytShown = ytRowOnScreen(ytQuickPicksPool)
@@ -888,7 +892,7 @@ class HomeViewModel @Inject constructor(
             quickPicks.value = quickPicksPool.take(20)
         } else {
             quickPicks.value = quickPicksRow()
-            ytQuickPicks.value = ytQuickPicksPool?.take(20)
+            ytQuickPicks.value = ytQuickPicksPool?.let(hidden::apply)?.take(20)
         }
         leanOnScreen.value = leanOnScreenOf(engineRow, if (ytShown) emptyList() else quickPicks.value.orEmpty(), laneOf, source)
         // Under Quick picks, so it gives way to it; nothing just played, like Quick picks.
@@ -1308,7 +1312,7 @@ class HomeViewModel @Inject constructor(
         tidyRows()
 
         YouTube.explore().onSuccess { page ->
-            explorePage.value = page
+            explorePage.value = page.copy(newReleaseAlbums = ContentFilter.current.apply(page.newReleaseAlbums))
         }.onFailure {
             reportException(it)
         }
@@ -1316,8 +1320,9 @@ class HomeViewModel @Inject constructor(
         // No syncUtils.syncRecentActivity() here: nothing shows recent activity any more, so the
         // browse it made every half hour with auto sync on fetched the account's history for no one.
 
-        allYtItems.value = similarPool?.flatMap { it.items }.orEmpty() +
-                homePagePool?.sections?.flatMap { it.items }.orEmpty()
+        allYtItems.value = ContentFilter.current.apply(
+            similarPool?.flatMap { it.items }.orEmpty() + homePagePool?.sections?.flatMap { it.items }.orEmpty()
+        )
 
         isLoading.value = false
     }
@@ -1662,6 +1667,10 @@ class HomeViewModel @Inject constructor(
                 .distinctUntilChanged()
                 .drop(1)
                 .collect { refreshDiscover(force = false) }
+        }
+        // A switch under Library and content changes the rows at once, both ways.
+        viewModelScope.launch {
+            ContentFilter.changes.drop(1).collect { tidyRows() }
         }
         viewModelScope.launch {
             lastFmSimilar.caughtUpAt.drop(1).collect {

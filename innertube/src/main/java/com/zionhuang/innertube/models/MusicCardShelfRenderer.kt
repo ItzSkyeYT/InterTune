@@ -13,6 +13,10 @@ data class MusicCardShelfRenderer(
     val onTap: NavigationEndpoint,
     val subtitleBadges: List<Badges>?,
 ) {
+    /** The music video type of the song the card plays, when it is a song. */
+    val musicVideoType: String?
+        get() = onTap.watchEndpoint.musicVideoType
+
     @Serializable
     data class Header(
         val musicCardShelfHeaderBasicRenderer: MusicCardShelfHeaderBasicRenderer,

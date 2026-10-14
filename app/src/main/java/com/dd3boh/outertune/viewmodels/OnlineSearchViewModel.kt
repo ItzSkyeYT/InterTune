@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.viewmodels
 
+import com.dd3boh.outertune.models.ContentFilter
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -47,7 +48,7 @@ class OnlineSearchViewModel @Inject constructor(
                 failed.remove(SUMMARY)
                 YouTube.searchSummary(query)
                     .onSuccess {
-                        summaryPage = it
+                        summaryPage = ContentFilter.current.search(it)
                     }
                     .onFailure {
                         reportException(it)
@@ -59,7 +60,7 @@ class OnlineSearchViewModel @Inject constructor(
                 failed.remove(filter.value)
                 YouTube.search(query, filter)
                     .onSuccess { result ->
-                        viewStateMap[filter.value] = ItemsPage(result.items.distinctBy { it.id }, result.continuation)
+                        viewStateMap[filter.value] = ItemsPage(ContentFilter.current.apply(result.items.distinctBy { it.id }), result.continuation)
                     }
                     .onFailure {
                         reportException(it)
@@ -87,7 +88,7 @@ class OnlineSearchViewModel @Inject constructor(
             val continuation = viewState.continuation
             if (continuation != null) {
                 val searchResult = YouTube.searchContinuation(continuation).getOrNull() ?: return@launch
-                viewStateMap[filter] = ItemsPage((viewState.items + searchResult.items).distinctBy { it.id }, searchResult.continuation)
+                viewStateMap[filter] = ItemsPage((viewState.items + ContentFilter.current.apply(searchResult.items)).distinctBy { it.id }, searchResult.continuation)
             }
         }
     }

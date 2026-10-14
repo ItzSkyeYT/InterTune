@@ -44,6 +44,13 @@ data class MusicResponsiveListItemRenderer(
                 overlay?.musicItemThumbnailOverlayRenderer?.content?.musicPlayButtonRenderer?.playNavigationEndpoint?.watchEndpoint.episode() ||
                 flexColumns.firstOrNull()?.musicResponsiveListItemFlexColumnRenderer?.text?.runs.orEmpty().any { it.navigationEndpoint?.watchEndpoint.episode() }
         }
+    /** The music video type the row's song plays as, from the first of its endpoints that says. */
+    val musicVideoType: String?
+        get() = navigationEndpoint?.watchEndpoint.musicVideoType
+            ?: overlay?.musicItemThumbnailOverlayRenderer?.content?.musicPlayButtonRenderer?.playNavigationEndpoint?.watchEndpoint.musicVideoType
+            ?: flexColumns.firstOrNull()?.musicResponsiveListItemFlexColumnRenderer?.text?.runs.orEmpty()
+                .firstNotNullOfOrNull { it.navigationEndpoint?.watchEndpoint.musicVideoType }
+
     val isPlaylist: Boolean
         get() = navigationEndpoint?.browseEndpoint?.browseEndpointContextSupportedConfigs?.browseEndpointContextMusicConfig?.pageType == MUSIC_PAGE_TYPE_PLAYLIST
     val isAlbum: Boolean

@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.viewmodels
 
+import com.dd3boh.outertune.models.ContentFilter
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -42,7 +43,7 @@ class ArtistItemsViewModel @Inject constructor(
             ).onSuccess { artistItemsPage ->
                 title.value = artistItemsPage.title
                 itemsPage.value = ItemsPage(
-                    items = artistItemsPage.items.distinctBy { it.id },
+                    items = ContentFilter.current.apply(artistItemsPage.items.distinctBy { it.id }),
                     continuation = artistItemsPage.continuation
                 )
             }.onFailure {
@@ -60,7 +61,7 @@ class ArtistItemsViewModel @Inject constructor(
                 .onSuccess { artistItemsContinuationPage ->
                     itemsPage.update {
                         ItemsPage(
-                            items = (oldItemsPage.items + artistItemsContinuationPage.items).distinctBy { it.id },
+                            items = (oldItemsPage.items + ContentFilter.current.apply(artistItemsContinuationPage.items)).distinctBy { it.id },
                             continuation = artistItemsContinuationPage.continuation
                         )
                     }

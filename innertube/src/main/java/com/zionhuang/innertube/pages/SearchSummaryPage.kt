@@ -28,6 +28,7 @@ data class SearchSummaryPage(
             return when {
                 renderer.onTap.watchEndpoint != null -> {
                     SongItem(
+                        musicVideoType = renderer.musicVideoType,
                         id = renderer.onTap.watchEndpoint.videoId ?: return null,
                         title = renderer.title.runs?.firstOrNull()?.text ?: return null,
                         artists = subtitle?.getOrNull(1)?.oddElements()?.map {
@@ -132,6 +133,7 @@ data class SearchSummaryPage(
                         LENGTH.matches(first[0].text.trim())
                     val episode = renderer.isPodcastEpisode
                     SongItem(
+                        musicVideoType = renderer.musicVideoType,
                         id = renderer.playlistItemData?.videoId ?: return null,
                         title = renderer.flexColumns.firstOrNull()
                             ?.musicResponsiveListItemFlexColumnRenderer?.text?.runs

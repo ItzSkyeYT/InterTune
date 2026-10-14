@@ -21,6 +21,10 @@ data class MusicTwoRowItemRenderer(
     val navigationEndpoint: NavigationEndpoint,
     val thumbnailOverlay: MusicResponsiveListItemRenderer.Overlay?,
 ) {
+    /** The music video type the card's song plays as. */
+    val musicVideoType: String?
+        get() = navigationEndpoint.watchEndpoint.musicVideoType
+
     val isSong: Boolean
         get() = navigationEndpoint.endpoint is WatchEndpoint
     val isPlaylist: Boolean

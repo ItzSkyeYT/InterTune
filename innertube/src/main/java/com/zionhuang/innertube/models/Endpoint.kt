@@ -37,6 +37,10 @@ data class WatchEndpoint(
     }
 }
 
+/** The music video type this endpoint plays, as [SongItem.musicVideoType] keeps it. */
+val WatchEndpoint?.musicVideoType: String?
+    get() = this?.watchEndpointMusicSupportedConfigs?.watchEndpointMusicConfig?.musicVideoType
+
 @Serializable
 data class BrowseEndpoint(
     val browseId: String,
