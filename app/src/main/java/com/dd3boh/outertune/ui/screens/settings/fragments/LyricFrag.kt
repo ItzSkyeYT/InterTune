@@ -37,6 +37,7 @@ import com.dd3boh.outertune.constants.LyricClickable
 import com.dd3boh.outertune.constants.LyricFontSizeKey
 import com.dd3boh.outertune.constants.LyricKaraokeEnable
 import com.dd3boh.outertune.constants.LyricSourcePrefKey
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.LyricTrimKey
 import com.dd3boh.outertune.constants.LyricUpdateSpeed
 import com.dd3boh.outertune.constants.LyricsPosition
@@ -143,21 +144,25 @@ fun ColumnScope.LyricSourceFrag() {
     val (enableLrcLib, onEnableLrcLibChange) = rememberPreference(key = EnableLrcLibKey, defaultValue = true)
     val (preferLocalLyric, onPreferLocalLyric) = rememberPreference(LyricSourcePrefKey, defaultValue = true)
 
-    SwitchPreference(
-        modifier = Modifier.tourTarget(Tour.SETTING_LYRICS_SOURCES),
-        title = { Text(stringResource(R.string.enable_lrclib)) },
-        description = stringResource(R.string.enable_lrclib_description),
-        icon = { Icon(Icons.Rounded.Lyrics, null) },
-        checked = enableLrcLib,
-        onCheckedChange = onEnableLrcLibChange
-    )
-    SwitchPreference(
-        title = { Text(stringResource(R.string.enable_kugou)) },
-        description = stringResource(R.string.enable_kugou_description),
-        icon = { Icon(Icons.Rounded.Lyrics, null) },
-        checked = enableKugou,
-        onCheckedChange = onEnableKugouChange
-    )
+    if (Unreleased.LYRICS_SOURCES) {
+        LyricsSourcesEntry(Modifier.tourTarget(Tour.SETTING_LYRICS_SOURCES))
+    } else {
+        SwitchPreference(
+            modifier = Modifier.tourTarget(Tour.SETTING_LYRICS_SOURCES),
+            title = { Text(stringResource(R.string.enable_lrclib)) },
+            description = stringResource(R.string.enable_lrclib_description),
+            icon = { Icon(Icons.Rounded.Lyrics, null) },
+            checked = enableLrcLib,
+            onCheckedChange = onEnableLrcLibChange
+        )
+        SwitchPreference(
+            title = { Text(stringResource(R.string.enable_kugou)) },
+            description = stringResource(R.string.enable_kugou_description),
+            icon = { Icon(Icons.Rounded.Lyrics, null) },
+            checked = enableKugou,
+            onCheckedChange = onEnableKugouChange
+        )
+    }
     // prioritize local lyric files over all cloud providers
     SwitchPreference(
         modifier = Modifier.tourTarget(Tour.SETTING_LYRICS_PREFER_LOCAL),

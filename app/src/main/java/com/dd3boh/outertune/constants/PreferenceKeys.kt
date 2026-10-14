@@ -251,6 +251,11 @@ val PauseRemoteListenHistoryKey = booleanPreferencesKey("pauseRemoteListenHistor
 val PauseSearchHistoryKey = booleanPreferencesKey("pauseSearchHistory")
 val EnableKugouKey = booleanPreferencesKey("enableKugou")
 val EnableLrcLibKey = booleanPreferencesKey("enableLrcLib")
+val EnableYouTubeLyricsKey = booleanPreferencesKey("enableYouTubeLyrics")
+val EnableYouTubeCaptionsKey = booleanPreferencesKey("enableYouTubeCaptions")
+
+/** The order the lyrics sources are asked in: their ids joined by commas. See LyricsSources. */
+val LyricsSourceOrderKey = stringPreferencesKey("lyricsSourceOrder")
 val UseLoginForBrowse = booleanPreferencesKey("useLoginForBrowse")
 
 

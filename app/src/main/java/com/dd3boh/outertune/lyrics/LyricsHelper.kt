@@ -3,6 +3,7 @@ package com.dd3boh.outertune.lyrics
 import android.content.Context
 import android.util.LruCache
 import com.dd3boh.outertune.constants.LyricSourcePrefKey
+import com.dd3boh.outertune.constants.LyricsSourceOrderKey
 import com.dd3boh.outertune.constants.LyricTrimKey
 import com.dd3boh.outertune.constants.MultilineLrcKey
 import com.dd3boh.outertune.db.MusicDatabase
@@ -32,8 +33,18 @@ class LyricsHelper @Inject constructor(
     @ApplicationContext private val context: Context,
     val database: MusicDatabase
 ) {
-    private val lyricsProviders =
-        listOf(YouTubeSubtitleLyricsProvider, LrcLibLyricsProvider, KuGouLyricsProvider, YouTubeLyricsProvider)
+    private val providersById = mapOf(
+        LyricsSources.YOUTUBE_CAPTIONS to YouTubeSubtitleLyricsProvider,
+        LyricsSources.LRCLIB to LrcLibLyricsProvider,
+        LyricsSources.KUGOU to KuGouLyricsProvider,
+        LyricsSources.YOUTUBE_MUSIC to YouTubeLyricsProvider,
+    )
+
+    /** The sources in the order set under Lyrics sources (see LyricsSources), those switched off left out. */
+    private fun lyricsProviders(): List<LyricsProvider> =
+        LyricsSources.order(context.dataStore.get(LyricsSourceOrderKey, ""))
+            .mapNotNull { providersById[it] }
+            .filter { it.isEnabled(context) }
     private val cache = LruCache<String, List<LyricsResult>>(MAX_CACHE_SIZE)
 
     /**
@@ -151,7 +162,7 @@ class LyricsHelper @Inject constructor(
             album = mediaMetadata.album?.title,
             duration = knownDuration(mediaMetadata),
         )
-        return LyricsLookup.firstFound(lyricsProviders.filter { it.isEnabled(context) }, query) { _, e ->
+        return LyricsLookup.firstFound(lyricsProviders(), query) { _, e ->
             reportException(e)
         }
     }
@@ -204,7 +215,7 @@ class LyricsHelper @Inject constructor(
             return
         }
         val allResult = mutableListOf<LyricsResult>()
-        lyricsProviders.forEach { provider ->
+        lyricsProviders().forEach { provider ->
             if (provider.isEnabled(context)) {
                 provider.getAllLyrics(mediaId, songTitle, songArtists, duration) { lyrics ->
                     val result = LyricsResult(provider.name, lyrics)

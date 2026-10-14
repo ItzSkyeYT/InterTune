@@ -79,6 +79,18 @@ object Unreleased {
     val ADAPTIVE_LEARNS = BuildConfig.DEBUG
 
     /**
+     * Lyrics sources under Lyrics: the four sources in one list, each with a tick to switch it off
+     * and a handle to set the order they are asked in (LyricsSources). Without it, the LRCLIB and
+     * KuGou switches as before, and the order is the old fixed one; the order and the two YouTube
+     * switches are read in every build, so nothing changes for anyone who never saw the list.
+     *
+     * Unit tests only (LyricsSourcesTest), not yet seen on a screen. For 0.12. Its nine texts are
+     * English only and held back. To ship: set this to true, or delete it with the one check that
+     * reads it, in LyricFrag.
+     */
+    val LYRICS_SOURCES = BuildConfig.DEBUG
+
+    /**
      * "Living blur" among the player background styles: the cover reduced to patches of colour
      * that breathe with the music (LivingBackground, LevelTap). A prototype to look at, not agreed
      * for any release. When it is: set this to true or delete it with the two checks that read
