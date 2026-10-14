@@ -1844,4 +1844,12 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="problem_report_copy">Copy</string>
     <string name="problem_report_copied">Copied</string>
     <string name="problem_report_close">Close</string>
+
+    <!-- The About section of an artist's page (ArtistAbout). -->
+    <string name="artist_about_more">More</string>
+    <string name="artist_about_less">Less</string>
+    <plurals name="artist_subscribers">
+        <item quantity="one">%1$s subscriber</item>
+        <item quantity="other">%1$s subscribers</item>
+    </plurals>
 </resources>

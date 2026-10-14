@@ -10,5 +10,7 @@ data class SubscriptionButton(
     data class SubscribeButtonRenderer(
         val subscribed: Boolean,
         val channelId: String,
+        /** The count alone, "7.19M" or "7,19 M", with no word after it. */
+        val subscriberCountText: Runs? = null,
     )
 }

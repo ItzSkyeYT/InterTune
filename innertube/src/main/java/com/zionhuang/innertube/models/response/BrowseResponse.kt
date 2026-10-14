@@ -98,6 +98,8 @@ data class BrowseResponse(
             val startRadioButton: Button?,
             val subscriptionButton: SubscriptionButton?,
             val menu: Menu,
+            /** A whole phrase in the page's language, "74.4M monthly audience". */
+            val monthlyListenerCount: Runs? = null,
         )
 
         @Serializable
