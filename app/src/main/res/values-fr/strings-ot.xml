@@ -1673,4 +1673,13 @@
         <item quantity="many">%1$d nouveautés</item>
         <item quantity="other">%1$d nouveautés</item>
     </plurals>
+
+    <!-- The sleep timer on a schedule, under the sleep timer's fade in Player and audio (SleepScheduleFrag, ScheduledSleep). -->
+    <string name="sleep_schedule">Minuterie de sommeil programmée</string>
+    <string name="sleep_schedule_description">Chaque jour à partir de %1$s, la minuterie de sommeil se lance seule pour %2$s.</string>
+    <string name="sleep_schedule_explain">Elle se lance à cette heure si la musique joue, ou quand la musique démarre dans les 3 heures qui suivent. Une seule fois par jour : une minuterie que vous lancez vous-même compte pour ce jour-là, et après la minuterie, la musique que vous remettez continue.</string>
+    <string name="sleep_schedule_start">Commence à</string>
+    <string name="sleep_schedule_length">Durée de la minuterie</string>
+    <string name="time_of_day_type">Saisir l\'heure</string>
+    <string name="time_of_day_clock_face">Utiliser le cadran</string>
 </resources>

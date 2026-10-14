@@ -1,5 +1,13 @@
 package com.dd3boh.outertune.ui.screens.settings.fragments
 
+import androidx.compose.material.icons.rounded.EventRepeat
+import androidx.compose.material.icons.rounded.Schedule
+import com.dd3boh.outertune.constants.SleepScheduleKey
+import com.dd3boh.outertune.constants.SleepScheduleLengthKey
+import com.dd3boh.outertune.constants.SleepScheduleStartKey
+import com.dd3boh.outertune.playback.ScheduledSleep
+import com.dd3boh.outertune.ui.dialog.TimeOfDayDialog
+import com.dd3boh.outertune.ui.dialog.formatTimeOfDay
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -973,6 +981,7 @@ fun ColumnScope.PlaybackBehaviourFrag() {
         isEnabled = sleepTimerFade,
         onClick = { showSleepTimerFadeDur = true }
     )
+    SleepScheduleFrag()
 
     /**
      * ---------------------------
@@ -999,6 +1008,61 @@ fun ColumnScope.PlaybackBehaviourFrag() {
             }
         )
     }
+}
+
+/**
+ * The sleep timer on a schedule (ScheduledSleep), under the sleep timer's fade: a switch, and once
+ * it is on, the time it starts at and how long it runs. The values shown are the ones the service
+ * reads, kept to what they can be, so the row says what will happen.
+ */
+@Composable
+fun ColumnScope.SleepScheduleFrag() {
+    val context = LocalContext.current
+    val (on, onOnChange) = rememberPreference(SleepScheduleKey, defaultValue = false)
+    val (storedStart, onStartChange) = rememberPreference(SleepScheduleStartKey, defaultValue = ScheduledSleep.DEFAULT_START)
+    val (storedLength, onLengthChange) = rememberPreference(SleepScheduleLengthKey, defaultValue = ScheduledSleep.DEFAULT_LENGTH)
+    val start = ScheduledSleep.startOf(storedStart)
+    val length = ScheduledSleep.lengthOf(storedLength)
+    val time = formatTimeOfDay(context, start)
+    var showStart by remember { mutableStateOf(false) }
+
+    ExplainedSwitchPreference(
+        title = stringResource(R.string.sleep_schedule),
+        description = stringResource(R.string.sleep_schedule_description, time, pluralStringResource(R.plurals.minute, length, length)),
+        explanation = stringResource(R.string.sleep_schedule_explain),
+        icon = { Icon(Icons.Rounded.EventRepeat, null) },
+        checked = on,
+        onCheckedChange = onOnChange,
+    )
+
+    if (showStart) {
+        TimeOfDayDialog(
+            title = stringResource(R.string.sleep_schedule_start),
+            minuteOfDay = start,
+            onDismiss = { showStart = false },
+            onConfirm = {
+                showStart = false
+                onStartChange(it)
+            },
+        )
+    }
+
+    if (!on) return
+
+    PreferenceEntry(
+        title = { Text(stringResource(R.string.sleep_schedule_start)) },
+        description = time,
+        icon = { Icon(Icons.Rounded.Schedule, null) },
+        onClick = { showStart = true },
+    )
+    ListPreference(
+        title = { Text(stringResource(R.string.sleep_schedule_length)) },
+        icon = { Icon(Icons.Rounded.Timer, null) },
+        selectedValue = length,
+        values = ScheduledSleep.LENGTHS,
+        valueText = { pluralStringResource(R.plurals.minute, it, it) },
+        onValueSelected = onLengthChange,
+    )
 }
 
 /**

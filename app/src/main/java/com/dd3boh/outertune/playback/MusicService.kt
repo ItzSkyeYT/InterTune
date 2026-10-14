@@ -127,6 +127,10 @@ import com.dd3boh.outertune.constants.PlayerVolumeKey
 import com.dd3boh.outertune.constants.ProximityVolumeKey
 import com.dd3boh.outertune.constants.RepeatModeKey
 import com.dd3boh.outertune.constants.SkipOnErrorKey
+import com.dd3boh.outertune.constants.SleepScheduleKey
+import com.dd3boh.outertune.constants.SleepScheduleLastNightKey
+import com.dd3boh.outertune.constants.SleepScheduleLengthKey
+import com.dd3boh.outertune.constants.SleepScheduleStartKey
 import com.dd3boh.outertune.constants.SleepTimerDefaults
 import com.dd3boh.outertune.constants.SleepTimerFadeDurationKey
 import com.dd3boh.outertune.constants.SleepTimerFadeKey
@@ -225,7 +229,9 @@ import java.io.File
 import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
+import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.ZonedDateTime
 import javax.inject.Inject
 import kotlin.math.min
 import kotlin.math.pow
@@ -537,6 +543,15 @@ class MusicService : MediaLibraryService(),
     private val isNetworkConnected = MutableStateFlow(true)
 
     lateinit var sleepTimer: SleepTimer
+
+    /** Whether music is playing, which is all the sleep timer on a schedule waits on. */
+    private val playingNow = MutableStateFlow(false)
+
+    /** Counts the song changes: the schedule looks again at each one, see lookAtSleepSchedule. */
+    private val songChanges = MutableStateFlow(0)
+
+    /** The day the schedule last served (ScheduledSleep.Look.night). Read and written on the main thread. */
+    private var sleepScheduleServed: LocalDate? = null
 
     /** Fade between tracks. Off unless asked for; one more factor in the volume combine. */
     private lateinit var transitionFade: TransitionFade
@@ -1256,6 +1271,40 @@ class MusicService : MediaLibraryService(),
                     sleepTimer.fadeEnabled = fade
                     sleepTimer.fadeDurationMs = seconds * 1000L
                 }
+
+            // The sleep timer on a schedule (ScheduledSleep). It looks only while music plays: as
+            // the music starts, at each song, as a timer starts or stops, as a setting changes,
+            // and when the window opens. Paused, nothing here runs at all. It starts this
+            // service's one sleep timer, so the fade and the stop are the ones set above.
+            //
+            // The song changes are there for the wait. A delay counts the time the processor is
+            // awake, and with audio offload on it sleeps through most of a song, so the wait for
+            // the window can run long; a song change always happens awake.
+            scope.launch {
+                sleepScheduleServed = dataStore.data.first()[SleepScheduleLastNightKey]
+                    ?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+                combine(
+                    dataStore.data
+                        .map {
+                            ScheduledSleep.Settings(
+                                on = it[SleepScheduleKey] ?: false,
+                                start = ScheduledSleep.startOf(it[SleepScheduleStartKey]),
+                                length = ScheduledSleep.lengthOf(it[SleepScheduleLengthKey]),
+                            )
+                        }
+                        .distinctUntilChanged(),
+                    playingNow,
+                    snapshotFlow { sleepTimer.isActive },
+                    songChanges,
+                ) { settings, playing, _, _ -> settings.takeIf { it.on && playing } }
+                    .collectLatest { settings ->
+                        if (settings == null) return@collectLatest
+                        while (isActive) {
+                            lookAtSleepSchedule(settings)
+                            delay(ScheduledSleep.untilNextLook(ZonedDateTime.now(), settings.start).toMillis())
+                        }
+                    }
+            }
 
             // On the service scope, which is the player's thread: both setters read the player.
             // The length goes in first, so switching on with a new length starts on its own curve.
@@ -2614,7 +2663,26 @@ class MusicService : MediaLibraryService(),
         ).show()
     }
 
+    /**
+     * One look of the sleep timer on a schedule, while music plays: the timer started, or one
+     * already running left to do the job, and the day written down either way. Main thread.
+     */
+    private fun lookAtSleepSchedule(settings: ScheduledSleep.Settings) {
+        val look = ScheduledSleep.look(LocalDateTime.now(), settings.start, sleepScheduleServed, sleepTimer.isActive) ?: return
+        if (look.startTimer) {
+            sleepTimer.start(settings.length)
+            Log.i(TAG, "The sleep timer on a schedule started: ${settings.length} min, for ${look.night}")
+        } else {
+            Log.i(TAG, "The sleep timer on a schedule found a timer running, which counts for ${look.night}")
+        }
+        // Held here at once, so that the next look cannot start a second timer before the store
+        // has answered, and stored so that a restart of the app later that night does not either.
+        sleepScheduleServed = look.night
+        scope.launch { dataStore.edit { it[SleepScheduleLastNightKey] = look.night.toString() } }
+    }
+
     override fun onIsPlayingChanged(isPlaying: Boolean) {
+        playingNow.value = isPlaying
         updateWidget()
         // The stream is what costs battery, so it runs only while something is playing. Glide the
         // stage home on pause rather than dropping it, since the listener may well be mid-turn.
@@ -2648,6 +2716,7 @@ class MusicService : MediaLibraryService(),
 
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
         super.onMediaItemTransition(mediaItem, reason)
+        songChanges.value += 1
         noteTransition(mediaItem, reason)
         // The car's tabs each show what is playing across their top, and the car keeps what it
         // was handed: another song, and it is told.

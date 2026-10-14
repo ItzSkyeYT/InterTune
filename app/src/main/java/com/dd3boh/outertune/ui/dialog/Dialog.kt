@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -140,6 +141,8 @@ fun DefaultDialog(
     title: (@Composable () -> Unit)? = null,
     buttons: (@Composable () -> Unit)? = null,
     horizontalAlignment: Alignment.Horizontal = Alignment.CenterHorizontally,
+    /** At the other end of the buttons' row, for what is not an answer: a time picker's switch between the clock and the keyboard. */
+    buttonsStart: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Dialog(
@@ -203,7 +206,8 @@ fun DefaultDialog(
                     Spacer(Modifier.height(24.dp))
 
                     ButtonsRow(
-                        modifier = Modifier.align(Alignment.End)
+                        modifier = if (buttonsStart != null) Modifier.fillMaxWidth() else Modifier.align(Alignment.End),
+                        start = { buttonsStart?.invoke() },
                     ) {
                         CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.primary) {
                             ProvideTextStyle(
@@ -223,6 +227,8 @@ fun DefaultDialog(
 fun ListDialog(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Where the list is: a long list can open on the entry chosen rather than on its first. */
+    state: LazyListState = rememberLazyListState(),
     content: LazyListScope.() -> Unit,
 ) {
     Dialog(
@@ -243,9 +249,8 @@ fun ListDialog(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = modifier.padding(vertical = 24.dp)
             ) {
-                val lazyListState = rememberLazyListState()
                 LazyColumn(
-                    state = lazyListState,
+                    state = state,
                     content = content
                 )
             }

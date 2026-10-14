@@ -127,6 +127,20 @@ val SleepTimerFadeKey = booleanPreferencesKey("sleepTimerFade")
 val SleepTimerFadeDurationKey = intPreferencesKey("sleepTimerFadeDuration")
 
 /**
+ * The sleep timer on a schedule (ScheduledSleep): off by default, from 23:00, for 30 minutes. The
+ * start is in minutes after midnight and the length in minutes.
+ */
+val SleepScheduleKey = booleanPreferencesKey("sleepSchedule")
+val SleepScheduleStartKey = intPreferencesKey("sleepScheduleStart")
+val SleepScheduleLengthKey = intPreferencesKey("sleepScheduleLength")
+
+/**
+ * The day the schedule last served, as an ISO date, so that it starts once a day and a restart of
+ * the app in the evening does not give the music a second timer. Written by the service only.
+ */
+val SleepScheduleLastNightKey = stringPreferencesKey("sleepScheduleLastNight")
+
+/**
  * Whether each song fades out at its end and the next one fades in.
  *
  * Off by default. The songs never overlap, so it is not a crossfade and the setting does not call

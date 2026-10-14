@@ -1844,4 +1844,13 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="problem_report_copy">Copy</string>
     <string name="problem_report_copied">Copied</string>
     <string name="problem_report_close">Close</string>
+
+    <!-- The sleep timer on a schedule, under the sleep timer's fade in Player and audio (SleepScheduleFrag, ScheduledSleep). -->
+    <string name="sleep_schedule">Sleep timer on a schedule</string>
+    <string name="sleep_schedule_description">Every day from %1$s, the sleep timer starts by itself for %2$s.</string>
+    <string name="sleep_schedule_explain">It starts at that time if music is playing, or when music starts in the 3 hours after. Only once a day: a sleep timer you set yourself counts as that day\'s, and after the timer, music you put on again plays on.</string>
+    <string name="sleep_schedule_start">Starts at</string>
+    <string name="sleep_schedule_length">Timer length</string>
+    <string name="time_of_day_type">Type the time</string>
+    <string name="time_of_day_clock_face">Use the clock face</string>
 </resources>
