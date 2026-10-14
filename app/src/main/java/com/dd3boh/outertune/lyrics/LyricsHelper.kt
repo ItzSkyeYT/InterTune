@@ -1,6 +1,7 @@
 package com.dd3boh.outertune.lyrics
 
 import android.content.Context
+import android.util.Log
 import android.util.LruCache
 import com.dd3boh.outertune.constants.LyricSourcePrefKey
 import com.dd3boh.outertune.constants.LyricsSourceOrderKey
@@ -24,6 +25,7 @@ import kotlinx.coroutines.flow.map
 import org.akanework.gramophone.logic.utils.LrcUtils
 import org.akanework.gramophone.logic.utils.SemanticLyrics
 import org.akanework.gramophone.logic.utils.parseLrc
+import org.akanework.gramophone.logic.utils.parseTtml
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -34,6 +36,7 @@ class LyricsHelper @Inject constructor(
     val database: MusicDatabase
 ) {
     private val providersById = mapOf(
+        LyricsSources.BETTER_LYRICS to BetterLyricsProvider,
         LyricsSources.YOUTUBE_CAPTIONS to YouTubeSubtitleLyricsProvider,
         LyricsSources.LRCLIB to LrcLibLyricsProvider,
         LyricsSources.KUGOU to KuGouLyricsProvider,
@@ -81,11 +84,11 @@ class LyricsHelper @Inject constructor(
 
         val cached = cache.get(mediaMetadata.id)?.firstOrNull()
         if (cached != null) {
-            return parseLrc(cached.lyrics, trim, multiline)
+            return parse(cached.lyrics, trim, multiline)
         }
         val dbLyrics = database.lyrics(mediaMetadata.id).let { it.first()?.lyrics }
         if (dbLyrics != null && !prefLocal) {
-            return parseLrc(dbLyrics, trim, multiline)
+            return parse(dbLyrics, trim, multiline)
         }
 
         val localLyrics: SemanticLyrics? =
@@ -98,7 +101,7 @@ class LyricsHelper @Inject constructor(
                 return localLyrics
             }
             if (dbLyrics != null) {
-                return parseLrc(dbLyrics, trim, multiline)
+                return parse(dbLyrics, trim, multiline)
             }
 
             // "lazy eval" the remote lyrics cuz it is laughably slow
@@ -112,7 +115,7 @@ class LyricsHelper @Inject constructor(
                         )
                     )
                 }
-                return parseLrc(remote.lyrics, trim, multiline)
+                return parse(remote.lyrics, trim, multiline)
             }
         } else {
             remote = getRemoteLyrics(mediaMetadata)
@@ -125,7 +128,7 @@ class LyricsHelper @Inject constructor(
                         )
                     )
                 }
-                return parseLrc(remote.lyrics, trim, multiline)
+                return parse(remote.lyrics, trim, multiline)
             } else if (localLyrics != null) {
                 return localLyrics
             }
@@ -154,7 +157,20 @@ class LyricsHelper @Inject constructor(
     /**
      * Lookup lyrics from remote providers
      */
-    private suspend fun getRemoteLyrics(mediaMetadata: MediaMetadata): LyricsLookup.Outcome {
+    private suspend fun getRemoteLyrics(mediaMetadata: MediaMetadata): LyricsLookup.Outcome =
+        findRemoteLyrics(mediaMetadata).also { found ->
+            // Which kind came back: only Better Lyrics gives words timed one by one (TTML).
+            val text = found.lyrics
+            val kind = when {
+                text == null -> "none"
+                LyricsMatch.isTtml(text) -> "timed word by word"
+                LyricsMatch.isSynced(text) -> "timed by line"
+                else -> "plain"
+            }
+            Log.i(TAG, "Lyrics for ${mediaMetadata.id}: $kind")
+        }
+
+    private suspend fun findRemoteLyrics(mediaMetadata: MediaMetadata): LyricsLookup.Outcome {
         val query = LyricsQuery(
             id = mediaMetadata.id,
             title = mediaMetadata.title,
@@ -227,7 +243,17 @@ class LyricsHelper @Inject constructor(
         cache.put(cacheKey, allResult)
     }
 
+    /**
+     * Lyrics as kept, read whatever their form: TTML, as Better Lyrics gives, or LRC and plain
+     * text, as the others do. The lookup used to read everything as LRC, which has no word for TTML.
+     */
+    private fun parse(text: String, trim: Boolean, multiline: Boolean): SemanticLyrics? {
+        if (LyricsMatch.isTtml(text)) runCatching { parseTtml(null, text) }.getOrNull()?.let { return it }
+        return parseLrc(text, trim, multiline)
+    }
+
     companion object {
+        private const val TAG = "LyricsHelper"
         private const val MAX_CACHE_SIZE = 3
 
         // Long enough for the stream to be resolved on a slow connection, short enough that lyrics

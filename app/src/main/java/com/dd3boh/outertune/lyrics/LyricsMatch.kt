@@ -192,7 +192,13 @@ object LyricsMatch {
     }
 
     /** Whether lyrics carry timings, as LRC lines like "[00:29.59]Si señor" do. */
-    fun isSynced(text: String): Boolean = text.lineSequence().any { SYNCED_LINE.matches(it) }
+    fun isSynced(text: String): Boolean =
+        (isTtml(text) && "begin=" in text) || text.lineSequence().any { SYNCED_LINE.matches(it) }
+
+    /** Whether the text is a TTML document, as Better Lyrics answers, rather than LRC or plain words. */
+    fun isTtml(text: String): Boolean = TTML_ROOT.containsMatchIn(text.trimStart().take(400))
+
+    private val TTML_ROOT = Regex("""^(<\?xml[^>]*>\s*)?<tt[\s>]""")
 
     /**
      * Lower case, no accents, Simplified Chinese for Traditional, no apostrophes, "&" as "and", other

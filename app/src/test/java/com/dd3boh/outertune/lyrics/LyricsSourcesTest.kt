@@ -16,27 +16,27 @@ import org.junit.Test
 class LyricsSourcesTest {
 
     @Test
-    fun `nothing set is the order they were always asked in`() {
-        val always = listOf("youtube_captions", "lrclib", "kugou", "youtube_music")
+    fun `nothing set is Better Lyrics first, then the order they were always asked in`() {
+        val always = listOf("better_lyrics", "youtube_captions", "lrclib", "kugou", "youtube_music")
         assertEquals(always, LyricsSources.order(null))
         assertEquals(always, LyricsSources.order(""))
     }
 
     @Test
     fun `a set order is kept`() {
-        val mine = listOf("lrclib", "kugou", "youtube_music", "youtube_captions")
+        val mine = listOf("lrclib", "kugou", "youtube_music", "better_lyrics", "youtube_captions")
         assertEquals(mine, LyricsSources.order(LyricsSources.encode(mine)))
     }
 
     @Test
     fun `a source the setting does not name takes its default place at the end`() {
         // A store from a version with fewer sources, or one written by hand.
-        assertEquals(listOf("kugou", "lrclib", "youtube_captions", "youtube_music"), LyricsSources.order("kugou,lrclib"))
+        assertEquals(listOf("kugou", "lrclib", "better_lyrics", "youtube_captions", "youtube_music"), LyricsSources.order("kugou,lrclib"))
     }
 
     @Test
     fun `unknown and repeated ids are left out`() {
-        assertEquals(listOf("lrclib", "youtube_captions", "kugou", "youtube_music"), LyricsSources.order("musixmatch, lrclib,lrclib ,"))
+        assertEquals(listOf("lrclib", "better_lyrics", "youtube_captions", "kugou", "youtube_music"), LyricsSources.order("musixmatch, lrclib,lrclib ,"))
     }
 
     @Test
