@@ -181,6 +181,7 @@ import com.dd3boh.outertune.playback.DownloadUtil
 import com.dd3boh.outertune.playback.MediaControllerViewModel
 import com.dd3boh.outertune.playback.MusicService
 import com.dd3boh.outertune.playback.PlayerConnection
+import com.dd3boh.outertune.search.SystemSearch
 import com.dd3boh.outertune.ui.component.LocalHiddenByPlayer
 import com.dd3boh.outertune.ui.component.LocalPlayerSheet
 import com.dd3boh.outertune.ui.component.rememberBottomSheetState
@@ -1109,9 +1110,16 @@ class MainActivity : ComponentActivity() {
                         if (oobeStatus < OOBE_VERSION) return@LaunchedEffect
                         snapshotFlow { navBackStackEntry }.first { it != null }
                         if (pendingLaunchLink != null) pendingLaunchLink = null else pendingLink.link = null
-                        youtubeNavigator(
-                            this@MainActivity, navController, coroutineScope, connection, snackbarHostState, link.toUri()
-                        )
+                        // A playlist of the library, tapped in the phone's own search (SystemSearch),
+                        // has no YouTube page: it opens here.
+                        val libraryPlaylist = SystemSearch.playlistOf(link)
+                        if (libraryPlaylist != null) {
+                            navController.navigate("local_playlist/$libraryPlaylist")
+                        } else {
+                            youtubeNavigator(
+                                this@MainActivity, navController, coroutineScope, connection, snackbarHostState, link.toUri()
+                            )
+                        }
                     }
 
                     // One for as long as this is on screen. It was made anew here whenever this

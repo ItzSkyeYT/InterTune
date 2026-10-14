@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    What the phone's own search knows of InterTune (search/SystemSearch.kt). includeInGlobalSearch
+    is what puts the app in One UI's "Apps to search in"; the suggestions come from the provider
+    named by system_search_authority, which is per build. Used by the debug and preview manifests
+    only for now.
+-->
+<searchable xmlns:android="http://schemas.android.com/apk/res/android"
+    android:label="@string/app_name"
+    android:hint="@string/search_library"
+    android:searchSuggestAuthority="@string/system_search_authority"
+    android:searchSuggestIntentAction="android.intent.action.VIEW"
+    android:searchSuggestThreshold="1"
+    android:searchSettingsDescription="@string/system_search_description"
+    android:includeInGlobalSearch="true" />

@@ -14,6 +14,8 @@ sealed interface YouTubeLink {
     data class Playlist(val id: String) : YouTubeLink
     data class Channel(val id: String) : YouTubeLink
     data class Video(val id: String, val playlistId: String?) : YouTubeLink
+    /** An album's page, by the id YouTube Music browses it under ("MPREb_..."). */
+    data class Album(val id: String) : YouTubeLink
 
     companion object {
         private val HOSTS = setOf("youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com")
@@ -49,6 +51,8 @@ sealed interface YouTubeLink {
                 "playlist" -> list?.let(::Playlist)
                 "channel", "c" -> segments.getOrNull(1)?.takeIf { it.matches(ID) }?.let(::Channel)
                 "watch" -> query["v"]?.takeIf { it.matches(ID) }?.let { Video(it, list) }
+                // Only an album's: the other pages YouTube Music browses have links of their own above.
+                "browse" -> segments.getOrNull(1)?.takeIf { it.matches(ID) && it.startsWith("MPRE") }?.let(::Album)
                 else -> null
             }
         }
