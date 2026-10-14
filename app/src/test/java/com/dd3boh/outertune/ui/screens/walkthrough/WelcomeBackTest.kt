@@ -56,7 +56,7 @@ class WelcomeBackTest {
     @Test
     fun `somebody already on 0_11 is shown only what 0_11_5 added`() {
         val things = newThingsFor(v011, buildVersionCode = v0115)
-        assertEquals(listOf("living_blur", "share_links"), ids(things))
+        assertEquals(listOf("living_blur", "share_links", "library_import", "explain_pictures", "problem_report"), ids(things))
     }
 
     @Test
@@ -66,7 +66,7 @@ class WelcomeBackTest {
         // 0.11.1 would be told of things that build does not have, and then nothing on 0.11.5.
         assertEquals(emptyList<String>(), ids(newThingsFor(v011, buildVersionCode = v0111)))
         assertTrue(newThingsFor(v0109, buildVersionCode = v0111).all { it.release == "0.11" })
-        assertEquals(listOf("living_blur", "share_links"), ids(newThingsFor(v0111, buildVersionCode = v0115)))
+        assertEquals(listOf("living_blur", "share_links", "library_import", "explain_pictures", "problem_report"), ids(newThingsFor(v0111, buildVersionCode = v0115)))
     }
 
     @Test
@@ -149,7 +149,7 @@ class WelcomeBackTest {
     @Test
     fun `a setting is reached the way somebody would go there, through the row it is under`() {
         val insideSettings = NEW_THINGS.filter { thing -> thing.stops.any { it.route != null } }
-        assertEquals(listOf("living_blur", "share_links", "spatial_audio"), ids(insideSettings))
+        assertEquals(listOf("living_blur", "share_links", "library_import", "explain_pictures", "problem_report", "spatial_audio"), ids(insideSettings))
         for (thing in insideSettings) {
             assertEquals("${thing.id}: the row, then the setting", 2, thing.stops.size)
             assertEquals("${thing.id} starts on the list of settings", Tour.ROUTE_SETTINGS, thing.stops[0].route)

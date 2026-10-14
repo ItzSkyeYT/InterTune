@@ -9,12 +9,15 @@ package com.dd3boh.outertune.ui.screens.walkthrough
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Backup
+import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.Campaign
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.Hearing
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.LibraryAdd
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.Recommend
 import androidx.compose.material.icons.rounded.Share
@@ -316,6 +319,45 @@ val NEW_THINGS = listOf(
             TourStop("share_links_setting", Tour.SETTING_SHARE_LINKS, Tour.ROUTE_LOOK_AND_FEEL, R.string.share_link_kind_title, R.string.new_share_links_here, V0_11_5),
         ),
         there = { Unreleased.SHARE_PAGE },
+    ),
+    NewThing(
+        id = "library_import",
+        release = "0.11.5",
+        sinceVersionCode = V0_11_5,
+        title = R.string.import_library_title,
+        body = R.string.new_import_body,
+        icon = Icons.Rounded.LibraryAdd,
+        stops = listOf(
+            TourStop("import_row", Tour.ROW_BACKUP, Tour.ROUTE_SETTINGS, R.string.backup_restore, R.string.new_import_way, V0_11_5),
+            TourStop("import_setting", Tour.SETTING_IMPORT, Tour.ROUTE_BACKUP, R.string.import_library_title, R.string.new_import_here, V0_11_5),
+        ),
+        there = { Unreleased.LIBRARY_IMPORT },
+    ),
+    NewThing(
+        id = "explain_pictures",
+        release = "0.11.5",
+        sinceVersionCode = V0_11_5,
+        title = R.string.new_explain_pictures_title,
+        body = R.string.new_explain_pictures_body,
+        icon = Icons.Rounded.Info,
+        stops = listOf(
+            TourStop("explain_pictures_row", Tour.ROW_PLAYER, Tour.ROUTE_SETTINGS, R.string.player_and_audio, R.string.new_explain_pictures_way, V0_11_5),
+            TourStop("explain_pictures_setting", Tour.SETTING_TRANSITION_FADE, Tour.ROUTE_PLAYER, R.string.transition_fade, R.string.new_explain_pictures_here, V0_11_5),
+        ),
+        there = { Unreleased.EXPLAIN_PICTURES },
+    ),
+    NewThing(
+        id = "problem_report",
+        release = "0.11.5",
+        sinceVersionCode = V0_11_5,
+        title = R.string.problem_report_title,
+        body = R.string.new_report_body,
+        icon = Icons.Rounded.BugReport,
+        stops = listOf(
+            TourStop("problem_report_row", Tour.ROW_ABOUT, Tour.ROUTE_SETTINGS, R.string.about, R.string.new_report_way, V0_11_5),
+            TourStop("problem_report_setting", Tour.SETTING_BUG_REPORT, Tour.ROUTE_ABOUT, R.string.help_bug_report_action, R.string.new_report_here, V0_11_5),
+        ),
+        there = { Unreleased.PROBLEM_REPORT },
     ),
     NewThing(
         id = "quick_picks",

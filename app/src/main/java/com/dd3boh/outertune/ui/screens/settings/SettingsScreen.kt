@@ -163,6 +163,7 @@ fun SettingsScreen(
                 onClick = { navController.navigate("settings/storage") }
             )
             PreferenceEntry(
+                modifier = Modifier.tourTarget(Tour.ROW_BACKUP),
                 title = { Text(stringResource(R.string.backup_restore)) },
                 description = stringResource(R.string.settings_backup_description),
                 icon = { Icon(Icons.Rounded.Backup, null) },
@@ -219,6 +220,7 @@ fun SettingsScreen(
                 onClick = { navController.navigate("settings/advanced") }
             )
             PreferenceEntry(
+                modifier = Modifier.tourTarget(Tour.ROW_ABOUT),
                 title = { Text(stringResource(R.string.about)) },
                 description = stringResource(R.string.settings_about_description),
                 icon = { Icon(Icons.Rounded.Info, null) },

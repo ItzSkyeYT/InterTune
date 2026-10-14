@@ -76,7 +76,7 @@ class CloserLookQuestionTest {
     }
 
     @Test
-    fun `the question has an id of its own, and its words are held back from translation`() {
+    fun `the question has an id of its own, and its words are open to translators`() {
         val others = TOUR_STOPS + SETTINGS_TOUR + SETTINGS_CLOSER_LOOK + NEW_THINGS.flatMap { it.stops }
         assertFalse(CLOSER_LOOK_QUESTION.id in others.map { it.id })
         assertEquals("it does not come back after a rotation", CLOSER_LOOK_QUESTION, ALL_TOUR_STOPS.firstOrNull { it.id == CLOSER_LOOK_QUESTION.id })
@@ -86,7 +86,8 @@ class CloserLookQuestionTest {
             val name = R.string::class.java.fields.first { it.getInt(null) == id }.name
             val line = strings.firstOrNull { "name=\"$name\"" in it }
             assertNotNull("$name is not in strings-ot.xml", line)
-            assertTrue("$name can be translated", "translatable=\"false\"" in line!!)
+            assertFalse("$name is held back from translators", "translatable=\"false\"" in line!!)
+            assertTrue("$name has no French", "name=\"$name\"" in File("src/main/res/values-fr/strings-ot.xml").readText())
             assertFalse("$name has an exclamation mark", '!' in line.substringAfter('>'))
         }
     }

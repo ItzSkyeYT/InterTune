@@ -81,11 +81,12 @@ object Unreleased {
      * Without the flag a returning user gets the tour's new stops, as before. With it the
      * tutorial's walk ends on a question, whether to look closer at the settings, and the tour
      * that follows a yes goes into each screen of Settings (SETTINGS_CLOSER_LOOK), also started
-     * from About. Not agreed for a release yet. When it is: set this to true or delete it with
-     * the checks that read it, in Walkthrough.kt, AboutScreen and AppNavGraph, and make its
-     * strings translatable.
+     * from About. On in every build from 0.11.5 (his yes of 14 Oct 2026), which brings three
+     * things of its own to the page: the import, the pictures in the explanations and Report a
+     * problem. Its strings and the closer look's are open to translators and in French. Left to
+     * tidy: the flag and the checks that read it, in Walkthrough.kt, AboutScreen and AppNavGraph.
      */
-    val WELCOME_BACK = BuildConfig.DEBUG
+    val WELCOME_BACK = true
 
     /**
      * The widget's settings with the home screen's wallpaper behind the preview instead of a patch

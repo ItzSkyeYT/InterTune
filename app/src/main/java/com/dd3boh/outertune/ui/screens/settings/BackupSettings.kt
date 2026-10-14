@@ -31,6 +31,8 @@ import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
 import com.dd3boh.outertune.ui.component.FloatingTopBar
 import com.dd3boh.outertune.ui.screens.settings.fragments.BackupAndRestoreFrag
 import com.dd3boh.outertune.viewmodels.BackupRestoreViewModel
+import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 
 /**
  * Backup and restore, a category of its own again.
@@ -57,6 +59,7 @@ fun BackupSettings(
             Spacer(modifier = Modifier.height(16.dp))
             ElevatedCard(modifier = Modifier.fillMaxWidth()) {
                 PreferenceEntry(
+                    modifier = Modifier.tourTarget(Tour.SETTING_IMPORT),
                     title = { Text(stringResource(R.string.import_library_title)) },
                     description = stringResource(R.string.import_library_entry),
                     icon = { Icon(Icons.Rounded.LibraryAdd, null) },

@@ -74,6 +74,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import com.dd3boh.outertune.ui.component.ProblemReportDialog
+import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -223,6 +225,7 @@ fun AboutScreen(
                     )
                 }
                 PreferenceEntry(
+                    modifier = Modifier.tourTarget(Tour.SETTING_BUG_REPORT),
                     title = { Text(stringResource(R.string.help_bug_report_action)) },
                     onClick = {
                         // With the log to hand first, where there is one to show: see ProblemLog.
