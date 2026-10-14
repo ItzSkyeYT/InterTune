@@ -6,7 +6,9 @@
 
 package com.dd3boh.outertune.cast
 
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.emptyFlow
 import java.io.IOException
 
 /** The kinds of receiver casting talks to, in the order they were built. */
@@ -156,6 +158,12 @@ interface ReceiverLink {
     val caps: LinkCaps
 
     val status: StateFlow<ReceiverStatus>
+
+    /**
+     * What the receiver asks of the phone (RemoteRequest). Only InterTune's own Chromecast receiver
+     * asks anything; every other link has nothing here.
+     */
+    val requests: Flow<RemoteRequest> get() = emptyFlow()
 
     suspend fun connect()
 

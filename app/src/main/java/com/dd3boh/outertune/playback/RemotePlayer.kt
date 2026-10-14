@@ -27,6 +27,8 @@ import com.dd3boh.outertune.cast.RemoteCommand
 import com.dd3boh.outertune.cast.RemoteError
 import com.dd3boh.outertune.cast.RemotePhase
 import com.dd3boh.outertune.cast.RemotePlayback
+import com.dd3boh.outertune.cast.RemoteRepeat
+import com.dd3boh.outertune.cast.RemoteRequest
 import com.dd3boh.outertune.cast.RemoteSong
 import com.dd3boh.outertune.cast.ReportAction
 import com.dd3boh.outertune.cast.SentSong
@@ -124,6 +126,7 @@ class RemotePlayer(
             }
         }
         scope.launch { link.status.collect(::onStatus) }
+        scope.launch { link.requests.collect(::onRequest) }
     }
 
     /** The receiver it plays on. */
@@ -344,6 +347,26 @@ class RemotePlayer(
         if (released) return@withContext
         playback.onLoadFailed(ticket, message)
         invalidateState()
+    }
+
+    /**
+     * A press on the TV's remote or in Google Home that our own receiver passed on: answered as if
+     * it had been made on the phone, which holds the queue and loads the next song itself.
+     */
+    private fun onRequest(request: RemoteRequest) {
+        Log.i(TAG, "Asked by the receiver: $request (next ${isCommandAvailable(Player.COMMAND_SEEK_TO_NEXT)}, previous ${isCommandAvailable(Player.COMMAND_SEEK_TO_PREVIOUS)})")
+        when (request) {
+            RemoteRequest.Next -> if (isCommandAvailable(Player.COMMAND_SEEK_TO_NEXT)) seekToNext()
+            RemoteRequest.Previous -> if (isCommandAvailable(Player.COMMAND_SEEK_TO_PREVIOUS)) seekToPrevious()
+            is RemoteRequest.Repeat -> setRepeatMode(
+                when (request.mode) {
+                    RemoteRepeat.OFF -> Player.REPEAT_MODE_OFF
+                    RemoteRepeat.ONE -> Player.REPEAT_MODE_ONE
+                    RemoteRepeat.ALL -> Player.REPEAT_MODE_ALL
+                }
+            )
+            is RemoteRequest.Shuffle -> setShuffleModeEnabled(request.on)
+        }
     }
 
     private fun onStatus(status: ReceiverStatus) {

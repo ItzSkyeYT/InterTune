@@ -82,6 +82,13 @@ import androidx.compose.ui.semantics.semantics
 import androidx.media3.common.DeviceInfo
 import androidx.media3.common.Player
 import kotlin.math.roundToInt
+import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.util.lerp
+import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.backdrops.LayerBackdrop
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.only
@@ -157,7 +164,14 @@ fun CastButton(tint: Color, modifier: Modifier = Modifier) {
  * only says what the system says. Nothing at all with Unreleased.CASTING off.
  */
 @Composable
-fun OutputButton(tint: Color, modifier: Modifier = Modifier, wide: Boolean = true) {
+fun OutputButton(
+    tint: Color,
+    modifier: Modifier = Modifier,
+    wide: Boolean = true,
+    /** The player's backdrop when Liquid glass is on: the button is then frosted as the player's own buttons are. */
+    backdrop: LayerBackdrop? = null,
+    glassIntensity: Float = 1f,
+) {
     if (!Unreleased.CASTING) return
     val playerConnection = LocalPlayerConnection.current ?: return
     val session = playerConnection.service.castSession ?: return
@@ -173,9 +187,11 @@ fun OutputButton(tint: Color, modifier: Modifier = Modifier, wide: Boolean = tru
         Surface(
             onClick = open,
             shape = CircleShape,
-            color = MaterialTheme.colorScheme.primary,
+            color = if (backdrop != null) Color.Transparent else MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
-            modifier = modifier.requiredHeight(44.dp),
+            modifier = modifier
+                .requiredHeight(44.dp)
+                .frosted(backdrop, glassIntensity, CircleShape, MaterialTheme.colorScheme.primary.copy(alpha = lerp(0.95f, 0.8f, glassIntensity.coerceIn(0f, 1f)))),
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -190,11 +206,12 @@ fun OutputButton(tint: Color, modifier: Modifier = Modifier, wide: Boolean = tru
         Surface(
             onClick = open,
             shape = RoundedCornerShape(20.dp),
-            color = MaterialTheme.colorScheme.primary,
+            color = if (backdrop != null) Color.Transparent else MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
             modifier = modifier
                 .fillMaxWidth()
-                .requiredHeight(56.dp),
+                .requiredHeight(56.dp)
+                .frosted(backdrop, glassIntensity, RoundedCornerShape(20.dp), MaterialTheme.colorScheme.primary.copy(alpha = lerp(0.95f, 0.8f, glassIntensity.coerceIn(0f, 1f)))),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 16.dp)) {
                 Icon(iconOf(casting.device), contentDescription = null)
@@ -218,9 +235,11 @@ fun OutputButton(tint: Color, modifier: Modifier = Modifier, wide: Boolean = tru
         Surface(
             onClick = open,
             shape = CircleShape,
-            color = tint.copy(alpha = 0.12f),
+            color = if (backdrop != null) Color.Transparent else tint.copy(alpha = 0.12f),
             contentColor = tint,
-            modifier = modifier.requiredHeight(44.dp),
+            modifier = modifier
+                .requiredHeight(44.dp)
+                .frosted(backdrop, glassIntensity, CircleShape, tint.copy(alpha = 0.16f)),
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -261,6 +280,26 @@ fun OutputButton(tint: Color, modifier: Modifier = Modifier, wide: Boolean = tru
         CastPicker(session, onDismiss = { session.pickerOpen.value = false })
     }
 }
+
+/**
+ * Frosted as the player's own buttons are with Liquid glass on (Player.kt's glass buttons): the
+ * blur and vibrancy of [backdrop] under the control's [fill], and no lens, highlight or shadow, whose
+ * bright rim made small controls read as empty outlines. Nothing without a backdrop.
+ */
+private fun Modifier.frosted(backdrop: LayerBackdrop?, glassIntensity: Float, shape: Shape, fill: Color): Modifier =
+    if (backdrop == null) this else this
+        .clip(shape)
+        .drawBackdrop(
+            backdrop = backdrop,
+            shape = { shape },
+            effects = {
+                vibrancy()
+                blur(lerp(16f, 6f, glassIntensity.coerceIn(0f, 1f)).dp.toPx())
+            },
+            highlight = { null },
+            shadow = { null },
+        )
+        .background(fill, shape)
 
 /** [LocalOutput] as it is now, and again whenever something is plugged in, paired or taken away. */
 @Composable

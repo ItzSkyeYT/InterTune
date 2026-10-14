@@ -58,6 +58,13 @@ object Chromecast {
     const val NS_RECEIVER = "urn:x-cast:com.google.cast.receiver"
     const val NS_MEDIA = "urn:x-cast:com.google.cast.media"
 
+    /**
+     * InterTune's own receiver passes on here what it is asked of the phone: Next and Previous,
+     * repeat and shuffle, pressed on the TV's remote or in Google Home (RemoteRequest). Google's
+     * own receiver never speaks it, so with that one nothing arrives here.
+     */
+    const val NS_INTERTUNE = "urn:x-cast:dev.skye.intertune"
+
     const val CONNECT = "CONNECT"
     const val CLOSE = "CLOSE"
     const val PING = "PING"
@@ -229,6 +236,23 @@ object Chromecast {
     )
 
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
+
+    /**
+     * What [payload], said on [NS_INTERTUNE], asks of the phone, or null for anything else. Repeat
+     * comes in the Cast protocol's own words, as the receiver framework hands them over.
+     */
+    fun request(payload: Payload): RemoteRequest? = when (payload.type) {
+        "NEXT" -> RemoteRequest.Next
+        "PREVIOUS" -> RemoteRequest.Previous
+        "REPEAT" -> when ((payload.body["mode"] as? JsonPrimitive)?.content) {
+            "REPEAT_OFF" -> RemoteRequest.Repeat(RemoteRepeat.OFF)
+            "REPEAT_SINGLE" -> RemoteRequest.Repeat(RemoteRepeat.ONE)
+            "REPEAT_ALL", "REPEAT_ALL_AND_SHUFFLE" -> RemoteRequest.Repeat(RemoteRepeat.ALL)
+            else -> null
+        }
+        "SHUFFLE" -> (payload.body["on"] as? JsonPrimitive)?.booleanOrNull?.let { RemoteRequest.Shuffle(it) }
+        else -> null
+    }
 
     fun parse(payload: String?): Payload? {
         val body = payload?.let { runCatching { json.parseToJsonElement(it) as? JsonObject }.getOrNull() } ?: return null

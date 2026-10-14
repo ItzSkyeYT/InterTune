@@ -1784,7 +1784,12 @@ fun BottomSheetPlayer(
                                     .height(queueLayout.outputRoom)
                                     .padding(horizontal = hPadding)
                             ) {
-                                OutputButton(tint = onBackgroundColor, modifier = Modifier.offset(y = (-6).dp))
+                                OutputButton(
+                                    tint = onBackgroundColor,
+                                    modifier = Modifier.offset(y = (-6).dp),
+                                    backdrop = if (liquidGlass) playerBackdrop else null,
+                                    glassIntensity = glassIntensity,
+                                )
                             }
                         }
                     } else {
@@ -1870,6 +1875,8 @@ fun BottomSheetPlayer(
             OutputButton(
                 tint = onBackgroundColor,
                 wide = false,
+                backdrop = if (liquidGlass) playerBackdrop else null,
+                glassIntensity = glassIntensity,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Bottom + WindowInsetsSides.End))
