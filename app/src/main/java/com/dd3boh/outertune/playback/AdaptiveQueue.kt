@@ -117,4 +117,64 @@ object AdaptiveQueue {
         val start = currentIndex + 1 + locked
         return if (start in 0 until size) start else null
     }
+
+    /**
+     * The furthest place in [queue] that playback has reached, and never one before [currentIndex].
+     *
+     * Going back is not a new queue. Somebody who played eight songs and went back to the first has
+     * heard the seven after it, and saw the few after those waiting in the queue: that is history,
+     * not a provisional tail. Planning from the song playing treated them as upcoming and judged
+     * them against that one song, and the queue sheet folded them away, so a listener who went back
+     * watched what they had just played disappear, which looked like adapting and was not.
+     *
+     * [reached] holds the songs that have been current in this queue (see [Heard]), so a place is
+     * found by its song wherever removals and moves have left it.
+     */
+    fun <T> settledThrough(currentIndex: Int, queue: List<T>, id: (T) -> String?, reached: Set<String>): Int {
+        if (reached.isEmpty()) return currentIndex
+        for (i in queue.indices.reversed()) {
+            if (i <= currentIndex) break
+            if (id(queue[i])?.let { it in reached } == true) return i
+        }
+        return currentIndex
+    }
+
+    /**
+     * What has played in the current queue: each song that became current, newest first.
+     *
+     * The session's character used to be read from the places just before the song playing, and
+     * those are what was heard only while playback moves forward. After going back to the first
+     * song there was nothing before it but itself, and the whole tail was judged against one song.
+     * This keeps the order songs were actually heard in.
+     *
+     * Starts over with each queue. Only the player's thread touches it.
+     */
+    class Heard(private val recentCap: Int = RECENT_CAP, private val reachedCap: Int = REACHED_CAP) {
+        private var queueId: Long? = null
+        private val recent = ArrayDeque<String?>()
+        private val ids = LinkedHashSet<String>()
+
+        /** The songs that have been current in this queue. A view, not a copy. */
+        val reached: Set<String> get() = ids
+
+        /** [id], titled [title], became the song playing in the queue numbered [queue]. */
+        fun note(queue: Long, id: String, title: String?) {
+            if (queue != queueId) {
+                queueId = queue
+                recent.clear()
+                ids.clear()
+            }
+            recent.addFirst(title)
+            while (recent.size > recentCap) recent.removeLast()
+            ids.remove(id)
+            ids.add(id)
+            while (ids.size > reachedCap) ids.remove(ids.first())
+        }
+
+        /** The titles of the last [n] songs heard, newest first, the one playing included. */
+        fun titles(n: Int): List<String?> = recent.take(n)
+    }
+
+    private const val RECENT_CAP = 16
+    private const val REACHED_CAP = 2_000
 }
