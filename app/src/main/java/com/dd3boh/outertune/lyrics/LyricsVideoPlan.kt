@@ -45,6 +45,25 @@ object LyricsVideoPlan {
 
     const val FRAMES_A_SECOND = 30
 
+    /**
+     * The video's size: two thirds of the share card's 1080 x 1920 each way, which is drawn as
+     * it is and scaled down. Chats shrink what they are sent anyway; this one is small to begin
+     * with, and quicker to make.
+     */
+    const val OUT_WIDTH = 720
+    const val OUT_HEIGHT = 1280
+
+    /**
+     * Bits a second for the picture and for the sound, kept low so a video is quick to send: a
+     * minute, the longest there is, comes to about 9 MB, under the 10 MB Discord takes without
+     * paying. Encoders held to a rate still overshoot it a little (1.31 Mbit/s for 1.2 asked).
+     */
+    const val PICTURE_BITRATE = 1_000_000
+    const val SOUND_BITRATE = 128_000
+
+    /** About how big a video [durationMs] long comes out, in bytes. Encoders aim at the bitrate; most land under it. */
+    fun bytes(durationMs: Long): Long = (PICTURE_BITRATE + SOUND_BITRATE).toLong() * durationMs / 8_000
+
     /** A line as the lyrics view has it: its text, when it starts and ends in the song, and whether it is the line before it in another language. */
     data class Timed(val text: String, val startMs: Long, val endMs: Long, val translated: Boolean = false)
 
