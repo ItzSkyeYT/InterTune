@@ -701,7 +701,7 @@ fun Lyrics(
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Close,
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.toggle_lyrics),
                         tint = textColor
                     )
                 }
@@ -739,7 +739,7 @@ fun Lyrics(
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.MoreHoriz,
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.options),
                         tint = textColor
                     )
                 }
