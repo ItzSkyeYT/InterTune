@@ -97,6 +97,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.fastAny
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import com.dd3boh.outertune.LocalMenuState
@@ -190,14 +192,17 @@ fun Lyrics(
     // Lines picked to share as a picture, or with synced lyrics a video, by their place in
     // [lines]. Picking starts with a long press on a line, or from the menu, and ends with Share,
     // the cross, Back, or other lyrics.
-    var picking by remember { mutableStateOf(false) }
-    val picked = remember { mutableStateListOf<Int>() }
+    // Kept outside this view (LyricsPicking): the player makes it anew when it turns between its
+    // upright and its sideways layout, and a turn of the phone lost the picks and the dialog.
+    val keep: LyricsPicking = viewModel()
+    var picking by keep::picking
+    val picked = keep.picked
     // The picked lines, while their picture is shown before it is sent, their video, and the song
     // they are from. That song, and not whichever plays: a video can take longer to make than
     // what is left of the song, and the next one's lyrics coming up does not close the dialog.
-    var cardLines by remember { mutableStateOf<List<String>?>(null) }
-    var cardVideo by remember { mutableStateOf<LyricsVideoPlan.Clip?>(null) }
-    var cardSong by remember { mutableStateOf<MediaMetadata?>(null) }
+    var cardLines by keep::cardLines
+    var cardVideo by keep::cardVideo
+    var cardSong by keep::cardSong
     val mostLines = pluralStringResource(R.plurals.lyrics_pick_most, LyricsShare.MOST_LINES, LyricsShare.MOST_LINES)
     val mostForVideo = pluralStringResource(R.plurals.lyrics_pick_most_video, LyricsShare.MOST_LINES, LyricsShare.MOST_LINES)
 
@@ -239,8 +244,13 @@ fun Lyrics(
 
     LaunchedEffect(lyricsModel) {
         lines.clear()
-        picking = false
-        picked.clear()
+        // Picks belong to the lyrics they were made in, and other lyrics end the picking. The same
+        // ones coming back, as they do when the view is made anew, keep it; none yet is no change.
+        if (lyricsModel != null && keep.pickedIn != lyricsModel) {
+            picking = false
+            picked.clear()
+            keep.pickedIn = lyricsModel
+        }
         lyricsModel?.let { model ->
             if (isSynced) {
                 val lyrics = lyricsModel as SemanticLyrics.SyncedLyrics
@@ -920,6 +930,20 @@ const val animateScrollDuration = 300L
 /** What the picking bar takes at the foot of the lyrics view: its own height and a little room over it. */
 private val PickBarRoom = 64.dp
 val LyricsPreviewTime = 7.seconds
+
+/**
+ * The lines being picked to share, and the picture or video of them waiting to be sent, with the
+ * lyrics they were picked in: kept outside the lyrics view, which the player makes anew when it
+ * turns between its upright and its sideways layout, so that a turn of the phone keeps them.
+ */
+class LyricsPicking : ViewModel() {
+    var picking by mutableStateOf(false)
+    val picked = mutableStateListOf<Int>()
+    var pickedIn: SemanticLyrics? = null
+    var cardLines by mutableStateOf<List<String>?>(null)
+    var cardVideo by mutableStateOf<LyricsVideoPlan.Clip?>(null)
+    var cardSong by mutableStateOf<MediaMetadata?>(null)
+}
 
 /**
  * Scrolls to item [index], [offset] pixels past its top, on the spring animateScrollToItem uses,
