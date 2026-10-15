@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Info
@@ -36,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import com.dd3boh.outertune.R
@@ -232,7 +234,13 @@ fun ExplainedSwitchPreference(
     picture: ExplainPicture? = null,
     isEnabled: Boolean = true,
 ) = PreferenceEntry(
-    modifier = modifier,
+    // The whole row is the switch, as in SwitchPreference; the "i" keeps its own touch.
+    modifier = modifier.toggleable(
+        value = checked,
+        enabled = isEnabled,
+        role = Role.Switch,
+        onValueChange = onCheckedChange,
+    ),
     title = { Text(title) },
     description = description,
     icon = icon,
@@ -244,12 +252,12 @@ fun ExplainedSwitchPreference(
 
             Switch(
                 checked = checked,
-                onCheckedChange = onCheckedChange,
+                onCheckedChange = null,
                 enabled = isEnabled,
             )
         }
     },
-    onClick = { onCheckedChange(!checked) },
+    onClick = null,
     isEnabled = isEnabled,
 )
 
