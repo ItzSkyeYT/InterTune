@@ -14,6 +14,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.preferencesDataStore
 import com.dd3boh.outertune.extensions.toEnum
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -67,7 +68,10 @@ fun <T> rememberPreference(
             override var value: T
                 get() = state.value
                 set(value) {
-                    coroutineScope.launch {
+                    // NonCancellable: the screen that set it may close at once (the player menu's
+                    // Toggle lyrics does), which cancels this scope, and DataStore runs the edit in
+                    // its caller's context, so the write was sometimes dropped.
+                    coroutineScope.launch(NonCancellable) {
                         context.dataStore.edit {
                             it[key] = value
                         }
@@ -124,7 +128,8 @@ inline fun <reified T : Enum<T>> rememberEnumPreference(
             override var value: T
                 get() = state.value
                 set(value) {
-                    coroutineScope.launch {
+                    // NonCancellable for the same reason as in rememberPreference.
+                    coroutineScope.launch(NonCancellable) {
                         context.dataStore.edit {
                             it[key] = value.name
                         }
