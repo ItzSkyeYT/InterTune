@@ -6,8 +6,11 @@
 
 package com.dd3boh.outertune.ui.component
 
+import android.app.Activity
 import android.content.ClipData
 import android.content.Context
+import android.content.ContextWrapper
+import android.content.pm.ActivityInfo
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapShader
@@ -364,6 +367,11 @@ fun LyricsCardDialog(lines: List<String>, song: MediaMetadata, video: LyricsVide
     fun makeVideo(clip: LyricsVideoPlan.Clip) {
         val service = playerConnection?.service ?: return
         made = 0f
+        // A turn of the phone makes the screen anew, and the video in the making went with the old
+        // one: the screen stays the way it is turned until the video is made.
+        val activity = context.activity()
+        val turned = activity?.requestedOrientation
+        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LOCKED
         making = scope.launch {
             try {
                 val file = LyricsVideo.make(
@@ -385,6 +393,7 @@ fun LyricsCardDialog(lines: List<String>, song: MediaMetadata, video: LyricsVide
                 Toast.makeText(context, R.string.lyrics_video_failed, Toast.LENGTH_LONG).show()
             } finally {
                 making = null
+                if (activity != null && turned != null) activity.requestedOrientation = turned
             }
         }
     }
@@ -469,6 +478,13 @@ fun LyricsCardDialog(lines: List<String>, song: MediaMetadata, video: LyricsVide
             }
         }
     }
+}
+
+/** The activity this context is, or wraps. */
+private tailrec fun Context.activity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.activity()
+    else -> null
 }
 
 /** The cover as a bitmap the drawing can read, from what Coil is given for it, or null for none. */
