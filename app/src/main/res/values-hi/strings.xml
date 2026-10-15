@@ -30,7 +30,7 @@
     <string name="filter_downloaded">डाउनलोड किए गए</string>
     <string name="filter_all">सब</string>
     <string name="filter_songs">गाने</string>
-    <string name="filter_videos">वीडिओ</string>
+    <string name="filter_videos">वीडियो</string>
     <string name="filter_albums">एलबम</string>
     <string name="filter_artists">कलाकार</string>
     <string name="filter_community_playlists">सामाज द्वारा चाल सूचियां</string>
@@ -177,8 +177,8 @@
     <string name="action_like_all">सभी को पसंद करे</string>
     <string name="action_remove_like">पसंदीदा से हटाएं</string>
     <string name="action_remove_like_all">पसंदीदा से सभी को हटाएं</string>
-    <string name="action_shuffle_on">सफल चालू</string>
-    <string name="action_shuffle_off">सफल बंद</string>
+    <string name="action_shuffle_on">शफ़ल चालू</string>
+    <string name="action_shuffle_off">शफ़ल बंद</string>
     <string name="repeat_mode_off">दोहराएं मोड बंद</string>
     <string name="repeat_mode_all">कतार को दोहराएं</string>
     <string name="player_text_alignment">प्लेयर टेक्स्ट की स्थिति</string>
