@@ -337,23 +337,36 @@ fun LyricsCardDialog(lines: List<String>, song: MediaMetadata, video: LyricsVide
     var cover by remember(song.id) { mutableStateOf<Bitmap?>(null) }
     var livingFrom by remember(song.id, livingColours) { mutableStateOf<Pair<IntArray?, IntArray?>?>(null) }
 
-    /** The video's frames, moving with what was [heard] of the song, or still where nothing was. */
-    fun frames(clip: LyricsVideoPlan.Clip, heard: LyricsVideo.Heard?) = LyricsVideoFrames(
+    /**
+     * The video's frames, moving with what was [heard] of the song, or still where nothing was.
+     * Living blur is drawn whenever it is the player's background: in the cover's colours [from],
+     * in grey where they could not be had, never left out.
+     */
+    fun frames(clip: LyricsVideoPlan.Clip, heard: LyricsVideo.Heard?, from: Pair<IntArray?, IntArray?>? = livingFrom) = LyricsVideoFrames(
         context, clip, song.title, song.artists.joinToString { it.name }, cover,
-        living = livingFrom?.takeIf { living }?.let { (patches, mains) ->
-            LivingVideo(livingColours, patches, mains, livingStrength, livingSmoothing) { heard?.at(it) }
-        },
+        living = if (living) LivingVideo(livingColours, from?.first, from?.second, livingStrength, livingSmoothing) { heard?.at(it) } else null,
     )
+
+    /**
+     * Living blur's colours for this song, once it is the player's background: from the small
+     * cover the player takes them from, or from the card's own cover where that one cannot be had.
+     * Asked again by the video itself, which used to read them before they were there and came
+     * out without its background (his report of 15 Oct 2026).
+     */
+    suspend fun livingColoursNow(): Pair<IntArray?, IntArray?>? {
+        if (!living) return null
+        livingFrom?.let { return it }
+        val small = loadCover(context, song.getThumbnailModel(100, 100))
+            ?: cover?.let { big -> withContext(Dispatchers.Default) { Bitmap.createScaledBitmap(big, 100, 100, true) } }
+        return small?.let { withContext(Dispatchers.Default) { livingColoursOf(it, livingColours) } }
+            ?.also { livingFrom = it }
+    }
 
     LaunchedEffect(lines, song.id, video, living, livingColours) {
         // The cover the player shows, which Coil has already, at a size of the card's own.
         cover = loadCover(context, song.getThumbnailModel(LyricsCard.COVER_PX, LyricsCard.COVER_PX))
         // and the small one Living blur takes its colours from, as the player does
-        if (living && video != null) {
-            livingFrom = loadCover(context, song.getThumbnailModel(100, 100))?.let { small ->
-                withContext(Dispatchers.Default) { livingColoursOf(small, livingColours) }
-            }
-        }
+        if (video != null) livingColoursNow()
         if (canPicture) card = withContext(Dispatchers.Default) {
             LyricsCard.draw(context, lines, song.title, song.artists.joinToString { it.name }, cover)
         }
@@ -375,9 +388,16 @@ fun LyricsCardDialog(lines: List<String>, song: MediaMetadata, video: LyricsVide
         activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LOCKED
         making = scope.launch {
             try {
+                // The colours first: the dialog may still be fetching them when Share is tapped.
+                val from = livingColoursNow()
+                Log.i("LyricsCard", "Living blur in the video: " + when {
+                    !living -> "no, not the player's background"
+                    from != null -> "yes"
+                    else -> "yes, in grey: no cover to take colours from"
+                })
                 val file = LyricsVideo.make(
                     context, service.songSource(), song.id, clip, song.title,
-                    frames = { heard -> frames(clip, heard) },
+                    frames = { heard -> frames(clip, heard, from) },
                     progress = { made = it },
                 )
                 // Not over a locked phone or another app: it waits for the screen to be back.
