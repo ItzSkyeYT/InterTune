@@ -8,17 +8,17 @@ _Lighter on the battery, steadier on the music._
 
 **More ways to reach a song.** When YouTube refuses the usual source, InterTune tries two other ways, then YouTube Music's web player.
 
-**Import from another app.** Bring your playlists from Spotify, Apple Music, Deezer, Tidal, Amazon Music, SoundCloud, Qobuz, or any CSV file. Pick the app and follow its three steps to get the file. Each song is looked up on YouTube Music, the unsure ones wait for you to check, and the playlists are made on this phone. It is under Settings > Backup and restore, and on setup's first page.
+**Import from another app.** Bring your playlists from Spotify, Apple Music, Deezer, Tidal, Amazon Music, SoundCloud, Qobuz, or any CSV file. Pick the app and follow its three steps. Each song is looked up on YouTube Music, the unsure ones wait for you to check, and the playlists are made on this phone. It is under Settings > Backup and restore, and on setup's first page.
 
 **A note if you sign in.** There is a small chance that YouTube restricts or closes an account used with InterTune. Setup and the Account page now say so, and whoever is already signed in is told once. The app works without an account.
 
 ## Also new
 
 - **Setup in three pages** where it was six: what the app does, signing in or not, and a few questions, one at a time. Access to the phone's music is asked for only where it is needed.
-- **A layout for a phone on its side.** Lists run two abreast and an album or playlist has its header beside its songs; some screens are as they were.
-- **Pictures in the explanations.** Some "i" buttons open on a small moving picture of what the setting does.
+- **A layout for a phone on its side.** Lists run two abreast and an album or playlist has its header beside its songs.
+- **Pictures in the explanations.** Some "i" buttons show a small moving picture.
 - **Android Auto**, under Look and feel: why InterTune is missing from your car, and how to bring it in.
-- **The sign-in page** says who is signed in and goes back by itself.
+- **The sign-in page** says who is signed in.
 - **Report a problem**, in About: the last fault the app noted, to copy or send with a report.
 - **What is new** after an update: a card on Home opens a page with a Show me for each.
 
@@ -28,9 +28,10 @@ _Lighter on the battery, steadier on the music._
 
 ## Fixed
 
+- **Turning the phone no longer resets what you were doing.** An open dialog or the page you were on stays.
 - **A song no longer ends by itself half a minute in.** About one song in three hundred did, always the same ones, with no error.
 - A song whose saved copy was damaged plays on instead of stopping at the same place.
-- With Keep the queue up to date on, going back no longer hides the songs already played.
+- With Keep the queue up to date on, going back no longer hides the songs already played, and reopening the app brings back the whole queue.
 - Dialogs keep their buttons on screen on a phone on its side with large text.
 - Turning local media back on brings back the Folders tab.
 - A crash on some phones while the notification showed how much of the song was loaded.
@@ -41,8 +42,8 @@ _Lighter on the battery, steadier on the music._
 
 ## Smaller things
 
-- About twenty "i" buttons that only repeated their row are gone.
-- Labels that were cut off get smaller to fit, mostly in French, German, Spanish and Russian.
+- **German** is complete.
+- Labels that were cut off get smaller to fit.
 - A black and white or grey cover gives the player grey controls, where it gave bright ones.
 - With Liquid glass on, the queue's bar is one floating pane of glass, like the dock.
 - The sleep timer comes up as a sheet, which a drag closes.
