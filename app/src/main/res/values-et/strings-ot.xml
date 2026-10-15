@@ -131,7 +131,6 @@
     <string name="scanner_progress_discovering">Tuvastan…</string>
     <string name="scanner_progress_processing">Töötlen…</string>
     <string name="oobe_ytm_logon_title">Kasutajakonto</string>
-    All 51 strings validate: well-formed XML, placeholders match the source exactly, apostrophes escaped, no duplicates.
     <string name="action_done">Valmis</string>
     <string name="download_on_wifi_only_description">Oota allalaadimisega, kuni piiranguteta ühendus on olemas. Mobiilses andmesides tellitud allalaadimised jäävad ootele ja algavad ise, kui Wi-Fi on taas olemas</string>
     <string name="download_on_wifi_only_title">Laadi alla ainult Wi-Fi kaudu</string>

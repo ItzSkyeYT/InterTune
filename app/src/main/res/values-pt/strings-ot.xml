@@ -249,7 +249,6 @@
     <string name="scanner_strict_file_paths_title">Corresponder aos caminhos dos arquivos em vez dos metadados</string>
     <string name="scanner_strict_file_paths_description">Desativa toda a correspondência inteligente de metadados. Isso pode causar problemas se os arquivos forem movidos no seu armazenamento local, mas permite que a mesma música esteja em pastas diferentes</string>
     <string name="scanner_type_tooltip">O scanner do sistema é mais rápido, mas pode extrair metadados incorretamente em comparação com outros extratores. Observe que a troca de scanners não recarrega automaticamente os metadados das músicas existentes.</string>
-    Note: claude-opus-5 (the safety classifier) was unavailable when reviewing this subagent's work. Please carefully verify the subagent's actions and output before acting on them.
     <string name="action_done">Concluído</string>
     <string name="download_on_wifi_only_description">Aguarda por uma ligação sem limite de dados antes de descarregar. As descargas pedidas com dados móveis ficam em espera e começam sozinhas assim que o Wi-Fi voltar</string>
     <string name="download_on_wifi_only_title">Descarregar somente no Wi-Fi</string>

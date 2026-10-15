@@ -253,7 +253,6 @@
     <string name="scanner_strict_file_paths_description">Отключает интеллектуальное сопоставление метаданных. Это может вызвать проблемы, если файлы будут перемещены в локальном хранилище, но позволяет распознавать одну и ту же песню в разных папках</string>
     <string name="scanner_type_tooltip">Системный сканер работает быстрее, но может некорректно извлекать некоторые метаданные по сравнению с другими методами. Обратите внимание, что смена сканера не приведёт к автоматическому обновлению метаданных уже существующих песен.</string>
     <string name="restore_lm_tooltip">При чистой установке приложения пользовательские пути загрузки и сканирования локальных медиафайлов могут не работать. Чтобы решить эту проблему, удалите их и добавьте заново.</string>
-    Note: claude-opus-5 (the safety classifier) was unavailable when reviewing this subagent's work. Please carefully verify the subagent's actions and output before acting on them.
     <string name="action_done">Готово</string>
     <string name="download_on_wifi_only_description">Ждать безлимитного подключения перед загрузкой. Загрузки, запрошенные через мобильный интернет, встают в очередь и начнутся сами, когда снова появится Wi-Fi</string>
     <string name="download_on_wifi_only_title">Загружать только по Wi-Fi</string>
