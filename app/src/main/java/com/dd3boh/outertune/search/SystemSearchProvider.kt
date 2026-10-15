@@ -56,7 +56,10 @@ class SystemSearchProvider : ContentProvider() {
         val words = SystemSearch.words(uri.pathSegments, selectionArgs)
         val started = SystemClock.elapsedRealtime()
         if (words.isEmpty()) {
-            Log.i(TAG, "Asked with no words: $uri, selection $selection, ${selectionArgs?.size ?: 0} arguments")
+            // The shape of the request, never its content: a format this does not read may still
+            // carry what somebody typed.
+            Log.i(TAG, "Asked with no words: ${uri.pathSegments.size} path parts, " +
+                "selection ${if (selection == null) "none" else "given"}, ${selectionArgs?.size ?: 0} arguments")
             return cursor
         }
         val ticket = pacing.ask()
