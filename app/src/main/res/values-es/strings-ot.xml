@@ -19,7 +19,7 @@
     <string name="queues_empty">Sin colas</string>
     <string name="queue_default_name">Cola</string>
     <string name="save_queue_as_playlist">Guardar esta cola como lista de reproducción</string>
-    <string name="saved_as_playlist">Guardado como lista de reproducción.</string>
+    <string name="saved_as_playlist">Guardado como lista de reproducción: %1$s</string>
     <string name="auto_playlist">Lista de reproducción automática</string>
     <string name="more_settings">Más ajustes</string>
     <string name="delete_lyric_confirm">¿Estás seguro de que quieres eliminar la letra almacenada para «%s»?</string>

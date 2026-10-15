@@ -608,7 +608,7 @@
     <string name="min_playback_duration_short">किसी गाने का कितना हिस्सा चलना चाहिए कि वह सुना हुआ गिना जाए। इतिहास में 2 सेकंड या उससे ज़्यादा सुना गया हर गाना दिखता है, चाहे वह गिना गया हो या नहीं।</string>
     <string name="throttle_banner_title">YouTube ने यह कनेक्शन रोक दिया है</string>
     <plurals name="throttle_banner_body">
-        <item quantity="one">सुझाव, डाउनलोड और सिंक लगभग एक मिनट के लिए रुके हुए हैं। जिन गानों पर आप टैप करते हैं, वे फिर भी चलने की कोशिश करते हैं।</item>
+        <item quantity="one">सुझाव, डाउनलोड और सिंक लगभग %1$d मिनट के लिए रुके हुए हैं। जिन गानों पर आप टैप करते हैं, वे फिर भी चलने की कोशिश करते हैं।</item>
         <item quantity="other">सुझाव, डाउनलोड और सिंक लगभग %1$d मिनट के लिए रुके हुए हैं। जिन गानों पर आप टैप करते हैं, वे फिर भी चलने की कोशिश करते हैं।</item>
     </plurals>
     <string name="share_audio_focus">दूसरे ऐप को भी साथ में चलने दें</string>
@@ -887,7 +887,7 @@
     <string name="auto_backup_every_week">हर हफ्ते</string>
     <string name="auto_backup_keep">कितने रखें</string>
     <plurals name="auto_backup_keep_count">
-        <item quantity="one">आखिरी बैकअप। पुराने बैकअप हटा दिए जाते हैं।</item>
+        <item quantity="one">आखिरी %1$d बैकअप। पुराने बैकअप हटा दिए जाते हैं।</item>
         <item quantity="other">आखिरी %1$d बैकअप। पुराने बैकअप हटा दिए जाते हैं।</item>
     </plurals>
     <plurals name="auto_backup_pruned">

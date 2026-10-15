@@ -614,7 +614,7 @@
     <string name="min_playback_duration_short">Quanto de uma música precisa tocar para contar como reprodução. O Histórico mostra todas as músicas ouvidas por 2 segundos ou mais, contadas ou não.</string>
     <string name="throttle_banner_title">O YouTube pausou esta conexão</string>
     <plurals name="throttle_banner_body">
-        <item quantity="one">Recomendações, downloads e sincronização estão em pausa por cerca de um minuto. Se você escolher uma música, ela ainda tenta tocar.</item>
+        <item quantity="one">Recomendações, downloads e sincronização estão em pausa por cerca de %1$d minuto. Se você escolher uma música, ela ainda tenta tocar.</item>
         <item quantity="many">Recomendações, downloads e sincronização estão em pausa por cerca de %1$d de minutos. Se você escolher uma música, ela ainda tenta tocar.</item>
         <item quantity="other">Recomendações, downloads e sincronização estão em pausa por cerca de %1$d minutos. Se você escolher uma música, ela ainda tenta tocar.</item>
     </plurals>
@@ -900,7 +900,7 @@
     <string name="auto_backup_every_week">Toda semana</string>
     <string name="auto_backup_keep">Quantos guardar</string>
     <plurals name="auto_backup_keep_count">
-        <item quantity="one">O último backup. Os mais antigos são apagados.</item>
+        <item quantity="one">%1$d backup, o mais recente. Os mais antigos são apagados.</item>
         <item quantity="many">Os últimos %1$d de backups. Os mais antigos são apagados.</item>
         <item quantity="other">Os últimos %1$d backups. Os mais antigos são apagados.</item>
     </plurals>
