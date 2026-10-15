@@ -1,5 +1,7 @@
 # InterTune 0.11.5
 
+_Lighter on the battery, steadier on the music._
+
 **Much less battery.** A song's card on Home read the database on every frame, even with the screen off: a whole processor core on a Pixel 5, now a quarter of one. The playing bars no longer redraw the screen under the open player.
 
 **Songs that had gone play again.** YouTube sometimes gives a song a new id, and the old one answers "This video is not available". InterTune now finds the same recording and plays it. When it is not sure, it plays nothing and lists it under **Exclusions** as "No longer on YouTube".
