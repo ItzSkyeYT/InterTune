@@ -51,6 +51,7 @@ import androidx.media3.transformer.VideoEncoderSettings
 import com.dd3boh.outertune.playback.LevelAnalyser
 import com.dd3boh.outertune.playback.MusicLevels
 import com.dd3boh.outertune.ui.component.LyricsVideoFrames
+import com.dd3boh.outertune.utils.SharedFileProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -128,6 +129,14 @@ object LyricsVideo {
                 sound.delete()
                 picture.delete()
                 File(folder, BLACK).delete()
+                // its first frame beside it, at half the video's size, for the share sheet to
+                // show (SharedFileProvider)
+                runCatching {
+                    val first = createBitmap(LyricsVideoPlan.OUT_WIDTH / 2, LyricsVideoPlan.OUT_HEIGHT / 2)
+                    val canvas = Canvas(first).apply { scale(first.width / LyricsVideoFrames.WIDTH.toFloat(), first.height / LyricsVideoFrames.HEIGHT.toFloat()) }
+                    painter.draw(canvas, 0)
+                    File(folder, video.name + SharedFileProvider.STILL_SUFFIX).outputStream().use { first.compress(Bitmap.CompressFormat.JPEG, 85, it) }
+                }.onFailure { Log.w(TAG, "No picture of the video's first frame", it) }
             }
             progress(1f)
             return video

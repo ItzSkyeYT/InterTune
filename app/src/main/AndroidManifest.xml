@@ -193,7 +193,7 @@
             android:value="6" />
 
         <provider
-            android:name="androidx.core.content.FileProvider"
+            android:name=".utils.SharedFileProvider"
             android:authorities="${applicationId}.FileProvider"
             android:exported="false"
             android:grantUriPermissions="true">
