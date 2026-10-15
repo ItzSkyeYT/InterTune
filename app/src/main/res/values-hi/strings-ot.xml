@@ -121,7 +121,7 @@
     <string name="file_path">फ़ाइल का स्थान</string>
     <string name="track_number">गीत संख्या</string>
     <string name="play_count">चलाने की संख्या</string>
-    <string name="playlist_add_local_to_synced_note">नोट: स्थानीय गानों को सिंक/रिमोट प्लेलिस्ट में जोड़ना समर्थित नहीं है। अन्य सभी संयोजन मान्य हैं</string>
+    <string name="playlist_add_local_to_synced_note">इस फ़ोन की फ़ाइलों को YouTube Music के साथ सिंक की गई प्लेलिस्ट में जोड़ना समर्थित नहीं है।</string>
     <string name="playlist_missing_note">प्लेलिस्ट गायब हैं? सेटिंग्स में सिंक रीड-राइट मोड सक्षम करने के लिए यहां क्लिक करें</string>
     <string name="toggle_lyrics">गीत के बोल दिखाएँ/छुपाएँ</string>
     <string name="sync_progress_active">YouTube खाते के साथ सिंक किया जा रहा है…</string>
@@ -180,7 +180,7 @@
     <string name="filter_arrangement">फ़िल्टर्स व्यवस्थित करें</string>
     <string name="like_autodownload">आपके पसंदीदा गाने अपने आप डाउनलोड हों</string>
     <string name="action_logout_tooltip">पूरी तरह से लॉग आउट करने के लिए, कृपया वेब पोर्टल में अपने YouTube खाते से साइन आउट करें इस लॉगआउट बटन का उपयोग करने से पहले</string>
-    <string name="token_adv_login_description">यह एक उन्नत लॉगिन विधि है। वेब पोर्टल के विकल्प के रूप में, आप यहां सीधे अपना लॉगिन टोकन दर्ज या अपडेट कर सकते हैं। उदाहरण के लिए, यह कई डिवाइसों पर लॉगिन प्रक्रिया को तेज कर सकता है। कृपया ध्यान दें कि कोई भी अमान्य टोकन फ़ॉर्मेट जिसे ऐप पार्स नहीं कर पाता है, स्वीकार नहीं किया जाएगा</string>
+    <string name="token_adv_login_description">उन्नत: वेब पेज से लॉगिन करने के बजाय, यहां अपना लॉगिन टोकन दर्ज या अपडेट करें। जिसके पास भी यह टोकन हो, वह आपके YouTube खाते का इस्तेमाल कर सकता है, इसलिए इसे कभी किसी को न दें। जिस टोकन को ऐप पढ़ नहीं पाता, उसे स्वीकार नहीं किया जाता।</string>
     <string name="token_hidden">टोकन दिखाने के लिए टैप करें</string>
     <string name="token_shown">कॉपी या संपादित करने के लिए फिर से टैप करें</string>
     <string name="sync_conflict_add_only">सारी स्थानीय सामग्री रखें, नई रिमोट सामग्री जोड़ें</string>
@@ -225,9 +225,9 @@
     <string name="quick_picks_source_engine">सबसे अच्छे सुझाव (प्रायोगिक)</string>
     <string name="quick_picks_source_compare">दोनों आज़माएं (प्रायोगिक)</string>
     <string name="quick_picks_source_off">बंद</string>
-    <string name="quick_picks_source_description">क्विक पिक्स पंक्ति के गाने कहाँ से आते हैं। YouTube Music उन्हें आपके खाते के लिए चुनता है। आपकी लाइब्रेरी इसके बजाय उन गानों से यह पंक्ति बनाती है जो आपके पहले सुने गानों से जुड़े हैं। इससे सिर्फ़ वही पंक्ति बदलती है; बाकी होम स्क्रीन दोनों ही स्थिति में एक जैसी रहती है।</string>
+    <string name="quick_picks_source_description">\"क्विक पिक्स\" पंक्ति के गाने कहाँ से आते हैं। \"YouTube Music\" वह शेल्फ़ इस्तेमाल करता है जो YouTube आपके खाते के लिए बनाता है, \"आपकी लाइब्रेरी\" आपके चलाए गानों से जुड़े गाने इस्तेमाल करती है, और \"सबसे अच्छे सुझाव\" आपके सुनने के तरीके से पंक्ति बनाता है। \"दोनों आज़माएं\" में \"सबसे अच्छे सुझाव\" और कोई दूसरा स्रोत बारी-बारी से आते हैं।</string>
     <string name="oobe_update_auto_description">इसे बैकग्राउंड में डाउनलोड कर लेता है ताकि ज़रूरत पड़ने पर तैयार रहे। Android फिर भी आपसे पुष्टि माँगेगा।</string>
-    <string name="oobe_polls_answered">आप इसे कभी भी सेटिंग में, प्रश्न के अंतर्गत बदल सकते हैं।</string>
+    <string name="oobe_polls_answered">आप इसे कभी भी सेटिंग्स में, \"प्रश्न और खबरें\" के अंतर्गत बदल सकते हैं।</string>
     <string name="oobe_usage_count_answered">आप इसे कभी भी सेटिंग्स में \"गुमनाम गिनती\" के अंदर बदल सकते हैं।</string>
     <string name="poll_title">InterTune का एक प्रश्न</string>
     <string name="poll_banner_hint">जवाब देने के लिए टैप करें, या क्रॉस से बंद करें</string>
@@ -236,9 +236,9 @@
     <string name="poll_send">मेरा जवाब भेजें</string>
     <string name="poll_not_now">अभी नहीं</string>
     <string name="poll_anonymous_notice">आपका जवाब गुमनाम है। सिर्फ़ इतना भेजा जाता है कि प्रश्न कौन-सा था, आपने क्या चुना, और ऐप का संस्करण। कोई खाता नहीं, डिवाइस की कोई जानकारी नहीं, आपकी लाइब्रेरी के बारे में कुछ नहीं।</string>
-    <string name="grp_polls">प्रश्न</string>
+    <string name="grp_polls">प्रश्न और खबरें</string>
     <string name="polls_enabled">मुझसे कभी-कभी एक प्रश्न पूछें</string>
-    <string name="polls_enabled_description">InterTune बीच-बीच में देखता है कि कोई प्रश्न है या नहीं, और उसे होम के ऊपर दिखाता है। डिफ़ॉल्ट रूप से बंद। जवाब गुमनाम हैं: सिर्फ़ प्रश्न, आपकी पसंद और ऐप का संस्करण भेजा जाता है। जब तक यह बंद है, कुछ भी नहीं लाया जाता।</string>
+    <string name="polls_enabled_description">कभी-कभी मुख्य स्थान पर एक छोटा प्रश्न, कि क्या बनाया जाए। डिफ़ॉल्ट रूप से बंद।</string>
     <string name="polls_enabled_info">InterTune कभी-कभी GitHub से प्रश्नों की एक छोटी सूची डाउनलोड करता है और मुख्य स्थान पर सबसे ऊपर एक प्रश्न दिखाता है। जवाब देने पर प्रश्न, आपका चुना हुआ जवाब और ऐप का संस्करण भेजा जाता है; किसी प्रश्न को पहली बार खोलने पर उसका शीर्षक और ऐप का संस्करण भेजा जाता है। आपका खाता, आपका डिवाइस या आपका संग्रह कभी नहीं।</string>
     <string name="polls_none">अभी कोई प्रश्न नहीं</string>
     <string name="polls_one_waiting">एक प्रश्न प्रतीक्षा में है</string>
@@ -253,13 +253,13 @@
     <string name="announcement_done">ठीक है</string>
     <string name="announcement_picture">%2$d में से तस्वीर %1$d। पूरी देखने के लिए टैप करें।</string>
     <string name="announcement_picture_failed">यह तस्वीर लोड नहीं हो सकी।</string>
-    <string name="polls_forget_description">आपने क्या जवाब दिया और क्या हटाया, उसका रिकॉर्ड मिटा देता है, ताकि पुराने प्रश्न फिर आ सकें।</string>
+    <string name="polls_forget_description">आपने क्या जवाब दिया, क्या हटाया और क्या पढ़ा, उसका रिकॉर्ड मिटा देता है, ताकि पुराने प्रश्न और खबरें फिर आ सकें।</string>
     <string name="catch_up_title">कुछ छोटे सवाल</string>
     <string name="catch_up_body">इन सेटिंग्स के लिए आपकी सहमति चाहिए, और इस इंस्टॉल से कभी नहीं पूछा गया।</string>
     <string name="catch_up_done">हो गया</string>
     <string name="catch_up_all_answered">बस इतना ही। खत्म करने के लिए \"%1$s\" पर टैप करें।</string>
     <string name="polls_opt_in_title">आपसे कभी-कभी एक प्रश्न पूछें?</string>
-    <string name="polls_opt_in_body">कभी-कभी InterTune होम के ऊपर एक छोटा प्रश्न दिखा सकता है, कि क्या बनाया या बदला जाए। जवाब देना वैकल्पिक और गुमनाम है, और आप इसे कभी भी सेटिंग में बंद कर सकते हैं। जब यह बंद है, न कुछ लाया जाता है और न कुछ भेजा जाता है।</string>
+    <string name="polls_opt_in_body">कभी-कभी InterTune मुख्य स्थान पर सबसे ऊपर एक छोटा प्रश्न दिखा सकता है, कि क्या बनाया या बदला जाए। जवाब, और किसी प्रश्न को पहली बार खोलना, गुमनाम रूप से गिने जाते हैं। आप इसे कभी भी सेटिंग्स में बंद कर सकते हैं।</string>
     <string name="polls_opt_in_yes">हाँ, पूछिए</string>
     <string name="polls_opt_in_no">नहीं, धन्यवाद</string>
     <string name="news_enabled">InterTune की खबरें</string>
@@ -312,7 +312,7 @@
     <string name="keep_alive_description">InterTune को पृष्ठभूमि में बंद होने से रोकने के लिए एक स्थायी फोरग्राउंड सेवा का उपयोग करें</string>
     <string name="persistent_queue_desc_ot">ऐप शुरू होने पर पिछली खुली कतार(कतारों) को पुनर्स्थापित करें</string>
     <string name="min_playback_duration">कम से कम चलाने की अवधि</string>
-    <string name="min_playback_duration_description">किसी गीत को \"चलाया गया\" मानने से पहले उसे जितनी न्यूनतम अवधि तक चलाना आवश्यक है</string>
+    <string name="min_playback_duration_description">किसी गीत को \"चलाया गया\" मानने से पहले उसे जितनी न्यूनतम अवधि तक चलाना आवश्यक है। इससे चलाने की संख्या, \"अधिकतम सुने गए\" सूचियां और आपके YouTube इतिहास में पहुंचने वाले गाने तय होते हैं। \"इतिहास\" स्क्रीन पर 2 सेकंड या उससे ज़्यादा सुना गया हर गाना दिखता है, यह सेटिंग चाहे जो भी हो।</string>
     <string name="swipe2Queue">कतार में जोड़ने के लिए स्वाइप करें</string>
     <string name="swipe2Queue_description">किसी गाने पर स्वाइप करके उसे वर्तमान में चल रहे गाने के तुरंत बाद प्ले होने के लिए जोड़ें</string>
     <string name="seek_increment">सीक वृद्धि</string>
@@ -597,7 +597,7 @@
     <string name="clear_listen_history_description">आपने क्या चलाया, इस बारे में ऐप ने जो कुछ रिकॉर्ड किया है सब मिटाएँ।</string>
     <string name="pause_search_history_description">आप क्या खोजते हैं, इसे सहेजना बंद करें।</string>
     <string name="clear_search_history_description">ऐप ने सहेजी हुई हर खोज मिटाएँ।</string>
-    <string name="sync_params_description">केवल पढ़ने का मतलब है कि ऐप आपके YouTube Music खाते में कभी कुछ नहीं बदलता। टकराव समाधान तय करता है कि जब कोई प्लेलिस्ट यहाँ और वहाँ अलग हो तो क्या हो।</string>
+    <string name="sync_params_description">\"पढ़ें और लिखें\" चुनने पर ऐप आपके YouTube Music खाते में बदलाव कर सकता है: पसंद, संग्रह और प्लेलिस्ट। \"स्थानीय सामग्री हटाकर रिमोट सामग्री रखें\" चुनने पर इस फ़ोन के संग्रह से वह सब हट जाता है जो खाते में नहीं है।</string>
     <string name="enable_lrclib_description">LRCLIB पर बोल खोजें, यह एक मुफ़्त सामुदायिक बोल डेटाबेस है।</string>
     <string name="enable_kugou_description">KuGou पर बोल खोजें। इसका संग्रह बड़ा है, और चीनी संगीत के लिए सबसे मज़बूत।</string>
     <string name="audio_normalization_description">गानों के बीच आवाज़ बराबर करता है, ताकि कोई अचानक पिछले से कहीं तेज़ न लगे।</string>
@@ -605,7 +605,7 @@
     <string name="stop_music_on_task_clear_description">जब आप ऐप को हाल के ऐप से हटाएँ तो संगीत रोक दें।</string>
     <string name="enable_dynamic_theme_description">ऐप के रंग आपके वॉलपेपर से लें।</string>
     <string name="pure_black_description">गहरे स्लेटी की जगह असली काला इस्तेमाल करें। OLED स्क्रीन पर इससे थोड़ी बैटरी भी बचती है।</string>
-    <string name="min_playback_duration_short">किसी गाने का कितना हिस्सा चलना चाहिए कि वह सुना हुआ गिना जाए।</string>
+    <string name="min_playback_duration_short">किसी गाने का कितना हिस्सा चलना चाहिए कि वह सुना हुआ गिना जाए। इतिहास में 2 सेकंड या उससे ज़्यादा सुना गया हर गाना दिखता है, चाहे वह गिना गया हो या नहीं।</string>
     <string name="throttle_banner_title">YouTube ने यह कनेक्शन रोक दिया है</string>
     <plurals name="throttle_banner_body">
         <item quantity="one">सुझाव, डाउनलोड और सिंक लगभग एक मिनट के लिए रुके हुए हैं। जिन गानों पर आप टैप करते हैं, वे फिर भी चलने की कोशिश करते हैं।</item>
