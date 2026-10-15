@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.RadioButton
@@ -23,6 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
@@ -195,18 +197,26 @@ fun SwitchPreference(
     onCheckedChange: (Boolean) -> Unit
 ) {
     PreferenceEntry(
-        modifier = modifier,
+        // The whole row is the switch. With a click on the row and a switch of its own beside it,
+        // a screen reader found two things: the row, which read its words but not on or off, and
+        // the switch, which read on or off with no name. Now it reads both as one.
+        modifier = modifier.toggleable(
+            value = checked,
+            enabled = isEnabled,
+            role = Role.Switch,
+            onValueChange = onCheckedChange,
+        ),
         title = title,
         description = description,
         icon = icon,
         trailingContent = {
             Switch(
                 checked = checked,
-                onCheckedChange = onCheckedChange,
+                onCheckedChange = null,
                 enabled = isEnabled
             )
         },
-        onClick = { onCheckedChange(!checked) },
+        onClick = null,
         isEnabled = isEnabled
     )
 }
