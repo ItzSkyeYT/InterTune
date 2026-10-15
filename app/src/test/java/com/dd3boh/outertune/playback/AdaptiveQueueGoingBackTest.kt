@@ -108,6 +108,11 @@ class AdaptiveQueueGoingBackTest {
             "strong = reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK && !transitionWentBack" in service,
         )
 
+        assertTrue(
+            "a queue just put in the player, new or brought back on a reopen, is not planned: nothing of it is heard yet",
+            "if (reason != Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED) {\n            replanQueueTail(" in service,
+        )
+
         val sheet = File(sources, "ui/player/Queue.kt").readText()
         assertTrue(
             "the queue sheet must show everything up to the furthest song reached",
