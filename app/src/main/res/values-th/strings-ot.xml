@@ -31,7 +31,6 @@
     <string name="create_sync_playlist_description">หมายเหตุ: วิธีนี้ช่วยให้สามารถซิงค์กับ YouTube Music ได้ แต่คุณไม่สามารถเพิ่มเพลงในเครื่องลงในเพลย์ลิสต์ที่ซิงค์นี้ได้</string>
     <string name="disc_number">เพลงที่</string>
     <string name="extra_details">รายละเอียดเพิ่มเติม</string>
-    Note: claude-opus-5 (the safety classifier) was unavailable when reviewing this subagent's work. Please carefully verify the subagent's actions and output before acting on them.
     <string name="action_done">เสร็จสิ้น</string>
     <string name="download_on_wifi_only_description">รอเชื่อมต่อ Wi-Fi ก่อนดาวน์โหลด รายการที่สั่งดาวน์โหลดขณะใช้เน็ตมือถือจะถูกพักไว้ในคิว และเริ่มเองเมื่อกลับมาใช้ Wi-Fi</string>
     <string name="download_on_wifi_only_title">ดาวน์โหลดผ่าน Wi-Fi เท่านั้น</string>
