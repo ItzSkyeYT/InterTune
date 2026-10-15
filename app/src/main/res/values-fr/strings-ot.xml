@@ -1750,6 +1750,7 @@
     <string name="lyrics_video_length">Une vidéo de %1$s avec la chanson</string>
     <string name="lyrics_video_making">Création de la vidéo…</string>
     <string name="lyrics_video_failed">La vidéo n\'a pas pu être créée</string>
+    <string name="lyrics_video_size">La vidéo fait %1$s</string>
     <plurals name="lyrics_picked_video">
         <item quantity="one">%1$d ligne, %2$s</item>
         <item quantity="many">%1$d lignes, %2$s</item>

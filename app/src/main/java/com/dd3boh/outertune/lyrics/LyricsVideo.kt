@@ -12,6 +12,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.media.MediaCodec
+import android.media.MediaCodecInfo
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMuxer
@@ -76,15 +77,6 @@ import kotlin.math.roundToInt
 object LyricsVideo {
     private const val TAG = "LyricsVideo"
 
-    /** The sound, encoded once: more than enough for a phone's speaker or a chat's player. */
-    private const val SOUND_BITRATE = 192_000
-
-    /**
-     * The picture's. Lines over soft colour need little, and left to choose the encoder took 7
-     * Mbit/s for Living blur: 27 MB for 30 seconds, over what some chats take at all. This makes a
-     * 30 second video about 15 MB.
-     */
-    private const val PICTURE_BITRATE = 4_000_000
 
     /** The levels are measured from this long before the stretch, so that Living blur starts out knowing the song's shape, as it does in the player. */
     private const val HEARD_BEFORE_MS = 8_000L
@@ -198,7 +190,7 @@ object LyricsVideo {
             )
             setEncoderFactory(
                 DefaultEncoderFactory.Builder(context)
-                    .setRequestedAudioEncoderSettings(AudioEncoderSettings.Builder().setBitrate(SOUND_BITRATE).build())
+                    .setRequestedAudioEncoderSettings(AudioEncoderSettings.Builder().setBitrate(LyricsVideoPlan.SOUND_BITRATE).build())
                     .build()
             )
             setAudioMimeType(MimeTypes.AUDIO_AAC)
@@ -304,7 +296,7 @@ object LyricsVideo {
                 Effects(
                     emptyList(),
                     listOf(
-                        Presentation.createForWidthAndHeight(LyricsVideoFrames.WIDTH, LyricsVideoFrames.HEIGHT, Presentation.LAYOUT_STRETCH_TO_FIT),
+                        Presentation.createForWidthAndHeight(LyricsVideoPlan.OUT_WIDTH, LyricsVideoPlan.OUT_HEIGHT, Presentation.LAYOUT_STRETCH_TO_FIT),
                         OverlayEffect(listOf(frames)),
                     )
                 )
@@ -315,7 +307,15 @@ object LyricsVideo {
             setVideoMimeType(MimeTypes.VIDEO_H264)
             setEncoderFactory(
                 DefaultEncoderFactory.Builder(context)
-                    .setRequestedVideoEncoderSettings(VideoEncoderSettings.Builder().setBitrate(PICTURE_BITRATE).build())
+                    .setRequestedVideoEncoderSettings(
+                        VideoEncoderSettings.Builder()
+                            .setBitrate(LyricsVideoPlan.PICTURE_BITRATE)
+                            // Held to it, so the size is known before it is made: left to vary, the
+                            // emulator's encoder took 2 Mbit/s for 1.2 asked. One that cannot hold
+                            // a rate falls back to its own way.
+                            .setBitrateMode(MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR)
+                            .build()
+                    )
                     .build()
             )
         }
@@ -325,13 +325,16 @@ object LyricsVideo {
     }
 
     /**
-     * The video's frames, as the overlay that covers the black picture: one bitmap, drawn again
-     * for each frame. The overlay copies it on to be encoded whenever its drawing has changed, and
-     * before it asks for the next frame.
+     * The video's frames, as the overlay that covers the black picture: one bitmap the video's
+     * size, drawn again for each frame at the card's size scaled down to it, so that lines and
+     * edges are drawn sharp at the size they are seen. The overlay copies it on to be encoded
+     * whenever its drawing has changed, and before it asks for the next frame.
      */
     private class Frames(private val painter: LyricsVideoFrames) : BitmapOverlay() {
-        private val bitmap = createBitmap(LyricsVideoFrames.WIDTH, LyricsVideoFrames.HEIGHT)
-        private val canvas = Canvas(bitmap)
+        private val bitmap = createBitmap(LyricsVideoPlan.OUT_WIDTH, LyricsVideoPlan.OUT_HEIGHT)
+        private val canvas = Canvas(bitmap).apply {
+            scale(LyricsVideoPlan.OUT_WIDTH / LyricsVideoFrames.WIDTH.toFloat(), LyricsVideoPlan.OUT_HEIGHT / LyricsVideoFrames.HEIGHT.toFloat())
+        }
         private var drawnUs = Long.MIN_VALUE
 
         /** Frames drawn, and the time that took, for the log: what a slow phone spends its time on. */

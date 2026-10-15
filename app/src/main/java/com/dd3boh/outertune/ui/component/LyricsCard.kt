@@ -26,6 +26,7 @@ import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
 import android.text.TextUtils
+import android.text.format.Formatter
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.Image
@@ -381,7 +382,11 @@ fun LyricsCardDialog(lines: List<String>, song: MediaMetadata, video: LyricsVide
                 )
                 // Not over a locked phone or another app: it waits for the screen to be back.
                 lifecycleOwner.withResumed {
-                    if (!LyricsVideo.share(context, file, song.title)) {
+                    if (LyricsVideo.share(context, file, song.title)) {
+                        // how big it is, to know before sending it where files have a limit
+                        val size = Formatter.formatFileSize(context, file.length())
+                        Toast.makeText(context, context.getString(R.string.lyrics_video_size, size), Toast.LENGTH_LONG).show()
+                    } else {
                         Toast.makeText(context, R.string.error_unknown, Toast.LENGTH_SHORT).show()
                     }
                 }

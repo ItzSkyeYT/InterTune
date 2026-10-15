@@ -1959,6 +1959,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="lyrics_video_length">A %1$s video with the song</string>
     <string name="lyrics_video_making">Making the video…</string>
     <string name="lyrics_video_failed">The video could not be made</string>
+    <string name="lyrics_video_size">The video is %1$s</string>
     <plurals name="lyrics_picked_video">
         <item quantity="one">%1$d line, %2$s</item>
         <item quantity="other">%1$d lines, %2$s</item>

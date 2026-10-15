@@ -150,6 +150,13 @@ class LyricsVideoPlanTest {
     }
 
     @Test
+    fun `a video is small enough to send, a minute under 10 MB`() {
+        assertTrue(LyricsVideoPlan.bytes(LyricsVideoPlan.LONGEST_MS) < 10_000_000)
+        assertTrue("half a minute under 5 MB", LyricsVideoPlan.bytes(30_000) < 5_000_000)
+        assertEquals("the card's shape, smaller", 1080f / 1920f, LyricsVideoPlan.OUT_WIDTH.toFloat() / LyricsVideoPlan.OUT_HEIGHT, 0.0001f)
+    }
+
+    @Test
     fun `thirty frames a second`() {
         assertEquals(30, LyricsVideoPlan.frames(1_000))
         assertEquals(31, LyricsVideoPlan.frames(1_001))
