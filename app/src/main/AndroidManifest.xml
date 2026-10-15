@@ -58,8 +58,13 @@
             android:name="org.apache.http.legacy"
             android:required="false" />
 
+        <!-- Turning the phone, a window resized in split screen, a foldable opened or a keyboard
+             plugged in: the screen lays itself out again and keeps everything on it. Made anew
+             on each of those, it lost whatever was open or half done (a dialog, lines being picked,
+             a video being made). Its layouts follow the window's size as it changes. -->
         <activity
             android:name=".MainActivity"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation"
             android:exported="true"
             android:launchMode="singleTask"
             android:theme="@style/Theme.OuterTune"
