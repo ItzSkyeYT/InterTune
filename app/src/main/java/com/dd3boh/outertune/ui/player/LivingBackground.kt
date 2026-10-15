@@ -275,17 +275,7 @@ private fun LivingPicture(
         val coverAt = coverPlace()?.also { look.lastCover = it } ?: look.lastCover
         drawIntoCanvas { canvas ->
             val native = canvas.nativeCanvas
-            native.drawColor(motion.under)
-            val cellWidth = size.width / motion.columns
-            val cellHeight = size.height / motion.rows
-            for (i in 0 until motion.count) {
-                val radius = motion.radius(i)
-                look.disc(native, motion.x(i) * size.width, motion.y(i) * size.height, radius * cellWidth, radius * cellHeight, motion.color(i), 1f)
-            }
-            // A glow on the bottom edge and one on the top, half of each off the screen: the bass
-            // has both ends of the picture.
-            look.disc(native, size.width / 2, size.height, size.width * 0.8f, size.height * motion.glowHeight(), motion.glow, motion.glowStrength())
-            look.disc(native, size.width / 2, 0f, size.width * 0.8f, size.height * motion.glowHeight() * 0.7f, motion.glow, motion.glowStrength() * 0.8f)
+            look.discs.field(native, motion, size.width, size.height)
 
             if (coverAt != null && motion.auraPresence > 0.004f) {
                 val by = stretch.value
@@ -298,7 +288,7 @@ private fun LivingPicture(
                 for (i in motion.aura.indices) {
                     val point = motion.aura[i]
                     val radius = motion.auraRadius(i) * side
-                    look.disc(native, left + point.x * width, top + point.y * height, radius, radius, motion.auraColor(i), motion.auraStrength(i))
+                    look.discs.disc(native, left + point.x * width, top + point.y * height, radius, radius, motion.auraColor(i), motion.auraStrength(i))
                 }
             }
         }
@@ -332,6 +322,15 @@ private class Look {
     /** True from when the picture stops being drawn, off screen, until its frames start again. */
     var unseen = false
 
+    val discs = LivingDiscs()
+}
+
+/**
+ * What Living blur is drawn with: soft discs of colour, and the field of them the motion says.
+ * The player draws with it, and so does a lyrics video (LyricsVideoFrames), so that the two look
+ * the same. Allocates nothing once made.
+ */
+internal class LivingDiscs {
     private val paint = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
     private val into = RectF()
 
@@ -358,16 +357,35 @@ private class Look {
         into.set(x - halfWidth, y - halfHeight, x + halfWidth, y + halfHeight)
         canvas.drawBitmap(soft, null, into, paint)
     }
+
+    /**
+     * The field as [motion] has it now, over a picture [width] by [height]: what shows where the
+     * patches leave anything uncovered, the patches, and the bass's glow. Everything but the aura,
+     * which is round a cover only the player has.
+     */
+    fun field(canvas: android.graphics.Canvas, motion: LivingMotion, width: Float, height: Float) {
+        canvas.drawColor(motion.under)
+        val cellWidth = width / motion.columns
+        val cellHeight = height / motion.rows
+        for (i in 0 until motion.count) {
+            val radius = motion.radius(i)
+            disc(canvas, motion.x(i) * width, motion.y(i) * height, radius * cellWidth, radius * cellHeight, motion.color(i), 1f)
+        }
+        // A glow on the bottom edge and one on the top, half of each off the picture: the bass
+        // has both ends of it.
+        disc(canvas, width / 2, height, width * 0.8f, height * motion.glowHeight(), motion.glow, motion.glowStrength())
+        disc(canvas, width / 2, 0f, width * 0.8f, height * motion.glowHeight() * 0.7f, motion.glow, motion.glowStrength() * 0.8f)
+    }
 }
 
 /** The picture is drawn at one part in this many of its size, each way. */
-private const val SHRINK = 8
+internal const val LIVING_SHRINK = 8
 
 /** How much the small picture is blurred before it is stretched, in its own pixels. Hides the steps of the stretching. */
 private const val SMOOTHING = 2.5f
 
 /**
- * Lays the content out [SHRINK] times smaller than the room it is given and stretches it back to
+ * Lays the content out [LIVING_SHRINK] times smaller than the room it is given and stretches it back to
  * fill that room, through a layer of its own so that it is the small picture that gets stretched
  * and not its drawing that gets scaled. [stretched] is told by how much, each way. [alpha] is how
  * much of the stretched picture shows: the layer's own, so that the picture is faded as one thing
@@ -382,7 +400,7 @@ private fun Modifier.drawnSmall(stretched: MutableState<Offset>, alpha: Float): 
         }
         val width = constraints.maxWidth
         val height = constraints.maxHeight
-        val small = measurable.measure(Constraints.fixed(max(1, width / SHRINK), max(1, height / SHRINK)))
+        val small = measurable.measure(Constraints.fixed(max(1, width / LIVING_SHRINK), max(1, height / LIVING_SHRINK)))
         stretch = Offset(width / small.width.toFloat(), height / small.height.toFloat())
         layout(width, height) { small.place(0, 0) }
     }.graphicsLayer {

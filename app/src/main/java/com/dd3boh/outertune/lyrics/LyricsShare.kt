@@ -8,8 +8,9 @@ package com.dd3boh.outertune.lyrics
 
 /**
  * Copying and sharing lyrics from the lyrics view: all of them as text, or a few lines picked for a
- * picture (LyricsCard). What goes out is the text as the view shows it, line by line, without the
- * timings a synced file carries. No Android in here, so it is tested.
+ * picture (LyricsCard) or, with synced lyrics, a video (LyricsVideo). What goes out as text or in
+ * a picture is the text as the view shows it, line by line, without the timings a synced file
+ * carries. No Android in here, so it is tested.
  */
 object LyricsShare {
     /**
@@ -45,18 +46,27 @@ object LyricsShare {
         /** The lines picked now, by their place in the lyrics, in the order they were picked. */
         data class Picked(val lines: List<Int>) : Pick
 
-        /** [MOST_LINES] are picked already, and the tap was on another. */
+        /** As many are picked as can be shared, and the tap was on another. */
         data object Full : Pick
 
         /** The line is empty: a gap between verses, or a pause in a synced file. Nothing to share. */
         data object Empty : Pick
     }
 
-    /** A tap on the line at [index] of [lines], with [picked] picked so far: picked if it was not, put back if it was. */
-    fun toggle(picked: List<Int>, index: Int, lines: List<String>): Pick = when {
+    /**
+     * A tap on the line at [index] of [lines], with [picked] picked so far: picked if it was not,
+     * put back if it was. [fits] says whether lines picked so can be shared: up to [MOST_LINES]
+     * for a picture, and with synced lyrics also as many as a video takes (LyricsVideoPlan).
+     */
+    fun toggle(
+        picked: List<Int>,
+        index: Int,
+        lines: List<String>,
+        fits: (List<Int>) -> Boolean = { it.size <= MOST_LINES },
+    ): Pick = when {
         index in picked -> Pick.Picked(picked - index)
         lines.getOrNull(index).isNullOrBlank() -> Pick.Empty
-        picked.size >= MOST_LINES -> Pick.Full
+        !fits(picked + index) -> Pick.Full
         else -> Pick.Picked(picked + index)
     }
 
@@ -65,11 +75,12 @@ object LyricsShare {
         picked.distinct().sorted().mapNotNull { lines.getOrNull(it)?.trim()?.takeIf(String::isNotEmpty) }
 
     /**
-     * A name for the picture's file, which some apps show beside it: the song's title, with
-     * nothing a file name could choke on, or "lyrics" when nothing is left of it.
+     * A name for the picture's file, or the video's ([extension] "mp4"), which some apps show
+     * beside it: the song's title, with nothing a file name could choke on, or "lyrics" when
+     * nothing is left of it.
      */
-    fun fileName(title: String): String {
+    fun fileName(title: String, extension: String = "png"): String {
         val kept = title.replace(Regex("[^\\p{L}\\p{N} ._-]"), " ").replace(Regex("\\s+"), " ").trim().trim('.').take(60).trim()
-        return (kept.ifEmpty { "lyrics" }) + ".png"
+        return (kept.ifEmpty { "lyrics" }) + "." + extension
     }
 }

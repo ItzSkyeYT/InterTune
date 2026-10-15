@@ -94,6 +94,8 @@ fun LyricsMenu(
     shownLines: () -> List<String>? = { null },
     /** Starts picking lines in the view, for a picture of them. */
     onPickLines: () -> Unit = {},
+    /** True when the picked lines can be a video too: the lyrics are synced. */
+    picksForVideo: Boolean = false,
 ) {
     val context = LocalContext.current
     val database = LocalDatabase.current
@@ -516,7 +518,7 @@ fun LyricsMenu(
         }
         GridMenuItem(
             icon = Icons.Rounded.FormatQuote,
-            title = R.string.lyrics_share_picture,
+            title = if (picksForVideo) R.string.lyrics_share_picture_or_video else R.string.lyrics_share_picture,
             enabled = shown != null,
         ) {
             onDismiss()

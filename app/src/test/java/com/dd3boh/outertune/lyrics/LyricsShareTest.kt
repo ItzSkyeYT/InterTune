@@ -88,7 +88,8 @@ class LyricsShareTest {
         val menu = File("src/main/java/com/dd3boh/outertune/ui/menu/LyricsMenu.kt").readText()
         val order = listOf("R.string.edit", "R.string.refetch", "R.string.search", "R.string.delete", "R.string.settings",
             "R.string.lyrics_copy", "R.string.lyrics_share", "R.string.lyrics_share_picture")
-        val at = order.map { name -> menu.indexOf("title = $name") }
+        // An entry's title can depend on the lyrics shown (a picture, or with synced lyrics a picture or a video).
+        val at = order.map { name -> Regex("title = [^\n]*\\b${Regex.escape(name)}\\b").find(menu)?.range?.first ?: -1 }
         assertTrue("every entry is in the menu: ${order.zip(at)}", at.all { it >= 0 })
         assertEquals("in this order: ${order.zip(at)}", at.sorted(), at)
     }

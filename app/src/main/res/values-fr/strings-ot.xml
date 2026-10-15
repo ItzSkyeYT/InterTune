@@ -1691,4 +1691,20 @@
         <item quantity="other">%1$d lignes au plus</item>
     </plurals>
     <string name="lyrics_pick_cancel">Ne plus choisir de lignes</string>
+    <string name="lyrics_share_picture_or_video">Image ou vidéo</string>
+    <string name="lyrics_as_picture">Image</string>
+    <string name="lyrics_as_video">Vidéo</string>
+    <string name="lyrics_video_length">Une vidéo de %1$s avec la chanson</string>
+    <string name="lyrics_video_making">Création de la vidéo…</string>
+    <string name="lyrics_video_failed">La vidéo n\'a pas pu être créée</string>
+    <plurals name="lyrics_picked_video">
+        <item quantity="one">%1$d ligne, %2$s</item>
+        <item quantity="many">%1$d lignes, %2$s</item>
+        <item quantity="other">%1$d lignes, %2$s</item>
+    </plurals>
+    <plurals name="lyrics_pick_most_video">
+        <item quantity="one">Une image prend %1$d ligne, une vidéo une minute de la chanson</item>
+        <item quantity="many">Une image prend %1$d lignes au plus, une vidéo une minute de la chanson</item>
+        <item quantity="other">Une image prend %1$d lignes au plus, une vidéo une minute de la chanson</item>
+    </plurals>
 </resources>

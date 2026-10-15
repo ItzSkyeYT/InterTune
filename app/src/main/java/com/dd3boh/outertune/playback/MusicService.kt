@@ -1967,6 +1967,12 @@ class MusicService : MediaLibraryService(),
             .setFlags(FLAG_IGNORE_CACHE_ON_ERROR)
     }
 
+    /**
+     * The way the player gets to a song's bytes from its id: its download, the cache, or the
+     * stream. A lyrics video cuts its sound out of the song the same way (LyricsVideo).
+     */
+    fun songSource(): DataSource.Factory = createDataSourceFactory()
+
     private fun createDataSourceFactory(): DataSource.Factory {
         return ResolvingDataSource.Factory(createCacheDataSource()) { dataSpec ->
             val mediaId = dataSpec.key ?: error("No media id")

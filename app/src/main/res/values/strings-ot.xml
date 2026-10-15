@@ -1861,4 +1861,18 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="other">Up to %1$d lines</item>
     </plurals>
     <string name="lyrics_pick_cancel">Stop picking lines</string>
+    <string name="lyrics_share_picture_or_video">Picture or video</string>
+    <string name="lyrics_as_picture">Picture</string>
+    <string name="lyrics_as_video">Video</string>
+    <string name="lyrics_video_length">A %1$s video with the song</string>
+    <string name="lyrics_video_making">Making the video…</string>
+    <string name="lyrics_video_failed">The video could not be made</string>
+    <plurals name="lyrics_picked_video">
+        <item quantity="one">%1$d line, %2$s</item>
+        <item quantity="other">%1$d lines, %2$s</item>
+    </plurals>
+    <plurals name="lyrics_pick_most_video">
+        <item quantity="one">A picture takes %1$d line, a video a minute of the song</item>
+        <item quantity="other">A picture takes up to %1$d lines, a video a minute of the song</item>
+    </plurals>
 </resources>
