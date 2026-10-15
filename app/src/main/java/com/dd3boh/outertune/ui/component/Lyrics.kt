@@ -14,12 +14,17 @@ import android.content.res.Configuration
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -74,6 +79,8 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -341,7 +348,13 @@ fun Lyrics(
         if (lineFoot > barTop) scope.launch { lazyListState.animateScrollBy(lineFoot - barTop) }
     }
 
-    LaunchedEffect(currentLineIndex, lastPreviewTime, picking) {
+    // A finger resting on the lines: the view does not start scrolling to the song's line under
+    // it, which would take the line being pressed away from under the finger. Its scrolling is
+    // also a glide that leaves touches alone (glideToItem), so that in a quick part of a song (a
+    // line a second) a long press on a line starts picking, where one in four was lost.
+    var fingerDown by remember { mutableStateOf(false) }
+
+    LaunchedEffect(currentLineIndex, lastPreviewTime, picking, fingerDown) {
         /**
          * Count number of new lines in a lyric
          */
@@ -358,9 +371,9 @@ fun Lyrics(
             }
         }
 
-        // Nothing moves under a finger picking lines. Once the picking ends, the song's line is
-        // scrolled to again.
-        if (!isSynced || picking) return@LaunchedEffect
+        // Nothing moves under a finger, or while lines are picked. Once the finger is lifted, or
+        // the picking ends, the song's line is scrolled to again.
+        if (!isSynced || picking || fingerDown) return@LaunchedEffect
         if (currentLineIndex != -1) {
             deferredCurrentLineIndex = currentLineIndex
             if (lastPreviewTime == 0L) {
@@ -369,7 +382,7 @@ fun Lyrics(
                         currentLineIndex,
                         with(density) { 36.dp.toPx().toInt() } + calculateOffset())
                 } else {
-                    lazyListState.animateScrollToItem(
+                    lazyListState.glideToItem(
                         currentLineIndex,
                         with(density) { 36.dp.toPx().toInt() } + calculateOffset())
                 }
@@ -391,6 +404,20 @@ fun Lyrics(
                 .asPaddingValues(),
             modifier = Modifier
                 .fadingEdge(vertical = lyricsFadeLength(maxHeight, smallWindow))
+                // Only watched, on the way in, and left for the lines and the list to act on.
+                .pointerInput(Unit) {
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                        fingerDown = true
+                        try {
+                            do {
+                                val event = awaitPointerEvent(PointerEventPass.Initial)
+                            } while (event.changes.any { it.pressed })
+                        } finally {
+                            fingerDown = false
+                        }
+                    }
+                }
                 .nestedScroll(remember {
                     object : NestedScrollConnection {
                         override fun onPostScroll(
@@ -893,6 +920,25 @@ const val animateScrollDuration = 300L
 /** What the picking bar takes at the foot of the lyrics view: its own height and a little room over it. */
 private val PickBarRoom = 64.dp
 val LyricsPreviewTime = 7.seconds
+
+/**
+ * Scrolls to item [index], [offset] pixels past its top, on the spring animateScrollToItem uses,
+ * but by handing the list each step itself. A list that scrolls under its own power takes the
+ * next touch on it for a drag that stops the scroll, and the line under the finger never hears of
+ * it; one moved this way is never scrolling, so a touch is a touch on what it lands on. An item
+ * that is not laid out is jumped to.
+ */
+private suspend fun LazyListState.glideToItem(index: Int, offset: Int) {
+    val item = layoutInfo.visibleItemsInfo.firstOrNull { it.index == index }
+    if (item == null) {
+        scrollToItem(index, offset)
+        return
+    }
+    var moved = 0f
+    animate(0f, (item.offset + offset).toFloat(), animationSpec = spring()) { value, _ ->
+        moved += dispatchRawDelta(value - moved)
+    }
+}
 
 /**
  * How far the lyrics fade out at the top and bottom of a view [height] tall.
