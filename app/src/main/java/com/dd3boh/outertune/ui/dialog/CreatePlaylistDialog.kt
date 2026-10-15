@@ -42,6 +42,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 
 @Composable
 fun CreatePlaylistDialog(
@@ -93,7 +95,10 @@ fun CreatePlaylistDialog(
             // to be created in the account, which that setting promises never to do.
             if (allowSyncing && context.mayPushToYouTube()) {
                 Row(
-                    modifier = Modifier.padding(vertical = 16.dp, horizontal = 40.dp)
+                    modifier = Modifier
+                        // the row is the switch, so a screen reader reads its words and whether it is on as one
+                        .toggleable(value = syncedPlaylist, role = Role.Switch, onValueChange = { syncedPlaylist = it })
+                        .padding(vertical = 16.dp, horizontal = 40.dp)
                 ) {
                     Column() {
                         Text(
@@ -113,9 +118,7 @@ fun CreatePlaylistDialog(
                     ) {
                         Switch(
                             checked = syncedPlaylist,
-                            onCheckedChange = {
-                                syncedPlaylist = !syncedPlaylist
-                            },
+                            onCheckedChange = null,
                         )
                     }
                 }

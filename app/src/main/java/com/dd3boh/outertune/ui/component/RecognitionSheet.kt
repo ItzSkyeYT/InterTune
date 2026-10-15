@@ -80,6 +80,8 @@ import com.dd3boh.outertune.recognition.RecognitionEngine
 import com.dd3boh.outertune.recognition.RecognitionViewModel
 import com.dd3boh.outertune.recognition.SheetRun
 import com.zionhuang.innertube.models.SongItem
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 
 /**
  * Listen to what is playing nearby, then show what it was.
@@ -284,8 +286,10 @@ fun RecognitionSheet(
             if (run !is SheetRun.Other) Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
-                    .fillMaxWidth()
                     .padding(top = 24.dp)
+                    .fillMaxWidth()
+                    // the row is the switch, so a screen reader reads its words and whether it is on as one
+                    .toggleable(value = continuous, role = Role.Switch, onValueChange = { viewModel.setContinuous(it) })
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
@@ -300,7 +304,7 @@ fun RecognitionSheet(
                 }
                 Switch(
                     checked = continuous,
-                    onCheckedChange = { viewModel.setContinuous(it) },
+                    onCheckedChange = null,
                 )
             }
 
