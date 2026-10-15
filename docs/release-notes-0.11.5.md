@@ -42,9 +42,9 @@ _Lighter on the battery, steadier on the music._
 
 ## Smaller things
 
-- **German** is complete.
+- Complete in German, Spanish, Brazilian Portuguese, Indonesian, Hindi, Italian and Russian.
 - Labels that were cut off get smaller to fit.
-- A black and white or grey cover gives the player grey controls, where it gave bright ones.
-- With Liquid glass on, the queue's bar is one floating pane of glass, like the dock.
-- The sleep timer comes up as a sheet, which a drag closes.
+- Grey and black and white covers give the player grey controls.
+- With Liquid glass on, the queue's bar is one floating glass pane, like the dock.
+- The sleep timer is a sheet, which a drag closes.
 - More buttons are named for screen readers.
