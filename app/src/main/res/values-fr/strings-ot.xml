@@ -1761,4 +1761,5 @@
         <item quantity="many">Une image prend %1$d lignes au plus, une vidéo une minute de la chanson</item>
         <item quantity="other">Une image prend %1$d lignes au plus, une vidéo une minute de la chanson</item>
     </plurals>
+    <string name="queue_from_search">« %1$s »</string>
 </resources>

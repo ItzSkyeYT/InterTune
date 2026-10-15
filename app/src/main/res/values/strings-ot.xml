@@ -1968,4 +1968,5 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="one">A picture takes %1$d line, a video a minute of the song</item>
         <item quantity="other">A picture takes up to %1$d lines, a video a minute of the song</item>
     </plurals>
+    <string name="queue_from_search">“%1$s”</string>
 </resources>
