@@ -1844,4 +1844,5 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="problem_report_copy">Copy</string>
     <string name="problem_report_copied">Copied</string>
     <string name="problem_report_close">Close</string>
+    <string name="queue_from_search">“%1$s”</string>
 </resources>

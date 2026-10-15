@@ -432,7 +432,15 @@ class MediaLibrarySessionCallback @Inject constructor(
             if (request.requestMetadata.mediaUri != null) return null
             val query = request.requestMetadata.searchQuery?.trim().orEmpty()
             if (query.isEmpty()) return continueCurrentQueue()
-            return startExternalQueue(searchCar(query).map { it.toMediaItem() }, 0, C.TIME_UNSET)
+            // Named after what was asked: an assistant's "play X" and the phone's search come
+            // this way as much as the car does, and a queue of theirs called "Android Auto" in
+            // the list of queues said where it came from wrongly. In quotes, since a queue's name
+            // is what tells it from the others: a search for an album's title would otherwise
+            // have replaced the songs of that album's own queue.
+            return startExternalQueue(
+                searchCar(query).map { it.toMediaItem() }, 0, C.TIME_UNSET,
+                title = context.getString(R.string.queue_from_search, query),
+            )
         }
 
         val target = PlayRequest.parse(mediaId) ?: return null
@@ -491,12 +499,17 @@ class MediaLibrarySessionCallback @Inject constructor(
      * wrote the car's position into it, radio topped it up and reloaded it over the car's music,
      * and shuffle swapped the car's music for it.
      */
-    private fun startExternalQueue(items: List<MediaItem>, startIndex: Int, startPositionMs: Long): MediaItemsWithStartPosition? {
+    private fun startExternalQueue(
+        items: List<MediaItem>,
+        startIndex: Int,
+        startPositionMs: Long,
+        title: String = context.getString(R.string.android_auto),
+    ): MediaItemsWithStartPosition? {
         // Nothing found is a request that fails, not an empty player.
         if (items.isEmpty()) return null
         val board = service.queueBoard
         val q = board.addQueue(
-            context.getString(R.string.android_auto),
+            title,
             items.map { it.metadata },
             shuffled = false,
             replace = true,
