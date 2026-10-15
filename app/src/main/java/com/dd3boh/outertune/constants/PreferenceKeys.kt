@@ -295,6 +295,8 @@ val LyricsSourceOrderKey = stringPreferencesKey("lyricsSourceOrder")
 /** The in-app equalizer (EqualizerAudioProcessor): on or off, and its ten gains as EqualizerPreset.format writes them. */
 val EqualizerEnabledKey = booleanPreferencesKey("equalizerEnabled")
 val EqualizerGainsKey = stringPreferencesKey("equalizerGains")
+/** The headphones the equalizer's curve was taken from (AutoEq.keep), shown while the curve is still theirs. */
+val EqualizerHeadphoneKey = stringPreferencesKey("equalizerHeadphone")
 val UseLoginForBrowse = booleanPreferencesKey("useLoginForBrowse")
 
 

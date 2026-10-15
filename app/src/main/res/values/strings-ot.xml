@@ -1945,4 +1945,12 @@ while also allowing users to translate our app as well. New, specific strings to
     <!-- Show in Latin letters, in Settings > Lyrics and in the lyrics view's settings (LyricsLatin). -->
     <string name="lyrics_latin_title">Show in Latin letters</string>
     <string name="lyrics_latin_description">Lyrics in Japanese, Korean, Chinese, Russian and some other languages get a second line in Latin letters. Kanji stay as they are.</string>
+    <string name="equalizer_headphones" translatable="false">Your headphones</string>
+    <string name="equalizer_headphones_pick" translatable="false">Pick your model, and the bands follow its measurements from AutoEq.</string>
+    <string name="equalizer_headphones_set" translatable="false">%1$s, measured by %2$s</string>
+    <string name="equalizer_headphones_search" translatable="false">Search your model</string>
+    <string name="equalizer_headphones_loading" translatable="false">Getting the list of models</string>
+    <string name="equalizer_headphones_offline" translatable="false">AutoEq could not be reached. Try again with a connection.</string>
+    <string name="equalizer_headphones_no_curve" translatable="false">This model has no ten band curve. Try another measurement of it.</string>
+    <string name="equalizer_headphones_none_found" translatable="false">No model by that name.</string>
 </resources>
