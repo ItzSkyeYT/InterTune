@@ -117,12 +117,15 @@ object LyricsVideo {
         }
         // The export outlives no screen, but it need not hold one either.
         val app = context.applicationContext
+        // Forward only: a step's own count can start again below where the last one left the bar.
+        var shown = 0f
+        val forward = { at: Float -> if (at > shown) { shown = at; progress(at) } }
         try {
             val sound = File(folder, "sound.m4a")
-            val heard = cutSound(app, source, mediaId, clip, sound) { progress(it * SOUND_SHARE) }
+            val heard = cutSound(app, source, mediaId, clip, sound) { forward(it * SOUND_SHARE) }
             val picture = File(folder, "picture.mp4")
             val painter = withContext(Dispatchers.Default) { frames(heard) }
-            drawPicture(app, painter, clip, folder, picture) { progress(SOUND_SHARE + it * (1f - SOUND_SHARE - JOIN_SHARE)) }
+            drawPicture(app, painter, clip, folder, picture) { forward(SOUND_SHARE + it * (1f - SOUND_SHARE - JOIN_SHARE)) }
             val video = File(folder, LyricsShare.fileName(title, "mp4"))
             withContext(Dispatchers.IO) {
                 join(picture, sound, video)
@@ -312,7 +315,10 @@ object LyricsVideo {
             )
             .build()
         val started = System.nanoTime()
-        export(context, item, into, progress) {
+        // How far the picture is, by the frames drawn: drawing is the slow part, and Transformer's
+        // own count, which follows the still picture fed in, ran far ahead of it and then waited.
+        val durationUs = clip.durationMs * 1000f
+        export(context, item, into, progress, measure = { frames.lastUs.coerceAtLeast(0L) / durationUs }) {
             setVideoMimeType(MimeTypes.VIDEO_H264)
             setEncoderFactory(
                 DefaultEncoderFactory.Builder(context)
@@ -346,6 +352,11 @@ object LyricsVideo {
         }
         private var drawnUs = Long.MIN_VALUE
 
+        /** The time of the last frame drawn, read from the main thread for the progress shown. */
+        @Volatile
+        var lastUs = -1L
+            private set
+
         /** Frames drawn, and the time that took, for the log: what a slow phone spends its time on. */
         var drawn = 0
             private set
@@ -366,6 +377,7 @@ object LyricsVideo {
                 drawingCpuNanos += Debug.threadCpuTimeNanos() - cpuFrom
                 drawingNanos += System.nanoTime() - from
                 drawn++
+                lastUs = presentationTimeUs
             }
             return bitmap
         }
@@ -420,12 +432,13 @@ object LyricsVideo {
 
     // Transformer
 
-    /** Exports [item] to [into] with a Transformer made as [setUp] says, on the main thread, where it must be driven from. */
+    /** Exports [item] to [into] with a Transformer made as [setUp] says, on the main thread, where it must be driven from. [progress] follows [measure] where one is given, Transformer's own count where not. */
     private suspend fun export(
         context: Context,
         item: EditedMediaItem,
         into: File,
         progress: (Float) -> Unit,
+        measure: (() -> Float)? = null,
         setUp: Transformer.Builder.() -> Unit,
     ) = withContext(Dispatchers.Main) {
         suspendCancellableCoroutine { done ->
@@ -435,7 +448,10 @@ object LyricsVideo {
             val poll = object : Runnable {
                 override fun run() {
                     if (!done.isActive) return
-                    if (transformer.getProgress(holder) == Transformer.PROGRESS_STATE_AVAILABLE) progress(holder.progress / 100f)
+                    when {
+                        measure != null -> progress(measure().coerceIn(0f, 1f))
+                        transformer.getProgress(holder) == Transformer.PROGRESS_STATE_AVAILABLE -> progress(holder.progress / 100f)
+                    }
                     main.postDelayed(this, POLL_MS)
                 }
             }
