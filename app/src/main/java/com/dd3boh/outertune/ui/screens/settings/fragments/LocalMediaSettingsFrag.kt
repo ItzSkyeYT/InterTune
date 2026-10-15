@@ -108,6 +108,8 @@ import java.time.LocalDateTime
 import java.time.ZoneOffset
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 
 
 @Composable
@@ -512,7 +514,13 @@ fun ColumnScope.LocalScannerFrag() {
         ActionPromptDialog(
             titleBar = {
                 Row(
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    // the title is the switch between the two lists, read with it as one
+                    modifier = Modifier.toggleable(
+                        value = showAddFolderDialog == true,
+                        role = Role.Switch,
+                        onValueChange = { showAddFolderDialog = it },
+                    ),
                 ) {
                     Text(
                         text = stringResource(
@@ -529,9 +537,7 @@ fun ColumnScope.LocalScannerFrag() {
                     ) {
                         Switch(
                             checked = showAddFolderDialog!!,
-                            onCheckedChange = {
-                                showAddFolderDialog = !showAddFolderDialog!!
-                            },
+                            onCheckedChange = null,
                         )
                     }
                 }

@@ -41,4 +41,36 @@ class SwitchRowIsOneSwitchTest {
         assertTrue(switchPreference.contains("onCheckedChange = null"))
         assertFalse("the row is no plain click any more", switchPreference.contains("onClick = { onCheckedChange(!checked) }"))
     }
+
+    /**
+     * Every switch and radio button drawn anywhere in the app leaves the touch to the row it is in,
+     * for the same reason. Four did not, outside Settings (Keep listening in Song recognition, a
+     * synced playlist, the folders dialog's choice between the two lists, the widget's settings),
+     * and read as two things each.
+     */
+    @Test
+    fun everySwitchAndRadioButtonLeavesTheTouchToItsRow() {
+        val offenders = File("src/main/java").walkTopDown().filter { it.extension == "kt" }.flatMap { file ->
+            val text = file.readText()
+            Regex("""\b(Switch|RadioButton)\(""").findAll(text).mapNotNull { call ->
+                val rest = text.substring(call.range.last + 1)
+                val args = rest.substring(0, closing(rest))
+                val handler = if (call.groupValues[1] == "Switch") "onCheckedChange" else "onClick"
+                if (args.contains("$handler = null")) null else "${file.name}: ${call.value}${args.trim().take(80)}"
+            }
+        }.toList()
+        assertTrue(offenders.joinToString("\n"), offenders.isEmpty())
+    }
+
+    /** Where the call whose arguments [rest] starts with ends: its own closing bracket. */
+    private fun closing(rest: String): Int {
+        var depth = 1
+        for (i in rest.indices) {
+            when (rest[i]) {
+                '(' -> depth++
+                ')' -> if (--depth == 0) return i
+            }
+        }
+        return rest.length
+    }
 }
