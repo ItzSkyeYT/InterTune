@@ -345,6 +345,9 @@ dependencies {
     implementation(libs.media3.okhttp)
     implementation(libs.media3.session)
     implementation(libs.media3.workmanager)
+    // Lyrics shared as a video: the clip's frames and the song's audio encoded on the phone (LyricsVideo).
+    implementation(libs.media3.transformer)
+    implementation(libs.media3.effect)
     // The app's own screens in a car: a car draws them from this and nothing else. The second is what
     // the first hands the session to the car with; it comes with it either way, named here to compile against.
     implementation(libs.car.app)

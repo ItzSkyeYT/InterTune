@@ -47,6 +47,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -113,6 +114,8 @@ import com.dd3boh.outertune.extensions.isPowerSaver
 import com.dd3boh.outertune.lyrics.LyricsShare
 import com.dd3boh.outertune.lyrics.LyricsLatin
 import com.dd3boh.outertune.lyrics.latinTools
+import com.dd3boh.outertune.lyrics.LyricsVideoPlan
+import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.component.shimmer.ShimmerHost
 import com.dd3boh.outertune.ui.component.shimmer.TextPlaceholder
@@ -185,28 +188,51 @@ fun Lyrics(
         lyricsModel = playerLyrics
     }
 
-    // Lines picked to share as a picture, by their place in [lines]. Picking starts with a long
-    // press on a line, or from the menu, and ends with Share, the cross, Back, or other lyrics.
+    // Lines picked to share as a picture, or with synced lyrics a video, by their place in
+    // [lines]. Picking starts with a long press on a line, or from the menu, and ends with Share,
+    // the cross, Back, or other lyrics.
     var picking by remember { mutableStateOf(false) }
     val picked = remember { mutableStateListOf<Int>() }
-    // The picked lines, while their picture is shown before it is sent.
+    // The picked lines, while their picture is shown before it is sent, their video, and the song
+    // they are from. That song, and not whichever plays: a video can take longer to make than
+    // what is left of the song, and the next one's lyrics coming up does not close the dialog.
     var cardLines by remember { mutableStateOf<List<String>?>(null) }
+    var cardVideo by remember { mutableStateOf<LyricsVideoPlan.Clip?>(null) }
+    var cardSong by remember { mutableStateOf<MediaMetadata?>(null) }
     val mostLines = pluralStringResource(R.plurals.lyrics_pick_most, LyricsShare.MOST_LINES, LyricsShare.MOST_LINES)
+    val mostForVideo = pluralStringResource(R.plurals.lyrics_pick_most_video, LyricsShare.MOST_LINES, LyricsShare.MOST_LINES)
+
+    /** The lines with their times, for a video of them; none for lyrics that are not synced. */
+    fun timedLines(): List<LyricsVideoPlan.Timed>? = if (!isSynced) null else lines.map {
+        LyricsVideoPlan.Timed(it.text, it.start.toLong(), it.end.toLong(), it.isTranslated)
+    }
+
+    /** The video of the lines at [chosen], or null where there can be none. */
+    fun videoOf(chosen: Collection<Int>): LyricsVideoPlan.Clip? =
+        timedLines()?.let { LyricsVideoPlan.clip(it, chosen, playerConnection.player.duration.takeIf { ms -> ms > 0 }) }
+
+    // How long the picked lines' video is, for the picking bar: worked out when the picks change,
+    // not on each of the view's ticks.
+    val pickedVideoMs by remember(isSynced) { derivedStateOf { if (picked.isEmpty()) null else videoOf(picked)?.durationMs } }
 
     fun stopPicking() {
         picking = false
         picked.clear()
     }
 
-    /** A line tapped or long pressed while picking: see [LyricsShare.toggle]. */
+    /**
+     * A line tapped or long pressed while picking: see [LyricsShare.toggle]. As many lines as a
+     * picture takes, or with synced lyrics as many as a video does, whichever is more.
+     */
     fun pick(index: Int) {
-        when (val result = LyricsShare.toggle(picked.toList(), index, lines.map { it.text })) {
+        val fits: (List<Int>) -> Boolean = { chosen -> chosen.size <= LyricsShare.MOST_LINES || videoOf(chosen) != null }
+        when (val result = LyricsShare.toggle(picked.toList(), index, lines.map { it.text }, fits)) {
             is LyricsShare.Pick.Picked -> {
                 picked.clear()
                 picked.addAll(result.lines)
             }
 
-            LyricsShare.Pick.Full -> Toast.makeText(context, mostLines, Toast.LENGTH_SHORT).show()
+            LyricsShare.Pick.Full -> Toast.makeText(context, if (isSynced) mostForVideo else mostLines, Toast.LENGTH_SHORT).show()
 
             LyricsShare.Pick.Empty -> Unit
         }
@@ -216,7 +242,6 @@ fun Lyrics(
         lines.clear()
         picking = false
         picked.clear()
-        cardLines = null
         lyricsModel?.let { model ->
             if (isSynced) {
                 val lyrics = lyricsModel as SemanticLyrics.SyncedLyrics
@@ -686,8 +711,13 @@ fun Lyrics(
             // them: neither closing the lyrics nor their menu is what anybody picking lines is after.
             if (picking) LyricsPickBar(
                 picked = picked.size,
+                videoMs = pickedVideoMs,
                 onCancel = ::stopPicking,
-                onShare = { cardLines = LyricsShare.pickedLines(lines.map { it.text }, picked) },
+                onShare = {
+                    cardSong = mediaMetadata
+                    cardVideo = videoOf(picked)
+                    cardLines = LyricsShare.pickedLines(lines.map { it.text }, picked)
+                },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(start = 12.dp, end = 12.dp, bottom = bottomPadding)
@@ -733,6 +763,7 @@ fun Lyrics(
                                     picked.clear()
                                     picking = true
                                 },
+                                picksForVideo = isSynced,
                             )
                         }
                     }
@@ -748,10 +779,15 @@ fun Lyrics(
             cardLines?.let { chosen ->
                 LyricsCardDialog(
                     lines = chosen,
-                    song = mediaMetadata,
-                    onDismiss = { cardLines = null },
+                    song = cardSong ?: mediaMetadata,
+                    video = cardVideo,
+                    onDismiss = {
+                        cardLines = null
+                        cardVideo = null
+                    },
                     onShared = {
                         cardLines = null
+                        cardVideo = null
                         stopPicking()
                     },
                 )
