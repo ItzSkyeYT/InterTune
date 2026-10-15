@@ -381,4 +381,14 @@
     <string name="pure_black_description">Usar negro puro en lugar de gris oscuro. En una pantalla OLED esto también ahorra algo de batería.</string>
     <string name="min_playback_duration_short">Cuánto tiene que sonar una canción para contar como reproducción.</string>
     <string name="throttle_banner_title">YouTube ha pausado esta conexión</string>
+    <string name="back">Atrás</string>
+    <string name="queue_default_name">Cola</string>
+    <string name="save_queue_as_playlist">Guardar esta cola como lista de reproducción</string>
+    <string name="saved_as_playlist">Guardado como lista de reproducción.</string>
+    <string name="spatial_audio">Audio espacial</string>
+    <string name="spatial_audio_description">La música se escucha frente a tí, en vez de dentro de tu cabeza.</string>
+    <string name="spatial_audio_off">Apagado</string>
+    <string name="spatial_audio_headphones">Audífonos</string>
+    <string name="link_wiki">Wiki</string>
+    <string name="link_report">Reportar</string>
 </resources>
