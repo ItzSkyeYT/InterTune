@@ -18,6 +18,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberUpdatedState
 import com.dd3boh.outertune.ui.utils.LocalAppBackdrop
 import com.dd3boh.outertune.ui.utils.LocalLandscape
+import com.dd3boh.outertune.ui.utils.CoverBlur
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.dd3boh.outertune.constants.PlayerButtonsStyle
@@ -131,7 +132,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.toRect
@@ -178,6 +178,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -200,6 +201,7 @@ import coil3.compose.AsyncImage
 import coil3.imageLoader
 import coil3.request.ImageRequest
 import coil3.request.allowHardware
+import coil3.request.transformations
 import coil3.toBitmap
 import com.dd3boh.outertune.LocalMenuState
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
@@ -743,13 +745,26 @@ fun BottomSheetPlayer(
                 ) { metadata ->
                     if (effectivePlayerBackground == PlayerBackgroundStyle.BLUR) {
                         Log.v(TAG, "PLR-2.2a")
+                        // Blurred once, on the thumbnail (CoverBlur), and no longer by the GPU on
+                        // every frame the window draws. Its spread is the GPU blur's sigma (Skia's
+                        // 0.57735 r + 0.5) as a share of the window it is stretched over.
+                        val window = LocalWindowInfo.current.containerSize
+                        val sigma = with(LocalDensity.current) { blurRadius.toPx() } * 0.57735f + 0.5f
+                        val blurred = remember(metadata, sigma, window) {
+                            ImageRequest.Builder(context)
+                                .data(metadata?.getThumbnailModel(100, 100))
+                                .size(100, 100)
+                                .transformations(
+                                    CoverBlur(sigma / window.width.coerceAtLeast(1), sigma / window.height.coerceAtLeast(1))
+                                )
+                                .build()
+                        }
                         AsyncImage(
-                            model = metadata?.getThumbnailModel(100, 100),
+                            model = blurred,
                             contentDescription = null,
                             contentScale = ContentScale.FillBounds,
                             modifier = Modifier
                                 .fillMaxSize()
-                                .blur(blurRadius)
                                 .alpha(artworkAlpha)
                         )
 
