@@ -2672,7 +2672,13 @@ class MusicService : MediaLibraryService(),
             heard.note(queueBoard.getCurrentQueue()?.id ?: 0L, it.mediaId, it.mediaMetadata.title?.toString())
             reachedInQueue.value = heard.reached.toSet()
         }
-        replanQueueTail(strong = reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK && !transitionWentBack)
+        // Not for a queue just put in the player, a new one or the one brought back when the app
+        // opens again: nothing of it has been heard yet (Heard starts over with each queue), so
+        // the pass had only the song now playing to go by. On a reopen it took 6 of 39 songs out
+        // of a queue nobody had touched (emulator, 15 Oct 2026). The next song change plans it.
+        if (reason != Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED) {
+            replanQueueTail(strong = reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK && !transitionWentBack)
+        }
         // "Listening now" on Last.fm. Not a scrobble, not stored, and allowed to fail quietly.
         mediaItem?.metadata?.let { meta -> scope.launch { scrobbler.nowPlaying(meta) } }
         // +2 when and error happens, and -1 when transition. Thus when error, number increments by 1, else doesn't change
