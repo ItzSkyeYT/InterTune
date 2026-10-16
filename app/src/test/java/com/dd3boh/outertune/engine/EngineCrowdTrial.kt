@@ -45,13 +45,15 @@ class EngineCrowdTrial {
     /**
      * A lean, or MIX (Familiar first with the mix learned), then any changes joined by +: fresh<N>
      * the fresh hours, cap<N> the cards one artist may hold, decay<N> Familiar first's decay in
-     * tenths, floor<N> the learned mix's fewest new cards, window<N> the listens it reads. FAMILIAR+cap4 is
+     * tenths, floor<N> the learned mix's fewest new cards, window<N> the listens it reads, ranker
+     * Familiar first ordered by FamiliarRanker. FAMILIAR+cap4 is
      * Familiar first with four cards an artist.
      */
     private class Arm(val name: String) {
         private val parts = name.split('+')
         val lean: Lean = if (parts[0] == "MIX") Lean.FAMILIAR else Lean.valueOf(parts[0])
         val p: EngineParams = parts.drop(1).fold(if (parts[0] == "MIX") EngineParams.DEFAULT.copy(mixLearned = true) else EngineParams.DEFAULT) { p, change ->
+            if (change == "ranker") return@fold p.copy(familiarRanker = true)
             val n = change.dropWhile { it.isLetter() }.toInt()
             when (change.takeWhile { it.isLetter() }) {
                 "fresh" -> p.copy(engineFreshHours = n)

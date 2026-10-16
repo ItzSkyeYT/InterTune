@@ -52,6 +52,8 @@ data class EngineParams(
      * other card is a familiar one. Off, Familiar first keeps its fixed [leanCards].
      */
     val mixLearned: Boolean = false,
+    /** Familiar first orders its songs by FamiliarRanker's six signals instead of [familiarDecay] alone (a test). */
+    val familiarRanker: Boolean = false,
     /**
      * Four, not two: across 467 Last.fm listeners a floor of four held the session's first song as
      * often as two (14.7 against 14.6 in 100) and offered half a card more of new songs, two more
