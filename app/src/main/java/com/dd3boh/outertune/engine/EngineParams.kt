@@ -52,7 +52,12 @@ data class EngineParams(
      * other card is a familiar one. Off, Familiar first keeps its fixed [leanCards].
      */
     val mixLearned: Boolean = false,
-    val mixNewMin: Int = 2,
+    /**
+     * Four, not two: across 467 Last.fm listeners a floor of four held the session's first song as
+     * often as two (14.7 against 14.6 in 100) and offered half a card more of new songs, two more
+     * to someone who mostly replays (experiments/features/recs-crowd/runs/mix-467x10, 16 Oct 2026).
+     */
+    val mixNewMin: Int = 4,
     val mixNewMax: Int = 10,
     /** The share is read over this many of the latest listens heard well, those started from the engine's own rows left out. */
     val mixWindowListens: Int = 300,

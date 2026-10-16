@@ -1972,6 +1972,6 @@ while also allowing users to translate our app as well. New, specific strings to
     <!-- Familiar first, a test of Quick picks in debug builds: not for translators -->
     <string name="familiar_first" translatable="false">Familiar first (test)</string>
     <string name="familiar_mix" translatable="false">Familiar first learns the mix (test)</string>
-    <string name="familiar_mix_description" translatable="false">Under Familiar first, as many new songs as you usually play: a quarter of the row if a quarter of what you play is new to you, never fewer than 2 or more than 10.</string>
+    <string name="familiar_mix_description" translatable="false">Under Familiar first, as many new songs as you usually play: a quarter of the row if a quarter of what you play is new to you, never fewer than 4 or more than 10.</string>
     <string name="familiar_first_description" translatable="false">Quick picks leads with songs you have heard well, recent plays counting most, the rest of the row as usual. Overrides the lean chosen in Recommendations.</string>
 </resources>
