@@ -1,0 +1,7 @@
+Version 0.11.6
+
+- Plus de saccades quand YouTube envoie un titre plus lentement qu'il ne se joue : l'appli le redemande sur une nouvelle connexion.
+- Analyse sans dossier choisi, dans Médias Locaux, ouvre la liste des dossiers au lieu de fermer l'appli.
+- La carte des nouveautés reste sur l'accueil tant que tout n'a pas été vu.
+
+Journal complet : https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.11.6

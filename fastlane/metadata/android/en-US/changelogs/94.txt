@@ -1,0 +1,7 @@
+Version 0.11.6
+
+- No more stutter when YouTube sends a song slower than it plays: the app asks again on a fresh connection.
+- Scan with no folder picked, in Local media, opens the folder list instead of closing the app.
+- The card for what is new stays on Home until everything on it has been looked at.
+
+Full changelog: https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.11.6

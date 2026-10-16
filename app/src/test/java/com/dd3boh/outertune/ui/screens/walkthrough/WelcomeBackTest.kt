@@ -30,7 +30,8 @@ class WelcomeBackTest {
     private val v011 = 91           // 0.11 as it shipped
     private val v0111 = 92          // 0.11.1, fixes only: it took the number 0.11.5 was to have
     private val v0115 = 93          // the first build of 0.11.5
-    private val v012 = 94           // the first build 0.12 can be
+    private val v0116 = 94          // 0.11.6, fixes only: it took the number 0.12 was to have
+    private val v012 = 95           // the first build 0.12 can be
 
     private fun ids(things: List<NewThing>) = things.map { it.id }
 
@@ -68,6 +69,16 @@ class WelcomeBackTest {
         assertEquals(emptyList<String>(), ids(newThingsFor(v011, buildVersionCode = v0111)))
         assertTrue(newThingsFor(v0109, buildVersionCode = v0111).all { it.release == "0.11" })
         assertEquals(listOf("library_import", "explain_pictures", "problem_report"), ids(newThingsFor(v0111, buildVersionCode = v0115)))
+    }
+
+    @Test
+    fun `0_11_6 shows nobody anything of 0_12, and whoever had a tour on it is still shown 0_12`() {
+        // Fixes only, build 94, the number 0.12 was first given: what 0.12 brings is counted from
+        // 95. Left at 94, somebody on 0.11.6 would be shown none of it once 0.12 came.
+        assertEquals(emptyList<String>(), ids(newThingsFor(v0115, buildVersionCode = v0116)))
+        assertEquals(listOf("library_import", "explain_pictures", "problem_report"), ids(newThingsFor(v0111, buildVersionCode = v0116)))
+        assertTrue(newThingsFor(v0116, buildVersionCode = v012).isNotEmpty())
+        assertTrue(newThingsFor(v0116, buildVersionCode = v012).all { it.release == "0.12" })
     }
 
     @Test

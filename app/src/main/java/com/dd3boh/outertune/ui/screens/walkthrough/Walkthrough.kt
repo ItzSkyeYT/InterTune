@@ -103,9 +103,11 @@ private const val V0_11_5 = 93
 
 /**
  * The first build 0.12 can ship as: what is held back for it is listed under it, so that somebody
- * on 0.11.5 is shown it once 0.12 brings it. Raise it if a 0.11.x release comes between.
+ * on 0.11.5 is shown it once 0.12 brings it. Raise it if a fix release comes between: 0.11.6,
+ * fixes only, took 94, and counted from 94 somebody who had a tour on 0.11.6 would be shown none
+ * of what 0.12 brings.
  */
-private const val V0_12 = 94
+private const val V0_12 = 95
 
 /**
  * A walk round Settings: its four groups, one bubble each.
