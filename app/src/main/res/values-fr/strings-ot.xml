@@ -1578,6 +1578,7 @@
     <string name="welcome_back_show">Me montrer</string>
     <string name="welcome_back_add_widget">L\'ajouter</string>
     <string name="welcome_back_add_tile">Ajouter la tuile</string>
+    <string name="scan_paths_none">Aucun dossier choisi pour l\'instant</string>
     <string name="welcome_back_seen">Vu</string>
     <string name="welcome_back_action_for">%1$s : %2$s</string>
     <string name="welcome_back_settings_title">Vous repérer dans les Paramètres</string>

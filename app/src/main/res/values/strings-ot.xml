@@ -798,6 +798,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="welcome_back_show">Show me</string>
     <string name="welcome_back_add_widget">Add it</string>
     <string name="welcome_back_add_tile">Add the tile</string>
+    <string name="scan_paths_none">No folder chosen yet</string>
     <string name="welcome_back_seen">Seen</string>
     <string name="welcome_back_action_for">%1$s: %2$s</string>
     <string name="welcome_back_settings_title">Find your way round Settings</string>
