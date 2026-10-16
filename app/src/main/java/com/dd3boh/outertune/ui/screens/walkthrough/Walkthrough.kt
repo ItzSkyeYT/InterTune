@@ -10,11 +10,11 @@ import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material.icons.rounded.BluetoothAudio
+import androidx.compose.material.icons.rounded.BlurOn
 import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.Campaign
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Headphones
-import androidx.compose.material.icons.rounded.Hearing
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Info
@@ -311,6 +311,13 @@ class NewThing(
  */
 class Install(val quickPicksChips: Boolean = true)
 
+/**
+ * Song recognition's own picture wherever it is: the sound bars of the button beside the search
+ * bar, also on its tile and home screen button (ic_recognise), so that it is known at a glance
+ * (his word, 16 Oct 2026). Nothing else on this page may wear them.
+ */
+val RECOGNITION_ICON get() = Icons.Rounded.GraphicEq
+
 /** Newest first: what somebody sees at the top is what they have never seen before. */
 val NEW_THINGS = listOf(
     NewThing(
@@ -319,7 +326,7 @@ val NEW_THINGS = listOf(
         sinceVersionCode = V0_12,
         title = R.string.new_living_blur_title,
         body = R.string.new_living_blur_body,
-        icon = Icons.Rounded.GraphicEq,
+        icon = Icons.Rounded.BlurOn,
         stops = listOf(
             TourStop("living_blur_row", Tour.ROW_LOOK_AND_FEEL, Tour.ROUTE_SETTINGS, R.string.look_and_feel, R.string.new_living_blur_way, V0_12),
             TourStop("living_blur_setting", Tour.SETTING_PLAYER_BACKGROUND, Tour.ROUTE_LOOK_AND_FEEL, R.string.player_background_style, R.string.new_living_blur_here, V0_12),
@@ -357,7 +364,7 @@ val NEW_THINGS = listOf(
         sinceVersionCode = V0_11_6,
         title = R.string.new_recognition_tile_title,
         body = R.string.new_recognition_tile_body,
-        icon = Icons.Rounded.Hearing,
+        icon = RECOGNITION_ICON,
         action = NewThingAction.ADD_TILE,
     ),
     NewThing(
@@ -412,7 +419,7 @@ val NEW_THINGS = listOf(
         sinceVersionCode = V0_11,
         title = R.string.walkthrough_recognition_title,
         body = R.string.new_recognise_body,
-        icon = Icons.Rounded.Hearing,
+        icon = RECOGNITION_ICON,
         stops = TOUR_STOPS.filter { it.id == "recognise" },
     ),
     NewThing(

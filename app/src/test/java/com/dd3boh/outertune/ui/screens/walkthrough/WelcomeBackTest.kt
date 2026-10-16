@@ -85,6 +85,21 @@ class WelcomeBackTest {
     }
 
     @Test
+    fun `song recognition wears the same sound bars wherever it is listed, and nothing else does`() {
+        assertEquals(RECOGNITION_ICON, NEW_THINGS.single { it.id == "recognise" }.icon)
+        assertEquals(RECOGNITION_ICON, NEW_THINGS.single { it.id == "recognition_tile" }.icon)
+        assertEquals(setOf("recognise", "recognition_tile"), NEW_THINGS.filter { it.icon == RECOGNITION_ICON }.map { it.id }.toSet())
+        // The tile and the home screen button draw the same bars (Material's graphic_eq).
+        val bars = "M7,18h2V6H7v12zM11,22h2V2h-2v20zM3,14h2v-4H3v4zM15,18h2V6h-2v12zM19,10v4h2v-4h-2z"
+        for (drawable in listOf("ic_recognise", "ic_recognise_widget")) {
+            assertTrue("$drawable is not the sound bars", bars in File("src/main/res/drawable/$drawable.xml").readText())
+        }
+        // And the tile is asked for with that drawing.
+        val main = File("src/main/java/com/dd3boh/outertune/MainActivity.kt").readText()
+        assertTrue("the tile is asked for with another picture", "Icon.createWithResource(this@MainActivity, R.drawable.ic_recognise)" in main)
+    }
+
+    @Test
     fun `the tile is asked for, and the Bluetooth switch is shown where it is`() {
         val tile = NEW_THINGS.single { it.id == "recognition_tile" }
         assertEquals(NewThingAction.ADD_TILE, tile.action)
