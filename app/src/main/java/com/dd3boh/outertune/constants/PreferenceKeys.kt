@@ -521,6 +521,13 @@ val RecognitionHistoryKey = stringPreferencesKey("recognitionHistory")
  */
 val WalkthroughSeenVersionKey = intPreferencesKey("walkthroughSeenVersion")
 
+/**
+ * The cards of the welcome back page looked at so far, one id a line. Kept until every new thing
+ * has been looked at or the card on Home is dismissed: held in memory alone, the ticks were gone
+ * whenever the page closed, and closing it sent the card away with things still unseen.
+ */
+val WelcomeLookedAtKey = stringPreferencesKey("welcomeLookedAt")
+
 /** Poll and announcement ids whose opening has been counted, so each is counted once per install. */
 val ViewedPollIdsKey = stringSetPreferencesKey("viewedPollIds")
 

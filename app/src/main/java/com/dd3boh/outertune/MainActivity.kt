@@ -206,6 +206,7 @@ import com.dd3boh.outertune.ui.screens.walkthrough.newThingsFor
 import com.dd3boh.outertune.ui.screens.walkthrough.welcomeCardFor
 import com.dd3boh.outertune.widget.MusicWidgetReceiver
 import com.dd3boh.outertune.constants.WalkthroughSeenVersionKey
+import com.dd3boh.outertune.constants.WelcomeLookedAtKey
 import com.dd3boh.outertune.constants.SimilarFromLastFmKey
 import com.dd3boh.outertune.constants.SimilarSourceKey
 import com.dd3boh.outertune.engine.SimilarSources
@@ -1204,11 +1205,12 @@ class MainActivity : ComponentActivity() {
                          *
                          * It does not open by itself. Whoever is owed it finds a card at the top
                          * of Home (welcomeCardFor): "See" opens the page, and the cross marks this
-                         * build as seen with nothing opened, as closing the page does.
+                         * build as seen with nothing opened. Closing the page marks nothing: the
+                         * card stays, counting what is left, until every new thing has been looked
+                         * at (his word, 16 Oct 2026, when it went with things still unseen).
                          *
                          * welcomeEverything is the page asked for from Settings: it lists all
-                         * there is, and closing it marks nothing as seen, unless a card was
-                         * waiting, which a longer list than its own has then answered.
+                         * there is, and what is looked at there counts for the card as well.
                          */
                         var welcomeOpen by rememberSaveable { mutableStateOf(false) }
                         var welcomeEverything by rememberSaveable { mutableStateOf(false) }
@@ -1216,6 +1218,16 @@ class MainActivity : ComponentActivity() {
                         // that a rotation between the tap and the first bubble starts the tour
                         // again instead of leaving neither it nor the page: see WelcomeShow.
                         val welcomeShow = rememberSaveable(saver = WelcomeShow.Saver) { WelcomeShow() }
+                        // The cards looked at, kept on the phone so that the ticks are still there
+                        // when the page is opened again from the card, after a tour or a restart.
+                        val (welcomeLookedAtSaved, setWelcomeLookedAt) = rememberPreference(WelcomeLookedAtKey, defaultValue = "")
+                        val welcomeLookedAt = remember(welcomeLookedAtSaved, welcomeShow.lookedAt) {
+                            welcomeLookedAtSaved.lines().filter { it.isNotBlank() }.toSet() + welcomeShow.lookedAt
+                        }
+                        LaunchedEffect(welcomeShow.lookedAt) {
+                            val kept = welcomeLookedAtSaved.lines().filter { it.isNotBlank() }.toSet()
+                            if (!kept.containsAll(welcomeShow.lookedAt)) setWelcomeLookedAt((kept + welcomeShow.lookedAt).joinToString("\n"))
+                        }
                         var tourFromWelcome by rememberSaveable { mutableStateOf(false) }
                         // Quick picks is only listed where it has chips to be shown: see Install.
                         val quickPicksSource by rememberEnumPreference(QuickPicksSourceKey, defaultValue = QuickPicksSource.YOUTUBE)
@@ -1226,6 +1238,9 @@ class MainActivity : ComponentActivity() {
                         // Owed, whatever has the screen just now. Asked of what is new since
                         // somebody was last here and not of the page's list, which is all there
                         // is while the page asked for from Settings is open.
+                        // Not of what has been looked at either: this holds the tour's new stops back
+                        // until the build is marked as seen, and the last tick comes a moment before
+                        // that mark.
                         val welcomeOwed = welcomeCardFor(walkthroughSeen, install = install) != null
                         // The card as Home is to show it at this moment. A tour on its way from
                         // the page counts as one that is up: the card would otherwise show for
@@ -1238,6 +1253,7 @@ class MainActivity : ComponentActivity() {
                                 questionsOpen = catchUpOpen,
                                 tourUp = tourState.running || tourFromWelcome,
                                 pageOpen = welcomeOpen,
+                                lookedAt = welcomeLookedAt,
                             )
                         )
                         // "See": the page as it used to open by itself. The cross: this build
@@ -1252,7 +1268,26 @@ class MainActivity : ComponentActivity() {
                                 welcomeOpen = true
                             }
                         }
-                        val dismissWelcome = remember { { setWalkthroughSeen(BuildConfig.VERSION_CODE) } }
+                        val dismissWelcome = remember {
+                            {
+                                setWalkthroughSeen(BuildConfig.VERSION_CODE)
+                                setWelcomeLookedAt("")
+                            }
+                        }
+
+                        // Every new thing looked at, and the page and its tours closed: the card's
+                        // work is done. The build is marked as seen, as the cross does, and the
+                        // ticks are let go. Not while the page is open, whose list would empty
+                        // under the finger, nor during a tour from it.
+                        val owedThings = remember(walkthroughSeen, quickPicksSource) { newThingsFor(walkthroughSeen, install = install) }
+                        LaunchedEffect(owedThings, welcomeLookedAt, welcomeOpen, tourState.running, tourFromWelcome) {
+                            if (owedThings.isNotEmpty() && owedThings.all { it.id in welcomeLookedAt } &&
+                                !welcomeOpen && !tourState.running && !tourFromWelcome
+                            ) {
+                                setWalkthroughSeen(BuildConfig.VERSION_CODE)
+                                setWelcomeLookedAt("")
+                            }
+                        }
 
                         // Nothing starts by itself for somebody who is owed the card: not the
                         // page, and not the tour's handful of new stops, which the page lists.
@@ -1364,7 +1399,7 @@ class MainActivity : ComponentActivity() {
                         if (welcomeOpen && !tourState.running) {
                             WelcomeBack(
                                 things = newThings,
-                                seen = welcomeShow.lookedAt.toSet(),
+                                seen = welcomeLookedAt,
                                 returning = !welcomeEverything,
                                 // A card is ticked once there has been something to see: the
                                 // launcher's sheet for the widget, the tour's first bubble for
@@ -1387,9 +1422,11 @@ class MainActivity : ComponentActivity() {
                                 // has asked for the walk, and the tour of the settings is one
                                 // row down under About.
                                 onShowSettings = { showFromWelcome(SETTINGS_WALK, SETTINGS_TOUR) },
+                                // Closing the page is not having seen everything: the card stays
+                                // on Home for what is left, and goes once all of it has been
+                                // looked at (above) or when it is dismissed.
                                 onDone = {
                                     welcomeOpen = false
-                                    if (!welcomeEverything || welcomeOwed) setWalkthroughSeen(BuildConfig.VERSION_CODE)
                                     welcomeEverything = false
                                 },
                             )
@@ -1934,12 +1971,12 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onFinish = {
                                     if (tourFromWelcome) {
-                                        // Back to the page it was started from, and to Home under
-                                        // it, so that closing the page leaves somebody where they
-                                        // were and not in whichever setting was shown last.
+                                        // Left where it ends, to look at the setting it showed.
+                                        // Back goes the usual way, to Home in the end, where the
+                                        // card waits with what is still to be seen. It used to
+                                        // bring the page back, which hid the setting just shown
+                                        // (his word, 16 Oct 2026).
                                         tourFromWelcome = false
-                                        navController.popBackStack(navController.graph.startDestinationId, inclusive = false)
-                                        welcomeOpen = true
                                     } else {
                                         // Not with a card waiting on Home: a tour asked for
                                         // under About has shown none of what the card is about.

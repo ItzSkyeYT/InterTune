@@ -459,10 +459,12 @@ data class WelcomeCard(val count: Int, val since: String?)
  * nothing that has to be answered.
  *
  * There is one exactly where the page would have opened: for somebody who has had the tutorial
- * and whom this build has something to show (newThingsFor), which is never a first install.
- * Closing the page and dismissing the card both mark the build as seen, so it does not come back
- * until a later build has something new. It stands aside while something else has the screen:
- * the setup, the questions asked after an update, a tour, the page itself.
+ * and whom this build has something to show (newThingsFor), which is never a first install. It
+ * counts what is still to be looked at ([lookedAt]), and goes once all of it has been, or when it
+ * is dismissed: both mark the build as seen, so it does not come back until a later build has
+ * something new. Closing the page does not, since that is not having seen everything (his word,
+ * 16 Oct 2026). It stands aside while something else has the screen: the setup, the questions
+ * asked after an update, a tour, the page itself.
  */
 fun welcomeCardFor(
     seenVersionCode: Int,
@@ -473,9 +475,10 @@ fun welcomeCardFor(
     questionsOpen: Boolean = false,
     tourUp: Boolean = false,
     pageOpen: Boolean = false,
+    lookedAt: Set<String> = emptySet(),
 ): WelcomeCard? {
     if (!enabled || !setupDone || questionsOpen || tourUp || pageOpen) return null
-    val things = newThingsFor(seenVersionCode, buildVersionCode, install = install)
+    val things = newThingsFor(seenVersionCode, buildVersionCode, install = install).filter { it.id !in lookedAt }
     if (things.isEmpty()) return null
     return WelcomeCard(count = things.size, since = releaseAt(seenVersionCode))
 }

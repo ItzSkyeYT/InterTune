@@ -107,7 +107,7 @@ import androidx.compose.runtime.getValue
  * buttons all reading "Show me" tell nobody apart, and the titles that head a group are headings.
  *
  * @param things what to list, newest first (newThingsFor)
- * @param seen the ids already looked at this time round
+ * @param seen the ids already looked at, kept until every new thing has been or the card is dismissed
  * @param returning false when it was opened from Settings by somebody who has not just updated,
  *   and the words then do not pretend otherwise
  */
