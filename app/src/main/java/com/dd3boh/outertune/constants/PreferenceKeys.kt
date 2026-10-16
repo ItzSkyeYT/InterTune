@@ -268,6 +268,8 @@ val QuickPicksLeanKey = stringPreferencesKey("quickPicksLean")
 
 /** The developer's switch that builds Quick picks under Familiar first (Lean.FAMILIAR), a test: debug builds only. */
 val FamiliarFirstKey = booleanPreferencesKey("familiarFirst")
+/** With [FamiliarFirstKey]: the row's new cards follow the listener's own share of new songs (EngineParams.mixLearned), a test: debug builds only. */
+val FamiliarMixKey = booleanPreferencesKey("familiarMix")
 /** Developer overrides of EngineParams, as one JSON object of name to value. */
 val EngineOverridesKey = stringPreferencesKey("engineOverrides")
 /** Off freezes the engine's weights and stops impressions; the listen log continues. */

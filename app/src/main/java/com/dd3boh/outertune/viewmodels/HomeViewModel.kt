@@ -9,6 +9,7 @@ import com.dd3boh.outertune.constants.ContextChipKey
 import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.constants.QuickPicksLeanKey
 import com.dd3boh.outertune.constants.FamiliarFirstKey
+import com.dd3boh.outertune.constants.FamiliarMixKey
 import com.dd3boh.outertune.db.Converters
 import com.dd3boh.outertune.engine.Lean
 import com.dd3boh.outertune.engine.LeanGaveWay
@@ -320,6 +321,7 @@ class HomeViewModel @Inject constructor(
     /** The engine's parameters as the developer page and Familiarity leave them. */
     private fun engineParams(familiarity: Int = context.dataStore.get(FamiliarityKey, 25)): EngineParams =
         EngineTuning.params(EngineTuning.parse(context.dataStore.get(EngineOverridesKey, ""))).withFamiliarity(familiarity / 100.0)
+            .let { if (BuildConfig.DEBUG && context.dataStore.get(FamiliarMixKey, false)) it.copy(mixLearned = true) else it }
     /** How many listens carry the current mood chip; below the threshold the row says it is still learning. */
     val engineChipTagged = MutableStateFlow(-1)
 

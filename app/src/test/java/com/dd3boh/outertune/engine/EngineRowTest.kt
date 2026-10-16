@@ -254,6 +254,27 @@ class EngineRowTest {
     }
 
     @Test
+    fun `familiar first with the mix learned holds as many new songs as the listener plays`() {
+        val input = bigWorld().input()
+        val p = EngineParams.DEFAULT.copy(mixLearned = true)
+        val want = MixShare.newCards(MixShare.of(input, VersionGroups(input.songs.values, input.versionLinks), p), p)
+        assertTrue("this history has a share to learn from, not the prior's five", want != 5)
+        repeat(10) { attempt ->
+            val row = EngineRow.build(input, p = p, random = Random(attempt.toLong()), stored = Lean.FAMILIAR)
+            assertEquals(Lean.FAMILIAR, row.lean)
+            assertEquals(20, row.cards.size)
+            assertEquals(20 - want, row.cards.count { it.lane == Lane.AGAIN })
+            row.cards.filter { it.lane != Lane.AGAIN }.forEach { c -> assertTrue("${c.songId} is new to the listener", c.features[Features.NOVEL] >= 0.5) }
+        }
+        // The same switch leaves Auto and Familiar first without it as they were.
+        repeat(3) { attempt ->
+            assertEquals(EngineRow.build(input, random = Random(attempt.toLong())).cards.map { it.songId },
+                EngineRow.build(input, p = p, random = Random(attempt.toLong())).cards.map { it.songId })
+            assertEquals(12, EngineRow.build(input, random = Random(attempt.toLong()), stored = Lean.FAMILIAR).cards.count { it.lane == Lane.AGAIN })
+        }
+    }
+
+    @Test
     fun `never played leaves out what the input bans, such as the cards already in Quick picks`() {
         val w = bigWorld()
         val quickPicks = EngineRow.build(w.input(), neverPlayed = true, random = Random(5)).cards.map { it.songId }.toSet()

@@ -74,6 +74,7 @@ import com.dd3boh.outertune.constants.OwnVisionosRefusedKey
 import com.dd3boh.outertune.constants.VisionosRefusedKey
 import com.dd3boh.outertune.constants.WebClientFirstKey
 import com.dd3boh.outertune.constants.FamiliarFirstKey
+import com.dd3boh.outertune.constants.FamiliarMixKey
 import com.dd3boh.outertune.playback.HistoryAddressCheck
 import com.dd3boh.outertune.ui.component.ListPreference
 import com.dd3boh.outertune.ui.component.PreferenceEntry
@@ -147,6 +148,7 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
     val (audioOffload, onAudioOffloadChange) = rememberPreference(key = AudioOffloadKey, defaultValue = false)
     val (webClientFirst, onWebClientFirstChange) = rememberPreference(key = WebClientFirstKey, defaultValue = false)
     val (familiarFirst, onFamiliarFirstChange) = rememberPreference(key = FamiliarFirstKey, defaultValue = false)
+    val (familiarMix, onFamiliarMixChange) = rememberPreference(key = FamiliarMixKey, defaultValue = false)
     val (visionosRefused, onVisionosRefusedChange) = rememberPreference(key = VisionosRefusedKey, defaultValue = false)
     val (ownVisionosRefused, onOwnVisionosRefusedChange) = rememberPreference(key = OwnVisionosRefusedKey, defaultValue = false)
 
@@ -211,6 +213,14 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
                 icon = { Icon(Icons.Rounded.Science, null) },
                 checked = familiarFirst,
                 onCheckedChange = onFamiliarFirstChange,
+            )
+            SwitchPreference(
+                title = { Text(stringResource(R.string.familiar_mix)) },
+                description = stringResource(R.string.familiar_mix_description),
+                icon = { Icon(Icons.Rounded.Science, null) },
+                checked = familiarMix,
+                onCheckedChange = onFamiliarMixChange,
+                isEnabled = familiarFirst,
             )
         }
         if (Unreleased.WEB_CLIENT_FIRST) {
