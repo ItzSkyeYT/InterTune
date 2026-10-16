@@ -14,6 +14,7 @@ import com.dd3boh.outertune.constants.Unreleased
 
 import android.content.ClipData
 import android.os.Build
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -29,6 +30,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Help
+import androidx.compose.material.icons.rounded.BugReport
+import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.Email
+import androidx.compose.material.icons.rounded.Explore
+import androidx.compose.material.icons.rounded.Forum
+import androidx.compose.material.icons.rounded.Groups
+import androidx.compose.material.icons.rounded.NewReleases
+import androidx.compose.material.icons.rounded.SettingsSuggest
+import androidx.compose.material.icons.rounded.Translate
+import androidx.compose.material3.Icon
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -182,12 +194,14 @@ fun AboutScreen(
             ) {
                 PreferenceEntry(
                     title = { Text(stringResource(R.string.attribution_title)) },
+                    icon = { Icon(Icons.Rounded.Groups, null) },
                     onClick = {
                         navController.toSettings("settings/about/attribution")
                     }
                 )
                 PreferenceEntry(
                     title = { Text(stringResource(R.string.oss_licenses_title)) },
+                    icon = { Icon(Icons.Rounded.Description, null) },
                     onClick = {
                         navController.toSettings("settings/about/oss_licenses")
                     }
@@ -206,6 +220,7 @@ fun AboutScreen(
                 // something reads like a screen full of switches.
                 PreferenceEntry(
                     title = { Text(stringResource(R.string.walkthrough_start)) },
+                    icon = { Icon(Icons.Rounded.Explore, null) },
                     onClick = {
                         navController.navigate("walkthrough")
                     }
@@ -213,12 +228,14 @@ fun AboutScreen(
                 if (Unreleased.WELCOME_BACK) {
                     PreferenceEntry(
                         title = { Text(stringResource(R.string.welcome_back_entry)) },
+                        icon = { Icon(Icons.Rounded.NewReleases, null) },
                         onClick = {
                             navController.navigate("whatsnew")
                         }
                     )
                     PreferenceEntry(
                         title = { Text(stringResource(R.string.tour_closer_entry)) },
+                        icon = { Icon(Icons.Rounded.SettingsSuggest, null) },
                         onClick = {
                             navController.navigate("settings_tour")
                         }
@@ -227,6 +244,7 @@ fun AboutScreen(
                 PreferenceEntry(
                     modifier = Modifier.tourTarget(Tour.SETTING_BUG_REPORT),
                     title = { Text(stringResource(R.string.help_bug_report_action)) },
+                    icon = { Icon(Icons.Rounded.BugReport, null) },
                     onClick = {
                         // With the log to hand first, where there is one to show: see ProblemLog.
                         if (Unreleased.PROBLEM_REPORT) reportingProblem = true else uriHandler.openUri(Links.ISSUES)
@@ -234,30 +252,39 @@ fun AboutScreen(
                 )
                 PreferenceEntry(
                     title = { Text(stringResource(R.string.help_support_forum)) },
+                    icon = { Icon(Icons.AutoMirrored.Rounded.Help, null) },
                     onClick = {
                         uriHandler.openUri(Links.DISCUSSIONS)
                     }
                 )
                 PreferenceEntry(
                     title = { Text(stringResource(R.string.help_discord)) },
+                    icon = { Icon(Icons.Rounded.Forum, null) },
                     onClick = {
                         uriHandler.openUri(Links.DISCORD)
                     }
                 )
                 PreferenceEntry(
                     title = { Text(stringResource(R.string.help_translate)) },
+                    icon = { Icon(Icons.Rounded.Translate, null) },
                     onClick = {
                         uriHandler.openUri(Links.TRANSLATE)
                     }
                 )
                 PreferenceEntry(
                     title = { Text(stringResource(R.string.help_contact_email_inquiries)) },
+                    description = Links.EMAIL,
+                    icon = { Icon(Icons.Rounded.Email, null) },
                     onClick = {
                         val clipData = ClipData.newPlainText(
                             context.getString(R.string.app_name),
                             AnnotatedString(Links.EMAIL)
                         )
                         clipboardManager.nativeClipboard.setPrimaryClip(clipData)
+                        // Android 13 and later say it was copied themselves; before, nothing did.
+                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                            Toast.makeText(context, R.string.copied, Toast.LENGTH_SHORT).show()
+                        }
                     }
                 )
             }
