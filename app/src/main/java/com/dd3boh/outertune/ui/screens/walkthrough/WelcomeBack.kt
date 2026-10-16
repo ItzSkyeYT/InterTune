@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.ui.screens.walkthrough
 
+import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -200,7 +201,14 @@ fun WelcomeBack(
                     title = stringResource(thing.title),
                     body = stringResource(thing.body),
                     action = stringResource(
-                        if (thing.action == NewThingAction.ADD_WIDGET) R.string.welcome_back_add_widget else R.string.welcome_back_show
+                        when (thing.action) {
+                            NewThingAction.ADD_WIDGET -> R.string.welcome_back_add_widget
+                            // Where the tile cannot be asked for, the home screen button is.
+                            NewThingAction.ADD_TILE ->
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) R.string.welcome_back_add_tile
+                                else R.string.welcome_back_add_widget
+                            NewThingAction.SHOW -> R.string.welcome_back_show
+                        }
                     ),
                     done = thing.id in seen,
                     onClick = { onShow(thing) },

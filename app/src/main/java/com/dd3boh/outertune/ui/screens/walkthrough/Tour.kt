@@ -218,6 +218,7 @@ object Tour {
     const val SETTING_MEDIA_BUTTONS = "setting_media_buttons"
     const val SETTING_AUDIO_QUALITY = "setting_audio_quality"
     const val SETTING_TRANSITION_FADE = "setting_transition_fade"
+    const val SETTING_RESUME_BLUETOOTH = "setting_resume_bluetooth"
     const val SETTING_HEAD_TRACKING = "setting_head_tracking"
     const val SETTING_RECOGNISE_KEEP_LISTENING = "setting_recognise_keep_listening"
     const val SETTING_RECOGNISE_PAUSE = "setting_recognise_pause"

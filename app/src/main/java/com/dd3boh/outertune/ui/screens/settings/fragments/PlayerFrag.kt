@@ -976,6 +976,7 @@ fun ColumnScope.PlaybackBehaviourFrag() {
     // Under the rows about what stops the music, since it is about what starts it again. No
     // permission to ask for: the audio manager says which outputs come and go to any app.
     SwitchPreference(
+        modifier = Modifier.tourTarget(Tour.SETTING_RESUME_BLUETOOTH),
         title = { Text(stringResource(R.string.resume_on_bluetooth)) },
         description = stringResource(R.string.resume_on_bluetooth_description),
         icon = { Icon(Icons.Rounded.BluetoothAudio, null) },
