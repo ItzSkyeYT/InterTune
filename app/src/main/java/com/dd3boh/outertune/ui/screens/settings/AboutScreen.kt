@@ -37,7 +37,7 @@ import androidx.compose.material.icons.rounded.Email
 import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.Forum
 import androidx.compose.material.icons.rounded.Groups
-import androidx.compose.material.icons.rounded.NewReleases
+import androidx.compose.material.icons.rounded.WavingHand
 import androidx.compose.material.icons.rounded.SettingsSuggest
 import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material3.Icon
@@ -228,7 +228,7 @@ fun AboutScreen(
                 if (Unreleased.WELCOME_BACK) {
                     PreferenceEntry(
                         title = { Text(stringResource(R.string.welcome_back_entry)) },
-                        icon = { Icon(Icons.Rounded.NewReleases, null) },
+                        icon = { Icon(Icons.Rounded.WavingHand, null) },
                         onClick = {
                             navController.navigate("whatsnew")
                         }
