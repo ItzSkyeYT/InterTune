@@ -328,11 +328,13 @@ object EngineRow {
         }
         val artistRank = sampledArtists.withIndex().associate { it.value to it.index }
         val quietCut = input.now - p.artistLaneQuietDays * day
-        // Under Your artists the source is every song of theirs the table holds, heard or not,
-        // since "more from" is the promise. It is written out as a clause of its own so that
-        // tightening the clause after it can never empty the lean.
+        // Every song the table holds by the lane's artists, heard or not, under every lean. A clause
+        // stood here that kept other leans to library and liked songs, followed by "|| true", which
+        // had already set it aside; the code now says what the lane does. Unplayed songs of these
+        // artists were played from their cards about twice as often as the explore lane's on one
+        // real history (16 Oct 2026), so the wider source is kept.
         val artistLane = input.songs.values
-            .filter { it.artistId != null && it.artistId in artistRank && (lean == Lean.ARTIST || it.inLibrary || it.liked || true) }
+            .filter { it.artistId != null && it.artistId in artistRank }
             .filter { (stats.songs[it.id]?.lastStartedAt ?: 0L) < quietCut }
             .mapNotNull { candidate(it.id, Lane.ARTIST) }
             .sortedWith(compareByDescending<Candidate> { it.z }.thenBy { artistRank[it.artistId] ?: Int.MAX_VALUE })
