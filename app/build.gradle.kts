@@ -254,6 +254,9 @@ android {
             fetchRemoteLicense = false
             fetchRemoteFunding = false
             filterVariants.addAll("release")
+            // Libraries built from source rather than taken from Maven, which the plugin cannot see:
+            // InnerTubeX's SABR client, compiled into the :sabr module.
+            configPath = file("../config")
         }
 
         export {
