@@ -367,13 +367,19 @@ object EngineRow {
         val again = if (lean == Lean.FAMILIAR) {
             // With the ranker on, its score orders the lane and stands in for the sampling score too.
             val ranked = if (p.familiarRanker) FamiliarRanker.scores(input, p) else null
+            // A card shown and passed over comes back lower, as everywhere else in the engine: the
+            // penalty at its learned weight joins the order's own score. Without it a favourite
+            // scrolled past held its place on every refresh; no replay can show that, having no
+            // cards passed over in it.
+            val passedOver = weights[Features.names[Features.IMP]]
             stats.songs.entries
                 .filter { it.value.goodListens > 0 && it.value.lastGoodAt <= justPlayedCut && it.value.familiarScore > 0 }
                 .map { e -> e to (if (ranked != null) ranked[e.key] ?: -1e9 else ln(e.value.familiarScore)) }
                 .sortedByDescending { it.second }.take(200)
                 .mapNotNull { (e, z) ->
-                    candidate(e.key, Lane.AGAIN)?.let { c -> Candidate(c.songId, c.lane, c.x, z, c.seedId, c.artistId, c.group, c.sources) }
+                    candidate(e.key, Lane.AGAIN)?.let { c -> Candidate(c.songId, c.lane, c.x, z + passedOver * c.x[Features.IMP], c.seedId, c.artistId, c.group, c.sources) }
                 }
+                .sortedByDescending { it.z }
         } else stats.songs.entries
             .filter { it.value.lastGoodAt in againCut.toLong()..(justPlayedCut.toLong()) }
             .sortedByDescending { it.value.activation }.take(200)

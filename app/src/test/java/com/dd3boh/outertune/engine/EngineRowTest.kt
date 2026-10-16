@@ -254,6 +254,21 @@ class EngineRowTest {
     }
 
     @Test
+    fun `under familiar first a card passed over again and again comes back lower`() {
+        val w = bigWorld()
+        for (p in listOf(EngineParams.DEFAULT, EngineParams.DEFAULT.copy(familiarRanker = true))) {
+            val before = EngineRow.build(w.input(), p = p, random = Random(1), stored = Lean.FAMILIAR).cards
+            val first = before.first()
+            val seen = (1..8).map { SeenCard(first.songId, now - it * 3 * hour) }
+            val after = EngineRow.build(w.input(seen = seen), p = p, random = Random(1), stored = Lean.FAMILIAR).cards
+            val again = after.firstOrNull { it.songId == first.songId }
+            // Its odds about halve (the prior weight on x_imp), whatever orders the lane.
+            if (again != null) assertTrue("${first.songId}: ${first.z} then ${again.z} (ranker ${p.familiarRanker})", again.z < first.z - 0.5)
+            if (!p.familiarRanker) assertTrue("${first.songId}, passed over eight times, still leads", after.first().songId != first.songId)
+        }
+    }
+
+    @Test
     fun `familiar first with the mix learned holds as many new songs as the listener plays`() {
         val input = bigWorld().input()
         val p = EngineParams.DEFAULT.copy(mixLearned = true)
