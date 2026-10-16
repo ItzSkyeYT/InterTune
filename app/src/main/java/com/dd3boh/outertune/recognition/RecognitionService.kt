@@ -8,6 +8,7 @@ package com.dd3boh.outertune.recognition
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.ActivityManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
@@ -24,6 +25,7 @@ import com.dd3boh.outertune.MainActivity
 import com.dd3boh.outertune.R
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -63,8 +65,17 @@ class RecognitionService : Service() {
      */
     private var headless = false
 
-    /** Whether this headless listen has had its answer posted, or was stopped by hand. */
+    /**
+     * A listen of the phone's own sound, from the tile or from the screen. The screen's sends
+     * somebody off to the video's app, so its answer comes as a notification too while they are
+     * there (his question of 16 Oct 2026, "where's the listening notification??").
+     */
+    private var phoneListen = false
+
+    /** Whether this listen of the phone has had its answer posted, or was stopped by hand. */
     private var answered = false
+
+    private var songWatch: Job? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -80,7 +91,7 @@ class RecognitionService : Service() {
             // engine starts only once Android has handed it over (PhoneAudio.awaitingStart).
             engine.running.collect { running ->
                 if (!running && !PhoneAudio.awaitingStart) {
-                    if (headless && !answered) notifyNothing()
+                    if (phoneListen && !answered && (headless || !appInFront())) notifyNothing()
                     stopSelf()
                 }
             }
@@ -143,20 +154,32 @@ class RecognitionService : Service() {
         }
     }
 
-    /** Posts the headless listen's song when the engine has one: see [headless]. */
+    /**
+     * Posts the song a listen of the phone found, when nobody is looking at one of our screens to
+     * see it there: always for the tile's ([headless]), and for the screen's once somebody has gone
+     * to the video's app. See [phoneListen].
+     */
     private fun watchForTheSong() {
-        scope.launch {
+        songWatch?.cancel()
+        songWatch = scope.launch {
             engine.state.collect { state ->
-                if (headless && !answered && state is RecognitionEngine.State.Found) {
+                if (phoneListen && !answered && state is RecognitionEngine.State.Found) {
                     answered = true
                     // The phone's sound is let go before the song is shown: the recording chip
                     // leaves the status bar as the song arrives, and nothing is taken longer than
                     // the song needed.
                     PhoneAudio.release()
-                    notifyFound(state.track)
+                    if (headless || !appInFront()) notifyFound(state.track)
                 }
             }
         }
+    }
+
+    /** Whether one of the app's screens is showing, where a song found is on show already. */
+    private fun appInFront(): Boolean {
+        val info = ActivityManager.RunningAppProcessInfo()
+        ActivityManager.getMyMemoryState(info)
+        return info.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
     }
 
     // The tile's listen checks RECORD_AUDIO itself right before it starts the engine.
@@ -173,11 +196,14 @@ class RecognitionService : Service() {
             return START_NOT_STICKY
         }
 
-        val notification = build()
         // The user's yes to "Start recording or casting?", when the listen is of the phone's own
         // sound (PhoneAudio). The service has to be in the foreground with the mediaProjection type
         // before Android hands the projection over, and with that type only once it was said yes to.
         val consent = consentOf(intent)
+        // Known before the notification is drawn, which says which sound it listens to.
+        phoneListen = consent != null
+        if (consent == null) headless = false
+        val notification = build()
         // The microphone type exists from Android 11. On 10 the two-argument call already takes the
         // types declared in the manifest, so nothing changes there.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -192,15 +218,16 @@ class RecognitionService : Service() {
                 getSystemService(MediaProjectionManager::class.java).getMediaProjection(consent.first, consent.second)
             }.onFailure { Log.w(TAG, "Android gave no projection", it) }.getOrNull()
             if (projection != null) PhoneAudio.attach(projection) else PhoneAudio.release()
-            // The tile's listen starts here, nobody's screen being there to start it: one listen,
-            // short windows, its answer a notification.
-            if (intent?.getBooleanExtra(EXTRA_HEADLESS, false) == true) {
+            headless = intent?.getBooleanExtra(EXTRA_HEADLESS, false) == true
+            phoneListen = projection != null
+            answered = false
+            if (phoneListen) watchForTheSong()
+            // The tile's listen starts here, nobody's screen being there to start it: one listen
+            // of the clip, its answer a notification.
+            if (headless) {
                 if (projection != null &&
                     checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED
                 ) {
-                    headless = true
-                    answered = false
-                    watchForTheSong()
                     engine.start(null, continuous = false)
                 }
                 PhoneAudio.awaitingStart = false
@@ -245,17 +272,23 @@ class RecognitionService : Service() {
             else getString(R.string.recognition_shazam_retrying)
         }
 
-        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.small_icon)
+        // A listen of the phone's own sound shows itself once, briefly and without a sound, over the
+        // video it listens to: the panel and Android's question are gone by then, and nothing else
+        // would say that it started (his "where's the listening notification??", 16 Oct 2026).
+        val phone = phoneListen || PhoneAudio.projection.value != null
+        val builder = NotificationCompat.Builder(this, if (phone) PHONE_CHANNEL_ID else CHANNEL_ID)
+            // The sound bars, as everywhere song recognition is (his word of 16 Oct 2026).
+            .setSmallIcon(R.drawable.ic_recognise)
             .setContentIntent(open)
             .addAction(0, getString(R.string.recognition_service_stop), stop)
             .setOngoing(true)
-            .setSilent(true)
+            .setSilent(!phone)
+            .setOnlyAlertOnce(true)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
 
         if (playing == null) {
             builder.setContentTitle(
-                getString(if (PhoneAudio.projection.value != null) R.string.recognition_service_title_phone else R.string.recognition_service_title)
+                getString(if (phone) R.string.recognition_service_title_phone else R.string.recognition_service_title)
             )
             if (waiting != null) builder.setContentText(waiting).setSubText(counted)
             else builder.setContentText(counted)
@@ -362,13 +395,24 @@ class RecognitionService : Service() {
         // NotificationManagerCompat posts fine without one.
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = getSystemService(NotificationManager::class.java)
-        if (manager.getNotificationChannel(CHANNEL_ID) != null) return
-        manager.createNotificationChannel(
+        if (manager.getNotificationChannel(CHANNEL_ID) == null) manager.createNotificationChannel(
             NotificationChannel(
                 CHANNEL_ID,
                 getString(R.string.recognition_service_channel),
                 NotificationManager.IMPORTANCE_LOW,
             ).apply { setShowBadge(false) }
+        )
+        // Seen, not heard: it pops up over the video once, with no sound to land in the video's.
+        if (manager.getNotificationChannel(PHONE_CHANNEL_ID) == null) manager.createNotificationChannel(
+            NotificationChannel(
+                PHONE_CHANNEL_ID,
+                getString(R.string.recognition_service_title_phone),
+                NotificationManager.IMPORTANCE_HIGH,
+            ).apply {
+                setSound(null, null)
+                enableVibration(false)
+                setShowBadge(false)
+            }
         )
     }
 
@@ -392,6 +436,7 @@ class RecognitionService : Service() {
     companion object {
         private const val TAG = "RecognitionService"
         private const val CHANNEL_ID = "song_recognition"
+        private const val PHONE_CHANNEL_ID = "song_recognition_phone"
         private const val NOTIFICATION_ID = 4243
         const val ACTION_STOP = "com.dd3boh.outertune.recognition.STOP"
         private const val EXTRA_CONSENT_CODE = "consent_code"
