@@ -444,6 +444,13 @@ object YTPlayerUtils {
     var sabrOnly: Boolean = false
 
     /**
+     * The developer's "Take every direct address for refused": the day direct addresses stop,
+     * played out on purpose, so that SABR's rung can be seen taking over. Debug builds only.
+     */
+    @Volatile
+    var everyDirectRefused: Boolean = false
+
+    /**
      * How long the player script and the solving may take for one song, together, before the
      * experiment's client is given up on. The po token is allowed twenty seconds and a /player
      * request thirty, so this holds a song for less than the chain already can.
@@ -1320,9 +1327,12 @@ object YTPlayerUtils {
                     ?: StreamCipher.withPot(address, if (client.useWebPoTokens) poTokens()?.streamingDataPoToken else null)
                 // The developer's switch: see visionosTakenForRefused. Said in the trail, so a
                 // report made with it on cannot be read as YouTube's doing.
-                val pretended = (isVisionos && visionosTakenForRefused) || (client === VISIONOS && ownVisionosTakenForRefused)
+                val pretended = (isVisionos && visionosTakenForRefused) || (client === VISIONOS && ownVisionosTakenForRefused) ||
+                    (Unreleased.SABR && everyDirectRefused)
                 if (pretended) Log.w(TAG, "[$videoId] [${client.clientName}] its address is taken for refused: the developer's switch is on")
                 val status = when {
+                    // Before the web client's own check: this one takes every address for refused.
+                    Unreleased.SABR && everyDirectRefused -> 403
                     trialCheck != null -> trialCheck.status
                     pretended -> 403
                     else -> wire.head(checked)

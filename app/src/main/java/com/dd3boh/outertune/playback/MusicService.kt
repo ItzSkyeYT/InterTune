@@ -131,6 +131,7 @@ import com.dd3boh.outertune.constants.OwnVisionosRefusedKey
 import com.dd3boh.outertune.constants.VisionosRefusedKey
 import com.dd3boh.outertune.constants.WebClientFirstKey
 import com.dd3boh.outertune.constants.SabrOnlyKey
+import com.dd3boh.outertune.constants.EveryDirectRefusedKey
 import com.dd3boh.outertune.constants.PlaybackAuthMode
 import com.dd3boh.outertune.constants.ResumeOnBluetoothKey
 import com.dd3boh.outertune.constants.ResumePlaybackOnLaunchKey
@@ -1350,6 +1351,9 @@ class MusicService : MediaLibraryService(),
                 dataStore.data.map { it[SabrOnlyKey] ?: false }
                     .distinctUntilChanged()
                     .collectLatest(scope) { YTPlayerUtils.sabrOnly = it }
+                dataStore.data.map { it[EveryDirectRefusedKey] ?: false }
+                    .distinctUntilChanged()
+                    .collectLatest(scope) { YTPlayerUtils.everyDirectRefused = it }
                 // SABR's pacing: where the player is, four times a second while a song plays, once
                 // a second otherwise (debug builds only, as the switch). See SabrClock.
                 // Paused or buffering too: after a seek the player sits at the new place waiting for

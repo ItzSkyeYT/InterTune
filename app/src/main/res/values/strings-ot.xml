@@ -1971,5 +1971,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="queue_from_search">“%1$s”</string>
     <!-- SABR, a test tool in debug builds: not for translators -->
     <string name="sabr_only" translatable="false">Stream over SABR only</string>
+    <string name="every_direct_refused" translatable="false">Take every direct address for refused</string>
+    <string name="every_direct_refused_description" translatable="false">Plays the day direct addresses stop: every client\'s address counts as refused, so SABR, the last try, has to take over.</string>
     <string name="sabr_only_description" translatable="false">Plays each song over SABR, as YouTube\'s own apps stream, from the VISIONOS answer the app already has. A song that cannot be started that way plays as before.</string>
 </resources>
