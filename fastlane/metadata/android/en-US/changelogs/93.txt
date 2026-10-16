@@ -1,0 +1,11 @@
+Version 0.11.5
+
+- Much less battery: with the screen off, playing took four times the processor it needed.
+- Songs that had gone from YouTube play again.
+- More to fall back on when YouTube refuses the usual source.
+- Import playlists from Spotify, Apple Music and others.
+- A layout for a phone on its side.
+- Setup in three pages, one question at a time.
+- Moving pictures in a few explanations.
+
+Full changelog: https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.11.5

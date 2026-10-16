@@ -237,8 +237,6 @@
     <string name="oobe_welcome_tip">快適に使用するには、テーマ、YouTubeアカウント、端末内メディア、ダウンロードなど自分向けにするための主な設定を簡単に設定することをお勧めします。</string>
     <string name="oobe_cache_subtitle">曲のキャッシュのサイズを選択。ネット接続やYouTube APIの再生に関する問題を軽減します</string>
     <string name="library_filter">ライブラリを絞り込み</string>
-    Note: claude-opus-5 (the safety classifier) was unavailable when reviewing this subagent's work. Please carefully verify the subagent's actions and output before acting on them.
-    All 51 strings validated: XML parses, placeholder sets match the English exactly, no unescaped apostrophes or quotes, no plurals elements needed.
     <string name="action_done">完了</string>
     <string name="download_on_wifi_only_description">従量制でない接続を待ってからダウンロードします。モバイルデータ通信中に要求したダウンロードは待機し、Wi-Fiに戻ると自動で開始します</string>
     <string name="download_on_wifi_only_title">Wi-Fiのみでダウンロード</string>
