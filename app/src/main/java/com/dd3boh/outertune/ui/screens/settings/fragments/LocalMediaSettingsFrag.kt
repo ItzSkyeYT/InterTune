@@ -31,12 +31,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.Button
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -165,6 +167,28 @@ fun ColumnScope.LocalScannerFrag() {
     // been read. It fired again on every return to the step, including pressing Back, so someone
     // stepping through setup met it repeatedly. The page already offers the button; a screen that
     // opens a dialog at you unasked is not offering anything.
+
+    // The folders to scan: what most people come to this page for, so it leads the card, with an
+    // icon and what is chosen now under it. Below the Scan button, with no icon and no line under
+    // it, it read as a heading (his word, 16 Oct 2026). With nothing chosen yet the icon takes the
+    // accent colour: Scan cannot do anything before this has been done.
+    val chosenFolders = remember(scanPaths) { uriListFromString(scanPaths) }
+    PreferenceEntry(
+        modifier = Modifier.tourTarget(Tour.SETTING_SCAN_PATHS),
+        title = { Text(stringResource(R.string.scan_paths_title)) },
+        description = if (chosenFolders.isEmpty()) stringResource(R.string.scan_paths_none)
+        else chosenFolders.joinToString(", ") { folderName(context, it) },
+        icon = {
+            Icon(
+                Icons.Rounded.FolderOpen,
+                contentDescription = null,
+                tint = if (chosenFolders.isEmpty()) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+            )
+        },
+        onClick = {
+            showAddFolderDialog = true
+        },
+    )
 
     // scanner
     Row(
@@ -469,15 +493,6 @@ fun ColumnScope.LocalScannerFrag() {
             )
         }
     }
-
-    // file path selector
-    PreferenceEntry(
-        modifier = Modifier.tourTarget(Tour.SETTING_SCAN_PATHS),
-        title = { Text(stringResource(R.string.scan_paths_title)) },
-        onClick = {
-            showAddFolderDialog = true
-        },
-    )
 
     Row(
         modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
@@ -785,3 +800,8 @@ fun ColumnScope.LocalScannerExtraFrag() {
     InfoLabel(stringResource(R.string.scanner_type_tooltip))
 }
 
+/** A scan folder by its own name, "Music" for /storage/emulated/0/Music, for the line under the row. */
+private fun folderName(context: android.content.Context, uri: Uri): String =
+    absoluteFilePathFromUri(context, uri)?.trimEnd('/')?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
+        ?: uri.lastPathSegment?.substringAfterLast(':')?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
+        ?: uri.toString()
