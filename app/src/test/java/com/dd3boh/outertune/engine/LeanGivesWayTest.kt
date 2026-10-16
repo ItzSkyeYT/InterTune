@@ -23,7 +23,8 @@ import kotlin.random.Random
 class LeanGivesWayTest {
     private val now = 1_789_135_200_000L
     private val day = 86_400_000L
-    private val leans = Lean.entries.filter { it != Lean.AUTO }
+    // The leans people can choose; Familiar first, a test, has its own in EngineRowTest.
+    private val leans = LeanChoice.options.filter { it != Lean.AUTO }
     private val minCards = EngineParams.DEFAULT.minCards
 
     private class Library(val now: Long) {
@@ -152,7 +153,7 @@ class LeanGivesWayTest {
             val songs = w.listens.filter { it.sessionId in last }.mapTo(HashSet()) { it.songId }
             w.edges.none { it.seedId in songs }
         }
-        Lean.AUTO -> false
+        Lean.AUTO, Lean.FAMILIAR -> false
     }
 
     @Test

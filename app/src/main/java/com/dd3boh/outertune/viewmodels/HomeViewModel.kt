@@ -13,7 +13,9 @@ import com.dd3boh.outertune.constants.ContextChipKey
 import com.dd3boh.outertune.constants.BatteryMode
 import com.dd3boh.outertune.playback.BatteryUse
 import com.dd3boh.outertune.playback.batteryModeNow
+import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.constants.QuickPicksLeanKey
+import com.dd3boh.outertune.constants.FamiliarFirstKey
 import com.dd3boh.outertune.db.Converters
 import com.dd3boh.outertune.engine.Lean
 import com.dd3boh.outertune.engine.LeanGaveWay
@@ -304,7 +306,11 @@ class HomeViewModel @Inject constructor(
     private var lastEngineSimilarLastAt: Long? = null
 
     /** What Best recommendations leans toward, as chosen: Auto unless the listener picked one. */
-    private fun storedLean(): Lean = Lean.ofName(context.dataStore[QuickPicksLeanKey])
+    private fun storedLean(): Lean =
+        // The developer's Familiar first, a test of a row that leads with the familiar; never read
+        // in a release, where a restored backup could otherwise bring it.
+        if (BuildConfig.DEBUG && context.dataStore[FamiliarFirstKey] == true) Lean.FAMILIAR
+        else Lean.ofName(context.dataStore[QuickPicksLeanKey])
 
     /** The choice as it stands, for the first chip's label (and the settings line under it). */
     val quickPicksLean: StateFlow<Lean> = context.dataStore.data

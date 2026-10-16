@@ -226,6 +226,34 @@ class EngineRowTest {
     }
 
     @Test
+    fun `familiar first leads with songs heard well, the strongest first, seeds allowed`() {
+        val w = bigWorld()
+        val stats = LibraryStats(w.input())
+        var seedCards = 0
+        repeat(10) { attempt ->
+            val row = EngineRow.build(w.input(), random = Random(attempt.toLong()), stored = Lean.FAMILIAR)
+            assertEquals(Lean.FAMILIAR, row.lean)
+            // Twelve of twenty, the first column among them.
+            assertEquals(12, row.cards.count { it.lane == Lane.AGAIN })
+            assertTrue("the first column is the familiar lane's", row.cards.take(4).all { it.lane == Lane.AGAIN })
+            row.cards.filter { it.lane == Lane.AGAIN }.forEach { c ->
+                assertTrue("${c.songId} was heard well", (stats.songs[c.songId]?.goodListens ?: 0) > 0)
+                assertTrue("${c.songId} is from the session under way", c.songId !in setOf("a0s1", "a0s2"))
+            }
+            // The first card is the strongest of all by the steeper score, outside the fresh hours.
+            val strongest = stats.songs.entries.filter { it.key !in setOf("a0s1", "a0s2") && it.value.goodListens > 0 }.maxBy { it.value.familiarScore }.key
+            assertEquals(strongest, row.cards.first().songId)
+            seedCards += row.cards.count { it.songId in row.seeds }
+        }
+        assertTrue("seeds can be cards under familiar first", seedCards > 0)
+        // Auto still bars them.
+        repeat(10) { attempt ->
+            val auto = EngineRow.build(w.input(), random = Random(attempt.toLong()))
+            assertTrue(auto.cards.none { it.songId in auto.seeds })
+        }
+    }
+
+    @Test
     fun `never played leaves out what the input bans, such as the cards already in Quick picks`() {
         val w = bigWorld()
         val quickPicks = EngineRow.build(w.input(), neverPlayed = true, random = Random(5)).cards.map { it.songId }.toSet()

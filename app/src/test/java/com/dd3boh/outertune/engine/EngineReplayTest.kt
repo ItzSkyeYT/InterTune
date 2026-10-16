@@ -321,7 +321,9 @@ class EngineReplayTest {
                     val pickGroups = sessionPicks.associateBy { groups.groupOf(it.songId) }
                     val engineBefore = seeded.hits; val relatedBefore = byLane[Lane.RELATED]?.get(1) ?: 0; val classicBefore = qClassic.hits
                     for (rep in 0 until (System.getenv("ENGINE_REPLAY_SEEDS")?.toIntOrNull() ?: 1)) {
-                        val row = EngineRow.build(input, random = Random(i.toLong() + rep * 100_003L))
+                        // ENGINE_REPLAY_LEAN names a lean to build under (FAMILIAR for Familiar first);
+                        // unset, Auto, the row as the app builds it with no lean chosen.
+                        val row = EngineRow.build(input, random = Random(i.toLong() + rep * 100_003L), stored = Lean.ofName(System.getenv("ENGINE_REPLAY_LEAN")))
                         score(seeded, row.cards.map { it.songId })
                         for (c in row.cards) {
                             val tally = byLane.getOrPut(c.lane) { IntArray(3) }

@@ -40,6 +40,12 @@ data class EngineParams(
     // ---- Activation and its neighbours
     /** ACT-R's relistening decay. */
     val activationDecay: Double = 0.5,
+    /**
+     * The decay Familiar first ranks by (Lean.FAMILIAR): recent listens weigh more than in
+     * [activationDecay]. 1.0 held the session's first song best across 467 Last.fm listeners, the
+     * value chosen on 474 others (experiments/features/recs-bakeoff, 16 Oct 2026).
+     */
+    val familiarDecay: Double = 1.0,
     /** A song counts at most this many listens per session in its activation, so a loop is not a thousand votes. */
     val activationPerSession: Int = 3,
     /** A usable like is a pseudo-listen worth this at its instant. */

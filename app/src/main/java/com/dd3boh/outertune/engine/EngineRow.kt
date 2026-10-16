@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.engine
 
+import kotlin.math.ln
 import kotlin.math.ceil
 import kotlin.random.Random
 
@@ -241,7 +242,9 @@ object EngineRow {
         // heard well in the last few hours. Beyond those hours a song heard well is what the
         // Again lane is for: what the listener comes back to, with satiation as the brake.
         val excludedGroups = HashSet<String>()
-        seeds.forEach { excludedGroups += groups.groupOf(it) }
+        // Seeds are a listener's strongest songs, and under Familiar first they are what the row
+        // is for: barred, they were the picks no row could hold (11% of next picks on one history).
+        if (lean != Lean.FAMILIAR) seeds.forEach { excludedGroups += groups.groupOf(it) }
         val justPlayedCut = input.now - p.engineFreshHours * 3_600_000.0
         val session = currentSessionId(input.listens)
         for (l in input.listens) {
@@ -343,8 +346,18 @@ object EngineRow {
         val leadArtistCap = if (lean != Lean.ARTIST || shape.lead == null) p.maxPerArtist else leadArtistCap(artistLane.mapNotNullTo(HashSet()) { it.artistId }.size, p)
 
         // Again: heard well inside the window but not inside the fresh hours, strongest first.
+        // Under Familiar first: every song heard well, at any age, outside the fresh hours, in the
+        // order of the steeper recency score, which also stands in for the score the assembly
+        // samples the lane's second half by (its log, as ACT-R's activation is a log).
         val againCut = input.now - p.againWindowDays * day
-        val again = stats.songs.entries
+        val again = if (lean == Lean.FAMILIAR) {
+            stats.songs.entries
+                .filter { it.value.goodListens > 0 && it.value.lastGoodAt <= justPlayedCut && it.value.familiarScore > 0 }
+                .sortedByDescending { it.value.familiarScore }.take(200)
+                .mapNotNull { e ->
+                    candidate(e.key, Lane.AGAIN)?.let { c -> Candidate(c.songId, c.lane, c.x, ln(e.value.familiarScore), c.seedId, c.artistId, c.group, c.sources) }
+                }
+        } else stats.songs.entries
             .filter { it.value.lastGoodAt in againCut.toLong()..(justPlayedCut.toLong()) }
             .sortedByDescending { it.value.activation }.take(200)
             .mapNotNull { candidate(it.key, Lane.AGAIN) }

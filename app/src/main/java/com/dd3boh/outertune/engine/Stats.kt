@@ -15,6 +15,8 @@ class SongStats {
     var activation = 0.0
     /** The same sum over listens older than the dormancy window only. */
     var oldActivation = 0.0
+    /** The same sum at [EngineParams.familiarDecay], what Familiar first ranks by. */
+    var familiarScore = 0.0
     /** The same sum over listens in the build's day part, inside the context window. */
     var bucketActivation = 0.0
     /** `Σ g (days + 1)^-0.5` over the satiation window. */
@@ -103,6 +105,7 @@ class LibraryStats(input: EngineInput, private val p: EngineParams = EngineParam
                 st.perSession[l.sessionId] = used + 1
                 val term = v * Signals.recency(now, l.endedAt, p.activationDecay)
                 st.activation += term
+                st.familiarScore += v * Signals.recency(now, l.endedAt, p.familiarDecay)
                 if (l.endedAt < dormantCut) st.oldActivation += term
                 if (l.endedAt >= contextCut && dayPartBucket(l.startedAt, l.tzOffsetMin) == input.bucket) st.bucketActivation += term
             }
@@ -138,6 +141,7 @@ class LibraryStats(input: EngineInput, private val p: EngineParams = EngineParam
             val term = p.likePseudoListen * Signals.recency(now, at, p.activationDecay)
             val st = song(s.id)
             st.activation += term
+            st.familiarScore += p.likePseudoListen * Signals.recency(now, at, p.familiarDecay)
             if (at < dormantCut) st.oldActivation += term
         }
         for ((id, st) in songs) {

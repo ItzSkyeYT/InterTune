@@ -2926,4 +2926,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="local_folder_excluded" translatable="false">%1$s excluded. Its files stay.</string>
     <!-- Under a language of the App language list most of whose words are still English (AppLanguage.PARTLY). Held from translators. -->
     <string name="app_language_partly" translatable="false">Partly translated</string>
+    <!-- Familiar first, a test of Quick picks in debug builds: not for translators -->
+    <string name="familiar_first" translatable="false">Familiar first (test)</string>
+    <string name="familiar_first_description" translatable="false">Quick picks leads with songs you have heard well, recent plays counting most, the rest of the row as usual. Overrides the lean chosen in Recommendations.</string>
 </resources>
