@@ -199,6 +199,33 @@ class EngineRowTest {
     }
 
     @Test
+    fun `another version of a song heard well is not new to you`() {
+        // The live takes of the songs heard well were offered as new, since novelty was counted by
+        // song id: on one real history (16 Oct 2026) 36 of 533 explore cards were another version
+        // of a song the listener had heard well. New songs only shows them most readily.
+        val w = bigWorld()
+        // YouTube lists the live takes as related, as it does: each favourite points at the next
+        // artist's live version of a song already heard well.
+        for (a in 0 until 7) w.edge("a${a}s1", "a${a + 1}live")
+        val groups = VersionGroups(w.songs.values)
+        val heardWell = w.listens.filter { it.playedMs >= it.durationMs / 2 }.mapTo(HashSet()) { groups.groupOf(it.songId) }
+        assertTrue("the live takes are versions of songs heard well", (1..7).all { groups.groupOf("a${it}live") in heardWell })
+        repeat(10) { attempt ->
+            for (newOnly in listOf(false, true)) {
+                val row = EngineRow.build(w.input(), newOnly = newOnly, random = Random(attempt.toLong()))
+                (row.cards + row.pool).forEach { c ->
+                    if (groups.groupOf(c.songId) in heardWell) {
+                        assertEquals("${c.songId} is a version of a song heard well", 0.0, c.features[Features.NOVEL], 0.0)
+                    }
+                }
+                row.cards.filter { it.lane == Lane.EXPLORE }.forEach { c ->
+                    assertTrue("${c.songId}: an explore card that is a version of a song heard well", groups.groupOf(c.songId) !in heardWell)
+                }
+            }
+        }
+    }
+
+    @Test
     fun `never played leaves out what the input bans, such as the cards already in Quick picks`() {
         val w = bigWorld()
         val quickPicks = EngineRow.build(w.input(), neverPlayed = true, random = Random(5)).cards.map { it.songId }.toSet()
