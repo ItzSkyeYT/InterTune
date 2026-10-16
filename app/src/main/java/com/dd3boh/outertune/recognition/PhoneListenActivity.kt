@@ -66,6 +66,6 @@ class PhoneListenActivity : ComponentActivity() {
             finish()
             return
         }
-        consent.launch(projections.createScreenCaptureIntent())
+        consent.launch(PhoneAudio.consentIntent(projections))
     }
 }

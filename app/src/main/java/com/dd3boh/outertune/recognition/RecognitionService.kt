@@ -149,6 +149,10 @@ class RecognitionService : Service() {
             engine.state.collect { state ->
                 if (headless && !answered && state is RecognitionEngine.State.Found) {
                     answered = true
+                    // The phone's sound is let go before the song is shown: the recording chip
+                    // leaves the status bar as the song arrives, and nothing is taken longer than
+                    // the song needed.
+                    PhoneAudio.release()
                     notifyFound(state.track)
                 }
             }

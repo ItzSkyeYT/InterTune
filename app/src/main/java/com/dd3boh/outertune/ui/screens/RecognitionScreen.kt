@@ -239,7 +239,7 @@ fun RecognitionScreen(
     }
     fun askForPhoneSound() {
         val projections = context.getSystemService(MediaProjectionManager::class.java) ?: return
-        projectionLauncher.launch(projections.createScreenCaptureIntent())
+        projectionLauncher.launch(PhoneAudio.consentIntent(projections))
     }
 
     val permissionLauncher = rememberLauncherForActivityResult(
