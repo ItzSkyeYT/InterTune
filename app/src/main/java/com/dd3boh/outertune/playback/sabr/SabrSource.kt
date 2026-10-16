@@ -95,7 +95,8 @@ class SabrDataSource(private val starts: SabrStarts = SabrStarts) : BaseDataSour
         val n = try {
             checkNotNull(reader) { "read before open" }.read(buffer, offset, asked)
         } catch (e: IOException) {
-            android.util.Log.w("SabrDataSource", "[${start?.videoId}] SABR read failed", e)
+            // A seek or a stop interrupts a read on purpose: not a failure.
+            if (e !is java.io.InterruptedIOException) android.util.Log.w("SabrDataSource", "[${start?.videoId}] SABR read failed", e)
             throw asPlayerSees(e)
         }
         if (n < 0) return C.RESULT_END_OF_INPUT

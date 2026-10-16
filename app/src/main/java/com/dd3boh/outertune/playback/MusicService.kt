@@ -1352,11 +1352,12 @@ class MusicService : MediaLibraryService(),
                     .collectLatest(scope) { YTPlayerUtils.sabrOnly = it }
                 // SABR's pacing: where the player is, four times a second while a song plays, once
                 // a second otherwise (debug builds only, as the switch). See SabrClock.
+                // Paused or buffering too: after a seek the player sits at the new place waiting for
+                // bytes, and a clock left at the old place had the stream wait for the player.
                 scope.launch {
                     while (isActive) {
-                        val playing = activePlayer.isPlaying
-                        if (playing) SabrClock.update(activePlayer.currentMediaItem?.mediaId, activePlayer.currentPosition)
-                        delay(if (playing) 250 else 1000)
+                        SabrClock.update(activePlayer.currentMediaItem?.mediaId, activePlayer.currentPosition)
+                        delay(if (activePlayer.isPlaying || activePlayer.playbackState == Player.STATE_BUFFERING) 250 else 1000)
                     }
                 }
             }

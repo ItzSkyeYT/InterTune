@@ -122,6 +122,23 @@ class SabrFileTest {
     }
 
     @Test
+    fun `a seek past everything seen is started near the byte, not from the last segment seen`() {
+        // A small buffer, so that the stream has seen little more than what was read.
+        val sabr = SabrFile(server(), contentLength = file.size.toLong(), durationMs = durationMs, bufferedChunks = 2)
+        // the first ten segments seen, as a song played for twenty seconds
+        val reader = sabr.open(0)
+        val upTo = init.size + segments.take(10).sumOf { it.size }
+        val buffer = ByteArray(upTo)
+        var got = 0
+        while (got < upTo) got += reader.read(buffer, got, upTo - got).also { check(it > 0) }
+        reader.close()
+        opened.clear()
+        val position = init.size + segments.take(32).sumOf { it.size }.toLong() + 50
+        assertContentEquals(file.copyOfRange(position.toInt(), file.size), sabr.readAllFrom(position))
+        assertTrue(opened.first() > 20 * segmentMs, "started from the byte's own share of the file, not at ${opened.first()} ms")
+    }
+
+    @Test
     fun `a gap between two chunks is an error, never bytes from the wrong place`() {
         val sabr = SabrFile(server { chunks -> chunks.filterNot { it.sequenceNumber == 5 } },
             contentLength = file.size.toLong(), durationMs = durationMs)

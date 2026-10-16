@@ -188,7 +188,12 @@ class SabrFile(
      */
     private fun startFor(position: Long): Long {
         ends[position]?.let { return it }
-        seen.floorEntry(position)?.let { return it.value }
+        // The segment seen that holds the byte, and only that one: the last one seen before a seek
+        // far past it started the stream there, and the read waited on everything in between.
+        seen.floorEntry(position)?.let { floor ->
+            val end = ends.higherKey(floor.key)
+            if (end != null && position < end) return floor.value
+        }
         if (contentLength <= 0 || durationMs <= 0) return 0
         val guess = (position.toDouble() / contentLength * durationMs).toLong() - earlyByMs
         return guess.coerceIn(0, durationMs)
