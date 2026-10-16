@@ -1462,8 +1462,9 @@ class MainActivity : ComponentActivity() {
                                     when (thing.action) {
                                         NewThingAction.ADD_WIDGET -> pinWidget(MusicWidgetReceiver::class.java)
                                         // The system's own question, "Add tile?", from Android 13. Whatever the
-                                        // answer, there was something to see; a refusal of the request itself
-                                        // (an error, below zero) offers the home screen button instead.
+                                        // answer, there was something to see. A refusal of the request itself
+                                        // offers the home screen button instead: Android's answers are 0 to 3
+                                        // (not added, there already, added, dismissed) and its refusals 1000 up.
                                         NewThingAction.ADD_TILE ->
                                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                                                 getSystemService(StatusBarManager::class.java).requestAddTileService(
@@ -1472,7 +1473,7 @@ class MainActivity : ComponentActivity() {
                                                     android.graphics.drawable.Icon.createWithResource(this@MainActivity, R.drawable.ic_recognise),
                                                     mainExecutor,
                                                 ) { result ->
-                                                    if (result >= 0) welcomeShow.looked(thing.id)
+                                                    if (result < StatusBarManager.TILE_ADD_REQUEST_ERROR_MISMATCHED_PACKAGE) welcomeShow.looked(thing.id)
                                                     else pinWidget(RecognitionWidgetReceiver::class.java)
                                                 }
                                             } else {

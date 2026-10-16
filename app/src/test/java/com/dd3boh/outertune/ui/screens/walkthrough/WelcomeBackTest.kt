@@ -100,6 +100,18 @@ class WelcomeBackTest {
     }
 
     @Test
+    fun `a refused tile request offers the home screen button, an answer ticks the card`() {
+        // Android's answers are 0 to 3 and its refusals 1000 and up; the first version took
+        // refusals for answers below zero, so a refusal ticked the card and offered nothing.
+        val main = File("src/main/java/com/dd3boh/outertune/MainActivity.kt").readText()
+        assertTrue(
+            "the answer and the refusal are told apart by another rule",
+            "if (result < StatusBarManager.TILE_ADD_REQUEST_ERROR_MISMATCHED_PACKAGE) welcomeShow.looked(thing.id)\n" in main.replace(Regex("""\n\s+"""), "\n"),
+        )
+        assertTrue("a refusal no longer offers the home screen button", "else pinWidget(RecognitionWidgetReceiver::class.java)" in main)
+    }
+
+    @Test
     fun `the tile is asked for, and the Bluetooth switch is shown where it is`() {
         val tile = NEW_THINGS.single { it.id == "recognition_tile" }
         assertEquals(NewThingAction.ADD_TILE, tile.action)
