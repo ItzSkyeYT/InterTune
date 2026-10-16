@@ -185,7 +185,7 @@ class RecognitionViewModel @Inject constructor(
                 RecognitionService.stop(context)
                 return@launch
             }
-            engine.start(playlist, continuous.value, PhoneAudio.WINDOW_SECONDS, PhoneAudio.MAX_MISSES)
+            engine.start(playlist, continuous.value)
             PhoneAudio.awaitingStart = false
         }
     }

@@ -6,10 +6,7 @@
 
 package com.dd3boh.outertune.recognition
 
-import android.annotation.SuppressLint
-import android.app.PendingIntent
 import android.content.Intent
-import android.os.Build
 import android.service.quicksettings.TileService
 
 /**
@@ -19,21 +16,13 @@ import android.service.quicksettings.TileService
  * and another with the song, which opens it in InterTune's search to play or add to a playlist.
  *
  * The same sound bars as every other way into recognition (ic_recognise, his word of the same day).
+ * Its two neighbours: [RecognitionTileService] listens around you, [RecognitionChoiceTileService]
+ * asks which.
  */
 class PhoneSongTileService : TileService() {
 
-    @SuppressLint("StartActivityAndCollapseDeprecated")
     override fun onClick() {
         super.onClick()
-        val intent = Intent(this, PhoneListenActivity::class.java)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startActivityAndCollapse(
-                PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-            )
-        } else {
-            @Suppress("DEPRECATION")
-            startActivityAndCollapse(intent)
-        }
+        openCollapsing(PhoneListenActivity.intent(this))
     }
 }

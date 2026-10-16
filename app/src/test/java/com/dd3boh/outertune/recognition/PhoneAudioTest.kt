@@ -68,7 +68,8 @@ class PhoneAudioTest {
         assertTrue("the question's screen can be opened by other apps", "android:exported=\"false\"" in activity.substring(0, activity.indexOf("/>")))
         val service = source("java/com/dd3boh/outertune/recognition/RecognitionService.kt")
         assertTrue("the song found no longer opens InterTune's search", "SystemSearch.searchLink(words)" in service)
-        assertTrue("the tile's listen does not use the short windows", "windowSeconds = PhoneAudio.WINDOW_SECONDS" in service)
+        val engine = source("java/com/dd3boh/outertune/recognition/RecognitionEngine.kt")
+        assertTrue("a single listen of the phone no longer hears the clip through", "if (listenedToPhone && !continuous) return@launch listenToClip()" in engine)
     }
 
     @Test
@@ -94,8 +95,40 @@ class PhoneAudioTest {
     }
 
     @Test
-    fun `short windows, about twenty seconds in all`() {
-        assertEquals(4, PhoneAudio.WINDOW_SECONDS)
-        assertEquals(20, PhoneAudio.WINDOW_SECONDS * PhoneAudio.MAX_MISSES)
+    fun `three tiles wear the sound bars, around you, this phone and the one that asks`() {
+        val manifest = source("AndroidManifest.xml")
+        for ((tile, label) in listOf(
+            "RecognitionTileService" to "@string/recognition_room_tile",
+            "PhoneSongTileService" to "@string/recognition_phone_tile",
+            "RecognitionChoiceTileService" to "@string/recognise",
+        )) {
+            val from = manifest.indexOf("android:name=\".recognition.$tile\"")
+            assertTrue("no $tile", from >= 0)
+            val entry = manifest.substring(from, manifest.indexOf("</service>", from))
+            assertTrue("$tile wears another icon", "android:icon=\"@drawable/ic_recognise\"" in entry)
+            assertTrue("$tile is named otherwise", "android:label=\"$label\"" in entry)
+        }
+        val choice = source("java/com/dd3boh/outertune/recognition/RecognitionChoiceTileService.kt")
+        assertTrue("the choice is no longer a small question over the panel", "showDialog(dialog)" in choice)
+        assertTrue("a choice no longer starts at once", "setSingleChoiceItems(choices, -1)" in choice)
+    }
+
+    @Test
+    fun `the tile asks for notifications, its only way to give the song, and says once why Android asks`() {
+        val activity = source("java/com/dd3boh/outertune/recognition/PhoneListenActivity.kt")
+        assertTrue("Manifest.permission.POST_NOTIFICATIONS" in activity)
+        assertTrue("areNotificationsEnabled()" in activity)
+        assertTrue("PhoneAudioExplainedKey" in activity)
+        assertTrue(".setMessage(R.string.recognition_phone_note)" in activity)
+    }
+
+    @Test
+    fun `silence from the phone is not blamed on the microphone`() {
+        for (path in listOf(
+            "java/com/dd3boh/outertune/ui/screens/RecognitionScreen.kt",
+            "java/com/dd3boh/outertune/ui/component/RecognitionSheet.kt",
+        )) assertTrue("$path blames the microphone", "R.string.recognition_phone_heard_nothing" in source(path))
+        val engine = source("java/com/dd3boh/outertune/recognition/RecognitionEngine.kt")
+        assertTrue("fromPhone = listenedToPhone" in engine)
     }
 }
