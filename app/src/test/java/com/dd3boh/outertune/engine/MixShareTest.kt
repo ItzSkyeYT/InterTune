@@ -54,6 +54,26 @@ class MixShareTest {
     }
 
     @Test
+    fun `the row's own cards count per card shown, so playing its new cards brings more of them`() {
+        // Outside the row: 300 plays of ten songs, new only the first time each was heard.
+        val outside = (0 until 300).map { listen("s${it % 10}", it) }
+        val base = input(outside, (0 until 10).map { "s$it" } + (0 until 60).map { "n$it" })
+        val before = share(base)
+        // On the row in the last fortnight: forty new cards and forty familiar ones shown, half of
+        // each played and heard well: new cards played as often as familiar ones, so half and half.
+        val seenAt = now - 3 * 86_400_000L
+        val seen = (0 until 20).map { SeenCard("n$it", seenAt) } + (0 until 20).map { SeenCard("s${it % 10}", seenAt) }
+        val played = (0 until 20).map { listen("n${20 + it}", 900 + it, PlayOrigin.QUICK_PICKS) } +
+            (0 until 20).map { listen("s${it % 10}", 950 + it, PlayOrigin.QUICK_PICKS) }
+        val withRow = base.copy(listens = outside + played, seen = seen)
+        assertEquals((10 + 40 * 0.5 + 7.5) / (300 + 40 + 30), share(withRow), 1e-9)
+        assertTrue(share(withRow) > before)
+        // The same plays with nothing seen beside them say nothing: a row's taps alone cannot tell
+        // how often each kind was passed over.
+        assertEquals(before, share(base.copy(listens = outside + played)), 1e-9)
+    }
+
+    @Test
     fun `a short listen is not counted, and another version of a song heard well is not new`() {
         val listens = listOf(listen("a", 0), listen("a-live", 1), listen("b", 2, ratio = 0.05))
         // Counted: a, new, and its live take, the same song: one new of two.
