@@ -9,6 +9,8 @@ plugins {
 // only moves the bytes. Why this way and not JitPack: experiments/features/sabr/PLAN.md, option A.
 val innertubex = rootProject.file("innertubex/src/commonMain/kotlin")
 val taken = listOf(
+    // Ours: what the app needs of SABR, in plain Kotlin so the JVM tests reach it.
+    "com/dd3boh/outertune/sabr/**",
     "com/metrolist/innertubex/sabr/**",
     "com/metrolist/innertubex/InnerTubeLogger.kt",
     "com/metrolist/innertubex/extraction/FormatSelectors.kt",
@@ -26,6 +28,11 @@ kotlin {
         kotlin.srcDir(innertubex)
         kotlin.include(taken)
     }
+    // InnerTubeX's own tests of that package, run here against our versions of Ktor and coroutines.
+    sourceSets.named("test") {
+        kotlin.srcDir(rootProject.file("innertubex/src/commonTest/kotlin"))
+        kotlin.include("com/metrolist/innertubex/sabr/**", "com/dd3boh/outertune/sabr/**")
+    }
     compilerOptions {
         // As InnerTubeX's own build sets them.
         optIn.addAll("kotlin.RequiresOptIn", "kotlin.ExperimentalStdlibApi")
@@ -35,4 +42,10 @@ kotlin {
 dependencies {
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.serialization.json)
+    testImplementation(kotlin("test"))
+    testImplementation(libs.ktor.client.mock)
+}
+
+tasks.test {
+    useJUnit()
 }
