@@ -46,6 +46,19 @@ data class EngineParams(
      * value chosen on 474 others (experiments/features/recs-bakeoff, 16 Oct 2026).
      */
     val familiarDecay: Double = 1.0,
+    /**
+     * Familiar first with the mix learned (a test, see MixShare): the row's new cards follow the
+     * listener's own share of new songs, from [mixNewMin] to [mixNewMax] of the twenty, and every
+     * other card is a familiar one. Off, Familiar first keeps its fixed [leanCards].
+     */
+    val mixLearned: Boolean = false,
+    val mixNewMin: Int = 2,
+    val mixNewMax: Int = 10,
+    /** The share is read over this many of the latest listens heard well, those started from the engine's own rows left out. */
+    val mixWindowListens: Int = 300,
+    /** Where the share starts on a new install, and how many listens that start counts as. */
+    val mixPrior: Double = 0.25,
+    val mixPriorListens: Double = 30.0,
     /** A song counts at most this many listens per session in its activation, so a loop is not a thousand votes. */
     val activationPerSession: Int = 3,
     /** A usable like is a pseudo-listen worth this at its instant. */

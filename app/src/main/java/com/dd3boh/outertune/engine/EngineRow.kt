@@ -107,6 +107,8 @@ object EngineRow {
         neverPlayed: Boolean = false,
         chip: Int = ContextChip.AUTO,
         stored: Lean = Lean.AUTO,
+        /** Familiar first with the mix learned: the row's new cards (MixShare), the rest the lead lane's. */
+        mixNewCards: Int? = null,
     ): Shape {
         val lean = Lean.applied(stored, chip, newOnly, neverPlayed)
         val strictNew = lean == Lean.NEW && newOnly
@@ -125,8 +127,15 @@ object EngineRow {
         // With a lead lane the Discover line above is bypassed on purpose: a lean reaches here
         // with Discover only under Never heard, where Discover means more of the lead lane, from
         // new artists only, rather than ten explore cards. A mood keeps the dial, as under Auto.
+        // With the mix learned the places left are the new songs', so none of them go to Rediscover,
+        // which has nothing new to give: an empty lane hands its place back to the familiar lead.
+        val mix = lean == Lean.FAMILIAR && mixNewCards != null
         val now = if (lead == null) autoQuotas
-            else quotas(p.rowSize, dial.coerceIn(0.0, 1.0), false, p, lean, leadCards = if (discoverNew) p.leanDiscoverCards else p.leanCards)
+            else quotas(p.rowSize, dial.coerceIn(0.0, 1.0), false, if (mix) p.copy(rediscoverShare = 0.0) else p, lean, leadCards = when {
+                discoverNew -> p.leanDiscoverCards
+                mix -> p.rowSize - mixNewCards!!
+                else -> p.leanCards
+            })
         return Shape(lean, lead, now, autoQuotas, strictNew, discoverNew, p.rowSize)
     }
 
@@ -157,7 +166,8 @@ object EngineRow {
     ): BuiltRow {
         val stats = LibraryStats(input, p)
         val groups = VersionGroups(input.songs.values, input.versionLinks)
-        val shape = shape(p, dial, newOnly, neverPlayed, input.chip, stored)
+        val mixNew = if (p.mixLearned && stored == Lean.FAMILIAR) MixShare.newCards(MixShare.of(input, groups, p), p) else null
+        val shape = shape(p, dial, newOnly, neverPlayed, input.chip, stored, mixNew)
         // No lean to follow: the ordinary row, from the caller's dice as they come.
         if (shape.lean == Lean.AUTO) return checkNotNull(row(input, stats, groups, weights, p, shape, newOnly, neverPlayed, random, lastFmShare))
 
@@ -410,6 +420,10 @@ object EngineRow {
             // New songs only under Never heard: its stricter rule for the whole row.
             shape.strictNew -> mapOf(Lane.EXPLORE to explore, Lane.RELATED to related.filter(::neverHeard))
             newOnly -> mapOf(Lane.EXPLORE to explore.filter { it.x[Features.NOVEL] >= 0.5 }, Lane.RELATED to related.filter { it.x[Features.NOVEL] >= 0.5 })
+            // Familiar first with the mix learned: the songs heard well are the lead lane's, so the
+            // other lanes give only what is new, and the row's new cards are the share it was given.
+            lean == Lean.FAMILIAR && p.mixLearned -> mapOf(Lane.AGAIN to again, Lane.RELATED to related.filter { it.x[Features.NOVEL] >= 0.5 },
+                Lane.ARTIST to artistLane.filter { it.x[Features.NOVEL] >= 0.5 }, Lane.REDISCOVER to emptyList(), Lane.EXPLORE to explore)
             else -> mapOf(Lane.RELATED to related, Lane.AGAIN to again, Lane.ARTIST to artistLane, Lane.REDISCOVER to rediscover, Lane.EXPLORE to explore)
         }.let { m -> if (lead == null || lead == Lane.EXPLORE) m else m + (lead to m[lead].orEmpty().take(p.leanLaneTrim)) }
         // The lean has nothing to give: the caller builds Auto's row instead.

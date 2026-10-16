@@ -323,7 +323,9 @@ class EngineReplayTest {
                     for (rep in 0 until (System.getenv("ENGINE_REPLAY_SEEDS")?.toIntOrNull() ?: 1)) {
                         // ENGINE_REPLAY_LEAN names a lean to build under (FAMILIAR for Familiar first);
                         // unset, Auto, the row as the app builds it with no lean chosen.
-                        val row = EngineRow.build(input, random = Random(i.toLong() + rep * 100_003L), stored = Lean.ofName(System.getenv("ENGINE_REPLAY_LEAN")))
+                        // ENGINE_REPLAY_MIXLEARNED=1: Familiar first with the mix learned (EngineParams.mixLearned).
+                        val rp = if (System.getenv("ENGINE_REPLAY_MIXLEARNED") == "1") EngineParams.DEFAULT.copy(mixLearned = true) else EngineParams.DEFAULT
+                        val row = EngineRow.build(input, p = rp, random = Random(i.toLong() + rep * 100_003L), stored = Lean.ofName(System.getenv("ENGINE_REPLAY_LEAN")))
                         score(seeded, row.cards.map { it.songId })
                         for (c in row.cards) {
                             val tally = byLane.getOrPut(c.lane) { IntArray(3) }
