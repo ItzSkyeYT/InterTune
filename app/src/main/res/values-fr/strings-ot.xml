@@ -585,6 +585,16 @@
     <string name="recognise_keep_listening">Écoute continue</string>
     <string name="recognise_once_desc">Identifie un titre, puis s\'arrête.</string>
     <string name="recognise_keep_listening_short">Continue jusqu\'à ce que vous l\'arrêtiez.</string>
+    <string name="recognition_source_room">Autour de vous</string>
+    <string name="recognition_source_phone">Sur ce téléphone</string>
+    <string name="recognition_phone_note">Android va demander d\'enregistrer l\'écran. InterTune ne prend que le son, pour cette écoute.</string>
+    <string name="recognition_phone_tile">Titre sur ce téléphone</string>
+    <string name="recognition_service_title_phone">À l\'écoute de ce téléphone</string>
+    <string name="recognition_phone_found_tap">touchez pour l\'ouvrir dans InterTune</string>
+    <string name="recognition_phone_nothing">Aucun titre trouvé sur ce téléphone</string>
+    <string name="recognition_phone_nothing_hint">Réessayez pendant que le titre joue.</string>
+    <string name="recognition_phone_results_channel">Titres trouvés sur ce téléphone</string>
+    <string name="recognition_phone_needs_permission">InterTune a aussi besoin de l\'autorisation du micro pour écouter ce téléphone.</string>
     <string name="recognise_tap_to_listen">Appuyez pour écouter</string>
     <string name="recognise_screen_off_hint">Vous pouvez éteindre l\'écran : l\'écoute ne s\'arrête pas.</string>
     <string name="recognise_history_title">Reconnus pendant cette session</string>

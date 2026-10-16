@@ -142,6 +142,9 @@ class RecognitionEngine @Inject constructor(
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
+    /** How many windows that named nothing a single listen takes before it gives up: see [start]. */
+    private var onceMaxMisses = ONCE_MAX_MISSES
+
     private val _state = MutableStateFlow<State>(State.Idle)
     val state = _state.asStateFlow()
 
@@ -461,11 +464,19 @@ class RecognitionEngine @Inject constructor(
      */
     @Synchronized
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
-    fun start(playlist: Playlist?, continuous: Boolean) {
+    fun start(
+        playlist: Playlist?,
+        continuous: Boolean,
+        // The phone's own sound is clean, with no room in it: a short window is enough, and a song
+        // in a short video plays for about ten seconds before the next one (PhoneAudio).
+        windowSeconds: Int? = null,
+        maxMisses: Int = ONCE_MAX_MISSES,
+    ) {
         if (job?.isActive == true) return
         this.playlist = playlist
         this.continuous.value = continuous
         onceMisses = 0
+        onceMaxMisses = maxMisses
         // Starting is somebody asking, and gets an answer straight away, whatever the last run
         // was waiting out. The cheapest way to find out whether Shazam is back is to ask it once.
         backoff = ShazamBackoff()
@@ -521,7 +532,8 @@ class RecognitionEngine @Inject constructor(
                 // next is already being captured, so nothing between songs is missed.
                 // Read per run rather than cached, so changing it in settings takes effect on the
                 // next listen instead of the next launch.
-                val seconds = context.dataStore.data.first()[RecogniseListenSecondsKey]
+                val seconds = windowSeconds
+                    ?: context.dataStore.data.first()[RecogniseListenSecondsKey]
                     ?: MicrophoneListener.DEFAULT_SECONDS
                 pendingLifetimeMs = PENDING_LIFETIME_WINDOWS * seconds * 1000L
                 windowMs = seconds * 1000L
@@ -546,7 +558,7 @@ class RecognitionEngine @Inject constructor(
                     // came back and pressed stop: two minutes on the emulator before it was noticed.
                     if (!this@RecognitionEngine.continuous.value &&
                         (_state.value is State.Failed || _state.value == State.NoMatch) &&
-                        ++onceMisses >= ONCE_MAX_MISSES
+                        ++onceMisses >= onceMaxMisses
                     ) {
                         return@collect halt()
                     }

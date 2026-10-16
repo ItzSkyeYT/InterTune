@@ -765,6 +765,16 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recognise_keep_listening">Keep listening</string>
     <string name="recognise_once_desc">Names one song, then stops.</string>
     <string name="recognise_keep_listening_short">Keeps going until you stop it.</string>
+    <string name="recognition_source_room">Around you</string>
+    <string name="recognition_source_phone">On this phone</string>
+    <string name="recognition_phone_note">Android will ask to record the screen. InterTune only takes the sound, for this listen.</string>
+    <string name="recognition_phone_tile">Song on this phone</string>
+    <string name="recognition_service_title_phone">Listening to this phone</string>
+    <string name="recognition_phone_found_tap">tap to open in InterTune</string>
+    <string name="recognition_phone_nothing">No song found on this phone</string>
+    <string name="recognition_phone_nothing_hint">Try again while the song is playing.</string>
+    <string name="recognition_phone_results_channel">Songs found on this phone</string>
+    <string name="recognition_phone_needs_permission">InterTune needs the microphone permission to listen to this phone too.</string>
     <string name="recognise_tap_to_listen">Tap to listen</string>
     <string name="recognise_screen_off_hint">You can turn the screen off. It keeps listening.</string>
     <string name="recognise_history_title">Recognised this session</string>
