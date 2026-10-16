@@ -10,6 +10,7 @@ import android.util.Log
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.MultiQueueObject
 import com.dd3boh.outertune.playback.queues.Queue
+import com.zionhuang.innertube.models.BrowseEndpoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -44,6 +45,10 @@ import kotlinx.coroutines.withContext
  * and the song played on a second after it was stopped. A song the app itself stopped because it
  * failed is the exception and gets its second try ([wantsToPlay]): with Skip on error on it has
  * no next song to skip to yet, and that try is what gets that listener their music.
+ *
+ * A radio that YouTube answers with nothing but the song it was started from goes on from the
+ * songs related to that song ([filled]). It used to stop after it: the queue held that one song,
+ * and a queue of one never asks for a next page.
  */
 internal class QueueStart(private val service: Target) {
 
@@ -91,6 +96,19 @@ internal class QueueStart(private val service: Target) {
 
         /** Whether the player means to play now: see [wantsToPlay]. */
         val wantsToPlay: Boolean
+
+        /**
+         * The songs stored as related to [seed] when it last played (related_song_map), in
+         * YouTube's order, or none. Asks nothing of the network, and never throws.
+         */
+        suspend fun storedRelated(seed: MediaMetadata): List<MediaMetadata>
+
+        /**
+         * The songs on YouTube's related page for [seed], read from [endpoint], the radio's answer's
+         * own link to it, without what the content switches hide. None without a link or when the
+         * page fails; never throws.
+         */
+        suspend fun fetchRelated(seed: MediaMetadata, endpoint: BrowseEndpoint?): List<MediaMetadata>
     }
 
     /**
@@ -147,7 +165,7 @@ internal class QueueStart(private val service: Target) {
             service.start(playWhenReady)
         }
 
-        val initialStatus = try {
+        val answer = try {
             withContext(Dispatchers.IO) { queue.getInitialStatus() }
         } catch (e: Exception) {
             // An answer that failed for something no longer wanted is not the listener's to hear
@@ -155,8 +173,9 @@ internal class QueueStart(private val service: Target) {
             if (number != lastStart) return
             throw e
         }
-        // The same after the network wait. Nothing below suspends, and onDestroy runs on the same
-        // main thread, so it cannot slip in between.
+        // The same after the network wait. Nothing below suspends but the filling of a radio of
+        // one, which checks both again, and onDestroy runs on the same main thread, so it cannot
+        // slip in between.
         if (service.destroyed) return
         // Nor can another tap. One made during the wait has the player now, or will have it when
         // its own answer comes, and this answer is dropped whole: it is not loaded, and it leaves
@@ -164,6 +183,11 @@ internal class QueueStart(private val service: Target) {
         if (number != lastStart) {
             Log.d(TAG, "playQueue: Queue initial status dropped, another queue was asked for since")
             return
+        }
+        val initialStatus = if (isRadio && preloadItem != null && answer.items.size == 1) {
+            filled(answer, preloadItem) { !service.destroyed && number == lastStart } ?: return
+        } else {
+            answer
         }
         // The queue of one goes once the full queue is loaded, where a queue of the answer's title
         // is on the board already: the board fills that one, and renaming the queue of one as
@@ -204,6 +228,25 @@ internal class QueueStart(private val service: Target) {
         // player is prepared already, and a song that failed to load meanwhile gets its second try
         // here. What it does not do then is play a song paused since the tap: see the class note.
         service.start(if (preloadItem != null) playWhenReady && service.wantsToPlay else playWhenReady)
+    }
+
+    /**
+     * [status], a radio's answer that holds nothing but [seed], with the songs related to [seed]
+     * after it: the list stored when it last played, and YouTube's related page only when none is
+     * stored. The radio's next page is then asked from one of them, as from YouTube's own songs.
+     * Unchanged when there are none, which leaves the radio of one as it always was. Null when
+     * [wanted] says, after either wait, that this start is no longer wanted.
+     */
+    private suspend fun filled(status: Queue.Status, seed: MediaMetadata, wanted: () -> Boolean): Queue.Status? {
+        val stored = service.storedRelated(seed)
+        if (!wanted()) return null
+        val related = stored.ifEmpty { service.fetchRelated(seed, status.relatedEndpoint) }
+        if (!wanted()) return null
+        // The song itself, a version of it, or a song listed twice joins no more than it would
+        // from any other page.
+        val more = RadioPage.fresh(related, status.items + seed)
+        Log.d(TAG, "playQueue: Radio answered with its own song alone, ${more.size} related songs after it")
+        return if (more.isEmpty()) status else status.copy(items = status.items + more, mediaItemIndex = 0)
     }
 
     companion object {

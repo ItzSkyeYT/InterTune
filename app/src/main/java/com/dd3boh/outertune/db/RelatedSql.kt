@@ -32,6 +32,20 @@ object RelatedSql {
     const val HAS_YOUTUBE_RELATED =
         "SELECT COUNT(1) FROM related_song_map WHERE songId = :songId AND source = 0 LIMIT 1"
 
+    /**
+     * YouTube's related list for one song, each song once, in the order it was written, which is
+     * YouTube's. What a radio YouTube answered with nothing but that song is filled from
+     * (QueueStart). The older relatedSongs groups the whole table before it picks the song, so a
+     * song that other seeds list too can go missing from it, and it keeps no order.
+     */
+    const val YOUTUBE_RELATED_SONGS = """
+        SELECT song.* FROM song
+        JOIN (SELECT relatedSongId, MIN(id) AS firstEdge FROM related_song_map
+              WHERE songId = :songId AND source = 0 GROUP BY relatedSongId) edge
+          ON song.id = edge.relatedSongId
+        ORDER BY edge.firstEdge
+    """
+
     /** When YouTube's list was fetched (its oldest edge), null with none, 0 for a legacy list. */
     const val YOUTUBE_FETCHED_AT =
         "SELECT MIN(fetchedAt) FROM related_song_map WHERE songId = :songId AND source = 0"

@@ -10,6 +10,7 @@ import androidx.media3.common.C
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.MultiQueueObject
 import com.dd3boh.outertune.playback.queues.Queue
+import com.zionhuang.innertube.models.BrowseEndpoint
 import java.io.IOException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.launch
@@ -42,7 +43,7 @@ import org.junit.Test
  */
 class QueueStartTest {
 
-    private fun song(id: String) = MediaMetadata(id = id, title = id, artists = emptyList(), duration = 180, genre = null)
+    private fun song(id: String, title: String = id) = MediaMetadata(id = id, title = title, artists = emptyList(), duration = 180, genre = null)
 
     private val temp = QueueStart.PRELOAD_TITLE
 
@@ -154,6 +155,28 @@ class QueueStartTest {
         override fun start(playWhenReady: Boolean) {
             asked += "player: prepare, playWhenReady $playWhenReady"
             wantsToPlay = playWhenReady
+        }
+
+        /** The songs stored as related to a song, by its id, and those on YouTube's related page. */
+        val stored = mutableMapOf<String, List<MediaMetadata>>()
+        val relatedPage = mutableMapOf<String, List<MediaMetadata>>()
+
+        /** Completed when the stored list is asked for. */
+        val lookupAsked = CompletableDeferred<Unit>()
+
+        /** Set by a test that wants that look to wait, and completed when it says. */
+        var lookup: CompletableDeferred<Unit>? = null
+
+        override suspend fun storedRelated(seed: MediaMetadata): List<MediaMetadata> {
+            asked += "related to ${seed.id}: stored"
+            lookupAsked.complete(Unit)
+            lookup?.await()
+            return stored[seed.id].orEmpty()
+        }
+
+        override suspend fun fetchRelated(seed: MediaMetadata, endpoint: BrowseEndpoint?): List<MediaMetadata> {
+            asked += "related to ${seed.id}: YouTube's page" + (endpoint?.let { " from ${it.browseId}" } ?: "")
+            return relatedPage[seed.id].orEmpty()
         }
     }
 
@@ -498,6 +521,149 @@ class QueueStartTest {
         val full = board[3]
         assertTrue(full, full.startsWith("add 'A Mix' [A, B, C, D, E, F] at 0 shuffled replace then "))
         assertTrue(full, full.substringAfter(" then ") in listOf("C", "D", "E", "F"))
+    }
+
+    // A radio YouTube answers with nothing but the song it was started from. Nothing came after
+    // that song: the queue held one song, and its next page would have been asked from that same
+    // song, which answers the same again.
+
+    private val relatedTab = BrowseEndpoint(browseId = "MPTRt_A")
+
+    @Test
+    fun `a radio answered with only its own song goes on from the songs stored as related to it`() = runBlocking {
+        val service = Service()
+        // As stored, with the song itself, a version of it and a song twice, which are left out.
+        service.stored["A"] = listOf(song("B"), song("A"), song("C"), song("A2", "A (Live)"), song("B"), song("D"), song("E"))
+        val radio = LateQueue(song("A"))
+        val job = launch { QueueStart(service).play(radio, isRadio = true) }
+        radio.asked.await()
+        radio.answer.complete(Queue.Status("A Mix", listOf(song("A")), 0, relatedEndpoint = relatedTab))
+        job.join()
+
+        val board = service.board()
+        assertEquals(
+            listOf("add '$temp' [A] at 0 replace", "load '$temp' [A] at 0 resuming $tags", "related to A: stored", "rename '$temp' to 'A Mix'"),
+            board.take(4),
+        )
+        val full = board[4]
+        assertTrue(full, full.startsWith("add 'A Mix' [A, B, C, D, E] at 0 replace then "))
+        // The next page is asked from one of them, and never from A again.
+        assertTrue(full, full.substringAfter(" then ") in listOf("B", "C", "D", "E"))
+        assertEquals("load 'A Mix' [A, B, C, D, E] at 0 $tags", board[5])
+        assertEquals(6, board.size)
+        // Nothing was asked of YouTube, and the song played on as it was.
+        assertEquals(listOf("A from the top"), service.heard)
+    }
+
+    @Test
+    fun `with nothing stored, YouTube's related page is asked, by the answer's own link to it`() = runBlocking {
+        val service = Service()
+        service.relatedPage["A"] = listOf(song("F"), song("G"))
+        val radio = LateQueue(song("A"))
+        val job = launch { QueueStart(service).play(radio, isRadio = true) }
+        radio.asked.await()
+        radio.answer.complete(Queue.Status("A Mix", listOf(song("A")), 0, relatedEndpoint = relatedTab))
+        job.join()
+
+        val board = service.board()
+        assertEquals(
+            listOf("related to A: stored", "related to A: YouTube's page from MPTRt_A"),
+            board.filter { it.startsWith("related") },
+        )
+        assertTrue(board.toString(), board.any { it.startsWith("add 'A Mix' [A, F, G] at 0 replace then ") })
+    }
+
+    @Test
+    fun `with nothing to go on, the radio of one is left as it always was`() = runBlocking {
+        val service = Service()
+        val radio = LateQueue(song("A"))
+        val job = launch { QueueStart(service).play(radio, isRadio = true) }
+        radio.asked.await()
+        radio.answer.complete(Queue.Status("A Mix", listOf(song("A")), 0))
+        job.join()
+
+        assertEquals(
+            listOf(
+                "add '$temp' [A] at 0 replace",
+                "load '$temp' [A] at 0 resuming $tags",
+                started,
+                "related to A: stored",
+                "related to A: YouTube's page",
+                "rename '$temp' to 'A Mix'",
+                "add 'A Mix' [A] at 0 replace then A",
+                "load 'A Mix' [A] at 0 $tags",
+                started,
+            ),
+            service.asked,
+        )
+    }
+
+    @Test
+    fun `only a radio is filled, and only when it holds nothing but its own song`() = runBlocking {
+        val service = Service()
+        service.stored["A"] = listOf(song("B"))
+        service.stored["X"] = listOf(song("Y"))
+        val start = QueueStart(service)
+
+        // A song played as itself, not as a radio.
+        val single = LateQueue(song("A"))
+        val one = launch { start.play(single) }
+        single.asked.await()
+        single.answer.complete(Queue.Status("A", listOf(song("A")), 0))
+        one.join()
+
+        // A radio YouTube gave more than its own song.
+        val radio = LateQueue(song("X"))
+        val two = launch { start.play(radio, isRadio = true) }
+        radio.asked.await()
+        radio.answer.complete(Queue.Status("X Mix", listOf(song("X"), song("Z")), 0))
+        two.join()
+
+        assertTrue(service.asked.toString(), service.asked.none { it.startsWith("related") })
+    }
+
+    @Test
+    fun `a tap made while the related songs were looked up takes the player`() = runBlocking {
+        val service = Service().apply { lookup = CompletableDeferred() }
+        service.stored["A"] = listOf(song("B"))
+        val start = QueueStart(service)
+        val first = LateQueue(song("A"))
+        val one = launch { start.play(first, isRadio = true, runId = 7) }
+        first.asked.await()
+        first.answer.complete(Queue.Status("A Mix", listOf(song("A")), 0))
+        service.lookupAsked.await()
+
+        val second = LateQueue(song("Z"))
+        val two = launch { start.play(second, runId = 8) }
+        second.asked.await()
+        val afterTap = service.asked.toList()
+        service.lookup?.complete(Unit)
+        one.join()
+        // The first radio's songs come back to nothing: neither the board nor the player is asked.
+        assertEquals(afterTap, service.asked)
+
+        second.answer.complete(Queue.Status("Z Mix", listOf(song("Z"), song("Y")), 0))
+        two.join()
+        assertEquals(listOf("A from the top", "Z from the top"), service.heard)
+        assertEquals(listOf("Z Mix"), service.queues.map { it.title })
+    }
+
+    @Test
+    fun `nothing is asked of a service torn down while the related songs were looked up`() = runBlocking {
+        val service = Service().apply { lookup = CompletableDeferred() }
+        service.stored["A"] = listOf(song("B"))
+        val radio = LateQueue(song("A"))
+        val job = launch { QueueStart(service).play(radio, isRadio = true) }
+        radio.asked.await()
+        radio.answer.complete(Queue.Status("A Mix", listOf(song("A")), 0))
+        service.lookupAsked.await()
+        val before = service.asked.toList()
+
+        service.destroyed = true
+        service.lookup?.complete(Unit)
+        job.join()
+
+        assertEquals(before, service.asked)
     }
 
     @Test

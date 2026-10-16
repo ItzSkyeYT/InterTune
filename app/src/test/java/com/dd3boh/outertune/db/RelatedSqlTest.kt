@@ -77,6 +77,21 @@ class RelatedSqlTest {
         assertEquals(2L, long("SELECT COUNT(DISTINCT source) FROM related_song_map"))
     }
 
+    private fun ids(sql: String): List<String> = db.createStatement().use { st ->
+        st.executeQuery(sql).use { rs -> buildList { while (rs.next()) add(rs.getString("id")) } }
+    }
+
+    @Test
+    fun `a radio of one is filled from YouTube's list for its song, in YouTube's order, each song once`() {
+        // Written in this order. Last.fm's b is not YouTube's list, and a stays this seed's even
+        // though another seed lists it too.
+        edge("seed", "c", 0); edge("seed", "a", 0); edge("seed", "b", 1); edge("seed", "c", 0); edge("other", "a", 0)
+
+        assertEquals(listOf("c", "a"), ids(bind(RelatedSql.YOUTUBE_RELATED_SONGS, "seed")))
+        assertEquals(listOf("a"), ids(bind(RelatedSql.YOUTUBE_RELATED_SONGS, "other")))
+        assertEquals(emptyList<String>(), ids(bind(RelatedSql.YOUTUBE_RELATED_SONGS, "a")))
+    }
+
     @Test
     fun `the engine reads the chosen source, and YouTube's only for seeds it has nothing for`() {
         edge("seed", "a", 0); edge("seed", "b", 1); edge("other", "c", 0)

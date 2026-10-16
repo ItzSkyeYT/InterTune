@@ -1,6 +1,7 @@
 package com.dd3boh.outertune.playback.queues
 
 import com.dd3boh.outertune.models.MediaMetadata
+import com.zionhuang.innertube.models.BrowseEndpoint
 
 interface Queue {
     val preloadItem: MediaMetadata?
@@ -15,6 +16,11 @@ interface Queue {
         val items: List<MediaMetadata>,
         val mediaItemIndex: Int,
         val position: Long = 0L,
+        /**
+         * The related page of the song the answer was asked for, where YouTube gave one, so that a
+         * radio answered with nothing but that song can be filled without asking for it again.
+         */
+        val relatedEndpoint: BrowseEndpoint? = null,
     ) {
         /**
          * The list with [preload], the song already playing from its one-song queue, in the

@@ -129,6 +129,11 @@ interface DatabaseDao : SongsDao, AlbumsDao, ArtistsDao, PlaylistsDao, QueueDao,
     )
     fun relatedSongs(songId: String): List<Song>
 
+    /** See [RelatedSql.YOUTUBE_RELATED_SONGS]. */
+    @Transaction
+    @Query(RelatedSql.YOUTUBE_RELATED_SONGS)
+    fun youtubeRelatedSongs(songId: String): List<Song>
+
     @Query("""
         SELECT * FROM genre
         WHERE genre.isLocal = 1

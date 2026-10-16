@@ -27,7 +27,8 @@ class YouTubeQueue(
         return Queue.Status(
             title = nextResult.title,
             items = items.map { it.toMediaMetadata() },
-            mediaItemIndex = start
+            mediaItemIndex = start,
+            relatedEndpoint = nextResult.relatedEndpoint,
         )
     }
 

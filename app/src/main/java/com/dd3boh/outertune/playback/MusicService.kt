@@ -172,6 +172,7 @@ import com.dd3boh.outertune.extensions.joinWithin
 import com.dd3boh.outertune.extensions.metadata
 import com.dd3boh.outertune.extensions.setOffloadEnabled
 import com.dd3boh.outertune.lyrics.LyricsHelper
+import com.dd3boh.outertune.models.ContentFilter
 import com.dd3boh.outertune.models.HybridCacheDataSinkFactory
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.MultiQueueObject
@@ -204,6 +205,7 @@ import com.google.common.util.concurrent.MoreExecutors
 import com.dd3boh.outertune.viewmodels.ExclusionsViewModel
 import com.zionhuang.innertube.models.response.PlayerResponse
 import com.zionhuang.innertube.YouTube
+import com.zionhuang.innertube.models.BrowseEndpoint
 import com.zionhuang.innertube.models.SongItem
 import com.zionhuang.innertube.models.WatchEndpoint
 import dagger.hilt.android.AndroidEntryPoint
@@ -1910,6 +1912,35 @@ class MusicService : MediaLibraryService(),
         }
 
         override val wantsToPlay get() = QueueStart.wantsToPlay(activePlayer.playWhenReady, stoppedByError)
+
+        override suspend fun storedRelated(seed: MediaMetadata): List<MediaMetadata> {
+            // A stored song keeps none of YouTube's marks, so with explicit songs hidden there is
+            // no telling which of these the switch would keep out. YouTube's page says, so that
+            // listener is given that instead. The page only ever lists songs, never videos, so
+            // the other switches lose nothing here.
+            if (ContentFilter.current.explicit) return emptyList()
+            return withContext(Dispatchers.IO) {
+                runCatching { database.youtubeRelatedSongs(seed.id).map { it.toMediaMetadata() } }
+                    .onFailure { Log.w(TAG, "Could not read the songs related to a radio's song", it) }
+                    .getOrDefault(emptyList())
+            }
+        }
+
+        override suspend fun fetchRelated(seed: MediaMetadata, endpoint: BrowseEndpoint?): List<MediaMetadata> {
+            // Only by the answer's own link: an answer without one is what asking again gives as
+            // well. And not while YouTube is refusing us, nor for a song whose lookup failed a
+            // moment ago.
+            if (endpoint == null || Throttle.isBlocked || !relatedLookupFailures.none(seed.id)) return emptyList()
+            val page = withContext(Dispatchers.IO) { YouTube.related(endpoint).getOrNull() }
+            if (page == null) {
+                relatedLookupFailures.note(seed.id)
+                return emptyList()
+            }
+            // Kept as recoverSong keeps the list it stores: never a version of the song itself.
+            return ContentFilter.current.apply(page.songs)
+                .filterNot { SongVersions.isVersionOf(it.title, seed.title) }
+                .map { it.toMediaMetadata() }
+        }
     })
 
     /**
