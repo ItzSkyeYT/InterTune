@@ -115,6 +115,9 @@ class HomeScreenTest {
         assertEquals(com.dd3boh.outertune.R.string.quick_picks_lean_artist, names[com.dd3boh.outertune.engine.Lean.ARTIST])
         assertEquals(com.dd3boh.outertune.R.string.quick_picks_lean_forgotten, names[com.dd3boh.outertune.engine.Lean.FORGOTTEN])
         assertEquals(com.dd3boh.outertune.R.string.quick_picks_lean_similar, names[com.dd3boh.outertune.engine.Lean.SIMILAR])
-        assertEquals(names.size, names.values.toSet().size)
+        // Familiar first is never offered: it is the Auto under test in debug builds, and is named as Auto.
+        assertEquals(com.dd3boh.outertune.R.string.quick_picks_lean_auto, names[com.dd3boh.outertune.engine.Lean.FAMILIAR])
+        val offered = names.filterKeys { it != com.dd3boh.outertune.engine.Lean.FAMILIAR }
+        assertEquals(offered.size, offered.values.toSet().size)
     }
 }
