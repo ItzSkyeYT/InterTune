@@ -13,6 +13,7 @@ import com.dd3boh.outertune.recognition.RecognitionShortcut
 import com.dd3boh.outertune.ui.navigation.appDestinations
 import android.annotation.SuppressLint
 import android.app.NotificationManager
+import android.app.StatusBarManager
 import android.app.SearchManager
 import android.content.Intent
 import android.os.Build
@@ -208,6 +209,8 @@ import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeShow
 import com.dd3boh.outertune.ui.screens.walkthrough.newThingsFor
 import com.dd3boh.outertune.ui.screens.walkthrough.welcomeCardFor
 import com.dd3boh.outertune.widget.MusicWidgetReceiver
+import com.dd3boh.outertune.widget.RecognitionWidgetReceiver
+import com.dd3boh.outertune.recognition.RecognitionTileService
 import com.dd3boh.outertune.constants.WalkthroughSeenVersionKey
 import com.dd3boh.outertune.constants.WelcomeLookedAtKey
 import com.dd3boh.outertune.constants.SimilarFromLastFmKey
@@ -1447,16 +1450,35 @@ class MainActivity : ComponentActivity() {
                                 // launcher's sheet for the widget, the tour's first bubble for
                                 // the rest. Not at the tap, which ticked cards that led nowhere.
                                 onShow = { thing ->
-                                    if (thing.action == NewThingAction.ADD_WIDGET) {
+                                    fun pinWidget(receiver: Class<*>) {
                                         val widgets = AppWidgetManager.getInstance(this@MainActivity)
                                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && widgets.isRequestPinAppWidgetSupported) {
-                                            widgets.requestPinAppWidget(ComponentName(this@MainActivity, MusicWidgetReceiver::class.java), null, null)
+                                            widgets.requestPinAppWidget(ComponentName(this@MainActivity, receiver), null, null)
                                             welcomeShow.looked(thing.id)
                                         } else {
                                             Toast.makeText(this@MainActivity, R.string.welcome_back_no_widget_host, Toast.LENGTH_LONG).show()
                                         }
-                                    } else {
-                                        showFromWelcome(thing.id, thing.stops)
+                                    }
+                                    when (thing.action) {
+                                        NewThingAction.ADD_WIDGET -> pinWidget(MusicWidgetReceiver::class.java)
+                                        // The system's own question, "Add tile?", from Android 13. Whatever the
+                                        // answer, there was something to see; a refusal of the request itself
+                                        // (an error, below zero) offers the home screen button instead.
+                                        NewThingAction.ADD_TILE ->
+                                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                                getSystemService(StatusBarManager::class.java).requestAddTileService(
+                                                    ComponentName(this@MainActivity, RecognitionTileService::class.java),
+                                                    getString(R.string.recognise),
+                                                    android.graphics.drawable.Icon.createWithResource(this@MainActivity, R.drawable.ic_recognise),
+                                                    mainExecutor,
+                                                ) { result ->
+                                                    if (result >= 0) welcomeShow.looked(thing.id)
+                                                    else pinWidget(RecognitionWidgetReceiver::class.java)
+                                                }
+                                            } else {
+                                                pinWidget(RecognitionWidgetReceiver::class.java)
+                                            }
+                                        NewThingAction.SHOW -> showFromWelcome(thing.id, thing.stops)
                                     }
                                 },
                                 // The four groups and back to the page. The question the

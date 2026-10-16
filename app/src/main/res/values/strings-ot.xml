@@ -797,6 +797,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="welcome_back_release">New in %1$s</string>
     <string name="welcome_back_show">Show me</string>
     <string name="welcome_back_add_widget">Add it</string>
+    <string name="welcome_back_add_tile">Add the tile</string>
     <string name="welcome_back_seen">Seen</string>
     <string name="welcome_back_action_for">%1$s: %2$s</string>
     <string name="welcome_back_settings_title">Find your way round Settings</string>
@@ -834,6 +835,12 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="new_explain_pictures_body">Some (i) buttons open on a small moving picture of what the setting does.</string>
     <string name="new_explain_pictures_way">Fade between tracks is in here, and its (i) has one of the pictures.</string>
     <string name="new_explain_pictures_here">Tap its (i) to see what a fade between two songs does.</string>
+    <string name="new_resume_bluetooth_title">Music back on Bluetooth</string>
+    <string name="new_resume_bluetooth_body">Music stopped by your headphones, car or speaker going away can start again when they reconnect.</string>
+    <string name="new_resume_bluetooth_way">Resume when Bluetooth connects is in here.</string>
+    <string name="new_resume_bluetooth_here">Turn this on. Music you paused yourself stays paused.</string>
+    <string name="new_recognition_tile_title">Name a song from Quick Settings</string>
+    <string name="new_recognition_tile_body">A Quick Settings tile and a home screen button open song recognition, already listening.</string>
     <string name="new_report_body">When something goes wrong, the app can show you the last fault it noted, to copy or to send with a bug report.</string>
     <string name="new_report_way">In About: the last fault the app noted, to copy or to send with a bug report.</string>
     <string name="new_report_here">Opens the last fault the app noted. Nothing leaves the phone unless you send it.</string>

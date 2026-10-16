@@ -1,0 +1,9 @@
+Version 0.11.6
+
+- Music stopped when Bluetooth audio went away can start again when it reconnects.
+- Name the song playing around you from a Quick Settings tile or a home screen button.
+- No more stutter when YouTube sends a song slower than it plays.
+- Scan with no folder picked opens the folder list instead of closing the app.
+- The card for what is new stays until everything on it has been looked at.
+
+Full changelog: https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.11.6

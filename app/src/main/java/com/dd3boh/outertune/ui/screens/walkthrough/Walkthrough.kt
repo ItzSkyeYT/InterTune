@@ -9,11 +9,12 @@ package com.dd3boh.outertune.ui.screens.walkthrough
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Backup
+import androidx.compose.material.icons.rounded.BluetoothAudio
+import androidx.compose.material.icons.rounded.BlurOn
 import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.Campaign
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Headphones
-import androidx.compose.material.icons.rounded.Hearing
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Info
@@ -101,11 +102,16 @@ val TOUR_STOPS = listOf(
  */
 private const val V0_11_5 = 93
 
+/** 0.11.6: the fixes after 0.11.5, and two things from 0.12 that were ready (his word, 16 Oct 2026). */
+private const val V0_11_6 = 94
+
 /**
  * The first build 0.12 can ship as: what is held back for it is listed under it, so that somebody
- * on 0.11.5 is shown it once 0.12 brings it. Raise it if a 0.11.x release comes between.
+ * on 0.11.5 is shown it once 0.12 brings it. Raise it if a fix release comes between: 0.11.6,
+ * fixes only, took 94, and counted from 94 somebody who had a tour on 0.11.6 would be shown none
+ * of what 0.12 brings.
  */
-private const val V0_12 = 94
+private const val V0_12 = 95
 
 /**
  * A walk round Settings: its four groups, one bubble each.
@@ -262,6 +268,13 @@ enum class NewThingAction {
 
     /** Ask the launcher to put the widget on the home screen. */
     ADD_WIDGET,
+
+    /**
+     * Ask the system to put song recognition's tile in Quick Settings: from Android 13 it can be
+     * asked for in one tap. Before that the home screen button is offered instead, the other way
+     * in that came with it.
+     */
+    ADD_TILE,
 }
 
 /**
@@ -298,6 +311,13 @@ class NewThing(
  */
 class Install(val quickPicksChips: Boolean = true)
 
+/**
+ * Song recognition's own picture wherever it is: the sound bars of the button beside the search
+ * bar, also on its tile and home screen button (ic_recognise), so that it is known at a glance
+ * (his word, 16 Oct 2026). Nothing else on this page may wear them.
+ */
+val RECOGNITION_ICON get() = Icons.Rounded.GraphicEq
+
 /** Newest first: what somebody sees at the top is what they have never seen before. */
 val NEW_THINGS = listOf(
     NewThing(
@@ -306,7 +326,7 @@ val NEW_THINGS = listOf(
         sinceVersionCode = V0_12,
         title = R.string.new_living_blur_title,
         body = R.string.new_living_blur_body,
-        icon = Icons.Rounded.GraphicEq,
+        icon = Icons.Rounded.BlurOn,
         stops = listOf(
             TourStop("living_blur_row", Tour.ROW_LOOK_AND_FEEL, Tour.ROUTE_SETTINGS, R.string.look_and_feel, R.string.new_living_blur_way, V0_12),
             TourStop("living_blur_setting", Tour.SETTING_PLAYER_BACKGROUND, Tour.ROUTE_LOOK_AND_FEEL, R.string.player_background_style, R.string.new_living_blur_here, V0_12),
@@ -325,6 +345,27 @@ val NEW_THINGS = listOf(
             TourStop("share_links_setting", Tour.SETTING_SHARE_LINKS, Tour.ROUTE_LIBRARY, R.string.share_link_kind_title, R.string.new_share_links_here, V0_12),
         ),
         there = { Unreleased.SHARE_PAGE },
+    ),
+    NewThing(
+        id = "resume_bluetooth",
+        release = "0.11.6",
+        sinceVersionCode = V0_11_6,
+        title = R.string.new_resume_bluetooth_title,
+        body = R.string.new_resume_bluetooth_body,
+        icon = Icons.Rounded.BluetoothAudio,
+        stops = listOf(
+            TourStop("resume_bluetooth_row", Tour.ROW_PLAYER, Tour.ROUTE_SETTINGS, R.string.player_and_audio, R.string.new_resume_bluetooth_way, V0_11_6),
+            TourStop("resume_bluetooth_setting", Tour.SETTING_RESUME_BLUETOOTH, Tour.ROUTE_PLAYER, R.string.resume_on_bluetooth, R.string.new_resume_bluetooth_here, V0_11_6),
+        ),
+    ),
+    NewThing(
+        id = "recognition_tile",
+        release = "0.11.6",
+        sinceVersionCode = V0_11_6,
+        title = R.string.new_recognition_tile_title,
+        body = R.string.new_recognition_tile_body,
+        icon = RECOGNITION_ICON,
+        action = NewThingAction.ADD_TILE,
     ),
     NewThing(
         id = "library_import",
@@ -378,7 +419,7 @@ val NEW_THINGS = listOf(
         sinceVersionCode = V0_11,
         title = R.string.walkthrough_recognition_title,
         body = R.string.new_recognise_body,
-        icon = Icons.Rounded.Hearing,
+        icon = RECOGNITION_ICON,
         stops = TOUR_STOPS.filter { it.id == "recognise" },
     ),
     NewThing(
