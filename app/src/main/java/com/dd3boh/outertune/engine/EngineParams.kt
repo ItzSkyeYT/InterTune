@@ -69,6 +69,12 @@ data class EngineParams(
      */
     val mixNewMin: Int = 4,
     val mixNewMax: Int = 10,
+    /**
+     * New cards added to or taken from the learned number by the Adventurousness slider under the
+     * new Auto (MixShare.nudge), up to [MixShare.NUDGE] either way. Nudged, the row may hold from
+     * one new card to [MixShare.NUDGED_MAX]; never none, or it could not learn that more are wanted.
+     */
+    val mixNudge: Int = 0,
     /** The share is read over this many of the latest listens heard well, those started from the engine's own rows left out. */
     val mixWindowListens: Int = 300,
     /** Where the share starts on a new install, and how many listens that start counts as. */
