@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.FolderOpen
@@ -62,6 +63,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.sp
 import androidx.core.app.ActivityCompat.requestPermissions
 import com.dd3boh.outertune.LocalDatabase
@@ -436,7 +438,8 @@ fun ColumnScope.LocalScannerFrag() {
                     else -> stringResource(R.string.scanner_progress_processing)
                 },
                 color = MaterialTheme.colorScheme.secondary,
-                fontSize = 12.sp
+                // Not fontSize alone: that kept the body text's 24 sp line height.
+                style = MaterialTheme.typography.bodySmall,
             )
             Text(
                 text = "${if (scannerProgressCurrent >= 0) "$scannerProgressCurrent" else "—"}/${
@@ -455,43 +458,34 @@ fun ColumnScope.LocalScannerFrag() {
                     }
                 }",
                 color = MaterialTheme.colorScheme.secondary,
-                fontSize = 12.sp
+                // Not fontSize alone: that kept the body text's 24 sp line height.
+                style = MaterialTheme.typography.bodySmall,
             )
         }
     }
     // scanner checkboxes
+    //
+    // On the card's own lines, as the rows around them: each box centred on the icons' column (32 dp
+    // in), each label starting where the titles start (60 dp in), the whole line a tap target. They
+    // sat 12 dp further in, their labels 8 dp right of every title above and below, and a label with
+    // only its size set kept the body text's 24 sp line height, two lines that read as four.
     Column(
         // Apart, or the two labels, two or three lines each, read as one paragraph.
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 10.dp)
+            .padding(vertical = 4.dp)
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Checkbox(
-                checked = fullRescan,
-                onCheckedChange = { fullRescan = it }
-            )
-            Text(
-                stringResource(R.string.scanner_variant_rescan), color = MaterialTheme.colorScheme.secondary,
-                fontSize = 14.sp
-            )
-        }
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Checkbox(
-                checked = lookupYtmArtists,
-                onCheckedChange = onLookupYtmArtistsChange,
-            )
-            Text(
-                stringResource(R.string.scanner_online_artist_linking), color = MaterialTheme.colorScheme.secondary,
-                fontSize = 14.sp
-            )
-        }
+        ScannerCheckboxRow(
+            checked = fullRescan,
+            onCheckedChange = { fullRescan = it },
+            label = stringResource(R.string.scanner_variant_rescan),
+        )
+        ScannerCheckboxRow(
+            checked = lookupYtmArtists,
+            onCheckedChange = onLookupYtmArtistsChange,
+            label = stringResource(R.string.scanner_online_artist_linking),
+        )
     }
 
     Row(
@@ -504,10 +498,12 @@ fun ColumnScope.LocalScannerFrag() {
             tint = MaterialTheme.colorScheme.error,
         )
 
+        // The small body style, whose line height goes with its size: with only fontSize = 12.sp
+        // the lines kept the body text's 24 sp and stood twice their height apart.
         Text(
             stringResource(R.string.scanner_warning),
             color = MaterialTheme.colorScheme.secondary,
-            fontSize = 12.sp,
+            style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(horizontal = 16.dp)
         )
     }
@@ -805,3 +801,23 @@ private fun folderName(context: android.content.Context, uri: Uri): String =
     absoluteFilePathFromUri(context, uri)?.trimEnd('/')?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
         ?: uri.lastPathSegment?.substringAfterLast(':')?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
         ?: uri.toString()
+
+/**
+ * A scanner option as a line of the card: the box where the rows have their icons, the label where
+ * they have their titles, and the whole line a tap target. The box keeps its 48 dp touch target,
+ * which with 8 dp in front centres it on the icons' column.
+ */
+@Composable
+private fun ScannerCheckboxRow(checked: Boolean, onCheckedChange: (Boolean) -> Unit, label: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .toggleable(value = checked, role = Role.Checkbox, onValueChange = onCheckedChange)
+            .padding(start = 8.dp, end = 16.dp, top = 2.dp, bottom = 2.dp)
+    ) {
+        Checkbox(checked = checked, onCheckedChange = null, modifier = Modifier.size(48.dp))
+        Spacer(Modifier.width(4.dp))
+        Text(label, color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodyMedium)
+    }
+}

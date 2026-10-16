@@ -33,6 +33,25 @@ class ScanFoldersRowTest {
     }
 
     @Test
+    fun `no text on the card sets its size alone`() {
+        // A Text with only fontSize keeps the theme's 24 sp line height: the warning's two lines
+        // stood twice their height apart (16 Oct 2026). A text style carries both.
+        val code = scanner.lines().filterNot { it.trim().startsWith("//") }
+        assertTrue("a text sets fontSize alone: ${code.filter { "fontSize =" in it }}", code.none { "fontSize =" in it })
+    }
+
+    @Test
+    fun `the options sit on the card's lines, the box on the icons and the label on the titles`() {
+        val row = frag.substring(frag.indexOf("private fun ScannerCheckboxRow("))
+        // 8 dp, then a 48 dp touch target: the box's centre at 32 dp, on the icons' column
+        // (PreferenceEntry: 16 dp, 4 dp, a 24 dp icon). Then 4 dp: the label at 60 dp, on the titles.
+        assertTrue(".padding(start = 8.dp" in row)
+        assertTrue("Modifier.size(48.dp)" in row)
+        assertTrue("Spacer(Modifier.width(4.dp))" in row)
+        assertTrue("both options are ScannerCheckboxRow", scanner.split("ScannerCheckboxRow(").size - 1 == 2)
+    }
+
+    @Test
     fun `the row has an icon and says what is chosen`() {
         val row = scanner.substring(scanner.indexOf("PreferenceEntry(", scanner.indexOf("val chosenFolders")), scanner.indexOf("R.string.scanner_btn_idle"))
         assertTrue("the row has no icon", "Icons.Rounded.FolderOpen" in row)
