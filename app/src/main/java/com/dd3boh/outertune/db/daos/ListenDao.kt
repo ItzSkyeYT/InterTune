@@ -218,7 +218,8 @@ interface ListenDao {
     @Query("SELECT songId, versionId, fetchedAt FROM song_version_map")
     fun engineVersionLinks(): List<SongVersionMap>
 
-    @Query("SELECT songId, visibleAt FROM impression WHERE visibleAt >= :since AND tappedAt IS NULL AND visibleAt > 0")
+    /** See [com.dd3boh.outertune.engine.EngineSql.SEEN]. */
+    @Query(com.dd3boh.outertune.engine.EngineSql.SEEN)
     fun engineSeen(since: Long): List<EngineSeenRow>
 
     @Query("SELECT kind, targetId, label, reason FROM recommendation_exclusion WHERE expiresAt IS NULL OR expiresAt > :now")

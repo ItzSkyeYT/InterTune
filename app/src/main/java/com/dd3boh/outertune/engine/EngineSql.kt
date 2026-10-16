@@ -26,6 +26,19 @@ object EngineSql {
     """
 
     /**
+     * The cards a build counts as seen (x_imp, through SeenCard): shown and not tapped, and also
+     * tapped and left at once, graded as a play heard under a tenth (outcome 1, Outcome.PLAYED). A
+     * tap abandoned in seconds says no to that card at least as plainly as passing it over; left
+     * out, such a card came back the next day as if never shown (on one real history, 16 Oct 2026,
+     * 52% of 230 of them did).
+     */
+    const val SEEN = """
+        SELECT songId, visibleAt FROM impression
+        WHERE visibleAt >= :since AND visibleAt > 0
+          AND (tappedAt IS NULL OR (outcome = 1 AND y < 0.1))
+    """
+
+    /**
      * The impressions the Last.fm share is learned from: engine and Discover cards in a slot, in
      * the related or explore lane, that one source alone proposed from a song both have a list
      * for, pending or graded as played, played elsewhere or ignored. A card waiting on a resume of
