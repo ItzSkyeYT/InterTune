@@ -76,7 +76,17 @@ object MixShare {
         return (newCount + p.mixPrior * p.mixPriorListens) / (n + p.mixPriorListens)
     }
 
-    /** The new cards a row of [EngineParams.rowSize] holds at [share]. */
-    fun newCards(share: Double, p: EngineParams = EngineParams.DEFAULT): Int =
-        (share * p.rowSize).roundToInt().coerceIn(p.mixNewMin, p.mixNewMax)
+    /** The most a slider can add or take away. */
+    const val NUDGE = 6
+    /** The most new cards a nudged row holds. */
+    const val NUDGED_MAX = 14
+
+    /** The new cards a row of [EngineParams.rowSize] holds at [share], with the slider's [EngineParams.mixNudge]. */
+    fun newCards(share: Double, p: EngineParams = EngineParams.DEFAULT): Int {
+        val learned = (share * p.rowSize).roundToInt().coerceIn(p.mixNewMin, p.mixNewMax)
+        return if (p.mixNudge == 0) learned else (learned + p.mixNudge).coerceIn(1, NUDGED_MAX)
+    }
+
+    /** The nudge for the Adventurousness slider at [adventurousness] (0 to 100): none in the middle, [NUDGE] at either end. */
+    fun nudge(adventurousness: Int): Int = ((adventurousness - 50) / 50.0 * NUDGE).roundToInt().coerceIn(-NUDGE, NUDGE)
 }

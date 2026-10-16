@@ -10,6 +10,9 @@ import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.constants.QuickPicksLeanKey
 import com.dd3boh.outertune.constants.FamiliarFirstKey
 import com.dd3boh.outertune.constants.FamiliarMixKey
+import com.dd3boh.outertune.constants.MixShareKey
+import com.dd3boh.outertune.engine.MixShare
+import androidx.datastore.preferences.core.edit
 import com.dd3boh.outertune.db.Converters
 import com.dd3boh.outertune.engine.Lean
 import com.dd3boh.outertune.engine.LeanGaveWay
@@ -323,7 +326,12 @@ class HomeViewModel @Inject constructor(
         EngineTuning.params(EngineTuning.parse(context.dataStore.get(EngineOverridesKey, ""))).withFamiliarity(familiarity / 100.0)
             // The new Auto as measured on 467 Last.fm listeners: the mix learned, the familiar songs
             // in the ranker's order, three cards an artist (his choice of 16 Oct 2026).
-            .let { if (BuildConfig.DEBUG && context.dataStore.get(FamiliarMixKey, false)) it.copy(mixLearned = true, familiarRanker = true, maxPerArtist = 3) else it }
+            .let {
+                if (BuildConfig.DEBUG && context.dataStore.get(FamiliarMixKey, false)) it.copy(mixLearned = true, familiarRanker = true, maxPerArtist = 3,
+                    // The slider nudges the learned mix there, fewer new songs to the left, more to the right.
+                    mixNudge = MixShare.nudge(context.dataStore.get(AdventurousnessKey, DefaultAdventurousness)))
+                else it
+            }
     /** How many listens carry the current mood chip; below the threshold the row says it is still learning. */
     val engineChipTagged = MutableStateFlow(-1)
 
@@ -734,6 +742,8 @@ class HomeViewModel @Inject constructor(
         val row = if (standing != null && !force && now - lastEngineBuildAt < 3 * 3_600_000L && session == lastEngineSession && input.bucket == lastEngineBucket && newOnly == lastEngineNewOnly && familiarity == lastEngineFamiliarity && chip == lastEngineChip && leanNow == lastEngineLean) standing
         else EngineRow.build(varied.copy(notSeeds = rejectedSeeds.toSet(), chip = chip), weights = weightsInUse, p = engineParams(familiarity), dial = context.dataStore.get(AdventurousnessKey, DefaultAdventurousness) / 100.0, newOnly = newOnly, lastFmShare = lastFmShare(mode, now), stored = leanNow).also {
             lastEngineRow = it; lastEngineBuildAt = now; lastEngineSession = session; lastEngineBucket = input.bucket; lastEngineNewOnly = newOnly; lastEngineFamiliarity = familiarity; lastEngineChip = chip
+            // The share the row was given, for the Recommendations page's picture of the new Auto.
+            it.mixShare?.let { share -> viewModelScope.launch(Dispatchers.IO) { context.dataStore.edit { prefs -> prefs[MixShareKey] = share.toFloat() } } }
             lastEngineLean = leanNow
             lastEngineSimilarLastAt = if (it.asked == Lean.SIMILAR && session == -1L) runCatching { database.lastListen()?.endedAt }.getOrNull() else null
             Log.d("HomeViewModel", "engine row: ${it.cards.size} cards, ${it.pool.size} in the pool, ${it.seeds.size} seeds, lean ${it.lean} (${it.leanPlaced} of ${it.lean.lane?.let { l -> it.quotas[l] } ?: 0})${it.gaveWay?.let { g -> ", ${g.lean} gave way" }.orEmpty()}, from ${input.songs.size} songs, ${input.listens.size} listens, ${input.edges.size} edges in ${System.currentTimeMillis() - now} ms")

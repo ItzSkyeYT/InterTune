@@ -216,6 +216,8 @@ data class BuiltRow(
      * graded as the Auto row it is; this only tells the heading what to say.
      */
     val gaveWay: LeanGaveWay? = null,
+    /** With the mix learned, the share of new songs the row was given (MixShare), for the settings page's picture; null otherwise. */
+    val mixShare: Double? = null,
 ) {
     /** The lean the build was for: the one it followed, or the one it gave way on. */
     val asked: Lean get() = gaveWay?.lean ?: lean

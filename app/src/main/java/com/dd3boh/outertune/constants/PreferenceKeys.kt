@@ -270,6 +270,8 @@ val QuickPicksLeanKey = stringPreferencesKey("quickPicksLean")
 val FamiliarFirstKey = booleanPreferencesKey("familiarFirst")
 /** With [FamiliarFirstKey]: the new Auto under test (EngineParams.mixLearned, familiarRanker, three an artist): debug builds only. */
 val FamiliarMixKey = booleanPreferencesKey("familiarMix")
+/** The share of new songs the last build under the new Auto was given (BuiltRow.mixShare), for the Recommendations page's picture; debug builds only. */
+val MixShareKey = floatPreferencesKey("mixShare")
 /** Developer overrides of EngineParams, as one JSON object of name to value. */
 val EngineOverridesKey = stringPreferencesKey("engineOverrides")
 /** Off freezes the engine's weights and stops impressions; the listen log continues. */

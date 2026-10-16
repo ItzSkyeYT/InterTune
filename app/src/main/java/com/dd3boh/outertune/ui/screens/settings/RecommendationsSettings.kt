@@ -44,6 +44,10 @@ import com.dd3boh.outertune.constants.ContextChipKey
 import com.dd3boh.outertune.constants.DefaultAdventurousness
 import com.dd3boh.outertune.constants.DiscoverRowKey
 import com.dd3boh.outertune.constants.FamiliarityKey
+import com.dd3boh.outertune.constants.FamiliarFirstKey
+import com.dd3boh.outertune.constants.FamiliarMixKey
+import com.dd3boh.outertune.constants.MixShareKey
+import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.constants.LearnFromListeningKey
 import com.dd3boh.outertune.constants.NewSongsOnlyKey
 import com.dd3boh.outertune.constants.QuickPicksLeanKey
@@ -107,6 +111,13 @@ fun RecommendationsSettings(
     val (newSongsOnly, onNewSongsOnlyChange) = rememberPreference(NewSongsOnlyKey, defaultValue = false)
     val (discoverRow, onDiscoverRowChange) = rememberPreference(DiscoverRowKey, defaultValue = true)
     val (familiarity, onFamiliarityChange) = rememberPreference(FamiliarityKey, defaultValue = 25)
+    // The new Auto under test (two Developer switches, debug builds): the mix is learned, so the
+    // slider nudges it, Familiarity has nothing left to set, and the picture shows the learned split.
+    val (familiarFirst, _) = rememberPreference(FamiliarFirstKey, defaultValue = false)
+    val (familiarMix, _) = rememberPreference(FamiliarMixKey, defaultValue = false)
+    val (learnedShare, _) = rememberPreference(MixShareKey, defaultValue = -1f)
+    val newAuto = BuildConfig.DEBUG && familiarFirst && familiarMix
+    val share = learnedShare.takeIf { it >= 0f }?.toDouble()
     // Kept by name and read as Home reads it; unset, or a name this version does not know, is Auto.
     val (leanName, onLeanNameChange) = rememberPreference(QuickPicksLeanKey, defaultValue = "")
     val lean = LeanChoice.selected(leanName)
@@ -170,7 +181,10 @@ fun RecommendationsSettings(
             val rowFoot = remember { mutableFloatStateOf(Float.MAX_VALUE) }
             if (Unreleased.EXPLAIN_PICTURES) {
                 PinnedPicture(foot = { rowFoot.floatValue }, held = true, ground = MaterialTheme.colorScheme.surface) {
-                    RowPicturePanel(LeanChoice.mix(lean, adventurousness / 100.0, familiarity / 100.0, chip, newSongsOnly))
+                    RowPicturePanel(
+                        if (newAuto) LeanChoice.learnedMix(share, adventurousness, chip, newSongsOnly)
+                        else LeanChoice.mix(lean, adventurousness / 100.0, familiarity / 100.0, chip, newSongsOnly)
+                    )
                 }
             }
             // First in the group: it decides what most of the row is, and the sliders below
@@ -203,12 +217,15 @@ fun RecommendationsSettings(
                 // No "i" on the two sliders: the line under each counts the cards as it is dragged.
                 PreferenceEntry(
                     modifier = Modifier.tourTarget(Tour.SETTING_ADVENTUROUSNESS),
-                    title = { Text(stringResource(R.string.adventurousness)) },
+                    title = { Text(stringResource(if (newAuto) R.string.new_auto_new_songs else R.string.adventurousness)) },
                     // While Never heard leads the row the slider no longer sets this count, and the line says what does.
-                    description = stringResource(
-                        if (LeanChoice.newSetByChoice(lean, chip, newSongsOnly)) R.string.adventurousness_description_lean_new else R.string.adventurousness_description,
-                        LeanChoice.newCards(lean, adventurousness / 100.0, familiarity / 100.0, chip, newSongsOnly),
-                    ),
+                    description = when {
+                        newAuto -> stringResource(R.string.new_auto_new_songs_description, LeanChoice.learnedNewCards(share, adventurousness))
+                        else -> stringResource(
+                            if (LeanChoice.newSetByChoice(lean, chip, newSongsOnly)) R.string.adventurousness_description_lean_new else R.string.adventurousness_description,
+                            LeanChoice.newCards(lean, adventurousness / 100.0, familiarity / 100.0, chip, newSongsOnly),
+                        )
+                    },
                     onClick = null,
                 )
                 Slider(
@@ -217,18 +234,21 @@ fun RecommendationsSettings(
                     valueRange = 0f..100f,
                     modifier = Modifier.padding(horizontal = 16.dp),
                 )
-                PreferenceEntry(
-                    modifier = Modifier.tourTarget(SettingJumps.FAMILIARITY),
-                    title = { Text(stringResource(R.string.familiarity)) },
-                    description = stringResource(R.string.familiarity_description, LeanChoice.againCards(lean, adventurousness / 100.0, familiarity / 100.0, chip, newSongsOnly)),
-                    onClick = null,
-                )
-                Slider(
-                    value = familiarity.toFloat(),
-                    onValueChange = { onFamiliarityChange(it.toInt()) },
-                    valueRange = 0f..60f,
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                )
+                // Under the new Auto the familiar cards are whatever the new ones leave: nothing to set.
+                if (!newAuto) {
+                    PreferenceEntry(
+                        modifier = Modifier.tourTarget(SettingJumps.FAMILIARITY),
+                        title = { Text(stringResource(R.string.familiarity)) },
+                        description = stringResource(R.string.familiarity_description, LeanChoice.againCards(lean, adventurousness / 100.0, familiarity / 100.0, chip, newSongsOnly)),
+                        onClick = null,
+                    )
+                    Slider(
+                        value = familiarity.toFloat(),
+                        onValueChange = { onFamiliarityChange(it.toInt()) },
+                        valueRange = 0f..60f,
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                    )
+                }
                 ExplainedSwitchPreference(
                     title = stringResource(R.string.new_songs_only),
                     explanation = stringResource(R.string.new_songs_only_info),

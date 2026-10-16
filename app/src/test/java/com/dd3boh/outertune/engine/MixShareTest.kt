@@ -74,6 +74,27 @@ class MixShareTest {
     }
 
     @Test
+    fun `the slider nudges the learned count, never to none`() {
+        assertEquals(0, MixShare.nudge(50)); assertEquals(-6, MixShare.nudge(0)); assertEquals(6, MixShare.nudge(100)); assertEquals(3, MixShare.nudge(75))
+        val p = EngineParams.DEFAULT
+        assertEquals(5, MixShare.newCards(0.25, p.copy(mixNudge = 0)))
+        assertEquals(1, MixShare.newCards(0.02, p.copy(mixNudge = -6)))
+        assertEquals(MixShare.NUDGED_MAX, MixShare.newCards(0.93, p.copy(mixNudge = 6)))
+        assertEquals(8, MixShare.newCards(0.25, p.copy(mixNudge = 3)))
+    }
+
+    @Test
+    fun `the settings picture of the new Auto adds up to the row, the new cards the line counts`() {
+        for (adventurousness in listOf(0, 25, 50, 75, 100)) for (share in listOf(null, 0.05, 0.3, 0.9)) {
+            val mix = LeanChoice.learnedMix(share, adventurousness)
+            assertEquals(20, mix.cards.values.sum())
+            assertEquals(Lane.AGAIN, mix.lead)
+            assertEquals(20 - LeanChoice.learnedNewCards(share, adventurousness), mix.cards[Lane.AGAIN])
+            assertEquals(0, mix.cards[Lane.REDISCOVER])
+        }
+    }
+
+    @Test
     fun `a short listen is not counted, and another version of a song heard well is not new`() {
         val listens = listOf(listen("a", 0), listen("a-live", 1), listen("b", 2, ratio = 0.05))
         // Counted: a, new, and its live take, the same song: one new of two.

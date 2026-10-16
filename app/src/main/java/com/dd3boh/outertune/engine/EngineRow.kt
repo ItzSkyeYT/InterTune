@@ -170,7 +170,8 @@ object EngineRow {
     ): BuiltRow {
         val stats = LibraryStats(input, p)
         val groups = VersionGroups(input.songs.values, input.versionLinks)
-        val mixNew = if (p.mixLearned && stored == Lean.FAMILIAR) MixShare.newCards(MixShare.of(input, groups, p), p) else null
+        val share = if (p.mixLearned && stored == Lean.FAMILIAR) MixShare.of(input, groups, p) else null
+        val mixNew = share?.let { MixShare.newCards(it, p) }
         val shape = shape(p, dial, newOnly, neverPlayed, input.chip, stored, mixNew)
         // No lean to follow: the ordinary row, from the caller's dice as they come.
         if (shape.lean == Lean.AUTO) return checkNotNull(row(input, stats, groups, weights, p, shape, newOnly, neverPlayed, random, lastFmShare))
@@ -182,7 +183,7 @@ object EngineRow {
         // A leaned row long enough to show stands, even where Auto's would have been longer.
         val dice = RememberedDice(random)
         val leaned = row(input, stats, groups, weights, p, shape, newOnly, neverPlayed, dice, lastFmShare)
-        if (leaned != null && leaned.cards.size >= p.minCards) return leaned
+        if (leaned != null && leaned.cards.size >= p.minCards) return if (share != null && leaned.lean == Lean.FAMILIAR) leaned.copy(mixShare = share) else leaned
         val auto = checkNotNull(row(input, stats, groups, weights, p, shape(p, dial, newOnly, neverPlayed, input.chip), newOnly, neverPlayed, dice.again(), lastFmShare))
         return when {
             leaned == null -> auto.copy(gaveWay = LeanGaveWay(shape.lean, nothing = true))

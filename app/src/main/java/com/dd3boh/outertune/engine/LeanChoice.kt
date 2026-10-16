@@ -106,6 +106,22 @@ object LeanChoice {
         return RowMix(Lane.entries.associateWith { cards[it] ?: 0 }, leading?.lead)
     }
 
+    /**
+     * The row under the new Auto (Familiar first with the mix learned), for the picture over the
+     * settings: the learned [share] of new songs, nudged by the Adventurousness slider, the rest
+     * familiar. [share] is the last build's, or the start of a new install's before there is one.
+     */
+    fun learnedMix(share: Double?, adventurousness: Int, chip: Int = ContextChip.AUTO, newOnly: Boolean = false, p: EngineParams = EngineParams.DEFAULT): RowMix {
+        val params = p.copy(mixLearned = true, mixNudge = MixShare.nudge(adventurousness))
+        val newCards = MixShare.newCards(share ?: p.mixPrior, params)
+        val shape = EngineRow.shape(params, adventurousness / 100.0, newOnly, false, chip, Lean.FAMILIAR, newCards)
+        return RowMix(Lane.entries.associateWith { shape.quotas[it] ?: 0 }, shape.lead)
+    }
+
+    /** The new cards [learnedMix] counts, for the line under the slider. */
+    fun learnedNewCards(share: Double?, adventurousness: Int, p: EngineParams = EngineParams.DEFAULT): Int =
+        MixShare.newCards(share ?: p.mixPrior, p.copy(mixLearned = true, mixNudge = MixShare.nudge(adventurousness)))
+
     /** Whether the choice, not the Adventurousness slider, sets how many cards are new: Never heard while it leads the row. */
     fun newSetByChoice(choice: Lean, chip: Int, newOnly: Boolean, p: EngineParams = EngineParams.DEFAULT): Boolean =
         EngineRow.shape(p, 0.5, newOnly, false, chip, choice).lead == Lane.EXPLORE
