@@ -25,4 +25,7 @@ object Links {
 
     /** Weblate's page for newcomers to the project: pick a language and start. */
     const val TRANSLATE = "https://hosted.weblate.org/engage/intertune/"
+
+    /** The project's own address, for whatever is not a bug or a translation. */
+    const val EMAIL = "intertune.dev@gmail.com"
 }

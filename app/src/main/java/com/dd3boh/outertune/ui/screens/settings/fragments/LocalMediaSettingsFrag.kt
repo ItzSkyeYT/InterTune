@@ -488,8 +488,10 @@ fun ColumnScope.LocalScannerFrag() {
         )
     }
 
+    // 16 dp under the last line, as the card has over its first row: with 8 the card ended
+    // tighter at the bottom than at the top.
     Row(
-        modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
