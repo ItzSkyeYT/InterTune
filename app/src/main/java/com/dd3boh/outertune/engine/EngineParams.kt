@@ -55,6 +55,14 @@ data class EngineParams(
     /** Familiar first orders its songs by FamiliarRanker's six signals instead of [familiarDecay] alone (a test). */
     val familiarRanker: Boolean = false,
     /**
+     * With the mix learned, every new card comes from one list: the new songs most related to all
+     * the listener has heard well, each related list weighed by its song's [familiarDecay] score,
+     * instead of the related, artist and explore lanes from a few sampled seeds (a test). Across
+     * 467 Last.fm listeners such a list's songs were played within the week 4.0 times in 100, the
+     * engine's new cards 2.4 (experiments/features/recs-crowd/new_sources.py, 16 Oct 2026).
+     */
+    val mixNewFromAll: Boolean = false,
+    /**
      * Four, not two: across 467 Last.fm listeners a floor of four held the session's first song as
      * often as two (14.7 against 14.6 in 100) and offered half a card more of new songs, two more
      * to someone who mostly replays (experiments/features/recs-crowd/runs/mix-467x10, 16 Oct 2026).

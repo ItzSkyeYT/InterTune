@@ -131,7 +131,11 @@ object EngineRow {
         // which has nothing new to give: an empty lane hands its place back to the familiar lead.
         val mix = lean == Lean.FAMILIAR && mixNewCards != null
         val now = if (lead == null) autoQuotas
-            else quotas(p.rowSize, dial.coerceIn(0.0, 1.0), false, if (mix) p.copy(rediscoverShare = 0.0) else p, lean, leadCards = when {
+            else quotas(p.rowSize, dial.coerceIn(0.0, 1.0), false, when {
+                mix && p.mixNewFromAll -> p.copy(rediscoverShare = 0.0, artistShare = 0.0, exploreBase = 0.0, exploreSpan = 0.0)
+                mix -> p.copy(rediscoverShare = 0.0)
+                else -> p
+            }, lean, leadCards = when {
                 discoverNew -> p.leanDiscoverCards
                 mix -> p.rowSize - mixNewCards!!
                 else -> p.leanCards
@@ -415,6 +419,29 @@ object EngineRow {
             explore = (explore + exploreAll.filter { it.x[Features.NOVEL] == 0.5 }.sortedByDescending { it.z })
         }
 
+        // With the mix learned and its new songs from one list: every new song a related list
+        // points to, scored by the summed Familiar first score of the songs whose lists name it, so
+        // a song related to much of what someone loves lately comes first. Its seed, for the
+        // caption and the three-a-seed rule, is the strongest of those songs.
+        fun newFromAll(): List<Candidate> {
+            val score = HashMap<String, Double>()
+            val bestSeed = HashMap<String, Pair<String, Double>>()
+            val bits = HashMap<String, Int>()
+            for (e in input.edges) {
+                val f = stats.songs[e.seedId]?.familiarScore ?: continue
+                if (f <= 0) continue
+                score.merge(e.songId, f, Double::plus)
+                bits[e.songId] = (bits[e.songId] ?: 0) or (e.sources and Provenance.SOURCES)
+                if ((bestSeed[e.songId]?.second ?: 0.0) < f) bestSeed[e.songId] = e.seedId to f
+            }
+            // New by version group, as x_novel counts it, checked before any features are worked out.
+            return score.entries.sortedByDescending { it.value }.asSequence()
+                .filter { groups.groupOf(it.key) !in ctx.heardWellGroups }
+                .mapNotNull { (id, s) ->
+                    candidate(id, Lane.RELATED)?.let { c -> Candidate(c.songId, c.lane, c.x, ln(s), bestSeed[id]?.first, c.artistId, c.group, bits[id] ?: 0) }
+                }.take(p.leanLaneTrim).toList()
+        }
+
         // Never played: no listen of any length, which the stats hold for every listen there is,
         // the event log backfilled from earlier versions included.
         fun unheard(c: Candidate) = stats.songs[c.songId] == null
@@ -425,6 +452,8 @@ object EngineRow {
             newOnly -> mapOf(Lane.EXPLORE to explore.filter { it.x[Features.NOVEL] >= 0.5 }, Lane.RELATED to related.filter { it.x[Features.NOVEL] >= 0.5 })
             // Familiar first with the mix learned: the songs heard well are the lead lane's, so the
             // other lanes give only what is new, and the row's new cards are the share it was given.
+            lean == Lean.FAMILIAR && p.mixLearned && p.mixNewFromAll -> mapOf(Lane.AGAIN to again, Lane.RELATED to newFromAll(),
+                Lane.ARTIST to emptyList(), Lane.REDISCOVER to emptyList(), Lane.EXPLORE to emptyList())
             lean == Lean.FAMILIAR && p.mixLearned -> mapOf(Lane.AGAIN to again, Lane.RELATED to related.filter { it.x[Features.NOVEL] >= 0.5 },
                 Lane.ARTIST to artistLane.filter { it.x[Features.NOVEL] >= 0.5 }, Lane.REDISCOVER to emptyList(), Lane.EXPLORE to explore)
             else -> mapOf(Lane.RELATED to related, Lane.AGAIN to again, Lane.ARTIST to artistLane, Lane.REDISCOVER to rediscover, Lane.EXPLORE to explore)

@@ -27,8 +27,8 @@ import kotlin.random.Random
  * A half), each pair known from the first time one of them played it; no song has a title, so the
  * tag features say nothing, and nobody has liked anything.
  *
- * `ENGINE_CROWD_ARMS` names leans (AUTO, FAMILIAR, comma separated; default both), or MIX for
- * Familiar first with the mix learned (EngineParams.mixLearned),
+ * `ENGINE_CROWD_ARMS` names the rows, comma separated, as [TrialArm] reads them (default
+ * AUTO,FAMILIAR; MIX is Familiar first with the mix learned),
  * `ENGINE_CROWD_USERS` keeps that many listeners spread over the list, `ENGINE_CROWD_EVALS` that
  * many session starts a listener, `ENGINE_CROWD_OUT` writes one line per start and arm (listener,
  * t, new, arm, rank or -1, lane of the hit, new cards in the row, cards, new cards the listener
@@ -42,28 +42,10 @@ import kotlin.random.Random
 class EngineCrowdTrial {
     private class Event(val user: Int, val t: Long, val target: Int, val new: Boolean)
 
-    /**
-     * A lean, or MIX (Familiar first with the mix learned), then any changes joined by +: fresh<N>
-     * the fresh hours, cap<N> the cards one artist may hold, decay<N> Familiar first's decay in
-     * tenths, floor<N> the learned mix's fewest new cards, window<N> the listens it reads, ranker
-     * Familiar first ordered by FamiliarRanker. FAMILIAR+cap4 is
-     * Familiar first with four cards an artist.
-     */
+    /** A lean, or MIX, with changes: see [TrialArm]. */
     private class Arm(val name: String) {
-        private val parts = name.split('+')
-        val lean: Lean = if (parts[0] == "MIX") Lean.FAMILIAR else Lean.valueOf(parts[0])
-        val p: EngineParams = parts.drop(1).fold(if (parts[0] == "MIX") EngineParams.DEFAULT.copy(mixLearned = true) else EngineParams.DEFAULT) { p, change ->
-            if (change == "ranker") return@fold p.copy(familiarRanker = true)
-            val n = change.dropWhile { it.isLetter() }.toInt()
-            when (change.takeWhile { it.isLetter() }) {
-                "fresh" -> p.copy(engineFreshHours = n)
-                "cap" -> p.copy(maxPerArtist = n)
-                "decay" -> p.copy(familiarDecay = n / 10.0)
-                "floor" -> p.copy(mixNewMin = n)
-                "window" -> p.copy(mixWindowListens = n)
-                else -> error("unknown change $change in arm $name")
-            }
-        }
+        val lean: Lean = TrialArm.lean(name)
+        val p: EngineParams = TrialArm.params(name)
     }
 
     private class Tally {
