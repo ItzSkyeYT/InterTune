@@ -30,6 +30,7 @@ import androidx.compose.material.icons.rounded.Hearing
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SurroundSound
 import androidx.compose.material.icons.rounded.Bedtime
+import androidx.compose.material.icons.rounded.BluetoothAudio
 import androidx.compose.material.icons.rounded.Gradient
 import androidx.compose.material.icons.rounded.Timer
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -80,6 +81,7 @@ import com.dd3boh.outertune.constants.SeekIncrement
 import com.dd3boh.outertune.constants.SeekIncrementKey
 import com.dd3boh.outertune.constants.SkipOnErrorKey
 import com.dd3boh.outertune.constants.SkipSilenceKey
+import com.dd3boh.outertune.constants.ResumeOnBluetoothKey
 import com.dd3boh.outertune.constants.StopMusicOnTaskClearKey
 import com.dd3boh.outertune.constants.SleepTimerDefaults
 import com.dd3boh.outertune.constants.SleepTimerFadeDurationKey
@@ -922,6 +924,10 @@ fun ColumnScope.PlaybackBehaviourFrag() {
         key = ShareAudioFocusKey,
         defaultValue = false
     )
+    val (resumeOnBluetooth, onResumeOnBluetoothChange) = rememberPreference(
+        key = ResumeOnBluetoothKey,
+        defaultValue = false
+    )
     val (sleepTimerFade, onSleepTimerFadeChange) = rememberPreference(
         key = SleepTimerFadeKey,
         defaultValue = SleepTimerDefaults.FADE_ENABLED
@@ -958,6 +964,15 @@ fun ColumnScope.PlaybackBehaviourFrag() {
         icon = { Icon(Icons.Rounded.Hearing, null) },
         checked = shareAudioFocus,
         onCheckedChange = onShareAudioFocusChange,
+    )
+    // Under the rows about what stops the music, since it is about what starts it again. No
+    // permission to ask for: the audio manager says which outputs come and go to any app.
+    SwitchPreference(
+        title = { Text(stringResource(R.string.resume_on_bluetooth)) },
+        description = stringResource(R.string.resume_on_bluetooth_description),
+        icon = { Icon(Icons.Rounded.BluetoothAudio, null) },
+        checked = resumeOnBluetooth,
+        onCheckedChange = onResumeOnBluetoothChange,
     )
     SwitchPreference(
         title = { Text(stringResource(R.string.sleep_timer_fade)) },
