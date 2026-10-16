@@ -615,7 +615,7 @@ class RecognitionEngine @Inject constructor(
         microphone.stream(seconds = 1, everyWindow = true, onProgress = ::showLevel).collect { piece ->
             val question = clip.add(piece.samples)
             if (question != null) {
-                Log.i(TAG, "Asking about ${"%.1f".format(question.seconds)} s of the phone's sound: ${question.why}")
+                Log.i(TAG, "Asking about ${"%.1f".format(question.seconds)} s of the phone's sound: ${question.why}, closest repeat ${clip.closestRepeat}")
                 val endedAtMs = piece.startedAtMs + 1000L
                 identify(MicrophoneListener.Window(question.samples, endedAtMs - (question.seconds * 1000).toLong()))
                 if (_state.value is State.Found) return@collect halt()
