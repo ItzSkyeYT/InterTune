@@ -10,6 +10,8 @@ _Music that comes back by itself, and fixes for 0.11.5._
 
 **Local media's folders come first.** Under Settings > Local media, choosing the folders to scan leads the scanner, with the folders you chose named under it.
 
+**About has icons.** Every row under Settings > About wears an icon, like the rest of Settings, and the address for anything else, intertune.dev@gmail.com, shows under its row.
+
 ## Fixed
 
 - **Scan** with no folder picked, under Settings > Local media, opens the folder list instead of closing the app.
