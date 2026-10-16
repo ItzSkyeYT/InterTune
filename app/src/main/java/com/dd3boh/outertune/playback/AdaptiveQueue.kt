@@ -172,11 +172,18 @@ object AdaptiveQueue {
         private var queueId: Long? = null
         private val recent = ArrayDeque<Song>()
         private val ids = LinkedHashSet<String>()
+        private val versions = LinkedHashSet<String>()
         private val skipsByArtist = HashMap<String, Int>()
         private val skippedSongs = LinkedHashSet<String>()
 
         /** The songs that have been current in this queue. A view, not a copy. */
         val reached: Set<String> get() = ids
+
+        /**
+         * The versions of those songs ([RadioPage.versionOf]), so that a radio's next page knows
+         * another cut of a song heard in this queue for that song (RadioPage.fresh). A view.
+         */
+        val reachedVersions: Set<String> get() = versions
 
         /** The song noted last: the one playing, until the next is noted. */
         val playing: Song? get() = recent.firstOrNull()
@@ -187,6 +194,7 @@ object AdaptiveQueue {
                 queueId = queue
                 recent.clear()
                 ids.clear()
+                versions.clear()
                 skipsByArtist.clear()
                 skippedSongs.clear()
             }
@@ -195,6 +203,11 @@ object AdaptiveQueue {
             ids.remove(id)
             ids.add(id)
             while (ids.size > reachedCap) ids.remove(ids.first())
+            RadioPage.versionOf(title, artists.firstOrNull())?.let { version ->
+                versions.remove(version)
+                versions.add(version)
+                while (versions.size > reachedCap) versions.remove(versions.first())
+            }
         }
 
         /** The titles of the last [n] songs heard, newest first, the one playing included. */

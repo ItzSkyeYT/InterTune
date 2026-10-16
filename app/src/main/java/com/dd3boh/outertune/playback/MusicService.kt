@@ -3292,10 +3292,20 @@ class MusicService : MediaLibraryService(),
                 // behaviour remains the fallback, and is also used rather than seeding from the
                 // same song twice running, because a seed that never moves gives a radio that
                 // never moves.
+                //
+                // And only what is new to this run joins. The page is the radio of a song in this
+                // queue, so much of it is the queue again, and appended whole it brought songs
+                // back: in the first half of October 2026, 3.9 percent of the songs that autoplayed
+                // had played earlier in the same run, and 74 percent of those were skipped. A page
+                // with nothing new adds nothing, and the seed still moves on, so the next song
+                // change asks somewhere else. See RadioPage.
                 val anchor = lastCompletedId()?.takeIf { it != lastRadioSeed }
-                q.playlistId = (anchor ?: mediaItems.takeLast(4).shuffled().first().id)
+                val songs = q.getCurrentQueueShuffled().toList()
+                val fresh = RadioPage.fresh(mediaItems.drop(1), songs, heard.reached, heard.reachedVersions)
+                Log.d(TAG, "onMediaItemTransition: ${fresh.size} of them new to this run")
+                q.playlistId = RadioPage.nextSeed(anchor, fresh, songs, asked = playlistId)
                     .also { lastRadioSeed = it }
-                queueBoard.enqueueEnd(mediaItems.drop(1))
+                if (fresh.isNotEmpty()) queueBoard.enqueueEnd(fresh)
             }
         }
 
