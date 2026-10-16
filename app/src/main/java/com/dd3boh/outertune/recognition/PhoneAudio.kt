@@ -8,11 +8,14 @@ package com.dd3boh.outertune.recognition
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.Intent
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioPlaybackCaptureConfiguration
 import android.media.AudioRecord
 import android.media.projection.MediaProjection
+import android.media.projection.MediaProjectionConfig
+import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -67,6 +70,19 @@ object PhoneAudio {
 
     /** Whether this Android can listen to its own playback at all. */
     val supported: Boolean get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+
+    /**
+     * Android's "Start recording or casting?" for one listen. From Android 14 it can offer to share
+     * a single app, which then wants that app picked from a list: too slow over a video that lasts
+     * ten seconds, and the sound wanted is the whole phone's anyway. So only the whole screen is
+     * offered, and the question is one tap.
+     */
+    fun consentIntent(projections: MediaProjectionManager): Intent =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            projections.createScreenCaptureIntent(MediaProjectionConfig.createConfigForDefaultDisplay())
+        } else {
+            projections.createScreenCaptureIntent()
+        }
 
     fun attach(projection: MediaProjection) {
         release()

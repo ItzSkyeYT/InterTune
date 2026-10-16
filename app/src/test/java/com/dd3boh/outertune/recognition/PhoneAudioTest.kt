@@ -72,6 +72,28 @@ class PhoneAudioTest {
     }
 
     @Test
+    fun `Android's question is one tap, with no app to pick`() {
+        val audio = source("java/com/dd3boh/outertune/recognition/PhoneAudio.kt")
+        assertTrue("MediaProjectionConfig.createConfigForDefaultDisplay()" in audio)
+        for (path in listOf(
+            "java/com/dd3boh/outertune/recognition/PhoneListenActivity.kt",
+            "java/com/dd3boh/outertune/ui/screens/RecognitionScreen.kt",
+        )) {
+            val code = source(path)
+            assertTrue("$path asks without the one-tap question", "PhoneAudio.consentIntent(projections)" in code)
+            assertFalse("$path asks the question that offers a single app", "createScreenCaptureIntent()" in code)
+        }
+    }
+
+    @Test
+    fun `the recording ends before the song is shown`() {
+        val service = source("java/com/dd3boh/outertune/recognition/RecognitionService.kt")
+        val watch = service.substring(service.indexOf("private fun watchForTheSong()"))
+        val release = watch.indexOf("PhoneAudio.release()")
+        assertTrue("the projection is still held when the song is posted", release in 0 until watch.indexOf("notifyFound(state.track)"))
+    }
+
+    @Test
     fun `short windows, about twenty seconds in all`() {
         assertEquals(4, PhoneAudio.WINDOW_SECONDS)
         assertEquals(20, PhoneAudio.WINDOW_SECONDS * PhoneAudio.MAX_MISSES)
