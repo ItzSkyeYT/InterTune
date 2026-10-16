@@ -264,6 +264,14 @@ object Unreleased {
     val WEB_CLIENT_FIRST = BuildConfig.DEBUG
 
     /**
+     * SABR, the way YouTube's own apps stream, built from InnerTubeX (the sabr module, see
+     * experiments/features/sabr/PLAN.md). For now only the developer's switch "Stream over SABR
+     * only", which plays each song over SABR from the VISIONOS answer the walk already has: the
+     * test of the rung before it is a rung (playback/sabr/SabrOver).
+     */
+    val SABR = BuildConfig.DEBUG
+
+    /**
      * YouTube Music's web client as one of the stream chain's own, written after VISIONOS
      * (YTPlayerUtils.WEB_FALLBACK_CLIENT): the day VISIONOS gives no stream it is asked by
      * itself, and it is first for the songs after that for as long as it serves.

@@ -130,6 +130,7 @@ import com.dd3boh.outertune.constants.PlaybackAuthModeKey
 import com.dd3boh.outertune.constants.OwnVisionosRefusedKey
 import com.dd3boh.outertune.constants.VisionosRefusedKey
 import com.dd3boh.outertune.constants.WebClientFirstKey
+import com.dd3boh.outertune.constants.SabrOnlyKey
 import com.dd3boh.outertune.constants.PlaybackAuthMode
 import com.dd3boh.outertune.constants.ResumeOnBluetoothKey
 import com.dd3boh.outertune.constants.ResumePlaybackOnLaunchKey
@@ -176,6 +177,8 @@ import com.dd3boh.outertune.models.HybridCacheDataSinkFactory
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.MultiQueueObject
 import com.dd3boh.outertune.models.toMediaMetadata
+import com.dd3boh.outertune.playback.sabr.SabrOrHttp
+import com.dd3boh.outertune.playback.sabr.SabrOver
 import com.dd3boh.outertune.playback.ListenReporting.AddressFrom
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.playback.queues.Queue
@@ -1341,6 +1344,12 @@ class MusicService : MediaLibraryService(),
                     .distinctUntilChanged()
                     .collectLatest(scope) { YTPlayerUtils.askWebClientFirst = it }
             }
+            // A test tool like the switches below: never read in a release.
+            if (BuildConfig.DEBUG && Unreleased.SABR) {
+                dataStore.data.map { it[SabrOnlyKey] ?: false }
+                    .distinctUntilChanged()
+                    .collectLatest(scope) { YTPlayerUtils.sabrOnly = it }
+            }
             // And the switches that take VISIONOS for refused. They are a test tool, so they are
             // read only where the developer options have their row, in a debug or preview build,
             // whatever the two flags say. A restored backup can bring a switch that is on into a
@@ -2174,13 +2183,16 @@ class MusicService : MediaLibraryService(),
                     .setUpstreamDataSourceFactory(
                         DefaultDataSource.Factory(
                             this,
-                            // Over the family the address was issued to, and a web client's
-                            // with its page's headers, as its check was made: see StreamFamily.Calls.
-                            OkHttpDataSource.Factory(
-                                StreamFamily.Calls(
-                                    OkHttpClient.Builder()
-                                        .proxy(YouTube.proxy)
-                                        .build()
+                            // A sabr: address to the SABR reader, any other as before: over the
+                            // family the address was issued to, and a web client's with its page's
+                            // headers, as its check was made (see StreamFamily.Calls).
+                            SabrOrHttp.Factory(
+                                OkHttpDataSource.Factory(
+                                    StreamFamily.Calls(
+                                        OkHttpClient.Builder()
+                                            .proxy(YouTube.proxy)
+                                            .build()
+                                    )
                                 )
                             )
                         )
@@ -2455,13 +2467,20 @@ class MusicService : MediaLibraryService(),
             }
             offloadScope.launch { recoverSong(mediaId, playbackData) }
 
-            val streamUrl = playbackData.streamUrl
+            // The developer's "Stream over SABR only": the same answer over SABR instead of its
+            // direct address, the walk otherwise as it always is (playback/sabr/SabrOver).
+            val streamed = if (BuildConfig.DEBUG && Unreleased.SABR && YTPlayerUtils.sabrOnly) {
+                SabrOver.over(mediaId, playbackData) ?: playbackData
+            } else {
+                playbackData
+            }
+            val streamUrl = streamed.streamUrl
 
             // Kept whether or not it answered its check. The rest of the song is fetched from it,
             // and the player failing on it is what takes it out again.
-            addresses.keep(mediaId, streamUrl, System.currentTimeMillis() + (playbackData.streamExpiresInSeconds * 1000L))
+            addresses.keep(mediaId, streamUrl, System.currentTimeMillis() + (streamed.streamExpiresInSeconds * 1000L))
             formats[mediaId] = format
-            return ResolvedSong.NewStream(playbackData)
+            return ResolvedSong.NewStream(streamed)
         }
     }
 
@@ -2498,7 +2517,7 @@ class MusicService : MediaLibraryService(),
                 // web client's with its page's headers. See StreamFamily.Calls.
                 directSource = DefaultDataSource.Factory(
                     this,
-                    OkHttpDataSource.Factory(StreamFamily.Calls(OkHttpClient.Builder().proxy(YouTube.proxy).build())),
+                    SabrOrHttp.Factory(OkHttpDataSource.Factory(StreamFamily.Calls(OkHttpClient.Builder().proxy(YouTube.proxy).build()))),
                 ),
                 isLocalFile = { id -> queueBoard.getCurrentQueue()?.findSong(id)?.isLocal == true },
                 fetchAac = { id ->

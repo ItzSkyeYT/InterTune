@@ -21,6 +21,7 @@ import androidx.media3.exoplayer.offline.DownloadNotificationHelper
 import androidx.media3.exoplayer.offline.DownloadRequest
 import androidx.media3.exoplayer.offline.DownloadService
 import androidx.media3.exoplayer.scheduler.Requirements
+import com.dd3boh.outertune.playback.sabr.SabrOrHttp
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.AudioQuality
 import com.dd3boh.outertune.constants.AudioQualityKey
@@ -119,13 +120,16 @@ class DownloadUtil @Inject constructor(
         CacheDataSource.Factory()
             .setCache(playerCache)
             .setUpstreamDataSourceFactory(
-                // Over the family the address was issued to, and a web client's with its page's
-                // headers, as its check was made: see StreamFamily.Calls.
-                OkHttpDataSource.Factory(
-                    StreamFamily.Calls(
-                        OkHttpClient.Builder()
-                            .proxy(YouTube.proxy)
-                            .build()
+                // A sabr: address to the SABR reader, any other over the family the address was
+                // issued to, and a web client's with its page's headers, as its check was made:
+                // see StreamFamily.Calls.
+                SabrOrHttp.Factory(
+                    OkHttpDataSource.Factory(
+                        StreamFamily.Calls(
+                            OkHttpClient.Builder()
+                                .proxy(YouTube.proxy)
+                                .build()
+                        )
                     )
                 )
             )

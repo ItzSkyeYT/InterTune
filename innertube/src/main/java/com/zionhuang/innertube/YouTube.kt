@@ -57,6 +57,7 @@ import com.zionhuang.innertube.utils.runCatchingCancellable
 import io.ktor.client.call.body
 import io.ktor.client.plugins.ResponseException
 import io.ktor.client.statement.bodyAsText
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -837,8 +838,25 @@ object YouTube {
         // As YouTube Music's own page asks: see InnerTube.player.
         asWebPage: Boolean = false,
     ): Result<PlayerResponse> = runCatchingCancellable {
-        innerTube.player(client, videoId, playlistId, signatureTimestamp, webPlayerPot, visitorData, hlOverride, addressPolicy, asWebPage)
-            .body<PlayerResponse>()
+        // Read as text first, so that the answer can be kept for a start over SABR (playerAnswers),
+        // and decoded with the settings the client's own content negotiation uses.
+        val text = innerTube.player(client, videoId, playlistId, signatureTimestamp, webPlayerPot, visitorData, hlOverride, addressPolicy, asWebPage)
+            .bodyAsText()
+        answerJson.decodeFromString<PlayerResponse>(text).also {
+            playerAnswers.put(PlayerAnswers.Answer(videoId, client, text))
+        }
+    }
+
+    /** The last player answers as text: see [PlayerAnswers]. */
+    val playerAnswers = PlayerAnswers()
+
+    /** A kept answer read back into our model, as [player] reads it. */
+    fun decodePlayerAnswer(text: String): PlayerResponse = answerJson.decodeFromString<PlayerResponse>(text)
+
+    private val answerJson = Json {
+        ignoreUnknownKeys = true
+        explicitNulls = false
+        encodeDefaults = true
     }
 
     /**

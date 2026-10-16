@@ -439,6 +439,10 @@ object YTPlayerUtils {
     @Volatile
     var askWebClientFirst: Boolean = false
 
+    /** The developer's "Stream over SABR only": see Unreleased.SABR. Set by MusicService in a debug build. */
+    @Volatile
+    var sabrOnly: Boolean = false
+
     /**
      * How long the player script and the solving may take for one song, together, before the
      * experiment's client is given up on. The po token is allowed twenty seconds and a /player
@@ -840,7 +844,36 @@ object YTPlayerUtils {
         lastStreamTrail = trails.filter { it.isNotEmpty() }.joinToString("; ").ifEmpty { null }
         val (result, notes) = outcome.chosen.value
         notes.tellThrottle()
+        // SABR, the last rung (Unreleased.SABR, debug builds for now): every direct address was
+        // refused, and the VISIONOS answer the walk already has can still be streamed over SABR,
+        // so the song plays from that instead of failing. Not for a song YouTube itself turned down.
+        if (result.isFailure && Unreleased.SABR && !isUnavailableSong(result.exceptionOrNull())) {
+            sabrRung(videoId, audioQuality, connectivityManager, preferredMime)?.let { return Result.success(it) }
+        }
         return result
+    }
+
+    /**
+     * The song over SABR from the VISIONOS answer the walk has kept, its format chosen as the walk
+     * chooses one ([findFormat]). Null when there is no such answer or it cannot be streamed that
+     * way (SabrOver says why in the log).
+     */
+    private fun sabrRung(
+        videoId: String,
+        audioQuality: AudioQuality,
+        connectivityManager: ConnectivityManager,
+        preferredMime: String?,
+    ): PlaybackData? {
+        val answer = YouTube.playerAnswers.latest(videoId, VISIONOS.clientName) ?: return null
+        val ours = runCatching { YouTube.decodePlayerAnswer(answer.text) }.getOrNull() ?: return null
+        if (ours.playabilityStatus.status != "OK") return null
+        val format = findFormat(ours, audioQuality, connectivityManager, preferredMime) ?: return null
+        val expires = ours.streamingData?.expiresInSeconds ?: return null
+        val asked = PlaybackData(ours.playerConfig?.audioConfig, ours.videoDetails, ours.playbackTracking, format, streamUrl = "", streamExpiresInSeconds = expires)
+        return com.dd3boh.outertune.playback.sabr.SabrOver.over(videoId, asked)?.also {
+            Log.i(TAG, "[$videoId] [VISIONOS] every direct address refused: playing over SABR")
+            lastStreamTrail = listOfNotNull(lastStreamTrail, "VISIONOS SABR OK").joinToString(", ")
+        }
     }
 
     /**

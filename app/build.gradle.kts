@@ -375,6 +375,8 @@ dependencies {
     // modules
     implementation(project(":fingerprint"))
     implementation(project(":innertube"))
+    implementation(project(":sabr"))
+    implementation(libs.ktor.client.okhttp)
     implementation(project(":kugou"))
     implementation(project(":lrclib"))
     implementation(project(":lastfm"))
