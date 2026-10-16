@@ -2205,13 +2205,17 @@ class MusicService : MediaLibraryService(),
                     .setUpstreamDataSourceFactory(
                         DefaultDataSource.Factory(
                             this,
-                            // Over the family the address was issued to, and a web client's
-                            // with its page's headers, as its check was made: see StreamFamily.Calls.
-                            OkHttpDataSource.Factory(
-                                StreamFamily.Calls(
-                                    OkHttpClient.Builder()
-                                        .proxy(YouTube.proxy)
-                                        .build()
+                            // A connection that brings the song in slower than it plays is given
+                            // up and asked again on a fresh one: see StreamPace.
+                            PaceGuardDataSource.Factory(
+                                // Over the family the address was issued to, and a web client's
+                                // with its page's headers, as its check was made: see StreamFamily.Calls.
+                                OkHttpDataSource.Factory(
+                                    StreamFamily.Calls(
+                                        OkHttpClient.Builder()
+                                            .proxy(YouTube.proxy)
+                                            .build()
+                                    )
                                 )
                             )
                         )
