@@ -14,6 +14,8 @@ import com.metrolist.innertubex.InnerTubeLogLevel
 import com.metrolist.innertubex.InnerTubeLogger
 import com.metrolist.innertubex.sabr.ExperimentalSabrApi
 import com.metrolist.innertubex.sabr.SabrAudioStream
+import com.metrolist.innertubex.sabr.SabrFailureKind
+import com.metrolist.innertubex.sabr.findSabrProtocolException
 import com.metrolist.innertubex.sabr.sabrRequestOrigin
 import com.metrolist.innertubex.sabr.toSabrBootstrap
 import com.zionhuang.innertube.YouTube
@@ -118,6 +120,8 @@ object SabrOver {
                 SabrAudioStream(
                     http, bootstrap,
                     initialPlayerTimeMs = startMs,
+                    // Asked for as a player asks: by where it really is (SabrClock).
+                    playbackPositionMs = { SabrClock.positionIn(videoId) },
                     logger = libraryLog,
                     onResponse = { d ->
                         Log.i(
@@ -132,6 +136,13 @@ object SabrOver {
             },
             contentLength = length,
             durationMs = durationMs,
+            // Protection still "pending" after InnerTubeX's five answers: a new stream at the byte
+            // owed (SabrFile.restartOn). A real refusal, status 3, is not carried on.
+            restartOn = { e ->
+                e.findSabrProtocolException()?.let {
+                    it.kind == SabrFailureKind.ATTESTATION_REQUIRED && "(status 2," in (it.message ?: "")
+                } == true
+            },
         )
         val address = SabrStarts.put(
             SabrStarts.Start(

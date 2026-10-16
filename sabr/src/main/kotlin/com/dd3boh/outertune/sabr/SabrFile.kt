@@ -45,6 +45,9 @@ import java.util.concurrent.ConcurrentSkipListMap
  * @param durationMs the song's length
  * @param bufferedChunks how many chunks wait between the stream and the reader before the stream
  *   is held. Generous, since holding it stops the library in the middle of a response.
+ * @param restartOn which failures of a stream that had made progress are met with a new stream at
+ *   the byte still owed, instead of an error: InnerTubeX ends a stream whose protection stays
+ *   "pending" after five answers, while YouTube goes on serving it (16 Oct 2026, the emulator).
  */
 class SabrFile(
     private val stream: (startMs: Long) -> Flow<SabrChunk>,
@@ -53,9 +56,13 @@ class SabrFile(
     private val earlyByMs: Long = 10_000,
     private val bufferedChunks: Int = 256,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+    private val restartOn: (Throwable) -> Boolean = { false },
 ) {
     /** Where each media segment seen so far starts: byte offset to time. Kept for later reads. */
     private val seen = ConcurrentSkipListMap<Long, Long>()
+
+    /** And where each one ends, byte to time, so that a new stream can begin right after one. */
+    private val ends = ConcurrentSkipListMap<Long, Long>()
 
     /** A reader of the file from [position]; [Reader.read] blocks until bytes come. */
     fun open(position: Long): Reader {
@@ -121,9 +128,11 @@ class SabrFile(
         if (from >= contentLength) return
         var startMs = startFor(from)
         var tries = 0
+        var restarts = 0
         var next = from
         while (true) {
             var firstMedia = true
+            val before = next
             try {
                 stream(startMs).collect { chunk ->
                     if (chunk.isInitialization) {
@@ -134,7 +143,10 @@ class SabrFile(
                         }
                         return@collect
                     }
-                    chunk.startMs?.let { seen[chunk.startRange] = it }
+                    chunk.startMs?.let { start ->
+                        seen[chunk.startRange] = start
+                        chunk.durationMs?.let { ends[chunk.endRangeExclusive] = start + it }
+                    }
                     if (firstMedia) {
                         firstMedia = false
                         if (chunk.startRange > next) throw Late(chunk)
@@ -153,6 +165,17 @@ class SabrFile(
                 tries++
                 startMs = if (tries >= MAX_TRIES) 0 else earlierThan(startMs, late.chunk, next)
                 continue
+            } catch (stopped: Throwable) {
+                if (stopped is CancellationException || stopped is IOException) throw stopped
+                // A stream that made progress and was ended for a reason the caller says a new
+                // stream gets past: carried on at the byte still owed, which the reader never sees.
+                if (next > before && next < contentLength && restarts < MAX_RESTARTS && restartOn(stopped)) {
+                    restarts++
+                    tries = 0
+                    startMs = startFor(next)
+                    continue
+                }
+                throw stopped
             }
             break
         }
@@ -164,6 +187,7 @@ class SabrFile(
      * the position's share of the file, [earlyByMs] early so that it lands before rather than after.
      */
     private fun startFor(position: Long): Long {
+        ends[position]?.let { return it }
         seen.floorEntry(position)?.let { return it.value }
         if (contentLength <= 0 || durationMs <= 0) return 0
         val guess = (position.toDouble() / contentLength * durationMs).toLong() - earlyByMs
@@ -185,5 +209,8 @@ class SabrFile(
     companion object {
         /** Starts tried for one read before going back to time 0, which always covers it. */
         const val MAX_TRIES = 3
+
+        /** New streams one read may be carried on with ([restartOn]): about a minute each, so an hour. */
+        const val MAX_RESTARTS = 60
     }
 }

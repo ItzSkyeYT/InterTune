@@ -177,6 +177,7 @@ import com.dd3boh.outertune.models.HybridCacheDataSinkFactory
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.MultiQueueObject
 import com.dd3boh.outertune.models.toMediaMetadata
+import com.dd3boh.outertune.playback.sabr.SabrClock
 import com.dd3boh.outertune.playback.sabr.SabrOrHttp
 import com.dd3boh.outertune.playback.sabr.SabrOver
 import com.dd3boh.outertune.playback.ListenReporting.AddressFrom
@@ -1349,6 +1350,15 @@ class MusicService : MediaLibraryService(),
                 dataStore.data.map { it[SabrOnlyKey] ?: false }
                     .distinctUntilChanged()
                     .collectLatest(scope) { YTPlayerUtils.sabrOnly = it }
+                // SABR's pacing: where the player is, four times a second while a song plays, once
+                // a second otherwise (debug builds only, as the switch). See SabrClock.
+                scope.launch {
+                    while (isActive) {
+                        val playing = activePlayer.isPlaying
+                        if (playing) SabrClock.update(activePlayer.currentMediaItem?.mediaId, activePlayer.currentPosition)
+                        delay(if (playing) 250 else 1000)
+                    }
+                }
             }
             // And the switches that take VISIONOS for refused. They are a test tool, so they are
             // read only where the developer options have their row, in a debug or preview build,

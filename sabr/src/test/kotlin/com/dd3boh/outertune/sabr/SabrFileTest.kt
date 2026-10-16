@@ -143,6 +143,32 @@ class SabrFileTest {
     }
 
     @Test
+    fun `a stream ended for a reason a new one gets past is carried on at the byte owed`() {
+        // Each stream gives three segments and then stops, as InnerTubeX stops one whose
+        // protection stays pending.
+        val sabr = SabrFile({ startMs ->
+            opened += startMs
+            flow {
+                var media = 0
+                for (chunk in chunksFrom(startMs)) {
+                    if (!chunk.isInitialization && media++ == 3) throw IllegalStateException("pending too long")
+                    emit(chunk)
+                }
+            }
+        }, contentLength = file.size.toLong(), durationMs = durationMs, restartOn = { it.message == "pending too long" })
+        assertContentEquals(file, sabr.readAllFrom(0))
+        assertTrue(opened.size in 13..15, "about one new stream per three segments: ${opened.size}")
+    }
+
+    @Test
+    fun `a stream that stops before any progress is an error, not a loop`() {
+        val sabr = SabrFile({ _ -> opened += 0; flow { throw IllegalStateException("pending too long") } },
+            contentLength = file.size.toLong(), durationMs = durationMs, restartOn = { true })
+        assertFailsWith<IOException> { sabr.readAllFrom(0) }
+        assertEquals(1, opened.size)
+    }
+
+    @Test
     fun `closing early stops the stream`() {
         var emitted = 0
         val sabr = SabrFile({ startMs -> flow { chunksFrom(startMs).forEach { emitted++; emit(it) } } },
