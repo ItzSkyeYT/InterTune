@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Song on this phone's tile: a phone with the sound bars on its screen. Small Quick Settings tiles
+  show no label, and three of the same bars side by side could not be told apart (his choice of
+  16 Oct 2026, beside ic_recognise for around you and ic_recognise_ask for the one that asks).
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M17,1.01L7,1c-1.1,0 -2,0.9 -2,2v18c0,1.1 0.9,2 2,2h10c1.1,0 2,-0.9 2,-2V3c0,-1.1 -0.9,-1.99 -2,-1.99zM17,19H7V5h10v14z" />
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M8.6,14.5h1.6v-5H8.6v5zM11.2,17h1.6V7h-1.6v10zM13.8,14.5h1.6v-5h-1.6v5z" />
+</vector>
