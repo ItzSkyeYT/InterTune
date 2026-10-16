@@ -266,6 +266,18 @@ class EngineRowTest {
             assertEquals(20 - want, row.cards.count { it.lane == Lane.AGAIN })
             row.cards.filter { it.lane != Lane.AGAIN }.forEach { c -> assertTrue("${c.songId} is new to the listener", c.features[Features.NOVEL] >= 0.5) }
         }
+        // With the new songs from one list, every new card is a related one, new, and named after a seed.
+        val one = p.copy(mixNewFromAll = true)
+        repeat(5) { attempt ->
+            val row = EngineRow.build(input, p = one, random = Random(attempt.toLong()), stored = Lean.FAMILIAR)
+            assertEquals(20, row.cards.size)
+            assertEquals(20 - want, row.cards.count { it.lane == Lane.AGAIN })
+            row.cards.filter { it.lane != Lane.AGAIN }.forEach { c ->
+                assertEquals(Lane.RELATED, c.lane)
+                assertTrue("${c.songId} is new to the listener", c.features[Features.NOVEL] >= 0.5)
+                assertTrue("${c.songId} names the song it is related to", c.seedId != null)
+            }
+        }
         // The same switch leaves Auto and Familiar first without it as they were.
         repeat(3) { attempt ->
             assertEquals(EngineRow.build(input, random = Random(attempt.toLong())).cards.map { it.songId },
