@@ -70,6 +70,30 @@ class GradingTest {
     }
 
     @Test
+    fun `a play that was another card's tap is that card's win, not this one's`() {
+        // Two cards of one song: the first seen and passed over, the second tapped later. One play
+        // was graded as the second card's win and again as half a win for the first (16 Oct 2026,
+        // on his history: 186 of 282 "played elsewhere" grades were another card's tap, 41 of them
+        // a second win). The first was seen and not played: an ignored card.
+        val seen = now - 30 * hour
+        val tap = seen + 2 * hour
+        val cards = listOf(imp(1, "a", seen), imp(2, "a", tap - 3000, tappedAt = tap))
+        val linked = listen("a", tap + 1000, playedMs = 200_000, impressionId = 2).copy(id = 7)
+        val g = Grading.grade(cards, listOf(linked), songs, groups, now).associateBy { it.impressionId }
+        assertEquals(Outcome.PLAYED, g[2]!!.outcome)
+        assertEquals(Outcome.IGNORED, g[1]!!.outcome); assertEquals(0.0, g[1]!!.y, 0.0); assertEquals(0.3, g[1]!!.u, 0.0)
+        // The same when the tap's link was lost and the song's play stands in for it.
+        val standIn = listen("a", tap + 1000, playedMs = 200_000).copy(id = 8)
+        val h = Grading.grade(cards, listOf(standIn), songs, groups, now).associateBy { it.impressionId }
+        assertEquals(Outcome.PLAYED, h[2]!!.outcome)
+        assertEquals(Outcome.IGNORED, h[1]!!.outcome)
+        // A play from elsewhere, no card's, still counts as before: half a win at half the weight.
+        val fromSearch = listen("a", tap + 5 * 60_000L, playedMs = 200_000).copy(id = 9)
+        val k = Grading.grade(listOf(imp(1, "a", seen)), listOf(fromSearch), songs, groups, now).single()
+        assertEquals(Outcome.ELSEWHERE, k.outcome); assertEquals(0.5, k.y, 1e-9); assertEquals(0.5, k.u, 0.0)
+    }
+
+    @Test
     fun `seen and not played is an ignored card at a third of the weight`() {
         val g = Grading.grade(listOf(imp(1, "a", now - 30 * hour)), listOf(listen("b", now - 20 * hour)), songs, groups, now).single()
         assertEquals(Outcome.IGNORED, g.outcome); assertEquals(0.0, g.y, 0.0); assertEquals(0.3, g.u, 0.0)

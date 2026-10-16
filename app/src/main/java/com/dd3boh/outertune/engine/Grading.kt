@@ -65,7 +65,7 @@ sealed interface CardWrite {
  * a finished song 1. A card played from the row takes its listen's engagement at full weight; the
  * same song played from somewhere else within a day of being seen takes half the grade at half
  * the weight, so a coincidence is not a win; a card seen and not played within a day is an ignored
- * card at weight 0.3. A card that was tapped is never graded ignored, even when no listen arrives,
+ * card at weight 0.3. Somewhere else is never another card's tap: that play is the other card's. A card that was tapped is never graded ignored, even when no listen arrives,
  * so a service killed mid-song cannot turn a win into a loss.
  *
  * A play that failed decides nothing (see [EngineListens]): a card whose play died is settled at no
@@ -149,8 +149,11 @@ object Grading {
                 continue
             }
             if (now - imp.visibleAt < window) continue                 // the day is not over
+            // Not a play that was another card's tap, linked or standing in: that is the other
+            // card's win, and taken here as well it counted one play twice.
             val elsewhere = byGroup[groups.groupOf(imp.songId)].orEmpty().filter { l ->
-                l.autoplayDepth == 0 && l.startedAt > imp.visibleAt && l.startedAt <= imp.visibleAt + window && l.endReason != EndReason.OPEN
+                l.autoplayDepth == 0 && l.startedAt > imp.visibleAt && l.startedAt <= imp.visibleAt + window && l.endReason != EndReason.OPEN &&
+                    l.impressionId == null && l.id !in standingInFor
             }
             if (elsewhere.isNotEmpty()) {
                 val teaching = elsewhere.filter { it.learn && !EngineListens.failed(it) }
