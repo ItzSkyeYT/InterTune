@@ -15,6 +15,7 @@ import com.dd3boh.outertune.ui.component.FloatingTopBar
 import com.dd3boh.outertune.ui.component.TopBarActions
 
 import android.Manifest
+import android.os.Build
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -241,13 +242,27 @@ fun RecognitionScreen(
         val projections = context.getSystemService(MediaProjectionManager::class.java) ?: return
         projectionLauncher.launch(PhoneAudio.consentIntent(projections))
     }
+    // A listen of the phone's sound sends somebody to the video's app, and from there the listening
+    // and the song found are notifications: asked for first, the listen going ahead either way.
+    val notificationLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { askForPhoneSound() }
+    fun listenToPhone() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            askForPhoneSound()
+        }
+    }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (granted) {
             if (fromPhone && PhoneAudio.supported) {
-                askForPhoneSound()
+                listenToPhone()
             } else {
                 viewModel.setContinuous(pendingContinuous)
                 viewModel.start(null)
@@ -308,7 +323,7 @@ fun RecognitionScreen(
             // The mode goes with the switch, set once the playlist's run has stopped. Set first,
             // it was that run's mode that changed.
             if (fromPhone && PhoneAudio.supported && !instead) {
-                askForPhoneSound()
+                listenToPhone()
             } else if (instead) {
                 viewModel.listenInstead(null, keepGoing)
             } else {

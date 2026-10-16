@@ -123,6 +123,18 @@ class PhoneAudioTest {
     }
 
     @Test
+    fun `a listen of the phone says so in a notification that shows itself without a sound`() {
+        val service = source("java/com/dd3boh/outertune/recognition/RecognitionService.kt")
+        val channel = service.substring(service.indexOf("PHONE_CHANNEL_ID,"))
+        assertTrue("NotificationManager.IMPORTANCE_HIGH" in channel.substring(0, 200))
+        assertTrue("setSound(null, null)" in channel.substring(0, 300))
+        assertTrue("the listening notification lost the sound bars", ".setSmallIcon(R.drawable.ic_recognise)" in service)
+        assertTrue("the screen's listen no longer gives its song while somebody is in the video's app", "if (headless || !appInFront()) notifyFound(state.track)" in service)
+        val screen = source("java/com/dd3boh/outertune/ui/screens/RecognitionScreen.kt")
+        assertTrue("the screen's listen no longer asks for notifications", "notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)" in screen)
+    }
+
+    @Test
     fun `silence from the phone is not blamed on the microphone`() {
         for (path in listOf(
             "java/com/dd3boh/outertune/ui/screens/RecognitionScreen.kt",
