@@ -63,7 +63,7 @@ class PhoneAudioTest {
     fun `the tile wears the sound bars, its screen is ours alone, and the song found opens in the search`() {
         val manifest = source("AndroidManifest.xml")
         val tile = manifest.substring(manifest.indexOf("android:name=\".recognition.PhoneSongTileService\""))
-        assertTrue("the tile has another icon than recognition's", "android:icon=\"@drawable/ic_recognise\"" in tile.substring(0, tile.indexOf("</service>")))
+        assertTrue("the tile is no longer the phone with the sound bars", "android:icon=\"@drawable/ic_recognise_phone\"" in tile.substring(0, tile.indexOf("</service>")))
         val activity = manifest.substring(manifest.indexOf("android:name=\".recognition.PhoneListenActivity\""))
         assertTrue("the question's screen can be opened by other apps", "android:exported=\"false\"" in activity.substring(0, activity.indexOf("/>")))
         val service = source("java/com/dd3boh/outertune/recognition/RecognitionService.kt")
@@ -95,17 +95,18 @@ class PhoneAudioTest {
     }
 
     @Test
-    fun `three tiles wear the sound bars, around you, this phone and the one that asks`() {
+    fun `three tiles wear the sound bars, each its own way, around you, this phone and the one that asks`() {
         val manifest = source("AndroidManifest.xml")
-        for ((tile, label) in listOf(
-            "RecognitionTileService" to "@string/recognition_room_tile",
-            "PhoneSongTileService" to "@string/recognition_phone_tile",
-            "RecognitionChoiceTileService" to "@string/recognise",
+        // Small tiles show no label: three of the same icon could not be told apart (his B, 16 Oct 2026).
+        for ((tile, label, icon) in listOf(
+            Triple("RecognitionTileService", "@string/recognition_room_tile", "ic_recognise"),
+            Triple("PhoneSongTileService", "@string/recognition_phone_tile", "ic_recognise_phone"),
+            Triple("RecognitionChoiceTileService", "@string/recognise", "ic_recognise_ask"),
         )) {
             val from = manifest.indexOf("android:name=\".recognition.$tile\"")
             assertTrue("no $tile", from >= 0)
             val entry = manifest.substring(from, manifest.indexOf("</service>", from))
-            assertTrue("$tile wears another icon", "android:icon=\"@drawable/ic_recognise\"" in entry)
+            assertTrue("$tile wears another icon", "android:icon=\"@drawable/$icon\"" in entry)
             assertTrue("$tile is named otherwise", "android:label=\"$label\"" in entry)
         }
         val choice = source("java/com/dd3boh/outertune/recognition/RecognitionChoiceTileService.kt")

@@ -278,7 +278,7 @@
         <service
             android:name=".recognition.PhoneSongTileService"
             android:exported="true"
-            android:icon="@drawable/ic_recognise"
+            android:icon="@drawable/ic_recognise_phone"
             android:label="@string/recognition_phone_tile"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>
@@ -322,7 +322,7 @@
         <service
             android:name=".recognition.RecognitionChoiceTileService"
             android:exported="true"
-            android:icon="@drawable/ic_recognise"
+            android:icon="@drawable/ic_recognise_ask"
             android:label="@string/recognise"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>
