@@ -1762,4 +1762,6 @@
         <item quantity="other">Une image prend %1$d lignes au plus, une vidéo une minute de la chanson</item>
     </plurals>
     <string name="queue_from_search">« %1$s »</string>
+    <string name="lyrics_auto_scroll">Suivre la chanson</string>
+    <string name="lyrics_auto_scroll_description">Les paroles défilent jusqu\'à la ligne chantée. Désactivé, elles restent là où vous les laissez.</string>
 </resources>

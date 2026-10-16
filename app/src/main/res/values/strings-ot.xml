@@ -1969,4 +1969,6 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="other">A picture takes up to %1$d lines, a video a minute of the song</item>
     </plurals>
     <string name="queue_from_search">“%1$s”</string>
+    <string name="lyrics_auto_scroll">Follow the song</string>
+    <string name="lyrics_auto_scroll_description">The lyrics scroll to the line being sung. Off, they stay where you leave them.</string>
 </resources>

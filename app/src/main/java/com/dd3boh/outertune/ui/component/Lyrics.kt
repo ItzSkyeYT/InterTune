@@ -109,6 +109,7 @@ import com.dd3boh.outertune.LocalMenuState
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.LyricClickable
+import com.dd3boh.outertune.constants.LyricAutoScrollKey
 import com.dd3boh.outertune.constants.LyricFontSizeKey
 import com.dd3boh.outertune.constants.LyricKaraokeEnable
 import com.dd3boh.outertune.constants.LyricLatinKey
@@ -176,6 +177,7 @@ fun Lyrics(
     val lyricsFontSize by rememberPreference(LyricFontSizeKey, 20)
 
     val lyricsClickable by rememberPreference(LyricClickable, true)
+    val lyricsAutoScroll by rememberPreference(LyricAutoScrollKey, true)
     val lyricsFancy by rememberPreference(LyricKaraokeEnable, false)
     val lyricsUpdateSpeed by rememberEnumPreference(LyricUpdateSpeed, Speed.MEDIUM)
     var lyricRefreshRate = lyricsUpdateSpeed.toLrcRefreshMillis()
@@ -392,8 +394,11 @@ fun Lyrics(
     // also a glide that leaves touches alone (glideToItem), so that in a quick part of a song (a
     // line a second) a long press on a line starts picking, where one in four was lost.
     var fingerDown by remember { mutableStateOf(false) }
+    // With "Follow the song" off, the lines are placed on the song's line once, when they come up,
+    // and from then on stay where the listener leaves them.
+    var placedOnce by remember(lines) { mutableStateOf(false) }
 
-    LaunchedEffect(currentLineIndex, lastPreviewTime, picking, fingerDown) {
+    LaunchedEffect(currentLineIndex, lastPreviewTime, picking, fingerDown, lyricsAutoScroll) {
         /**
          * Count number of new lines in a lyric
          */
@@ -413,7 +418,9 @@ fun Lyrics(
         // Nothing moves under a finger, or while lines are picked. Once the finger is lifted, or
         // the picking ends, the song's line is scrolled to again.
         if (!isSynced || picking || fingerDown) return@LaunchedEffect
+        if (!lyricsAutoScroll && placedOnce) return@LaunchedEffect
         if (currentLineIndex != -1) {
+            placedOnce = true
             deferredCurrentLineIndex = currentLineIndex
             if (lastPreviewTime == 0L) {
                 if (isSeeking) {
