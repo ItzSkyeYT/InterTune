@@ -13,6 +13,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -102,6 +103,7 @@ import com.dd3boh.outertune.utils.scanners.absoluteFilePathFromUri
 import com.dd3boh.outertune.utils.scanners.FolderNesting
 import com.dd3boh.outertune.utils.scanners.stringFromUriList
 import com.dd3boh.outertune.utils.scanners.uriListFromString
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
@@ -204,6 +206,13 @@ fun ColumnScope.LocalScannerFrag() {
                     mediaPermission = true
                 }
 
+                // No folder to scan yet: open the folder list instead of scanning nowhere. With the
+                // MediaStore scanner, scanning nowhere closed the app (issue #24).
+                if (uriListFromString(scanPaths).isEmpty()) {
+                    showAddFolderDialog = true
+                    return@Button
+                }
+
                 scannerFailure = false
 
                 playerConnection?.player?.pause()
@@ -264,6 +273,18 @@ fun ColumnScope.LocalScannerFrag() {
                                 withDismissAction = true,
                                 duration = SnackbarDuration.Short
                             )
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            // Any other failure says so here, as the scan at launch does, instead
+                            // of closing the app.
+                            Log.e("LocalMediaSettings", "Scan failed", e)
+                            scannerFailure = true
+                            snackbarHostState.showSnackbar(
+                                message = "${context.getString(R.string.scanner_scan_fail)}: ${e.message}",
+                                withDismissAction = true,
+                                duration = SnackbarDuration.Short
+                            )
                         } finally {
                             clearDtCache()
                             destroyScanner(SCANNER_OWNER_LM)
@@ -319,6 +340,18 @@ fun ColumnScope.LocalScannerFrag() {
                         } catch (e: ScannerAbortException) {
                             scannerFailure = true
 
+                            snackbarHostState.showSnackbar(
+                                message = "${context.getString(R.string.scanner_scan_fail)}: ${e.message}",
+                                withDismissAction = true,
+                                duration = SnackbarDuration.Short
+                            )
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            // Any other failure says so here, as the scan at launch does, instead
+                            // of closing the app.
+                            Log.e("LocalMediaSettings", "Scan failed", e)
+                            scannerFailure = true
                             snackbarHostState.showSnackbar(
                                 message = "${context.getString(R.string.scanner_scan_fail)}: ${e.message}",
                                 withDismissAction = true,
