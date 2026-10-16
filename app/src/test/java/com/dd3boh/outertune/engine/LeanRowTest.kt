@@ -85,7 +85,7 @@ class LeanRowTest {
 
     @Test
     fun `a lean that gave way to Auto's row says nothing yet, and Forgotten names its 45 days only when it had nothing at all`() {
-        for (lean in Lean.entries.filter { it != Lean.AUTO }) for (nothing in listOf(true, false)) {
+        for (lean in LeanChoice.options.filter { it != Lean.AUTO }) for (nothing in listOf(true, false)) {
             val state = LeanOnScreen(lean, lean, 0, 0, 0, 19, gaveWay = LeanGaveWay(lean, nothing))
             assertEquals(LeanHeadingKind.NOTHING, state.heading)
             assertEquals(lean == Lean.FORGOTTEN && nothing, state.forgottenHasNothing)
@@ -155,7 +155,7 @@ class LeanRowTest {
     @Test
     fun `Try both holds about six of a lean's cards and two of the first four`() {
         val p = EngineParams.DEFAULT.withFamiliarity(0.25)
-        for (lean in Lean.entries.filter { it != Lean.AUTO }) assertEquals(lean.name, 6 to 2, LeanRow.compareShare(lean, 0.5, p))
+        for (lean in LeanChoice.options.filter { it != Lean.AUTO }) assertEquals(lean.name, 6 to 2, LeanRow.compareShare(lean, 0.5, p))
         assertEquals(0 to 0, LeanRow.compareShare(Lean.AUTO, 0.5, p))
     }
 }

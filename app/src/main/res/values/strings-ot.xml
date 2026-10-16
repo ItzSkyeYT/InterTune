@@ -1969,4 +1969,7 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="other">A picture takes up to %1$d lines, a video a minute of the song</item>
     </plurals>
     <string name="queue_from_search">“%1$s”</string>
+    <!-- Familiar first, a test of Quick picks in debug builds: not for translators -->
+    <string name="familiar_first" translatable="false">Familiar first (test)</string>
+    <string name="familiar_first_description" translatable="false">Quick picks leads with songs you have heard well, recent plays counting most, the rest of the row as usual. Overrides the lean chosen in Recommendations.</string>
 </resources>

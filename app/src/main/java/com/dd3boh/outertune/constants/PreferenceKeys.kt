@@ -265,6 +265,9 @@ val ContextChipKey = intPreferencesKey("contextChip")
  * name. Unset or unknown means Auto, the usual mix, so nothing changes for anyone who never picks.
  */
 val QuickPicksLeanKey = stringPreferencesKey("quickPicksLean")
+
+/** The developer's switch that builds Quick picks under Familiar first (Lean.FAMILIAR), a test: debug builds only. */
+val FamiliarFirstKey = booleanPreferencesKey("familiarFirst")
 /** Developer overrides of EngineParams, as one JSON object of name to value. */
 val EngineOverridesKey = stringPreferencesKey("engineOverrides")
 /** Off freezes the engine's weights and stops impressions; the listen log continues. */

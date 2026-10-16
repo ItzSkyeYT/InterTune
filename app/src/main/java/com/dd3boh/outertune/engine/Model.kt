@@ -241,7 +241,17 @@ enum class Lean(val code: Int, val lane: Lane?) {
     NEW(1, Lane.EXPLORE),
     ARTIST(2, Lane.ARTIST),
     FORGOTTEN(3, Lane.REDISCOVER),
-    SIMILAR(4, Lane.RELATED);
+    SIMILAR(4, Lane.RELATED),
+
+    /**
+     * Familiar first, a test (16 Oct 2026), never among the choices (LeanChoice.options): the
+     * Again lane leads with every song heard well, ranked by a steeper recency
+     * ([EngineParams.familiarDecay]), seeds allowed. Across 467 Last.fm listeners, none of them
+     * used to set anything, ranking the familiar this way held the session's first song more often
+     * than any other row tried, for re-listeners and explorers alike
+     * (experiments/features/recs-bakeoff). Reached only by the developer's switch and the replay.
+     */
+    FAMILIAR(5, Lane.AGAIN);
 
     companion object {
         fun ofCode(code: Int): Lean = entries.firstOrNull { it.code == code } ?: AUTO

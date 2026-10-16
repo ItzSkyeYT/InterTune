@@ -1379,7 +1379,7 @@ private fun reasonText(reason: CardReason): String = when (reason.key) {
 
 /** The first chip's name: Auto, or the short name of the chosen lean. */
 internal fun leanChipName(lean: Lean): Int = when (lean) {
-    Lean.AUTO -> R.string.chip_auto
+    Lean.AUTO, Lean.FAMILIAR -> R.string.chip_auto
     Lean.NEW -> R.string.chip_lean_new
     Lean.ARTIST -> R.string.chip_lean_artist
     Lean.FORGOTTEN -> R.string.chip_lean_forgotten
@@ -1391,7 +1391,7 @@ internal fun leanChipName(lean: Lean): Int = when (lean) {
  * the setting's options and for Why these?, so a lean reads the same wherever it is named.
  */
 internal fun leanOptionName(lean: Lean): Int = when (lean) {
-    Lean.AUTO -> R.string.quick_picks_lean_auto
+    Lean.AUTO, Lean.FAMILIAR -> R.string.quick_picks_lean_auto
     Lean.NEW -> R.string.quick_picks_lean_new
     Lean.ARTIST -> R.string.quick_picks_lean_artist
     Lean.FORGOTTEN -> R.string.quick_picks_lean_forgotten
@@ -1404,7 +1404,7 @@ private fun leanHeadingText(state: LeanOnScreen): String? {
     val kind = state.heading ?: return null
     val context = LocalContext.current
     val base = when (state.applied) {
-        Lean.AUTO -> return null
+        Lean.AUTO, Lean.FAMILIAR -> return null
         Lean.NEW -> stringResource(R.string.quick_picks_leaning_new)
         Lean.ARTIST -> stringResource(R.string.quick_picks_leaning_artist)
         Lean.FORGOTTEN -> stringResource(R.string.quick_picks_leaning_forgotten)

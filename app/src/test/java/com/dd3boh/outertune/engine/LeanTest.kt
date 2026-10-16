@@ -86,8 +86,9 @@ class LeanTest {
     fun `a lean is stored by code and read back by name, anything unknown is Auto`() {
         Lean.entries.forEach { assertEquals(it, Lean.ofCode(it.code)); assertEquals(it, Lean.ofName(it.name)) }
         assertEquals(Lean.AUTO, Lean.ofName(null)); assertEquals(Lean.AUTO, Lean.ofName("SOMETHING")); assertEquals(Lean.AUTO, Lean.ofCode(9))
-        assertEquals(listOf(0, 1, 2, 3, 4), Lean.entries.map { it.code })
-        assertEquals(listOf(null, Lane.EXPLORE, Lane.ARTIST, Lane.REDISCOVER, Lane.RELATED), Lean.entries.map { it.lane })
+        // Codes are stored in row_build: only ever added to. 5 is Familiar first, a test.
+        assertEquals(listOf(0, 1, 2, 3, 4, 5), Lean.entries.map { it.code })
+        assertEquals(listOf(null, Lane.EXPLORE, Lane.ARTIST, Lane.REDISCOVER, Lane.RELATED, Lane.AGAIN), Lean.entries.map { it.lane })
     }
 
     @Test

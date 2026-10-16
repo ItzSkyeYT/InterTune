@@ -14,7 +14,7 @@ import org.junit.Test
 
 /** Quick picks leans toward on the Recommendations page: its options, what is stored, and the lines that follow the choice. */
 class LeanChoiceTest {
-    private val leans = Lean.entries.filter { it != Lean.AUTO }
+    private val leans = LeanChoice.options.filter { it != Lean.AUTO }
     private val chips = listOf(ContextChip.AUTO, ContextChip.DISCOVER, ContextChip.FAVOURITES, ContextChip.FOCUS, ContextChip.CHILL, ContextChip.PARTY)
 
     private fun line(choice: Lean, source: QuickPicksSource = QuickPicksSource.ENGINE, chip: Int = ContextChip.AUTO, newOnly: Boolean = false, dial: Double = 0.5) =
@@ -24,8 +24,9 @@ class LeanChoiceTest {
     fun `Auto comes first, then the poll's four in its order, each lean once`() {
         assertEquals(listOf(Lean.AUTO, Lean.NEW, Lean.ARTIST, Lean.FORGOTTEN, Lean.SIMILAR), LeanChoice.options)
         // A lean added to the engine has to be given a place here too, or nobody could choose it.
-        assertEquals(Lean.entries.toSet(), LeanChoice.options.toSet())
-        assertEquals(Lean.entries.size, LeanChoice.options.size)
+        // Familiar first is the one exception: a test, reached by the developer's switch alone.
+        assertEquals(Lean.entries.toSet() - Lean.FAMILIAR, LeanChoice.options.toSet())
+        assertEquals(Lean.entries.size - 1, LeanChoice.options.size)
     }
 
     @Test
