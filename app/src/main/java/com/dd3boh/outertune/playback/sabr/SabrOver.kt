@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.playback.sabr
 
+import android.os.SystemClock
 import android.util.Log
 import com.dd3boh.outertune.sabr.SabrFile
 import com.dd3boh.outertune.utils.StreamFamily
@@ -83,10 +84,25 @@ object SabrOver {
     }
 
     /**
-     * [data] with its address replaced by a sabr: address for the same format, or null when the
-     * answer it came from cannot be streamed over SABR (said in the log).
+     * A download's clock, as a player [DOWNLOAD_PACE] times faster than real time would read from
+     * where the stream began. A SABR stream asks for the next stretch by where the player is; with
+     * no player on the song the library waits a minute for each ten seconds of it, and a song of
+     * 3:43 would have taken 22 minutes to download (16 Oct 2026, every answer still accepted).
      */
-    fun over(videoId: String, data: YTPlayerUtils.PlaybackData): YTPlayerUtils.PlaybackData? = runCatching {
+    fun downloadClock(startMs: Long, now: () -> Long = SystemClock::elapsedRealtime): () -> Long {
+        val opened = now()
+        return { startMs + (now() - opened) * DOWNLOAD_PACE }
+    }
+
+    /** How many times faster than real time a download's clock runs: a 3:43 song in about a minute. */
+    const val DOWNLOAD_PACE = 4
+
+    /**
+     * [data] with its address replaced by a sabr: address for the same format, or null when the
+     * answer it came from cannot be streamed over SABR (said in the log). [forDownload] paces the
+     * stream by [downloadClock] instead of the player's position.
+     */
+    fun over(videoId: String, data: YTPlayerUtils.PlaybackData, forDownload: Boolean = false): YTPlayerUtils.PlaybackData? = runCatching {
         val answer = YouTube.playerAnswers.latest(videoId, "VISIONOS")
         if (answer == null) {
             Log.w(TAG, "[$videoId] no VISIONOS answer kept to start SABR from")
@@ -120,8 +136,9 @@ object SabrOver {
                 SabrAudioStream(
                     http, bootstrap,
                     initialPlayerTimeMs = startMs,
-                    // Asked for as a player asks: by where it really is (SabrClock).
-                    playbackPositionMs = { SabrClock.positionIn(videoId) },
+                    // Asked for as a player asks: by where it really is (SabrClock), or for a
+                    // download as a faster player would be (downloadClock).
+                    playbackPositionMs = if (forDownload) downloadClock(startMs) else { { SabrClock.positionIn(videoId) } },
                     logger = libraryLog,
                     onResponse = { d ->
                         Log.i(

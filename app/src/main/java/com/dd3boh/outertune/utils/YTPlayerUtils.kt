@@ -821,7 +821,9 @@ object YTPlayerUtils {
         audioQuality: AudioQuality,
         connectivityManager: ConnectivityManager,
         preferredMime: String? = null,
-    ): Result<PlaybackData> = playerResponseForPlayback(videoId, playlistId, audioQuality, connectivityManager, Live, preferredMime)
+        /** A download's walk: SABR, if it is reached, is paced for a download (SabrOver.downloadClock). */
+        forDownload: Boolean = false,
+    ): Result<PlaybackData> = playerResponseForPlayback(videoId, playlistId, audioQuality, connectivityManager, Live, preferredMime, forDownload)
 
     /** The same over a [Wire] of the caller's own. */
     internal suspend fun playerResponseForPlayback(
@@ -831,6 +833,7 @@ object YTPlayerUtils {
         connectivityManager: ConnectivityManager,
         wire: Wire,
         preferredMime: String? = null,
+        forDownload: Boolean = false,
     ): Result<PlaybackData> {
         val trails = mutableListOf<String>()
         val outcome = FamilyChoice.resolve(
@@ -855,7 +858,7 @@ object YTPlayerUtils {
         // refused, and the VISIONOS answer the walk already has can still be streamed over SABR,
         // so the song plays from that instead of failing. Not for a song YouTube itself turned down.
         if (result.isFailure && Unreleased.SABR && !isUnavailableSong(result.exceptionOrNull())) {
-            sabrRung(videoId, audioQuality, connectivityManager, preferredMime)?.let { return Result.success(it) }
+            sabrRung(videoId, audioQuality, connectivityManager, preferredMime, forDownload)?.let { return Result.success(it) }
         }
         return result
     }
@@ -870,6 +873,7 @@ object YTPlayerUtils {
         audioQuality: AudioQuality,
         connectivityManager: ConnectivityManager,
         preferredMime: String?,
+        forDownload: Boolean,
     ): PlaybackData? {
         val answer = YouTube.playerAnswers.latest(videoId, VISIONOS.clientName) ?: return null
         val ours = runCatching { YouTube.decodePlayerAnswer(answer.text) }.getOrNull() ?: return null
@@ -877,7 +881,7 @@ object YTPlayerUtils {
         val format = findFormat(ours, audioQuality, connectivityManager, preferredMime) ?: return null
         val expires = ours.streamingData?.expiresInSeconds ?: return null
         val asked = PlaybackData(ours.playerConfig?.audioConfig, ours.videoDetails, ours.playbackTracking, format, streamUrl = "", streamExpiresInSeconds = expires)
-        return com.dd3boh.outertune.playback.sabr.SabrOver.over(videoId, asked)?.also {
+        return com.dd3boh.outertune.playback.sabr.SabrOver.over(videoId, asked, forDownload)?.also {
             Log.i(TAG, "[$videoId] [VISIONOS] every direct address refused: playing over SABR")
             lastStreamTrail = listOfNotNull(lastStreamTrail, "VISIONOS SABR OK").joinToString(", ")
         }
