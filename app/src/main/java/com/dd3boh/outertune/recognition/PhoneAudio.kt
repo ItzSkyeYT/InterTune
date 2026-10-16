@@ -20,6 +20,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.view.ContextThemeWrapper
 import androidx.annotation.RequiresApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -59,15 +60,6 @@ object PhoneAudio {
     @Volatile
     var awaitingStart = false
 
-    /**
-     * Seconds a window of the phone's own sound: about four is enough for Shazam on clean sound,
-     * and a song in a short video lasts about ten before the video loops or is scrolled away.
-     */
-    const val WINDOW_SECONDS = 4
-
-    /** Windows that named nothing before a listen of the phone gives up: twenty seconds in all. */
-    const val MAX_MISSES = 5
-
     /** Whether this Android can listen to its own playback at all. */
     val supported: Boolean get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
 
@@ -83,6 +75,16 @@ object PhoneAudio {
         } else {
             projections.createScreenCaptureIntent()
         }
+
+    /**
+     * Android's own look, light or dark as the phone is, for the few words shown outside the app's
+     * screens: the tile's choice and the first listen's explanation.
+     */
+    fun dialogContext(context: Context): Context = ContextThemeWrapper(
+        context,
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) android.R.style.Theme_DeviceDefault_DayNight
+        else android.R.style.Theme_DeviceDefault_Light,
+    )
 
     fun attach(projection: MediaProjection) {
         release()

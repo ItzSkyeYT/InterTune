@@ -201,7 +201,7 @@ class RecognitionService : Service() {
                     headless = true
                     answered = false
                     watchForTheSong()
-                    engine.start(null, continuous = false, windowSeconds = PhoneAudio.WINDOW_SECONDS, maxMisses = PhoneAudio.MAX_MISSES)
+                    engine.start(null, continuous = false)
                 }
                 PhoneAudio.awaitingStart = false
                 if (projection == null) stopSelf()
@@ -323,12 +323,18 @@ class RecognitionService : Service() {
         val notification = NotificationCompat.Builder(this, RESULTS_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_recognise)
             .setContentTitle(getString(R.string.recognition_phone_nothing))
-            .setContentText(getString(R.string.recognition_phone_nothing_hint))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(getString(nothingHint())))
+            .setContentText(getString(nothingHint()))
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
         post(notification)
     }
+
+    /** Why nothing was found, as far as the engine knows: silence has its own likely reasons. */
+    private fun nothingHint(): Int =
+        if ((engine.state.value as? RecognitionEngine.State.Failed)?.heardNothing == true) R.string.recognition_phone_heard_nothing
+        else R.string.recognition_phone_nothing_hint
 
     @SuppressLint("MissingPermission")
     private fun post(notification: android.app.Notification) {

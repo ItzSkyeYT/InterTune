@@ -306,6 +306,23 @@
             android:name=".recognition.RecognitionTileService"
             android:exported="true"
             android:icon="@drawable/ic_recognise"
+            android:label="@string/recognition_room_tile"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.quicksettings.TOGGLEABLE_TILE"
+                android:value="false" />
+        </service>
+        <!--
+          The third tile, "What's playing?", asks which of the two in a small question over the
+          panel and starts the one tapped (recognition/RecognitionChoiceTileService).
+        -->
+        <service
+            android:name=".recognition.RecognitionChoiceTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_recognise"
             android:label="@string/recognise"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>

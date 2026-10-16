@@ -137,13 +137,16 @@ class RecognitionEngine @Inject constructor(
         /** Heard once, listening again to be sure and to measure the playback rate. */
         data class Confirming(val track: Recognised) : State
         data object NoMatch : State
-        data class Failed(val reason: String, val heardNothing: Boolean) : State
+        data class Failed(val reason: String, val heardNothing: Boolean, val fromPhone: Boolean = false) : State
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
-    /** How many windows that named nothing a single listen takes before it gives up: see [start]. */
-    private var onceMaxMisses = ONCE_MAX_MISSES
+    /**
+     * Whether this run listens to the phone's own sound (PhoneAudio) rather than the room: a single
+     * listen of it is [ClipListen]'s, and its failures say so.
+     */
+    private var listenedToPhone = false
 
     private val _state = MutableStateFlow<State>(State.Idle)
     val state = _state.asStateFlow()
@@ -464,19 +467,12 @@ class RecognitionEngine @Inject constructor(
      */
     @Synchronized
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
-    fun start(
-        playlist: Playlist?,
-        continuous: Boolean,
-        // The phone's own sound is clean, with no room in it: a short window is enough, and a song
-        // in a short video plays for about ten seconds before the next one (PhoneAudio).
-        windowSeconds: Int? = null,
-        maxMisses: Int = ONCE_MAX_MISSES,
-    ) {
+    fun start(playlist: Playlist?, continuous: Boolean) {
         if (job?.isActive == true) return
         this.playlist = playlist
         this.continuous.value = continuous
         onceMisses = 0
-        onceMaxMisses = maxMisses
+        listenedToPhone = PhoneAudio.projection.value != null
         // Starting is somebody asking, and gets an answer straight away, whatever the last run
         // was waiting out. The cheapest way to find out whether Shazam is back is to ask it once.
         backoff = ShazamBackoff()
@@ -524,33 +520,21 @@ class RecognitionEngine @Inject constructor(
             Log.i(
                 TAG,
                 "Listening for ${playlist?.playlist?.name ?: "no playlist"}, " +
-                        "continuous=$continuous, ${known.size} already in it",
+                        "continuous=$continuous, phone=$listenedToPhone, ${known.size} already in it",
             )
 
             try {
+                // The phone's sound heard once: a short video, through to where it starts over.
+                if (listenedToPhone && !continuous) return@launch listenToClip()
                 // One microphone session for the whole run. Each window is identified while the
                 // next is already being captured, so nothing between songs is missed.
                 // Read per run rather than cached, so changing it in settings takes effect on the
                 // next listen instead of the next launch.
-                val seconds = windowSeconds
-                    ?: context.dataStore.data.first()[RecogniseListenSecondsKey]
+                val seconds = context.dataStore.data.first()[RecogniseListenSecondsKey]
                     ?: MicrophoneListener.DEFAULT_SECONDS
                 pendingLifetimeMs = PENDING_LIFETIME_WINDOWS * seconds * 1000L
                 windowMs = seconds * 1000L
-                microphone.stream(seconds = seconds) { level ->
-                    // An atomic update rather than a read and a write, because this runs on the
-                    // microphone's IO thread while identify() writes the state from the collector
-                    // below, on another. A copy read just before identify() changed the state could
-                    // land on top of the change and undo it, bringing a cleared "identifying"
-                    // straight back for a whole window.
-                    _state.update { current ->
-                        when (current) {
-                            is State.Listening -> current.copy(level = level)
-                            State.Idle -> State.Listening(level, false)
-                            else -> current
-                        }
-                    }
-                }.collect { window ->
+                microphone.stream(seconds = seconds, onProgress = ::showLevel).collect { window ->
                     identify(window)
                     // Listen once gives up after a few windows that named nothing, as the button
                     // says it stops. It used to show "the microphone heard nothing" and go on
@@ -558,7 +542,7 @@ class RecognitionEngine @Inject constructor(
                     // came back and pressed stop: two minutes on the emulator before it was noticed.
                     if (!this@RecognitionEngine.continuous.value &&
                         (_state.value is State.Failed || _state.value == State.NoMatch) &&
-                        ++onceMisses >= onceMaxMisses
+                        ++onceMisses >= ONCE_MAX_MISSES
                     ) {
                         return@collect halt()
                     }
@@ -598,6 +582,53 @@ class RecognitionEngine @Inject constructor(
             }
         }
         job?.start()
+    }
+
+    /**
+     * The level of what is being heard, while listening.
+     *
+     * An atomic update rather than a read and a write, because this runs on the microphone's IO
+     * thread while identify() writes the state from the collector, on another. A copy read just
+     * before identify() changed the state could land on top of the change and undo it, bringing a
+     * cleared "identifying" straight back for a whole window.
+     */
+    private fun showLevel(level: Float) {
+        _state.update { current ->
+            when (current) {
+                is State.Listening -> current.copy(level = level)
+                State.Idle -> State.Listening(level, false)
+                else -> current
+            }
+        }
+    }
+
+    /**
+     * Listen once to the phone's own sound ([ClipListen]): one recording, a short video heard
+     * through to where it starts over, and Shazam asked about as much of it as one question holds.
+     * Every second of it is kept, none dropped while Shazam answers, so a repeat is still found.
+     */
+    @RequiresPermission(Manifest.permission.RECORD_AUDIO)
+    private suspend fun listenToClip() {
+        windowMs = ClipListen.MOST_ASKED_SECONDS * 1000L
+        pendingLifetimeMs = PENDING_LIFETIME_WINDOWS * windowMs
+        val clip = ClipListen()
+        microphone.stream(seconds = 1, everyWindow = true, onProgress = ::showLevel).collect { piece ->
+            val question = clip.add(piece.samples)
+            if (question != null) {
+                Log.i(TAG, "Asking about ${"%.1f".format(question.seconds)} s of the phone's sound: ${question.why}")
+                val endedAtMs = piece.startedAtMs + 1000L
+                identify(MicrophoneListener.Window(question.samples, endedAtMs - (question.seconds * 1000).toLong()))
+                if (_state.value is State.Found) return@collect halt()
+            }
+            if (clip.over) {
+                Log.i(TAG, "The phone's sound heard as long as it will be: loop=${clip.loopSeconds}, closest repeat ${clip.closestRepeat}")
+                // Nothing ever sounded, so no question was asked to say so.
+                if (!clip.heardAnything) _state.value = State.Failed("silence", heardNothing = true, fromPhone = true)
+                return@collect halt()
+            }
+            // Still listening: a question that named nothing is not the answer yet.
+            if (question != null) _state.update { if (it is State.Failed || it == State.NoMatch) State.Listening(0f, false) else it }
+        }
     }
 
     private suspend fun identify(window: MicrophoneListener.Window) {
@@ -713,7 +744,7 @@ class RecognitionEngine @Inject constructor(
                 // Nothing to say in continuous mode. A quiet stretch or one refused request is not
                 // a reason to stop listening or to ask somebody to press try again.
                 if (!keepGoing) {
-                    _state.value = State.Failed(outcome.reason, outcome.reason == "silence")
+                    _state.value = State.Failed(outcome.reason, outcome.reason == "silence", fromPhone = listenedToPhone)
                 }
             }
 
