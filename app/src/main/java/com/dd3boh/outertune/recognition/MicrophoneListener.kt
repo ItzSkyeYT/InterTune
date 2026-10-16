@@ -138,6 +138,15 @@ class MicrophoneListener @Inject constructor(
 
     @SuppressLint("MissingPermission")
     private fun open(minBuffer: Int): AudioRecord? {
+        // The phone's own sound, when the listen was asked for it (PhoneAudio). Not the microphone
+        // instead when that fails: somebody who asked for the song in their video, with the room
+        // full of something else, would be told about the room.
+        PhoneAudio.projection.value?.let { projection ->
+            if (PhoneAudio.supported) {
+                return PhoneAudio.recorder(context, projection, SIGNATURE_SAMPLE_RATE_HZ, minBuffer * 4)
+                    ?.also { Log.i(TAG, "Listening to this phone's own sound") }
+            }
+        }
         for (source in SOURCES) {
             val recorder = runCatching {
                 AudioRecord(

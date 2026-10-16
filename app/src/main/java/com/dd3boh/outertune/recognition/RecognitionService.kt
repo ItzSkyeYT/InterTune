@@ -13,6 +13,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
@@ -33,6 +34,8 @@ import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import android.annotation.SuppressLint
+import com.dd3boh.outertune.search.SystemSearch
 
 /**
  * Keeps the microphone alive while the screen is off.
@@ -54,6 +57,15 @@ class RecognitionService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
+    /**
+     * A listen the Song on this phone tile started: nobody is looking at a screen of ours, so what
+     * it finds, or that it found nothing, comes as a notification (PhoneSongTileService).
+     */
+    private var headless = false
+
+    /** Whether this headless listen has had its answer posted, or was stopped by hand. */
+    private var answered = false
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
@@ -64,7 +76,14 @@ class RecognitionService : Service() {
         // the redraw loop, which tied how quickly the service goes away to how often it redraws,
         // and the redraw interval is about to stop being one second.
         scope.launch {
-            engine.running.collect { running -> if (!running) stopSelf() }
+            // Not while a listen of the phone's own sound is waiting for its projection: the
+            // engine starts only once Android has handed it over (PhoneAudio.awaitingStart).
+            engine.running.collect { running ->
+                if (!running && !PhoneAudio.awaitingStart) {
+                    if (headless && !answered) notifyNothing()
+                    stopSelf()
+                }
+            }
         }
 
         // Redrawn on a timer rather than only on events, because the progress bar has to move
@@ -124,23 +143,65 @@ class RecognitionService : Service() {
         }
     }
 
+    /** Posts the headless listen's song when the engine has one: see [headless]. */
+    private fun watchForTheSong() {
+        scope.launch {
+            engine.state.collect { state ->
+                if (headless && !answered && state is RecognitionEngine.State.Found) {
+                    answered = true
+                    notifyFound(state.track)
+                }
+            }
+        }
+    }
+
+    // The tile's listen checks RECORD_AUDIO itself right before it starts the engine.
+    @SuppressLint("MissingPermission")
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
             // Any ACTION_STOP, which is the notification button and RecognitionViewModel.stop
             // alike. Naming the notification sent me hunting a phantom tap.
             Log.i(TAG, "Stop requested")
+            // Stopped by hand is not "found nothing": no notification says so.
+            answered = true
             engine.stop()
             stopSelf()
             return START_NOT_STICKY
         }
 
         val notification = build()
+        // The user's yes to "Start recording or casting?", when the listen is of the phone's own
+        // sound (PhoneAudio). The service has to be in the foreground with the mediaProjection type
+        // before Android hands the projection over, and with that type only once it was said yes to.
+        val consent = consentOf(intent)
         // The microphone type exists from Android 11. On 10 the two-argument call already takes the
-        // types declared in the manifest, which is the same microphone flag, so nothing changes there.
+        // types declared in the manifest, so nothing changes there.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+            val types = ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE or
+                (if (consent != null) ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION else 0)
+            startForeground(NOTIFICATION_ID, notification, types)
         } else {
             startForeground(NOTIFICATION_ID, notification)
+        }
+        if (consent != null && PhoneAudio.supported) {
+            val projection = runCatching {
+                getSystemService(MediaProjectionManager::class.java).getMediaProjection(consent.first, consent.second)
+            }.onFailure { Log.w(TAG, "Android gave no projection", it) }.getOrNull()
+            if (projection != null) PhoneAudio.attach(projection) else PhoneAudio.release()
+            // The tile's listen starts here, nobody's screen being there to start it: one listen,
+            // short windows, its answer a notification.
+            if (intent?.getBooleanExtra(EXTRA_HEADLESS, false) == true) {
+                if (projection != null &&
+                    checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                ) {
+                    headless = true
+                    answered = false
+                    watchForTheSong()
+                    engine.start(null, continuous = false, windowSeconds = PhoneAudio.WINDOW_SECONDS, maxMisses = PhoneAudio.MAX_MISSES)
+                }
+                PhoneAudio.awaitingStart = false
+                if (projection == null) stopSelf()
+            }
         }
         // Not sticky on purpose. If the system kills this, silently reopening the microphone later
         // without the user asking is exactly the behaviour nobody wants from a listening feature.
@@ -189,7 +250,9 @@ class RecognitionService : Service() {
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
 
         if (playing == null) {
-            builder.setContentTitle(getString(R.string.recognition_service_title))
+            builder.setContentTitle(
+                getString(if (PhoneAudio.projection.value != null) R.string.recognition_service_title_phone else R.string.recognition_service_title)
+            )
             if (waiting != null) builder.setContentText(waiting).setSubText(counted)
             else builder.setContentText(counted)
             return builder.build()
@@ -214,6 +277,74 @@ class RecognitionService : Service() {
         return builder.build()
     }
 
+    /**
+     * The song the tile's listen found: its name, its artist, Shazam's cover when it comes in
+     * time, and a tap that opens InterTune's search for it, to play it or add it to a playlist.
+     */
+    private fun notifyFound(track: Recognised) {
+        val words = listOfNotNull(track.title, track.artist).joinToString(" ")
+        val open = PendingIntent.getActivity(
+            this, 2,
+            Intent(Intent.ACTION_VIEW, android.net.Uri.parse(SystemSearch.searchLink(words)), this, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        // Away from the main thread for the cover, which may not come at all: then the plain one.
+        CoroutineScope(Dispatchers.IO).launch {
+            val cover = track.artworkUrl?.let { url ->
+                runCatching {
+                    (java.net.URL(url).openConnection() as java.net.HttpURLConnection).run {
+                        connectTimeout = 2000
+                        readTimeout = 2000
+                        inputStream.use { android.graphics.BitmapFactory.decodeStream(it) }
+                    }
+                }.getOrNull()
+            }
+            val notification = NotificationCompat.Builder(this@RecognitionService, RESULTS_CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_recognise)
+                .setContentTitle(track.title)
+                .setContentText(listOfNotNull(track.artist, getString(R.string.recognition_phone_found_tap)).joinToString(" · "))
+                .setLargeIcon(cover)
+                .setContentIntent(open)
+                .setAutoCancel(true)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setCategory(NotificationCompat.CATEGORY_RECOMMENDATION)
+                .build()
+            post(notification)
+        }
+    }
+
+    /** The tile's listen ended without a song. Quiet, and gone when tapped. */
+    private fun notifyNothing() {
+        val notification = NotificationCompat.Builder(this, RESULTS_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_recognise)
+            .setContentTitle(getString(R.string.recognition_phone_nothing))
+            .setContentText(getString(R.string.recognition_phone_nothing_hint))
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .build()
+        post(notification)
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun post(notification: android.app.Notification) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val manager = getSystemService(NotificationManager::class.java)
+            if (manager.getNotificationChannel(RESULTS_CHANNEL_ID) == null) {
+                // Its own channel, heard: a song found while scrolling is worth a sound and a
+                // banner, where the listening notification above it is silent.
+                manager.createNotificationChannel(
+                    android.app.NotificationChannel(
+                        RESULTS_CHANNEL_ID, getString(R.string.recognition_phone_results_channel),
+                        NotificationManager.IMPORTANCE_HIGH,
+                    )
+                )
+            }
+        }
+        runCatching { androidx.core.app.NotificationManagerCompat.from(this).notify(RESULT_NOTIFICATION_ID, notification) }
+            .onFailure { Log.w(TAG, "Could not post the song found on this phone", it) }
+    }
+
     private fun time(seconds: Int) = "%d:%02d".format(seconds / 60, seconds % 60)
 
     private fun createChannel() {
@@ -233,7 +364,19 @@ class RecognitionService : Service() {
 
     override fun onDestroy() {
         scope.cancel()
+        // The projection lives no longer than the listen: the next one asks again, as Android
+        // wants from 14 on, and the status bar's recording sign goes with it.
+        PhoneAudio.release()
         super.onDestroy()
+    }
+
+    /** The result of the consent screen, put in the start intent by [startOnPhone], or null. */
+    private fun consentOf(intent: Intent?): Pair<Int, Intent>? {
+        intent ?: return null
+        if (!intent.hasExtra(EXTRA_CONSENT_CODE)) return null
+        val data = androidx.core.content.IntentCompat.getParcelableExtra(intent, EXTRA_CONSENT_DATA, Intent::class.java)
+            ?: return null
+        return intent.getIntExtra(EXTRA_CONSENT_CODE, 0) to data
     }
 
     companion object {
@@ -241,9 +384,30 @@ class RecognitionService : Service() {
         private const val CHANNEL_ID = "song_recognition"
         private const val NOTIFICATION_ID = 4243
         const val ACTION_STOP = "com.dd3boh.outertune.recognition.STOP"
+        private const val EXTRA_CONSENT_CODE = "consent_code"
+        private const val EXTRA_CONSENT_DATA = "consent_data"
+        private const val EXTRA_HEADLESS = "headless"
+        private const val RESULTS_CHANNEL_ID = "song_recognition_results"
+        private const val RESULT_NOTIFICATION_ID = 4244
 
         fun start(context: Context) {
             val intent = Intent(context, RecognitionService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+        }
+
+        /**
+         * As [start], listening to the phone's own sound with the consent screen's [resultCode] and
+         * [data]. [headless] is the tile's listen, started and answered here: see [headless].
+         */
+        fun startOnPhone(context: Context, resultCode: Int, data: Intent, headless: Boolean = false) {
+            val intent = Intent(context, RecognitionService::class.java)
+                .putExtra(EXTRA_CONSENT_CODE, resultCode)
+                .putExtra(EXTRA_CONSENT_DATA, data)
+                .putExtra(EXTRA_HEADLESS, headless)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
             } else {
