@@ -58,6 +58,13 @@ object Features {
         val currentSessionArtists: Set<String> = stats.sessionArtists.firstOrNull() ?: emptySet()
 
         /**
+         * The version groups with a listen heard well. New to the listener is judged by the song's
+         * group, not its id: a live take of a song heard well is that song, and was offered as new
+         * (36 of 533 explore cards on one real history, 16 Oct 2026).
+         */
+        val heardWellGroups: Set<String> = stats.songs.entries.filter { it.value.goodListens > 0 }.mapTo(HashSet()) { groups.groupOf(it.key) }
+
+        /**
          * What the last few minutes sounded like, or nothing if there were no last few minutes.
          *
          * The only thing in this vector that is about the music rather than about the listener or
@@ -114,7 +121,7 @@ object Features {
         x[SEED] = r / (1 + r)
         val b = art?.strength ?: 0.0
         x[ART] = b / (b + p.artistHalf)
-        val songNew = (st?.goodListens ?: 0) == 0
+        val songNew = c.groups.groupOf(songId) !in c.heardWellGroups
         val artistNew = (art?.goodListens ?: 0) == 0
         x[NOVEL] = when { songNew && artistNew -> 1.0; songNew -> 0.5; else -> 0.0 }
         val n = c.ignoredByGroup[c.groups.groupOf(songId)] ?: 0
