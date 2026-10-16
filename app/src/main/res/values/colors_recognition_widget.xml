@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The recognition widget before Android 12, in the app's own light colours. -->
+    <color name="widget_recognition_background">#FFF3EDF7</color>
+    <color name="widget_recognition_foreground">#FF1D1B20</color>
+</resources>

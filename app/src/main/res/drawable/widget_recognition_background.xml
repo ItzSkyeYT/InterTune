@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A round-cornered tile in the launcher's colours from Android 12, plain ones before. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@color/widget_recognition_background" />
+    <corners android:radius="24dp" />
+</shape>

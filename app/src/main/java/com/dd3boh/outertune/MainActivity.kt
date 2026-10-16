@@ -9,6 +9,7 @@
 
 package com.dd3boh.outertune
 
+import com.dd3boh.outertune.recognition.RecognitionShortcut
 import com.dd3boh.outertune.ui.navigation.appDestinations
 import android.annotation.SuppressLint
 import android.app.NotificationManager
@@ -341,6 +342,14 @@ internal class PendingLink : ViewModel() {
 }
 
 /**
+ * A tap on the recognition tile or widget, waiting for the first destination and for setup to be
+ * done. Kept the way [PendingWidgetTap] keeps a tap, so a rotation does not listen again.
+ */
+internal class PendingRecognition : ViewModel() {
+    var asked by mutableStateOf(false)
+}
+
+/**
  * Whether a widget-tapped song plays on its own or keeps the radio.
  *
  * A local song's id is not a YouTube video id (SongEntity.generateSongId makes local ids "LS" plus
@@ -442,6 +451,7 @@ class MainActivity : ComponentActivity() {
     private val pendingWidgetTap: PendingWidgetTap by viewModels()
 
     private val pendingLink: PendingLink by viewModels()
+    private val pendingRecognition: PendingRecognition by viewModels()
 
     val controllerViewModel: MediaControllerViewModel by viewModels()
 
@@ -476,6 +486,7 @@ class MainActivity : ComponentActivity() {
         newIntentLink(intent.action, intent.dataString, intent.getStringExtra(Intent.EXTRA_TEXT))
             ?.let { pendingLink.link = it }
         if (intent.action == ACTION_PLAY_LIKED) playLikedWhenReady()
+        if (intent.action == RecognitionShortcut.ACTION) pendingRecognition.asked = true
         handlePlayFromSearch(intent)
     }
 
@@ -573,6 +584,11 @@ class MainActivity : ComponentActivity() {
         // finishes the activity instead of keeping it).
         if (intent?.action == ACTION_PLAY_LIKED && freshLaunch(savedInstanceState != null, intent?.flags ?: 0)) {
             playLikedWhenReady()
+        }
+        // The same for the recognition tile and widget: listening starts for the tap, not for a
+        // reopen from recents, which brings the tile's intent back.
+        if (RecognitionShortcut.owed(intent?.action, savedInstanceState != null, intent?.flags ?: 0)) {
+            pendingRecognition.asked = true
         }
         lifecycle.addObserver(controllerViewModel)
         controllerViewModel.addControllerCallback(lifecycle) { controller, _ ->
@@ -1016,6 +1032,15 @@ class MainActivity : ComponentActivity() {
                         withFrameNanos { }
                         searchActive = true
                         searchFromShortcut = false
+                    }
+
+                    // The recognition tile and widget: the recognition screen, listening, over
+                    // whatever is open, once the first destination is there and setup is done.
+                    LaunchedEffect(pendingRecognition.asked, oobeStatus) {
+                        if (!pendingRecognition.asked || oobeStatus < OOBE_VERSION) return@LaunchedEffect
+                        snapshotFlow { navBackStackEntry }.first { it != null }
+                        pendingRecognition.asked = false
+                        navController.navigate(RecognitionShortcut.ROUTE)
                     }
 
                     // The Songs, Albums and Playlists shortcuts, handled the same way: their tab,

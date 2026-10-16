@@ -1846,4 +1846,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="problem_report_copy">Copy</string>
     <string name="problem_report_copied">Copied</string>
     <string name="problem_report_close">Close</string>
+
+    <!-- The recognition widget in the launcher's picker (recognition_widget_info). -->
+    <string name="recognition_widget_description">One button that names the song playing around you.</string>
 </resources>
