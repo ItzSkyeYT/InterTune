@@ -361,11 +361,14 @@ object EngineRow {
         // samples the lane's second half by (its log, as ACT-R's activation is a log).
         val againCut = input.now - p.againWindowDays * day
         val again = if (lean == Lean.FAMILIAR) {
+            // With the ranker on, its score orders the lane and stands in for the sampling score too.
+            val ranked = if (p.familiarRanker) FamiliarRanker.scores(input, p) else null
             stats.songs.entries
                 .filter { it.value.goodListens > 0 && it.value.lastGoodAt <= justPlayedCut && it.value.familiarScore > 0 }
-                .sortedByDescending { it.value.familiarScore }.take(200)
-                .mapNotNull { e ->
-                    candidate(e.key, Lane.AGAIN)?.let { c -> Candidate(c.songId, c.lane, c.x, ln(e.value.familiarScore), c.seedId, c.artistId, c.group, c.sources) }
+                .map { e -> e to (if (ranked != null) ranked[e.key] ?: -1e9 else ln(e.value.familiarScore)) }
+                .sortedByDescending { it.second }.take(200)
+                .mapNotNull { (e, z) ->
+                    candidate(e.key, Lane.AGAIN)?.let { c -> Candidate(c.songId, c.lane, c.x, z, c.seedId, c.artistId, c.group, c.sources) }
                 }
         } else stats.songs.entries
             .filter { it.value.lastGoodAt in againCut.toLong()..(justPlayedCut.toLong()) }
