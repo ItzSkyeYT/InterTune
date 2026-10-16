@@ -1577,6 +1577,7 @@
     <string name="welcome_back_release">Nouveau dans la %1$s</string>
     <string name="welcome_back_show">Me montrer</string>
     <string name="welcome_back_add_widget">L\'ajouter</string>
+    <string name="welcome_back_add_tile">Ajouter la tuile</string>
     <string name="welcome_back_seen">Vu</string>
     <string name="welcome_back_action_for">%1$s : %2$s</string>
     <string name="welcome_back_settings_title">Vous repérer dans les Paramètres</string>
@@ -1662,6 +1663,12 @@
     <string name="new_explain_pictures_body">Certains boutons (i) s\'ouvrent sur une petite image animée de ce que fait le réglage.</string>
     <string name="new_explain_pictures_way">Fondu entre les titres est ici, et son (i) a l\'une de ces images.</string>
     <string name="new_explain_pictures_here">Touchez son (i) pour voir ce que fait un fondu entre deux titres.</string>
+    <string name="new_resume_bluetooth_title">La musique reprend en Bluetooth</string>
+    <string name="new_resume_bluetooth_body">La musique arrêtée par la déconnexion de votre casque, de votre voiture ou de votre enceinte peut reprendre quand ils se reconnectent.</string>
+    <string name="new_resume_bluetooth_way">Reprendre à la connexion Bluetooth est ici.</string>
+    <string name="new_resume_bluetooth_here">Activez-le. La musique que vous mettez vous-même en pause reste en pause.</string>
+    <string name="new_recognition_tile_title">Trouver un titre depuis les réglages rapides</string>
+    <string name="new_recognition_tile_body">Une tuile des réglages rapides et un bouton d\'écran d\'accueil ouvrent la reconnaissance, déjà à l\'écoute.</string>
     <string name="new_report_body">Quand quelque chose ne va pas, l\'application peut vous montrer la dernière erreur notée, à copier ou à joindre à un rapport de bogue.</string>
     <string name="new_report_way">Dans À propos : la dernière erreur notée par l\'application, à copier ou à joindre à un rapport de bogue.</string>
     <string name="new_report_here">Ouvre la dernière erreur notée par l\'application. Rien ne quitte le téléphone sauf si vous l\'envoyez.</string>

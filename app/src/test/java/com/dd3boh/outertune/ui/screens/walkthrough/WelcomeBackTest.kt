@@ -72,13 +72,25 @@ class WelcomeBackTest {
     }
 
     @Test
-    fun `0_11_6 shows nobody anything of 0_12, and whoever had a tour on it is still shown 0_12`() {
-        // Fixes only, build 94, the number 0.12 was first given: what 0.12 brings is counted from
-        // 95. Left at 94, somebody on 0.11.6 would be shown none of it once 0.12 came.
-        assertEquals(emptyList<String>(), ids(newThingsFor(v0115, buildVersionCode = v0116)))
-        assertEquals(listOf("library_import", "explain_pictures", "problem_report"), ids(newThingsFor(v0111, buildVersionCode = v0116)))
+    fun `0_11_6 shows what it brought and nothing of 0_12, and whoever had a tour on it is still shown 0_12`() {
+        // Build 94, the number 0.12 was first given: what 0.12 brings is counted from 95. Left at
+        // 94, somebody on 0.11.6 would be shown none of it once 0.12 came.
+        assertEquals(listOf("resume_bluetooth", "recognition_tile"), ids(newThingsFor(v0115, buildVersionCode = v0116)))
+        assertEquals(
+            listOf("resume_bluetooth", "recognition_tile", "library_import", "explain_pictures", "problem_report"),
+            ids(newThingsFor(v0111, buildVersionCode = v0116)),
+        )
         assertTrue(newThingsFor(v0116, buildVersionCode = v012).isNotEmpty())
         assertTrue(newThingsFor(v0116, buildVersionCode = v012).all { it.release == "0.12" })
+    }
+
+    @Test
+    fun `the tile is asked for, and the Bluetooth switch is shown where it is`() {
+        val tile = NEW_THINGS.single { it.id == "recognition_tile" }
+        assertEquals(NewThingAction.ADD_TILE, tile.action)
+        val bluetooth = NEW_THINGS.single { it.id == "resume_bluetooth" }
+        assertEquals(listOf(Tour.ROW_PLAYER, Tour.SETTING_RESUME_BLUETOOTH), bluetooth.stops.map { it.targetId })
+        assertEquals(listOf(Tour.ROUTE_SETTINGS, Tour.ROUTE_PLAYER), bluetooth.stops.map { it.route })
     }
 
     @Test
@@ -153,6 +165,7 @@ class WelcomeBackTest {
             when (thing.action) {
                 NewThingAction.SHOW -> assertTrue("${thing.id} has nowhere to go", thing.stops.isNotEmpty())
                 NewThingAction.ADD_WIDGET -> assertTrue("${thing.id} is added, not shown", thing.stops.isEmpty())
+                NewThingAction.ADD_TILE -> assertTrue("${thing.id} is added, not shown", thing.stops.isEmpty())
             }
             assertTrue("${thing.id}: every stop points at something", thing.stops.all { it.targetId != null })
         }
@@ -161,7 +174,7 @@ class WelcomeBackTest {
     @Test
     fun `a setting is reached the way somebody would go there, through the row it is under`() {
         val insideSettings = NEW_THINGS.filter { thing -> thing.stops.any { it.route != null } }
-        assertEquals(listOf("living_blur", "share_links", "library_import", "explain_pictures", "problem_report", "spatial_audio"), ids(insideSettings))
+        assertEquals(listOf("living_blur", "share_links", "resume_bluetooth", "library_import", "explain_pictures", "problem_report", "spatial_audio"), ids(insideSettings))
         for (thing in insideSettings) {
             assertEquals("${thing.id}: the row, then the setting", 2, thing.stops.size)
             assertEquals("${thing.id} starts on the list of settings", Tour.ROUTE_SETTINGS, thing.stops[0].route)
@@ -308,6 +321,9 @@ class WelcomeBackTest {
     fun `what is held back for 0_12 waits for it, and is shown to somebody on 0_11_5 when it comes`() {
         // Living blur and Links for any music app: on in previews only, so 0.11.5 must not claim them.
         assertTrue(newThingsFor(v011, buildVersionCode = v0115).none { it.release == "0.12" })
-        assertEquals(listOf("living_blur", "share_links"), ids(newThingsFor(v0115, buildVersionCode = v012)))
+        assertTrue(newThingsFor(v011, buildVersionCode = v0116).none { it.release == "0.12" })
+        // Somebody who skips 0.11.6 is shown what it brought as well, under its own heading.
+        assertEquals(listOf("living_blur", "share_links", "resume_bluetooth", "recognition_tile"), ids(newThingsFor(v0115, buildVersionCode = v012)))
+        assertEquals(listOf("living_blur", "share_links"), ids(newThingsFor(v0116, buildVersionCode = v012)))
     }
 }
