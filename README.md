@@ -203,7 +203,7 @@ InterTune stands on a lot of other people's work.
 
 | Who | For |
 |---|---|
-| [rii2609](https://github.com/rii2609) | The idea for Liquid glass, and catching its intensity slider running backwards |
+| [rii2609](https://github.com/rii2609) | The idea for Liquid glass |
 | [cchery2512](https://github.com/cchery2512) | Reporting the M3U import bugs |
 | Everyone translating on [Weblate](https://hosted.weblate.org/engage/intertune/) | InterTune in your language |
 
