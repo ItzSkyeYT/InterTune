@@ -52,7 +52,7 @@ data class EngineParams(
      * other card is a familiar one. Off, Familiar first keeps its fixed [leanCards].
      */
     val mixLearned: Boolean = false,
-    /** Familiar first orders its songs by FamiliarRanker's six signals instead of [familiarDecay] alone (a test). */
+    /** Familiar first orders its songs by FamiliarRanker's eighteen signals instead of [familiarDecay] alone (a test). */
     val familiarRanker: Boolean = false,
     /**
      * With the mix learned, every new card comes from one list: the new songs most related to all
