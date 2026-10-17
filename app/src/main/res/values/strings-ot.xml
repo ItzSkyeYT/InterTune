@@ -2062,4 +2062,17 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_ahead">Ahead</string>
     <string name="together_nothing_playing">Nothing playing yet</string>
     <string name="together_suggest_hint">To suggest a song, long-press it and choose Play next in the room.</string>
+    <string name="together_you_control">You have control</string>
+    <string name="together_has_control">%1$s has control</string>
+    <string name="together_take_back">Take back control</string>
+    <string name="together_give_control">Give control</string>
+    <string name="together_kick">Remove from the room</string>
+    <string name="together_kicked">You were removed from the room</string>
+    <string name="together_closed">The room was closed</string>
+    <string name="together_close_room">Close the room</string>
+    <string name="together_up_next">Up next in the room</string>
+    <string name="together_repeat_one">Repeats this song</string>
+    <string name="together_repeat_all">Repeats the queue</string>
+    <string name="together_more">and %1$d more</string>
+    <string name="together_removed">%1$s was removed. The room has a new code.</string>
 </resources>

@@ -411,12 +411,18 @@ class MusicService : MediaLibraryService(),
     val together = MutableStateFlow<TogetherSession?>(null)
 
     /** Opens a room, hosting or following, in place of any already open. Main thread. */
-    fun startTogether(code: RoomCode, host: Boolean, relays: List<String>, name: String): TogetherSession {
+    fun startTogether(code: RoomCode, owner: Boolean, relays: List<String>, name: String): TogetherSession {
         together.value?.stop()
-        return TogetherSession(this, code, host, relays, name).also {
+        return TogetherSession(this, code, owner, relays, name).also {
             together.value = it
             it.start()
         }
+    }
+
+    /** The room carries on under [code], each phone as it was: what its owner does after sending someone out. */
+    fun moveTogether(code: RoomCode) {
+        val room = together.value ?: return
+        startTogether(code, room.owner, room.relays, room.name)
     }
 
     fun stopTogether() {
@@ -3943,8 +3949,11 @@ class MusicService : MediaLibraryService(),
             else -> null
         }
         lastRepeatMode = repeatMode
-        if (kind != null && !isCasting) activePlayer.currentMediaItem?.mediaId?.let { id -> noteSignal(id, kind, activePlayer.currentPosition) }
         updateNotification()
+        // In a listening room that follows someone, the repeat mode is the room's: neither this
+        // listener's choice to learn from nor their setting to keep.
+        if (together.value?.following == true) return
+        if (kind != null && !isCasting) activePlayer.currentMediaItem?.mediaId?.let { id -> noteSignal(id, kind, activePlayer.currentPosition) }
         offloadScope.launch {
             dataStore.edit { settings ->
                 settings[RepeatModeKey] = repeatMode
