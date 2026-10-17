@@ -179,6 +179,7 @@ class TogetherSession(
                 if (hostKey == null) Log.i(TAG, "Following ${event.pubkey.take(8)}")
                 hostKey = event.pubkey
                 lastState = message
+                lastStateAt = System.currentTimeMillis()
                 _status.value = _status.value.copy(hostSong = message.title.ifBlank { message.songId }, waitingForHost = false)
             }
             is TogetherMessage.Here -> if (!host && message.host && hostKey == null) hostKey = event.pubkey
@@ -188,6 +189,15 @@ class TogetherSession(
     /** A guest's quarter-second look: the host's song, playing or not, and where in it. */
     private fun follow() {
         val state = lastState ?: return
+        // A host silent this long has left: the guest plays on by itself and says so.
+        if (System.currentTimeMillis() - lastStateAt > HOST_TIMEOUT_MS) {
+            Log.i(TAG, "No word from the host for ${HOST_TIMEOUT_MS / 1000} s: playing on alone")
+            lastState = null
+            hostKey = null
+            speed(service.exoPlayer, speedBefore.toDouble())
+            _status.value = _status.value.copy(waitingForHost = true, driftMs = null)
+            return
+        }
         val player = service.exoPlayer
         if (player.currentMediaItem?.mediaId != state.songId) {
             if (loadingSong != state.songId) {
@@ -212,7 +222,10 @@ class TogetherSession(
             Log.i(TAG, "drift ${target - local} ms, speed ${"%.3f".format(player.playbackParameters.speed)}, clock gap ${gap.offsetMs} ms (round trip ${if (gap.known) gap.bestRoundTripMs else -1} ms)")
         }
         if (!state.playing) {
-            if (abs(target - local) > Follow.DRIFT_MS) seek(player, target)
+            // Paused, both stand on the host's spot, so that they start again together: the pause
+            // reaches a guest a moment late, and it had played on that far (235 ms on the
+            // emulators, 17 Oct 2026).
+            if (abs(target - local) > Follow.IN_STEP_MS) seek(player, target)
             return
         }
         when (val decision = Follow.decide(target, local, state.speed)) {
@@ -224,6 +237,7 @@ class TogetherSession(
 
     private var loadingSong: String? = null
     private var lastLoggedDrift = 0L
+    private var lastStateAt = 0L
 
     private fun seek(player: Player, positionMs: Long) {
         player.seekTo(positionMs)
@@ -241,6 +255,7 @@ class TogetherSession(
         /** After a seek, time for the player to land before the next look. */
         private const val SETTLE_MS = 500L
         private const val MEMBER_TIMEOUT_MS = 45_000L
+        private const val HOST_TIMEOUT_MS = 25_000L
 
         /** Public Nostr relays, as many as OpenTune sends to: a room lasts while any one answers. */
         val PUBLIC_RELAYS = listOf(
