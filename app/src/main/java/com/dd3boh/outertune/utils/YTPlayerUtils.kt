@@ -435,6 +435,21 @@ object YTPlayerUtils {
      */
     private val WEB_FALLBACK_CLIENT: YouTubeClient = TRIAL_CLIENT.copy(loginSupported = false)
 
+    /**
+     * The client that carries the account, in a build that can solve a web client's address
+     * ([Wire.canSolve]) and while the experiment's switch is off: YouTube Music's web client with
+     * the account's cookie, asked and solved as [WEB_FALLBACK_CLIENT] is, with po tokens made for
+     * the account's session rather than the visitor's.
+     *
+     * [AUTH_CLIENT], ANDROID with the same cookie, is answered HTTP 400 by YouTube on every song
+     * seen since September 2026, so a signed-in listener never got a song only an account may
+     * play: DNR's age-restricted song of 17 Oct 2026 read "ANDROID (account) no answer" after
+     * three "Sign in to confirm your age". This one played whole songs as an account on the
+     * Pixel 5 on 10 Oct 2026, as the experiment's client ("WEB_REMIX (account) OK, HEAD 200").
+     * A copy, so that the walk can tell it from the experiment's own.
+     */
+    private val ACCOUNT_WEB_CLIENT: YouTubeClient = TRIAL_CLIENT.copy()
+
     /** The developer options' switch for [TRIAL_CLIENT], set from the preference by MusicService. */
     @Volatile
     var askWebClientFirst: Boolean = false
@@ -664,17 +679,19 @@ object YTPlayerUtils {
      * thing being refused, so it goes first instead and the anonymous attempts stop being the
      * reason the refusal persists.
      */
-    private fun streamClients(isLoggedIn: Boolean, webInChain: Boolean = false): List<YouTubeClient> {
+    private fun streamClients(isLoggedIn: Boolean, webInChain: Boolean = false, accountOnWeb: Boolean = false): List<YouTubeClient> {
         // After VISIONOS its other identities, then the web client, all ahead of IOS, whose
         // addresses never pass their check.
         val written = STREAM_FALLBACK_CLIENTS.toList()
         val identities = if (identitiesInChain) VISIONOS_IDENTITIES.map { it.first } else emptyList()
         val base = written.take(1) + identities + listOfNotNull(WEB_FALLBACK_CLIENT.takeIf { webInChain }) + written.drop(1)
         if (!isLoggedIn || authMode == PlaybackAuthMode.NEVER) return base
-        if (!AUTH_CLIENT.loginSupported) return base
+        // The web client where it can be solved: see ACCOUNT_WEB_CLIENT.
+        val account = if (accountOnWeb) ACCOUNT_WEB_CLIENT else AUTH_CLIENT
+        if (!account.loginSupported) return base
         return when {
-            authMode == PlaybackAuthMode.ALWAYS || Throttle.isBlocked -> listOf(AUTH_CLIENT) + base
-            else -> base + AUTH_CLIENT
+            authMode == PlaybackAuthMode.ALWAYS || Throttle.isBlocked -> listOf(account) + base
+            else -> base + account
         }
     }
 
@@ -947,7 +964,9 @@ object YTPlayerUtils {
         val trialWanted = (if (trialAsVisitor) TRIAL_CLIENT_AS_VISITOR else TRIAL_CLIENT).takeIf { trialOn }
         // The web client as one of the chain's own: see WEB_FALLBACK_CLIENT.
         val webInChain = Unreleased.WEB_FALLBACK && !trialOn && wire.canSolve()
-        val streamClients = streamClients(isLoggedIn, webInChain)
+        // The account on the web client: see ACCOUNT_WEB_CLIENT.
+        val accountOnWeb = !trialOn && wire.canSolve()
+        val streamClients = streamClients(isLoggedIn, webInChain, accountOnWeb)
         val playerClients = listOf(MAIN_CLIENT) + streamClients
         var trialLeftMs = trialLimitMs
         suspend fun <T> withinTrialTime(work: suspend () -> T): T? {
@@ -1039,6 +1058,21 @@ object YTPlayerUtils {
             startPoTokens()
             return checkNotNull(pots).await().also { if (it == null && asked) Log.w(TAG, "[$videoId] No po token") }
         }
+        // The web client as the account carries tokens made for the account's session, as the
+        // experiment's did when it played as the account. The walk's own are the visitor's
+        // whenever the chain's web client is in it, and then the account's are made apart.
+        var accountPots: Deferred<PoTokenResult?>? = null
+        val accountTokensApart = sessionId != YouTube.dataSyncId
+        fun startTokensFor(client: YouTubeClient) {
+            if (client !== ACCOUNT_WEB_CLIENT || !accountTokensApart) return startPoTokens()
+            if (accountPots == null) accountPots = background.async { runCatching { wire.poTokens(videoId, YouTube.dataSyncId) }.getOrNull() }
+        }
+        suspend fun tokensFor(client: YouTubeClient): PoTokenResult? {
+            if (client !== ACCOUNT_WEB_CLIENT || !accountTokensApart) return poTokens()
+            val asked = accountPots == null
+            startTokensFor(client)
+            return checkNotNull(accountPots).await().also { if (it == null && asked) Log.w(TAG, "[$videoId] No po token for the account") }
+        }
 
         // A refusal from one client is not a refusal from YouTube. ANDROID_VR answers "Sign in to
         // confirm you're not a bot" on nearly every song and VISIONOS then serves it 150 ms later,
@@ -1127,10 +1161,13 @@ object YTPlayerUtils {
                     continue
                 }
             }
-            if (client === WEB_FALLBACK_CLIENT) {
+            if (client === WEB_FALLBACK_CLIENT || client === ACCOUNT_WEB_CLIENT) {
                 // A song every client asked before it calls gone is gone for this one too, and
                 // would cost a player script to hear it said again: see StreamCheck.saysGone.
                 if (fallbackSaid.isNotEmpty() && fallbackSaid.all { it.status != "OK" && StreamCheck.saysGone(it.reason) }) continue
+                // Held, the account's as well: asked in this pass it would serve every song as the
+                // account, and the visitor's web client, the one that can be remembered, would
+                // never be reached.
                 if (holdWeb && notes.visionosRefused) {
                     // A new visitorData comes first: see resolveWithNewVisitor. The pass that
                     // tries it may come to the web client, whose solver is started meanwhile.
@@ -1151,8 +1188,8 @@ object YTPlayerUtils {
             // The experiment's client, of which nothing is counted: see TRIAL_CLIENT.
             val isTrial = client === trial
             // A web client, the experiment's or the chain's: asked, deciphered and checked the same way.
-            val isWeb = isTrial || client === WEB_FALLBACK_CLIENT
-            if (isWeb) startPoTokens()
+            val isWeb = isTrial || client === WEB_FALLBACK_CLIENT || client === ACCOUNT_WEB_CLIENT
+            if (isWeb) startTokensFor(client)
 
             // hl=en whatever the app's language. Throttle and the error screen know the bot
             // check and the age gate only by YouTube's English wording, and a fallback client's
@@ -1281,7 +1318,7 @@ object YTPlayerUtils {
                     if (!isWeb) null
                     else checkTrialAddress(
                         videoId, client, address, format.contentLength, streamPlayerResponse,
-                        poTokens()?.playerRequestPoToken, poTokens()?.streamingDataPoToken, wire,
+                        tokensFor(client)?.playerRequestPoToken, tokensFor(client)?.streamingDataPoToken, wire,
                     )
                 val checked = trialCheck?.url
                     ?: StreamCipher.withPot(address, if (client.useWebPoTokens) poTokens()?.streamingDataPoToken else null)
