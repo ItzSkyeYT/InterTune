@@ -26,11 +26,12 @@ import java.io.File
  */
 class ReleasedFlagsTest {
 
-    /** On in every build, and so in a release. The second line went on for 0.11.5, the third on 14 Oct. */
+    /** On in every build, and so in a release. The second line went on for 0.11.5, the third on 14 Oct, the fourth for 0.12. */
     private val inEveryBuild = setOf(
         "ENGINE", "SHORT_SETUP", "LOGIN_RETURNS",
         "STAND_INS", "VISIONOS_IDENTITIES", "WEB_FALLBACK", "LANDSCAPE", "EXPLAIN_PICTURES", "LIBRARY_IMPORT",
         "PROBLEM_REPORT", "WELCOME_BACK", "COVER_ACCENT", "GLASS_QUEUE",
+        "LIVING_BACKGROUND",
     )
 
     private val sources = File("src/main/java/com/dd3boh/outertune")
@@ -167,5 +168,30 @@ class ReleasedFlagsTest {
         )
         assertWritten("ui/navigation/AppNavGraph.kt", "if (Unreleased.WELCOME_BACK) {")
         assertWritten("ui/screens/settings/AboutScreen.kt", "if (Unreleased.WELCOME_BACK) {")
+    }
+
+    // ---- what went on for 0.12 ----
+
+    @Test
+    fun `Living blur is among the player backgrounds of every build, and its words are in French`() {
+        assertEquals(
+            setOf(
+                "ui/player/Player.kt",
+                "ui/component/LyricsCard.kt",
+                "ui/screens/settings/fragments/ThemeFrag.kt",
+                "ui/screens/walkthrough/Walkthrough.kt",
+            ),
+            readers("LIVING_BACKGROUND"),
+        )
+        assertWritten("ui/screens/settings/fragments/ThemeFrag.kt", "PlayerBackgroundStyle.LIVING -> Unreleased.LIVING_BACKGROUND")
+        val english = File("src/main/res/values/strings-ot.xml").readText()
+        val french = File("src/main/res/values-fr/strings-ot.xml").readText()
+        val names = Regex("""<string name="(player_background_living|player_living_[a-z_]+|new_living_blur_[a-z_]+)"""")
+            .findAll(english).map { it.groupValues[1] }.toList()
+        assertEquals("Living blur's words could not all be found", 17, names.size)
+        for (name in names) {
+            assertTrue("$name is not open to translators", "<string name=\"$name\">" in english)
+            assertTrue("$name has no French", "<string name=\"$name\">" in french)
+        }
     }
 }
