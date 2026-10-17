@@ -73,7 +73,11 @@ class TogetherScreenTest {
     fun `rooms are offered from Android 8 only, in the menu and from links`() {
         val sheet = File("src/main/java/com/dd3boh/outertune/ui/dialog/TogetherDialog.kt").readText()
         assert(sheet.contains("Unreleased.LISTEN_TOGETHER && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O"))
-        for (path in listOf("src/main/java/com/dd3boh/outertune/ui/menu/PlayerMenu.kt", "src/main/java/com/dd3boh/outertune/MainActivity.kt")) {
+        for (path in listOf(
+            "src/main/java/com/dd3boh/outertune/ui/menu/PlayerMenu.kt",
+            "src/main/java/com/dd3boh/outertune/MainActivity.kt",
+            "src/main/java/com/dd3boh/outertune/ui/screens/HomeScreen.kt",
+        )) {
             val source = File(path).readText()
             assert(source.contains("togetherAvailable")) { "$path does not ask togetherAvailable" }
             assert(!source.contains("Unreleased.LISTEN_TOGETHER")) { "$path offers rooms below Android 8" }
