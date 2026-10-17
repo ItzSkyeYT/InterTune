@@ -534,15 +534,16 @@ class TogetherSession(
     }
 
     /**
-     * A pause or a play here that the room did not ask for. A pause is the listener's to make (his
-     * word of 17 Oct 2026: "pausing still should exist on the client side"): the room plays on
-     * without this phone, and play puts it back where the leader is by then. It used to count as
-     * going one's own way, so play went on from the old spot and stayed there until Catch up.
+     * A pause or a play on a follower. A pause is the listener's to make (his word of 17 Oct 2026:
+     * "pausing still should exist on the client side"): the room plays on without this phone, and
+     * play puts it back where the leader is by then. Whose it is comes from the room's state, see
+     * [PauseHere]. It used to count as going one's own way, so play went on from the old spot and
+     * stayed there until Catch up.
      */
     private fun listenerPlayed(playWhenReady: Boolean) {
-        if (lastState == null || ownWay || System.currentTimeMillis() < ownCommandUntil) return
-        if (playWhenReady == !pausedHere) return
-        pausedHere = !playWhenReady
+        val room = lastState ?: return
+        if (ownWay) return
+        pausedHere = PauseHere.after(pausedHere, playWhenReady, room.playing) ?: return
         lock.reset()
         if (pausedHere) speed(service.exoPlayer, speedBefore.toDouble())
         _status.value = _status.value.copy(pausedHere = pausedHere, driftMs = null, locked = false)
@@ -583,9 +584,11 @@ class TogetherSession(
             _status.value = _status.value.copy(waitingForHost = true, driftMs = null)
             return
         }
+        val player = service.exoPlayer
+        // Marked paused here while its player plays: the play was missed, and it is back with the room.
+        if (pausedHere && player.playWhenReady) listenerPlayed(true)
         // Paused here by the listener: the room plays on, and play brings this phone back to it.
         if (ownWay || pausedHere) return
-        val player = service.exoPlayer
         val now = System.currentTimeMillis()
         if (player.currentMediaItem?.mediaId != state.songId) {
             toLeadersSong(player, state, now)
@@ -693,7 +696,9 @@ class TogetherSession(
         val here = upcoming(player)
         if (here == wanted) return
         Log.i(TAG, "The room's queue here: ${wanted.size} songs after this one, in place of ${here.size}")
-        mine(SONG_SWITCH_MS)
+        // The song goes on through the swap, so this is short: long enough for the queue to load,
+        // not so long that a skip of the listener's own is taken for the room's.
+        mine(QUEUE_SWAP_MS)
         service.playQueue(
             ListQueue(items = room.songs.map(::metadataOf)),
             playWhenReady = player.playWhenReady,
@@ -767,6 +772,8 @@ class TogetherSession(
         private const val AUTO_AHEAD_MS = 3_000L
         /** How long a follower waits for the leader's queue to come with a new song. */
         private const val QUEUE_WAIT_MS = 1_500L
+        /** And how long after its queue is swapped for the leader's under the song playing. */
+        private const val QUEUE_SWAP_MS = 2_000L
         /** The leader's queue goes out this long after its last change, and every this many beats. */
         private const val QUEUE_SETTLE_MS = 600L
         private const val QUEUE_EVERY_BEATS = 15

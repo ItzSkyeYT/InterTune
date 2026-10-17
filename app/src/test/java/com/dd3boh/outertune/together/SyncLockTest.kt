@@ -123,4 +123,29 @@ class SyncLockTest {
         val player = File("src/main/java/com/dd3boh/outertune/ui/player/Player.kt").readText()
         assertEquals(2, Regex("""\bRoomButton\(""").findAll(player).count())
     }
+
+    @Test
+    fun `a pause while the room plays is the listener's, one while the room is paused is the room's`() {
+        // Decided by the room's own state, not by a window of time after the room's commands: a
+        // window long enough for a song to load swallowed a pause pressed in it, and a play.
+        assertEquals(true, PauseHere.after(pausedHere = false, playWhenReady = false, roomPlaying = true))
+        assertEquals(null, PauseHere.after(pausedHere = false, playWhenReady = false, roomPlaying = false))
+        // Play while paused here goes back to the room, whether the room plays or not.
+        assertEquals(false, PauseHere.after(pausedHere = true, playWhenReady = true, roomPlaying = true))
+        assertEquals(false, PauseHere.after(pausedHere = true, playWhenReady = true, roomPlaying = false))
+        // Nothing changes otherwise: the room's own play, or a pause on top of a pause.
+        assertEquals(null, PauseHere.after(pausedHere = false, playWhenReady = true, roomPlaying = true))
+        assertEquals(null, PauseHere.after(pausedHere = true, playWhenReady = false, roomPlaying = true))
+    }
+
+    @Test
+    fun `the listener's play and pause are not held up by the room's own commands`() {
+        val session = File("src/main/java/com/dd3boh/outertune/together/TogetherSession.kt").readText()
+        val played = session.substringAfter("private fun listenerPlayed(").substringBefore("\n    }\n")
+        assertTrue(played.contains("PauseHere.after("))
+        assertFalse("no window of time decides it", played.contains("ownCommandUntil"))
+        // And a follower found playing while marked paused here is back with the room.
+        assertTrue(session.contains("if (pausedHere && player.playWhenReady)"))
+    }
 }
+
