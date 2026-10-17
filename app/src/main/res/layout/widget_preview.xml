@@ -4,9 +4,13 @@
   inflates this without running any of our code, so it shows the shape of the widget rather than
   anybody's actual music. Drawn as the widget's usual line of song, in the system's colours, which
   is what a widget left on "Follow the system" looks like. The icons are tinted: the drawables are
-  white, and on the picker's light card they had all but disappeared.
+  white, and on the picker's light card they had all but disappeared. With android:tint: the
+  launcher inflates it without AppCompat, so app:tint, which AppCompat's lint asks for, would do
+  nothing here.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:ignore="UseAppTint"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/widget_preview_background"

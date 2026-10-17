@@ -1903,6 +1903,7 @@
     <string name="together_proposal_later">Pas maintenant</string>
     <plurals name="together_proposal_more">
         <item quantity="one">Et %1$d autre après lui, de sa file d\'attente.</item>
+        <item quantity="many">Et %1$d autres après lui, de sa file d\'attente.</item>
         <item quantity="other">Et %1$d autres après lui, de sa file d\'attente.</item>
     </plurals>
     <string name="together_removed">%1$s a été retiré. Le salon a un nouveau code.</string>
