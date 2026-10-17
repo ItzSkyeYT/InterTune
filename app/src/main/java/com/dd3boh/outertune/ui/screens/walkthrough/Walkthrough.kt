@@ -157,6 +157,8 @@ val SETTINGS_CATEGORIES = listOf(
     Tour.ROUTE_PLAYER,
     Tour.ROUTE_RECOGNITION,
     Tour.ROUTE_LYRICS,
+    // On the list only where rooms are offered (togetherAvailable), last of its card.
+    Tour.ROUTE_TOGETHER,
     Tour.ROUTE_STORAGE,
     Tour.ROUTE_BACKUP,
     Tour.ROUTE_PRIVACY,
@@ -173,6 +175,7 @@ val SETTINGS_CATEGORIES = listOf(
 val CLOSER_LOOK_LEFT_OUT = mapOf(
     Tour.ROUTE_ADVANCED to "Emptying the image cache and the switch for the developer's own settings: upkeep, with nothing to choose between.",
     Tour.ROUTE_ABOUT to "Nothing on it is a setting. It holds the way back into this tour.",
+    Tour.ROUTE_TOGETHER to "Listening rooms are in debug and preview builds only until 0.13, and the page is new: its stops come when it ships.",
 )
 
 /** A stop of the closer look: [title] is the string its row is titled with, [body] the sentence. */
