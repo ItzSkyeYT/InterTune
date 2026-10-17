@@ -2044,5 +2044,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_join_title">Join this listening room?</string>
     <string name="together_share">Share the invite</string>
     <string name="together_invite_text">Listen with me on InterTune: room %1$s. Open %2$s, or type the code under Listen together in the player\'s menu.</string>
+    <string name="together_own_way">Playing on your own</string>
+    <string name="together_catch_up">Catch up</string>
     <string name="together_close">Close</string>
 </resources>
