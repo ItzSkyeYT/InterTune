@@ -207,6 +207,10 @@ class TogetherSession(
         val target = Follow.target(state, gap.hostNow(now))
         val local = player.currentPosition
         _status.value = _status.value.copy(driftMs = target - local)
+        if (now - lastLoggedDrift >= 2_000) {
+            lastLoggedDrift = now
+            Log.i(TAG, "drift ${target - local} ms, speed ${"%.3f".format(player.playbackParameters.speed)}, clock gap ${gap.offsetMs} ms (round trip ${if (gap.known) gap.bestRoundTripMs else -1} ms)")
+        }
         if (!state.playing) {
             if (abs(target - local) > Follow.DRIFT_MS) seek(player, target)
             return
@@ -219,6 +223,7 @@ class TogetherSession(
     }
 
     private var loadingSong: String? = null
+    private var lastLoggedDrift = 0L
 
     private fun seek(player: Player, positionMs: Long) {
         player.seekTo(positionMs)
