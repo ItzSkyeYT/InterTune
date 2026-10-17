@@ -567,6 +567,8 @@
     <string name="share_audio_focus">Laisser d\'autres applications jouer en même temps</string>
     <string name="share_audio_focus_description">Lire la musique par-dessus le son d\'une autre application au lieu de l\'arrêter.</string>
     <string name="share_audio_focus_explain">Avec ceci activé, InterTune et une autre application jouent en même temps.\n\nInterTune cesse aussi de baisser son volume pour la navigation et les alarmes. Les appels coupent le son dans tous les cas.</string>
+    <string name="resume_on_bluetooth">Reprendre à la connexion Bluetooth</string>
+    <string name="resume_on_bluetooth_description">La musique arrêtée par la déconnexion de votre casque, de votre voiture ou de votre enceinte reprend si l\'audio Bluetooth se connecte dans les 30 minutes. Celle que vous mettez en pause reste en pause.</string>
     <string name="sleep_timer_notif_end_of_song">La musique s\'arrête à la fin de ce titre</string>
     <string name="sleep_timer_notif_chip">%1$d min</string>
     <plurals name="sleep_timer_notif_minutes">
@@ -1575,6 +1577,8 @@
     <string name="welcome_back_release">Nouveau dans la %1$s</string>
     <string name="welcome_back_show">Me montrer</string>
     <string name="welcome_back_add_widget">L\'ajouter</string>
+    <string name="welcome_back_add_tile">Ajouter la tuile</string>
+    <string name="scan_paths_none">Aucun dossier choisi pour l\'instant</string>
     <string name="welcome_back_seen">Vu</string>
     <string name="welcome_back_action_for">%1$s : %2$s</string>
     <string name="welcome_back_settings_title">Vous repérer dans les Paramètres</string>
@@ -1660,6 +1664,12 @@
     <string name="new_explain_pictures_body">Certains boutons (i) s\'ouvrent sur une petite image animée de ce que fait le réglage.</string>
     <string name="new_explain_pictures_way">Fondu entre les titres est ici, et son (i) a l\'une de ces images.</string>
     <string name="new_explain_pictures_here">Touchez son (i) pour voir ce que fait un fondu entre deux titres.</string>
+    <string name="new_resume_bluetooth_title">La musique reprend en Bluetooth</string>
+    <string name="new_resume_bluetooth_body">La musique arrêtée par la déconnexion de votre casque, de votre voiture ou de votre enceinte peut reprendre quand ils se reconnectent.</string>
+    <string name="new_resume_bluetooth_way">Reprendre à la connexion Bluetooth est ici.</string>
+    <string name="new_resume_bluetooth_here">Activez-le. La musique que vous mettez vous-même en pause reste en pause.</string>
+    <string name="new_recognition_tile_title">Trouver un titre depuis les réglages rapides</string>
+    <string name="new_recognition_tile_body">Une tuile des réglages rapides et un bouton d\'écran d\'accueil ouvrent la reconnaissance, déjà à l\'écoute.</string>
     <string name="new_report_body">Quand quelque chose ne va pas, l\'application peut vous montrer la dernière erreur notée, à copier ou à joindre à un rapport de bogue.</string>
     <string name="new_report_way">Dans À propos : la dernière erreur notée par l\'application, à copier ou à joindre à un rapport de bogue.</string>
     <string name="new_report_here">Ouvre la dernière erreur notée par l\'application. Rien ne quitte le téléphone sauf si vous l\'envoyez.</string>
@@ -1673,4 +1683,7 @@
         <item quantity="many">%1$d nouveautés</item>
         <item quantity="other">%1$d nouveautés</item>
     </plurals>
+
+    <!-- The recognition widget in the launcher's picker (recognition_widget_info). -->
+    <string name="recognition_widget_description">Un bouton qui trouve le titre qui passe autour de vous.</string>
 </resources>

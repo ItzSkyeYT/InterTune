@@ -732,20 +732,14 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
 
 
         val contentResolver: ContentResolver = context.contentResolver
-        val selectionBuilder = StringBuilder("${MediaStore.Audio.Media.IS_MUSIC} != 0")
-        val selectionArgs = mutableListOf<String>()
-        scanPaths.forEachIndexed { index, path ->
-            val convertedPath = absoluteFilePathFromUri(context, path)
-            if (index == 0) {
-                selectionBuilder.append(" AND (")
-            } else {
-                selectionBuilder.append(" OR ")
+        // No folder to look in: nothing to scan, and nothing in the library changes. Going on would
+        // also have disabled every local song below, since none of them would have been found.
+        val (selection, selectionArgs) = mediaStoreSelection(scanPaths.map { absoluteFilePathFromUri(context, it) })
+            ?: run {
+                Log.w(TAG, "------------ SYNC: No scan folder to look in, MediaStore sync skipped ------------")
+                scannerState.value = 0
+                return
             }
-            selectionBuilder.append("${MediaStore.Audio.Media.DATA} LIKE ?")
-            selectionArgs.add("$convertedPath%")
-        }
-        selectionBuilder.append(")")
-        val selection = selectionBuilder.toString()
         // Converted to absolute paths, as scanPaths is above. MediaStore hands back absolute
         // paths, and compared with a tree address's own path ("/tree/...") they never matched, so
         // this scanner left nothing out.
@@ -756,7 +750,7 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
             MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
             projection.toTypedArray(),
             selection,
-            selectionArgs.toTypedArray(),
+            selectionArgs,
             null
         )
         cursor?.use { cursor ->
@@ -1649,6 +1643,23 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
  */
 fun isPathExcluded(path: String, excludedAbsolutePaths: List<String>): Boolean =
     excludedAbsolutePaths.any { path == it || path.startsWith("$it/") }
+
+/**
+ * The MediaStore selection for music under the given absolute folder paths, with one argument per
+ * folder, or null when no folder is left to look in. Folders whose path could not be worked out
+ * are left out. The builder this replaces closed a bracket it had only opened for a first folder,
+ * so with none MediaStore refused the query as a syntax error and the app closed (issue #24).
+ */
+fun mediaStoreSelection(folders: List<String?>): Pair<String, Array<String>>? {
+    val paths = folders.filterNotNull()
+    if (paths.isEmpty()) return null
+    val selection = paths.joinToString(
+        separator = " OR ",
+        prefix = "${MediaStore.Audio.Media.IS_MUSIC} != 0 AND (",
+        postfix = ")",
+    ) { "${MediaStore.Audio.Media.DATA} LIKE ?" }
+    return selection to paths.map { "$it%" }.toTypedArray()
+}
 
 class InvalidAudioFileException(message: String) : Throwable(message)
 class ScannerAbortException(message: String) : Throwable(message)

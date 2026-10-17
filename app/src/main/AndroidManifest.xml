@@ -267,6 +267,38 @@
             android:exported="false"
             android:foregroundServiceType="microphone" />
 
+        <!--
+          The tile in Quick Settings and the button on the home screen open the recognition screen
+          already listening (RecognitionShortcut). Neither starts the microphone by itself: from
+          Android 14 a microphone service can only start with the app in front, and the screen is
+          where the permission is asked and the run can be seen and stopped.
+        -->
+        <service
+            android:name=".recognition.RecognitionTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_recognise"
+            android:label="@string/recognise"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.quicksettings.TOGGLEABLE_TILE"
+                android:value="false" />
+        </service>
+
+        <receiver
+            android:name=".widget.RecognitionWidgetReceiver"
+            android:exported="false"
+            android:label="@string/recognise">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/recognition_widget_info" />
+        </receiver>
+
         <service
             android:name=".playback.ExoDownloadService"
             android:exported="false"

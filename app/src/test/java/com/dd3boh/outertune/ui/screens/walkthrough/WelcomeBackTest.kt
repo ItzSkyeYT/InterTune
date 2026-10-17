@@ -30,7 +30,8 @@ class WelcomeBackTest {
     private val v011 = 91           // 0.11 as it shipped
     private val v0111 = 92          // 0.11.1, fixes only: it took the number 0.11.5 was to have
     private val v0115 = 93          // the first build of 0.11.5
-    private val v012 = 94           // the first build 0.12 can be
+    private val v0116 = 94          // 0.11.6, fixes only: it took the number 0.12 was to have
+    private val v012 = 95           // the first build 0.12 can be
 
     private fun ids(things: List<NewThing>) = things.map { it.id }
 
@@ -68,6 +69,55 @@ class WelcomeBackTest {
         assertEquals(emptyList<String>(), ids(newThingsFor(v011, buildVersionCode = v0111)))
         assertTrue(newThingsFor(v0109, buildVersionCode = v0111).all { it.release == "0.11" })
         assertEquals(listOf("library_import", "explain_pictures", "problem_report"), ids(newThingsFor(v0111, buildVersionCode = v0115)))
+    }
+
+    @Test
+    fun `0_11_6 shows what it brought and nothing of 0_12, and whoever had a tour on it is still shown 0_12`() {
+        // Build 94, the number 0.12 was first given: what 0.12 brings is counted from 95. Left at
+        // 94, somebody on 0.11.6 would be shown none of it once 0.12 came.
+        assertEquals(listOf("resume_bluetooth", "recognition_tile"), ids(newThingsFor(v0115, buildVersionCode = v0116)))
+        assertEquals(
+            listOf("resume_bluetooth", "recognition_tile", "library_import", "explain_pictures", "problem_report"),
+            ids(newThingsFor(v0111, buildVersionCode = v0116)),
+        )
+        assertTrue(newThingsFor(v0116, buildVersionCode = v012).isNotEmpty())
+        assertTrue(newThingsFor(v0116, buildVersionCode = v012).all { it.release == "0.12" })
+    }
+
+    @Test
+    fun `song recognition wears the same sound bars wherever it is listed, and nothing else does`() {
+        assertEquals(RECOGNITION_ICON, NEW_THINGS.single { it.id == "recognise" }.icon)
+        assertEquals(RECOGNITION_ICON, NEW_THINGS.single { it.id == "recognition_tile" }.icon)
+        assertEquals(setOf("recognise", "recognition_tile"), NEW_THINGS.filter { it.icon == RECOGNITION_ICON }.map { it.id }.toSet())
+        // The tile and the home screen button draw the same bars (Material's graphic_eq).
+        val bars = "M7,18h2V6H7v12zM11,22h2V2h-2v20zM3,14h2v-4H3v4zM15,18h2V6h-2v12zM19,10v4h2v-4h-2z"
+        for (drawable in listOf("ic_recognise", "ic_recognise_widget")) {
+            assertTrue("$drawable is not the sound bars", bars in File("src/main/res/drawable/$drawable.xml").readText())
+        }
+        // And the tile is asked for with that drawing.
+        val main = File("src/main/java/com/dd3boh/outertune/MainActivity.kt").readText()
+        assertTrue("the tile is asked for with another picture", "Icon.createWithResource(this@MainActivity, R.drawable.ic_recognise)" in main)
+    }
+
+    @Test
+    fun `a refused tile request offers the home screen button, an answer ticks the card`() {
+        // Android's answers are 0 to 3 and its refusals 1000 and up; the first version took
+        // refusals for answers below zero, so a refusal ticked the card and offered nothing.
+        val main = File("src/main/java/com/dd3boh/outertune/MainActivity.kt").readText()
+        assertTrue(
+            "the answer and the refusal are told apart by another rule",
+            "if (result < StatusBarManager.TILE_ADD_REQUEST_ERROR_MISMATCHED_PACKAGE) welcomeShow.looked(thing.id)\n" in main.replace(Regex("""\n\s+"""), "\n"),
+        )
+        assertTrue("a refusal no longer offers the home screen button", "else pinWidget(RecognitionWidgetReceiver::class.java)" in main)
+    }
+
+    @Test
+    fun `the tile is asked for, and the Bluetooth switch is shown where it is`() {
+        val tile = NEW_THINGS.single { it.id == "recognition_tile" }
+        assertEquals(NewThingAction.ADD_TILE, tile.action)
+        val bluetooth = NEW_THINGS.single { it.id == "resume_bluetooth" }
+        assertEquals(listOf(Tour.ROW_PLAYER, Tour.SETTING_RESUME_BLUETOOTH), bluetooth.stops.map { it.targetId })
+        assertEquals(listOf(Tour.ROUTE_SETTINGS, Tour.ROUTE_PLAYER), bluetooth.stops.map { it.route })
     }
 
     @Test
@@ -142,6 +192,7 @@ class WelcomeBackTest {
             when (thing.action) {
                 NewThingAction.SHOW -> assertTrue("${thing.id} has nowhere to go", thing.stops.isNotEmpty())
                 NewThingAction.ADD_WIDGET -> assertTrue("${thing.id} is added, not shown", thing.stops.isEmpty())
+                NewThingAction.ADD_TILE -> assertTrue("${thing.id} is added, not shown", thing.stops.isEmpty())
             }
             assertTrue("${thing.id}: every stop points at something", thing.stops.all { it.targetId != null })
         }
@@ -150,7 +201,7 @@ class WelcomeBackTest {
     @Test
     fun `a setting is reached the way somebody would go there, through the row it is under`() {
         val insideSettings = NEW_THINGS.filter { thing -> thing.stops.any { it.route != null } }
-        assertEquals(listOf("living_blur", "share_links", "library_import", "explain_pictures", "problem_report", "spatial_audio"), ids(insideSettings))
+        assertEquals(listOf("living_blur", "share_links", "resume_bluetooth", "library_import", "explain_pictures", "problem_report", "spatial_audio"), ids(insideSettings))
         for (thing in insideSettings) {
             assertEquals("${thing.id}: the row, then the setting", 2, thing.stops.size)
             assertEquals("${thing.id} starts on the list of settings", Tour.ROUTE_SETTINGS, thing.stops[0].route)
@@ -297,6 +348,9 @@ class WelcomeBackTest {
     fun `what is held back for 0_12 waits for it, and is shown to somebody on 0_11_5 when it comes`() {
         // Living blur and Links for any music app: on in previews only, so 0.11.5 must not claim them.
         assertTrue(newThingsFor(v011, buildVersionCode = v0115).none { it.release == "0.12" })
-        assertEquals(listOf("living_blur", "share_links"), ids(newThingsFor(v0115, buildVersionCode = v012)))
+        assertTrue(newThingsFor(v011, buildVersionCode = v0116).none { it.release == "0.12" })
+        // Somebody who skips 0.11.6 is shown what it brought as well, under its own heading.
+        assertEquals(listOf("living_blur", "share_links", "resume_bluetooth", "recognition_tile"), ids(newThingsFor(v0115, buildVersionCode = v012)))
+        assertEquals(listOf("living_blur", "share_links"), ids(newThingsFor(v0116, buildVersionCode = v012)))
     }
 }

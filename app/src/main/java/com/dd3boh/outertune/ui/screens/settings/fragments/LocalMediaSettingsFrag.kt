@@ -13,6 +13,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -28,14 +29,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.Button
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -59,6 +63,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.sp
 import androidx.core.app.ActivityCompat.requestPermissions
 import com.dd3boh.outertune.LocalDatabase
@@ -102,6 +107,7 @@ import com.dd3boh.outertune.utils.scanners.absoluteFilePathFromUri
 import com.dd3boh.outertune.utils.scanners.FolderNesting
 import com.dd3boh.outertune.utils.scanners.stringFromUriList
 import com.dd3boh.outertune.utils.scanners.uriListFromString
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
@@ -164,6 +170,28 @@ fun ColumnScope.LocalScannerFrag() {
     // stepping through setup met it repeatedly. The page already offers the button; a screen that
     // opens a dialog at you unasked is not offering anything.
 
+    // The folders to scan: what most people come to this page for, so it leads the card, with an
+    // icon and what is chosen now under it. Below the Scan button, with no icon and no line under
+    // it, it read as a heading (his word, 16 Oct 2026). With nothing chosen yet the icon takes the
+    // accent colour: Scan cannot do anything before this has been done.
+    val chosenFolders = remember(scanPaths) { uriListFromString(scanPaths) }
+    PreferenceEntry(
+        modifier = Modifier.tourTarget(Tour.SETTING_SCAN_PATHS),
+        title = { Text(stringResource(R.string.scan_paths_title)) },
+        description = if (chosenFolders.isEmpty()) stringResource(R.string.scan_paths_none)
+        else chosenFolders.joinToString(", ") { folderName(context, it) },
+        icon = {
+            Icon(
+                Icons.Rounded.FolderOpen,
+                contentDescription = null,
+                tint = if (chosenFolders.isEmpty()) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+            )
+        },
+        onClick = {
+            showAddFolderDialog = true
+        },
+    )
+
     // scanner
     Row(
         modifier = Modifier
@@ -202,6 +230,13 @@ fun ColumnScope.LocalScannerFrag() {
                     == PackageManager.PERMISSION_GRANTED
                 ) {
                     mediaPermission = true
+                }
+
+                // No folder to scan yet: open the folder list instead of scanning nowhere. With the
+                // MediaStore scanner, scanning nowhere closed the app (issue #24).
+                if (uriListFromString(scanPaths).isEmpty()) {
+                    showAddFolderDialog = true
+                    return@Button
                 }
 
                 scannerFailure = false
@@ -259,6 +294,18 @@ fun ColumnScope.LocalScannerFrag() {
                         } catch (e: ScannerAbortException) {
                             scannerFailure = true
 
+                            snackbarHostState.showSnackbar(
+                                message = "${context.getString(R.string.scanner_scan_fail)}: ${e.message}",
+                                withDismissAction = true,
+                                duration = SnackbarDuration.Short
+                            )
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            // Any other failure says so here, as the scan at launch does, instead
+                            // of closing the app.
+                            Log.e("LocalMediaSettings", "Scan failed", e)
+                            scannerFailure = true
                             snackbarHostState.showSnackbar(
                                 message = "${context.getString(R.string.scanner_scan_fail)}: ${e.message}",
                                 withDismissAction = true,
@@ -324,6 +371,18 @@ fun ColumnScope.LocalScannerFrag() {
                                 withDismissAction = true,
                                 duration = SnackbarDuration.Short
                             )
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            // Any other failure says so here, as the scan at launch does, instead
+                            // of closing the app.
+                            Log.e("LocalMediaSettings", "Scan failed", e)
+                            scannerFailure = true
+                            snackbarHostState.showSnackbar(
+                                message = "${context.getString(R.string.scanner_scan_fail)}: ${e.message}",
+                                withDismissAction = true,
+                                duration = SnackbarDuration.Short
+                            )
                         } finally {
                             clearDtCache()
                             destroyScanner(SCANNER_OWNER_LM)
@@ -379,7 +438,8 @@ fun ColumnScope.LocalScannerFrag() {
                     else -> stringResource(R.string.scanner_progress_processing)
                 },
                 color = MaterialTheme.colorScheme.secondary,
-                fontSize = 12.sp
+                // Not fontSize alone: that kept the body text's 24 sp line height.
+                style = MaterialTheme.typography.bodySmall,
             )
             Text(
                 text = "${if (scannerProgressCurrent >= 0) "$scannerProgressCurrent" else "—"}/${
@@ -398,56 +458,40 @@ fun ColumnScope.LocalScannerFrag() {
                     }
                 }",
                 color = MaterialTheme.colorScheme.secondary,
-                fontSize = 12.sp
+                // Not fontSize alone: that kept the body text's 24 sp line height.
+                style = MaterialTheme.typography.bodySmall,
             )
         }
     }
     // scanner checkboxes
+    //
+    // On the card's own lines, as the rows around them: each box centred on the icons' column (32 dp
+    // in), each label starting where the titles start (60 dp in), the whole line a tap target. They
+    // sat 12 dp further in, their labels 8 dp right of every title above and below, and a label with
+    // only its size set kept the body text's 24 sp line height, two lines that read as four.
     Column(
         // Apart, or the two labels, two or three lines each, read as one paragraph.
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 10.dp)
+            .padding(vertical = 4.dp)
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Checkbox(
-                checked = fullRescan,
-                onCheckedChange = { fullRescan = it }
-            )
-            Text(
-                stringResource(R.string.scanner_variant_rescan), color = MaterialTheme.colorScheme.secondary,
-                fontSize = 14.sp
-            )
-        }
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Checkbox(
-                checked = lookupYtmArtists,
-                onCheckedChange = onLookupYtmArtistsChange,
-            )
-            Text(
-                stringResource(R.string.scanner_online_artist_linking), color = MaterialTheme.colorScheme.secondary,
-                fontSize = 14.sp
-            )
-        }
+        ScannerCheckboxRow(
+            checked = fullRescan,
+            onCheckedChange = { fullRescan = it },
+            label = stringResource(R.string.scanner_variant_rescan),
+        )
+        ScannerCheckboxRow(
+            checked = lookupYtmArtists,
+            onCheckedChange = onLookupYtmArtistsChange,
+            label = stringResource(R.string.scanner_online_artist_linking),
+        )
     }
 
-    // file path selector
-    PreferenceEntry(
-        modifier = Modifier.tourTarget(Tour.SETTING_SCAN_PATHS),
-        title = { Text(stringResource(R.string.scan_paths_title)) },
-        onClick = {
-            showAddFolderDialog = true
-        },
-    )
-
+    // 16 dp under the last line, as the card has over its first row: with 8 the card ended
+    // tighter at the bottom than at the top.
     Row(
-        modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
@@ -456,10 +500,12 @@ fun ColumnScope.LocalScannerFrag() {
             tint = MaterialTheme.colorScheme.error,
         )
 
+        // The small body style, whose line height goes with its size: with only fontSize = 12.sp
+        // the lines kept the body text's 24 sp and stood twice their height apart.
         Text(
             stringResource(R.string.scanner_warning),
             color = MaterialTheme.colorScheme.secondary,
-            fontSize = 12.sp,
+            style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(horizontal = 16.dp)
         )
     }
@@ -704,7 +750,7 @@ fun ColumnScope.LocalScannerExtraFrag() {
     EnumListPreference(
         modifier = Modifier.tourTarget(Tour.SETTING_SCANNER_SENSITIVITY),
         title = { Text(stringResource(R.string.scanner_sensitivity_title)) },
-        icon = { Icon(Icons.Rounded.GraphicEq, null) },
+        icon = { Icon(Icons.Rounded.Tune, null) },
         selectedValue = scannerSensitivity,
         onValueSelected = onScannerSensitivityChange,
         valueText = {
@@ -752,3 +798,28 @@ fun ColumnScope.LocalScannerExtraFrag() {
     InfoLabel(stringResource(R.string.scanner_type_tooltip))
 }
 
+/** A scan folder by its own name, "Music" for /storage/emulated/0/Music, for the line under the row. */
+private fun folderName(context: android.content.Context, uri: Uri): String =
+    absoluteFilePathFromUri(context, uri)?.trimEnd('/')?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
+        ?: uri.lastPathSegment?.substringAfterLast(':')?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
+        ?: uri.toString()
+
+/**
+ * A scanner option as a line of the card: the box where the rows have their icons, the label where
+ * they have their titles, and the whole line a tap target. The box keeps its 48 dp touch target,
+ * which with 8 dp in front centres it on the icons' column.
+ */
+@Composable
+private fun ScannerCheckboxRow(checked: Boolean, onCheckedChange: (Boolean) -> Unit, label: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .toggleable(value = checked, role = Role.Checkbox, onValueChange = onCheckedChange)
+            .padding(start = 8.dp, end = 16.dp, top = 2.dp, bottom = 2.dp)
+    ) {
+        Checkbox(checked = checked, onCheckedChange = null, modifier = Modifier.size(48.dp))
+        Spacer(Modifier.width(4.dp))
+        Text(label, color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.bodyMedium)
+    }
+}

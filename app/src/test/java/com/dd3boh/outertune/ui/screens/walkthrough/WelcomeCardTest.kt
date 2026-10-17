@@ -37,6 +37,7 @@ class WelcomeCardTest {
         questionsOpen: Boolean = false,
         tourUp: Boolean = false,
         pageOpen: Boolean = false,
+        lookedAt: Set<String> = emptySet(),
     ) = welcomeCardFor(
         seenVersionCode = seen,
         buildVersionCode = build,
@@ -46,6 +47,7 @@ class WelcomeCardTest {
         questionsOpen = questionsOpen,
         tourUp = tourUp,
         pageOpen = pageOpen,
+        lookedAt = lookedAt,
     )
 
     // Who gets one
@@ -76,7 +78,7 @@ class WelcomeCardTest {
 
     @Test
     fun `seen or dismissed it stays away, and the next update with something new brings another`() {
-        // Closing the page and the cross on the card both mark the build somebody is on as seen.
+        // Everything looked at, or the cross on the card, marks the build somebody is on as seen.
         assertNotNull(card(seen = v0109, build = v011))
         assertNull("it came back at the next launch", card(seen = v011, build = v011))
         assertNotNull("0.11.5 brought nothing to say", card(seen = v011, build = v0115))
@@ -104,6 +106,17 @@ class WelcomeCardTest {
         // One of them is Quick picks, which is not on every install.
         assertEquals(5, card(seen = v0109, build = v011)!!.count)
         assertEquals(4, card(seen = v0109, build = v011, install = Install(quickPicksChips = false))!!.count)
+    }
+
+    @Test
+    fun `what has been looked at is not counted, and with all of it looked at there is no card`() {
+        val things = newThingsFor(v011, buildVersionCode = v0115).map { it.id }
+        assertEquals(3, things.size)
+        assertEquals(WelcomeCard(count = 2, since = "0.11"), card(seen = v011, lookedAt = setOf(things[0])))
+        assertEquals(WelcomeCard(count = 1, since = "0.11"), card(seen = v011, lookedAt = setOf(things[0], things[2])))
+        assertNull("everything looked at", card(seen = v011, lookedAt = things.toSet()))
+        // The walk round Settings is not one of the new things: looking at it alone changes nothing.
+        assertEquals(WelcomeCard(count = 3, since = "0.11"), card(seen = v011, lookedAt = setOf(SETTINGS_WALK)))
     }
 
     @Test
@@ -159,14 +172,49 @@ class WelcomeCardTest {
         assertTrue("welcomeOpen = true" in see)
         assertTrue("it would list everything, as the page asked for from Settings does", "welcomeEverything = false" in see)
         assertFalse("looking is not yet having seen", "setWalkthroughSeen" in see)
-        assertTrue("val dismissWelcome = remember { { setWalkthroughSeen(BuildConfig.VERSION_CODE) } }" in activity)
+        val cross = activity.substringAfter("val dismissWelcome = remember {").substringBefore("\n                        }")
+        assertTrue("setWalkthroughSeen(BuildConfig.VERSION_CODE)" in cross)
+        assertTrue("the ticks are let go with it", "setWelcomeLookedAt(\"\")" in cross)
     }
 
     @Test
-    fun `closing the page marks this build as seen, also the page asked for from Settings while a card waits`() {
+    fun `closing the page leaves the card on Home while something on it is unseen`() {
+        // His word of 16 Oct 2026: the card went away though he had not looked at everything.
         val activity = File(main, "MainActivity.kt").readText()
         val done = activity.substringAfter("onShowSettings = {").substringAfter("onDone = {").substringBefore("},")
-        assertTrue("if (!welcomeEverything || welcomeOwed) setWalkthroughSeen(BuildConfig.VERSION_CODE)" in done)
+        assertTrue("welcomeOpen = false" in done)
+        assertFalse("closing the page is not having seen it all", "setWalkthroughSeen" in done)
+    }
+
+    @Test
+    fun `every new thing looked at marks the build as seen, once the page and its tours are closed`() {
+        val activity = File(main, "MainActivity.kt").readText()
+        val effect = activity.substringAfter("// Every new thing looked at").substringBefore("\n                        }\n")
+        assertTrue("owedThings.all { it.id in welcomeLookedAt }" in effect)
+        for (closed in listOf("!welcomeOpen", "!tourState.running", "!tourFromWelcome")) assertTrue(closed, closed in effect)
+        assertTrue("setWalkthroughSeen(BuildConfig.VERSION_CODE)" in effect)
+        assertTrue("setWelcomeLookedAt(\"\")" in effect)
+    }
+
+    @Test
+    fun `the ticks are kept on the phone, so they are still there when the page is opened again`() {
+        val activity = File(main, "MainActivity.kt").readText()
+        assertTrue("rememberPreference(WelcomeLookedAtKey, defaultValue = \"\")" in activity)
+        assertTrue("seen = welcomeLookedAt," in activity)
+        assertTrue("the card counts what is left", "lookedAt = welcomeLookedAt," in activity)
+        val see = activity.substringAfter("val seeWelcome = remember {").substringBefore("}")
+        assertFalse("See does not wipe them", "setWelcomeLookedAt" in see)
+    }
+
+    @Test
+    fun `a tour from the page ends where it is, with the page closed and the card waiting on Home`() {
+        // His word of 16 Oct 2026: Done should leave him in the setting to look at it, and Back
+        // take him Home, where the card still is, not back to the page.
+        val activity = File(main, "MainActivity.kt").readText()
+        val fromPage = activity.substringAfter("onFinish = {").substringAfter("if (tourFromWelcome) {").substringBefore("} else {")
+        assertTrue("tourFromWelcome = false" in fromPage)
+        assertFalse("the page does not come back by itself", "welcomeOpen = true" in fromPage)
+        assertFalse("nothing is popped from under the setting", "popBackStack" in fromPage)
     }
 
     @Test

@@ -18,11 +18,12 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.zIndex
 import kotlin.math.max
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AutoFixHigh
+import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Autorenew
 import androidx.compose.material.icons.rounded.ClearAll
 import androidx.compose.material.icons.rounded.FastForward
-import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Headphones
 import android.os.Build
 import androidx.compose.material.icons.rounded.Speed
@@ -30,6 +31,7 @@ import androidx.compose.material.icons.rounded.Hearing
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SurroundSound
 import androidx.compose.material.icons.rounded.Bedtime
+import androidx.compose.material.icons.rounded.BluetoothAudio
 import androidx.compose.material.icons.rounded.Gradient
 import androidx.compose.material.icons.rounded.Timer
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -80,6 +82,7 @@ import com.dd3boh.outertune.constants.SeekIncrement
 import com.dd3boh.outertune.constants.SeekIncrementKey
 import com.dd3boh.outertune.constants.SkipOnErrorKey
 import com.dd3boh.outertune.constants.SkipSilenceKey
+import com.dd3boh.outertune.constants.ResumeOnBluetoothKey
 import com.dd3boh.outertune.constants.StopMusicOnTaskClearKey
 import com.dd3boh.outertune.constants.SleepTimerDefaults
 import com.dd3boh.outertune.constants.SleepTimerFadeDurationKey
@@ -760,7 +763,7 @@ fun ColumnScope.AudioQualityFrag() {
     EnumListPreference(
         modifier = Modifier.tourTarget(Tour.SETTING_AUDIO_QUALITY),
         title = { Text(stringResource(R.string.audio_quality)) },
-        icon = { Icon(Icons.Rounded.GraphicEq, null) },
+        icon = { Icon(Icons.Rounded.HighQuality, null) },
         selectedValue = audioQuality,
         onValueSelected = onAudioQualityChange,
         valueText = {
@@ -900,7 +903,7 @@ fun LoudnessRepairEntry() {
     PreferenceEntry(
         title = { Text(stringResource(R.string.loudness_repair)) },
         description = description,
-        icon = { Icon(Icons.Rounded.GraphicEq, null) },
+        icon = { Icon(Icons.Rounded.AutoFixHigh, null) },
         // Nothing to do is not a failure, but it should not be a button either.
         isEnabled = state is LoudnessRepair.State.Running || missing > 0,
         onClick = {
@@ -920,6 +923,10 @@ fun ColumnScope.PlaybackBehaviourFrag() {
 
     val (shareAudioFocus, onShareAudioFocusChange) = rememberPreference(
         key = ShareAudioFocusKey,
+        defaultValue = false
+    )
+    val (resumeOnBluetooth, onResumeOnBluetoothChange) = rememberPreference(
+        key = ResumeOnBluetoothKey,
         defaultValue = false
     )
     val (sleepTimerFade, onSleepTimerFadeChange) = rememberPreference(
@@ -958,6 +965,16 @@ fun ColumnScope.PlaybackBehaviourFrag() {
         icon = { Icon(Icons.Rounded.Hearing, null) },
         checked = shareAudioFocus,
         onCheckedChange = onShareAudioFocusChange,
+    )
+    // Under the rows about what stops the music, since it is about what starts it again. No
+    // permission to ask for: the audio manager says which outputs come and go to any app.
+    SwitchPreference(
+        modifier = Modifier.tourTarget(Tour.SETTING_RESUME_BLUETOOTH),
+        title = { Text(stringResource(R.string.resume_on_bluetooth)) },
+        description = stringResource(R.string.resume_on_bluetooth_description),
+        icon = { Icon(Icons.Rounded.BluetoothAudio, null) },
+        checked = resumeOnBluetooth,
+        onCheckedChange = onResumeOnBluetoothChange,
     )
     SwitchPreference(
         title = { Text(stringResource(R.string.sleep_timer_fade)) },

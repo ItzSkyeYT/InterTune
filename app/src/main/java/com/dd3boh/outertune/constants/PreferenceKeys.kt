@@ -111,6 +111,16 @@ val PersistentQueueKey = booleanPreferencesKey("persistentQueue")
  */
 val ResumePlaybackOnLaunchKey = booleanPreferencesKey("resumePlaybackOnLaunch")
 
+/**
+ * Start the music again when Bluetooth audio connects, if it stopped because the headphones, the
+ * car or the speaker it was playing through went away (BluetoothResume).
+ *
+ * Off by default, like the one above and for the same reason: it is sound without anybody
+ * pressing anything. Only music the output's going stopped is ever started again, and only by a
+ * playback service that is still running.
+ */
+val ResumeOnBluetoothKey = booleanPreferencesKey("resumeOnBluetooth")
+
 val SeekIncrementKey = stringPreferencesKey("seekIncrement")
 val SkipSilenceKey = booleanPreferencesKey("skipSilence")
 val SkipOnErrorKey = booleanPreferencesKey("skipOnError")
@@ -520,6 +530,13 @@ val RecognitionHistoryKey = stringPreferencesKey("recognitionHistory")
  * features as already explained.
  */
 val WalkthroughSeenVersionKey = intPreferencesKey("walkthroughSeenVersion")
+
+/**
+ * The cards of the welcome back page looked at so far, one id a line. Kept until every new thing
+ * has been looked at or the card on Home is dismissed: held in memory alone, the ticks were gone
+ * whenever the page closed, and closing it sent the card away with things still unseen.
+ */
+val WelcomeLookedAtKey = stringPreferencesKey("welcomeLookedAt")
 
 /** Poll and announcement ids whose opening has been counted, so each is counted once per install. */
 val ViewedPollIdsKey = stringSetPreferencesKey("viewedPollIds")

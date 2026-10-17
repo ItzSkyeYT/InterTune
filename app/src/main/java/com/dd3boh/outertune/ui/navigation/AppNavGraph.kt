@@ -9,6 +9,7 @@
 
 package com.dd3boh.outertune.ui.navigation
 
+import com.dd3boh.outertune.recognition.RecognitionShortcut
 import android.provider.Settings
 import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -369,6 +370,10 @@ fun NavGraphBuilder.appDestinations(
         }
         screen("recognition") {
             RecognitionScreen(navController, scrollBehavior)
+        }
+        // From the Quick Settings tile and the home screen widget.
+        screen(RecognitionShortcut.ROUTE) {
+            RecognitionScreen(navController, scrollBehavior, startListening = true)
         }
         screen("recognition/history") {
             RecognitionHistoryScreen(navController, scrollBehavior)
