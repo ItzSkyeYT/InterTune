@@ -18,6 +18,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.zIndex
 import kotlin.math.max
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AutoFixHigh
 import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Autorenew
@@ -902,7 +903,7 @@ fun LoudnessRepairEntry() {
     PreferenceEntry(
         title = { Text(stringResource(R.string.loudness_repair)) },
         description = description,
-        icon = { Icon(Icons.AutoMirrored.Rounded.VolumeUp, null) },
+        icon = { Icon(Icons.Rounded.AutoFixHigh, null) },
         // Nothing to do is not a failure, but it should not be a button either.
         isEnabled = state is LoudnessRepair.State.Running || missing > 0,
         onClick = {

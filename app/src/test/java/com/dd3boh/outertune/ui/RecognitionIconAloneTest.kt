@@ -12,8 +12,8 @@ import java.io.File
 
 /**
  * The sound bars are song recognition's, everywhere it appears (his word of 16 Oct 2026), so the
- * settings that are not recognition wear their own: Audio quality the HQ mark, Fix song volumes a
- * speaker, the scanner's sensitivity sliders.
+ * settings that are not recognition wear their own: Audio quality the HQ mark, Fix song volumes the
+ * auto-fix wand (a speaker sat beside Audio normalization's), the scanner's sensitivity sliders.
  */
 class RecognitionIconAloneTest {
     @Test
