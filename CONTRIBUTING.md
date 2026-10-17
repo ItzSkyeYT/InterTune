@@ -40,6 +40,12 @@ These guidelines are inherited from OuterTune and still describe how this fork w
 example below links to an OuterTune commit or pull request, it is upstream's, kept because it
 illustrates the convention rather than because it happened here.
 
+## Reporting issues
+
+Found something broken? Open an [issue](https://github.com/ItzSkyeYT/InterTune/issues/new/choose) with the bug form, or post in #bug-reports on the [Discord server](https://discord.gg/68jmqhMjXk). In the app, Settings > About > Submit a bug report shows the last thing that went wrong, ready to copy into the report.
+
+Everyone who reports issues is thanked in the [README](https://github.com/ItzSkyeYT/InterTune#people). Thank you!
+
 ## Translations
 
 We use Weblate. Thank you for the libre tier.
