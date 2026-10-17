@@ -85,6 +85,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -93,6 +94,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -127,6 +129,7 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.constants.TogetherNameKey
 import com.dd3boh.outertune.constants.TogetherRelaysKey
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.models.MediaMetadata
@@ -145,13 +148,9 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.material.icons.rounded.PersonRemove
 import androidx.compose.material.icons.rounded.PlayCircle
-import androidx.compose.material.icons.rounded.Repeat
-import androidx.compose.material.icons.rounded.RepeatOne
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MenuDefaults
-import androidx.media3.common.Player
-import com.dd3boh.outertune.together.TogetherMessage
 
 /**
  * Whether Listen together is offered: while it is built (Unreleased.LISTEN_TOGETHER), and from
@@ -387,7 +386,8 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
                     haptics.performHapticFeedback(HapticFeedbackType.Confirm)
                     room.catchUp()
                 })
-                else -> SyncMeter(status.driftMs)
+                status.pausedHere -> PausedHere()
+                else -> SyncMeter(status.driftMs, status.locked, status.toleranceMs)
             }
         }
         if (status.leading) status.lastSuggestion?.let {
@@ -404,27 +404,6 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
                     stringResource(R.string.together_last_suggestion, it),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-
-        // What the room plays next, what autoplay added included, and its repeat mode.
-        val upNext = status.queue.drop(1)
-        if (upNext.isNotEmpty() || status.repeat != Player.REPEAT_MODE_OFF) {
-            Spacer(Modifier.height(18.dp))
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                SectionLabel(stringResource(R.string.together_up_next))
-                Spacer(Modifier.weight(1f))
-                RepeatMark(status.repeat)
-            }
-            Spacer(Modifier.height(8.dp))
-            upNext.take(UP_NEXT_SHOWN).forEach { QueueRow(it) }
-            if (upNext.size > UP_NEXT_SHOWN) {
-                Text(
-                    stringResource(R.string.together_more, upNext.size - UP_NEXT_SHOWN),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp),
                 )
             }
         }
@@ -640,8 +619,9 @@ private fun SongRow(cover: String?, title: String, artist: String?) {
  * in the middle is in step, and the dot takes the main colour inside it.
  */
 @Composable
-private fun SyncMeter(driftMs: Long?) {
-    val inStep = driftMs != null && abs(driftMs) <= IN_STEP_MS
+private fun SyncMeter(driftMs: Long?, locked: Boolean, toleranceMs: Long) {
+    // Locked, it is in step by its own measure: it leaves gaps within the tolerance be.
+    val inStep = driftMs != null && (locked || abs(driftMs) <= IN_STEP_MS)
     val dot by animateColorAsState(
         if (inStep) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary,
         label = "dot",
@@ -671,7 +651,8 @@ private fun SyncMeter(driftMs: Long?) {
             val half = size.width / 2
             val reach = half - ends
             drawLine(track, Offset(ends, y), Offset(size.width - ends, y), strokeWidth = 2.dp.toPx(), cap = StrokeCap.Round)
-            val bandHalf = reach * meterPlace(IN_STEP_MS)
+            // The band is the tolerance set in Settings: inside it, nothing is corrected once locked.
+            val bandHalf = reach * meterPlace(toleranceMs)
             drawLine(band, Offset(half - bandHalf, y), Offset(half + bandHalf, y), strokeWidth = 10.dp.toPx(), cap = StrokeCap.Round)
             drawLine(tick, Offset(half, y - 6.dp.toPx()), Offset(half, y + 6.dp.toPx()), strokeWidth = 1.5.dp.toPx())
             if (driftMs != null) drawCircle(dot, radius = 6.dp.toPx(), center = Offset(half - place * reach, y))
@@ -705,6 +686,16 @@ private fun Waiting() {
     }
 }
 
+/** A follower paused by its listener: the room goes on, and play brings this phone back to it. */
+@Composable
+private fun PausedHere() {
+    Text(
+        stringResource(R.string.together_paused_here),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
 @Composable
 private fun OwnWay(onCatchUp: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
@@ -733,7 +724,7 @@ private fun People(
 ) {
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
-    val myName = remember { togetherName(context) }
+    val myName by produceState(phoneName(context)) { value = togetherName(context) }
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Person(stringResource(R.string.together_you), myName, initials(myName), owner = meOwner, leader = meLeading, you = true)
         members.forEach { member ->
@@ -864,60 +855,35 @@ private fun ControlRow(name: String, canTakeBack: Boolean, onTakeBack: () -> Uni
     }
 }
 
-/** The room's repeat mode, when it repeats. */
+/**
+ * On the player while a room is on (his word of 17 Oct 2026: "once listening together is on,
+ * there should be a button in the player screen"): a small pill that opens the room's sheet.
+ * Laid over the player, not put in a row of its buttons, so that nothing else moves for it.
+ */
 @Composable
-private fun RepeatMark(mode: Int) {
-    if (mode == Player.REPEAT_MODE_OFF) return
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(
-            if (mode == Player.REPEAT_MODE_ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(16.dp),
-        )
-        Spacer(Modifier.width(4.dp))
-        Text(
-            stringResource(if (mode == Player.REPEAT_MODE_ONE) R.string.together_repeat_one else R.string.together_repeat_all),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.primary,
-        )
-    }
-}
-
-@Composable
-private fun QueueRow(song: TogetherMessage.Song) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .size(40.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+fun RoomButton(modifier: Modifier = Modifier) {
+    val playerConnection = LocalPlayerConnection.current ?: return
+    val room by playerConnection.service.together.collectAsState()
+    if (room == null) return
+    var open by rememberSaveable { mutableStateOf(false) }
+    if (open) TogetherSheet(onDismiss = { open = false })
+    Surface(
+        onClick = { open = true },
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.92f),
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        modifier = modifier,
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
         ) {
-            if (song.thumbnail.isNotBlank()) {
-                AsyncImage(model = song.thumbnail, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize())
-            } else {
-                Icon(Icons.Rounded.MusicNote, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
-            }
-        }
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            Text(song.title.ifBlank { song.id }, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (song.artist.isNotBlank()) {
-                Text(
-                    song.artist,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
+            Icon(Icons.Rounded.Group, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(stringResource(R.string.together_in_room), style = MaterialTheme.typography.labelLarge)
         }
     }
 }
-
-/** How many of the room's next songs the sheet lists before "and N more". */
-private const val UP_NEXT_SHOWN = 5
 
 /** The relays a room uses: the public ones, or in a debug build those of TogetherRelaysKey when set. */
 suspend fun togetherRelays(context: Context): List<String> =
@@ -925,8 +891,12 @@ suspend fun togetherRelays(context: Context): List<String> =
         ?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }?.takeIf { it.isNotEmpty() }
         ?: TogetherSession.PUBLIC_RELAYS
 
-/** The name the others see: the phone's own name from its settings ("Galaxy S25 Ultra"), else its model. */
-fun togetherName(context: Context): String {
+/** The name the others see: the one set in Settings > Listen together, else the phone's own. */
+suspend fun togetherName(context: Context): String =
+    context.dataStore.data.first()[TogetherNameKey]?.trim()?.takeIf { it.isNotEmpty() }?.take(40) ?: phoneName(context)
+
+/** The phone's own name from its settings ("Galaxy S25 Ultra"), else its model. */
+fun phoneName(context: Context): String {
     val named = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {
         Settings.Global.getString(context.contentResolver, Settings.Global.DEVICE_NAME)
     } else null

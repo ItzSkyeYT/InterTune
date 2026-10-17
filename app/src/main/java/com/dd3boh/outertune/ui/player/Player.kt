@@ -9,6 +9,7 @@
 
 package com.dd3boh.outertune.ui.player
 
+import com.dd3boh.outertune.ui.dialog.RoomButton
 import com.dd3boh.outertune.playback.PlayerConnection
 import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.runtime.snapshotFlow
@@ -132,6 +133,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.toRect
@@ -1570,6 +1572,14 @@ fun BottomSheetPlayer(
                             .nestedScroll(state.preUpPostDownNestedScrollConnection)
                     ) {
                         Log.v(TAG, "PLR-3.2a")
+                        // The room's button, laid over the top left corner: see RoomButton.
+                        RoomButton(
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .zIndex(1f)
+                                .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top))
+                                .padding(start = 8.dp, top = 4.dp)
+                        )
                         if (!swipeToSkip) {
                             Thumbnail(
                                 sliderPositionProvider = { sliderPosition },
@@ -1720,6 +1730,15 @@ fun BottomSheetPlayer(
                                 )
                             }
                         }
+
+                        // The room's button, over the top left corner the same way, and only
+                        // while a room is on: see RoomButton.
+                        RoomButton(
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top))
+                                .padding(start = 8.dp, top = 4.dp)
+                        )
 
                         // Laid over the empty top right corner, under the status bar, so nothing
                         // else on the player moves or changes size for it. Only on a tablet's two

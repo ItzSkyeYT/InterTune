@@ -23,6 +23,7 @@ import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.Group
 import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -58,6 +59,7 @@ import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.ui.component.PreferenceEntry
+import com.dd3boh.outertune.ui.dialog.togetherAvailable
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.component.button.backButtonSurface
 import com.dd3boh.outertune.ui.utils.backToMain
@@ -151,6 +153,15 @@ fun SettingsScreen(
                 icon = { Icon(Icons.Rounded.Lyrics, null) },
                 onClick = { navController.navigate("settings/library/lyrics") }
             )
+            // Where rooms are offered at all, and last, so that nothing above it moves.
+            if (togetherAvailable) {
+                PreferenceEntry(
+                    title = { Text(stringResource(R.string.together_title)) },
+                    description = stringResource(R.string.settings_together_description),
+                    icon = { Icon(Icons.Rounded.Group, null) },
+                    onClick = { navController.navigate("settings/together") }
+                )
+            }
         }
     }
     val kept: @Composable () -> Unit = {
