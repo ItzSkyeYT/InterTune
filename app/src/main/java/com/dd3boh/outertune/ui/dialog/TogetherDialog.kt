@@ -52,6 +52,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -242,7 +243,7 @@ private fun StartPage(cover: String?, onStart: () -> Unit, onJoin: (RoomCode) ->
         Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.fillMaxWidth()) {
             OutlinedTextField(
                 value = typed,
-                onValueChange = { typed = codeTyped(it) },
+                onValueChange = { typed = codeTyped(it, before = typed) },
                 label = { Text(stringResource(R.string.together_code)) },
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
@@ -257,7 +258,7 @@ private fun StartPage(cover: String?, onStart: () -> Unit, onJoin: (RoomCode) ->
                 trailingIcon = {
                     IconButton(onClick = {
                         clipboard.nativeClipboard.primaryClip?.takeIf { it.itemCount > 0 }
-                            ?.getItemAt(0)?.coerceToText(context)?.let { typed = codeTyped(it.toString()) }
+                            ?.getItemAt(0)?.coerceToText(context)?.let { typed = codeTyped(it.toString(), before = typed) }
                     }) {
                         Icon(Icons.Rounded.ContentPaste, contentDescription = stringResource(R.string.together_paste))
                     }
@@ -296,7 +297,7 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
         Spacer(Modifier.height(6.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             LiveDot(connected = status.relaysConnected > 0)
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(12.dp))
             Column {
                 Text(
                     stringResource(if (room.host) R.string.together_live_hosting else R.string.together_live_guest),
@@ -511,8 +512,9 @@ private fun LiveDot(connected: Boolean) {
     val color = if (connected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
     val pulse by rememberInfiniteTransition(label = "live")
         .animateFloat(0f, 1f, infiniteRepeatable(tween(1600, easing = LinearOutSlowInEasing)), label = "pulse")
-    Canvas(Modifier.size(18.dp)) {
-        val r = 4.dp.toPx()
+    // As wide as the dot, so that it lines up with the text above and below; the pulse spills over.
+    Canvas(Modifier.size(8.dp)) {
+        val r = size.minDimension / 2
         if (connected) drawCircle(color.copy(alpha = 0.35f * (1f - pulse)), radius = r + pulse * 5.dp.toPx())
         drawCircle(color, radius = r)
     }
@@ -747,12 +749,19 @@ private const val METER_MS = 400L
 private const val IN_STEP_MS = 25L
 private const val LINK = "intertune://together/"
 
-/** What the code field keeps of what was typed or pasted: a whole code or link as its 12 letters, else only letters a code can have. */
-internal fun codeTyped(input: String): String {
+/**
+ * What the code field keeps of what was typed or pasted, [before] being what it held. A code or a
+ * link, alone or inside a whole invite (messengers do not open intertune:// links, so people paste
+ * the message), gives its 12 letters. Typing keeps the letters a code can have, twelve at most.
+ * Other long text, or a link with no code, holds none: the field stays as it was.
+ */
+internal fun codeTyped(input: String, before: String = ""): String {
     RoomCode.parse(input)?.let { return it.raw }
-    val trimmed = input.trim()
-    val body = if (trimmed.startsWith(LINK, ignoreCase = true)) trimmed.substring(LINK.length) else input
-    return body.uppercase().filter { it in RoomCode.ALPHABET }.take(RoomCode.LENGTH)
+    val inside = Regex("$LINK([A-Za-z0-9]{${RoomCode.LENGTH}})", RegexOption.IGNORE_CASE).find(input)?.groupValues?.get(1)
+        ?: Regex("\\b[A-Za-z0-9]{4}-[A-Za-z0-9]{4}-[A-Za-z0-9]{4}\\b").find(input)?.value
+    RoomCode.parse(inside)?.let { return it.raw }
+    if ("://" in input || input.count { it.isLetterOrDigit() } > RoomCode.LENGTH + 2) return before
+    return input.uppercase().filter { it in RoomCode.ALPHABET }.take(RoomCode.LENGTH)
 }
 
 /** Shows the code as XXXX-XXXX-XXXX while the field holds its letters alone. */
@@ -793,7 +802,8 @@ fun TogetherInviteDialog(code: RoomCode, playerConnection: PlayerConnection?, on
         onDismissRequest = onDone,
         icon = { Icon(Icons.Rounded.Group, contentDescription = null) },
         title = { Text(stringResource(R.string.together_join_title)) },
-        text = { CodeChips(code) },
+        // Held to a width: chips that fill the dialog stretched it to the edges of the screen.
+        text = { CodeChips(code, Modifier.widthIn(max = 320.dp)) },
         confirmButton = {
             TextButton(onClick = {
                 haptics.performHapticFeedback(HapticFeedbackType.Confirm)

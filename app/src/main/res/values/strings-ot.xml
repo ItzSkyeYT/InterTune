@@ -2000,7 +2000,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_last_suggestion">Last from a guest: %1$s</string>
     <string name="together_live_hosting">You\'re hosting</string>
     <string name="together_live_guest">You joined a room</string>
-    <string name="together_relays_of">Through %1$d of %2$d relays</string>
+    <string name="together_relays_of">Connected to %1$d of %2$d relays</string>
     <string name="together_connecting">Connecting to the relays</string>
     <string name="together_or_join">or join one</string>
     <string name="together_paste">Paste</string>
