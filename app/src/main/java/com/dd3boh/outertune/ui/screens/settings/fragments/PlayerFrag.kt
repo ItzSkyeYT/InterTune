@@ -18,11 +18,11 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.zIndex
 import kotlin.math.max
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Autorenew
 import androidx.compose.material.icons.rounded.ClearAll
 import androidx.compose.material.icons.rounded.FastForward
-import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Headphones
 import android.os.Build
 import androidx.compose.material.icons.rounded.Speed
@@ -762,7 +762,7 @@ fun ColumnScope.AudioQualityFrag() {
     EnumListPreference(
         modifier = Modifier.tourTarget(Tour.SETTING_AUDIO_QUALITY),
         title = { Text(stringResource(R.string.audio_quality)) },
-        icon = { Icon(Icons.Rounded.GraphicEq, null) },
+        icon = { Icon(Icons.Rounded.HighQuality, null) },
         selectedValue = audioQuality,
         onValueSelected = onAudioQualityChange,
         valueText = {
@@ -902,7 +902,7 @@ fun LoudnessRepairEntry() {
     PreferenceEntry(
         title = { Text(stringResource(R.string.loudness_repair)) },
         description = description,
-        icon = { Icon(Icons.Rounded.GraphicEq, null) },
+        icon = { Icon(Icons.AutoMirrored.Rounded.VolumeUp, null) },
         // Nothing to do is not a failure, but it should not be a button either.
         isEnabled = state is LoudnessRepair.State.Running || missing > 0,
         onClick = {

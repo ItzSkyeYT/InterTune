@@ -26,8 +26,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.automirrored.rounded.Input
-import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
@@ -132,7 +132,7 @@ fun ImportM3uDialog(
     ) {
         EnumListPreference(
             title = { Text(stringResource(R.string.scanner_sensitivity_title)) },
-            icon = { Icon(Icons.Rounded.GraphicEq, null) },
+            icon = { Icon(Icons.Rounded.Tune, null) },
             selectedValue = scannerSensitivity,
             onValueSelected = { scannerSensitivity = it },
             valueText = {
