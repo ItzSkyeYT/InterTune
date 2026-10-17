@@ -1835,7 +1835,7 @@
     <string name="together_last_suggestion">Dernier d\'un invité : %1$s</string>
     <string name="together_live_hosting">Vous êtes l\'hôte</string>
     <string name="together_live_guest">Vous avez rejoint un salon</string>
-    <string name="together_relays_of">Par %1$d relais sur %2$d</string>
+    <string name="together_relays_of">Connecté à %1$d relais sur %2$d</string>
     <string name="together_connecting">Connexion aux relais</string>
     <string name="together_or_join">ou rejoignez-en un</string>
     <string name="together_paste">Coller</string>

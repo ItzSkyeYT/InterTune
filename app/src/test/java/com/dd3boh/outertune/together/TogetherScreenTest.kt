@@ -25,7 +25,17 @@ class TogetherScreenTest {
         assertEquals("K7QX", codeTyped("k7qx-"))
         assertEquals("K7Q", codeTyped("k70q"))                       // a 0 is never in a code
         assertEquals("ABCDEFGHJKLM", codeTyped("ABCDEFGHJKLMNP"))     // twelve at most
-        assertEquals("AB", codeTyped("intertune://together/ab"))      // the link's start is not read as letters
+        assertEquals("K7", codeTyped("intertune://together/k7q", before = "K7"))    // a link cut short is no code: no letters from it
+        assertEquals("K7Q", codeTyped("intertune://k", before = "K7Q"))
+    }
+
+    @Test
+    fun `a whole invite pasted gives its code, other long text leaves the field alone`() {
+        val english = "Listen with me on InterTune: room K7QX-M2PA-9DTZ. Open intertune://together/K7QXM2PA9DTZ, or type the code under Listen together in the player's menu."
+        assertEquals("K7QXM2PA9DTZ", codeTyped(english))
+        assertEquals("K7QXM2PA9DTZ", codeTyped("Écoute avec moi sur InterTune : salon K7QX-M2PA-9DTZ."))
+        assertEquals("K7QXM2PA9DTZ", codeTyped("open intertune://together/k7qxm2pa9dtz now"))
+        assertEquals("K7Q", codeTyped("K7Q" + "a long message with no code in it at all", before = "K7Q"))
     }
 
     @Test
@@ -49,6 +59,14 @@ class TogetherScreenTest {
         assertEquals(0.25f, meterPlace(25), 1e-4f)                    // in step fills a quarter of each side
         assertEquals(-0.5f, meterPlace(-100), 1e-4f)
         assertEquals(1f, meterPlace(900), 0f)
+    }
+
+    @Test
+    fun `a guest can suggest from both song menus`() {
+        // Quick picks and search results open YouTubeSongMenu, the library SongMenu: the item was in one only.
+        for (path in listOf("src/main/java/com/dd3boh/outertune/ui/menu/SongMenu.kt", "src/main/java/com/dd3boh/outertune/ui/menu/YouTubeSongMenu.kt")) {
+            assert(File(path).readText().contains("R.string.together_suggest")) { "$path has no Play next in the room" }
+        }
     }
 
     @Test
