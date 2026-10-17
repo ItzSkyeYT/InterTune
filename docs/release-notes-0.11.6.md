@@ -12,6 +12,8 @@ _Music that comes back by itself, and fixes for 0.11.5._
 
 **About has icons.** Every row under Settings > About wears an icon, like the rest of Settings, and the address for anything else, intertune.dev@gmail.com, shows under its row.
 
+**Clearer icons in Settings.** Audio quality, Fix song volumes and the scanner's sensitivity get icons of their own. The sound bars now only ever mean song recognition.
+
 ## Fixed
 
 - **Scan** with no folder picked, under Settings > Local media, opens the folder list instead of closing the app.
