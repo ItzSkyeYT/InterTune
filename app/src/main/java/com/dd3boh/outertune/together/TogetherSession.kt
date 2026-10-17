@@ -32,6 +32,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import okhttp3.OkHttpClient
 import kotlin.math.abs
+import com.dd3boh.outertune.constants.PlayOrigin
 
 /**
  * A listening room while it lasts, held by the [MusicService] (his yes of 17 Oct 2026 for 0.13,
@@ -293,7 +294,8 @@ class TogetherSession(
                 Log.i(TAG, "The host plays ${state.songId}: playing it here")
                 // A queue resolves for a moment before its song arrives: all of that is the room's doing.
                 mine(SONG_SWITCH_MS)
-                service.playQueue(YouTubeQueue(WatchEndpoint(videoId = state.songId)), replace = true)
+                // The host chose it, not this listener: learning must not read it as their pick.
+                service.playQueue(YouTubeQueue(WatchEndpoint(videoId = state.songId)), replace = true, origin = PlayOrigin.EXTERNAL)
             }
             return
         }
