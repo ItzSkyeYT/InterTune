@@ -201,6 +201,24 @@ sealed interface Follow {
     }
 }
 
+/**
+ * Whose a follower's pause or play is. A pause while the room plays is the listener's: the room
+ * goes on without this phone. A pause while the room is paused is the room's own. Play while
+ * paused here takes this phone back to the room, playing or not.
+ *
+ * Decided by the room's state rather than by a window of time after the room's own commands: a
+ * window long enough for a song to load (eight seconds) swallowed a pause pressed in it, which
+ * the next look then undid, and a play, which left the phone playing on its own, never back.
+ */
+object PauseHere {
+    /** What paused-here becomes after the player's [playWhenReady] changed, or null for no change. */
+    fun after(pausedHere: Boolean, playWhenReady: Boolean, roomPlaying: Boolean): Boolean? = when {
+        !playWhenReady && roomPlaying && !pausedHere -> true
+        playWhenReady && pausedHere -> false
+        else -> null
+    }
+}
+
 /** Settings > Listen together as a room uses them, each held to its range, unset ones at their default. */
 data class TogetherTuning(val toleranceMs: Long, val maxNudge: Double, val delayMs: Long) {
     companion object {
