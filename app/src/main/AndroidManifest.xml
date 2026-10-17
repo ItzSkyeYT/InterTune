@@ -79,6 +79,18 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
 
+            <!-- The phone's own search (search/SystemSearch.kt), in every build from 0.12: MainActivity is
+                 the searchable that puts the app in One UI's "Apps to search in". -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEARCH" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.app.searchable"
+                android:resource="@xml/system_searchable" />
+
             <!-- Youtube filter -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
@@ -154,6 +166,14 @@
                 android:name="android.app.shortcuts"
                 android:resource="@xml/shortcuts" />
         </activity>
+
+        <!-- The phone's own search asks this for suggestions from the library, readable only by a
+             search holding GLOBAL_SEARCH. Named by the build's id, so each build has its own. -->
+        <provider
+            android:name="com.dd3boh.outertune.search.SystemSearchProvider"
+            android:authorities="${applicationId}.systemsearch"
+            android:exported="true"
+            android:readPermission="android.permission.GLOBAL_SEARCH" />
 
         <!-- Covers for Android Auto, which loads pictures from a content address and not from the web. Read only,
              and open to the car, which holds no permission of ours to ask for. -->
