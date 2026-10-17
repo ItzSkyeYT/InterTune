@@ -151,6 +151,18 @@ import androidx.compose.material.icons.rounded.PlayCircle
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MenuDefaults
+import android.view.WindowManager
+import androidx.compose.material.icons.rounded.QrCode2
+import androidx.compose.material3.OutlinedIconButton
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogWindowProvider
+import com.dd3boh.outertune.together.RoomQr
+import kotlin.math.floor
+import kotlin.math.roundToInt
 
 /**
  * Whether Listen together is offered: while it is built (Unreleased.LISTEN_TOGETHER), and from
@@ -294,6 +306,27 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
     val status by room.status.collectAsState()
     val copied = stringResource(R.string.together_copied)
     val invite = stringResource(R.string.together_invite_text, room.code.pretty, room.code.appLink)
+    var showingQr by rememberSaveable { mutableStateOf(false) }
+    if (showingQr) RoomQrDialog(room.code, onDismiss = { showingQr = false })
+    // The owner's leaving ends the room for everyone: asked first (his word of 17 Oct 2026).
+    var confirmingClose by rememberSaveable { mutableStateOf(false) }
+    if (confirmingClose) {
+        AlertDialog(
+            onDismissRequest = { confirmingClose = false },
+            icon = { Icon(Icons.AutoMirrored.Rounded.Logout, contentDescription = null) },
+            title = { Text(stringResource(R.string.together_close_room_title)) },
+            text = { Text(stringResource(R.string.together_close_room_text)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmingClose = false
+                    onLeave()
+                }) { Text(stringResource(R.string.together_close_room), color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmingClose = false }) { Text(stringResource(android.R.string.cancel)) }
+            },
+        )
+    }
 
     fun copy() {
         haptics.performHapticFeedback(HapticFeedbackType.Confirm)
@@ -344,6 +377,12 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
         CodeChips(room.code, onClick = ::copy)
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+            // For a phone beside this one: its camera reads the code. Before Copy and Share,
+            // which keep their places and their words.
+            // Copy's own outline: the icon button's default is the stronger one, and it read heavier than its neighbours.
+            OutlinedIconButton(onClick = { showingQr = true }, border = ButtonDefaults.outlinedButtonBorder(enabled = true)) {
+                Icon(Icons.Rounded.QrCode2, contentDescription = stringResource(R.string.together_qr))
+            }
             OutlinedButton(onClick = ::copy, modifier = Modifier.weight(1f)) {
                 Icon(Icons.Rounded.ContentCopy, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
                 Spacer(Modifier.width(ButtonDefaults.IconSpacing))
@@ -428,7 +467,7 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
         }
         Spacer(Modifier.height(24.dp))
         OutlinedButton(
-            onClick = onLeave,
+            onClick = { if (room.owner) confirmingClose = true else onLeave() },
             colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
             modifier = Modifier.fillMaxWidth(),
@@ -555,6 +594,78 @@ private fun LiveDot(connected: Boolean) {
 }
 
 /** The code in its three groups, read as one by TalkBack; a tap copies it where [onClick] is given. */
+/**
+ * The room's QR code, for a phone beside this one (his yes of 17 Oct 2026): its camera reads it
+ * and opens the invite, the same question a shared link asks. The screen goes as bright as it can
+ * while it is up, so that a camera reads it in a dim room, and it scrolls, so that nothing of it
+ * is out of reach on a phone on its side.
+ */
+@Composable
+private fun RoomQrDialog(code: RoomCode, onDismiss: () -> Unit) {
+    val modules = remember(code) { RoomQr.modules(code.appLink) }
+    val screen = LocalConfiguration.current
+    // As large as fits: most of the width upright, about half the height on its side.
+    val side = minOf(300, (screen.screenWidthDp * 0.62f).toInt(), (screen.screenHeightDp * 0.5f).toInt()).dp
+    Dialog(onDismissRequest = onDismiss) {
+        val window = (LocalView.current.parent as? DialogWindowProvider)?.window
+        DisposableEffect(window) {
+            // The dialog's own window: its brightness goes with it when it closes.
+            window?.let { it.attributes = it.attributes.apply { screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_FULL } }
+            onDispose { }
+        }
+        Surface(shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .verticalScroll(rememberScrollState())
+                    .padding(24.dp),
+            ) {
+                Text(stringResource(R.string.together_qr_title), style = MaterialTheme.typography.headlineSmall)
+                Spacer(Modifier.height(16.dp))
+                QrPicture(modules, Modifier.size(side))
+                Spacer(Modifier.height(14.dp))
+                Text(
+                    code.pretty,
+                    style = MaterialTheme.typography.titleMedium.copy(fontFamily = FontFamily.Monospace, letterSpacing = 2.sp),
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    stringResource(R.string.together_qr_hint),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(Modifier.height(8.dp))
+                TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) {
+                    Text(stringResource(android.R.string.ok))
+                }
+            }
+        }
+    }
+}
+
+/**
+ * [modules] black on white whatever the theme, since cameras read dark on light: a quiet zone of
+ * four modules round them, and each module a whole number of pixels, so that no seam shows
+ * between two.
+ */
+@Composable
+private fun QrPicture(modules: Array<BooleanArray>, modifier: Modifier = Modifier) {
+    Canvas(
+        modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color.White)
+    ) {
+        val n = modules.size
+        val cell = floor(size.minDimension / (n + 8)).coerceAtLeast(1f)
+        val left = ((size.width - cell * n) / 2f).roundToInt().toFloat()
+        val top = ((size.height - cell * n) / 2f).roundToInt().toFloat()
+        for (y in 0 until n) for (x in 0 until n) {
+            if (modules[y][x]) drawRect(Color.Black, topLeft = Offset(left + x * cell, top + y * cell), size = Size(cell, cell))
+        }
+    }
+}
+
 @Composable
 private fun CodeChips(code: RoomCode, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null) {
     val copyLabel = stringResource(R.string.together_copy)
@@ -852,36 +963,6 @@ private fun ControlRow(name: String, canTakeBack: Boolean, onTakeBack: () -> Uni
             modifier = Modifier.weight(1f),
         )
         if (canTakeBack) TextButton(onClick = onTakeBack) { Text(stringResource(R.string.together_take_back)) }
-    }
-}
-
-/**
- * On the player while a room is on (his word of 17 Oct 2026: "once listening together is on,
- * there should be a button in the player screen"): a small pill that opens the room's sheet.
- * Laid over the player, not put in a row of its buttons, so that nothing else moves for it.
- */
-@Composable
-fun RoomButton(modifier: Modifier = Modifier) {
-    val playerConnection = LocalPlayerConnection.current ?: return
-    val room by playerConnection.service.together.collectAsState()
-    if (room == null) return
-    var open by rememberSaveable { mutableStateOf(false) }
-    if (open) TogetherSheet(onDismiss = { open = false })
-    Surface(
-        onClick = { open = true },
-        shape = CircleShape,
-        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.92f),
-        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-        modifier = modifier,
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-        ) {
-            Icon(Icons.Rounded.Group, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(6.dp))
-            Text(stringResource(R.string.together_in_room), style = MaterialTheme.typography.labelLarge)
-        }
     }
 }
 

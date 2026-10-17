@@ -44,6 +44,25 @@ class SyncLockTest {
     }
 
     @Test
+    fun `locked, a steady lag inside the tolerance is still corrected, a wobble round zero is not`() {
+        // His find of 17 Oct 2026 on two phones: locked, the guest sat a little behind the host for
+        // good, inside the 60 ms it left alone ("the correction can be useful sometimes").
+        val lock = SyncLock(toleranceMs = 60)
+        inStep(lock)
+        val wobble = looks(lock, listOf(18, -15, 20, -19, 5, -8, 17, -20, 12, -6, 9, -14, 16, -11, 3, -17))
+        assertTrue(wobble.all { it == Follow.Steady(1.0) })
+        assertTrue(lock.locked)
+        // Forty behind and staying there: within the tolerance, and corrected all the same.
+        val lagging = looks(lock, List(SyncLock.LAG_LOOKS) { 40L })
+        assertFalse(lock.locked)
+        val last = lagging.last()
+        assertTrue("a touch faster, behind the leader: $last", last is Follow.Nudge && last.speed > 1.0)
+        // Once in step again it locks again.
+        inStep(lock)
+        assertTrue(lock.locked)
+    }
+
+    @Test
     fun `one reading past the tolerance is not drifting, a second of them is`() {
         val lock = SyncLock(toleranceMs = 60)
         inStep(lock)
@@ -121,7 +140,12 @@ class SyncLockTest {
         assertFalse(sheet.contains("together_up_next"))
         assertFalse(sheet.contains("QueueRow"))
         val player = File("src/main/java/com/dd3boh/outertune/ui/player/Player.kt").readText()
-        assertEquals(2, Regex("""\bRoomButton\(""").findAll(player).count())
+        // His places of 17 Oct 2026: right before the menu in both styles, the menu staying last.
+        val classic = player.substringAfter("val classicButtons").substringBefore("\n            }\n")
+        assertTrue(classic.indexOf("roomCircle()") in 0 until classic.indexOf("menuCircle()"))
+        val connected = player.substringAfter("val quickActions").substringBefore("val controlsContent")
+        assertTrue(connected.indexOf("R.string.together_in_room") in 0 until connected.indexOf("R.string.options"))
+        assertFalse("no pill over the cover any more", player.contains("RoomButton("))
     }
 
     @Test
