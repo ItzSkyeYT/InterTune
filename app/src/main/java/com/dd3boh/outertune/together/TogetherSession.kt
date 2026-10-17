@@ -9,6 +9,10 @@ package com.dd3boh.outertune.together
 import android.util.Log
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
+import android.widget.Toast
+import com.dd3boh.outertune.R
+import com.dd3boh.outertune.extensions.toMediaItem
+import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.playback.MusicService
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import com.zionhuang.innertube.models.WatchEndpoint
@@ -55,6 +59,8 @@ class TogetherSession(
         val waitingForHost: Boolean = true,
         /** The guest paused, picked another song or seeked: it plays on its own until [catchUp]. */
         val ownWay: Boolean = false,
+        /** The host's last song from a guest, "title, by whom". */
+        val lastSuggestion: String? = null,
     )
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -197,10 +203,33 @@ class TogetherSession(
                 hostKey = event.pubkey
                 lastState = message
                 lastStateAt = System.currentTimeMillis()
-                _status.value = _status.value.copy(hostSong = message.title.ifBlank { message.songId }, waitingForHost = false)
+                _status.value = _status.value.copy(
+                    hostSong = listOf(message.title.ifBlank { message.songId }, message.artist).filter { it.isNotBlank() }.joinToString(" · "),
+                    waitingForHost = false,
+                )
             }
             is TogetherMessage.Here -> if (!host && message.host && hostKey == null) hostKey = event.pubkey
+            is TogetherMessage.Suggest -> if (host) {
+                val song = MediaMetadata(
+                    id = message.songId,
+                    title = message.title,
+                    artists = listOf(MediaMetadata.Artist(id = null, name = message.artist)),
+                    duration = -1,
+                    thumbnailUrl = message.thumbnail.ifBlank { null },
+                    genre = null,
+                )
+                service.enqueueNext(listOf(song.toMediaItem()))
+                Log.i(TAG, "${message.by} suggested ${message.songId}: next in the queue")
+                _status.value = _status.value.copy(lastSuggestion = "${message.title}, ${message.by}")
+                Toast.makeText(service, service.getString(R.string.together_from_guest, message.by, message.title), Toast.LENGTH_LONG).show()
+            }
         }
+    }
+
+    /** A guest's song for the host to play next. */
+    fun suggest(song: MediaMetadata) {
+        send(TogetherMessage.Suggest(song.id, song.title, song.artists.joinToString { it.name }, song.thumbnailUrl.orEmpty(), name))
+        Log.i(TAG, "Suggested ${song.id} to the room")
     }
 
     /** Back with the host after going one's own way: the next look puts the host's song and place back. */

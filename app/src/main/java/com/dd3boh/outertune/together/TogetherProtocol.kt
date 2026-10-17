@@ -42,6 +42,9 @@ sealed interface TogetherMessage {
     /** Somebody in the room, said every [HERE_MS] so the others know who is still there. */
     data class Here(val name: String, val host: Boolean) : TogetherMessage
 
+    /** A guest's song for the host to play next (step 2 begun: the room's queue). */
+    data class Suggest(val songId: String, val title: String, val artist: String, val thumbnail: String, val by: String) : TogetherMessage
+
     companion object {
         const val KIND = 21430
         const val HEARTBEAT_MS = 2_000L
@@ -55,6 +58,10 @@ sealed interface TogetherMessage {
             is Ping -> buildJsonObject { put("t", "ping"); put("c", message.askedAtMs); put("to", message.to) }
             is Pong -> buildJsonObject { put("t", "pong"); put("c", message.askedAtMs); put("h", message.hostMs); put("to", message.to) }
             is Here -> buildJsonObject { put("t", "here"); put("name", message.name); put("host", message.host) }
+            is Suggest -> buildJsonObject {
+                put("t", "suggest"); put("song", message.songId); put("title", message.title); put("artist", message.artist)
+                put("thumb", message.thumbnail); put("by", message.by)
+            }
         }.toString()
 
         fun decode(text: String): TogetherMessage? = runCatching {
@@ -66,6 +73,7 @@ sealed interface TogetherMessage {
                 "ping" -> Ping(l("c"), s("to"))
                 "pong" -> Pong(l("c"), l("h"), s("to"))
                 "here" -> Here(s("name"), o["host"]!!.jsonPrimitive.boolean)
+                "suggest" -> Suggest(s("song"), s("title"), s("artist"), s("thumb"), s("by"))
                 else -> null
             }
         }.getOrNull()

@@ -121,9 +121,20 @@ fun TogetherDialog(onDismiss: () -> Unit) {
                         room.host -> stringResource(R.string.together_hosting)
                         status.waitingForHost -> stringResource(R.string.together_waiting)
                         status.ownWay -> stringResource(R.string.together_own_way)
-                        else -> stringResource(R.string.together_following, status.hostSong.orEmpty())
+                        else -> stringResource(R.string.together_following)
                     }
                     Text(line, style = MaterialTheme.typography.bodyLarge)
+                    // The song on a line of its own, with its artist: a title alone can read like a person.
+                    if (!room.host && !status.ownWay) status.hostSong?.let {
+                        Text(it, style = MaterialTheme.typography.bodyMedium)
+                    }
+                    if (room.host) status.lastSuggestion?.let {
+                        Text(
+                            stringResource(R.string.together_last_suggestion, it),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     if (!room.host && status.ownWay) {
                         Button(onClick = { room.catchUp() }) { Text(stringResource(R.string.together_catch_up)) }
                     }

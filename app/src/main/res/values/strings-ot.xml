@@ -1986,7 +1986,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_copy">Copy the code</string>
     <string name="together_hosting">You lead the room. Share its code.</string>
     <string name="together_waiting">Waiting for the host</string>
-    <string name="together_following">Following the host: %1$s</string>
+    <string name="together_following">Following the host</string>
     <string name="together_in_step">In step, %1$d ms apart</string>
     <string name="together_catching_up">Catching up, %1$d ms apart</string>
     <string name="together_others">Others in the room: %1$d</string>
@@ -1997,5 +1997,9 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_invite_text">Listen with me on InterTune: room %1$s. Open %2$s, or type the code under Listen together in the player\'s menu.</string>
     <string name="together_own_way">Playing on your own</string>
     <string name="together_catch_up">Catch up</string>
+    <string name="together_suggest">Play next in the room</string>
+    <string name="together_suggested">Sent to the host</string>
+    <string name="together_from_guest">%1$s suggested %2$s: it plays next</string>
+    <string name="together_last_suggestion">Last from a guest: %1$s</string>
     <string name="together_close">Close</string>
 </resources>
