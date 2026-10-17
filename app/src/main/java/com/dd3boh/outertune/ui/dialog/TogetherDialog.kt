@@ -153,6 +153,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MenuDefaults
 import android.view.WindowManager
 import androidx.compose.material.icons.rounded.QrCode2
+import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.graphics.Color
@@ -239,6 +240,16 @@ private fun StartPage(cover: String?, onStart: () -> Unit, onJoin: (RoomCode) ->
     val clipboard = LocalClipboard.current
     var typed by rememberSaveable { mutableStateOf("") }
     val parsed = RoomCode.parse(typed)
+    var scanning by rememberSaveable { mutableStateOf(false) }
+    if (scanning) {
+        RoomScanDialog(
+            onFound = {
+                scanning = false
+                onJoin(it)
+            },
+            onDismiss = { scanning = false },
+        )
+    }
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
         InStepPicture(cover, Modifier.padding(top = 4.dp, bottom = 20.dp))
         Text(stringResource(R.string.together_title), style = MaterialTheme.typography.headlineSmall)
@@ -294,6 +305,18 @@ private fun StartPage(cover: String?, onStart: () -> Unit, onJoin: (RoomCode) ->
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.height(56.dp),
             ) { Text(stringResource(R.string.together_join)) }
+        }
+        // The QR code on the phone beside this one, read by this one's camera: joined at once.
+        Spacer(Modifier.height(12.dp))
+        OutlinedButton(
+            onClick = { scanning = true },
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp),
+        ) {
+            Icon(Icons.Rounded.QrCodeScanner, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
+            Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+            Text(stringResource(R.string.together_scan))
         }
     }
 }

@@ -1834,5 +1834,8 @@
     <string name="together_qr_hint">Pointez l\'appareil photo de l\'autre téléphone ici. Il ouvre le salon dans InterTune.</string>
     <string name="together_close_room_title">Fermer le salon ?</string>
     <string name="together_close_room_text">Tout le monde le quitte, et son code ne marche plus.</string>
+    <string name="together_scan">Scanner un code QR</string>
+    <string name="together_scan_hint">Pointez l\'appareil photo vers le code QR de l\'autre téléphone.</string>
+    <string name="together_scan_refused">Le scan a besoin de l\'appareil photo. Autorisez-le pour InterTune dans les réglages du téléphone, ou tapez le code.</string>
     <string name="together_removed">%1$s a été retiré. Le salon a un nouveau code.</string>
 </resources>
