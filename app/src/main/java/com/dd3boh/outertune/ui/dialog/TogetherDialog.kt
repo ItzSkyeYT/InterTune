@@ -668,7 +668,7 @@ private fun OwnWay(onCatchUp: () -> Unit) {
 private fun People(members: List<TogetherSession.Member>, meHost: Boolean) {
     val context = LocalContext.current
     val mine = remember { initials(togetherName(context)) }
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Person(stringResource(R.string.together_you), mine, host = meHost, you = true)
         members.forEach { member ->
             key(member.id) {
@@ -685,7 +685,7 @@ private fun People(members: List<TogetherSession.Member>, meHost: Boolean) {
 @Composable
 private fun Person(name: String, initials: String, host: Boolean, you: Boolean = false) {
     val ring = BottomSheetDefaults.ContainerColor
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(68.dp)) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(76.dp)) {
         Box {
             Box(
                 contentAlignment = Alignment.Center,
@@ -717,7 +717,8 @@ private fun Person(name: String, initials: String, host: Boolean, you: Boolean =
             }
         }
         Spacer(Modifier.height(6.dp))
-        Text(name, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+        // Two lines: a phone's name ("Galaxy S25 Ultra") was cut after its first word or two on one.
+        Text(name, style = MaterialTheme.typography.labelMedium, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
     }
 }
 
