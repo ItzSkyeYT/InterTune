@@ -965,36 +965,6 @@ private fun ControlRow(name: String, canTakeBack: Boolean, onTakeBack: () -> Uni
     }
 }
 
-/**
- * On the player while a room is on (his word of 17 Oct 2026: "once listening together is on,
- * there should be a button in the player screen"): a small pill that opens the room's sheet.
- * Laid over the player, not put in a row of its buttons, so that nothing else moves for it.
- */
-@Composable
-fun RoomButton(modifier: Modifier = Modifier) {
-    val playerConnection = LocalPlayerConnection.current ?: return
-    val room by playerConnection.service.together.collectAsState()
-    if (room == null) return
-    var open by rememberSaveable { mutableStateOf(false) }
-    if (open) TogetherSheet(onDismiss = { open = false })
-    Surface(
-        onClick = { open = true },
-        shape = CircleShape,
-        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.92f),
-        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-        modifier = modifier,
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-        ) {
-            Icon(Icons.Rounded.Group, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(6.dp))
-            Text(stringResource(R.string.together_in_room), style = MaterialTheme.typography.labelLarge)
-        }
-    }
-}
-
 /** The relays a room uses: the public ones, or in a debug build those of TogetherRelaysKey when set. */
 suspend fun togetherRelays(context: Context): List<String> =
     context.dataStore.data.first()[TogetherRelaysKey]

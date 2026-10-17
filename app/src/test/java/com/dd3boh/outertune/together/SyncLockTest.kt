@@ -140,7 +140,12 @@ class SyncLockTest {
         assertFalse(sheet.contains("together_up_next"))
         assertFalse(sheet.contains("QueueRow"))
         val player = File("src/main/java/com/dd3boh/outertune/ui/player/Player.kt").readText()
-        assertEquals(2, Regex("""\bRoomButton\(""").findAll(player).count())
+        // His places of 17 Oct 2026: right before the menu in both styles, the menu staying last.
+        val classic = player.substringAfter("val classicButtons").substringBefore("\n            }\n")
+        assertTrue(classic.indexOf("roomCircle()") in 0 until classic.indexOf("menuCircle()"))
+        val connected = player.substringAfter("val quickActions").substringBefore("val controlsContent")
+        assertTrue(connected.indexOf("R.string.together_in_room") in 0 until connected.indexOf("R.string.options"))
+        assertFalse("no pill over the cover any more", player.contains("RoomButton("))
     }
 
     @Test

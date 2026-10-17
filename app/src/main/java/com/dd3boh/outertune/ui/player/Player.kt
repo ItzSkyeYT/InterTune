@@ -9,7 +9,8 @@
 
 package com.dd3boh.outertune.ui.player
 
-import com.dd3boh.outertune.ui.dialog.RoomButton
+import com.dd3boh.outertune.ui.dialog.TogetherSheet
+import androidx.compose.material.icons.rounded.Group
 import com.dd3boh.outertune.playback.PlayerConnection
 import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.runtime.snapshotFlow
@@ -133,7 +134,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.zIndex
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.toRect
@@ -894,6 +894,13 @@ fun BottomSheetPlayer(
                 SleepTimerDialog(playerConnection) { showSleepTimerDialog = false }
             }
 
+            // A listening room's button, only while one is on. In both styles it comes right before
+            // the menu, so that the menu stays last (his word of 17 Oct 2026). It opens the room.
+            val room by playerConnection.service.together.collectAsState()
+            val inRoom = room != null
+            var showRoom by rememberSaveable { mutableStateOf(false) }
+            if (showRoom) TogetherSheet(onDismiss = { showRoom = false })
+
             // Glass for the connected buttons whenever the player has it, grouped controls or not:
             // they are separate buttons either way.
             val buttonBackdrop = if (liquidGlass) playerBackdrop else null
@@ -956,6 +963,15 @@ fun BottomSheetPlayer(
                     onClick = playerConnection::toggleLike
                 )
             }
+            val roomCircle: @Composable () -> Unit = {
+                PlayerCircleButton(
+                    painter = rememberVectorPainter(Icons.Rounded.Group),
+                    contentDescription = stringResource(R.string.together_in_room),
+                    container = MaterialTheme.colorScheme.primary,
+                    content = MaterialTheme.colorScheme.onPrimary,
+                    onClick = { showRoom = true }
+                )
+            }
             val menuCircle: @Composable () -> Unit = {
                 PlayerCircleButton(
                     painter = rememberVectorPainter(Icons.Rounded.MoreVert),
@@ -978,6 +994,10 @@ fun BottomSheetPlayer(
                 Spacer(modifier = Modifier.width(7.dp))
                 likeCircle()
                 Spacer(modifier = Modifier.width(7.dp))
+                if (inRoom) {
+                    roomCircle()
+                    Spacer(modifier = Modifier.width(7.dp))
+                }
                 menuCircle()
             }
 
@@ -999,6 +1019,7 @@ fun BottomSheetPlayer(
                         timerCircle()
                     } else {
                         likeCircle()
+                        if (inRoom) roomCircle()
                         menuCircle()
                     }
                 }
@@ -1080,7 +1101,7 @@ fun BottomSheetPlayer(
                 val actionWidth = if (compactPlayer) {
                     compactQuickActionWidth(
                         rowWidth = windowWidth() - hPadding * 2,
-                        count = 4,
+                        count = if (inRoom) 5 else 4,
                         gap = ConnectedButtonGap,
                         preferred = QuickActionWidth,
                     )
@@ -1140,6 +1161,20 @@ fun BottomSheetPlayer(
                             else showSleepTimerDialog = true
                         },
                     )
+                    if (inRoom) {
+                        PlayerActionSegment(
+                            painter = rememberVectorPainter(Icons.Rounded.Group),
+                            contentDescription = stringResource(R.string.together_in_room),
+                            shape = connectedShape(first = false, last = false),
+                            container = MaterialTheme.colorScheme.primary,
+                            filled = true,
+                            content = MaterialTheme.colorScheme.onPrimary,
+                            width = actionWidth,
+                            backdrop = buttonBackdrop,
+                            glassIntensity = glassIntensity,
+                            onClick = { showRoom = true },
+                        )
+                    }
                     PlayerActionSegment(
                         painter = rememberVectorPainter(Icons.Rounded.MoreVert),
                         contentDescription = stringResource(R.string.options),
@@ -1572,14 +1607,6 @@ fun BottomSheetPlayer(
                             .nestedScroll(state.preUpPostDownNestedScrollConnection)
                     ) {
                         Log.v(TAG, "PLR-3.2a")
-                        // The room's button, laid over the top left corner: see RoomButton.
-                        RoomButton(
-                            modifier = Modifier
-                                .align(Alignment.TopStart)
-                                .zIndex(1f)
-                                .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top))
-                                .padding(start = 8.dp, top = 4.dp)
-                        )
                         if (!swipeToSkip) {
                             Thumbnail(
                                 sliderPositionProvider = { sliderPosition },
@@ -1730,15 +1757,6 @@ fun BottomSheetPlayer(
                                 )
                             }
                         }
-
-                        // The room's button, over the top left corner the same way, and only
-                        // while a room is on: see RoomButton.
-                        RoomButton(
-                            modifier = Modifier
-                                .align(Alignment.TopStart)
-                                .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Top))
-                                .padding(start = 8.dp, top = 4.dp)
-                        )
 
                         // Laid over the empty top right corner, under the status bar, so nothing
                         // else on the player moves or changes size for it. Only on a tablet's two
