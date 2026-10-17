@@ -2036,5 +2036,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_delay">Sound delay on this phone</string>
     <string name="together_delay_value">%1$d ms</string>
     <string name="together_delay_explain">Bluetooth headphones and speakers play late. Set how late, and this phone makes up for it in rooms.</string>
+    <string name="together_qr">QR code</string>
+    <string name="together_qr_title">Scan to join</string>
+    <string name="together_qr_hint">Point the other phone\'s camera at this. It opens the room in InterTune.</string>
     <string name="together_removed">%1$s was removed. The room has a new code.</string>
 </resources>
