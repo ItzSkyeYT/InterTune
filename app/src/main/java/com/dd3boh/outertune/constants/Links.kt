@@ -28,4 +28,7 @@ object Links {
 
     /** The project's own address, for whatever is not a bug or a translation. */
     const val EMAIL = "intertune.dev@gmail.com"
+
+    /** Those who gave and said they do not mind being thanked by name, first first: About > Support InterTune. */
+    val SUPPORTERS = listOf("DNR")
 }

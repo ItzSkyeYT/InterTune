@@ -1861,4 +1861,8 @@
     <string name="together_repeat_all">Répète la file</string>
     <string name="together_more">et %1$d de plus</string>
     <string name="together_removed">%1$s a été retiré. Le salon a un nouveau code.</string>
+    <string name="support_title">Soutenir InterTune</string>
+    <string name="support_text">InterTune est gratuit et sans publicité. Pour faire un don, envoyez un message privé au développeur sur le serveur Discord d\'InterTune.</string>
+    <string name="support_thanks">Merci à ceux qui ont déjà donné :</string>
+    <string name="support_discord">Ouvrir Discord</string>
 </resources>

@@ -2075,4 +2075,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_repeat_all">Repeats the queue</string>
     <string name="together_more">and %1$d more</string>
     <string name="together_removed">%1$s was removed. The room has a new code.</string>
+    <string name="support_title">Support InterTune</string>
+    <string name="support_text">InterTune is free and has no ads. If you would like to donate, send the developer a direct message on the InterTune Discord server.</string>
+    <string name="support_thanks">Thanks to those who already gave:</string>
+    <string name="support_discord">Open Discord</string>
 </resources>
