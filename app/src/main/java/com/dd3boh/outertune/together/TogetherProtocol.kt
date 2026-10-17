@@ -8,21 +8,30 @@ package com.dd3boh.outertune.together
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.double
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
 import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
 import kotlin.math.abs
 
 /**
  * What the phones in a room tell each other, sealed with the room's key inside Nostr events of
  * [KIND], an ephemeral kind that relays pass on and do not keep. Each phone plays the song from
- * YouTube itself; only where the host is in it travels.
+ * YouTube itself; only where the leader is in it travels.
+ *
+ * Two roles: the owner made the room and alone can close it, send someone out or hand the lead
+ * over; the leader is the phone everyone follows. The owner leads until it hands the lead to
+ * someone, and can take it back.
  */
 sealed interface TogetherMessage {
-    /** The host's playback: sent on every change and every [HEARTBEAT_MS]. [atMs] is the host's clock. */
+    /** The leader's playback: sent on every change and every [HEARTBEAT_MS]. [atMs] is the leader's clock. */
     data class State(
         val songId: String,
         val title: String,
@@ -33,22 +42,45 @@ sealed interface TogetherMessage {
         val atMs: Long,
     ) : TogetherMessage
 
-    /** A guest asking the host's clock, [askedAtMs] on its own. */
+    /** A follower asking the leader's clock, [askedAtMs] on its own. */
     data class Ping(val askedAtMs: Long, val to: String) : TogetherMessage
 
-    /** The host's answer: [hostMs] its clock as it answered. */
+    /** The leader's answer: [hostMs] its clock as it answered. */
     data class Pong(val askedAtMs: Long, val hostMs: Long, val to: String) : TogetherMessage
 
-    /** Somebody in the room, said every [HERE_MS] so the others know who is still there. */
-    data class Here(val name: String, val host: Boolean) : TogetherMessage
+    /**
+     * Somebody in the room, said every [HERE_MS] so the others know who is still there. The owner's
+     * also says who leads, [lead] being that phone's key: the only word on it anyone takes.
+     */
+    data class Here(val name: String, val owner: Boolean, val lead: String? = null) : TogetherMessage
 
-    /** A guest's song for the host to play next (step 2 begun: the room's queue). */
+    /** A follower's song for the leader to play next. */
     data class Suggest(val songId: String, val title: String, val artist: String, val thumbnail: String, val by: String) : TogetherMessage
+
+    /**
+     * The leader's queue from the song playing on, in the order it plays, what autoplay added
+     * included, and its repeat mode (Player.REPEAT_MODE_*): followers show it, play it after the
+     * song and repeat as the leader does.
+     */
+    data class Queue(val songs: List<Song>, val repeat: Int, val shuffle: Boolean) : TogetherMessage
+
+    data class Song(val id: String, val title: String, val artist: String, val thumbnail: String)
+
+    /** The owner sends the phone with key [to] out of the room. */
+    data class Kick(val to: String) : TogetherMessage
+
+    /** The owner moves the room to a new code, sealed for the phone with key [to] alone (PairSeal). */
+    data class Move(val to: String, val sealedCode: String) : TogetherMessage
+
+    /** The owner closes the room. */
+    data object End : TogetherMessage
 
     companion object {
         const val KIND = 21430
         const val HEARTBEAT_MS = 2_000L
         const val HERE_MS = 10_000L
+        /** How many songs of the leader's queue travel, the one playing first. */
+        const val QUEUE_SONGS = 30
 
         fun encode(message: TogetherMessage): String = when (message) {
             is State -> buildJsonObject {
@@ -57,11 +89,25 @@ sealed interface TogetherMessage {
             }
             is Ping -> buildJsonObject { put("t", "ping"); put("c", message.askedAtMs); put("to", message.to) }
             is Pong -> buildJsonObject { put("t", "pong"); put("c", message.askedAtMs); put("h", message.hostMs); put("to", message.to) }
-            is Here -> buildJsonObject { put("t", "here"); put("name", message.name); put("host", message.host) }
+            is Here -> buildJsonObject {
+                put("t", "here"); put("name", message.name); put("owner", message.owner)
+                message.lead?.let { put("lead", it) }
+            }
             is Suggest -> buildJsonObject {
                 put("t", "suggest"); put("song", message.songId); put("title", message.title); put("artist", message.artist)
                 put("thumb", message.thumbnail); put("by", message.by)
             }
+            is Queue -> buildJsonObject {
+                put("t", "queue"); put("repeat", message.repeat); put("shuffle", message.shuffle)
+                putJsonArray("songs") {
+                    message.songs.forEach { song ->
+                        addJsonObject { put("id", song.id); put("title", song.title); put("artist", song.artist); put("thumb", song.thumbnail) }
+                    }
+                }
+            }
+            is Kick -> buildJsonObject { put("t", "kick"); put("to", message.to) }
+            is Move -> buildJsonObject { put("t", "move"); put("to", message.to); put("code", message.sealedCode) }
+            End -> buildJsonObject { put("t", "end") }
         }.toString()
 
         fun decode(text: String): TogetherMessage? = runCatching {
@@ -72,8 +118,20 @@ sealed interface TogetherMessage {
                 "state" -> State(s("song"), s("title"), s("artist"), l("pos"), o["playing"]!!.jsonPrimitive.boolean, o["speed"]!!.jsonPrimitive.double, l("at"))
                 "ping" -> Ping(l("c"), s("to"))
                 "pong" -> Pong(l("c"), l("h"), s("to"))
-                "here" -> Here(s("name"), o["host"]!!.jsonPrimitive.boolean)
+                "here" -> Here(s("name"), o["owner"]!!.jsonPrimitive.boolean, o["lead"]?.jsonPrimitive?.content)
                 "suggest" -> Suggest(s("song"), s("title"), s("artist"), s("thumb"), s("by"))
+                "queue" -> Queue(
+                    songs = o["songs"]!!.jsonArray.map { item ->
+                        val song = item.jsonObject
+                        fun f(key: String) = song[key]!!.jsonPrimitive.content
+                        Song(f("id"), f("title"), f("artist"), f("thumb"))
+                    },
+                    repeat = o["repeat"]!!.jsonPrimitive.int,
+                    shuffle = o["shuffle"]!!.jsonPrimitive.boolean,
+                )
+                "kick" -> Kick(s("to"))
+                "move" -> Move(s("to"), s("code"))
+                "end" -> End
                 else -> null
             }
         }.getOrNull()

@@ -108,7 +108,7 @@ fun SongMenu(
     val playerConnection = LocalPlayerConnection.current ?: return
     // A listening room this phone is a guest in, for Play next in the room (TogetherSession.suggest).
     val room by playerConnection.service.together.collectAsState()
-    val guestIn = room?.takeIf { !it.host }
+    val guestIn = room?.takeIf { it.following }
 
     val syncMode by rememberEnumPreference(key = YtmSyncModeKey, defaultValue = SyncMode.RW)
 

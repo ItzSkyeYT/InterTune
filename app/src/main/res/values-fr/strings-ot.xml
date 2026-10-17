@@ -1806,4 +1806,17 @@
     <string name="together_ahead">En avance</string>
     <string name="together_nothing_playing">Rien en lecture pour l\'instant</string>
     <string name="together_suggest_hint">Pour proposer un titre, appuyez longuement dessus et choisissez Jouer ensuite dans le salon.</string>
+    <string name="together_you_control">Vous avez la main</string>
+    <string name="together_has_control">%1$s a la main</string>
+    <string name="together_take_back">Reprendre la main</string>
+    <string name="together_give_control">Donner la main</string>
+    <string name="together_kick">Retirer du salon</string>
+    <string name="together_kicked">Vous avez été retiré du salon</string>
+    <string name="together_closed">Le salon a été fermé</string>
+    <string name="together_close_room">Fermer le salon</string>
+    <string name="together_up_next">À suivre dans le salon</string>
+    <string name="together_repeat_one">Répète ce titre</string>
+    <string name="together_repeat_all">Répète la file</string>
+    <string name="together_more">et %1$d de plus</string>
+    <string name="together_removed">%1$s a été retiré. Le salon a un nouveau code.</string>
 </resources>

@@ -85,7 +85,7 @@ fun YouTubeSongMenu(
 
     val librarySong by remember(song.id) { database.song(song.id) }.collectAsState(initial = null)
     val room by playerConnection.service.together.collectAsState()
-    val guestIn = room?.takeIf { !it.host }
+    val guestIn = room?.takeIf { it.following }
     val download by LocalDownloadUtil.current.getDownload(song.id).collectAsState(initial = null)
     val artists = remember {
         song.artists.mapNotNull {

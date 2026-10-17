@@ -93,6 +93,35 @@ class TogetherCoreTest {
     }
 
     @Test
+    fun `who leads, the queue, a kick, a move and the end go and come back whole`() {
+        val here = TogetherMessage.Here("Pixel 5", owner = true, lead = "ab12")
+        assertEquals(here, TogetherMessage.decode(TogetherMessage.encode(here)))
+        val guest = TogetherMessage.Here("Galaxy S25 Ultra", owner = false)
+        assertEquals(guest, TogetherMessage.decode(TogetherMessage.encode(guest)))
+        val queue = TogetherMessage.Queue(
+            listOf(TogetherMessage.Song("a", "A", "x", ""), TogetherMessage.Song("b", "B \"live\"", "y, z", "https://i.ytimg.com/vi/b/hq.jpg")),
+            repeat = 1,
+            shuffle = true,
+        )
+        assertEquals(queue, TogetherMessage.decode(TogetherMessage.encode(queue)))
+        assertEquals(TogetherMessage.Kick("cd"), TogetherMessage.decode(TogetherMessage.encode(TogetherMessage.Kick("cd"))))
+        assertEquals(TogetherMessage.Move("cd", "c2VhbGVk"), TogetherMessage.decode(TogetherMessage.encode(TogetherMessage.Move("cd", "c2VhbGVk"))))
+        assertEquals(TogetherMessage.End, TogetherMessage.decode(TogetherMessage.encode(TogetherMessage.End)))
+    }
+
+    @Test
+    fun `a new code sealed for one phone opens on that phone and no other`() {
+        val owner = Secp256k1.newSecretKey()
+        val stays = Secp256k1.newSecretKey()
+        val sentOut = Secp256k1.newSecretKey()
+        val ownerKey = Secp256k1.publicKey(owner).toHex()
+        val sealed = PairSeal.seal(owner, Secp256k1.publicKey(stays).toHex(), "K7QXM2PA9DTZ")!!
+        assertEquals("K7QXM2PA9DTZ", PairSeal.open(stays, ownerKey, sealed))
+        assertNull(PairSeal.open(sentOut, ownerKey, sealed))
+        assertNull(PairSeal.open(stays, ownerKey, sealed.dropLast(4) + "AAAA"))
+    }
+
+    @Test
     fun `the fastest pong sets the clock gap`() {
         val gap = ClockGap()
         gap.heard(askedAtMs = 1_000, hostMs = 6_100, nowMs = 1_200)      // 200 ms round trip, host 5 s ahead
