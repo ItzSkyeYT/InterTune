@@ -136,6 +136,9 @@ class ChainWalkTest {
         /** Whether each client asked could have carried the account, and what the po tokens were made for. */
         val couldCarryTheAccount = mutableMapOf<String, Boolean>()
         val tokensMadeFor = mutableListOf<String?>()
+
+        /** The same, ask by ask: one client name can be asked twice, as a visitor and as the account. */
+        val carriedInOrder = mutableListOf<Pair<String, Boolean>>()
         private val turn = mutableMapOf<String, Int>()
 
         override suspend fun player(
@@ -161,6 +164,7 @@ class ChainWalkTest {
             webPlayerPot?.let { playerTokens[name] = it }
             versions[name] = client.clientVersion
             couldCarryTheAccount[name] = client.loginSupported
+            carriedInOrder += name to client.loginSupported
             if (client.clientName == "WEB_REMIX") webRequestOut.countDown()
             if (asWebPage) askedAsWebPage += name
             val lines = says[name] ?: error("$name was not expected to be asked")
@@ -1338,5 +1342,62 @@ class ChainWalkTest {
         assertTrue(data.streamUrl.startsWith("https://ANDROID.example/"))
         assertNull("a song the account served is not a reason to ask as the account first", YTPlayerUtils.streamMemory.worked)
         assertEquals(setOf("ANDROID_VR", "VISIONOS", "IOS"), YTPlayerUtils.streamMemory.refusedAt.keys)
+    }
+
+    /** What every client said of DNR's song on 17 Oct 2026 (iatafGmv2Iw), the account's included in 0.11. */
+    private val ageGate = "Sign in to confirm your age"
+
+    @Test
+    fun `signed in, a song behind the age gate is asked at the end of the web client as the account, and plays`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        YouTube.cookie = "SAPISID=made-up"
+        YouTube.dataSyncId = "ACCOUNT-DATASYNC-ID"
+        val script = Script(
+            says = mapOf(
+                "VISIONOS" to listOf(refused(ageGate)),
+                "ANDROID_VR" to listOf(refused(ageGate)),
+                "IOS" to listOf(refused(ageGate)),
+                // The chain's own web client as a visitor, then the same client as the account.
+                "WEB_REMIX" to listOf(refused(ageGate), ciphered()),
+            ),
+            playerScript = playerScript,
+            solver = solving,
+            canSolve = true,
+        )
+        val data = walk(script).getOrThrow()
+
+        assertEquals(
+            "VISIONOS LOGIN_REQUIRED, ANDROID_VR LOGIN_REQUIRED, WEB_REMIX LOGIN_REQUIRED, IOS LOGIN_REQUIRED, " +
+                "WEB_REMIX (account) OK, HEAD 200 with the video's token",
+            YTPlayerUtils.lastStreamTrail,
+        )
+        assertEquals("ANDROID as the account is not asked: YouTube answers it 400", false, "ANDROID" in script.askedOf)
+        assertEquals("the visitor's web client carried no cookie, the account's did", listOf("WEB_REMIX" to false, "WEB_REMIX" to true), script.carriedInOrder.filter { it.first == "WEB_REMIX" })
+        assertEquals("both asked as the page asks", listOf("WEB_REMIX", "WEB_REMIX"), script.askedAsWebPage)
+        assertEquals("the account's tokens are made for the account, the visitor's for the visitor", setOf<String?>(visitor, "ACCOUNT-DATASYNC-ID"), script.tokensMadeFor.toSet())
+        assertEquals(2, script.tokensMadeFor.size)
+        assertEquals(asked(Script.VIDEO_TOKEN), data.streamUrl)
+        assertTrue(data.validated)
+        assertTrue("a song the account served is not a reason to ask as the account first", YTPlayerUtils.streamMemory.worked?.contains("account") != true)
+    }
+
+    @Test
+    fun `with playback always as the account, the web client as the account is asked first`() {
+        YouTube.cookie = "SAPISID=made-up"
+        YouTube.dataSyncId = "ACCOUNT-DATASYNC-ID"
+        YTPlayerUtils.authMode = PlaybackAuthMode.ALWAYS
+        val script = Script(
+            says = mapOf("ANDROID_VR" to listOf(refused(bot)), "WEB_REMIX" to listOf(ciphered())),
+            playerScript = playerScript,
+            solver = solving,
+            canSolve = true,
+        )
+        val data = walk(script).getOrThrow()
+
+        // The main client first, as with every chain walked as written, and then the account.
+        assertEquals(listOf("ANDROID_VR" to false, "WEB_REMIX" to true), script.carriedInOrder)
+        assertEquals("ANDROID_VR LOGIN_REQUIRED, WEB_REMIX (account) OK, HEAD 200 with the video's token", YTPlayerUtils.lastStreamTrail)
+        assertEquals(listOf<String?>("ACCOUNT-DATASYNC-ID"), script.tokensMadeFor)
+        assertEquals(asked(Script.VIDEO_TOKEN), data.streamUrl)
     }
 }
