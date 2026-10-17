@@ -9,10 +9,11 @@
 [![release](https://img.shields.io/github/v/release/ItzSkyeYT/InterTune?label=release&color=ed5564&labelColor=1b1f24)](https://github.com/ItzSkyeYT/InterTune/releases/latest)
 [![downloads](https://img.shields.io/github/downloads/ItzSkyeYT/InterTune/total?color=ed5564&labelColor=1b1f24)](https://github.com/ItzSkyeYT/InterTune/releases)
 [![discord](https://img.shields.io/badge/discord-join-5865f2?logo=discord&logoColor=white&labelColor=1b1f24)](https://discord.gg/68jmqhMjXk)
+[![donors](https://img.shields.io/badge/donors-thank%20you-ed5564?labelColor=1b1f24)](#donors)
 [![translated](https://hosted.weblate.org/widget/intertune/strings/svg-badge.svg)](https://hosted.weblate.org/engage/intertune/)
 [![licence](https://img.shields.io/badge/licence-GPL--3.0-ed5564?labelColor=1b1f24)](https://github.com/ItzSkyeYT/InterTune/tree/visionos-fix/LICENSE)
 
-[Download](#download) · [Features](#features) · [Good to know](#good-to-know) · [Wiki](https://github.com/ItzSkyeYT/InterTune/wiki) · [Discord](https://discord.gg/68jmqhMjXk)
+[Download](#download) · [Features](#features) · [Good to know](#good-to-know) · [Wiki](https://github.com/ItzSkyeYT/InterTune/wiki) · [Discord](https://discord.gg/68jmqhMjXk) · [Donors](#donors)
 
 </div>
 
@@ -176,6 +177,23 @@ JDK 21 and an Android SDK with `platforms;android-36`, `ndk;29.0.13113456` and `
 </a>
 
 Thank you so much, everyone, for your support in this growing project!
+
+## Donors
+
+<p align="center">InterTune is free and has no ads. These people gave something back anyway, and that keeps the project going. It means a lot, <b>thank you!</b></p>
+
+<div align="center">
+<table>
+  <tr>
+    <td valign="middle"><img src="https://raw.githubusercontent.com/ItzSkyeYT/InterTune/visionos-fix/assets/donors/dnr.png" width="42" height="42" alt="DNR"></td>
+    <td valign="middle"><b>DNR</b><br><sub>The very first donation</sub><br><sub>October 2026</sub></td>
+  </tr>
+</table>
+</div>
+
+<br>
+
+<p align="center"><b>Want your name here?</b> Send me a direct message on the <a href="https://discord.gg/68jmqhMjXk">Discord server</a>!</p>
 
 ## Special thanks
 
