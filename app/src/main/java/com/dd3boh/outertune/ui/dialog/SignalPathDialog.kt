@@ -14,6 +14,9 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -208,11 +211,13 @@ fun SignalPathDialog(currentFormat: FormatEntity?, local: Boolean, onDismiss: ()
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(16.dp))
-                stages.forEach { stage ->
+                stages.forEachIndexed { index, stage ->
                     StageRow(
                         colour = colourOf(stage.kind),
                         title = stringResource(stage.title),
                         detail = stringResource(stage.detail, *stage.args.toTypedArray()),
+                        first = index == 0,
+                        last = index == stages.lastIndex,
                     )
                 }
                 Spacer(Modifier.height(8.dp))
@@ -231,20 +236,23 @@ private fun colourOf(kind: SignalPath.Kind): Color = when (kind) {
     SignalPath.Kind.WHERE -> MaterialTheme.colorScheme.outline
 }
 
+/** One stage, its dot joined to the ones above and below by a line: the path the sound takes. */
 @Composable
-private fun StageRow(colour: Color, title: String, detail: String) {
+private fun StageRow(colour: Color, title: String, detail: String, first: Boolean, last: Boolean) {
+    val line = MaterialTheme.colorScheme.outlineVariant
     Row(
-        verticalAlignment = Alignment.Top,
         horizontalArrangement = Arrangement.spacedBy(16.dp),
-        modifier = Modifier.padding(vertical = 8.dp),
+        modifier = Modifier.height(IntrinsicSize.Min),
     ) {
-        Box(
-            Modifier
-                .padding(top = 4.dp)
-                .size(14.dp)
-                .background(colour, CircleShape)
-        )
-        Column {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxHeight(),
+        ) {
+            Box(Modifier.width(2.dp).height(12.dp).background(if (first) Color.Transparent else line))
+            Box(Modifier.size(14.dp).background(colour, CircleShape))
+            Box(Modifier.width(2.dp).weight(1f).background(if (last) Color.Transparent else line))
+        }
+        Column(Modifier.padding(vertical = 8.dp)) {
             Text(title, style = MaterialTheme.typography.titleSmall)
             Text(detail, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
