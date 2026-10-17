@@ -1788,5 +1788,7 @@
     <string name="together_join_title">Rejoindre ce salon d\'écoute ?</string>
     <string name="together_share">Partager l\'invitation</string>
     <string name="together_invite_text">Écoute avec moi sur InterTune : salon %1$s. Ouvre %2$s, ou tape le code dans Écouter ensemble, dans le menu du lecteur.</string>
+    <string name="together_own_way">Vous écoutez de votre côté</string>
+    <string name="together_catch_up">Rattraper</string>
     <string name="together_close">Fermer</string>
 </resources>

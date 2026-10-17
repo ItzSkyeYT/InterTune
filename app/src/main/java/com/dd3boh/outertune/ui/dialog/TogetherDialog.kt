@@ -120,9 +120,13 @@ fun TogetherDialog(onDismiss: () -> Unit) {
                     val line = when {
                         room.host -> stringResource(R.string.together_hosting)
                         status.waitingForHost -> stringResource(R.string.together_waiting)
+                        status.ownWay -> stringResource(R.string.together_own_way)
                         else -> stringResource(R.string.together_following, status.hostSong.orEmpty())
                     }
                     Text(line, style = MaterialTheme.typography.bodyLarge)
+                    if (!room.host && status.ownWay) {
+                        Button(onClick = { room.catchUp() }) { Text(stringResource(R.string.together_catch_up)) }
+                    }
                     if (!room.host) status.driftMs?.let { drift ->
                         Text(
                             stringResource(if (abs(drift) <= 25) R.string.together_in_step else R.string.together_catching_up, abs(drift).toInt()),
