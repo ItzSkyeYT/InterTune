@@ -1,36 +1,37 @@
 # Building
 
-When cloning the repository, please clone submodules recursively.
+Building needs JDK 21. From a clone with its submodules (taglib, and ffMetadataEx for the full flavour) to an app:
 
-```agsl
-git clone --recurse-submodules <url>
+```bash
+git clone --recurse-submodules https://github.com/ItzSkyeYT/InterTune.git
+cd InterTune
+./gradlew assembleCoreDebug
 ```
 
-If any weird errors show up with modules, updating submodules may solve your issue. media and taglib are required
-modules. ffMetadataEx is required for only the "full" build variant
+The APK is then in `app/build/outputs/apk/core/debug/`. Android Studio opens the folder as it is and builds the same way.
+
+On a clone made without the submodules, or when a build fails in one of them, fetch them again:
 
 ```bash
 git submodule update --init --recursive
 ```
 
-For most users, we recommend importing and building through Android Studio.
+The app runs on Android 7.0 and newer.
 
-## Build flavors/variants
+## Flavours and build types
 
-There are the following build flavours
+| Flavour | What it is |
+|---|---|
+| `core` | The default, and what every release is |
+| `full` | Core plus FFmpeg: a tag reader for local files and more audio decoders. Larger, and it needs [extra setup](https://github.com/OuterTune/ffMetadataEx/blob/main/README.md#building) |
 
-```
-core
-full
-```
+| Build type | Installs as | For |
+|---|---|---|
+| `debug` | `dev.skye.intertune.debug` | Everyday work, with the features that are still in progress switched on |
+| `preview` | `dev.skye.intertune.preview` | The same, installed beside a debug build, to try something on a fresh profile |
+| `release` | `dev.skye.intertune` | Releases: shrunk, and signed only where the signing key is |
 
-| Flavour | Architecture support                | Version update checker | FFmpeg metadata tag extractor | FFmpeg audio decoders | 
-|---------|-------------------------------------|------------------------|-------------------------------|-----------------------|
-| core    | arm64-v8a, armeabi-v7a, x86, x86_64 | ❌                      | ❌                             | ❌                     |
-| full    | arm64-v8a, armeabi-v7a, x86, x86_64 | ✅                      | ✅                             | ✅                     |
-
-**Extra setup is required for the `full` variant.** Please
-see https://github.com/OuterTune/ffMetadataEx/blob/main/README.md#building
+Debug and preview builds install next to the released app, so they never touch the library in it.
 
 <br/><br/>
 
