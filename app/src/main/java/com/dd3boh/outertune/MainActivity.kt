@@ -1118,7 +1118,7 @@ class MainActivity : ComponentActivity() {
                     }
                     // A listening room's invite, opened from a link: asked before joining.
                     var togetherInvite by remember { mutableStateOf<RoomCode?>(null) }
-                    togetherInvite?.let { code -> TogetherInviteDialog(code, onDone = { togetherInvite = null }) }
+                    togetherInvite?.let { code -> TogetherInviteDialog(code, playerConnection, onDone = { togetherInvite = null }) }
                     LaunchedEffect(pendingLaunchLink, pendingLink.link, playerConnection, oobeStatus) {
                         val link = pendingLaunchLink ?: pendingLink.link ?: return@LaunchedEffect
                         val connection = playerConnection ?: return@LaunchedEffect

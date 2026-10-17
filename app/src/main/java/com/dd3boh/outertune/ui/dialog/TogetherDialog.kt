@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.playback.PlayerConnection
 import com.dd3boh.outertune.constants.TogetherRelaysKey
 import com.dd3boh.outertune.together.RoomCode
 import com.dd3boh.outertune.together.TogetherSession
@@ -161,11 +162,15 @@ suspend fun togetherRelays(context: Context): List<String> =
         ?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }?.takeIf { it.isNotEmpty() }
         ?: TogetherSession.PUBLIC_RELAYS
 
-/** An invite opened from a link (intertune://together/<code>): asked once, then joined as a guest. */
+/**
+ * An invite opened from a link (intertune://together/<code>): asked once, then joined as a guest.
+ * Handed the player rather than reading LocalPlayerConnection: it is shown where links are opened,
+ * above where that is provided (the first two-phone run crashed on it, 17 Oct 2026).
+ */
 @Composable
-fun TogetherInviteDialog(code: RoomCode, onDone: () -> Unit) {
+fun TogetherInviteDialog(code: RoomCode, playerConnection: PlayerConnection?, onDone: () -> Unit) {
     val context = LocalContext.current
-    val playerConnection = LocalPlayerConnection.current ?: return
+    playerConnection ?: return
     val scope = rememberCoroutineScope()
     AlertDialog(
         onDismissRequest = onDone,
