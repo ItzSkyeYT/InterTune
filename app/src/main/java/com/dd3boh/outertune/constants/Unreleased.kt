@@ -102,11 +102,11 @@ object Unreleased {
 
     /**
      * "Living blur" among the player background styles: the cover reduced to patches of colour
-     * that breathe with the music (LivingBackground, LevelTap). A prototype to look at, not agreed
-     * for any release. When it is: set this to true or delete it with the two checks that read
-     * it, in Player.kt and ThemeFrag, and make player_background_living translatable.
+     * that breathe with the music (LivingBackground, LevelTap). On in every build from 0.12
+     * (decided on 17 Oct 2026), with its words open to translators and in French. Left to tidy:
+     * the flag and the checks that read it, in Player.kt, LyricsCard, ThemeFrag and Walkthrough.kt.
      */
-    val LIVING_BACKGROUND = BuildConfig.DEBUG
+    val LIVING_BACKGROUND = true
 
     /**
      * The welcome back page: after an update, what is new since the version somebody came from,

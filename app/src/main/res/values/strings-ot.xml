@@ -226,20 +226,19 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="player_background_blur">Blur</string>
     <string name="player_background_default">Follow theme</string>
     <string name="player_background_gradient">Gradient</string>
-    <!-- A prototype shown in debug builds only (Unreleased.LIVING_BACKGROUND): not for translators until it ships. -->
-    <string name="player_background_living" translatable="false">Living blur</string>
-    <string name="player_living_strength" translatable="false">Living blur strength</string>
-    <string name="player_living_strength_description" translatable="false">How much the background and the glow round the cover move with the music. At 0 it only drifts.</string>
-    <string name="player_living_smoothing" translatable="false">Living blur smoothing</string>
-    <string name="player_living_colours" translatable="false">Living blur colours</string>
-    <string name="player_living_colours_main" translatable="false">Three of the cover\'s colours: one each for the bass, the voice and the highs</string>
-    <string name="player_living_colours_cover" translatable="false">The cover itself, blurred</string>
-    <string name="player_living_sample_playing" translatable="false">Move the sliders while it plays.</string>
-    <string name="player_living_sample_silent" translatable="false">Nothing is playing, so it has nothing to move to.</string>
-    <string name="player_living_sample_play" translatable="false">Play a song to tune by</string>
-    <string name="player_living_sample_queue" translatable="false">Tuning Living blur</string>
-    <string name="player_living_sample_nothing" translatable="false">There is no song of yours to play yet. Play one, then come back.</string>
-    <string name="player_living_smoothing_description" translatable="false">How softly it follows the music. Low jumps with every hit, high swells and lingers.</string>
+    <string name="player_background_living">Living blur</string>
+    <string name="player_living_strength">Living blur strength</string>
+    <string name="player_living_strength_description">How much the background and the glow round the cover move with the music. At 0 it only drifts.</string>
+    <string name="player_living_smoothing">Living blur smoothing</string>
+    <string name="player_living_colours">Living blur colours</string>
+    <string name="player_living_colours_main">Three of the cover\'s colours: one each for the bass, the voice and the highs</string>
+    <string name="player_living_colours_cover">The cover itself, blurred</string>
+    <string name="player_living_sample_playing">Move the sliders while it plays.</string>
+    <string name="player_living_sample_silent">Nothing is playing, so it has nothing to move to.</string>
+    <string name="player_living_sample_play">Play a song to tune by</string>
+    <string name="player_living_sample_queue">Tuning Living blur</string>
+    <string name="player_living_sample_nothing">There is no song of yours to play yet. Play one, then come back.</string>
+    <string name="player_living_smoothing_description">How softly it follows the music. Low jumps with every hit, high swells and lingers.</string>
     <string name="player_background_style">Player background style</string>
     <string name="show_liked_and_downloaded_playlist">Show playlists for liked and downloaded songs in library</string>
     <string name="slim_navbar_title">Slim navbar</string>
@@ -821,10 +820,10 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="welcome_card_see">See</string>
     <string name="welcome_card_dismiss">Dismiss this note</string>
 
-    <string name="new_living_blur_title" translatable="false">A background that moves with the music</string>
-    <string name="new_living_blur_body" translatable="false">Living blur: the player\'s background breathes with the song and glows round the cover on every beat.</string>
-    <string name="new_living_blur_way" translatable="false">The player\'s background is set in here: what you see behind the cover while a song plays.</string>
-    <string name="new_living_blur_here" translatable="false">What is behind the player: the theme\'s colour, or a gradient or a blur made from the cover. Living blur is the blur that moves with the music, and two sliders appear under it.</string>
+    <string name="new_living_blur_title">A background that moves with the music</string>
+    <string name="new_living_blur_body">Living blur: the player\'s background breathes with the song and glows round the cover on every beat.</string>
+    <string name="new_living_blur_way">The player\'s background is set in here: what you see behind the cover while a song plays.</string>
+    <string name="new_living_blur_here">What is behind the player: the theme\'s colour, or a gradient or a blur made from the cover. Living blur is the blur that moves with the music, and its own settings appear under it.</string>
     <string name="new_share_links_title" translatable="false">Links for any music app</string>
     <string name="new_share_links_body" translatable="false">Share can send a page where whoever opens it picks their own music app, instead of a YouTube Music link.</string>
     <string name="new_share_links_way" translatable="false">What Share sends is set in here: the YouTube Music link, or a page for any music app.</string>
