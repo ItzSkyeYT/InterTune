@@ -248,6 +248,11 @@ data class TogetherTuning(val toleranceMs: Long, val maxNudge: Double, val delay
  * plays at the leader's speed and lets readings within [toleranceMs] pass. Only a gap past that
  * for [UNLOCK_LOOKS] looks running unlocks it, and it corrects until it is in step and locks
  * again. A gap past [Follow.DRIFT_MS] is a jump at once, locked or not: the leader seeked.
+ *
+ * Nor does the lock leave a steady lag be (his find of 17 Oct 2026 on two phones: locked, a guest
+ * sat a little behind for good, inside the tolerance). The middle of the last [LAG_LOOKS] readings
+ * past [Follow.IN_STEP_MS] unlocks it as well. A wobble round zero leaves that middle near zero,
+ * and a burst of a few readings cannot move it; a lag that stays does.
  */
 class SyncLock(
     var toleranceMs: Long = DEFAULT_TOLERANCE_MS,
@@ -257,18 +262,25 @@ class SyncLock(
         private set
     private var inStep = 0
     private var off = 0
+    /** The last readings, signed, oldest first: [LAG_LOOKS] of them at most. */
+    private val recent = ArrayDeque<Long>()
 
     fun decide(targetMs: Long, localMs: Long, hostSpeed: Double): Follow {
-        val gap = abs(targetMs - localMs)
+        val drift = targetMs - localMs
+        val gap = abs(drift)
         if (gap > Follow.DRIFT_MS) {
             reset()
             return Follow.Seek(targetMs)
         }
+        recent.addLast(drift)
+        if (recent.size > LAG_LOOKS) recent.removeFirst()
         if (locked) {
             off = if (gap > toleranceMs) off + 1 else 0
-            if (off < UNLOCK_LOOKS) return Follow.Steady(hostSpeed)
+            val lagging = recent.size == LAG_LOOKS && abs(middle(recent)) > Follow.IN_STEP_MS
+            if (off < UNLOCK_LOOKS && !lagging) return Follow.Steady(hostSpeed)
             locked = false
             off = 0
+            recent.clear()
         }
         inStep = if (gap <= Follow.IN_STEP_MS) inStep + 1 else 0
         if (inStep >= LOCK_LOOKS) locked = true
@@ -280,6 +292,14 @@ class SyncLock(
         locked = false
         inStep = 0
         off = 0
+        recent.clear()
+    }
+
+    /** The middle of [readings]: of two middles, their mean. */
+    private fun middle(readings: Collection<Long>): Double {
+        val sorted = readings.sorted()
+        val half = sorted.size / 2
+        return if (sorted.size % 2 == 1) sorted[half].toDouble() else (sorted[half - 1] + sorted[half]) / 2.0
     }
 
     companion object {
@@ -287,6 +307,8 @@ class SyncLock(
         const val LOCK_LOOKS = 8
         /** And a second past the tolerance before it corrects again. */
         const val UNLOCK_LOOKS = 4
+        /** Four seconds of readings for a steady lag: longer than any burst, short enough to hear little of it. */
+        const val LAG_LOOKS = 16
         const val DEFAULT_TOLERANCE_MS = 60L
         /** Above [Follow.IN_STEP_MS], or it would lock and unlock on the same readings. */
         const val MIN_TOLERANCE_MS = 30L
