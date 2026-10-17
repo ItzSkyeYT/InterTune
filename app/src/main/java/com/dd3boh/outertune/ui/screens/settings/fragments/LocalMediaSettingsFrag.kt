@@ -31,9 +31,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.FolderOpen
-import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.TextFields
@@ -754,7 +754,7 @@ fun ColumnScope.LocalScannerExtraFrag() {
     EnumListPreference(
         modifier = Modifier.tourTarget(Tour.SETTING_SCANNER_SENSITIVITY),
         title = { Text(stringResource(R.string.scanner_sensitivity_title)) },
-        icon = { Icon(Icons.Rounded.GraphicEq, null) },
+        icon = { Icon(Icons.Rounded.Tune, null) },
         selectedValue = scannerSensitivity,
         onValueSelected = onScannerSensitivityChange,
         valueText = {
