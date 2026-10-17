@@ -549,6 +549,9 @@ val RecognisePauseOnSpeakerKey = booleanPreferencesKey("recognisePauseOnSpeaker"
 /** Seconds of audio taken per identification attempt. MicrophoneListener.DEFAULT_SECONDS. */
 val RecogniseListenSecondsKey = intPreferencesKey("recogniseListenSeconds")
 
+/** Debug builds: the Nostr relays listening rooms use instead of the public ones, comma separated (TogetherSession). */
+val TogetherRelaysKey = stringPreferencesKey("togetherRelays")
+
 /** Add confident matches to the playlist without being asked. Continuous runs only. */
 val RecogniseAutoAddKey = booleanPreferencesKey("recogniseAutoAdd")
 

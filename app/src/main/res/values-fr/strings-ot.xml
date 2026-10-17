@@ -1770,4 +1770,20 @@
         <item quantity="other">Une image prend %1$d lignes au plus, une vidéo une minute de la chanson</item>
     </plurals>
     <string name="queue_from_search">« %1$s »</string>
+    <!-- Listen together (TogetherDialog), step 1, debug and Preview builds. -->
+    <string name="together_title">Écouter ensemble</string>
+    <string name="together_intro">Créez un salon et partagez son code, ou tapez celui du salon d\'un ami. Tout le monde entend ce que joue l\'hôte, chaque téléphone le jouant depuis YouTube.</string>
+    <string name="together_start">Créer un salon</string>
+    <string name="together_code">Code du salon</string>
+    <string name="together_join">Rejoindre</string>
+    <string name="together_copy">Copier le code</string>
+    <string name="together_hosting">Vous menez le salon. Partagez son code.</string>
+    <string name="together_waiting">En attente de l\'hôte</string>
+    <string name="together_following">Vous suivez l\'hôte : %1$s</string>
+    <string name="together_in_step">Synchronisé, à %1$d ms</string>
+    <string name="together_catching_up">Rattrapage, à %1$d ms</string>
+    <string name="together_others">Autres personnes dans le salon : %1$d</string>
+    <string name="together_relays">Relais connectés : %1$d</string>
+    <string name="together_leave">Quitter</string>
+    <string name="together_close">Fermer</string>
 </resources>

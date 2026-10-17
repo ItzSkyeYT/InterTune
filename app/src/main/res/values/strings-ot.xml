@@ -1977,4 +1977,20 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="other">A picture takes up to %1$d lines, a video a minute of the song</item>
     </plurals>
     <string name="queue_from_search">“%1$s”</string>
+    <!-- Listen together (TogetherDialog), step 1, debug and Preview builds. -->
+    <string name="together_title">Listen together</string>
+    <string name="together_intro">Start a room and share its code, or type the code of a friend\'s room. Everyone hears what the host plays, each phone playing it from YouTube.</string>
+    <string name="together_start">Start a room</string>
+    <string name="together_code">Room code</string>
+    <string name="together_join">Join</string>
+    <string name="together_copy">Copy the code</string>
+    <string name="together_hosting">You lead the room. Share its code.</string>
+    <string name="together_waiting">Waiting for the host</string>
+    <string name="together_following">Following the host: %1$s</string>
+    <string name="together_in_step">In step, %1$d ms apart</string>
+    <string name="together_catching_up">Catching up, %1$d ms apart</string>
+    <string name="together_others">Others in the room: %1$d</string>
+    <string name="together_relays">Relays connected: %1$d</string>
+    <string name="together_leave">Leave</string>
+    <string name="together_close">Close</string>
 </resources>
