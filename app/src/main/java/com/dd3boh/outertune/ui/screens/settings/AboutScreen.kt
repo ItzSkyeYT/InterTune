@@ -88,6 +88,8 @@ import androidx.compose.runtime.setValue
 import com.dd3boh.outertune.ui.component.ProblemReportDialog
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
+import androidx.compose.material.icons.rounded.VolunteerActivism
+import com.dd3boh.outertune.ui.dialog.SupportDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -99,6 +101,8 @@ fun AboutScreen(
     val clipboardManager = LocalClipboard.current
     val uriHandler = LocalUriHandler.current
     var reportingProblem by rememberSaveable { mutableStateOf(false) }
+    var supporting by rememberSaveable { mutableStateOf(false) }
+    if (supporting) SupportDialog(onDismiss = { supporting = false })
     if (reportingProblem) ProblemReportDialog(onDismiss = { reportingProblem = false })
 
     val showDebugInfo = BuildConfig.DEBUG || BuildConfig.BUILD_TYPE == "userdebug"
@@ -270,6 +274,12 @@ fun AboutScreen(
                     onClick = {
                         uriHandler.openUri(Links.TRANSLATE)
                     }
+                )
+                // Another way to help.
+                PreferenceEntry(
+                    title = { Text(stringResource(R.string.support_title)) },
+                    icon = { Icon(Icons.Rounded.VolunteerActivism, null) },
+                    onClick = { supporting = true },
                 )
                 PreferenceEntry(
                     title = { Text(stringResource(R.string.help_contact_email_inquiries)) },
