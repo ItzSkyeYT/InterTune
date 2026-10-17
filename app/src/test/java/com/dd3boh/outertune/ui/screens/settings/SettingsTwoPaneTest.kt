@@ -16,10 +16,19 @@ class SettingsTwoPaneTest {
 
     @Test
     fun `the list has the four groups of the upright cards, fourteen screens in all`() {
-        val groups = settingsGroups(engine = true)
+        val groups = settingsGroups(engine = true, together = false)
         assertEquals(listOf(3, 4, 3, 4), groups.map { it.size })
         assertEquals("settings/account_sync", groups.first().first().route)
         assertEquals("settings/about", groups.last().last().route)
+    }
+
+    @Test
+    fun `where rooms are offered, Listen together comes last in its group and nothing moves`() {
+        val without = settingsGroups(engine = true, together = false)
+        val with = settingsGroups(engine = true, together = true)
+        assertEquals("settings/together", with[1].last().route)
+        assertEquals(without[1], with[1].dropLast(1))
+        assertEquals(without.flatten().map { it.route }, with.flatten().map { it.route } - "settings/together")
     }
 
     @Test

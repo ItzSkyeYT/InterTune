@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.ui.screens.settings
 
+import com.dd3boh.outertune.ui.dialog.togetherAvailable
 import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
@@ -35,6 +36,7 @@ import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.Group
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.Palette
@@ -101,17 +103,19 @@ internal data class SettingsCategory(val route: String, @StringRes val title: In
  * The screens of settings in the list's four groups, the ones the cards of the upright list are:
  * your music, how the app presents it, what it keeps on the device, the app itself.
  */
-internal fun settingsGroups(engine: Boolean = Unreleased.ENGINE): List<List<SettingsCategory>> = listOf(
+internal fun settingsGroups(engine: Boolean = Unreleased.ENGINE, together: Boolean = togetherAvailable): List<List<SettingsCategory>> = listOf(
     listOf(
         SettingsCategory("settings/account_sync", R.string.grp_account_sync, Icons.Rounded.AccountCircle),
         SettingsCategory("settings/library", R.string.grp_library_and_content, Icons.AutoMirrored.Rounded.LibraryBooks),
         SettingsCategory("settings/local", R.string.local_player_settings_title, Icons.Rounded.SdCard),
     ),
-    listOf(
+    listOfNotNull(
         SettingsCategory(Tour.ROUTE_LOOK_AND_FEEL, R.string.look_and_feel, Icons.Rounded.Palette),
         SettingsCategory("settings/player", R.string.player_and_audio, Icons.Rounded.PlayArrow),
         SettingsCategory("settings/recognition", R.string.recognise_settings, Icons.Rounded.GraphicEq),
         SettingsCategory("settings/library/lyrics", R.string.lyrics_settings_title, Icons.Rounded.Lyrics),
+        // Last of the group, so that no entry above it moves where rooms are offered.
+        SettingsCategory("settings/together", R.string.together_title, Icons.Rounded.Group).takeIf { together },
     ),
     listOf(
         SettingsCategory("settings/storage", R.string.grp_storage_and_downloads, Icons.Rounded.Storage),
@@ -393,6 +397,7 @@ private fun SettingsPane(route: String, navController: NavController, scrollBeha
         "settings/player" -> PlayerSettings(navController, scrollBehavior)
         "settings/recognition" -> RecognitionSettings(navController, scrollBehavior)
         "settings/library/lyrics" -> LyricsSettings(navController, scrollBehavior)
+        "settings/together" -> ListenTogetherSettings(navController, scrollBehavior)
         "settings/storage" -> StorageSettings(navController, scrollBehavior)
         "settings/backup" -> BackupSettings(navController, scrollBehavior)
         "settings/privacy" -> PrivacySettings(navController, scrollBehavior)

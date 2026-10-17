@@ -59,8 +59,9 @@ sealed interface TogetherMessage {
 
     /**
      * The leader's queue from the song playing on, in the order it plays, what autoplay added
-     * included, and its repeat mode (Player.REPEAT_MODE_*): followers show it, play it after the
-     * song and repeat as the leader does.
+     * included, and its repeat mode (Player.REPEAT_MODE_*): a follower's own queue is made this
+     * one, so it plays the same song next and repeats as the leader does. It is not shown in the
+     * room (his word of 17 Oct 2026: shared "so the client has an idea what will happen").
      */
     data class Queue(val songs: List<Song>, val repeat: Int, val shuffle: Boolean) : TogetherMessage
 
@@ -188,14 +189,89 @@ sealed interface Follow {
         fun target(state: TogetherMessage.State, hostNowMs: Long): Long =
             if (state.playing) state.positionMs + ((hostNowMs - state.atMs) * state.speed).toLong() else state.positionMs
 
-        /** What to do, playing at [localMs] while the host is at [targetMs]. */
-        fun decide(targetMs: Long, localMs: Long, hostSpeed: Double): Follow {
+        /** What to do, playing at [localMs] while the host is at [targetMs], nudging by [maxNudge] at most. */
+        fun decide(targetMs: Long, localMs: Long, hostSpeed: Double, maxNudge: Double = MAX_NUDGE): Follow {
             val drift = targetMs - localMs
             return when {
                 abs(drift) > DRIFT_MS -> Seek(targetMs)
                 abs(drift) <= IN_STEP_MS -> Steady(hostSpeed)
-                else -> Nudge(hostSpeed * (1 + MAX_NUDGE * (drift / NUDGE_FULL_MS).coerceIn(-1.0, 1.0)))
+                else -> Nudge(hostSpeed * (1 + maxNudge * (drift / NUDGE_FULL_MS).coerceIn(-1.0, 1.0)))
             }
         }
+    }
+}
+
+/** Settings > Listen together as a room uses them, each held to its range, unset ones at their default. */
+data class TogetherTuning(val toleranceMs: Long, val maxNudge: Double, val delayMs: Long) {
+    companion object {
+        const val DEFAULT_CATCH_UP_PERCENT = 5
+        const val MIN_CATCH_UP_PERCENT = 1
+        const val MAX_CATCH_UP_PERCENT = 5
+        const val MAX_DELAY_MS = 400L
+
+        fun of(toleranceMs: Int?, catchUpPercent: Int?, delayMs: Int?) = TogetherTuning(
+            toleranceMs = (toleranceMs?.toLong() ?: SyncLock.DEFAULT_TOLERANCE_MS)
+                .coerceIn(SyncLock.MIN_TOLERANCE_MS, SyncLock.MAX_TOLERANCE_MS),
+            maxNudge = (catchUpPercent ?: DEFAULT_CATCH_UP_PERCENT)
+                .coerceIn(MIN_CATCH_UP_PERCENT, MAX_CATCH_UP_PERCENT) / 100.0,
+            delayMs = (delayMs?.toLong() ?: 0L).coerceIn(0L, MAX_DELAY_MS),
+        )
+    }
+}
+
+/**
+ * Leaves the speed alone once a follower is in step (his word of 17 Oct 2026: "once it gets a
+ * solid lock on the song sync, it stops over adjusting and only starts adjusting once the song
+ * really starts drifting").
+ *
+ * The readings wobble by tens of ms on their own (the clock gap from pings, the leader's word
+ * every two seconds), so a follower that corrected every look past [Follow.IN_STEP_MS] kept
+ * speeding up and slowing down for nothing. In step for [LOCK_LOOKS] looks running, it locks: it
+ * plays at the leader's speed and lets readings within [toleranceMs] pass. Only a gap past that
+ * for [UNLOCK_LOOKS] looks running unlocks it, and it corrects until it is in step and locks
+ * again. A gap past [Follow.DRIFT_MS] is a jump at once, locked or not: the leader seeked.
+ */
+class SyncLock(
+    var toleranceMs: Long = DEFAULT_TOLERANCE_MS,
+    var maxNudge: Double = Follow.MAX_NUDGE,
+) {
+    var locked = false
+        private set
+    private var inStep = 0
+    private var off = 0
+
+    fun decide(targetMs: Long, localMs: Long, hostSpeed: Double): Follow {
+        val gap = abs(targetMs - localMs)
+        if (gap > Follow.DRIFT_MS) {
+            reset()
+            return Follow.Seek(targetMs)
+        }
+        if (locked) {
+            off = if (gap > toleranceMs) off + 1 else 0
+            if (off < UNLOCK_LOOKS) return Follow.Steady(hostSpeed)
+            locked = false
+            off = 0
+        }
+        inStep = if (gap <= Follow.IN_STEP_MS) inStep + 1 else 0
+        if (inStep >= LOCK_LOOKS) locked = true
+        return Follow.decide(targetMs, localMs, hostSpeed, maxNudge)
+    }
+
+    /** After a jump, another song or another leader: the lock is earned again. */
+    fun reset() {
+        locked = false
+        inStep = 0
+        off = 0
+    }
+
+    companion object {
+        /** Two seconds in step, at a look every quarter of a second. */
+        const val LOCK_LOOKS = 8
+        /** And a second past the tolerance before it corrects again. */
+        const val UNLOCK_LOOKS = 4
+        const val DEFAULT_TOLERANCE_MS = 60L
+        /** Above [Follow.IN_STEP_MS], or it would lock and unlock on the same readings. */
+        const val MIN_TOLERANCE_MS = 30L
+        const val MAX_TOLERANCE_MS = 200L
     }
 }

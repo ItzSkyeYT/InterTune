@@ -2839,6 +2839,8 @@ class MusicService : MediaLibraryService(),
      * @param strong the listener just said something clear, so reach further and lock less.
      */
     private fun replanQueueTail(strong: Boolean = false) {
+        // A follower's queue is the leader's, song for song: nothing is dropped from it here.
+        if (together.value?.following == true) return
         if (adaptiveQueueMode == AdaptiveQueueMode.OFF) {
             adaptiveTailActive.value = false
             return
@@ -3343,7 +3345,10 @@ class MusicService : MediaLibraryService(),
         // Not on a transition to no song at all. That is the player being emptied, by a swipe of
         // the mini player or a queue with nothing left in it, and an empty player reads as having
         // no songs left, so every swipe during a radio asked for another page.
+        // Nor in a listening room that follows someone: its queue is the leader's, and a page of
+        // its own made it longer than the leader's and different (his find of 17 Oct 2026).
         if (autoLoadMore &&
+            together.value?.following != true &&
             mediaItem != null &&
             reason != Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT &&
             activePlayer.mediaItemCount - activePlayer.currentMediaItemIndex <= 5 &&
