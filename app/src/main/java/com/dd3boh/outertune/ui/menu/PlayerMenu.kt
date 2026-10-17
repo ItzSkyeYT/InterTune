@@ -195,6 +195,8 @@ fun PlayerMenu(
             local = mediaMetadata.isLocal,
             onDismiss = { showSignalPath = false },
         )
+    }
+
     var showTogether by rememberSaveable {
         mutableStateOf(false)
     }
@@ -397,6 +399,7 @@ fun PlayerMenu(
             title = R.string.signal_path
         ) {
             showSignalPath = true
+        }
         if (Unreleased.LISTEN_TOGETHER) {
             GridMenuItem(
                 icon = Icons.Rounded.Group,
