@@ -379,7 +379,8 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
             // For a phone beside this one: its camera reads the code. Before Copy and Share,
             // which keep their places and their words.
-            OutlinedIconButton(onClick = { showingQr = true }) {
+            // Copy's own outline: the icon button's default is the stronger one, and it read heavier than its neighbours.
+            OutlinedIconButton(onClick = { showingQr = true }, border = ButtonDefaults.outlinedButtonBorder(enabled = true)) {
                 Icon(Icons.Rounded.QrCode2, contentDescription = stringResource(R.string.together_qr))
             }
             OutlinedButton(onClick = ::copy, modifier = Modifier.weight(1f)) {
