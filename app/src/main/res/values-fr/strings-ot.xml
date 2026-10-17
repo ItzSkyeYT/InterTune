@@ -1893,6 +1893,18 @@
     <string name="together_qr_hint">Pointez l\'appareil photo de l\'autre téléphone ici. Il ouvre le salon dans InterTune.</string>
     <string name="together_close_room_title">Fermer le salon ?</string>
     <string name="together_close_room_text">Tout le monde le quitte, et son code ne marche plus.</string>
+    <string name="together_scan">Scanner un code QR</string>
+    <string name="together_scan_hint">Pointez l\'appareil photo vers le code QR de l\'autre téléphone.</string>
+    <string name="together_scan_refused">Le scan a besoin de l\'appareil photo. Autorisez-le pour InterTune dans les réglages du téléphone, ou tapez le code.</string>
+    <string name="together_propose">Proposer à l\'hôte</string>
+    <string name="together_proposed">Proposé à l\'hôte</string>
+    <string name="together_proposal_title">%1$s propose un titre</string>
+    <string name="together_proposal_play">Le lancer</string>
+    <string name="together_proposal_later">Pas maintenant</string>
+    <plurals name="together_proposal_more">
+        <item quantity="one">Et %1$d autre après lui, de sa file d\'attente.</item>
+        <item quantity="other">Et %1$d autres après lui, de sa file d\'attente.</item>
+    </plurals>
     <string name="together_removed">%1$s a été retiré. Le salon a un nouveau code.</string>
     <string name="support_title">Soutenir InterTune</string>
     <string name="support_text">InterTune est gratuit et sans publicité. Pour faire un don, envoyez un message privé au développeur sur le serveur Discord d\'InterTune.</string>

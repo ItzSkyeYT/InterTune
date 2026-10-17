@@ -34,6 +34,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -92,7 +93,14 @@ class TogetherSession(
         val toleranceMs: Long = SyncLock.DEFAULT_TOLERANCE_MS,
         /** A follower paused by its listener: the room plays on, and play brings it back. */
         val pausedHere: Boolean = false,
+        /** A guest on its own: its song is proposed to the leader and waits for an answer. */
+        val proposed: Boolean = false,
+        /** The leader: a guest's song and queue, waiting for a yes or a no. */
+        val proposal: Proposal? = null,
     )
+
+    /** A guest's own song and the queue after it, proposed to this phone as the leader: see [propose]. */
+    data class Proposal(val songs: List<TogetherMessage.Song>, val positionMs: Long, val by: String, val receivedAt: Long)
 
     /** Someone else in the room: [key] is their key for this session, the name their phone's. */
     data class Member(val key: String, val name: String, val owner: Boolean, val leader: Boolean) {
@@ -150,6 +158,8 @@ class TogetherSession(
     /** The leader's song this phone waits for the leader's queue for, and since when. */
     private var waitingFor: String? = null
     private var waitingSince = 0L
+    /** The song this phone proposed to the leader, until the leader plays it or this phone moves on. */
+    private var proposedSongId: String? = null
 
     private val _status = MutableStateFlow(Status(waitingForHost = !owner, leading = owner))
     val status: StateFlow<Status> = _status
@@ -167,6 +177,11 @@ class TogetherSession(
             val from = currentId
             currentId = mediaItem?.mediaId
             if (leading) return
+            if (proposedSongId != null && ownWay && mediaItem?.mediaId != proposedSongId) {
+                // On its own to another song: what was proposed is no longer what it plays.
+                proposedSongId = null
+                _status.value = _status.value.copy(proposed = false)
+            }
             if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
                 // On to the next song by itself, as the leader does at the same moment; the
                 // leader's word that it did comes a moment later.
@@ -359,6 +374,12 @@ class TogetherSession(
                 if (from == leaderKey) {
                     lastState = message
                     lastStateAt = now
+                    // The leader said yes to this phone's song: back with the room, where it already is.
+                    if (ownWay && message.songId == proposedSongId) {
+                        Log.i(TAG, "The leader plays the song proposed from here: back with the room")
+                        proposedSongId = null
+                        catchUp()
+                    }
                     _status.value = _status.value.copy(
                         hostSong = listOf(message.title.ifBlank { message.songId }, message.artist).filter { it.isNotBlank() }.joinToString(" · "),
                         hostSongId = message.songId,
@@ -372,6 +393,10 @@ class TogetherSession(
                     takeRepeat(message.repeat)
                     matchQueue()
                 }
+            }
+            is TogetherMessage.Propose -> if (leading && message.songs.isNotEmpty()) {
+                _status.value = _status.value.copy(proposal = Proposal(message.songs, message.positionMs, message.by, now))
+                Log.i(TAG, "${message.by} proposed ${message.songs.first().id} and ${message.songs.size - 1} after it")
             }
             is TogetherMessage.Suggest -> if (leading) {
                 val song = MediaMetadata(
@@ -507,6 +532,45 @@ class TogetherSession(
         Log.i(TAG, "Suggested ${song.id} to the room")
     }
 
+    /**
+     * A guest playing on its own proposes what it plays to the leader (his ask of 17 Oct 2026): the
+     * song, where it is in it, and the queue after it as this phone's own settings made it.
+     */
+    fun propose() {
+        if (leading || !ownWay) return
+        val songs = ownQueue().takeIf { it.isNotEmpty() } ?: return
+        proposedSongId = songs.first().id
+        send(TogetherMessage.Propose(songs, service.exoPlayer.currentPosition, name))
+        _status.value = _status.value.copy(proposed = true)
+        Log.i(TAG, "Proposed ${songs.first().id} and ${songs.size - 1} after it to the leader")
+    }
+
+    /**
+     * The leader's yes: the proposed queue plays here from where the guest is by now, so the guest
+     * hears no jump when it comes back, and the room follows as it follows any song.
+     */
+    fun acceptProposal() {
+        val proposal = _status.value.proposal ?: return
+        _status.value = _status.value.copy(proposal = null)
+        if (!leading) return
+        val songs = proposal.songs.map(::metadataOf)
+        service.playQueue(ListQueue(items = songs), replace = true, origin = PlayOrigin.EXTERNAL)
+        Log.i(TAG, "Playing ${proposal.by}'s ${songs.first().id} and what came after it")
+        scope.launch {
+            // The queue loads a moment after it is asked for; the guest's spot is then a little further on.
+            val first = songs.first().id
+            val loaded = withTimeoutOrNull(PROPOSAL_LOAD_MS) {
+                while (service.exoPlayer.currentMediaItem?.mediaId != first) delay(100)
+            }
+            if (loaded != null) service.exoPlayer.seekTo(proposal.positionMs + (System.currentTimeMillis() - proposal.receivedAt))
+        }
+    }
+
+    /** The leader's no, or its putting it off: the guest plays on its own as before. */
+    fun dismissProposal() {
+        _status.value = _status.value.copy(proposal = null)
+    }
+
     /** Back with the leader after going one's own way: the next look puts the leader's song and place back. */
     fun catchUp() {
         ownWay = false
@@ -514,7 +578,7 @@ class TogetherSession(
         matchedQueue = null
         lock.reset()
         roomQueue?.let { takeRepeat(it.repeat) }
-        _status.value = _status.value.copy(ownWay = false, pausedHere = false, locked = false)
+        _status.value = _status.value.copy(ownWay = false, pausedHere = false, locked = false, proposed = false)
         Log.i(TAG, "Catching up with the leader")
     }
 
@@ -774,6 +838,8 @@ class TogetherSession(
         private const val QUEUE_WAIT_MS = 1_500L
         /** And how long after its queue is swapped for the leader's under the song playing. */
         private const val QUEUE_SWAP_MS = 2_000L
+        /** How long the leader waits for a proposed song to load before it puts it at the guest's spot. */
+        private const val PROPOSAL_LOAD_MS = 8_000L
         /** The leader's queue goes out this long after its last change, and every this many beats. */
         private const val QUEUE_SETTLE_MS = 600L
         private const val QUEUE_EVERY_BEATS = 15

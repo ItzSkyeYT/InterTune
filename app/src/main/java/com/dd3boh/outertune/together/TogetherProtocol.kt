@@ -18,7 +18,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
 import kotlinx.serialization.json.put
-import kotlinx.serialization.json.putJsonArray
+import kotlinx.serialization.json.buildJsonArray
 import kotlin.math.abs
 
 /**
@@ -67,6 +67,13 @@ sealed interface TogetherMessage {
 
     data class Song(val id: String, val title: String, val artist: String, val thumbnail: String)
 
+    /**
+     * A follower's own song proposed to the leader (his ask of 17 Oct 2026), with the queue its own
+     * settings made after it and where in the song it is: the leader is asked, and on a yes plays
+     * them from there, and the room with it.
+     */
+    data class Propose(val songs: List<Song>, val positionMs: Long, val by: String) : TogetherMessage
+
     /** The owner sends the phone with key [to] out of the room. */
     data class Kick(val to: String) : TogetherMessage
 
@@ -100,16 +107,28 @@ sealed interface TogetherMessage {
             }
             is Queue -> buildJsonObject {
                 put("t", "queue"); put("repeat", message.repeat); put("shuffle", message.shuffle)
-                putJsonArray("songs") {
-                    message.songs.forEach { song ->
-                        addJsonObject { put("id", song.id); put("title", song.title); put("artist", song.artist); put("thumb", song.thumbnail) }
-                    }
-                }
+                put("songs", songsJson(message.songs))
+            }
+            is Propose -> buildJsonObject {
+                put("t", "propose"); put("pos", message.positionMs); put("by", message.by)
+                put("songs", songsJson(message.songs))
             }
             is Kick -> buildJsonObject { put("t", "kick"); put("to", message.to) }
             is Move -> buildJsonObject { put("t", "move"); put("to", message.to); put("code", message.sealedCode) }
             End -> buildJsonObject { put("t", "end") }
         }.toString()
+
+        private fun songsJson(songs: List<Song>) = buildJsonArray {
+            songs.forEach { song ->
+                addJsonObject { put("id", song.id); put("title", song.title); put("artist", song.artist); put("thumb", song.thumbnail) }
+            }
+        }
+
+        private fun songsOf(o: JsonObject) = o["songs"]!!.jsonArray.map { item ->
+            val song = item.jsonObject
+            fun f(key: String) = song[key]!!.jsonPrimitive.content
+            Song(f("id"), f("title"), f("artist"), f("thumb"))
+        }
 
         fun decode(text: String): TogetherMessage? = runCatching {
             val o = Json.parseToJsonElement(text) as JsonObject
@@ -122,14 +141,11 @@ sealed interface TogetherMessage {
                 "here" -> Here(s("name"), o["owner"]!!.jsonPrimitive.boolean, o["lead"]?.jsonPrimitive?.content)
                 "suggest" -> Suggest(s("song"), s("title"), s("artist"), s("thumb"), s("by"))
                 "queue" -> Queue(
-                    songs = o["songs"]!!.jsonArray.map { item ->
-                        val song = item.jsonObject
-                        fun f(key: String) = song[key]!!.jsonPrimitive.content
-                        Song(f("id"), f("title"), f("artist"), f("thumb"))
-                    },
+                    songs = songsOf(o),
                     repeat = o["repeat"]!!.jsonPrimitive.int,
                     shuffle = o["shuffle"]!!.jsonPrimitive.boolean,
                 )
+                "propose" -> Propose(songsOf(o), l("pos"), s("by"))
                 "kick" -> Kick(s("to"))
                 "move" -> Move(s("to"), s("code"))
                 "end" -> End

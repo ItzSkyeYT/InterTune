@@ -267,6 +267,11 @@ android {
             // Allowed set of licenses, this project will be able to use without build failure
             allowedLicenses.addAll("Apache-2.0", "BSD-3-Clause", "GNU LESSER GENERAL PUBLIC LICENSE, Version 2.1", "GNU GENERAL PUBLIC LICENSE, Version 3", "GPL-3.0-only", "GPL-3.0-or-later", "EPL-2.0", "MIT", "MPL-2.0", "Public Domain")
 
+            // CameraX's core carries libyuv (Chromium's, a BSD licence, GPL-compatible) for Listen
+            // together's QR scanner. Allowed for that library alone, so that no other "BSD License"
+            // comes in unseen under the same vague name.
+            allowedLicensesMap.put("44d1a25c593283261968a15c8cc213cd", listOf("androidx.camera:camera-core"))
+
             // Full license text for license IDs mentioned here will be included, even if no detected dependency uses them.
              additionalLicenses.addAll("apache_2_0", "gpl_2_1") // taglib, ffMpeg in ffMetadataEx
         }
@@ -307,6 +312,10 @@ dependencies {
     implementation(libs.kyant.backdrop)
     implementation(libs.guava)
     implementation(libs.zxing.core)
+    implementation(libs.camerax.core)
+    implementation(libs.camerax.camera2)
+    implementation(libs.camerax.lifecycle)
+    implementation(libs.camerax.view)
     implementation(libs.coroutines.guava)
     implementation(libs.concurrent.futures)
 
