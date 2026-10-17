@@ -68,4 +68,18 @@ class RoomQrTest {
             }
         }
     }
+
+    @Test
+    fun `closing the room is asked first, leaving it as a guest is not`() {
+        val dialog = File("src/main/java/com/dd3boh/outertune/ui/dialog/TogetherDialog.kt").readText()
+        assertTrue(dialog.contains("onClick = { if (room.owner) confirmingClose = true else onLeave() }"))
+        assertTrue(dialog.contains("R.string.together_close_room_title"))
+        for (path in listOf("src/main/res/values/strings-ot.xml", "src/main/res/values-fr/strings-ot.xml")) {
+            val strings = File(path).readText()
+            for (name in listOf("together_close_room_title", "together_close_room_text")) {
+                assertTrue("$name missing from $path", strings.contains("name=\"$name\""))
+            }
+        }
+    }
 }
+

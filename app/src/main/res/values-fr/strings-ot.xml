@@ -1832,5 +1832,7 @@
     <string name="together_qr">Code QR</string>
     <string name="together_qr_title">Scannez pour rejoindre</string>
     <string name="together_qr_hint">Pointez l\'appareil photo de l\'autre téléphone ici. Il ouvre le salon dans InterTune.</string>
+    <string name="together_close_room_title">Fermer le salon ?</string>
+    <string name="together_close_room_text">Tout le monde le quitte, et son code ne marche plus.</string>
     <string name="together_removed">%1$s a été retiré. Le salon a un nouveau code.</string>
 </resources>

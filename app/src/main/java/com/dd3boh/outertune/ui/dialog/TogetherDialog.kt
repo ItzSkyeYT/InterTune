@@ -308,6 +308,25 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
     val invite = stringResource(R.string.together_invite_text, room.code.pretty, room.code.appLink)
     var showingQr by rememberSaveable { mutableStateOf(false) }
     if (showingQr) RoomQrDialog(room.code, onDismiss = { showingQr = false })
+    // The owner's leaving ends the room for everyone: asked first (his word of 17 Oct 2026).
+    var confirmingClose by rememberSaveable { mutableStateOf(false) }
+    if (confirmingClose) {
+        AlertDialog(
+            onDismissRequest = { confirmingClose = false },
+            icon = { Icon(Icons.AutoMirrored.Rounded.Logout, contentDescription = null) },
+            title = { Text(stringResource(R.string.together_close_room_title)) },
+            text = { Text(stringResource(R.string.together_close_room_text)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmingClose = false
+                    onLeave()
+                }) { Text(stringResource(R.string.together_close_room), color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmingClose = false }) { Text(stringResource(android.R.string.cancel)) }
+            },
+        )
+    }
 
     fun copy() {
         haptics.performHapticFeedback(HapticFeedbackType.Confirm)
@@ -447,7 +466,7 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
         }
         Spacer(Modifier.height(24.dp))
         OutlinedButton(
-            onClick = onLeave,
+            onClick = { if (room.owner) confirmingClose = true else onLeave() },
             colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
             modifier = Modifier.fillMaxWidth(),
