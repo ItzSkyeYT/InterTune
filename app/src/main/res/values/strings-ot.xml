@@ -2044,5 +2044,14 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="together_scan">Scan a QR code</string>
     <string name="together_scan_hint">Point the camera at the QR code on the other phone.</string>
     <string name="together_scan_refused">Scanning needs the camera. Allow it for InterTune in the phone\'s settings, or type the code.</string>
+    <string name="together_propose">Propose to the host</string>
+    <string name="together_proposed">Proposed to the host</string>
+    <string name="together_proposal_title">%1$s proposes a song</string>
+    <string name="together_proposal_play">Play it</string>
+    <string name="together_proposal_later">Not now</string>
+    <plurals name="together_proposal_more">
+        <item quantity="one">And %1$d more after it, from their queue.</item>
+        <item quantity="other">And %1$d more after it, from their queue.</item>
+    </plurals>
     <string name="together_removed">%1$s was removed. The room has a new code.</string>
 </resources>
