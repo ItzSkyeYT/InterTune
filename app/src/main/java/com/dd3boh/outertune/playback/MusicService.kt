@@ -20,14 +20,17 @@ import android.app.PendingIntent
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.database.SQLException
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.media.audiofx.AudioEffect
 import android.net.ConnectivityManager
 import android.os.Binder
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
 import android.os.SystemClock
 import android.util.Log
 import android.widget.Toast
@@ -846,6 +849,14 @@ class MusicService : MediaLibraryService(),
         Log.i(TAG, "Starting MusicService")
         super.onCreate()
         isRunning = true
+        // media3 writes this under its own name only, which Report a problem leaves out, and it is
+        // the line that explains a song stopping a minute after the screen goes off (issue #26).
+        setListener(object : Listener {
+            override fun onForegroundServiceStartNotAllowedException() {
+                Log.w(TAG, StopReasons.NOT_IN_FOREGROUND)
+                StopReasons.keep(this@MusicService, StopReasons.NOT_IN_FOREGROUND)
+            }
+        })
 
         // The repair scan must never rewrite the loudness of the song that is playing, because
         // after the unknown-loudness fallback an unrepaired track sits at heavy attenuation and
@@ -3098,6 +3109,14 @@ class MusicService : MediaLibraryService(),
 
     override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
         super.onPlayWhenReadyChanged(playWhenReady, reason)
+        // A pause nobody asked for says what did it, for Report a problem. A pause asked for (a
+        // tap, a button, the sleep timer) is USER_REQUEST and writes nothing.
+        if (!playWhenReady) {
+            StopReasons.pausedLine(reason, screenOn(), inForeground())?.let {
+                Log.i(TAG, it)
+                StopReasons.keep(this, it)
+            }
+        }
         // Why the music stopped, for Resume when Bluetooth connects. Kept with the setting off as
         // well: it is three fields, and the setting can be turned on after the stop.
         bluetoothResume.playWhenReadyChanged(playWhenReady, reason, SystemClock.elapsedRealtime())
@@ -4016,6 +4035,13 @@ class MusicService : MediaLibraryService(),
         castProbe?.unregister()
         castProbe = null
         stopCastServer()
+        // Ending while the music plays is Android stopping the service, not the person: say so, and
+        // keep it where Report a problem finds it after the process is gone too.
+        if (activePlayer.isPlaying) {
+            val line = StopReasons.endedLine(screenOn(), inForeground())
+            Log.w(TAG, line)
+            StopReasons.keep(this, line)
+        }
         Log.i(TAG, "Terminating MusicService.")
 
         // Only clear it if it is still ours; a newer service instance may already have replaced it.
@@ -4033,6 +4059,13 @@ class MusicService : MediaLibraryService(),
     }
 
     override fun onBind(intent: Intent?) = super.onBind(intent) ?: binder
+
+    /** Whether the screen is on, for the lines that say why the music stopped. */
+    private fun screenOn(): Boolean? = getSystemService<PowerManager>()?.isInteractive
+
+    /** Whether this service is in the foreground, which Android 10 and later can say. */
+    private fun inForeground(): Boolean? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) foregroundServiceType != ServiceInfo.FOREGROUND_SERVICE_TYPE_NONE else null
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         Log.i(TAG, "onTaskRemoved called")

@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.Links
+import com.dd3boh.outertune.playback.StopReasons
 import com.dd3boh.outertune.utils.ProblemLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -54,11 +55,14 @@ private const val FORM_LOG_LIMIT = 5000
 fun ProblemReportDialog(onDismiss: () -> Unit) {
     val context = LocalContext.current
     var excerpt by remember { mutableStateOf<ProblemLog.Excerpt?>(null) }
+    var stops by remember { mutableStateOf(emptyList<String>()) }
     LaunchedEffect(Unit) {
-        excerpt = withContext(Dispatchers.IO) { ProblemLog.excerpt(ProblemLog.read()) }
+        val (read, kept) = withContext(Dispatchers.IO) { ProblemLog.excerpt(ProblemLog.read()) to StopReasons.read(context) }
+        stops = kept
+        excerpt = read
     }
     val found = excerpt
-    val text = remember(found) { found?.let { ProblemLog.report(it) } }
+    val text = remember(found, stops) { found?.let { ProblemLog.report(it, stops = stops) } }
 
     AlertDialog(
         onDismissRequest = onDismiss,

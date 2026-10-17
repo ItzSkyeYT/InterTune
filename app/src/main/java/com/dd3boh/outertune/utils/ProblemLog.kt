@@ -114,8 +114,12 @@ object ProblemLog {
      */
     fun scrub(text: String): String = ErrorText.withoutAddresses(text).replace(STREAM_HOST, "a stream host")
 
-    /** What is copied: the build and the phone, then the lines. */
-    fun report(excerpt: Excerpt, build: String = build(), device: String = device()): String = buildString {
+    /**
+     * What is copied: the build and the phone, then the lines, then the last times the music
+     * stopped with nobody asking ([com.dd3boh.outertune.playback.StopReasons]). Those come last
+     * because [fitted] keeps the end, and they outlive the process the lines above belong to.
+     */
+    fun report(excerpt: Excerpt, build: String = build(), device: String = device(), stops: List<String> = emptyList()): String = buildString {
         appendLine("InterTune $build")
         appendLine(device)
         appendLine(if (excerpt.faultAt == null) "Nothing that looks like a fault. The last lines:" else "The last fault and what led up to it:")
@@ -123,6 +127,11 @@ object ProblemLog {
         excerpt.lines.forEachIndexed { i, line ->
             if (i == excerpt.faultAt) appendLine(">>> here")
             appendLine(scrub(line.toString()))
+        }
+        if (stops.isNotEmpty()) {
+            appendLine()
+            appendLine("Stops nobody asked for, the latest last:")
+            stops.forEach { appendLine(scrub(it)) }
         }
     }.trimEnd()
 
