@@ -56,12 +56,22 @@ class TogetherSession(
         /** The guest's last gap to the host, in ms: positive behind, negative ahead. Null before it knows. */
         val driftMs: Long? = null,
         val hostSong: String? = null,
+        /** The id of the song the host plays, to tell whether this phone plays the same one. */
+        val hostSongId: String? = null,
         val waitingForHost: Boolean = true,
         /** The guest paused, picked another song or seeked: it plays on its own until [catchUp]. */
         val ownWay: Boolean = false,
         /** The host's last song from a guest, "title, by whom". */
         val lastSuggestion: String? = null,
+        /** The others heard in the room lately, by name, the host first. */
+        val members: List<Member> = emptyList(),
     )
+
+    /** Someone else in the room: [id] is the start of their key for this session, the name their phone's. */
+    data class Member(val id: String, val name: String, val host: Boolean)
+
+    /** How many relays the room was asked to use; [Status.relaysConnected] says how many answer. */
+    val relayCount: Int get() = relays.size
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val secret = Secp256k1.newSecretKey()
@@ -82,6 +92,7 @@ class TogetherSession(
     private var settleUntil = 0L
     private var lastSentState = 0L
     private val heard = mutableMapOf<String, Long>()
+    private val names = mutableMapOf<String, Member>()
     private val speedBefore = service.exoPlayer.playbackParameters.speed
 
     private val _status = MutableStateFlow(Status(waitingForHost = !host))
@@ -190,7 +201,12 @@ class TogetherSession(
         heard[event.pubkey] = System.currentTimeMillis()
         val now = System.currentTimeMillis()
         heard.entries.removeAll { now - it.value > MEMBER_TIMEOUT_MS }
-        _status.value = _status.value.copy(others = heard.size)
+        if (message is TogetherMessage.Here) names[event.pubkey] = Member(event.pubkey.take(8), message.name, message.host)
+        names.keys.retainAll(heard.keys)
+        _status.value = _status.value.copy(
+            others = heard.size,
+            members = heard.keys.map { names[it] ?: Member(it.take(8), "", host = it == hostKey) }.sortedByDescending { it.host },
+        )
         when (message) {
             is TogetherMessage.Ping -> if (host && message.to == me) {
                 send(TogetherMessage.Pong(message.askedAtMs, System.currentTimeMillis(), event.pubkey))
@@ -205,6 +221,7 @@ class TogetherSession(
                 lastStateAt = System.currentTimeMillis()
                 _status.value = _status.value.copy(
                     hostSong = listOf(message.title.ifBlank { message.songId }, message.artist).filter { it.isNotBlank() }.joinToString(" · "),
+                    hostSongId = message.songId,
                     waitingForHost = false,
                 )
             }

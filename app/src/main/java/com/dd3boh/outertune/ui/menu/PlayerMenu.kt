@@ -82,7 +82,6 @@ import androidx.compose.material.icons.rounded.PlaylistRemove
 import androidx.compose.foundation.Image
 import androidx.compose.ui.graphics.ColorFilter
 import com.dd3boh.outertune.R
-import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.MAX_PLAYER_VOLUME
 import com.dd3boh.outertune.constants.ShowLyricsKey
 import com.dd3boh.outertune.constants.SyncMode
@@ -97,7 +96,8 @@ import com.dd3boh.outertune.ui.dialog.AddToPlaylistDialog
 import com.dd3boh.outertune.ui.dialog.AddToQueueDialog
 import com.dd3boh.outertune.ui.dialog.ArtistDialog
 import com.dd3boh.outertune.ui.dialog.DetailsDialog
-import com.dd3boh.outertune.ui.dialog.TogetherDialog
+import com.dd3boh.outertune.ui.dialog.TogetherSheet
+import com.dd3boh.outertune.ui.dialog.togetherAvailable
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import com.zionhuang.innertube.YouTube
@@ -188,7 +188,7 @@ fun PlayerMenu(
     }
 
     if (showTogether) {
-        TogetherDialog(onDismiss = { showTogether = false })
+        TogetherSheet(onDismiss = { showTogether = false })
     }
 
     if (showDetailsDialog) {
@@ -380,7 +380,7 @@ fun PlayerMenu(
             showPitchTempoDialog = true
         }
         // After the ones people know the place of: see the head tracking note below.
-        if (Unreleased.LISTEN_TOGETHER) {
+        if (togetherAvailable) {
             GridMenuItem(
                 icon = Icons.Rounded.Group,
                 title = R.string.together_title
