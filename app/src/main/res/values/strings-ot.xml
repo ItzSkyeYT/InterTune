@@ -1976,4 +1976,8 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="other">A picture takes up to %1$d lines, a video a minute of the song</item>
     </plurals>
     <string name="queue_from_search">“%1$s”</string>
+    <string name="support_title">Support InterTune</string>
+    <string name="support_text">InterTune is free and has no ads. If you would like to donate, send the developer a direct message on the InterTune Discord server.</string>
+    <string name="support_thanks">Thanks to those who already gave:</string>
+    <string name="support_discord">Open Discord</string>
 </resources>
