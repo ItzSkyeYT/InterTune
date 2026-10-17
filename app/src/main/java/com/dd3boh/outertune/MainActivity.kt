@@ -183,8 +183,8 @@ import com.dd3boh.outertune.playback.MediaControllerViewModel
 import com.dd3boh.outertune.playback.MusicService
 import com.dd3boh.outertune.playback.PlayerConnection
 import com.dd3boh.outertune.search.SystemSearch
-import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.ui.dialog.TogetherInviteDialog
+import com.dd3boh.outertune.ui.dialog.togetherAvailable
 import com.dd3boh.outertune.together.RoomCode
 import com.dd3boh.outertune.utils.urlEncode
 import com.dd3boh.outertune.ui.component.LocalHiddenByPlayer
@@ -1129,7 +1129,7 @@ class MainActivity : ComponentActivity() {
                         // has no YouTube page: it opens here.
                         val libraryPlaylist = SystemSearch.playlistOf(link)
                         val searchWords = SystemSearch.searchOf(link)
-                        val invite = if (Unreleased.LISTEN_TOGETHER && link.startsWith("intertune://together/", ignoreCase = true)) RoomCode.parse(link) else null
+                        val invite = if (togetherAvailable && link.startsWith("intertune://together/", ignoreCase = true)) RoomCode.parse(link) else null
                         if (invite != null) {
                             togetherInvite = invite
                         } else if (libraryPlaylist != null) {

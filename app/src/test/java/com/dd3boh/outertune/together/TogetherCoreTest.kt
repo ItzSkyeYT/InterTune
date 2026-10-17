@@ -87,6 +87,8 @@ class TogetherCoreTest {
         assertEquals(state, TogetherMessage.decode(TogetherMessage.encode(state)))
         val pong = TogetherMessage.Pong(10, 20, "ab")
         assertEquals(pong, TogetherMessage.decode(TogetherMessage.encode(pong)))
+        val suggest = TogetherMessage.Suggest("dQw4w9WgXcQ", "A song", "Someone", "", "Pixel")
+        assertEquals(suggest, TogetherMessage.decode(TogetherMessage.encode(suggest)))
         assertNull(TogetherMessage.decode("""{"t":"what"}"""))
     }
 
