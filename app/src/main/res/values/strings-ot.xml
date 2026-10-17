@@ -1923,22 +1923,22 @@ while also allowing users to translate our app as well. New, specific strings to
 
     <!-- The recognition widget in the launcher's picker (recognition_widget_info). -->
     <string name="recognition_widget_description">One button that names the song playing around you.</string>
-    <!-- The phone's own search (search/SystemSearch.kt), debug and preview builds only: held back from translators until the words are agreed. -->
-    <string name="system_search_description" translatable="false">Songs, artists, albums and playlists in your library, then on YouTube Music.</string>
-    <string name="system_search_artist" translatable="false">Artist</string>
-    <string name="system_search_album" translatable="false">Album • %1$s</string>
-    <string name="system_search_playlist" translatable="false">Playlist</string>
-    <!-- The equalizer in the app (Unreleased.EQUALIZER): held back from translators until the words are agreed. -->
-    <string name="equalizer_description" translatable="false">Ten bands, from deep bass to the top of the treble.</string>
-    <string name="equalizer_note" translatable="false">Raising a band turns the rest down a little, so nothing clips.</string>
-    <string name="equalizer_off" translatable="false">Off</string>
-    <string name="equalizer_custom" translatable="false">Your own curve</string>
-    <string name="equalizer_preset_flat" translatable="false">Flat</string>
-    <string name="equalizer_preset_bass" translatable="false">More bass</string>
-    <string name="equalizer_preset_treble" translatable="false">More treble</string>
-    <string name="equalizer_preset_vocals" translatable="false">Vocals</string>
-    <string name="equalizer_preset_loudness" translatable="false">Loudness</string>
-    <string name="equalizer_preset_small_speakers" translatable="false">Small speakers</string>
+    <!-- The phone's own search (search/SystemSearch.kt), in every build from 0.12. -->
+    <string name="system_search_description">Songs, artists, albums and playlists in your library, then on YouTube Music.</string>
+    <string name="system_search_artist">Artist</string>
+    <string name="system_search_album">Album • %1$s</string>
+    <string name="system_search_playlist">Playlist</string>
+    <!-- The equalizer in the app (Unreleased.EQUALIZER), for 0.12 once it is heard on a phone; open to translators so that they have the days. -->
+    <string name="equalizer_description">Ten bands, from deep bass to the top of the treble.</string>
+    <string name="equalizer_note">Raising a band turns the rest down a little, so nothing clips.</string>
+    <string name="equalizer_off">Off</string>
+    <string name="equalizer_custom">Your own curve</string>
+    <string name="equalizer_preset_flat">Flat</string>
+    <string name="equalizer_preset_bass">More bass</string>
+    <string name="equalizer_preset_treble">More treble</string>
+    <string name="equalizer_preset_vocals">Vocals</string>
+    <string name="equalizer_preset_loudness">Loudness</string>
+    <string name="equalizer_preset_small_speakers">Small speakers</string>
 
     <!-- The sleep timer on a schedule, under the sleep timer's fade in Player and audio (SleepScheduleFrag, ScheduledSleep). -->
     <string name="sleep_schedule">Sleep timer on a schedule</string>
@@ -1952,14 +1952,14 @@ while also allowing users to translate our app as well. New, specific strings to
     <!-- Show in Latin letters, in Settings > Lyrics and in the lyrics view's settings (LyricsLatin). -->
     <string name="lyrics_latin_title">Show in Latin letters</string>
     <string name="lyrics_latin_description">Lyrics in Japanese, Korean, Chinese, Russian and some other languages get a second line in Latin letters. Kanji stay as they are.</string>
-    <string name="equalizer_headphones" translatable="false">Your headphones</string>
-    <string name="equalizer_headphones_pick" translatable="false">Pick your model, and the bands follow its measurements from AutoEq.</string>
-    <string name="equalizer_headphones_set" translatable="false">%1$s, measured by %2$s</string>
-    <string name="equalizer_headphones_search" translatable="false">Search your model</string>
-    <string name="equalizer_headphones_loading" translatable="false">Getting the list of models</string>
-    <string name="equalizer_headphones_offline" translatable="false">AutoEq could not be reached. Try again with a connection.</string>
-    <string name="equalizer_headphones_no_curve" translatable="false">This model has no ten band curve. Try another measurement of it.</string>
-    <string name="equalizer_headphones_none_found" translatable="false">No model by that name.</string>
+    <string name="equalizer_headphones">Your headphones</string>
+    <string name="equalizer_headphones_pick">Pick your model, and the bands follow its measurements from AutoEq.</string>
+    <string name="equalizer_headphones_set">%1$s, measured by %2$s</string>
+    <string name="equalizer_headphones_search">Search your model</string>
+    <string name="equalizer_headphones_loading">Getting the list of models</string>
+    <string name="equalizer_headphones_offline">AutoEq could not be reached. Try again with a connection.</string>
+    <string name="equalizer_headphones_no_curve">This model has no ten band curve. Try another measurement of it.</string>
+    <string name="equalizer_headphones_none_found">No model by that name.</string>
     <string name="lyrics_share_picture_or_video">Picture or video</string>
     <string name="lyrics_as_picture">Picture</string>
     <string name="lyrics_as_video">Video</string>

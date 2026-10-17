@@ -1787,6 +1787,29 @@
         <item quantity="other">Une image prend %1$d lignes au plus, une vidéo une minute de la chanson</item>
     </plurals>
     <string name="queue_from_search">« %1$s »</string>
+    <!-- The phone's own search and the equalizer, in every build from 0.12. -->
+    <string name="system_search_description">Les titres, artistes, albums et playlists de votre bibliothèque, puis sur YouTube Music.</string>
+    <string name="system_search_artist">Artiste</string>
+    <string name="system_search_album">Album • %1$s</string>
+    <string name="system_search_playlist">Playlist</string>
+    <string name="equalizer_description">Dix bandes, des basses profondes au plus haut des aigus.</string>
+    <string name="equalizer_note">Monter une bande baisse un peu les autres, pour que rien ne sature.</string>
+    <string name="equalizer_off">Désactivé</string>
+    <string name="equalizer_custom">Votre propre courbe</string>
+    <string name="equalizer_preset_flat">Plat</string>
+    <string name="equalizer_preset_bass">Plus de basses</string>
+    <string name="equalizer_preset_treble">Plus d\'aigus</string>
+    <string name="equalizer_preset_vocals">Voix</string>
+    <string name="equalizer_preset_loudness">Loudness</string>
+    <string name="equalizer_preset_small_speakers">Petits haut-parleurs</string>
+    <string name="equalizer_headphones">Votre casque</string>
+    <string name="equalizer_headphones_pick">Choisissez votre modèle, et les bandes suivent ses mesures d\'AutoEq.</string>
+    <string name="equalizer_headphones_set">%1$s, mesuré par %2$s</string>
+    <string name="equalizer_headphones_search">Cherchez votre modèle</string>
+    <string name="equalizer_headphones_loading">Récupération de la liste des modèles</string>
+    <string name="equalizer_headphones_offline">AutoEq est injoignable. Réessayez avec une connexion.</string>
+    <string name="equalizer_headphones_no_curve">Ce modèle n\'a pas de courbe à dix bandes. Essayez une autre de ses mesures.</string>
+    <string name="equalizer_headphones_none_found">Aucun modèle de ce nom.</string>
     <string name="support_title">Soutenir InterTune</string>
     <string name="support_text">InterTune est gratuit et sans publicité. Pour faire un don, envoyez un message privé au développeur sur le serveur Discord d\'InterTune.</string>
     <string name="support_thanks">Merci à ceux qui ont déjà donné :</string>
