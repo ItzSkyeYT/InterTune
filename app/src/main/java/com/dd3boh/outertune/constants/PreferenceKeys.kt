@@ -558,6 +558,8 @@ val RecogniseListenSecondsKey = intPreferencesKey("recogniseListenSeconds")
 
 /** Song on this phone's tile has said once why Android asks to record the screen (PhoneListenActivity). */
 val PhoneAudioExplainedKey = booleanPreferencesKey("phoneAudioExplained")
+/** Debug builds: the Nostr relays listening rooms use instead of the public ones, comma separated (TogetherSession). */
+val TogetherRelaysKey = stringPreferencesKey("togetherRelays")
 
 /** Add confident matches to the playlist without being asked. Continuous runs only. */
 val RecogniseAutoAddKey = booleanPreferencesKey("recogniseAutoAdd")

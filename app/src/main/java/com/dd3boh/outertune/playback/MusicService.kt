@@ -181,6 +181,8 @@ import com.dd3boh.outertune.playback.ListenReporting.AddressFrom
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.playback.queues.Queue
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
+import com.dd3boh.outertune.together.TogetherSession
+import com.dd3boh.outertune.together.RoomCode
 import com.dd3boh.outertune.utils.CoilBitmapLoader
 import com.dd3boh.outertune.utils.ErrorText
 import com.dd3boh.outertune.utils.LoudnessRepair
@@ -404,6 +406,23 @@ class MusicService : MediaLibraryService(),
      * with the phone's sound while casting, and must never reach a receiver.
      */
     lateinit var exoPlayer: ExoPlayer
+
+    /** A listening room while one lasts (together/TogetherSession), null otherwise. */
+    val together = MutableStateFlow<TogetherSession?>(null)
+
+    /** Opens a room, hosting or following, in place of any already open. Main thread. */
+    fun startTogether(code: RoomCode, host: Boolean, relays: List<String>, name: String): TogetherSession {
+        together.value?.stop()
+        return TogetherSession(this, code, host, relays, name).also {
+            together.value = it
+            it.start()
+        }
+    }
+
+    fun stopTogether() {
+        together.value?.stop()
+        together.value = null
+    }
     private var routedPlayer: RoutedPlayer? = null
 
     /**
@@ -3978,6 +3997,7 @@ class MusicService : MediaLibraryService(),
     }
 
     override fun onDestroy() {
+        stopTogether()
         // Checked by playQueue's resolve coroutine each time it resumes: that coroutine belongs to
         // no scope this method cancels (see the comment at its launch site), so this is the only
         // way it can find out the service is gone before touching the queue board or the player.

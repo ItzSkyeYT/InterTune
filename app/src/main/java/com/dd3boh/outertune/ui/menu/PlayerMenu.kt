@@ -27,6 +27,7 @@ import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.AddCircleOutline
 import androidx.compose.material.icons.rounded.Equalizer
+import androidx.compose.material.icons.rounded.Group
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Route
 import androidx.compose.material.icons.rounded.LibraryAdd
@@ -82,6 +83,7 @@ import androidx.compose.material.icons.rounded.PlaylistRemove
 import androidx.compose.foundation.Image
 import androidx.compose.ui.graphics.ColorFilter
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.MAX_PLAYER_VOLUME
 import com.dd3boh.outertune.constants.ShowLyricsKey
 import com.dd3boh.outertune.constants.SyncMode
@@ -97,6 +99,7 @@ import com.dd3boh.outertune.ui.dialog.AddToQueueDialog
 import com.dd3boh.outertune.ui.dialog.ArtistDialog
 import com.dd3boh.outertune.ui.dialog.DetailsDialog
 import com.dd3boh.outertune.ui.dialog.SignalPathDialog
+import com.dd3boh.outertune.ui.dialog.TogetherDialog
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import com.zionhuang.innertube.YouTube
@@ -192,6 +195,12 @@ fun PlayerMenu(
             local = mediaMetadata.isLocal,
             onDismiss = { showSignalPath = false },
         )
+    var showTogether by rememberSaveable {
+        mutableStateOf(false)
+    }
+
+    if (showTogether) {
+        TogetherDialog(onDismiss = { showTogether = false })
     }
 
     if (showDetailsDialog) {
@@ -388,6 +397,13 @@ fun PlayerMenu(
             title = R.string.signal_path
         ) {
             showSignalPath = true
+        if (Unreleased.LISTEN_TOGETHER) {
+            GridMenuItem(
+                icon = Icons.Rounded.Group,
+                title = R.string.together_title
+            ) {
+                showTogether = true
+            }
         }
         // Last, and only while something is actually tracking. It belongs in this menu because the
         // moment you want it is the moment you are listening, but it does not belong above items

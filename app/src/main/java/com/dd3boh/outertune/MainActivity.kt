@@ -183,6 +183,9 @@ import com.dd3boh.outertune.playback.MediaControllerViewModel
 import com.dd3boh.outertune.playback.MusicService
 import com.dd3boh.outertune.playback.PlayerConnection
 import com.dd3boh.outertune.search.SystemSearch
+import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.ui.dialog.TogetherInviteDialog
+import com.dd3boh.outertune.together.RoomCode
 import com.dd3boh.outertune.utils.urlEncode
 import com.dd3boh.outertune.ui.component.LocalHiddenByPlayer
 import com.dd3boh.outertune.ui.component.LocalPlayerSheet
@@ -1113,6 +1116,9 @@ class MainActivity : ComponentActivity() {
                             )
                         )
                     }
+                    // A listening room's invite, opened from a link: asked before joining.
+                    var togetherInvite by remember { mutableStateOf<RoomCode?>(null) }
+                    togetherInvite?.let { code -> TogetherInviteDialog(code, playerConnection, onDone = { togetherInvite = null }) }
                     LaunchedEffect(pendingLaunchLink, pendingLink.link, playerConnection, oobeStatus) {
                         val link = pendingLaunchLink ?: pendingLink.link ?: return@LaunchedEffect
                         val connection = playerConnection ?: return@LaunchedEffect
@@ -1123,7 +1129,10 @@ class MainActivity : ComponentActivity() {
                         // has no YouTube page: it opens here.
                         val libraryPlaylist = SystemSearch.playlistOf(link)
                         val searchWords = SystemSearch.searchOf(link)
-                        if (libraryPlaylist != null) {
+                        val invite = if (Unreleased.LISTEN_TOGETHER && link.startsWith("intertune://together/", ignoreCase = true)) RoomCode.parse(link) else null
+                        if (invite != null) {
+                            togetherInvite = invite
+                        } else if (libraryPlaylist != null) {
                             navController.navigate("local_playlist/$libraryPlaylist")
                         } else if (searchWords != null) {
                             // Words handed over by the phone's search: InterTune's own search for them.
