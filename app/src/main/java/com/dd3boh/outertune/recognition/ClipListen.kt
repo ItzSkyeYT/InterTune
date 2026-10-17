@@ -134,8 +134,10 @@ class ClipListen(private val rate: Int = SIGNATURE_SAMPLE_RATE_HZ) {
  * Finds the length of a clip that plays over and over, the way a short video does, from its sound:
  * the latest [MATCH_SECONDS] heard again, frame for frame, some seconds before.
  *
- * Each frame of 32 ms is reduced to its loudness in [BANDS] bands, the spectrum's general slope
- * taken out, so that two moments compare by what is playing rather than by being music at all.
+ * Each frame of 64 ms, every 16 ms, is reduced to its loudness in [BANDS] bands, the spectrum's
+ * general slope taken out, so that two moments compare by what is playing rather than by being
+ * music at all. A video's loop is rarely a whole number of steps long; frames four steps wide still
+ * line up when the repeat falls half a step between two (see [FRAME]).
  * A video restarting repeats its sound exactly; a chorus that comes back may too, which ends the
  * listen with a whole chorus heard, no harm done.
  */
@@ -233,7 +235,14 @@ internal class LoopFinder(private val rate: Int) {
     }
 
     companion object {
-        const val FRAME = 512
+        /**
+         * Four steps wide. Measured on two real songs (experiments/features/phone-audio, 17 Oct
+         * 2026): with 512, a loop half a step off its frames was only found at twice its length;
+         * with 1024 the worst such loop scores 0.935 and no 30 s of a song that does not loop
+         * passes 0.878, either side of [SIMILAR]. 2048, or steps of 128, let songs that do not
+         * loop pass it.
+         */
+        const val FRAME = 1024
         const val HOP = 256
         const val BANDS = 24
 
