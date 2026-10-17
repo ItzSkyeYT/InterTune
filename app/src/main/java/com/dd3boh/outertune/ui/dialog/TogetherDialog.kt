@@ -7,8 +7,11 @@
 package com.dd3boh.outertune.ui.dialog
 
 import android.content.ClipData
+import android.content.Context
+import android.content.Intent
 import android.os.Build
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -61,12 +64,7 @@ fun TogetherDialog(onDismiss: () -> Unit) {
     var typed by rememberSaveable { mutableStateOf("") }
 
     fun open(code: RoomCode, host: Boolean) {
-        scope.launch {
-            val relays = context.dataStore.data.first()[TogetherRelaysKey]
-                ?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }?.takeIf { it.isNotEmpty() }
-                ?: TogetherSession.PUBLIC_RELAYS
-            service.startTogether(code, host, relays, Build.MODEL)
-        }
+        scope.launch { service.startTogether(code, host, togetherRelays(context), Build.MODEL) }
     }
 
     AlertDialog(
@@ -106,9 +104,17 @@ fun TogetherDialog(onDismiss: () -> Unit) {
                         fontFamily = FontFamily.Monospace,
                         letterSpacing = 2.sp,
                     )
-                    TextButton(onClick = {
-                        clipboard.nativeClipboard.setPrimaryClip(ClipData.newPlainText(room.code.pretty, room.code.pretty))
-                    }) { Text(stringResource(R.string.together_copy)) }
+                    Row {
+                        TextButton(onClick = {
+                            clipboard.nativeClipboard.setPrimaryClip(ClipData.newPlainText(room.code.pretty, room.code.pretty))
+                        }) { Text(stringResource(R.string.together_copy)) }
+                        val invite = stringResource(R.string.together_invite_text, room.code.pretty, room.code.appLink)
+                        TextButton(onClick = {
+                            context.startActivity(
+                                Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, invite), null)
+                            )
+                        }) { Text(stringResource(R.string.together_share)) }
+                    }
                     Spacer(Modifier.height(8.dp))
                     val line = when {
                         room.host -> stringResource(R.string.together_hosting)
@@ -146,5 +152,36 @@ fun TogetherDialog(onDismiss: () -> Unit) {
         dismissButton = if (session != null) {
             { TextButton(onClick = onDismiss) { Text(stringResource(R.string.together_close)) } }
         } else null,
+    )
+}
+
+/** The relays a room uses: the public ones, or in a debug build those of TogetherRelaysKey when set. */
+suspend fun togetherRelays(context: Context): List<String> =
+    context.dataStore.data.first()[TogetherRelaysKey]
+        ?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }?.takeIf { it.isNotEmpty() }
+        ?: TogetherSession.PUBLIC_RELAYS
+
+/** An invite opened from a link (intertune://together/<code>): asked once, then joined as a guest. */
+@Composable
+fun TogetherInviteDialog(code: RoomCode, onDone: () -> Unit) {
+    val context = LocalContext.current
+    val playerConnection = LocalPlayerConnection.current ?: return
+    val scope = rememberCoroutineScope()
+    AlertDialog(
+        onDismissRequest = onDone,
+        icon = { Icon(Icons.Rounded.Group, contentDescription = null) },
+        title = { Text(stringResource(R.string.together_join_title)) },
+        text = {
+            Text(code.pretty, style = MaterialTheme.typography.headlineMedium, fontFamily = FontFamily.Monospace, letterSpacing = 2.sp)
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                scope.launch {
+                    playerConnection.service.startTogether(code, host = false, relays = togetherRelays(context), name = Build.MODEL)
+                    onDone()
+                }
+            }) { Text(stringResource(R.string.together_join)) }
+        },
+        dismissButton = { TextButton(onClick = onDone) { Text(stringResource(android.R.string.cancel)) } },
     )
 }
