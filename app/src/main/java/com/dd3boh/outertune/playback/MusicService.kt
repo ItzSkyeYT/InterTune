@@ -857,6 +857,12 @@ class MusicService : MediaLibraryService(),
                 StopReasons.keep(this@MusicService, StopReasons.NOT_IN_FOREGROUND)
             }
         })
+        screenOffRegistered = runCatching {
+            androidx.core.content.ContextCompat.registerReceiver(
+                this, screenOff, android.content.IntentFilter(Intent.ACTION_SCREEN_OFF),
+                androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED,
+            )
+        }.onFailure { Log.w(TAG, "Could not listen for the screen going off", it) }.isSuccess
 
         // The repair scan must never rewrite the loudness of the song that is playing, because
         // after the unknown-loudness fallback an unrepaired track sits at heavy attenuation and
@@ -4035,10 +4041,11 @@ class MusicService : MediaLibraryService(),
         castProbe?.unregister()
         castProbe = null
         stopCastServer()
+        if (screenOffRegistered) runCatching { unregisterReceiver(screenOff) }
         // Ending while the music plays is Android stopping the service, not the person: say so, and
         // keep it where Report a problem finds it after the process is gone too.
         if (activePlayer.isPlaying) {
-            val line = StopReasons.endedLine(screenOn(), inForeground())
+            val line = StopReasons.endedLine(screenOn())
             Log.w(TAG, line)
             StopReasons.keep(this, line)
         }
@@ -4059,6 +4066,26 @@ class MusicService : MediaLibraryService(),
     }
 
     override fun onBind(intent: Intent?) = super.onBind(intent) ?: binder
+
+    /**
+     * The screen going off while music plays (issue #26): Android stops a service that is not in
+     * the foreground about a minute after the app leaves the screen, and whether this one is in it
+     * can only be read while it lives. A line each time, kept with the stops when it is not.
+     */
+    private val screenOff = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (!activePlayer.isPlaying) return
+            when (inForeground()) {
+                false -> {
+                    Log.w(TAG, StopReasons.SCREEN_OFF_OUT_OF_FOREGROUND)
+                    StopReasons.keep(this@MusicService, StopReasons.SCREEN_OFF_OUT_OF_FOREGROUND)
+                }
+                true -> Log.i(TAG, "The screen went off while playing, the player's service in the foreground")
+                null -> Unit
+            }
+        }
+    }
+    private var screenOffRegistered = false
 
     /** Whether the screen is on, for the lines that say why the music stopped. */
     private fun screenOn(): Boolean? = getSystemService<PowerManager>()?.isInteractive

@@ -28,22 +28,19 @@ class StopReasonsTest {
             "STOPPED: paused by another app took the sound (screen off, in the foreground)",
             StopReasons.pausedLine(Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS, false, true),
         )
-        assertEquals(
-            "STOPPED: the player's service ended while playing (screen off, NOT in the foreground)",
-            StopReasons.endedLine(screenOn = false, inForeground = false),
-        )
-        // Below Android 10 the service cannot say whether it is in the foreground: nothing is guessed.
-        assertEquals("STOPPED: the player's service ended while playing", StopReasons.endedLine(null, null))
+        // Whether it was in the foreground is not said as it ends: Android has taken it out by then.
+        assertEquals("STOPPED: the player's service ended while playing (screen off)", StopReasons.endedLine(screenOn = false))
+        assertEquals("STOPPED: the player's service ended while playing", StopReasons.endedLine(null))
     }
 
     @Test
-    fun `the file keeps the last five stops, dated, the latest last`() {
+    fun `the file keeps the last eight lines, dated, the latest last`() {
         var lines = emptyList<String>()
-        for (i in 1..7) lines = StopReasons.added(lines, "stop $i", Date(0))
+        for (i in 1..10) lines = StopReasons.added(lines, "stop $i", Date(0))
         assertEquals(StopReasons.KEPT, lines.size)
         assertTrue(lines.first().endsWith(" stop 3"))
-        assertTrue(lines.last().endsWith(" stop 7"))
-        assertTrue(Regex("""^\d\d-\d\d \d\d:\d\d:\d\d stop 7$""").matches(lines.last()))
+        assertTrue(lines.last().endsWith(" stop 10"))
+        assertTrue(Regex("""^\d\d-\d\d \d\d:\d\d:\d\d stop 10$""").matches(lines.last()))
     }
 
     @Test
@@ -62,7 +59,9 @@ class StopReasonsTest {
         val service = File("src/main/java/com/dd3boh/outertune/playback/MusicService.kt").readText()
         assertTrue(service.contains("Log.w(TAG, StopReasons.NOT_IN_FOREGROUND)"))
         assertTrue(service.contains("StopReasons.pausedLine(reason, screenOn(), inForeground())"))
-        assertTrue(service.contains("StopReasons.endedLine(screenOn(), inForeground())"))
+        assertTrue(service.contains("StopReasons.endedLine(screenOn())"))
+        assertTrue("the screen going off is read while the service lives", service.contains("Intent.ACTION_SCREEN_OFF"))
+        assertTrue(service.contains("Log.w(TAG, StopReasons.SCREEN_OFF_OUT_OF_FOREGROUND)"))
         val dialog = File("src/main/java/com/dd3boh/outertune/ui/component/ProblemReportDialog.kt").readText()
         assertTrue(dialog.contains("StopReasons.read(context)"))
     }

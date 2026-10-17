@@ -38,9 +38,21 @@ object StopReasons {
     fun pausedLine(reason: Int, screenOn: Boolean?, inForeground: Boolean?): String? =
         paused(reason)?.let { "STOPPED: paused by $it${state(screenOn, inForeground)}" }
 
-    /** The line for the service ending while music plays: Android stopping it, most likely. */
-    fun endedLine(screenOn: Boolean?, inForeground: Boolean?): String =
-        "STOPPED: the player's service ended while playing${state(screenOn, inForeground)}"
+    /**
+     * The line for the service ending while music plays: Android stopping it, most likely. Without
+     * whether it was in the foreground: by the time it hears it is ending, Android has already
+     * taken it out (seen on the emulator, 17 Oct 2026). [SCREEN_OFF_OUT_OF_FOREGROUND] is that reading.
+     */
+    fun endedLine(screenOn: Boolean?): String =
+        "STOPPED: the player's service ended while playing${state(screenOn, null)}"
+
+    /**
+     * The line for the screen going off while music plays with the service out of the foreground,
+     * which is what lets Android stop it a minute later (issue #26). Read when the screen goes off,
+     * while the service is alive to say.
+     */
+    const val SCREEN_OFF_OUT_OF_FOREGROUND = "STOPPED SOON: the screen went off while playing and the player's service is NOT in the foreground, " +
+        "so Android can stop it a minute later"
 
     /**
      * The line for media3 failing to bring the service into the foreground. Android 12 and later
@@ -55,8 +67,8 @@ object StopReasons {
         inForeground?.let { if (it) "in the foreground" else "NOT in the foreground" },
     ).takeIf { it.isNotEmpty() }?.joinToString(", ", prefix = " (", postfix = ")").orEmpty()
 
-    /** How many stops the file keeps, the latest last. */
-    const val KEPT = 5
+    /** How many lines the file keeps, the latest last: a screen going off and the stop after it are two. */
+    const val KEPT = 8
 
     private const val FILE = "stops.txt"
 
