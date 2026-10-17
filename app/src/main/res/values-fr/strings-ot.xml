@@ -1772,6 +1772,6 @@
     <string name="queue_from_search">« %1$s »</string>
     <string name="support_title">Soutenir InterTune</string>
     <string name="support_text">InterTune est gratuit et sans publicité. Pour faire un don, envoyez un message privé au développeur sur le serveur Discord d\'InterTune.</string>
-    <string name="support_thanks">Merci à ceux qui ont déjà donné : %1$s</string>
+    <string name="support_thanks">Merci à ceux qui ont déjà donné :</string>
     <string name="support_discord">Ouvrir Discord</string>
 </resources>

@@ -35,6 +35,19 @@ class SupportTest {
     }
 
     @Test
+    fun `each one who gave has a line of their own under the thanks`() {
+        val dialog = File("src/main/java/com/dd3boh/outertune/ui/dialog/SupportDialog.kt").readText()
+        assertTrue(dialog.contains("Links.SUPPORTERS.forEach"))
+        assertFalse("the names are a list, not one line", dialog.contains("joinToString"))
+        assertTrue("a long list scrolls inside the note", dialog.contains("verticalScroll"))
+        for (path in listOf("src/main/res/values/strings-ot.xml", "src/main/res/values-fr/strings-ot.xml")) {
+            val thanks = Regex("""name="support_thanks">([^<]*)<""").find(File(path).readText())!!.groupValues[1]
+            assertFalse("$path: the names go below the thanks, not inside it", thanks.contains("%1"))
+            assertTrue("$path: the thanks leads into the list", thanks.trimEnd().endsWith(":"))
+        }
+    }
+
+    @Test
     fun `no wallet address is written into the app`() {
         val links = File("src/main/java/com/dd3boh/outertune/constants/Links.kt").readText()
         assertFalse(Regex("""\bbc1[a-z0-9]{20,}|\b[13][a-km-zA-HJ-NP-Z1-9]{25,34}\b""").containsMatchIn(links))
