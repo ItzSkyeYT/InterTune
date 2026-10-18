@@ -95,6 +95,17 @@ class LyricsTimingTest {
     }
 
     @Test
+    fun `the slider starts in its middle, so it shows both ways, with minus and plus either side`() {
+        // His word on the first build (18 Oct 2026): "there should be earlier+later not just earlier",
+        // then "the slider should start in the middle leave the plus and minus".
+        val bar = File("src/main/java/com/dd3boh/outertune/ui/component/LyricsTimingBar.kt").readText()
+        assertTrue("as they came is the middle, not half full", bar.contains("track = { CentredTrack(it) }"))
+        assertTrue(bar.contains("valueRange = -LyricsTiming.MOST_MS.toFloat()..LyricsTiming.MOST_MS.toFloat()"))
+        assertTrue(bar.contains("Icon(Icons.Rounded.Remove, contentDescription = stringResource(R.string.lyrics_timing_step_earlier))"))
+        assertTrue(bar.contains("Icon(Icons.Rounded.Add, contentDescription = stringResource(R.string.lyrics_timing_step_later))"))
+    }
+
+    @Test
     fun `the setting is changed in one edit, and the menu offers the timing only for synced lyrics`() {
         val view = File("src/main/java/com/dd3boh/outertune/ui/component/Lyrics.kt").readText()
         assertTrue(view.contains("dataStore.edit { it[LyricsTimingKey] = LyricsTiming.withShift(it[LyricsTimingKey].orEmpty(), song, shiftMs) }"))
