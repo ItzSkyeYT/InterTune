@@ -11,6 +11,7 @@ import android.util.Log
 import android.view.View
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
+import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
@@ -264,7 +265,23 @@ fun LoginScreen(
                     modifier = Modifier.fillMaxSize(),
                     factory = { context ->
                         WebView(context).apply {
+                            // App links taken to YouTube Music's page instead, for this page.
+                            var appLinksTaken = 0
                             webViewClient = object : WebViewClient() {
+                                // Google's sign-in can end on an intent:// link to the YouTube Music
+                                // app, in the Play Store where it is not installed, which a web view
+                                // cannot open: "Webpage not available", and the sign-in never ended
+                                // (issue #28, 18 Oct 2026). The sign-in is made by then, and YouTube
+                                // Music's own page here ends it, as the continue address would have.
+                                // Twice at most, so a page that keeps sending the link cannot keep
+                                // the web view going round; after that the link is only not followed.
+                                override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+                                    if (view !== webView || !request.isForMainFrame) return false
+                                    if (!isAppLink(request.url.toString())) return false
+                                    if (appLinksTaken++ < 2) view.loadUrl(YOUTUBE_MUSIC)
+                                    return true
+                                }
+
                                 // The address is read from the page's history, which changes once a
                                 // page has arrived, and not from onPageStarted: a load can start for
                                 // one address and end without ever showing it, leaving the page before
@@ -517,6 +534,13 @@ private fun httpsUrl(url: String?): HttpUrl? = url?.toHttpUrlOrNull()?.takeIf { 
  */
 private fun isHttpsPageOn(url: String?, host: String): Boolean =
     httpsUrl(url)?.let { it.host == host && it.port == 443 } == true
+
+/**
+ * Whether [url] is a link for an app rather than a page: intent:// and market:// (and android-app://),
+ * which a web view cannot open. See the sign-in page's shouldOverrideUrlLoading.
+ */
+internal fun isAppLink(url: String?): Boolean =
+    url?.substringBefore(':', missingDelimiterValue = "")?.lowercase() in setOf("intent", "market", "android-app")
 
 /** Whether [url] came over https, for the lock in the address bar. */
 internal fun isHttpsPage(url: String?): Boolean = httpsUrl(url) != null
