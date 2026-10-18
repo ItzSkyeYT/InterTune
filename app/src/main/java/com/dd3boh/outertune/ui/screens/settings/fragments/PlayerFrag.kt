@@ -1050,6 +1050,7 @@ fun ColumnScope.SleepScheduleFrag() {
         icon = { Icon(Icons.Rounded.EventRepeat, null) },
         checked = on,
         onCheckedChange = onOnChange,
+        modifier = Modifier.tourTarget(Tour.SETTING_SLEEP_SCHEDULE),
     )
 
     if (showStart) {

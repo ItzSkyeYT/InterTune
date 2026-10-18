@@ -9,10 +9,11 @@
 [![release](https://img.shields.io/github/v/release/ItzSkyeYT/InterTune?label=release&color=ed5564&labelColor=1b1f24)](https://github.com/ItzSkyeYT/InterTune/releases/latest)
 [![downloads](https://img.shields.io/github/downloads/ItzSkyeYT/InterTune/total?color=ed5564&labelColor=1b1f24)](https://github.com/ItzSkyeYT/InterTune/releases)
 [![discord](https://img.shields.io/badge/discord-join-5865f2?logo=discord&logoColor=white&labelColor=1b1f24)](https://discord.gg/68jmqhMjXk)
+[![donors](https://img.shields.io/badge/donors-thank%20you-ed5564?labelColor=1b1f24)](#donors)
 [![translated](https://hosted.weblate.org/widget/intertune/strings/svg-badge.svg)](https://hosted.weblate.org/engage/intertune/)
 [![licence](https://img.shields.io/badge/licence-GPL--3.0-ed5564?labelColor=1b1f24)](https://github.com/ItzSkyeYT/InterTune/tree/visionos-fix/LICENSE)
 
-[Download](#download) · [Features](#features) · [Good to know](#good-to-know) · [Wiki](https://github.com/ItzSkyeYT/InterTune/wiki) · [Discord](https://discord.gg/68jmqhMjXk)
+[Download](#download) · [Features](#features) · [Good to know](#good-to-know) · [Wiki](https://github.com/ItzSkyeYT/InterTune/wiki) · [Discord](https://discord.gg/68jmqhMjXk) · [Donors](#donors)
 
 </div>
 
@@ -23,9 +24,9 @@
 <div align="center">
 
 [<img src="https://raw.githubusercontent.com/ItzSkyeYT/InterTune/visionos-fix/assets/badge_github.png" alt="Get it on GitHub" height="60">](https://github.com/ItzSkyeYT/InterTune/releases/latest)
-[<img src="https://raw.githubusercontent.com/ItzSkyeYT/InterTune/visionos-fix/assets/badge_obtainium.png" alt="Get it on Obtainium" height="60">](https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22dev.skye.intertune%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FItzSkyeYT%2FInterTune%22%2C%22author%22%3A%22ItzSkyeYT%22%2C%22name%22%3A%22InterTune%22%2C%22additionalSettings%22%3A%22%7B%5C%22apkFilterRegEx%5C%22%3A%20%5C%22core-release%5C%22%7D%22%7D)
+[<img src="https://raw.githubusercontent.com/ItzSkyeYT/InterTune/visionos-fix/assets/badge_obtainium.png" alt="Get it on Obtainium" height="60">](https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22dev.skye.intertune%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FItzSkyeYT%2FInterTune%22%2C%22author%22%3A%22ItzSkyeYT%22%2C%22name%22%3A%22InterTune%22%2C%22additionalSettings%22%3A%22%7B%5C%22apkFilterRegEx%5C%22%3A%20%5C%22core-release%5C%22%7D%22%7D)<br>
+[<img src="https://raw.githubusercontent.com/ItzSkyeYT/InterTune/visionos-fix/assets/badge_fdroid.svg" alt="Get it on F-Droid" height="60">](https://f-droid.org/packages/dev.skye.intertune/)
 [<img src="https://raw.githubusercontent.com/RookieEnough/Orion-Store/refs/heads/main/assets/orion-badge.png" alt="Get it on Orion Store" height="60">](https://rookieenough.github.io/Orion-Data/redirect.html?id=intertune)
-<!-- F-Droid badge goes here once the listing is live: [<img src="https://raw.githubusercontent.com/ItzSkyeYT/InterTune/visionos-fix/assets/badge_fdroid.svg" alt="Get it on F-Droid" height="60">](https://f-droid.org/packages/dev.skye.intertune/) -->
 
 Android 7.0 or later. Once installed, InterTune finds new versions by itself if you let it.
 
@@ -177,6 +178,23 @@ JDK 21 and an Android SDK with `platforms;android-36`, `ndk;29.0.13113456` and `
 
 Thank you so much, everyone, for your support in this growing project!
 
+## Donors
+
+<p align="center">InterTune is free and has no ads. These people gave something back anyway, and that keeps the project going. It means a lot, <b>thank you!</b></p>
+
+<div align="center">
+<table>
+  <tr>
+    <td valign="middle"><img src="https://raw.githubusercontent.com/ItzSkyeYT/InterTune/visionos-fix/assets/donors/dnr.png" width="42" height="42" alt="DNR"></td>
+    <td valign="middle"><b>DNR</b><br><sub>The very first donation</sub><br><sub>October 2026</sub></td>
+  </tr>
+</table>
+</div>
+
+<br>
+
+<p align="center"><b>Want your name here?</b> Send me a direct message on the <a href="https://discord.gg/68jmqhMjXk">Discord server</a>!</p>
+
 ## Special thanks
 
 InterTune stands on a lot of other people's work.
@@ -205,6 +223,7 @@ InterTune stands on a lot of other people's work.
 |---|---|
 | [rii2609](https://github.com/rii2609) | The idea for Liquid glass |
 | [cchery2512](https://github.com/cchery2512) | Reporting the M3U import bugs |
+| Everyone who [reports issues](https://github.com/ItzSkyeYT/InterTune/issues) | Finding what needs fixing |
 | Everyone translating on [Weblate](https://hosted.weblate.org/engage/intertune/) | InterTune in your language |
 
 ## Licence

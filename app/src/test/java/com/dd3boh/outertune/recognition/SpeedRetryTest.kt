@@ -72,11 +72,22 @@ class SpeedRetryTest {
     }
 
     @Test
-    fun `each window of a listen tries another speed, sped up first`() {
-        assertEquals(1.25, SpeedRetry.rateFor(0), 0.0)
-        assertEquals(0.85, SpeedRetry.rateFor(1), 0.0)
-        assertEquals(1.35, SpeedRetry.rateFor(2), 0.0)
+    fun `each window of a listen tries two other speeds, the reel's 0_8 among the first`() {
+        assertEquals(listOf(1.25, 0.8), SpeedRetry.ratesFor(0))
+        assertEquals(listOf(1.35, 0.85), SpeedRetry.ratesFor(1))
+        assertEquals(listOf(1.15, 0.75), SpeedRetry.ratesFor(2))
         assertEquals(SpeedRetry.RATES.toSet().size, SpeedRetry.RATES.size)
+    }
+
+    @Test
+    fun `a near miss is asked once more one step closer, a far one or a fit is not`() {
+        fun heard(skew: Double) = Recognised("I'm Not Alone (Radio Edit)", "Calvin Harris", null, null, "1", 112.7, skew, skew)
+        // Measured on the reel: from 0.85 the radio edit at -0.037, closer means lower.
+        val closer = SpeedRetry.closer(0.85, heard(-0.036725104))!!
+        assertEquals(0.85 * (1 - 0.036725104), closer, 1e-9)
+        assertTrue(closer < 0.85 && closer > 0.8)
+        assertEquals(null, SpeedRetry.closer(0.8, heard(-6.920099E-5)))
+        assertEquals(null, SpeedRetry.closer(1.25, heard(0.2)))
     }
 
     @Test
@@ -86,9 +97,10 @@ class SpeedRetryTest {
         assertTrue(identify.contains("if (keepGoing || heard != RecognitionOutcome.NoMatch) heard"))
         assertTrue(identify.contains("hearAgainAtSpeed(window.samples)"))
         val again = engine.substringAfter("private suspend fun hearAgainAtSpeed(").substringBefore("\n    }\n")
-        assertTrue(again.contains("SpeedRetry.rateFor(onceMisses)"))
+        assertTrue(again.contains("SpeedRetry.ratesFor(onceMisses)"))
+        assertTrue(again.contains("SpeedRetry.closer(rate, match)"))
         assertTrue(again.contains("heardAtRate = rate"))
-        assertTrue("a guess that only fits stretched is not taken", again.contains("SpeedRetry.fits(it)"))
+        assertTrue("a guess that only fits stretched is not taken", again.contains("if (SpeedRetry.fits(match)) return"))
         // The position on show moves at the speed the room plays it.
         assertTrue(engine.contains("} else outcome.track.heardAtRate"))
     }

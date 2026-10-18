@@ -292,7 +292,8 @@ fun ColumnScope.ContentFiltersFrag() {
         description = stringResource(R.string.hide_explicit_description),
         icon = { Icon(Icons.Rounded.Explicit, null) },
         checked = hideExplicit,
-        onCheckedChange = onHideExplicitChange
+        onCheckedChange = onHideExplicitChange,
+        modifier = Modifier.tourTarget(Tour.SETTING_CONTENT_FILTERS),
     )
     SwitchPreference(
         title = { Text(stringResource(R.string.hide_video_songs)) },
