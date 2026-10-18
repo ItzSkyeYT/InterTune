@@ -624,24 +624,34 @@ class RecognitionEngine @Inject constructor(
     }
 
     /**
-     * Listen once, after a window Shazam knew nothing of: the same window put back from a speed a
-     * reel or a sped-up or slowed edit plays songs at, one guess per window, a different one each
-     * time ([SpeedRetry]). A match carries the rate it was heard at; anything else leaves the
-     * window as nothing known, and a refusal is met again by the next window's own request.
+     * Listen once, after a window Shazam knew nothing of: the same window put back from the speeds
+     * a reel or a sped-up or slowed edit plays songs at, two guesses per window, two others the
+     * next time ([SpeedRetry]), and a near miss asked once more one step closer. A match carries
+     * the rate it was heard at; anything else leaves the window as nothing known. A refusal or a
+     * failed request ends the guessing: the next window's own request meets it again.
      */
     private suspend fun hearAgainAtSpeed(samples: ShortArray): RecognitionOutcome.Match? {
-        val rate = SpeedRetry.rateFor(onceMisses)
-        val again = shazam.identify(SpeedRetry.putBack(samples, rate))
-        val match = (again as? RecognitionOutcome.Match)?.track
-        Log.i(
-            TAG,
-            "Nothing known as heard; put back from ${rate}x: " + when {
-                match == null -> again::class.simpleName
-                SpeedRetry.fits(match) -> "'${match.title}'"
-                else -> "'${match.title}' at skew ${match.timeSkew}/${match.frequencySkew}, not taken"
-            },
-        )
-        return match?.takeIf { SpeedRetry.fits(it) }?.let { RecognitionOutcome.Match(it.copy(heardAtRate = rate)) }
+        for (guess in SpeedRetry.ratesFor(onceMisses)) {
+            var rate = guess
+            for (step in 0..1) {
+                val again = shazam.identify(SpeedRetry.putBack(samples, rate))
+                val match = (again as? RecognitionOutcome.Match)?.track
+                Log.i(
+                    TAG,
+                    "Nothing known as heard; put back from ${"%.3f".format(rate)}x: " + when {
+                        match == null -> again::class.simpleName
+                        SpeedRetry.fits(match) -> "'${match.title}'"
+                        else -> "'${match.title}' at skew ${match.timeSkew}/${match.frequencySkew}, not taken"
+                    },
+                )
+                if (again is RecognitionOutcome.Failed) return null
+                if (match == null) break
+                if (SpeedRetry.fits(match)) return RecognitionOutcome.Match(match.copy(heardAtRate = rate))
+                if (step == 1) break
+                rate = SpeedRetry.closer(rate, match) ?: break
+            }
+        }
+        return null
     }
 
     /** Keeps [backoff] and [retryAt] up with what Shazam said about the window that ended at [endMs]. */

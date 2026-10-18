@@ -19,21 +19,33 @@ import kotlin.math.roundToInt
  * named, at the same second as the original. Put back from a third faster by a quarter, 8% off,
  * none of the three was named right, so a guess has to land within a few percent.
  *
- * So a Listen once window that Shazam knew nothing of is heard again at one of [RATES], a different
- * one for each window, rather than all of them at once: Shazam answers 429 after about a dozen
- * requests in quick succession, and a listen gives up after three windows anyway.
+ * So a Listen once window that Shazam knew nothing of is heard again at two of [RATES], two others
+ * for the next window, rather than all of them at once: Shazam answers 429 after about a dozen
+ * requests in quick succession, and a listen gives up after three windows anyway. The Instagram
+ * reel he asked about (I'm Not Alone, slowed to 0.8) was named only from 0.8: from 0.85 and 0.75
+ * Shazam named the song's radio edit at a skew of 0.037 and 0.034, from everything else nothing.
  */
 internal object SpeedRetry {
 
     /**
-     * How fast the room is guessed to be playing, against the recording: a quarter faster first,
-     * the usual sped-up edit, then the usual slowed one, then nightcore's third faster. A seventh
-     * faster comes last: Shazam often names those as they are, from an upload at about that speed.
+     * How fast the room is guessed to be playing, against the recording, two to a window: a
+     * quarter faster and a fifth slower first, the usual sped-up and slowed edits, then
+     * nightcore's third faster and a gentler slowing, then the rest. A seventh faster comes late:
+     * Shazam often names those as they are, from an upload at about that speed.
      */
-    val RATES = doubleArrayOf(1.25, 0.85, 1.35, 1.15)
+    val RATES = doubleArrayOf(1.25, 0.8, 1.35, 0.85, 1.15, 0.75)
 
-    /** The rate to try after the [miss]th window in a listen that named nothing, counted from 0. */
-    fun rateFor(miss: Int): Double = RATES[miss.mod(RATES.size)]
+    /** The two rates to try after the [miss]th window in a listen that named nothing, counted from 0. */
+    fun ratesFor(miss: Int): List<Double> = listOf(RATES[(2 * miss).mod(RATES.size)], RATES[(2 * miss + 1).mod(RATES.size)])
+
+    /**
+     * A guess a few percent off can still name the right song, at a skew that says by how much
+     * (from 0.85 the reel was the radio edit at -0.037): the rate one step closer to the room's
+     * own speed, to ask once more, or null when the match fits already or is too far off to trust.
+     * A negative skew is a sample slower than the recording, put back from a lower rate.
+     */
+    fun closer(rate: Double, track: Recognised): Double? =
+        track.timeSkew.takeIf { abs(it) >= MAX_SKEW && abs(it) <= NEAR_MISS }?.let { rate * (1 + it) }
 
     /**
      * Whether a match on a window put back from a guessed speed can be taken. Put back to its own
@@ -47,6 +59,9 @@ internal object SpeedRetry {
         abs(track.timeSkew) < MAX_SKEW && abs(track.frequencySkew) < MAX_SKEW
 
     private const val MAX_SKEW = 0.01
+
+    /** Past this a match is not a near miss of the room's song but something else. */
+    private const val NEAR_MISS = 0.08
 
     /**
      * [samples], heard at [rate] times the recording's speed, put back to the recording's own
