@@ -37,4 +37,16 @@ class TurningKeepsTheScreenTest {
         assertTrue(main.contains("LocalWindowInfo.current.containerSize"))
         assertTrue(main.contains("remember(windowPx, laidOutWidth, windowDensity)"))
     }
+
+    @Test
+    fun thePagesMakeRoomForTheRailOnceItIsThere() {
+        // Turned on its side the bar becomes a rail down the left, and every page is pushed right
+        // by its width through the player-aware insets. Those were remembered on the bottom inset
+        // and the player alone, so on a turn without a new screen they kept the width they had
+        // upright, none, and Home ran under the rail: "ory" for History, "icks" for Quick picks
+        // (his S25U, 18 Oct 2026).
+        val main = File("src/main/java/com/dd3boh/outertune/MainActivity.kt").readText()
+        val keys = main.substringAfter("val playerAwareWindowInsets =").substringBefore(") {")
+        assertTrue("the insets follow the rail: $keys", keys.contains("useNavRail"))
+    }
 }

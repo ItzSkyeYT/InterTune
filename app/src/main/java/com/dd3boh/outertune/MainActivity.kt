@@ -973,10 +973,13 @@ class MainActivity : ComponentActivity() {
                         expandedBound = maxHeight,
                     )
 
+                    // Keyed on the rail too: a turn no longer makes a new screen, so without it the
+                    // pages kept the left edge they had upright and ran under the rail on their side.
                     val playerAwareWindowInsets =
                         remember(
                             bottomInset,
                             playerBottomSheetState.isDismissed,
+                            useNavRail,
                         ) {
                             // TODO: Navbar is shown in all screens except for oobe (which doesn't use these insets). Idk what do to tbh
                             var bottom = bottomInset + if (!useNavRail) NavigationBarHeight else 0.dp
