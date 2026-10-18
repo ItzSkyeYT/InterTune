@@ -828,9 +828,9 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="new_sleep_schedule_body">Pick a time once, and the sleep timer starts by itself every day from then on.</string>
     <string name="new_sleep_schedule_way">Sleep timer on a schedule is in here.</string>
     <string name="new_sleep_schedule_here">Turn it on, then pick when it starts and how long it runs.</string>
-    <string name="new_content_filters_title">Hide explicit songs, music videos and Shorts</string>
-    <string name="new_content_filters_body">Three switches keep them out of Home, search and artist pages.</string>
-    <string name="new_content_filters_way">The three switches are in here.</string>
+    <string name="new_content_filters_title">Hide explicit songs and music videos</string>
+    <string name="new_content_filters_body">Two switches keep them out of Home, search and artist pages.</string>
+    <string name="new_content_filters_way">The two switches are in here.</string>
     <string name="new_content_filters_here">Turn on the ones you want. A song you pick yourself still plays.</string>
     <string name="new_equalizer_title">An equalizer tuned to your headphones</string>
     <string name="new_equalizer_body">Ten bands, a few ready curves, or the curve measured for your own headphones.</string>
@@ -1930,8 +1930,6 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="hide_explicit_description">Songs and albums marked explicit stay out of Home, search, artist pages and what a radio adds.</string>
     <string name="hide_video_songs">Hide music videos</string>
     <string name="hide_video_songs_description">Only album and single tracks are offered, not music videos or uploads. A song you pick still plays.</string>
-    <string name="hide_shorts">Hide Shorts</string>
-    <string name="hide_shorts_description">Lists of YouTube Shorts stay out of Home, search and artist pages.</string>
 
     <!-- The recognition widget in the launcher's picker (recognition_widget_info). -->
     <string name="recognition_widget_description">One button that names the song playing around you.</string>

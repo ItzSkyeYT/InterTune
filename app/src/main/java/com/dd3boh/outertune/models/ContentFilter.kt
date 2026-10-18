@@ -8,10 +8,8 @@ package com.dd3boh.outertune.models
 
 import androidx.datastore.preferences.core.Preferences
 import com.dd3boh.outertune.constants.HideExplicitKey
-import com.dd3boh.outertune.constants.HideShortsKey
 import com.dd3boh.outertune.constants.HideVideoSongsKey
 import com.zionhuang.innertube.models.AlbumItem
-import com.zionhuang.innertube.models.PlaylistItem
 import com.zionhuang.innertube.models.SongItem
 import com.zionhuang.innertube.models.YTItem
 import com.zionhuang.innertube.pages.ArtistPage
@@ -21,8 +19,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * What the three switches under Settings > Library and content keep out: explicit songs and
- * albums, songs that are music videos or uploads, and Shorts.
+ * What the two switches under Settings > Library and content keep out: explicit songs and
+ * albums, and songs that are music videos or uploads. A third for Shorts was taken out before 0.12
+ * (his word, 18 Oct 2026): YouTube Music sends none to these places, so it hid nothing.
  *
  * It applies where YouTube chooses what to offer: Home's rows from YouTube (Quick picks among
  * them when YouTube fills it), search results, an artist's page and its lists, and what a radio or
@@ -33,16 +32,14 @@ import kotlinx.coroutines.flow.StateFlow
 data class ContentFilter(
     val explicit: Boolean = false,
     val videoSongs: Boolean = false,
-    val shorts: Boolean = false,
 ) {
     val isOff: Boolean
-        get() = !explicit && !videoSongs && !shorts
+        get() = !explicit && !videoSongs
 
     /** Whether [item] is one the switches keep out. A song of unknown kind is kept. */
     fun hides(item: YTItem): Boolean = when (item) {
         is SongItem -> (explicit && item.explicit) || (videoSongs && item.isVideoSong)
         is AlbumItem -> explicit && item.explicit
-        is PlaylistItem -> shorts && isShortsList(item.id)
         else -> false
     }
 
@@ -76,16 +73,9 @@ data class ContentFilter(
         page.copy(sections = page.sections.map { it.copy(items = apply(it.items)) }.filter { it.items.isNotEmpty() })
 
     companion object {
-        /**
-         * Shorts come to YouTube Music's lists as playlists whose id starts with SS. None came in
-         * a signed-out Home, search or radio on 14 Oct 2026, so this is the one sign there is.
-         */
-        fun isShortsList(id: String): Boolean = id.startsWith("SS")
-
         fun of(preferences: Preferences) = ContentFilter(
             explicit = preferences[HideExplicitKey] ?: false,
             videoSongs = preferences[HideVideoSongsKey] ?: false,
-            shorts = preferences[HideShortsKey] ?: false,
         )
 
         private val state = MutableStateFlow(ContentFilter())

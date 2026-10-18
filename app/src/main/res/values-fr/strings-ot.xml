@@ -1694,9 +1694,9 @@
     <string name="new_sleep_schedule_body">Choisissez une heure une fois pour toutes, et la minuterie de sommeil se lance seule chaque jour.</string>
     <string name="new_sleep_schedule_way">La minuterie de sommeil programmée se trouve ici.</string>
     <string name="new_sleep_schedule_here">Activez-la, puis choisissez quand elle commence et combien de temps elle dure.</string>
-    <string name="new_content_filters_title">Masquer les titres explicites, les clips et les Shorts</string>
-    <string name="new_content_filters_body">Trois interrupteurs les retirent de l\'accueil, de la recherche et des pages d\'artiste.</string>
-    <string name="new_content_filters_way">Les trois interrupteurs se trouvent ici.</string>
+    <string name="new_content_filters_title">Masquer les titres explicites et les clips</string>
+    <string name="new_content_filters_body">Deux interrupteurs les retirent de l\'accueil, de la recherche et des pages d\'artiste.</string>
+    <string name="new_content_filters_way">Les deux interrupteurs se trouvent ici.</string>
     <string name="new_content_filters_here">Activez ceux que vous voulez. Un titre que vous choisissez vous-même se lit quand même.</string>
     <string name="new_equalizer_title">Un égaliseur réglé pour votre casque</string>
     <string name="new_equalizer_body">Dix bandes, quelques courbes toutes prêtes, ou la courbe mesurée pour votre propre casque.</string>
@@ -1743,8 +1743,6 @@
     <string name="hide_explicit_description">Les titres et albums marqués explicites n\'apparaissent plus dans l\'accueil, la recherche, les pages d\'artiste et ce qu\'ajoute une radio.</string>
     <string name="hide_video_songs">Masquer les clips</string>
     <string name="hide_video_songs_description">Seuls les titres d\'albums et de singles sont proposés, pas les clips ni les vidéos mises en ligne. Un titre que vous choisissez se lit quand même.</string>
-    <string name="hide_shorts">Masquer les Shorts</string>
-    <string name="hide_shorts_description">Les listes de Shorts YouTube n\'apparaissent plus dans l\'accueil, la recherche et les pages d\'artiste.</string>
     <!-- The recognition widget in the launcher's picker (recognition_widget_info). -->
     <string name="recognition_widget_description">Un bouton qui trouve le titre qui passe autour de vous.</string>
     <!-- The sleep timer on a schedule, under the sleep timer's fade in Player and audio (SleepScheduleFrag, ScheduledSleep). -->
