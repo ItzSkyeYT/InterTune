@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.playback
 
+import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.ForwardingSimpleBasePlayer
 import androidx.media3.common.Player
 
@@ -24,10 +25,28 @@ import androidx.media3.common.Player
  * Only built with Unreleased.CASTING on. With it off MusicService.player is the ExoPlayer itself,
  * and nothing about playback goes through here.
  */
-class RoutedPlayer(local: Player) : ForwardingSimpleBasePlayer(local) {
-    /** Where calls go now. */
-    val target: Player get() = player
+class RoutedPlayer(local: Player) : ForwardingSimpleBasePlayer(Steady(local)) {
+    private var routed: Player = local
+
+    /** Where calls go now: the player itself, not the [Steady] layer in front of it. */
+    val target: Player get() = routed
 
     /** Sends every call from now on to [target]. Main thread only. */
-    fun routeTo(target: Player) = setPlayer(target)
+    fun routeTo(target: Player) {
+        routed = target
+        setPlayer(Steady(target))
+    }
+
+    /**
+     * [player] as it is, except that it is never loading while idle or ended. ExoPlayer can say
+     * both for a moment, as when the song playing is taken out of the queue, and the state this
+     * class builds from it refuses that pair: an IllegalArgumentException on the main thread that
+     * closed the app (18 Oct 2026, a song removed from the queue).
+     */
+    internal class Steady(player: Player) : ForwardingPlayer(player) {
+        override fun isLoading(): Boolean {
+            val state = playbackState
+            return super.isLoading() && state != Player.STATE_IDLE && state != Player.STATE_ENDED
+        }
+    }
 }
