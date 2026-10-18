@@ -31,7 +31,7 @@ class ReleasedFlagsTest {
         "ENGINE", "SHORT_SETUP", "LOGIN_RETURNS",
         "STAND_INS", "VISIONOS_IDENTITIES", "WEB_FALLBACK", "LANDSCAPE", "EXPLAIN_PICTURES", "LIBRARY_IMPORT",
         "PROBLEM_REPORT", "WELCOME_BACK", "COVER_ACCENT", "GLASS_QUEUE",
-        "LIVING_BACKGROUND",
+        "LIVING_BACKGROUND", "CASTING",
     )
 
     private val sources = File("src/main/java/com/dd3boh/outertune")
@@ -189,6 +189,31 @@ class ReleasedFlagsTest {
         val names = Regex("""<string name="(player_background_living|player_living_[a-z_]+|new_living_blur_[a-z_]+)"""")
             .findAll(english).map { it.groupValues[1] }.toList()
         assertEquals("Living blur's words could not all be found", 17, names.size)
+        for (name in names) {
+            assertTrue("$name is not open to translators", "<string name=\"$name\">" in english)
+            assertTrue("$name has no French", "<string name=\"$name\">" in french)
+        }
+    }
+
+    @Test
+    fun `casting is in every build, and its words are in French`() {
+        assertEquals(
+            setOf(
+                "playback/MusicService.kt",
+                "playback/CastProbe.kt",
+                "playback/CastSession.kt",
+                "ui/player/Player.kt",
+                "ui/player/CastPicker.kt",
+                "cast/CastDiscovery.kt",
+                "cast/CastLinks.kt",
+            ),
+            readers("CASTING"),
+        )
+        val english = File("src/main/res/values/strings-ot.xml").readText()
+        val french = File("src/main/res/values-fr/strings-ot.xml").readText()
+        val names = Regex("""<string name="(cast|cast_[a-z_]+|output_[a-z_]+)"""")
+            .findAll(english).map { it.groupValues[1] }.toList()
+        assertEquals("Casting's words could not all be found", 23, names.size)
         for (name in names) {
             assertTrue("$name is not open to translators", "<string name=\"$name\">" in english)
             assertTrue("$name has no French", "<string name=\"$name\">" in french)
