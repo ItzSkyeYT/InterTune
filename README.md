@@ -185,8 +185,8 @@ Thank you so much, everyone, for your support in this growing project!
 <div align="center">
 <table>
   <tr>
-    <td valign="middle"><img src="https://raw.githubusercontent.com/ItzSkyeYT/InterTune/visionos-fix/assets/donors/dnr.png" width="42" height="42" alt="DNR"></td>
-    <td valign="middle"><b>DNR</b><br><sub>The very first donation</sub><br><sub>October 2026</sub></td>
+    <td valign="middle"><img src="https://raw.githubusercontent.com/ItzSkyeYT/InterTune/visionos-fix/assets/donors/dnr.png" width="42" height="42" alt="Dismorphism"></td>
+    <td valign="middle"><b>Dismorphism</b><br><sub>The very first donation</sub><br><sub>October 2026</sub></td>
   </tr>
 </table>
 </div>
