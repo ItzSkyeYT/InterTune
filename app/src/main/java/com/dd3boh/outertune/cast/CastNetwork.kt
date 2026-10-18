@@ -45,6 +45,26 @@ object CastNetwork {
     }
 
     /**
+     * The phone's IPv4 address on the Wi-Fi with the length of its network prefix, for looking for
+     * FCast receivers address by address (FCastSweep); null off Wi-Fi or without IPv4 there.
+     */
+    fun wifiSubnet(connectivityManager: ConnectivityManager): Pair<Inet4Address, Int>? {
+        @Suppress("DEPRECATION")
+        for (network in connectivityManager.allNetworks) {
+            val capabilities = connectivityManager.getNetworkCapabilities(network) ?: continue
+            if (!capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
+            ) continue
+            val link = connectivityManager.getLinkProperties(network)?.linkAddresses?.firstOrNull {
+                val address = it.address
+                address is Inet4Address && !address.isLoopbackAddress && !address.isLinkLocalAddress
+            } ?: continue
+            return (link.address as Inet4Address) to link.prefixLength
+        }
+        return null
+    }
+
+    /**
      * The address to listen on and hand to receivers: IPv4, which is what every receiver can reach,
      * or failing that a unique local IPv6 address (fc00::/7), which stays on the local network.
      * Never a global IPv6 address: phones have no firewall for what comes in, so on a router that
