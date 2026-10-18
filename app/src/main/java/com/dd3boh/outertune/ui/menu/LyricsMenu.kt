@@ -25,6 +25,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AvTimer
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
@@ -97,6 +98,10 @@ fun LyricsMenu(
     onPickLines: () -> Unit = {},
     /** True when the picked lines can be a video too: the lyrics are synced. */
     picksForVideo: Boolean = false,
+    /** Opens the bar that moves the lyrics earlier or later against the song; null for lyrics that are not synced. */
+    onAdjustTiming: (() -> Unit)? = null,
+    /** Other lyrics were picked in Search for the song with this id. */
+    onOtherLyrics: (String) -> Unit = {},
 ) {
     val context = LocalContext.current
     val database = LocalDatabase.current
@@ -276,6 +281,7 @@ fun LyricsMenu(
                             }
 
                             onRefreshRequest(parseLrc(result.lyrics, lyricTrim, multilineLrc))
+                            onOtherLyrics(searchMediaMetadata.id)
                         }
                         .padding(12.dp)
                         .animateContentSize()
@@ -524,6 +530,13 @@ fun LyricsMenu(
         ) {
             onDismiss()
             onPickLines()
+        }
+        if (onAdjustTiming != null) GridMenuItem(
+            icon = Icons.Rounded.AvTimer,
+            title = R.string.lyrics_timing,
+        ) {
+            onDismiss()
+            onAdjustTiming()
         }
     }
 }

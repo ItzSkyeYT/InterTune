@@ -1992,4 +1992,11 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="support_text">InterTune is free and has no ads. If you would like to donate, send the developer a direct message on the InterTune Discord server.</string>
     <string name="support_thanks">Thanks to those who already gave:</string>
     <string name="support_discord">Open Discord</string>
+    <!-- Lyrics timing (0.13): held from translators until he says yes to the words. -->
+    <string name="lyrics_timing" translatable="false">Lyrics timing</string>
+    <string name="lyrics_timing_original" translatable="false">Original timing</string>
+    <string name="lyrics_timing_earlier" translatable="false">%1$s s earlier</string>
+    <string name="lyrics_timing_later" translatable="false">%1$s s later</string>
+    <string name="lyrics_timing_step_earlier" translatable="false">A tenth of a second earlier</string>
+    <string name="lyrics_timing_step_later" translatable="false">A tenth of a second later</string>
 </resources>
