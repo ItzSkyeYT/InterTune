@@ -35,6 +35,7 @@ import com.dd3boh.outertune.utils.ShareLink
 import com.dd3boh.outertune.utils.ShareLinkKind
 import com.dd3boh.outertune.utils.ShareLinks
 import com.dd3boh.outertune.utils.rememberEnumPreference
+import com.dd3boh.outertune.utils.shareSheet
 
 /**
  * Shares a song or an album the way "Links you share" says. Call the result from a click, with
@@ -73,7 +74,7 @@ private fun Context.shareText(text: String) {
         type = "text/plain"
         putExtra(Intent.EXTRA_TEXT, text)
     }
-    startActivity(Intent.createChooser(intent, null))
+    startActivity(shareSheet(intent))
 }
 
 @Composable

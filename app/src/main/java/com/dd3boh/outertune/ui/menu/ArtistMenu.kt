@@ -30,6 +30,7 @@ import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.component.items.ArtistListItem
+import com.dd3boh.outertune.utils.shareSheet
 import com.zionhuang.innertube.YouTube
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -147,7 +148,7 @@ fun ArtistMenu(
                     type = "text/plain"
                     putExtra(Intent.EXTRA_TEXT, "https://music.youtube.com/channel/${artist.id}")
                 }
-                context.startActivity(Intent.createChooser(intent, null))
+                context.startActivity(context.shareSheet(intent))
             }
         }
     }

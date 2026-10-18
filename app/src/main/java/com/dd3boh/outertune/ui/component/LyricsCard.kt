@@ -108,6 +108,7 @@ import com.dd3boh.outertune.utils.coilCoroutine
 import com.dd3boh.outertune.utils.makeTimeString
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
+import com.dd3boh.outertune.utils.shareSheet
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -250,7 +251,7 @@ object LyricsCard {
             clipData = ClipData.newRawUri(title, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        context.startActivity(Intent.createChooser(send, null))
+        context.startActivity(context.shareSheet(send))
     }.onFailure { Log.w(TAG, "Could not share the lyrics card", it) }.isSuccess
 
     /** The two colours the player's gradient takes from the cover, darkened until white words read on them. */

@@ -6,7 +6,9 @@ import com.dd3boh.outertune.constants.HideExplicitKey
 import androidx.compose.material.icons.rounded.Smartphone
 import androidx.compose.material.icons.rounded.OndemandVideo
 import androidx.compose.material.icons.rounded.Explicit
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ManageSearch
@@ -287,26 +289,29 @@ fun ColumnScope.ContentFiltersFrag() {
     val (hideVideoSongs, onHideVideoSongsChange) = rememberPreference(HideVideoSongsKey, defaultValue = false)
     val (hideShorts, onHideShortsChange) = rememberPreference(HideShortsKey, defaultValue = false)
 
-    SwitchPreference(
-        title = { Text(stringResource(R.string.hide_explicit)) },
-        description = stringResource(R.string.hide_explicit_description),
-        icon = { Icon(Icons.Rounded.Explicit, null) },
-        checked = hideExplicit,
-        onCheckedChange = onHideExplicitChange,
-        modifier = Modifier.tourTarget(Tour.SETTING_CONTENT_FILTERS),
-    )
-    SwitchPreference(
-        title = { Text(stringResource(R.string.hide_video_songs)) },
-        description = stringResource(R.string.hide_video_songs_description),
-        icon = { Icon(Icons.Rounded.OndemandVideo, null) },
-        checked = hideVideoSongs,
-        onCheckedChange = onHideVideoSongsChange
-    )
-    SwitchPreference(
-        title = { Text(stringResource(R.string.hide_shorts)) },
-        description = stringResource(R.string.hide_shorts_description),
-        icon = { Icon(Icons.Rounded.Smartphone, null) },
-        checked = hideShorts,
-        onCheckedChange = onHideShortsChange
-    )
+    // The three are one stop of the tour from What is new, whose bubble says to turn on the ones
+    // you want: pointed at the first alone, the bubble sat over the other two.
+    Column(Modifier.fillMaxWidth().tourTarget(Tour.SETTING_CONTENT_FILTERS)) {
+        SwitchPreference(
+            title = { Text(stringResource(R.string.hide_explicit)) },
+            description = stringResource(R.string.hide_explicit_description),
+            icon = { Icon(Icons.Rounded.Explicit, null) },
+            checked = hideExplicit,
+            onCheckedChange = onHideExplicitChange,
+        )
+        SwitchPreference(
+            title = { Text(stringResource(R.string.hide_video_songs)) },
+            description = stringResource(R.string.hide_video_songs_description),
+            icon = { Icon(Icons.Rounded.OndemandVideo, null) },
+            checked = hideVideoSongs,
+            onCheckedChange = onHideVideoSongsChange
+        )
+        SwitchPreference(
+            title = { Text(stringResource(R.string.hide_shorts)) },
+            description = stringResource(R.string.hide_shorts_description),
+            icon = { Icon(Icons.Rounded.Smartphone, null) },
+            checked = hideShorts,
+            onCheckedChange = onHideShortsChange
+        )
+    }
 }
