@@ -1999,6 +1999,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="player_pins_under_controls" translatable="false">Under the controls</string>
     <string name="player_pin_lyrics" translatable="false">Lyrics</string>
     <string name="player_pins_reset" translatable="false">Reset to default</string>
+    <string name="player_pins_add" translatable="false">Add</string>
+    <string name="player_pins_take_off" translatable="false">Take off %1$s</string>
     <!-- Listen together (TogetherDialog), step 1, debug and Preview builds. -->
     <string name="together_title">Listen together</string>
     <string name="together_intro">Start a room and share its code, or type the code of a friend\'s room. Everyone hears what the host plays, each phone playing it from YouTube.</string>

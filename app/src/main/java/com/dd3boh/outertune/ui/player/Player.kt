@@ -905,6 +905,15 @@ fun BottomSheetPlayer(
             var showRoom by rememberSaveable { mutableStateOf(false) }
             if (showRoom) TogetherSheet(onDismiss = { showRoom = false })
 
+            // The menu's entries among this style's pins, with their dialogs over the player
+            // (PinActions). A room's own button stands apart only while the room is not pinned.
+            val stylePins = remember(pins, buttonsStyle) {
+                if (buttonsStyle == PlayerButtonsStyle.CLASSIC) pins[PinPlace.CLASSIC].orEmpty().toSet()
+                else (pins[PinPlace.CONNECTED_TITLE].orEmpty() + pins[PinPlace.CONNECTED_ROW].orEmpty()).toSet()
+            }
+            val pinActions = rememberPinActions(mediaMetadata, navController, state, stylePins, inRoom, openRoom = { showRoom = true })
+            val roomApart = inRoom && PlayerPin.LISTEN_TOGETHER !in stylePins
+
             // Glass for the connected buttons whenever the player has it, grouped controls or not:
             // they are separate buttons either way.
             val buttonBackdrop = if (liquidGlass) playerBackdrop else null
@@ -991,8 +1000,6 @@ fun BottomSheetPlayer(
                 if (!showLyrics) mediaMetadata?.id?.let { ActivityLog.note(context, database, it, SignalKind.LYRICS) }
                 showLyrics = !showLyrics
             }
-            // A local file has no link to share, so a pinned share stays away while one plays.
-            val canShareSong = mediaMetadata?.isLocal == false
             val shareCircle: @Composable () -> Unit = {
                 PlayerCircleButton(
                     painter = rememberVectorPainter(Icons.Rounded.Share),
@@ -1017,6 +1024,16 @@ fun BottomSheetPlayer(
                     PlayerPin.LYRICS -> lyricsCircle()
                     PlayerPin.TIMER -> timerCircle()
                     PlayerPin.LIKE -> likeCircle()
+                    else -> {
+                        val on = pinActions.on(pin)
+                        PlayerCircleButton(
+                            painter = pinPainter(pin, on),
+                            contentDescription = pinLabel(pin, on),
+                            container = if (on) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
+                            content = if (on) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.onPrimary,
+                            onClick = { pinActions.run(pin) }
+                        )
+                    }
                 }
             }
 
@@ -1024,7 +1041,7 @@ fun BottomSheetPlayer(
             fun classicPins(queueCircle: Boolean): List<PlayerPin> =
                 pins[PinPlace.CLASSIC].orEmpty()
                     .takeLast(PlayerPins.classicMost(queueCircle))
-                    .filter { it != PlayerPin.SHARE || canShareSong }
+                    .filter(pinActions.shown)
 
             val classicButtons: @Composable RowScope.() -> Unit = {
                 Log.v(TAG, "PLR-3.xa")
@@ -1038,7 +1055,7 @@ fun BottomSheetPlayer(
                     pinCircle(pin)
                     Spacer(modifier = Modifier.width(7.dp))
                 }
-                if (inRoom) {
+                if (roomApart) {
                     roomCircle()
                     Spacer(modifier = Modifier.width(7.dp))
                 }
@@ -1061,14 +1078,14 @@ fun BottomSheetPlayer(
                     // The queue first and the menu last with the pins between, half on each side; a
                     // listening room's circle, while one is on, right before the menu.
                     val pinned = classicPins(queueCircle = true)
-                    val count = pinned.size + 2 + (if (inRoom) 1 else 0)
+                    val count = pinned.size + 2 + (if (roomApart) 1 else 0)
                     val onLeft = (count + 1) / 2
                     for (i in 0 until count) {
                         if ((i < onLeft) != left) continue
                         when {
                             i == 0 -> queueCircle()
                             i == count - 1 -> menuCircle()
-                            inRoom && i == count - 2 -> roomCircle()
+                            roomApart && i == count - 2 -> roomCircle()
                             else -> pinCircle(pinned[i - 1])
                         }
                     }
@@ -1125,6 +1142,19 @@ fun BottomSheetPlayer(
                         backdrop = buttonBackdrop,
                         glassIntensity = glassIntensity,
                     )
+                    else -> {
+                        val on = pinActions.on(pin)
+                        PlayerActionSegment(
+                            painter = pinPainter(pin, on),
+                            contentDescription = pinLabel(pin, on),
+                            shape = shape,
+                            container = if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer,
+                            content = if (on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer,
+                            onClick = { pinActions.run(pin) },
+                            backdrop = buttonBackdrop,
+                            glassIntensity = glassIntensity,
+                        )
+                    }
                 }
             }
 
@@ -1132,7 +1162,7 @@ fun BottomSheetPlayer(
                 Log.v(TAG, "PLR-3.xa")
                 Spacer(modifier = Modifier.width(10.dp))
 
-                val titlePins = pins[PinPlace.CONNECTED_TITLE].orEmpty().filter { it != PlayerPin.SHARE || canShareSong }
+                val titlePins = pins[PinPlace.CONNECTED_TITLE].orEmpty().filter(pinActions.shown)
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(ConnectedButtonGap),
                     modifier = Modifier.offset(y = 4.dp)
@@ -1179,12 +1209,12 @@ fun BottomSheetPlayer(
             // has it, so there it is simply one of four, all centred together.
             val quickActions: @Composable () -> Unit = {
                 val inactive = onBackgroundColor.copy(alpha = 0.12f)
-                val rowPins = pins[PinPlace.CONNECTED_ROW].orEmpty().filter { it != PlayerPin.SHARE || canShareSong }
+                val rowPins = pins[PinPlace.CONNECTED_ROW].orEmpty().filter(pinActions.shown)
                 val actionWidth = if (compactPlayer) {
                     compactQuickActionWidth(
                         rowWidth = windowWidth() - hPadding * 2,
                         // The queue, the pins, the room while one is on, and the menu.
-                        count = rowPins.size + 2 + (if (inRoom) 1 else 0),
+                        count = rowPins.size + 2 + (if (roomApart) 1 else 0),
                         gap = ConnectedButtonGap,
                         preferred = QuickActionWidth,
                     )
@@ -1269,9 +1299,24 @@ fun BottomSheetPlayer(
                                 glassIntensity = glassIntensity,
                                 onClick = playerConnection::toggleLike,
                             )
+                            else -> {
+                                val on = pinActions.on(pin)
+                                PlayerActionSegment(
+                                    painter = pinPainter(pin, on),
+                                    contentDescription = pinLabel(pin, on),
+                                    shape = shape,
+                                    container = if (on) MaterialTheme.colorScheme.primary else inactive,
+                                    filled = on,
+                                    content = if (on) MaterialTheme.colorScheme.onPrimary else onBackgroundColor,
+                                    width = actionWidth,
+                                    backdrop = buttonBackdrop,
+                                    glassIntensity = glassIntensity,
+                                    onClick = { pinActions.run(pin) },
+                                )
+                            }
                         }
                     }
-                    if (inRoom) {
+                    if (roomApart) {
                         PlayerActionSegment(
                             painter = rememberVectorPainter(Icons.Rounded.Group),
                             contentDescription = stringResource(R.string.together_in_room),
@@ -1288,7 +1333,7 @@ fun BottomSheetPlayer(
                     PlayerActionSegment(
                         painter = rememberVectorPainter(Icons.Rounded.MoreVert),
                         contentDescription = stringResource(R.string.options),
-                        shape = connectedShape(first = rowPins.isEmpty() && !inRoom && !queueLayout.queueButton, last = true),
+                        shape = connectedShape(first = rowPins.isEmpty() && !roomApart && !queueLayout.queueButton, last = true),
                         container = inactive,
                         filled = false,
                         content = onBackgroundColor,

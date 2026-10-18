@@ -8,9 +8,21 @@ package com.dd3boh.outertune.ui.player
 
 /**
  * A button the player can keep outside its menu (issue #27, for 0.13: "I would like the pinned
- * buttons to be configurable, so you could have other ones or even none pinned").
+ * buttons to be configurable, so you could have other ones or even none pinned"): the four it has
+ * always had, every entry of its menu, and Listen together (his word of 18 Oct 2026).
  */
-enum class PlayerPin { SHARE, LYRICS, TIMER, LIKE }
+enum class PlayerPin {
+    SHARE, LYRICS, TIMER, LIKE,
+    RADIO, ADD_TO_QUEUE, ADD_TO_PLAYLIST, REMOVE_FROM_PLAYLIST, DOWNLOAD, LIBRARY, ARTIST, ALBUM,
+    DETAILS, EQUALIZER, ADVANCED, RECENTRE, LISTEN_TOGETHER,
+}
+
+/** The menu's entries and Listen together, which stand further from the menu than any of the four, in the menu's own order. */
+private val FromTheMenu = listOf(
+    PlayerPin.RADIO, PlayerPin.ADD_TO_QUEUE, PlayerPin.ADD_TO_PLAYLIST, PlayerPin.REMOVE_FROM_PLAYLIST, PlayerPin.DOWNLOAD,
+    PlayerPin.LIBRARY, PlayerPin.ARTIST, PlayerPin.ALBUM, PlayerPin.DETAILS, PlayerPin.EQUALIZER, PlayerPin.ADVANCED,
+    PlayerPin.RECENTRE, PlayerPin.LISTEN_TOGETHER,
+)
 
 /**
  * Where the player pins buttons, with the order they stand in there and how many fit. The menu
@@ -19,13 +31,13 @@ enum class PlayerPin { SHARE, LYRICS, TIMER, LIKE }
  */
 enum class PinPlace(val order: List<PlayerPin>, val most: Int, val defaults: List<PlayerPin>) {
     /** Classic's circles beside the title: the sleep timer and like until somebody chooses. */
-    CLASSIC(listOf(PlayerPin.SHARE, PlayerPin.LYRICS, PlayerPin.TIMER, PlayerPin.LIKE), 3, listOf(PlayerPin.TIMER, PlayerPin.LIKE)),
+    CLASSIC(FromTheMenu + listOf(PlayerPin.SHARE, PlayerPin.LYRICS, PlayerPin.TIMER, PlayerPin.LIKE), 3, listOf(PlayerPin.TIMER, PlayerPin.LIKE)),
 
     /** Connected's pair beside the title: share and like. */
-    CONNECTED_TITLE(listOf(PlayerPin.LYRICS, PlayerPin.TIMER, PlayerPin.SHARE, PlayerPin.LIKE), 2, listOf(PlayerPin.SHARE, PlayerPin.LIKE)),
+    CONNECTED_TITLE(FromTheMenu + listOf(PlayerPin.LYRICS, PlayerPin.TIMER, PlayerPin.SHARE, PlayerPin.LIKE), 2, listOf(PlayerPin.SHARE, PlayerPin.LIKE)),
 
     /** Connected's row under the controls: lyrics and the sleep timer, then the menu. */
-    CONNECTED_ROW(listOf(PlayerPin.SHARE, PlayerPin.LIKE, PlayerPin.LYRICS, PlayerPin.TIMER), 3, listOf(PlayerPin.LYRICS, PlayerPin.TIMER)),
+    CONNECTED_ROW(FromTheMenu + listOf(PlayerPin.SHARE, PlayerPin.LIKE, PlayerPin.LYRICS, PlayerPin.TIMER), 3, listOf(PlayerPin.LYRICS, PlayerPin.TIMER)),
 }
 
 /**

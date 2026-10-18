@@ -21,21 +21,31 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Lyrics
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.PushPin
-import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.SmartButton
-import androidx.compose.material.icons.rounded.Timer
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.InputChip
+import androidx.compose.material3.InputChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.lazy.items
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.runtime.setValue
+import com.dd3boh.outertune.ui.component.items.ListItem
+import com.dd3boh.outertune.ui.dialog.ListDialog
+import com.dd3boh.outertune.ui.player.pinLabel
+import com.dd3boh.outertune.ui.player.pinOffered
+import com.dd3boh.outertune.ui.player.pinPainter
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -151,6 +161,8 @@ fun ColumnScope.PlayerButtonsFrag() {
     )
     val places = if (buttonsStyle == PlayerButtonsStyle.CLASSIC) listOf(PinPlace.CLASSIC)
     else listOf(PinPlace.CONNECTED_TITLE, PinPlace.CONNECTED_ROW)
+    // The place whose list of buttons to add is open.
+    var adding by remember { mutableStateOf<PinPlace?>(null) }
     places.forEach { place ->
         if (places.size > 1) {
             Text(
@@ -162,32 +174,53 @@ fun ColumnScope.PlayerButtonsFrag() {
         }
         val most = if (place == PinPlace.CLASSIC) PlayerPins.classicMost(queueAsButton) else place.most
         val chosen = pins[place].orEmpty()
+        // What is pinned, a tap on one taking it off, and Add for the rest: every entry of the
+        // player's menu and Listen together are too many to show as chips side by side.
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
         ) {
-            PlayerPin.entries.forEach { pin ->
-                val on = pin in chosen
-                FilterChip(
-                    selected = on,
-                    // A full place takes no more until one comes off.
-                    enabled = on || chosen.size < most,
+            chosen.forEach { pin ->
+                val name = pinLabel(pin)
+                val takeOff = stringResource(R.string.player_pins_take_off, name)
+                InputChip(
+                    selected = true,
                     onClick = { onPinsRawChange(PlayerPins.write(PlayerPins.toggle(pins, place, pin, most))) },
-                    label = { Text(pinName(pin)) },
+                    label = { Text(name) },
                     leadingIcon = {
-                        Icon(
-                            painter = when (pin) {
-                                PlayerPin.SHARE -> rememberVectorPainter(Icons.Rounded.Share)
-                                PlayerPin.LYRICS -> rememberVectorPainter(Icons.Rounded.Lyrics)
-                                PlayerPin.TIMER -> rememberVectorPainter(Icons.Rounded.Timer)
-                                PlayerPin.LIKE -> painterResource(R.drawable.favorite)
-                            },
-                            contentDescription = null,
-                            modifier = Modifier.size(FilterChipDefaults.IconSize)
-                        )
-                    }
+                        Icon(pinPainter(pin, on = pin == PlayerPin.LIKE), contentDescription = null, modifier = Modifier.size(InputChipDefaults.IconSize))
+                    },
+                    trailingIcon = {
+                        Icon(Icons.Rounded.Close, contentDescription = takeOff, modifier = Modifier.size(InputChipDefaults.IconSize))
+                    },
+                )
+            }
+            AssistChip(
+                // A full place takes no more until one comes off.
+                enabled = chosen.size < most,
+                onClick = { adding = place },
+                label = { Text(stringResource(R.string.player_pins_add)) },
+                leadingIcon = {
+                    Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(AssistChipDefaults.IconSize))
+                },
+            )
+        }
+    }
+    adding?.let { place ->
+        val most = if (place == PinPlace.CLASSIC) PlayerPins.classicMost(queueAsButton) else place.most
+        ListDialog(onDismiss = { adding = null }) {
+            items(PlayerPin.entries.filter { it !in pins[place].orEmpty() && pinOffered(it) }) { pin ->
+                ListItem(
+                    title = pinLabel(pin),
+                    thumbnailContent = {
+                        Icon(pinPainter(pin, on = pin == PlayerPin.LIKE), contentDescription = null, modifier = Modifier.size(24.dp))
+                    },
+                    modifier = Modifier.clickable {
+                        onPinsRawChange(PlayerPins.write(PlayerPins.toggle(pins, place, pin, most)))
+                        adding = null
+                    },
                 )
             }
         }
@@ -213,13 +246,3 @@ fun ColumnScope.PlayerButtonsFrag() {
         onCheckedChange = onQueueAsButtonChange
     )
 }
-
-@Composable
-private fun pinName(pin: PlayerPin): String = stringResource(
-    when (pin) {
-        PlayerPin.SHARE -> R.string.share
-        PlayerPin.LYRICS -> R.string.player_pin_lyrics
-        PlayerPin.TIMER -> R.string.sleep_timer
-        PlayerPin.LIKE -> R.string.action_like
-    }
-)

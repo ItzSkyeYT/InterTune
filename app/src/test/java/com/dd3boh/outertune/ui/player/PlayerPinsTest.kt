@@ -84,6 +84,37 @@ class PlayerPinsTest {
     }
 
     @Test
+    fun `every entry of the menu and Listen together can be pinned, further out than the four`() {
+        val classic = PlayerPins.toggle(PlayerPins.read(""), PinPlace.CLASSIC, PlayerPin.RADIO)
+        assertEquals(listOf(PlayerPin.RADIO, TIMER, LIKE), classic[PinPlace.CLASSIC])
+        val row = PlayerPins.toggle(PlayerPins.read(""), PinPlace.CONNECTED_ROW, PlayerPin.LISTEN_TOGETHER)
+        assertEquals(listOf(PlayerPin.LISTEN_TOGETHER, LYRICS, TIMER), row[PinPlace.CONNECTED_ROW])
+        // Every place can take every pin.
+        PinPlace.entries.forEach { place -> assertEquals(PlayerPin.entries.toSet(), place.order.toSet()) }
+    }
+
+    @Test
+    fun `the pins cover every entry of the player's menu`() {
+        // His word of 18 Oct 2026: "plus add the listen together button, and all the other buttons in the three dot menu".
+        val menu = File("src/main/java/com/dd3boh/outertune/ui/menu/PlayerMenu.kt").readText()
+        val actions = File("src/main/java/com/dd3boh/outertune/ui/player/PinActions.kt").readText()
+        val titles = Regex("""title = R\.string\.(\w+)""").findAll(menu).map { it.groupValues[1] }.toSet()
+        assertTrue("the menu read", titles.size >= 12)
+        // Toggle lyrics is the Lyrics pin under its own short name.
+        val missing = titles - "toggle_lyrics" - "grp_lyrics_format" - "grp_lyrics_source" - "grp_lyrics_parser"
+        missing.forEach { title -> assertTrue("no pin for the menu's $title", actions.contains("R.string.$title")) }
+        assertTrue("download, in both its states", actions.contains("R.string.action_download") && actions.contains("R.string.remove_download"))
+        assertTrue("the sleep timer", actions.contains("R.string.sleep_timer"))
+    }
+
+    @Test
+    fun `a pinned Listen together is the room's button, never a second one beside it`() {
+        val player = File("src/main/java/com/dd3boh/outertune/ui/player/Player.kt").readText()
+        assertTrue(player.contains("val roomApart = inRoom && PlayerPin.LISTEN_TOGETHER !in stylePins"))
+        assertFalse("the room's own button follows roomApart everywhere", Regex("""if \(inRoom\)""").containsMatchIn(player))
+    }
+
+    @Test
     fun `a damaged setting loses only what cannot be read`() {
         val pins = PlayerPins.read("CLASSIC=LIKE+NOPE+SHARE;WHERE=LIKE;CONNECTED_ROW=;broken")
         assertEquals(listOf(SHARE, LIKE), pins[PinPlace.CLASSIC])
@@ -100,7 +131,7 @@ class PlayerPinsTest {
         assertTrue(player.contains("val pinned = classicPins(queueCircle = true)"))
         assertTrue(player.contains("pins[PinPlace.CONNECTED_TITLE].orEmpty()"))
         assertTrue(player.contains("pins[PinPlace.CONNECTED_ROW].orEmpty()"))
-        assertTrue("the menu is round on its own when nothing is pinned", player.contains("connectedShape(first = rowPins.isEmpty() && !inRoom && !queueLayout.queueButton, last = true)"))
+        assertTrue("the menu is round on its own when nothing is pinned", player.contains("connectedShape(first = rowPins.isEmpty() && !roomApart && !queueLayout.queueButton, last = true)"))
         assertFalse("no button by the title is drawn outside the pins", player.contains("shape = connectedShape(first = !canShare, last = true)"))
     }
 }

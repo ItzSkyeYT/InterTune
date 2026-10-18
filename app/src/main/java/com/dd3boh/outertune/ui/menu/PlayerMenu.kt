@@ -610,7 +610,7 @@ fun <T> ValueAdjuster(
  * dense and the reorder query shifts everything after the removed row, so deleting in place leaves
  * a gap that later sorts trip over.
  */
-private fun removeFromPlaylist(
+internal fun removeFromPlaylist(
     database: MusicDatabase,
     scope: CoroutineScope,
     playlist: Playlist,
