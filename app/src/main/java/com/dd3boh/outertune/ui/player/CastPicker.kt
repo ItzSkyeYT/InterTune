@@ -65,6 +65,7 @@ import com.dd3boh.outertune.cast.CastDevice
 import com.dd3boh.outertune.cast.CastDiscovery
 import com.dd3boh.outertune.cast.CastNetwork
 import com.dd3boh.outertune.cast.CastProtocol
+import com.dd3boh.outertune.cast.RecentReceivers
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.playback.CastSession
 import com.dd3boh.outertune.ui.dialog.DefaultDialog
@@ -133,6 +134,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * The cast button: the picker when tapped, and what casting is doing at a glance. Filled in the
@@ -378,6 +382,16 @@ private fun CastPicker(session: CastSession, onDismiss: () -> Unit) {
     }
     val found by discovery.devices.collectAsState()
     val added by session.added.collectAsState()
+    // The receivers cast to before, asked directly as the picker opens (RecentReceivers): each
+    // one that answers is listed at once, whether or not the network's search finds it.
+    val recent by session.recent.collectAsState()
+    var recentHere by remember { mutableStateOf(emptyList<CastDevice>()) }
+    LaunchedEffect(recent) {
+        recentHere = emptyList()
+        for (device in recent) launch {
+            if (withContext(Dispatchers.IO) { RecentReceivers.answers(device) }) recentHere = recentHere + device
+        }
+    }
     val local = rememberLocalOutput()
     val landscape = LocalLandscape.current
 
@@ -399,7 +413,8 @@ private fun CastPicker(session: CastSession, onDismiss: () -> Unit) {
     val casting = state as? CastSession.State.Casting
     val connecting = state as? CastSession.State.Connecting
     val current = casting?.device ?: connecting?.device
-    val receivers = (found + added).distinctBy { it.protocol to it.id }
+    val receivers = (found + added + RecentReceivers.notFound(recent.filter { it in recentHere }, found + added))
+        .distinctBy { it.protocol to it.id }
         .filterNot { current != null && it.protocol == current.protocol && it.id == current.id }
     val phoneName = local.name ?: stringResource(
         when (local.kind) {

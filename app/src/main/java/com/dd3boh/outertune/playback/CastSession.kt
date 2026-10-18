@@ -14,6 +14,7 @@ import android.os.PowerManager
 import android.util.Log
 import android.widget.Toast
 import androidx.core.content.getSystemService
+import androidx.datastore.preferences.core.edit
 import androidx.media3.common.Player
 import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.R
@@ -27,7 +28,11 @@ import com.dd3boh.outertune.cast.IdleCountdown
 import com.dd3boh.outertune.cast.LinkProblem
 import com.dd3boh.outertune.cast.ReceiverLink
 import com.dd3boh.outertune.cast.ReceiverStatus
+import com.dd3boh.outertune.cast.RecentReceivers
+import com.dd3boh.outertune.constants.CastRecentKey
 import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.utils.dataStore
+import com.dd3boh.outertune.utils.get
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -39,6 +44,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -95,6 +101,22 @@ class CastSession(
     }
 
     private fun CastDevice.sameAs(other: CastDevice) = protocol == other.protocol && id == other.id
+
+    /**
+     * The receivers cast to before, the latest first, kept from one launch to the next (see
+     * RecentReceivers): the picker asks them directly as it opens, so a receiver that does not
+     * answer the network's search is still there at once.
+     */
+    private val _recent = MutableStateFlow(RecentReceivers.decode(service.dataStore.get(CastRecentKey, "")))
+    val recent: StateFlow<List<CastDevice>> = _recent.asStateFlow()
+
+    private fun rememberRecent(device: CastDevice) {
+        val list = _recent.updateAndGet { RecentReceivers.remember(it, device) }
+        scope.launch(Dispatchers.IO) {
+            runCatching { service.dataStore.edit { it[CastRecentKey] = RecentReceivers.encode(list) } }
+                .onFailure { Log.w(TAG, "The receivers cast to could not be kept", it) }
+        }
+    }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
@@ -195,6 +217,7 @@ class CastSession(
                 }
             }
             _state.value = State.Casting(link.device)
+            rememberRecent(link.device)
             Log.i(TAG, "Casting to ${link.device.name}")
         }
     }
