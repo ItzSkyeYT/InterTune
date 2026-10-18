@@ -70,6 +70,20 @@ class PlayerPinsTest {
     }
 
     @Test
+    fun `reset puts back the shown style's buttons and leaves the other style's choice alone`() {
+        var pins = PlayerPins.read("")
+        pins = PlayerPins.toggle(pins, PinPlace.CLASSIC, SHARE)
+        pins = PlayerPins.toggle(pins, PinPlace.CONNECTED_ROW, TIMER)
+        assertTrue(PlayerPins.changed(pins, listOf(PinPlace.CONNECTED_TITLE, PinPlace.CONNECTED_ROW)))
+        val connectedBack = PlayerPins.reset(pins, listOf(PinPlace.CONNECTED_TITLE, PinPlace.CONNECTED_ROW))
+        assertEquals(listOf(LYRICS, TIMER), connectedBack[PinPlace.CONNECTED_ROW])
+        assertEquals(listOf(SHARE, LIKE), connectedBack[PinPlace.CONNECTED_TITLE])
+        assertEquals("Classic keeps its own choice", listOf(SHARE, TIMER, LIKE), connectedBack[PinPlace.CLASSIC])
+        assertFalse(PlayerPins.changed(connectedBack, listOf(PinPlace.CONNECTED_TITLE, PinPlace.CONNECTED_ROW)))
+        assertEquals("written and read back, still the defaults", PlayerPins.read(""), PlayerPins.read(PlayerPins.write(PlayerPins.reset(pins, PinPlace.entries))))
+    }
+
+    @Test
     fun `a damaged setting loses only what cannot be read`() {
         val pins = PlayerPins.read("CLASSIC=LIKE+NOPE+SHARE;WHERE=LIKE;CONNECTED_ROW=;broken")
         assertEquals(listOf(SHARE, LIKE), pins[PinPlace.CLASSIC])
