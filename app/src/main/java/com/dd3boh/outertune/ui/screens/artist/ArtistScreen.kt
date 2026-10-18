@@ -111,6 +111,7 @@ import com.dd3boh.outertune.ui.utils.paneInsets
 import com.dd3boh.outertune.ui.utils.rememberHeaderBeside
 import com.dd3boh.outertune.ui.utils.resize
 import com.dd3boh.outertune.utils.rememberPreference
+import com.dd3boh.outertune.utils.shareSheet
 import com.dd3boh.outertune.viewmodels.ArtistViewModel
 import com.zionhuang.innertube.models.AlbumItem
 import com.zionhuang.innertube.models.ArtistItem
@@ -659,7 +660,7 @@ fun ArtistScreen(
                                     type = "text/plain"
                                     putExtra(Intent.EXTRA_TEXT, link)
                                 }
-                                context.startActivity(Intent.createChooser(intent, null))
+                                context.startActivity(context.shareSheet(intent))
                             }
                         }
                     ) {

@@ -27,6 +27,7 @@ import com.dd3boh.outertune.db.entities.ArtistEntity
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.component.items.YouTubeListItem
+import com.dd3boh.outertune.utils.shareSheet
 import com.zionhuang.innertube.models.ArtistItem
 
 @Composable
@@ -108,7 +109,7 @@ fun YouTubeArtistMenu(
                 type = "text/plain"
                 putExtra(Intent.EXTRA_TEXT, artist.shareLink)
             }
-            context.startActivity(Intent.createChooser(intent, null))
+            context.startActivity(context.shareSheet(intent))
             onDismiss()
         }
     }

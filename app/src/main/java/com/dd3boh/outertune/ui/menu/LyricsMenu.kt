@@ -78,6 +78,7 @@ import com.dd3boh.outertune.ui.screens.settings.fragments.LyricFormatFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.LyricParserFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.LyricSourceFrag
 import com.dd3boh.outertune.utils.rememberPreference
+import com.dd3boh.outertune.utils.shareSheet
 import com.dd3boh.outertune.viewmodels.LyricsMenuViewModel
 import org.akanework.gramophone.logic.utils.SemanticLyrics
 import org.akanework.gramophone.logic.utils.parseLrc
@@ -514,7 +515,7 @@ fun LyricsMenu(
                 putExtra(Intent.EXTRA_TITLE, song.title)
             }
             onDismiss()
-            context.startActivity(Intent.createChooser(send, null))
+            context.startActivity(context.shareSheet(send))
         }
         GridMenuItem(
             icon = Icons.Rounded.FormatQuote,

@@ -69,6 +69,7 @@ import com.dd3boh.outertune.utils.getDownloadState
 import com.dd3boh.outertune.utils.lmScannerCoroutine
 import com.dd3boh.outertune.utils.reportException
 import com.dd3boh.outertune.utils.mayPushToYouTube
+import com.dd3boh.outertune.utils.shareSheet
 import com.dd3boh.outertune.utils.syncCoroutine
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.WatchEndpoint
@@ -293,7 +294,7 @@ fun PlaylistMenu(
                     type = "text/plain"
                     putExtra(Intent.EXTRA_TEXT, shareLink)
                 }
-                context.startActivity(Intent.createChooser(intent, null))
+                context.startActivity(context.shareSheet(intent))
                 onDismiss()
             }
         }

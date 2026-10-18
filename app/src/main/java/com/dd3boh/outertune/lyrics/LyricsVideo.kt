@@ -52,6 +52,7 @@ import com.dd3boh.outertune.playback.LevelAnalyser
 import com.dd3boh.outertune.playback.MusicLevels
 import com.dd3boh.outertune.ui.component.LyricsVideoFrames
 import com.dd3boh.outertune.utils.SharedFileProvider
+import com.dd3boh.outertune.utils.shareSheet
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -158,7 +159,7 @@ object LyricsVideo {
             clipData = ClipData.newRawUri(title, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        context.startActivity(Intent.createChooser(send, null))
+        context.startActivity(context.shareSheet(send))
     }.onFailure { Log.w(TAG, "Could not share the lyrics video", it) }.isSuccess
 
     // 1. The sound

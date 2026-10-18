@@ -55,6 +55,7 @@ import com.dd3boh.outertune.ui.dialog.AddToQueueDialog
 import com.dd3boh.outertune.ui.dialog.DefaultDialog
 import com.dd3boh.outertune.utils.getDownloadState
 import com.dd3boh.outertune.utils.mayPushToYouTube
+import com.dd3boh.outertune.utils.shareSheet
 import com.dd3boh.outertune.utils.syncCoroutine
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.PlaylistItem
@@ -278,7 +279,7 @@ fun YouTubePlaylistMenu(
                 type = "text/plain"
                 putExtra(Intent.EXTRA_TEXT, playlist.shareLink)
             }
-            context.startActivity(Intent.createChooser(intent, null))
+            context.startActivity(context.shareSheet(intent))
             onDismiss()
         }
 
