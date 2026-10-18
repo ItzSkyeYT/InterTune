@@ -1,9 +1,7 @@
 package com.dd3boh.outertune.ui.screens.settings.fragments
 
 import com.dd3boh.outertune.constants.HideVideoSongsKey
-import com.dd3boh.outertune.constants.HideShortsKey
 import com.dd3boh.outertune.constants.HideExplicitKey
-import androidx.compose.material.icons.rounded.Smartphone
 import androidx.compose.material.icons.rounded.OndemandVideo
 import androidx.compose.material.icons.rounded.Explicit
 import androidx.compose.foundation.layout.Column
@@ -280,17 +278,16 @@ fun ColumnScope.QuickPicksSourceFrag() {
 }
 
 /**
- * Three switches that keep explicit songs, music videos and Shorts out of what YouTube offers:
- * Home, search, artist pages and what a radio adds (ContentFilter). All three off by default.
+ * Two switches that keep explicit songs and music videos out of what YouTube offers: Home,
+ * search, artist pages and what a radio adds (ContentFilter). Both off by default.
  */
 @Composable
 fun ColumnScope.ContentFiltersFrag() {
     val (hideExplicit, onHideExplicitChange) = rememberPreference(HideExplicitKey, defaultValue = false)
     val (hideVideoSongs, onHideVideoSongsChange) = rememberPreference(HideVideoSongsKey, defaultValue = false)
-    val (hideShorts, onHideShortsChange) = rememberPreference(HideShortsKey, defaultValue = false)
 
-    // The three are one stop of the tour from What is new, whose bubble says to turn on the ones
-    // you want: pointed at the first alone, the bubble sat over the other two.
+    // The two are one stop of the tour from What is new, whose bubble says to turn on the ones
+    // you want: pointed at the first alone, the bubble sat over the other.
     Column(Modifier.fillMaxWidth().tourTarget(Tour.SETTING_CONTENT_FILTERS)) {
         SwitchPreference(
             title = { Text(stringResource(R.string.hide_explicit)) },
@@ -305,13 +302,6 @@ fun ColumnScope.ContentFiltersFrag() {
             icon = { Icon(Icons.Rounded.OndemandVideo, null) },
             checked = hideVideoSongs,
             onCheckedChange = onHideVideoSongsChange
-        )
-        SwitchPreference(
-            title = { Text(stringResource(R.string.hide_shorts)) },
-            description = stringResource(R.string.hide_shorts_description),
-            icon = { Icon(Icons.Rounded.Smartphone, null) },
-            checked = hideShorts,
-            onCheckedChange = onHideShortsChange
         )
     }
 }

@@ -31,10 +31,9 @@ val DarkModeKey = stringPreferencesKey("darkMode")
 val PureBlackKey = booleanPreferencesKey("pureBlack")
 val BackAnimationsKey = booleanPreferencesKey("backAnimations")
 val ShowLikedAndDownloadedPlaylist = booleanPreferencesKey("showLikedAndDownloadedPlaylist")
-/** What Home, search, artist pages and radio leave out (ContentFilter). All three off by default. */
+/** What Home, search, artist pages and radio leave out (ContentFilter). Both off by default. */
 val HideExplicitKey = booleanPreferencesKey("hideExplicit")
 val HideVideoSongsKey = booleanPreferencesKey("hideVideoSongs")
-val HideShortsKey = booleanPreferencesKey("hideShorts")
 val SwipeToQueueKey = booleanPreferencesKey("swipeToQueue")
 val FlatSubfoldersKey = booleanPreferencesKey("flatSubfolders")
 val TabletUiKey = booleanPreferencesKey("tabletUi")

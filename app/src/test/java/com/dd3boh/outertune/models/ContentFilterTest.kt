@@ -42,7 +42,7 @@ class ContentFilterTest {
 
     private val artist = ArtistItem(id = "UC1", title = "A", thumbnail = null, shuffleEndpoint = null, radioEndpoint = null)
 
-    private val all = ContentFilter(explicit = true, videoSongs = true, shorts = true)
+    private val all = ContentFilter(explicit = true, videoSongs = true)
 
     @Test
     fun `off by default, and then nothing is hidden and the list is the same list`() {
@@ -74,12 +74,14 @@ class ContentFilterTest {
     }
 
     @Test
-    fun `Shorts are the lists whose id starts with SS, and only those`() {
-        val filter = ContentFilter(shorts = true)
-        assertTrue(filter.hides(playlist("SSabcdef")))
-        assertFalse(filter.hides(playlist("PLabcdef")))
-        assertFalse(filter.hides(playlist("RDCLAK5uy_abc")))
-        assertFalse(filter.hides(song("SSnotalist")))
+    fun `lists are never hidden, and there is no switch for Shorts`() {
+        // Taken out before 0.12 (his word, 18 Oct 2026): YouTube Music sends no Shorts to Home,
+        // search, artist pages or a radio, so a switch for them hid nothing.
+        assertFalse(all.hides(playlist("SSabcdef")))
+        assertFalse(all.hides(playlist("PLabcdef")))
+        val keys = File("src/main/java/com/dd3boh/outertune/constants/PreferenceKeys.kt").readText()
+        assertFalse("hideShorts" in keys)
+        for (folder in listOf("values", "values-fr")) assertFalse("hide_shorts" in texts(folder))
     }
 
     @Test
@@ -125,7 +127,7 @@ class ContentFilterTest {
     fun `each switch has its words in English and in French, and says it in two sentences at most`() {
         for (folder in listOf("values", "values-fr")) {
             val texts = texts(folder)
-            for (name in listOf("hide_explicit_description", "hide_video_songs", "hide_video_songs_description", "hide_shorts", "hide_shorts_description")) {
+            for (name in listOf("hide_explicit_description", "hide_video_songs", "hide_video_songs_description")) {
                 val text = Regex("<string name=\"$name\">(.*?)</string>").find(texts)?.groupValues?.get(1)
                 assertTrue("$folder $name", text != null)
                 assertTrue("$folder $name", Regex("[.!?](?=\\s|$)").findAll(text!!).count() <= 2)
