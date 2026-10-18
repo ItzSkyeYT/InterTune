@@ -828,9 +828,9 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="new_sleep_schedule_body">Pick a time once, and the sleep timer starts by itself every day from then on.</string>
     <string name="new_sleep_schedule_way">Sleep timer on a schedule is in here.</string>
     <string name="new_sleep_schedule_here">Turn it on, then pick when it starts and how long it runs.</string>
-    <string name="new_content_filters_title">Hide explicit songs, music videos and Shorts</string>
-    <string name="new_content_filters_body">Three switches keep them out of Home, search and artist pages.</string>
-    <string name="new_content_filters_way">The three switches are in here.</string>
+    <string name="new_content_filters_title">Hide explicit songs and music videos</string>
+    <string name="new_content_filters_body">Two switches keep them out of Home, search and artist pages.</string>
+    <string name="new_content_filters_way">The two switches are in here.</string>
     <string name="new_content_filters_here">Turn on the ones you want. A song you pick yourself still plays.</string>
     <string name="new_equalizer_title">An equalizer tuned to your headphones</string>
     <string name="new_equalizer_body">Ten bands, a few ready curves, or the curve measured for your own headphones.</string>
@@ -1878,29 +1878,29 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="problem_report_copied">Copied</string>
     <string name="problem_report_close">Close</string>
     <!-- Casting, behind Unreleased.CASTING -->
-    <string name="cast" translatable="false">Cast</string>
-    <string name="cast_to" translatable="false">Cast to</string>
-    <string name="cast_playing_on" translatable="false">Playing on %1$s</string>
-    <string name="cast_connecting_to" translatable="false">Connecting to %1$s</string>
-    <string name="cast_stop" translatable="false">Stop casting</string>
-    <string name="cast_volume" translatable="false">Volume on the receiver</string>
-    <string name="cast_casting" translatable="false">Casting</string>
-    <string name="output_this_phone" translatable="false">This phone</string>
-    <string name="output_wired" translatable="false">Wired headphones</string>
-    <string name="output_cable" translatable="false">On a cable</string>
-    <string name="cast_searching" translatable="false">Looking for receivers on this Wi-Fi</string>
-    <string name="cast_about" translatable="false">Casts to FCast receivers, to Chromecast and Google TV devices, and to DLNA TVs and speakers on the same Wi-Fi. FCast needs the FCast Receiver app on the TV or computer. The phone stays awake and sends the music while it casts.</string>
-    <string name="cast_add_by_address" translatable="false">Add by address</string>
-    <string name="cast_address_hint" translatable="false">192.168.1.20 for FCast, chromecast 192.168.1.21, or a DLNA description URL</string>
-    <string name="cast_address_invalid" translatable="false">Not an address this can use</string>
-    <string name="cast_needs_wifi" translatable="false">Casting needs Wi-Fi</string>
-    <string name="cast_could_not_reach" translatable="false">Could not reach %1$s</string>
-    <string name="cast_not_a_receiver" translatable="false">%1$s is not a receiver this can cast to</string>
-    <string name="cast_hung_up" translatable="false">%1$s ended the connection</string>
-    <string name="cast_stopped_answering" translatable="false">%1$s stopped answering</string>
-    <string name="cast_lost_connection" translatable="false">Lost the connection to %1$s</string>
-    <string name="cast_lost" translatable="false">Casting stopped. %1$s. Paused on this phone.</string>
-    <string name="cast_ended_idle" translatable="false">Casting stopped after %1$d minutes with nothing playing.</string>
+    <string name="cast">Cast</string>
+    <string name="cast_to">Cast to</string>
+    <string name="cast_playing_on">Playing on %1$s</string>
+    <string name="cast_connecting_to">Connecting to %1$s</string>
+    <string name="cast_stop">Stop casting</string>
+    <string name="cast_volume">Volume on the receiver</string>
+    <string name="cast_casting">Casting</string>
+    <string name="output_this_phone">This phone</string>
+    <string name="output_wired">Wired headphones</string>
+    <string name="output_cable">On a cable</string>
+    <string name="cast_searching">Looking for receivers on this Wi-Fi</string>
+    <string name="cast_about">Casts to FCast receivers, to Chromecast and Google TV devices, and to DLNA TVs and speakers on the same Wi-Fi. FCast needs the FCast Receiver app on the TV or computer. The phone stays awake and sends the music while it casts.</string>
+    <string name="cast_add_by_address">Add by address</string>
+    <string name="cast_address_hint">192.168.1.20 for FCast, chromecast 192.168.1.21, or a DLNA description URL</string>
+    <string name="cast_address_invalid">Not an address this can use</string>
+    <string name="cast_needs_wifi">Casting needs Wi-Fi</string>
+    <string name="cast_could_not_reach">Could not reach %1$s</string>
+    <string name="cast_not_a_receiver">%1$s is not a receiver this can cast to</string>
+    <string name="cast_hung_up">%1$s ended the connection</string>
+    <string name="cast_stopped_answering">%1$s stopped answering</string>
+    <string name="cast_lost_connection">Lost the connection to %1$s</string>
+    <string name="cast_lost">Casting stopped. %1$s. Paused on this phone.</string>
+    <string name="cast_ended_idle">Casting stopped after %1$d minutes with nothing playing.</string>
 
     <!-- Copy and share in the lyrics view's menu, and the lines picked for a picture (LyricsCard) -->
     <string name="lyrics_copy">Copy lyrics</string>
@@ -1930,8 +1930,6 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="hide_explicit_description">Songs and albums marked explicit stay out of Home, search, artist pages and what a radio adds.</string>
     <string name="hide_video_songs">Hide music videos</string>
     <string name="hide_video_songs_description">Only album and single tracks are offered, not music videos or uploads. A song you pick still plays.</string>
-    <string name="hide_shorts">Hide Shorts</string>
-    <string name="hide_shorts_description">Lists of YouTube Shorts stay out of Home, search and artist pages.</string>
 
     <!-- The recognition widget in the launcher's picker (recognition_widget_info). -->
     <string name="recognition_widget_description">One button that names the song playing around you.</string>

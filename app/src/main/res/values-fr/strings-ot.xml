@@ -1694,9 +1694,9 @@
     <string name="new_sleep_schedule_body">Choisissez une heure une fois pour toutes, et la minuterie de sommeil se lance seule chaque jour.</string>
     <string name="new_sleep_schedule_way">La minuterie de sommeil programmée se trouve ici.</string>
     <string name="new_sleep_schedule_here">Activez-la, puis choisissez quand elle commence et combien de temps elle dure.</string>
-    <string name="new_content_filters_title">Masquer les titres explicites, les clips et les Shorts</string>
-    <string name="new_content_filters_body">Trois interrupteurs les retirent de l\'accueil, de la recherche et des pages d\'artiste.</string>
-    <string name="new_content_filters_way">Les trois interrupteurs se trouvent ici.</string>
+    <string name="new_content_filters_title">Masquer les titres explicites et les clips</string>
+    <string name="new_content_filters_body">Deux interrupteurs les retirent de l\'accueil, de la recherche et des pages d\'artiste.</string>
+    <string name="new_content_filters_way">Les deux interrupteurs se trouvent ici.</string>
     <string name="new_content_filters_here">Activez ceux que vous voulez. Un titre que vous choisissez vous-même se lit quand même.</string>
     <string name="new_equalizer_title">Un égaliseur réglé pour votre casque</string>
     <string name="new_equalizer_body">Dix bandes, quelques courbes toutes prêtes, ou la courbe mesurée pour votre propre casque.</string>
@@ -1714,6 +1714,29 @@
     </plurals>
 
     <!-- Casting, behind Unreleased.CASTING -->
+    <string name="cast">Caster</string>
+    <string name="cast_to">Caster vers</string>
+    <string name="cast_playing_on">Lecture sur %1$s</string>
+    <string name="cast_connecting_to">Connexion à %1$s</string>
+    <string name="cast_stop">Arrêter de caster</string>
+    <string name="cast_volume">Volume du récepteur</string>
+    <string name="cast_casting">Cast en cours</string>
+    <string name="output_this_phone">Ce téléphone</string>
+    <string name="output_wired">Casque filaire</string>
+    <string name="output_cable">Sur un câble</string>
+    <string name="cast_searching">Recherche de récepteurs sur ce Wi-Fi</string>
+    <string name="cast_about">Caste vers les récepteurs FCast, les appareils Chromecast et Google TV, et les téléviseurs et enceintes DLNA du même Wi-Fi. FCast demande l\'application FCast Receiver sur le téléviseur ou l\'ordinateur. Le téléphone reste allumé et envoie la musique pendant le cast.</string>
+    <string name="cast_add_by_address">Ajouter par adresse</string>
+    <string name="cast_address_hint">192.168.1.20 pour FCast, chromecast 192.168.1.21, ou l\'URL de description DLNA</string>
+    <string name="cast_address_invalid">Adresse inutilisable</string>
+    <string name="cast_needs_wifi">Le cast nécessite le Wi-Fi</string>
+    <string name="cast_could_not_reach">Impossible de joindre %1$s</string>
+    <string name="cast_not_a_receiver">%1$s n\'est pas un récepteur utilisable</string>
+    <string name="cast_hung_up">%1$s a coupé la connexion</string>
+    <string name="cast_stopped_answering">%1$s ne répond plus</string>
+    <string name="cast_lost_connection">Connexion perdue avec %1$s</string>
+    <string name="cast_lost">Cast arrêté. %1$s. En pause sur ce téléphone.</string>
+    <string name="cast_ended_idle">Cast arrêté après %1$d minutes sans lecture.</string>
     <!-- Copy and share in the lyrics view's menu, and the lines picked for a picture (LyricsCard) -->
     <string name="lyrics_copy">Copier les paroles</string>
     <string name="lyrics_copied">Paroles copiées</string>
@@ -1743,8 +1766,6 @@
     <string name="hide_explicit_description">Les titres et albums marqués explicites n\'apparaissent plus dans l\'accueil, la recherche, les pages d\'artiste et ce qu\'ajoute une radio.</string>
     <string name="hide_video_songs">Masquer les clips</string>
     <string name="hide_video_songs_description">Seuls les titres d\'albums et de singles sont proposés, pas les clips ni les vidéos mises en ligne. Un titre que vous choisissez se lit quand même.</string>
-    <string name="hide_shorts">Masquer les Shorts</string>
-    <string name="hide_shorts_description">Les listes de Shorts YouTube n\'apparaissent plus dans l\'accueil, la recherche et les pages d\'artiste.</string>
     <!-- The recognition widget in the launcher's picker (recognition_widget_info). -->
     <string name="recognition_widget_description">Un bouton qui trouve le titre qui passe autour de vous.</string>
     <!-- The sleep timer on a schedule, under the sleep timer's fade in Player and audio (SleepScheduleFrag, ScheduledSleep). -->
