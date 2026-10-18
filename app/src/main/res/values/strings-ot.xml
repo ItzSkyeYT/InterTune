@@ -824,6 +824,18 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="new_living_blur_body">Living blur: the player\'s background breathes with the song and glows round the cover on every beat.</string>
     <string name="new_living_blur_way">The player\'s background is set in here: what you see behind the cover while a song plays.</string>
     <string name="new_living_blur_here">What is behind the player: the theme\'s colour, or a gradient or a blur made from the cover. Living blur is the blur that moves with the music, and its own settings appear under it.</string>
+    <string name="new_sleep_schedule_title">A sleep timer that starts by itself</string>
+    <string name="new_sleep_schedule_body">Pick a time once, and the sleep timer starts by itself every day from then on.</string>
+    <string name="new_sleep_schedule_way">Sleep timer on a schedule is in here.</string>
+    <string name="new_sleep_schedule_here">Turn it on, then pick when it starts and how long it runs.</string>
+    <string name="new_content_filters_title">Hide explicit songs, music videos and Shorts</string>
+    <string name="new_content_filters_body">Three switches keep them out of Home, search and artist pages.</string>
+    <string name="new_content_filters_way">The three switches are in here.</string>
+    <string name="new_content_filters_here">Turn on the ones you want. A song you pick yourself still plays.</string>
+    <string name="new_equalizer_title">An equalizer tuned to your headphones</string>
+    <string name="new_equalizer_body">Ten bands, a few ready curves, or the curve measured for your own headphones.</string>
+    <string name="new_equalizer_way">The equalizer is in here.</string>
+    <string name="new_equalizer_here">Pick a curve or your headphones\' model, or move the bands yourself.</string>
     <string name="new_share_links_title" translatable="false">Links for any music app</string>
     <string name="new_share_links_body" translatable="false">Share can send a page where whoever opens it picks their own music app, instead of a YouTube Music link.</string>
     <string name="new_share_links_way" translatable="false">What Share sends is set in here: the YouTube Music link, or a page for any music app.</string>

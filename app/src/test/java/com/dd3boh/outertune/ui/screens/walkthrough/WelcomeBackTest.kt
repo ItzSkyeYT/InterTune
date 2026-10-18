@@ -201,7 +201,7 @@ class WelcomeBackTest {
     @Test
     fun `a setting is reached the way somebody would go there, through the row it is under`() {
         val insideSettings = NEW_THINGS.filter { thing -> thing.stops.any { it.route != null } }
-        assertEquals(listOf("living_blur", "share_links", "resume_bluetooth", "library_import", "explain_pictures", "problem_report", "spatial_audio"), ids(insideSettings))
+        assertEquals(listOf("living_blur", "share_links", "sleep_schedule", "content_filters", "equalizer", "resume_bluetooth", "library_import", "explain_pictures", "problem_report", "spatial_audio"), ids(insideSettings))
         for (thing in insideSettings) {
             assertEquals("${thing.id}: the row, then the setting", 2, thing.stops.size)
             assertEquals("${thing.id} starts on the list of settings", Tour.ROUTE_SETTINGS, thing.stops[0].route)
@@ -350,7 +350,7 @@ class WelcomeBackTest {
         assertTrue(newThingsFor(v011, buildVersionCode = v0115).none { it.release == "0.12" })
         assertTrue(newThingsFor(v011, buildVersionCode = v0116).none { it.release == "0.12" })
         // Somebody who skips 0.11.6 is shown what it brought as well, under its own heading.
-        assertEquals(listOf("living_blur", "share_links", "resume_bluetooth", "recognition_tile"), ids(newThingsFor(v0115, buildVersionCode = v012)))
-        assertEquals(listOf("living_blur", "share_links"), ids(newThingsFor(v0116, buildVersionCode = v012)))
+        assertEquals(listOf("living_blur", "share_links", "sleep_schedule", "content_filters", "equalizer", "resume_bluetooth", "recognition_tile"), ids(newThingsFor(v0115, buildVersionCode = v012)))
+        assertEquals(listOf("living_blur", "share_links", "sleep_schedule", "content_filters", "equalizer"), ids(newThingsFor(v0116, buildVersionCode = v012)))
     }
 }

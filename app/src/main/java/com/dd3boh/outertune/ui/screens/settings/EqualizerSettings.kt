@@ -65,6 +65,8 @@ import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.ui.dialog.DefaultDialog
 import com.dd3boh.outertune.ui.dialog.InfoLabel
+import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 import com.dd3boh.outertune.utils.rememberPreference
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -272,6 +274,7 @@ fun EqualizerEntry(navController: NavController) {
         },
         icon = { Icon(Icons.Rounded.Equalizer, null) },
         onClick = { navController.navigate("settings/player/equalizer") },
+        modifier = Modifier.tourTarget(Tour.SETTING_EQUALIZER),
     )
 }
 

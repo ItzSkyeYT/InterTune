@@ -13,6 +13,9 @@ import androidx.compose.material.icons.rounded.BluetoothAudio
 import androidx.compose.material.icons.rounded.BlurOn
 import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.Campaign
+import androidx.compose.material.icons.rounded.Equalizer
+import androidx.compose.material.icons.rounded.EventRepeat
+import androidx.compose.material.icons.rounded.FilterAlt
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.History
@@ -345,6 +348,43 @@ val NEW_THINGS = listOf(
             TourStop("share_links_setting", Tour.SETTING_SHARE_LINKS, Tour.ROUTE_LIBRARY, R.string.share_link_kind_title, R.string.new_share_links_here, V0_12),
         ),
         there = { Unreleased.SHARE_PAGE },
+    ),
+    NewThing(
+        id = "sleep_schedule",
+        release = "0.12",
+        sinceVersionCode = V0_12,
+        title = R.string.new_sleep_schedule_title,
+        body = R.string.new_sleep_schedule_body,
+        icon = Icons.Rounded.EventRepeat,
+        stops = listOf(
+            TourStop("sleep_schedule_row", Tour.ROW_PLAYER, Tour.ROUTE_SETTINGS, R.string.player_and_audio, R.string.new_sleep_schedule_way, V0_12),
+            TourStop("sleep_schedule_setting", Tour.SETTING_SLEEP_SCHEDULE, Tour.ROUTE_PLAYER, R.string.sleep_schedule, R.string.new_sleep_schedule_here, V0_12),
+        ),
+    ),
+    NewThing(
+        id = "content_filters",
+        release = "0.12",
+        sinceVersionCode = V0_12,
+        title = R.string.new_content_filters_title,
+        body = R.string.new_content_filters_body,
+        icon = Icons.Rounded.FilterAlt,
+        stops = listOf(
+            TourStop("content_filters_row", Tour.ROW_LIBRARY, Tour.ROUTE_SETTINGS, R.string.grp_library_and_content, R.string.new_content_filters_way, V0_12),
+            TourStop("content_filters_setting", Tour.SETTING_CONTENT_FILTERS, Tour.ROUTE_LIBRARY, R.string.hide_explicit, R.string.new_content_filters_here, V0_12),
+        ),
+    ),
+    NewThing(
+        id = "equalizer",
+        release = "0.12",
+        sinceVersionCode = V0_12,
+        title = R.string.new_equalizer_title,
+        body = R.string.new_equalizer_body,
+        icon = Icons.Rounded.Equalizer,
+        stops = listOf(
+            TourStop("equalizer_row", Tour.ROW_PLAYER, Tour.ROUTE_SETTINGS, R.string.player_and_audio, R.string.new_equalizer_way, V0_12),
+            TourStop("equalizer_setting", Tour.SETTING_EQUALIZER, Tour.ROUTE_PLAYER, R.string.equalizer, R.string.new_equalizer_here, V0_12),
+        ),
+        there = { Unreleased.EQUALIZER },
     ),
     NewThing(
         id = "resume_bluetooth",
