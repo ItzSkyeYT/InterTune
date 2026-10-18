@@ -598,7 +598,10 @@ class RecognitionEngine @Inject constructor(
         if (keepGoing && !backoff.allows(endMs, windowMs)) return
         _state.value = State.Listening(0f, identifying = true)
         try {
-            val outcome = shazam.identify(window.samples)
+            val outcome = shazam.identify(window.samples).let { heard ->
+                if (keepGoing || heard != RecognitionOutcome.NoMatch) heard
+                else hearAgainAtSpeed(window.samples) ?: heard
+            }
             pace(outcome, endMs, keepGoing)
             unwatchAcrossGap(outcome, endMs)
             respondTo(outcome, keepGoing, window.startedAtMs)
@@ -618,6 +621,27 @@ class RecognitionEngine @Inject constructor(
                 if (it is State.Listening && it.identifying) it.copy(identifying = false) else it
             }
         }
+    }
+
+    /**
+     * Listen once, after a window Shazam knew nothing of: the same window put back from a speed a
+     * reel or a sped-up or slowed edit plays songs at, one guess per window, a different one each
+     * time ([SpeedRetry]). A match carries the rate it was heard at; anything else leaves the
+     * window as nothing known, and a refusal is met again by the next window's own request.
+     */
+    private suspend fun hearAgainAtSpeed(samples: ShortArray): RecognitionOutcome.Match? {
+        val rate = SpeedRetry.rateFor(onceMisses)
+        val again = shazam.identify(SpeedRetry.putBack(samples, rate))
+        val match = (again as? RecognitionOutcome.Match)?.track
+        Log.i(
+            TAG,
+            "Nothing known as heard; put back from ${rate}x: " + when {
+                match == null -> again::class.simpleName
+                SpeedRetry.fits(match) -> "'${match.title}'"
+                else -> "'${match.title}' at skew ${match.timeSkew}/${match.frequencySkew}, not taken"
+            },
+        )
+        return match?.takeIf { SpeedRetry.fits(it) }?.let { RecognitionOutcome.Match(it.copy(heardAtRate = rate)) }
     }
 
     /** Keeps [backoff] and [retryAt] up with what Shazam said about the window that ended at [endMs]. */
@@ -727,7 +751,8 @@ class RecognitionEngine @Inject constructor(
                         TAG,
                         "Window: '${t.title}' by '${t.artist}' key=${t.shazamKey} " +
                                 "offset=${"%.1f".format(t.offsetSeconds)} " +
-                                "skew=${"%.4f".format(t.timeSkew)}/${"%.4f".format(t.frequencySkew)}",
+                                "skew=${"%.4f".format(t.timeSkew)}/${"%.4f".format(t.frequencySkew)}" +
+                                if (t.heardAtRate != 1.0) " heard at ${t.heardAtRate}x" else "",
                     )
                 }
                 // A different song from the one on show, so the old one comes down now rather
@@ -807,8 +832,8 @@ class RecognitionEngine @Inject constructor(
                     val apart = (heardAtMs - waitingFor.second) / 1000.0
                     val advanced = outcome.track.offsetSeconds - waitingFor.first.offsetSeconds
                     if (apart > 0 && advanced > apart / 3 && advanced < apart * 3) advanced / apart
-                    else 1.0
-                } else 1.0
+                    else outcome.track.heardAtRate
+                } else outcome.track.heardAtRate
 
                 // Position is known from this alone, so it is published before any decision about
                 // adding. Even a track that will not be added is worth showing while it plays.
