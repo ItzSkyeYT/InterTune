@@ -24,8 +24,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import java.net.DatagramSocket
+import java.net.Inet4Address
 import java.net.InetAddress
 import java.net.URI
 
@@ -171,6 +174,8 @@ class CastDiscovery(
     /** The Wi-Fi network, so SSDP and description fetches stay on it under a VPN. */
     private val network: () -> Network?,
     private val searchEveryMs: Long = 10_000,
+    /** The phone's IPv4 address and prefix on the Wi-Fi, for FCast receivers looked for address by address (FCastSweep). */
+    private val subnet: () -> Pair<Inet4Address, Int>? = { null },
 ) {
     private val _devices = MutableStateFlow<List<CastDevice>>(emptyList())
     val devices: StateFlow<List<CastDevice>> = _devices.asStateFlow()
@@ -182,6 +187,10 @@ class CastDiscovery(
     private val lock = Any()
     private val nsdListeners = mutableListOf<NsdManager.DiscoveryListener>()
     private var ssdp: Job? = null
+
+    /** FCast receivers that took a connection on their port, keyed by address (FCastSweep). */
+    private val swept = LinkedHashMap<String, CastDevice>()
+    private var sweep: Job? = null
 
     /**
      * Resolved one at a time, whichever type they are: before Android 14, a second resolve while
@@ -206,6 +215,7 @@ class CastDiscovery(
                     delay(searchEveryMs)
                 }
             }
+            sweep = scope.launch(Dispatchers.IO) { sweepFcast() }
         }
     }
 
@@ -215,6 +225,9 @@ class CastDiscovery(
             nsdListeners.clear()
             ssdp?.cancel()
             ssdp = null
+            sweep?.cancel()
+            sweep = null
+            swept.clear()
             toResolve.clear()
             resolving = false
         }
@@ -235,8 +248,34 @@ class CastDiscovery(
         }
     }
 
+    /**
+     * FCast receivers that do not answer the network's search, looked for address by address on
+     * the phone's own network while the picker is open (FCastSweep). Each one found is listed at
+     * once, under the name it gives itself.
+     */
+    private suspend fun sweepFcast() {
+        val (self, prefix) = subnet() ?: return
+        val hosts = FCastSweep.hosts(self, prefix)
+        if (hosts.isEmpty()) return
+        val factory = network()?.socketFactory ?: javax.net.SocketFactory.getDefault()
+        val gate = Semaphore(FCastSweep.PARALLEL)
+        coroutineScope {
+            for (host in hosts) launch {
+                val device = gate.withPermit { FCastSweep.probe(host, socketFactory = factory) } ?: return@launch
+                synchronized(lock) {
+                    if (nsdListeners.isEmpty()) return@launch
+                    swept[device.host] = device
+                    publish()
+                }
+            }
+        }
+    }
+
     private fun publish() {
-        _devices.update { CastDevices.merge(fcast.values, dlna.values, chromecast.values) }
+        // A receiver both the search and the sweep found is listed once, as the search found it.
+        val searched = fcast.values
+        val sweptOnly = swept.values.filter { s -> searched.none { it.host.equals(s.host, ignoreCase = true) && it.port == s.port } }
+        _devices.update { CastDevices.merge(searched + sweptOnly, dlna.values, chromecast.values) }
     }
 
     private fun found(protocol: CastProtocol) = if (protocol == CastProtocol.CHROMECAST) chromecast else fcast

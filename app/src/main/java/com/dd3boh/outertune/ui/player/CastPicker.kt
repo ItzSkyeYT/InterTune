@@ -85,6 +85,7 @@ import androidx.media3.common.DeviceInfo
 import androidx.media3.common.Player
 import kotlin.math.roundToInt
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
@@ -122,12 +123,19 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.setProgress
+import androidx.compose.ui.unit.Velocity
 import coil3.compose.AsyncImage
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -374,7 +382,12 @@ private fun CastPicker(session: CastSession, onDismiss: () -> Unit) {
     val problem by session.problem.collectAsState()
     val discovery = remember {
         val connectivity = context.getSystemService<ConnectivityManager>()
-        CastDiscovery(context.getSystemService<NsdManager>()!!, scope, network = { connectivity?.let { CastNetwork.wifi(it)?.network } })
+        CastDiscovery(
+            context.getSystemService<NsdManager>()!!,
+            scope,
+            network = { connectivity?.let { CastNetwork.wifi(it)?.network } },
+            subnet = { connectivity?.let { CastNetwork.wifiSubnet(it) } },
+        )
     }
     DisposableEffect(discovery) {
         discovery.start()
@@ -429,10 +442,45 @@ private fun CastPicker(session: CastSession, onDismiss: () -> Unit) {
         LocalOutput.Kind.OTHER -> Icons.Rounded.Speaker
     }
 
+    // Pulled up past its height, the sheet follows the finger a little way, harder the higher it
+    // goes, and settles back when let go: room added under the list, which raises the sheet by as
+    // much (his ask of 18 Oct 2026). Pulled down, that room goes first, then the sheet as before.
+    val density = LocalDensity.current
+    val pullMost = with(density) { 72.dp.toPx() }
+    var pulled by remember { mutableFloatStateOf(0f) }
+    val pullUp = remember(pullMost) {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (available.y <= 0f || pulled <= 0f || source != NestedScrollSource.UserInput) return Offset.Zero
+                val taken = minOf(available.y, pulled)
+                pulled -= taken
+                return Offset(0f, taken)
+            }
+
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                if (available.y >= 0f || source != NestedScrollSource.UserInput) return Offset.Zero
+                val give = (1f - pulled / pullMost).coerceIn(0f, 1f)
+                pulled = (pulled - available.y * 0.5f * give).coerceAtMost(pullMost)
+                return Offset(0f, available.y)
+            }
+
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                if (pulled <= 0f) return Velocity.Zero
+                animate(pulled, 0f, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow)) { value, _ ->
+                    pulled = value
+                }
+                return available
+            }
+        }
+    }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         sheetMaxWidth = landscape.panelWidth(BottomSheetDefaults.SheetMaxWidth),
+        // The handle is drawn in the sheet's content instead: the library's lit up like a button
+        // when held. The sheet is dragged by any part of it, as before.
+        dragHandle = null,
         // In the middle of a wide window only the top and the bottom of the screen concern it: see BottomSheetMenu.
         contentWindowInsets = {
             if (landscape.active) WindowInsets.safeDrawing.only(WindowInsetsSides.Vertical) else WindowInsets.safeDrawing
@@ -442,10 +490,12 @@ private fun CastPicker(session: CastSession, onDismiss: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(4.dp),
             modifier = Modifier
                 .fillMaxWidth()
+                .nestedScroll(pullUp)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp)
                 .padding(bottom = 12.dp),
         ) {
+            BottomSheetDefaults.DragHandle(modifier = Modifier.align(Alignment.CenterHorizontally))
             NowPlayingHeader()
             // What plays, lit, and the row is its volume: slid along, as Android's own output
             // switcher has it (his pick of 14 Oct 2026, design A). The receiver's while casting,
@@ -546,6 +596,7 @@ private fun CastPicker(session: CastSession, onDismiss: () -> Unit) {
                     )
                 }
             }
+            if (pulled > 0f) Spacer(Modifier.height(with(density) { pulled.toDp() }))
         }
     }
 }
