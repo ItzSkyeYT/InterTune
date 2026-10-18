@@ -17,6 +17,31 @@ import org.junit.Test
 class LoginScreenTest {
 
     @Test
+    fun `a link for an app is told from a page`() {
+        // What issue #28's phone was sent at the end of the sign-in (18 Oct 2026).
+        assertTrue(isAppLink("intent://play.google.com/store/apps/details?id=com.google.android.apps.youtube.music&pli=1#Intent;scheme=https;action=android.intent.action.VIEW;package=com.android.vending;end"))
+        assertTrue(isAppLink("market://details?id=com.google.android.apps.youtube.music"))
+        assertTrue(isAppLink("INTENT://x#Intent;end"))
+        assertTrue(isAppLink("android-app://com.google.android.youtube/https/youtube.com"))
+        assertFalse(isAppLink("https://music.youtube.com"))
+        assertFalse(isAppLink("https://accounts.google.com/signin/intent://x"))
+        assertFalse(isAppLink("http://example.com"))
+        assertFalse(isAppLink("about:blank"))
+        assertFalse(isAppLink("javascript:void(0)"))
+        assertFalse(isAppLink(""))
+        assertFalse(isAppLink(null))
+    }
+
+    @Test
+    fun `an app link at the end of the sign-in goes to YouTube Music's page, twice at most`() {
+        val screen = File("src/main/java/com/dd3boh/outertune/ui/screens/LoginScreen.kt").readText()
+        assertTrue(screen.contains("override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean"))
+        assertTrue(screen.contains("if (!isAppLink(request.url.toString())) return false"))
+        assertTrue(screen.contains("if (appLinksTaken++ < 2) view.loadUrl(YOUTUBE_MUSIC)"))
+        assertTrue("only the page itself, not a frame in it", screen.contains("if (view !== webView || !request.isForMainFrame) return false"))
+    }
+
+    @Test
     fun `an account picked opens the page for it, whatever was picked before`() {
         assertEquals("a@example.com", accountAfterPicker(previous = null, picked = "a@example.com"))
         assertEquals("b@example.com", accountAfterPicker(previous = "a@example.com", picked = "b@example.com"))
