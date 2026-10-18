@@ -715,6 +715,9 @@ val UsageCountPeriodKey = stringPreferencesKey("usageCountPeriod")
 /** The last local day counted, which is what keeps this to once a day however often the app opens. */
 val UsageCountLastDayKey = stringPreferencesKey("usageCountLastDay")
 
+/** The receivers cast to before, the latest first, as cast/RecentReceivers writes them. */
+val CastRecentKey = stringPreferencesKey("castRecent")
+
 val LanguageCodeToName = mapOf(
     "af" to "Afrikaans",
     "az" to "Azərbaycan",
