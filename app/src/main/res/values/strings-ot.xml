@@ -2246,4 +2246,5 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="player_pins_by_title" translatable="false">By the title</string>
     <string name="player_pins_under_controls" translatable="false">Under the controls</string>
     <string name="player_pin_lyrics" translatable="false">Lyrics</string>
+    <string name="player_pins_reset" translatable="false">Reset to default</string>
 </resources>

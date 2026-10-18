@@ -64,6 +64,14 @@ object PlayerPins {
         return moved + (place to inOrder(place, now + pin))
     }
 
+    /** [pins] with [places] back to the buttons they have until somebody chooses. */
+    fun reset(pins: Map<PinPlace, List<PlayerPin>>, places: List<PinPlace>): Map<PinPlace, List<PlayerPin>> =
+        pins + places.associateWith { it.defaults }
+
+    /** Whether any of [places] pins other buttons than it has until somebody chooses. */
+    fun changed(pins: Map<PinPlace, List<PlayerPin>>, places: List<PinPlace>): Boolean =
+        places.any { pins[it].orEmpty() != it.defaults }
+
     /** How many pins Classic's row takes beside the title: one fewer while the queue has a circle there. */
     fun classicMost(queueCircle: Boolean): Int = if (queueCircle) PinPlace.CLASSIC.most - 1 else PinPlace.CLASSIC.most
 

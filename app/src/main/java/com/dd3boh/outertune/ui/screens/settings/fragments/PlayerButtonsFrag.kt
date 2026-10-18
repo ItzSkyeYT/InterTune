@@ -33,6 +33,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
@@ -194,6 +195,19 @@ fun ColumnScope.PlayerButtonsFrag() {
                 )
             }
         }
+    }
+    // Back to the buttons the style shown has always had (his ask of 18 Oct 2026). Always there,
+    // and only greyed out while nothing differs, so the way back is never hidden.
+    Row(
+        horizontalArrangement = Arrangement.End,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(end = 8.dp)
+    ) {
+        TextButton(
+            enabled = PlayerPins.changed(pins, places),
+            onClick = { onPinsRawChange(PlayerPins.write(PlayerPins.reset(pins, places))) },
+        ) { Text(stringResource(R.string.player_pins_reset)) }
     }
     SwitchPreference(
         modifier = Modifier.settingRow(R.string.queue_button),
