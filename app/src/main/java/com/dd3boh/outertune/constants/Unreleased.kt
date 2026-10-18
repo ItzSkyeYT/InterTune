@@ -428,12 +428,16 @@ object Unreleased {
     val PROBLEM_REPORT = true
 
     /**
-     * Casting to FCast receivers and DLNA renderers, with the phone serving the audio over a local
-     * HTTP server (the cast package, and CastSession and RemotePlayer in playback).
+     * Casting to Chromecasts, FCast receivers and DLNA renderers, with the phone serving the audio
+     * over a local HTTP server (the cast package, and CastSession, RemotePlayer and RoutedPlayer in
+     * playback), reached from the output button under the player's controls.
      *
-     * A prototype. With this off nothing about casting exists at runtime: no server is started,
-     * no socket is opened and no button is shown. If it holds up it becomes a setting marked
-     * experimental, off by default, and this goes.
+     * On in every build from 0.12 (decided on 18 Oct 2026), its 23 texts open to translators and
+     * in French. With it on every song plays through RoutedPlayer, which hands playback to a
+     * receiver and back; with it off nothing about casting existed at runtime. Played on a
+     * Chromecast Ultra since 13 Oct 2026; FCast and DLNA so far against the mock receivers only.
+     * Left to tidy: the flag and the checks that read it, in MusicService, CastProbe, CastSession,
+     * Player.kt, CastPicker, CastDiscovery and CastLinks.
      */
-    val CASTING = BuildConfig.DEBUG
+    val CASTING = true
 }
