@@ -406,6 +406,9 @@ val GroupedPlayerControlsKey = booleanPreferencesKey("groupedPlayerControls")
 /** Which set of buttons the player shows. See [PlayerButtonsStyle]. */
 val PlayerButtonsStyleKey = stringPreferencesKey("playerButtonsStyle")
 
+/** The buttons the player keeps outside its menu, per place, as [com.dd3boh.outertune.ui.player.PlayerPins] writes them; today's until chosen. */
+val PlayerPinsKey = stringPreferencesKey("playerPins")
+
 /**
  * Whether the player opens the queue from a button beside its other buttons, rather than from the
  * sheet pulled up from its bottom edge. Off keeps the sheet, which is how the player has always

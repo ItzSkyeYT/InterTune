@@ -2240,4 +2240,10 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="signal_legend_untouched">Untouched</string>
     <string name="signal_legend_changed">Changed by a setting you chose</string>
     <string name="signal_legend_where">Where it plays</string>
+    <!-- Pinned buttons on the player (0.13, issue #27): held from translators until he says yes to the words. -->
+    <string name="player_pins" translatable="false">Pinned buttons</string>
+    <string name="player_pins_description" translatable="false">What stays on the player. Everything else is in its menu.</string>
+    <string name="player_pins_by_title" translatable="false">By the title</string>
+    <string name="player_pins_under_controls" translatable="false">Under the controls</string>
+    <string name="player_pin_lyrics" translatable="false">Lyrics</string>
 </resources>
