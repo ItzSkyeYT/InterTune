@@ -426,6 +426,16 @@ fun Lyrics(
                         with(density) { 36.dp.toPx().toInt() } + calculateOffset())
                 }
             }
+        } else if (lastPreviewTime == 0L) {
+            // Before the first line, as after a seek back into the song's opening: the view goes
+            // back to where the first line will be sung, with no line lit, and follows the song
+            // from there. It used to stay on the line it had last shown (reported 18 Oct 2026).
+            deferredCurrentLineIndex = -1
+            if (isSeeking) {
+                lazyListState.scrollToItem(0, with(density) { 36.dp.toPx().toInt() })
+            } else {
+                lazyListState.glideToItem(0, with(density) { 36.dp.toPx().toInt() })
+            }
         }
     }
 

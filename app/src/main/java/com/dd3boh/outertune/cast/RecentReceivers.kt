@@ -20,8 +20,9 @@ import java.net.InetSocketAddress
 import java.net.Socket
 
 /**
- * The receivers cast to before, the latest first, kept from one launch to the next so that the
- * picker can list them as it opens.
+ * The receivers seen or cast to before, the latest first, kept from one launch to the next so that
+ * the picker lists them as it opens, the way a Chromecast's sender does, and takes off any that
+ * does not answer.
  *
  * A receiver is found by answering the network's search, and some never answer: FCast Receiver
  * 2.1.5 on Android asks for no multicast lock (its manifest lacks CHANGE_WIFI_MULTICAST_STATE),
@@ -32,7 +33,7 @@ import java.net.Socket
  * on its screen.
  */
 object RecentReceivers {
-    const val MOST = 5
+    const val MOST = 10
     const val PROBE_MS = 800
 
     /** [list] with [device] first and no other entry for the same receiver, at most [MOST]. */
@@ -45,6 +46,20 @@ object RecentReceivers {
      */
     fun CastDevice.samePlace(other: CastDevice) =
         protocol == other.protocol && host.equals(other.host, ignoreCase = true) && port == other.port
+
+    /**
+     * [list] with the receivers the search has just [found]: one already known, the same receiver
+     * by its address or its id, takes the found one's details where it stands; a new one goes
+     * first. At most [MOST].
+     */
+    fun seen(list: List<CastDevice>, found: Collection<CastDevice>): List<CastDevice> {
+        var out = list
+        for (device in found) {
+            val at = out.indexOfFirst { it.samePlace(device) || (it.protocol == device.protocol && it.id == device.id) }
+            out = if (at >= 0) out.toMutableList().also { it[at] = device } else listOf(device) + out
+        }
+        return out.distinctBy { it.protocol to it.id }.take(MOST)
+    }
 
     /** Those of [recent] that the search has not found, so that each receiver is listed once. */
     fun notFound(recent: List<CastDevice>, found: Collection<CastDevice>): List<CastDevice> =
