@@ -139,6 +139,7 @@ import com.dd3boh.outertune.together.TogetherSession
 import com.dd3boh.outertune.ui.utils.LocalLandscape
 import com.dd3boh.outertune.ui.utils.shrinkToFit
 import com.dd3boh.outertune.utils.dataStore
+import com.dd3boh.outertune.utils.shareSheet
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -415,7 +416,7 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
             FilledTonalButton(
                 onClick = {
                     context.startActivity(
-                        Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, invite), null)
+                        context.shareSheet(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, invite))
                     )
                 },
                 modifier = Modifier.weight(1f),
