@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- The provider of the phone's own search, which a release does not declare yet: see src/debug and src/preview. -->
+    <!-- The provider of the phone's own search in a release (src/main/AndroidManifest.xml); the debug and preview builds name their own. -->
     <string name="system_search_authority" translatable="false">dev.skye.intertune.systemsearch</string>
 </resources>

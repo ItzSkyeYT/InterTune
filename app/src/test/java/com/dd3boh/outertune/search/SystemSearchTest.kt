@@ -111,16 +111,20 @@ class SystemSearchTest {
     private val src = File("src")
 
     @Test
-    fun `only debug and preview builds are in the phone's search, each with its own provider`() {
+    fun `every build is in the phone's search, each with its own provider`() {
+        // In every build from 0.12 (his yes of 18 Oct 2026): the main manifest declares it once.
         val main = File(src, "main/AndroidManifest.xml").readText()
-        assertFalse("a release must not be listed yet", "android.app.searchable" in main || "SystemSearchProvider" in main)
+        assertTrue("the searchable", "@xml/system_searchable" in main)
+        assertTrue("the provider is guarded", "android:readPermission=\"android.permission.GLOBAL_SEARCH\"" in main)
+        assertTrue("the provider is named by the build's id", "android:authorities=\"\${applicationId}.systemsearch\"" in main)
         for (build in listOf("debug", "preview")) {
-            val manifest = File(src, "$build/AndroidManifest.xml").readText()
-            assertTrue("$build declares the searchable", "@xml/system_searchable" in manifest)
-            assertTrue("$build guards the provider", "android:readPermission=\"android.permission.GLOBAL_SEARCH\"" in manifest)
-            assertTrue("$build names its provider by its id", "android:authorities=\"\${applicationId}.systemsearch\"" in manifest)
+            val manifest = File(src, "$build/AndroidManifest.xml").takeIf { it.isFile }?.readText().orEmpty()
+            assertFalse("$build no longer declares its own", "SystemSearchProvider" in manifest)
+        }
+        // Each build's searchable asks its own provider: the release's id, and the two that add to it.
+        for ((build, id) in listOf("main" to "dev.skye.intertune", "debug" to "dev.skye.intertune.debug", "preview" to "dev.skye.intertune.preview")) {
             val authority = File(src, "$build/res/values/system_search.xml").readText()
-            assertTrue("$build's searchable asks that same provider", ">dev.skye.intertune.$build.systemsearch<" in authority)
+            assertTrue("$build's searchable asks its own provider", ">$id.systemsearch<" in authority)
         }
         assertTrue("includeInGlobalSearch is what lists the app", "android:includeInGlobalSearch=\"true\"" in File(src, "main/res/xml/system_searchable.xml").readText())
     }
