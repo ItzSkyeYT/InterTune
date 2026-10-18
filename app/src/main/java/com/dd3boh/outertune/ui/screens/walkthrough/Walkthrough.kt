@@ -370,7 +370,7 @@ val NEW_THINGS = listOf(
         icon = Icons.Rounded.FilterAlt,
         stops = listOf(
             TourStop("content_filters_row", Tour.ROW_LIBRARY, Tour.ROUTE_SETTINGS, R.string.grp_library_and_content, R.string.new_content_filters_way, V0_12),
-            TourStop("content_filters_setting", Tour.SETTING_CONTENT_FILTERS, Tour.ROUTE_LIBRARY, R.string.hide_explicit, R.string.new_content_filters_here, V0_12),
+            TourStop("content_filters_setting", Tour.SETTING_CONTENT_FILTERS, Tour.ROUTE_LIBRARY, R.string.new_content_filters_title, R.string.new_content_filters_here, V0_12),
         ),
     ),
     NewThing(
