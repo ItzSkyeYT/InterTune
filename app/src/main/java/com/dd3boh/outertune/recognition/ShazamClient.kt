@@ -56,6 +56,11 @@ data class Recognised(
     val timeSkew: Double = 0.0,
     /** And of the pitch deviation, which a slowed or nightcore edit moves along with the rate. */
     val frequencySkew: Double = 0.0,
+    /**
+     * How fast the room played it against the recording, when the window was only named once
+     * put back from that speed ([SpeedRetry]); 1 when it was named as it was heard.
+     */
+    val heardAtRate: Double = 1.0,
 ) {
     /** What to hand a YouTube search. */
     val searchQuery: String get() = listOfNotNull(title, artist).joinToString(" ")
