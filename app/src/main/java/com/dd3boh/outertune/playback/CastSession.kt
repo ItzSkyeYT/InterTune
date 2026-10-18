@@ -103,18 +103,27 @@ class CastSession(
     private fun CastDevice.sameAs(other: CastDevice) = protocol == other.protocol && id == other.id
 
     /**
-     * The receivers cast to before, the latest first, kept from one launch to the next (see
-     * RecentReceivers): the picker asks them directly as it opens, so a receiver that does not
-     * answer the network's search is still there at once.
+     * The receivers seen or cast to before, the latest first, kept from one launch to the next
+     * (see RecentReceivers): the picker lists them as it opens and asks each one directly, so a
+     * receiver that does not answer the network's search is still there at once.
      */
     private val _recent = MutableStateFlow(RecentReceivers.decode(service.dataStore.get(CastRecentKey, "")))
     val recent: StateFlow<List<CastDevice>> = _recent.asStateFlow()
 
-    private fun rememberRecent(device: CastDevice) {
-        val list = _recent.updateAndGet { RecentReceivers.remember(it, device) }
+    private fun rememberRecent(device: CastDevice) = keep(_recent.updateAndGet { RecentReceivers.remember(it, device) })
+
+    /** Receivers the picker's search has found, kept with those cast to. */
+    fun rememberSeen(found: List<CastDevice>) {
+        if (found.isEmpty()) return
+        val before = _recent.value
+        val after = _recent.updateAndGet { RecentReceivers.seen(it, found) }
+        if (after != before) keep(after)
+    }
+
+    private fun keep(list: List<CastDevice>) {
         scope.launch(Dispatchers.IO) {
             runCatching { service.dataStore.edit { it[CastRecentKey] = RecentReceivers.encode(list) } }
-                .onFailure { Log.w(TAG, "The receivers cast to could not be kept", it) }
+                .onFailure { Log.w(TAG, "The receivers seen could not be kept", it) }
         }
     }
 
@@ -201,6 +210,10 @@ class CastSession(
             this@CastSession.link = link
             this@CastSession.server = server
             this@CastSession.remote = remote
+            // A cast starts quiet, never louder than the receiver was (QUIET_START).
+            if (link.caps.hasVolume && remote.deviceVolume > QUIET_START) {
+                remote.setDeviceVolume(QUIET_START, 0)
+            }
             remote.addListener(idleWatch)
             // A cast started while paused loads paused, and is counted from now.
             idle.update(remote.playWhenReady, remote.playbackState)

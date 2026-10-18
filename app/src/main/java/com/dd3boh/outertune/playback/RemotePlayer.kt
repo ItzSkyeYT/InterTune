@@ -48,6 +48,14 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.roundToInt
 
+
+/**
+ * Where a cast starts at most, out of RemotePlayer's 100: a quarter of the receiver's volume. A
+ * receiver whose own volume is at the top, as an FCast phone's is set so that the slider here
+ * reaches all of it, does not blast the first song; one already quieter keeps its volume.
+ */
+internal const val QUIET_START = 25
+
 /**
  * The player while casting: the queue's songs, played one at a time on a receiver through [link],
  * and fetched by it from the phone's [server].

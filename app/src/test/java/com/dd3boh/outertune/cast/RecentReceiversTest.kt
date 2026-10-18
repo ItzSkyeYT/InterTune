@@ -21,16 +21,30 @@ class RecentReceiversTest {
     private val renderer = CastDevice(CastProtocol.DLNA, "uuid:1234", "Bedroom TV", "192.168.1.60", 49152, location = "http://192.168.1.60:49152/desc.xml")
 
     @Test
-    fun `the latest first, each receiver once, five at most`() {
+    fun `the latest first, each receiver once, ten at most`() {
         var list = emptyList<CastDevice>()
         for (d in listOf(pixel, tv, group, renderer)) list = RecentReceivers.remember(list, d)
         assertEquals(listOf(renderer, group, tv, pixel), list)
         // Cast to again, under a new name: moved to the front, not listed twice.
         list = RecentReceivers.remember(list, tv.copy(name = "TV"))
         assertEquals(listOf("TV", "Bedroom TV", "Living room", "FCast-Google-Pixel 5"), list.map { it.name })
-        for (i in 1..4) list = RecentReceivers.remember(list, pixel.copy(id = "p$i", host = "10.0.0.$i"))
+        for (i in 1..RecentReceivers.MOST) list = RecentReceivers.remember(list, pixel.copy(id = "p$i", host = "10.0.0.$i"))
         assertEquals(RecentReceivers.MOST, list.size)
-        assertEquals("10.0.0.4", list.first().host)
+        assertEquals("10.0.0.${RecentReceivers.MOST}", list.first().host)
+    }
+
+    @Test
+    fun `receivers the search finds are kept, each once, without reordering those known`() {
+        var list = listOf(tv, pixel)
+        // Found again under a new name: updated where it stands. A new one: first.
+        list = RecentReceivers.seen(list, listOf(pixel.copy(name = "Pixel, renamed"), renderer))
+        assertEquals(listOf("Bedroom TV", "Mel TV", "Pixel, renamed"), list.map { it.name })
+        // The same renderer at a new address keeps its id: still one entry.
+        list = RecentReceivers.seen(list, listOf(renderer.copy(host = "192.168.1.61")))
+        assertEquals(3, list.size)
+        assertEquals("192.168.1.61", list.first().host)
+        val many = (1..20).map { pixel.copy(id = "p$it", host = "10.0.1.$it") }
+        assertEquals(RecentReceivers.MOST, RecentReceivers.seen(list, many).size)
     }
 
     @Test

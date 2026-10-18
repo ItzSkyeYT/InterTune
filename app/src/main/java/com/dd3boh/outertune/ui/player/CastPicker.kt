@@ -395,16 +395,17 @@ private fun CastPicker(session: CastSession, onDismiss: () -> Unit) {
     }
     val found by discovery.devices.collectAsState()
     val added by session.added.collectAsState()
-    // The receivers cast to before, asked directly as the picker opens (RecentReceivers): each
-    // one that answers is listed at once, whether or not the network's search finds it.
+    // Every receiver seen or cast to before is listed as the picker opens, as a Chromecast's
+    // sender does, and asked directly: one that does not answer within a second is taken off
+    // (RecentReceivers). What the search finds is kept for next time.
     val recent by session.recent.collectAsState()
-    var recentHere by remember { mutableStateOf(emptyList<CastDevice>()) }
-    LaunchedEffect(recent) {
-        recentHere = emptyList()
-        for (device in recent) launch {
-            if (withContext(Dispatchers.IO) { RecentReceivers.answers(device) }) recentHere = recentHere + device
+    var gone by remember { mutableStateOf(emptySet<CastDevice>()) }
+    LaunchedEffect(Unit) {
+        for (device in session.recent.value) launch {
+            if (!withContext(Dispatchers.IO) { RecentReceivers.answers(device) }) gone = gone + device
         }
     }
+    LaunchedEffect(found) { session.rememberSeen(found) }
     val local = rememberLocalOutput()
     val landscape = LocalLandscape.current
 
@@ -426,8 +427,10 @@ private fun CastPicker(session: CastSession, onDismiss: () -> Unit) {
     val casting = state as? CastSession.State.Casting
     val connecting = state as? CastSession.State.Connecting
     val current = casting?.device ?: connecting?.device
-    val receivers = (found + added + RecentReceivers.notFound(recent.filter { it in recentHere }, found + added))
+    // In one order by name, so a receiver keeps its place whether it was known before or found now.
+    val receivers = (found + added + RecentReceivers.notFound(recent.filterNot { it in gone }, found + added))
         .distinctBy { it.protocol to it.id }
+        .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
         .filterNot { current != null && it.protocol == current.protocol && it.id == current.id }
     val phoneName = local.name ?: stringResource(
         when (local.kind) {
@@ -444,7 +447,7 @@ private fun CastPicker(session: CastSession, onDismiss: () -> Unit) {
 
     // Pulled up past its height, the sheet follows the finger a little way, harder the higher it
     // goes, and settles back when let go: room added under the list, which raises the sheet by as
-    // much (his ask of 18 Oct 2026). Pulled down, that room goes first, then the sheet as before.
+    // much (asked for on 18 Oct 2026). Pulled down, that room goes first, then the sheet as before.
     val density = LocalDensity.current
     val pullMost = with(density) { 72.dp.toPx() }
     var pulled by remember { mutableFloatStateOf(0f) }
