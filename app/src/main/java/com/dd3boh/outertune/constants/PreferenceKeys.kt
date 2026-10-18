@@ -552,6 +552,21 @@ val RecognisePauseOnSpeakerKey = booleanPreferencesKey("recognisePauseOnSpeaker"
 /** Seconds of audio taken per identification attempt. MicrophoneListener.DEFAULT_SECONDS. */
 val RecogniseListenSecondsKey = intPreferencesKey("recogniseListenSeconds")
 
+/** Debug builds: the Nostr relays listening rooms use instead of the public ones, comma separated (TogetherSession). */
+val TogetherRelaysKey = stringPreferencesKey("togetherRelays")
+
+/** The name the others in a room see; empty or unset means the phone's own name. */
+val TogetherNameKey = stringPreferencesKey("togetherName")
+
+/** How far a follower may drift once in step before it corrects again, in ms (SyncLock). */
+val TogetherToleranceKey = intPreferencesKey("togetherToleranceMs")
+
+/** How much faster or slower a follower plays to catch up, in percent of the speed (SyncLock.maxNudge). */
+val TogetherCatchUpKey = intPreferencesKey("togetherCatchUpPercent")
+
+/** How late this phone's sound comes out (Bluetooth), in ms: the room's timing makes up for it. */
+val TogetherDelayKey = intPreferencesKey("togetherDelayMs")
+
 /** Add confident matches to the playlist without being asked. Continuous runs only. */
 val RecogniseAutoAddKey = booleanPreferencesKey("recogniseAutoAdd")
 

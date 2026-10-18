@@ -65,6 +65,8 @@ import com.dd3boh.outertune.utils.syncCoroutine
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.SongItem
 import kotlinx.coroutines.launch
+import android.widget.Toast
+import androidx.compose.material.icons.rounded.Group
 
 @Composable
 fun YouTubeSongMenu(
@@ -82,6 +84,8 @@ fun YouTubeSongMenu(
     val playerConnection = LocalPlayerConnection.current ?: return
 
     val librarySong by remember(song.id) { database.song(song.id) }.collectAsState(initial = null)
+    val room by playerConnection.service.together.collectAsState()
+    val guestIn = room?.takeIf { it.following }
     val download by LocalDownloadUtil.current.getDownload(song.id).collectAsState(initial = null)
     val artists = remember {
         song.artists.mapNotNull {
@@ -245,6 +249,18 @@ fun YouTubeSongMenu(
         ) {
             ActivityLog.note(context, database, song.id, SignalKind.SHARE)
             shareLink(ShareLinks.song(song.id, song.title, song.artists.map { it.name }, song.duration ?: 0, song.album != null), onDismiss)
+        }
+        // In a listening room as a guest: the host plays it next, for everyone. As in SongMenu: Quick
+        // picks and search results open this menu, not that one (the two-phone run of 17 Oct found it).
+        if (guestIn != null) {
+            GridMenuItem(
+                icon = Icons.Rounded.Group,
+                title = R.string.together_suggest
+            ) {
+                guestIn.suggest(song.toMediaMetadata())
+                Toast.makeText(context, R.string.together_suggested, Toast.LENGTH_SHORT).show()
+                onDismiss()
+            }
         }
     }
 

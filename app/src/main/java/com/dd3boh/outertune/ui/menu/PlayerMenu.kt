@@ -27,6 +27,7 @@ import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.AddCircleOutline
 import androidx.compose.material.icons.rounded.Equalizer
+import androidx.compose.material.icons.rounded.Group
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.LibraryAdd
 import androidx.compose.material.icons.rounded.LibraryAddCheck
@@ -95,6 +96,8 @@ import com.dd3boh.outertune.ui.dialog.AddToPlaylistDialog
 import com.dd3boh.outertune.ui.dialog.AddToQueueDialog
 import com.dd3boh.outertune.ui.dialog.ArtistDialog
 import com.dd3boh.outertune.ui.dialog.DetailsDialog
+import com.dd3boh.outertune.ui.dialog.TogetherSheet
+import com.dd3boh.outertune.ui.dialog.togetherAvailable
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import com.zionhuang.innertube.YouTube
@@ -178,6 +181,14 @@ fun PlayerMenu(
 
     var showDetailsDialog by rememberSaveable {
         mutableStateOf(false)
+    }
+
+    var showTogether by rememberSaveable {
+        mutableStateOf(false)
+    }
+
+    if (showTogether) {
+        TogetherSheet(onDismiss = { showTogether = false })
     }
 
     if (showDetailsDialog) {
@@ -367,6 +378,15 @@ fun PlayerMenu(
             title = R.string.advanced
         ) {
             showPitchTempoDialog = true
+        }
+        // After the ones people know the place of: see the head tracking note below.
+        if (togetherAvailable) {
+            GridMenuItem(
+                icon = Icons.Rounded.Group,
+                title = R.string.together_title
+            ) {
+                showTogether = true
+            }
         }
         // Last, and only while something is actually tracking. It belongs in this menu because the
         // moment you want it is the moment you are listening, but it does not belong above items

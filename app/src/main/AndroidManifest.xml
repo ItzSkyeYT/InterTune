@@ -33,6 +33,9 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
+    <!-- Listen together's Scan button reads a room's QR code (RoomScanDialog), and asks for the camera only then. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
 
@@ -90,6 +93,16 @@
             <meta-data
                 android:name="android.app.searchable"
                 android:resource="@xml/system_searchable" />
+
+            <!-- A listening room's invite, intertune://together/<code> (together/RoomCode). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="intertune" android:host="together" />
+            </intent-filter>
 
             <!-- Youtube filter -->
             <intent-filter android:autoVerify="true">

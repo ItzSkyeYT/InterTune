@@ -56,6 +56,9 @@ import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
+import androidx.compose.material.icons.rounded.Group
+import com.dd3boh.outertune.constants.Unreleased
+import android.widget.Toast
 import com.dd3boh.outertune.constants.ListThumbnailSize
 import com.dd3boh.outertune.constants.SyncMode
 import com.dd3boh.outertune.constants.ThumbnailCornerRadius
@@ -103,6 +106,9 @@ fun SongMenu(
     val downloadUtil = LocalDownloadUtil.current
     val clipboardManager = LocalClipboard.current
     val playerConnection = LocalPlayerConnection.current ?: return
+    // A listening room this phone is a guest in, for Play next in the room (TogetherSession.suggest).
+    val room by playerConnection.service.together.collectAsState()
+    val guestIn = room?.takeIf { it.following }
 
     val syncMode by rememberEnumPreference(key = YtmSyncModeKey, defaultValue = SyncMode.RW)
 
@@ -353,6 +359,18 @@ fun SongMenu(
                 database.query {
                     delete(event)
                 }
+            }
+        }
+        // In a listening room as a guest: the host plays it next, for everyone. Last, so that it moves
+        // no item people know the place of.
+        if (Unreleased.LISTEN_TOGETHER && guestIn != null && !song.song.isLocal) {
+            GridMenuItem(
+                icon = Icons.Rounded.Group,
+                title = R.string.together_suggest
+            ) {
+                guestIn.suggest(song.toMediaMetadata())
+                Toast.makeText(context, R.string.together_suggested, Toast.LENGTH_SHORT).show()
+                onDismiss()
             }
         }
     }

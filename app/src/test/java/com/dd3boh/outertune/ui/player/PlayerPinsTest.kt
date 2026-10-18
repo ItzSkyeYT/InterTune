@@ -100,7 +100,7 @@ class PlayerPinsTest {
         assertTrue(player.contains("val pinned = classicPins(queueCircle = true)"))
         assertTrue(player.contains("pins[PinPlace.CONNECTED_TITLE].orEmpty()"))
         assertTrue(player.contains("pins[PinPlace.CONNECTED_ROW].orEmpty()"))
-        assertTrue("the menu is round on its own when nothing is pinned", player.contains("connectedShape(first = rowPins.isEmpty() && !queueLayout.queueButton, last = true)"))
+        assertTrue("the menu is round on its own when nothing is pinned", player.contains("connectedShape(first = rowPins.isEmpty() && !inRoom && !queueLayout.queueButton, last = true)"))
         assertFalse("no button by the title is drawn outside the pins", player.contains("shape = connectedShape(first = !canShare, last = true)"))
     }
 }
