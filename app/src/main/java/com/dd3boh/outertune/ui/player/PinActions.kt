@@ -28,6 +28,7 @@ import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.OfflinePin
 import androidx.compose.material.icons.rounded.PlaylistRemove
 import androidx.compose.material.icons.rounded.Radio
+import androidx.compose.material.icons.rounded.Route
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Tune
@@ -70,6 +71,7 @@ import com.dd3boh.outertune.ui.dialog.AddToQueueDialog
 import com.dd3boh.outertune.ui.dialog.ArtistDialog
 import com.dd3boh.outertune.ui.dialog.DetailsDialog
 import com.dd3boh.outertune.ui.dialog.ListDialog
+import com.dd3boh.outertune.ui.dialog.SignalPathDialog
 import com.dd3boh.outertune.ui.dialog.togetherAvailable
 import com.dd3boh.outertune.ui.menu.PitchTempoDialog
 import com.dd3boh.outertune.ui.menu.removeFromPlaylist
@@ -111,6 +113,7 @@ internal fun pinPainter(pin: PlayerPin, on: Boolean = false): Painter = when (pi
     PlayerPin.DETAILS -> rememberVectorPainter(Icons.Rounded.Info)
     PlayerPin.EQUALIZER -> rememberVectorPainter(Icons.Rounded.Equalizer)
     PlayerPin.ADVANCED -> rememberVectorPainter(Icons.Rounded.Tune)
+    PlayerPin.SIGNAL_PATH -> rememberVectorPainter(Icons.Rounded.Route)
     PlayerPin.RECENTRE -> rememberVectorPainter(Icons.Rounded.FilterCenterFocus)
     PlayerPin.LISTEN_TOGETHER -> rememberVectorPainter(Icons.Rounded.Group)
 }
@@ -134,6 +137,7 @@ internal fun pinLabel(pin: PlayerPin, on: Boolean = false): String = stringResou
         PlayerPin.DETAILS -> R.string.details
         PlayerPin.EQUALIZER -> R.string.equalizer
         PlayerPin.ADVANCED -> R.string.advanced
+        PlayerPin.SIGNAL_PATH -> R.string.signal_path
         PlayerPin.RECENTRE -> R.string.head_tracking_recentre
         PlayerPin.LISTEN_TOGETHER -> R.string.together_title
     }
@@ -169,7 +173,7 @@ internal fun rememberPinActions(
     val download by remember(songId, watchDownload) { if (watchDownload) downloadUtil.getDownload(songId!!) else flowOf(null) }.collectAsState(initial = null)
     val watchPlaylists = songId != null && PlayerPin.REMOVE_FROM_PLAYLIST in pinned
     val containing by remember(songId, watchPlaylists) { if (watchPlaylists) database.playlistsContaining(songId!!) else flowOf(emptyList()) }.collectAsState(initial = emptyList())
-    val watchFormat = songId != null && PlayerPin.DETAILS in pinned
+    val watchFormat = songId != null && (PlayerPin.DETAILS in pinned || PlayerPin.SIGNAL_PATH in pinned)
     val currentFormat by remember(songId, watchFormat) { if (watchFormat) database.format(songId) else flowOf(null) }.collectAsState(initial = null)
     // As the menu has it: while sync is read only, only local playlists can be edited.
     val syncMode by rememberEnumPreference(key = YtmSyncModeKey, defaultValue = SyncMode.RW)
@@ -183,6 +187,7 @@ internal fun rememberPinActions(
     var showArtists by rememberSaveable { mutableStateOf(false) }
     var showDetails by rememberSaveable { mutableStateOf(false) }
     var showAdvanced by rememberSaveable { mutableStateOf(false) }
+    var showSignalPath by rememberSaveable { mutableStateOf(false) }
 
     val downloaded = getDownloadState(download) == Download.STATE_COMPLETED
     val inLibrary = librarySong?.song?.inLibrary != null
@@ -252,6 +257,13 @@ internal fun rememberPinActions(
             )
         }
         if (showAdvanced) PitchTempoDialog(onDismiss = { showAdvanced = false })
+        if (showSignalPath) {
+            SignalPathDialog(
+                currentFormat = currentFormat,
+                local = mediaMetadata.isLocal,
+                onDismiss = { showSignalPath = false },
+            )
+        }
     }
 
     val local = mediaMetadata?.isLocal != false
@@ -321,6 +333,7 @@ internal fun rememberPinActions(
                     if (intent.resolveActivity(context.packageManager) != null) equalizerLauncher.launch(intent)
                 }
                 PlayerPin.ADVANCED -> showAdvanced = true
+                PlayerPin.SIGNAL_PATH -> showSignalPath = true
                 PlayerPin.RECENTRE -> connection.service.headTracking.recentre()
                 PlayerPin.LISTEN_TOGETHER -> openRoom()
                 // The player's own, drawn and handled by it.

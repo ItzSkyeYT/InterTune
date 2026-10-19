@@ -14,14 +14,14 @@ package com.dd3boh.outertune.ui.player
 enum class PlayerPin {
     SHARE, LYRICS, TIMER, LIKE,
     RADIO, ADD_TO_QUEUE, ADD_TO_PLAYLIST, REMOVE_FROM_PLAYLIST, DOWNLOAD, LIBRARY, ARTIST, ALBUM,
-    DETAILS, EQUALIZER, ADVANCED, RECENTRE, LISTEN_TOGETHER,
+    DETAILS, EQUALIZER, ADVANCED, SIGNAL_PATH, RECENTRE, LISTEN_TOGETHER,
 }
 
 /** The menu's entries and Listen together, which stand further from the menu than any of the four, in the menu's own order. */
 private val FromTheMenu = listOf(
     PlayerPin.RADIO, PlayerPin.ADD_TO_QUEUE, PlayerPin.ADD_TO_PLAYLIST, PlayerPin.REMOVE_FROM_PLAYLIST, PlayerPin.DOWNLOAD,
     PlayerPin.LIBRARY, PlayerPin.ARTIST, PlayerPin.ALBUM, PlayerPin.DETAILS, PlayerPin.EQUALIZER, PlayerPin.ADVANCED,
-    PlayerPin.RECENTRE, PlayerPin.LISTEN_TOGETHER,
+    PlayerPin.SIGNAL_PATH, PlayerPin.RECENTRE, PlayerPin.LISTEN_TOGETHER,
 )
 
 /**
