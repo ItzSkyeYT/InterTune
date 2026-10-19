@@ -63,6 +63,7 @@ import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.AudioGaplessOffloadKey
 import com.dd3boh.outertune.constants.AudioOffloadKey
+import com.dd3boh.outertune.constants.AutomixStyleKey
 import com.dd3boh.outertune.constants.OobeStatusKey
 import com.dd3boh.outertune.constants.PauseListenHistoryKey
 import com.dd3boh.outertune.constants.PauseRemoteListenHistoryKey
@@ -210,6 +211,9 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
                 checked = webClientFirst,
                 onCheckedChange = onWebClientFirstChange,
             )
+        }
+        if (BuildConfig.DEBUG && Unreleased.AUTOMIX) {
+            AutomixStyleRow()
         }
 
         PreferenceEntry(
@@ -735,3 +739,24 @@ fun HapticBox(
         )
     }
 }
+
+/**
+ * Debug builds only: the style every AutoMix change is asked to take, to hear one style on any two
+ * songs. A style a pair does not allow is still refused, and that change is today's; the log says
+ * why. Not a setting, so its words are not translated.
+ */
+@Composable
+private fun AutomixStyleRow() {
+    val (style, onStyleChange) = rememberPreference(key = AutomixStyleKey, defaultValue = "")
+    ListPreference(
+        title = { Text("DEBUG: AutoMix style") },
+        icon = { Icon(Icons.Rounded.Science, null) },
+        selectedValue = style,
+        values = AUTOMIX_STYLES,
+        valueText = { if (it.isEmpty()) "Its own choice" else it.lowercase().replaceFirstChar { c -> c.uppercase() } },
+        onValueSelected = onStyleChange,
+    )
+}
+
+/** The planner's own choice, then each style by its name in com.dd3boh.outertune.mix.Style. */
+private val AUTOMIX_STYLES = listOf("", "GAPLESS", "BLEND", "SMOOTH", "BEAT", "CUT")
