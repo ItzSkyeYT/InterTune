@@ -27,13 +27,24 @@ class AdaptiveNoteTest {
         AdaptiveNote.of(kind, replaced, inserts, dropped, liked, liked?.let { "Paper Moon" }, played = 7)
 
     @Test
-    fun `picks like the liked song come first, with its title and every song put in counted`() {
+    fun `picks like the liked song come first, with its title, counting those alone`() {
+        // r1 came from another seed, in place of a song the pass turned out: it is not "like" the song.
         val n = note(AdaptivePass.Kind.LIKE, listOf(replaced("r1")), listOf(Pick("i1", "liked", "x", 1.0), Pick("i2", "liked", "y", 1.0)), liked = "liked")!!
         assertEquals(Kind.LIKE, n.kind)
-        assertEquals(3, n.count)
+        assertEquals(2, n.count)
         assertEquals("Paper Moon", n.title)
-        assertEquals(setOf("r1", "i1", "i2"), n.picks)
+        assertEquals(setOf("i1", "i2"), n.picks)
         assertEquals(7, n.setAt)
+    }
+
+    @Test
+    fun `a pass that takes out more songs than it puts in says what it took out`() {
+        val turnedDown = (1..3).map { replaced("r$it", why = Unwanted.ARTIST_TURNED_DOWN) }
+        val n = note(AdaptivePass.Kind.SKIP, turnedDown, dropped = 9)!!
+        assertEquals(Kind.DROPPED, n.kind)
+        assertEquals(9, n.count)
+        assertEquals("as many in as out: the picks are the news", Kind.AFTER_SKIP, note(AdaptivePass.Kind.SKIP, turnedDown, dropped = 3)!!.kind)
+        assertEquals("a like is answered first", Kind.LIKE, note(AdaptivePass.Kind.LIKE, inserts = listOf(Pick("i1", "liked", "x", 1.0)), dropped = 4, liked = "liked")!!.kind)
     }
 
     @Test

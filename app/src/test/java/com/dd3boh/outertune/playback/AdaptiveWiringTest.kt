@@ -115,6 +115,12 @@ class AdaptiveWiringTest {
     }
 
     @Test
+    fun `marks and the note count only picks still to come, and the release pass says what it took out`() {
+        assertTrue("after the song playing", "order.drop(current + 1)" in body(service, "private fun publishAdaptive("))
+        assertTrue("AdaptiveNote.Note(AdaptiveNote.Kind.DROPPED, removed" in body(service, "private fun replanQueueTail("))
+    }
+
+    @Test
     fun `each edit is checked against the board's uid and the player's own`() {
         val apply = body(service, "private fun applyPass(")
         assertTrue("snap.playerUids[change.slot.index]" in apply)

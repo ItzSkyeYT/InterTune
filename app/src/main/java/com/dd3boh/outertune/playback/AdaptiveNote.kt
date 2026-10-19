@@ -58,11 +58,16 @@ object AdaptiveNote {
      * What a pass of [kind] that put in [replaced] and [inserts] and took out [dropped] songs says,
      * or null when it changed nothing, and the note before it stands. [liked] is the song whose
      * picks waited to go in, [likedTitle] its title without the version marks and the uploader's
-     * name (SongVersions.plainTitle), so the note stays on one line; [played] the run's count.
+     * name (SongVersions.plainTitle), so the note stays short; [played] the run's count.
      *
-     * In this order: picks like the liked song; picks after a skip; picks all in place of songs the
-     * listener habitually skips or has banned; other picks, like the songs heard lately; songs only
-     * taken out. The count is every song the pass put in.
+     * In this order: picks like the liked song, counting those alone; songs taken out, when more
+     * went than came in (none came in included); picks after a skip; picks all in place of songs
+     * the listener habitually skips or has banned; other picks, like the songs heard lately. The
+     * count is every song the pass put in, or took out for [Kind.DROPPED].
+     *
+     * A pass that turned an artist down replaced three of their songs and took nine more out, and
+     * the queue said "3 new picks after your skip" while nine songs left it: the larger change is
+     * the one to own up to. The new picks still carry their marks.
      */
     fun of(
         kind: AdaptivePass.Kind,
@@ -75,15 +80,15 @@ object AdaptiveNote {
     ): Note? {
         val placed = replaced.map { it.pick } + inserts
         val ids = placed.mapTo(LinkedHashSet()) { it.id }
+        val likes = if (liked == null) emptyList() else placed.filter { it.seed == liked }
         return when {
-            placed.isNotEmpty() && liked != null && placed.any { it.seed == liked } ->
-                Note(Kind.LIKE, placed.size, likedTitle, ids, played)
+            likes.isNotEmpty() -> Note(Kind.LIKE, likes.size, likedTitle, likes.mapTo(LinkedHashSet()) { it.id }, played)
+            dropped > placed.size -> Note(Kind.DROPPED, dropped, setAt = played)
             placed.isNotEmpty() && kind == AdaptivePass.Kind.SKIP -> Note(Kind.AFTER_SKIP, placed.size, picks = ids, setAt = played)
             placed.isNotEmpty() && inserts.isEmpty() && replaced.all {
                 it.slot.unwanted == QueuePlanner.Unwanted.LASTING_DISLIKE || it.slot.unwanted == QueuePlanner.Unwanted.BANNED
             } -> Note(Kind.HABITS, placed.size, picks = ids, setAt = played)
             placed.isNotEmpty() -> Note(Kind.FINISH, placed.size, picks = ids, setAt = played)
-            dropped > 0 -> Note(Kind.DROPPED, dropped, setAt = played)
             else -> null
         }
     }

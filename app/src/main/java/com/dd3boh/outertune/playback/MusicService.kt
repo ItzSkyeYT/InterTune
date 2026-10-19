@@ -3136,14 +3136,21 @@ class MusicService : MediaLibraryService(),
         if (!plan.changed) return
 
         // Descending, so each removal cannot shift the index of the next one.
+        var removed = 0
         plan.dropped.sortedByDescending { it.first }.forEach { (index, _) ->
             if (queueBoard.removeCurrentQueueSong(index)) {
                 runCatching { activePlayer.removeMediaItem(index) }
+                removed++
             }
         }
         hiddenTailChanged.value = hiddenTailChanged.value + 1
         Log.d(TAG, "Adaptive queue: dropped ${plan.dropped.size} of ${tail.size} upcoming, strong=$reach" +
             ", turned down ${turnedDown.artists.size} artists and ${turnedDown.songs.size} songs, plain run=$plainRun")
+        // The queue says what it took out, as the pass that also puts picks in does.
+        if (removed > 0) {
+            heard.note = AdaptiveNote.Note(AdaptiveNote.Kind.DROPPED, removed, setAt = heard.played)
+            adaptiveChanged()
+        }
     }
 
     // ---- The pass that puts fresh picks in (Unreleased.ADAPTIVE_PASS): asked for on the main
@@ -3446,10 +3453,18 @@ class MusicService : MediaLibraryService(),
         adaptiveChanged()
     }
 
-    /** The marks and the note for the queue sheet, from the run and the queue as they are now. Main thread. */
+    /**
+     * The marks and the note for the queue sheet, from the run and the queue as they are now: the
+     * picks still to come, after the song playing. A pick jumped over is not, and kept its mark
+     * and the note that counted it for as long as the run lasted. Main thread.
+     */
     private fun publishAdaptive() {
-        val inQueue = queueBoard.getCurrentQueue()?.queue?.mapTo(HashSet()) { it.id }.orEmpty()
-        val ahead = heard.unreachedPicks().filterTo(LinkedHashSet()) { it in inQueue }
+        val q = queueBoard.getCurrentQueue()
+        val order = q?.getCurrentQueueShuffled().orEmpty()
+        val current = if (activePlayer.currentMediaItem != null) activePlayer.currentMediaItemIndex
+            else q?.takeIf { it.queuePos in it.queue.indices }?.getQueuePosShuffled() ?: -1
+        val upcoming = order.drop(current + 1).mapTo(HashSet()) { it.id }
+        val ahead = heard.unreachedPicks().filterTo(LinkedHashSet()) { it in upcoming }
         adaptivePicks.value = ahead
         heard.note?.let { if (!AdaptiveNote.stands(it, ahead, heard.played)) heard.note = null }
         adaptiveNote.value = heard.note

@@ -1160,10 +1160,12 @@ fun BoxScope.QueueContent(
                         )
                         Spacer(Modifier.width(16.dp))
                         Column {
+                            // Two lines: the reason is the end of the note, and on one line it
+                            // was what got cut, in French and at a larger font in English.
                             Text(
                                 text = note?.let { adaptiveNoteText(it) } ?: stringResource(R.string.adaptive_tail_title),
                                 style = MaterialTheme.typography.bodyLarge,
-                                maxLines = 1,
+                                maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
                             )
                             if (hiddenTailCount > 0) {
