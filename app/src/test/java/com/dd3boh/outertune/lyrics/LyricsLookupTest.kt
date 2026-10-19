@@ -66,6 +66,16 @@ class LyricsLookupTest {
     }
 
     @Test
+    fun `an answer that cannot be read is skipped for the next source, never kept`() = runBlocking {
+        val a = Fake("a") { Result.success("<tt xmlns=\"http://www.w3.org/ns/ttml\"><body><p begin=\"later\">x</p></body></tt>") }
+        val b = Fake("b") { Result.success("[00:01.00]found") }
+        val failures = mutableListOf<String>()
+        val found = LyricsLookup.firstFound(listOf(a, b), query, readable = { !it.startsWith("<tt") }) { p, _ -> failures += p.name }
+        assertEquals("[00:01.00]found", found.lyrics)
+        assertEquals(listOf("a"), failures)
+    }
+
+    @Test
     fun `plain words do not stop the search for synced ones`() = runBlocking {
         val a = Fake("a") { Result.success("plain words") }
         val b = Fake("b") { Result.success("[00:01.00]timed") }

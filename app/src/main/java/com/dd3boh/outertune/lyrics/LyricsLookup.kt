@@ -73,6 +73,7 @@ object LyricsLookup {
     suspend fun firstFound(
         providers: List<LyricsProvider>,
         query: LyricsQuery,
+        readable: (String) -> Boolean = { true },
         onFailure: (LyricsProvider, Throwable) -> Unit,
     ): Outcome {
         var plain: String? = null
@@ -99,6 +100,12 @@ object LyricsLookup {
             val text = result.getOrNull()
             if (text.isNullOrBlank()) {
                 onFailure(provider, failure ?: IllegalStateException("${provider.name} gave empty lyrics"))
+                continue
+            }
+            // An answer the app cannot read, such as TTML in a form the parser does not know, is no
+            // lyrics: the next source is asked instead of the markup being kept and shown.
+            if (!readable(text)) {
+                onFailure(provider, IllegalStateException("${provider.name} gave lyrics that could not be read"))
                 continue
             }
             if (LyricsMatch.isSynced(text)) return Outcome(text, answered)
