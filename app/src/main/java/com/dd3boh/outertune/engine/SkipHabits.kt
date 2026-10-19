@@ -20,8 +20,9 @@ import kotlin.math.pow
  *
  * **Rows.** The listens of the last [EngineParams.contextWindowDays] days that are meant to teach
  * and that say how they ended: played to the end, or skipped. Stopped, replaced, failed, still open
- * and legacy rows carry no verdict. A row is a skip when it was skipped before half of it was heard
- * (or before half a minute, its length unknown), the rule a queue reads a skip by
+ * and legacy rows carry no verdict. A play carried on in rows of its own after a stop is one play,
+ * by all its time and how its last row ended. A row is a skip when it was skipped before half of
+ * it was heard (or before half a minute, its length unknown), the rule a queue reads a skip by
  * (AdaptiveQueue.leftEarly); every other one is a keep. Unlike Signals, a skip in the first half
  * minute counts, because that is most skips and the most decided of them. What does not count in
  * full is a burst of them: somebody pressing next five times in ten seconds is scanning a radio,
@@ -57,7 +58,20 @@ class SkipHabits(listens: List<ListenRow>, songs: Map<String, SongRow>, now: Lon
     init {
         val day = 86_400_000.0
         val cut = now - p.contextWindowDays * day
-        val ordered = listens.sortedBy { it.startedAt }
+        // One play, however many rows it took. A play stopped (the app closed, the music paused
+        // long enough) or failed and picked up where it stood goes on in a row of its own whose time
+        // starts again at nothing (continuesListenId). Read row by row, next pressed ten seconds
+        // after resuming a song heard to 3:00 of 3:30 was a quick skip against its artist. So each
+        // play is judged whole, by all its time and how its last row ended, as Grading judges the
+        // play of a card (Grading.asOnePlay). A row carrying on one that is not here, a failed play,
+        // which the engine's input leaves out, says nothing by itself.
+        val resumedBy = HashMap<Long, ListenRow>()
+        for (l in listens) {
+            val from = l.continuesListenId ?: continue
+            if (resumedBy[from].let { it == null || l.startedAt < it.startedAt }) resumedBy[from] = l
+        }
+        val plays = listens.filter { it.continuesListenId == null }.map { Grading.asOnePlay(it, resumedBy).play }
+        val ordered = plays.sortedBy { it.startedAt }
         // A burst: consecutive quick skips in one session, sharing one skip between them.
         val share = DoubleArray(ordered.size) { 1.0 }
         var i = 0

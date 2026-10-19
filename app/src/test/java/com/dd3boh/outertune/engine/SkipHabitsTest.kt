@@ -91,6 +91,28 @@ class SkipHabitsTest {
     }
 
     @Test
+    fun `a play carried on after a stop is one play, judged by all of it`() {
+        val c = (0 until 6).map { song("c$it", "Band C") }
+        // Each heard to 3:00 of 3:20, the app closed, then resumed there and left at 3:10.
+        var rowId = 1_000L
+        val resumed = c.flatMap { s ->
+            val at = now - day / 2 + (next++) * 1_000_000L
+            val first = ListenRow(s.id, at, at + 180_000, 180_000, 200_000, EndReason.STOPPED, 0, 0, at, 0, id = ++rowId)
+            val rest = ListenRow(s.id, at + 600_000, at + 610_000, 10_000, 200_000, EndReason.SKIPPED, 0, 0, at + 600_000, 0, id = rowId + 1, continuesListenId = rowId)
+            rowId++
+            listOf(first, rest)
+        }
+        assertEquals("heard nearly through, not skipped", 0.0, SkipHabits(background() + resumed, songs, now).artist("id-Band C", "Band C"), 1e-9)
+
+        // Its first part a failed play, which the engine's input leaves out: the rest says nothing alone.
+        val orphans = resumed.filter { it.continuesListenId != null }
+        assertEquals(0.0, SkipHabits(background() + orphans, songs, now).artist("id-Band C", "Band C"), 1e-9)
+        // Read row by row, as before, the same rows were six quick skips.
+        val alone = orphans.map { it.copy(continuesListenId = null) }
+        assertTrue(SkipHabits(background() + alone, songs, now).artist("id-Band C", "Band C") >= SkipHabits.DISLIKE)
+    }
+
+    @Test
     fun `a skip past half is a keep`() {
         val c = (0 until 5).map { song("c$it", "Band C") }
         val rows = background() + c.map { skip(it.id, 0.5, playedMs = 140_000L) }
