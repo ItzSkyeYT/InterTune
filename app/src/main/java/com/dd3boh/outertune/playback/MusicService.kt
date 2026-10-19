@@ -151,6 +151,10 @@ import com.dd3boh.outertune.constants.ShareAudioFocusKey
 import com.dd3boh.outertune.constants.SkipSilenceKey
 import com.dd3boh.outertune.constants.StopMusicOnTaskClearKey
 import com.dd3boh.outertune.constants.TransitionFadeKey
+import com.dd3boh.outertune.playback.automix.AutomixAudioProcessor
+import com.dd3boh.outertune.playback.automix.AutomixAudioSink
+import com.dd3boh.outertune.playback.automix.AutomixProcessorChain
+import androidx.media3.common.audio.AudioProcessorChain
 import com.dd3boh.outertune.constants.TransitionFadeSecondsKey
 import com.dd3boh.outertune.constants.minPlaybackDurKey
 import com.dd3boh.outertune.db.MusicDatabase
@@ -617,6 +621,13 @@ class MusicService : MediaLibraryService(),
 
     /** Fade between tracks. Off unless asked for; one more factor in the volume combine. */
     private lateinit var transitionFade: TransitionFade
+
+    /**
+     * AutoMix's stage, the last of the audio chain. Made only with Unreleased.AUTOMIX on: with it
+     * off it does not exist, and the chain and the sink are built as they always were. Nothing
+     * asks it to take part yet, so it stays out of the chain.
+     */
+    private val automixStage: AutomixAudioProcessor? = if (Unreleased.AUTOMIX) AutomixAudioProcessor() else null
 
     private val sleepTimerNotification by lazy { SleepTimerNotification(this) }
 
@@ -2706,6 +2717,18 @@ class MusicService : MediaLibraryService(),
         return isStaleQualityTier(stored, audioQualityNow())
     }
 
+    /** The chain with AutoMix's stage after all of it, with Unreleased.AUTOMIX on; as it is otherwise. */
+    private fun withAutomix(chain: AudioProcessorChain): AudioProcessorChain {
+        val stage = automixStage
+        return if (Unreleased.AUTOMIX && stage != null) AutomixProcessorChain(chain, stage) else chain
+    }
+
+    /** The sink, told of for AutoMix's stage, with Unreleased.AUTOMIX on; as it is otherwise. */
+    private fun withAutomix(sink: AudioSink): AudioSink {
+        val stage = automixStage
+        return if (Unreleased.AUTOMIX && stage != null) AutomixAudioSink(sink, stage) else sink
+    }
+
     private fun createRenderersFactory(gaplessOffloadAllowed: Boolean): DefaultRenderersFactory {
         if (ENABLE_FFMETADATAEX) {
             return object : NextRenderersFactory(this@MusicService) {
@@ -2730,19 +2753,22 @@ class MusicService : MediaLibraryService(),
                                 .build()
                         )
                         .setAudioProcessorChain(
-                            DefaultAudioSink.DefaultAudioProcessorChain(
-                                // Upmix last: gain works on the two channels it was written for,
-                                // and anything derived from them is derived from the gained
-                                // result rather than being gained separately. Only one of the two
-                                // spatial stages is ever on. The equalizer comes straight after the
-                                // gain, so spatial audio is handed the curve the listener chose.
-                                arrayOf(gainProcessor, equalizerProcessor, binauralProcessor, spatialUpmixProcessor),
-                                SilenceSkippingAudioProcessor(),
-                                SonicAudioProcessor()
+                            withAutomix(
+                                DefaultAudioSink.DefaultAudioProcessorChain(
+                                    // Upmix last: gain works on the two channels it was written for,
+                                    // and anything derived from them is derived from the gained
+                                    // result rather than being gained separately. Only one of the two
+                                    // spatial stages is ever on. The equalizer comes straight after the
+                                    // gain, so spatial audio is handed the curve the listener chose.
+                                    arrayOf(gainProcessor, equalizerProcessor, binauralProcessor, spatialUpmixProcessor),
+                                    SilenceSkippingAudioProcessor(),
+                                    SonicAudioProcessor()
+                                )
                             )
                         )
                         .setAudioOffloadSupportProvider(if (!gaplessOffloadAllowed) OtOffloadSupportProvider(context) else DefaultAudioOffloadSupportProvider(context))
                         .build()
+                        .let { withAutomix(it) }
                         .let { LevelTapAudioSink(it, levelTap) }
                 }
             }
@@ -2772,19 +2798,22 @@ class MusicService : MediaLibraryService(),
                                 .build()
                         )
                         .setAudioProcessorChain(
-                            DefaultAudioSink.DefaultAudioProcessorChain(
-                                // Upmix last: gain works on the two channels it was written for,
-                                // and anything derived from them is derived from the gained
-                                // result rather than being gained separately. Only one of the two
-                                // spatial stages is ever on. The equalizer comes straight after the
-                                // gain, so spatial audio is handed the curve the listener chose.
-                                arrayOf(gainProcessor, equalizerProcessor, binauralProcessor, spatialUpmixProcessor),
-                                SilenceSkippingAudioProcessor(),
-                                SonicAudioProcessor()
+                            withAutomix(
+                                DefaultAudioSink.DefaultAudioProcessorChain(
+                                    // Upmix last: gain works on the two channels it was written for,
+                                    // and anything derived from them is derived from the gained
+                                    // result rather than being gained separately. Only one of the two
+                                    // spatial stages is ever on. The equalizer comes straight after the
+                                    // gain, so spatial audio is handed the curve the listener chose.
+                                    arrayOf(gainProcessor, equalizerProcessor, binauralProcessor, spatialUpmixProcessor),
+                                    SilenceSkippingAudioProcessor(),
+                                    SonicAudioProcessor()
+                                )
                             )
                         )
                         .setAudioOffloadSupportProvider(if (!gaplessOffloadAllowed) OtOffloadSupportProvider(context) else DefaultAudioOffloadSupportProvider(context))
                         .build()
+                        .let { withAutomix(it) }
                         .let { LevelTapAudioSink(it, levelTap) }
                 }
             }.setEnableAudioFloatOutput(highPrecisionAudio)

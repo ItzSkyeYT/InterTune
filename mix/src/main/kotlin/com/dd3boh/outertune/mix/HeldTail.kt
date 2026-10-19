@@ -82,6 +82,9 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
     @Volatile
     private var offered: Offer? = null
     private var plan: MixPlan? = null
+
+    /** The plan taken for this transition, if one was; read on the thread that calls [process]. */
+    val takenPlan: MixPlan? get() = plan
     private var rendered: RenderedOutgoing? = null
     private var shaper: IncomingShaper? = null
     private val mixer = Mixer()
@@ -111,13 +114,24 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
         nextAttenuation = value
     }
 
+    /** How many frames the held end can take: what a [arm] ring must have room for. */
+    val capacity: Int get() = capacityFrames
+
     /**
      * Starts holding the outgoing song's end. Only from [State.PASS], between calls; false when
      * the memory cannot be had, in which case nothing changes.
+     *
+     * [preallocated] is a ring made elsewhere, so that the audio thread does not have to find
+     * several megabytes at once: [capacity] frames of [channels], all silence. Silence matters,
+     * since the stretcher reads past the last held frame as silence.
      */
-    fun arm(): Boolean {
+    fun arm(preallocated: ShortArray? = null): Boolean {
         if (state != State.PASS || inputEnded) return false
-        ring = try {
+        if (preallocated != null && preallocated.size != capacityFrames * channels) {
+            note = "the ring made for the end is the wrong size"
+            return false
+        }
+        ring = preallocated ?: try {
             ShortArray(capacityFrames * channels)
         } catch (e: OutOfMemoryError) {
             note = "no memory to hold the end"

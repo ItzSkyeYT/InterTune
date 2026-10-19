@@ -82,8 +82,22 @@ class AutomixHeldBackTest {
             setOf(
                 "ui/screens/settings/PlayerSettings.kt",
                 "ui/screens/settings/fragments/PlayerFrag.kt",
+                "playback/MusicService.kt",
             ),
             readers,
         )
+    }
+
+    private val service by lazy { lines("playback/MusicService.kt") }
+
+    @Test
+    fun `without the flag the service makes no stage, and the chain and the sink are the ones they were`() {
+        assertTrue("private val automixStage: AutomixAudioProcessor? = if (Unreleased.AUTOMIX) AutomixAudioProcessor() else null" in service)
+        assertTrue("return if (Unreleased.AUTOMIX && stage != null) AutomixProcessorChain(chain, stage) else chain" in service)
+        assertTrue("return if (Unreleased.AUTOMIX && stage != null) AutomixAudioSink(sink, stage) else sink" in service)
+        // Both ways the renderers are built, the chain and the sink each through the same door.
+        val factory = code(source("playback/MusicService.kt")).substringAfter("private fun createRenderersFactory(").substringBefore("\n// Misc")
+        assertEquals(2, Regex("""\.setAudioProcessorChain\(\s*withAutomix\(""").findAll(factory).count())
+        assertEquals(2, Regex("""\.let \{ withAutomix\(it\) \}\s*\.let \{ LevelTapAudioSink\(it, levelTap\) \}""").findAll(factory).count())
     }
 }
