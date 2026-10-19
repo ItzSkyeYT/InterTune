@@ -185,6 +185,37 @@ object AdaptivePass {
         return QueuePlanner.Slot(place.index, song.id, artists.firstOrNull(), score.fit, place.byHand, unwanted, byWords, byScore, firm)
     }
 
+    /**
+     * The songs of a radio's next page that may join it: none by an artist turned down in this
+     * run, nor a version of a song skipped in it ([turnedDown]), nor a preview, nor, with the taste
+     * read ([taste], null before), a song banned or one the listener has a lasting habit of
+     * skipping, unless its artist had a song kept in this run ([exempt]); a liked song stays unless
+     * banned, as it does ahead in the queue. The page goes in at the end of the queue, five songs
+     * from the one playing at most, so by the next song change its first songs are inside the
+     * lock, where no pass looks: a song by an artist just turned down played after all. Every song
+     * when each would go, since a radio with nothing to add stops.
+     */
+    fun pageKeeps(
+        page: List<MediaMetadata>,
+        turnedDown: AdaptiveQueue.TurnedDown,
+        exempt: Set<String>,
+        taste: QueueFit.Taste?,
+    ): List<MediaMetadata> {
+        val kept = page.filter { song ->
+            val liked = taste?.liked(song) ?: song.liked
+            when {
+                taste?.banned(song) == true -> false
+                liked -> true
+                song.artists.any { it.name.trim().lowercase() in turnedDown.artists } -> false
+                turnedDown.songs.isNotEmpty() && SongVersions.baseTitle(song.title, song.artists.firstOrNull()?.name) in turnedDown.songs -> false
+                SongTags.isPreview(song.title) -> false
+                taste != null && taste.habit(song, exempt) >= SkipHabits.DISLIKE -> false
+                else -> true
+            }
+        }
+        return kept.ifEmpty { page }
+    }
+
     private fun artistOf(song: MediaMetadata): String? = song.artists.firstOrNull()?.name?.trim()?.lowercase()
 
     // ---- The log: one line per decision, ids only, never titles. Debug and Preview builds keep

@@ -227,6 +227,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -3164,8 +3165,12 @@ class MusicService : MediaLibraryService(),
     private var passJob: Job? = null
     private var passAsk: PassAsk? = null
 
-    /** The taste, read at most every few minutes (TASTE_TTL_MS). Adaptive dispatcher only. */
-    private var tasteCache: Pair<Long, QueueFit.Taste>? = null
+    /**
+     * The taste, read at most every few minutes (TASTE_TTL_MS). Written on the adaptive dispatcher
+     * only; the radio's top-up reads it on the main thread to leave bans and lasting dislikes out of
+     * a new page.
+     */
+    @Volatile private var tasteCache: Pair<Long, QueueFit.Taste>? = null
 
     /** The related lists read in the current run, by seed, and which run they are for. Adaptive dispatcher only. */
     private var relatedRun: String? = null
@@ -3348,21 +3353,24 @@ class MusicService : MediaLibraryService(),
         if (snap.now - (lastPageAt[key] ?: 0L) < PAGE_EVERY_MS) return noPage("too soon")
         val asked = pagesAsked.getOrPut(key) { HashSet() }
         val seed = seeds.firstOrNull { it !in asked } ?: return noPage("asked already")
-        asked += seed
         lastPageAt[key] = snap.now
-        val page = try {
-            YouTubeQueue(WatchEndpoint(seed)).nextPage().drop(1)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Log.w(TAG, "Adaptive queue: the radio page of a seed failed", e)
-            emptyList()
+        // Seen through even when a newer ask cancels this pass, and kept as that seed's list for
+        // the run: a page given up halfway was lost with the seed's one page of the run, and the
+        // three minutes before the next. A failure is an answer too, and is not asked again.
+        return withContext(NonCancellable) {
+            val page = try {
+                YouTubeQueue(WatchEndpoint(seed)).nextPage().drop(1)
+            } catch (e: Exception) {
+                Log.w(TAG, "Adaptive queue: the radio page of a seed failed", e)
+                emptyList()
+            }
+            asked += seed
+            Log.d(TAG, "Adaptive queue: page from $seed, ${page.size} songs")
+            if (page.isEmpty()) return@withContext null
+            // Beside the stored list where there is one: both are that seed's.
+            val stored = relatedCache[seed]?.takeIf { !it.page }?.songs.orEmpty()
+            AdaptivePass.Source(seed, if (snap.explicitHidden) page else stored + page, page = true).also { relatedCache[seed] = it }
         }
-        Log.d(TAG, "Adaptive queue: page from $seed, ${page.size} songs")
-        if (page.isEmpty()) return null
-        // Beside the stored list where there is one: both are that seed's.
-        val stored = relatedCache[seed]?.takeIf { !it.page }?.songs.orEmpty()
-        return AdaptivePass.Source(seed, if (snap.explicitHidden) page else stored + page, page = true).also { relatedCache[seed] = it }
     }
 
     /** The taste, read again once it is older than TASTE_TTL_MS; the priors and no habits when the read fails. Adaptive dispatcher. */
@@ -3995,9 +4003,17 @@ class MusicService : MediaLibraryService(),
                 val songs = q.getCurrentQueueShuffled().toList()
                 val fresh = RadioPage.fresh(mediaItems.drop(1), songs, heard.reached, heard.reachedVersions)
                 Log.d(TAG, "onMediaItemTransition: ${fresh.size} of them new to this run")
-                q.playlistId = RadioPage.nextSeed(anchor, fresh, songs, asked = playlistId)
+                // Nor, with the radio kept up to date, what this run turned down, banned songs or
+                // lasting dislikes: the page joins five songs from now at most, inside the lock by
+                // the next song change, where no pass looks (AdaptivePass.pageKeeps).
+                val joining = if (!adaptiveQueueMode.isOn) fresh else {
+                    val view = heard.view()
+                    AdaptivePass.pageKeeps(fresh, view.turnedDown, view.positiveArtists, tasteCache?.second)
+                }
+                if (joining.size < fresh.size) Log.d(TAG, "Adaptive queue: the radio's next page left out ${fresh.size - joining.size} songs")
+                q.playlistId = RadioPage.nextSeed(anchor, joining, songs, asked = playlistId)
                     .also { lastRadioSeed = it }
-                if (fresh.isNotEmpty()) queueBoard.enqueueEnd(fresh)
+                if (joining.isNotEmpty()) queueBoard.enqueueEnd(joining)
             }
         }
 

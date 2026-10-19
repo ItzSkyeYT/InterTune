@@ -115,9 +115,25 @@ class AdaptiveWiringTest {
     }
 
     @Test
+    fun `the radio's next page leaves out what the run turned down`() {
+        val raw = File(sources, "playback/MusicService.kt").readText()
+        val topUp = raw.substringAfter("// Auto load more songs").substringBefore("\n        // The pause point")
+        assertTrue("AdaptivePass.pageKeeps(fresh, view.turnedDown, view.positiveArtists, tasteCache?.second)" in topUp)
+        assertTrue("queueBoard.enqueueEnd(joining)" in topUp)
+        assertTrue("RadioPage.nextSeed(anchor, joining, songs, asked = playlistId)" in topUp)
+    }
+
+    @Test
     fun `marks and the note count only picks still to come, and the release pass says what it took out`() {
         assertTrue("after the song playing", "order.drop(current + 1)" in body(service, "private fun publishAdaptive("))
         assertTrue("AdaptiveNote.Note(AdaptiveNote.Kind.DROPPED, removed" in body(service, "private fun replanQueueTail("))
+    }
+
+    @Test
+    fun `a radio page asked for is never thrown away`() {
+        val page = body(service, "private suspend fun pageFor(")
+        assertTrue("the request is seen through", "withContext(NonCancellable) {" in page)
+        assertTrue("and the seed counted as asked once it answered", page.indexOf("asked += seed") > page.indexOf("nextPage()"))
     }
 
     @Test

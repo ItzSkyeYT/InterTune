@@ -16,6 +16,7 @@ import com.dd3boh.outertune.engine.Weights
 import com.dd3boh.outertune.engine.versionKey
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.playback.AdaptiveQueue.Leave
+import com.dd3boh.outertune.utils.SongVersions
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -158,6 +159,21 @@ class AdaptivePassTest {
         val r = AdaptivePass.run(input(h, qq, AdaptivePass.Kind.SKIP, emptyList()))
         assertTrue(r.plan.replaced.isEmpty())
         assertEquals(listOf(9, 13), r.plan.dropped.map { it.slot.index })
+    }
+
+    @Test
+    fun `the radio's next page leaves out what the run turned down, bans and lasting dislikes, but never all of it`() {
+        val taste = tasteSkipping("Band C", 8)
+        val withBan = QueueFit.Taste(taste.now, taste.stats, taste.habits, taste.weights, taste.songs, bannedArtists = setOf("banned band"))
+        val turned = AdaptiveQueue.TurnedDown(artists = setOf("band a"), songs = setOf(SongVersions.baseTitle("Paper Moon", "Band P")))
+        val page = listOf(
+            song("a1", artist = "Band A"), song("pm", "Paper Moon (Slowed)", "Band P"), song("b1", artist = "Banned Band"),
+            song("c1", artist = "Band C"), song("pv", "Tune (Preview)", "Teasers"), song("ok", artist = "Fine"),
+        )
+        assertEquals(listOf("ok"), AdaptivePass.pageKeeps(page, turned, emptySet(), withBan).map { it.id })
+        assertEquals("an artist kept in this run is no lasting dislike here", listOf("c1", "ok"), AdaptivePass.pageKeeps(page, turned, setOf("band c"), withBan).map { it.id })
+        assertEquals("before the taste is read, what the run turned down still goes", listOf("b1", "c1", "ok"), AdaptivePass.pageKeeps(page, turned, emptySet(), null).map { it.id })
+        assertEquals("a page that would lose every song goes in whole", listOf("a1", "pm"), AdaptivePass.pageKeeps(page.take(2), turned, emptySet(), withBan).map { it.id })
     }
 
     @Test
