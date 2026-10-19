@@ -11,8 +11,6 @@ import com.dd3boh.outertune.engine.SongTags
 import com.dd3boh.outertune.engine.TagFit
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.utils.SongVersions
-import java.util.Collections
-import java.util.IdentityHashMap
 import java.util.Locale
 
 /**
@@ -96,11 +94,11 @@ object AdaptivePass {
         val run = QueueFit.Run(tags, referrers, view.artistSkips, view.positiveArtists)
 
         // Each candidate once, with the newest seed that lists it, nothing the queue or the run
-        // already has.
+        // already has. By id: two lists can hold the very same song, and one song is one pick.
         val listed = input.sources.flatMap { source -> source.songs.map { it to source.seed } }
-        val fresh: MutableSet<MediaMetadata> = Collections.newSetFromMap(IdentityHashMap())
-        fresh.addAll(RadioPage.fresh(listed.map { it.first }, input.queue, view.reached, view.reachedVersions))
-        val usable = listed.filter { (song, _) -> song in fresh && usable(song, input, tags, run) }
+        val fresh = RadioPage.fresh(listed.map { it.first }, input.queue, view.reached, view.reachedVersions).mapTo(HashSet()) { it.id }
+        val once = HashSet<String>()
+        val usable = listed.filter { (song, _) -> song.id in fresh && once.add(song.id) && usable(song, input, tags, run) }
         val picks = usable
             .map { (song, seed) -> QueuePlanner.Pick(song.id, seed, artistOf(song), QueueFit.score(song, taste, run).fit) }
             .sortedByDescending { it.fit }
