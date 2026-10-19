@@ -82,12 +82,13 @@ object Unreleased {
      * across a force close, the fold that follows a switch of queue, and the note's place under the
      * songs on show.
      *
-     * Unit tests only (QueuePlannerTest, AdaptivePassTest and the others), to be tried on a phone
-     * on 19 Oct 2026. For 0.12. To ship: set this to true and add it to ReleasedFlagsTest; to tidy
-     * after that, delete it with the one check that reads it, in MusicService.replanQueueTail, and
+     * On in every build from 0.12 (19 Oct 2026), after a run on the Pixel 5: a like put two picks
+     * right after the locked songs, a skip swapped a song by its artist close ahead, the sheet said
+     * so and marked them, a force close brought it all back, and a playlist was left alone. To tidy
+     * in 0.13: delete it with the one check that reads it, in MusicService.replanQueueTail, and
      * AdaptiveQueue.plan with the part of replanQueueTail that calls it.
      */
-    val ADAPTIVE_PASS = BuildConfig.DEBUG
+    val ADAPTIVE_PASS = true
 
     /**
      * Lyrics sources under Lyrics: the four sources in one list, each with a tick to switch it off

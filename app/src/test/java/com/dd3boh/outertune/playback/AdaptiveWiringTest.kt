@@ -166,7 +166,7 @@ class AdaptiveWiringTest {
     fun `the learning rules are no longer a flag, and the new pass is read in one place`() {
         val flags = code("constants/Unreleased.kt")
         assertFalse("ADAPTIVE_LEARNS" in flags)
-        assertTrue("val ADAPTIVE_PASS = BuildConfig.DEBUG" in flags)
+        assertTrue("val ADAPTIVE_PASS = true" in flags)
         val readers = sources.walkTopDown().filter { it.extension == "kt" && it.name != "Unreleased.kt" }
             .filter { "Unreleased.ADAPTIVE_PASS" in code(it.relativeTo(sources).path) }.map { it.name }.toList()
         assertEquals(listOf("MusicService.kt"), readers)
