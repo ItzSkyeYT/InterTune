@@ -18,7 +18,7 @@ import java.util.concurrent.TimeUnit
  * copies go to AUTOMIX_WORK (by default the automix experiments' work/decoded folder), outside the
  * repository, and nothing decoded or rendered from them ever leaves this PC.
  */
-class TrialSong(val file: File, val title: String, val sampleRate: Int, val decoded: File) {
+class TrialSong(val file: File, val title: String, val sampleRate: Int, val decoded: File, val album: String?) {
 
     val frames: Int get() = (decoded.length() / 4).toInt()
     val seconds: Double get() = frames.toDouble() / sampleRate
@@ -60,13 +60,18 @@ object TrialSongs {
             val rate = probeRate(file)
             val out = File(decodedDir, file.nameWithoutExtension + ".s16")
             if (!out.exists() || out.length() == 0L) decode(file, rate, out)
-            TrialSong(file, file.nameWithoutExtension, rate, out)
+            TrialSong(file, file.nameWithoutExtension, rate, out, probeAlbum(file))
         }
     }
 
     private fun probeRate(file: File): Int {
         val text = run("ffprobe", "-v", "error", "-select_streams", "a:0", "-show_entries", "stream=sample_rate", "-of", "csv=p=0", file.path)
         return text.trim().lines().first().trim().toInt()
+    }
+
+    private fun probeAlbum(file: File): String? {
+        val text = run("ffprobe", "-v", "error", "-show_entries", "format_tags=album", "-of", "default=noprint_wrappers=1:nokey=1", file.path)
+        return text.trim().lines().firstOrNull()?.trim()?.takeIf { it.isNotEmpty() }
     }
 
     private fun decode(file: File, rate: Int, out: File) {

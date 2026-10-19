@@ -415,7 +415,10 @@ object Planner {
         if (bStart < c.earliest) return c.refuse(style, "the next song would have to start before the plan can be in place")
         if (bStart > c.tail.frames) return c.refuse(style, "the next song would start after the end of this one")
         val lead = c.frames(HEADROOM_LEAD_S)
-        val aFirst = min(firstProcessed ?: Long.MAX_VALUE, floor(start - lead).toLong())
+        // The outgoing song's rendered part must reach back to the incoming song's first frame:
+        // from there on the mixer takes the outgoing song from that part, so a next song with a
+        // quiet first second, which starts before the blend does, would otherwise meet silence.
+        val aFirst = minOf(firstProcessed ?: Long.MAX_VALUE, floor(start - lead).toLong(), bStart)
         if (aFirst < c.earliest) return c.refuse(style, "it would change something before the plan can be in place")
         val aGone = ceil(end).toLong()
         val (room, incoming) = headroom(c, map, gainA, gainB, bStart.toDouble(), start, end)

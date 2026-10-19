@@ -162,6 +162,7 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
             p.tailFrames != written -> note = "refused: planned for ${p.tailFrames} frames, ${written} held"
             p.firstChange < read + leadFrames -> note = "refused: the plan came ${(read + leadFrames - p.firstChange) * 1000 / sampleRate} ms late"
             p.bStart < read -> note = "refused: the next song would already have started"
+            o.rendered.firstFrame > p.bStart || o.rendered.endFrame < p.aGone -> note = "refused: the rendered part does not cover the blend"
             else -> {
                 plan = p
                 rendered = o.rendered

@@ -222,6 +222,46 @@ class HeldTailTest {
     }
 
     @Test
+    fun aNextSongThatStartsQuietlyStartsBeforeTheBlendAndStillMeetsTheOutgoingSong() {
+        // Noise, so the plan is a blend, and the next song with 3 s of silence before its first
+        // sound: it starts 3 s before the blend, with the outgoing song still at full level.
+        val a = Synth.noise(70.0, seed = 21)
+        val b = ShortArray(3 * rate * 2) + Synth.noise(70.0, seed = 22)
+        val head = RegionAnalysis.analyse(b.copyOfRange(0, 30 * rate * 2), rate, 2, RegionKind.HEAD)
+        val run = object {
+            val held = HeldTail(2, rate, 48 * rate)
+            val model = SinkModel(held, listOf(ModelSong("A", a), ModelSong("B", b)), Random(3))
+            var arm = -1
+            var plan: MixPlan? = null
+            var rendered: RenderedOutgoing? = null
+        }
+        while (!run.model.ended) {
+            val (song, frame) = run.model.position()
+            if (run.arm < 0 && song == 0 && frame >= a.size / 2 - 40 * rate && run.held.arm()) run.arm = run.model.consumedPosition()
+            if (run.plan == null && run.held.state == HeldTail.State.DRAIN) {
+                val tail = run.held.heldTail()!!.copyOf((run.held.written * 2).toInt())
+                val analysis = RegionAnalysis.analyse(tail, rate, 2, RegionKind.TAIL)
+                val p = Planner.plan(PlanInput(analysis, head, readMark = run.held.read, aDurationMs = 70_000, bDurationMs = 73_000))
+                run.plan = p
+                run.rendered = MixRender.renderOutgoing(p, tail, analysis.guide, analysis.decimation)
+                run.held.offer(p, run.rendered!!)
+            }
+            run.model.step()
+        }
+        val p = run.plan!!
+        println("${p.describe()}; ${run.held.note}; B from ${p.bStart}, processed from ${p.aFirstProcessed}")
+        assertTrue(run.held.note.startsWith("planned"))
+        assertTrue(p.bStart < p.overlapStart - 2 * rate)
+        assertTrue(p.aFirstProcessed <= p.bStart)
+        // Through B's silent start, the outgoing song is heard at its own level, sample for sample.
+        val heard = run.model.heard.toArray()
+        for (o in p.bStart until p.overlapStart.toLong() - rate) for (c in 0 until 2) {
+            val i = ((run.arm + o) * 2 + c).toInt()
+            assertEquals(a[i], heard[i])
+        }
+    }
+
+    @Test
     fun aNextSongInAnotherFormatGetsTheWholeTailThenPlaysPlain() {
         val run = Run(seed = 14, formatsMatch = false).go()
         println(run.held.note)
