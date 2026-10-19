@@ -143,6 +143,15 @@ fun DefaultDialog(
     horizontalAlignment: Alignment.Horizontal = Alignment.CenterHorizontally,
     /** At the other end of the buttons' row, for what is not an answer: a time picker's switch between the clock and the keyboard. */
     buttonsStart: (@Composable () -> Unit)? = null,
+    /**
+     * Whether what the dialog says scrolls when it is taller than the room the buttons leave it.
+     *
+     * The scroll belongs here and not on [modifier]: a scroll around the whole dialog measures it
+     * with no height limit, and the part that gives way to the buttons is then given no height at
+     * all. That is how the lyrics search lost its two fields (19 Oct 2026), and a name asked for on
+     * a phone on its side its field and buttons.
+     */
+    scrollable: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Dialog(
@@ -198,7 +207,9 @@ fun DefaultDialog(
                 // whole height and the buttons were not drawn at all.
                 Column(
                     horizontalAlignment = horizontalAlignment,
-                    modifier = Modifier.weight(1f, fill = false),
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .then(if (scrollable) Modifier.verticalScroll(rememberScrollState()) else Modifier),
                     content = content,
                 )
 
@@ -336,7 +347,8 @@ fun TextFieldDialog(
         // scrolls.
         DefaultDialog(
             onDismiss = onDismiss,
-            modifier = modifier.verticalScroll(rememberScrollState()),
+            modifier = modifier,
+            scrollable = true,
         ) {
             Row(
                 verticalAlignment = if (singleLine) Alignment.CenterVertically else Alignment.Bottom,
