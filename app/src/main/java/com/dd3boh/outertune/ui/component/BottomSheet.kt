@@ -197,12 +197,15 @@ fun BottomSheet(
         // drag, and springs back to where it was if you change your mind.
         val (backAnimations) = rememberPreference(BackAnimationsKey, defaultValue = true)
 
+        // A sheet already on its way down leaves further back presses to whatever is under it (see
+        // isCollapsing): pressing back quickly closes the queue and then the player, instead of
+        // restarting the queue's fall from a standstill with every press.
         if (!backAnimations) {
             // What it did before: no preview, the sheet shuts when the finger leaves the glass.
-            if (!state.isCollapsed && !state.isDismissed) {
+            if (!state.isCollapsed && !state.isDismissed && !state.isCollapsing) {
                 BackHandler(onBack = state::collapseSoft)
             }
-        } else PredictiveBackHandler(enabled = !state.isCollapsed && !state.isDismissed) { progress ->
+        } else PredictiveBackHandler(enabled = !state.isCollapsed && !state.isDismissed && !state.isCollapsing) { progress ->
             val from = state.value
             try {
                 progress.collect { event ->
@@ -317,6 +320,15 @@ class BottomSheetState(
 
     val isExpanded by derivedStateOf {
         progress >= 1.0f
+    }
+
+    /**
+     * On its way down, after a back press or a fling. It used to keep taking back presses then,
+     * and each one snapped it to a standstill and started its soft fall again, so pressing back
+     * quickly made the sheet slower, not faster (issue #31).
+     */
+    val isCollapsing by derivedStateOf {
+        animatable.isRunning && animatable.targetValue == collapsedBound
     }
 
     val progress by derivedStateOf {
