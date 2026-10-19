@@ -333,6 +333,64 @@ class AutomixAudioProcessorTest {
     }
 
     @Test
+    fun `an end that begins to be held with the track run dry plays again at once, not after the whole end`() {
+        val aFrames = songA.size / 2
+        var phase = 0
+        var unpausedAt = -1L
+        var underrunsAtUnpause = 0
+        val run = Run(armSecondsLeft = null, style = null, during = { r ->
+            val (song, frame) = r.driver.position()
+            when (phase) {
+                // The decoder starves for a moment just before the window, and the track runs dry.
+                0 -> if (song == 0 && frame >= aFrames - 41 * rate) {
+                    r.driver.renderPaused = true
+                    phase = 1
+                }
+                1 -> if (r.driver.written == r.driver.played) {
+                    r.stage.requestArm(AutomixAudioProcessor.Arm(1, ShortArray(AutomixSchedule.capacityFrames(rate) * 2), rate, 2, r.clockNanos))
+                    r.driver.renderPaused = false
+                    unpausedAt = r.driver.clockMs
+                    underrunsAtUnpause = r.driver.underruns
+                    phase = 2
+                }
+            }
+        }).go()
+        assertTrue(unpausedAt > 0)
+        assertTrue(run.armed)
+        assertTrue("the whole end was held", run.tailFrames > 0)
+        assertEquals(-1, run.firstDifference())
+        assertEquals(0, run.driver.stalls)
+        // A fifth of a second for the stage to see the output has stopped, then it plays on.
+        assertTrue("underruns after the end began to be held: ${run.driver.underruns - underrunsAtUnpause}", run.driver.underruns - underrunsAtUnpause <= 25)
+    }
+
+    @Test
+    fun `a pause while the end is held goes on taking it in, and plays on from where it was`() {
+        var pausedAt = -1L
+        var readAtPause = 0L
+        var readAfterPause = 0L
+        var heldDuringPause = false
+        val run = Run(style = null, during = { r ->
+            if (pausedAt < 0 && r.armed && r.stage.state == HeldTail.State.CAPTURE) {
+                pausedAt = r.driver.clockMs
+                r.driver.trackPlaying = false
+                readAtPause = r.stage.readMark
+            } else if (pausedAt >= 0 && !r.driver.trackPlaying && r.driver.clockMs >= pausedAt + 6_000) {
+                readAfterPause = r.stage.readMark
+                heldDuringPause = r.tailFrames > 0
+                r.driver.trackPlaying = true
+            }
+        }).go()
+        assertTrue(pausedAt >= 0)
+        assertTrue("the end was taken in while paused", heldDuringPause)
+        // Nothing but what the paused track had room for, and once the end was all held, one chunk of
+        // the drain waiting for it.
+        assertTrue("${readAfterPause - readAtPause} frames went out while paused", readAfterPause - readAtPause <= AutomixAudioProcessor.OUT_MAX + 2048)
+        assertEquals(-1, run.firstDifference())
+        assertEquals(0, run.driver.stalls)
+    }
+
+    @Test
     fun `a request to hold the end that waited too long is not taken`() {
         val stage = AutomixAudioProcessor(log = {}, nanoTime = { 5_000_000_000L })
         stage.wanted = true

@@ -562,7 +562,7 @@ class AutomixAudioProcessor(
             }
             var allowed = played - read - MARGIN_FRAMES + credit
             if (allowed <= 0 && sinkPlaying && now - lastMovedNanos > STALL_NANOS) {
-                credit += STEP_FRAMES
+                credit += sampleRate / STEPS_A_SECOND
                 lastMovedNanos = now
                 allowed = played - read - MARGIN_FRAMES + credit
             }
@@ -580,7 +580,9 @@ class AutomixAudioProcessor(
         private const val FORCED_OUT = 1024
 
         private const val MARGIN_FRAMES = 1024L
-        private const val STEP_FRAMES = 2048L
+
+        /** What a dry track is given at a time, in parts of a second. */
+        private const val STEPS_A_SECOND = 10
         private const val STALL_NANOS = 150_000_000L
         private const val ARM_WAIT_NANOS = 1_000_000_000L
 

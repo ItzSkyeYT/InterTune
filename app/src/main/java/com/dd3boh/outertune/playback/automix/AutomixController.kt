@@ -22,14 +22,12 @@ import com.dd3boh.outertune.extensions.metadata
 import com.dd3boh.outertune.utils.ErrorText
 import com.dd3boh.outertune.mix.FrontEnd
 import com.dd3boh.outertune.mix.HeldTail
-import com.dd3boh.outertune.mix.Lock
 import com.dd3boh.outertune.mix.MixPlan
 import com.dd3boh.outertune.mix.MixRender
 import com.dd3boh.outertune.mix.PlanInput
 import com.dd3boh.outertune.mix.Planner
 import com.dd3boh.outertune.mix.RegionAnalysis
 import com.dd3boh.outertune.mix.RegionKind
-import com.dd3boh.outertune.mix.Spectrum
 import com.dd3boh.outertune.mix.Style
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -43,8 +41,6 @@ import kotlinx.coroutines.withContext
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.math.abs
-import kotlin.math.ceil
 import kotlin.math.log10
 import kotlin.math.max
 
@@ -510,9 +506,8 @@ class AutomixController(
         }
         val work = work() ?: return@postFor
         val channels = head.channels
-        val rate = head.sampleRate
         work.execute {
-            val result = runCatching { lockOf(head, frames, fromFrame, channels, rate) }
+            val result = runCatching { AutomixLock.measure(head, frames, fromFrame, channels) }
             main.post {
                 val r = result.getOrNull()
                 if (r == null) {
@@ -520,7 +515,7 @@ class AutomixController(
                     return@post
                 }
                 say("lock %.1f ms, match %.2f".format(r.offsetMs, r.match))
-                if (abs(r.offsetMs) > LOCK_LIMIT_MS || r.match < LOCK_MIN_MATCH) {
+                if (!AutomixLock.holds(r)) {
                     stage.requestAbort(t.id, "the incoming song does not line up with its opening (%.1f ms, match %.2f)".format(r.offsetMs, r.match), beatFrames(t))
                 }
             }
@@ -583,23 +578,6 @@ class AutomixController(
                 say("plan ${plan.describe()}${timesOf(t, plan)}, worked out in $workMs ms")
             }
         }
-    }
-
-    /** The outgoing song's onsets held against the opening's, over the stretch the plan names. */
-    private fun lockOf(head: RegionAnalysis, frames: ShortArray, fromFrame: Long, channels: Int, rate: Int): Lock.Result? {
-        // Both curves from the same frames: the stretch begins on a hop of the opening's analysis,
-        // so the decimation and the spectral frames fall where the opening's did.
-        val hop = (Spectrum.HOP * head.decimation).toLong()
-        val start = ceil(fromFrame.toDouble() / hop).toLong() * hop
-        val skip = (start - fromFrame).toInt()
-        val count = frames.size / channels - skip
-        if (count < rate) return null
-        val live = Spectrum.of(FrontEnd.of(frames, rate, channels, skip, count)).onset
-        val from = (start / head.decimation).toInt()
-        val to = from + count / head.decimation
-        if (to > head.guide.size) return null
-        val expected = Spectrum.of(head.guide.copyOfRange(from, to), rate.toDouble() / head.decimation, head.decimation).onset
-        return Lock.measure(expected, live, rate.toDouble() / head.decimation / Spectrum.HOP)
     }
 
     private fun work(): ExecutorService? {
@@ -749,8 +727,6 @@ class AutomixController(
         const val TAG = "AutoMix"
         const val HEAD_CACHE = 8
         const val NORMALIZATION_CACHE = 64
-        const val LOCK_LIMIT_MS = 15.0
-        const val LOCK_MIN_MATCH = 0.5
         const val ARM_TRIES = 3
         const val HOLDING_LOOK_MS = 1_000L
     }

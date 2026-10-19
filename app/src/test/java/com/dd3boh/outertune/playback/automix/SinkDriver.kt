@@ -83,6 +83,16 @@ class SinkDriver(
     var ended = false
         private set
 
+    /** While true the renderer hands over nothing, as when the decoder is slow or starved. */
+    var renderPaused = false
+
+    /** False while the music is paused: the track plays nothing and the sink says so to the stage. */
+    var trackPlaying = true
+        set(value) {
+            field = value
+            stage.sinkPlaying(value)
+        }
+
     // The sink.
     private var pendingConfiguration: Int? = null
     private var needsSync = false
@@ -117,11 +127,13 @@ class SinkDriver(
 
     fun step() {
         stage.sinkPosition(positionUs())
-        render()
-        val target = played + rate.toLong() * tickMs / 1000
-        val before = played
-        played = min(written, target)
-        if (played < target && !ended && before == played) underruns++
+        if (!renderPaused) render()
+        if (trackPlaying) {
+            val target = played + rate.toLong() * tickMs / 1000
+            val before = played
+            played = min(written, target)
+            if (played < target && !ended && before == played) underruns++
+        }
         clockMs += tickMs
     }
 
