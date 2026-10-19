@@ -591,6 +591,9 @@ val PollFetchVersionKey = intPreferencesKey("pollFetchVersion")
  */
 val CachedPollsJsonKey = stringPreferencesKey("cachedPollsJson")
 
+/** The names last read from README > Donors (Donors.kt), one per line, shown in About > Support InterTune. */
+val DonorsCacheKey = stringPreferencesKey("donorsCache")
+
 /**
  * Consent to being counted once a day. Off until somebody says otherwise, like every other switch
  * that sends anything anywhere.
