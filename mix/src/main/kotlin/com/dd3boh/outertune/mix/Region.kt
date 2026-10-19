@@ -58,8 +58,25 @@ class RegionAnalysis(
         return g.indexNear((frame / factor - Spectrum.ONSET_LAG) / Spectrum.HOP)
     }
 
-    /** The first downbeat of the trusted stretch, as a grid index. */
-    val firstDownbeat: Int? get() = if (grid != null && downbeats != null) downbeats!!.firstAtOrAfter(grid!!.firstBeat) else null
+    /**
+     * The first downbeat, as a grid index: the first of the trusted stretch, or for an opening, as
+     * much as a bar earlier along the same line if that is still at or after the first sound. An
+     * opening's first beat often cannot be heard as an onset (a kick on the very first frame has no
+     * frame before it to rise from, and a first beat is often soft), and the line is good to a few
+     * milliseconds over a single bar.
+     */
+    val firstDownbeat: Int?
+        get() {
+            val g = grid ?: return null
+            val bars = downbeats ?: return null
+            var k = bars.firstAtOrAfter(g.firstBeat)
+            if (kind == RegionKind.HEAD) {
+                val earliest = envelope.firstSound - 0.03 * sampleRate
+                val back = k - Downbeats.BEATS_PER_BAR
+                if (back >= g.firstBeat - Downbeats.BEATS_PER_BAR && beatFrame(back) >= earliest) k = back
+            }
+            return k
+        }
 
     /** The spectral frame of full-rate frame [frame]. */
     fun spectralFrame(frame: Double): Double = (frame / factor - Spectrum.ONSET_LAG) / Spectrum.HOP
