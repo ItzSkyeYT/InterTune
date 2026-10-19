@@ -551,6 +551,10 @@
         <item quantity="many">%1$d secondes</item>
         <item quantity="other">%1$d secondes</item>
     </plurals>
+    <string name="automix">AutoMix</string>
+    <string name="automix_description">Enchaîne chaque titre avec le suivant, comme un DJ.</string>
+    <string name="automix_explain">Quand un titre se termine tout seul, le suivant arrive par-dessous, sur le temps quand les deux ont un rythme régulier. Un titre choisi à la main, ou du même album, change comme avant.</string>
+    <string name="transition_fade_automix_on">Inactif tant qu\'AutoMix est activé.</string>
     <!-- Storage setting -->
     <string name="clear_downloads_confirm">Supprimer tous les téléchargements internes ? Les téléchargements externes et les importations supplémentaires ne sont pas touchés.</string>
     <string name="player_glass_preview_needs_13">L\'aperçu en direct du verre nécessite Android 13 ou plus récent</string>

@@ -440,4 +440,19 @@ object Unreleased {
      * Player.kt, CastPicker, CastDiscovery and CastLinks.
      */
     val CASTING = true
+
+    /**
+     * AutoMix, under Player and audio: a song that ends by itself blends into the next one, as a DJ
+     * set runs. The next song's opening is read and analysed ahead of time, the last stage of the
+     * audio chain holds the end of the song going out, and the two are played into each other: on
+     * the beat when both have a steady one, as a plain blend when less is known, and as the change
+     * of today whenever anything is unsure or not ready in time (the playback/automix package and
+     * the :mix module). Never for a song chosen by hand, a seek, repeat one or casting.
+     *
+     * For 0.13. Its analysis and its mixes were checked on the PC (AutomixTrial, 38 songs, through
+     * a model of media3's audio sink), not yet heard on a phone. The setting starts off, and with
+     * it off, or this off, playback is what it was. To ship: set this to true, or delete it with
+     * the checks that read it, in MusicService, PlayerSettings, PlayerFrag and DeveloperFrag.
+     */
+    val AUTOMIX = BuildConfig.DEBUG
 }
