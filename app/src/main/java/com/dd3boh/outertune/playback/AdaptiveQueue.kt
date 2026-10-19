@@ -250,6 +250,13 @@ object AdaptiveQueue {
         /** How the song before the one playing was left, null before any was. */
         val lastLeave: Leave? get() = run.lastLeave
 
+        /**
+         * Whether any of this run has been heard: a song of it left, or a second one begun. A queue
+         * just loaded, or loaded under the song already playing, has only the song it began on, and
+         * a pass then had that one song to judge the whole queue by.
+         */
+        val begun: Boolean get() = run.played >= 2 || run.lastLeave != null
+
         /** The songs put in or moved by hand in this run, which no pass touches. A view. */
         val byHand: Set<String> get() = run.byHand
 

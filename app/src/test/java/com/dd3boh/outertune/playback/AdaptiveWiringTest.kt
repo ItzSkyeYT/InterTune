@@ -90,6 +90,23 @@ class AdaptiveWiringTest {
     }
 
     @Test
+    fun `a pass runs only in the run it was asked in, and never on a queue only begun`() {
+        val snapshot = body(service, "private fun adaptiveSnapshot(")
+        assertTrue("an ask from a run given way to another is dropped", "if (ask.run != heard.runKey) return notNow(\"the run changed\")" in snapshot)
+        assertTrue("only a like is answered on a queue's first song", "if (kind != AdaptivePass.Kind.LIKE && !heard.begun)" in snapshot)
+        assertTrue("a pass the sheet held back keeps the ordinary lock", "kind == AdaptivePass.Kind.ORDINARY || ask.held" in snapshot)
+        val again = body(service, "private fun askAgainAfterSheet(")
+        assertTrue("if (ask.run != heard.runKey) {" in again)
+        assertTrue("held = true" in again)
+        val release = body(service, "private fun replanQueueTail(")
+        assertTrue("the release pass too", "AdaptiveQueue.runKey(q.id, q.runId) != heard.runKey || (!like && !heard.begun)" in release)
+        assertTrue("with the held lock", "if (reach && !held) AdaptiveQueue.STRONG_LOCKED else AdaptiveQueue.LOCKED" in release)
+        assertTrue("a run switched to drops what the one before asked", "if (heard.runKey != runBefore) dropPasses()" in body(service, "override fun onMediaItemTransition("))
+        assertTrue("switched off, nothing waiting applies", "if (!mode.isOn) dropPasses()" in service)
+        assertTrue("if (!adaptiveQueueMode.isOn) return abandon(\"off\")" in body(service, "private fun applyPass("))
+    }
+
+    @Test
     fun `songs put in, moved or swiped by hand are noted`() {
         assertTrue("noteByHand(q, items)" in body(service, "fun enqueueNext("))
         assertTrue("queueBoard.getCurrentQueue()?.let { noteByHand(it, items) }" in body(service, "fun enqueueEnd("))

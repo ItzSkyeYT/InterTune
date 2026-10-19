@@ -1397,7 +1397,12 @@ class MusicService : MediaLibraryService(),
                     runCatching { AdaptiveQueueMode.valueOf(name) }.getOrNull()
                 } ?: AdaptiveQueueMode.AUTOPLAY_ONLY
             }.distinctUntilChanged()
-                .collectLatest(scope) { adaptiveQueueMode = it; refreshAdaptiveTail() }
+                .collectLatest(scope) { mode ->
+                    adaptiveQueueMode = mode
+                    refreshAdaptiveTail()
+                    // Switched off: nothing waiting, held back or being worked out changes a radio after that.
+                    if (!mode.isOn) dropPasses()
+                }
             // Read here rather than in YTPlayerUtils, which runs on every song and would have
             // to block on the datastore to find out.
             dataStore.data.map {
@@ -2949,21 +2954,45 @@ class MusicService : MediaLibraryService(),
     /**
      * What a pass was asked for: [strong] reaches further, as after a seek forward or a like, for
      * the pass a release runs; [skip] next was pressed before half the song; [like] the song
-     * playing was liked. Asks that arrive within a pass's wait merge into one.
+     * playing was liked. [run] is the run it was asked in (AdaptiveQueue.Heard.runKey), and it
+     * runs in no other: a queue switched to meanwhile has not been heard yet, and a pass carried
+     * over to it judged the whole of it by its first song. [held] when the queue sheet held it
+     * back: the songs it showed stay as they were seen, so the pass keeps the ordinary lock. Asks
+     * for the same run that arrive within a pass's wait merge into one; one for another run takes
+     * the place of the old.
      */
-    private data class PassAsk(val strong: Boolean, val skip: Boolean = false, val like: Boolean = false) {
-        fun merge(other: PassAsk?) = if (other == null) this else PassAsk(strong || other.strong, skip || other.skip, like || other.like)
+    private data class PassAsk(
+        val run: String,
+        val strong: Boolean,
+        val skip: Boolean = false,
+        val like: Boolean = false,
+        val held: Boolean = false,
+    ) {
+        fun merge(other: PassAsk?) = if (other == null || other.run != run) this
+            else PassAsk(run, strong || other.strong, skip || other.skip, like || other.like, held && other.held)
     }
 
     /** A pass turned away while the queue sheet was open. Main thread. */
     private var passWaiting: PassAsk? = null
 
-    /** The queue sheet has closed: the pass it held back runs now. Main thread. */
+    /** The queue sheet has closed: the pass it held back runs now, if its run is still the one playing. Main thread. */
     private fun askAgainAfterSheet() {
+        if (queueSheetOpen) return
         val ask = passWaiting ?: return
         passWaiting = null
-        if (queueSheetOpen) return
-        replanQueueTail(strong = ask.strong, skip = ask.skip, like = ask.like)
+        if (ask.run != heard.runKey) {
+            Log.d(TAG, "Adaptive queue: not now (the run changed)")
+            return
+        }
+        replanQueueTail(strong = ask.strong, skip = ask.skip, like = ask.like, held = true)
+    }
+
+    /** Every pass waiting, held back by the sheet or being worked out, given up. Main thread. */
+    private fun dropPasses() {
+        passJob?.cancel()
+        passJob = null
+        passAsk = null
+        passWaiting = null
     }
 
     /** Whether the song that just started was moved to by skip on error, which says nothing about the song left. Main thread. */
@@ -2992,8 +3021,9 @@ class MusicService : MediaLibraryService(),
      * @param strong the listener just said something clear, so reach further and lock less.
      * @param skip next was pressed before half the song (AdaptiveQueue.Leave.SKIPPED).
      * @param like the song playing was just liked.
+     * @param held the queue sheet held this back, and showed the songs it now locks as settled.
      */
-    private fun replanQueueTail(strong: Boolean = false, skip: Boolean = false, like: Boolean = false) {
+    private fun replanQueueTail(strong: Boolean = false, skip: Boolean = false, like: Boolean = false, held: Boolean = false) {
         if (!adaptiveQueueMode.isOn) return
         val q = queueBoard.getCurrentQueue() ?: return
         // A radio tail is one the app chose; a playlist, an album or a list made by hand is one
@@ -3009,23 +3039,28 @@ class MusicService : MediaLibraryService(),
             Log.d(TAG, "Adaptive queue: not now (casting)")
             return
         }
+        val ask = PassAsk(heard.runKey, strong, skip, like, held)
         // Not while somebody is reading it. A list that rearranges under a finger is the one
         // thing this must never do. Asked for again when the sheet closes.
         if (queueSheetOpen) {
-            passWaiting = PassAsk(strong, skip, like).merge(passWaiting)
+            passWaiting = ask.merge(passWaiting)
             Log.d(TAG, "Adaptive queue: not now (sheet open)")
             return
         }
         if (Unreleased.ADAPTIVE_PASS) {
-            askPass(PassAsk(strong, skip, like))
+            askPass(ask)
             return
         }
+        // A queue that is not the run being heard, or of which only the song it began on has
+        // been, is not planned: see Heard.begun. A like is the listener speaking, and is answered.
+        if (AdaptiveQueue.runKey(q.id, q.runId) != heard.runKey || (!like && !heard.begun)) return
         // Skip on error moving past a song that failed is not the listener reaching further.
         val reach = strong && (like || !transitionFromError)
 
         val current = activePlayer.currentMediaItemIndex
         val count = activePlayer.mediaItemCount
-        val locked = if (reach) AdaptiveQueue.STRONG_LOCKED else AdaptiveQueue.LOCKED
+        // Held back by the open sheet, the four songs it showed as settled stay so after it closes.
+        val locked = if (reach && !held) AdaptiveQueue.STRONG_LOCKED else AdaptiveQueue.LOCKED
         // From the furthest song this queue has reached, not from the one playing: after going
         // back, the songs in between were heard and the few after them seen. See settledThrough.
         val ids = (0 until count).map { i -> runCatching { activePlayer.getMediaItemAt(i).mediaId }.getOrNull() }
@@ -3156,6 +3191,8 @@ class MusicService : MediaLibraryService(),
         fun notNow(why: String): PassSnapshot? { Log.d(TAG, "Adaptive queue: not now ($why)"); return null }
         if (!adaptiveQueueMode.isOn) return notNow("off")
         if (isCasting) return notNow("casting")
+        // Asked in a run that has given way to another since: that queue has not been heard yet.
+        if (ask.run != heard.runKey) return notNow("the run changed")
         if (queueSheetOpen) {
             passWaiting = ask.merge(passWaiting)
             return notNow("sheet open")
@@ -3180,7 +3217,11 @@ class MusicService : MediaLibraryService(),
             ask.skip -> AdaptivePass.Kind.SKIP
             else -> AdaptivePass.Kind.ORDINARY
         }
-        val locked = if (kind == AdaptivePass.Kind.ORDINARY) AdaptiveQueue.LOCKED else AdaptiveQueue.STRONG_LOCKED
+        // Only the song a queue began on has been heard: nothing is planned on that alone, unless
+        // the listener liked it.
+        if (kind != AdaptivePass.Kind.LIKE && !heard.begun) return notNow("the run has not started")
+        // A pass the open sheet held back keeps the four songs it showed as settled.
+        val locked = if (kind == AdaptivePass.Kind.ORDINARY || ask.held) AdaptiveQueue.LOCKED else AdaptiveQueue.STRONG_LOCKED
         // From the furthest song this run has reached, as the queue sheet folds it.
         val ids = items.map { it?.mediaId }
         val settled = AdaptiveQueue.settledThrough(current, ids, { it }, heard.reached)
@@ -3291,6 +3332,8 @@ class MusicService : MediaLibraryService(),
     /** The plan applied, when nothing it was made for has moved, and what it did noted. Main thread. */
     private fun applyPass(snap: PassSnapshot, result: AdaptivePass.Result) {
         fun abandon(why: String) { Log.d(TAG, "Adaptive queue: abandoned ($why)") }
+        // Switched off while the pass was being worked out.
+        if (!adaptiveQueueMode.isOn) return abandon("off")
         if (queueSheetOpen) {
             passWaiting = snap.ask.merge(passWaiting)
             return abandon("sheet opened")
@@ -3781,12 +3824,15 @@ class MusicService : MediaLibraryService(),
             // By run, not by queue: a radio's queue of one and its full queue are one run. A run
             // saved by the last process comes back here, when its queue plays again.
             val q = queueBoard.getCurrentQueue()
+            val runBefore = heard.runKey
             heard.note(
                 q?.id ?: 0L, it.mediaId, it.mediaMetadata.title?.toString(),
                 it.metadata?.artists?.map { a -> a.name }.orEmpty(), it.metadata?.duration ?: -1,
                 runId = q?.runId ?: 0L, radio = q?.playlistId != null,
             )
             heard.takeRestored()?.let { Log.d(TAG, AdaptivePass.restoredLine(it)) }
+            // A pass asked in the run before has nothing to plan here: none of this one is heard yet.
+            if (heard.runKey != runBefore) dropPasses()
             adaptiveChanged()
         }
         // Not for a queue just put in the player, a new one or the one brought back when the app

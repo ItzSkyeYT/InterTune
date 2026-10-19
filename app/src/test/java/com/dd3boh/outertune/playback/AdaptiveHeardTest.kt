@@ -43,6 +43,19 @@ class AdaptiveHeardTest {
     }
 
     @Test
+    fun `a queue just loaded has not begun until a song of it is left or a second one starts`() {
+        val h = heard()
+        h.note(1L, "A", "Alpha", runId = 9L, radio = true)
+        assertFalse(h.begun)
+        h.left(AdaptiveQueue.Leave.RAN_OUT)
+        assertTrue("came round again on repeat one", h.begun)
+        h.note(2L, "B", "Beta", runId = 10L, radio = true)
+        assertFalse("another run starts over", h.begun)
+        h.note(2L, "C", "Gamma", runId = 10L, radio = true)
+        assertTrue(h.begun)
+    }
+
+    @Test
     fun `a song noted while it is already playing is not noted again`() {
         val h = heard()
         h.note(1L, "A", "Alpha", runId = 9L, radio = true)
