@@ -86,6 +86,14 @@ class SinkDriver(
     /** While true the renderer hands over nothing, as when the decoder is slow or starved. */
     var renderPaused = false
 
+    /**
+     * Whether the sink has a position to give: not from a flush until the new stream's first buffer
+     * is in, as getCurrentPositionUs answers CURRENT_POSITION_NOT_SET while the start of the
+     * stream's media time waits to be set. The renderer asks for the position before it hands over
+     * a buffer, so the stage sees that first buffer before it hears where the output is.
+     */
+    private var positionKnown = true
+
     /** False while the music is paused: the track plays nothing and the sink says so to the stage. */
     var trackPlaying = true
         set(value) {
@@ -126,7 +134,7 @@ class SinkDriver(
     }
 
     fun step() {
-        stage.sinkPosition(positionUs())
+        if (positionKnown) stage.sinkPosition(positionUs())
         if (!renderPaused) render()
         if (trackPlaying) {
             val target = played + rate.toLong() * tickMs / 1000
@@ -159,6 +167,7 @@ class SinkDriver(
         startSong = toSong
         startFrame = toFrame.toLong()
         submittedFrames = 0
+        positionKnown = false
     }
 
     private fun render() {
@@ -226,6 +235,7 @@ class SinkDriver(
             submittedFrames = 0
             needsSync = false
             needsInit = false
+            positionKnown = true
             applyParameters(b)
         }
         if (inputBuffer == null) {

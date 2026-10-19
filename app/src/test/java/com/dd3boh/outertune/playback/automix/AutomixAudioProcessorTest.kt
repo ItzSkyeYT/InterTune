@@ -81,6 +81,7 @@ class AutomixAudioProcessorTest {
         var songChanges = ArrayList<Boolean>()
         var blendsDone = 0
         val actives = ArrayList<Boolean>()
+        val drops = ArrayList<Long>()
         val positions = ArrayList<Pair<Int, Long>>()
 
         init {
@@ -125,6 +126,10 @@ class AutomixAudioProcessorTest {
 
                 override fun activeChanged(active: Boolean) {
                     actives += active
+                }
+
+                override fun dropped(id: Long) {
+                    drops += id
                 }
             }
             driver = SinkDriver(stage, songs, Random(seed), rate, reportsNewStream = reportsNewStream)
@@ -298,6 +303,50 @@ class AutomixAudioProcessorTest {
         // From the seek on, the song from where it went, then the next one, untouched.
         for (i in 0 until rate * 2 * 2) assertEquals("sample $i after the seek", songA[sought * 2 + i], heard[seekAtSample + i])
         assertTrue(run.notes.toString(), run.notes.any { it.startsWith("dropped") })
+        assertEquals("the controller is told the end was let go", listOf(1L), run.drops)
+        assertEquals(0, run.driver.stalls)
+    }
+
+    @Test
+    fun `a request to hold the end that lands just after a seek is not paced by where the old stream had got to`() {
+        // The controller let go of its request for the seek, but the worker handed the ring over a
+        // moment later: the request reaches the new stream's first buffer, before the sink can
+        // say where its output is, and is not taken.
+        var sought = false
+        var underrunsAtSeek = 0
+        val run = Run(armSecondsLeft = null, style = null, during = { r ->
+            val (song, frame) = r.driver.position()
+            if (!sought && song == 0 && frame >= 30L * rate) {
+                sought = true
+                r.driver.seek(0, 10 * rate)
+                r.stage.requestArm(AutomixAudioProcessor.Arm(1, ShortArray(AutomixSchedule.capacityFrames(rate) * 2), rate, 2, r.clockNanos))
+                underrunsAtSeek = r.driver.underruns
+            }
+        }).go()
+        assertTrue(sought)
+        assertFalse("held with the pace of the stream before the seek", run.armed)
+        assertTrue(run.notes.toString(), run.notes.any { it.contains("no position yet") })
+        assertTrue("underruns after the seek: ${run.driver.underruns - underrunsAtSeek}", run.driver.underruns - underrunsAtSeek <= 2)
+        assertEquals(0, run.driver.stalls)
+    }
+
+    @Test
+    fun `a request to hold the end still waiting when the music is sought is dropped with it`() {
+        var sought = false
+        var seekAtSample = -1
+        val run = Run(armSecondsLeft = null, style = null, during = { r ->
+            val (song, frame) = r.driver.position()
+            if (!sought && song == 0 && frame >= 30L * rate) {
+                sought = true
+                r.stage.requestArm(AutomixAudioProcessor.Arm(1, ShortArray(AutomixSchedule.capacityFrames(rate) * 2), rate, 2, r.clockNanos))
+                seekAtSample = r.driver.heard.size
+                r.driver.seek(0, 10 * rate)
+            }
+        }).go()
+        assertTrue(sought)
+        assertFalse(run.armed)
+        val heard = run.driver.heard.toArray()
+        for (i in 0 until rate * 2 * 2) assertEquals("sample $i after the seek", songA[10 * rate * 2 + i], heard[seekAtSample + i])
         assertEquals(0, run.driver.stalls)
     }
 
@@ -403,6 +452,7 @@ class AutomixAudioProcessorTest {
             override fun blendDone(id: Long, clipped: Long, peak: Int) = Unit
             override fun lockFrames(id: Long, frames: ShortArray, fromFrame: Long) = Unit
             override fun activeChanged(active: Boolean) = Unit
+            override fun dropped(id: Long) = Unit
         }
         val driver = SinkDriver(stage, listOf(song(5.0, 220.0, 3)), Random(1), rate)
         repeat(10) { driver.step() }

@@ -88,6 +88,12 @@ class AutomixController(
         val ffmpeg: Boolean,
         /** The service's normalisation of the song playing, for a song whose own is not read yet. */
         val normalizeNow: Float,
+        /**
+         * The song whose stored loudness [normalizeNow] was worked out from, or null while the
+         * service has no stored loudness for the song playing. The service follows that row as it
+         * is written, so for this song its value is the one the volume would apply.
+         */
+        val normalizeNowId: String?,
         val volume: Float,
         /** A style asked for in the developer options, debug builds only. */
         val forcedStyle: Style?,
@@ -122,10 +128,16 @@ class AutomixController(
     private var mixing: Transition? = null
     private var nextTransitionId = 1L
 
-    /** Openings read before, without their decimated copy, for a song that comes next again. */
+    /**
+     * Openings read before, for a song that comes next again, each with its decimated copy kept
+     * over the first seconds of its music only, where a beat mix checks that it lines up.
+     */
     private val heads = object : LinkedHashMap<String, RegionAnalysis>(16, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, RegionAnalysis>?) = size > HEAD_CACHE
     }
+
+    /** Songs that did not line up with their opening when they came in under a beat mix: no beat mix goes into them again. */
+    private val lockFailed = HashSet<String>()
 
     private val normalizations = HashMap<String, Float>()
     private val normalizationsAsked = HashSet<String>()
@@ -144,7 +156,6 @@ class AutomixController(
     /** One change of song, from [a] into [b]. */
     private inner class Transition(val id: Long, val a: AutomixGuards.Song, val b: AutomixGuards.Song?) {
         var head: RegionAnalysis? = null
-        var headWithGuide = false
         var reading: Job? = null
         val cancelled = AtomicBoolean(false)
         var headFailed = false
@@ -159,20 +170,23 @@ class AutomixController(
         var holding = false
         var plan: MixPlan? = null
         var finished = false
+
+        /** Given up: a plan still being worked out for it is not handed to the stage. Read on the worker. */
+        val abandoned = AtomicBoolean(false)
     }
 
     // ---- the player
 
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
         syncNormalising()
-        if (!enabled) return
+        if (!enabled) return levelsWhileOff()
         if (mediaItem?.mediaId != seekedLateId) seekedLateId = null
         refresh()
     }
 
     override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
         syncNormalising()
-        if (!enabled) return
+        if (!enabled) return levelsWhileOff()
         if (reason == Player.DISCONTINUITY_REASON_SEEK) {
             val duration = player.duration
             val id = newPosition.mediaItem?.mediaId
@@ -185,7 +199,6 @@ class AutomixController(
                 if (old.holding) say("dropped: a seek")
                 transition = Transition(nextTransitionId++, old.a, old.b).also {
                     it.head = old.head
-                    it.headWithGuide = old.headWithGuide
                     it.headFailed = old.headFailed
                 }
             }
@@ -219,13 +232,24 @@ class AutomixController(
     }
 
     private fun parametersChanged(why: String) {
-        if (!enabled) return
-        val t = transition?.takeIf { it.holding } ?: mixing?.takeIf { it.holding } ?: return
-        abort(t, why)
+        val t = transition?.takeIf { it.holding } ?: mixing?.takeIf { it.holding }
+        if (enabled && t != null) abort(t, why)
         // The sink applies new parameters only once it has drained, and with an end held that is
-        // the whole end: up to forty seconds before the change is heard. Going to where the music
-        // is now drops what is held, and the change is heard at once.
+        // the whole end: up to forty seconds before the change is heard. That holds for an end
+        // still playing out after its change was given up, AutoMix switched off included, so
+        // whatever the stage holds, going to where the music is now drops it, and the change is
+        // heard at once.
         if (stage.state == HeldTail.State.CAPTURE || stage.state == HeldTail.State.DRAIN) player.seekTo(player.currentPosition)
+    }
+
+    /**
+     * With AutoMix off the stage can still be in the chain for the song playing: the song that
+     * started under an end held as it was switched off, or one configured just before. It scales
+     * that song by the level it was last told and the volume leaves normalisation out, so the
+     * levels must keep following the songs until the stage leaves the chain at the next song.
+     */
+    private fun levelsWhileOff() {
+        if (stage.activeForStream) publishLevels()
     }
 
     /**
@@ -254,7 +278,7 @@ class AutomixController(
     private fun refresh() {
         tickJob?.cancel()
         tickJob = null
-        if (!enabled) return
+        if (!enabled) return levelsWhileOff()
         val current = player.currentMediaItem
         val next = nextItem()
         val t = transition
@@ -360,10 +384,9 @@ class AutomixController(
                         say("could not analyse the opening of ${b.id}: ${e.javaClass.simpleName}")
                         return@post
                     }
-                    heads[b.id] = withoutGuide(head)
+                    heads[b.id] = keptOpening(head)
                     if (cancelled.get()) return@post
                     t.head = head
-                    t.headWithGuide = true
                     say("opening of ${b.id}: ${describe(head)}, read in ${read.readMs} ms, analysed in ${head.analysisMillis.toLong()} ms")
                     tick()
                 }
@@ -411,6 +434,7 @@ class AutomixController(
      */
     private fun abort(t: Transition, why: String) {
         if (!t.holding && !t.armRequested) return
+        t.abandoned.set(true)
         stage.cancelArm()
         if (t.holding) stage.requestAbort(t.id, why, beatFrames(t))
         t.holding = false
@@ -504,8 +528,8 @@ class AutomixController(
 
     override fun lockFrames(id: Long, frames: ShortArray, fromFrame: Long) = main.postFor(id) { t ->
         val head = t.head
-        if (head == null || !t.headWithGuide) {
-            say("no lock check: the opening was read before, without its decimated copy")
+        if (head == null) {
+            say("no lock check: the opening is not known")
             return@postFor
         }
         val work = work() ?: return@postFor
@@ -515,15 +539,31 @@ class AutomixController(
             main.post {
                 val r = result.getOrNull()
                 if (r == null) {
-                    say("no lock check: ${result.exceptionOrNull()?.javaClass?.simpleName ?: "too short"}")
+                    say("no lock check: ${result.exceptionOrNull()?.javaClass?.simpleName ?: "the stretch is not in what was kept of the opening"}")
                     return@post
                 }
                 say("lock %.1f ms, match %.2f".format(r.offsetMs, r.match))
                 if (!AutomixLock.holds(r)) {
+                    t.b?.id?.let { if (lockFailed.size < LOCK_FAILED_KEPT) lockFailed += it }
                     stage.requestAbort(t.id, "the incoming song does not line up with its opening (%.1f ms, match %.2f)".format(r.offsetMs, r.match), beatFrames(t))
                 }
             }
         }
+    }
+
+    override fun dropped(id: Long) = main.postFor(id) { t ->
+        // A seek has already started the change over with a new transition, and an abort has
+        // finished it. Anything else that flushes the renderer while an end is held is the player
+        // starting the song over from where it is heard: what comes next changed (a song played
+        // next, the next one moved or taken out, the queue sent again), or shuffle or repeat did,
+        // after the next song had begun to be read. The music stops for a moment there, and this
+        // change is today's.
+        if (t.finished) return@postFor
+        t.holding = false
+        t.finished = true
+        t.abandoned.set(true)
+        if (mixing === t) mixing = null
+        say("dropped: the player started ${t.a.id} over from where it was heard, as a change to what comes next does once the next song is being read")
     }
 
     override fun activeChanged(active: Boolean) {
@@ -559,6 +599,7 @@ class AutomixController(
                 bAlbum = t.b?.albumId,
                 tailStartMs = t.tailStartMs,
                 forced = c.forcedStyle,
+                beatRefused = if (t.b?.id in lockFailed) "the next song did not line up with its opening when it last came in on the beat" else null,
             )
         }
         work.execute {
@@ -566,8 +607,10 @@ class AutomixController(
             val outcome = runCatching {
                 val tail = RegionAnalysis.analyse(FrontEnd.of(ring, held.sampleRate, held.channels, 0, frames.toInt()), RegionKind.TAIL)
                 val plan = Planner.plan(input(stage.readMark, tail))
-                val rendered = MixRender.renderOutgoing(plan, ring, tail.guide, tail.decimation, if (plan.style == Style.BEAT) tail.beatFrames() else DoubleArray(0))
-                stage.offer(held, plan, rendered)
+                val rendered = MixRender.renderOutgoing(plan, ring, tail.guide, tail.decimation, plan.anchors)
+                // Given up while it was worked out (a sleep timer set, AutoMix switched off): the
+                // stage would refuse it anyway, so it is not handed over.
+                if (!t.abandoned.get()) stage.offer(held, plan, rendered)
                 plan
             }
             val workMs = SystemClock.elapsedRealtime() - started
@@ -578,6 +621,10 @@ class AutomixController(
                     return@post
                 }
                 lastWorkMs = workMs
+                if (t.abandoned.get()) {
+                    say("plan ${plan.style.name.lowercase()} worked out in $workMs ms, not used: the change was given up")
+                    return@post
+                }
                 t.plan = plan
                 say("plan ${plan.describe()}${timesOf(t, plan)}, worked out in $workMs ms")
             }
@@ -605,12 +652,20 @@ class AutomixController(
      * Each song's normalisation as the stage applies it: the song playing and the one after it,
      * each read once from what is stored about it, and the service's own for the song playing
      * until its own is read.
+     *
+     * For the song playing, the service's own wins whenever it comes from the song's stored
+     * loudness: the service follows that row as it is written (a song started by hand has it
+     * written as it starts, a stand-in later), so the stage scales the song as the volume would,
+     * where a read of the row made a moment too early would hold the provisional level.
      */
     private fun publishLevels() {
         val c = conditions()
         val now = player.currentMediaItem?.mediaId
         val next = nextItem()?.mediaId
-        val nNow = now?.let { normalizationFor(it) } ?: c.normalizeNow
+        val nNow = when {
+            now == null || c.normalizeNowId == now -> c.normalizeNow
+            else -> normalizationFor(now) ?: c.normalizeNow
+        }
         val nNext = next?.let { normalizationFor(it) } ?: nNow
         stage.levels = AutomixAudioProcessor.Levels(
             AutomixAudioProcessor.Level(now, AutomixVolume.songAttenuation(nNow, c.volume)),
@@ -711,11 +766,16 @@ class AutomixController(
         return "%d:%02d.%02d".format(hundredths / 6000, hundredths / 100 % 60, hundredths % 100)
     }
 
-    private fun withoutGuide(r: RegionAnalysis) = RegionAnalysis(
-        kind = r.kind, sampleRate = r.sampleRate, channels = r.channels, frames = r.frames, envelope = r.envelope,
-        rhythm = r.rhythm, phrases = r.phrases, onset = r.onset, hopPeak = r.hopPeak, hopFrames = r.hopFrames,
-        guide = FloatArray(0), decimation = r.decimation, analysisMillis = r.analysisMillis,
-    )
+    /**
+     * [r] as it is kept for the next time its song comes next: its decimated copy only from just
+     * before its first sound to [KEPT_GUIDE_S] after it, which holds every stretch a beat mix
+     * checks, its first downbeat being within two seconds of its first sound and the check two
+     * seconds long.
+     */
+    private fun keptOpening(r: RegionAnalysis): RegionAnalysis {
+        val first = r.envelope.firstSound
+        return r.keepingGuide(first - r.sampleRate / 4, first + (KEPT_GUIDE_S * r.sampleRate).toLong())
+    }
 
     /** Runs [block] on the main thread with the transition [id] names, if it is still the current one or still being mixed. */
     private inline fun Handler.postFor(id: Long, crossinline block: (Transition) -> Unit) {
@@ -733,5 +793,7 @@ class AutomixController(
         const val NORMALIZATION_CACHE = 64
         const val ARM_TRIES = 3
         const val HOLDING_LOOK_MS = 1_000L
+        const val KEPT_GUIDE_S = 4.5
+        const val LOCK_FAILED_KEPT = 256
     }
 }

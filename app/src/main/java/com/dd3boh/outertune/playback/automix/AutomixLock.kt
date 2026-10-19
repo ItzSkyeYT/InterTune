@@ -31,7 +31,8 @@ object AutomixLock {
      * held against those of the same stretch of the [head] read ahead: the lag of the live ones
      * and how well the two match. Both curves come from the same frames: the stretch is begun on a
      * hop of the opening's analysis, so the decimation and the spectral frames fall where the
-     * opening's did. Null when the stretch is under a second or runs past what was read.
+     * opening's did. Null when the stretch is under a second or runs past what was kept of the
+     * opening's decimated copy, which for an opening read before is only its first seconds of music.
      */
     fun measure(head: RegionAnalysis, frames: ShortArray, fromFrame: Long, channels: Int): Lock.Result? {
         val rate = head.sampleRate
@@ -40,7 +41,7 @@ object AutomixLock {
         val skip = (start - fromFrame).toInt()
         val count = frames.size / channels - skip
         if (count < rate) return null
-        val from = (start / head.decimation).toInt()
+        val from = (start / head.decimation).toInt() - head.guideFrom
         val to = from + count / head.decimation
         if (from < 0 || to > head.guide.size) return null
         val live = Spectrum.of(FrontEnd.of(frames, rate, channels, skip, count)).onset

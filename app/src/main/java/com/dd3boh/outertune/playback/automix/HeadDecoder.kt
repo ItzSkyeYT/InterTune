@@ -123,7 +123,8 @@ class HeadDecoder(private val source: DataSource.Factory) {
                             toTrim -= skip
                             val n = minOf(frames - skip, (wanted - taken).toInt())
                             if (n > 0) {
-                                val f = front ?: FrontEnd(rate, channels).also { front = it }
+                                // With the peaks through the filters a blend puts on the song, for its headroom.
+                                val f = front ?: FrontEnd(rate, channels, filteredPeaks = true).also { front = it }
                                 f.push(shorts, skip, n)
                                 taken += n
                             }

@@ -77,7 +77,7 @@ class HeldTailTest {
                     aDurationMs = 200_000, bDurationMs = 200_000, forced = forced,
                 )
                 val p = Planner.plan(input)
-                val r = MixRender.renderOutgoing(p, tail, tailAnalysis.guide, tailAnalysis.decimation, if (p.style == Style.BEAT) tailAnalysis.beatFrames() else DoubleArray(0))
+                val r = MixRender.renderOutgoing(p, tail, tailAnalysis.guide, tailAnalysis.decimation, p.anchors)
                 taken = p
                 rendered = r
                 planAtTick = ticks + offerDelayTicks
@@ -319,6 +319,141 @@ class HeldTailTest {
             assertEquals(b, heard[((bFrom + check + i) * 2 + c).toInt()])
         }
     }
+
+    @Test
+    fun aPlanThatArrivesAfterTheChangeWasGivenUpIsRefused() {
+        // Given up while the worker still works the plan out (a sleep timer set, AutoMix switched
+        // off): the plan arrives in time, but the change it was for is not coming.
+        var aborted = false
+        val run = Run(seed = 15, offerDelayTicks = 60, action = { r ->
+            if (!aborted && r.held.state == HeldTail.State.DRAIN && r.taken != null) {
+                aborted = true
+                r.held.abort("a sleep timer was set")
+            }
+        }).go()
+        println(run.held.note)
+        assertTrue(aborted)
+        assertTrue(run.held.note, run.held.note.startsWith("refused: the change was given up"))
+        assertEquals(0, run.model.stalls)
+        assertArrayEquals(gaplessAB(0.8, 0.9), run.model.heard.toArray())
+    }
+
+    @Test
+    fun anAbortJustBeforeTheNextSongStartsPlaysTheEndOutInFullThenTheNextSong() {
+        // A blend, whose planned part runs at the song's own speed: an abort 0.2 s before the
+        // next song's planned start crosses back to the held end as it was, and that plays out in
+        // full, the next song after it from its first frame, as today's change.
+        var abortedAt = -1L
+        val run = Run(seed = 16, forced = Style.BLEND, action = { r ->
+            val p = r.taken
+            if (abortedAt < 0 && p != null && r.held.state == HeldTail.State.DRAIN && r.held.note.startsWith("planned") &&
+                r.held.read >= p.bStart - rate / 5
+            ) {
+                abortedAt = r.held.read
+                r.held.abort("repeat one was turned on", rate / 2L)
+            }
+        }).go()
+        println(run.held.note)
+        assertTrue("aborted before the next song's start", abortedAt in 0 until run.taken!!.bStart)
+        assertTrue(run.held.note, run.held.note.startsWith("aborted, back to the end as it was"))
+        val heard = run.model.heard.toArray()
+        val aFrames = songA.frames
+        assertEquals("nothing dropped", (aFrames + songB.frames) * 2, heard.size)
+        // From a few milliseconds after the abort, the outgoing song as it was, to its last frame.
+        for (f in (run.armFrame + abortedAt + rate / 50).toInt() until aFrames) for (c in 0 until 2) {
+            assertEquals("frame $f", attenuate(songA.samples[f * 2 + c], 0.8), heard[f * 2 + c])
+        }
+        // And the next song after it, plain from its first frame.
+        for (f in 0 until songB.frames) for (c in 0 until 2) {
+            assertEquals("next song frame $f", attenuate(songB.samples[f * 2 + c], 0.9), heard[(aFrames + f) * 2 + c])
+        }
+        assertEquals(0, run.model.stalls)
+    }
+
+    @Test
+    fun anAbortOfAStretchedSongJustBeforeTheNextSongFadesItOutOverTheNextSongInsteadOfCuttingIt() {
+        // A beat mix whose outgoing song is already being stretched: it cannot go back to its own
+        // time, so it fades out over a beat, and where the next song's start falls inside that
+        // beat the fade goes on over it, the next song starting on its planned frame.
+        var abortedAt = -1L
+        val beat = rate / 2L
+        val run = Run(seed = 17, forced = Style.BEAT, action = { r ->
+            val p = r.taken
+            if (abortedAt < 0 && p != null && r.held.state == HeldTail.State.DRAIN && r.held.note.startsWith("planned") &&
+                r.held.read >= p.bStart - rate / 5
+            ) {
+                abortedAt = r.held.read
+                r.held.abort("AutoMix was switched off", beat)
+            }
+        }).go()
+        val p = run.taken!!
+        println("${p.describe()}; ${run.held.note}")
+        assertEquals(Style.BEAT, p.style)
+        assertTrue("aborted after the stretch began", abortedAt > p.aMap.rampStart && abortedAt < p.bStart)
+        assertTrue(run.held.note, run.held.note.startsWith("aborted, fading out"))
+        val bFrom = run.model.checkpoints.first { it.song == 1 }.trackFrame
+        assertEquals("the next song started on its planned frame", run.armFrame + p.bStart, bFrom)
+        val heard = run.model.heard.toArray()
+        val fadeEnd = abortedAt + beat - p.bStart
+        // Through the rest of the fade the outgoing song is still heard over the next one...
+        var differs = 0
+        for (f in 0 until fadeEnd.toInt() - rate / 50) for (c in 0 until 2) {
+            if (heard[((bFrom + f) * 2 + c).toInt()] != attenuate(songB.samples[f * 2 + c], 0.9)) differs++
+        }
+        assertTrue("the outgoing song was cut at the next song's start", differs > rate / 10)
+        // ...and once it is over, the next song is heard plain.
+        for (f in fadeEnd.toInt() + 1 until fadeEnd.toInt() + rate) for (c in 0 until 2) {
+            assertEquals("next song frame $f", attenuate(songB.samples[f * 2 + c], 0.9), heard[((bFrom + f) * 2 + c).toInt()])
+        }
+        assertEquals(0, run.model.stalls)
+    }
+
+    @Test
+    fun aChangeOfLevelInASongIsDrawnOutButASongChangeSwitchesOnItsFirstFrame() {
+        val held = HeldTail(2, rate, rate)
+        held.setAttenuation(1.0)
+        held.setNextAttenuation(0.8)
+        val input = ShortArray(512 * 2) { 10_000 }
+        val output = ShortArray(512 * 2)
+        val heard = ArrayList<Short>()
+        fun feed(blocks: Int) = repeat(blocks) {
+            val n = held.process(input, 0, 512, output, 0, 512)
+            for (i in 0 until n * 2 step 2) heard += output[i]
+        }
+        feed(4)
+        // The volume moved: from the next buffer, over 25 ms, never in one step.
+        held.setAttenuation(0.5)
+        feed(8)
+        val ramp = heard.subList(4 * 512, heard.size)
+        var largest = 0
+        for (i in 1 until ramp.size) largest = maxOf(largest, abs(ramp[i] - ramp[i - 1]))
+        println("largest step %d, from %d to %d".format(largest, ramp.first(), ramp.last()))
+        assertEquals(10_000.toShort(), heard[4 * 512 - 1])
+        assertEquals(5_000.toShort(), ramp.last())
+        assertTrue("a step of $largest", largest <= 6)
+        assertTrue("drawn out over at least 20 ms", ramp.indexOfFirst { it.toInt() == 5_000 } >= rate / 50)
+        // The next song: its own level on its very first frame.
+        held.endOfStream(songChangePending = true, formatMatches = true)
+        assertTrue(held.isEnded())
+        held.flush(HeldTail.Flush.SONG_CHANGE)
+        heard.clear()
+        feed(1)
+        assertEquals(8_000.toShort(), heard[0])
+        // And after a seek, the level of where it went is taken at once.
+        held.flush(HeldTail.Flush.RENDERER)
+        held.setAttenuation(0.25)
+        heard.clear()
+        feed(1)
+        assertEquals(2_500.toShort(), heard[0])
+    }
+
+    /** Both songs whole at their own levels, one after the other: today's change. */
+    private fun gaplessAB(attA: Double, attB: Double): ShortArray = ShortList().apply {
+        val a = ShortArray(songA.samples.size) { attenuate(songA.samples[it], attA) }
+        val b = ShortArray(songB.samples.size) { attenuate(songB.samples[it], attB) }
+        add(a, 0, a.size)
+        add(b, 0, b.size)
+    }.toArray()
 
     @Test
     fun aRingThatWouldOverflowFallsBackWithEverySampleInOrder() {

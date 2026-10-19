@@ -66,6 +66,13 @@ class AutomixAudioProcessor(
 
         /** The stage is, or is no longer, in the chain for the stream that starts now. */
         fun activeChanged(active: Boolean)
+
+        /**
+         * A flush from the renderer let go of the end held for [id]: a seek, a song chosen by hand,
+         * or the player starting the song over from where it is heard, which it does when what
+         * comes next changes after the next song began to be read.
+         */
+        fun dropped(id: Long)
     }
 
     /** One song's loudness normalisation, as the mixer multiplies its samples: see AutomixVolume.songAttenuation. */
@@ -224,7 +231,7 @@ class AutomixAudioProcessor(
             return
         }
         applyLevels(held, frames)
-        if (held.state == HeldTail.State.PASS && currentAttenuation == 1.0) {
+        if (held.isPlain) {
             // The usual case, and the only one with AutoMix on and nothing held: through as it is.
             passPlain(input)
             return
@@ -415,6 +422,9 @@ class AutomixAudioProcessor(
         drainInBlend = false
         val active = isActive
         if (active != activeForStream) {
+            // Back in the chain after songs it was out of: the level it held is long gone, and the
+            // song's own is taken on its first buffer, not drawn out from there.
+            if (active) held?.takeNextAttenuationAtOnce()
             activeForStream = active
             tell { activeChanged(active) }
         }
@@ -427,9 +437,14 @@ class AutomixAudioProcessor(
             else -> HeldTail.Flush.PARAMETERS
         }
         if (kind == HeldTail.Flush.RENDERER) {
-            // A seek or a song chosen by hand, which the next stream follows. Nothing held survives it.
+            // A seek or a song chosen by hand, which the next stream follows. Nothing held survives
+            // it, not even a request to hold that has not been taken yet, and the output has no
+            // position until the new stream's first buffer is in: a request taken before then
+            // would pace the new stream by where the old one had got to.
             pinnedId = null
             sinceRendererFlush = true
+            armRequest.set(null)
+            sinkPositionUs = C.TIME_UNSET
         }
         if (failed && kind != HeldTail.Flush.PARAMETERS) {
             // Whatever the stage failed on is behind it with the stream it failed in: the next one
@@ -440,6 +455,7 @@ class AutomixAudioProcessor(
         }
         var held = held
         val wasHolding = held != null && held.state != HeldTail.State.PASS
+        if (wasHolding && kind == HeldTail.Flush.RENDERER) tell { dropped(armId) }
         val blendGoesOn = held != null && held.state == HeldTail.State.MIX && drainInBlend && kind == HeldTail.Flush.PARAMETERS
         if (held != null && !blendGoesOn) {
             val before = held.state
@@ -470,8 +486,8 @@ class AutomixAudioProcessor(
         if (format.encoding == C.ENCODING_PCM_16BIT && (held == null || held.state == HeldTail.State.PASS) &&
             (held == null || held.sampleRate != format.sampleRate || held.channels != format.channelCount)
         ) {
+            // Its first level is the one the next buffer brings, taken at once.
             held = HeldTail(format.channelCount, format.sampleRate, AutomixSchedule.capacityFrames(format.sampleRate))
-            held.setAttenuation(currentAttenuation)
             this.held = held
             lastNote = ""
         }

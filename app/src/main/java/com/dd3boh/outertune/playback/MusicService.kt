@@ -637,6 +637,9 @@ class MusicService : MediaLibraryService(),
     /** Whether normalisation is on, for AutoMix to work out the next song's level off the main thread. */
     @Volatile private var automixNormalizeAudio = true
 
+    /** The song whose stored loudness [normalizeFactor] was last worked out from, null when it had none. Main thread. */
+    private var automixNormalizeId: String? = null
+
     /** Debug builds only: the style every AutoMix change is asked to take, from the developer options. */
     @Volatile private var automixForcedStyle: Style? = null
 
@@ -1571,6 +1574,12 @@ class MusicService : MediaLibraryService(),
                 val (format, isLocal) = formatAndLocal
                 // The rule is in Normalization, which AutoMix also asks about the next song.
                 normalizeFactor.value = Normalization.factor(format?.loudnessDb, isLocal, normalizeAudio)
+                if (Unreleased.AUTOMIX) {
+                    // AutoMix's stage scales the song playing by this as well, from the moment its
+                    // row is written, as the volume does: not at the player's next event.
+                    automixNormalizeId = format?.id
+                    automix?.levelsChanged(normalizationSettingChanged = false)
+                }
             }
 
             // AutoMix: the setting, and what it needs to know as it changes. Only with the flag.
@@ -2761,6 +2770,7 @@ class MusicService : MediaLibraryService(),
         ambience = binauralProcessor.enabled && binauralProcessor.ambience > 0f,
         ffmpeg = ENABLE_FFMETADATAEX && audioDecoder != DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF,
         normalizeNow = normalizeFactor.value,
+        normalizeNowId = automixNormalizeId,
         volume = playerVolume.value,
         forcedStyle = if (BuildConfig.DEBUG) automixForcedStyle else null,
     )

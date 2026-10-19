@@ -85,6 +85,19 @@ class AutomixLockTest {
     }
 
     @Test
+    fun `an opening kept with only its first seconds of music still checks there, and says nothing past them`() {
+        val first = head.envelope.firstSound
+        val kept = head.keepingGuide(first - rate / 4, first + (4.5 * rate).toLong())
+        assertTrue("kept ${kept.guide.size} of ${head.guide.size}", kept.guide.size < head.guide.size / 4)
+        for (from in listOf(rate + 300, rate * 2 + 41)) {
+            val r = AutomixLock.measure(kept, live(from), from.toLong(), 2)!!
+            assertEquals("from $from", 0.0, r.offsetMs, 2.0)
+            assertTrue(AutomixLock.holds(r))
+        }
+        assertEquals(null, AutomixLock.measure(kept, live(rate * 10), (rate * 10).toLong(), 2))
+    }
+
+    @Test
     fun `a stretch under a second, or past what was read, is not judged`() {
         val short = ShortArray(rate / 2 * 2)
         assertEquals(null, AutomixLock.measure(head, short, (rate * 4).toLong(), 2))
