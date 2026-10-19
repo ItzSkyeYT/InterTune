@@ -45,16 +45,18 @@ class Envelope(
     fun hopOf(frame: Long): Int = (frame / hopFrames).toInt().coerceIn(0, max(0, levelDb.size - 1))
 
     /**
-     * Whether the level between [from] and [to] stays within 3 dB of the median: its quietest 10%
-     * of one-second levels no more than 3 dB under it. A loud stretch, where a filter sweep is
-     * heard as a sweep and not as a quiet passage getting quieter.
+     * Whether the level between [from] and [to] stays with the region's: its median one-second
+     * level within 3 dB of the region's median, and its quietest quarter within 6 dB. A loud
+     * stretch, where a filter sweep is heard as a sweep and not as a quiet passage getting quieter.
+     * The quartile lets a vocal break or a missing kick through, and stops at a fade, whose last
+     * seconds sit far under the rest.
      */
     fun staysLoud(from: Long, to: Long): Boolean {
         val lo = hopOf(from)
         val hi = hopOf(to)
         if (hi <= lo) return false
         val levels = (lo until hi).map { levelDb[it] }.sorted()
-        return levels[levels.size / 10] >= medianDb - LOUD_DB
+        return levels[levels.size / 2] >= medianDb - LOUD_DB && levels[levels.size / 4] >= medianDb - 2 * LOUD_DB
     }
 
     /** The mean one-second level between [from] and [to], in dBFS. */

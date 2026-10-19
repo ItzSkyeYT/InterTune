@@ -17,8 +17,9 @@ import kotlin.math.sqrt
  * Bars are taken to be four beats, which covers nearly everything a mix is made of; a waltz then
  * shows no favourite phase, and the margin says so. Two cues, after Goto (2001) and Davies and
  * Plumbley (2006): the low onsets on each phase, since kicks and bass notes land hardest on the
- * one, and how much the spectrum changes across each phase, since chords change on bar lines. Each
- * is divided by its own mean over all beats, so the two weigh alike whatever the mix's balance.
+ * one, and how much the spectrum changes across each phase, since chords change on bar lines; and
+ * a snare two beats later, where the half-time feel of trap and phonk puts it. Each is divided by
+ * its own mean over all beats, so they weigh alike whatever the mix's balance.
  *
  * [phase] is a grid index modulo 4: grid beat k is a downbeat when (k - phase) is a multiple of 4.
  * [margin] is how clearly the best phase won, as a paired t over the bars against the runner-up.
@@ -37,8 +38,16 @@ class Downbeats(val phase: Int, val margin: Double, val scores: DoubleArray) {
     companion object {
         const val BEATS_PER_BAR = 4
 
-        /** The weight of the spectral change against the low onsets. */
-        private const val CHANGE_WEIGHT = 0.5
+        /**
+         * The weights of the spectral change across a beat, and of a snare two beats after it
+         * (the half-time feel's mark of the one), against the low onsets on it. Chosen on the
+         * owner's songs by how often two windows of one song, each analysed on its own, agree on
+         * where the bars are: with these, 157 windows of 490 claim their bars and 99.7% of pairs
+         * of them agree, where low onsets with half the change gave 146 at 99.2%; a snare at full
+         * weight fell to 91%, so it only ever leans.
+         */
+        private const val CHANGE_WEIGHT = 1.0
+        private const val SNARE_WEIGHT = 0.5
 
         /** Null when the grid holds fewer than two bars to compare. */
         fun find(spectrum: Spectrum, grid: BeatGrid): Downbeats? {
@@ -47,14 +56,18 @@ class Downbeats(val phase: Int, val margin: Double, val scores: DoubleArray) {
             if (last - first + 1 < 2 * BEATS_PER_BAR) return null
             val count = last - first + 1
             val low = DoubleArray(count)
+            val mid = DoubleArray(count + 2)
             val change = DoubleArray(count) { Double.NaN }
             var lowSum = 0.0
+            var midSum = 0.0
             var changeSum = 0.0
             var changeCount = 0
             for (i in 0 until count) {
                 val k = first + i
                 low[i] = Peaks.nearest(spectrum.lowOnset, grid.frameOf(k), 2)?.value?.toDouble() ?: 0.0
                 lowSum += low[i]
+                mid[i] = Peaks.nearest(spectrum.midOnset, grid.frameOf(k), 2)?.value?.toDouble() ?: 0.0
+                midSum += mid[i]
                 changeAcross(spectrum, grid, k)?.let {
                     change[i] = it
                     changeSum += it
@@ -62,7 +75,9 @@ class Downbeats(val phase: Int, val margin: Double, val scores: DoubleArray) {
                 }
             }
             if (changeCount == 0) return null
+            for (j in 0..1) mid[count + j] = Peaks.nearest(spectrum.midOnset, grid.frameOf(last + 1 + j), 2)?.value?.toDouble() ?: 0.0
             val lowMean = lowSum / count
+            val midMean = midSum / count
             val changeMean = changeSum / changeCount
             // Each beat's evidence that a bar starts on it, with both cues on the scale of their
             // own mean, so a mix with a quiet kick and loud chords weighs them alike.
@@ -70,7 +85,8 @@ class Downbeats(val phase: Int, val margin: Double, val scores: DoubleArray) {
                 if (change[i].isNaN()) Double.NaN else {
                     val l = if (lowMean > 0) low[i] / lowMean else 0.0
                     val c = if (changeMean > 0) change[i] / changeMean else 0.0
-                    l + CHANGE_WEIGHT * c
+                    val snare = if (midMean > 0) (mid[i + 2] - mid[i]) / midMean else 0.0
+                    l + CHANGE_WEIGHT * c + SNARE_WEIGHT * snare
                 }
             }
             val sums = DoubleArray(BEATS_PER_BAR)

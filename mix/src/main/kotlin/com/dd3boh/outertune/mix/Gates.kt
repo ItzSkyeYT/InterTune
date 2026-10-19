@@ -55,7 +55,7 @@ class Gates(
         const val MIN_HITS = 0.8
         const val MAX_JITTER_MS = 15.0
         const val MIN_BEATS = 16
-        const val MIN_MARGIN = 2.0
+        const val MIN_MARGIN = 1.5
 
         /** Nothing was found, so nothing passes. */
         val NONE = Gates(0.0, 1.0, Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY, 0.0, Double.POSITIVE_INFINITY, 0, 0.0)

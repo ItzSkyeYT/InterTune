@@ -38,6 +38,8 @@ class Spectrum private constructor(
     val logMel: FloatArray,
     val onset: FloatArray,
     val lowOnset: FloatArray,
+    /** The flux of the bands from 200 Hz to 2.5 kHz, where snares and claps sit. */
+    val midOnset: FloatArray,
 ) {
     /** Spectral frames per second, 86 at 44.1 kHz and 94 at 48 kHz. */
     val frameRate: Double get() = decimatedRate / HOP
@@ -66,6 +68,8 @@ class Spectrum private constructor(
         const val LOW_HZ = 30.0
         const val HIGH_HZ = 5000.0
         const val LOW_ONSET_HZ = 150.0
+        const val MID_FROM_HZ = 200.0
+        const val MID_TO_HZ = 2500.0
 
         /** Where in its window a frame's onset is heard, in decimated samples. See [frameToSample]. */
         const val ONSET_LAG = 400.0
@@ -105,9 +109,11 @@ class Spectrum private constructor(
             }
             val rawOnset = FloatArray(frames)
             val rawLow = FloatArray(frames)
+            val rawMid = FloatArray(frames)
             for (t in 1 until frames) {
                 var all = 0f
                 var low = 0f
+                var mid = 0f
                 for (b in 0 until BANDS) {
                     var before = logMel[(t - 1) * BANDS + b]
                     if (b > 0) before = max(before, logMel[(t - 1) * BANDS + b - 1])
@@ -116,10 +122,12 @@ class Spectrum private constructor(
                     if (rise > 0f) {
                         all += rise
                         if (b < bank.lowBands) low += rise
+                        if (bank.centres[b] >= MID_FROM_HZ && bank.centres[b] <= MID_TO_HZ) mid += rise
                     }
                 }
                 rawOnset[t] = all
                 rawLow[t] = low
+                rawMid[t] = mid
             }
             val frameRate = decimatedRate / HOP
             return Spectrum(
@@ -130,6 +138,7 @@ class Spectrum private constructor(
                 logMel = logMel,
                 onset = normalise(rawOnset, frameRate),
                 lowOnset = normalise(rawLow, frameRate),
+                midOnset = normalise(rawMid, frameRate),
             )
         }
 

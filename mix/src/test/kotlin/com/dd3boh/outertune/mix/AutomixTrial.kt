@@ -55,6 +55,13 @@ class AutomixTrial {
         val tail: RegionAnalysis?,
         val tailStartSeconds: Double,
         val headroomDb: Double,
+        /** For a beat mix: how far the outgoing song's beats, found again in its rendered audio, sit from the incoming song's, mean and worst, in ms. */
+        val lock: kotlin.Pair<Double, Double>?,
+        /** The sharpest spike at any join, and the 95th percentile of the same measure at random points of the render. */
+        val joinSpike: Double,
+        val spikeBaseline: Double,
+        /** The same measure on the raw song heard most at that join. */
+        val rawSpike: Double,
     )
 
     private val held = 45.0
@@ -124,10 +131,47 @@ class AutomixTrial {
             }
         }
 
+        // Pairs chosen by tempo rather than by name, as a DJ or a queue built for flow would put
+        // them: an end with trusted bars and an opening with trusted bars whose tempos are within
+        // 6% once folded, the closest first, each song at most twice.
+        val matchedDir = File(renders, "matched").apply { mkdirs() }
+        matchedDir.listFiles { f -> f.extension == "wav" }?.forEach { it.delete() }
+        val candidates = ArrayList<Triple<TrialSong, TrialSong, Double>>()
+        for (a in trialSongs) for (b in trialSongs) {
+            if (a === b || a.sampleRate != b.sampleRate) continue
+            if (a.album != null && a.album == b.album) continue
+            val ta = tails[a.title]!!
+            val hb = heads[b.title]!!
+            if (!ta.barsConfident || !hb.barsConfident) continue
+            val distance = Tempo.distance(ta.bpm!!, hb.bpm!!)
+            if (distance <= Planner.BEAT_MAX_SPEED) candidates += Triple(a, b, distance)
+        }
+        val used = HashMap<String, Int>()
+        val matchedRows = StringBuilder()
+        var matchedCount = 0
+        for ((a, b, _) in candidates.sortedBy { it.third }) {
+            if (matchedCount >= 12) break
+            if ((used[a.title] ?: 0) >= 2 || (used[b.title] ?: 0) >= 2) continue
+            used[a.title] = (used[a.title] ?: 0) + 1
+            used[b.title] = (used[b.title] ?: 0) + 1
+            matchedCount++
+            val rate = a.sampleRate
+            val aSong = Song(a.title, a.read(max(0, a.frames - (held * rate).toInt()), a.frames), rate, a.seconds, a.album, a.title)
+            val bSong = Song(b.title, b.read(0, min(b.frames, 75 * rate)), rate, b.seconds, b.album, b.title)
+            val t = transition(aSong, bSong, heads[b.title]!!, a.seconds - held, emptyList(), forced = null, seed = 100L + matchedCount)
+            val name = "m%02d %s into %s, %s.wav".format(matchedCount, safe(a.title).take(40), safe(b.title).take(40), t.plan.style.name.lowercase())
+            writeWav(File(matchedDir, name), t.heard, window(t, rate), rate)
+            matchedRows.append(pairRow(matchedCount, a.title, b.title, tails[a.title]!!, heads[b.title]!!, t, rate).replaceFirst("| $matchedCount |", "| m$matchedCount |"))
+            checks.append(checkRow("m$matchedCount", t))
+        }
+
         val synthetic = synthetic(File(renders, "synthetic"))
 
         val summary = StringBuilder()
         summary.append("# AutoMix host trial\n\n")
+        // A hand-written reading of the results is kept beside the renders and put first, so a
+        // new run of the trial does not lose it.
+        File(renders, "NOTES.md").takeIf { it.exists() }?.let { summary.append(it.readText().trim()).append("\n\n") }
         summary.append("Every two songs in a row of `${File(dir).name}`, by name, through the phone's path: the next song's first 30 s analysed as its opening, this song's last 40 s held by HeldTail in the model of media3's sink, then the planner and the renderer. Renders run from 20 s before the next song starts to 20 s after this one is gone. Nothing here leaves the PC.\n\n")
         summary.append("Styles: " + styleCount.entries.sortedByDescending { it.value }.joinToString(", ") { "${it.key.name.lowercase()} ${it.value}" } + " of ${styles.size} transitions.\n\n")
         summary.append("## Transitions\n\n")
@@ -137,9 +181,16 @@ class AutomixTrial {
         summary.append("\nTrust: B = beats on a steady grid, D = bars too; a dash where that gate failed.\n\n")
         summary.append("## Listen-free checks\n\n")
         summary.append("Before the outgoing song's first processed frame and after the incoming song's shaping ends, what was heard is compared with the raw songs sample for sample. The largest jump between two samples inside the transition is held against the largest in the raw songs over the same stretch: a click at a join would stand out.\n\n")
-        summary.append("| # | note | exact before | exact after | largest jump in the blend / raw | headroom | sink stalls | underruns |\n")
-        summary.append("|---|---|---|---|---|---|---|---|\n")
+        summary.append("For a beat mix, the beat lock: the outgoing song's part rendered without its curves and filters, its beat line found again in that audio, and each of its beats held against the incoming song's nearest beat through the overlap, mean and worst.\n\n")
+        summary.append("Join spike: at each join (first processed frame, the next song's start, where this song is gone, where the shaping ends), the sharpest second difference within 0.7 ms over the median of the 90 ms around it. Shown for the sharpest join, then the same measure on the raw song heard most there, then the 95th percentile of the measure at 200 random points of the render. A click would put the first far above the other two; the music's own transient lands the first and second together.\n\n")
+        summary.append("| # | note | exact before | exact after | largest jump in the blend / raw | join spike / raw there / random 95th | headroom | beat lock | sink stalls | underruns |\n")
+        summary.append("|---|---|---|---|---|---|---|---|---|---|\n")
         summary.append(checks)
+        summary.append("\n## Matched pairs\n\n")
+        summary.append("Not in name order: an end with trusted bars and an opening with trusted bars whose tempos are within 6% once folded, the closest first, each song in at most two pairs, rendered the same way into matched/. This is where the beat mix can be heard on these songs; name order almost never puts two such songs side by side.\n\n")
+        summary.append("| # | from | into | tempos (trust) | ratio | style | why | B starts, A gone, in A's time | A unheard | peak | clipped |\n")
+        summary.append("|---|---|---|---|---|---|---|---|---|---|---|\n")
+        summary.append(matchedRows)
         summary.append("\n## Tempos\n\n")
         summary.append("Each song's opening (first 30 s) and end (last 40 s), analysed on their own. Published tempos from memory, approximate, for the few known well enough; folded to 85-170 before comparing.\n\n")
         summary.append("| # | song | opening | end | published | analysis time, opening / end |\n|---|---|---|---|---|---|\n")
@@ -208,12 +259,103 @@ class AutomixTrial {
                 if (bIndex >= 2 && bIndex < b.samples.size) raw = max(raw, abs(b.samples[bIndex] - b.samples[bIndex - 2]))
             }
         }
+        val lock = if (taken && p.style == Style.BEAT && tailAnalysis != null) beatLock(p, holder, tailAnalysis!!, head, armFrame, a) else null
+        // A click is a spike in the second difference that its surroundings do not have: at each
+        // join, the largest within 0.7 ms, over the median of the 90 ms around it; and the same at
+        // random points of the render, for what this music does anyway.
+        fun spike(f: Long): Double {
+            fun d2(n: Long): Double {
+                if (n < 2 || n >= heard.size / 2) return 0.0
+                var m = 0.0
+                for (c in 0 until 2) {
+                    val i = (n * 2 + c).toInt()
+                    m = max(m, abs(heard[i] - 2.0 * heard[i - 2] + heard[i - 4]))
+                }
+                return m
+            }
+            var peak = 0.0
+            for (n in f - 32..f + 32) peak = max(peak, d2(n))
+            val around = (f - 2048..f + 2048 step 8).map { d2(it) }.sorted()
+            return peak / (around[around.size / 2] + 1.0)
+        }
+        val joins = listOf(firstProcessed, bAt, aGoneAt, shapedUntil).distinct().filter { it in 2 until heard.size / 2L - 2 }
+        val joinSpike = joins.maxOfOrNull { spike(it) } ?: 0.0
+        // The same measure on the raw song that is heard most at each join: the outgoing song up to
+        // where it is gone, the incoming one after. Near equal, the spike is the music's own.
+        fun rawSpike(f: Long): Double {
+            val useA = f < aGoneAt
+            val src = if (useA) a.samples else b.samples
+            val offset = if (useA) 0L else bAt
+            fun d2(n: Long): Double {
+                val m = n - offset
+                if (m < 2 || m >= src.size / 2) return 0.0
+                var v = 0.0
+                for (c in 0 until 2) {
+                    val i = (m * 2 + c).toInt()
+                    v = max(v, abs(src[i] - 2.0 * src[i - 2] + src[i - 4]))
+                }
+                return v
+            }
+            var peak = 0.0
+            for (n in f - 32..f + 32) peak = max(peak, d2(n))
+            val around = (f - 2048..f + 2048 step 8).map { d2(it) }.sorted()
+            return peak / (around[around.size / 2] + 1.0)
+        }
+        val worstJoin = joins.maxByOrNull { spike(it) }
+        val rawAtWorst = worstJoin?.let { rawSpike(it) } ?: 0.0
+        val random = Random(seed + 7)
+        val w = window(Transition(p, heard, bAt, aGoneAt, "", 0, 0, 0, true, true, 0, 0, null, 0.0, 0.0, null, 0.0, 0.0, 0.0), rate)
+        val baseline = (0 until 200).map { spike(w.first + 4096 + random.nextLong(max(1L, w.last - w.first - 8192))) }.sorted()
         return Transition(
             plan = p, heard = heard, bAt = bAt, aGoneAt = aGoneAt, note = holder.note, clipped = holder.clipped,
             stalls = model.stalls, underruns = model.underruns, exactBefore = exactBefore, exactAfter = exactAfter,
             worstJump = worst, rawJump = raw, tail = tailAnalysis, tailStartSeconds = aOffsetSeconds + armFrame.toDouble() / rate,
             headroomDb = p.headroom.deepestDb,
+            lock = lock,
+            joinSpike = joinSpike,
+            spikeBaseline = baseline[(baseline.size * 95) / 100],
+            rawSpike = rawAtWorst,
         )
+    }
+
+    /**
+     * The outgoing song through the overlap as rendered, without its curves and filters, analysed
+     * again as audio: its beat line held against the incoming song's grid, beat by beat. This is
+     * the stretch and its anchors checked on real music, not the plan's arithmetic.
+     */
+    private fun beatLock(p: MixPlan, holder: HeldTail, tail: RegionAnalysis, head: RegionAnalysis, armFrame: Int, a: Song): kotlin.Pair<Double, Double>? {
+        val rate = p.sampleRate
+        val tailSamples = a.samples.copyOfRange(armFrame * 2, min(a.samples.size, (armFrame + p.tailFrames.toInt()) * 2))
+        // From the ramp's end, where the speed holds, through the overlap and on for as much of
+        // the held tail as is left, up to 6 s more, so even a 4-bar overlap gives the tempo stage
+        // the 8 s it needs; only beats inside the overlap are compared.
+        val from = (p.aMap.rampStart + p.aMap.rampLength).toLong()
+        val to = min(p.aMap.outAt(p.tailFrames.toDouble() - Wsola.FRAME), p.overlapEnd + 6.0 * rate).toLong()
+        if (to - from < 8 * rate) return null
+        val plain = MixPlan(
+            Style.BEAT, "plain", rate, 2, p.tailFrames, p.bStart, p.aMap, p.aFirstProcessed, to,
+            p.overlapStart, p.overlapEnd, Curve.constant(1.0), Curve.constant(1.0), emptyList(), emptyList(),
+            Headroom.NONE, DoubleArray(0), 1.0, 1.0, p.shapedUntil, 0, 0, p.speed, p.bars,
+        )
+        val rendered = MixRender.renderOutgoing(plain, tailSamples, tail.guide, tail.decimation, tail.beatFrames())
+        val audio = ShortArray(((to - from) * 2).toInt()) { rendered.at(from + it / 2, it % 2) }
+        val r = Rhythm.analyse(Spectrum.of(FrontEnd.of(audio, rate, 2)))
+        val grid = r.grid ?: return null
+        val spectrumFactor = Pcm.decimationFor(rate)
+        fun aBeat(k: Int) = from + (grid.frameOf(k) * Spectrum.HOP + Spectrum.ONSET_LAG) * spectrumFactor
+        val periodB = head.periodFrames!!
+        val gaps = ArrayList<Double>()
+        for (k in grid.firstBeat..grid.lastBeat) {
+            val at = aBeat(k)
+            if (at < p.overlapStart || at > p.overlapEnd) continue
+            // The incoming song's nearest beat, in output frames.
+            val bBeat = head.beatNear(at - p.bStart)
+            val bAt = p.bStart + head.beatFrame(bBeat)
+            val gap = (at - bAt) / rate * 1000
+            if (abs(gap) < periodB / rate * 1000 / 2) gaps += abs(gap)
+        }
+        if (gaps.isEmpty()) return null
+        return gaps.average() to gaps.max()
     }
 
     private fun window(t: Transition, rate: Int): LongRange {
@@ -253,10 +395,11 @@ class AutomixTrial {
         return "| %d | %s | %s | %s | %s | %s | %s | %s | %s | %s | %d |\n".format(n, a.take(36), b.take(36), tempos, ratio, style, why, timing, unheard, peak, t.clipped)
     }
 
-    private fun checkRow(n: Int, t: Transition): String =
-        "| %d | %s | %s | %s | %d / %d | %s | %d | %d |\n".format(
+    private fun checkRow(n: Any, t: Transition): String =
+        "| %s | %s | %s | %s | %d / %d | %.0f / %.0f / %.0f | %s | %s | %d | %d |\n".format(
             n, t.note.take(60).replace("|", "/"), if (t.exactBefore) "yes" else "NO", if (t.exactAfter) "yes" else "NO",
-            t.worstJump, t.rawJump, if (t.headroomDb < -0.005) "%.1f dB".format(t.headroomDb) else "none", t.stalls, t.underruns,
+            t.worstJump, t.rawJump, t.joinSpike, t.rawSpike, t.spikeBaseline, if (t.headroomDb < -0.005) "%.1f dB".format(t.headroomDb) else "none",
+            t.lock?.let { "%.1f / %.1f ms".format(it.first, it.second) } ?: "", t.stalls, t.underruns,
         )
 
     private fun clock(seconds: Double): String {
