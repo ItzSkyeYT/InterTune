@@ -67,6 +67,8 @@ import com.dd3boh.outertune.constants.MultilineLrcKey
 import com.dd3boh.outertune.db.entities.LyricsEntity
 import com.dd3boh.outertune.extensions.isInternetConnected
 import com.dd3boh.outertune.lyrics.LyricsShare
+import com.dd3boh.outertune.lyrics.lyricsPreview
+import com.dd3boh.outertune.lyrics.readKeptLyrics
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
 import com.dd3boh.outertune.ui.component.SettingsClickToReveal
@@ -81,7 +83,6 @@ import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.utils.shareSheet
 import com.dd3boh.outertune.viewmodels.LyricsMenuViewModel
 import org.akanework.gramophone.logic.utils.SemanticLyrics
-import org.akanework.gramophone.logic.utils.parseLrc
 
 
 @Composable
@@ -151,7 +152,7 @@ fun LyricsMenu(
                         )
                     )
                 }
-                onRefreshRequest(parseLrc(it, lyricTrim, multilineLrc))
+                onRefreshRequest(readKeptLyrics(it, lyricTrim, multilineLrc))
             }
         )
     }
@@ -275,7 +276,7 @@ fun LyricsMenu(
                                 )
                             }
 
-                            onRefreshRequest(parseLrc(result.lyrics, lyricTrim, multilineLrc))
+                            onRefreshRequest(readKeptLyrics(result.lyrics, lyricTrim, multilineLrc))
                         }
                         .padding(12.dp)
                         .animateContentSize()
@@ -284,7 +285,7 @@ fun LyricsMenu(
                         modifier = Modifier.weight(1f)
                     ) {
                         Text(
-                            text = result.lyrics,
+                            text = remember(result.lyrics) { lyricsPreview(result.lyrics) },
                             style = MaterialTheme.typography.bodyMedium,
                             maxLines = if (index == expandedItemIndex) Int.MAX_VALUE else 2,
                             overflow = TextOverflow.Ellipsis,
