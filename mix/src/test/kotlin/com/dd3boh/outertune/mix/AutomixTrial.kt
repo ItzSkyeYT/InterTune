@@ -178,10 +178,11 @@ class AutomixTrial {
         summary.append("| # | from | into | tempos (trust) | ratio | style | why | B starts, A gone, in A's time | A unheard | peak | clipped |\n")
         summary.append("|---|---|---|---|---|---|---|---|---|---|---|\n")
         summary.append(pairRows)
-        summary.append("\nTrust: B = beats on a steady grid, D = bars too; a dash where that gate failed.\n\n")
+        summary.append("\nTrust: B = beats on a steady grid, D = bars too, 8 = bars of eight beats of the grid (a grid at twice the song's beat); a dash where that gate failed.\n\n")
         summary.append("## Listen-free checks\n\n")
         summary.append("Before the outgoing song's first processed frame and after the incoming song's shaping ends, what was heard is compared with the raw songs sample for sample. The largest jump between two samples inside the transition is held against the largest in the raw songs over the same stretch: a click at a join would stand out.\n\n")
-        summary.append("For a beat mix, the beat lock: the outgoing song's part rendered without its curves and filters, its beat line found again in that audio, and each of its beats held against the incoming song's nearest beat through the overlap, mean and worst.\n\n")
+        summary.append("For a beat mix, the beat lock: both songs as they are heard through the overlap without their curves and filters, the outgoing one as rendered, and the low onsets of each (kicks, bass notes) found in that audio. At each of the incoming song's beats, the outgoing song's low onset within 50 ms of it against the incoming song's own there, or the beat itself where the incoming song has none; mean and worst. Onsets heard, not lines fitted.\n\n")
+        summary.append("Headroom: the deepest dip of the shared gain as it is played, the renderer's, worked out from the outgoing song as rendered.\n\n")
         summary.append("Join spike: at each join (first processed frame, the next song's start, where this song is gone, where the shaping ends), the sharpest second difference within 0.7 ms over the median of the 90 ms around it. Shown for the sharpest join, then the same measure on the raw song heard most there, then the 95th percentile of the measure at 200 random points of the render. A click would put the first far above the other two; the music's own transient lands the first and second together.\n\n")
         summary.append("| # | note | exact before | exact after | largest jump in the blend / raw | join spike / raw there / random 95th | headroom | beat lock | sink stalls | underruns |\n")
         summary.append("|---|---|---|---|---|---|---|---|---|---|\n")
@@ -210,6 +211,7 @@ class AutomixTrial {
         val model = SinkModel(holder, listOf(ModelSong(a.title, a.samples), ModelSong(b.title, b.samples)), Random(seed), rate)
         var armFrame = -1
         var plan: MixPlan? = null
+        var rendered: RenderedOutgoing? = null
         var tailAnalysis: RegionAnalysis? = null
         val aFrames = a.samples.size / 2
         while (!model.ended && model.clockMs < 400_000) {
@@ -227,8 +229,9 @@ class AutomixTrial {
                     aId = a.id, bId = b.id, aAlbum = a.album, bAlbum = b.album,
                     tailStartMs = ((aOffsetSeconds + armFrame.toDouble() / rate) * 1000).toLong(), forced = forced,
                 ))
-                val r = MixRender.renderOutgoing(p, tail, analysis.guide, analysis.decimation, if (p.style == Style.BEAT) analysis.beatFrames() else DoubleArray(0))
+                val r = MixRender.renderOutgoing(p, tail, analysis.guide, analysis.decimation, p.anchors)
                 plan = p
+                rendered = r
                 holder.offer(p, r)
             }
             model.step()
@@ -261,7 +264,7 @@ class AutomixTrial {
                 if (bIndex >= 2 && bIndex < b.samples.size) raw = max(raw, abs(b.samples[bIndex] - b.samples[bIndex - 2]))
             }
         }
-        val lock = if (taken && p.style == Style.BEAT && tailAnalysis != null) beatLock(p, holder, tailAnalysis!!, head, armFrame, a) else null
+        val lock = if (taken && p.style == Style.BEAT && tailAnalysis != null) beatLock(p, tailAnalysis!!, head, armFrame, a, b) else null
         // A click is a spike in the second difference that its surroundings do not have: at each
         // join, the largest within 0.7 ms, over the median of the 90 ms around it; and the same at
         // random points of the render, for what this music does anyway.
@@ -312,7 +315,9 @@ class AutomixTrial {
             plan = p, heard = heard, bAt = bAt, aGoneAt = aGoneAt, note = holder.note, clipped = holder.clipped,
             stalls = model.stalls, underruns = model.underruns, exactBefore = exactBefore, exactAfter = exactAfter,
             worstJump = worst, rawJump = raw, tail = tailAnalysis, tailStartSeconds = aOffsetSeconds + armFrame.toDouble() / rate,
-            headroomDb = p.headroom.deepestDb,
+            // The headroom as played: the renderer's, worked out again from the outgoing song as
+            // rendered, not the plan's estimate from the analysis.
+            headroomDb = rendered?.headroom?.deepestDb ?: 0.0,
             lock = lock,
             joinSpike = joinSpike,
             spikeBaseline = baseline[(baseline.size * 95) / 100],
@@ -321,43 +326,50 @@ class AutomixTrial {
     }
 
     /**
-     * The outgoing song through the overlap as rendered, without its curves and filters, analysed
-     * again as audio: its beat line held against the incoming song's grid, beat by beat. This is
-     * the stretch and its anchors checked on real music, not the plan's arithmetic.
+     * The two songs through the overlap as they are heard there, without the curves and filters:
+     * the outgoing one as rendered through the time map, the incoming one as it plays from its
+     * start. The low onsets of each, its kicks and bass notes, found in that audio, and each of
+     * the incoming song's held against the outgoing song's nearest within a quarter of a beat,
+     * mean and worst. Onsets heard, not lines fitted: a tempo that drifts, a stretch that slips or
+     * an opening that does not line up all show here.
      */
-    private fun beatLock(p: MixPlan, holder: HeldTail, tail: RegionAnalysis, head: RegionAnalysis, armFrame: Int, a: Song): kotlin.Pair<Double, Double>? {
+    private fun beatLock(p: MixPlan, tail: RegionAnalysis, head: RegionAnalysis, armFrame: Int, a: Song, b: Song): kotlin.Pair<Double, Double>? {
         val rate = p.sampleRate
         val tailSamples = a.samples.copyOfRange(armFrame * 2, min(a.samples.size, (armFrame + p.tailFrames.toInt()) * 2))
-        // From the ramp's end, where the speed holds, through the overlap and on for as much of
-        // the held tail as is left, up to 6 s more, so even a 4-bar overlap gives the tempo stage
-        // the 8 s it needs; only beats inside the overlap are compared.
-        val from = (p.aMap.rampStart + p.aMap.rampLength).toLong()
-        val to = min(p.aMap.outAt(p.tailFrames.toDouble() - Wsola.FRAME), p.overlapEnd + 6.0 * rate).toLong()
-        if (to - from < 8 * rate) return null
         val plain = MixPlan(
-            Style.BEAT, "plain", rate, 2, p.tailFrames, p.bStart, p.aMap, p.aFirstProcessed, to,
+            Style.BEAT, "plain", rate, 2, p.tailFrames, p.bStart, p.aMap, p.aFirstProcessed, p.aGone,
             p.overlapStart, p.overlapEnd, Curve.constant(1.0), Curve.constant(1.0), emptyList(), emptyList(),
-            Headroom.NONE, DoubleArray(0), 1.0, 1.0, p.shapedUntil, 0, 0, p.speed, p.bars,
+            Headroom.NONE, DoubleArray(0), 1.0, 1.0, p.shapedUntil, 0, 0, p.speed, p.bars, p.beats, p.anchors,
         )
-        val rendered = MixRender.renderOutgoing(plain, tailSamples, tail.guide, tail.decimation, tail.beatFrames())
-        val audio = ShortArray(((to - from) * 2).toInt()) { rendered.at(from + it / 2, it % 2) }
-        val r = Rhythm.analyse(Spectrum.of(FrontEnd.of(audio, rate, 2)))
-        val grid = r.grid ?: return null
-        val spectrumFactor = Pcm.decimationFor(rate)
-        fun aBeat(k: Int) = from + (grid.frameOf(k) * Spectrum.HOP + Spectrum.ONSET_LAG) * spectrumFactor
-        val periodB = head.periodFrames!!
+        val rendered = MixRender.renderOutgoing(plain, tailSamples, tail.guide, tail.decimation, p.anchors)
+        val from = p.overlapStart.toLong()
+        val n = (p.overlapEnd.toLong() - from).toInt()
+        val bFrom = (from - p.bStart).toInt()
+        if (n <= 0 || bFrom < 0 || (bFrom + n) * 2 > b.samples.size) return null
+        val aHeard = ShortArray(n * 2) { rendered.at(from + it / 2, it % 2) }
+        val bHeard = b.samples.copyOfRange(bFrom * 2, (bFrom + n) * 2)
+        val aKicks = lowOnsets(aHeard, rate)
+        val bKicks = lowOnsets(bHeard, rate)
+        // At each of the incoming song's beats through the overlap, on the line the mix lines up
+        // on: the outgoing song's low onset nearest it within 50 ms, which keeps a syncopated
+        // kick a quarter beat away out, against the incoming song's own there, or the beat itself
+        // where the incoming song has none.
+        val period = (p.overlapEnd - p.overlapStart) / p.beats / rate
         val gaps = ArrayList<Double>()
-        for (k in grid.firstBeat..grid.lastBeat) {
-            val at = aBeat(k)
-            if (at < p.overlapStart || at > p.overlapEnd) continue
-            // The incoming song's nearest beat, in output frames.
-            val bBeat = head.beatNear(at - p.bStart)
-            val bAt = p.bStart + head.beatFrame(bBeat)
-            val gap = (at - bAt) / rate * 1000
-            if (abs(gap) < periodB / rate * 1000 / 2) gaps += abs(gap)
+        for (k in 0..p.beats) {
+            val t = k * period
+            val ka = aKicks.filter { abs(it - t) < LOCK_WINDOW_S }.minByOrNull { abs(it - t) } ?: continue
+            val kb = bKicks.filter { abs(it - t) < LOCK_WINDOW_S }.minByOrNull { abs(it - t) }
+            gaps += abs(ka - (kb ?: t)) * 1000
         }
-        if (gaps.isEmpty()) return null
+        if (gaps.size < 4) return null
         return gaps.average() to gaps.max()
+    }
+
+    /** The low onsets of [samples], kicks and bass notes, in seconds. */
+    private fun lowOnsets(samples: ShortArray, rate: Int): List<Double> {
+        val spectrum = Spectrum.of(FrontEnd.of(samples, rate, 2))
+        return Peaks.of(spectrum.lowOnset, 1.5f, 8).map { spectrum.frameToSample(it.frame) / rate }
     }
 
     private fun window(t: Transition, rate: Int): LongRange {
@@ -368,7 +380,8 @@ class AutomixTrial {
 
     private fun tempoCell(r: RegionAnalysis): String {
         val bpm = r.bpm ?: return "none"
-        val trust = (if (r.gates.beats) "B" else "-") + (if (r.gates.downbeats) "D" else "-")
+        val trust = (if (r.gates.beats) "B" else "-") + (if (r.gates.downbeats) "D" else "-") +
+            (if (r.gates.downbeats && r.downbeats?.beatsPerBar == Downbeats.LONG_BAR) "8" else "")
         return "%.2f %s".format(bpm, trust)
     }
 
@@ -523,7 +536,11 @@ class AutomixTrial {
         var barsRight = 0
         var barsWrong = 0
         var octaveRegions = 0
-        val tempos = doubleArrayOf(85.0, 100.0, 110.0, 124.0, 128.0, 140.0, 150.0, 160.0, 174.0)
+        var doubleBarsTrusted = 0
+        var doubleBarsRight = 0
+        var doubleBarsWrong = 0
+        var longBars = 0
+        val tempos = doubleArrayOf(64.0, 72.0, 80.0, 85.0, 100.0, 110.0, 124.0, 128.0, 140.0, 150.0, 160.0, 174.0)
         val specs = ArrayList<kotlin.Pair<String, SynthSpec>>()
         for (groove in listOf(Groove.FOUR_ON_THE_FLOOR, Groove.BACKBEAT, Groove.HALF_TIME)) for (bpm in tempos) for (seed in 1L..2L) {
             specs += "$groove $bpm" to SynthSpec(bpm = bpm, bars = (bpm / 4 + 4).toInt(), groove = groove, seed = seed)
@@ -554,14 +571,24 @@ class AutomixTrial {
                 barsTrusted++
                 if (h.downbeatAccuracy() >= 0.99) barsRight++ else barsWrong++
             }
+            // A grid at twice the song's beat: its bars are the song's when it finds bars of
+            // eight of its beats, and wrong when it takes the song's beat 3 for its one.
+            val twice = bpm != null && abs(bpm / spec.bpm - 2) < 0.02
+            if (h.rhythm.gates.downbeats && twice) {
+                doubleBarsTrusted++
+                if (h.downbeatAccuracy() >= 0.99) doubleBarsRight++ else doubleBarsWrong++
+            }
+            if (h.rhythm.gates.downbeats && h.rhythm.downbeats?.beatsPerBar == Downbeats.LONG_BAR) longBars++
         }
-        out.append("Each song's first 30 s analysed as an opening; %d songs: three grooves (four on the floor, backbeat, half time) at 85 to 174 BPM, two seeds each, and shuffles, added noise, no chords and 48 kHz.\n\n".format(regions))
+        out.append("Each song's first 30 s analysed as an opening; %d songs: three grooves (four on the floor, backbeat, half time) at 64 to 174 BPM, two seeds each, and shuffles, added noise, no chords and 48 kHz.\n\n".format(regions))
         out.append("| measure | result |\n|---|---|\n")
         out.append("| tempo within 0.1%% once folded | %d of %d |\n".format(tempoRight, regions))
         out.append("| beats trusted | %d of %d, all with the right tempo: %s |\n".format(beatsTrusted, regions, if (beatsTrustedRight == beatsTrusted) "yes" else "NO, ${beatsTrusted - beatsTrustedRight} wrong"))
         out.append("| beat F-measure at ±70 ms, trusted grids, against the song's beats or the octave the grid is at | %.3f |\n".format(if (beatsTrusted > 0) fSum / beatsTrusted else 0.0))
-        out.append("| grids at an octave of the song's beat (folded into 85-170, so bars are not judged) | %d |\n".format(octaveRegions))
+        out.append("| grids at an octave of the song's beat, folded into 85-170 | %d |\n".format(octaveRegions))
         out.append("| bars trusted on the song's own beat | %d, right %d, wrong %d |\n".format(barsTrusted, barsRight, barsWrong))
+        out.append("| bars trusted on a grid at twice the song's beat (songs under 85 BPM) | %d, right %d, wrong %d |\n".format(doubleBarsTrusted, doubleBarsRight, doubleBarsWrong))
+        out.append("| bars of eight beats of the grid among the bars trusted | %d |\n".format(longBars))
 
         // The controls: nothing here may be trusted at any stage.
         var controls = 0
@@ -608,6 +635,9 @@ class AutomixTrial {
     }
 
     private companion object {
+        /** How far from a beat a low onset still counts as that beat's, in a beat mix's lock. */
+        const val LOCK_WINDOW_S = 0.05
+
         /** Published tempos, from memory and approximate, for the few songs known well enough. */
         val KNOWN = mapOf(
             "Music Sounds Better With You" to 124.0,

@@ -41,7 +41,7 @@ class BeatLockTest {
                 plan.overlapStart, plan.overlapEnd, Curve.constant(1.0), Curve.constant(1.0), emptyList(), emptyList(),
                 Headroom.NONE, DoubleArray(0), 1.0, 1.0, plan.shapedUntil, 0, 0, plan.speed, plan.bars,
             )
-            val rendered = MixRender.renderOutgoing(plain, tail, tailAnalysis.guide, tailAnalysis.decimation, tailAnalysis.beatFrames())
+            val rendered = MixRender.renderOutgoing(plain, tail, tailAnalysis.guide, tailAnalysis.decimation, plan.anchors)
             val from = plan.overlapStart.toLong()
             val to = plan.overlapEnd.toLong()
             val n = (to - from).toInt()

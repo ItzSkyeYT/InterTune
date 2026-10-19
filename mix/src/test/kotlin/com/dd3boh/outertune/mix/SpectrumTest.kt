@@ -54,6 +54,35 @@ class SpectrumTest {
     }
 
     @Test
+    fun peaksAreMeasuredThroughTheHighPassesWhereTakingTheBassOutRaisesThem() {
+        // A bass at half scale with a click of 0.9 against each of its crests, as a master limited
+        // at full scale has: it peaks at about half scale, but without its bass the clicks stand
+        // at nearly 0.9, which is what the incoming song of a beat mix is before its bass comes in.
+        val rate = 44_100
+        val frames = 2 * rate
+        val click = (0.001 * rate).toInt()
+        val samples = ShortArray(frames * 2) { i ->
+            val f = i / 2
+            val t = f.toDouble() / rate
+            var v = 0.5 * kotlin.math.sin(2 * Math.PI * 50 * t)
+            val sinceCrest = Math.floorMod(f - rate / 200, rate / 50)
+            if (sinceCrest < click) v -= 0.9 * kotlin.math.sin(Math.PI * sinceCrest / click)
+            (v * 32767).toInt().toShort()
+        }
+        val front = FrontEnd.of(samples, rate, 2, filteredPeaks = true)
+        val raw = front.hopPeak.max()
+        val above120 = front.hopPeakAbove120!!.drop(10).max()
+        val above400 = front.hopPeakAbove400!!.drop(10).max()
+        println("raw peak %.2f, through 120 Hz %.2f, through 400 Hz %.2f".format(raw, above120, above400))
+        assertTrue(raw < 0.55f)
+        // Past the fifth the headroom used to allow for the incoming song above its own peaks.
+        assertTrue(above120 > 1.25f * raw)
+        assertTrue(above400 > 1.15f * raw)
+        // Only where asked for: the end of a song held for a blend needs none of it.
+        assertEquals(null, FrontEnd.of(samples, rate, 2).hopPeakAbove120)
+    }
+
+    @Test
     fun blockSizesDoNotChangeAnything() {
         val song = Synth.song(SynthSpec(bars = 4))
         val whole = FrontEnd.of(song.samples, 44_100, 2)

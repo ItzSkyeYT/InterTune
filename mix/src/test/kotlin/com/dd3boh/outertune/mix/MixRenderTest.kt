@@ -27,7 +27,7 @@ class MixRenderTest {
     class Pair(val plan: MixPlan, val tail: ShortArray, val tailAnalysis: RegionAnalysis, val head: ShortArray) {
         val channels get() = plan.channels
 
-        fun renderA(): RenderedOutgoing = MixRender.renderOutgoing(plan, tail, tailAnalysis.guide, tailAnalysis.decimation, if (plan.style == Style.BEAT) tailAnalysis.beatFrames() else DoubleArray(0))
+        fun renderA(): RenderedOutgoing = MixRender.renderOutgoing(plan, tail, tailAnalysis.guide, tailAnalysis.decimation, plan.anchors)
 
         /** The transition from the incoming song's first frame to the end of its shaping, fed in blocks of the sizes [blocks] gives. */
         fun mixFromB(a: RenderedOutgoing, blocks: () -> Int): ShortArray {
@@ -68,6 +68,14 @@ class MixRenderTest {
         pair(a.slice(a.seconds - 40), b.slice(0.0, 30.0), attA = 0.83, attB = 0.91)
     }
 
+    /** The same outgoing song into a pad: one steady beat only, where the smooth blend may be had. */
+    private val smoothPlan by lazy {
+        Planner.planStyle(PlanInput(
+            tail = beatPair.tailAnalysis, head = RegionAnalysis.analyse(Synth.pad(30.0), rate, 2, RegionKind.HEAD),
+            readMark = 6L * rate, attenuationA = 0.83, attenuationB = 0.91, aDurationMs = 200_000, bDurationMs = 200_000,
+        ), Style.SMOOTH)!!
+    }
+
     @Test
     fun blockSizesChangeNothing() {
         val p = beatPair
@@ -84,7 +92,8 @@ class MixRenderTest {
     @Test
     fun theRenderedPartJoinsTheRawTailExactly() {
         for (style in listOf(Style.BEAT, Style.SMOOTH, Style.BLEND, Style.CUT)) {
-            val plan = Planner.planStyle(PlanInput(
+            // Two steady beats are never blended long, so the smooth blend goes into a pad.
+            val plan = if (style == Style.SMOOTH) smoothPlan else Planner.planStyle(PlanInput(
                 tail = beatPair.tailAnalysis, head = RegionAnalysis.analyse(beatPair.head, rate, 2, RegionKind.HEAD),
                 readMark = 6L * rate, attenuationA = 0.83, attenuationB = 0.91, aDurationMs = 200_000, bDurationMs = 200_000,
             ), style)!!
@@ -176,7 +185,7 @@ class MixRenderTest {
 
     @Test
     fun gainsNeverStep() {
-        val plans = listOf(beatPair.plan) + listOf(Style.BLEND, Style.SMOOTH, Style.CUT).mapNotNull { style ->
+        val plans = listOf(beatPair.plan, smoothPlan) + listOf(Style.BLEND, Style.CUT).mapNotNull { style ->
             Planner.planStyle(PlanInput(
                 tail = beatPair.tailAnalysis, head = RegionAnalysis.analyse(beatPair.head, rate, 2, RegionKind.HEAD),
                 readMark = 6L * rate, aDurationMs = 200_000, bDurationMs = 200_000,
@@ -206,6 +215,28 @@ class MixRenderTest {
             assertTrue(worst < 1e-3)
             assertTrue(worstRoom <= 0.1)
         }
+    }
+
+    @Test
+    fun whatTheHeadroomMissesIsBentUnderFullScaleNotCutFlat() {
+        // The outgoing song held at 30000 and the incoming one rising from nothing to 20000 over
+        // it, with no headroom at all, so the sum climbs far past full scale.
+        val frames = 2000
+        val a = RenderedOutgoing(0, frames, 2, ShortArray(frames * 2) { 30_000 }, Headroom.NONE)
+        val b = DoubleArray(frames * 2) { i -> 20_000.0 * (i / 2) / frames }
+        val out = ShortArray(frames * 2)
+        val mixer = Mixer()
+        mixer.mix(a, 0, b, 0, frames, out, 0)
+        var over = 0
+        for (f in 0 until frames) {
+            val sum = 30_000 + b[f * 2]
+            if (Math.floor(sum + 0.5) > 32_767) over++
+            // Under the knee the sum is untouched; past it, bent, and never at full scale.
+            if (sum <= Mixer.KNEE) assertEquals(toPcm16(sum), out[f * 2]) else assertTrue("frame $f: ${out[f * 2]}", out[f * 2] < 32_767)
+            if (f > 0) assertTrue("frame $f: the limit follows the sum up, it does not flatten it", out[f * 2] >= out[f * 2 - 2])
+        }
+        assertTrue(over > 0)
+        assertEquals("each sample that would have gone past full scale is counted", over * 2L, mixer.clipped)
     }
 
     @Test

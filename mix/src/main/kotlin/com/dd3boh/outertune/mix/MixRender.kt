@@ -107,38 +107,67 @@ class IncomingShaper(private val plan: MixPlan, private val headroom: Headroom =
 
     /**
      * Shapes [frames] frames of the incoming song from [input] at [offset] (frames), starting at the
-     * song's own frame [bFrame], into [out] at [outOffset] (frames), in full-scale units.
+     * song's own frame [bFrame], into [out] at [outOffset] (frames), in full-scale units. [levels]
+     * holds the song's attenuation for each of those frames, where it may move while the song
+     * plays; without it, the plan's.
      */
-    fun shape(input: ShortArray, offset: Int, frames: Int, bFrame: Long, out: DoubleArray, outOffset: Int = 0) {
+    @JvmOverloads
+    fun shape(input: ShortArray, offset: Int, frames: Int, bFrame: Long, out: DoubleArray, outOffset: Int = 0, levels: DoubleArray? = null) {
         for (i in 0 until frames) {
             val o = plan.bStart + bFrame + i
             for (c in 0 until channels) frame[c] = input[(offset + i) * channels + c].toDouble()
             for (f in filters) f.process(o, frame)
-            val gain = plan.gainB.at(o.toDouble()) * plan.attenuationB * headroom.at(o)
+            val gain = plan.gainB.at(o.toDouble()) * (levels?.get(i) ?: plan.attenuationB) * headroom.at(o)
             for (c in 0 until channels) out[(outOffset + i) * channels + c] = frame[c] * gain
         }
     }
 }
 
-/** Adds the two songs and holds the sum to 16 bit, counting every sample the limit had to touch. */
+/**
+ * Adds the two songs and holds the sum to 16 bit. The headroom keeps the sum under [KNEE]; what
+ * still goes past it, where the estimate fell short, is bent smoothly into the little room left
+ * under full scale instead of being cut flat there, and every sample that would have gone past
+ * full scale is counted.
+ */
 class Mixer {
-    /** Samples clamped at full scale since this mixer was made: expected to stay at zero. */
+    /** Samples that would have gone past full scale since this mixer was made: expected to stay at zero. */
     var clipped = 0L
         private set
 
     /**
      * Writes [frames] frames into [out] at [outOffset]: the shaped incoming song from [b] plus the
-     * outgoing song's rendered part at output frames from [firstOutput].
+     * outgoing song's rendered part at output frames from [firstOutput], scaled by [aScale].
      */
-    fun mix(a: RenderedOutgoing?, firstOutput: Long, b: DoubleArray, bOffset: Int, frames: Int, out: ShortArray, outOffset: Int) {
+    fun mix(a: RenderedOutgoing?, firstOutput: Long, b: DoubleArray, bOffset: Int, frames: Int, out: ShortArray, outOffset: Int, aScale: Double = 1.0) {
         val channels = a?.channels ?: (b.size / max(1, frames))
         for (i in 0 until frames) {
             for (c in 0 until channels) {
-                val v = (a?.at(firstOutput + i, c)?.toDouble() ?: 0.0) + b[(bOffset + i) * channels + c]
-                val r = Math.floor(v + 0.5)
-                if (r > 32767.0 || r < -32768.0) clipped++
+                var v = (a?.at(firstOutput + i, c)?.toDouble() ?: 0.0) * aScale + b[(bOffset + i) * channels + c]
+                if (v > KNEE || v < -KNEE) {
+                    val r = Math.floor(v + 0.5)
+                    if (r > 32767.0 || r < -32768.0) clipped++
+                    v = limit(v)
+                }
                 out[(outOffset + i) * channels + c] = toPcm16(v)
             }
+        }
+    }
+
+    companion object {
+        /** Where the limit starts to bend the sum: the ceiling the headroom holds it under. */
+        const val KNEE = Headroom.CEILING * Pcm.FULL_SCALE
+
+        /**
+         * [v] past [KNEE] bent into what is left under full scale, the way the volume boost's soft
+         * clip does: continuous in value and slope at the knee, and never reaching full scale.
+         */
+        fun limit(v: Double): Double {
+            val m = kotlin.math.abs(v)
+            if (m <= KNEE) return v
+            val range = 32767.0 - KNEE
+            val over = m - KNEE
+            val bent = KNEE + range * (over / (over + range))
+            return if (v < 0) -bent else bent
         }
     }
 }

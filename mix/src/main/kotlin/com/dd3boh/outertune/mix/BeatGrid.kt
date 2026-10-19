@@ -45,8 +45,52 @@ class BeatGrid(
     /** The beats the dynamic programme placed, snapped to their onsets, in frames. */
     val beats: DoubleArray,
     val frameRate: Double,
+    /** The grid beats the line was fitted through, and the onset heard on each, in frames. */
+    val heardK: IntArray = IntArray(0),
+    val heardT: DoubleArray = DoubleArray(0),
 ) {
     val bpm: Double get() = 60.0 * frameRate / period
+
+    /**
+     * A line through only the onsets heard on grid beats [fromK] to [toK], for a stretch a mix
+     * lines up on: a song whose tempo drifts sits further off the line fitted through all of its
+     * beats at the ends of the region than anywhere else, and the ends are where a mix overlaps.
+     * Null with too few onsets heard there to fit one.
+     */
+    fun lineBetween(fromK: Int, toK: Int): Line? {
+        val ks = ArrayList<Int>()
+        val ts = ArrayList<Double>()
+        for (i in heardK.indices) if (heardK[i] in fromK..toK) {
+            ks += heardK[i]
+            ts += heardT[i]
+        }
+        if (ks.size < max(MIN_LINE_POINTS, (LINE_HIT_SHARE * (toK - fromK + 1)).toInt())) return null
+        val (a, b) = leastSquares(ks, ts) ?: return null
+        var squares = 0.0
+        for (j in ks.indices) {
+            val r = ts[j] - (a + ks[j] * b)
+            squares += r * r
+        }
+        // How far the onsets at each end of the stretch sit off the line, on average and with
+        // their sign: what a tempo that still moves inside the stretch leaves there.
+        val n = min(LINE_END_POINTS, ks.size / 3)
+        var head = 0.0
+        var tail = 0.0
+        for (j in 0 until n) {
+            head += ts[j] - (a + ks[j] * b)
+            tail += ts[ks.size - 1 - j] - (a + ks[ks.size - 1 - j] * b)
+        }
+        val toMs = 1000.0 / frameRate
+        return Line(a, b, sqrt(squares / ks.size) * toMs, max(abs(head), abs(tail)) / max(1, n) * toMs, ks.size)
+    }
+
+    /** The same beats on another line, the stretch and its measures kept. */
+    fun withLine(t0: Double, period: Double): BeatGrid = BeatGrid(
+        t0, period, firstBeat, lastBeat, hitShare, jitterMs, steadiness, drift, beats, frameRate, heardK, heardT,
+    )
+
+    /** A line t0 + k [period] through some of the beats: how far the onsets sit off it overall and at its ends, in ms. */
+    class Line(val t0: Double, val period: Double, val jitterMs: Double, val endsMs: Double, val points: Int)
 
     /** Where grid beat [k] falls, in frames. */
     fun frameOf(k: Int): Double = t0 + k * period
@@ -66,6 +110,13 @@ class BeatGrid(
         /** A window for the tempo's steadiness, and the step between windows. */
         private const val STEADY_WINDOW_S = 8.0
         private const val STEADY_STEP_S = 2.0
+
+        /** A line through part of the beats needs this many onsets heard on them, and this share of its beats. */
+        private const val MIN_LINE_POINTS = 8
+        private const val LINE_HIT_SHARE = 0.6
+
+        /** The onsets at each end of a line through part of the beats whose mean says how far it is off there. */
+        private const val LINE_END_POINTS = 6
 
         /**
          * Places the beats of [onset] between [from] and [to] at about [period] frames apart,
@@ -137,6 +188,8 @@ class BeatGrid(
                         drift = drift(ks, ts),
                         beats = snapped,
                         frameRate = frameRate,
+                        heardK = ks.toIntArray(),
+                        heardT = ts.toDoubleArray(),
                     )
                 }
             }

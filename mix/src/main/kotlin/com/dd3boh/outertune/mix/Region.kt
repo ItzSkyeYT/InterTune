@@ -36,6 +36,15 @@ class RegionAnalysis(
     val guide: FloatArray,
     val decimation: Int,
     val analysisMillis: Double,
+    /** The decimated frame [guide] starts at: 0, but for an opening kept with only the first seconds of its music. */
+    val guideFrom: Int = 0,
+    /**
+     * Each hop's peak on any channel through a 4th-order high-pass at 120 Hz and through a
+     * 2nd-order one at 400 Hz, 0 to 1: for an opening, the incoming song as a blend filters it,
+     * whose peaks a filter can raise above the song's own. Null where they were not measured.
+     */
+    val hopPeakAbove120: FloatArray? = null,
+    val hopPeakAbove400: FloatArray? = null,
 ) {
     private val factor: Int get() = decimation
 
@@ -76,8 +85,8 @@ class RegionAnalysis(
             var k = bars.firstAtOrAfter(g.firstBeat)
             if (kind == RegionKind.HEAD) {
                 val earliest = envelope.firstSound - 0.03 * sampleRate
-                val back = k - Downbeats.BEATS_PER_BAR
-                if (back >= g.firstBeat - Downbeats.BEATS_PER_BAR && beatFrame(back) >= earliest) k = back
+                val back = k - bars.beatsPerBar
+                if (back >= g.firstBeat - bars.beatsPerBar && beatFrame(back) >= earliest) k = back
             }
             return k
         }
@@ -100,14 +109,37 @@ class RegionAnalysis(
         return count / ((to - from).toDouble() / sampleRate)
     }
 
-    /** The highest peak on any channel between [from] and [to], 0 to 1; 1 where nothing is known. */
-    fun peakBetween(from: Long, to: Long): Float {
+    /** The highest peak on any channel between [from] and [to] in [peaks], 0 to 1; 1 where nothing is known. */
+    fun peakBetween(from: Long, to: Long, peaks: FloatArray = hopPeak): Float {
         val lo = (from / hopFrames).toInt()
         val hi = ((to + hopFrames - 1) / hopFrames).toInt()
         var peak = 0f
-        for (h in lo until hi) peak = maxOf(peak, if (h in hopPeak.indices) hopPeak[h] else 1f)
+        for (h in lo until hi) peak = maxOf(peak, if (h in peaks.indices) peaks[h] else 1f)
         return peak
     }
+
+    /** The same region with its beats on another line: the one a mix lines up on, fitted through only the beats it uses. */
+    fun withLine(line: BeatGrid.Line): RegionAnalysis {
+        val g = grid ?: return this
+        return copy(rhythm = Rhythm(rhythm.tempo, g.withLine(line.t0, line.period), rhythm.downbeats, rhythm.gates))
+    }
+
+    /**
+     * The same region keeping only the stretch of its guide from full-rate frame [from] to [to],
+     * for an opening kept for the next time its song comes next: what the check that the incoming
+     * song lines up with its opening reads, without the rest of the copy.
+     */
+    fun keepingGuide(from: Long, to: Long): RegionAnalysis {
+        val lo = (from / decimation).toInt().coerceIn(guideFrom, guideFrom + guide.size)
+        val hi = (to / decimation).toInt().coerceIn(lo, guideFrom + guide.size)
+        return copy(guide = guide.copyOfRange(lo - guideFrom, hi - guideFrom), guideFrom = lo)
+    }
+
+    private fun copy(rhythm: Rhythm = this.rhythm, guide: FloatArray = this.guide, guideFrom: Int = this.guideFrom) = RegionAnalysis(
+        kind = kind, sampleRate = sampleRate, channels = channels, frames = frames, envelope = envelope, rhythm = rhythm,
+        phrases = phrases, onset = onset, hopPeak = hopPeak, hopFrames = hopFrames, guide = guide, decimation = decimation,
+        analysisMillis = analysisMillis, guideFrom = guideFrom, hopPeakAbove120 = hopPeakAbove120, hopPeakAbove400 = hopPeakAbove400,
+    )
 
     /** A line for the logs and the trial's summary. */
     fun describe(): String {
@@ -130,7 +162,7 @@ class RegionAnalysis(
         fun analyseTail(front: FrontEndResult): RegionAnalysis = analyse(front, RegionKind.TAIL)
 
         fun analyse(samples: ShortArray, sampleRate: Int, channels: Int, kind: RegionKind): RegionAnalysis =
-            analyse(FrontEnd.of(samples, sampleRate, channels), kind)
+            analyse(FrontEnd.of(samples, sampleRate, channels, filteredPeaks = kind == RegionKind.HEAD), kind)
 
         fun analyse(front: FrontEndResult, kind: RegionKind): RegionAnalysis {
             val started = System.nanoTime()
@@ -157,6 +189,8 @@ class RegionAnalysis(
                 guide = front.mono,
                 decimation = front.factor,
                 analysisMillis = (System.nanoTime() - started) / 1e6,
+                hopPeakAbove120 = front.hopPeakAbove120,
+                hopPeakAbove400 = front.hopPeakAbove400,
             )
         }
     }

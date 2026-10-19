@@ -12,31 +12,66 @@ import kotlin.math.min
 import kotlin.math.sqrt
 
 /**
- * Which beat of four starts the bar.
+ * Which beat of the bar is the one, and how long the bar is in beats of the grid.
  *
- * Bars are taken to be four beats, which covers nearly everything a mix is made of; a waltz then
- * shows no favourite phase, and the margin says so. Two cues, after Goto (2001) and Davies and
- * Plumbley (2006): the low onsets on each phase, since kicks and bass notes land hardest on the
- * one, and how much the spectrum changes across each phase, since chords change on bar lines; and
- * a snare two beats later, where the half-time feel of trap and phonk puts it. Each is divided by
- * its own mean over all beats, so they weigh alike whatever the mix's balance.
+ * Bars are four beats, which covers nearly everything a mix is made of; a waltz then shows no
+ * favourite phase, and the margin says so. Two cues, after Goto (2001) and Davies and Plumbley
+ * (2006): the low onsets on each phase, since kicks and bass notes land hardest on the one, and
+ * how much the spectrum changes across each phase, since chords change on bar lines; and a snare
+ * two beats later, where the half-time feel of trap and phonk puts it. Each is divided by its own
+ * mean over all beats, so they weigh alike whatever the mix's balance.
  *
- * [phase] is a grid index modulo 4: grid beat k is a downbeat when (k - phase) is a multiple of 4.
- * [margin] is how clearly the best phase won, as a paired t over the bars against the runner-up.
+ * But a grid can run at twice the song's beat: a song at 76 gets a grid at 152, folded into the
+ * range tempos are compared in, or picked there by the tempo stage, which cannot tell the octave.
+ * Then four beats of the grid are half a bar, and the song's beat 1 and beat 3 fall in one phase of
+ * four. So on a grid fast enough to be twice a song's beat, 120 BPM and up (no song is analysed
+ * below 60), the winning phase is held against the phase four beats on, over bars of eight: where
+ * the two differ clearly, the bar is eight beats of the grid and the stronger is the one. Where they
+ * do not, they are alike in every cue there is, kicks, snares and chord changes, and either one
+ * lined up with another song's one lines up like with like.
+ *
+ * [phase] is a grid index modulo [beatsPerBar]: grid beat k is a downbeat when (k - phase) is a
+ * multiple of it. [margin] is how clearly the best phase of four won, as a paired t over the bars
+ * against the runner-up; [halfMargin] the same of that phase against the one four beats on, over
+ * bars of eight, positive where the phase itself is the stronger.
  */
-class Downbeats(val phase: Int, val margin: Double, val scores: DoubleArray) {
+class Downbeats(
+    val phase: Int,
+    val margin: Double,
+    val scores: DoubleArray,
+    val beatsPerBar: Int = BEATS_PER_BAR,
+    val halfMargin: Double = 0.0,
+) {
 
     /** Whether grid beat [k] starts a bar. */
-    fun isDownbeat(k: Int): Boolean = Math.floorMod(k - phase, BEATS_PER_BAR) == 0
+    fun isDownbeat(k: Int): Boolean = Math.floorMod(k - phase, beatsPerBar) == 0
 
     /** The first downbeat at or after grid beat [k]. */
-    fun firstAtOrAfter(k: Int): Int = k + Math.floorMod(phase - k, BEATS_PER_BAR)
+    fun firstAtOrAfter(k: Int): Int = k + Math.floorMod(phase - k, beatsPerBar)
 
     /** The last downbeat at or before grid beat [k]. */
-    fun lastAtOrBefore(k: Int): Int = k - Math.floorMod(k - phase, BEATS_PER_BAR)
+    fun lastAtOrBefore(k: Int): Int = k - Math.floorMod(k - phase, beatsPerBar)
 
     companion object {
         const val BEATS_PER_BAR = 4
+
+        /** Bars of eight beats of the grid: a grid at twice the song's beat. */
+        const val LONG_BAR = 8
+
+        /**
+         * How clearly the two halves of a bar of eight must differ for the bar to be eight beats.
+         * Measured on the synthetic songs at 64 to 174 BPM: every bar of eight claimed this way had
+         * all its downbeats right, at the song's own tempo or at twice it; the halves of a real bar
+         * of four often differ as much, a chord cycle of two bars or a phrase that turns every
+         * eight, and claiming eight there only keeps every other bar line, all of them real.
+         */
+        const val MIN_HALF_MARGIN = 1.5
+
+        /** Fewer bars of eight than this, and the halves are not compared. */
+        private const val MIN_LONG_BARS = 4
+
+        /** A grid under this cannot be at twice a song's beat, since no song is analysed under 60 BPM. */
+        const val DOUBLED_FROM_BPM = 2 * Tempo.MIN_BPM
 
         /**
          * The weights of the spectral change across a beat, and of a snare two beats after it
@@ -121,10 +156,31 @@ class Downbeats(val phase: Int, val margin: Double, val scores: DoubleArray) {
                 barStart += BEATS_PER_BAR
             }
             val margin = pairedT(differences)
-            return Downbeats(best, margin, scores)
+
+            // The halves of a bar of eight: the best phase against the one four beats on, bar by
+            // bar, on bars of eight counted from grid index 0 as the phases are.
+            val halves = ArrayList<Double>()
+            var longStart = first - Math.floorMod(first, LONG_BAR)
+            while (longStart <= last) {
+                val a = longStart + best
+                val b = a + BEATS_PER_BAR
+                if (a in first..last && b in first..last) {
+                    val ea = evidence[a - first]
+                    val eb = evidence[b - first]
+                    if (!ea.isNaN() && !eb.isNaN()) halves += ea - eb
+                }
+                longStart += LONG_BAR
+            }
+            val half = if (halves.size >= MIN_LONG_BARS) pairedT(halves) else 0.0
+            if (grid.bpm < DOUBLED_FROM_BPM) return Downbeats(best, margin, scores, BEATS_PER_BAR, half)
+            return when {
+                half >= MIN_HALF_MARGIN -> Downbeats(best, margin, scores, LONG_BAR, half)
+                half <= -MIN_HALF_MARGIN -> Downbeats(best + BEATS_PER_BAR, margin, scores, LONG_BAR, half)
+                else -> Downbeats(best, margin, scores, BEATS_PER_BAR, half)
+            }
         }
 
-        /** The t statistic of [differences] against zero; a run that never disagrees counts as very sure. */
+        /** The t statistic of [differences] against zero; a run that never disagrees counts as very sure, either way. */
         private fun pairedT(differences: List<Double>): Double {
             val n = differences.size
             if (n < 2) return 0.0
@@ -132,7 +188,7 @@ class Downbeats(val phase: Int, val margin: Double, val scores: DoubleArray) {
             var squares = 0.0
             for (d in differences) squares += (d - mean) * (d - mean)
             val deviation = sqrt(squares / (n - 1))
-            if (deviation < 1e-9) return if (mean > 0) 99.0 else 0.0
+            if (deviation < 1e-9) return if (mean > 0) 99.0 else if (mean < 0) -99.0 else 0.0
             return mean / (deviation / sqrt(n.toDouble()))
         }
 

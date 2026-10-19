@@ -19,6 +19,10 @@ import kotlin.math.sqrt
  * the beat, in steps of 16, 8 or 4, and each candidate is scored by how much changes there:
  * Foote's novelty (2000) on the bars' mean spectra, with a checkerboard of 4 bars a side, and how
  * far the level drops across it. Indices here count bar lines: bar line j opens bar j.
+ *
+ * Bars of eight beats of the grid (Downbeats.LONG_BAR) step by half as many, 8, 4 and 2, so the
+ * phrase lines fall the same number of beats apart either way: a bar of eight that is really two
+ * bars of four with a two-bar pattern keeps its phrases where they were.
  */
 class Phrases(
     /** Each bar line, in spectral frames. */
@@ -33,6 +37,8 @@ class Phrases(
     val lastStrong: Int,
     /** Bar lines on the 16, 8 and 4 bar grids counted back from [lastStrong], scored. */
     val candidates: List<PhraseCandidate>,
+    /** The phrase grids the candidates were counted on, in bars, the longest first. */
+    val steps: IntArray = STEPS,
 ) {
     val bars: Int get() = barLines.size - 1
 
@@ -45,16 +51,20 @@ class Phrases(
 
         val STEPS = intArrayOf(16, 8, 4)
 
+        /** The phrase grids for bars of eight beats of the grid. */
+        val LONG_BAR_STEPS = intArrayOf(8, 4, 2)
+
         /** Null without trusted bars, or with fewer than four of them. */
         fun find(spectrum: Spectrum, grid: BeatGrid, downbeats: Downbeats, envelope: Envelope): Phrases? {
+            val bar = downbeats.beatsPerBar
             val firstLine = downbeats.firstAtOrAfter(grid.firstBeat)
             val lines = ArrayList<Int>()
             var k = firstLine
             // Bar lines through the trusted stretch and the one that closes its last bar.
-            while (k <= grid.lastBeat + Downbeats.BEATS_PER_BAR) {
+            while (k <= grid.lastBeat + bar) {
                 if (grid.frameOf(k) > spectrum.frames - 1) break
                 lines += k
-                k += Downbeats.BEATS_PER_BAR
+                k += bar
             }
             if (lines.size < 5) return null
             val barLines = DoubleArray(lines.size) { grid.frameOf(lines[it]) }
@@ -107,7 +117,7 @@ class Phrases(
             // The last strong bar: loud, and wholly on the trusted grid.
             var lastStrong = -1
             for (j in bars - 1 downTo 0) {
-                val onGrid = lines[j] + Downbeats.BEATS_PER_BAR - 1 <= grid.lastBeat
+                val onGrid = lines[j] + bar - 1 <= grid.lastBeat
                 if (onGrid && barDb[j] >= envelope.medianDb - STRONG_DB) {
                     lastStrong = j + 1
                     break
@@ -115,15 +125,16 @@ class Phrases(
             }
             if (lastStrong < 0) return null
 
+            val steps = if (bar == Downbeats.LONG_BAR) LONG_BAR_STEPS else STEPS
             val candidates = ArrayList<PhraseCandidate>()
-            for (step in STEPS) {
+            for (step in steps) {
                 var line = lastStrong
                 while (line >= 0) {
                     candidates += PhraseCandidate(line, step, score(line, novelty, barDb))
                     line -= step
                 }
             }
-            return Phrases(barLines, lines.toIntArray(), novelty, barDb, lastStrong, candidates)
+            return Phrases(barLines, lines.toIntArray(), novelty, barDb, lastStrong, candidates, steps)
         }
 
         /**

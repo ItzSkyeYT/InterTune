@@ -131,6 +131,9 @@ class FrontEndResult(
     val mono: FloatArray,
     val hopPower: FloatArray,
     val hopPeak: FloatArray,
+    /** Each hop's peak through a 4th-order high-pass at 120 Hz and through a 2nd-order one at 400 Hz, when they were asked for. */
+    val hopPeakAbove120: FloatArray? = null,
+    val hopPeakAbove400: FloatArray? = null,
 ) {
     val decimatedRate: Double get() = sampleRate.toDouble() / factor
     val hopFrames: Int get() = Spectrum.HOP * factor
@@ -140,11 +143,32 @@ class FrontEndResult(
 /**
  * Turns interleaved 16-bit PCM into [FrontEndResult] as it arrives, in blocks of any size, so a
  * decoder can feed it straight from its output and no full-rate copy of the region is ever kept.
+ *
+ * With [filteredPeaks], each hop's peak is also measured through the two high-passes a blend puts
+ * on the incoming song, a 4th-order one at 120 Hz (the bass held back in a beat mix) and a
+ * 2nd-order one at 400 Hz (where the smooth blend's sweep starts): taking the bass out of a master
+ * limited at full scale can raise its peaks well above the master's own, and the headroom of a
+ * blend has to know.
  */
-class FrontEnd(val sampleRate: Int, val channels: Int) {
+class FrontEnd @JvmOverloads constructor(val sampleRate: Int, val channels: Int, filteredPeaks: Boolean = false) {
 
     init {
         require(sampleRate > 0 && channels > 0)
+    }
+
+    private val above120 = if (filteredPeaks) Array(2) { Biquad(channels) } else null
+    private val above400 = if (filteredPeaks) Biquad(channels) else null
+    private val hopPeak120 = if (filteredPeaks) FloatList(4096) else null
+    private val hopPeak400 = if (filteredPeaks) FloatList(4096) else null
+    private var hopMax120 = 0.0
+    private var hopMax400 = 0.0
+
+    init {
+        above120?.let { sections ->
+            val q = Biquad.qualities(4)
+            for (i in sections.indices) sections[i].set(FilterKind.HIGH_PASS, 120.0, q[i], sampleRate)
+        }
+        above400?.set(FilterKind.HIGH_PASS, 400.0, Biquad.qualities(2)[0], sampleRate)
     }
 
     val factor = Pcm.decimationFor(sampleRate)
@@ -163,6 +187,8 @@ class FrontEnd(val sampleRate: Int, val channels: Int) {
     fun push(samples: ShortArray, offsetFrames: Int = 0, frameCount: Int = samples.size / channels - offsetFrames) {
         var i = offsetFrames * channels
         val inverse = 1.0 / (Pcm.FULL_SCALE * channels)
+        val above120 = above120
+        val above400 = above400
         repeat(frameCount) {
             var sum = 0
             for (c in 0 until channels) {
@@ -171,6 +197,13 @@ class FrontEnd(val sampleRate: Int, val channels: Int) {
                 hopSquares += s.toDouble() * s
                 val a = if (s < 0) -s else s
                 if (a > hopMax) hopMax = a
+                if (above120 != null && above400 != null) {
+                    var y = s.toDouble()
+                    for (section in above120) y = section.process(y, c)
+                    if (kotlin.math.abs(y) > hopMax120) hopMax120 = kotlin.math.abs(y)
+                    val z = above400.process(s.toDouble(), c)
+                    if (kotlin.math.abs(z) > hopMax400) hopMax400 = kotlin.math.abs(z)
+                }
             }
             decimator.push(sum * inverse, mono)
             hopFill++
@@ -183,21 +216,33 @@ class FrontEnd(val sampleRate: Int, val channels: Int) {
         val scale = 1.0 / (Pcm.FULL_SCALE.toDouble() * Pcm.FULL_SCALE * channels * hopFill)
         hopPower.add((hopSquares * scale).toFloat())
         hopPeak.add(hopMax / Pcm.FULL_SCALE)
+        hopPeak120?.add((hopMax120 / Pcm.FULL_SCALE).toFloat())
+        hopPeak400?.add((hopMax400 / Pcm.FULL_SCALE).toFloat())
         hopSquares = 0.0
         hopMax = 0
+        hopMax120 = 0.0
+        hopMax400 = 0.0
         hopFill = 0
     }
 
     /** Everything pushed so far. A last partial hop counts as a hop of its own. */
     fun result(): FrontEndResult {
         if (hopFill > 0) closeHop()
-        return FrontEndResult(sampleRate, channels, factor, frames, mono.toArray(), hopPower.toArray(), hopPeak.toArray())
+        return FrontEndResult(
+            sampleRate, channels, factor, frames, mono.toArray(), hopPower.toArray(), hopPeak.toArray(),
+            hopPeak120?.toArray(), hopPeak400?.toArray(),
+        )
     }
 
     companion object {
         /** The whole of [samples] at once. */
-        fun of(samples: ShortArray, sampleRate: Int, channels: Int, fromFrame: Int = 0, frameCount: Int = samples.size / channels - fromFrame): FrontEndResult {
-            val front = FrontEnd(sampleRate, channels)
+        @JvmStatic
+        @JvmOverloads
+        fun of(
+            samples: ShortArray, sampleRate: Int, channels: Int, fromFrame: Int = 0,
+            frameCount: Int = samples.size / channels - fromFrame, filteredPeaks: Boolean = false,
+        ): FrontEndResult {
+            val front = FrontEnd(sampleRate, channels, filteredPeaks)
             front.push(samples, fromFrame, frameCount)
             return front.result()
         }

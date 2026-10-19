@@ -46,6 +46,25 @@ class DownbeatTest {
     }
 
     @Test
+    fun aSlowSongOnAGridAtTwiceItsBeatFindsItsOneOrClaimsNone() {
+        // Under 85 BPM the grid runs at twice the song's beat, and four beats of it are half a
+        // bar: the song's beat 1 and beat 3 must not be taken for each other, whether it opens on
+        // its one or with a two-beat pickup.
+        var claimed = 0
+        for (groove in listOf(Groove.BACKBEAT, Groove.HALF_TIME)) for (bpm in listOf(68.0, 72.0, 76.0, 80.0, 84.0)) for (pickup in listOf(0, 2)) {
+            val song = Synth.song(SynthSpec(bpm = bpm, bars = 14, groove = groove, seed = 5))
+            val skip = (4 - pickup) % 4 * 60.0 / bpm
+            val h = Heard.of(song, skip, skip + 30.0)
+            val bars = h.rhythm.downbeats?.beatsPerBar
+            println(h.line("$groove $bpm, pickup $pickup") + " | bar $bars")
+            if (!h.rhythm.gates.downbeats) continue
+            claimed++
+            assertEquals("$groove $bpm, pickup $pickup", 1.0, h.downbeatAccuracy(), 0.0)
+        }
+        assertTrue("bars claimed in $claimed of 20", claimed >= 10)
+    }
+
+    @Test
     fun aWaltzReadInFoursIsNotConfident() {
         for (seed in 1L..3L) {
             val h = heard(SynthSpec(bpm = 120.0, bars = 22, groove = Groove.WALTZ, seed = seed))
@@ -73,5 +92,11 @@ class DownbeatTest {
         assertEquals(2, bars.firstAtOrAfter(2))
         assertEquals(2, bars.lastAtOrBefore(5))
         assertEquals(-2, bars.lastAtOrBefore(1))
+        // Bars of eight beats of the grid.
+        val long = Downbeats(phase = 6, margin = 5.0, scores = DoubleArray(4), beatsPerBar = Downbeats.LONG_BAR)
+        assertTrue(long.isDownbeat(14))
+        assertFalse(long.isDownbeat(10))
+        assertEquals(14, long.firstAtOrAfter(7))
+        assertEquals(6, long.lastAtOrBefore(13))
     }
 }

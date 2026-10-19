@@ -202,22 +202,131 @@ class PlannerTest {
     @Test
     fun theBeatMixLinesTheBarsUp() {
         val plan = Planner.plan(input(tail128, head124))
-        // The incoming song's first downbeat is heard on the overlap's first frame, and the
-        // outgoing song's downbeat there too.
+        // The incoming song's first downbeat is heard on the overlap's first frame (the lock
+        // check starts there), and the outgoing song's downbeat there too: the beat after the
+        // ramp among the stretch's anchors, which are its beats on the line the mix lines up on.
         val downB = head124.beatFrame(head124.firstDownbeat!!)
-        assertEquals(plan.overlapStart, plan.bStart + downB, 1.0)
+        assertEquals(plan.overlapStart, plan.bStart + plan.lockFrom.toDouble(), 1.0)
+        assertEquals("the line through the beats used is the song's own, to a millisecond", downB, plan.lockFrom.toDouble(), rate / 1000.0)
         val tailFrame = plan.aMap.tailAt(plan.overlapStart)
+        assertEquals(tailFrame, plan.anchors[Planner.RAMP_BEATS], 1.0)
         val beat = tail128.beatNear(tailFrame)
-        assertEquals(tailFrame, tail128.beatFrame(beat), 1.0)
         assertTrue("on a downbeat", tail128.downbeats!!.isDownbeat(beat))
         // And through the overlap, beat k of the incoming song falls on beat k of the outgoing one.
-        val period = head124.periodFrames!!
-        for (k in 0 until plan.bars * 4) {
+        val period = (plan.overlapEnd - plan.overlapStart) / plan.beats
+        for (k in 0 until plan.beats) {
             val out = plan.overlapStart + k * period
             val a = plan.aMap.tailAt(out)
-            val nearest = tail128.beatFrame(tail128.beatNear(a))
-            assertTrue("beat $k: %.2f ms apart".format((a - nearest) / rate * 1000), abs(a - nearest) / rate < 0.002)
+            val anchor = plan.anchors[Planner.RAMP_BEATS + k]
+            assertTrue("beat $k: %.2f ms apart".format((a - anchor) / rate * 1000), abs(a - anchor) / rate < 0.0005)
         }
+    }
+
+    @Test
+    fun slowSongsOnAGridAtTwiceTheirBeatPutTheOneOnTheOne() {
+        // Songs under 85 BPM get a grid at twice their beat. Whether the outgoing song ends two
+        // beats into a bar or the incoming one opens with a two-beat pickup, a beat mix lines up
+        // the two songs' own bars, or is not made at all.
+        var beats = 0
+        for ((bpmA, bpmB) in listOf(76.0 to 78.0, 80.0 to 79.0, 72.0 to 74.0)) for (cutA in listOf(false, true)) for (pickup in listOf(0, 2)) {
+            val a = Synth.song(SynthSpec(bpm = bpmA, bars = 40, groove = Groove.BACKBEAT, seed = 1))
+            val b = Synth.song(SynthSpec(bpm = bpmB, bars = 40, groove = Groove.BACKBEAT, seed = 2))
+            val end = a.seconds - (if (cutA) 2 * 60.0 / bpmA else 0.0)
+            val tailFrom = end - 40.0
+            val skip = (4 - pickup) % 4 * 60.0 / bpmB
+            val plan = Planner.plan(input(tailOf(a.slice(tailFrom, end)), headOf(b.slice(skip, skip + 30.0))))
+            val label = "$bpmA into $bpmB" + (if (cutA) ", ending two beats into a bar" else "") + (if (pickup > 0) ", a two-beat pickup" else "")
+            println("$label: ${plan.describe()}")
+            if (plan.style != Style.BEAT) continue
+            beats++
+            // Where each song is in its own bars where the overlap starts: on a bar line, both.
+            val aSeconds = plan.aMap.tailAt(plan.overlapStart) / rate + tailFrom
+            val bSeconds = (plan.overlapStart - plan.bStart) / rate + skip
+            assertEquals(label, 0.0, barPosition(aSeconds, a), 0.02)
+            assertEquals(label, 0.0, barPosition(bSeconds, b), 0.02)
+        }
+        assertTrue("$beats beat mixes of 12", beats >= 6)
+    }
+
+    /** Where [seconds] falls in [song]'s own bar, 0 on the one, 0.5 on beat 3. */
+    private fun barPosition(seconds: Double, song: SynthSong): Double {
+        val last = song.allDownbeats.last { it <= seconds + 0.02 }
+        val x = (seconds - last) / (240.0 / song.spec.bpm)
+        return if (x > 0.98) x - 1 else x
+    }
+
+    @Test
+    fun aSongWhoseTempoDriftsIsMixedOnTheBeatsTheMixUsesOrNotAtAll() {
+        // A played record drifting by 0.9% over its last 40 s into a steady song: through the
+        // overlap, every beat of the outgoing song as the plan puts it within 10 ms of the incoming
+        // song's own, or no beat mix. The line through all of the region was 26 ms off here.
+        val a = Synth.song(SynthSpec(bpm = 124.0, bars = 23, rampPercent = 0.9, seed = 1))
+        val b = Synth.song(SynthSpec(bpm = 126.0, bars = 24, seed = 2))
+        val tailFrom = a.seconds - 40.0
+        val plan = Planner.plan(input(tailOf(a.slice(tailFrom)), headOf(firstSeconds(b))))
+        println(plan.describe())
+        if (plan.style != Style.BEAT) return
+        val from = plan.aMap.tailAt(plan.overlapStart)
+        val to = plan.aMap.tailAt(plan.overlapEnd)
+        var worst = 0.0
+        var counted = 0
+        for (t in a.allBeats) {
+            val tail = (t - tailFrom) * rate
+            if (tail < from - 1 || tail > to + 1) continue
+            val inB = (plan.aMap.outAt(tail) - plan.bStart) / rate
+            worst = maxOf(worst, b.allBeats.minOf { abs(it - inB) } * 1000)
+            counted++
+        }
+        println("worst %.1f ms over %d beats".format(worst, counted))
+        assertTrue("$counted beats", counted >= plan.beats - 2)
+        assertTrue("worst %.1f ms".format(worst), worst <= 10.0)
+    }
+
+    @Test
+    fun twoSteadyBeatsWhoseBarsAreNotTrustedAreNeverBlendedForLongerThanABeat() {
+        // A waltz read in fours keeps a steady beat but no trusted bars: into a steady 4/4 the
+        // change is a cut on one of its beats, a beat long, never a blend of two pulses that
+        // slide apart.
+        val waltz = tailOf(lastSeconds(Synth.song(SynthSpec(bpm = 120.0, bars = 30, groove = Groove.WALTZ, seed = 3))))
+        assertTrue(waltz.beatsConfident && !waltz.barsConfident)
+        val beat = 60.0 / waltz.bpm!!
+        val plan = Planner.plan(input(waltz, head124))
+        println(plan.describe())
+        assertEquals(Style.CUT, plan.style)
+        assertEquals(beat, plan.seconds, 0.01)
+        // Asked to blend, the pair blends over a beat only, and the smooth blend is refused.
+        assertTrue(Planner.planStyle(input(waltz, head124), Style.BLEND)!!.seconds <= beat + 0.01)
+        assertEquals(null, Planner.planStyle(input(waltz, head124), Style.SMOOTH))
+        // Where one of the two keeps no steady beat, the blends are as long as ever.
+        val padPlan = Planner.plan(input(waltz, headOf(Synth.pad(30.0))))
+        println(padPlan.describe())
+        assertTrue(padPlan.style == Style.SMOOTH || padPlan.style == Style.BLEND)
+        assertTrue(padPlan.seconds >= Planner.BLEND_MIN_S)
+    }
+
+    @Test
+    fun theSmoothBlendHandsTheBassOverAsTheIncomingHighPassOpens() {
+        val plan = Planner.plan(input(tailOf(Synth.noise(40.0, seed = 21)), headOf(Synth.noise(30.0, seed = 22))))
+        assertEquals(Style.SMOOTH, plan.style)
+        val bassOut = plan.filtersA.single { it.kind == FilterKind.HIGH_PASS }
+        val bassIn = plan.filtersB.single()
+        // The outgoing song's bass goes while the incoming high-pass falls from 120 to 40 Hz.
+        assertEquals(120.0, bassIn.cutoffAt(bassOut.sweepFrom), 1.0)
+        assertEquals(40.0, bassIn.cutoffAt(bassOut.sweepTo), 1.0)
+        assertEquals(Planner.SWEEP_FLOOR_HZ, bassOut.cutoffAt(bassOut.sweepFrom), 0.01)
+        assertEquals(Planner.BASS_SWAP_HZ, bassOut.cutoffAt(bassOut.sweepTo), 0.01)
+        assertTrue(bassOut.end >= plan.aGone)
+    }
+
+    @Test
+    fun noBeatMixGoesIntoASongThatDidNotLineUpLastTime() {
+        val plan = Planner.plan(PlanInput(
+            tail = tail128, head = head124, readMark = 6L * rate, aDurationMs = 180_000, bDurationMs = 180_000,
+            beatRefused = "it did not line up last time",
+        ))
+        println(plan.describe())
+        assertTrue(plan.style != Style.BEAT)
+        assertTrue(plan.reason, plan.reason.contains("it did not line up last time"))
     }
 
     @Test

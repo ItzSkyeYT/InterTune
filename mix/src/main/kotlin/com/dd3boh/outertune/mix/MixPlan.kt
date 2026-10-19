@@ -270,7 +270,12 @@ class MixPlan(
     val lockTo: Long,
     /** The outgoing song's speed through the overlap. */
     val speed: Double,
+    /** The overlap of a beat mix in the incoming song's own bars. */
     val bars: Int,
+    /** The overlap of a beat mix in beats of the grids, which both songs share: four or eight to the bar. */
+    val beats: Int = 0,
+    /** The tail frames of the outgoing song's beats the stretch must land exactly where the time map puts them. */
+    val anchors: DoubleArray = DoubleArray(0),
 ) {
     val isGapless: Boolean get() = style == Style.GAPLESS
 
