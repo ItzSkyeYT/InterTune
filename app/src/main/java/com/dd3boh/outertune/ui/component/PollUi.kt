@@ -66,6 +66,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil3.compose.AsyncImage
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import com.dd3boh.outertune.ui.utils.DialogAboveKeyboard
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.window.DialogWindowProvider
+import androidx.core.view.WindowCompat
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.Polls
 import com.dd3boh.outertune.utils.PollChecker
@@ -186,8 +198,24 @@ fun PollDialog(
 
     Dialog(
         onDismissRequest = onClose,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
+        // Edge to edge, because only then does the page hear where the keyboard is: fitted to the
+        // system bars, the window was slid up or left as it was, and Send stayed under the keyboard.
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
+        // The poll fills the screen, so with the keyboard up it has to shrink rather than slide.
+        DialogAboveKeyboard(always = true)
+        // Edge to edge, the status bar's icons are the poll's to set: dark on a light page.
+        val view = LocalView.current
+        val lightPage = MaterialTheme.colorScheme.surface.luminance() > 0.5f
+        DisposableEffect(view, lightPage) {
+            (view.parent as? DialogWindowProvider)?.window?.let { window ->
+                WindowCompat.getInsetsController(window, view).apply {
+                    isAppearanceLightStatusBars = lightPage
+                    isAppearanceLightNavigationBars = lightPage
+                }
+            }
+            onDispose { }
+        }
         Surface(
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.surface,
@@ -196,6 +224,9 @@ fun PollDialog(
                 Modifier
                     .fillMaxSize()
                     .windowInsetsPadding(WindowInsets.systemBars)
+                    // Where the window is not resized for the keyboard (Android 15 and later),
+                    // the page ends where the keyboard begins, so Send stays in sight.
+                    .imePadding()
             ) {
                 // Enough for two readable columns rather than two cramped ones. Below this a phone,
                 // or a tablet held upright, still gets the single column.
@@ -335,8 +366,16 @@ private fun PollOptions(
             multiple = poll.multiple,
             onClick = { onToggle(option) },
         )
-        // An "Other" choice opens a box for the person's own words, right under it.
+        // An "Other" choice opens a box for the person's own words, right under it, with the
+        // cursor in it and the keyboard up: picking Other means there is something to write.
         if (option.other && option.id in selected) {
+            val focus = remember { FocusRequester() }
+            val keyboard = LocalSoftwareKeyboardController.current
+            LaunchedEffect(Unit) {
+                withFrameNanos { }
+                focus.requestFocus()
+                keyboard?.show()
+            }
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(
                 value = otherText,
@@ -346,7 +385,9 @@ private fun PollOptions(
                 minLines = 2,
                 maxLines = 5,
                 shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(focus),
             )
         }
         Spacer(Modifier.height(10.dp))

@@ -49,4 +49,15 @@ class PollOtherTest {
             }
         }
     }
+
+    @Test
+    fun `picking Other puts the cursor in the box, and the poll makes room for the keyboard`() {
+        val ui = File("src/main/java/com/dd3boh/outertune/ui/component/PollUi.kt").readText()
+        // Typed into nothing, the letters went to the poll's window and it closed (emulator, 19 Oct).
+        assertTrue(ui.contains(".focusRequester(focus)"))
+        assertTrue(ui.contains("focus.requestFocus()"))
+        // Moved up rather than shrunk, the question went under the status bar and Send under the keyboard.
+        assertTrue(ui.contains("DialogAboveKeyboard(always = true)"))
+        assertTrue(ui.contains(".imePadding()"))
+    }
 }
