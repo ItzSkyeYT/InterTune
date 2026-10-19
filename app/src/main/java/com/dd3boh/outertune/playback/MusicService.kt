@@ -151,9 +151,15 @@ import com.dd3boh.outertune.constants.ShareAudioFocusKey
 import com.dd3boh.outertune.constants.SkipSilenceKey
 import com.dd3boh.outertune.constants.StopMusicOnTaskClearKey
 import com.dd3boh.outertune.constants.TransitionFadeKey
+import com.dd3boh.outertune.constants.AutomixKey
+import com.dd3boh.outertune.constants.AutomixStyleKey
+import com.dd3boh.outertune.mix.Style
 import com.dd3boh.outertune.playback.automix.AutomixAudioProcessor
 import com.dd3boh.outertune.playback.automix.AutomixAudioSink
+import com.dd3boh.outertune.playback.automix.AutomixController
 import com.dd3boh.outertune.playback.automix.AutomixProcessorChain
+import com.dd3boh.outertune.playback.automix.AutomixVolume
+import com.dd3boh.outertune.playback.automix.HeadDecoder
 import androidx.media3.common.audio.AudioProcessorChain
 import com.dd3boh.outertune.constants.TransitionFadeSecondsKey
 import com.dd3boh.outertune.constants.minPlaybackDurKey
@@ -255,8 +261,6 @@ import java.time.LocalDateTime
 import java.util.concurrent.ConcurrentHashMap
 import java.time.ZonedDateTime
 import javax.inject.Inject
-import kotlin.math.min
-import kotlin.math.pow
 import androidx.media3.exoplayer.source.LoadEventInfo
 import androidx.media3.exoplayer.source.MediaLoadData
 
@@ -623,11 +627,18 @@ class MusicService : MediaLibraryService(),
     private lateinit var transitionFade: TransitionFade
 
     /**
-     * AutoMix's stage, the last of the audio chain. Made only with Unreleased.AUTOMIX on: with it
-     * off it does not exist, and the chain and the sink are built as they always were. Nothing
-     * asks it to take part yet, so it stays out of the chain.
+     * AutoMix's stage, the last of the audio chain, and what decides for it. Made only with
+     * Unreleased.AUTOMIX on: with it off neither exists, and the chain, the sink and the volume are
+     * built as they always were. With it on and the setting off the stage stays out of the chain.
      */
     private val automixStage: AutomixAudioProcessor? = if (Unreleased.AUTOMIX) AutomixAudioProcessor() else null
+    private var automix: AutomixController? = null
+
+    /** Whether normalisation is on, for AutoMix to work out the next song's level off the main thread. */
+    @Volatile private var automixNormalizeAudio = true
+
+    /** Debug builds only: the style every AutoMix change is asked to take, from the developer options. */
+    @Volatile private var automixForcedStyle: Style? = null
 
     private val sleepTimerNotification by lazy { SleepTimerNotification(this) }
 
@@ -635,7 +646,7 @@ class MusicService : MediaLibraryService(),
      * Measures the music for the player's living background, on its way into the audio output. It
      * looks at nothing unless that background is on screen (LevelTap.wanted).
      */
-    val levelTap = LevelTap()
+    val levelTap = LevelTap(timelineGrowsTo = if (Unreleased.AUTOMIX) LevelTimeline.AHEAD_CAPACITY else LevelTimeline.CAPACITY)
 
     /**
      * Applies gain on the PCM stream, which is the only way to exceed unity: player.volume is
@@ -890,8 +901,11 @@ class MusicService : MediaLibraryService(),
         installedNowPlayingProvider = provider
         loudnessRepair.nowPlayingIdProvider = provider
 
+        // One instance, kept: AutoMix reads the next song's opening through the very source the
+        // player reads songs through, so a song is resolved once and its address kept for both.
+        val playerSource = createDataSourceFactory()
         exoPlayer = ExoPlayer.Builder(this)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(createDataSourceFactory()))
+            .setMediaSourceFactory(DefaultMediaSourceFactory(playerSource))
             .setRenderersFactory(createRenderersFactory(isGaplessOffloadAllowed))
             .setHandleAudioBecomingNoisy(true)
             .setWakeMode(C.WAKE_MODE_NETWORK)
@@ -923,6 +937,16 @@ class MusicService : MediaLibraryService(),
                 }
                 transitionFade = TransitionFade(scope, this)
                 addListener(transitionFade)
+                // AutoMix follows the phone's own player too, as the fade does.
+                if (Unreleased.AUTOMIX) {
+                    automixStage?.let { stage ->
+                        automix = AutomixController(
+                            this, stage, HeadDecoder(playerSource), scope,
+                            conditions = { automixConditions() },
+                            normalizationOf = { id -> automixNormalization(id) },
+                        ).also { addListener(it) }
+                    }
+                }
                 addAnalyticsListener(PlaybackStatsListener(false, this@MusicService))
                 // A song whose cached copy cannot be read is given up, so a retry reads it whole. See BadCachedCopy.
                 addAnalyticsListener(object : AnalyticsListener {
@@ -1084,12 +1108,15 @@ class MusicService : MediaLibraryService(),
                     .onFailure { Log.w(TAG, "Could not backfill the play log", it) }
             }
 
+            // With AutoMix there is one more reason to work the volume out again: its stage joining
+            // or leaving the chain, which moves normalisation off the volume and onto the samples.
+            val stageNormalises = automix?.stageNormalises
             combine(
                 playerVolume,
                 normalizeFactor,
                 sleepTimer.fadeFactor,
                 proximityVolume.factor,
-                transitionFade.factor,
+                if (Unreleased.AUTOMIX && stageNormalises != null) combine(transitionFade.factor, stageNormalises) { fade, _ -> fade } else transitionFade.factor,
             ) { playerVolume, normalizeFactor, fadeFactor, proximityFactor, transitionFactor ->
                 playerVolume * normalizeFactor * fadeFactor * proximityFactor * transitionFactor
             }.collectLatest(scope) { _ ->
@@ -1110,7 +1137,9 @@ class MusicService : MediaLibraryService(),
                 // Only gain above unity goes to the processor, which is where the soft clip lives.
                 // min(total, 1f) is exactly 1f whenever total > 1, so the two stages are disjoint
                 // and their product is exact, with no division to reconstruct.
-                val total = normalizeFactor.value * playerVolume.value
+                val normalize = normalizeFactor.value
+                val volume = playerVolume.value
+                val total = normalize * volume
                 gainProcessor.gain = total
                 withContext(Dispatchers.Main) {
                     // Proximity belongs on this side of the split for the same reason
@@ -1118,8 +1147,15 @@ class MusicService : MediaLibraryService(),
                     // cannot skip it. So do both fades, the sleep timer's and the one between
                     // songs. The combine above only decides when to recompute, so anything left
                     // out of this line does nothing at all.
-                    exoPlayer.volume = min(total, 1f) * sleepTimer.fadeFactor.value *
-                        proximityVolume.factor.value * transitionFade.factor.value
+                    //
+                    // While AutoMix's stage is in the chain it scales each song by its own
+                    // normalisation instead, so that the two songs of a blend keep theirs, and the
+                    // volume leaves it out; the product is the same (AutomixVolume). Without AutoMix
+                    // this is min(total, 1) times the rest, as it always was.
+                    exoPlayer.volume = AutomixVolume.playerVolume(
+                        normalize, volume, sleepTimer.fadeFactor.value, proximityVolume.factor.value,
+                        transitionFade.factor.value, stageNormalises?.value == true,
+                    )
                 }
             }
 
@@ -1507,8 +1543,12 @@ class MusicService : MediaLibraryService(),
                     .distinctUntilChanged(),
                 dataStore.data
                     .map { it[TransitionFadeSecondsKey] ?: TransitionFadeEnvelope.DEFAULT_SECONDS }
-                    .distinctUntilChanged()
-            ) { fade, seconds -> fade to seconds }
+                    .distinctUntilChanged(),
+                // AutoMix carries each song into the next by itself, and the fade would only dip it.
+                dataStore.data
+                    .map { Unreleased.AUTOMIX && (it[AutomixKey] ?: false) }
+                    .distinctUntilChanged(),
+            ) { fade, seconds, automixOn -> (fade && !automixOn) to seconds }
                 .collectLatest(scope) { (fade, seconds) ->
                     transitionFade.fadeMs = TransitionFadeEnvelope.fadeMsFor(seconds)
                     if (transitionFade.enabled == fade) return@collectLatest
@@ -1529,46 +1569,27 @@ class MusicService : MediaLibraryService(),
                 formatAndLocal to normalizeAudio
             }.collectLatest(scope) { (formatAndLocal, normalizeAudio) ->
                 val (format, isLocal) = formatAndLocal
-                // Reject impossible values rather than trusting the column. The observed range over
-                // 3178 real rows is -16.5 to +12.6, so this only ever catches corruption.
-                val loudnessDb = format?.loudnessDb
-                    ?.takeIf { it.isFinite() && it in -60.0..40.0 }
-                    ?.toFloat()
+                // The rule is in Normalization, which AutoMix also asks about the next song.
+                normalizeFactor.value = Normalization.factor(format?.loudnessDb, isLocal, normalizeAudio)
+            }
 
-                normalizeFactor.value = when {
-                    // Off is the only case allowed to leave the signal at unity.
-                    !normalizeAudio -> 1f
-
-                    // A local file has no YouTube loudness and never will. The repair scan excludes
-                    // local rows deliberately, and nothing else writes the column for them, so
-                    // falling through to the presumed value would attenuate every local file by
-                    // 13 dB permanently with no way to undo it from inside the app. Levelling local
-                    // files properly needs ReplayGain or R128 tags read at scan time, which does
-                    // not exist yet, so until then they are left alone.
-                    isLocal -> 1f
-
-                    // loudnessDb is how far above YouTube's -14 LKFS target this track sits.
-                    // Everything above the reference is pulled down to it; everything below is left
-                    // alone, because setVolume cannot exceed 1 and so cannot boost.
-                    //
-                    // The reference is set low on purpose. Normalising to YouTube's own target left
-                    // nearly half the library untouched and still varying; going lower trades
-                    // absolute loudness, which the device volume can recover, for consistency,
-                    // which it cannot.
-                    loudnessDb != null ->
-                        min(10f.pow(-(loudnessDb - NORMALIZATION_REFERENCE_DB) / 20), 1f)
-
-                    // Loudness unknown. This used to be 1f, meaning no attenuation, which is the
-                    // LOUDEST possible answer to "I do not know". Since every track that does have
-                    // a value is pulled down 6 to 10 dB, an unknown one stood out by up to 16 dB.
-                    // That is the entire "some songs are much louder" complaint.
-                    //
-                    // Assume it is loud instead. Being wrong quietly is recoverable with the volume
-                    // rocker; being wrong loudly is not.
-                    else -> min(
-                        10f.pow(-(UNKNOWN_LOUDNESS_DB - NORMALIZATION_REFERENCE_DB) / 20),
-                        1f
-                    )
+            // AutoMix: the setting, and what it needs to know as it changes. Only with the flag.
+            if (Unreleased.AUTOMIX) {
+                dataStore.data.map { it[AutomixKey] ?: false }.distinctUntilChanged()
+                    .collectLatest(scope) { on ->
+                        automix?.enabled = on
+                        // Offload skips the chain, the stage with it.
+                        applyOffload()
+                    }
+                dataStore.data.map { it[AudioNormalizationKey] ?: true }.distinctUntilChanged()
+                    .collectLatest(scope) { on ->
+                        automixNormalizeAudio = on
+                        automix?.levelsChanged(normalizationSettingChanged = true)
+                    }
+                playerVolume.collectLatest(scope) { automix?.levelsChanged(normalizationSettingChanged = false) }
+                if (BuildConfig.DEBUG) {
+                    dataStore.data.map { it[AutomixStyleKey] }.distinctUntilChanged()
+                        .collectLatest(scope) { name -> automixForcedStyle = name?.let { runCatching { Style.valueOf(it) }.getOrNull() } }
                 }
             }
 
@@ -2186,7 +2207,8 @@ class MusicService : MediaLibraryService(),
      * changes.
      */
     private fun applyOffload() {
-        val needsOffloadOff = spatialUpmixProcessor.enabled || binauralProcessor.enabled || transitionFade.enabled
+        val needsOffloadOff = spatialUpmixProcessor.enabled || binauralProcessor.enabled || transitionFade.enabled ||
+            (Unreleased.AUTOMIX && automix?.enabled == true)
         exoPlayer.setOffloadEnabled(!needsOffloadOff && dataStore.get(AudioOffloadKey, false))
     }
 
@@ -2727,6 +2749,28 @@ class MusicService : MediaLibraryService(),
     private fun withAutomix(sink: AudioSink): AudioSink {
         val stage = automixStage
         return if (Unreleased.AUTOMIX && stage != null) AutomixAudioSink(sink, stage) else sink
+    }
+
+    /** What AutoMix's guards need from this service. Main thread. */
+    private fun automixConditions() = AutomixController.Conditions(
+        casting = isCasting,
+        sleepTimer = sleepTimer.isActive,
+        // The setting, not whether it runs: the sink was built with the short buffer for it.
+        headTracking = headTrackingWanted || lowLatencyAudio,
+        upmix = spatialUpmixProcessor.enabled,
+        ambience = binauralProcessor.enabled && binauralProcessor.ambience > 0f,
+        ffmpeg = ENABLE_FFMETADATAEX && audioDecoder != DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF,
+        normalizeNow = normalizeFactor.value,
+        volume = playerVolume.value,
+        forcedStyle = if (BuildConfig.DEBUG) automixForcedStyle else null,
+    )
+
+    /** A song's normalisation by the rule the player uses, from what is stored: the bounded read, on IO. */
+    private fun automixNormalization(id: String): Pair<Float, Boolean>? {
+        val normalize = automixNormalizeAudio
+        val loudness = database.readOrNull { formatRow(id) }?.loudnessDb
+        val isLocal = queueBoard.getCurrentQueue()?.findSong(id)?.isLocal ?: (database.readOrNull { songRow(id) }?.isLocal == true)
+        return Normalization.factor(loudness, isLocal, normalize) to Normalization.isFinal(loudness, isLocal, normalize)
     }
 
     private fun createRenderersFactory(gaplessOffloadAllowed: Boolean): DefaultRenderersFactory {
@@ -4036,6 +4080,7 @@ class MusicService : MediaLibraryService(),
         // receiver's song and position, and the release below reaches the phone's own player.
         castSession?.release()
         castSession = null
+        automix?.release()
         if (Unreleased.AUTO_REWORK) carType.removeObserver(carWatch)
         headTracking.stop(glideHome = false)
         proximityVolume.stop()

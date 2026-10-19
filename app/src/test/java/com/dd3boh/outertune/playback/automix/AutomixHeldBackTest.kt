@@ -100,4 +100,26 @@ class AutomixHeldBackTest {
         assertEquals(2, Regex("""\.setAudioProcessorChain\(\s*withAutomix\(""").findAll(factory).count())
         assertEquals(2, Regex("""\.let \{ withAutomix\(it\) \}\s*\.let \{ LevelTapAudioSink\(it, levelTap\) \}""").findAll(factory).count())
     }
+
+    @Test
+    fun `the controller is made only under the flag, and the setting is off until it is switched on`() {
+        val text = code(source("playback/MusicService.kt"))
+        val made = text.substringBefore("automix = AutomixController(").substringAfterLast("if (Unreleased.AUTOMIX) {")
+        assertTrue("the controller is made outside the flag's check", made.lines().size < 4)
+        assertTrue("dataStore.data.map { it[AutomixKey] ?: false }.distinctUntilChanged()" in service)
+        assertTrue(".map { Unreleased.AUTOMIX && (it[AutomixKey] ?: false) }" in service)
+    }
+
+    @Test
+    fun `the volume is today's unless the stage is in the chain`() {
+        val text = code(source("playback/MusicService.kt"))
+        assertTrue(text.contains(Regex("""exoPlayer\.volume = AutomixVolume\.playerVolume\(\s*normalize, volume, sleepTimer\.fadeFactor\.value, proximityVolume\.factor\.value,\s*transitionFade\.factor\.value, stageNormalises\?\.value == true,\s*\)""")))
+        assertTrue("normalizeFactor.value = Normalization.factor(format?.loudnessDb, isLocal, normalizeAudio)" in service)
+    }
+
+    @Test
+    fun `offload stays off while AutoMix is on, as for the fade`() {
+        val offload = code(source("playback/MusicService.kt")).substringAfter("private fun applyOffload()").substringBefore("\n    }")
+        assertTrue(offload, "(Unreleased.AUTOMIX && automix?.enabled == true)" in offload)
+    }
 }
