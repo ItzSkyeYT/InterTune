@@ -248,6 +248,24 @@ class AdaptivePassTest {
         assertEquals("a banned song with no pick is taken out", listOf(9), none.plan.dropped.map { it.slot.index })
     }
 
+    @Test
+    fun `an artist skipped now and then can still be picked, after the others, and is not chosen again for it`() {
+        val taste = tasteSkipping("Band M", 1)
+        val q = (0 until 20).map { if (it == 8) song("B8", artist = "Banned Band") else song("X$it") }
+        val withBan = QueueFit.Taste(taste.now, taste.stats, taste.habits, taste.weights, taste.songs, bannedArtists = setOf("banned band"))
+        val h = heard(q[0] to Leave.RAN_OUT, q[1] to null)
+        val related = listOf(song("M1", artist = "Band M"), song("F1", artist = "Fresh"))
+        val r = AdaptivePass.run(input(h, q, AdaptivePass.Kind.ORDINARY, listOf(AdaptivePass.Source("X0", related)), taste = withBan))
+        assertEquals("both usable", setOf("M1", "F1"), r.songs.keys)
+        assertEquals("the one with no habit first", "F1", r.plan.replaced.single().pick.id)
+
+        // Placed as a pick, its habit is not a reason to choose its place again.
+        h.picked(mapOf("M1" to "X0"))
+        val placed = q.toMutableList().also { it[7] = related[0] }
+        val again = AdaptivePass.run(input(h, placed, AdaptivePass.Kind.ORDINARY, emptyList(), taste = taste))
+        assertEquals(null, again.slots.first { it.id == "M1" }.byScore)
+    }
+
     // ---- What a pick may be.
 
     @Test

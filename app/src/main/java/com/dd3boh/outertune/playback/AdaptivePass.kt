@@ -28,7 +28,8 @@ import java.util.Locale
  * queue would argue with itself: not in the queue or reached in this run by id or by version
  * ([RadioPage.fresh]), not taken out by an earlier pass, not turned down or out of place by its
  * words, not a preview, not banned, not a lasting dislike, playable (offline: on the phone), not
- * heard in this listening session or well in the last hour, and with nothing of its own against it.
+ * heard in this listening session or well in the last hour, and with nothing from this sitting
+ * against it: no artist skipped once, no words against the run, not on the skipped song's list.
  *
  * No Android in here, so it is tested.
  */
@@ -138,8 +139,10 @@ object AdaptivePass {
         if (taste.justHeard(song)) return false
         val score = QueueFit.score(song, taste, run)
         if (score.habit >= SkipHabits.DISLIKE) return false
-        // Nothing of its own against it, or the next pass could choose its place again.
-        if (score.oneSkip || score.habit > 0 || score.tagFit < 0 || song.id in input.skippedRelated) return false
+        // Nothing of its own against it from this sitting, or the next pass could choose its place
+        // again. A milder habit of skipping its artist stays in its fit: in a long history most
+        // artists have a skip somewhere, and leaving all of them out would leave few picks.
+        if (score.oneSkip || score.tagFit < 0 || song.id in input.skippedRelated) return false
         return true
     }
 
@@ -168,7 +171,8 @@ object AdaptivePass {
         // queue that re-chose its next five songs after every skip would drift into the library.
         val byScore = if (!open || byWords || !input.byScore || i >= TagFit.WINDOW) null else when {
             score.oneSkip -> "skipped artist"
-            score.habit > 0 -> "often skipped"
+            // Not a pick of this run: it was the best there was with this same habit counted.
+            score.habit > 0 && song.id !in view.picks -> "often skipped"
             score.tagFit < 0 -> "breaks the run"
             song.id in input.skippedRelated -> "like the song skipped"
             else -> null
