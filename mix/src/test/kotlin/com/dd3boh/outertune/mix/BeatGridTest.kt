@@ -7,7 +7,6 @@
 package com.dd3boh.outertune.mix
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.math.abs
@@ -32,7 +31,7 @@ class BeatGridTest {
         // Mixing needs the ratio of two tempos to 0.05%: over a 15 s overlap that is 8 ms.
         for ((bpm, groove) in listOf(128.0 to Groove.FOUR_ON_THE_FLOOR, 100.0 to Groove.BACKBEAT, 140.0 to Groove.HALF_TIME, 87.5 to Groove.BACKBEAT)) {
             val h = Heard.of(Synth.song(SynthSpec(bpm = bpm, bars = 24, groove = groove, seed = bpm.toLong())), 0.0, 30.0)
-            val grid = assertNotNull(h.rhythm.grid).let { h.rhythm.grid!! }
+            val grid = checkNotNull(h.rhythm.grid) { "no grid" }
             val error = abs(Tempo.fold(grid.bpm) / Tempo.fold(bpm) - 1)
             println("%-20s grid %.4f BPM, off by %.4f%%".format("$groove $bpm", grid.bpm, error * 100))
             assertTrue("$groove $bpm: off by ${error * 100}%", error < 0.0002)

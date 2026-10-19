@@ -50,7 +50,7 @@ data class SynthSpec(
     val sampleRate: Int = 44_100,
     /** Bars of music with drums, after the intro and before the outro. */
     val bars: Int = 32,
-    /** Bars of chords and bass alone before the drums come in. */
+    /** Bars of chords and bass alone before the drums come in, at half the level of what follows. */
     val introBars: Int = 0,
     /** Bars of quiet chords alone after the drums stop, 12 dB down, then a cut to silence. */
     val outroBars: Int = 0,
@@ -153,7 +153,12 @@ object Synth {
             val drumBar = bar - spec.introBars
             val phrase = if (drumBar >= 0) drumBar / spec.phraseBars else -1
             val outro = bar >= spec.introBars + spec.bars
-            val level = if (outro) 0.25 else 1.0
+            // An intro sits well under the music that follows it, as it does on a record.
+            val level = when {
+                outro -> 0.25
+                bar < spec.introBars -> 0.5
+                else -> 1.0
+            }
             val octave = if (phrase >= 0 && phrase % 2 == 1) 2.0 else 1.0
             val root = roots[bar % roots.size]
             if (spec.chords) {
