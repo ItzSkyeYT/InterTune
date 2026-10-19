@@ -43,7 +43,7 @@ class LyricsSourcesTest {
     fun `the lookup and the lyrics search both ask in the set order`() {
         val helper = File("src/main/java/com/dd3boh/outertune/lyrics/LyricsHelper.kt").readText()
         assertTrue("LyricsSources.order(context.dataStore.get(LyricsSourceOrderKey, \"\"))" in helper)
-        assertTrue("LyricsLookup.firstFound(lyricsProviders(), query)" in helper)
+        assertTrue("LyricsLookup.firstFound(lyricsProviders(), query" in helper)
         assertTrue("lyricsProviders().forEach { provider ->" in helper)
         assertFalse("no fixed list left", "listOf(YouTubeSubtitleLyricsProvider, LrcLibLyricsProvider" in helper)
     }
