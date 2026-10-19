@@ -382,6 +382,10 @@
     <string name="update_awaiting_confirmation">Prête. Android va vous demander de confirmer l\'installation.</string>
     <string name="update_needs_permission">Android a besoin de votre autorisation pour qu\'InterTune installe des applications. Touchez pour ouvrir ce paramètre, puis revenez et réessayez.</string>
     <string name="update_install_failed">Installation impossible : %1$s. Vous pouvez toujours la télécharger vous-même depuis la page de la version.</string>
+    <string name="update_blocked_samsung">L\'installation n\'a pas abouti. Le Bloqueur automatique de Samsung l\'a sans doute empêchée : désactivez-le le temps d\'installer, puis réactivez-le si vous voulez.</string>
+    <string name="update_blocked">L\'installation n\'a pas abouti. Réessayez, ou téléchargez la mise à jour depuis la page de la version.</string>
+    <string name="update_open_auto_blocker">Ouvrir le Bloqueur automatique</string>
+    <string name="update_try_again">Réessayer</string>
     <string name="update_open_page">Ouvrir plutôt la page de la version</string>
     <string name="update_check_description">Vérifie sur GitHub s\'il existe une version plus récente d\'InterTune à chaque ouverture de l\'application. Désactivé par défaut. Rien n\'est jamais installé sans votre confirmation.</string>
     <string name="oobe_update_check_description">InterTune n\'est pas sur une boutique d\'applications : elle consulte donc GitHub à son ouverture et vous prévient quand une nouvelle version existe. Elle peut la télécharger et l\'installer pour vous, et Android vous demande toujours de confirmer d\'abord. Vous pourrez changer cela plus tard dans les paramètres.</string>

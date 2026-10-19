@@ -256,6 +256,8 @@ import com.dd3boh.outertune.utils.ActiveCount
 import com.dd3boh.outertune.utils.PollChecker
 import com.dd3boh.outertune.utils.UpdateChecker
 import com.dd3boh.outertune.utils.UpdateInstaller
+import com.dd3boh.outertune.utils.AutoBlocker
+import com.dd3boh.outertune.ui.component.updateTrouble
 import com.dd3boh.outertune.utils.coilCoroutine
 import com.dd3boh.outertune.utils.lmScannerCoroutine
 import com.dd3boh.outertune.utils.rememberEnumPreference
@@ -830,6 +832,9 @@ class MainActivity : ComponentActivity() {
                     val observer = LifecycleEventObserver { _, event ->
                         if (event == Lifecycle.Event.ON_RESUME) {
                             canInstall = updateInstaller.canRequestInstall()
+                            updateInstaller.onShown()
+                        } else if (event == Lifecycle.Event.ON_PAUSE) {
+                            updateInstaller.onHidden()
                         }
                     }
                     lifecycleOwner.lifecycle.addObserver(observer)
@@ -882,6 +887,33 @@ class MainActivity : ComponentActivity() {
                             update = found,
                             ready = updateInstaller.isDownloaded(found.sizeBytes),
                             needsPermission = !canInstall,
+                            trouble = updateTrouble(
+                                fromFdroid = fromFdroid,
+                                blocked = installState is UpdateInstaller.State.Blocked,
+                                failed = installState is UpdateInstaller.State.Failed,
+                                samsung = AutoBlocker.likely(),
+                            ),
+                            failedReason = (installState as? UpdateInstaller.State.Failed)?.reason,
+                            downloadPercent = (installState as? UpdateInstaller.State.Downloading)
+                                ?.takeIf { updateInstaller.isBusy }
+                                ?.let { if (it.total > 0) ((it.downloaded * 100) / it.total).toInt() else -1 },
+                            onOpenAutoBlocker = {
+                                updateInstaller.acknowledge()
+                                AutoBlocker.open(this@MainActivity)
+                            },
+                            onTryAgain = {
+                                updateInstaller.acknowledge()
+                                if (!updateInstaller.canRequestInstall()) {
+                                    startActivity(
+                                        Intent(
+                                            Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                                            "package:$packageName".toUri()
+                                        )
+                                    )
+                                } else {
+                                    updateInstaller.installOrDownload(found.downloadUrl, found.sizeBytes)
+                                }
+                            },
                             onInstall = {
                                 // Android refuses to show its install prompt until this app is
                                 // allowed to install apps, and refuses silently, so send the user
@@ -900,6 +932,9 @@ class MainActivity : ComponentActivity() {
                                 }
                             },
                             onRemindLater = {
+                                // A download under way is stopped: left running, it would open
+                                // Android's install prompt for an update put off until later.
+                                if (updateInstaller.isBusy) updateInstaller.cancel()
                                 coroutineScope.launch {
                                     dataStore.edit {
                                         it[UpdateSnoozeUntilKey] =
@@ -908,6 +943,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             },
                             onCancel = {
+                                if (updateInstaller.isBusy) updateInstaller.cancel()
                                 coroutineScope.launch { updateChecker.dismiss(found.versionCode) }
                             },
                         )

@@ -7,6 +7,11 @@
 package com.dd3boh.outertune.ui.component
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.runtime.getValue
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -52,6 +57,13 @@ fun UpdatePrompt(
     ready: Boolean,
     /** True when Android has not yet been told this app may install apps. */
     needsPermission: Boolean,
+    /** Why the last try did not install, or what will stop the next one; null when nothing is known. */
+    trouble: UpdateTrouble? = null,
+    failedReason: String? = null,
+    /** While the apk downloads after a tap on Install: 0 to 100, or -1 when its size is unknown. */
+    downloadPercent: Int? = null,
+    onOpenAutoBlocker: () -> Unit = {},
+    onTryAgain: () -> Unit = {},
     onInstall: () -> Unit,
     onRemindLater: () -> Unit,
     onCancel: () -> Unit,
@@ -67,7 +79,9 @@ fun UpdatePrompt(
         onDismissRequest = onRemindLater,
         title = { Text(stringResource(R.string.update_prompt_title, update.versionName)) },
         text = {
-            Column {
+            // Scrolls on a short screen, where the trouble line and four buttons did not fit and
+            // the words were cut off.
+            Column(Modifier.verticalScroll(rememberScrollState())) {
                 // Download state decides the line, and the permission wording is only used when
                 // the apk really is downloaded, because that string says so. Checking permission
                 // first would have claimed "downloaded and ready" with nothing downloaded, which
@@ -75,7 +89,35 @@ fun UpdatePrompt(
                 // no line here at all: the button below goes to F-Droid, not to an install, so
                 // none of these would be true, and the F-Droid note underneath says where the
                 // update comes from.
-                updatePromptLine(fromFdroid, ready, needsPermission)?.let { line ->
+                // A known trouble replaces the line: it is the one thing worth reading now.
+                if (trouble != null) {
+                    Text(
+                        text = if (trouble == UpdateTrouble.FAILED) {
+                            stringResource(trouble.stringRes, failedReason ?: "")
+                        } else {
+                            stringResource(trouble.stringRes)
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                } else if (downloadPercent != null) {
+                    // Fifty megabytes on a phone's data can take a minute: without this the prompt
+                    // sat unchanged after the tap, as if the tap had done nothing.
+                    if (downloadPercent >= 0) {
+                        val shown by animateFloatAsState(downloadPercent / 100f, label = "updateDownload")
+                        LinearProgressIndicator(
+                            progress = { shown },
+                            strokeCap = StrokeCap.Round,
+                            drawStopIndicator = {},
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp).height(4.dp),
+                        )
+                    } else {
+                        LinearProgressIndicator(
+                            strokeCap = StrokeCap.Round,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp).height(4.dp),
+                        )
+                    }
+                } else updatePromptLine(fromFdroid, ready, needsPermission)?.let { line ->
                     Text(
                         text = stringResource(line.stringRes),
                         style = MaterialTheme.typography.bodyMedium,
@@ -116,6 +158,17 @@ fun UpdatePrompt(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
+                if (trouble != null) {
+                    TroubleButtons(
+                        trouble = trouble,
+                        releaseUrl = update.releaseUrl,
+                        onOpenAutoBlocker = onOpenAutoBlocker,
+                        onTryAgain = onTryAgain,
+                        onRemindLater = onRemindLater,
+                        onSkip = onCancel,
+                    )
+                    return@Column
+                }
                 Button(
                     onClick = {
                         if (fromFdroid) {
@@ -131,6 +184,7 @@ fun UpdatePrompt(
                             onInstall()
                         }
                     },
+                    enabled = downloadPercent == null,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(
@@ -162,6 +216,78 @@ fun UpdatePrompt(
         },
         dismissButton = null,
     )
+}
+
+/**
+ * What to offer when an install did not go through. With Auto Blocker, the release page would not
+ * help (a browser's install is refused the same way), so the way out is Auto Blocker's own switch.
+ */
+@Composable
+private fun TroubleButtons(
+    trouble: UpdateTrouble,
+    releaseUrl: String,
+    onOpenAutoBlocker: () -> Unit,
+    onTryAgain: () -> Unit,
+    onRemindLater: () -> Unit,
+    onSkip: () -> Unit,
+) {
+    val context = LocalContext.current
+    val autoBlocker = trouble == UpdateTrouble.BLOCKED_SAMSUNG
+    Button(
+        onClick = if (autoBlocker) onOpenAutoBlocker else onTryAgain,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(stringResource(if (autoBlocker) R.string.update_open_auto_blocker else R.string.update_try_again))
+    }
+    // With Auto Blocker turned off some other way, Try again is the short way back to installing.
+    if (autoBlocker) {
+        TextButton(onClick = onTryAgain, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.update_try_again))
+        }
+    } else {
+        TextButton(
+            onClick = {
+                context.startActivity(
+                    Intent(Intent.ACTION_VIEW, releaseUrl.toUri()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                )
+            },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(R.string.update_open_page))
+        }
+    }
+    TextButton(onClick = onRemindLater, modifier = Modifier.fillMaxWidth()) {
+        Text(stringResource(R.string.update_prompt_later))
+    }
+    // Someone who keeps Auto Blocker on would otherwise be asked again every time.
+    TextButton(onClick = onSkip, modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = stringResource(R.string.update_skip),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** Why an install did not or will not go through, as far as the app can tell. */
+enum class UpdateTrouble(val stringRes: Int) {
+    /** Refused or never answered, on a phone that has Auto Blocker. */
+    BLOCKED_SAMSUNG(R.string.update_blocked_samsung),
+    BLOCKED(R.string.update_blocked),
+    FAILED(R.string.update_install_failed),
+}
+
+fun updateTrouble(
+    fromFdroid: Boolean,
+    blocked: Boolean,
+    failed: Boolean,
+    samsung: Boolean,
+): UpdateTrouble? = when {
+    // F-Droid installs are F-Droid's to update: the button goes there, whatever this phone blocks.
+    fromFdroid -> null
+    blocked && samsung -> UpdateTrouble.BLOCKED_SAMSUNG
+    blocked -> UpdateTrouble.BLOCKED
+    failed -> UpdateTrouble.FAILED
+    else -> null
 }
 
 /**
