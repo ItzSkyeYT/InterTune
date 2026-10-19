@@ -228,13 +228,17 @@ class AutomixController(
         if (stage.state == HeldTail.State.CAPTURE || stage.state == HeldTail.State.DRAIN) player.seekTo(player.currentPosition)
     }
 
-    /** Settings the service follows changed (the normalisation, the volume): the levels are worked out again. */
+    /**
+     * Settings the service follows changed (the normalisation, the volume): the levels are worked
+     * out again, but only while the stage is in the chain or about to be, the only time they are read.
+     */
     fun levelsChanged(normalizationSettingChanged: Boolean) {
         if (normalizationSettingChanged) {
             normalizations.clear()
             normalizationsAsked.clear()
+            provisional.clear()
         }
-        publishLevels()
+        if (enabled || stage.activeForStream) publishLevels()
     }
 
     fun release() {
