@@ -24,8 +24,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import org.akanework.gramophone.logic.utils.LrcUtils
 import org.akanework.gramophone.logic.utils.SemanticLyrics
-import org.akanework.gramophone.logic.utils.parseLrc
-import org.akanework.gramophone.logic.utils.parseTtml
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -178,7 +176,7 @@ class LyricsHelper @Inject constructor(
             album = mediaMetadata.album?.title,
             duration = knownDuration(mediaMetadata),
         )
-        return LyricsLookup.firstFound(lyricsProviders(), query) { _, e ->
+        return LyricsLookup.firstFound(lyricsProviders(), query, readable = { !LyricsMatch.isTtml(it) || readTtml(it) != null }) { _, e ->
             reportException(e)
         }
     }
@@ -243,14 +241,8 @@ class LyricsHelper @Inject constructor(
         cache.put(cacheKey, allResult)
     }
 
-    /**
-     * Lyrics as kept, read whatever their form: TTML, as Better Lyrics gives, or LRC and plain
-     * text, as the others do. The lookup used to read everything as LRC, which has no word for TTML.
-     */
-    private fun parse(text: String, trim: Boolean, multiline: Boolean): SemanticLyrics? {
-        if (LyricsMatch.isTtml(text)) runCatching { parseTtml(null, text) }.getOrNull()?.let { return it }
-        return parseLrc(text, trim, multiline)
-    }
+    /** Lyrics as kept, read whatever their form. See [readKeptLyrics]. */
+    private fun parse(text: String, trim: Boolean, multiline: Boolean): SemanticLyrics? = readKeptLyrics(text, trim, multiline)
 
     companion object {
         private const val TAG = "LyricsHelper"

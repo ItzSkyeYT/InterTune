@@ -46,7 +46,7 @@
     <string name="scan_paths_tooltip">Tous les sous-répertoires seront également affectés</string>
     <string name="scan_paths_add_folder">Ajouter un nouveau dossier</string>
     <string name="auto_scanner_title">Analyser automatiquement</string>
-    <string name="scanner_local_title">Scanner locale</string>
+    <string name="scanner_local_title">Scanner local</string>
     <string name="scan_paths_excl">Chemins d\'analyse exclus</string>
     <string name="grp_manual_scanner">Scanner manuel</string>
     <string name="grp_extra_scanner_settings">Paramètres supplémentaires du scanner</string>
@@ -133,7 +133,7 @@
     <string name="err_stop_on_too_many_errors">Trop d\'erreurs. La lecture est arrêtée</string>
     <string name="wait_to_reconnect">Attendez pour vous reconnecter</string>
     <string name="grp_general">Général</string>
-    <string name="queue_local_history">Historique (locale)</string>
+    <string name="queue_local_history">Historique (local)</string>
     <string name="queue_remote_history">Historique (à distance)</string>
     <string name="scanner_progress_complete">Analyse terminée</string>
     <string name="scanner_btn_idle">Analyse</string>

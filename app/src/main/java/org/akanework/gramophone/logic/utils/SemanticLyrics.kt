@@ -1043,6 +1043,17 @@ private val ttm = "http://www.w3.org/ns/ttml#metadata"
 private val ttp = "http://www.w3.org/ns/ttml#parameter"
 private val itunes = "http://itunes.apple.com/lyric-ttml-extensions"
 private val itunesInternal = "http://music.apple.com/lyric-ttml-internal"
+
+/**
+ * Whether [uri] is Apple's internal TTML namespace or a copy of it under another host.
+ *
+ * Better Lyrics answers in lrc.red's form of Apple's lyrics TTML: the same attributes (timing, songPart,
+ * key) and the same minutes:seconds times, under "http://lrc.red/lyric-ttml-internal". Read with the
+ * standard's rules, "00:18.055" is no time at all, so every line failed and the raw markup was shown
+ * as the lyrics (19 Oct 2026, "Needs" by Verzache).
+ */
+internal fun isLyricTtmlInternal(uri: String?): Boolean =
+    uri == itunesInternal || uri?.endsWith("/lyric-ttml-internal") == true
 private fun XmlPullParser.skipToEndOfTag() {
     if (eventType != XmlPullParser.START_TAG)
         throw XmlPullParserException("expected start tag in skipToEndOfTag()")
@@ -1168,7 +1179,11 @@ private class TtmlTimeTracker(private val parser: XmlPullParser, private val isA
         }
     }
 }
-private class TtmlParserState(private val parser: XmlPullParser, private val timer: TtmlTimeTracker) {
+private class TtmlParserState(
+    private val parser: XmlPullParser,
+    private val timer: TtmlTimeTracker,
+    private val internalNs: String = itunesInternal,
+) {
     data class Text(val text: String, val time: ULongRange?, val role: String?)
     data class P(val texts: List<Text>, val time: ULongRange?, val agent: String?,
                  val songPart: String?, val key: String?, val role: String?, val translated: Boolean = false)
@@ -1209,10 +1224,10 @@ private class TtmlParserState(private val parser: XmlPullParser, private val tim
             "div" -> {
                 // not even having consistent attribute naming is truly beautiful
                 parser.getAttributeValue(itunes, "song-part")?.let { songPart = it }
-                parser.getAttributeValue(itunesInternal, "songPart")?.let { songPart = it }
+                parser.getAttributeValue(internalNs, "songPart")?.let { songPart = it }
             }
             "p" -> {
-                parser.getAttributeValue(itunesInternal, "key")?.let { key = it }
+                parser.getAttributeValue(internalNs, "key")?.let { key = it }
                 texts = mutableListOf()
                 isP = true
                 plevel = level
@@ -1237,10 +1252,13 @@ private class TtmlParserState(private val parser: XmlPullParser, private val tim
     }
 }
 
-fun parseTtml(audioMimeType: String?, lyricText: String): SemanticLyrics? {
+fun parseTtml(
+    audioMimeType: String?,
+    lyricText: String,
+    parser: XmlPullParser = Xml.newPullParser(),
+): SemanticLyrics? {
     val formattedLyricText = lyricText
         .replace(Regex("&(?!#?[a-zA-Z0-9]+;)"), "&amp;")
-    val parser = Xml.newPullParser()
     parser.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, true)
     parser.setInput(StringReader(formattedLyricText))
     try {
@@ -1250,16 +1268,10 @@ fun parseTtml(audioMimeType: String?, lyricText: String): SemanticLyrics? {
         return null // not ttml
     }
     // val lang = parser.getAttributeValue("http://www.w3.org/XML/1998/namespace", "lang")
-    val timing = parser.getAttributeValue(itunesInternal, "timing")
-    var hasItunesNamespace = timing != null
-    if (!hasItunesNamespace) {
-        for (i in 0..<parser.getNamespaceCount(parser.depth)) {
-            if (parser.getNamespaceUri(i) == itunes || parser.getNamespaceUri(i) == itunesInternal) {
-                hasItunesNamespace = true
-                break
-            }
-        }
-    }
+    val declared = (0..<parser.getNamespaceCount(parser.depth)).map { parser.getNamespaceUri(it) }
+    val internalNs = declared.firstOrNull { isLyricTtmlInternal(it) } ?: itunesInternal
+    val timing = parser.getAttributeValue(internalNs, "timing")
+    val hasItunesNamespace = timing != null || declared.any { it == itunes || isLyricTtmlInternal(it) }
     val peopleToType = hashMapOf<String, String>()
     val people = hashMapOf<String, MutableList<String>>()
     val itunesTranslations = hashMapOf<String, HashMap<String, String>>()
@@ -1366,7 +1378,7 @@ fun parseTtml(audioMimeType: String?, lyricText: String): SemanticLyrics? {
     parser.require(XmlPullParser.END_TAG, tt, "head")
     parser.nextTag()
     parser.require(XmlPullParser.START_TAG, tt, "body")
-    val state = TtmlParserState(parser, timer)
+    val state = TtmlParserState(parser, timer, internalNs)
     state.parse()
     itunesTranslations.forEach { lang ->
         lang.value.forEach { line ->

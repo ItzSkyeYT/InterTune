@@ -446,7 +446,8 @@ object Unreleased {
      * On in every build from 0.12 (decided on 18 Oct 2026), its 23 texts open to translators and
      * in French. With it on every song plays through RoutedPlayer, which hands playback to a
      * receiver and back; with it off nothing about casting existed at runtime. Played on a
-     * Chromecast Ultra since 13 Oct 2026; FCast and DLNA so far against the mock receivers only.
+     * Chromecast Ultra since 13 Oct 2026 and on FCast Receiver 2.1.5 on a Pixel 5 since 18 Oct;
+     * DLNA so far against the mock receiver only.
      * Left to tidy: the flag and the checks that read it, in MusicService, CastProbe, CastSession,
      * Player.kt, CastPicker, CastDiscovery and CastLinks.
      */
