@@ -78,17 +78,29 @@ enum class PlayerButtonsStyle {
  * skips hardest: a radio page is fetched once, when the queue runs low, and then played to the end
  * whatever happens in between. Twenty minutes later the listener has moved on and the queue has
  * not.
+ *
+ * Only a radio or a mix changes, whatever the value: a queue the app keeps filling, whose queue
+ * has a seed for its next page (MultiQueueObject.playlistId). A playlist, an album or a list put
+ * together by hand plays exactly as it was chosen. Since 0.12 the setting is a switch ([isOn]), and
+ * the two values that were on are both kept as they are stored, so nothing has to be migrated and
+ * an older version still reads them.
  */
 enum class AdaptiveQueueMode {
     /** The queue is exactly what was put in it. */
     OFF,
 
-    /** Only tails the app added by itself, which is where the skipping actually happens. */
+    /** On: radios and mixes keep up to date. The default. */
     AUTOPLAY_ONLY,
 
-    /** Any queue, including a playlist or album the listener queued on purpose. */
+    /**
+     * On, as [AUTOPLAY_ONLY] is. Before 0.12 it meant any queue, a playlist or an album included;
+     * a listener who chose it then gets radios and mixes kept up to date, and the rest as chosen.
+     */
     ALWAYS,
 }
+
+/** Whether radios and mixes keep up to date: every value but [AdaptiveQueueMode.OFF]. */
+val AdaptiveQueueMode.isOn: Boolean get() = this != AdaptiveQueueMode.OFF
 
 /**
  * What, if anything, the audio chain does to the stereo it is given.

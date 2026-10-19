@@ -164,6 +164,7 @@ import com.dd3boh.outertune.ui.component.BottomSheetState
 import com.dd3boh.outertune.ui.component.EmptyPlaceholder
 import com.dd3boh.outertune.constants.AdaptiveQueueMode
 import com.dd3boh.outertune.constants.AdaptiveQueueModeKey
+import com.dd3boh.outertune.constants.isOn
 import com.dd3boh.outertune.playback.AdaptiveQueue
 import androidx.compose.material.icons.rounded.AutoAwesome
 import com.dd3boh.outertune.ui.component.LazyColumnScrollbar
@@ -935,7 +936,7 @@ fun BoxScope.QueueContent(
             // moment they look, or the first time they notice a song missing they will assume the
             // app lost it. Only shown when the feature is actually on and there is a tail for it
             // to act on.
-            if (adaptiveQueueMode != AdaptiveQueueMode.OFF && !isSearching && mutableSongs.size > AdaptiveQueue.LOCKED + 1) {
+            if (adaptiveQueueMode.isOn && adaptiveTailActive && !isSearching && mutableSongs.size > AdaptiveQueue.LOCKED + 1) {
                 item {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,

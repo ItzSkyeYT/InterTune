@@ -129,6 +129,7 @@ import com.dd3boh.outertune.constants.AdaptiveQueueModeKey
 import com.dd3boh.outertune.constants.EqualizerEnabledKey
 import com.dd3boh.outertune.constants.EqualizerGainsKey
 import com.dd3boh.outertune.constants.AdaptiveQueueMode
+import com.dd3boh.outertune.constants.isOn
 import com.dd3boh.outertune.constants.PlaybackAuthModeKey
 import com.dd3boh.outertune.constants.OwnVisionosRefusedKey
 import com.dd3boh.outertune.constants.VisionosRefusedKey
@@ -562,8 +563,17 @@ class MusicService : MediaLibraryService(),
      * Nothing moves while somebody is looking at it. A list that rearranges under the finger is
      * worse than a list with a few wrong songs further down, and the whole feature is only
      * acceptable because it happens out of sight.
+     *
+     * The pass that was turned away while it was open is asked for again the moment it closes,
+     * which includes the screen going off over it (computeQueueSheetOpen): a sheet left open
+     * when the phone was locked used to keep every pass away for the rest of the evening.
      */
     @Volatile var queueSheetOpen = false
+        set(value) {
+            val closed = field && !value
+            field = value
+            if (closed) scope.launch { askAgainAfterSheet() }
+        }
 
     /**
      * Whether the queue's far end is being chosen rather than fixed, for the queue view to say so.
@@ -1345,7 +1355,7 @@ class MusicService : MediaLibraryService(),
                     runCatching { AdaptiveQueueMode.valueOf(name) }.getOrNull()
                 } ?: AdaptiveQueueMode.AUTOPLAY_ONLY
             }.distinctUntilChanged()
-                .collectLatest(scope) { adaptiveQueueMode = it }
+                .collectLatest(scope) { adaptiveQueueMode = it; refreshAdaptiveTail() }
             // Read here rather than in YTPlayerUtils, which runs on every song and would have
             // to block on the datastore to find out.
             dataStore.data.map {
@@ -2795,6 +2805,30 @@ class MusicService : MediaLibraryService(),
 // Misc
 
     /**
+     * Whether the queue sheet folds the far end of the queue away, said again for the queue now
+     * current: on for a radio or a mix with the setting on, off for anything else.
+     *
+     * Only the pass used to say, and no pass runs on a queue just loaded, so after a switch from a
+     * radio to a playlist the playlist stayed folded until its second song, and a radio came back
+     * unfolded. Called on every song change, when the setting changes and whenever a queue is
+     * loaded into the player (QueueBoard.setCurrQueue). Main thread.
+     */
+    fun refreshAdaptiveTail() {
+        adaptiveTailActive.value = adaptiveQueueMode.isOn && queueBoard.getCurrentQueue()?.playlistId != null
+    }
+
+    /** A pass turned away while the queue sheet was open, with whether it was a strong one. Main thread. */
+    private var passWaitingStrong: Boolean? = null
+
+    /** The queue sheet has closed: the pass it held back runs now. Main thread. */
+    private fun askAgainAfterSheet() {
+        val strong = passWaitingStrong ?: return
+        passWaitingStrong = null
+        if (queueSheetOpen) return
+        replanQueueTail(strong = strong)
+    }
+
+    /**
      * Drops songs further down the queue that no longer suit what is being played.
      *
      * Runs on every transition and almost always does nothing. See [AdaptiveQueue] for the rules;
@@ -2810,20 +2844,22 @@ class MusicService : MediaLibraryService(),
      * @param strong the listener just said something clear, so reach further and lock less.
      */
     private fun replanQueueTail(strong: Boolean = false) {
-        if (adaptiveQueueMode == AdaptiveQueueMode.OFF) {
-            adaptiveTailActive.value = false
+        if (!adaptiveQueueMode.isOn) return
+        val q = queueBoard.getCurrentQueue() ?: return
+        // A radio tail is one the app chose; a playlist, an album or a list made by hand is one
+        // the listener chose, and it plays as chosen whatever the setting says. Before 0.12 "Any
+        // queue" planned those too.
+        if (q.playlistId == null) {
+            Log.d(TAG, "Adaptive queue: not now (not a radio)")
             return
         }
         // Not while somebody is reading it. A list that rearranges under a finger is the one
-        // thing this must never do.
-        if (queueSheetOpen) return
-        val q = queueBoard.getCurrentQueue() ?: return
-        // A radio tail is one the app chose; a playlist is one the listener chose.
-        if (adaptiveQueueMode == AdaptiveQueueMode.AUTOPLAY_ONLY && q.playlistId == null) {
-            adaptiveTailActive.value = false
+        // thing this must never do. Asked for again when the sheet closes.
+        if (queueSheetOpen) {
+            passWaitingStrong = (passWaitingStrong ?: false) || strong
+            Log.d(TAG, "Adaptive queue: not now (sheet open)")
             return
         }
-        adaptiveTailActive.value = true
 
         val current = activePlayer.currentMediaItemIndex
         val count = activePlayer.mediaItemCount
@@ -3233,6 +3269,8 @@ class MusicService : MediaLibraryService(),
         // phone's own player reports, and it reports nothing while casting, so a row opened here
         // would never be closed. Whether cast plays should count at all is still to be decided.
         if (!isCasting) noteTransition(mediaItem, reason)
+        // Whatever the change, a queue just loaded included: see refreshAdaptiveTail.
+        refreshAdaptiveTail()
         // The car's tabs each show what is playing across their top, and the car keeps what it
         // was handed: another song, and it is told.
         if (Unreleased.AUTO_REWORK && ::mediaSession.isInitialized) {

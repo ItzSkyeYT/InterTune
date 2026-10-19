@@ -173,6 +173,7 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.currentStateAsState
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -587,12 +588,19 @@ fun BottomSheetPlayer(
     // queueSheetState stays expanded when the player sheet collapses or is dismissed over it, so
     // the player's own state is part of the answer. The tablet's queue pane shows the same rows
     // without ever expanding this sheet, so tabletTwoPane counts as the queue being on screen.
-    LaunchedEffect(queueSheetState.isExpanded, tabletTwoPane, state.isCollapsed, state.isDismissed) {
+    //
+    // And only while the app is on screen. A sheet left open when the phone was locked or another
+    // app came up stayed "open" for as long as the activity lived, so the queue could not change
+    // all evening; now the screen going off closes it as far as the service is concerned.
+    val screenLifecycle by lifecycleOwner.lifecycle.currentStateAsState()
+    val onScreen = screenLifecycle.isAtLeast(Lifecycle.State.STARTED)
+    LaunchedEffect(queueSheetState.isExpanded, tabletTwoPane, state.isCollapsed, state.isDismissed, onScreen) {
         playerConnection.service.queueSheetOpen = computeQueueSheetOpen(
             queueSheetExpanded = queueSheetState.isExpanded,
             tabletTwoPane = tabletTwoPane,
             playerCollapsed = state.isCollapsed,
             playerDismissed = state.isDismissed,
+            onScreen = onScreen,
         )
     }
 
@@ -1953,13 +1961,18 @@ internal fun landscapeControlsWidth(available: Dp, playButton: Dp, slots: Int, g
  * (it has no sheet to expand), but never while the player itself is collapsed or dismissed: the
  * queue sheet's own expanded state does not reset when the player sheet collapses under it, so
  * without this the flag could get stuck true after the player closes.
+ *
+ * Nor while the app is off the screen ([onScreen]: the activity at least started). Nothing about
+ * the sheet changes when the phone is locked over it, so the flag stayed true until the activity
+ * went, and no pass ran however many songs played with the screen off.
  */
 internal fun computeQueueSheetOpen(
     queueSheetExpanded: Boolean,
     tabletTwoPane: Boolean,
     playerCollapsed: Boolean,
     playerDismissed: Boolean,
-): Boolean = (queueSheetExpanded || tabletTwoPane) && !playerCollapsed && !playerDismissed
+    onScreen: Boolean = true,
+): Boolean = (queueSheetExpanded || tabletTwoPane) && !playerCollapsed && !playerDismissed && onScreen
 
 /**
  * Whether the queue hides all of what the player draws behind itself, so that a background which
