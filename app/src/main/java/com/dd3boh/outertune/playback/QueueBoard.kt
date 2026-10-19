@@ -18,6 +18,7 @@ import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.constants.QUEUE_DEBUG
 import com.dd3boh.outertune.db.entities.QueueEntity
 import com.dd3boh.outertune.extensions.currentMetadata
+import com.dd3boh.outertune.extensions.metadata
 import com.dd3boh.outertune.extensions.move
 import com.dd3boh.outertune.extensions.toMediaItem
 import com.dd3boh.outertune.models.MediaMetadata
@@ -396,6 +397,32 @@ class QueueBoard(
         val removed = item.removeAtPlayIndex(index, player.activePlayer.currentMediaItemIndex)
         if (removed) saveQueueSongs(item)
         return removed
+    }
+
+    /**
+     * The adaptive queue's edits to the current queue in one go: each replaces, takes out or puts in
+     * songs at a place in play order, after checking that the board and the player both hold the
+     * song the plan was made for (its uid, composeUidWorkaround). The player is edited item by item,
+     * so nothing reloads and the song playing never moves; the queue is saved once at the end, where
+     * removing song by song saved it once a song.
+     *
+     * Board first, then the player, as a removal from the queue sheet does. A player call that
+     * throws has its board edit undone and ends the pass there: a board and a player out of step
+     * write the player's place into the board at the next song change, and the next load of the
+     * queue then starts the wrong song. Places before [notBefore], the end of the locked head worked
+     * out again now, are never edited. Main thread. Returns what was done, the songs put in as the
+     * queue holds them.
+     */
+    fun applyAdaptive(q: MultiQueueObject, edits: List<AdaptiveEdit>, notBefore: Int): List<AdaptiveEdit> {
+        val exo = player.activePlayer
+        val done = applyAdaptiveEdits(q, object : EditablePlayer {
+            override fun uidAt(index: Int) = runCatching { exo.getMediaItemAt(index).metadata?.composeUidWorkaround }.getOrNull()
+            override fun replace(index: Int, song: MediaMetadata) = exo.replaceMediaItem(index, song.toMediaItem())
+            override fun remove(index: Int) = exo.removeMediaItem(index)
+            override fun add(index: Int, songs: List<MediaMetadata>) = exo.addMediaItems(index, songs.map { it.toMediaItem() })
+        }, edits, notBefore, exo.currentMediaItemIndex) { line, e -> if (e == null) Log.d(TAG, line) else Log.w(TAG, line, e) }
+        if (done.isNotEmpty()) saveQueueSongs(q)
+        return done
     }
 
     /**
@@ -789,6 +816,11 @@ class QueueBoard(
         if (player.activePlayer.shuffleModeEnabled != item.shuffled) {
             player.activePlayer.shuffleModeEnabled = item.shuffled
         }
+        // A queue loaded under the song already playing makes no transition, and a radio becomes
+        // one only here, once its full queue replaces the queue of one: the fold follows at once,
+        // and the song goes on in the queue's run (Start radio on the song playing).
+        if (seamlessSupported) player.carriedOnInto(item)
+        player.refreshAdaptiveTail()
         return queuePos
     }
 
@@ -986,6 +1018,119 @@ class QueueBoard(
         }
     }
 
+}
+
+/** The player's half of the adaptive queue's edits, as QueueBoard.applyAdaptive drives it. */
+internal interface EditablePlayer {
+    /** The uid (composeUidWorkaround) of the song the player holds at [index], null for none. */
+    fun uidAt(index: Int): Double?
+    fun replace(index: Int, song: MediaMetadata)
+    fun remove(index: Int)
+    fun add(index: Int, songs: List<MediaMetadata>)
+}
+
+/**
+ * [edits] made to [q] and to [player] in step (QueueBoard.applyAdaptive): replacements and songs
+ * taken out from the highest place down, so none moves a place still to be edited, then the songs
+ * put in. Each is checked first: at or after [notBefore] and past [current], and each side holding
+ * the song it was planned for there, or the song just before the place where songs go in, by its
+ * own uid. Board first, then the player; when the player refuses, the board edit is undone and
+ * nothing more is done. Returns what was done, with the songs put in as the queue holds them.
+ * [log] hears each edit left out or refused.
+ */
+internal fun applyAdaptiveEdits(
+    q: MultiQueueObject,
+    player: EditablePlayer,
+    edits: List<AdaptiveEdit>,
+    notBefore: Int,
+    current: Int,
+    log: (String, Throwable?) -> Unit = { _, _ -> },
+): List<AdaptiveEdit> {
+    val done = ArrayList<AdaptiveEdit>()
+    fun holds(i: Int, uid: Double, playerUid: Double) =
+        q.getCurrentQueueShuffled().getOrNull(i)?.composeUidWorkaround == uid && player.uidAt(i) == playerUid
+    for (edit in edits.filter { it !is AdaptiveEdit.Insert }.sortedByDescending { it.index }) {
+        if (edit.index < notBefore || edit.index <= current) {
+            log("Adaptive queue: abandoned (edit #${edit.index} is in the locked head now)", null)
+            continue
+        }
+        when (edit) {
+            is AdaptiveEdit.Replace -> {
+                if (!holds(edit.index, edit.uid, edit.playerUid)) { log("Adaptive queue: abandoned (edit #${edit.index} moved)", null); continue }
+                val before = q.getCurrentQueueShuffled()[edit.index]
+                val song = edit.song.copy(composeUidWorkaround = Math.random())
+                if (!q.replaceAtPlayIndex(edit.index, song, current)) continue
+                try {
+                    player.replace(edit.index, song)
+                } catch (e: Exception) {
+                    q.replaceAtPlayIndex(edit.index, before, current)
+                    log("Adaptive queue: the player would not take a replacement, the pass stops here", e)
+                    return done
+                }
+                done += edit.copy(song = song)
+            }
+            is AdaptiveEdit.Drop -> {
+                if (!holds(edit.index, edit.uid, edit.playerUid)) { log("Adaptive queue: abandoned (edit #${edit.index} moved)", null); continue }
+                val before = q.getCurrentQueueShuffled()[edit.index]
+                if (!q.removeAtPlayIndex(edit.index, current)) continue
+                try {
+                    player.remove(edit.index)
+                } catch (e: Exception) {
+                    q.insertAtPlayIndex(edit.index, listOf(before), copy = false)
+                    log("Adaptive queue: the player would not let a song go, the pass stops here", e)
+                    return done
+                }
+                done += edit
+            }
+            is AdaptiveEdit.Insert -> {}
+        }
+    }
+    for (edit in edits.filterIsInstance<AdaptiveEdit.Insert>()) {
+        val at = edit.index
+        // Put in after the song the plan saw before that place, and nowhere else.
+        if (at < notBefore || at <= current || !holds(at - 1, edit.afterUid, edit.afterPlayerUid)) {
+            log("Adaptive queue: abandoned (the place for #$at moved)", null)
+            continue
+        }
+        q.insertAtPlayIndex(at, edit.songs)
+        val added = q.getCurrentQueueShuffled().subList(at, at + edit.songs.size).toList()
+        try {
+            player.add(at, added)
+        } catch (e: Exception) {
+            repeat(added.size) { q.removeAtPlayIndex(at, current) }
+            log("Adaptive queue: the player would not take the new songs, the pass stops here", e)
+            return done
+        }
+        done += edit.copy(songs = added)
+    }
+    return done
+}
+
+/**
+ * One edit of the adaptive queue to the current queue, at [index] in play order. The uids are the
+ * songs' composeUidWorkaround as the plan saw them, the board's and the player's. The two are
+ * usually one: the player's items carry the board's own MediaMetadata objects. Not after the board
+ * is read again from the database while a song plays (MusicService.initQueue, after a scan or a new
+ * Max queues), which makes every song a new object with a new uid while the player keeps its own
+ * until the queue next loads: checked against one uid, every edit then failed for most of a radio.
+ * So each side is checked against its own. See QueueBoard.applyAdaptive.
+ */
+sealed interface AdaptiveEdit {
+    val index: Int
+
+    /** [song] in place of the song with [uid] on the board and [playerUid] in the player. */
+    data class Replace(override val index: Int, val uid: Double, val song: MediaMetadata, val playerUid: Double = uid) : AdaptiveEdit
+
+    /** The song with [uid] on the board and [playerUid] in the player taken out. */
+    data class Drop(override val index: Int, val uid: Double, val playerUid: Double = uid) : AdaptiveEdit
+
+    /** [songs] put in at [index], right after the song with [afterUid] on the board and [afterPlayerUid] in the player. */
+    data class Insert(
+        override val index: Int,
+        val afterUid: Double,
+        val songs: List<MediaMetadata>,
+        val afterPlayerUid: Double = afterUid,
+    ) : AdaptiveEdit
 }
 
 /**

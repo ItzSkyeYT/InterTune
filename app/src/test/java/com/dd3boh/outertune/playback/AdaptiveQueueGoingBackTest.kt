@@ -102,6 +102,14 @@ class AdaptiveQueueGoingBackTest {
                 "AdaptiveQueue.settledThrough(current, ids, { it }, heard.reached)" in pass,
         )
         assertTrue("the pass must read what was heard, not the places before the song", "heard.titles(TagFit.WINDOW)" in pass)
+        // The pass that also puts picks in counts its tail the same way.
+        val snapshot = service.substringAfter("private fun adaptiveSnapshot(").substringBefore("\n    }\n")
+        assertTrue(
+            "the pass that puts picks in must start its tail after the furthest song reached too",
+            "AdaptiveQueue.tailStart(settled, count, locked)" in snapshot &&
+                "AdaptiveQueue.settledThrough(current, ids, { it }, heard.reached)" in snapshot,
+        )
+        assertFalse("current downTo" in snapshot)
         assertFalse("the places before the song are what was heard only while moving forward", "current downTo" in pass)
         assertTrue(
             "going back must not get the strong pass",

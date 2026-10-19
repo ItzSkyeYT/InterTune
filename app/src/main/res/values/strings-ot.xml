@@ -133,13 +133,46 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="engine_data_failed">That did not work. Check the file and try again.</string>
     <string name="grp_spatial">Where the sound is</string>
     <string name="adaptive_tail_title">Chosen as you listen</string>
-    <string name="adaptive_queue">Keep the queue up to date</string>
     <string name="adaptive_queue_description">Drops songs further down the queue that stop suiting what you are playing.</string>
     <string name="adaptive_queue_off">Never</string>
     <string name="adaptive_queue_autoplay">Only songs the app added</string>
     <string name="adaptive_queue_always">Any queue</string>
     <string name="adaptive_queue_note">Tuned to this session</string>
     <string name="adaptive_queue_note_detail">The end of this queue adjusts itself to what you have been playing over the last while. The next few songs stay put, and nothing changes while you are looking at it.</string>
+    <!--
+      Keep radios up to date, 0.12. Every string from here to the end of this block is new or
+      changed for 0.12, and waits for a yes on its words before it goes to translators. The note is
+      the first line of the row under the songs on show in the queue; %1$d is how many songs the
+      change put in, or took out, and %2$s the title of the song liked. adaptive_queue keeps its
+      name with new words; the description has a new name, so other languages show these words
+      until they are translated rather than their own for the old setting.
+    -->
+    <string name="adaptive_queue">Keep radios up to date</string>
+    <string name="adaptive_radio_description">Songs further down a radio change as you skip, finish and like.</string>
+    <string name="adaptive_queue_explain">Skip, finish or like a song and the rest of a radio follows: songs that stop fitting make way for new picks like the ones you kept. The next few songs stay put, and nothing moves while you look at the queue. Playlists and albums never change.</string>
+    <plurals name="adaptive_note_after_skip">
+        <item quantity="one">%1$d new pick after your skip</item>
+        <item quantity="other">%1$d new picks after your skip</item>
+    </plurals>
+    <plurals name="adaptive_note_like">
+        <item quantity="one">%1$d new pick like \"%2$s\"</item>
+        <item quantity="other">%1$d new picks like \"%2$s\"</item>
+    </plurals>
+    <plurals name="adaptive_note_finish">
+        <item quantity="one">%1$d new pick like your last songs</item>
+        <item quantity="other">%1$d new picks like your last songs</item>
+    </plurals>
+    <plurals name="adaptive_note_habits">
+        <item quantity="one">%1$d new pick in place of a song you often skip</item>
+        <item quantity="other">%1$d new picks in place of songs you often skip</item>
+    </plurals>
+    <plurals name="adaptive_note_dropped">
+        <item quantity="one">Took out %1$d song you would likely skip</item>
+        <item quantity="other">Took out %1$d songs you would likely skip</item>
+    </plurals>
+    <!-- Read out by screen readers for the mark on a song the adaptive queue put in. -->
+    <string name="adaptive_pick_mark">New pick</string>
+    <!-- End of Keep radios up to date, 0.12. -->
     <string name="playback_auth_mode">Use my account to play</string>
     <string name="playback_auth_mode_description">Whether InterTune may ask YouTube for songs as your account. YouTube refuses some songs to anonymous requests.</string>
     <string name="playback_auth_never">Never</string>

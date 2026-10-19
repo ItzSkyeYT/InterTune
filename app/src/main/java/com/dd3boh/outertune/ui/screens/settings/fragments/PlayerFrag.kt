@@ -80,6 +80,7 @@ import com.dd3boh.outertune.constants.SpatialAudioKey
 import com.dd3boh.outertune.constants.SpatialAudioMode
 import androidx.compose.material.icons.rounded.AutoAwesome
 import com.dd3boh.outertune.constants.AdaptiveQueueModeKey
+import com.dd3boh.outertune.constants.isOn
 import com.dd3boh.outertune.constants.AdaptiveQueueMode
 import androidx.compose.material.icons.rounded.AccountCircle
 import com.dd3boh.outertune.constants.PlaybackAuthModeKey
@@ -674,7 +675,11 @@ fun ColumnScope.HighPrecisionAudioFrag() {
     )
 }
 
-/** Whether the unwatched end of the queue re-plans itself. */
+/**
+ * Whether radios keep up to date: songs further down a radio make way for fresh picks as the
+ * listener skips, finishes and likes (AdaptivePass). A switch since 0.12: only radios and mixes
+ * ever change, so of the three stored values two mean on, and turning it on stores the default.
+ */
 @Composable
 fun ColumnScope.AdaptiveQueueFrag() {
     val (mode, onModeChange) = rememberEnumPreference(
@@ -682,21 +687,14 @@ fun ColumnScope.AdaptiveQueueFrag() {
         defaultValue = AdaptiveQueueMode.AUTOPLAY_ONLY
     )
 
-    EnumListPreference(
-        title = { Text(stringResource(R.string.adaptive_queue)) },
+    ExplainedSwitchPreference(
+        title = stringResource(R.string.adaptive_queue),
+        description = stringResource(R.string.adaptive_radio_description),
+        explanation = stringResource(R.string.adaptive_queue_explain),
         icon = { Icon(Icons.Rounded.AutoAwesome, null) },
-        selectedValue = mode,
-        onValueSelected = onModeChange,
-        valueText = {
-            when (it) {
-                AdaptiveQueueMode.OFF -> stringResource(R.string.adaptive_queue_off)
-                AdaptiveQueueMode.AUTOPLAY_ONLY -> stringResource(R.string.adaptive_queue_autoplay)
-                AdaptiveQueueMode.ALWAYS -> stringResource(R.string.adaptive_queue_always)
-            }
-        }
+        checked = mode.isOn,
+        onCheckedChange = { onModeChange(if (it) AdaptiveQueueMode.AUTOPLAY_ONLY else AdaptiveQueueMode.OFF) },
     )
-
-    InfoLabel(stringResource(R.string.adaptive_queue_description))
 }
 
 /**

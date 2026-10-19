@@ -135,6 +135,10 @@ interface ListenDao {
     @Query(EngineSql.SONGS)
     fun engineSongs(): List<EngineSongRow>
 
+    /** The songs the adaptive queue reads, see [EngineSql.SONGS_HEARD_OR_LIKED]. */
+    @Query(EngineSql.SONGS_HEARD_OR_LIKED)
+    fun engineSongsHeardOrLiked(): List<EngineSongRow>
+
     @Query(EngineSql.LISTENS)
     fun engineListens(): List<com.dd3boh.outertune.engine.ListenRow>
 
