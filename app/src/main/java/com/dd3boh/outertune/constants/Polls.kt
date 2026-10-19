@@ -58,6 +58,9 @@ object Polls {
     const val UMAMI_HOSTNAME = "app.intertune"
 
     /** Umami event name. Everything else about the answer rides in the event's data object. */
+    /** The longest text sent in one answer, the words of an "Other" choice included. */
+    const val MAX_TEXT_CHARS = 400
+
     const val UMAMI_EVENT = "poll_answer"
 
     /**

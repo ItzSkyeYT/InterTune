@@ -1351,9 +1351,9 @@ fun HomeScreen(
         LaunchedEffect(poll.id) { pollChecker.viewed(poll.id, poll.question, isAnnouncement = false) }
         PollDialog(
             poll = poll,
-            onSubmit = { chosen ->
+            onSubmit = { chosen, otherText ->
                 showPoll = false
-                scope.launch { pollChecker.answer(poll, chosen) }
+                scope.launch { pollChecker.answer(poll, chosen, otherText) }
             },
             onClose = { showPoll = false },
         )

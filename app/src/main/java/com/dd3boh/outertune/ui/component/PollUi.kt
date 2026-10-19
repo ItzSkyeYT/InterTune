@@ -43,6 +43,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -66,6 +67,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil3.compose.AsyncImage
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.constants.Polls
 import com.dd3boh.outertune.utils.PollChecker
 
 /**
@@ -161,12 +163,17 @@ fun PollBanner(
 @Composable
 fun PollDialog(
     poll: PollChecker.Poll,
-    onSubmit: (List<String>) -> Unit,
+    onSubmit: (List<String>, String?) -> Unit,
     onClose: () -> Unit,
 ) {
     // Saveable, and a list rather than a set, so that rotating the tablet does not quietly throw
     // away what somebody had already picked. A set is not something a Bundle can hold.
     var selected by rememberSaveable(poll.id) { mutableStateOf(listOf<String>()) }
+    // The words for an "Other" choice, kept like the choices.
+    var otherText by rememberSaveable(poll.id) { mutableStateOf("") }
+    val writing = otherChosen(poll, selected)
+    val canSend = canSend(poll, selected, otherText)
+    val send = { onSubmit(selected, otherText.trim().takeIf { writing && it.isNotEmpty() }) }
 
     val onToggle: (PollChecker.Option) -> Unit = { option ->
         selected = when {
@@ -223,11 +230,12 @@ fun PollDialog(
                                         .weight(1f)
                                         .verticalScroll(rememberScrollState())
                                 ) {
-                                    PollOptions(poll, selected, onToggle)
+                                    PollOptions(poll, selected, onToggle, otherText) { otherText = it }
                                 }
                                 PollFooter(
-                                    enabled = selected.isNotEmpty(),
-                                    onSubmit = { onSubmit(selected) },
+                                    enabled = canSend,
+                                    writing = writing,
+                                    onSubmit = send,
                                     onClose = onClose,
                                 )
                             }
@@ -243,7 +251,7 @@ fun PollDialog(
                         ) {
                             PollQuestion(poll, heroHeight = 200.dp)
                             Spacer(Modifier.height(24.dp))
-                            PollOptions(poll, selected, onToggle)
+                            PollOptions(poll, selected, onToggle, otherText) { otherText = it }
                             Spacer(Modifier.height(16.dp))
                         }
                         Column(
@@ -254,8 +262,9 @@ fun PollDialog(
                                 .padding(horizontal = 24.dp)
                         ) {
                             PollFooter(
-                                enabled = selected.isNotEmpty(),
-                                onSubmit = { onSubmit(selected) },
+                                enabled = canSend,
+                                writing = writing,
+                                onSubmit = send,
                                 onClose = onClose,
                             )
                         }
@@ -316,6 +325,8 @@ private fun PollOptions(
     poll: PollChecker.Poll,
     selected: List<String>,
     onToggle: (PollChecker.Option) -> Unit,
+    otherText: String,
+    onOtherText: (String) -> Unit,
 ) {
     poll.options.forEach { option ->
         PollOption(
@@ -324,13 +335,36 @@ private fun PollOptions(
             multiple = poll.multiple,
             onClick = { onToggle(option) },
         )
+        // An "Other" choice opens a box for the person's own words, right under it.
+        if (option.other && option.id in selected) {
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = otherText,
+                onValueChange = { onOtherText(it.take(Polls.MAX_TEXT_CHARS)) },
+                placeholder = { Text(option.placeholder ?: stringResource(R.string.poll_other_hint)) },
+                supportingText = { Text("${otherText.length} / ${Polls.MAX_TEXT_CHARS}") },
+                minLines = 2,
+                maxLines = 5,
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
         Spacer(Modifier.height(10.dp))
     }
 }
 
+/** Whether an "Other" choice is picked, so the person is writing their own answer. */
+internal fun otherChosen(poll: PollChecker.Poll, selected: List<String>) =
+    poll.options.any { it.other && it.id in selected }
+
+/** Something picked, and words written when "Other" is one of the picks. */
+internal fun canSend(poll: PollChecker.Poll, selected: List<String>, otherText: String) =
+    selected.isNotEmpty() && (!otherChosen(poll, selected) || otherText.isNotBlank())
+
 @Composable
 private fun PollFooter(
     enabled: Boolean,
+    writing: Boolean,
     onSubmit: () -> Unit,
     onClose: () -> Unit,
 ) {
@@ -353,7 +387,8 @@ private fun PollFooter(
                 modifier = Modifier.size(18.dp),
             )
             Text(
-                text = stringResource(R.string.poll_anonymous_notice),
+                text = stringResource(R.string.poll_anonymous_notice) +
+                    if (writing) "\n" + stringResource(R.string.poll_other_notice) else "",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(start = 12.dp),

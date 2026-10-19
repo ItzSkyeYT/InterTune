@@ -326,6 +326,8 @@
     <string name="poll_dismiss">Ignorer cette question</string>
     <string name="poll_close">Fermer</string>
     <string name="poll_send">Envoyer ma réponse</string>
+    <string name="poll_other_hint">Votre réponse</string>
+    <string name="poll_other_notice">Ce que vous écrivez est envoyé tel quel : n\'y mettez rien de personnel.</string>
     <string name="poll_not_now">Pas maintenant</string>
     <string name="announcement_banner_hint">Touchez pour lire</string>
     <string name="announcement_dismiss">Ignorer cette annonce</string>
