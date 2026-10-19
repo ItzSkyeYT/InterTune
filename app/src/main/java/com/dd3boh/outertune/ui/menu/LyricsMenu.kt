@@ -183,7 +183,7 @@ fun LyricsMenu(
 
     if (showSearchDialog) {
         DefaultDialog(
-            modifier = Modifier.verticalScroll(rememberScrollState()),
+            scrollable = true,
             onDismiss = { showSearchDialog = false },
             icon = { Icon(imageVector = Icons.Rounded.Search, contentDescription = null) },
             title = { Text(stringResource(R.string.search_lyrics)) },
