@@ -467,7 +467,9 @@ object AdaptiveQueue {
             // after, it is no positive any more.
             val positives = r.recent.asSequence().distinctBy { it.song.id }.filter { it.positive }.map { it.song.id }.take(SEEDS).toList()
             val start = r.start
-            val seeds = positives.ifEmpty { listOfNotNull(start?.song?.id) }
+            // The song the run began with stands in only while nothing is kept and it has not been
+            // turned away: picks like a song just skipped are what the listener turned from.
+            val seeds = positives.ifEmpty { listOfNotNull(start?.takeIf { !it.turnedAway }?.song?.id) }
             val positiveArtists = LinkedHashSet(r.positiveArtists)
             if (start != null && !start.turnedAway) start.song.artists.mapTo(positiveArtists) { it.trim().lowercase() }
             return View(
@@ -663,11 +665,12 @@ object AdaptiveQueue {
      * Everything a pass reads of the run, copied on the player's thread.
      *
      * [seeds] are the newest positives, newest first ([SEEDS] of them), or the song the run began
-     * with while there are none: a radio whose first song was skipped still has the clearest intent
-     * there is, the song it was started from. [positiveArtists] are the artists with a song kept,
-     * liked or heard again in the run, and the first song's unless it was turned away: no lasting
-     * habit stands against what the listener is doing right now. [artistSkips] are the artists
-     * skipped and not forgiven since, once or more; [turnedDown] holds those skipped twice.
+     * with while there are none and it was not turned away: the song a radio was started from is
+     * the clearest intent there is until the listener skips it, and with no seed a pass only takes
+     * out what is unwanted. [positiveArtists] are the artists with a song kept, liked or heard
+     * again in the run, and the first song's unless it was turned away: no lasting habit stands
+     * against what the listener is doing right now. [artistSkips] are the artists skipped and not
+     * forgiven since, once or more; [turnedDown] holds those skipped twice.
      */
     data class View(
         val key: String,

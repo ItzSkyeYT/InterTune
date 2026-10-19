@@ -75,7 +75,39 @@ class QueuePlannerTest {
 
         assertTrue(plan.changes.none { it.slot.index < 5 || it.slot.byHand })
         assertTrue(plan.changes.none { it.slot.index == 5 })
-        assertEquals("a like's picks go in at the tail's first place, never inside the lock", 5, plan.insertAt)
+        assertEquals("a like's picks go in after the song put in by hand, never inside the lock", 6, plan.insertAt)
+    }
+
+    @Test
+    fun `a like's picks go in after a block put in by hand, not inside it`() {
+        // Play next on an album's five songs: they open the tail.
+        val slots = tail().mapIndexed { i, s -> if (i < 3) s.copy(byHand = true) else s }
+        val picks = listOf(pick("l1", seed = "liked"), pick("l2", seed = "liked"))
+        val plan = QueuePlanner.plan(slots, head, picks, share = 0.75, liked = "liked")
+        assertEquals(listOf("l1", "l2"), plan.inserts.map { it.id })
+        assertEquals("right after the third song put in by hand", 8, plan.insertAt)
+
+        val allByHand = QueuePlanner.plan(tail(3).map { it.copy(byHand = true) }, head, picks, share = 0.75, liked = "liked")
+        assertEquals("after the whole block, at the end", 8, allByHand.insertAt)
+        assertEquals(2, allByHand.inserts.size)
+    }
+
+    @Test
+    fun `after a skip a song turned from close ahead makes way for a pick no worse, with no margin to beat`() {
+        val slots = tail(fit = 0.4).with(1) { it.copy(byScore = "skipped artist", firm = true, fit = -0.1) }
+        val plan = QueuePlanner.plan(slots, head, listOf(pick("p1", fit = 0.4)), share = 0.75)
+        assertEquals("as good as what stays is enough", listOf(6 to "p1"), plan.replaced.map { it.slot.index to it.pick.id })
+
+        val weak = QueuePlanner.plan(slots, head, listOf(pick("p1", fit = 0.3)), share = 0.75)
+        assertTrue("worse than what stays: it stays too", weak.replaced.isEmpty())
+        assertTrue("and is never taken out", weak.dropped.isEmpty())
+
+        // When every song close ahead is out of place, the song itself, its skip counted, is the floor.
+        val all = tail(fit = 0.0).take(5).map { it.copy(byScore = "skipped artist", firm = true, fit = -0.5) } + tail().drop(5)
+        val floor = QueuePlanner.plan(all, head, listOf(pick("p1", fit = -0.6), pick("p2", fit = -0.5)), share = 0.75)
+        assertEquals(listOf("p2"), floor.replaced.map { it.pick.id })
+        val two = QueuePlanner.plan(all, head, (1..5).map { pick("p$it", fit = 0.5) }, share = 0.75)
+        assertEquals("still two a pass at most", QueuePlanner.SCORE_CHANGES, two.replaced.size)
     }
 
     @Test
@@ -139,11 +171,25 @@ class QueuePlannerTest {
     }
 
     @Test
-    fun `at most three picks from one seed are waiting at a time`() {
-        val slots = tail().map { it.copy(unwanted = Unwanted.BANNED) }
+    fun `at most three picks from one seed are waiting close ahead, and further on they fill what would go`() {
+        // Three of the next five banned, and one pick of this seed among them already.
+        val slots = tail().mapIndexed { i, s -> if (i in setOf(0, 2, 4, 6, 8)) s.copy(unwanted = Unwanted.BANNED) else s }
         val picks = (1..6).map { pick("p$it", seed = "same", artist = "a$it") }
         val plan = QueuePlanner.plan(slots, head, picks, share = 1.0, picksBySeed = mapOf("same" to 1))
-        assertEquals(2, plan.replaced.size)
+        assertEquals("two more close ahead, the third taken out", listOf(5, 7), plan.replaced.map { it.slot.index }.filter { it < 10 })
+        assertEquals(listOf(9), plan.dropped.map { it.slot.index })
+        assertEquals("further on, a pick rather than a gap", listOf(11, 13), plan.replaced.map { it.slot.index }.filter { it >= 10 })
+    }
+
+    @Test
+    fun `the near part is counted as it will play, past the songs taken out`() {
+        // The next five banned, and one seed holds its three places close ahead already, so they
+        // go without a pick. The song banned further on then plays fifth after the lock, inside
+        // the near part, where the cap holds too: counted where it stood, it took a fourth pick.
+        val slots = (0 until 10).map { i -> Slot(5 + i, "s$i", "artist $i", 0.0, unwanted = if (i < 5 || i == 9) Unwanted.BANNED else null) }
+        val plan = QueuePlanner.plan(slots, head, listOf(pick("p1", seed = "same")), share = 1.0, picksBySeed = mapOf("same" to 3))
+        assertTrue(plan.replaced.isEmpty())
+        assertEquals(listOf(5, 6, 7, 8, 9, 14), plan.dropped.map { it.slot.index })
     }
 
     @Test

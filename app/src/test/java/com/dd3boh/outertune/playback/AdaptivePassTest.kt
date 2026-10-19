@@ -11,6 +11,7 @@ import com.dd3boh.outertune.engine.EngineInput
 import com.dd3boh.outertune.engine.EngineLoader
 import com.dd3boh.outertune.engine.ListenRow
 import com.dd3boh.outertune.engine.SongRow
+import com.dd3boh.outertune.engine.TagFit
 import com.dd3boh.outertune.engine.Weights
 import com.dd3boh.outertune.engine.versionKey
 import com.dd3boh.outertune.models.MediaMetadata
@@ -126,6 +127,51 @@ class AdaptivePassTest {
         assertTrue(second.plan.replaced.all { it.slot.unwanted == QueuePlanner.Unwanted.ARTIST_TURNED_DOWN })
         assertTrue("no pick is by A", second.plan.replaced.none { it.pick.artist == "band a" })
         assertEquals(afterFirst.size, afterSecond.size)
+    }
+
+    @Test
+    fun `on a new install one skip swaps a song by the skipped artist close ahead for a pick like what was kept`() {
+        // Two songs kept, then one by Band A skipped. A pick listed by one seed alone fits by less
+        // than the margin over the radio's song by A, the skip counted, and changed nothing.
+        val q = (0 until 20).map { i -> if (i == 2 || i == 10) song("A$i", artist = "Band A") else song("X$i") }
+        val h = heard(q[0] to Leave.RAN_OUT, q[1] to Leave.RAN_OUT, q[2] to Leave.SKIPPED, q[3] to null)
+        val related = listOf(AdaptivePass.Source("X1", listOf(song("R1", artist = "Related 1"))))
+        val r = AdaptivePass.run(input(h, q, AdaptivePass.Kind.SKIP, related))
+        assertEquals(listOf(10 to "R1"), r.plan.replaced.map { it.slot.index to it.pick.id })
+        val change = r.plan.replaced.single()
+        assertTrue("short of the margin", change.pick.fit < change.slot.fit + QueueFit.REPLACE_MARGIN)
+        assertEquals(AdaptiveNote.Kind.AFTER_SKIP, AdaptiveNote.of(r.kind, r.plan.replaced, r.plan.inserts, 0, null, null, 4)!!.kind)
+
+        // After a song simply ended, the same song by A needs the margin: one skip is a mood.
+        val later = heard(q[0] to Leave.RAN_OUT, q[1] to Leave.RAN_OUT, q[2] to Leave.SKIPPED, q[3] to Leave.RAN_OUT, q[4] to null)
+        val ordinary = AdaptivePass.run(input(later, q, AdaptivePass.Kind.ORDINARY, related))
+        assertEquals("skipped artist", ordinary.slots.first { it.id == "A10" }.byScore)
+        assertTrue(ordinary.plan.replaced.isEmpty())
+    }
+
+    @Test
+    fun `a radio whose first song was skipped takes nothing like it, and only loses what is unwanted`() {
+        val q = (0 until 20).map { i -> if (i in setOf(1, 9, 13)) song("A$i", artist = "Band A") else song("X$i") }
+        val qq = listOf(song("A0", artist = "Band A")) + q.drop(1)
+        val h = heard(qq[0] to Leave.SKIPPED, qq[1] to Leave.SKIPPED, qq[2] to null)
+        assertTrue("no seed: nothing was kept, and the song it began with was turned away", h.view().seeds.isEmpty())
+        val r = AdaptivePass.run(input(h, qq, AdaptivePass.Kind.SKIP, emptyList()))
+        assertTrue(r.plan.replaced.isEmpty())
+        assertEquals(listOf(9, 13), r.plan.dropped.map { it.slot.index })
+    }
+
+    @Test
+    fun `with one seed an artist turned down far ahead gets picks rather than gaps`() {
+        // An artist mix: every fourth song by Band A. Two skips of A after one song kept.
+        val q = (0 until 40).map { i -> if (i % 4 == 1) song("A$i", artist = "Band A") else song("X$i") }
+        val h = heard(q[0] to Leave.RAN_OUT, q[1] to Leave.SKIPPED, q[2] to Leave.RAN_OUT, q[3] to Leave.RAN_OUT, q[4] to Leave.RAN_OUT, q[5] to Leave.SKIPPED, q[6] to null)
+        val related = (1..12).map { song("R$it", artist = "Related $it") }
+        val r = AdaptivePass.run(input(h, q, AdaptivePass.Kind.SKIP, listOf(AdaptivePass.Source("X4", related))))
+        val ahead = (9 until 40).filter { it % 4 == 1 }
+        assertEquals(ahead, (r.plan.replaced.map { it.slot.index } + r.plan.dropped.map { it.slot.index }).sorted())
+        assertTrue("more than three picks of the one seed", r.plan.replaced.size > 3)
+        val near = r.plan.replaced.count { it.slot.index < 9 + TagFit.WINDOW }
+        assertTrue("at most three of them close ahead", near <= 3)
     }
 
     // ---- 1.2: a song liked.

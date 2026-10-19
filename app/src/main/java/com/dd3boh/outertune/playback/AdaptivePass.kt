@@ -104,8 +104,10 @@ object AdaptivePass {
             .sortedByDescending { it.fit }
 
         val slots = input.tail.mapIndexed { i, place -> slot(i, place, input, tags, run) }
-        val inQueue = input.queue.mapTo(HashSet()) { it.id }
-        val picksBySeed = view.picks.filterKeys { it in inQueue }.values.groupingBy { it }.eachCount()
+        // The picks waiting in the near part, from the song playing to the end of the next five:
+        // where the planner holds one seed to its share (QueuePlanner.plan).
+        val near = (input.head.map { it.id } + input.tail.take(TagFit.WINDOW).map { it.song.id }).toHashSet()
+        val picksBySeed = view.picks.filterKeys { it in near }.values.groupingBy { it }.eachCount()
         val liked = view.likePending
         val plan = QueuePlanner.plan(slots, input.head.map(::artistOf), picks, input.share, liked, picksBySeed)
         val budget = (slots.size * input.share).toInt()
@@ -175,7 +177,12 @@ object AdaptivePass {
             song.id in input.skippedRelated -> "like the song skipped"
             else -> null
         }
-        return QueuePlanner.Slot(place.index, song.id, artists.firstOrNull(), score.fit, place.byHand, unwanted, byWords, byScore)
+        // Right after a skip, a song by an artist skipped, or one on the skipped song's own list,
+        // close ahead is what the listener just turned from: a pick no worse takes its place, with
+        // no margin to beat. With the margin, one skip on a new install changed nothing unless two
+        // seeds listed the pick, and the queue looked as if it had not heard the skip at all.
+        val firm = byScore != null && input.kind == Kind.SKIP && (score.oneSkip || song.id in input.skippedRelated)
+        return QueuePlanner.Slot(place.index, song.id, artists.firstOrNull(), score.fit, place.byHand, unwanted, byWords, byScore, firm)
     }
 
     private fun artistOf(song: MediaMetadata): String? = song.artists.firstOrNull()?.name?.trim()?.lowercase()

@@ -3335,6 +3335,7 @@ class MusicService : MediaLibraryService(),
      */
     private suspend fun pageFor(seeds: List<String>, key: String, snap: PassSnapshot): AdaptivePass.Source? {
         fun noPage(why: String): AdaptivePass.Source? { Log.d(TAG, "Adaptive queue: no page ($why)"); return null }
+        if (seeds.isEmpty()) return noPage("nothing kept yet")
         if (!snap.online) return noPage("offline")
         if (Throttle.isBlocked) return noPage("throttled")
         if (snap.now - (lastPageAt[key] ?: 0L) < PAGE_EVERY_MS) return noPage("too soon")

@@ -208,7 +208,12 @@ class AdaptiveLeaveTest {
         h.left(AdaptiveQueue.Leave.SKIPPED)
         h.play("B", AdaptiveQueue.Leave.SKIPPED)
         h.play("C")
-        assertEquals("still the first song, even skipped", listOf("A"), h.view().seeds)
+        assertEquals("not once it was skipped: picks like it are what the listener turned from", emptyList<String>(), h.view().seeds)
+
+        val n = heard()
+        n.play("A", AdaptiveQueue.Leave.NEITHER)
+        n.play("B")
+        assertEquals("left by going back or by a tap, it still stands in", listOf("A"), n.view().seeds)
 
         val k = heard()
         k.play("A", AdaptiveQueue.Leave.RAN_OUT)

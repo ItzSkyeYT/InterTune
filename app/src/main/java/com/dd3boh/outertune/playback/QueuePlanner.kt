@@ -23,6 +23,9 @@ import com.dd3boh.outertune.engine.TagFit
  *   than what is already coming: the lowest fit among the songs of the near part that stay;
  * - out of place by its score: in the near part only, with a reason of its own against it, and
  *   only for a pick that fits by [QueueFit.REPLACE_MARGIN] more, [SCORE_CHANGES] a pass at most;
+ *   after a skip, one out of place by what the skip turned from ([Slot.firm]: its artist skipped,
+ *   or on the skipped song's own list) needs only a pick no worse than it, with the skip counted,
+ *   and no worse than what stays;
  * - everything else, left alone.
  *
  * With no pick good enough, an unwanted song is taken out, since a gap is better than a song the
@@ -30,11 +33,13 @@ import com.dd3boh.outertune.engine.TagFit
  * a gap. One pass changes at most the share of the tail it is given, and never takes the last song
  * out. The songs that stay keep their order. Picks keep apart from songs by the same artist, two of
  * an artist at most from the song playing to the end of the near part
- * ([EngineParams.maxPerArtist]), and three unplayed at most from one seed ([EngineParams.maxPerSeed]).
+ * ([EngineParams.maxPerArtist]), and three unplayed at most from one seed there
+ * ([EngineParams.maxPerSeed]). The near part is counted as it will play, past the songs taken out.
  *
  * After a like, two of the liked song's related songs ([LIKE_PICKS]) go in at the start of the
- * tail, before anything else is chosen, so the like is answered within a few songs. They need no
- * bar beyond what makes any pick usable: the listener asked for songs like that one.
+ * tail, after any songs put in by hand that open it, before anything else is chosen, so the like
+ * is answered within a few songs. They need no bar beyond what makes any pick usable: the listener
+ * asked for songs like that one.
  *
  * No Android in here, so it is tested.
  */
@@ -58,7 +63,9 @@ object QueuePlanner {
     /**
      * One place of the tail: where it is in play order ([index]), its song and first artist (lower
      * case), how well it fits ([fit], QueueFit), and how it is read. [byScore] names the reason a
-     * place in the near part is out of place by its score, null when it is not.
+     * place in the near part is out of place by its score, null when it is not. [firm] when that
+     * reason is what a skip just turned from, on the pass after it: the listener has said it, so a
+     * pick no worse than the song takes its place without the margin.
      */
     data class Slot(
         val index: Int,
@@ -69,6 +76,7 @@ object QueuePlanner {
         val unwanted: Unwanted? = null,
         val byWords: Boolean = false,
         val byScore: String? = null,
+        val firm: Boolean = false,
     ) {
         /** Out of place for its score and for nothing else. */
         val scoreOnly: Boolean get() = unwanted == null && !byWords && byScore != null
@@ -85,8 +93,9 @@ object QueuePlanner {
 
     /**
      * What one pass does: [changes] to places of the tail, and [inserts] put in at [insertAt], the
-     * tail's first place, after a like. [bar] is what a pick had to reach to take the place of a
-     * song a rule decided on: the lowest fit among the songs of the near part that stay.
+     * tail's first place not put in by hand, after a like. [bar] is what a pick had to reach to
+     * take the place of a song a rule decided on: the lowest fit among the songs of the near part
+     * that stay.
      */
     data class Plan(val changes: List<Change>, val inserts: List<Pick>, val insertAt: Int, val bar: Double) {
         val replaced: List<Replace> get() = changes.filterIsInstance<Replace>()
@@ -99,7 +108,8 @@ object QueuePlanner {
      * [slots] is the tail in play order, [head] the first artists of every song from the one
      * playing to the start of the tail, [picks] the usable candidates best first. [liked] is the
      * song whose picks wait to go in, null with none. [picksBySeed] counts this run's unplayed picks
-     * per seed still in the queue. [share] is how much of the tail the pass may change.
+     * per seed from the song playing to the end of the near part. [share] is how much of the tail
+     * the pass may change.
      */
     fun plan(
         slots: List<Slot>,
@@ -119,9 +129,10 @@ object QueuePlanner {
             .minOfOrNull { it.fit } ?: Double.NEGATIVE_INFINITY
         val pool = picks.toMutableList()
         val bySeed = HashMap(picksBySeed)
-        fun seedRoom(p: Pick) = (bySeed[p.seed] ?: 0) < maxPerSeed
         // The arrangement as it is being changed: the first artist of each place from the song
-        // playing on. A song taken out leaves a null, and the neighbour rule looks past it.
+        // playing on, as the places will play. A song taken out is gone from it, so the near part
+        // is always the first places after the head that will really be heard next: with a null
+        // left in its place, the songs behind it moved into the near part unseen.
         val arrangement = ArrayList<String?>(head.size + slots.size + LIKE_PICKS)
         arrangement.addAll(head)
         slots.mapTo(arrangement) { it.artist }
@@ -140,55 +151,73 @@ object QueuePlanner {
             return inWindow < maxPerArtist
         }
 
+        // Variety where it is heard soon: at most [maxPerSeed] unplayed picks of one seed in the
+        // near part, as a row of cards holds at most that many from one seed. Further on a pick
+        // only ever takes a place a rule decided on, which goes without one otherwise: early in a
+        // radio there is one seed, and with the cap on the whole tail an artist turned down lost
+        // three songs to picks and the other nine to gaps.
+        fun seedRoom(p: Pick, at: Int) = at >= window || (bySeed[p.seed] ?: 0) < maxPerSeed
+        fun counted(p: Pick, at: Int) { if (at < window) bySeed[p.seed] = (bySeed[p.seed] ?: 0) + 1 }
+
         // After a like, its picks first: what the listener just said is answered before anything
-        // the pass works out for itself takes the best picks.
+        // the pass works out for itself takes the best picks. They go in after the songs put in
+        // by hand that open the tail, which play as the listener put them: a block of Play next
+        // was split in two.
+        val lead = slots.takeWhile { it.byHand }.size
+        val insertAt = slots.getOrNull(lead)?.index ?: (slots.last().index + 1)
         val inserts = ArrayList<Pick>()
         if (liked != null) {
             for (p in pool.filter { it.seed == liked }) {
                 if (inserts.size >= LIKE_PICKS) break
-                val at = head.size + inserts.size
-                if (!seedRoom(p) || !fits(p.artist, at, inserting = true)) continue
+                val at = head.size + lead + inserts.size
+                if (!seedRoom(p, at) || !fits(p.artist, at, inserting = true)) continue
                 inserts += p
                 arrangement.add(at, p.artist)
-                bySeed[p.seed] = (bySeed[p.seed] ?: 0) + 1
+                counted(p, at)
             }
             pool.removeAll(inserts)
         }
-        val shift = head.size + inserts.size
 
         val budget = (slots.size * share).toInt()
         val order = slots.indices.filter { !slots[it].byHand && slots[it].unwanted != null } +
             slots.indices.filter { !slots[it].byHand && slots[it].unwanted == null && (slots[it].byWords || slots[it].byScore != null) }
         val changes = ArrayList<Change>()
+        // The places taken out so far. Only unwanted places are, and those are decided first and
+        // nearest first, so a place's spot in the arrangement is settled when it is decided.
+        val dropped = ArrayList<Int>()
+        fun spot(i: Int) = head.size + i + (if (i >= lead) inserts.size else 0) - dropped.count { it < i }
         var made = 0
-        var drops = 0
         var byScore = 0
         for (i in order) {
             if (made >= budget) break
             val slot = slots[i]
             if (slot.scoreOnly && byScore >= SCORE_CHANGES) continue
-            val at = shift + i
-            val need = if (slot.scoreOnly) slot.fit + QueueFit.REPLACE_MARGIN else bar
-            val pick = pool.firstOrNull { it.fit >= need && seedRoom(it) && fits(it.artist, at, inserting = false) }
+            val at = spot(i)
+            val need = when {
+                slot.scoreOnly && slot.firm -> maxOf(bar, slot.fit)
+                slot.scoreOnly -> slot.fit + QueueFit.REPLACE_MARGIN
+                else -> bar
+            }
+            val pick = pool.firstOrNull { it.fit >= need && seedRoom(it, at) && fits(it.artist, at, inserting = false) }
             when {
                 pick != null -> {
                     changes += Replace(slot, pick)
                     pool.remove(pick)
                     arrangement[at] = pick.artist
-                    bySeed[pick.seed] = (bySeed[pick.seed] ?: 0) + 1
+                    counted(pick, at)
                     made++
                     if (slot.scoreOnly) byScore++
                 }
                 // Never the last song ahead: the tail is never emptied.
-                slot.unwanted != null && slots.size - (drops + 1) >= 1 -> {
+                slot.unwanted != null && slots.size - (dropped.size + 1) >= 1 -> {
                     changes += Drop(slot)
-                    arrangement[at] = null
-                    drops++
+                    arrangement.removeAt(at)
+                    dropped += i
                     made++
                 }
                 else -> changes += Keep(slot)
             }
         }
-        return Plan(changes, inserts, slots.first().index, bar)
+        return Plan(changes, inserts, insertAt, bar)
     }
 }
