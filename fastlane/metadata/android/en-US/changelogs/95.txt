@@ -1,0 +1,12 @@
+Version 0.12
+
+- Cast to Chromecast, FCast or a DLNA TV.
+- Radios learn from your skips and likes.
+- Living blur: the player's background moves with the music.
+- An equalizer, with your headphones' own curve.
+- Share lyrics as text, a picture or a video, or read them in Latin letters.
+- The sleep timer can start itself every day.
+- Hide explicit songs and music videos.
+- "What's playing?" names sped-up and slowed songs.
+
+Full changelog: https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.12
