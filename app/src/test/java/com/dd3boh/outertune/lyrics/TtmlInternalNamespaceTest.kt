@@ -57,9 +57,19 @@ class TtmlInternalNamespaceTest {
 
     @Test
     fun `lyrics TTML that cannot be read is never read as LRC`() {
+        val kept = File("src/main/java/com/dd3boh/outertune/lyrics/KeptLyrics.kt").readText()
+        assertTrue(kept.contains("if (LyricsMatch.isTtml(text)) return readTtml(text)"))
         val helper = File("src/main/java/com/dd3boh/outertune/lyrics/LyricsHelper.kt").readText()
-        val parse = helper.substringAfter("private fun parse(").substringBefore("\n    }\n")
-        assertTrue(parse.contains("if (LyricsMatch.isTtml(text)) return readTtml(text)"))
+        assertTrue(helper.contains("= readKeptLyrics(text, trim, multiline)"))
         assertTrue(helper.contains("readable = { !LyricsMatch.isTtml(it) || readTtml(it) != null }"))
+    }
+
+    @Test
+    fun `lyrics picked in Search lyrics or edited by hand are read the same way, and shown as words`() {
+        // A Better Lyrics result picked in the search was read as LRC and showed as a page of markup (19 Oct 2026).
+        val menu = File("src/main/java/com/dd3boh/outertune/ui/menu/LyricsMenu.kt").readText()
+        assertFalse(menu.contains("parseLrc("))
+        assertEquals(2, Regex("""onRefreshRequest\(readKeptLyrics\(""").findAll(menu).count())
+        assertTrue(menu.contains("lyricsPreview(result.lyrics)"))
     }
 }
