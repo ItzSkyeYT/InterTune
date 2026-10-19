@@ -1187,6 +1187,9 @@ object YTPlayerUtils {
             val asAccount = client.loginSupported && isLoggedIn
             // The experiment's client, of which nothing is counted: see TRIAL_CLIENT.
             val isTrial = client === trial
+            // Where this client's own answer went in fallbackSaid when it was OK, so that an OK whose
+            // address is then refused can be taken back (see the refusal below).
+            var saidOkAt = -1
             // A web client, the experiment's or the chain's: asked, deciphered and checked the same way.
             val isWeb = isTrial || client === WEB_FALLBACK_CLIENT || client === ACCOUNT_WEB_CLIENT
             if (isWeb) startTokensFor(client)
@@ -1244,7 +1247,10 @@ object YTPlayerUtils {
                         onVisitorDataFound?.invoke(found)
                     }
             } else if (!isTrial) {
-                streamPlayerResponse?.playabilityStatus?.let { fallbackSaid += it }
+                streamPlayerResponse?.playabilityStatus?.let {
+                    if (it.status == "OK") saidOkAt = fallbackSaid.size
+                    fallbackSaid += it
+                }
                 if (Throttle.looksLikeBlock(streamPlayerResponse?.playabilityStatus?.reason)) notes.fallbackBlocked = true
                 streamPlayerResponse?.playabilityStatus
                     ?.takeIf { it.status != null && it.status != "OK" && explained == null }
@@ -1353,6 +1359,14 @@ object YTPlayerUtils {
                     break
                 }
                 Log.w(TAG, "[$videoId] [${clientLabel.substringBefore(' ')}] got bad http status code $status, address issued to $issuedTo")
+                // An OK whose address is refused says nothing of the song: it no longer stands in
+                // the way of the others calling it gone. IOS answers OK for songs every other client
+                // calls unavailable, then has its address refused (issue #29, 19 Oct 2026), and the
+                // song failed with YouTube's raw words instead of being looked for under another id.
+                if (status != null && saidOkAt in fallbackSaid.indices && fallbackSaid[saidOkAt].status == "OK") {
+                    fallbackSaid.removeAt(saidOkAt)
+                    saidOkAt = -1
+                }
                 if (status != null && !isTrial) {
                     refusedStatus = status
                     if (isVisionos) notes.visionosRefused = true

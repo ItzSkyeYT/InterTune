@@ -531,6 +531,27 @@ class ChainWalkTest {
     }
 
     @Test
+    fun `an OK whose address is refused does not keep a song every other client calls gone from failing as unavailable`() {
+        // Issue #29: IOS answered OK for a song the others called "not available", then had its
+        // address refused, and the song failed with YouTube's raw words instead of as gone.
+        val gone = refused("This video is not available", status = "UNPLAYABLE")
+        val script = Script(
+            says = mapOf(
+                "ANDROID_VR" to listOf(gone),
+                "VISIONOS" to listOf(gone),
+                "IOS" to listOf(playable("IOS", loudness = 5.0, seconds = "200")),
+                "ANDROID_VR as a new visitor" to listOf(refused("This video is not available", status = "UNPLAYABLE", carrying = newVisitor)),
+            ),
+            heads = mapOf("IOS" to 403),
+        )
+
+        val failure = walk(script).exceptionOrNull()
+
+        assertTrue(failure.toString(), failure is YTPlayerUtils.SongUnavailable)
+        assertEquals("This video is not available", failure?.message)
+    }
+
+    @Test
     fun `refused addresses, the bot check and a client that could not be reached are not a song that is gone`() {
         val gone = refused("This video is not available", status = "UNPLAYABLE")
         val scripts = listOf(
