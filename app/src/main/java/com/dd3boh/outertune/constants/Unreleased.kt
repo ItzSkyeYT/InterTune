@@ -106,11 +106,11 @@ object Unreleased {
      * The equalizer in the app (EqualizerAudioProcessor): ten bands from 31 Hz to 16 kHz, presets,
      * under Player and audio. The processor is in every build's chain and passes everything through
      * untouched unless this is on and the curve is not flat. Measured band by band in
-     * EqualizerAudioProcessorTest; not yet heard on a phone. For 0.12. To ship: set this to true,
-     * or delete it with the two checks that read it, in MusicService and PlayerSettings, and the
-     * one that registers its screen in AppNavGraph.
+     * EqualizerAudioProcessorTest. On in every build from 0.12 (19 Oct 2026). To tidy in 0.13:
+     * delete it with the two checks that read it, in MusicService and PlayerSettings, the one that
+     * registers its screen in AppNavGraph, and the tour stop's condition in Walkthrough.
      */
-    val EQUALIZER = BuildConfig.DEBUG
+    val EQUALIZER = true
 
     /**
      * "Living blur" among the player background styles: the cover reduced to patches of colour
