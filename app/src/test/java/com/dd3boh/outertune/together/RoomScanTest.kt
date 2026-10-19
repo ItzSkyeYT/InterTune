@@ -40,13 +40,24 @@ class RoomScanTest {
         return bytes
     }
 
+    /** Rooms whose code in ZXing's own mask its reader could not read in this frame (19 Oct 2026, see RoomQr.modules). */
+    private val onceUnreadable = listOf("MNCX4QZNEXSS", "KUTYVUNFXNMC", "2UUJ4QBCMXXU")
+
+    /** A quarter turn: a phone held upright hands its camera's frame over sideways. */
+    private fun turned(modules: Array<BooleanArray>) =
+        Array(modules.size) { y -> BooleanArray(modules.size) { x -> modules[modules.size - 1 - x][y] } }
+
     @Test
     fun `a room's QR code seen by the camera reads back as the room`() {
-        repeat(10) {
-            val code = RoomCode.generate()
-            val seen = RoomScan.read(frame(RoomQr.modules(code.appLink)), rowStride, width, height)
-            assertEquals(code.appLink, seen)
-            assertEquals(code, RoomScan.room(seen))
+        val codes = onceUnreadable.map { RoomCode.parse(it)!! } + List(10) { RoomCode.generate() }
+        for (code in codes) {
+            var modules = RoomQr.modules(code.appLink)
+            for (turn in listOf(0, 90, 180, 270)) {
+                val seen = RoomScan.read(frame(modules), rowStride, width, height)
+                assertEquals("$code turned $turn", code.appLink, seen)
+                assertEquals(code, RoomScan.room(seen))
+                modules = turned(modules)
+            }
         }
     }
 

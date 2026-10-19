@@ -6,11 +6,17 @@
 
 package com.dd3boh.outertune.together
 
+import com.google.zxing.BarcodeFormat
 import com.google.zxing.BinaryBitmap
+import com.google.zxing.EncodeHintType
 import com.google.zxing.RGBLuminanceSource
+import com.google.zxing.ReaderException
 import com.google.zxing.common.HybridBinarizer
 import com.google.zxing.qrcode.QRCodeReader
+import com.google.zxing.qrcode.QRCodeWriter
+import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -36,14 +42,56 @@ class RoomQrTest {
         return QRCodeReader().decode(bitmap).text
     }
 
+    /** A quarter turn: a phone held upright hands its camera's frame over sideways. */
+    private fun turned(modules: Array<BooleanArray>) =
+        Array(modules.size) { y -> BooleanArray(modules.size) { x -> modules[modules.size - 1 - x][y] } }
+
+    /** The code as ZXing draws it left to itself, in the mask of its own choice. */
+    private fun zxingOwn(text: String): Array<BooleanArray> {
+        val hints = mapOf(EncodeHintType.MARGIN to 0, EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.M)
+        val matrix = QRCodeWriter().encode(text, BarcodeFormat.QR_CODE, 0, 0, hints)
+        return Array(matrix.height) { y -> BooleanArray(matrix.width) { x -> matrix.get(x, y) } }
+    }
+
+    /**
+     * Rooms whose code in ZXing's own mask its reader could not read (19 Oct 2026). It met a spot
+     * in the data with a corner square's proportions and stopped looking (the first three, the
+     * third in mask 1; H6PQYKQX9MG8 only on its side), or a spot it took hid a real square
+     * (34ZCRLMVV6YC upside down).
+     */
+    private val onceUnreadable = listOf("TL53UDR5E95G", "Y73X736ERB7D", "RKU3KKWT65PW", "H6PQYKQX9MG8", "34ZCRLMVV6YC")
+
     @Test
     fun `a room's QR code reads back as its invite link`() {
+        val codes = onceUnreadable.map { RoomCode.parse(it)!! } + List(20) { RoomCode.generate() }
+        for (code in codes) {
+            var modules = RoomQr.modules(code.appLink)
+            // Whichever way up the other phone holds it.
+            for (turn in listOf(0, 90, 180, 270)) {
+                val text = try {
+                    read(modules)
+                } catch (e: ReaderException) {
+                    throw AssertionError("$code turned $turn: $e")
+                }
+                assertEquals(code.appLink, text)
+                // And the link it reads opens the same room.
+                assertEquals(code, RoomCode.parse(text))
+                modules = turned(modules)
+            }
+        }
+    }
+
+    @Test
+    fun `a code with a spot the reader could take for a corner square gets another mask, any other keeps ZXing's own`() {
+        for (raw in onceUnreadable) {
+            val link = RoomCode.parse(raw)!!.appLink
+            assertTrue(raw, RoomQr.hasLookAlike(zxingOwn(link)))
+            assertFalse(raw, RoomQr.hasLookAlike(RoomQr.modules(link)))
+        }
         repeat(20) {
-            val code = RoomCode.generate()
-            val modules = RoomQr.modules(code.appLink)
-            assertEquals(code.appLink, read(modules))
-            // And the link it reads opens the same room.
-            assertEquals(code, RoomCode.parse(read(modules)))
+            val link = RoomCode.generate().appLink
+            val own = zxingOwn(link)
+            if (!RoomQr.hasLookAlike(own)) assertTrue(link, RoomQr.modules(link).contentDeepEquals(own))
         }
     }
 
