@@ -32,9 +32,13 @@ class RegionAnalysis(
     /** Each hop's peak on any channel, 0 to 1, for headroom. */
     val hopPeak: FloatArray,
     val hopFrames: Int,
-    private val factor: Int,
+    /** The decimated mono copy the analysis read, at a [decimation]-th of the rate: the stretcher's guide. */
+    val guide: FloatArray,
+    val decimation: Int,
     val analysisMillis: Double,
 ) {
+    private val factor: Int get() = decimation
+
     val grid: BeatGrid? get() = rhythm.grid
     val downbeats: Downbeats? get() = rhythm.downbeats
     val gates: Gates get() = rhythm.gates
@@ -77,6 +81,12 @@ class RegionAnalysis(
             }
             return k
         }
+
+    /** Every beat of the trusted stretch, in full-rate frames: the anchors for stretching this region. */
+    fun beatFrames(): DoubleArray {
+        val g = grid ?: return DoubleArray(0)
+        return DoubleArray(g.activeBeats) { beatFrame(g.firstBeat + it) }
+    }
 
     /** The spectral frame of full-rate frame [frame]. */
     fun spectralFrame(frame: Double): Double = (frame / factor - Spectrum.ONSET_LAG) / Spectrum.HOP
@@ -144,7 +154,8 @@ class RegionAnalysis(
                 onset = spectrum.onset,
                 hopPeak = front.hopPeak,
                 hopFrames = front.hopFrames,
-                factor = front.factor,
+                guide = front.mono,
+                decimation = front.factor,
                 analysisMillis = (System.nanoTime() - started) / 1e6,
             )
         }

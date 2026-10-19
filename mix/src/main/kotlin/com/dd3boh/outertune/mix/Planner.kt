@@ -418,8 +418,8 @@ object Planner {
         val aFirst = min(firstProcessed ?: Long.MAX_VALUE, floor(start - lead).toLong())
         if (aFirst < c.earliest) return c.refuse(style, "it would change something before the plan can be in place")
         val aGone = ceil(end).toLong()
-        val room = headroom(c, map, gainA, gainB, bStart.toDouble(), start, end)
-        val shapedUntil = maxOf(aGone + lead.toLong(), filtersB.maxOfOrNull { it.end } ?: 0L, room.end)
+        val (room, incoming) = headroom(c, map, gainA, gainB, bStart.toDouble(), start, end)
+        val shapedUntil = maxOf(aGone + lead.toLong(), filtersB.maxOfOrNull { it.end } ?: 0L, floor(start - lead).toLong() + incoming.size.toLong() * Headroom.STEP)
         return MixPlan(
             style = style,
             reason = if (c.refusals.isEmpty()) why else why + "; " + c.refusals.joinToString("; "),
@@ -437,6 +437,7 @@ object Planner {
             filtersA = filtersA,
             filtersB = filtersB,
             headroom = room,
+            incomingLoad = incoming,
             attenuationA = c.input.attenuationA,
             attenuationB = c.input.attenuationB,
             shapedUntil = shapedUntil,
@@ -449,46 +450,30 @@ object Planner {
 
     /**
      * The shared gain that keeps the sum of both songs under 0.95 of full scale through the
-     * overlap: in each 50 ms window, 0.95 over the outgoing song's peak at its gain plus the
-     * incoming one's at its gain, the incoming one's taken 20% higher because its live frames are
-     * not the ones measured. Then the lowest of each 400 ms and a 200 ms average of that, so it
-     * never rises above what any frame needs and never moves faster than a fade.
+     * overlap, from the analysis: on each knot, the outgoing song's peak over 50 ms at its gain,
+     * plus the incoming one's, taken 20% higher because its live frames are not the ones
+     * measured. The renderer works it out again from the outgoing song as rendered, filters and
+     * all; the incoming song's load is kept for that.
      */
-    private fun headroom(c: Context, map: TimeMap, gainA: Curve, gainB: Curve, bStart: Double, start: Double, end: Double): Headroom {
-        val step = 512
+    private fun headroom(c: Context, map: TimeMap, gainA: Curve, gainB: Curve, bStart: Double, start: Double, end: Double): kotlin.Pair<Headroom, DoubleArray> {
+        val step = Headroom.STEP
         val lead = c.frames(HEADROOM_LEAD_S)
         val from = floor(start - lead).toLong()
         val to = ceil(end + lead).toLong()
         val n = ((to - from) / step + 1).toInt()
         val half = c.frames(0.025)
-        val needed = DoubleArray(n) { i ->
+        val incoming = DoubleArray(n)
+        val loads = DoubleArray(n) { i ->
             val o = from + i.toDouble() * step
-            if (o < start || o > end) 1.0 else {
+            if (o < start || o > end) 0.0 else {
                 val ta = map.tailAt(o)
                 val pa = c.tail.peakBetween((ta - half).toLong(), (ta + half).toLong()) * c.input.attenuationA
                 val cb = o - bStart - c.delay
                 val pb = if (cb + half < 0) 0.0 else c.head.peakBetween((cb - half).toLong().coerceAtLeast(0), (cb + half).toLong()) * c.input.attenuationB
-                val sum = pa * gainA.at(o) + 1.2 * pb * gainB.at(o)
-                if (sum <= 0.95) 1.0 else 0.95 / sum
+                incoming[i] = 1.2 * pb * gainB.at(o)
+                pa * gainA.at(o) + incoming[i]
             }
         }
-        if (needed.all { it >= 1.0 }) return Headroom.NONE
-        val radius = max(1, (c.frames(0.2) / step).toInt())
-        val lowest = DoubleArray(n) { i ->
-            var m = 1.0
-            for (j in max(0, i - radius)..min(n - 1, i + radius)) m = min(m, needed[j])
-            m
-        }
-        val halfAverage = max(1, radius / 2)
-        val values = FloatArray(n) { i ->
-            var sum = 0.0
-            var count = 0
-            for (j in i - halfAverage..i + halfAverage) {
-                sum += if (j in 0 until n) lowest[j] else 1.0
-                count++
-            }
-            (sum / count).toFloat()
-        }
-        return Headroom(from, step, values)
+        return Headroom.solve(from, loads, c.rate) to incoming
     }
 }

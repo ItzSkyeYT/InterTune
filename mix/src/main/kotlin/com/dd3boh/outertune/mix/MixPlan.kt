@@ -10,6 +10,7 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.exp
 import kotlin.math.ln
+import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
 import kotlin.math.sqrt
@@ -192,6 +193,37 @@ class Headroom(val start: Long, val step: Int, val values: FloatArray) {
 
     companion object {
         val NONE = Headroom(0, 1, FloatArray(0))
+
+        /** The sum of both songs, as a share of full scale, that the headroom holds the mix under. */
+        const val CEILING = 0.95
+
+        /** Knots every this many output frames. */
+        const val STEP = 512
+
+        /**
+         * The headroom for [loads], the worst case of both songs' peaks at their gains on each knot
+         * from [start]: on each knot [CEILING] over its load where the load is higher, then the
+         * lowest of 400 ms around it and a 200 ms average of that, so it never rises above what any
+         * frame needs and never moves faster than a fade.
+         */
+        fun solve(start: Long, loads: DoubleArray, sampleRate: Int): Headroom {
+            val n = loads.size
+            val needed = DoubleArray(n) { if (loads[it] <= CEILING) 1.0 else CEILING / loads[it] }
+            if (needed.all { it >= 1.0 }) return NONE
+            val radius = max(1, (0.2 * sampleRate / STEP).toInt())
+            val lowest = DoubleArray(n) { i ->
+                var m = 1.0
+                for (j in max(0, i - radius)..min(n - 1, i + radius)) m = min(m, needed[j])
+                m
+            }
+            val half = max(1, radius / 2)
+            val values = FloatArray(n) { i ->
+                var sum = 0.0
+                for (j in i - half..i + half) sum += if (j in 0 until n) lowest[j] else 1.0
+                (sum / (2 * half + 1)).toFloat()
+            }
+            return Headroom(start, STEP, values)
+        }
     }
 }
 
@@ -221,7 +253,13 @@ class MixPlan(
     val gainB: Curve,
     val filtersA: List<FilterMove>,
     val filtersB: List<FilterMove>,
+    /** The headroom worked out from the analysis; the renderer refines it from the outgoing song's own rendered peaks. */
     val headroom: Headroom,
+    /**
+     * The incoming song's share of the load on each knot of [headroom]: its peak, 20% higher since
+     * its live frames are not the ones measured, at its gain and attenuation.
+     */
+    val incomingLoad: DoubleArray,
     /** Each song's loudness normalisation, applied to its samples. */
     val attenuationA: Double,
     val attenuationB: Double,
@@ -270,6 +308,7 @@ class MixPlan(
             filtersA = emptyList(),
             filtersB = emptyList(),
             headroom = Headroom.NONE,
+            incomingLoad = DoubleArray(0),
             attenuationA = attenuationA,
             attenuationB = attenuationB,
             shapedUntil = tailFrames,
