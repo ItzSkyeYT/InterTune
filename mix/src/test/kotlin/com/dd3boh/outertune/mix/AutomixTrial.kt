@@ -197,6 +197,8 @@ class AutomixTrial {
         summary.append(tempoRows)
         summary.append("\n## Synthetic pairs\n\n")
         summary.append(synthetic)
+        summary.append("\n## Analysis accuracy on synthetic songs\n\n")
+        summary.append(accuracy())
         File(renders, "SUMMARY.md").writeText(summary.toString())
         print(summary)
     }
@@ -504,6 +506,105 @@ class AutomixTrial {
         for ((label, specs) in pairs) run(label, Synth.song(specs.first).samples, Synth.song(specs.second).samples)
         run("pad into a beat", Synth.pad(90.0), Synth.song(SynthSpec(bpm = 124.0, bars = 40, seed = 7)).samples)
         return out.toString()
+    }
+
+    /**
+     * The analysis against the generator's answers over many songs: three grooves at nine tempos
+     * and two seeds, the harder variants, and the controls that must never be trusted.
+     */
+    private fun accuracy(): String {
+        val out = StringBuilder()
+        var regions = 0
+        var tempoRight = 0
+        var beatsTrusted = 0
+        var beatsTrustedRight = 0
+        var fSum = 0.0
+        var barsTrusted = 0
+        var barsRight = 0
+        var barsWrong = 0
+        var octaveRegions = 0
+        val tempos = doubleArrayOf(85.0, 100.0, 110.0, 124.0, 128.0, 140.0, 150.0, 160.0, 174.0)
+        val specs = ArrayList<kotlin.Pair<String, SynthSpec>>()
+        for (groove in listOf(Groove.FOUR_ON_THE_FLOOR, Groove.BACKBEAT, Groove.HALF_TIME)) for (bpm in tempos) for (seed in 1L..2L) {
+            specs += "$groove $bpm" to SynthSpec(bpm = bpm, bars = (bpm / 4 + 4).toInt(), groove = groove, seed = seed)
+        }
+        for (seed in 1L..2L) {
+            specs += "shuffle 96" to SynthSpec(bpm = 96.0, bars = 16, groove = Groove.BACKBEAT, swing = 2.0 / 3.0, seed = seed)
+            specs += "shuffle 132" to SynthSpec(bpm = 132.0, bars = 20, groove = Groove.BACKBEAT, swing = 2.0 / 3.0, seed = seed)
+            specs += "noise -20 dB" to SynthSpec(bpm = 126.0, bars = 20, noiseDb = -20.0, seed = seed)
+            specs += "no chords" to SynthSpec(bpm = 122.0, bars = 20, chords = false, seed = seed)
+            specs += "48 kHz" to SynthSpec(bpm = 118.0, bars = 20, sampleRate = 48_000, seed = seed)
+        }
+        for ((_, spec) in specs) {
+            val h = Heard.of(Synth.song(spec), 0.0, 30.0)
+            regions++
+            val bpm = h.rhythm.bpm
+            val right = bpm != null && Tempo.distance(bpm, spec.bpm) < 0.001
+            if (right) tempoRight++
+            // Is the grid at the song's own beat, or an octave of it? Bars only mean the song's
+            // bars when it is at the song's own beat.
+            val ownBeat = bpm != null && abs(bpm / spec.bpm - 1) < 0.01
+            if (!ownBeat && right) octaveRegions++
+            if (h.rhythm.gates.beats) {
+                beatsTrusted++
+                if (right) beatsTrustedRight++
+                fSum += if (ownBeat) h.beatF() else octaveF(h)
+            }
+            if (h.rhythm.gates.downbeats && ownBeat) {
+                barsTrusted++
+                if (h.downbeatAccuracy() >= 0.99) barsRight++ else barsWrong++
+            }
+        }
+        out.append("Each song's first 30 s analysed as an opening; %d songs: three grooves (four on the floor, backbeat, half time) at 85 to 174 BPM, two seeds each, and shuffles, added noise, no chords and 48 kHz.\n\n".format(regions))
+        out.append("| measure | result |\n|---|---|\n")
+        out.append("| tempo within 0.1%% once folded | %d of %d |\n".format(tempoRight, regions))
+        out.append("| beats trusted | %d of %d, all with the right tempo: %s |\n".format(beatsTrusted, regions, if (beatsTrustedRight == beatsTrusted) "yes" else "NO, ${beatsTrusted - beatsTrustedRight} wrong"))
+        out.append("| beat F-measure at ±70 ms, trusted grids, against the song's beats or the octave the grid is at | %.3f |\n".format(if (beatsTrusted > 0) fSum / beatsTrusted else 0.0))
+        out.append("| grids at an octave of the song's beat (folded into 85-170, so bars are not judged) | %d |\n".format(octaveRegions))
+        out.append("| bars trusted on the song's own beat | %d, right %d, wrong %d |\n".format(barsTrusted, barsRight, barsWrong))
+
+        // The controls: nothing here may be trusted at any stage.
+        var controls = 0
+        var tempoClaimed = 0
+        var beatsClaimed = 0
+        var barsClaimed = 0
+        fun control(r: Rhythm) {
+            controls++
+            if (r.gates.tempo) tempoClaimed++
+            if (r.gates.beats) beatsClaimed++
+            if (r.gates.downbeats) barsClaimed++
+        }
+        for (seed in 1L..3L) {
+            control(Heard.rhythmOf(Synth.pad(30.0, seed = seed)))
+            control(Heard.rhythmOf(Synth.noise(30.0, seed = seed)))
+            control(Heard.of(Synth.song(SynthSpec(bpm = 120.0, bars = 15, rampPercent = 2.0, seed = seed)), 0.0, 30.0).rhythm)
+        }
+        var waltzBars = 0
+        for (seed in 1L..3L) {
+            if (Heard.of(Synth.song(SynthSpec(bpm = 120.0, bars = 22, groove = Groove.WALTZ, seed = seed)), 0.0, 30.0).rhythm.gates.downbeats) waltzBars++
+        }
+        out.append("| controls (pads, white noise, a 2%% tempo ramp, three seeds each) trusted for tempo / beats / bars | %d / %d / %d of %d |\n".format(tempoClaimed, beatsClaimed, barsClaimed, controls))
+        out.append("| waltzes whose bars of four were trusted | %d of 3 |\n".format(waltzBars))
+        return out.toString()
+    }
+
+    /** The F-measure of a grid at an octave of the song's beat, against the song's beats at that octave. */
+    private fun octaveF(h: Heard): Double {
+        val beats = h.beats()
+        if (beats.size < 2) return 0.0
+        val truth = h.song.beats
+        val ratio = h.rhythm.bpm!! / h.song.spec.bpm
+        val shifted: DoubleArray = when {
+            ratio > 1.5 -> DoubleArray(truth.size * 2 - 1) { if (it % 2 == 0) truth[it / 2] else (truth[it / 2] + truth[it / 2 + 1]) / 2 }
+            ratio < 0.75 -> {
+                // Every other true beat, whichever half lines up with the grid.
+                val even = truth.filterIndexed { i, _ -> i % 2 == 0 }.toDoubleArray()
+                val odd = truth.filterIndexed { i, _ -> i % 2 == 1 }.toDoubleArray()
+                if (Truth.fMeasure(beats, even) >= Truth.fMeasure(beats, odd)) even else odd
+            }
+            else -> truth
+        }
+        return Truth.fMeasure(beats, Truth.within(shifted, beats.first() - 0.1, beats.last() + 0.1))
     }
 
     private companion object {
