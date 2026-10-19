@@ -133,6 +133,9 @@ class HeadDecoder(private val source: DataSource.Factory) {
                 }
             }
             val result = front?.result() ?: throw IOException("nothing was decoded")
+            // The extractor takes a failed read for the end of the song and says so only in its own
+            // log, so an opening cut short by the network would pass for a short song.
+            if (result.seconds < MIN_SECONDS) throw IOException("the opening came short, %.1f s".format(result.seconds))
             return Head(result, SystemClock.elapsedRealtime() - started)
         } finally {
             runCatching { codec?.stop() }
@@ -163,5 +166,8 @@ class HeadDecoder(private val source: DataSource.Factory) {
         const val KEY_ENCODER_DELAY = "encoder-delay"
         const val WAIT_US = 10_000L
         const val TIMEOUT_MS = 30_000L
+
+        /** Less than this of a song a minute long or more is a read that failed. */
+        const val MIN_SECONDS = 20.0
     }
 }
