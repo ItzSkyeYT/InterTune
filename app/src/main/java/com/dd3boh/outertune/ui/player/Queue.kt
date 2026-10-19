@@ -481,6 +481,8 @@ fun BoxScope.QueueContent(
                 if (from != to) {
                     qb.moveSong(from, to)
                     playerConnection.player.moveMediaItem(from, to)
+                    // Where the listener put it, the adaptive queue leaves it.
+                    mutableSongs.getOrNull(to)?.id?.let { playerConnection.service.noteMovedByHand(it) }
                 }
                 // Cleared either way. A drag dropped where it started used to leave it set, and
                 // the next drag then moved from where the last one had begun.
@@ -1022,6 +1024,7 @@ fun BoxScope.QueueContent(
                             when (dismissValue) {
                                 SwipeToDismissBoxValue.StartToEnd -> {
                                     if (qb.removeCurrentQueueSong(swipedIndex)) {
+                                        mutableSongs.getOrNull(swipedIndex)?.let { playerConnection.service.noteRemovedByHand(it) }
                                         mutableSongs.getOrNull(swipedIndex)?.id?.let { ActivityLog.note(context, database, it, SignalKind.REMOVED_FROM_QUEUE) }
                                         playerConnection.player.removeMediaItem(swipedIndex)
                                         mutableSongs.removeAt(swipedIndex)
@@ -1032,6 +1035,7 @@ fun BoxScope.QueueContent(
 
                                 SwipeToDismissBoxValue.EndToStart -> {
                                     if (qb.removeCurrentQueueSong(swipedIndex)) {
+                                        mutableSongs.getOrNull(swipedIndex)?.let { playerConnection.service.noteRemovedByHand(it) }
                                         mutableSongs.getOrNull(swipedIndex)?.id?.let { ActivityLog.note(context, database, it, SignalKind.REMOVED_FROM_QUEUE) }
                                         playerConnection.player.removeMediaItem(swipedIndex)
                                         mutableSongs.removeAt(swipedIndex)

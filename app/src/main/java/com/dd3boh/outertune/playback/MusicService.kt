@@ -32,6 +32,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
 import android.os.SystemClock
+import android.util.AtomicFile
 import android.util.Log
 import android.widget.Toast
 import androidx.core.content.getSystemService
@@ -278,6 +279,13 @@ private val orphanedListensClosedThisProcess = java.util.concurrent.atomic.Atomi
  * the app is not responding.
  */
 private const val QUEUE_SAVE_WAIT_MS = 4_000L
+
+/**
+ * How long the radios' memory waits after a change before it is written (AdaptiveMemory): long
+ * enough that a burst of skips or a drag writes once, short enough that a force close a moment
+ * later still finds the song before it.
+ */
+private const val ADAPTIVE_MEMORY_WAIT_MS = 2_000L
 
 /** A related list older than this is fetched again, within the daily budget. */
 private const val RELATED_STALE_MS = 90L * 24 * 60 * 60 * 1000
@@ -591,6 +599,15 @@ class MusicService : MediaLibraryService(),
 
     /** What has played in the current queue, in the order it was heard. See [AdaptiveQueue.Heard]. */
     private val heard = AdaptiveQueue.Heard()
+
+    /** Whether this process has read what the last one saved of the radios (AdaptiveMemory). */
+    private var adaptiveMemoryRead = false
+
+    /** The write of AdaptiveMemory waiting out its two seconds, so a burst of skips writes once. Main thread. */
+    private var adaptiveMemoryWrite: Job? = null
+
+    /** One write of the file at a time, in the order they were asked for. */
+    private val adaptiveMemoryDispatcher = Dispatchers.IO.limitedParallelism(1)
 
     /**
      * The songs that have been current in the current queue, for the queue view: everything up to
@@ -1994,6 +2011,7 @@ class MusicService : MediaLibraryService(),
                     // The player's index means nothing while it holds nothing, which it does after
                     // a restart until play is pressed. See MultiQueueObject.playNextIndex.
                     val playerIndex = activePlayer.currentMediaItemIndex.takeIf { activePlayer.currentMediaItem != null }
+                    noteByHand(q, items)
                     queueBoard.addSongsToQueue(q, q.playNextIndex(playerIndex), items.mapNotNull { it.metadata })
                 }
             }
@@ -2019,7 +2037,30 @@ class MusicService : MediaLibraryService(),
             }
             return
         }
+        queueBoard.getCurrentQueue()?.let { noteByHand(it, items) }
         queueBoard.enqueueEnd(items.mapNotNull { it.metadata })
+    }
+
+    /**
+     * [items] go into [q] by the listener's hand, not the radio's: the adaptive queue leaves them
+     * where they are put. Before play after a restart that is the saved queue's run, which this
+     * brings back first if the last process saved it. Main thread.
+     */
+    private fun noteByHand(q: MultiQueueObject, items: List<MediaItem>) {
+        heard.putInByHand(q.id, q.runId, items.map { it.mediaId }, radio = q.playlistId != null)
+        adaptiveChanged()
+    }
+
+    /** [song] was swiped out of the queue sheet. See AdaptiveQueue.Heard.removedByHand. Main thread. */
+    fun noteRemovedByHand(song: MediaMetadata) {
+        heard.removedByHand(song.id, song.title, song.artists.map { it.name })
+        adaptiveChanged()
+    }
+
+    /** [id] was dragged to a new place in the queue sheet, which is the listener's from now on. Main thread. */
+    fun noteMovedByHand(id: String) {
+        heard.movedByHand(id)
+        adaptiveChanged()
     }
 
     fun triggerShuffle() {
@@ -2067,6 +2108,17 @@ class MusicService : MediaLibraryService(),
                 queueBoard = QueueBoard(this, queueBoard.masterQueues, maxQueues = maxQueues)
             }
             Log.d(TAG, "Queue with $maxQueues queue limit. Persist queue = $persistQueue. Queues loaded = ${queueBoard.masterQueues.size}")
+            // What the radios had played, for when their queue plays again. Once a process: this
+            // also runs mid-session (Max queues, a scan, the mini player swiped away), and the file
+            // is older than anything the runs hold by then.
+            if (persistQueue && !adaptiveMemoryRead) {
+                adaptiveMemoryRead = true
+                val saved = withContext(Dispatchers.IO) { readAdaptiveMemory() }
+                withContext(Dispatchers.Main) {
+                    heard.offer(saved)
+                    if (saved.isNotEmpty()) Log.d(TAG, "Adaptive queue: ${saved.size} runs read back, waiting for their queue to play")
+                }
+            }
             qbInit.value = true
             queuesLoadedOnce.complete(Unit)
             Log.i(TAG, "-initQueue()")
@@ -2817,6 +2869,50 @@ class MusicService : MediaLibraryService(),
         adaptiveTailActive.value = adaptiveQueueMode.isOn && queueBoard.getCurrentQueue()?.playlistId != null
     }
 
+    /**
+     * Something in the current run changed: the queue sheet hears of it, and the file is written two
+     * seconds after the last such change. Main thread.
+     */
+    private fun adaptiveChanged() {
+        reachedInQueue.value = heard.reached.toSet()
+        if (!persistentQueue) return
+        adaptiveMemoryWrite?.cancel()
+        adaptiveMemoryWrite = scope.launch {
+            delay(ADAPTIVE_MEMORY_WAIT_MS)
+            writeAdaptiveMemory()
+        }
+    }
+
+    /**
+     * Writes the radios' memory: the text made here, on the main thread that owns it, the file
+     * written on the scope that outlives the service. Not while listening history is paused, for the
+     * skips and keeps: what the queue played is the queue's own state and is written either way.
+     */
+    private fun writeAdaptiveMemory() {
+        adaptiveMemoryWrite = null
+        val text = AdaptiveMemory.encode(heard.saved(), withEvidence = !listenHistoryPaused)
+        val file = File(filesDir, AdaptiveMemory.FILE)
+        lastingScope.launch(adaptiveMemoryDispatcher) {
+            runCatching {
+                val atomic = AtomicFile(file)
+                val out = atomic.startWrite()
+                try {
+                    out.write(text.toByteArray())
+                    atomic.finishWrite(out)
+                } catch (e: Exception) {
+                    atomic.failWrite(out)
+                    throw e
+                }
+            }.onFailure { Log.w(TAG, "Adaptive queue: could not save what the radios played", it) }
+        }
+    }
+
+    /** What the last process saved of the radios, or nothing. Off the main thread. */
+    private fun readAdaptiveMemory(): List<AdaptiveMemory.Run> = runCatching {
+        val file = File(filesDir, AdaptiveMemory.FILE)
+        if (!file.exists()) emptyList() else AdaptiveMemory.decode(String(AtomicFile(file).readFully()))
+    }.onFailure { Log.w(TAG, "Adaptive queue: could not read what the radios played", it) }.getOrDefault(emptyList())
+
     /** A pass turned away while the queue sheet was open, with whether it was a strong one. Main thread. */
     private var passWaitingStrong: Boolean? = null
 
@@ -2876,10 +2972,12 @@ class MusicService : MediaLibraryService(),
         val context = TagFit.context(recent.map { SongTags.of(it) })
         if (!context.known) return
 
+        // Never a song the listener put in or moved by hand: that place is theirs.
         val tail = (start until count).mapNotNull { i ->
             runCatching {
                 val item = activePlayer.getMediaItemAt(i)
                 Triple(i, item.mediaMetadata.title?.toString(), item.metadata?.artists?.map { it.name }.orEmpty())
+                    .takeIf { item.mediaId !in heard.byHand }
             }.getOrNull()
         }
         if (tail.isEmpty()) return
@@ -3301,11 +3399,15 @@ class MusicService : MediaLibraryService(),
             }
         }
         mediaItem?.let {
+            // By run, not by queue: a radio's queue of one and its full queue are one run. A run
+            // saved by the last process comes back here, when its queue plays again.
+            val q = queueBoard.getCurrentQueue()
             heard.note(
-                queueBoard.getCurrentQueue()?.id ?: 0L, it.mediaId, it.mediaMetadata.title?.toString(),
+                q?.id ?: 0L, it.mediaId, it.mediaMetadata.title?.toString(),
                 it.metadata?.artists?.map { a -> a.name }.orEmpty(), it.metadata?.duration ?: -1,
+                runId = q?.runId ?: 0L, radio = q?.playlistId != null,
             )
-            reachedInQueue.value = heard.reached.toSet()
+            adaptiveChanged()
         }
         // Not for a queue just put in the player, a new one or the one brought back when the app
         // opens again: nothing of it has been heard yet (Heard starts over with each queue), so
@@ -4065,6 +4167,8 @@ class MusicService : MediaLibraryService(),
         // observer waiting to save it, so it is saved now.
         val volume = playerVolume.value
         lastingScope.launch { dataStore.edit { it[PlayerVolumeKey] = volume } }
+        // The radios' memory, now rather than after its wait, which dies with the scope.
+        if (adaptiveMemoryWrite != null) writeAdaptiveMemory()
         scope.cancel()
         // The timer ran on the scope, so its notification would stay up, frozen, for a timer that
         // no longer exists.
