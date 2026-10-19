@@ -491,13 +491,43 @@
     <string name="engine_data_failed">Cela n\'a pas fonctionné. Vérifiez le fichier et réessayez.</string>
     <string name="grp_spatial">Où se trouve le son</string>
     <string name="adaptive_tail_title">Choisis au fil de l\'écoute</string>
-    <string name="adaptive_queue">Garder la file d\'attente à jour</string>
     <string name="adaptive_queue_description">Retire plus loin dans la file les titres qui ne vont plus avec ce que vous écoutez.</string>
     <string name="adaptive_queue_off">Jamais</string>
     <string name="adaptive_queue_autoplay">Seulement les titres ajoutés par l\'application</string>
     <string name="adaptive_queue_always">Toute file d\'attente</string>
     <string name="adaptive_queue_note">Adaptée à cette session</string>
     <string name="adaptive_queue_note_detail">La fin de cette file s\'ajuste à ce que vous avez écouté ces derniers temps. Les prochains titres restent en place, et rien ne change pendant que vous la regardez.</string>
+    <!-- Keep radios up to date, 0.12: new or changed, waiting for a yes on the words before translators. -->
+    <string name="adaptive_queue">Garder les radios à jour</string>
+    <string name="adaptive_radio_description">Plus loin dans une radio, les titres suivent ce que vous passez, écoutez jusqu\'au bout et aimez.</string>
+    <string name="adaptive_queue_explain">Passez, écoutez jusqu\'au bout ou aimez un titre, et la radio s\'adapte plus loin : ce qui ne va plus laisse la place à des suggestions proches de ce que vous avez gardé. Les prochains titres restent en place, et rien ne bouge pendant que vous regardez la file. Les playlists et les albums ne changent jamais.</string>
+    <plurals name="adaptive_note_after_skip">
+        <item quantity="one">%1$d nouvelle suggestion après le titre passé</item>
+        <item quantity="many">%1$d nouvelles suggestions après le titre passé</item>
+        <item quantity="other">%1$d nouvelles suggestions après le titre passé</item>
+    </plurals>
+    <plurals name="adaptive_note_like">
+        <item quantity="one">%1$d nouvelle suggestion proche de «\u00A0%2$s\u00A0»</item>
+        <item quantity="many">%1$d nouvelles suggestions proches de «\u00A0%2$s\u00A0»</item>
+        <item quantity="other">%1$d nouvelles suggestions proches de «\u00A0%2$s\u00A0»</item>
+    </plurals>
+    <plurals name="adaptive_note_finish">
+        <item quantity="one">%1$d nouvelle suggestion proche de vos derniers titres</item>
+        <item quantity="many">%1$d nouvelles suggestions proches de vos derniers titres</item>
+        <item quantity="other">%1$d nouvelles suggestions proches de vos derniers titres</item>
+    </plurals>
+    <plurals name="adaptive_note_habits">
+        <item quantity="one">%1$d nouvelle suggestion à la place d\'un titre que vous passez souvent</item>
+        <item quantity="many">%1$d nouvelles suggestions à la place de titres que vous passez souvent</item>
+        <item quantity="other">%1$d nouvelles suggestions à la place de titres que vous passez souvent</item>
+    </plurals>
+    <plurals name="adaptive_note_dropped">
+        <item quantity="one">%1$d titre retiré que vous auriez sans doute passé</item>
+        <item quantity="many">%1$d titres retirés que vous auriez sans doute passés</item>
+        <item quantity="other">%1$d titres retirés que vous auriez sans doute passés</item>
+    </plurals>
+    <string name="adaptive_pick_mark">Nouvelle suggestion</string>
+    <!-- End of Keep radios up to date, 0.12. -->
     <string name="playback_auth_mode">Utiliser mon compte pour lire</string>
     <string name="playback_auth_mode_description">Si InterTune peut demander les titres à YouTube avec votre compte. YouTube refuse certains titres aux demandes anonymes.</string>
     <string name="playback_auth_never">Jamais</string>

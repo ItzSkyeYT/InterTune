@@ -77,6 +77,41 @@ object EngineLoader {
     }
 
     /**
+     * What the adaptive queue reads of the engine's input, in the service: the listen log, the songs
+     * it names with the liked and the excluded ones ([EngineSql.SONGS_HEARD_OR_LIKED]), the
+     * exclusions in force with their reasons, and the learned weights (EngineLearning.weights).
+     *
+     * No edges, version links, impressions or past seeds. [load] reads every song and every edge,
+     * about a second and tens of megabytes on a library used for months: fine for Home now and then,
+     * too much to repeat in the service while a radio plays. The edges the queue needs are one
+     * seed's related list at a time, read where they are needed. Blocking, on the calling thread.
+     */
+    fun loadHeard(database: MusicDatabase, now: Long = System.currentTimeMillis()): HeardRows {
+        val tz = TimeZone.getDefault().getOffset(now) / 60_000
+        val all = database.engineExclusions(now)
+        val (gone, exclusions) = splitGone(all)
+        val songs = HashMap<String, SongRow>()
+        for (r in database.engineSongsHeardOrLiked()) {
+            val likedAt = r.likedDate?.let { storedLocalToInstant(it) }
+            val playable = r.id !in gone && (!r.isLocal || r.localPath.isNullOrEmpty() || File(r.localPath).exists())
+            songs[r.id] = SongRow(r.id, r.title, r.artistId, r.artistName, r.liked, likedAt?.takeIf { r.liked }, r.inLibrary != null, r.isLocal, playable)
+        }
+        val input = EngineInput(
+            now = now,
+            songs = songs,
+            listens = EngineListens.forBuild(database.engineListens(), now),
+            edges = emptyList(),
+            exclusions = exclusions,
+            bucket = dayPartBucket(now, tz),
+            tzOffsetMin = tz,
+        )
+        return HeardRows(input, all, Weights(database.engineWeights().associate { it.name to it.value.toDouble() }))
+    }
+
+    /** What [loadHeard] read: the slim input, every exclusion in force with its reason and label, and the weights. */
+    data class HeardRows(val input: EngineInput, val exclusions: List<EngineExclusionRow>, val weights: Weights)
+
+    /**
      * The exclusions in force, with the songs YouTube no longer serves taken out and returned by id.
      *
      * A ban covers a song by its title and artist, so that its other uploads go with it. A song

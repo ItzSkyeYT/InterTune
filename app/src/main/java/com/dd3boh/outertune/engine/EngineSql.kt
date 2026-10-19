@@ -26,6 +26,25 @@ object EngineSql {
     """
 
     /**
+     * [SONGS], cut down to the songs the adaptive queue can need to know about: those the listen
+     * log names, the liked ones and the songs an exclusion names (to match a ban's other uploads
+     * by title and artist). EngineLoader.loadHeard reads this in the service, where reading every
+     * song, a few tens of thousands of rows in a long-used library, on each pass would be waste.
+     * The listen.songId index serves the first subquery.
+     */
+    const val SONGS_HEARD_OR_LIKED = """
+        SELECT s.id, s.title, s.liked, s.likedDate, s.inLibrary, s.isLocal, s.localPath, m.artistId AS artistId, a.name AS artistName
+        FROM song s
+        LEFT JOIN song_artist_map m ON m.songId = s.id
+            AND m.position = (SELECT MIN(m2.position) FROM song_artist_map m2 WHERE m2.songId = s.id)
+        LEFT JOIN artist a ON a.id = m.artistId
+        WHERE s.liked = 1
+            OR s.id IN (SELECT songId FROM listen)
+            OR s.id IN (SELECT targetId FROM recommendation_exclusion WHERE kind = 1)
+        GROUP BY s.id
+    """
+
+    /**
      * The impressions the Last.fm share is learned from: engine and Discover cards in a slot, in
      * the related or explore lane, that one source alone proposed from a song both have a list
      * for, pending or graded as played, played elsewhere or ignored. A card waiting on a resume of

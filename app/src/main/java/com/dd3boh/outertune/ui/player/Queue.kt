@@ -162,9 +162,7 @@ import com.dd3boh.outertune.models.MultiQueueObject
 import com.dd3boh.outertune.ui.component.BottomSheet
 import com.dd3boh.outertune.ui.component.BottomSheetState
 import com.dd3boh.outertune.ui.component.EmptyPlaceholder
-import com.dd3boh.outertune.constants.AdaptiveQueueMode
-import com.dd3boh.outertune.constants.AdaptiveQueueModeKey
-import com.dd3boh.outertune.constants.isOn
+import com.dd3boh.outertune.playback.AdaptiveNote
 import com.dd3boh.outertune.playback.AdaptiveQueue
 import androidx.compose.material.icons.rounded.AutoAwesome
 import com.dd3boh.outertune.ui.component.LazyColumnScrollbar
@@ -199,6 +197,16 @@ import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import java.time.LocalDateTime
 import kotlin.math.roundToInt
+
+/** The adaptive queue's note in words: see AdaptiveNote. */
+@Composable
+private fun adaptiveNoteText(note: AdaptiveNote.Note): String = when (note.kind) {
+    AdaptiveNote.Kind.LIKE -> pluralStringResource(R.plurals.adaptive_note_like, note.count, note.count, note.title.orEmpty())
+    AdaptiveNote.Kind.AFTER_SKIP -> pluralStringResource(R.plurals.adaptive_note_after_skip, note.count, note.count)
+    AdaptiveNote.Kind.HABITS -> pluralStringResource(R.plurals.adaptive_note_habits, note.count, note.count)
+    AdaptiveNote.Kind.FINISH -> pluralStringResource(R.plurals.adaptive_note_finish, note.count, note.count)
+    AdaptiveNote.Kind.DROPPED -> pluralStringResource(R.plurals.adaptive_note_dropped, note.count, note.count)
+}
 
 /**
  * Songs shown beyond the one playing while the far end is being chosen.
@@ -391,7 +399,6 @@ fun BoxScope.QueueContent(
     val mutableSongs = remember { mutableStateListOf<MediaMetadata>() }
     // Which queue the list was last put at its playing song for. Null until this opening's first.
     var scrolledFor by remember { mutableStateOf<String?>(null) }
-    val (adaptiveQueueMode) = rememberEnumPreference(AdaptiveQueueModeKey, AdaptiveQueueMode.AUTOPLAY_ONLY)
     val lazySongsListState = rememberLazyListState()
 
     // multiselect
@@ -461,9 +468,10 @@ fun BoxScope.QueueContent(
         ).asPaddingValues()
     ) { from, to ->
         // Positions in the queue, found by the rows' keys. The indices handed over are the list's,
-        // and the adaptive queue's note sits above the songs as a row of its own, so every move
-        // landed one song off, and dragging the last song up asked for a position past the end of
-        // the queue and crashed.
+        // which need not be the queue's: when the adaptive queue's note sat above the songs as a
+        // row of its own, every move landed one song off, and dragging the last song up asked for
+        // a position past the end of the queue and crashed. A row added to the list later must not
+        // bring that back.
         val fromIndex = mutableSongs.indexOfFirst { QueueRows.key(it) == from.key }
         val toIndex = mutableSongs.indexOfFirst { QueueRows.key(it) == to.key }
         if (fromIndex < 0 || toIndex < 0) return@rememberReorderableLazyListState
@@ -567,6 +575,11 @@ fun BoxScope.QueueContent(
     // the one playing, going back to the first song folded away every song played since, and they
     // seemed to vanish. See AdaptiveQueue.settledThrough.
     val reachedInQueue by playerConnection.service.reachedInQueue.collectAsState()
+    // What the adaptive queue last changed, said under the songs on show, and the songs it put in
+    // that have not played, marked in their rows. Only for the live queue of a radio.
+    val adaptivePicks by playerConnection.service.adaptivePicks.collectAsState()
+    val adaptiveNote by playerConnection.service.adaptiveNote.collectAsState()
+    val adaptiveSaying = adaptiveTailActive && !isSearching && detachedQueue == null
     val visibleSongs: List<MediaMetadata> =
         if (!adaptiveTailActive || isSearching || detachedQueue != null) mutableSongs
         else {
@@ -932,43 +945,6 @@ fun BoxScope.QueueContent(
             contentPadding = contentPadding,
             modifier = if (queueState != null) Modifier.nestedScroll(queueState.preUpPostDownNestedScrollConnection) else Modifier
         ) {
-            // Says what the queue is doing, since it does it out of sight.
-            //
-            // Something that quietly edits a list behind somebody's back has to own up to it the
-            // moment they look, or the first time they notice a song missing they will assume the
-            // app lost it. Only shown when the feature is actually on and there is a tail for it
-            // to act on.
-            if (adaptiveQueueMode.isOn && adaptiveTailActive && !isSearching && mutableSongs.size > AdaptiveQueue.LOCKED + 1) {
-                item {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
-                    ) {
-                        Icon(
-                            Icons.Rounded.AutoAwesome,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.secondary,
-                            modifier = Modifier.size(16.dp),
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Column {
-                            Text(
-                                text = stringResource(R.string.adaptive_queue_note),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.secondary,
-                            )
-                            Text(
-                                text = stringResource(R.string.adaptive_queue_note_detail),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
-            }
-
             if ((if (isSearching) filteredSongs else mutableSongs).isEmpty()) {
                 item {
                     EmptyPlaceholder(
@@ -1065,6 +1041,7 @@ fun BoxScope.QueueContent(
                             mediaMetadata = window,
                             isActive = (index == currentWindowIndex && !detachedHead) || index == detachedQueue?.getQueuePosShuffled(),
                             isPlaying = isPlaying && !detachedHead,
+                            isNew = adaptiveSaying && window.id in adaptivePicks,
                             trailingContent = {
                                 if (inSelectMode) {
                                     Checkbox(
@@ -1162,7 +1139,13 @@ fun BoxScope.QueueContent(
             // six songs as though they were settled. Showing a fixed list that is quietly being
             // rewritten is worse than not rewriting it, so the far end is not shown at all, and
             // this says what is happening there instead.
-            if (hiddenTailCount > 0) {
+            //
+            // And what the last change was, in its first line, while that change stands: "3 new
+            // picks after your skip". It used to be a row of its own above the songs, which said
+            // "Tuned to this session" over playlists and albums too, put the list's scroll one row
+            // above the song playing, and was off screen whenever the sheet opened at that song.
+            val note = adaptiveNote.takeIf { adaptiveSaying }
+            if (hiddenTailCount > 0 || note != null) {
                 item(key = "adaptive-tail", contentType = "adaptive-tail") {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -1178,18 +1161,22 @@ fun BoxScope.QueueContent(
                         Spacer(Modifier.width(16.dp))
                         Column {
                             Text(
-                                text = stringResource(R.string.adaptive_tail_title),
+                                text = note?.let { adaptiveNoteText(it) } ?: stringResource(R.string.adaptive_tail_title),
                                 style = MaterialTheme.typography.bodyLarge,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
-                            Text(
-                                text = pluralStringResource(
-                                    R.plurals.adaptive_tail_hidden,
-                                    hiddenTailCount,
-                                    hiddenTailCount,
-                                ),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                            if (hiddenTailCount > 0) {
+                                Text(
+                                    text = pluralStringResource(
+                                        R.plurals.adaptive_tail_hidden,
+                                        hiddenTailCount,
+                                        hiddenTailCount,
+                                    ),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                         }
                     }
                 }

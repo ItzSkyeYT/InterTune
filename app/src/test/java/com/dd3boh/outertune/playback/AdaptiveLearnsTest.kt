@@ -14,7 +14,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * The far end of the queue learning from what the listener does (Unreleased.ADAPTIVE_LEARNS).
+ * The far end of the queue learning from what the listener does, in the pass that only takes songs
+ * out (AdaptiveQueue.plan), which a release runs while the one that also puts picks in is held back.
  *
  * Before this it read only the words in titles, so in a run of plain recordings it never dropped
  * anything, and skipping three songs by one artist left that artist's other songs waiting.

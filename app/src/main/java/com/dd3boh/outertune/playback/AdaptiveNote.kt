@@ -55,6 +55,40 @@ object AdaptiveNote {
     const val DROPPED_FOR = AdaptiveQueue.LOCKED
 
     /**
+     * What a pass of [kind] that put in [replaced] and [inserts] and took out [dropped] songs says,
+     * or null when it changed nothing, and the note before it stands. [liked] is the song whose
+     * picks waited to go in, [likedTitle] its title without the version marks and the uploader's
+     * name (SongVersions.plainTitle), so the note stays on one line; [played] the run's count.
+     *
+     * In this order: picks like the liked song; picks after a skip; picks all in place of songs the
+     * listener habitually skips or has banned; other picks, like the songs heard lately; songs only
+     * taken out. The count is every song the pass put in.
+     */
+    fun of(
+        kind: AdaptivePass.Kind,
+        replaced: List<QueuePlanner.Replace>,
+        inserts: List<QueuePlanner.Pick>,
+        dropped: Int,
+        liked: String?,
+        likedTitle: String?,
+        played: Int,
+    ): Note? {
+        val placed = replaced.map { it.pick } + inserts
+        val ids = placed.mapTo(LinkedHashSet()) { it.id }
+        return when {
+            placed.isNotEmpty() && liked != null && placed.any { it.seed == liked } ->
+                Note(Kind.LIKE, placed.size, likedTitle, ids, played)
+            placed.isNotEmpty() && kind == AdaptivePass.Kind.SKIP -> Note(Kind.AFTER_SKIP, placed.size, picks = ids, setAt = played)
+            placed.isNotEmpty() && inserts.isEmpty() && replaced.all {
+                it.slot.unwanted == QueuePlanner.Unwanted.LASTING_DISLIKE || it.slot.unwanted == QueuePlanner.Unwanted.BANNED
+            } -> Note(Kind.HABITS, placed.size, picks = ids, setAt = played)
+            placed.isNotEmpty() -> Note(Kind.FINISH, placed.size, picks = ids, setAt = played)
+            dropped > 0 -> Note(Kind.DROPPED, dropped, setAt = played)
+            else -> null
+        }
+    }
+
+    /**
      * Whether [note] still says something true: while a song it put in is still ahead and unplayed
      * ([picksAhead]), or, for songs taken out, until [DROPPED_FOR] more songs have played ([played],
      * the run's count).

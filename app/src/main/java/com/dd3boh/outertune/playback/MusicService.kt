@@ -124,6 +124,7 @@ import com.dd3boh.outertune.constants.SpatialRoomKey
 import com.dd3boh.outertune.constants.SpatialAudioKey
 import com.dd3boh.outertune.constants.SpatialAudioMode
 import com.dd3boh.outertune.constants.PersistentQueueKey
+import com.dd3boh.outertune.engine.EngineLoader
 import com.dd3boh.outertune.engine.TagFit
 import com.dd3boh.outertune.engine.SongTags
 import com.dd3boh.outertune.constants.AdaptiveQueueModeKey
@@ -217,7 +218,10 @@ import dagger.hilt.android.AndroidEntryPoint
 import io.ktor.client.plugins.ResponseException
 import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.NextRenderersFactory
 import com.dd3boh.outertune.widget.WidgetStore
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -286,6 +290,15 @@ private const val QUEUE_SAVE_WAIT_MS = 4_000L
  * later still finds the song before it.
  */
 private const val ADAPTIVE_MEMORY_WAIT_MS = 2_000L
+
+/** How long a pass waits after the last ask: a burst of presses makes one pass. */
+private const val PASS_WAIT_MS = 1_000L
+
+/** How long the adaptive queue keeps the taste it read, as Home keeps the engine's input. */
+private const val TASTE_TTL_MS = 5L * 60 * 1000
+
+/** At most one radio page this often in a run, for the adaptive queue's picks: about a song, never faster than songs play. */
+private const val PAGE_EVERY_MS = 3L * 60 * 1000
 
 /** A related list older than this is fetched again, within the daily budget. */
 private const val RELATED_STALE_MS = 90L * 24 * 60 * 60 * 1000
@@ -617,6 +630,18 @@ class MusicService : MediaLibraryService(),
 
     /** Whether the song that just started was reached by going back. Set in noteTransition. */
     private var transitionWentBack = false
+
+    /**
+     * Whether the song that just started was chosen, a tap in the queue sheet: the song left for it
+     * was not skipped, it was set aside. Set in noteTransition.
+     */
+    private var transitionChosen = false
+
+    /**
+     * How far into it each play had really got when it was left: where it started plus what was
+     * heard, so a song scrubbed to its end and then left is not read as heard (AdaptiveQueue.leave).
+     */
+    private val lastKnownHeard = java.util.concurrent.ConcurrentHashMap<String, Long>()
 
     /**
      * Bumped when songs go into a queue while the player holds nothing, which is how Play next and
@@ -1831,9 +1856,15 @@ class MusicService : MediaLibraryService(),
                 update(song)
                 downloadUtil.autoDownloadOnLike(song)
                 // A like is the clearest thing anyone says by pressing something, so the far end of
-                // the queue gets the reach a skip gets.
-                if (Unreleased.ADAPTIVE_LEARNS && song.liked && song.id == currentSong.value?.song?.id) {
-                    scope.launch { replanQueueTail(strong = true) }
+                // the queue gets the reach a skip gets, and two picks like the song. Taken back, it
+                // puts nothing in, even in the second a pass waits.
+                if (song.id == currentSong.value?.song?.id) {
+                    val liked = song.liked
+                    scope.launch {
+                        if (liked) heard.liked(song.id) else heard.unliked(song.id)
+                        adaptiveChanged()
+                        if (liked) replanQueueTail(strong = true, like = true)
+                    }
                 }
             }
         }
@@ -2875,6 +2906,7 @@ class MusicService : MediaLibraryService(),
      */
     private fun adaptiveChanged() {
         reachedInQueue.value = heard.reached.toSet()
+        publishAdaptive()
         if (!persistentQueue) return
         adaptiveMemoryWrite?.cancel()
         adaptiveMemoryWrite = scope.launch {
@@ -2913,16 +2945,31 @@ class MusicService : MediaLibraryService(),
         if (!file.exists()) emptyList() else AdaptiveMemory.decode(String(AtomicFile(file).readFully()))
     }.onFailure { Log.w(TAG, "Adaptive queue: could not read what the radios played", it) }.getOrDefault(emptyList())
 
-    /** A pass turned away while the queue sheet was open, with whether it was a strong one. Main thread. */
-    private var passWaitingStrong: Boolean? = null
+    /**
+     * What a pass was asked for: [strong] reaches further, as after a seek forward or a like, for
+     * the pass a release runs; [skip] next was pressed before half the song; [like] the song
+     * playing was liked. Asks that arrive within a pass's wait merge into one.
+     */
+    private data class PassAsk(val strong: Boolean, val skip: Boolean = false, val like: Boolean = false) {
+        fun merge(other: PassAsk?) = if (other == null) this else PassAsk(strong || other.strong, skip || other.skip, like || other.like)
+    }
+
+    /** A pass turned away while the queue sheet was open. Main thread. */
+    private var passWaiting: PassAsk? = null
 
     /** The queue sheet has closed: the pass it held back runs now. Main thread. */
     private fun askAgainAfterSheet() {
-        val strong = passWaitingStrong ?: return
-        passWaitingStrong = null
+        val ask = passWaiting ?: return
+        passWaiting = null
         if (queueSheetOpen) return
-        replanQueueTail(strong = strong)
+        replanQueueTail(strong = ask.strong, skip = ask.skip, like = ask.like)
     }
+
+    /** Whether the song that just started was moved to by skip on error, which says nothing about the song left. Main thread. */
+    private var transitionFromError = false
+
+    /** Set by skipOnError just before it moves on, read and cleared by the transition that follows. */
+    @Volatile private var skippingOnError = false
 
     /**
      * Drops songs further down the queue that no longer suit what is being played.
@@ -2935,11 +2982,17 @@ class MusicService : MediaLibraryService(),
      * (AdaptiveQueue.Heard), rather than from the database: those songs are exactly "what you have
      * been listening to in this sitting", and reading them costs nothing on a thread that must not
      * block.
+     *
+     * With Unreleased.ADAPTIVE_PASS the pass that also puts fresh picks in runs instead, a second
+     * after the last ask ([askPass]); without it, the one below, which only takes songs out, with
+     * what it learns from skips, likes and plain runs.
      */
     /**
      * @param strong the listener just said something clear, so reach further and lock less.
+     * @param skip next was pressed before half the song (AdaptiveQueue.Leave.SKIPPED).
+     * @param like the song playing was just liked.
      */
-    private fun replanQueueTail(strong: Boolean = false) {
+    private fun replanQueueTail(strong: Boolean = false, skip: Boolean = false, like: Boolean = false) {
         if (!adaptiveQueueMode.isOn) return
         val q = queueBoard.getCurrentQueue() ?: return
         // A radio tail is one the app chose; a playlist, an album or a list made by hand is one
@@ -2949,17 +3002,29 @@ class MusicService : MediaLibraryService(),
             Log.d(TAG, "Adaptive queue: not now (not a radio)")
             return
         }
+        // While casting the phone does not know where the receiver was in a song, so it cannot
+        // tell a skip from a song heard: nothing is planned until the music is back here.
+        if (isCasting) {
+            Log.d(TAG, "Adaptive queue: not now (casting)")
+            return
+        }
         // Not while somebody is reading it. A list that rearranges under a finger is the one
         // thing this must never do. Asked for again when the sheet closes.
         if (queueSheetOpen) {
-            passWaitingStrong = (passWaitingStrong ?: false) || strong
+            passWaiting = PassAsk(strong, skip, like).merge(passWaiting)
             Log.d(TAG, "Adaptive queue: not now (sheet open)")
             return
         }
+        if (Unreleased.ADAPTIVE_PASS) {
+            askPass(PassAsk(strong, skip, like))
+            return
+        }
+        // Skip on error moving past a song that failed is not the listener reaching further.
+        val reach = strong && (like || !transitionFromError)
 
         val current = activePlayer.currentMediaItemIndex
         val count = activePlayer.mediaItemCount
-        val locked = if (strong) AdaptiveQueue.STRONG_LOCKED else AdaptiveQueue.LOCKED
+        val locked = if (reach) AdaptiveQueue.STRONG_LOCKED else AdaptiveQueue.LOCKED
         // From the furthest song this queue has reached, not from the one playing: after going
         // back, the songs in between were heard and the few after them seen. See settledThrough.
         val ids = (0 until count).map { i -> runCatching { activePlayer.getMediaItemAt(i).mediaId }.getOrNull() }
@@ -2982,14 +3047,13 @@ class MusicService : MediaLibraryService(),
         }
         if (tail.isEmpty()) return
 
-        val learns = Unreleased.ADAPTIVE_LEARNS
-        val turnedDown = if (learns) heard.turnedDown() else AdaptiveQueue.TurnedDown()
-        val plainRun = learns && AdaptiveQueue.plainRun(heard.titles(AdaptiveQueue.PLAIN_RUN))
+        val turnedDown = heard.turnedDown()
+        val plainRun = AdaptiveQueue.plainRun(heard.titles(AdaptiveQueue.PLAIN_RUN))
         val plan = AdaptiveQueue.plan(
             tail,
             { it.second },
             context,
-            dropShare = if (strong) AdaptiveQueue.STRONG_DROP_SHARE else AdaptiveQueue.MAX_DROP_SHARE,
+            dropShare = if (reach) AdaptiveQueue.STRONG_DROP_SHARE else AdaptiveQueue.MAX_DROP_SHARE,
             artists = { it.third },
             turnedDown = turnedDown,
             plainRun = plainRun,
@@ -3003,8 +3067,301 @@ class MusicService : MediaLibraryService(),
             }
         }
         hiddenTailChanged.value = hiddenTailChanged.value + 1
-        Log.d(TAG, "Adaptive queue: dropped ${plan.dropped.size} of ${tail.size} upcoming, strong=$strong" +
-            if (learns) ", turned down ${turnedDown.artists.size} artists and ${turnedDown.songs.size} songs, plain run=$plainRun" else "")
+        Log.d(TAG, "Adaptive queue: dropped ${plan.dropped.size} of ${tail.size} upcoming, strong=$reach" +
+            ", turned down ${turnedDown.artists.size} artists and ${turnedDown.songs.size} songs, plain run=$plainRun")
+    }
+
+    // ---- The pass that puts fresh picks in (Unreleased.ADAPTIVE_PASS): asked for on the main
+    // thread, read and planned on the adaptive queue's own thread, applied on the main thread
+    // again after checking that nothing it was planned for has moved.
+
+    /** The adaptive queue's reads and its planning, one pass at a time, never on the player's thread. */
+    private val adaptiveDispatcher = Dispatchers.IO.limitedParallelism(1)
+
+    /** The pass waiting out its second or being worked out, and what it was asked for. Main thread. */
+    private var passJob: Job? = null
+    private var passAsk: PassAsk? = null
+
+    /** The taste, read at most every few minutes (TASTE_TTL_MS). Adaptive dispatcher only. */
+    private var tasteCache: Pair<Long, QueueFit.Taste>? = null
+
+    /** The related lists read in the current run, by seed, and which run they are for. Adaptive dispatcher only. */
+    private var relatedRun: String? = null
+    private val relatedCache = HashMap<String, AdaptivePass.Source>()
+
+    /** Radio pages asked for in each run, by seed, and when the last was. Adaptive dispatcher only. */
+    private val pagesAsked = HashMap<String, MutableSet<String>>()
+    private val lastPageAt = HashMap<String, Long>()
+
+    /** This run's picks still ahead, for the queue sheet's marks. */
+    val adaptivePicks = MutableStateFlow<Set<String>>(emptySet())
+
+    /** What the queue sheet says about the last change, null for nothing. */
+    val adaptiveNote = MutableStateFlow<AdaptiveNote.Note?>(null)
+
+    /**
+     * Asks for a pass a second from now. A newer ask before it is done takes its place, with both
+     * reasons, so a burst of skips makes one pass, a skip pass; a cancelled pass never applies.
+     */
+    private fun askPass(ask: PassAsk) {
+        val merged = ask.merge(passAsk)
+        passJob?.cancel()
+        passAsk = merged
+        passJob = scope.launch {
+            try {
+                delay(PASS_WAIT_MS)
+                runPass(merged)
+            } finally {
+                if (passAsk === merged) passAsk = null
+            }
+        }
+    }
+
+    /** What a pass was planned on, taken on the main thread. */
+    private class PassSnapshot(
+        val ask: PassAsk,
+        val kind: AdaptivePass.Kind,
+        val queueId: Long,
+        val runId: Long,
+        val view: AdaptiveQueue.View,
+        val current: Int,
+        val locked: Int,
+        val uids: List<Double>,
+        val tail: List<AdaptivePass.Place>,
+        val head: List<MediaMetadata>,
+        val queue: List<MediaMetadata>,
+        val online: Boolean,
+        val explicitHidden: Boolean,
+        val now: Long,
+    )
+
+    private suspend fun runPass(ask: PassAsk) {
+        val snap = adaptiveSnapshot(ask) ?: return
+        val result = try {
+            withContext(adaptiveDispatcher) { computePass(snap) }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Adaptive queue: pass failed, queue left as it was", e)
+            return
+        }
+        // A newer ask cancelled this one while it was being worked out: it never applies.
+        currentCoroutineContext().ensureActive()
+        applyPass(snap, result)
+    }
+
+    /** The tail and the run as they are now, or null when no pass should run. Main thread. */
+    private fun adaptiveSnapshot(ask: PassAsk): PassSnapshot? {
+        fun notNow(why: String): PassSnapshot? { Log.d(TAG, "Adaptive queue: not now ($why)"); return null }
+        if (!adaptiveQueueMode.isOn) return notNow("off")
+        if (isCasting) return notNow("casting")
+        if (queueSheetOpen) {
+            passWaiting = ask.merge(passWaiting)
+            return notNow("sheet open")
+        }
+        val q = queueBoard.getCurrentQueue() ?: return null
+        if (q.playlistId == null) return notNow("not a radio")
+        if (activePlayer.currentMediaItem == null) return notNow("the player holds nothing")
+        // A queue loaded without a song change has not been heard as a run yet.
+        if (AdaptiveQueue.runKey(q.id, q.runId) != heard.runKey) return notNow("the run has not started")
+        val current = activePlayer.currentMediaItemIndex
+        val count = activePlayer.mediaItemCount
+        val items = (0 until count).map { i -> runCatching { activePlayer.getMediaItemAt(i) }.getOrNull() }
+        val songs = items.map { it?.metadata }
+        // The player must be holding this queue, song for song: a list a car started is not it.
+        val board = q.getCurrentQueueShuffled()
+        if (songs.any { it == null } || board.size != count || board.indices.any { board[it].id != songs[it]?.id }) {
+            return notNow("the player holds another list")
+        }
+        val view = heard.view()
+        val kind = when {
+            ask.like && view.likePending != null -> AdaptivePass.Kind.LIKE
+            ask.skip -> AdaptivePass.Kind.SKIP
+            else -> AdaptivePass.Kind.ORDINARY
+        }
+        val locked = if (kind == AdaptivePass.Kind.ORDINARY) AdaptiveQueue.LOCKED else AdaptiveQueue.STRONG_LOCKED
+        // From the furthest song this run has reached, as the queue sheet folds it.
+        val ids = items.map { it?.mediaId }
+        val settled = AdaptiveQueue.settledThrough(current, ids, { it }, heard.reached)
+        val start = AdaptiveQueue.tailStart(settled, count, locked) ?: return notNow("nothing past the lock")
+        val all = songs.filterNotNull()
+        return PassSnapshot(
+            ask = ask, kind = kind, queueId = q.id, runId = q.runId, view = view, current = current, locked = locked,
+            uids = all.map { it.composeUidWorkaround },
+            tail = (start until count).map { i -> AdaptivePass.Place(i, all[i], all[i].id in view.byHand) },
+            head = all.subList(current, start).toList(),
+            queue = all,
+            online = isNetworkConnected.value,
+            explicitHidden = ContentFilter.current.explicit,
+            now = System.currentTimeMillis(),
+        )
+    }
+
+    /** The pass worked out: the taste, the related lists and maybe a radio page, then the plan. Adaptive dispatcher. */
+    private suspend fun computePass(snap: PassSnapshot): AdaptivePass.Result {
+        val taste = tasteFor(snap.now)
+        val key = snap.view.key
+        if (relatedRun != key) {
+            relatedRun = key
+            relatedCache.clear()
+        }
+        val liked = snap.view.likePending
+        val seeds = (listOfNotNull(liked) + snap.view.seeds).distinct()
+        fun sources() = seeds.mapNotNull { seed -> listFor(seed, snap.explicitHidden) }
+        val skippedRelated = snap.view.lastSkipped?.takeIf { snap.ask.skip }?.let { id ->
+            runCatching { database.youtubeRelatedSongs(id).mapTo(HashSet()) { it.id } }.getOrDefault(emptySet())
+        }.orEmpty()
+        fun input(sources: List<AdaptivePass.Source>) = AdaptivePass.Input(
+            kind = snap.kind, tail = snap.tail, head = snap.head, queue = snap.queue, view = snap.view, taste = taste,
+            sources = sources, skippedRelated = skippedRelated, offline = !snap.online,
+            playsOffline = { s -> s.isLocal || downloadCache.holdsWhole(s.id) || playerCache.holdsWhole(s.id) },
+        )
+        var result = AdaptivePass.run(input(sources()))
+        // Too few picks from what is stored, or nothing stored can be used because explicit songs
+        // are hidden and a stored song does not say whether it is one: the radio page of the newest
+        // seed not asked yet, which comes through the content filter.
+        if (result.usable < result.asking) {
+            pageFor(seeds, key, snap)?.let { result = AdaptivePass.run(input(sources())) }
+        }
+        return result
+    }
+
+    /** [seed]'s related list for this run: a radio page asked earlier, or the list stored on the phone. Adaptive dispatcher. */
+    private fun listFor(seed: String, explicitHidden: Boolean): AdaptivePass.Source? {
+        relatedCache[seed]?.let { return it.takeIf { !explicitHidden || it.page } }
+        if (explicitHidden) return null
+        val songs = try {
+            database.youtubeRelatedSongs(seed).map { it.toMediaMetadata() }
+        } catch (e: Exception) {
+            Log.w(TAG, "Adaptive queue: could not read a song's related list", e)
+            return null
+        }
+        // Kept only once there is one: a song that started seconds ago may not have its list yet.
+        if (songs.isEmpty()) return null
+        return AdaptivePass.Source(seed, songs).also { relatedCache[seed] = it }
+    }
+
+    /**
+     * Asks for the radio page of the newest of [seeds] whose page this run has not asked for, as
+     * the radio's own top-up does, and keeps it as that seed's list. Online only, never while
+     * YouTube is refusing us, once per seed in a run and one page every three minutes at most.
+     * Returns the page, or null when none was asked for. Adaptive dispatcher.
+     */
+    private suspend fun pageFor(seeds: List<String>, key: String, snap: PassSnapshot): AdaptivePass.Source? {
+        fun noPage(why: String): AdaptivePass.Source? { Log.d(TAG, "Adaptive queue: no page ($why)"); return null }
+        if (!snap.online) return noPage("offline")
+        if (Throttle.isBlocked) return noPage("throttled")
+        if (snap.now - (lastPageAt[key] ?: 0L) < PAGE_EVERY_MS) return noPage("too soon")
+        val asked = pagesAsked.getOrPut(key) { HashSet() }
+        val seed = seeds.firstOrNull { it !in asked } ?: return noPage("asked already")
+        asked += seed
+        lastPageAt[key] = snap.now
+        val page = try {
+            YouTubeQueue(WatchEndpoint(seed)).nextPage().drop(1)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Adaptive queue: the radio page of a seed failed", e)
+            emptyList()
+        }
+        Log.d(TAG, "Adaptive queue: page from $seed, ${page.size} songs")
+        if (page.isEmpty()) return null
+        // Beside the stored list where there is one: both are that seed's.
+        val stored = relatedCache[seed]?.takeIf { !it.page }?.songs.orEmpty()
+        return AdaptivePass.Source(seed, if (snap.explicitHidden) page else stored + page, page = true).also { relatedCache[seed] = it }
+    }
+
+    /** The taste, read again once it is older than TASTE_TTL_MS; the priors and no habits when the read fails. Adaptive dispatcher. */
+    private fun tasteFor(now: Long): QueueFit.Taste {
+        tasteCache?.takeIf { now - it.first < TASTE_TTL_MS }?.let { return it.second }
+        val started = SystemClock.elapsedRealtime()
+        return try {
+            QueueFit.Taste.of(EngineLoader.loadHeard(database, now)).also { taste ->
+                tasteCache = now to taste
+                Log.d(TAG, "Adaptive queue: taste read in ${SystemClock.elapsedRealtime() - started} ms, ${taste.listens} listens, " +
+                    "${taste.songs.size} songs, keep share ${String.format(java.util.Locale.ROOT, "%.2f", taste.habits.base)}")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Adaptive queue: could not read the taste, going on without it", e)
+            QueueFit.Taste.empty(now)
+        }
+    }
+
+    /** The plan applied, when nothing it was made for has moved, and what it did noted. Main thread. */
+    private fun applyPass(snap: PassSnapshot, result: AdaptivePass.Result) {
+        fun abandon(why: String) { Log.d(TAG, "Adaptive queue: abandoned ($why)") }
+        if (queueSheetOpen) {
+            passWaiting = snap.ask.merge(passWaiting)
+            return abandon("sheet opened")
+        }
+        if (isCasting) return abandon("casting")
+        val q = queueBoard.getCurrentQueue()
+        if (q == null || q.id != snap.queueId || q.runId != snap.runId || heard.runKey != snap.view.key) return abandon("queue changed")
+        if (activePlayer.currentMediaItem == null) return abandon("player emptied")
+        if (activePlayer.currentMediaItemIndex != snap.current) return abandon("song moved")
+        val plan = result.plan
+        // What the queue or the run has now, which the radio's top-up may have added to meanwhile:
+        // a pick it already holds, by id or by version, would play twice.
+        val live = q.getCurrentQueueShuffled()
+        val liveIds = live.mapTo(HashSet()) { it.id }.apply { addAll(heard.reached) }
+        val liveVersions = live.mapNotNullTo(HashSet()) { RadioPage.versionOf(it) }.apply { addAll(heard.reachedVersions) }
+        fun stillNew(id: String): MediaMetadata? = result.songs[id]?.takeIf { s ->
+            s.id !in liveIds && RadioPage.versionOf(s)?.let { it in liveVersions } != true
+        }
+        val edits = ArrayList<AdaptiveEdit>()
+        for (change in plan.changes) when (change) {
+            is QueuePlanner.Replace -> stillNew(change.pick.id)?.let { edits += AdaptiveEdit.Replace(change.slot.index, snap.uids[change.slot.index], it) }
+            is QueuePlanner.Drop -> edits += AdaptiveEdit.Drop(change.slot.index, snap.uids[change.slot.index])
+            is QueuePlanner.Keep -> {}
+        }
+        val inserts = plan.inserts.mapNotNull { pick -> stillNew(pick.id)?.let { pick to it } }
+        if (inserts.isNotEmpty() && plan.insertAt > 0) {
+            edits += AdaptiveEdit.Insert(plan.insertAt, snap.uids[plan.insertAt - 1], inserts.map { it.second })
+        }
+        val ids = (0 until activePlayer.mediaItemCount).map { i -> runCatching { activePlayer.getMediaItemAt(i).mediaId }.getOrNull() }
+        val notBefore = AdaptiveQueue.settledThrough(activePlayer.currentMediaItemIndex, ids, { it }, heard.reached) + 1 + snap.locked
+        val done = if (edits.isEmpty()) emptyList() else queueBoard.applyAdaptive(q, edits, notBefore)
+
+        // What was done, as the plan named it.
+        val doneReplace = done.filterIsInstance<AdaptiveEdit.Replace>().mapTo(HashSet()) { it.index }
+        val doneDrop = done.filterIsInstance<AdaptiveEdit.Drop>().mapTo(HashSet()) { it.index }
+        val doneInsert = done.filterIsInstance<AdaptiveEdit.Insert>().firstOrNull()
+        val replaced = plan.replaced.filter { it.slot.index in doneReplace }
+        val dropped = plan.dropped.filter { it.slot.index in doneDrop }
+        val added = if (doneInsert == null) emptyList() else inserts.map { it.first }
+        val taste = tasteCache?.second
+        for (r in replaced) Log.d(TAG, AdaptivePass.replacedLine(r.slot, r.pick, taste?.heardBefore(r.pick.id) == true))
+        for (d in dropped) Log.d(TAG, AdaptivePass.droppedLine(d.slot))
+        for (k in plan.keptWithoutPick) Log.d(TAG, AdaptivePass.keptLine(k.slot))
+        added.forEachIndexed { i, pick -> Log.d(TAG, AdaptivePass.addedLine(pick, plan.insertAt + i, taste?.heardBefore(pick.id) == true)) }
+
+        val picked = LinkedHashMap<String, String>()
+        replaced.forEach { picked[it.pick.id] = it.pick.seed }
+        added.forEach { picked[it.id] = it.seed }
+        if (picked.isNotEmpty()) heard.picked(picked)
+        // A pick an earlier pass put in and this one took out is not picked again in this run.
+        heard.dismiss((replaced.map { it.slot.id } + dropped.map { it.slot.id }).filter { it in snap.view.picks })
+        val liked = snap.view.likePending
+        if (liked != null && (added.isNotEmpty() || replaced.any { it.pick.seed == liked })) heard.likeAnswered(liked)
+        val likedSong = liked?.let { id -> snap.queue.firstOrNull { it.id == id } }
+        val note = AdaptiveNote.of(
+            snap.kind, replaced, added, dropped.size, liked,
+            likedSong?.let { SongVersions.plainTitle(it.title, it.artists.firstOrNull()?.name).ifBlank { it.title } },
+            heard.played,
+        )
+        if (note != null) heard.note = note
+        Log.d(TAG, AdaptivePass.summaryLine(result, replaced.size, dropped.size, added.size, plan.keptWithoutPick.size, note))
+        if (done.isNotEmpty()) hiddenTailChanged.value = hiddenTailChanged.value + 1
+        adaptiveChanged()
+    }
+
+    /** The marks and the note for the queue sheet, from the run and the queue as they are now. Main thread. */
+    private fun publishAdaptive() {
+        val inQueue = queueBoard.getCurrentQueue()?.queue?.mapTo(HashSet()) { it.id }.orEmpty()
+        val ahead = heard.unreachedPicks().filterTo(LinkedHashSet()) { it in inQueue }
+        adaptivePicks.value = ahead
+        heard.note?.let { if (!AdaptiveNote.stands(it, ahead, heard.played)) heard.note = null }
+        adaptiveNote.value = heard.note
     }
 
     /**
@@ -3161,6 +3518,9 @@ class MusicService : MediaLibraryService(),
         val nextWindowIndex = activePlayer.nextMediaItemIndex
 
         if (consecutivePlaybackErr <= MAX_PLAYER_CONSECUTIVE_ERR && nextWindowIndex != C.INDEX_UNSET) {
+            // The transition this makes is a seek, as next is; the adaptive queue must not read it
+            // as the listener skipping the song that failed.
+            skippingOnError = true
             activePlayer.seekTo(nextWindowIndex, C.TIME_UNSET)
             activePlayer.prepare()
             activePlayer.play()
@@ -3389,15 +3749,33 @@ class MusicService : MediaLibraryService(),
         // Going back is not a skip. It says nothing against the songs ahead, all of which were
         // either heard already or seen waiting, so it gets the ordinary pass.
         //
-        // How the song just left ended is what the far end learns from: left early by moving on is
-        // a skip, run out by itself a song heard (see AdaptiveQueue.TurnedDown).
-        if (Unreleased.ADAPTIVE_LEARNS) heard.playing?.takeIf { it.id != mediaItem?.mediaId }?.let { left ->
-            when {
-                reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO -> heard.finished(left)
-                reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK && !transitionWentBack &&
-                    AdaptiveQueue.leftEarly(lastKnownPosition[left.id], left.durationSec) -> heard.skipped(left)
+        // How the song just left ended is what the far end learns from (AdaptiveQueue.leave): left
+        // before half by moving on is a skip, from half on or run out by itself a song kept. Not a
+        // move made by skip on error, which seeks to the next song just as next does: a run of
+        // failing streams used to turn down every artist it reached. Not a tap on another song
+        // either, nor anything while casting, where the phone does not know where the receiver was.
+        val fromError = skippingOnError
+        skippingOnError = false
+        transitionFromError = fromError
+        var leftAs: AdaptiveQueue.Leave? = null
+        heard.playing?.takeIf { it.id != mediaItem?.mediaId }?.let { left ->
+            val leftAt = lastKnownPosition[left.id]
+            val heardThrough = lastKnownHeard.remove(left.id)
+            val how = when {
+                fromError -> AdaptiveQueue.Leave.NEITHER
+                reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO -> AdaptiveQueue.Leave.RAN_OUT
+                isCasting -> AdaptiveQueue.Leave.NEITHER
+                reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK && !transitionWentBack && !transitionChosen ->
+                    AdaptiveQueue.leave(leftAt, left.durationSec, heardThrough)
+                else -> AdaptiveQueue.Leave.NEITHER
             }
+            val pick = heard.isPick(left.id)
+            heard.left(how)
+            leftAs = heard.lastLeave
+            Log.d(TAG, AdaptivePass.leftLine(left.id, how, leftAt, left.durationSec, pick))
         }
+        // Repeat one: the song came round again, which is a song heard to its end.
+        if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) heard.left(AdaptiveQueue.Leave.RAN_OUT)
         mediaItem?.let {
             // By run, not by queue: a radio's queue of one and its full queue are one run. A run
             // saved by the last process comes back here, when its queue plays again.
@@ -3410,11 +3788,11 @@ class MusicService : MediaLibraryService(),
             adaptiveChanged()
         }
         // Not for a queue just put in the player, a new one or the one brought back when the app
-        // opens again: nothing of it has been heard yet (Heard starts over with each queue), so
-        // the pass had only the song now playing to go by. On a reopen it took 6 of 39 songs out
-        // of a queue nobody had touched (emulator, 15 Oct 2026). The next song change plans it.
+        // opens again: nothing of it has been heard yet in this sitting, so the pass had only the
+        // song now playing to go by. On a reopen it took 6 of 39 songs out of a queue nobody had
+        // touched (emulator, 15 Oct 2026). The next song change plans it.
         if (reason != Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED) {
-            replanQueueTail(strong = reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK && !transitionWentBack)
+            replanQueueTail(strong = reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK && !transitionWentBack, skip = leftAs == AdaptiveQueue.Leave.SKIPPED)
         }
         // "Listening now" on Last.fm. Not a scrobble, not stored, and allowed to fail quietly.
         mediaItem?.metadata?.let { meta -> scope.launch { scrobbler.nowPlaying(meta) } }
@@ -3624,6 +4002,7 @@ class MusicService : MediaLibraryService(),
         // AutoplayDepth, which holds the rule so a test can hold it to account.
         val wentBack = AutoplayDepth.wentBack(reason, lastQueueIndex, activePlayer.currentMediaItemIndex)
         transitionWentBack = wentBack
+        transitionChosen = chosen
         autoplayRun = AutoplayDepth.next(autoplayRun, chosen, wentBack, reason)
         lastQueueIndex = activePlayer.currentMediaItemIndex
         checkpointJob?.cancel()
@@ -3823,7 +4202,14 @@ class MusicService : MediaLibraryService(),
             oldPosition.mediaItem?.mediaId != newPosition.mediaItem?.mediaId ||
             reason == Player.DISCONTINUITY_REASON_AUTO_TRANSITION
         if (itemChanged) {
-            oldPosition.mediaItem?.mediaId?.let { lastKnownPosition[it] = oldPosition.positionMs }
+            oldPosition.mediaItem?.mediaId?.let { id ->
+                lastKnownPosition[id] = oldPosition.positionMs
+                // Before the transition hands the play over: it is still this song's.
+                currentStart(id)?.takeIf { it.opened }?.let { info ->
+                    lastKnownHeard[id] = info.startPositionMs +
+                        ListenProgress.accumulate(info.accumulatedPlayedMs, info.lastCheckpointPositionMs, oldPosition.positionMs)
+                }
+            }
             return
         }
         if (reason != Player.DISCONTINUITY_REASON_SEEK) return

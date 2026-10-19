@@ -181,9 +181,11 @@ data class MultiQueueObject(
     /**
      * Inserts [songs] at [index] in play order (the shuffled play order when [shuffled], the
      * stored order otherwise), and keeps [queuePos] naming the same current song. An index past
-     * the end appends. The queue gets copies of [songs], each with its own uid.
+     * the end appends. The queue gets copies of [songs], each with its own uid, unless [copy] is
+     * false: then the very objects go in, for a caller that hands the player the same ones and has
+     * made sure none of them is in the queue already.
      */
-    fun insertAtPlayIndex(index: Int, songs: List<MediaMetadata>) {
+    fun insertAtPlayIndex(index: Int, songs: List<MediaMetadata>, copy: Boolean = true) {
         val listPos = index.coerceIn(0, getSize())
 
         // Copies, because a caller can hand back songs this queue already holds: Play next on songs
@@ -191,7 +193,7 @@ data class MultiQueueObject(
         // queue chosen. The same object then sat in the queue twice. Numbering it for its new place
         // moved the song rather than adding it again in a shuffled queue, and the queue sheet, which
         // keys its rows on the song, closed the app on two rows with the same key.
-        val added = songs.map { it.copy(composeUidWorkaround = Math.random()) }
+        val added = if (copy) songs.map { it.copy(composeUidWorkaround = Math.random()) } else songs
 
         // Everything from that place on in play order moves along to make room.
         if (shuffled) {
@@ -218,6 +220,19 @@ data class MultiQueueObject(
                 queuePos += added.size
             }
         }
+    }
+
+    /**
+     * Puts [song] in the place of the song at [index] in play order, the songs around it where they
+     * were and [queuePos] on the same current song, which itself is never replaced. [song] goes in
+     * as it is, not a copy, so the player can be handed the very object the queue holds (the
+     * adaptive queue's edits check both sides by its uid). Returns whether it was done.
+     */
+    fun replaceAtPlayIndex(index: Int, song: MediaMetadata, currentPlayIndex: Int): Boolean {
+        if (index !in queue.indices || index == getQueuePosShuffled()) return false
+        if (!removeAtPlayIndex(index, currentPlayIndex)) return false
+        insertAtPlayIndex(index, listOf(song), copy = false)
+        return true
     }
 
     /**

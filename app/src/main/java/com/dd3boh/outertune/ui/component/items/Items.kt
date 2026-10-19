@@ -42,6 +42,7 @@ import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.Error
 import androidx.compose.material.icons.rounded.Explicit
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FolderCopy
 import androidx.compose.material.icons.rounded.LibraryAddCheck
@@ -71,6 +72,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -360,6 +362,8 @@ fun MediaMetadataListItem(
     showInLibraryIcon: Boolean = true,
     showDownloadIcon: Boolean = true,
     preferredSize: Int,
+    /** A song the adaptive queue put in that has not played yet: a small mark first among the badges. */
+    isNew: Boolean = false,
     trailingContent: @Composable RowScope.() -> Unit = {},
 ) = ListItem(
     title = mediaMetadata.title,
@@ -368,6 +372,11 @@ fun MediaMetadataListItem(
         makeTimeString(mediaMetadata.duration * 1000L)
     ),
     badges = {
+        // In the subtitle's line, where the heart and the library marks are, so the thumbnail, the
+        // title, the menu and the drag handle stay where they always are.
+        if (isNew) {
+            Icon.NewPick()
+        }
         if (showLikedIcon && mediaMetadata.liked) {
             Icon.Favorite()
         }
@@ -799,6 +808,19 @@ fun BoxScope.AlbumPlayButton(
 }
 
 object Icon {
+    /** A song the adaptive queue put in, the adaptive queue's own icon in the secondary colour. */
+    @Composable
+    fun NewPick() {
+        Icon(
+            imageVector = Icons.Rounded.AutoAwesome,
+            contentDescription = stringResource(R.string.adaptive_pick_mark),
+            tint = MaterialTheme.colorScheme.secondary,
+            modifier = Modifier
+                .size(18.dp)
+                .padding(end = 2.dp)
+        )
+    }
+
     @Composable
     fun Favorite() {
         Icon(

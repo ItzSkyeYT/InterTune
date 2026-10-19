@@ -419,6 +419,9 @@ object AdaptiveQueue {
             touch()
         }
 
+        /** Whether a pass put [id] into this run. */
+        fun isPick(id: String): Boolean = id in run.picks
+
         /** This run's picks that have not played yet: the songs the queue sheet marks as new. */
         fun unreachedPicks(): Set<String> = run.picks.keys.filterTo(LinkedHashSet()) { it !in run.ids }
 
@@ -435,7 +438,9 @@ object AdaptiveQueue {
         fun view(): View {
             val r = run
             val kept = keptTitles(TagFit.WINDOW)
-            val positives = r.recent.asSequence().filter { it.positive }.map { it.song.id }.distinct().take(SEEDS).toList()
+            // Each song by how it went the last time it played: heard again and skipped soon
+            // after, it is no positive any more.
+            val positives = r.recent.asSequence().distinctBy { it.song.id }.filter { it.positive }.map { it.song.id }.take(SEEDS).toList()
             val start = r.start
             val seeds = positives.ifEmpty { listOfNotNull(start?.song?.id) }
             val positiveArtists = LinkedHashSet(r.positiveArtists)
@@ -481,7 +486,7 @@ object AdaptiveQueue {
                 ?.let { run.skippedSongs.remove(it) }
         }
 
-        private fun keyOf(queue: Long, runId: Long) = if (runId != 0L) "run:$runId" else "queue:$queue"
+        private fun keyOf(queue: Long, runId: Long) = runKey(queue, runId)
 
         /** The run named [key], from here, from what was saved, or new, without making it current. */
         private fun runFor(key: String, queue: Long, runId: Long): Run {
@@ -553,6 +558,9 @@ object AdaptiveQueue {
             it.kept = kept; it.skipped = skipped; it.liked = liked; it.replay = replay; it.removed = removed
         }
     }
+
+    /** The key [Heard] keeps a run under: its run, or its queue for a run of 0. */
+    fun runKey(queue: Long, runId: Long): String = if (runId != 0L) "run:$runId" else "queue:$queue"
 
     /** One run as [Heard] keeps it. */
     private class Run(val key: String, val queueId: Long, val runId: Long) {

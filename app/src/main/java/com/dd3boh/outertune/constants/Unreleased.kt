@@ -66,17 +66,28 @@ object Unreleased {
     val SHARE_PAGE = BuildConfig.DEBUG
 
     /**
-     * Keep the queue up to date learns from what the listener does, not only from the words in
-     * titles: an artist skipped twice in a queue loses their other songs from its far end, a
-     * skipped song takes its other versions with it, a run of plain recordings sheds the slowed,
-     * sped up and nightcore versions ahead, and a like reaches as far as a skip
-     * (AdaptiveQueue.TurnedDown, AdaptiveQueue.plainRun). The limits stay: the next four songs are
-     * never touched, and at most 40% of the far end goes at once, 75% after a skip or a like.
+     * Keep radios up to date the whole way (AdaptivePass, QueuePlanner, QueueBoard.applyAdaptive):
+     * a song further down a radio that stops fitting makes way, in its own place, for a fresh pick
+     * like the songs the listener kept or liked, from their related lists stored on the phone, or
+     * from the radio page of the newest of them when those give too few or explicit songs are
+     * hidden; a like puts two picks like it after the next two songs; what the listener keeps
+     * skipping across days counts against a song (SkipHabits); the queue sheet says what changed
+     * and marks the new songs. The limits stay: the next four songs never change (two after a skip
+     * or a like), nothing moves while the queue is on screen, and a pass changes at most two fifths
+     * of what is ahead (three quarters after a skip or a like) and never all of it.
      *
-     * Unit tests only (AdaptiveLearnsTest), not yet run on a device. For 0.12. To ship: set this
-     * to true, or delete it with the three checks that read it, all in MusicService.
+     * Without it a release runs the pass that only takes songs out (AdaptiveQueue.plan), now with
+     * what it learns from skips, likes and plain runs, which the branch had as ADAPTIVE_LEARNS. What
+     * is not behind this flag: only radios and mixes change, the memory of what a radio played
+     * across a force close, the fold that follows a switch of queue, and the note's place under the
+     * songs on show.
+     *
+     * Unit tests only (QueuePlannerTest, AdaptivePassTest and the others), to be tried on a phone
+     * on 19 Oct 2026. For 0.12. To ship: set this to true and add it to ReleasedFlagsTest; to tidy
+     * after that, delete it with the one check that reads it, in MusicService.replanQueueTail, and
+     * AdaptiveQueue.plan with the part of replanQueueTail that calls it.
      */
-    val ADAPTIVE_LEARNS = BuildConfig.DEBUG
+    val ADAPTIVE_PASS = BuildConfig.DEBUG
 
     /**
      * Lyrics sources under Lyrics: the four sources in one list, each with a tick to switch it off

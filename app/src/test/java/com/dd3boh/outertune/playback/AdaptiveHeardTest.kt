@@ -128,3 +128,105 @@ class AdaptiveHeardTest {
         assertEquals(2, h.played)
     }
 }
+
+/** How a song that was left is read, and what a run counts as wanted. */
+class AdaptiveLeaveTest {
+
+    private fun heard() = AdaptiveQueue.Heard(clock = { 0L })
+
+    private fun AdaptiveQueue.Heard.play(id: String, how: AdaptiveQueue.Leave? = null, artist: String = "Artist $id") {
+        note(1L, id, "Song $id", listOf(artist), 200, runId = 9L, radio = true)
+        how?.let { left(it) }
+    }
+
+    @Test
+    fun `before half is a skip, from half on a keep, a song scrubbed to its end neither`() {
+        assertEquals(AdaptiveQueue.Leave.SKIPPED, AdaptiveQueue.leave(60_000, 200))
+        assertEquals(AdaptiveQueue.Leave.KEPT, AdaptiveQueue.leave(100_000, 200))
+        assertEquals(AdaptiveQueue.Leave.KEPT, AdaptiveQueue.leave(150_000, 200, heardThroughMs = 120_000))
+        assertEquals("seeked to the end and left", AdaptiveQueue.Leave.NEITHER, AdaptiveQueue.leave(190_000, 200, heardThroughMs = 20_000))
+        assertEquals(AdaptiveQueue.Leave.NEITHER, AdaptiveQueue.leave(null, 200))
+        assertEquals(AdaptiveQueue.Leave.SKIPPED, AdaptiveQueue.leave(20_000, -1))
+        assertEquals("length unknown, past half a minute: could be anywhere", AdaptiveQueue.Leave.NEITHER, AdaptiveQueue.leave(45_000, -1))
+    }
+
+    @Test
+    fun `the seeds are the newest songs kept, and the song a run began with while there are none`() {
+        val h = heard()
+        h.play("A")
+        assertEquals("the song the radio was started from", listOf("A"), h.view().seeds)
+        h.left(AdaptiveQueue.Leave.SKIPPED)
+        h.play("B", AdaptiveQueue.Leave.SKIPPED)
+        h.play("C")
+        assertEquals("still the first song, even skipped", listOf("A"), h.view().seeds)
+
+        val k = heard()
+        k.play("A", AdaptiveQueue.Leave.RAN_OUT)
+        k.play("B", AdaptiveQueue.Leave.SKIPPED)
+        k.play("C", AdaptiveQueue.Leave.KEPT)
+        k.play("D")
+        assertEquals(listOf("C", "A"), k.view().seeds)
+    }
+
+    @Test
+    fun `a like is a positive at once and asks for picks once`() {
+        val h = heard()
+        h.play("A", AdaptiveQueue.Leave.RAN_OUT)
+        h.play("L")
+        h.liked("L")
+        val view = h.view()
+        assertEquals(listOf("L", "A"), view.seeds)
+        assertEquals("L", view.likePending)
+        h.likeAnswered("L")
+        h.liked("L")
+        assertNull("liking it again adds nothing", h.view().likePending)
+    }
+
+    @Test
+    fun `a like taken back puts nothing in`() {
+        val h = heard()
+        h.play("L")
+        h.liked("L")
+        h.unliked("L")
+        assertNull(h.view().likePending)
+        assertTrue(h.keptTitles(5).isEmpty())
+    }
+
+    @Test
+    fun `a liked song left early is not a skip`() {
+        val h = heard()
+        h.play("L", artist = "Band L")
+        h.liked("L")
+        h.left(AdaptiveQueue.Leave.SKIPPED)
+        assertEquals(AdaptiveQueue.Leave.NEITHER, h.lastLeave)
+        assertTrue(h.view().artistSkips.isEmpty())
+    }
+
+    @Test
+    fun `a song gone back to is heard again, and skipped soon after it is no positive any more`() {
+        val h = heard()
+        h.play("Z", AdaptiveQueue.Leave.RAN_OUT)
+        h.play("A", AdaptiveQueue.Leave.SKIPPED, artist = "Band A")
+        h.play("B")
+        h.left(AdaptiveQueue.Leave.NEITHER)
+        h.play("A", artist = "Band A")
+        val view = h.view()
+        assertEquals("heard again: a positive at once", listOf("A", "Z"), view.seeds)
+        assertTrue("and what it was skipped for is forgiven", view.artistSkips.isEmpty())
+
+        h.left(AdaptiveQueue.Leave.SKIPPED)
+        h.play("C")
+        assertEquals(listOf("Z"), h.view().seeds)
+    }
+
+    @Test
+    fun `the run's sound is what was kept, not the songs skipped nor the one just started`() {
+        val h = heard()
+        h.play("P1", AdaptiveQueue.Leave.RAN_OUT)
+        h.note(1L, "S1", "S1 (Slowed)", runId = 9L, radio = true); h.left(AdaptiveQueue.Leave.SKIPPED)
+        h.play("P2", AdaptiveQueue.Leave.KEPT)
+        h.note(1L, "S2", "S2 (Slowed)", runId = 9L, radio = true)
+        assertEquals(listOf("Song P2", "Song P1"), h.keptTitles(5))
+        assertEquals("the old reading counts them all", listOf("S2 (Slowed)", "Song P2", "S1 (Slowed)", "Song P1"), h.titles(5))
+    }
+}
