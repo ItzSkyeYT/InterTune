@@ -68,6 +68,7 @@ import com.dd3boh.outertune.ui.screens.settings.fragments.PlaybackAuthFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.SpatialAudioFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.PlaybackBehaviourFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.PlayerGeneralFrag
+import com.dd3boh.outertune.ui.screens.settings.fragments.AutomixFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.TransitionFadeFrag
 import com.dd3boh.outertune.utils.rememberPreference
 import kotlinx.coroutines.Dispatchers
@@ -128,6 +129,7 @@ fun PlayerSettings(
             AudioQualityFrag()
             AdaptiveQueueFrag()
             TransitionFadeFrag()
+            if (Unreleased.AUTOMIX) AutomixFrag()
         }
         Spacer(modifier = Modifier.height(16.dp))
 

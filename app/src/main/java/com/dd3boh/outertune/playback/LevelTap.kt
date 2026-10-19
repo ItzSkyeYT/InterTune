@@ -31,7 +31,11 @@ import kotlin.math.abs
  * It costs nothing unless [wanted]: the samples are not looked at. It hears nothing when the audio
  * is handed to the system still encoded (audio offload), and then [now] simply has no answer.
  */
-class LevelTap(private val nanoTime: () -> Long = System::nanoTime) {
+class LevelTap(
+    /** How many levels the timeline may make room for while the output runs far ahead: see LevelTimeline. */
+    timelineGrowsTo: Int = LevelTimeline.CAPACITY,
+    private val nanoTime: () -> Long = System::nanoTime,
+) {
 
     private val watchers = AtomicInteger()
 
@@ -47,7 +51,7 @@ class LevelTap(private val nanoTime: () -> Long = System::nanoTime) {
         watchers.updateAndGet { if (it > 0) it - 1 else 0 }
     }
 
-    private val timeline = LevelTimeline()
+    private val timeline = LevelTimeline(growsTo = timelineGrowsTo)
 
     // What follows is touched by the thread that plays only.
     private var analyser: LevelAnalyser? = null

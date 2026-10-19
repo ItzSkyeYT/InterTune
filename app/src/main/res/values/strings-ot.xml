@@ -436,6 +436,11 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="one">%1$d second</item>
         <item quantity="other">%1$d seconds</item>
     </plurals>
+    <!-- AutoMix, held back behind Unreleased.AUTOMIX: its words wait for a yes before translators. -->
+    <string name="automix">AutoMix</string>
+    <string name="automix_description">Blends each song into the next, like a DJ set.</string>
+    <string name="automix_explain">When a song ends by itself, the next one comes in under it, on the beat when both have a steady one. Songs you skip to, and songs from the same album, change as before.</string>
+    <string name="transition_fade_automix_on">Not used while AutoMix is on.</string>
 
 <!--Lyrics settings -->
     <string name="lyrics_font_Size">Font size</string>
