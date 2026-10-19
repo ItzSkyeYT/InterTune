@@ -12,6 +12,7 @@ import android.net.nsd.NsdServiceInfo
 import android.os.Build
 import android.util.Log
 import com.dd3boh.outertune.constants.Unreleased
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -240,7 +241,12 @@ class CastDiscovery(
                 prepare = { socket -> wifi?.bindSocket(socket) },
                 http = DlnaDiscovery.descriptionHttp(wifi?.socketFactory ?: javax.net.SocketFactory.getDefault()),
             )
-        }.onFailure { Log.i(TAG, "SSDP search failed: ${it.message}") }.getOrNull() ?: return
+        }.onFailure {
+            // Closing the cast sheet cancels the search; that is the search stopping, not failing,
+            // and the cancellation has to carry on up so the coroutine ends.
+            if (it is CancellationException) throw it
+            Log.i(TAG, "SSDP search failed: ${it.message}")
+        }.getOrNull() ?: return
         synchronized(lock) {
             dlna.keys.retainAll { it.startsWith("location:") }
             found.forEach { dlna[it.id] = it }
