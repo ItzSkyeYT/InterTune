@@ -84,7 +84,8 @@ class AdaptiveWiringTest {
         assertTrue("runId = q?.runId ?: 0L, radio = q?.playlistId != null," in transition)
         assertTrue("fromError -> AdaptiveQueue.Leave.NEITHER" in transition)
         assertTrue("only the leave just read makes a skip pass", "skip = leftAs == AdaptiveQueue.Leave.SKIPPED)" in transition)
-        assertTrue("a tap on another song is no skip", "!transitionWentBack && !transitionChosen" in transition)
+        assertTrue("a tap on another song is no skip", "!transitionWentBack && !chosen" in transition)
+        assertTrue("but a choice whose queue loaded under the song playing is spent", "val chosen = transitionChosen && !choiceCarriedOn" in transition)
         val skip = body(service, "fun skipOnError(")
         assertTrue(skip.indexOf("skippingOnError = true") in 0 until skip.indexOf("activePlayer.seekTo(nextWindowIndex, C.TIME_UNSET)"))
     }
@@ -104,6 +105,13 @@ class AdaptiveWiringTest {
         assertTrue("a run switched to drops what the one before asked", "if (heard.runKey != runBefore) dropPasses()" in body(service, "override fun onMediaItemTransition("))
         assertTrue("switched off, nothing waiting applies", "if (!mode.isOn) dropPasses()" in service)
         assertTrue("if (!adaptiveQueueMode.isOn) return abandon(\"off\")" in body(service, "private fun applyPass("))
+    }
+
+    @Test
+    fun `a queue loaded under the song playing takes that song into its run`() {
+        val load = body(code("playback/QueueBoard.kt"), "fun setCurrQueue(item: MultiQueueObject?")
+        assertTrue("if (seamlessSupported) player.carriedOnInto(item)" in load)
+        assertTrue("heard.carriedOn(" in body(service, "fun carriedOnInto("))
     }
 
     @Test

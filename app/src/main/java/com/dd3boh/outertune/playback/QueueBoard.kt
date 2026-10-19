@@ -817,7 +817,9 @@ class QueueBoard(
             player.activePlayer.shuffleModeEnabled = item.shuffled
         }
         // A queue loaded under the song already playing makes no transition, and a radio becomes
-        // one only here, once its full queue replaces the queue of one: the fold follows at once.
+        // one only here, once its full queue replaces the queue of one: the fold follows at once,
+        // and the song goes on in the queue's run (Start radio on the song playing).
+        if (seamlessSupported) player.carriedOnInto(item)
         player.refreshAdaptiveTail()
         return queuePos
     }

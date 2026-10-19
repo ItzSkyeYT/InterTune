@@ -1703,6 +1703,20 @@ class MusicService : MediaLibraryService(),
 
     /** Set by anything that is the listener choosing a song, read and cleared by the next transition. */
     @Volatile var userChoicePending = false
+        set(value) {
+            field = value
+            // A choice made now is one of its own, whatever loaded under the song playing before it.
+            if (value) choiceCarriedOn = false
+        }
+
+    /**
+     * Set when the queue a choice loaded went in under the song already playing (carriedOnInto),
+     * which makes no transition: the choice's mark is still pending, and the transition that
+     * follows only moves on from that song. The adaptive queue then reads that leave by its reason,
+     * where a pending choice made it a tap on another song and a skip of it was lost. Cleared by the
+     * next transition.
+     */
+    @Volatile private var choiceCarriedOn = false
     /** The tap that started the queue being set up, handed to the listen it produces. */
     @Volatile var pendingTap: Long? = null
     /** An origin for the next play that no queue carries: a system resumption, a play from outside. */
@@ -2097,6 +2111,31 @@ class MusicService : MediaLibraryService(),
     /** [id] was dragged to a new place in the queue sheet, which is the listener's from now on. Main thread. */
     fun noteMovedByHand(id: String) {
         heard.movedByHand(id)
+        adaptiveChanged()
+    }
+
+    /**
+     * [q] was loaded under the song already playing, which makes no transition (QueueBoard.setCurrQueue):
+     * Start radio on the song playing, whose radio begins in a queue of one with that very song.
+     * The song goes on in [q]'s run as its first song, liked there if it was liked, and nothing is
+     * planned for it, as for any queue just loaded. Without this the run began at the radio's
+     * second song: the song the radio was started from never seeded a pick, its leave was written
+     * to the queue before, and a like on it went there too, where its pass was turned away and the
+     * like was lost. The top-up, Play next and shuffle load the same queue this way, which changes
+     * nothing here. Main thread.
+     */
+    fun carriedOnInto(q: MultiQueueObject) {
+        val item = activePlayer.currentMediaItem ?: return
+        val before = heard.runKey
+        heard.carriedOn(
+            q.id, item.mediaId, item.mediaMetadata.title?.toString(),
+            item.metadata?.artists?.map { it.name }.orEmpty(), item.metadata?.duration ?: -1,
+            runId = q.runId, radio = q.playlistId != null,
+        )
+        if (heard.runKey == before) return
+        heard.takeRestored()?.let { Log.d(TAG, AdaptivePass.restoredLine(it)) }
+        choiceCarriedOn = true
+        dropPasses()
         adaptiveChanged()
     }
 
@@ -3801,6 +3840,10 @@ class MusicService : MediaLibraryService(),
         val fromError = skippingOnError
         skippingOnError = false
         transitionFromError = fromError
+        // A choice whose queue was loaded under the song playing made no transition of its own
+        // (carriedOnInto): this one only moves on from that song, and its leave is read by its reason.
+        val chosen = transitionChosen && !choiceCarriedOn
+        choiceCarriedOn = false
         var leftAs: AdaptiveQueue.Leave? = null
         heard.playing?.takeIf { it.id != mediaItem?.mediaId }?.let { left ->
             val leftAt = lastKnownPosition[left.id]
@@ -3809,7 +3852,7 @@ class MusicService : MediaLibraryService(),
                 fromError -> AdaptiveQueue.Leave.NEITHER
                 reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO -> AdaptiveQueue.Leave.RAN_OUT
                 isCasting -> AdaptiveQueue.Leave.NEITHER
-                reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK && !transitionWentBack && !transitionChosen ->
+                reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK && !transitionWentBack && !chosen ->
                     AdaptiveQueue.leave(leftAt, left.durationSec, heardThrough)
                 else -> AdaptiveQueue.Leave.NEITHER
             }

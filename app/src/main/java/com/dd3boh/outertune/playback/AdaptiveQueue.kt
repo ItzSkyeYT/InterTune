@@ -306,6 +306,24 @@ object AdaptiveQueue {
             if (entry.replay) kept(entry)
         }
 
+        /**
+         * [id], the song playing, goes on in the run of [queue] and [runId] with no song change: a
+         * queue loaded under it, as Start radio on the song playing loads its radio. Noted there as
+         * [note] notes a song, and liked there when it was liked where it came from, so leaving it
+         * early is no verdict against a song liked. The like's picks were the run before's to put in.
+         */
+        fun carriedOn(
+            queue: Long, id: String, title: String?, artists: List<String> = emptyList(), durationSec: Int = -1,
+            runId: Long = 0L, radio: Boolean = false,
+        ) {
+            val liked = run.recent.firstOrNull()?.takeIf { it.song.id == id }?.liked == true
+            note(queue, id, title, artists, durationSec, runId, radio)
+            if (liked) run.recent.firstOrNull()?.takeIf { it.song.id == id && !it.liked }?.let { entry ->
+                entry.liked = true
+                kept(entry)
+            }
+        }
+
         /** The titles of the last [n] songs heard, newest first, the one playing included. */
         fun titles(n: Int): List<String?> = run.recent.take(n).map { it.song.title }
 

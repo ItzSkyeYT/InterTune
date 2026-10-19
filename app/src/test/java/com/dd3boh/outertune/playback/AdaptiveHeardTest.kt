@@ -43,6 +43,43 @@ class AdaptiveHeardTest {
     }
 
     @Test
+    fun `a run that begins on a song already playing takes that song as its first, with its like`() {
+        val h = heard()
+        h.note(1L, "P", "Playlist song", listOf("Band"), 200, runId = 3L)
+        h.note(1L, "S", "Seed", listOf("Band S"), 200, runId = 3L)
+        h.liked("S")
+        // Start radio on S: its radio is loaded under it, with no song change.
+        h.carriedOn(2L, "S", "Seed", listOf("Band S"), 200, runId = 9L, radio = true)
+
+        assertEquals(AdaptiveQueue.runKey(2L, 9L), h.runKey)
+        assertEquals(setOf("S"), h.reached)
+        assertEquals(1, h.played)
+        assertFalse("only the song it began on is heard", h.begun)
+        assertEquals("the song the radio was started from is its seed", listOf("S"), h.view().seeds)
+        assertNull("the like's picks were the run before's", h.view().likePending)
+        h.left(AdaptiveQueue.Leave.SKIPPED)
+        assertEquals("liked, so leaving it early is no skip", AdaptiveQueue.Leave.NEITHER, h.lastLeave)
+        assertTrue(h.view().artistSkips.isEmpty())
+        h.note(2L, "R1", "First of the radio", listOf("Band R"), 200, runId = 9L, radio = true)
+        assertTrue(h.begun)
+        assertEquals(listOf("S"), h.view().seeds)
+    }
+
+    @Test
+    fun `a like on the song a radio was started from, once it started, is the radio's`() {
+        val h = heard()
+        h.note(1L, "S", "Seed", listOf("Band S"), 200, runId = 3L)
+        h.carriedOn(2L, "S", "Seed", listOf("Band S"), 200, runId = 9L, radio = true)
+        h.liked("S")
+        assertEquals("S", h.view().likePending)
+        // The full radio loads under it in the same run: nothing changes.
+        h.carriedOn(4L, "S", "Seed", listOf("Band S"), 200, runId = 9L, radio = true)
+        assertEquals(1, h.played)
+        assertEquals("S", h.view().likePending)
+        assertTrue("saved as a radio's run", h.saved().any { it.key == "run:9" })
+    }
+
+    @Test
     fun `a queue just loaded has not begun until a song of it is left or a second one starts`() {
         val h = heard()
         h.note(1L, "A", "Alpha", runId = 9L, radio = true)
