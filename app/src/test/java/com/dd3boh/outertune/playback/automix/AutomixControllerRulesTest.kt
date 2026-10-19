@@ -64,4 +64,10 @@ class AutomixControllerRulesTest {
         val dropped = controller.substringAfter("override fun dropped(id: Long)").substringBefore("\n    }\n")
         assertTrue(dropped, "t.finished = true" in dropped)
     }
+
+    @Test
+    fun `the player's resolver fetches a song once at a time only with AutoMix in the build`() {
+        assertTrue("val resolver = SongResolver(streamAddresses).also { if (Unreleased.AUTOMIX) it.fetches = OneFetchAtATime() }" in service)
+        assertTrue("val one = fetches ?: return fetch(mediaId, position, staleQuality, partialCopy)" in service)
+    }
 }

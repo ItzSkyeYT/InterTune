@@ -2299,7 +2299,7 @@ class MusicService : MediaLibraryService(),
     fun songSource(): DataSource.Factory = createDataSourceFactory()
 
     private fun createDataSourceFactory(): DataSource.Factory {
-        val resolver = SongResolver(streamAddresses)
+        val resolver = SongResolver(streamAddresses).also { if (Unreleased.AUTOMIX) it.fetches = OneFetchAtATime() }
         return ResolvingDataSource.Factory(createCacheDataSource()) { dataSpec ->
             val mediaId = dataSpec.key ?: error("No media id")
             when (val resolved = resolver.resolve(mediaId, dataSpec.position, dataSpec.length)) {
@@ -2338,6 +2338,16 @@ class MusicService : MediaLibraryService(),
          * asks for a byte. Concurrent because the cast server resolves on several threads at once.
          */
         private val formats = ConcurrentHashMap<String, PlayerResponse.StreamingData.Format>()
+
+        /**
+         * Set, one song's stream is fetched once at a time: a resolve that finds a fetch of the
+         * same song under way waits for it and takes its answer. Given to the player's resolver
+         * with AutoMix in the build, which reads the next song's opening through it while the
+         * player may begin to load the same song. Two fetches would ask YouTube twice, and could
+         * keep for one song the address of another encoding than the one the player is reading,
+         * which a reconnect partway into the song would then read on from.
+         */
+        var fetches: OneFetchAtATime? = null
 
         /** Drops the address kept for [mediaId], after it was refused, so the next resolve asks for one afresh. */
         fun forgetStream(mediaId: String) {
@@ -2419,7 +2429,8 @@ class MusicService : MediaLibraryService(),
 
             // The address the song was given earlier, unless the player has failed on it since:
             // onPlayerError forgets it, and the try after that asks afresh below.
-            addresses.of(mediaId, System.currentTimeMillis())?.takeIf { !staleQuality }?.let { address ->
+            val known = addresses.of(mediaId, System.currentTimeMillis())
+            known?.takeIf { !staleQuality }?.let { address ->
                 formats[mediaId]?.let { format ->
                     Log.i(TAG, "PLAYING: remote song (temp cache)")
                     offloadScope.launch { recoverSong(mediaId) }
@@ -2427,6 +2438,27 @@ class MusicService : MediaLibraryService(),
                 }
             }
 
+            val one = fetches ?: return fetch(mediaId, position, staleQuality, partialCopy)
+            return one.run(mediaId) {
+                // Fetched by the other reader while this one waited, the upgrade or the clearing
+                // of a partial copy done with it: its answer is this one's.
+                val fetched = addresses.of(mediaId, System.currentTimeMillis())
+                val format = formats[mediaId]
+                if (fetched != null && fetched != known && format != null) {
+                    Log.i(TAG, "PLAYING: remote song (fetched for it a moment ago)")
+                    ResolvedSong.KnownStream(fetched, format)
+                } else {
+                    fetch(mediaId, position, staleQuality, partialCopy)
+                }
+            }
+        }
+
+        /**
+         * The song's stream fetched from YouTube, its row and its address kept, with what a copy
+         * already here needs done about it: [staleQuality] and [partialCopy] as [resolve] found
+         * them, for a read from [position].
+         */
+        private fun fetch(mediaId: String, position: Long, staleQuality: Boolean, partialCopy: Boolean): ResolvedSong {
             Log.i(TAG, "PLAYING: remote song (online fetch)")
 
             val played = runBlocking(Dispatchers.IO) {
