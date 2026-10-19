@@ -484,10 +484,18 @@ object AdaptiveQueue {
             )
         }
 
-        /** The radio runs worth keeping across a force close, the one playing first. See AdaptiveMemory. */
-        fun saved(): List<AdaptiveMemory.Run> =
-            (listOf(run) + earlier.values.reversed()).filter { it.radio && it.key.isNotEmpty() }
+        /**
+         * The radio runs worth keeping across a force close, the one playing first, then those kept
+         * beside it, then those the last process saved that have not played again yet, newest
+         * first. See AdaptiveMemory. Without the last, the first write of a new process took them
+         * out of the file, and a second close before their queue played again lost what they had
+         * played.
+         */
+        fun saved(): List<AdaptiveMemory.Run> {
+            val live = (listOf(run) + earlier.values.reversed()).filter { it.radio && it.key.isNotEmpty() }
                 .take(AdaptiveMemory.RUNS).map { it.toSaved() }
+            return (live + stored.values.sortedByDescending { it.savedAt }).take(AdaptiveMemory.RUNS)
+        }
 
         /**
          * Runs read back from the last process, to be picked up when their queue plays again. A run

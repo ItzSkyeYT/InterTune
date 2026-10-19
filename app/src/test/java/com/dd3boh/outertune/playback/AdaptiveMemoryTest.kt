@@ -71,6 +71,27 @@ class AdaptiveMemoryTest {
     }
 
     @Test
+    fun `runs read back and not played again yet stay in the file through the next process's writes`() {
+        val two = heard().apply {
+            note(4L, "R", "Rho", listOf("Band R"), 200, runId = 66L, radio = true)
+            left(AdaptiveQueue.Leave.RAN_OUT)
+        }
+        now += 60_000L
+        two.note(5L, "A", "Alpha", listOf("Band One"), 200, runId = 77L, radio = true)
+        val back = reopened(AdaptiveMemory.encode(two.saved()))
+
+        // A write before anything plays, a song swiped from the saved queue for instance.
+        assertEquals(listOf("run:77", "run:66"), back.saved().map { it.key })
+        // Radio 77 plays again, and the app is closed once more before 66 does.
+        back.note(5L, "A", "Alpha", listOf("Band One"), 200, runId = 77L, radio = true)
+        val again = reopened(AdaptiveMemory.encode(back.saved()))
+        again.note(4L, "R", "Rho", listOf("Band R"), 200, runId = 66L, radio = true)
+
+        assertEquals("what it played came through both closes", listOf("R"), again.reached.toList())
+        assertEquals(listOf("R"), again.view().seeds)
+    }
+
+    @Test
     fun `a run saved for another queue or run is left alone`() {
         val back = reopened(AdaptiveMemory.encode(played().saved()))
         back.note(6L, "X", "Other", listOf("Band Nine"), 200, runId = 78L, radio = true)
