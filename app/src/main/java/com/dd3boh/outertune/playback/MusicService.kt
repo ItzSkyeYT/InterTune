@@ -3192,7 +3192,10 @@ class MusicService : MediaLibraryService(),
         }
     }
 
-    /** What a pass was planned on, taken on the main thread. */
+    /**
+     * What a pass was planned on, taken on the main thread. [uids] are the board's songs', place by
+     * place, [playerUids] the player's: see AdaptiveEdit for why the two can differ.
+     */
     private class PassSnapshot(
         val ask: PassAsk,
         val kind: AdaptivePass.Kind,
@@ -3202,6 +3205,7 @@ class MusicService : MediaLibraryService(),
         val current: Int,
         val locked: Int,
         val uids: List<Double>,
+        val playerUids: List<Double>,
         val tail: List<AdaptivePass.Place>,
         val head: List<MediaMetadata>,
         val queue: List<MediaMetadata>,
@@ -3268,7 +3272,8 @@ class MusicService : MediaLibraryService(),
         val all = songs.filterNotNull()
         return PassSnapshot(
             ask = ask, kind = kind, queueId = q.id, runId = q.runId, view = view, current = current, locked = locked,
-            uids = all.map { it.composeUidWorkaround },
+            uids = board.map { it.composeUidWorkaround },
+            playerUids = all.map { it.composeUidWorkaround },
             tail = (start until count).map { i -> AdaptivePass.Place(i, all[i], all[i].id in view.byHand) },
             head = all.subList(current, start).toList(),
             queue = all,
@@ -3393,13 +3398,15 @@ class MusicService : MediaLibraryService(),
         }
         val edits = ArrayList<AdaptiveEdit>()
         for (change in plan.changes) when (change) {
-            is QueuePlanner.Replace -> stillNew(change.pick.id)?.let { edits += AdaptiveEdit.Replace(change.slot.index, snap.uids[change.slot.index], it) }
-            is QueuePlanner.Drop -> edits += AdaptiveEdit.Drop(change.slot.index, snap.uids[change.slot.index])
+            is QueuePlanner.Replace -> stillNew(change.pick.id)?.let {
+                edits += AdaptiveEdit.Replace(change.slot.index, snap.uids[change.slot.index], it, snap.playerUids[change.slot.index])
+            }
+            is QueuePlanner.Drop -> edits += AdaptiveEdit.Drop(change.slot.index, snap.uids[change.slot.index], snap.playerUids[change.slot.index])
             is QueuePlanner.Keep -> {}
         }
         val inserts = plan.inserts.mapNotNull { pick -> stillNew(pick.id)?.let { pick to it } }
         if (inserts.isNotEmpty() && plan.insertAt > 0) {
-            edits += AdaptiveEdit.Insert(plan.insertAt, snap.uids[plan.insertAt - 1], inserts.map { it.second })
+            edits += AdaptiveEdit.Insert(plan.insertAt, snap.uids[plan.insertAt - 1], inserts.map { it.second }, snap.playerUids[plan.insertAt - 1])
         }
         val ids = (0 until activePlayer.mediaItemCount).map { i -> runCatching { activePlayer.getMediaItemAt(i).mediaId }.getOrNull() }
         val notBefore = AdaptiveQueue.settledThrough(activePlayer.currentMediaItemIndex, ids, { it }, heard.reached) + 1 + snap.locked

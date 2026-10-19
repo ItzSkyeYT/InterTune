@@ -66,6 +66,36 @@ class AdaptiveEditsTest {
     }
 
     @Test
+    fun `a board read again from the database while a song plays is still edited in step with the player`() {
+        for (shuffled in listOf(false, true)) {
+            val q = queue(shuffled)
+            val player = FakePlayer(q.getCurrentQueueShuffled())
+            // initQueue after a scan: every song on the board a new object with a new uid, the
+            // player's items as they were until the queue next loads.
+            q.queue.replaceAll { it.copy(composeUidWorkaround = Math.random()) }
+            val board = q.getCurrentQueueShuffled()
+            val edits = listOf(
+                AdaptiveEdit.Replace(8, board[8].composeUidWorkaround, song("P1"), player.items[8].composeUidWorkaround),
+                AdaptiveEdit.Drop(10, board[10].composeUidWorkaround, player.items[10].composeUidWorkaround),
+                AdaptiveEdit.Insert(7, board[6].composeUidWorkaround, listOf(song("I1")), player.items[6].composeUidWorkaround),
+            )
+            val done = applyAdaptiveEdits(q, player, edits, notBefore = 7, current = q.getQueuePosShuffled())
+
+            assertEquals("shuffled=$shuffled", 3, done.size)
+            assertEquals(q.order(), player.items.map { it.id })
+            val at = q.order().indexOf("P1")
+            assertSame("where it edited, the player holds the board's own object again", q.getCurrentQueueShuffled()[at], player.items[at])
+
+            // Checked against the board's uid on both sides, as before, each edit was left out.
+            val old = queue(shuffled)
+            val oldPlayer = FakePlayer(old.getCurrentQueueShuffled())
+            old.queue.replaceAll { it.copy(composeUidWorkaround = Math.random()) }
+            val oldBoard = old.getCurrentQueueShuffled()
+            assertTrue(applyAdaptiveEdits(old, oldPlayer, listOf(AdaptiveEdit.Drop(10, oldBoard[10].composeUidWorkaround)), notBefore = 7, current = old.getQueuePosShuffled()).isEmpty())
+        }
+    }
+
+    @Test
     fun `a player that refuses has the board edit undone, and the pass stops`() {
         for (refuse in listOf("replace", "remove", "add")) {
             val q = queue()

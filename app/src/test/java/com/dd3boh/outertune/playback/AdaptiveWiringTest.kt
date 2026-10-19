@@ -115,6 +115,15 @@ class AdaptiveWiringTest {
     }
 
     @Test
+    fun `each edit is checked against the board's uid and the player's own`() {
+        val apply = body(service, "private fun applyPass(")
+        assertTrue("snap.playerUids[change.slot.index]" in apply)
+        val snapshot = body(service, "private fun adaptiveSnapshot(")
+        assertTrue("uids = board.map { it.composeUidWorkaround }," in snapshot)
+        assertTrue("playerUids = all.map { it.composeUidWorkaround }," in snapshot)
+    }
+
+    @Test
     fun `songs put in, moved or swiped by hand are noted`() {
         assertTrue("noteByHand(q, items)" in body(service, "fun enqueueNext("))
         assertTrue("queueBoard.getCurrentQueue()?.let { noteByHand(it, items) }" in body(service, "fun enqueueEnd("))
