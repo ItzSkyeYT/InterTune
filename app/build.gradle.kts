@@ -371,6 +371,9 @@ dependencies {
     // emulator. See RecommendationSqlTest.
     testImplementation(libs.junit)
     testImplementation(libs.sqlite.jdbc)
+    // The XML pull parser Android itself uses, so the lyrics TTML parser runs in plain JVM tests,
+    // where android.util.Xml has no parser behind it. See TtmlInternalNamespaceTest.
+    testImplementation(libs.kxml2)
 
     // modules
     implementation(project(":fingerprint"))

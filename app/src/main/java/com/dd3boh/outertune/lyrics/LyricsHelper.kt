@@ -178,7 +178,7 @@ class LyricsHelper @Inject constructor(
             album = mediaMetadata.album?.title,
             duration = knownDuration(mediaMetadata),
         )
-        return LyricsLookup.firstFound(lyricsProviders(), query) { _, e ->
+        return LyricsLookup.firstFound(lyricsProviders(), query, readable = { !LyricsMatch.isTtml(it) || readTtml(it) != null }) { _, e ->
             reportException(e)
         }
     }
@@ -248,9 +248,14 @@ class LyricsHelper @Inject constructor(
      * text, as the others do. The lookup used to read everything as LRC, which has no word for TTML.
      */
     private fun parse(text: String, trim: Boolean, multiline: Boolean): SemanticLyrics? {
-        if (LyricsMatch.isTtml(text)) runCatching { parseTtml(null, text) }.getOrNull()?.let { return it }
+        // TTML that cannot be read is no lyrics, never lines of markup: read as LRC, every tag of it
+        // used to come out as the words of the song.
+        if (LyricsMatch.isTtml(text)) return readTtml(text)
         return parseLrc(text, trim, multiline)
     }
+
+    private fun readTtml(text: String): SemanticLyrics? =
+        runCatching { parseTtml(null, text) }.onFailure { Log.w(TAG, "TTML lyrics could not be read: ${it.message}") }.getOrNull()
 
     companion object {
         private const val TAG = "LyricsHelper"
