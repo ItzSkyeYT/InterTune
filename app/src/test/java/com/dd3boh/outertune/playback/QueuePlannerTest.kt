@@ -53,12 +53,19 @@ class QueuePlannerTest {
     }
 
     @Test
-    fun `a pick must be at least as good as what is already coming to take a place a rule decided on`() {
-        val slots = tail(fit = 1.0).with(3) { it.copy(byWords = true, fit = -1.0) }
+    fun `a pick must be no worse than what is already coming to take a place a rule decided on`() {
+        val slots = tail(fit = 1.0).with(1) { it.copy(fit = 0.8) }.with(3) { it.copy(byWords = true, fit = -1.0) }
         val weak = QueuePlanner.plan(slots, head, listOf(pick("p1", fit = 0.5)), share = 0.4)
-        assertTrue("below the median of the near part", weak.replaced.isEmpty())
-        val good = QueuePlanner.plan(slots, head, listOf(pick("p1", fit = 1.0)), share = 0.4)
-        assertEquals(listOf("p1"), good.replaced.map { it.pick.id })
+        assertTrue("below every song of the near part that stays", weak.replaced.isEmpty())
+        val good = QueuePlanner.plan(slots, head, listOf(pick("p1", fit = 0.8)), share = 0.4)
+        assertEquals("as good as the weakest of them is enough", listOf("p1"), good.replaced.map { it.pick.id })
+    }
+
+    @Test
+    fun `a like's picks need no bar beyond being usable`() {
+        val slots = tail(fit = 3.0)
+        val plan = QueuePlanner.plan(slots, head, listOf(pick("l1", fit = 0.1, seed = "liked"), pick("l2", fit = -0.2, seed = "liked")), share = 0.4, liked = "liked")
+        assertEquals(listOf("l1", "l2"), plan.inserts.map { it.id })
     }
 
     @Test

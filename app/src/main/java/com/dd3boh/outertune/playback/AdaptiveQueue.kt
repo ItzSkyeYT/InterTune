@@ -98,7 +98,7 @@ object AdaptiveQueue {
             val name = title(item)
             val by = artists(item)
             item to when {
-                by.any { it.lowercase() in turnedDown.artists } -> TURNED_DOWN_FIT
+                by.any { it.trim().lowercase() in turnedDown.artists } -> TURNED_DOWN_FIT
                 name != null && turnedDown.songs.isNotEmpty() &&
                     SongVersions.baseTitle(name, by.firstOrNull()) in turnedDown.songs -> TURNED_DOWN_FIT
                 else -> verdict(name, context, plainRun)
@@ -338,7 +338,7 @@ object AdaptiveQueue {
         /** [song] was left early, by the listener moving on to a later one. */
         fun skipped(song: Song) {
             touch()
-            for (artist in song.artists.map { it.lowercase() }.distinct()) {
+            for (artist in song.artists.map { it.trim().lowercase() }.distinct()) {
                 run.skipsByArtist[artist] = (run.skipsByArtist[artist] ?: 0) + 1
             }
             val base = song.title?.let { SongVersions.baseTitle(it, song.artists.firstOrNull()) }
@@ -351,7 +351,7 @@ object AdaptiveQueue {
 
         /** [song] was heard to its end: whatever its artists were skipped for is forgiven. */
         fun finished(song: Song) {
-            song.artists.forEach { run.skipsByArtist.remove(it.lowercase()) }
+            song.artists.forEach { run.skipsByArtist.remove(it.trim().lowercase()) }
         }
 
         /** The song playing, [id], was liked: a positive at once, and two picks like it to come. */
@@ -444,7 +444,7 @@ object AdaptiveQueue {
             val start = r.start
             val seeds = positives.ifEmpty { listOfNotNull(start?.song?.id) }
             val positiveArtists = LinkedHashSet(r.positiveArtists)
-            if (start != null && !start.turnedAway) start.song.artists.mapTo(positiveArtists) { it.lowercase() }
+            if (start != null && !start.turnedAway) start.song.artists.mapTo(positiveArtists) { it.trim().lowercase() }
             return View(
                 key = r.key, queueId = r.queueId, runId = r.runId,
                 reached = r.ids.toSet(), reachedVersions = r.versions.toSet(),
@@ -481,7 +481,7 @@ object AdaptiveQueue {
 
         private fun kept(entry: Entry) {
             finished(entry.song)
-            entry.song.artists.mapTo(run.positiveArtists) { it.lowercase() }
+            entry.song.artists.mapTo(run.positiveArtists) { it.trim().lowercase() }
             entry.song.title?.let { SongVersions.baseTitle(it, entry.song.artists.firstOrNull()) }
                 ?.let { run.skippedSongs.remove(it) }
         }

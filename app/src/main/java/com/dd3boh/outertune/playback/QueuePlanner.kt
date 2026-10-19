@@ -19,8 +19,8 @@ import com.dd3boh.outertune.engine.TagFit
  * - put in or moved by hand: never touched;
  * - unwanted ([Unwanted]: an artist turned down in this run, a version of a song skipped, banned,
  *   a lasting dislike, a preview): it goes even with no pick, and before anything else;
- * - out of place by its words (AdaptiveQueue.verdict): it goes only for a pick that is at least as
- *   good as what is already coming, the median fit of the near part;
+ * - out of place by its words (AdaptiveQueue.verdict): it goes only for a pick that is no worse
+ *   than what is already coming: the lowest fit among the songs of the near part that stay;
  * - out of place by its score: in the near part only, with a reason of its own against it, and
  *   only for a pick that fits by [QueueFit.REPLACE_MARGIN] more, [SCORE_CHANGES] a pass at most;
  * - everything else, left alone.
@@ -33,7 +33,8 @@ import com.dd3boh.outertune.engine.TagFit
  * ([EngineParams.maxPerArtist]), and three unplayed at most from one seed ([EngineParams.maxPerSeed]).
  *
  * After a like, two of the liked song's related songs ([LIKE_PICKS]) go in at the start of the
- * tail, before anything else is chosen, so the like is answered within a few songs.
+ * tail, before anything else is chosen, so the like is answered within a few songs. They need no
+ * bar beyond what makes any pick usable: the listener asked for songs like that one.
  *
  * No Android in here, so it is tested.
  */
@@ -85,7 +86,7 @@ object QueuePlanner {
     /**
      * What one pass does: [changes] to places of the tail, and [inserts] put in at [insertAt], the
      * tail's first place, after a like. [bar] is what a pick had to reach to take the place of a
-     * song a rule decided on.
+     * song a rule decided on: the lowest fit among the songs of the near part that stay.
      */
     data class Plan(val changes: List<Change>, val inserts: List<Pick>, val insertAt: Int, val bar: Double) {
         val replaced: List<Replace> get() = changes.filterIsInstance<Replace>()
@@ -112,7 +113,10 @@ object QueuePlanner {
         maxPerSeed: Int = EngineParams.DEFAULT.maxPerSeed,
     ): Plan {
         if (slots.isEmpty()) return Plan(emptyList(), emptyList(), -1, Double.NEGATIVE_INFINITY)
-        val bar = median(slots.take(near).filter { !it.byHand && it.unwanted == null }.map { it.fit }) ?: Double.NEGATIVE_INFINITY
+        // Never worse than what is already coming: the songs of the near part that stay, not
+        // those a rule or a score is about to look at again, nor those put in by hand.
+        val bar = slots.take(near).filter { !it.byHand && it.unwanted == null && !it.byWords && it.byScore == null }
+            .minOfOrNull { it.fit } ?: Double.NEGATIVE_INFINITY
         val pool = picks.toMutableList()
         val bySeed = HashMap(picksBySeed)
         fun seedRoom(p: Pick) = (bySeed[p.seed] ?: 0) < maxPerSeed
@@ -140,7 +144,7 @@ object QueuePlanner {
         // the pass works out for itself takes the best picks.
         val inserts = ArrayList<Pick>()
         if (liked != null) {
-            for (p in pool.filter { it.seed == liked && it.fit >= bar }) {
+            for (p in pool.filter { it.seed == liked }) {
                 if (inserts.size >= LIKE_PICKS) break
                 val at = head.size + inserts.size
                 if (!seedRoom(p) || !fits(p.artist, at, inserting = true)) continue
@@ -186,12 +190,5 @@ object QueuePlanner {
             }
         }
         return Plan(changes, inserts, slots.first().index, bar)
-    }
-
-    private fun median(values: List<Double>): Double? {
-        if (values.isEmpty()) return null
-        val sorted = values.sorted()
-        val mid = sorted.size / 2
-        return if (sorted.size % 2 == 1) sorted[mid] else (sorted[mid - 1] + sorted[mid]) / 2
     }
 }
