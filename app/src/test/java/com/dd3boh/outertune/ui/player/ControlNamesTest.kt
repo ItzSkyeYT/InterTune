@@ -35,7 +35,8 @@ class ControlNamesTest {
     fun `the full player names shuffle, previous, play, next, repeat and the heart`() {
         for (name in row) assertTrue("Player.kt has no $name", name in player)
         assertTrue("contentDescription = playPauseName(isPlaying && playbackState != STATE_ENDED)" in player)
-        assertEquals("both hearts, the round one and the one in the joined row", 2, Regex("""contentDescription = likeName\(""").findAll(player).count())
+        // Like can be pinned in each place (issue #27): Classic's circle, the pair by the title, the row under the controls.
+        assertEquals("every heart, the round one, the one by the title and the one under the controls", 3, Regex("""contentDescription = likeName\(""").findAll(player).count())
     }
 
     @Test
