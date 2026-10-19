@@ -54,6 +54,11 @@ class AdaptiveMemoryTest {
         assertEquals("the keeps come back as seeds", listOf("C", "A"), view.seeds)
         assertEquals(setOf("band two"), view.artistSkips)
         assertEquals("what it had played, the one playing included", 4, back.played)
+        assertEquals(
+            "Adaptive queue: restored run:77: 4 reached, 1 picks",
+            back.takeRestored()?.let { AdaptivePass.restoredLine(it) },
+        )
+        assertNull("said once", back.takeRestored())
     }
 
     @Test
@@ -86,6 +91,10 @@ class AdaptiveMemoryTest {
         assertEquals(setOf("H"), back.byHand)
         assertEquals(setOf("P"), back.unreachedPicks())
         assertNull("the note described a sitting that is over", back.note)
+        assertEquals(
+            "Adaptive queue: restored run:77: 4 reached, 1 picks, older than 90 minutes so skips and keeps left out",
+            back.takeRestored()?.let { AdaptivePass.restoredLine(it) },
+        )
         val view = back.view()
         assertTrue("no skips from that sitting", view.artistSkips.isEmpty())
         assertEquals(listOf("Delta"), back.titles(5))

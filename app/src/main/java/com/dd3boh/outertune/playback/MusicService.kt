@@ -2079,6 +2079,7 @@ class MusicService : MediaLibraryService(),
      */
     private fun noteByHand(q: MultiQueueObject, items: List<MediaItem>) {
         heard.putInByHand(q.id, q.runId, items.map { it.mediaId }, radio = q.playlistId != null)
+        heard.takeRestored()?.let { Log.d(TAG, AdaptivePass.restoredLine(it)) }
         adaptiveChanged()
     }
 
@@ -3785,6 +3786,7 @@ class MusicService : MediaLibraryService(),
                 it.metadata?.artists?.map { a -> a.name }.orEmpty(), it.metadata?.duration ?: -1,
                 runId = q?.runId ?: 0L, radio = q?.playlistId != null,
             )
+            heard.takeRestored()?.let { Log.d(TAG, AdaptivePass.restoredLine(it)) }
             adaptiveChanged()
         }
         // Not for a queue just put in the player, a new one or the one brought back when the app

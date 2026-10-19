@@ -414,71 +414,14 @@ class QueueBoard(
      * queue holds them.
      */
     fun applyAdaptive(q: MultiQueueObject, edits: List<AdaptiveEdit>, notBefore: Int): List<AdaptiveEdit> {
-        val done = ArrayList<AdaptiveEdit>()
         val exo = player.activePlayer
-        val current = exo.currentMediaItemIndex
-        fun boardUid(i: Int) = q.getCurrentQueueShuffled().getOrNull(i)?.composeUidWorkaround
-        fun playerUid(i: Int) = runCatching { exo.getMediaItemAt(i).metadata?.composeUidWorkaround }.getOrNull()
-        fun holds(i: Int, uid: Double) = boardUid(i) == uid && playerUid(i) == uid
-        try {
-            // Highest place first, so a song taken out cannot move a place still to be edited.
-            for (edit in edits.filter { it !is AdaptiveEdit.Insert }.sortedByDescending { it.index }) {
-                if (edit.index < notBefore || edit.index <= current) {
-                    Log.d(TAG, "Adaptive queue: abandoned (edit #${edit.index} is in the locked head now)")
-                    continue
-                }
-                when (edit) {
-                    is AdaptiveEdit.Replace -> {
-                        if (!holds(edit.index, edit.uid)) { Log.d(TAG, "Adaptive queue: abandoned (edit #${edit.index} moved)"); continue }
-                        val before = q.getCurrentQueueShuffled()[edit.index]
-                        val song = edit.song.copy(composeUidWorkaround = Math.random())
-                        if (!q.replaceAtPlayIndex(edit.index, song, current)) continue
-                        try {
-                            exo.replaceMediaItem(edit.index, song.toMediaItem())
-                        } catch (e: Exception) {
-                            q.replaceAtPlayIndex(edit.index, before, current)
-                            Log.w(TAG, "Adaptive queue: the player would not take a replacement, the pass stops here", e)
-                            return done
-                        }
-                        done += edit.copy(song = song)
-                    }
-                    is AdaptiveEdit.Drop -> {
-                        if (!holds(edit.index, edit.uid)) { Log.d(TAG, "Adaptive queue: abandoned (edit #${edit.index} moved)"); continue }
-                        val before = q.getCurrentQueueShuffled()[edit.index]
-                        if (!q.removeAtPlayIndex(edit.index, current)) continue
-                        try {
-                            exo.removeMediaItem(edit.index)
-                        } catch (e: Exception) {
-                            q.insertAtPlayIndex(edit.index, listOf(before), copy = false)
-                            Log.w(TAG, "Adaptive queue: the player would not let a song go, the pass stops here", e)
-                            return done
-                        }
-                        done += edit
-                    }
-                    is AdaptiveEdit.Insert -> {}
-                }
-            }
-            for (edit in edits.filterIsInstance<AdaptiveEdit.Insert>()) {
-                val at = edit.index
-                // Put in after the song the plan saw before that place, and nowhere else.
-                if (at < notBefore || at <= current || !holds(at - 1, edit.afterUid)) {
-                    Log.d(TAG, "Adaptive queue: abandoned (the place for #$at moved)")
-                    continue
-                }
-                q.insertAtPlayIndex(at, edit.songs)
-                val added = q.getCurrentQueueShuffled().subList(at, at + edit.songs.size).toList()
-                try {
-                    exo.addMediaItems(at, added.map { it.toMediaItem() })
-                } catch (e: Exception) {
-                    repeat(added.size) { q.removeAtPlayIndex(at, current) }
-                    Log.w(TAG, "Adaptive queue: the player would not take the new songs, the pass stops here", e)
-                    return done
-                }
-                done += edit.copy(songs = added)
-            }
-        } finally {
-            if (done.isNotEmpty()) saveQueueSongs(q)
-        }
+        val done = applyAdaptiveEdits(q, object : EditablePlayer {
+            override fun uidAt(index: Int) = runCatching { exo.getMediaItemAt(index).metadata?.composeUidWorkaround }.getOrNull()
+            override fun replace(index: Int, song: MediaMetadata) = exo.replaceMediaItem(index, song.toMediaItem())
+            override fun remove(index: Int) = exo.removeMediaItem(index)
+            override fun add(index: Int, songs: List<MediaMetadata>) = exo.addMediaItems(index, songs.map { it.toMediaItem() })
+        }, edits, notBefore, exo.currentMediaItemIndex) { line, e -> if (e == null) Log.d(TAG, line) else Log.w(TAG, line, e) }
+        if (done.isNotEmpty()) saveQueueSongs(q)
         return done
     }
 
@@ -1073,6 +1016,91 @@ class QueueBoard(
         }
     }
 
+}
+
+/** The player's half of the adaptive queue's edits, as QueueBoard.applyAdaptive drives it. */
+internal interface EditablePlayer {
+    /** The uid (composeUidWorkaround) of the song the player holds at [index], null for none. */
+    fun uidAt(index: Int): Double?
+    fun replace(index: Int, song: MediaMetadata)
+    fun remove(index: Int)
+    fun add(index: Int, songs: List<MediaMetadata>)
+}
+
+/**
+ * [edits] made to [q] and to [player] in step (QueueBoard.applyAdaptive): replacements and songs
+ * taken out from the highest place down, so none moves a place still to be edited, then the songs
+ * put in. Each is checked first: at or after [notBefore] and past [current], and both sides holding
+ * the song it was planned for, or the song just before the place where songs go in. Board first,
+ * then the player; when the player refuses, the board edit is undone and nothing more is done.
+ * Returns what was done, with the songs put in as the queue holds them. [log] hears each edit left
+ * out or refused.
+ */
+internal fun applyAdaptiveEdits(
+    q: MultiQueueObject,
+    player: EditablePlayer,
+    edits: List<AdaptiveEdit>,
+    notBefore: Int,
+    current: Int,
+    log: (String, Throwable?) -> Unit = { _, _ -> },
+): List<AdaptiveEdit> {
+    val done = ArrayList<AdaptiveEdit>()
+    fun holds(i: Int, uid: Double) = q.getCurrentQueueShuffled().getOrNull(i)?.composeUidWorkaround == uid && player.uidAt(i) == uid
+    for (edit in edits.filter { it !is AdaptiveEdit.Insert }.sortedByDescending { it.index }) {
+        if (edit.index < notBefore || edit.index <= current) {
+            log("Adaptive queue: abandoned (edit #${edit.index} is in the locked head now)", null)
+            continue
+        }
+        when (edit) {
+            is AdaptiveEdit.Replace -> {
+                if (!holds(edit.index, edit.uid)) { log("Adaptive queue: abandoned (edit #${edit.index} moved)", null); continue }
+                val before = q.getCurrentQueueShuffled()[edit.index]
+                val song = edit.song.copy(composeUidWorkaround = Math.random())
+                if (!q.replaceAtPlayIndex(edit.index, song, current)) continue
+                try {
+                    player.replace(edit.index, song)
+                } catch (e: Exception) {
+                    q.replaceAtPlayIndex(edit.index, before, current)
+                    log("Adaptive queue: the player would not take a replacement, the pass stops here", e)
+                    return done
+                }
+                done += edit.copy(song = song)
+            }
+            is AdaptiveEdit.Drop -> {
+                if (!holds(edit.index, edit.uid)) { log("Adaptive queue: abandoned (edit #${edit.index} moved)", null); continue }
+                val before = q.getCurrentQueueShuffled()[edit.index]
+                if (!q.removeAtPlayIndex(edit.index, current)) continue
+                try {
+                    player.remove(edit.index)
+                } catch (e: Exception) {
+                    q.insertAtPlayIndex(edit.index, listOf(before), copy = false)
+                    log("Adaptive queue: the player would not let a song go, the pass stops here", e)
+                    return done
+                }
+                done += edit
+            }
+            is AdaptiveEdit.Insert -> {}
+        }
+    }
+    for (edit in edits.filterIsInstance<AdaptiveEdit.Insert>()) {
+        val at = edit.index
+        // Put in after the song the plan saw before that place, and nowhere else.
+        if (at < notBefore || at <= current || !holds(at - 1, edit.afterUid)) {
+            log("Adaptive queue: abandoned (the place for #$at moved)", null)
+            continue
+        }
+        q.insertAtPlayIndex(at, edit.songs)
+        val added = q.getCurrentQueueShuffled().subList(at, at + edit.songs.size).toList()
+        try {
+            player.add(at, added)
+        } catch (e: Exception) {
+            repeat(added.size) { q.removeAtPlayIndex(at, current) }
+            log("Adaptive queue: the player would not take the new songs, the pass stops here", e)
+            return done
+        }
+        done += edit.copy(songs = added)
+    }
+    return done
 }
 
 /**

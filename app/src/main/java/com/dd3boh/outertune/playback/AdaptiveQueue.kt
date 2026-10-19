@@ -510,8 +510,17 @@ object AdaptiveQueue {
                 ?: Run(key, queue, runId)
         }
 
+        /** A run brought back from what the last process saved, for the log, read once ([takeRestored]). */
+        data class Restored(val key: String, val reached: Int, val picks: Int, val evidence: Boolean)
+
+        private var restored: Restored? = null
+
+        /** The run [note] or [putInByHand] last brought back from the last process, once. */
+        fun takeRestored(): Restored? = restored.also { restored = null }
+
         private fun restore(saved: AdaptiveMemory.Run): Run {
             val s = AdaptiveMemory.fresh(saved, clock())
+            restored = Restored(s.key, s.reached.size, s.picks.size, s.evidence != null)
             val r = Run(s.key, s.queueId, s.runId)
             r.radio = true
             r.changedAt = s.savedAt

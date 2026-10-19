@@ -193,6 +193,18 @@ class AdaptiveLeaveTest {
     }
 
     @Test
+    fun `a song moved past by skip on error, or left by a tap on another, says nothing`() {
+        val h = heard()
+        h.play("A", AdaptiveQueue.Leave.NEITHER, artist = "Band A")
+        h.play("B", AdaptiveQueue.Leave.NEITHER, artist = "Band A")
+        h.play("C")
+        val view = h.view()
+        assertTrue(view.artistSkips.isEmpty())
+        assertTrue(view.turnedDown.songs.isEmpty())
+        assertEquals(AdaptiveQueue.Leave.NEITHER, h.lastLeave)
+    }
+
+    @Test
     fun `a liked song left early is not a skip`() {
         val h = heard()
         h.play("L", artist = "Band L")

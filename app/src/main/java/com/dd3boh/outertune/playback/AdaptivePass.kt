@@ -205,6 +205,11 @@ object AdaptivePass {
     fun addedLine(pick: QueuePlanner.Pick, at: Int, heardBefore: Boolean): String =
         "Adaptive queue: added ${pick.id} at #$at (like ${pick.seed}, fit ${fit(pick.fit)}, ${if (heardBefore) "heard before" else "new to this listener"})"
 
+    /** A run brought back after the app was closed. */
+    fun restoredLine(r: AdaptiveQueue.Heard.Restored): String =
+        "Adaptive queue: restored ${r.key}: ${r.reached} reached, ${r.picks} picks" +
+            if (r.evidence) "" else ", older than 90 minutes so skips and keeps left out"
+
     /**
      * How the song just left was heard, for counting on a phone: "heard <id> skipped at 23%", or a
      * pick's own line, "pick <id> skipped at 12%", to set against the radio's own songs.
