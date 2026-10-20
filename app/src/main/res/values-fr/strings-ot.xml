@@ -961,6 +961,7 @@
     <string name="exclusion_reason_rest">Mis au repos après avoir été passé</string>
     <string name="exclusion_reason_gone">N\'est plus sur YouTube</string>
     <string name="error_cached_part_stale">La partie enregistrée de ce titre ne correspond plus à ce que YouTube fournit. Appuyez sur lecture pour le charger à nouveau.</string>
+    <string name="error_connection_turned_away">YouTube refuse cette connexion, donc chaque titre semble indisponible. Un VPN, ou un réseau d\'école ou de travail, peut en être la cause.</string>
     <string name="menu_not_this_song">Pas ce titre</string>
     <string name="menu_less_of_artist">Moins de cet artiste</string>
     <string name="menu_never_artist">Jamais cet artiste</string>
