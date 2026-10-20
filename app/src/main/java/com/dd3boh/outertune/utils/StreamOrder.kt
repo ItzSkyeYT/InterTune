@@ -141,4 +141,19 @@ object StreamOrder {
      * reached remembered as refused.
      */
     fun networkDidNotAnswer(failure: Throwable?): Boolean = failure is IOException
+
+    /**
+     * Whether a failed /player request ends the walk at once: no network at all, the name not
+     * found or the connection refused outright, so that offline the error comes quickly. A
+     * timeout of any kind does not, ktor's connect timeout included, which is a ConnectException
+     * too: one request that did not answer in time says nothing of the next client's, and on
+     * 20 Oct 2026 a fresh connection answered at once where the first had hung.
+     */
+    fun endsWalkAtOnce(failure: Throwable?): Boolean = when (failure) {
+        is java.net.UnknownHostException -> true
+        is java.net.NoRouteToHostException -> true
+        is io.ktor.client.plugins.HttpRequestTimeoutException -> false
+        is java.net.ConnectException -> failure.javaClass.simpleName != "ConnectTimeoutException"
+        else -> false
+    }
 }

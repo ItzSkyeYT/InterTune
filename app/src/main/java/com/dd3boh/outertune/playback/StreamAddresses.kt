@@ -60,4 +60,13 @@ class StreamAddresses {
      */
     @Synchronized
     fun playerFailedOn(mediaId: String?): Boolean = mediaId != null && kept.remove(mediaId) != null
+
+    /**
+     * The network changed: every address names the public address it was issued to, which is
+     * the old one now, so none is handed out again. Each song asks afresh at its next open.
+     */
+    @Synchronized
+    fun forgetAll() {
+        kept.clear()
+    }
 }

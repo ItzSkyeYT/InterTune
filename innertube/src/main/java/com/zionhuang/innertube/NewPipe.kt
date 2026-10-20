@@ -18,8 +18,17 @@ import java.net.Proxy
 
 private class NewPipeDownloaderImpl(proxy: Proxy?) : Downloader() {
 
+    // The n and signature step of every app client goes through here: YouTube's page and its
+    // player script, fetched once a process. OkHttp's defaults kept an idle connection five
+    // minutes, the trap a dropped connection set for the player on 20 Oct 2026, and had no
+    // limit on a read that never ends. Connect 5 s, 6 s of silence in a read, idle connections
+    // dropped after 5 s; no limit on the whole call, so a 0.7 MB script on a slow link is not
+    // cut while it still comes in. The app's RouteTimes holds the same numbers.
     private val client = OkHttpClient.Builder()
         .proxy(proxy)
+        .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+        .readTimeout(6, java.util.concurrent.TimeUnit.SECONDS)
+        .connectionPool(okhttp3.ConnectionPool(2, 5, java.util.concurrent.TimeUnit.SECONDS))
         .build()
 
     @Throws(IOException::class, ReCaptchaException::class)

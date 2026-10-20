@@ -289,6 +289,18 @@ class StreamOrderTest {
     }
 
     @Test
+    fun `only no network at all ends the walk at once, a timeout of any kind goes on to the next client`() {
+        assertTrue(StreamOrder.endsWalkAtOnce(UnknownHostException("youtubei.googleapis.com")))
+        assertTrue(StreamOrder.endsWalkAtOnce(java.net.ConnectException("Connection refused")))
+        assertFalse(StreamOrder.endsWalkAtOnce(SocketTimeoutException("timeout")))
+        assertFalse(StreamOrder.endsWalkAtOnce(StepTimedOut("/player", 5_000)))
+        assertFalse(StreamOrder.endsWalkAtOnce(io.ktor.client.network.sockets.ConnectTimeoutException("connect timeout", null)))
+        assertFalse(StreamOrder.endsWalkAtOnce(IOException("unexpected end of stream")))
+        assertFalse(StreamOrder.endsWalkAtOnce(IllegalStateException("Client request invalid: 400")))
+        assertFalse(StreamOrder.endsWalkAtOnce(null))
+    }
+
+    @Test
     fun `the player asks in this order and says what it asked`() {
         val player = File("src/main/java/com/dd3boh/outertune/utils/YTPlayerUtils.kt").readText()
         assertTrue("the order is not taken from the rule", "StreamOrder.order(" in player)

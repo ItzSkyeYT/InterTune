@@ -58,8 +58,13 @@ object YTPlayerUtils {
 
     private const val TAG = "YTPlayerUtils"
 
+    // The base of the check's client and the web client's reads. OkHttp's defaults kept an idle
+    // connection five minutes, the trap a dropped connection set on 20 Oct 2026: see RouteTimes.
     private val httpClient = OkHttpClient.Builder()
         .proxy(YouTube.proxy)
+        .connectTimeout(5, TimeUnit.SECONDS)
+        .readTimeout(8, TimeUnit.SECONDS)
+        .connectionPool(okhttp3.ConnectionPool(4, RouteTimes.IDLE_MS, TimeUnit.MILLISECONDS))
         .build()
 
     /**
@@ -77,9 +82,9 @@ object YTPlayerUtils {
      */
     private val checkCalls = StreamFamily.Calls(
         httpClient.newBuilder()
-            .connectTimeout(3, TimeUnit.SECONDS)
-            .readTimeout(4, TimeUnit.SECONDS)
-            .callTimeout(5, TimeUnit.SECONDS)
+            .connectTimeout(RouteTimes.HEAD_TRY_MS, TimeUnit.MILLISECONDS)
+            .readTimeout(RouteTimes.HEAD_TRY_MS, TimeUnit.MILLISECONDS)
+            .callTimeout(RouteTimes.HEAD_TRY_MS, TimeUnit.MILLISECONDS)
             .retryOnConnectionFailure(false)
             .connectionPool(okhttp3.ConnectionPool(0, 1, TimeUnit.SECONDS))
             // A check made to hang on purpose, in a debug build only: see FaultInjection.
@@ -242,6 +247,13 @@ object YTPlayerUtils {
 
         fun signatureTimestamp(videoId: String): Int?
 
+        /**
+         * An app client's address with its signature and n undone, through NewPipeExtractor, or
+         * null when that failed. Suspends so that the walk can stop waiting for it: the first of
+         * a process fetches YouTube's player script, and that fetch once hung with nothing said.
+         */
+        suspend fun decipher(format: PlayerResponse.StreamingData.Format, videoId: String): String? = findUrlOrNull(format, videoId)
+
         fun poTokens(videoId: String, sessionId: String?): PoTokenResult?
 
         /**
@@ -302,6 +314,11 @@ object YTPlayerUtils {
 
         override fun signatureTimestamp(videoId: String): Int? = getSignatureTimestampOrNull(videoId)
 
+        // Apart from the walk, which stops waiting after RouteTimes.DECIPHER_WAIT_MS: a blocking
+        // read in NewPipe's client goes on until its own limit, on a thread of its own.
+        override suspend fun decipher(format: PlayerResponse.StreamingData.Format, videoId: String): String? =
+            background.async { findUrlOrNull(format, videoId) }.await()
+
         override fun poTokens(videoId: String, sessionId: String?): PoTokenResult? = getWebClientPoTokenOrNull(videoId, sessionId)
 
         override suspend fun playerScript(): PlayerScript? = playerScripts.current()
@@ -313,7 +330,12 @@ object YTPlayerUtils {
             null
         }
 
-        override suspend fun pause(ms: Long) = delay(ms)
+        override suspend fun pause(ms: Long) {
+            // A wait for the ads YouTube put before the song is the song's, not the network's:
+            // it does not count against the resolve's time. See withinResolveTime.
+            allowFor(ms)
+            delay(ms)
+        }
 
         override fun cpn(): String = StreamCipher.newCpn()
 
@@ -954,12 +976,23 @@ object YTPlayerUtils {
      * carries a new one whatever it says. sw.js_data would do as well, but it is the very fetch
      * that failed at every launch in issue #17.
      */
-    private suspend fun mintVisitorData(videoId: String, policy: AddressPolicy?, wire: Wire): String? =
-        wire.player(videoId, null, MAIN_CLIENT, null, null, null, policy, asNewVisitor = true)
+    private suspend fun mintVisitorData(videoId: String, policy: AddressPolicy?, wire: Wire): String? {
+        val answer = try {
+            hedged("/player", RouteTimes.playerFreshMs, RouteTimes.playerCapMs, mayHedge = { false }) { _ ->
+                wire.player(videoId, null, MAIN_CLIENT, null, null, null, policy, asNewVisitor = true)
+            }
+        } catch (e: StepTimedOut) {
+            Result.failure(e)
+        }
+        return answer
             .onFailure { Throttle.noteFailure(it) }
             .getOrNull()
             ?.responseContext?.visitorData
             ?.takeIf { StreamCheck.looksLikeVisitorData(it) }
+    }
+
+    /** What the n step gave, so that a null address can be told from no answer at all. */
+    private class Deciphered(val address: String?)
 
     /** An address handed over, or kept, without its check's answer, and the check still running. */
     private class Unchecked(
@@ -1130,10 +1163,18 @@ object YTPlayerUtils {
         fun startPoTokens() {
             if (pots == null) pots = background.async { runCatching { wire.poTokens(videoId, sessionId) }.getOrNull() }
         }
+        // Waited for RouteTimes.PO_TOKEN_WAIT_MS at most in all, the WebView keeping its own
+        // 20 s for the next song: a token that is late is not waited for again in this walk.
+        var tokensDue = 0L
+        suspend fun Deferred<PoTokenResult?>.inTime(): PoTokenResult? {
+            if (tokensDue == 0L) tokensDue = System.nanoTime() + RouteTimes.poTokenWaitMs * 1_000_000
+            val left = (tokensDue - System.nanoTime()) / 1_000_000
+            return if (isCompleted) await() else if (left <= 0) null else withTimeoutOrNull(left) { await() }
+        }
         suspend fun poTokens(): PoTokenResult? {
             val asked = pots == null
             startPoTokens()
-            return checkNotNull(pots).await().also { if (it == null && asked) Log.w(TAG, "[$videoId] No po token") }
+            return checkNotNull(pots).inTime().also { if (it == null && asked) Log.w(TAG, "[$videoId] No po token") }
         }
         // The web client as the account carries tokens made for the account's session, as the
         // experiment's did when it played as the account. The walk's own are the visitor's
@@ -1148,7 +1189,7 @@ object YTPlayerUtils {
             if (client !== ACCOUNT_WEB_CLIENT || !accountTokensApart) return poTokens()
             val asked = accountPots == null
             startTokensFor(client)
-            return checkNotNull(accountPots).await().also { if (it == null && asked) Log.w(TAG, "[$videoId] No po token for the account") }
+            return checkNotNull(accountPots).inTime().also { if (it == null && asked) Log.w(TAG, "[$videoId] No po token for the account") }
         }
 
         // A refusal from one client is not a refusal from YouTube. ANDROID_VR answers "Sign in to
@@ -1211,6 +1252,12 @@ object YTPlayerUtils {
         // StreamCheck.verdict and the end of the loop.
         var checkUnanswered = false
         var candidate: Unchecked? = null
+        // Clients in a row whose /player did not answer in time, and whether the walk has taken
+        // the network for slow since: see RouteTimes.SLOW_AFTER.
+        var timedOutInARow = 0
+        var slowNetwork = false
+        // Whether the last n step was given up for want of an answer, not failed.
+        var decipherUnanswered = false
 
         // Says what was asked and answered, and remembers it. Whichever client the loop ended on,
         // successfully or not, and also when a failure ends it early, so a song that failed is
@@ -1226,6 +1273,7 @@ object YTPlayerUtils {
 
         for ((clientIndex, client) in clients.withIndex()) {
             // reset for each client
+            decipherUnanswered = false
             format = null
             streamUrl = null
             streamExpiresInSeconds = null
@@ -1282,26 +1330,51 @@ object YTPlayerUtils {
             // The main client keeps the app's hl: nothing in its answer is shown or read, its
             // routine bot check least of all (see ChainNotes.blocked).
             val askedAt = System.nanoTime()
+            val timestamp = if (isWeb) playerScript()?.signatureTimestamp else signatureTimestampFor(client)
+            val playerPot = if (isWeb || !client.useWebPoTokens) null else poTokens()?.playerRequestPoToken
+            // A deadline on the request, where it used to have ktor's 30 s: see RouteTimes. The
+            // last client of a walk, and every client once two in a row ran out, get the longer
+            // one, so a network that is only slow still plays.
+            val capMs = if (slowNetwork || clientIndex == clients.lastIndex) RouteTimes.playerSlowCapMs else RouteTimes.playerCapMs
             val result =
-                wire.player(
-                    videoId, playlistId, client,
-                    // The timestamp of the very script its address will be solved against.
-                    if (isWeb) playerScript()?.signatureTimestamp else signatureTimestampFor(client),
-                    // None for a web client: its token is for the address. See TRIAL_CLIENT.
-                    if (isWeb || !client.useWebPoTokens) null else poTokens()?.playerRequestPoToken,
-                    hlOverride = if (isMain) null else "en", policy = policy,
-                    asWebPage = isWeb,
-                )
-                    .onFailure { if (!isTrial) Throttle.noteFailure(it) }
+                try {
+                    hedged("/player", RouteTimes.playerFreshMs, capMs, mayHedge = { false }) { _ ->
+                        wire.player(
+                            videoId, playlistId, client,
+                            // The timestamp of the very script its address will be solved against.
+                            timestamp,
+                            // None for a web client: its token is for the address. See TRIAL_CLIENT.
+                            playerPot,
+                            hlOverride = if (isMain) null else "en", policy = policy,
+                            asWebPage = isWeb,
+                        )
+                    }
+                } catch (e: StepTimedOut) {
+                    Log.w(TAG, StepLog.timedOut(videoId, clientLabel, "/player", capMs))
+                    Result.failure(e)
+                }
+            result.onFailure { if (!isTrial) Throttle.noteFailure(it) }
+            // Two clients in a row that did not answer in time: the network is slow, not dead,
+            // and the rest of the walk gets the longer limit. Said once.
+            if (result.exceptionOrNull() is StepTimedOut && capMs == RouteTimes.playerCapMs) {
+                if (++timedOutInARow >= RouteTimes.SLOW_AFTER && !slowNetwork) {
+                    slowNetwork = true
+                    Log.i(TAG, StepLog.slowNetwork(videoId, RouteTimes.playerSlowCapMs))
+                }
+            } else if (result.isSuccess) {
+                timedOutInARow = 0
+            }
             steps += StepLog.asked(clientLabel, result.getOrNull()?.playabilityStatus?.status, msSince(askedAt))
             streamPlayerResponse = result.getOrNull()
             result.exceptionOrNull()?.let { failure ->
                 val unreached = StreamOrder.networkDidNotAnswer(failure)
                 if (!unreached) asked += StreamOrder.Asked(clientLabel, worked = false, asAccount)
-                // The main client's failure ends the song, as it always has. So does the first
-                // request of all when the network did not carry it, which used to be the main
-                // client's: see StreamOrder.networkDidNotAnswer.
-                if (isMain || (clientIndex == 0 && unreached)) {
+                // No network at all ends the song at once, at the main client or the first
+                // request of all, so offline the error comes quickly. Anything else, a timeout
+                // above all, goes on to the next client: one request that did not answer said
+                // nothing of the others (20 Oct 2026: VISIONOS hung 30 s and the song stopped).
+                // See StreamOrder.endsWalkAtOnce.
+                if ((isMain || clientIndex == 0) && StreamOrder.endsWalkAtOnce(failure)) {
                     trail += StreamCheck.trailStep(clientLabel, null, null, checked = false)
                     chainDone()
                     throw failure
@@ -1384,12 +1457,20 @@ object YTPlayerUtils {
                         }
                     } else {
                         val decipheredAt = System.nanoTime()
-                        findUrlOrNull(format, videoId).also { steps += StepLog.deciphered(msSince(decipheredAt)) }
+                        val chosen = format
+                        val got = withTimeoutOrNull(RouteTimes.decipherWaitMs) { Deciphered(wire.decipher(chosen, videoId)) }
+                        decipherUnanswered = got == null
+                        steps += StepLog.deciphered(msSince(decipheredAt), answered = got != null)
+                        got?.address
                     }
                 if (address == null) {
                     // Playable, and nothing the player could fetch. Said in the trail, where this
                     // step otherwise reads as a client that served.
-                    val lacking = if (format.url == null && format.signatureCipher == null) StreamCheck.NO_ADDRESS else StreamCheck.NOT_DECIPHERED
+                    val lacking = when {
+                        format.url == null && format.signatureCipher == null -> StreamCheck.NO_ADDRESS
+                        decipherUnanswered -> StreamCheck.NOT_DECIPHERED_IN_TIME
+                        else -> StreamCheck.NOT_DECIPHERED
+                    }
                     trail[trail.lastIndex] = StreamCheck.trailStep(clientLabel, "OK", null, checked = false, lacking = lacking)
                     Log.w(TAG, "[$videoId] [${client.clientName}] answered OK, $lacking")
                     continue

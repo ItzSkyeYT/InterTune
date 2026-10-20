@@ -16,7 +16,11 @@ import android.net.NetworkRequest
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
 
-class NetworkConnectivityObserver(context: Context) {
+class NetworkConnectivityObserver(
+    context: Context,
+    /** Told of every network that becomes available, as the throttle is. */
+    private val onNetworkChanged: () -> Unit = {},
+) {
     private val connectivityManager =
         context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
@@ -34,6 +38,7 @@ class NetworkConnectivityObserver(context: Context) {
             // networks is literally what clears this by hand. Over-clearing costs one request that
             // immediately re-trips; under-clearing costs the user their music.
             Throttle.onNetworkChanged()
+            runCatching { onNetworkChanged() }
         }
 
         override fun onLost(network: Network) {

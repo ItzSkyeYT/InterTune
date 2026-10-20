@@ -200,7 +200,10 @@ import com.dd3boh.outertune.utils.Throttle
 import com.dd3boh.outertune.utils.codecsOrEmpty
 import com.dd3boh.outertune.utils.contentLengthOrZero
 import com.dd3boh.outertune.utils.SongVersions
+import com.dd3boh.outertune.utils.StepLog
+import com.dd3boh.outertune.utils.StepTimedOut
 import com.dd3boh.outertune.utils.StreamFamily
+import com.dd3boh.outertune.utils.withinResolveTime
 import com.dd3boh.outertune.utils.YTPlayerUtils
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.enumPreference
@@ -1629,7 +1632,12 @@ class MusicService : MediaLibraryService(),
             } catch (e: UninitializedPropertyAccessException) {
                 // lol
             }
-            connectivityObserver = NetworkConnectivityObserver(this@MusicService)
+            // A new network is a new public address: the addresses kept name the old one, and a
+            // pooled connection to a stream server is on the old link. See StreamAddresses.forgetAll.
+            connectivityObserver = NetworkConnectivityObserver(this@MusicService) {
+                streamAddresses.forgetAll()
+                runCatching { playerStreamClient.connectionPool.evictAll() }
+            }
 
             offloadScope.launch {
                 connectivityObserver.networkStatus.collect { isConnected ->
@@ -2355,7 +2363,16 @@ class MusicService : MediaLibraryService(),
         )
     }
 
-    private fun createCacheDataSource(): CacheDataSource.Factory {
+    /**
+     * The player's own stream client and its calls, one for the service: a network change clears
+     * its connections, and the stall watch cancels its calls. The cast server makes its own.
+     */
+    private val playerStreamClient by lazy { StreamFamily.streamClient(YouTube.proxy) }
+    private val playerCalls by lazy { StreamFamily.Calls(playerStreamClient) }
+
+    private fun createCacheDataSource(
+        calls: StreamFamily.Calls = StreamFamily.Calls(StreamFamily.streamClient(YouTube.proxy)),
+    ): CacheDataSource.Factory {
         return CacheDataSource.Factory()
             .setCache(downloadCache)
             .setUpstreamDataSourceFactory(
@@ -2369,7 +2386,7 @@ class MusicService : MediaLibraryService(),
                             PaceGuardDataSource.Factory(
                                 // Over the family the address was issued to, and a web client's
                                 // with its page's headers, as its check was made: see StreamFamily.Calls.
-                                OkHttpDataSource.Factory(StreamFamily.Calls(StreamFamily.streamClient(YouTube.proxy)))
+                                OkHttpDataSource.Factory(calls)
                             )
                         )
                     )
@@ -2394,7 +2411,7 @@ class MusicService : MediaLibraryService(),
 
     private fun createDataSourceFactory(): DataSource.Factory {
         val resolver = SongResolver(streamAddresses)
-        return ResolvingDataSource.Factory(createCacheDataSource()) { dataSpec ->
+        return ResolvingDataSource.Factory(createCacheDataSource(playerCalls)) { dataSpec ->
             val mediaId = dataSpec.key ?: error("No media id")
             when (val resolved = resolver.resolve(mediaId, dataSpec.position, dataSpec.length)) {
                 is ResolvedSong.LocalFile -> dataSpec.withUri(resolved.file.toUri())
@@ -2523,8 +2540,16 @@ class MusicService : MediaLibraryService(),
 
             Log.i(TAG, "PLAYING: remote song (online fetch)")
 
+            // The whole resolve within RouteTimes.RESOLVE_MS of waiting: each step has its own
+            // limit, and they used to add up to minutes. Past it the song fails as a timeout,
+            // which the player tries again quietly (see onPlayerError).
             val played = runBlocking(Dispatchers.IO) {
-                standIns.playbackData(mediaId)
+                try {
+                    withinResolveTime { standIns.playbackData(mediaId) }
+                } catch (e: StepTimedOut) {
+                    Log.w(TAG, "PLAYING: [$mediaId] no stream within ${StepLog.limit(e.ms)}, given up as a timeout")
+                    Result.failure(e)
+                }
             }.getOrElse { throwable ->
                 // The upgrade could not be had (the network went, or the video is gone from
                 // YouTube), but the copy it was meant to replace is still here. Play that rather

@@ -117,6 +117,9 @@ object StreamCheck {
     /** A playable answer whose address came in a cipher that could not be undone. */
     const val NOT_DECIPHERED = "address not deciphered"
 
+    /** The same when the n step did not answer in time: the connection's doing, not YouTube's script. */
+    const val NOT_DECIPHERED_IN_TIME = "address not deciphered (no answer)"
+
     /** A playable answer with no address in it at all, which is a client that streams over SABR only. */
     const val NO_ADDRESS = "no address"
 

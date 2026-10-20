@@ -30,6 +30,16 @@ class StreamAddressesTest {
     private val checked = "https://rr2---sn-test.example/videoplayback?itag=251"
 
     @Test
+    fun `a new network forgets every address, since each names the old public address`() {
+        val addresses = StreamAddresses()
+        addresses.keep("song", checked, now + sixHours)
+        addresses.keep("other", unchecked, now + sixHours)
+        addresses.forgetAll()
+        assertNull(addresses.of("song", now))
+        assertNull(addresses.of("other", now))
+    }
+
+    @Test
     fun `the rest of a song comes from the address its start was given`() {
         val addresses = StreamAddresses()
         assertNull("nothing is known of a song that was never asked for", addresses.of("song", now))

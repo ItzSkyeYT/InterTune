@@ -48,6 +48,9 @@ import java.util.concurrent.TimeUnit
  * client and a web client are asked with come from here too, as the answers do: the real ones
  * are a request to YouTube and a WebView.
  */
+/** A /player request that never answers. */
+private object Hang
+
 class ChainWalkTest {
     /** Synthetic, in the shape YouTube issues them. */
     private val visitor = "CgtURVNUVklTSVRPUiiA98TVBjIECgJGUg%3D%3D"
@@ -123,7 +126,16 @@ class ChainWalkTest {
         private val canSolve: Boolean = false,
         /** How long each client's check takes to answer, by the client its host names. */
         private val headTakes: Map<String, Long> = emptyMap(),
+        /** How long each client's n step takes, by the client its host names. */
+        private val decipherTakes: Map<String, Long> = emptyMap(),
     ) : YTPlayerUtils.Wire {
+        /** An app client's address as it came: none in these tests carries a cipher or an n. */
+        override suspend fun decipher(format: PlayerResponse.StreamingData.Format, videoId: String): String? {
+            val url = format.url ?: return null
+            decipherTakes[url.substringAfter("://").substringBefore('.')]?.let { delay(it) }
+            return url
+        }
+
         val askedOf = mutableListOf<String>()
 
         /** Every address a check was made of, in order. */
@@ -180,7 +192,13 @@ class ChainWalkTest {
             val lines = says[name] ?: error("$name was not expected to be asked")
             val at = turn.getOrDefault(name, 0)
             turn[name] = at + 1
-            return when (val said = lines[minOf(at, lines.lastIndex)]) {
+            var said = lines[minOf(at, lines.lastIndex)]
+            if (said === Hang) awaitCancellation()
+            if (said is Late) {
+                delay(said.ms)
+                said = said.answer
+            }
+            return when (said) {
                 is Throwable -> Result.failure(said)
                 else -> Result.success(said as PlayerResponse)
             }
@@ -300,6 +318,10 @@ class ChainWalkTest {
     private fun withoutAddress(answer: PlayerResponse) = answer.copy(
         streamingData = answer.streamingData?.let { data -> data.copy(adaptiveFormats = data.adaptiveFormats.map { it.copy(url = null) }) },
     )
+
+
+    /** An answer that comes after [ms]. */
+    private class Late(val ms: Long, val answer: Any)
 
     private fun walk(script: Script) = runBlocking {
         YTPlayerUtils.playerResponseForPlayback("TESTVIDEO01", null, AudioQuality.HIGH, connectivity, script)
@@ -512,6 +534,66 @@ class ChainWalkTest {
             Thread.sleep(400)
             assertEquals("late $late", told, lateRefusals.toList())
         }
+    }
+
+    @Test
+    fun `a first client whose request never answers costs the song its limit, and the next client serves`() {
+        // 20 Oct 2026: VISIONOS's /player hung 30 s on a dropped connection and the song stopped.
+        remembering("VISIONOS", "ANDROID_VR")
+        RouteTimes.playerCapMs = 150
+        val script = Script(
+            mapOf("VISIONOS" to listOf(Hang), "ANDROID_VR" to listOf(playable("ANDROID_VR", loudness = 3.0, seconds = "201"))),
+        )
+        val started = System.nanoTime()
+        val data = walk(script).getOrThrow()
+        val tookMs = (System.nanoTime() - started) / 1_000_000
+
+        assertTrue("given up after its 150 ms: took $tookMs ms", tookMs < 2_000)
+        assertEquals(listOf("VISIONOS", "ANDROID_VR"), script.askedOf)
+        assertEquals("VISIONOS no answer, ANDROID_VR OK, HEAD 200", YTPlayerUtils.lastStreamTrail)
+        assertTrue(data.streamUrl.startsWith("https://ANDROID_VR.example/"))
+        assertFalse("our own cut is not YouTube's word", Throttle.isBlocked)
+        assertFalse("nor a refusal of VISIONOS", "VISIONOS" in YTPlayerUtils.streamMemory.refusedAt.keys)
+    }
+
+    @Test
+    fun `two clients in a row that do not answer make the walk patient with the rest`() {
+        YTPlayerUtils.identitiesInChain = true
+        remembering("VISIONOS", "ANDROID_VR")
+        RouteTimes.playerCapMs = 120
+        RouteTimes.playerSlowCapMs = 1_000
+        // VISIONOS_104 answers at 1.5 times the short limit: only a patient walk hears it.
+        val script = Script(
+            mapOf(
+                "VISIONOS" to listOf(Hang),
+                "ANDROID_VR" to listOf(Hang),
+                "VISIONOS_104" to listOf(Late(180, playable("VISIONOS_104", loudness = 5.0, seconds = "200"))),
+            ),
+        )
+        val data = walk(script).getOrThrow()
+
+        assertEquals(listOf("VISIONOS", "ANDROID_VR", "VISIONOS_104"), script.askedOf)
+        assertTrue(data.streamUrl.startsWith("https://VISIONOS_104.example/"))
+    }
+
+    @Test
+    fun `an n step that does not answer costs its client the song, and the next is asked`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        RouteTimes.decipherWaitMs = 100
+        val script = Script(
+            says = mapOf(
+                "VISIONOS" to listOf(playable("VISIONOS", loudness = 5.0, seconds = "200")),
+                "ANDROID_VR" to listOf(playable("ANDROID_VR", loudness = 3.0, seconds = "201")),
+            ),
+            decipherTakes = mapOf("VISIONOS" to 3_000L),
+        )
+        val started = System.nanoTime()
+        val data = walk(script).getOrThrow()
+        val tookMs = (System.nanoTime() - started) / 1_000_000
+
+        assertTrue("took $tookMs ms", tookMs < 2_000)
+        assertEquals("VISIONOS OK, address not deciphered (no answer), ANDROID_VR OK, HEAD 200", YTPlayerUtils.lastStreamTrail)
+        assertTrue(data.streamUrl.startsWith("https://ANDROID_VR.example/"))
     }
 
     /**
