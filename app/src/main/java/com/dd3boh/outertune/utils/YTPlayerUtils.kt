@@ -68,6 +68,23 @@ object YTPlayerUtils {
      */
     private val streamCalls = StreamFamily.Calls(httpClient)
 
+    /**
+     * The check's own calls: a stream server that does not answer is given up in seconds, and
+     * asked once more on a new connection. With OkHttp's defaults a check that hung took 20 to 30
+     * s before the next client was tried, and a song could sit silent for a minute while every
+     * client's check hung in turn (his phone, 20 Oct 2026: the network fine, a fresh connection
+     * answered at once). No connection is kept between checks, so a stuck one is never reused.
+     */
+    private val checkCalls = StreamFamily.Calls(
+        httpClient.newBuilder()
+            .connectTimeout(3, TimeUnit.SECONDS)
+            .readTimeout(4, TimeUnit.SECONDS)
+            .callTimeout(5, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(false)
+            .connectionPool(okhttp3.ConnectionPool(0, 1, TimeUnit.SECONDS))
+            .build()
+    )
+
     private val poTokenGenerator = PoTokenGenerator()
 
     /** For work a song is not made to wait for the end of: see poTokens in [resolveOnce]. */
@@ -1715,11 +1732,15 @@ object YTPlayerUtils {
      * the first 512 KB of a ranged GET, so a url that fails this check fails partway through the
      * song, not at the start. [StreamCheck.accept] turns the answer into a decision.
      */
-    private fun streamStatus(url: String): Int? = try {
-        streamCalls.newCall(okhttp3.Request.Builder().head().url(url).build()).execute().use { it.code }
-    } catch (e: Exception) {
-        reportException(e)
-        null
+    private fun streamStatus(url: String): Int? {
+        repeat(2) { attempt ->
+            try {
+                return checkCalls.newCall(okhttp3.Request.Builder().head().url(url).build()).execute().use { it.code }
+            } catch (e: Exception) {
+                if (attempt == 1) reportException(e)
+            }
+        }
+        return null
     }
 
     /**
