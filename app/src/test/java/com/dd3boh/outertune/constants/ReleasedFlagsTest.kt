@@ -206,6 +206,8 @@ class ReleasedFlagsTest {
                 "ui/player/CastPicker.kt",
                 "cast/CastDiscovery.kt",
                 "cast/CastLinks.kt",
+                // Its card on the page of what is new.
+                "ui/screens/walkthrough/Walkthrough.kt",
             ),
             readers("CASTING"),
         )

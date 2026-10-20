@@ -1738,6 +1738,12 @@
     <string name="new_equalizer_body">Dix bandes, quelques courbes toutes prêtes, ou la courbe mesurée pour votre propre casque.</string>
     <string name="new_equalizer_way">L\'égaliseur se trouve ici.</string>
     <string name="new_equalizer_here">Choisissez une courbe ou le modèle de votre casque, ou réglez les bandes vous-même.</string>
+    <string name="new_cast_title">Écoutez sur votre TV ou enceinte</string>
+    <string name="new_cast_body">La pastille sous les commandes du lecteur envoie la musique vers un Chromecast, un récepteur FCast ou une TV DLNA sur votre Wi-Fi.</string>
+    <string name="new_radios_title">Des radios qui apprennent</string>
+    <string name="new_radios_body">Passez ou aimez des titres, et la suite de la radio suit, avec les nouveaux choix marqués dans la file.</string>
+    <string name="new_radios_way">Garder les radios à jour se trouve ici.</string>
+    <string name="new_radios_here">Activé, la suite d\'une radio change selon les titres que vous passez ou aimez.</string>
     <plurals name="welcome_card_since">
         <item quantity="one">%1$d nouveauté depuis la %2$s</item>
         <item quantity="many">%1$d nouveautés depuis la %2$s</item>

@@ -200,16 +200,15 @@ fun WelcomeBack(
                     icon = thing.icon,
                     title = stringResource(thing.title),
                     body = stringResource(thing.body),
-                    action = stringResource(
-                        when (thing.action) {
-                            NewThingAction.ADD_WIDGET -> R.string.welcome_back_add_widget
-                            // Where the tile cannot be asked for, the home screen button is.
-                            NewThingAction.ADD_TILE ->
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) R.string.welcome_back_add_tile
-                                else R.string.welcome_back_add_widget
-                            NewThingAction.SHOW -> R.string.welcome_back_show
-                        }
-                    ),
+                    action = when (thing.action) {
+                        NewThingAction.ADD_WIDGET -> R.string.welcome_back_add_widget
+                        // Where the tile cannot be asked for, the home screen button is.
+                        NewThingAction.ADD_TILE ->
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) R.string.welcome_back_add_tile
+                            else R.string.welcome_back_add_widget
+                        NewThingAction.SHOW -> R.string.welcome_back_show
+                        NewThingAction.NONE -> null
+                    }?.let { stringResource(it) },
                     done = thing.id in seen,
                     onClick = { onShow(thing) },
                 )
@@ -372,12 +371,12 @@ private fun ThingCard(
     icon: ImageVector,
     title: String,
     body: String,
-    action: String,
+    action: String?,
     done: Boolean,
     heading: Boolean = false,
     onClick: () -> Unit,
 ) {
-    val actionForThis = stringResource(R.string.welcome_back_action_for, action, title)
+    val actionForThis = action?.let { stringResource(R.string.welcome_back_action_for, it, title) }
     val seenState = stringResource(R.string.welcome_back_seen)
     ElevatedCard(
         modifier = Modifier
@@ -410,25 +409,27 @@ private fun ThingCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Spacer(Modifier.width(8.dp))
-            FilledTonalButton(
-                onClick = onClick,
-                modifier = Modifier
-                    .widthIn(min = 64.dp)
-                    .semantics {
-                        contentDescription = actionForThis
-                        if (done) stateDescription = seenState
+            if (action != null && actionForThis != null) {
+                Spacer(Modifier.width(8.dp))
+                FilledTonalButton(
+                    onClick = onClick,
+                    modifier = Modifier
+                        .widthIn(min = 64.dp)
+                        .semantics {
+                            contentDescription = actionForThis
+                            if (done) stateDescription = seenState
+                        }
+                ) {
+                    if (done) {
+                        Icon(
+                            imageVector = Icons.Rounded.Check,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(Modifier.width(6.dp))
                     }
-            ) {
-                if (done) {
-                    Icon(
-                        imageVector = Icons.Rounded.Check,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Spacer(Modifier.width(6.dp))
+                    Text(action)
                 }
-                Text(action)
             }
         }
     }

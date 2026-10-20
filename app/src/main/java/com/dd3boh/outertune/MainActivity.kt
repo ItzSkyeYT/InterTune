@@ -1519,6 +1519,7 @@ class MainActivity : ComponentActivity() {
                                                 pinWidget(RecognitionWidgetReceiver::class.java)
                                             }
                                         NewThingAction.SHOW -> showFromWelcome(thing.id, thing.stops)
+                                        NewThingAction.NONE -> Unit
                                     }
                                 },
                                 // The four groups and back to the page. The question the

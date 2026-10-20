@@ -690,6 +690,7 @@ fun ColumnScope.AdaptiveQueueFrag() {
     ExplainedSwitchPreference(
         title = stringResource(R.string.adaptive_queue),
         description = stringResource(R.string.adaptive_radio_description),
+        modifier = Modifier.tourTarget(Tour.SETTING_ADAPTIVE_QUEUE),
         explanation = stringResource(R.string.adaptive_queue_explain),
         icon = { Icon(Icons.Rounded.AutoAwesome, null) },
         checked = mode.isOn,

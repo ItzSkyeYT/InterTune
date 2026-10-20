@@ -221,6 +221,7 @@ object Tour {
     const val SETTING_RESUME_BLUETOOTH = "setting_resume_bluetooth"
     const val SETTING_SLEEP_SCHEDULE = "setting_sleep_schedule"
     const val SETTING_EQUALIZER = "setting_equalizer"
+    const val SETTING_ADAPTIVE_QUEUE = "setting_adaptive_queue"
     const val SETTING_CONTENT_FILTERS = "setting_content_filters"
     const val SETTING_HEAD_TRACKING = "setting_head_tracking"
     const val SETTING_RECOGNISE_KEEP_LISTENING = "setting_recognise_keep_listening"

@@ -11,6 +11,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material.icons.rounded.BluetoothAudio
 import androidx.compose.material.icons.rounded.BlurOn
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Cast
 import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.Campaign
 import androidx.compose.material.icons.rounded.Equalizer
@@ -278,6 +280,12 @@ enum class NewThingAction {
      * in that came with it.
      */
     ADD_TILE,
+
+    /**
+     * No button: the card says where it is, and there is nowhere in Settings to take somebody.
+     * Casting lives under the player's controls, and the tours only walk through Settings.
+     */
+    NONE,
 }
 
 /**
@@ -323,6 +331,28 @@ val RECOGNITION_ICON get() = Icons.Rounded.GraphicEq
 
 /** Newest first: what somebody sees at the top is what they have never seen before. */
 val NEW_THINGS = listOf(
+    NewThing(
+        id = "cast",
+        release = "0.12",
+        sinceVersionCode = V0_12,
+        title = R.string.new_cast_title,
+        body = R.string.new_cast_body,
+        icon = Icons.Rounded.Cast,
+        action = NewThingAction.NONE,
+        there = { Unreleased.CASTING },
+    ),
+    NewThing(
+        id = "radios",
+        release = "0.12",
+        sinceVersionCode = V0_12,
+        title = R.string.new_radios_title,
+        body = R.string.new_radios_body,
+        icon = Icons.Rounded.AutoAwesome,
+        stops = listOf(
+            TourStop("radios_row", Tour.ROW_PLAYER, Tour.ROUTE_SETTINGS, R.string.player_and_audio, R.string.new_radios_way, V0_12),
+            TourStop("radios_setting", Tour.SETTING_ADAPTIVE_QUEUE, Tour.ROUTE_PLAYER, R.string.adaptive_queue, R.string.new_radios_here, V0_12),
+        ),
+    ),
     NewThing(
         id = "living_blur",
         release = "0.12",
@@ -559,7 +589,10 @@ fun welcomeCardFor(
     lookedAt: Set<String> = emptySet(),
 ): WelcomeCard? {
     if (!enabled || !setupDone || questionsOpen || tourUp || pageOpen) return null
-    val things = newThingsFor(seenVersionCode, buildVersionCode, install = install).filter { it.id !in lookedAt }
+    // A card with no button is read on the page and has nothing more to give, so it never keeps
+    // the card on Home waiting for a look that cannot come.
+    val things = newThingsFor(seenVersionCode, buildVersionCode, install = install)
+        .filter { it.action != NewThingAction.NONE && it.id !in lookedAt }
     if (things.isEmpty()) return null
     return WelcomeCard(count = things.size, since = releaseAt(seenVersionCode))
 }
