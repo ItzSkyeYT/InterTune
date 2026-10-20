@@ -200,6 +200,7 @@ import com.dd3boh.outertune.utils.Throttle
 import com.dd3boh.outertune.utils.codecsOrEmpty
 import com.dd3boh.outertune.utils.contentLengthOrZero
 import com.dd3boh.outertune.utils.SongVersions
+import com.dd3boh.outertune.utils.RemoteRoutes
 import com.dd3boh.outertune.utils.RouteTimes
 import com.dd3boh.outertune.utils.StepLog
 import com.dd3boh.outertune.utils.StepTimedOut
@@ -3900,6 +3901,8 @@ class MusicService : MediaLibraryService(),
                 online = isNetworkConnected.value,
                 bytes = StreamProgress.bytes.get(),
                 now = now,
+                // The maintainer's off switch: see RemoteRoutes.
+                allowed = RemoteRoutes.watchdog,
             )
         )
         if (id == null) return

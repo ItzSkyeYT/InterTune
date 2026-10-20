@@ -684,6 +684,47 @@ class ChainWalkTest {
         assertEquals("IOS OK, HEAD failed, ANDROID_VR LOGIN_REQUIRED, VISIONOS OK, HEAD failed, played unchecked", YTPlayerUtils.lastStreamTrail)
     }
 
+    @Test
+    fun `with a remote block taking VISIONOS out, VISIONOS is never asked`() {
+        YTPlayerUtils.identitiesInChain = true
+        remembering("VISIONOS", "ANDROID_VR")
+        RemoteRoutes.read("""{"playback": {"v": 1, "id": "closed", "disabled": ["VISIONOS"]}}""", 100, System.currentTimeMillis())
+        try {
+            val script = Script(
+                mapOf(
+                    "ANDROID_VR" to listOf(refused(botInFrench)),
+                    "VISIONOS_104" to listOf(playable("VISIONOS_104", loudness = 5.0, seconds = "200")),
+                ),
+            )
+            val data = walk(script).getOrThrow()
+            assertEquals(listOf("ANDROID_VR", "VISIONOS_104"), script.askedOf)
+            assertTrue(data.streamUrl.startsWith("https://VISIONOS_104.example/"))
+        } finally {
+            RemoteRoutes.current = null
+        }
+    }
+
+    @Test
+    fun `with the remote switch for unchecked play off, a silent check walks on as before`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        RemoteRoutes.read("""{"playback": {"v": 1, "id": "careful", "uncheckedPlay": false}}""", 100, System.currentTimeMillis())
+        try {
+            val script = Script(
+                says = mapOf(
+                    "VISIONOS" to listOf(playable("VISIONOS", loudness = 5.0, seconds = "200")),
+                    "ANDROID_VR" to listOf(playable("ANDROID_VR", loudness = 3.0, seconds = "201")),
+                ),
+                heads = mapOf("VISIONOS" to null),
+            )
+            val data = walk(script).getOrThrow()
+            assertEquals(listOf("VISIONOS", "ANDROID_VR"), script.askedOf)
+            assertTrue(data.streamUrl.startsWith("https://ANDROID_VR.example/"))
+            assertTrue(data.validated)
+        } finally {
+            RemoteRoutes.current = null
+        }
+    }
+
     /**
      * 8 Oct 2026, 19:05, a Pixel 5 installed minutes before: the main client refused as ever, and
      * VISIONOS and IOS each answering OK with an address its check then got 403 for.

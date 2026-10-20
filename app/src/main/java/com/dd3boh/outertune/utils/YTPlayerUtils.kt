@@ -1055,9 +1055,16 @@ object YTPlayerUtils {
     @Volatile
     var onLateRefusal: ((videoId: String, client: String) -> Unit)? = null
 
+    /** The name the walk, the trail and StreamOrder know [client] by. */
+    private fun labelOf(client: YouTubeClient, isLoggedIn: Boolean): String {
+        // An identity of VISIONOS by its own name: to YouTube it is VISIONOS, here it is not the same entry.
+        val name = VISIONOS_IDENTITIES.firstOrNull { it.first === client }?.second ?: client.clientName
+        return if (client.loginSupported && isLoggedIn) "$name (account)" else name
+    }
+
     /** Whether an address of [label] whose check did not answer may go to the player. */
     private fun mayPlayUnchecked(label: String): Boolean =
-        StreamCheck.playsUnchecked(label, resting = StreamOrder.isResting(streamMemory, label, System.currentTimeMillis()), allowedRemotely = true)
+        StreamCheck.playsUnchecked(label, resting = StreamOrder.isResting(streamMemory, label, System.currentTimeMillis()), allowedRemotely = RemoteRoutes.uncheckedPlay)
 
     /** Waits out the check of an address played unchecked: a refusal arriving late forgets it. */
     private fun watchLate(videoId: String, unchecked: Unchecked) {
@@ -1120,7 +1127,13 @@ object YTPlayerUtils {
         // The account on the web client: see ACCOUNT_WEB_CLIENT.
         val accountOnWeb = !trialOn && wire.canSolve()
         val streamClients = streamClients(isLoggedIn, webInChain, accountOnWeb)
-        val playerClients = listOf(MAIN_CLIENT) + streamClients
+        val chain = listOf(MAIN_CLIENT) + streamClients
+        // The order and the clients taken out by the maintainer's block, while one is in force:
+        // see RemoteRoutes. It can never leave the chain without a client that serves whole songs.
+        val chainLabels = chain.map { labelOf(it, isLoggedIn) }
+        val playerClients =
+            if (chainLabels.distinct().size != chainLabels.size) chain
+            else RemoteRoutes.applyNow(chainLabels).map { chain[chainLabels.indexOf(it)] }
         var trialLeftMs = trialLimitMs
         suspend fun <T> withinTrialTime(work: suspend () -> T): T? {
             if (trialLeftMs <= 0) return null
@@ -1146,11 +1159,7 @@ object YTPlayerUtils {
         // when it gives no stream: see StreamOrder. Clients are known there by the names the trail
         // gives them. Two with one name could not be told apart, so such a chain is asked as
         // written.
-        fun label(client: YouTubeClient): String {
-            // An identity of VISIONOS by its own name: to YouTube it is VISIONOS, here it is not the same entry.
-            val name = VISIONOS_IDENTITIES.firstOrNull { it.first === client }?.second ?: client.clientName
-            return if (client.loginSupported && isLoggedIn) "$name (account)" else name
-        }
+        fun label(client: YouTubeClient): String = labelOf(client, isLoggedIn)
         val written = playerClients.map { label(it) }
         val hasVisitorData = YouTube.visitorData?.let { StreamCheck.looksLikeVisitorData(it) } == true
         val ordered =
