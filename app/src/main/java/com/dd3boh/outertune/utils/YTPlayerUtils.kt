@@ -988,7 +988,11 @@ object YTPlayerUtils {
         preferredMime: String? = null,
     ): Result<PlaybackData> {
         val trails = mutableListOf<String>()
-        val wish = kotlinx.coroutines.currentCoroutineContext()[RouteWish]?.takeIf { it.videoId == videoId }
+        val asked = kotlinx.coroutines.currentCoroutineContext()[RouteWish]
+        val wish = asked?.takeIf { it.videoId == videoId }
+        // The song the player asked for, which a stand-in's walk is not: its address is kept
+        // under this id, and a late refusal has to name it to be forgotten.
+        val songId = asked?.videoId ?: videoId
         // Each step's time, over every pass, for the one line the song gets: see StepLog.
         val steps = mutableListOf<String>()
         val started = System.nanoTime()
@@ -1002,7 +1006,7 @@ object YTPlayerUtils {
             }
             // Cleared first, so a pass that fails before writing its own does not report the last song's.
             lastStreamTrail = null
-            val (result, notes) = resolveWithNewVisitor(videoId, playlistId, audioQuality, connectivityManager, policy, wire, preferredMime, steps, wish)
+            val (result, notes) = resolveWithNewVisitor(videoId, playlistId, audioQuality, connectivityManager, policy, wire, preferredMime, steps, wish, songId)
             trails += listOfNotNull(policy?.first?.label, lastStreamTrail).joinToString(": ")
             FamilyChoice.Attempt(result to notes, ok = result.isSuccess, refused = result.isFailure && notes.fallbackBlocked)
         }
@@ -1031,13 +1035,14 @@ object YTPlayerUtils {
         preferredMime: String?,
         steps: MutableList<String> = mutableListOf(),
         wish: RouteWish? = null,
+        songId: String = videoId,
     ): Pair<Result<PlaybackData>, ChainNotes> {
         val sinceFailedSwap = lastSwapFailedAt.takeIf { it != 0L }?.let { SystemClock.elapsedRealtime() - it }
         // While a new visitorData may still be tried, a refused VISIONOS keeps the web client
         // waiting for the pass that tries it: see WEB_FALLBACK_CLIENT.
         val holdWeb = StreamCheck.mayRetryWithNewVisitor(visionosRefused = true, sinceFailedSwap)
         val first = ChainNotes()
-        val result = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, first, policy, wire, holdWeb, preferredMime, steps, wish)
+        val result = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, first, policy, wire, holdWeb, preferredMime, steps, wish, songId)
         // Every client called this song gone, and another before it with nothing served between:
         // taken for the connection, and given the same try as the bot check (see goneInARow).
         val goneAgain = result.exceptionOrNull() is SongUnavailable && anotherGoneBefore(videoId)
@@ -1066,7 +1071,7 @@ object YTPlayerUtils {
         }
         val second = ChainNotes()
         steps += "new visitorData"
-        val retried = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, second, policy, wire, preferredMime = preferredMime, steps = steps, wish = wish)
+        val retried = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, second, policy, wire, preferredMime = preferredMime, steps = steps, wish = wish, songId = songId)
         if (fresh != null && retried.isSuccess && !second.visionosRefused) {
             lastSwapFailedAt = 0L
             // Kept for good only when signed out. Signed in, the stored one came from the
@@ -1120,11 +1125,12 @@ object YTPlayerUtils {
 
     /**
      * Told when the check of an address handed to the player unchecked comes back refused: the
-     * song and the client the walk knew it by. Set by MusicService, which forgets the address so
-     * the player's next open of the song asks afresh. See StreamCheck.playsUnchecked.
+     * song the player asked for (not a stand-in's id), the client the walk knew it by, and the
+     * address refused. Set by MusicService, which forgets the address, if it is still the one
+     * kept, so the player's next open of the song asks afresh. See StreamCheck.playsUnchecked.
      */
     @Volatile
-    var onLateRefusal: ((videoId: String, client: String) -> Unit)? = null
+    var onLateRefusal: ((songId: String, client: String, address: String) -> Unit)? = null
 
     /** When the web client was last got ready because it may be needed: once every 10 minutes at most. */
     @Volatile
@@ -1157,7 +1163,7 @@ object YTPlayerUtils {
         StreamCheck.playsUnchecked(label, resting = StreamOrder.isResting(streamMemory, label, System.currentTimeMillis()), allowedRemotely = RemoteRoutes.uncheckedPlay)
 
     /** Waits out the check of an address played unchecked: a refusal arriving late forgets it. */
-    private fun watchLate(videoId: String, unchecked: Unchecked) {
+    private fun watchLate(videoId: String, songId: String, unchecked: Unchecked) {
         val check = unchecked.check ?: return
         background.launch {
             val late = check.await() ?: return@launch
@@ -1165,7 +1171,7 @@ object YTPlayerUtils {
                 StreamCheck.Verdict.REFUSED -> {
                     val rest = strike(unchecked.label, "late HEAD $late")
                     Log.w(TAG, StepLog.lateRefusal(videoId, unchecked.label, late, rest))
-                    onLateRefusal?.invoke(videoId, unchecked.label)
+                    onLateRefusal?.invoke(songId, unchecked.label, unchecked.url)
                 }
                 else -> Log.i(TAG, StepLog.lateAnswer(videoId, unchecked.label, late))
             }
@@ -1186,6 +1192,8 @@ object YTPlayerUtils {
         // Each step with its time, for the line the song gets: see StepLog.
         steps: MutableList<String> = mutableListOf(),
         wish: RouteWish? = null,
+        // The song the player asked for: see playerResponseForPlayback.
+        songId: String = videoId,
     ): Result<PlaybackData> = runCatchingCancellable {
         fun msSince(from: Long) = (System.nanoTime() - from) / 1_000_000
         Log.d(TAG, "Playback info requested: $videoId")
@@ -1710,7 +1718,7 @@ object YTPlayerUtils {
                         Log.w(TAG, StepLog.playedUnchecked(videoId, clientLabel, RouteTimes.headWaitMs))
                         Log.i(TAG, "[$videoId] [${clientLabel.substringBefore(' ')}] found working stream (unchecked), address issued to $issuedTo")
                         validated = false
-                        watchLate(videoId, unchecked)
+                        watchLate(videoId, songId, unchecked)
                         break
                     }
                     // Kept, for a walk that ends with nothing better: VISIONOS's address, which
@@ -1749,7 +1757,7 @@ object YTPlayerUtils {
             validated = false
             trail[kept.trailAt] = StreamCheck.trailStep(kept.label, "OK", null, checked = true, note = "played unchecked")
             Log.w(TAG, StepLog.playedUnchecked(videoId, kept.label, RouteTimes.headWaitMs))
-            watchLate(videoId, kept)
+            watchLate(videoId, songId, kept)
         }
 
         // Written before the throws below, so a failure is reported with the client that failed.

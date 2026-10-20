@@ -84,7 +84,7 @@ class ChainWalkTest {
         YTPlayerUtils.streamMemory = Memory()
         YTPlayerUtils.onStreamMemoryChanged = { stored += it }
         YTPlayerUtils.onVisitorDataFound = { adopted += it }
-        YTPlayerUtils.onLateRefusal = { id, client -> lateRefusals += "$id $client" }
+        YTPlayerUtils.onLateRefusal = { id, client, _ -> lateRefusals += "$id $client" }
         RouteTimes.reset()
         HedgeBudget.shared = HedgeBudget()
         YTPlayerUtils.forgetWarming()
@@ -553,6 +553,25 @@ class ChainWalkTest {
             assertEquals("late $late", told, lateRefusals.toList())
             assertEquals("a late refusal is a strike", if (late == 403) 1 else null, YTPlayerUtils.streamMemory.strikes["VISIONOS"])
         }
+    }
+
+    @Test
+    fun `a late refusal of a stand-in's address names the song the player asked for`() {
+        RouteTimes.headWaitMs = 50
+        remembering("VISIONOS", "ANDROID_VR")
+        val script = Script(
+            says = mapOf("VISIONOS" to listOf(playable("VISIONOS", loudness = 5.0, seconds = "200"))),
+            heads = mapOf("VISIONOS" to 403),
+            headTakes = mapOf("VISIONOS" to 300L),
+        )
+        // The player asked for ASKEDSONG01; the walk is for the other upload standing in for it.
+        val data = runBlocking(YTPlayerUtils.RouteWish("ASKEDSONG01", emptySet(), null)) {
+            YTPlayerUtils.playerResponseForPlayback("TESTVIDEO01", null, AudioQuality.HIGH, connectivity, script)
+        }.getOrThrow()
+        assertFalse(data.validated)
+        val until = System.nanoTime() + 3_000_000_000L
+        while (lateRefusals.isEmpty() && System.nanoTime() < until) Thread.sleep(20)
+        assertEquals("the address is kept under the asked-for id, and only that one is forgotten", listOf("ASKEDSONG01 VISIONOS"), lateRefusals.toList())
     }
 
     @Test

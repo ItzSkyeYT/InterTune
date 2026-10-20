@@ -30,6 +30,17 @@ class StreamAddressesTest {
     private val checked = "https://rr2---sn-test.example/videoplayback?itag=251"
 
     @Test
+    fun `a refusal forgets the address only while it is still the one kept`() {
+        val addresses = StreamAddresses()
+        addresses.keep("song", unchecked, now + sixHours, client = "VISIONOS")
+        addresses.keep("song", checked, now + sixHours, client = "IOS")
+        assertFalse("the song moved on to another route meanwhile", addresses.refused("song", unchecked))
+        assertEquals(checked, addresses.of("song", now))
+        assertTrue(addresses.refused("song", checked))
+        assertNull(addresses.of("song", now))
+    }
+
+    @Test
     fun `a new network forgets every address, since each names the old public address`() {
         val addresses = StreamAddresses()
         addresses.keep("song", checked, now + sixHours)

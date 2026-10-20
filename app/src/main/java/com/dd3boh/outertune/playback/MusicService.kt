@@ -508,6 +508,20 @@ class MusicService : MediaLibraryService(),
     /** Route changes made while the buffer still plays: see [changeRoute]. */
     private val routeChanges = Recovery.Budget()
 
+    /**
+     * An address played before its check answered, and refused when the answer came: the
+     * player's next open of the song asks afresh, and the route is asked last for it. Only when
+     * that address is still the one kept: the song may have moved to a route that plays. See
+     * StreamCheck.playsUnchecked.
+     */
+    private val lateRefusal: (String, String, String) -> Unit = { id, client, address ->
+        if (streamAddresses.refused(id, address)) songRoutes.mark(id, client, SystemClock.elapsedRealtime())
+        castResolver?.forgetRefused(id, address)
+    }
+
+    /** The cast server's resolver, while one was made: a late refusal reaches its addresses too. */
+    @Volatile private var castResolver: SongResolver? = null
+
     /** The song the stall watch gave up, and when: the player's own error on it afterwards is the same fault, already told. */
     private var stallGaveUp: Pair<String, Long>? = null
     private val stallWatch = StallWatch()
@@ -1467,10 +1481,8 @@ class MusicService : MediaLibraryService(),
             // An address played before its check answered, and refused when the answer came: the
             // player's next open of the song asks afresh, and the route is asked last for it. See
             // StreamCheck.playsUnchecked.
-            YTPlayerUtils.onLateRefusal = { id, client ->
-                streamAddresses.playerFailedOn(id)
-                songRoutes.mark(id, client, SystemClock.elapsedRealtime())
-            }
+            // The cast server's resolver keeps addresses of its own, and is told as well.
+            YTPlayerUtils.onLateRefusal = lateRefusal
             // Read here rather than in YTPlayerUtils, which runs on every song and would have
             // to block on the datastore to find out.
             dataStore.data.map {
@@ -2531,6 +2543,9 @@ class MusicService : MediaLibraryService(),
             addresses.playerFailedOn(mediaId)
         }
 
+        /** Drops [address] if it is still the one kept for [mediaId]: see StreamAddresses.refused. */
+        fun forgetRefused(mediaId: String, address: String): Boolean = addresses.refused(mediaId, address)
+
         /**
          * Where the bytes of [mediaId] come from for a read of [length] bytes (C.LENGTH_UNSET for
          * the rest of the song) from [position]. Blocking. Throws PlaybackException when the song
@@ -2789,7 +2804,7 @@ class MusicService : MediaLibraryService(),
                 return null
             }
             val source = ServiceCastSource(
-                resolver = SongResolver(),
+                resolver = SongResolver().also { castResolver = it },
                 cacheSource = createCacheDataSource(),
                 downloadCache = downloadCache,
                 playerCache = playerCache,
@@ -4965,6 +4980,11 @@ class MusicService : MediaLibraryService(),
         // The radios' memory, now rather than after its wait, which dies with the scope.
         if (adaptiveMemoryWrite != null) writeAdaptiveMemory()
         scope.cancel()
+        // The static would keep this instance, its addresses and routes, until the next service
+        // replaced it; and the stall watch's tick is not left to the player's last events.
+        if (YTPlayerUtils.onLateRefusal === lateRefusal) YTPlayerUtils.onLateRefusal = null
+        stallWatching = false
+        stallHandler.removeCallbacks(stallTick)
         // The timer ran on the scope, so its notification would stay up, frozen, for a timer that
         // no longer exists.
         sleepTimer.clear()

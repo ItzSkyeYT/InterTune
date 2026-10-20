@@ -92,4 +92,19 @@ class RecoveryWiringTest {
         assertTrue(handler.indexOf("stallGaveUp") in 0 until handler.indexOf("Recovery.kind(error)"))
         assertTrue(body("private fun stallGiveUp(", "override fun onPlayWhenReadyChanged(").contains("stallGaveUp = id to now"))
     }
+
+    @Test
+    fun `a late refusal forgets only the address it was about, the cast server's too`() {
+        val late = body("private val lateRefusal: (String, String, String) -> Unit = { id, client, address ->", "/** The cast server's resolver")
+        assertTrue(late.contains("streamAddresses.refused(id, address)"))
+        assertTrue(late.contains("castResolver?.forgetRefused(id, address)"))
+        assertTrue(service.contains("YTPlayerUtils.onLateRefusal = lateRefusal"))
+    }
+
+    @Test
+    fun `nothing of a destroyed service is left in the statics or the main thread's queue`() {
+        val destroy = body("override fun onDestroy() {", "override fun onBind(")
+        assertTrue(destroy.contains("if (YTPlayerUtils.onLateRefusal === lateRefusal) YTPlayerUtils.onLateRefusal = null"))
+        assertTrue(destroy.contains("stallHandler.removeCallbacks(stallTick)"))
+    }
 }

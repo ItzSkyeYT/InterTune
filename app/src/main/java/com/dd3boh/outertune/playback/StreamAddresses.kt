@@ -70,6 +70,18 @@ class StreamAddresses {
     fun playerFailedOn(mediaId: String?): Boolean = mediaId != null && kept.remove(mediaId) != null
 
     /**
+     * [address] was refused: forgotten if it is still the one [mediaId] is fetched from. A late
+     * refusal can come seconds after the song moved to another route, and dropping that one
+     * cost the next seek a walk for nothing.
+     */
+    @Synchronized
+    fun refused(mediaId: String, address: String): Boolean {
+        if (kept[mediaId]?.address != address) return false
+        kept.remove(mediaId)
+        return true
+    }
+
+    /**
      * The network changed: every address names the public address it was issued to, which is
      * the old one now, so none is handed out again. Each song asks afresh at its next open.
      */
