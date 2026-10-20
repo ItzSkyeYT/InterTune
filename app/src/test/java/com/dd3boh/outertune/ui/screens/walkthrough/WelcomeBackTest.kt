@@ -193,6 +193,7 @@ class WelcomeBackTest {
                 NewThingAction.SHOW -> assertTrue("${thing.id} has nowhere to go", thing.stops.isNotEmpty())
                 NewThingAction.ADD_WIDGET -> assertTrue("${thing.id} is added, not shown", thing.stops.isEmpty())
                 NewThingAction.ADD_TILE -> assertTrue("${thing.id} is added, not shown", thing.stops.isEmpty())
+                NewThingAction.NONE -> assertTrue("${thing.id} has no button, so nowhere to go", thing.stops.isEmpty())
             }
             assertTrue("${thing.id}: every stop points at something", thing.stops.all { it.targetId != null })
         }
@@ -201,7 +202,7 @@ class WelcomeBackTest {
     @Test
     fun `a setting is reached the way somebody would go there, through the row it is under`() {
         val insideSettings = NEW_THINGS.filter { thing -> thing.stops.any { it.route != null } }
-        assertEquals(listOf("living_blur", "share_links", "sleep_schedule", "content_filters", "equalizer", "resume_bluetooth", "library_import", "explain_pictures", "problem_report", "spatial_audio"), ids(insideSettings))
+        assertEquals(listOf("radios", "living_blur", "share_links", "sleep_schedule", "content_filters", "equalizer", "resume_bluetooth", "library_import", "explain_pictures", "problem_report", "spatial_audio"), ids(insideSettings))
         for (thing in insideSettings) {
             assertEquals("${thing.id}: the row, then the setting", 2, thing.stops.size)
             assertEquals("${thing.id} starts on the list of settings", Tour.ROUTE_SETTINGS, thing.stops[0].route)
@@ -350,7 +351,17 @@ class WelcomeBackTest {
         assertTrue(newThingsFor(v011, buildVersionCode = v0115).none { it.release == "0.12" })
         assertTrue(newThingsFor(v011, buildVersionCode = v0116).none { it.release == "0.12" })
         // Somebody who skips 0.11.6 is shown what it brought as well, under its own heading.
-        assertEquals(listOf("living_blur", "share_links", "sleep_schedule", "content_filters", "equalizer", "resume_bluetooth", "recognition_tile"), ids(newThingsFor(v0115, buildVersionCode = v012)))
-        assertEquals(listOf("living_blur", "share_links", "sleep_schedule", "content_filters", "equalizer"), ids(newThingsFor(v0116, buildVersionCode = v012)))
+        assertEquals(listOf("cast", "radios", "living_blur", "share_links", "sleep_schedule", "content_filters", "equalizer", "resume_bluetooth", "recognition_tile"), ids(newThingsFor(v0115, buildVersionCode = v012)))
+        assertEquals(listOf("cast", "radios", "living_blur", "share_links", "sleep_schedule", "content_filters", "equalizer"), ids(newThingsFor(v0116, buildVersionCode = v012)))
+    }
+
+    @Test
+    fun `a card with no button never keeps the card on Home waiting`() {
+        // Cast has nowhere in Settings to be shown, so nothing can tick it: left in the count, the
+        // card on Home would stay until dismissed.
+        val cast = NEW_THINGS.first { it.id == "cast" }
+        assertEquals(NewThingAction.NONE, cast.action)
+        val everythingElse = NEW_THINGS.filter { it.action != NewThingAction.NONE }.map { it.id }.toSet()
+        assertNull(welcomeCardFor(seenVersionCode = 94, buildVersionCode = 95, enabled = true, lookedAt = everythingElse))
     }
 }

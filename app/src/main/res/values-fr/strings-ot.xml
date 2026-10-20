@@ -326,6 +326,8 @@
     <string name="poll_dismiss">Ignorer cette question</string>
     <string name="poll_close">Fermer</string>
     <string name="poll_send">Envoyer ma réponse</string>
+    <string name="poll_other_hint">Votre réponse</string>
+    <string name="poll_other_notice">Ce que vous écrivez est envoyé tel quel : n\'y mettez rien de personnel.</string>
     <string name="poll_not_now">Pas maintenant</string>
     <string name="announcement_banner_hint">Touchez pour lire</string>
     <string name="announcement_dismiss">Ignorer cette annonce</string>
@@ -380,6 +382,10 @@
     <string name="update_awaiting_confirmation">Prête. Android va vous demander de confirmer l\'installation.</string>
     <string name="update_needs_permission">Android a besoin de votre autorisation pour qu\'InterTune installe des applications. Touchez pour ouvrir ce paramètre, puis revenez et réessayez.</string>
     <string name="update_install_failed">Installation impossible : %1$s. Vous pouvez toujours la télécharger vous-même depuis la page de la version.</string>
+    <string name="update_blocked_samsung">L\'installation n\'a pas abouti. Le Bloqueur automatique de Samsung l\'a sans doute empêchée : désactivez-le le temps d\'installer, puis réactivez-le si vous voulez.</string>
+    <string name="update_blocked">L\'installation n\'a pas abouti. Réessayez, ou téléchargez la mise à jour depuis la page de la version.</string>
+    <string name="update_open_auto_blocker">Ouvrir le Bloqueur automatique</string>
+    <string name="update_try_again">Réessayer</string>
     <string name="update_open_page">Ouvrir plutôt la page de la version</string>
     <string name="update_check_description">Vérifie sur GitHub s\'il existe une version plus récente d\'InterTune à chaque ouverture de l\'application. Désactivé par défaut. Rien n\'est jamais installé sans votre confirmation.</string>
     <string name="oobe_update_check_description">InterTune n\'est pas sur une boutique d\'applications : elle consulte donc GitHub à son ouverture et vous prévient quand une nouvelle version existe. Elle peut la télécharger et l\'installer pour vous, et Android vous demande toujours de confirmer d\'abord. Vous pourrez changer cela plus tard dans les paramètres.</string>
@@ -1750,6 +1756,12 @@
     <string name="new_equalizer_body">Dix bandes, quelques courbes toutes prêtes, ou la courbe mesurée pour votre propre casque.</string>
     <string name="new_equalizer_way">L\'égaliseur se trouve ici.</string>
     <string name="new_equalizer_here">Choisissez une courbe ou le modèle de votre casque, ou réglez les bandes vous-même.</string>
+    <string name="new_cast_title">Écoutez sur votre TV ou enceinte</string>
+    <string name="new_cast_body">La pastille sous les commandes du lecteur envoie la musique vers un Chromecast, un récepteur FCast ou une TV DLNA sur votre Wi-Fi.</string>
+    <string name="new_radios_title">Des radios qui apprennent</string>
+    <string name="new_radios_body">Passez ou aimez des titres, et la suite de la radio suit, avec les nouveaux choix marqués dans la file.</string>
+    <string name="new_radios_way">Garder les radios à jour se trouve ici.</string>
+    <string name="new_radios_here">Activé, la suite d\'une radio change selon les titres que vous passez ou aimez.</string>
     <plurals name="welcome_card_since">
         <item quantity="one">%1$d nouveauté depuis la %2$s</item>
         <item quantity="many">%1$d nouveautés depuis la %2$s</item>

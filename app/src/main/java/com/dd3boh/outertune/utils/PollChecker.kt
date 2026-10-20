@@ -66,6 +66,10 @@ class PollChecker @Inject constructor(
         val label: String,
         /** Optional picture for this choice. */
         val imageUrl: String?,
+        /** "Other": picking it opens a box for the person's own words, sent with the answer. */
+        val other: Boolean = false,
+        /** The box's hint for an "Other" option; the app's own words when the document has none. */
+        val placeholder: String? = null,
     )
 
     data class Poll(
@@ -261,7 +265,11 @@ class PollChecker @Inject constructor(
                     val oo = optionsArr.optJSONObject(j) ?: return@mapNotNull null
                     val id = oo.optString("id").ifEmpty { return@mapNotNull null }
                     val label = oo.optString("label").ifEmpty { return@mapNotNull null }
-                    Option(id, label, oo.optString("image").ifEmpty { null })
+                    Option(
+                        id, label, oo.optString("image").ifEmpty { null },
+                        other = oo.optBoolean("other", false),
+                        placeholder = oo.optString("placeholder").ifEmpty { null },
+                    )
                 }
                 if (options.isEmpty()) return@runCatching null
 
@@ -293,7 +301,7 @@ class PollChecker @Inject constructor(
      * asked a second time because a request failed, and a lost answer is a far smaller problem than
      * a modal that keeps reappearing.
      */
-    suspend fun answer(poll: Poll, optionIds: List<String>) = withContext(Dispatchers.IO) {
+    suspend fun answer(poll: Poll, optionIds: List<String>, otherText: String? = null) = withContext(Dispatchers.IO) {
         markAnswered(poll.id)
 
         if (!Polls.isConfigured) return@withContext
@@ -314,7 +322,9 @@ class PollChecker @Inject constructor(
                         .take(MAX_PROPERTY_CHARS)
                 )
                 .put("answer_id", optionIds.sorted().joinToString(","))
-                .put("version", BuildConfig.VERSION_NAME),
+                .put("version", BuildConfig.VERSION_NAME)
+                // The words typed for an "Other" choice, as they were written.
+                .apply { otherText?.trim()?.takeIf { it.isNotEmpty() }?.let { put("text", it.take(MAX_PROPERTY_CHARS)) } },
         )
     }
 
@@ -438,7 +448,7 @@ class PollChecker @Inject constructor(
          * looks identical here and nothing in it identifies anybody.
          */
         /** Umami truncates long property values; keep well inside it rather than find out. */
-        private const val MAX_PROPERTY_CHARS = 400
+        private const val MAX_PROPERTY_CHARS = Polls.MAX_TEXT_CHARS
 
         private const val USER_AGENT =
             "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) " +

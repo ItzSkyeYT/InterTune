@@ -64,6 +64,7 @@ import com.dd3boh.outertune.utils.InstallSource
 import com.dd3boh.outertune.utils.installSource
 import com.dd3boh.outertune.utils.fdroidPageUrl
 import com.dd3boh.outertune.utils.UpdateInstaller
+import com.dd3boh.outertune.utils.AutoBlocker
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 
@@ -257,6 +258,10 @@ fun UpdateSettings(
                         is UpdateInstaller.State.Failed ->
                             stringResource(R.string.update_install_failed, st.reason)
 
+                        UpdateInstaller.State.Blocked -> stringResource(
+                            if (AutoBlocker.likely()) R.string.update_blocked_samsung else R.string.update_blocked
+                        )
+
                         UpdateInstaller.State.Idle ->
                             stringResource(R.string.update_install_description)
                     },
@@ -266,16 +271,37 @@ fun UpdateSettings(
                             is UpdateInstaller.State.Downloading -> installer.cancel()
 
                             // Android will not let us ask until this is granted, so send the user
-                            // straight to the one screen that grants it.
+                            // straight to the one screen that grants it. Once granted, the same tap
+                            // installs: the row used to keep sending them back to that screen.
                             UpdateInstaller.State.NeedsPermission ->
-                                context.startActivity(
-                                    Intent(
-                                        Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                                        "package:${context.packageName}".toUri()
-                                    ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                )
+                                if (installer.canRequestInstall()) {
+                                    installer.acknowledge()
+                                    installer.installOrDownload(found.downloadUrl, found.sizeBytes)
+                                } else {
+                                    context.startActivity(
+                                        Intent(
+                                            Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                                            "package:${context.packageName}".toUri()
+                                        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    )
+                                }
 
-                            else -> installer.downloadAndInstall(found.downloadUrl, found.sizeBytes)
+                            // Blocked on a Samsung phone: Auto Blocker's switch is the way through, and
+                            // the row is back to Install for when they return.
+                            UpdateInstaller.State.Blocked ->
+                                if (AutoBlocker.likely()) {
+                                    installer.acknowledge()
+                                    AutoBlocker.open(context)
+                                } else {
+                                    installer.acknowledge()
+                                    installer.installOrDownload(found.downloadUrl, found.sizeBytes)
+                                }
+
+                            // The apk already downloaded is used, not fetched again.
+                            else -> {
+                                installer.acknowledge()
+                                installer.installOrDownload(found.downloadUrl, found.sizeBytes)
+                            }
                         }
                     }
                 )

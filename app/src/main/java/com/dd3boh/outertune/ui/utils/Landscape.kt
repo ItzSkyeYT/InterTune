@@ -362,11 +362,14 @@ fun LazyListScope.paneTop() {
  * being typed in to clear the keyboard, so whatever is under the field (Cancel and OK) stays
  * behind it. Upright that is a dialog with room to spare. In a window with 130dp between the
  * status bar and the keyboard it is every dialog with a field. Shrunk, the dialog is laid out in
- * the height that is left, and can scroll in it. Upright the window is not touched.
+ * the height that is left, and can scroll in it. Upright the window is not touched, unless
+ * [always] says so.
  */
 @Composable
-fun DialogAboveKeyboard() {
-    if (!LocalLandscape.current.active) return
+fun DialogAboveKeyboard(always: Boolean = false) {
+    // A dialog that fills the screen, like a poll, needs it upright too: moved up, its top went
+    // under the status bar and its Send button stayed behind the keyboard.
+    if (!always && !LocalLandscape.current.active) return
     val window = (LocalView.current.parent as? DialogWindowProvider)?.window ?: return
     DisposableEffect(window) {
         val before = window.attributes.softInputMode

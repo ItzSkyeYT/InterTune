@@ -6,7 +6,6 @@
 
 package com.dd3boh.outertune
 
-import com.dd3boh.outertune.constants.Links
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -31,13 +30,14 @@ class SupportTest {
                 assertTrue("$name missing from $path", strings.contains("name=\"$name\""))
             }
         }
-        assertEquals("DNR", Links.SUPPORTERS.first())
+        assertFalse("no donor's name is written into the app", File("src/main/java/com/dd3boh/outertune/constants/Links.kt").readText().contains("SUPPORTERS"))
     }
 
     @Test
     fun `each one who gave has a line of their own under the thanks`() {
         val dialog = File("src/main/java/com/dd3boh/outertune/ui/dialog/SupportDialog.kt").readText()
-        assertTrue(dialog.contains("Links.SUPPORTERS.forEach"))
+        assertTrue(dialog.contains("donors.forEach"))
+        assertTrue("the names come from the README", dialog.contains("Donors.refresh(context)"))
         assertFalse("the names are a list, not one line", dialog.contains("joinToString"))
         assertTrue("a long list scrolls inside the note", dialog.contains("verticalScroll"))
         for (path in listOf("src/main/res/values/strings-ot.xml", "src/main/res/values-fr/strings-ot.xml")) {

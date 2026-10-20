@@ -344,6 +344,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="poll_dismiss">Dismiss this question</string>
     <string name="poll_close">Close</string>
     <string name="poll_send">Send my answer</string>
+    <string name="poll_other_hint">Your answer</string>
+    <string name="poll_other_notice">What you write is sent as it is, so leave out anything personal.</string>
     <string name="poll_not_now">Not now</string>
     <string name="poll_anonymous_notice">Your answer is anonymous. All that is sent is which question this was, what you picked, and the app version. No account, no device details, nothing about your library.</string>
     <string name="grp_polls">Questions and news</string>
@@ -411,6 +413,10 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="update_awaiting_confirmation">Ready. Android will ask you to confirm the install.</string>
     <string name="update_needs_permission">Android needs your permission for InterTune to install apps. Tap to open that setting, then come back and try again.</string>
     <string name="update_install_failed">Could not install: %1$s. You can still download it yourself from the release page.</string>
+    <string name="update_blocked_samsung">The install did not go through. Samsung\'s Auto Blocker probably stopped it: turn it off for a moment, install, then turn it back on if you like.</string>
+    <string name="update_blocked">The install did not go through. Try again, or download the update from the release page.</string>
+    <string name="update_open_auto_blocker">Open Auto Blocker</string>
+    <string name="update_try_again">Try again</string>
     <string name="update_open_page">Open the release page instead</string>
     <string name="update_skip">Skip this version</string>
     <string name="update_installed_version">Installed version</string>
@@ -888,6 +894,12 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="new_equalizer_body">Ten bands, a few ready curves, or the curve measured for your own headphones.</string>
     <string name="new_equalizer_way">The equalizer is in here.</string>
     <string name="new_equalizer_here">Pick a curve or your headphones\' model, or move the bands yourself.</string>
+    <string name="new_cast_title">Play on your TV or speaker</string>
+    <string name="new_cast_body">The pill under the player\'s controls sends the music to a Chromecast, an FCast receiver or a DLNA TV on your Wi-Fi.</string>
+    <string name="new_radios_title">Radios that learn as you listen</string>
+    <string name="new_radios_body">Skip or like songs and the rest of a radio follows, with fresh picks marked in the queue.</string>
+    <string name="new_radios_way">Keep radios up to date is in here.</string>
+    <string name="new_radios_here">When it is on, the songs further down a radio change with what you skip and like.</string>
     <string name="new_share_links_title" translatable="false">Links for any music app</string>
     <string name="new_share_links_body" translatable="false">Share can send a page where whoever opens it picks their own music app, instead of a YouTube Music link.</string>
     <string name="new_share_links_way" translatable="false">What Share sends is set in here: the YouTube Music link, or a page for any music app.</string>

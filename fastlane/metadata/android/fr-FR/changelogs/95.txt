@@ -1,0 +1,12 @@
+Version 0.12
+
+- Castez vers Chromecast, FCast ou DLNA.
+- Les radios suivent vos titres passés et J'aime.
+- Flou vivant : un fond qui bouge avec la musique.
+- Un égaliseur, avec la courbe de votre casque.
+- Paroles à partager (texte, image, vidéo) et en lettres latines.
+- Minuterie de sommeil programmable.
+- Masquez titres explicites et clips.
+- « Quel est ce titre ? » reconnaît les titres accélérés ou ralentis.
+
+Journal complet : https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.12
