@@ -4,8 +4,14 @@
    pages open in keeps their cookies in app_webview, and the liked songs snapshot names the
    account, so all three stay out of both. So does an import from another service that is under
    way (library-import): megabytes that would count against the 25 MB the library has to fit in.
+
+   The app's own logs, one file per run for Report a problem (logs, RunLogs), belong to this phone
+   and stay out: up to some megabytes, and of no use on another phone.
 -->
 <full-backup-content>
+    <exclude
+        domain="file"
+        path="logs/" />
     <exclude
         domain="file"
         path="datastore/" />

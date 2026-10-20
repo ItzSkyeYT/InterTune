@@ -8,6 +8,9 @@ package com.dd3boh.outertune.utils
 
 import android.os.Build
 import com.dd3boh.outertune.BuildConfig
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * What the app wrote to the phone's log since it was opened, cut down to the last thing that
@@ -50,7 +53,7 @@ object ProblemLog {
      * else is kept only when it is a warning or an error: the views and the audio codec write
      * thousands of lines an hour that say nothing about a fault.
      */
-    private val TELLING = setOf(
+    val TELLING = setOf(
         "MusicService", "YTPlayerUtils", "QueueBoard", "StandIns", "Throttle", "DownloadUtil",
         "PlayerConnection", "MediaLibrarySessionCallback", "App", "MainActivity", "LibraryImport",
     )
@@ -119,9 +122,17 @@ object ProblemLog {
      * stopped with nobody asking ([com.dd3boh.outertune.playback.StopReasons]). Those come last
      * because [fitted] keeps the end, and they outlive the process the lines above belong to.
      */
-    fun report(excerpt: Excerpt, build: String = build(), device: String = device(), stops: List<String> = emptyList()): String = buildString {
+    fun report(
+        excerpt: Excerpt,
+        build: String = build(),
+        device: String = device(),
+        stops: List<String> = emptyList(),
+        started: Date? = null,
+    ): String = buildString {
         appendLine("InterTune $build")
         appendLine(device)
+        // A run before this one: which, since its lines carry the time of day and not the date.
+        started?.let { appendLine("From the run that began ${SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.ROOT).format(it)}") }
         appendLine(if (excerpt.faultAt == null) "Nothing that looks like a fault. The last lines:" else "The last fault and what led up to it:")
         appendLine()
         excerpt.lines.forEachIndexed { i, line ->
@@ -141,7 +152,8 @@ object ProblemLog {
      */
     fun fitted(report: String, limit: Int): String {
         if (report.length <= limit) return report
-        val head = report.lineSequence().take(3).joinToString("\n") + "\n(the earlier lines are left out)\n"
+        val heading = if (report.lineSequence().drop(2).firstOrNull()?.startsWith("From the run") == true) 4 else 3
+        val head = report.lineSequence().take(heading).joinToString("\n") + "\n(the earlier lines are left out)\n"
         val tail = report.takeLast((limit - head.length).coerceAtLeast(0))
         return head + tail.substringAfter('\n', tail)
     }

@@ -26,12 +26,13 @@ import java.io.File
  */
 class ReleasedFlagsTest {
 
-    /** On in every build, and so in a release. The second line went on for 0.11.5, the third on 14 Oct, the fourth for 0.12. */
+    /** On in every build, and so in a release. The second line went on for 0.11.5, the third on 14 Oct, the fourth for 0.12, the fifth for 0.12.1. */
     private val inEveryBuild = setOf(
         "ENGINE", "SHORT_SETUP", "LOGIN_RETURNS",
         "STAND_INS", "VISIONOS_IDENTITIES", "WEB_FALLBACK", "LANDSCAPE", "EXPLAIN_PICTURES", "LIBRARY_IMPORT",
         "PROBLEM_REPORT", "WELCOME_BACK", "COVER_ACCENT", "GLASS_QUEUE",
         "LIVING_BACKGROUND", "CASTING", "ADAPTIVE_PASS", "EQUALIZER",
+        "PREVIOUS_LOGS",
     )
 
     private val sources = File("src/main/java/com/dd3boh/outertune")
