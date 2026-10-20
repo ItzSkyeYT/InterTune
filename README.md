@@ -63,6 +63,7 @@ Android 7.0 or later. Once installed, InterTune finds new versions by itself if 
 
 **Sound**
 
+- A ten-band equalizer: ready curves, or the one measured for your own headphones (AutoEq)
 - Spatial audio on any headphones
 - Head tracking where the phone allows it
 - Quieter as you walk away from the phone, on Bluetooth headphones
@@ -86,7 +87,7 @@ Android 7.0 or later. Once installed, InterTune finds new versions by itself if 
 
 **Song recognition**
 
-- What's playing? names the song around you and finds it to play
+- What's playing? names the song around you, using Shazam, and finds it to play
 - Keep listening runs in the background with the screen off
 - It can fill a playlist with everything it hears
 - It tells a sped-up edit or a remix from the original
@@ -100,7 +101,7 @@ Android 7.0 or later. Once installed, InterTune finds new versions by itself if 
 
 - Import playlists from Spotify, Apple Music, Deezer, Tidal, Amazon Music, SoundCloud, Qobuz or a CSV file
 - Your own music files beside YouTube Music
-- Downloads that can wait for Wi-Fi
+- Downloads for offline listening, which can wait for Wi-Fi
 - Sync that never loses songs, and Last.fm scrobbling
 - Automatic backups, a history of every play, and stats that stay on your phone
 
@@ -112,6 +113,7 @@ Android 7.0 or later. Once installed, InterTune finds new versions by itself if 
 - Synced lyrics from LRCLIB and KuGou
 - Search for other lyrics, or edit them yourself
 - Chinese lyrics found in either script
+- A line in Latin letters under Japanese (romaji, kanji kept), Korean, Chinese, Russian and more, from Android 10
 
 </td>
 </tr>
@@ -121,6 +123,7 @@ Android 7.0 or later. Once installed, InterTune finds new versions by itself if 
 **Look and feel**
 
 - Liquid glass
+- Material You colours from your wallpaper
 - A player background that moves with the music
 - Layouts for a phone on its side and for tablets
 - A home screen widget
