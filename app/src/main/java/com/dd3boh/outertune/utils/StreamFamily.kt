@@ -75,6 +75,20 @@ object StreamFamily {
      * A call for a web client's address is made with its page's headers, whichever client of
      * these makes it: see [WebStreamHeaders.on].
      */
+    /**
+     * The client the player streams a song with. A connection left idle is not used again after a
+     * few seconds: one that the network dropped without a word takes the request and never
+     * answers, and the song sat silent until the read gave up (his phone, 20 Oct 2026: a new
+     * connection answered at once each time). A stream that stops coming in is cut after 8 s,
+     * so the player asks again instead of waiting.
+     */
+    fun streamClient(proxy: java.net.Proxy?): OkHttpClient = OkHttpClient.Builder()
+        .proxy(proxy)
+        .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+        .readTimeout(8, java.util.concurrent.TimeUnit.SECONDS)
+        .connectionPool(okhttp3.ConnectionPool(4, 5, java.util.concurrent.TimeUnit.SECONDS))
+        .build()
+
     class Calls(private val base: OkHttpClient, private val system: Dns = Dns.SYSTEM) : Call.Factory {
         private val overV4 by lazy { keepingTo(IpFamily.V4) }
         private val overV6 by lazy { keepingTo(IpFamily.V6) }
