@@ -836,8 +836,10 @@ object YouTube {
         addressPolicy: AddressPolicy? = null,
         // As YouTube Music's own page asks: see InnerTube.player.
         asWebPage: Boolean = false,
+        // On a connection of its own, never one kept from before: see InnerTube.player.
+        fresh: Boolean = false,
     ): Result<PlayerResponse> = runCatchingCancellable {
-        innerTube.player(client, videoId, playlistId, signatureTimestamp, webPlayerPot, visitorData, hlOverride, addressPolicy, asWebPage)
+        innerTube.player(client, videoId, playlistId, signatureTimestamp, webPlayerPot, visitorData, hlOverride, addressPolicy, asWebPage, fresh)
             .body<PlayerResponse>()
     }
 

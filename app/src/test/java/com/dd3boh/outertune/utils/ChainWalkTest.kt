@@ -86,6 +86,7 @@ class ChainWalkTest {
         YTPlayerUtils.onVisitorDataFound = { adopted += it }
         YTPlayerUtils.onLateRefusal = { id, client -> lateRefusals += "$id $client" }
         RouteTimes.reset()
+        HedgeBudget.shared = HedgeBudget()
     }
 
     /** What the checks that answered after the walk went on reported: "video client". */
@@ -138,6 +139,9 @@ class ChainWalkTest {
 
         val askedOf = mutableListOf<String>()
 
+        /** The second tries on a new connection, by client name. */
+        val freshTries = java.util.Collections.synchronizedList(mutableListOf<String>())
+
         /** Every address a check was made of, in order. */
         val checked = mutableListOf<String>()
 
@@ -173,7 +177,9 @@ class ChainWalkTest {
             policy: AddressPolicy?,
             asNewVisitor: Boolean,
             asWebPage: Boolean,
+            fresh: Boolean,
         ): Result<PlayerResponse> {
+            if (fresh) freshTries += client.clientName
             // An identity of VISIONOS under the name the chain gives it: to YouTube both are VISIONOS.
             val own = when (client) {
                 YouTubeClient.VISIONOS_1_04 -> "VISIONOS_104"
@@ -723,6 +729,33 @@ class ChainWalkTest {
         } finally {
             RemoteRoutes.current = null
         }
+    }
+
+    @Test
+    fun `a request that hangs is asked again on a new connection at its hedge time, and that answer plays`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        RouteTimes.playerFreshMs = 50
+        RouteTimes.playerCapMs = 2_000
+        val script = Script(mapOf("VISIONOS" to listOf(Hang, playable("VISIONOS", loudness = 5.0, seconds = "200"))))
+        val started = System.nanoTime()
+        val data = walk(script).getOrThrow()
+        val tookMs = (System.nanoTime() - started) / 1_000_000
+
+        assertTrue("the fresh try answered, not the cap: $tookMs ms", tookMs < 1_500)
+        assertEquals(listOf("VISIONOS", "VISIONOS"), script.askedOf)
+        assertEquals(listOf("VISIONOS"), script.freshTries.toList())
+        assertTrue(data.streamUrl.startsWith("https://VISIONOS.example/"))
+    }
+
+    @Test
+    fun `while YouTube refuses the network no second try is made`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        RouteTimes.playerFreshMs = 30
+        RouteTimes.playerCapMs = 150
+        Throttle.trip("the test")
+        val script = Script(mapOf("VISIONOS" to listOf(Hang), "ANDROID_VR" to listOf(playable("ANDROID_VR", loudness = 3.0, seconds = "201"))))
+        walk(script).getOrThrow()
+        assertEquals(emptyList<String>(), script.freshTries.toList())
     }
 
     /**

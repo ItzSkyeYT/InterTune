@@ -237,6 +237,8 @@ object YTPlayerUtils {
             asNewVisitor: Boolean = false,
             /** As YouTube Music's own page asks, for the experiment's client: see InnerTube.player. */
             asWebPage: Boolean = false,
+            /** A second try, on a new connection: see hedged. */
+            fresh: Boolean = false,
         ): Result<PlayerResponse>
 
         /**
@@ -296,17 +298,18 @@ object YTPlayerUtils {
             policy: AddressPolicy?,
             asNewVisitor: Boolean,
             asWebPage: Boolean,
+            fresh: Boolean,
         ): Result<PlayerResponse> =
-            if (FaultInjection.hangsPlayer(client.clientName, client === VISIONOS)) {
+            if (FaultInjection.hangsPlayer(client.clientName, client === VISIONOS) && !fresh) {
                 // Made to hang on purpose, in a debug build only: see FaultInjection.
                 delay(FaultInjection.PLAYER_HANG_MS)
                 Result.failure(java.net.SocketTimeoutException("fault injection: /player hung"))
             } else if (asNewVisitor) {
-                YouTube.player(videoId, playlistId, client, visitorData = null, addressPolicy = policy)
+                YouTube.player(videoId, playlistId, client, visitorData = null, addressPolicy = policy, fresh = fresh)
             } else {
                 YouTube.player(
                     videoId, playlistId, client, signatureTimestamp, webPlayerPot,
-                    hlOverride = hlOverride, addressPolicy = policy, asWebPage = asWebPage,
+                    hlOverride = hlOverride, addressPolicy = policy, asWebPage = asWebPage, fresh = fresh,
                 )
             }
 
@@ -1395,7 +1398,15 @@ object YTPlayerUtils {
             val capMs = if (slowNetwork || clientIndex == clients.lastIndex) RouteTimes.playerSlowCapMs else RouteTimes.playerCapMs
             val result =
                 try {
-                    hedged("/player", RouteTimes.playerFreshMs, capMs, mayHedge = { false }) { _ ->
+                    // A second try of the same client on a new connection at RouteTimes.PLAYER_FRESH_MS,
+                    // within the budget: see hedged and HedgeBudget. Never the experiment's client.
+                    hedged(
+                        "/player", RouteTimes.playerFreshMs, capMs,
+                        mayHedge = { !isTrial && HedgeBudget.mayHedge(HedgeBudget.Kind.PLAYER, videoId) },
+                        settles = { answer -> answer.isSuccess || !StreamOrder.networkDidNotAnswer(answer.exceptionOrNull()) },
+                        onHedge = { Log.i(TAG, StepLog.freshTry(videoId, clientLabel, "/player", RouteTimes.playerFreshMs)) },
+                    ) { fresh ->
+                        val sent = System.nanoTime()
                         wire.player(
                             videoId, playlistId, client,
                             // The timestamp of the very script its address will be solved against.
@@ -1404,7 +1415,8 @@ object YTPlayerUtils {
                             playerPot,
                             hlOverride = if (isMain) null else "en", policy = policy,
                             asWebPage = isWeb,
-                        )
+                            fresh = fresh,
+                        ).also { if (fresh) Log.i(TAG, StepLog.freshAnswered(videoId, clientLabel, "/player", msSince(sent))) }
                     }
                 } catch (e: StepTimedOut) {
                     Log.w(TAG, StepLog.timedOut(videoId, clientLabel, "/player", capMs))
@@ -2003,21 +2015,38 @@ object YTPlayerUtils {
      * song, not at the start. [StreamCheck.accept] turns the answer into a decision.
      */
     private suspend fun streamStatus(url: String): Int? {
-        repeat(2) { attempt ->
-            val started = System.nanoTime()
-            try {
-                return checkCalls.newCall(okhttp3.Request.Builder().head().url(url).build()).await().use { it.code }
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                // Each failed try, with its time: the first one used to say nothing, and a slow
-                // start could not be explained (FAILURE-MAP weakness 10).
-                val ms = (System.nanoTime() - started) / 1_000_000
-                Log.w(TAG, "HEAD try ${attempt + 1} of 2 failed after ${StepLog.seconds(ms)}: ${StreamCheck.failureForLog(e)}")
-                if (attempt == 1) reportException(e)
-            }
+        // The second try starts at RouteTimes.HEAD_FRESH_MS beside the first when the budget
+        // allows, and after it otherwise, as it always did. The check's client keeps no
+        // connection, so every try is on a new one.
+        var hedgedYet = false
+        val first = try {
+            hedged(
+                "HEAD", RouteTimes.headFreshMs, 2 * RouteTimes.HEAD_TRY_MS,
+                mayHedge = { HedgeBudget.mayHedge(HedgeBudget.Kind.HEAD, url) },
+                settles = { it != null },
+                onHedge = { hedgedYet = true },
+            ) { fresh -> headTry(url, if (fresh) 2 else 1) }
+        } catch (e: StepTimedOut) {
+            null
         }
-        return null
+        return first ?: if (hedgedYet) null else headTry(url, 2)
+    }
+
+    /** One HEAD request, its status or null; each failed try is logged with its time. */
+    private suspend fun headTry(url: String, attempt: Int): Int? {
+        val started = System.nanoTime()
+        return try {
+            checkCalls.newCall(okhttp3.Request.Builder().head().url(url).build()).await().use { it.code }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // Each failed try, with its time: the first one used to say nothing, and a slow
+            // start could not be explained (FAILURE-MAP weakness 10).
+            val ms = (System.nanoTime() - started) / 1_000_000
+            Log.w(TAG, "HEAD try $attempt of 2 failed after ${StepLog.seconds(ms)}: ${StreamCheck.failureForLog(e)}")
+            if (attempt == 2) reportException(e)
+            null
+        }
     }
 
     /**

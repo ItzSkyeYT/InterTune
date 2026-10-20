@@ -48,6 +48,8 @@ class InnerTube {
             httpClient = createClient()
             familyClients.values.forEach { it.close() }
             familyClients.clear()
+            freshClients.values.forEach { it.close() }
+            freshClients.clear()
         }
 
     /**
@@ -67,10 +69,24 @@ class InnerTube {
         if (policy == null || proxy != null) httpClient
         else familyClients.computeIfAbsent(policy) { createClient(it) }
 
+    /**
+     * Clients that keep no connection, one per policy, made when first asked for: a second try of
+     * /player goes out on a new connection, never on the pooled one the first may be stuck on.
+     * On 20 Oct 2026 a request on a connection the network had dropped never answered, and the
+     * same request on a new one answered at once, every time.
+     */
+    private val freshClients = ConcurrentHashMap<Any, HttpClient>()
+    private val noPolicy = Any()
+
+    private fun freshClientFor(policy: AddressPolicy?): HttpClient {
+        val effective = policy.takeIf { proxy == null }
+        return freshClients.computeIfAbsent(effective ?: noPolicy) { createClient(effective, fresh = true) }
+    }
+
     var useLoginForBrowse: Boolean = false
 
     @OptIn(ExperimentalSerializationApi::class)
-    private fun createClient(policy: AddressPolicy? = null) = HttpClient(OkHttp) {
+    private fun createClient(policy: AddressPolicy? = null, fresh: Boolean = false) = HttpClient(OkHttp) {
         expectSuccess = true
 
         install(ContentNegotiation) {
@@ -103,7 +119,9 @@ class InnerTube {
         // connection answered at once.
         engine {
             config {
-                connectionPool(okhttp3.ConnectionPool(5, 5, java.util.concurrent.TimeUnit.SECONDS))
+                // A fresh client keeps nothing: each request on a connection of its own.
+                if (fresh) connectionPool(okhttp3.ConnectionPool(0, 1, java.util.concurrent.TimeUnit.SECONDS))
+                else connectionPool(okhttp3.ConnectionPool(5, 5, java.util.concurrent.TimeUnit.SECONDS))
             }
         }
 
@@ -209,7 +227,9 @@ class InnerTube {
         // the headers, and in the body the three fields the page sends and the app never has. For
         // the experiment's web client (YTPlayerUtils.TRIAL_CLIENT). False changes nothing.
         asWebPage: Boolean = false,
-    ) = clientFor(addressPolicy).post("player") {
+        // A second try, on a new connection: see freshClients.
+        fresh: Boolean = false,
+    ) = (if (fresh) freshClientFor(addressPolicy) else clientFor(addressPolicy)).post("player") {
         ytClient(client, setLogin = true)
         if (asWebPage) {
             headers {

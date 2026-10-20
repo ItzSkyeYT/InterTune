@@ -11,6 +11,7 @@ import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -107,6 +108,29 @@ class HedgeTest {
             }
         }
         assertEquals("fresh", got.getOrNull())
+    }
+
+    @Test
+    fun `the budget refuses the fifth second try in a minute, and a third for one song, and allows them a minute later`() {
+        val budget = HedgeBudget()
+        assertTrue(budget.take(HedgeBudget.Kind.PLAYER, "a", 0))
+        assertTrue(budget.take(HedgeBudget.Kind.PLAYER, "a", 1))
+        assertFalse("two extra /player a song", budget.take(HedgeBudget.Kind.PLAYER, "a", 2))
+        assertTrue(budget.take(HedgeBudget.Kind.HEAD, "a", 3))
+        assertFalse("one extra HEAD a song", budget.take(HedgeBudget.Kind.HEAD, "a", 4))
+        assertTrue(budget.take(HedgeBudget.Kind.PLAYER, "b", 5))
+        assertFalse("four a minute in all", budget.take(HedgeBudget.Kind.PLAYER, "c", 6))
+        assertTrue(budget.take(HedgeBudget.Kind.PLAYER, "c", 60_001))
+    }
+
+    @Test
+    fun `no second try while YouTube refuses the network`() {
+        Throttle.trip("the test")
+        try {
+            assertFalse(HedgeBudget.mayHedge(HedgeBudget.Kind.PLAYER, "song-${System.nanoTime()}"))
+        } finally {
+            Throttle.clear("the test is over")
+        }
     }
 
     @Test
