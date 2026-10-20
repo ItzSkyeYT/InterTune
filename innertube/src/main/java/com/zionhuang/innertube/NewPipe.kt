@@ -22,12 +22,14 @@ private class NewPipeDownloaderImpl(proxy: Proxy?) : Downloader() {
     // player script, fetched once a process. OkHttp's defaults kept an idle connection five
     // minutes, the trap a dropped connection set for the player on 20 Oct 2026, and had no
     // limit on a read that never ends. Connect 5 s, 6 s of silence in a read, idle connections
-    // dropped after 5 s; no limit on the whole call, so a 0.7 MB script on a slow link is not
-    // cut while it still comes in. The app's RouteTimes holds the same numbers.
+    // dropped after 5 s, and 15 s for the whole call: enough for a 0.7 MB script on a slow link,
+    // and a fetch that trickles in no longer holds every song's n step behind it for good. The
+    // app's RouteTimes holds the same numbers.
     private val client = OkHttpClient.Builder()
         .proxy(proxy)
         .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
         .readTimeout(6, java.util.concurrent.TimeUnit.SECONDS)
+        .callTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
         .connectionPool(okhttp3.ConnectionPool(2, 5, java.util.concurrent.TimeUnit.SECONDS))
         .build()
 
@@ -79,23 +81,51 @@ object NewPipeUtils {
     /**
      * Held around every use of the player script, so that its first fetch is made once: a song
      * that needs it while the warm-up is fetching it waits for that fetch instead of starting
-     * another. Once fetched, each use takes milliseconds.
+     * another. Once fetched, each use takes milliseconds. NewPipeExtractor's caches are plain
+     * statics and a HashMap, so the uses stay one at a time.
+     *
+     * Waited for [LOCK_WAIT_S] at most, then given up as a timeout: a fetch that trickled in held
+     * the lock, and every song's n step queued behind it on a thread nobody could stop.
      */
-    private val scriptLock = Any()
+    private val scriptLock = java.util.concurrent.locks.ReentrantLock()
+
+    private const val LOCK_WAIT_S = 8L
+
+    private inline fun <T> withScript(block: () -> T): T {
+        if (!scriptLock.tryLock(LOCK_WAIT_S, java.util.concurrent.TimeUnit.SECONDS)) {
+            throw java.net.SocketTimeoutException("YouTube's player script is still being fetched")
+        }
+        try {
+            return block()
+        } finally {
+            scriptLock.unlock()
+        }
+    }
+
+    /**
+     * NewPipeExtractor wraps a failed fetch of the script in a ParsingException. A network that
+     * failed is said as such, so it is taken for no answer and not for a script that cannot be
+     * read: see the app's walk, which strikes a client only for the second.
+     */
+    private fun <T> networkFailureFirst(result: Result<T>): Result<T> {
+        val failure = result.exceptionOrNull() ?: return result
+        val network = generateSequence(failure) { it.cause }.take(8).firstOrNull { it is IOException }
+        return if (network != null && network !== failure) Result.failure(network) else result
+    }
 
     @Volatile
     private var clearedAt = 0L
 
-    fun getSignatureTimestamp(videoId: String): Result<Int> = runCatching {
-        synchronized(scriptLock) { YoutubeJavaScriptPlayerManager.getSignatureTimestamp(videoId) }
-    }
+    fun getSignatureTimestamp(videoId: String): Result<Int> = networkFailureFirst(runCatching {
+        withScript { YoutubeJavaScriptPlayerManager.getSignatureTimestamp(videoId) }
+    })
 
     /**
      * Fetches YouTube's player script and compiles its n function ahead of the first song, with
      * [videoId] for the page it is found through. Failures are the first song's to meet again.
      */
     fun warm(videoId: String): Result<Unit> = runCatching {
-        synchronized(scriptLock) {
+        withScript {
             YoutubeJavaScriptPlayerManager.getSignatureTimestamp(videoId)
             YoutubeJavaScriptPlayerManager.getUrlWithThrottlingParameterDeobfuscated(
                 videoId, "https://rr1---sn-warm.googlevideo.com/videoplayback?n=aBcDeFgHiJkLmNoP",
@@ -109,16 +139,18 @@ object NewPipeUtils {
      * at most once every [everyMs], so the next song tries again. Returns whether it cleared.
      */
     fun clearAfterFailure(everyMs: Long = 10 * 60 * 1000L, now: Long = System.currentTimeMillis()): Boolean {
-        synchronized(scriptLock) {
-            if (clearedAt != 0L && now - clearedAt < everyMs) return false
-            clearedAt = now
-            YoutubeJavaScriptPlayerManager.clearAllCaches()
-            return true
-        }
+        if (clearedAt != 0L && now - clearedAt < everyMs) return false
+        return runCatching {
+            withScript {
+                clearedAt = now
+                YoutubeJavaScriptPlayerManager.clearAllCaches()
+                true
+            }
+        }.getOrDefault(false)
     }
 
     fun getStreamUrl(format: PlayerResponse.StreamingData.Format, videoId: String): Result<String> =
-        runCatching {
+        networkFailureFirst(runCatching {
             val url = format.url ?: format.signatureCipher?.let { signatureCipher ->
                 val params = parseQueryString(signatureCipher)
                 val obfuscatedSignature = params["s"]
@@ -127,15 +159,17 @@ object NewPipeUtils {
                     ?: throw ParsingException("Could not parse cipher signature parameter")
                 val url = params["url"]?.let { URLBuilder(it) }
                     ?: throw ParsingException("Could not parse cipher url")
-                url.parameters[signatureParam] = synchronized(scriptLock) {
+                url.parameters[signatureParam] = withScript {
                     YoutubeJavaScriptPlayerManager.deobfuscateSignature(videoId, obfuscatedSignature)
                 }
                 url.toString()
             } ?: throw ParsingException("Could not find format url")
 
-            return@runCatching synchronized(scriptLock) {
+            // No n to work out: nothing of the script is needed, nor the lock.
+            if (!Regex("""[?&]n=""").containsMatchIn(url)) return@runCatching url
+            return@runCatching withScript {
                 YoutubeJavaScriptPlayerManager.getUrlWithThrottlingParameterDeobfuscated(videoId, url)
             }
-        }
+        })
 
 }

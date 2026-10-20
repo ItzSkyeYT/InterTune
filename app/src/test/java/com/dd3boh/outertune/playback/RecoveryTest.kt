@@ -125,4 +125,16 @@ class RecoveryTest {
         assertEquals(1, budget.take("song5", 60_000L))
         assertNull("its second waits for the stretch to pass", budget.take("song5", 61_000L))
     }
+
+    /** ktor's 5xx, made without its constructor, which wants a live response. Only its type is read. */
+    private fun serverError(): Throwable {
+        val unsafe = Class.forName("sun.misc.Unsafe").getDeclaredField("theUnsafe").apply { isAccessible = true }.get(null)
+        return unsafe.javaClass.getMethod("allocateInstance", Class::class.java)
+            .invoke(unsafe, io.ktor.client.plugins.ServerResponseException::class.java) as Throwable
+    }
+
+    @Test
+    fun `a resolve that failed on YouTube's own server error is passing`() {
+        assertEquals(Recovery.Kind.PASSING, Recovery.kind(resolverFailed("Unknown error", serverError(), PlaybackException.ERROR_CODE_REMOTE_ERROR)))
+    }
 }

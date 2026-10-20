@@ -11,6 +11,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.HttpDataSource
 import com.dd3boh.outertune.utils.RouteTimes
+import com.dd3boh.outertune.utils.StreamOrder
 import com.dd3boh.outertune.utils.Throttle
 import com.dd3boh.outertune.utils.YTPlayerUtils
 import java.io.IOException
@@ -68,7 +69,9 @@ object Recovery {
         // The resolver's failure for want of an answer: an IOException behind its remote error.
         // A remote error with no cause is a refusal YouTube gave, every route's.
         val resolver = all.drop(1).filterIsInstance<PlaybackException>().firstOrNull()
-        if (resolver?.errorCode == PlaybackException.ERROR_CODE_REMOTE_ERROR && resolver.cause is IOException) return Kind.PASSING
+        if (resolver?.errorCode == PlaybackException.ERROR_CODE_REMOTE_ERROR &&
+            (resolver.cause is IOException || StreamOrder.isServerError(resolver.cause))
+        ) return Kind.PASSING
         if (all.any { it is HttpDataSource.HttpDataSourceException }) return Kind.PASSING
         return Kind.FINAL
     }

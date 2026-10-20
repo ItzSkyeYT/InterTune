@@ -103,11 +103,23 @@ suspend fun <T> hedged(
  * Time a resolve is given on top of its limit: what a web client's address spent waiting out the
  * ads YouTube put before the song. That wait is deliberate, and not the network failing to answer.
  */
-class ResolveAllowance : AbstractCoroutineContextElement(Key) {
+class ResolveAllowance(
+    private val limitMs: Long = Long.MAX_VALUE / 4,
+    private val startedNs: Long = System.nanoTime(),
+) : AbstractCoroutineContextElement(Key) {
     companion object Key : CoroutineContext.Key<ResolveAllowance>
 
     val extraMs = AtomicLong(0)
+
+    /** What is left of the resolve's time, its ad waits included. */
+    fun leftMs(): Long = limitMs + extraMs.get() - (System.nanoTime() - startedNs) / 1_000_000
 }
+
+/**
+ * What is left of the time of the resolve this runs in, or null outside one. The walk reads it to
+ * play an address it holds rather than be cut off with it: see YTPlayerUtils.resolveOnce.
+ */
+suspend fun resolveTimeLeft(): Long? = currentCoroutineContext()[ResolveAllowance]?.leftMs()
 
 /** Adds [ms] to the allowance of the resolve this runs in, if any. */
 suspend fun allowFor(ms: Long) {
@@ -128,12 +140,11 @@ suspend fun <T> withinResolveTime(
     context: CoroutineContext = kotlin.coroutines.EmptyCoroutineContext,
     work: suspend () -> T,
 ): T {
-    val allowance = ResolveAllowance()
-    val started = System.nanoTime()
+    val allowance = ResolveAllowance(limitMs)
     val running = resolves.async(allowance + context) { work() }
     try {
         while (true) {
-            val left = limitMs + allowance.extraMs.get() - (System.nanoTime() - started) / 1_000_000
+            val left = allowance.leftMs()
             if (left <= 0) throw StepTimedOut("resolve", limitMs)
             if (withTimeoutOrNull(left) { running.join(); true } == true) return running.await()
         }

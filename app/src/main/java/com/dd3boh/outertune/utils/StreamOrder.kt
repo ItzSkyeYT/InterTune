@@ -206,7 +206,15 @@ object StreamOrder {
      * the connection, so the rest of the chain is still asked. Nor is a client the network never
      * reached remembered as refused.
      */
-    fun networkDidNotAnswer(failure: Throwable?): Boolean = failure is IOException
+    fun networkDidNotAnswer(failure: Throwable?): Boolean = failure is IOException || isServerError(failure)
+
+    /**
+     * YouTube's own server failing (HTTP 5xx), which says nothing of the client: no strike, the
+     * next client is asked, and the player tries again a moment later. ktor's exception for it
+     * is no IOException, and it used to count as a refusal and stop the song.
+     */
+    fun isServerError(failure: Throwable?): Boolean =
+        failure is io.ktor.client.plugins.ServerResponseException
 
     /**
      * Whether a failed /player request ends the walk at once: no network at all, the name not

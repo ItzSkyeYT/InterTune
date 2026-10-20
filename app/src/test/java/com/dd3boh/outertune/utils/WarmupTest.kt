@@ -35,6 +35,16 @@ class WarmupTest {
         assertTrue(service.contains("Warmup.newPipe("))
         assertTrue(service.contains("NewPipeUtils.warm("))
         val newPipe = File("../innertube/src/main/java/com/zionhuang/innertube/NewPipe.kt").readText()
-        assertTrue(newPipe.contains("synchronized(scriptLock)"))
+        // One use at a time, waited for a bounded time, not every use forever behind a slow fetch.
+        assertTrue(newPipe.contains("scriptLock.tryLock("))
+        assertTrue(newPipe.contains(".callTimeout("))
+    }
+
+    @Test
+    fun `the service says whether this process warmed already, so a new service does not fetch again`() {
+        val service = File("src/main/java/com/dd3boh/outertune/playback/MusicService.kt").readText()
+        assertFalse(service.contains("alreadyWarmed = false"))
+        assertTrue(service.contains("alreadyWarmed = Warmup.warmedInProcess"))
+        assertTrue(service.contains("Warmup.warmedInProcess = true"))
     }
 }

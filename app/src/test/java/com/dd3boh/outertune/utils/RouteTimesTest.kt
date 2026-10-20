@@ -80,7 +80,9 @@ class RouteTimesTest {
     @Test
     fun `the walk asks with a deadline, and our own cuts never reach the throttle`() {
         val walk = File("src/main/java/com/dd3boh/outertune/utils/YTPlayerUtils.kt").readText()
-        assertTrue(walk.replace(Regex("""\s+"""), "").contains("hedged(\"/player\",RouteTimes.playerFreshMs,capMs"))
+        val flat = walk.replace(Regex("""\s+"""), "")
+        assertTrue(flat.contains("valhedgeAfterMs=NetworkPace.hedgeAfter(RouteTimes.playerFreshMs,capMs)"))
+        assertTrue(flat.contains("hedged(\"/player\",hedgeAfterMs,capMs"))
         assertTrue(walk.contains("StreamOrder.endsWalkAtOnce(failure)"))
         val throttle = File("src/main/java/com/dd3boh/outertune/utils/Throttle.kt").readText()
         assertTrue(throttle.substringAfter("fun noteFailure(t: Throwable) {").substringBefore("}").contains("t is StepTimedOut"))

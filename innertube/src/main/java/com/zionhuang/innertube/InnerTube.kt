@@ -85,6 +85,23 @@ class InnerTube {
 
     var useLoginForBrowse: Boolean = false
 
+    /**
+     * The pool every client but the fresh ones keeps its connections in, one for all of them so
+     * that they can be let go of at once: see [forgetIdleConnections]. A connection is kept for
+     * one family only, since the family's lookup is part of what it is kept under.
+     */
+    private val sharedPool = okhttp3.ConnectionPool(5, 5, java.util.concurrent.TimeUnit.SECONDS)
+
+    /**
+     * Closes every idle kept connection. A request our own deadline cut was cancelled, not timed
+     * out, so OkHttp never learned that its connection was dead; on a network that dropped one
+     * connection silently the others idle beside it are no better, and the next client and the
+     * quiet retry took them.
+     */
+    fun forgetIdleConnections() {
+        runCatching { sharedPool.evictAll() }
+    }
+
     @OptIn(ExperimentalSerializationApi::class)
     private fun createClient(policy: AddressPolicy? = null, fresh: Boolean = false) = HttpClient(OkHttp) {
         expectSuccess = true
@@ -121,7 +138,10 @@ class InnerTube {
             config {
                 // A fresh client keeps nothing: each request on a connection of its own.
                 if (fresh) connectionPool(okhttp3.ConnectionPool(0, 1, java.util.concurrent.TimeUnit.SECONDS))
-                else connectionPool(okhttp3.ConnectionPool(5, 5, java.util.concurrent.TimeUnit.SECONDS))
+                else connectionPool(sharedPool)
+                // An HTTP/2 connection that stopped answering is found by OkHttp itself, and failed,
+                // rather than handed every request multiplexed onto it.
+                if (!fresh) pingInterval(10, java.util.concurrent.TimeUnit.SECONDS)
             }
         }
 

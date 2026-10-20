@@ -820,6 +820,9 @@ object YouTube {
         innerTube.deletePlaylist(WEB_REMIX, playlistId)
     }
 
+    /** Closes every idle connection to YouTube's API: see InnerTube.forgetIdleConnections. */
+    fun forgetIdleConnections() = innerTube.forgetIdleConnections()
+
     suspend fun player(
         videoId: String,
         playlistId: String? = null,

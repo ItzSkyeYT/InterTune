@@ -20,6 +20,7 @@ import com.zionhuang.innertube.models.ResponseContext
 import com.zionhuang.innertube.models.Thumbnails
 import com.zionhuang.innertube.models.YouTubeClient
 import com.zionhuang.innertube.models.response.PlayerResponse
+import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
@@ -89,6 +90,7 @@ class ChainWalkTest {
         HedgeBudget.shared = HedgeBudget()
         YTPlayerUtils.forgetWarming()
         YTPlayerUtils.forgetGoneInARow()
+        NetworkPace.forget()
     }
 
     /** What the checks that answered after the walk went on reported: "video client". */
@@ -109,6 +111,8 @@ class ChainWalkTest {
         YTPlayerUtils.onLateRefusal = null
         RouteTimes.reset()
         YTPlayerUtils.forgetGoneInARow()
+        YTPlayerUtils.forgetWarming()
+        NetworkPace.forget()
         Throttle.clear("the test is over")
     }
 
@@ -132,11 +136,24 @@ class ChainWalkTest {
         private val headTakes: Map<String, Long> = emptyMap(),
         /** How long each client's n step takes, by the client its host names. */
         private val decipherTakes: Map<String, Long> = emptyMap(),
+        /** The same, on a thread of its own that nothing can stop, as NewPipe's fetch runs in the app. */
+        private val decipherBlocks: Map<String, Long> = emptyMap(),
+        /** How each client's n step fails, by the client its host names. */
+        private val decipherFails: Map<String, Throwable> = emptyMap(),
     ) : YTPlayerUtils.Wire {
-        /** An app client's address as it came: none in these tests carries a cipher or an n. */
+        /** Every n step started, by the client its host names. */
+        val deciphered = java.util.Collections.synchronizedList(mutableListOf<String>())
+
+        /** An app client's address as it came: none in these tests carries a cipher, and an n is left as it is. */
         override suspend fun decipher(format: PlayerResponse.StreamingData.Format, videoId: String): String? {
             val url = format.url ?: return null
-            decipherTakes[url.substringAfter("://").substringBefore('.')]?.let { delay(it) }
+            val host = url.substringAfter("://").substringBefore('.')
+            deciphered += host
+            decipherFails[host]?.let { throw it }
+            decipherBlocks[host]?.let { ms ->
+                return kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).async { Thread.sleep(ms); url }.await()
+            }
+            decipherTakes[host]?.let { delay(it) }
             return url
         }
 
@@ -268,6 +285,13 @@ class ChainWalkTest {
         /** How often the web client was got ready because VISIONOS rests or comes after it. */
         var webWarmed = 0
 
+        /** How often the idle connections were let go after a cut. */
+        var cuts = 0
+
+        override fun connectionsCut() {
+            cuts++
+        }
+
         override fun warmWeb() {
             webWarmed++
         }
@@ -329,6 +353,18 @@ class ChainWalkTest {
         ),
         playbackTracking = null,
     )
+
+    /** [answer] with an n in every address, which NewPipe's step has to work out from the player script. */
+    private fun withN(answer: PlayerResponse) = answer.copy(
+        streamingData = answer.streamingData?.let { data -> data.copy(adaptiveFormats = data.adaptiveFormats.map { it.copy(url = it.url + "&n=Zx9qLmNoPqRs") }) },
+    )
+
+    /** ktor's 5xx, made without its constructor, which wants a live response. Only its type is read. */
+    private fun serverError(): Throwable {
+        val unsafe = Class.forName("sun.misc.Unsafe").getDeclaredField("theUnsafe").apply { isAccessible = true }.get(null)
+        return unsafe.javaClass.getMethod("allocateInstance", Class::class.java)
+            .invoke(unsafe, io.ktor.client.plugins.ServerResponseException::class.java) as Throwable
+    }
 
     /** [answer] with every address taken out of it, which is what a client that only streams over SABR gives. */
     private fun withoutAddress(answer: PlayerResponse) = answer.copy(
@@ -635,6 +671,171 @@ class ChainWalkTest {
     }
 
     @Test
+    fun `once an n step of a walk did not answer, the next names of VISIONOS do not wait for the same script`() {
+        YTPlayerUtils.identitiesInChain = true
+        remembering("VISIONOS", "ANDROID_VR")
+        RouteTimes.decipherWaitMs = 200
+        val script = Script(
+            says = mapOf(
+                "VISIONOS" to listOf(withN(playable("VISIONOS", loudness = 5.0, seconds = "200"))),
+                "ANDROID_VR" to listOf(refused(botInFrench)),
+                "VISIONOS_104" to listOf(withN(playable("VISIONOS_104", loudness = 5.0, seconds = "200"))),
+                "VISIONOS_SAFARI" to listOf(withN(playable("VISIONOS_SAFARI", loudness = 5.0, seconds = "200"))),
+                "IOS" to listOf(playable("IOS", loudness = 5.0, seconds = "200")),
+            ),
+            // NewPipe's fetch of the script hangs, on its own thread, as on 20 Oct 2026.
+            decipherBlocks = mapOf("VISIONOS" to 3_000L, "VISIONOS_104" to 3_000L, "VISIONOS_SAFARI" to 3_000L),
+        )
+        val data = walk(script).getOrThrow()
+
+        assertEquals("one wait for the script, not one per name", listOf("VISIONOS"), script.deciphered.filter { it.startsWith("VISIONOS") })
+        assertTrue(data.streamUrl.startsWith("https://IOS.example/"))
+        for (name in listOf("VISIONOS", "VISIONOS_104", "VISIONOS_SAFARI")) {
+            assertNull("no answer is no strike: $name", YTPlayerUtils.streamMemory.strikes[name])
+        }
+    }
+
+    @Test
+    fun `a walk whose only trouble was a player script that never came fails as a timeout, to be tried again`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        RouteTimes.decipherWaitMs = 100
+        val script = Script(
+            says = mapOf(
+                "VISIONOS" to listOf(withN(playable("VISIONOS", loudness = 5.0, seconds = "200"))),
+                "ANDROID_VR" to listOf(refused(botInFrench)),
+                "IOS" to listOf(withN(playable("IOS", loudness = 5.0, seconds = "200"))),
+            ),
+            decipherBlocks = mapOf("VISIONOS" to 2_000L, "IOS" to 2_000L),
+        )
+        val failure = walk(script).exceptionOrNull()
+        assertTrue("a timeout, which the player tries again: $failure", failure is StepTimedOut)
+    }
+
+    @Test
+    fun `an n step that failed for want of a network is no answer, and no strike`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        val script = Script(
+            says = mapOf(
+                "VISIONOS" to listOf(withN(playable("VISIONOS", loudness = 5.0, seconds = "200"))),
+                "ANDROID_VR" to listOf(playable("ANDROID_VR", loudness = 3.0, seconds = "201")),
+            ),
+            decipherFails = mapOf("VISIONOS" to java.net.UnknownHostException("www.youtube.com")),
+        )
+        val data = walk(script).getOrThrow()
+
+        assertTrue(data.streamUrl.startsWith("https://ANDROID_VR.example/"))
+        assertEquals("VISIONOS OK, address not deciphered (no answer), ANDROID_VR OK, HEAD 200", YTPlayerUtils.lastStreamTrail)
+        assertNull(YTPlayerUtils.streamMemory.strikes["VISIONOS"])
+        assertFalse("VISIONOS" in YTPlayerUtils.streamMemory.refusedAt.keys)
+    }
+
+    @Test
+    fun `YouTube's own server error on player is no strike against the client`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        val script = Script(
+            mapOf(
+                "VISIONOS" to listOf(serverError()),
+                "ANDROID_VR" to listOf(refused(botInFrench)),
+                "IOS" to listOf(playable("IOS", loudness = 5.0, seconds = "200")),
+            ),
+        )
+        walk(script).getOrThrow()
+        assertNull(YTPlayerUtils.streamMemory.strikes["VISIONOS"])
+        assertFalse("VISIONOS" in YTPlayerUtils.streamMemory.refusedAt.keys)
+    }
+
+    @Test
+    fun `with the remote switch for unchecked play off, no address is played unchecked, even at the end`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        RemoteRoutes.read("""{"playback": {"v": 1, "id": "careful", "uncheckedPlay": false}}""", 100, System.currentTimeMillis())
+        try {
+            val script = Script(
+                says = mapOf(
+                    "VISIONOS" to listOf(playable("VISIONOS", loudness = 5.0, seconds = "200")),
+                    "ANDROID_VR" to listOf(refused(botInFrench)),
+                    "IOS" to listOf(playable("IOS", loudness = 5.0, seconds = "200")),
+                ),
+                heads = mapOf("VISIONOS" to null, "IOS" to null),
+            )
+            val result = walk(script)
+            assertTrue("switched off from afar, nothing unchecked is played: ${result.getOrNull()?.streamUrl}", result.isFailure)
+        } finally {
+            RemoteRoutes.current = null
+        }
+    }
+
+    @Test
+    fun `after a request cut at its limit, the next client is asked on a new connection`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        // No second try within the limit: the cut itself is what is looked at.
+        RouteTimes.playerFreshMs = 10_000
+        RouteTimes.playerCapMs = 150
+        val script = Script(mapOf("VISIONOS" to listOf(Hang), "ANDROID_VR" to listOf(playable("ANDROID_VR", loudness = 3.0, seconds = "201"))))
+        walk(script).getOrThrow()
+
+        assertEquals(listOf("VISIONOS", "ANDROID_VR"), script.askedOf)
+        assertEquals("the connection the cut request was on is not trusted with the next one", listOf("ANDROID_VR"), script.freshTries.toList())
+        assertEquals("the idle ones beside it are let go", 1, script.cuts)
+
+        // The quiet retry a moment later goes out fresh too, outside the second tries' budget.
+        val retry = Script(mapOf("ANDROID_VR" to listOf(playable("ANDROID_VR", loudness = 3.0, seconds = "201"))))
+        walk(retry).getOrThrow()
+        assertEquals(listOf("ANDROID_VR"), retry.freshTries.toList())
+    }
+
+    @Test
+    fun `a network found slow stays slow for the next song`() {
+        YTPlayerUtils.identitiesInChain = true
+        remembering("VISIONOS", "ANDROID_VR")
+        RouteTimes.playerCapMs = 120
+        RouteTimes.playerSlowCapMs = 1_000
+        fun slowly(name: String) = Late(180, playable(name, loudness = 5.0, seconds = "200"))
+        walk(Script(mapOf("VISIONOS" to listOf(Hang), "ANDROID_VR" to listOf(Hang), "VISIONOS_104" to listOf(slowly("VISIONOS_104"))))).getOrThrow()
+
+        val next = Script(listOf("ANDROID_VR", "VISIONOS", "VISIONOS_104", "VISIONOS_SAFARI", "IOS").associateWith { listOf<Any>(slowly(it)) })
+        walk(next).getOrThrow()
+        assertEquals("the first client asked is heard with the long limit", 1, next.askedOf.size)
+    }
+
+    @Test
+    fun `a client that is slow every time is not asked twice for every song`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        RouteTimes.playerFreshMs = 50
+        RouteTimes.playerCapMs = 2_000
+        fun slowButFine() = Script(mapOf("VISIONOS" to listOf(Late(150, playable("VISIONOS", loudness = 5.0, seconds = "200")))))
+        repeat(3) { walk(slowButFine()).getOrThrow() }
+        // A new minute: the budget is not what holds the second try back.
+        HedgeBudget.shared = HedgeBudget()
+        val last = slowButFine()
+        walk(last).getOrThrow()
+        assertEquals("after three slow answers that came, the second try waits longer", emptyList<String>(), last.freshTries.toList())
+    }
+
+    @Test
+    fun `a walk that runs out of time plays the VISIONOS address it kept rather than nothing`() {
+        // VISIONOS rests, so its silent check does not play at once: the walk goes on past it.
+        val now = System.currentTimeMillis()
+        YTPlayerUtils.streamMemory = Memory(null, mapOf("VISIONOS" to now - 60_000), mapOf("VISIONOS" to 1))
+        RouteTimes.headWaitMs = 200
+        val script = Script(
+            says = mapOf(
+                "VISIONOS" to listOf(playable("VISIONOS", loudness = 5.0, seconds = "200")),
+                "ANDROID_VR" to listOf(refused(botInFrench)),
+                "IOS" to listOf(playable("IOS", loudness = 5.0, seconds = "200")),
+            ),
+            headTakes = mapOf("VISIONOS" to 5_000L, "IOS" to 5_000L),
+        )
+        // Two silent checks of 200 ms each do not fit in 300 ms; the first left an address to play.
+        val data = runBlocking {
+            withinResolveTime(limitMs = 300) {
+                YTPlayerUtils.playerResponseForPlayback("TESTVIDEO01", null, AudioQuality.HIGH, connectivity, script)
+            }
+        }.getOrThrow()
+        assertTrue(data.streamUrl.startsWith("https://VISIONOS.example/"))
+        assertFalse(data.validated)
+    }
+
+    @Test
     fun `a route the player failed on for this song is asked last, and still asked`() {
         remembering("VISIONOS", "ANDROID_VR")
         val script = Script(
@@ -786,7 +987,10 @@ class ChainWalkTest {
         Throttle.trip("the test")
         val script = Script(mapOf("VISIONOS" to listOf(Hang), "ANDROID_VR" to listOf(playable("ANDROID_VR", loudness = 3.0, seconds = "201"))))
         walk(script).getOrThrow()
-        assertEquals(emptyList<String>(), script.freshTries.toList())
+        // Each client asked once. ANDROID_VR goes out on a new connection after the cut, which is
+        // a new handshake, not a second request: see poolSuspect.
+        assertEquals(listOf("VISIONOS", "ANDROID_VR"), script.askedOf)
+        assertFalse("VISIONOS" in script.freshTries)
     }
 
     /**
