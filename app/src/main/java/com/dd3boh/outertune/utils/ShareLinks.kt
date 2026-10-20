@@ -39,8 +39,8 @@ sealed interface ShareAction {
  * part to the page's host.
  */
 object ShareLinks {
-    /** Where the share page lives. Not public yet: until it is, Unreleased.SHARE_PAGE keeps the setting out of sight. */
-    const val PAGE = "https://itzskyeyt.github.io/InterTune/s/"
+    /** Where the share page lives: on the site since 20 Oct 2026. Unreleased.SHARE_PAGE still keeps the setting out of sight in release builds. */
+    const val PAGE = "https://intertune.app/s/"
 
     private val videoId = Regex("[A-Za-z0-9_-]{11}")
 
