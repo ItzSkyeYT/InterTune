@@ -444,11 +444,11 @@ object Unreleased {
      * picked, so a fault from before an update can still be sent (RunLogs, and the list in
      * ProblemReportDialog). Asked for on 13 Oct 2026 and again on 20 Oct, after 0.12.
      *
-     * Debug and preview builds only, until he has seen it on a phone. A release with it on writes
-     * up to [com.dd3boh.outertune.utils.RunLogs.KEEP] files of about a megabyte at most, kept out
-     * of backups.
+     * On in every build from 0.12.1, his word of 20 Oct 2026 ("include it 0.12.1"). It writes up
+     * to [com.dd3boh.outertune.utils.RunLogs.KEEP] files of about a megabyte at most, kept out of
+     * backups. Its seven strings wait for his yes before translators.
      */
-    val PREVIOUS_LOGS = BuildConfig.DEBUG
+    val PREVIOUS_LOGS = true
 
     /**
      * Casting to Chromecasts, FCast receivers and DLNA renderers, with the phone serving the audio
