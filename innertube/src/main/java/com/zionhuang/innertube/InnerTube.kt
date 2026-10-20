@@ -97,6 +97,16 @@ class InnerTube {
             requestTimeoutMillis = 30_000
         }
 
+        // A connection left idle is not used again after a few seconds. One the network dropped
+        // without a word took the next request and never answered, so a song waited the whole
+        // timeout and then failed with "unexpected error" (his phone, 20 Oct 2026); a new
+        // connection answered at once.
+        engine {
+            config {
+                connectionPool(okhttp3.ConnectionPool(5, 5, java.util.concurrent.TimeUnit.SECONDS))
+            }
+        }
+
         if (proxy != null) {
             engine {
                 proxy = this@InnerTube.proxy
