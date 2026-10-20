@@ -87,6 +87,7 @@ class ChainWalkTest {
         YTPlayerUtils.onLateRefusal = { id, client -> lateRefusals += "$id $client" }
         RouteTimes.reset()
         HedgeBudget.shared = HedgeBudget()
+        YTPlayerUtils.forgetWarming()
     }
 
     /** What the checks that answered after the walk went on reported: "video client". */
@@ -260,6 +261,13 @@ class ChainWalkTest {
 
         override fun warmSolver() {
             warmed++
+        }
+
+        /** How often the web client was got ready because VISIONOS rests or comes after it. */
+        var webWarmed = 0
+
+        override fun warmWeb() {
+            webWarmed++
         }
 
         override fun signatureTimestamp(videoId: String): Int? = TIMESTAMP
@@ -1287,6 +1295,28 @@ class ChainWalkTest {
         solver = solving,
         canSolve = true,
     )
+
+    @Test
+    fun `while VISIONOS rests the web client is got ready, once in ten minutes, and not while VISIONOS serves`() {
+        remembering("VISIONOS_104", "ANDROID_VR", "VISIONOS")
+        YTPlayerUtils.identitiesInChain = true
+        fun script() = Script(
+            says = mapOf("VISIONOS_104" to listOf(playable("VISIONOS_104", loudness = 5.0, seconds = "200"))),
+            canSolve = true,
+        )
+        val first = script()
+        walk(first).getOrThrow()
+        assertEquals(1, first.webWarmed)
+        val second = script()
+        walk(second).getOrThrow()
+        assertEquals("not again so soon", 0, second.webWarmed)
+
+        YTPlayerUtils.forgetWarming()
+        remembering("VISIONOS", "ANDROID_VR")
+        val serves = Script(says = mapOf("VISIONOS" to listOf(playable("VISIONOS", loudness = 5.0, seconds = "200"))), canSolve = true)
+        walk(serves).getOrThrow()
+        assertEquals(0, serves.webWarmed)
+    }
 
     @Test
     fun `a song VISIONOS serves costs what it always did with the web client in the chain`() {

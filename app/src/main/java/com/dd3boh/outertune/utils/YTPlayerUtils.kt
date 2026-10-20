@@ -285,6 +285,9 @@ object YTPlayerUtils {
 
         /** Starts getting the solver ready, for a web client whose turn is a pass away: see [warmWebClient]. Does not wait. */
         fun warmSolver()
+
+        /** Gets the web client ready, po tokens too, the day it may be needed: see [webMayBeNeeded]. Does not wait. */
+        fun warmWeb() {}
     }
 
     private object Live : Wire {
@@ -348,6 +351,8 @@ object YTPlayerUtils {
         override fun canSolve(): Boolean = solverIsInThisBuild
 
         override fun warmSolver() = warmWebClient(tokensToo = false)
+
+        override fun warmWeb() = warmWebClient(tokensToo = true)
     }
 
     /** Looked up once: the solver's two files are in a build or they are not. */
@@ -1058,6 +1063,25 @@ object YTPlayerUtils {
     @Volatile
     var onLateRefusal: ((videoId: String, client: String) -> Unit)? = null
 
+    /** When the web client was last got ready because it may be needed: once every 10 minutes at most. */
+    @Volatile
+    private var webWarmedAt = 0L
+
+    private fun webMayBeNeeded(order: List<String>): Boolean {
+        val now = System.currentTimeMillis()
+        val web = order.indexOf(WEB_FALLBACK_CLIENT.clientName)
+        val visionos = order.indexOf(VISIONOS.clientName)
+        val wanted = StreamOrder.isResting(streamMemory, VISIONOS.clientName, now) || (web >= 0 && (visionos < 0 || web < visionos))
+        if (!wanted || now - webWarmedAt in 0 until 10 * 60 * 1000L) return false
+        webWarmedAt = now
+        return true
+    }
+
+    /** For the tests, each of which starts as a new process does. */
+    internal fun forgetWarming() {
+        webWarmedAt = 0L
+    }
+
     /** The name the walk, the trail and StreamOrder know [client] by. */
     private fun labelOf(client: YouTubeClient, isLoggedIn: Boolean): String {
         // An identity of VISIONOS by its own name: to YouTube it is VISIONOS, here it is not the same entry.
@@ -1169,6 +1193,10 @@ object YTPlayerUtils {
             if (written.distinct().size != written.size) playerClients
             else StreamOrder.order(written, streamMemory, System.currentTimeMillis(), hasVisitorData)
                 .map { playerClients[written.indexOf(it)] }
+        // The day VISIONOS rests or the maintainer's block puts the web client before it, the web
+        // client is got ready now, so its first song does not pay 4.4 s of cold WebView. Never
+        // otherwise: a WebView costs memory.
+        if (webInChain && webMayBeNeeded(playerClients.map { label(it) })) wire.warmWeb()
         // The routes the player failed on for this song lately, asked last and never left out:
         // see SongRoutes. A retry then starts somewhere else.
         val avoid = wish?.avoid.orEmpty()
@@ -2072,6 +2100,9 @@ object YTPlayerUtils {
         return NewPipeUtils.getStreamUrl(format, videoId)
             .onFailure {
                 reportException(it)
+                // What NewPipe failed to read it keeps for the life of the process: cleared, at
+                // most every 10 minutes, so the next song tries the script again.
+                if (it !is java.io.IOException && NewPipeUtils.clearAfterFailure()) Log.w(TAG, "[$videoId] the n step failed, NewPipe's player script is fetched again for the next song")
             }
             .getOrNull()
     }

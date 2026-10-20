@@ -201,6 +201,8 @@ import com.dd3boh.outertune.utils.codecsOrEmpty
 import com.dd3boh.outertune.utils.contentLengthOrZero
 import com.dd3boh.outertune.utils.SongVersions
 import com.dd3boh.outertune.utils.RemoteRoutes
+import com.dd3boh.outertune.utils.Warmup
+import com.zionhuang.innertube.NewPipeUtils
 import com.dd3boh.outertune.utils.RouteTimes
 import com.dd3boh.outertune.utils.StepLog
 import com.dd3boh.outertune.utils.StepTimedOut
@@ -1434,8 +1436,31 @@ class MusicService : MediaLibraryService(),
                     // Switched off: nothing waiting, held back or being worked out changes a radio after that.
                     if (!mode.isOn) dropPasses()
                 }
+            // NewPipe's player script fetched a few seconds after the start, when the first song
+            // would fetch it anyway: see Warmup.
+            scope.launch(Dispatchers.IO + SilentHandler) {
+                delay(Warmup.AFTER_MS)
+                val id = withContext(Dispatchers.Main) { activePlayer.currentMediaItem?.mediaId }
+                val queued = id?.let { queueBoard.getCurrentQueue()?.findSong(it) }
+                val network = connectivityManager.activeNetwork
+                val capabilities = network?.let { connectivityManager.getNetworkCapabilities(it) }
+                val warm = Warmup.newPipe(
+                    validated = capabilities?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true,
+                    dataSaver = connectivityManager.restrictBackgroundStatus == android.net.ConnectivityManager.RESTRICT_BACKGROUND_STATUS_ENABLED,
+                    unmetered = !connectivityManager.isActiveNetworkMetered,
+                    currentStreamed = id != null && queued?.isLocal != true &&
+                        !downloadCache.isCached(id, 0, 1) && !playerCache.isCached(id, 0, CHUNK_LENGTH),
+                    alreadyWarmed = false,
+                )
+                if (warm && id != null) {
+                    val started = SystemClock.elapsedRealtime()
+                    val done = NewPipeUtils.warm(id)
+                    Log.i(TAG, "NewPipe's player script ready ahead of the first song in ${StepLog.seconds(SystemClock.elapsedRealtime() - started)}: ${if (done.isSuccess) "ok" else "failed"}")
+                }
+            }
             // An address played before its check answered, and refused when the answer came: the
-            // player's next open of the song asks afresh. See StreamCheck.playsUnchecked.
+            // player's next open of the song asks afresh, and the route is asked last for it. See
+            // StreamCheck.playsUnchecked.
             YTPlayerUtils.onLateRefusal = { id, client ->
                 streamAddresses.playerFailedOn(id)
                 songRoutes.mark(id, client, SystemClock.elapsedRealtime())

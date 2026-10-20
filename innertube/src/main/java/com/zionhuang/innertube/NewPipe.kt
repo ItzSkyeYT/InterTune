@@ -76,8 +76,45 @@ object NewPipeUtils {
         NewPipe.init(NewPipeDownloaderImpl(YouTube.proxy))
     }
 
+    /**
+     * Held around every use of the player script, so that its first fetch is made once: a song
+     * that needs it while the warm-up is fetching it waits for that fetch instead of starting
+     * another. Once fetched, each use takes milliseconds.
+     */
+    private val scriptLock = Any()
+
+    @Volatile
+    private var clearedAt = 0L
+
     fun getSignatureTimestamp(videoId: String): Result<Int> = runCatching {
-        YoutubeJavaScriptPlayerManager.getSignatureTimestamp(videoId)
+        synchronized(scriptLock) { YoutubeJavaScriptPlayerManager.getSignatureTimestamp(videoId) }
+    }
+
+    /**
+     * Fetches YouTube's player script and compiles its n function ahead of the first song, with
+     * [videoId] for the page it is found through. Failures are the first song's to meet again.
+     */
+    fun warm(videoId: String): Result<Unit> = runCatching {
+        synchronized(scriptLock) {
+            YoutubeJavaScriptPlayerManager.getSignatureTimestamp(videoId)
+            YoutubeJavaScriptPlayerManager.getUrlWithThrottlingParameterDeobfuscated(
+                videoId, "https://rr1---sn-warm.googlevideo.com/videoplayback?n=aBcDeFgHiJkLmNoP",
+            )
+        }
+    }
+
+    /**
+     * NewPipeExtractor keeps a failure to read the player script for the life of the process, and
+     * every app client's address then fails to decipher until the app restarts. Cleared here,
+     * at most once every [everyMs], so the next song tries again. Returns whether it cleared.
+     */
+    fun clearAfterFailure(everyMs: Long = 10 * 60 * 1000L, now: Long = System.currentTimeMillis()): Boolean {
+        synchronized(scriptLock) {
+            if (clearedAt != 0L && now - clearedAt < everyMs) return false
+            clearedAt = now
+            YoutubeJavaScriptPlayerManager.clearAllCaches()
+            return true
+        }
     }
 
     fun getStreamUrl(format: PlayerResponse.StreamingData.Format, videoId: String): Result<String> =
@@ -90,18 +127,15 @@ object NewPipeUtils {
                     ?: throw ParsingException("Could not parse cipher signature parameter")
                 val url = params["url"]?.let { URLBuilder(it) }
                     ?: throw ParsingException("Could not parse cipher url")
-                url.parameters[signatureParam] =
-                    YoutubeJavaScriptPlayerManager.deobfuscateSignature(
-                        videoId,
-                        obfuscatedSignature
-                    )
+                url.parameters[signatureParam] = synchronized(scriptLock) {
+                    YoutubeJavaScriptPlayerManager.deobfuscateSignature(videoId, obfuscatedSignature)
+                }
                 url.toString()
             } ?: throw ParsingException("Could not find format url")
 
-            return@runCatching YoutubeJavaScriptPlayerManager.getUrlWithThrottlingParameterDeobfuscated(
-                videoId,
-                url
-            )
+            return@runCatching synchronized(scriptLock) {
+                YoutubeJavaScriptPlayerManager.getUrlWithThrottlingParameterDeobfuscated(videoId, url)
+            }
         }
 
 }
