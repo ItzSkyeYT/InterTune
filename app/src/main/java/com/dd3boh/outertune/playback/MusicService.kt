@@ -2366,13 +2366,7 @@ class MusicService : MediaLibraryService(),
                             PaceGuardDataSource.Factory(
                                 // Over the family the address was issued to, and a web client's
                                 // with its page's headers, as its check was made: see StreamFamily.Calls.
-                                OkHttpDataSource.Factory(
-                                    StreamFamily.Calls(
-                                        OkHttpClient.Builder()
-                                            .proxy(YouTube.proxy)
-                                            .build()
-                                    )
-                                )
+                                OkHttpDataSource.Factory(StreamFamily.Calls(StreamFamily.streamClient(YouTube.proxy)))
                             )
                         )
                     )
@@ -2689,7 +2683,7 @@ class MusicService : MediaLibraryService(),
                 // web client's with its page's headers. See StreamFamily.Calls.
                 directSource = DefaultDataSource.Factory(
                     this,
-                    OkHttpDataSource.Factory(StreamFamily.Calls(OkHttpClient.Builder().proxy(YouTube.proxy).build())),
+                    OkHttpDataSource.Factory(StreamFamily.Calls(StreamFamily.streamClient(YouTube.proxy))),
                 ),
                 isLocalFile = { id -> queueBoard.getCurrentQueue()?.findSong(id)?.isLocal == true },
                 fetchAac = { id ->
