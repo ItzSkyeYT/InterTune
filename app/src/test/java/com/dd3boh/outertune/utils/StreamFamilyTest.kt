@@ -214,16 +214,23 @@ class StreamFamilyTest {
     @Test
     fun `the check of a stream is made over the family its address was issued to`() {
         val utils = source("utils/YTPlayerUtils.kt")
-        val check = bodyOf(utils, "private fun streamStatus(")
-        assertTrue("the check does not go through StreamFamily: $check", "streamCalls.newCall(" in check)
+        // The check has calls of its own since 20 Oct 2026, short and with no pool, made over
+        // the families as the player's are.
+        val check = bodyOf(utils, "private suspend fun headTry(")
+        assertTrue("the check does not go through StreamFamily: $check", "checkCalls.newCall(" in check)
         assertFalse("the check still asks the plain client: $check", "httpClient.newCall(" in check)
+        assertTrue("checkCalls is not a StreamFamily.Calls", Regex("""checkCalls\s*=\s*StreamFamily\.Calls\(""").containsMatchIn(utils))
         assertTrue("streamCalls is not a StreamFamily.Calls", Regex("""streamCalls\s*=\s*StreamFamily\.Calls\(""").containsMatchIn(utils))
     }
 
     @Test
     fun `the player fetches a stream the way the check did`() {
-        val player = bodyOf(source("playback/MusicService.kt"), "private fun createCacheDataSource(")
-        assertTrue("the player's requests do not go through StreamFamily: $player", "OkHttpDataSource.Factory(StreamFamily.Calls(" in squeeze(player))
+        val service = source("playback/MusicService.kt")
+        val player = bodyOf(service, "private fun createCacheDataSource(")
+        assertTrue("the player's requests do not go through the calls it is given: $player", "OkHttpDataSource.Factory(calls)" in squeeze(player))
+        // Given the service's own, which the stall watch can cancel, and by default a new set.
+        assertTrue("calls:StreamFamily.Calls=StreamFamily.Calls(StreamFamily.streamClient(" in squeeze(service))
+        assertTrue("privatevalplayerCallsbylazy{StreamFamily.Calls(playerStreamClient)}" in squeeze(service))
     }
 
     @Test

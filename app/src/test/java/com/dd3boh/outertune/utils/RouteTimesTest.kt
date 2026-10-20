@@ -73,14 +73,14 @@ class RouteTimesTest {
         val service = File("src/main/java/com/dd3boh/outertune/playback/MusicService.kt").readText()
         val resolve = service.substringAfter("fun resolve(mediaId: String, position: Long, length: Long): ResolvedSong {")
             .substringBefore("val playbackData = played.data")
-        assertTrue(resolve.contains("withinResolveTime { standIns.playbackData("))
+        assertTrue(resolve.contains("withinResolveTime(context = wish) { standIns.playbackData("))
         assertTrue("a timeout of our own is a failure like any other", resolve.contains("catch (e: StepTimedOut)"))
     }
 
     @Test
     fun `the walk asks with a deadline, and our own cuts never reach the throttle`() {
         val walk = File("src/main/java/com/dd3boh/outertune/utils/YTPlayerUtils.kt").readText()
-        assertTrue(walk.contains("hedged(\"/player\", RouteTimes.playerFreshMs, capMs"))
+        assertTrue(walk.replace(Regex("""\s+"""), "").contains("hedged(\"/player\",RouteTimes.playerFreshMs,capMs"))
         assertTrue(walk.contains("StreamOrder.endsWalkAtOnce(failure)"))
         val throttle = File("src/main/java/com/dd3boh/outertune/utils/Throttle.kt").readText()
         assertTrue(throttle.substringAfter("fun noteFailure(t: Throwable) {").substringBefore("}").contains("t is StepTimedOut"))
