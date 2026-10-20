@@ -52,7 +52,51 @@ object StreamOrder {
      * that is one of those refusals growing old or [worked] failing, either of which asks the
      * chain.
      */
-    data class Memory(val worked: String? = null, val refusedAt: Map<String, Long> = emptyMap())
+    data class Memory(
+        val worked: String? = null,
+        val refusedAt: Map<String, Long> = emptyMap(),
+        /**
+         * How many strikes each refused client has, counted as [strikesNow] says. A client in
+         * [refusedAt] with none here was noted before strikes were counted: it rests the old
+         * [RETRY_REFUSED_MS], as it would have.
+         */
+        val strikes: Map<String, Int> = emptyMap(),
+    )
+
+    /** One strike: 30 min. Two: 2 h. Three or more: 6 h, today's [RETRY_REFUSED_MS] and never longer. */
+    val REST_MS = listOf(30 * 60 * 1000L, 2 * 60 * 60 * 1000L, RETRY_REFUSED_MS)
+
+    /** A strike is forgiven for each day without a new one. */
+    const val FORGIVE_MS = 24 * 60 * 60 * 1000L
+
+    /**
+     * The strikes [client] has at [now]: those noted, less one for each [FORGIVE_MS] since the
+     * last. A client noted before strikes were counted has one.
+     */
+    fun strikesNow(memory: Memory, client: String, now: Long): Int {
+        val at = memory.refusedAt[client] ?: return 0
+        val noted = memory.strikes[client] ?: 1
+        val days = if (now > at) (now - at) / FORGIVE_MS else 0
+        return (noted - days).toInt().coerceAtLeast(0)
+    }
+
+    /** How long [client] rests after its last strike. */
+    fun restMs(memory: Memory, client: String): Long {
+        val noted = memory.strikes[client] ?: return RETRY_REFUSED_MS
+        return REST_MS[(noted - 1).coerceIn(0, REST_MS.lastIndex)]
+    }
+
+    /**
+     * When [client] may be asked in its place again, while it rests at [now], or null when it
+     * does not rest. A refusal dated after [now] is not believed: see [order].
+     */
+    fun restsUntil(memory: Memory, client: String, now: Long): Long? {
+        val at = memory.refusedAt[client] ?: return null
+        val until = at + restMs(memory, client)
+        return until.takeIf { now - at in 0 until restMs(memory, client) }
+    }
+
+    fun isResting(memory: Memory, client: String, now: Long): Boolean = restsUntil(memory, client, now) != null
 
     /** One client's part in a walk: whether its stream passed the check, and whether it was asked as the account. */
     class Asked(val client: String, val worked: Boolean, val asAccount: Boolean = false)
@@ -75,9 +119,7 @@ object StreamOrder {
     fun order(chain: List<String>, memory: Memory, now: Long, hasVisitorData: Boolean = true): List<String> {
         val worked = memory.worked?.takeIf { it in chain } ?: return chain
         if (!hasVisitorData) return chain
-        val resting = chain.takeWhile { it != worked }.all { client ->
-            memory.refusedAt[client]?.let { now - it in 0 until RETRY_REFUSED_MS } == true
-        }
+        val resting = chain.takeWhile { it != worked }.all { client -> isResting(memory, client, now) }
         return if (resting) listOf(worked) + (chain - worked) else chain
     }
 
@@ -97,36 +139,60 @@ object StreamOrder {
     fun remember(memory: Memory, asked: List<Asked>, now: Long): Memory {
         var worked = memory.worked
         val refusedAt = memory.refusedAt.toMutableMap()
+        val strikes = memory.strikes.toMutableMap()
         for (step in asked) {
             if (step.asAccount) continue
             if (step.worked) {
+                // A pass clears every strike.
                 worked = step.client
                 refusedAt.remove(step.client)
+                strikes.remove(step.client)
             } else {
+                // One more strike on what is left after the days without one.
+                val before = strikesNow(Memory(worked, refusedAt, strikes), step.client, now)
                 refusedAt[step.client] = now
+                strikes[step.client] = before + 1
             }
         }
-        return Memory(worked, refusedAt)
+        return Memory(worked, refusedAt, strikes)
     }
+
+    /**
+     * Whether a client's answer says something of the client and not only of the song, and so is
+     * a strike: the bot check or LOGIN_REQUIRED, a refused address, "no address", an HTTP error.
+     * A song YouTube calls gone, region locked or age gated is the song's, and says nothing of
+     * whether the client serves; neither does a timeout, which never reaches here.
+     */
+    fun strikes(reason: String?): Boolean = !StreamCheck.saysGone(reason) && !Throttle.looksLikeAgeGate(reason)
 
     private val CLIENT_NAME = Regex("""[A-Za-z0-9_]{1,40}""")
 
     /** [memory] as one line for the settings: the client that worked, then "name=time" for each refusal. */
     fun encode(memory: Memory): String {
         if (memory.worked == null && memory.refusedAt.isEmpty()) return ""
-        val refusals = memory.refusedAt.toSortedMap().map { (client, at) -> "$client=$at" }
+        // "name=time:strikes". A version before strikes reads "time:strikes" as no time, drops
+        // the part, and starts with less memory, which is safe.
+        val refusals = memory.refusedAt.toSortedMap().map { (client, at) ->
+            "$client=$at" + (memory.strikes[client]?.let { ":$it" } ?: "")
+        }
         return (listOf(memory.worked.orEmpty()) + refusals).joinToString(";")
     }
 
     /** What [encode] wrote. A part that does not read as a client's name or a time is dropped, not guessed at. */
     fun decode(stored: String?): Memory {
         val fields = stored?.split(';') ?: return Memory()
+        val strikes = mutableMapOf<String, Int>()
         val refusedAt = fields.drop(1).mapNotNull { field ->
             val client = field.substringBefore('=', "").takeIf { CLIENT_NAME.matches(it) }
-            val at = field.substringAfter('=', "").toLongOrNull()
-            if (client != null && at != null) client to at else null
+            val value = field.substringAfter('=', "")
+            val at = value.substringBefore(':').toLongOrNull()
+            val count = if (':' in value) value.substringAfter(':').toIntOrNull()?.takeIf { it in 1..99 } else null
+            if (client != null && at != null && (':' !in value || count != null)) {
+                count?.let { strikes[client] = it }
+                client to at
+            } else null
         }.toMap()
-        return Memory(fields.first().takeIf { CLIENT_NAME.matches(it) }, refusedAt)
+        return Memory(fields.first().takeIf { CLIENT_NAME.matches(it) }, refusedAt, strikes)
     }
 
     /**

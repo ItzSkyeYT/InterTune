@@ -533,6 +533,7 @@ class ChainWalkTest {
             while (lateRefusals.size < told.size && System.nanoTime() < until) Thread.sleep(20)
             Thread.sleep(400)
             assertEquals("late $late", told, lateRefusals.toList())
+            assertEquals("a late refusal is a strike", if (late == 403) 1 else null, YTPlayerUtils.streamMemory.strikes["VISIONOS"])
         }
     }
 
@@ -631,6 +632,56 @@ class ChainWalkTest {
         assertEquals("without a wish, the usual pick", 251, walkWanting(null).format.itag)
         assertEquals(140, walkWanting(140 to 2_000_000L).format.itag)
         assertEquals("another length is another stream: the usual pick", 251, walkWanting(140 to 1_999_999L).format.itag)
+    }
+
+    @Test
+    fun `VISIONOS resting after a strike is asked after its other names, and in its place once its half hour is over`() {
+        YTPlayerUtils.identitiesInChain = true
+        val now = System.currentTimeMillis()
+        val serves = mapOf(
+            "ANDROID_VR" to listOf(refused(botInFrench)),
+            "VISIONOS" to listOf(playable("VISIONOS", loudness = 5.0, seconds = "200")),
+            "VISIONOS_104" to listOf(playable("VISIONOS_104", loudness = 5.0, seconds = "200")),
+        )
+        YTPlayerUtils.streamMemory = Memory("VISIONOS_104", mapOf("ANDROID_VR" to now - 60_000, "VISIONOS" to now - 60_000), mapOf("ANDROID_VR" to 3, "VISIONOS" to 1))
+        val resting = Script(serves)
+        walk(resting).getOrThrow()
+        assertEquals(listOf("VISIONOS_104"), resting.askedOf)
+
+        YTPlayerUtils.streamMemory = Memory("VISIONOS_104", mapOf("ANDROID_VR" to now - 60_000, "VISIONOS" to now - 31 * 60_000), mapOf("ANDROID_VR" to 3, "VISIONOS" to 1))
+        val rested = Script(serves)
+        walk(rested).getOrThrow()
+        assertEquals(listOf("ANDROID_VR", "VISIONOS"), rested.askedOf)
+        assertEquals("it served again, and its strike is gone", null, YTPlayerUtils.streamMemory.strikes["VISIONOS"])
+    }
+
+    @Test
+    fun `a song a client calls gone is no strike against it`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        val gone = refused("This video is not available", status = "UNPLAYABLE")
+        walk(Script(mapOf("VISIONOS" to listOf(gone), "ANDROID_VR" to listOf(refused(botInFrench)), "IOS" to listOf(gone))))
+        assertFalse("VISIONOS" in YTPlayerUtils.streamMemory.refusedAt.keys)
+        assertFalse("IOS" in YTPlayerUtils.streamMemory.refusedAt.keys)
+    }
+
+    @Test
+    fun `a resting VISIONOS whose check did not answer is still played when no client's check passes, never IOS's`() {
+        val now = System.currentTimeMillis()
+        YTPlayerUtils.streamMemory = Memory("IOS", mapOf("ANDROID_VR" to now - 60_000, "VISIONOS" to now - 60_000), mapOf("ANDROID_VR" to 3, "VISIONOS" to 1))
+        val script = Script(
+            says = mapOf(
+                "IOS" to listOf(playable("IOS", loudness = 5.0, seconds = "200")),
+                "ANDROID_VR" to listOf(refused(botInFrench)),
+                "VISIONOS" to listOf(playable("VISIONOS", loudness = 5.0, seconds = "200")),
+            ),
+            heads = mapOf("IOS" to null, "VISIONOS" to null),
+        )
+        val data = walk(script).getOrThrow()
+
+        assertEquals(listOf("IOS", "ANDROID_VR", "VISIONOS"), script.askedOf)
+        assertTrue(data.streamUrl.startsWith("https://VISIONOS.example/"))
+        assertFalse(data.validated)
+        assertEquals("IOS OK, HEAD failed, ANDROID_VR LOGIN_REQUIRED, VISIONOS OK, HEAD failed, played unchecked", YTPlayerUtils.lastStreamTrail)
     }
 
     /**

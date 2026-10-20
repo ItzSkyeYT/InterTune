@@ -135,7 +135,8 @@ class StreamOrderTest {
             listOf(Asked("ANDROID_VR", worked = false), Asked("VISIONOS", worked = true)),
             noon,
         )
-        assertEquals(today, after)
+        // And how many strikes the refused one has: one, so it rests half an hour.
+        assertEquals(today.copy(strikes = mapOf("ANDROID_VR" to 1)), after)
     }
 
     @Test
@@ -153,7 +154,7 @@ class StreamOrderTest {
             later,
         )
         // ANDROID_VR's old refusal is forgotten with it.
-        assertEquals(Memory("ANDROID_VR", mapOf("VISIONOS" to later)), after)
+        assertEquals(Memory("ANDROID_VR", mapOf("VISIONOS" to later), mapOf("VISIONOS" to 1)), after)
         assertEquals(chain, StreamOrder.order(chain, after, later + 1))
     }
 
@@ -165,7 +166,11 @@ class StreamOrderTest {
             listOf(Asked("VISIONOS", false), Asked("ANDROID_VR", false), Asked("IOS", false)),
             later,
         )
-        assertEquals(Memory("VISIONOS", mapOf("ANDROID_VR" to later, "VISIONOS" to later, "IOS" to later)), after)
+        // ANDROID_VR's refusal of before strikes was its first.
+        assertEquals(
+            Memory("VISIONOS", mapOf("ANDROID_VR" to later, "VISIONOS" to later, "IOS" to later), mapOf("ANDROID_VR" to 2, "VISIONOS" to 1, "IOS" to 1)),
+            after,
+        )
         assertEquals(listOf("VISIONOS", "ANDROID_VR", "IOS"), StreamOrder.order(chain, after, later + 1))
     }
 
@@ -217,7 +222,10 @@ class StreamOrderTest {
             now += 4 * 60 * 1000L
         }
         assertEquals(360, songs)
-        assertEquals(4, refusedRequests)
+        // At noon, then after 30 min, 2 h and every 6 h: a refusal that was a blip would have
+        // been over in half an hour, and a closed client costs two requests a day more than the
+        // flat six hours did.
+        assertEquals(6, refusedRequests)
     }
 
     @Test
@@ -286,6 +294,57 @@ class StreamOrderTest {
         // YouTube answered, with something this client cannot use: the others are still asked.
         assertFalse(StreamOrder.networkDidNotAnswer(IllegalStateException("Client request invalid: 400")))
         assertFalse(StreamOrder.networkDidNotAnswer(null))
+    }
+
+    @Test
+    fun `strikes rest a client 30 minutes, then 2 hours, then 6 hours, and never longer`() {
+        var memory = Memory()
+        val rests = (1..4).map { n ->
+            memory = StreamOrder.remember(memory, listOf(Asked("VISIONOS", worked = false)), noon + n)
+            StreamOrder.restsUntil(memory, "VISIONOS", noon + n)!! - (noon + n)
+        }
+        assertEquals(listOf(30 * 60_000L, 2 * 3_600_000L, 6 * 3_600_000L, 6 * 3_600_000L), rests)
+        assertEquals(4, memory.strikes["VISIONOS"])
+        assertFalse(StreamOrder.isResting(memory, "VISIONOS", noon + 4 + 6 * 3_600_000L))
+    }
+
+    @Test
+    fun `a pass clears every strike, and a day without one forgives one`() {
+        var memory = Memory()
+        repeat(3) { memory = StreamOrder.remember(memory, listOf(Asked("VISIONOS", worked = false)), noon) }
+        assertEquals(3, StreamOrder.strikesNow(memory, "VISIONOS", noon))
+        assertEquals(2, StreamOrder.strikesNow(memory, "VISIONOS", noon + StreamOrder.FORGIVE_MS))
+        val later = noon + StreamOrder.FORGIVE_MS
+        memory = StreamOrder.remember(memory, listOf(Asked("VISIONOS", worked = false)), later)
+        assertEquals("two left and one more", 3, memory.strikes["VISIONOS"])
+        memory = StreamOrder.remember(memory, listOf(Asked("VISIONOS", worked = true)), later + 1)
+        assertEquals(null, memory.strikes["VISIONOS"])
+        assertFalse(StreamOrder.isResting(memory, "VISIONOS", later + 2))
+        assertEquals("VISIONOS", memory.worked)
+    }
+
+    @Test
+    fun `a song that is gone, region locked or age gated is no strike, the bot check and a refusal are`() {
+        assertFalse(StreamOrder.strikes("This video is not available"))
+        assertFalse(StreamOrder.strikes("The uploader has not made this video available in your country"))
+        assertFalse(StreamOrder.strikes("Sign in to confirm your age"))
+        assertTrue(StreamOrder.strikes("Sign in to confirm you’re not a bot"))
+        assertTrue(StreamOrder.strikes(null))
+    }
+
+    @Test
+    fun `what was stored before strikes rests six hours as it would have, and the new form comes back whole`() {
+        val old = StreamOrder.decode("VISIONOS;ANDROID_VR=$noon")
+        assertEquals(emptyMap<String, Int>(), old.strikes)
+        assertTrue(StreamOrder.isResting(old, "ANDROID_VR", noon + wait - 1))
+        assertFalse(StreamOrder.isResting(old, "ANDROID_VR", noon + wait))
+
+        val struck = StreamOrder.remember(old, listOf(Asked("VISIONOS", worked = false), Asked("IOS", worked = false)), noon)
+        val stored = StreamOrder.encode(struck)
+        assertEquals("ANDROID_VR has no count and none is made up for it", "VISIONOS;ANDROID_VR=$noon;IOS=$noon:1;VISIONOS=$noon:1", stored)
+        assertEquals(struck, StreamOrder.decode(stored))
+        // A part that does not read whole is dropped, not guessed at.
+        assertEquals(Memory(null, mapOf("IOS" to noon), mapOf("IOS" to 2)), StreamOrder.decode(";VISIONOS=$noon:x;IOS=$noon:2;TV=$noon:0"))
     }
 
     @Test

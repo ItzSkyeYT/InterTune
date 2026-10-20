@@ -3854,6 +3854,9 @@ class MusicService : MediaLibraryService(),
             Log.w(TAG, "PLAYING: [$id] $why, no recovery left: the player's own retries go on")
             return
         }
+        // A refusal of an address that passed its check is the route's own doing: a strike, so
+        // the next songs start elsewhere too. See StreamOrder.REST_MS.
+        if (refused && streamAddresses.wasChecked(id)) YTPlayerUtils.strike(route, why)
         streamAddresses.playerFailedOn(id)
         songRoutes.mark(id, route, now)
         Log.w(TAG, StepLog.loadFailed(id, why, route))

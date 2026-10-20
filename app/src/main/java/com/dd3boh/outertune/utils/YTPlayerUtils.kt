@@ -356,16 +356,39 @@ object YTPlayerUtils {
     }
 
     /** Adds what one pass learned to [streamMemory], and hands it on to be stored if that changed it. */
-    private fun rememberAsked(asked: List<StreamOrder.Asked>) {
+    private fun rememberAsked(asked: List<StreamOrder.Asked>, why: String = "refused") {
         if (asked.isEmpty()) return
-        val changed = synchronized(this) {
+        val now = System.currentTimeMillis()
+        val (before, changed) = synchronized(this) {
             val before = streamMemory
-            val after = StreamOrder.remember(before, asked, System.currentTimeMillis())
+            val after = StreamOrder.remember(before, asked, now)
             if (after == before) return
             streamMemory = after
-            after
+            before to after
+        }
+        // Each new strike says how long its client now rests: see StreamOrder.REST_MS.
+        for (client in changed.strikes.keys) {
+            val strikes = changed.strikes[client] ?: continue
+            if (before.strikes[client] == strikes && before.refusedAt[client] == changed.refusedAt[client]) continue
+            StreamOrder.restsUntil(changed, client, now)?.let { until -> Log.i(TAG, StepLog.rests(client, clockOf(until), strikes, why)) }
         }
         onStreamMemoryChanged?.invoke(StreamOrder.encode(changed))
+    }
+
+    private fun clockOf(at: Long): String = java.text.SimpleDateFormat("HH:mm", java.util.Locale.ROOT).format(java.util.Date(at))
+
+    /**
+     * A strike on [label] from outside the walk: its address, passed or played unchecked, was
+     * refused later, by the late check or by the player within the song. Returns how long the
+     * client now rests, in words, for the log. The walk only ever heard the check, so a client
+     * whose addresses the player was refused stayed first song after song (FAILURE-MAP H).
+     */
+    fun strike(label: String, why: String): String? {
+        rememberAsked(listOf(StreamOrder.Asked(label, worked = false)), why)
+        val memory = streamMemory
+        val strikes = memory.strikes[label] ?: return null
+        val minutes = StreamOrder.restMs(memory, label) / 60_000
+        return (if (minutes >= 60) "${minutes / 60} h" else "$minutes min") + " ($strikes ${if (strikes == 1) "strike" else "strikes"})"
     }
 
     /**
@@ -1034,7 +1057,7 @@ object YTPlayerUtils {
 
     /** Whether an address of [label] whose check did not answer may go to the player. */
     private fun mayPlayUnchecked(label: String): Boolean =
-        StreamCheck.playsUnchecked(label, resting = false, allowedRemotely = true)
+        StreamCheck.playsUnchecked(label, resting = StreamOrder.isResting(streamMemory, label, System.currentTimeMillis()), allowedRemotely = true)
 
     /** Waits out the check of an address played unchecked: a refusal arriving late forgets it. */
     private fun watchLate(videoId: String, unchecked: Unchecked) {
@@ -1043,7 +1066,8 @@ object YTPlayerUtils {
             val late = check.await() ?: return@launch
             when (StreamCheck.verdict(late)) {
                 StreamCheck.Verdict.REFUSED -> {
-                    Log.w(TAG, StepLog.lateRefusal(videoId, unchecked.label, late, null))
+                    val rest = strike(unchecked.label, "late HEAD $late")
+                    Log.w(TAG, StepLog.lateRefusal(videoId, unchecked.label, late, rest))
                     onLateRefusal?.invoke(videoId, unchecked.label)
                 }
                 else -> Log.i(TAG, StepLog.lateAnswer(videoId, unchecked.label, late))
@@ -1410,7 +1434,11 @@ object YTPlayerUtils {
                 Log.d(TAG, "[$videoId] $clientLabel: the request failed, ${StreamCheck.failureForLog(failure)}")
             }
             // Noted as having given no stream, until its url passes the check below.
-            if (streamPlayerResponse != null) asked += StreamOrder.Asked(clientLabel, worked = false, asAccount)
+            // A song YouTube calls gone, region locked or age gated says nothing of the client:
+            // no strike. See StreamOrder.strikes.
+            if (streamPlayerResponse != null && StreamOrder.strikes(streamPlayerResponse?.playabilityStatus?.reason)) {
+                asked += StreamOrder.Asked(clientLabel, worked = false, asAccount)
+            }
             if (!isMain && !isTrial) streamPlayerResponse?.rememberBlock()
 
             if (isMain) {
@@ -1497,6 +1525,8 @@ object YTPlayerUtils {
                         else -> StreamCheck.NOT_DECIPHERED
                     }
                     trail[trail.lastIndex] = StreamCheck.trailStep(clientLabel, "OK", null, checked = false, lacking = lacking)
+                    // An n step that did not answer is the connection's, not the client's: no strike.
+                    if (decipherUnanswered && asked.lastOrNull()?.client == clientLabel) asked.removeAt(asked.lastIndex)
                     Log.w(TAG, "[$videoId] [${client.clientName}] answered OK, $lacking")
                     continue
                 }
