@@ -26,6 +26,7 @@
 
 ## Fixed
 
+- On a Samsung phone, an update that Auto Blocker stops no longer looks like nothing happened: the update prompt says so, opens Auto Blocker for you, and keeps the download for the next try. Still on an older version? Turn Auto Blocker off for a moment under Settings > Security and privacy > Auto Blocker to install this one, then back on if you like.
 - **"What's playing?"** recognises songs that are sped up or slowed down when you tap **Listen once**: when Shazam knows nothing of what it heard, it asks again with the sound put back to its usual speed.
 - Signed in, songs only an account may play, such as age-restricted ones, play again: they are asked through YouTube Music's web client, which YouTube still answers.
 - Signing in no longer stops on "Webpage not available" when Google ends the sign-in with a link to the YouTube Music app (#28).
