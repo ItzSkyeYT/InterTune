@@ -72,4 +72,26 @@ class StallWatchTest {
         assertEquals(listOf(6_000L to Action.CUT_CONNECTION), watch.run(10) { now -> tick(now) })
         assertEquals(listOf(17_000L to Action.CUT_CONNECTION), watch.run(10, from = 11_000) { now -> tick(now, song = "next") })
     }
+
+    @Test
+    fun `a watch started again after a pause or a quiet retry counts from then, not from the old silence`() {
+        val watch = StallWatch()
+        // Five silent seconds, then no ticks: the person paused, or the player stopped on an error.
+        assertEquals(emptyList<Pair<Long, Action>>(), watch.run(5) { now -> tick(now) })
+        // Forty seconds later it buffers and wants to play again, still with nothing coming in.
+        val after = watch.run(20, from = 45_000) { now -> tick(now) }
+        assertEquals(listOf(51_000L to Action.CUT_CONNECTION, 57_000L to Action.CHANGE_ROUTE, 63_000L to Action.GIVE_UP), after)
+    }
+
+    @Test
+    fun `a new route's resolve in the middle of a stall does not start the count again`() {
+        val actions = StallWatch().run(30) { now -> tick(now, resolving = now in 13_000L..15_000L) }
+        assertEquals(listOf(6_000L to Action.CUT_CONNECTION, 12_000L to Action.CHANGE_ROUTE, 22_000L to Action.GIVE_UP), actions)
+    }
+
+    @Test
+    fun `bytes from the new route after its resolve start the count again`() {
+        val actions = StallWatch().run(30) { now -> tick(now, resolving = now in 13_000L..15_000L, bytes = if (now >= 16_000L) 5 else 0) }
+        assertEquals(listOf(6_000L to Action.CUT_CONNECTION, 12_000L to Action.CHANGE_ROUTE, 22_000L to Action.CUT_CONNECTION, 28_000L to Action.CHANGE_ROUTE), actions)
+    }
 }

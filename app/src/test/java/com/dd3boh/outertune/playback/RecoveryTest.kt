@@ -104,4 +104,16 @@ class RecoveryTest {
         assertNull("eight in all", budget.take("b", 600_004))
         assertEquals(1, budget.take("b", 1_200_004))
     }
+
+    @Test
+    fun `the failure a cut of ours brings is not the route's`() {
+        val loads = Recovery.LoadFailures()
+        val reset = HttpDataSource.HttpDataSourceException(SocketTimeoutException("timeout"), spec, PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT, HttpDataSource.HttpDataSourceException.TYPE_READ)
+        assertEquals(Recovery.Decision.RETRY, loads.decide("song", reset, 0))
+        loads.cutByUs("song", 6_000)
+        assertEquals("the cut's own failure", Recovery.Decision.IGNORE, loads.decide("song", reset, 6_010))
+        assertEquals("a real one after it still counts", Recovery.Decision.CHANGE_ROUTE, loads.decide("song", reset, 9_000))
+        loads.cutByUs("song", 20_000)
+        assertEquals("a refusal is never ours", Recovery.Decision.CHANGE_ROUTE, loads.decide("song", refused(403), 20_010))
+    }
 }

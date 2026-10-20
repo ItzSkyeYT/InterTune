@@ -44,35 +44,75 @@ class StallWatch(private val stallMs: Long = RouteTimes.STALL_MS) {
 
     private var song: String? = null
     private var lastBytes = -1L
-    private var quietSince: Long? = null
+    private var lastTickAt: Long? = null
+
+    /** When the silence began, for the log. */
+    private var silentSince: Long? = null
+
+    /** When the current step began: the next one comes [stallMs] after it. */
+    private var stepSince: Long? = null
     private var stage = 0
 
     /** How long the song has been silent, for the log. */
-    fun silentMs(now: Long): Long = quietSince?.let { now - it } ?: 0
+    fun silentMs(now: Long): Long = silentSince?.let { now - it } ?: 0
 
-    private fun watched(t: Tick) =
-        t.allowed && t.songId != null && t.wantsToPlay && t.buffering && t.streamed && !t.resolving &&
+    private fun watchedApartFromResolving(t: Tick) =
+        t.allowed && t.songId != null && t.wantsToPlay && t.buffering && t.streamed &&
             !t.casting && !t.waitingForNetwork && t.online
 
+    /** Forgets the silence counted so far: the watch is being started again. */
+    fun reset() {
+        lastTickAt = null
+        lastBytes = -1L
+        startAgain()
+    }
+
+    private fun startAgain() {
+        silentSince = null
+        stepSince = null
+        stage = 0
+    }
+
     fun tick(t: Tick): Action {
-        if (t.songId != song) {
+        // Ticks stop while the player is paused or stopped on an error. A count kept across that
+        // gap gave a song up a few seconds after play was pressed again, or right after its quiet
+        // retry, on a silence long over: a watch started again counts from then.
+        val gap = lastTickAt?.let { t.now - it > GAP_MS } ?: false
+        lastTickAt = t.now
+        if (t.songId != song || gap) {
             song = t.songId
-            quietSince = null
-            stage = 0
+            startAgain()
         }
-        if (!watched(t) || t.bytes != lastBytes) {
+        if (!watchedApartFromResolving(t) || t.bytes != lastBytes) {
             lastBytes = t.bytes
-            quietSince = if (watched(t)) t.now else null
-            stage = 0
+            startAgain()
+            if (watchedApartFromResolving(t) && !t.resolving) {
+                silentSince = t.now
+                stepSince = t.now
+            }
             return Action.NOTHING
         }
-        val since = quietSince ?: t.now.also { quietSince = it }
-        if (stage >= 3 || t.now - since < (stage + 1) * stallMs) return Action.NOTHING
+        if (t.resolving) {
+            // A new route being asked for, which has its own deadline: the clock stops and the
+            // step reached is kept. Starting again from nothing after every route change put the
+            // give-up at 40 to 55 s instead of 18.
+            stepSince = null
+            return Action.NOTHING
+        }
+        if (silentSince == null) silentSince = t.now
+        val since = stepSince ?: t.now.also { stepSince = it }
+        if (stage >= 3 || t.now - since < stallMs) return Action.NOTHING
         stage++
+        stepSince = t.now
         return when (stage) {
             1 -> Action.CUT_CONNECTION
             2 -> Action.CHANGE_ROUTE
             else -> Action.GIVE_UP
         }
+    }
+
+    companion object {
+        /** Ticks come once a second; a longer gap means the watch was stopped meanwhile. */
+        const val GAP_MS = 2_500L
     }
 }

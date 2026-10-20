@@ -100,6 +100,17 @@ object Recovery {
      */
     class LoadFailures(private val windowMs: Long = RouteTimes.LOAD_FAILURE_WINDOW_MS) {
         private val last = HashMap<String, Long>()
+        private val cut = HashMap<String, Long>()
+
+        /**
+         * The stall watch cut [id]'s connection at [now]: the failure that cut brings is ours,
+         * not the route's. Counted, it made a cut plus any blip a route change, and the budget
+         * ran out twice as fast as meant.
+         */
+        @Synchronized
+        fun cutByUs(id: String, now: Long) {
+            cut[id] = now
+        }
 
         @Synchronized
         fun decide(id: String?, error: IOException, now: Long): Decision {
@@ -107,6 +118,8 @@ object Recovery {
             val all = causes(error).toList()
             if (all.any { it is PlaybackException }) return Decision.IGNORE
             if (all.any { it is SlowStreamException }) return Decision.IGNORE
+            val cutAt = cut.remove(id)
+            if (cutAt != null && now - cutAt in 0 until CUT_ECHO_MS && status(error) == null) return Decision.IGNORE
             val code = status(error)
             if (code == 403 || code == 410) {
                 last.remove(id)
@@ -119,6 +132,11 @@ object Recovery {
             }
             last[id] = now
             return Decision.RETRY
+        }
+
+        companion object {
+            /** How long after a cut of ours the failure it brings may come. */
+            const val CUT_ECHO_MS = 5_000L
         }
     }
 

@@ -3909,6 +3909,8 @@ class MusicService : MediaLibraryService(),
         val wanted = player.playbackState == Player.STATE_BUFFERING && player.playWhenReady && !isCasting
         if (wanted && !stallWatching) {
             stallWatching = true
+            // A silence from before a pause or a quiet retry is not this one's.
+            stallWatch.reset()
             stallHandler.postDelayed(stallTick, 1_000L)
         } else if (!wanted && stallWatching) {
             stallWatching = false
@@ -3942,6 +3944,7 @@ class MusicService : MediaLibraryService(),
             StallWatch.Action.NOTHING -> Unit
             StallWatch.Action.CUT_CONNECTION -> {
                 // Media3's own retry then asks again at once, on a new connection, from the same byte.
+                loadFailures.cutByUs(id, now)
                 playerCalls.cancelInFlight()
                 Log.w(TAG, StepLog.stallCut(id, silentMs, activePlayer.currentPosition, 1, 3))
             }
@@ -3950,6 +3953,7 @@ class MusicService : MediaLibraryService(),
                 if (recoveryBudget.take(id, now) != null) {
                     streamAddresses.playerFailedOn(id)
                     songRoutes.mark(id, route, now)
+                    loadFailures.cutByUs(id, now)
                     playerCalls.cancelInFlight()
                     Log.w(TAG, StepLog.stallRoute(id, silentMs, activePlayer.currentPosition, route, 2, 3))
                 } else {

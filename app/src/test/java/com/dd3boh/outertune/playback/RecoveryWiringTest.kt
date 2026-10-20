@@ -59,4 +59,16 @@ class RecoveryWiringTest {
         assertTrue(service.contains("createCacheDataSource(playerCalls)"))
         assertEquals(2, Regex("""playerCalls\.cancelInFlight\(\)""").findAll(service).count())
     }
+
+    @Test
+    fun `a watch started again forgets the silence it counted before`() {
+        val start = body("private fun updateStallWatch(", "private fun watchStall(")
+        assertTrue(start.indexOf("stallWatch.reset()") in 0 until start.indexOf("stallHandler.postDelayed(stallTick, 1_000L)"))
+    }
+
+    @Test
+    fun `the stall watch's own cut is not counted as a failed load`() {
+        val cut = body("StallWatch.Action.CUT_CONNECTION ->", "StallWatch.Action.CHANGE_ROUTE ->")
+        assertTrue(cut.contains("loadFailures.cutByUs(id, now)"))
+    }
 }
