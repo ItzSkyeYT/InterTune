@@ -31,8 +31,8 @@
 
 <p><br><b>À savoir :</b></p>
 <ul>
-<li>Android 8 (Oreo) ou plus récent est pris en charge. L'appli peut fonctionner sous Android 7.x, sans garantie.</li>
-<li>InterTune est en bêta stable. Elle peut être votre lecteur principal, mais attendez-vous parfois à un bug, une fonction incomplète ou un comportement inattendu. Signalez ce que vous trouvez.</li>
+<li>Android 7.0 ou plus récent.</li>
+<li>Quelque chose ne marche pas ? Signalez-le depuis l'appli (Paramètres, À propos, Soumettre un rapport de bogue) ou sur GitHub.</li>
 <li>Problèmes et questions : <a href="https://github.com/ItzSkyeYT/InterTune/issues">https://github.com/ItzSkyeYT/InterTune/issues</a></li>
 </ul>
 

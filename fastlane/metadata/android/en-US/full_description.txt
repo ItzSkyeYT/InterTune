@@ -31,8 +31,8 @@
 
 <p><br><b>Notice:</b></p>
 <ul>
-<li>Android 8 (Oreo) and higher is supported. The app may work on Android 7.x, but that is not officially supported.</li>
-<li>InterTune is in a stable beta phase. It can certainly be used as your main music player, but expect the occasional bug, incomplete feature, or unexpected behaviour. Please report anything you find.</li>
+<li>Android 7.0 or later.</li>
+<li>Something not working? Please report it, from the app (Settings, About, Submit a bug report) or on GitHub.</li>
 <li>Issues and questions: <a href="https://github.com/ItzSkyeYT/InterTune/issues">https://github.com/ItzSkyeYT/InterTune/issues</a></li>
 </ul>
 
