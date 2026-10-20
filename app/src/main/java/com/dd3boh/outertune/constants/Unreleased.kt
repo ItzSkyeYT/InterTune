@@ -440,6 +440,17 @@ object Unreleased {
     val PROBLEM_REPORT = true
 
     /**
+     * Report a problem keeps a log of each time the app runs and lists them, the newest first and
+     * picked, so a fault from before an update can still be sent (RunLogs, and the list in
+     * ProblemReportDialog). Asked for on 13 Oct 2026 and again on 20 Oct, after 0.12.
+     *
+     * Debug and preview builds only, until he has seen it on a phone. A release with it on writes
+     * up to [com.dd3boh.outertune.utils.RunLogs.KEEP] files of about a megabyte at most, kept out
+     * of backups.
+     */
+    val PREVIOUS_LOGS = BuildConfig.DEBUG
+
+    /**
      * Casting to Chromecasts, FCast receivers and DLNA renderers, with the phone serving the audio
      * over a local HTTP server (the cast package, and CastSession, RemotePlayer and RoutedPlayer in
      * playback), reached from the output button under the player's controls.

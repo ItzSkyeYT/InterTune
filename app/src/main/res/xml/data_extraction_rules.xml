@@ -8,9 +8,15 @@
    An import from another service that is under way (library-import) is kept for the app being
    closed, not for another phone, and can run to megabytes that would count against that limit.
    It stays out of the cloud backup too. A transfer from one phone to another still carries it.
+
+   The app's own logs, one file per run for Report a problem (logs, RunLogs), belong to this phone
+   and stay out of both: up to some megabytes, and of no use on another phone.
 -->
 <data-extraction-rules>
     <cloud-backup>
+        <exclude
+            domain="file"
+            path="logs/" />
         <exclude
             domain="file"
             path="datastore/" />
@@ -34,6 +40,9 @@
             path="exoplayer_internal.db" />
     </cloud-backup>
     <device-transfer>
+        <exclude
+            domain="file"
+            path="logs/" />
         <exclude
             domain="file"
             path="./exoplayer" />

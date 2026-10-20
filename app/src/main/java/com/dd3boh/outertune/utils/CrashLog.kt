@@ -33,6 +33,8 @@ object CrashLog {
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             // Nothing in here may throw: this runs while the process is already going down.
             runCatching { file(appContext).writeText(report(thread, throwable)) }
+            // And in this run's log, for Report a problem's list of runs. See RunLogs.
+            runCatching { RunLogs.crashed(thread, ErrorText.of(throwable)) }
             previous?.uncaughtException(thread, throwable)
         }
     }

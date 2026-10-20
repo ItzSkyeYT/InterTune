@@ -1922,6 +1922,13 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="problem_report_copy">Copy</string>
     <string name="problem_report_copied">Copied</string>
     <string name="problem_report_close">Close</string>
+    <string name="problem_report_now">Now</string>
+    <string name="problem_report_went_wrong">%1$s · went wrong at %2$s</string>
+    <string name="problem_report_no_fault">%1$s · no fault noted</string>
+    <string name="problem_report_no_lines">%1$s · nothing written</string>
+    <string name="problem_report_none_then">Nothing that looks like a fault was noted that time. These are its last lines.</string>
+    <string name="problem_report_nothing_then">Nothing was written that time.</string>
+    <string name="problem_report_older">Show older</string>
     <!-- Casting, behind Unreleased.CASTING -->
     <string name="cast">Cast</string>
     <string name="cast_to">Cast to</string>

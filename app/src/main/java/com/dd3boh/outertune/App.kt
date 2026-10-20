@@ -62,6 +62,8 @@ import com.dd3boh.outertune.playback.ProximityProbe
 import com.dd3boh.outertune.playback.StandInMemory
 import com.dd3boh.outertune.utils.CoilBitmapLoader
 import com.dd3boh.outertune.utils.CrashLog
+import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.utils.RunLogs
 import com.dd3boh.outertune.utils.LocalArtworkPathKeyer
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.get
@@ -95,6 +97,8 @@ class App : Application(), SingletonImageLoader.Factory {
         CrashLog.install(this)
         // Before there is a player: what Media3 logs for itself names the phone's address too.
         PlayerLogger.install()
+        // This run's own lines, kept for Report a problem after the phone's log has moved on. See RunLogs.
+        if (Unreleased.PREVIOUS_LOGS) GlobalScope.launch(Dispatchers.IO) { RunLogs.start(this@App) }
         // Before anything can read a built-in key: until it has run they all read as empty.
         BuiltInKeys.verify(this)
 

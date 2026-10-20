@@ -1620,6 +1620,13 @@
     <string name="problem_report_copy">Copier</string>
     <string name="problem_report_copied">Copié</string>
     <string name="problem_report_close">Fermer</string>
+    <string name="problem_report_now">Maintenant</string>
+    <string name="problem_report_went_wrong">%1$s · erreur à %2$s</string>
+    <string name="problem_report_no_fault">%1$s · aucune erreur notée</string>
+    <string name="problem_report_no_lines">%1$s · rien d\'écrit</string>
+    <string name="problem_report_none_then">Aucune erreur n\'a été notée cette fois-là. Voici ses dernières lignes.</string>
+    <string name="problem_report_nothing_then">Rien n\'a été écrit cette fois-là.</string>
+    <string name="problem_report_older">Voir les plus anciens</string>
     <string name="welcome_back_title">Content de vous revoir</string>
     <string name="welcome_back_body">Voici les nouveautés depuis votre dernière visite.</string>
     <string name="welcome_back_everything">Ce qui a été ajouté récemment, et où le trouver.</string>
