@@ -322,7 +322,8 @@ internal class StandIns(
             // Only YouTube saying the stand-in is gone too sends the song back to be looked for,
             // and not while nothing YouTube says of that kind is believed. A refused stream or a
             // dropped connection says nothing of it, and the song fails as any other would.
-            if (played.exceptionOrNull() !is YTPlayerUtils.SongUnavailable || run.doubted()) return played.map { Played(it, known) }
+            if (played.exceptionOrNull() is YTPlayerUtils.SongUnavailable && run.doubted()) return turnedAway(played)
+            if (played.exceptionOrNull() !is YTPlayerUtils.SongUnavailable) return played.map { Played(it, known) }
             log("[$videoId] its stand-in $known is gone as well, asking for the song itself")
             dead += known
         }
@@ -340,7 +341,7 @@ internal class StandIns(
                 if (run.doubted()) "no search: ${GoneRun.LIMIT} songs in a row were called gone, which is not believed"
                 else "no search: looked for already since a stream last resolved"
             )
-            return failed
+            return if (run.doubted()) turnedAway(own) else failed
         }
         // Looked for these last days, and nothing was surely it: it fails as fast as it used to.
         if (known == null && StandInMemory.lookedInVain(StandInMemory.current, videoId, now())) {
@@ -393,8 +394,19 @@ internal class StandIns(
         }
         log("[$videoId] gone, and " + if (copies.isEmpty()) "none of ${found.size} results is surely the same recording" else "so is every copy of it that was found")
         noCopy(videoId)
-        return failed
+        // The song that makes the run too long to believe is the first said to be the connection.
+        return if (run.doubted()) turnedAway(failed) else failed
     }
+
+    /**
+     * A song called gone while the run of them is too long to believe ([GoneRun.doubted]): not
+     * the song, the connection, turned away in the words YouTube has for a song that is gone
+     * (issue #28). It fails as that, so that the player says so instead of "This video is not
+     * available" song after song, and nothing is looked for or noted. YouTube's words go with it,
+     * for the log.
+     */
+    private fun turnedAway(failed: Result<*>): Result<Played> =
+        Result.failure(YTPlayerUtils.ConnectionTurnedAway(failed.exceptionOrNull()?.message))
 
     /** A stream was had for [videoId] under [from]: the run is over, and what it noted stands. */
     private fun had(videoId: String, played: Result<YTPlayerUtils.PlaybackData>, from: String): Result<Played> {

@@ -133,6 +133,16 @@ class CastDiscoveryTest {
     }
 
     @Test
+    fun `nothing the picker's searches throw can reach the app`() {
+        // CastDiscovery needs the system's NsdManager, so this reads the source: every coroutine it
+        // launches runs inside safely(). A sweep that let a refused socket out closed the app (issue #33).
+        val discovery = java.io.File("src/main/java/com/dd3boh/outertune/cast/CastDiscovery.kt").readText()
+        val launched = discovery.split("scope.launch(").drop(1).map { it.substringAfter('{').trimStart() }
+        assertEquals(2, launched.size)
+        assertTrue(launched.all { it.startsWith("safely(") })
+    }
+
+    @Test
     fun `a renderer that never sends its description is given up within the search's limits`() {
         val loopback = InetAddress.getByName("127.0.0.1")
         // Takes the connection and says nothing, for ever.

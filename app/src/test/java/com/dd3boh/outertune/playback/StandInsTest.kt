@@ -17,7 +17,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.io.IOException
@@ -418,6 +420,23 @@ class StandInsTest {
     }
 
     @Test
+    fun `the song that makes the run too long to believe, and each one after it, fails as the connection turned away`() {
+        // Issue #28: every song "This video is not available" on one phone, YouTube's words for a
+        // session it has stopped serving as much as for a song it no longer has.
+        val world = nothingFound("OLDID000001", "OLDID000002", "OLDID000003", "OLDID000004")
+
+        val first = world.play("OLDID000001").exceptionOrNull()
+        val second = world.play("OLDID000002").exceptionOrNull()
+        assertTrue("$first, $second", first is YTPlayerUtils.SongUnavailable && second is YTPlayerUtils.SongUnavailable)
+
+        for (failed in listOf(world.play("OLDID000003").exceptionOrNull(), world.play("OLDID000004").exceptionOrNull())) {
+            assertTrue(failed.toString(), YTPlayerUtils.isConnectionTurnedAway(failed))
+            assertFalse("not a song that is gone, for anything that acts on those", YTPlayerUtils.isUnavailableSong(failed))
+        }
+        assertEquals("nothing reported of the third or the fourth", listOf("OLDID000001", "OLDID000002"), gone)
+    }
+
+    @Test
     fun `a run that is not believed puts back the stand-in a song had`() {
         val had = StandInMemory.remember(Memory(), "OLDID000001", "NEWID000001", t0 - 1_000)
         StandInMemory.current = had
@@ -474,7 +493,10 @@ class StandInsTest {
         world.play("OLDID000001"); world.play("OLDID000002"); world.play("OLDID000003")
         world.asked.clear()
 
-        assertSame(failure, world.play("OLDID000009").exceptionOrNull())
+        // Not believed, and so said to be the connection turned away (issue #28), in YouTube's words for the log.
+        val failed = world.play("OLDID000009").exceptionOrNull()
+        assertTrue(failed.toString(), failed is YTPlayerUtils.ConnectionTurnedAway)
+        assertTrue(failed?.message.orEmpty().endsWith(failure.message.orEmpty()))
         assertEquals(listOf("stream NEWID000009"), world.asked)
         assertEquals("NEWID000009", StandInMemory.idFor("OLDID000009", now))
     }

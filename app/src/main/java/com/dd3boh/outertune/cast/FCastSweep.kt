@@ -6,11 +6,17 @@
 
 package com.dd3boh.outertune.cast
 
+import android.util.Log
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import java.io.IOException
 import java.net.Inet4Address
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.net.SocketFactory
 
 /**
@@ -47,7 +53,9 @@ object FCastSweep {
 
     /**
      * The FCast receiver at [host], named as it names itself, or by its address when it says no
-     * name; null when nothing takes a connection there. It blocks: never on the main thread.
+     * name; null when nothing takes a connection there. A socket the network will not give at all
+     * comes out as its IOException, which [sweep] takes as nothing there. It blocks: never on the
+     * main thread.
      */
     fun probe(host: InetAddress, port: Int = FCast.PORT, socketFactory: SocketFactory = SocketFactory.getDefault()): CastDevice? {
         val socket = socketFactory.createSocket()
@@ -80,4 +88,34 @@ object FCastSweep {
         val address = host.hostAddress ?: return null
         return CastDevice(CastProtocol.FCAST, id = name ?: "fcast@$address", name = name ?: address, host = address, port = port)
     }
+
+    /**
+     * Each of [hosts] probed, [PARALLEL] at a time, and each receiver handed to [found] as soon as
+     * it answers. It returns once every address has been asked.
+     *
+     * An address the network will not give a socket for has no receiver, and the sweep goes on
+     * with the others. A network the app may not use refuses every socket bound to it with EPERM,
+     * before any connection is tried: Xiaomi's per-app firewall does that, and so can a VPN that
+     * blocks other ways out. Let out of here, the refusal closed the app (issue #33). It is said
+     * once in the log, however many addresses it refuses.
+     */
+    suspend fun sweep(hosts: List<InetAddress>, socketFactory: SocketFactory, port: Int = FCast.PORT, found: (CastDevice) -> Unit) {
+        val gate = Semaphore(PARALLEL)
+        val refused = AtomicBoolean(false)
+        coroutineScope {
+            for (host in hosts) launch {
+                val device = try {
+                    gate.withPermit { probe(host, port, socketFactory) }
+                } catch (e: IOException) {
+                    if (refused.compareAndSet(false, true)) {
+                        Log.w(TAG, "Skipping addresses the network refuses a socket for: ${e.javaClass.simpleName}: ${e.message}")
+                    }
+                    null
+                } ?: return@launch
+                found(device)
+            }
+        }
+    }
+
+    private const val TAG = "FCastSweep"
 }

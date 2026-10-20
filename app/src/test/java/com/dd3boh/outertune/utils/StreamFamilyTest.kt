@@ -215,9 +215,10 @@ class StreamFamilyTest {
     fun `the check of a stream is made over the family its address was issued to`() {
         val utils = source("utils/YTPlayerUtils.kt")
         val check = bodyOf(utils, "private fun streamStatus(")
-        assertTrue("the check does not go through StreamFamily: $check", "streamCalls.newCall(" in check)
+        // The check has a client of its own since 20 Oct 2026, with short limits (checkCalls): still a StreamFamily.Calls.
+        assertTrue("the check does not go through StreamFamily: $check", "checkCalls.newCall(" in check)
         assertFalse("the check still asks the plain client: $check", "httpClient.newCall(" in check)
-        assertTrue("streamCalls is not a StreamFamily.Calls", Regex("""streamCalls\s*=\s*StreamFamily\.Calls\(""").containsMatchIn(utils))
+        assertTrue("checkCalls is not a StreamFamily.Calls", Regex("""checkCalls\s*=\s*StreamFamily\.Calls\(""").containsMatchIn(utils))
     }
 
     @Test

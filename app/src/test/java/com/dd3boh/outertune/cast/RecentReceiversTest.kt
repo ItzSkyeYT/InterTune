@@ -89,4 +89,27 @@ class RecentReceiversTest {
         val gone = ServerSocket(0).use { it.localPort }
         assertFalse(RecentReceivers.answers(pixel.copy(host = "127.0.0.1", port = gone), timeoutMs = 300))
     }
+
+    @Test
+    fun `a remembered receiver is listed only once it has answered, and a found one goes when it stops answering`() {
+        val recent = listOf(tv, pixel, renderer)
+        // Nothing has answered yet: none of the remembered ones shows, not even for a moment (20 Oct 2026).
+        assertEquals(emptyList<CastDevice>(), RecentReceivers.listed(emptyList(), emptyList(), recent, emptySet(), emptySet()))
+        // The TV answers; the others are off and never show.
+        assertEquals(listOf(tv), RecentReceivers.listed(emptyList(), emptyList(), recent, setOf(tv), setOf(pixel, renderer)))
+        // The search finds the renderer: listed with the rest, by name.
+        assertEquals(listOf("Bedroom TV", "Mel TV"), RecentReceivers.listed(listOf(renderer), emptyList(), recent, setOf(tv), emptySet()).map { it.name })
+        // Switched off while the picker is open: the next check takes it off.
+        assertEquals(listOf("Mel TV"), RecentReceivers.listed(listOf(renderer), emptyList(), recent, setOf(tv), setOf(renderer)).map { it.name })
+        // One typed in by address stays, whatever the checks say: it was asked for.
+        val typed = pixel.copy(id = "typed", name = "Typed", host = "10.0.0.9")
+        assertTrue(typed in RecentReceivers.listed(emptyList(), listOf(typed), recent, emptySet(), setOf(typed)))
+    }
+
+    @Test
+    fun `the picker lists what answers and asks again while it is open`() {
+        val picker = java.io.File("src/main/java/com/dd3boh/outertune/ui/player/CastPicker.kt").readText()
+        assertTrue(picker.contains("RecentReceivers.listed(found, added, recent, answered, silent)"))
+        assertTrue(picker.contains("delay(RecentReceivers.RECHECK_MS)"))
+    }
 }
