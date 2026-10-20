@@ -1,15 +1,18 @@
-<p><i>InterTune</i> est un fork d'<a href="https://github.com/OuterTune/OuterTune" target="_blank" rel="nofollow noopener">OuterTune</a>, lui-même un fork d'<a href="https://github.com/z-huang/InnerTune" target="_blank" rel="nofollow noopener">InnerTune</a>. C'est à la fois un lecteur de musique locale et un client YouTube Music.</p>
+<p><i>InterTune</i> est un fork d'<a href="https://github.com/OuterTune/OuterTune">OuterTune</a>, lui-même un fork d'<a href="https://github.com/z-huang/InnerTune">InnerTune</a>. C'est à la fois un lecteur de musique locale et un client YouTube Music.</p>
 
 <p><br><b>Fonctionnalités :</b></p>
 <ul>
 <li>Client YouTube Music : téléchargement pour l'écoute hors ligne, lecture en arrière-plan, sans publicité, synchronisation du compte</li>
 <li>Lecture des fichiers audio locaux (MP3, OGG, FLAC, etc.)</li>
-<li>Son propre extracteur de tags plutôt que celui de MediaStore : les tags séparés par une barre oblique inverse s'affichent correctement</li>
+<li>Son propre lecteur de tags : les tags séparés par une barre oblique inverse s'affichent bien</li>
 <li>Fichiers locaux et titres YouTube Music dans la même file d'attente</li>
+<li>Diffusion vers Chromecast, FCast ou une télé DLNA</li>
 <li>Un onglet Hors ligne qui liste les titres en cache, pour voir ce qui se lira sans connexion</li>
 <li>Un écran de bibliothèque unifié</li>
 <li>Plusieurs files d'attente</li>
 <li>Paroles synchronisées, y compris mot à mot et karaoké (LRC, TTML)</li>
+<li>Une ligne en lettres latines sous les paroles en japonais (romaji, kanji conservés), coréen, chinois, russe, etc., dès Android 10</li>
+<li>Égaliseur à dix bandes, avec la courbe mesurée de votre casque (AutoEq)</li>
 <li>Normalisation du volume, réglage du tempo et de la hauteur, autres effets audio</li>
 <li>Choisissez d'où vient la Sélection Rapide : YouTube Music, Votre bibliothèque, ou Meilleures recommandations, qui la construit sur votre téléphone d'après votre façon d'écouter</li>
 <li>Quel est ce titre ? reconnaît le titre qui passe autour de vous, grâce à Shazam, et peut remplir une playlist avec ce qu'il entend</li>
@@ -22,6 +25,7 @@
 <ul>
 <li>YouTube Music, pour tout ce que vous cherchez, écoutez, téléchargez ou synchronisez. Se connecter à un compte est facultatif.</li>
 <li>LRCLIB et KuGou, pour trouver les paroles du titre en cours. Chacun peut être désactivé.</li>
+<li>AutoEq, sur GitHub, seulement quand vous cherchez votre casque dans l'égaliseur.</li>
 <li>Shazam, seulement pendant qu'il écoute. Une empreinte sonore est envoyée, avec l'heure et votre fuseau horaire, jamais l'enregistrement. La pochette d'un titre trouvé vient de l'adresse que donne Shazam.</li>
 <li>Last.fm, seulement si vous l'activez. Pour trouver des titres similaires, il reçoit le titre et l'artiste de vos écoutes, et une fois ceux des titres aimés ou écoutés le mois dernier, sans compte. Avec un compte Last.fm connecté, vos écoutes y sont aussi enregistrées, avec l'album, la durée et l'heure de début. La connexion se fait sur la page de Last.fm.</li>
 <li>GitHub, seulement si vous activez la vérification des mises à jour ou la lancez vous-même. L'appli peut alors télécharger une nouvelle version et la confier à l'installateur d'Android, qui demande toujours votre accord. Une copie installée depuis F-Droid passe par F-Droid pour se mettre à jour.</li>
@@ -32,8 +36,7 @@
 <p><br><b>À savoir :</b></p>
 <ul>
 <li>Android 7.0 ou plus récent.</li>
-<li>Quelque chose ne marche pas ? Signalez-le depuis l'appli (Paramètres, À propos, Soumettre un rapport de bogue) ou sur GitHub.</li>
-<li>Problèmes et questions : <a href="https://github.com/ItzSkyeYT/InterTune/issues">https://github.com/ItzSkyeYT/InterTune/issues</a></li>
+<li>Quelque chose ne marche pas ? Signalez-le depuis l'appli (Paramètres, À propos, Soumettre un rapport de bogue) ou sur <a href="https://github.com/ItzSkyeYT/InterTune/issues">GitHub</a>.</li>
 </ul>
 
 <p><br>InterTune n'est ni affiliée à Google ou YouTube, ni sponsorisée ou approuvée par eux.</p>
