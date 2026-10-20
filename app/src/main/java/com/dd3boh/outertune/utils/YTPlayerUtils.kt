@@ -82,6 +82,8 @@ object YTPlayerUtils {
             .callTimeout(5, TimeUnit.SECONDS)
             .retryOnConnectionFailure(false)
             .connectionPool(okhttp3.ConnectionPool(0, 1, TimeUnit.SECONDS))
+            // A check made to hang on purpose, in a debug build only: see FaultInjection.
+            .apply { if (FaultInjection.enabled) addInterceptor(FaultInjection.interceptor(FaultInjection.Target.CHECK)) }
             .build()
     )
 
@@ -279,7 +281,11 @@ object YTPlayerUtils {
             asNewVisitor: Boolean,
             asWebPage: Boolean,
         ): Result<PlayerResponse> =
-            if (asNewVisitor) {
+            if (FaultInjection.hangsPlayer(client.clientName, client === VISIONOS)) {
+                // Made to hang on purpose, in a debug build only: see FaultInjection.
+                delay(FaultInjection.PLAYER_HANG_MS)
+                Result.failure(java.net.SocketTimeoutException("fault injection: /player hung"))
+            } else if (asNewVisitor) {
                 YouTube.player(videoId, playlistId, client, visitorData = null, addressPolicy = policy)
             } else {
                 YouTube.player(
@@ -856,6 +862,9 @@ object YTPlayerUtils {
         preferredMime: String? = null,
     ): Result<PlaybackData> {
         val trails = mutableListOf<String>()
+        // Each step's time, over every pass, for the one line the song gets: see StepLog.
+        val steps = mutableListOf<String>()
+        val started = System.nanoTime()
         val outcome = FamilyChoice.resolve(
             currentNetwork(connectivityManager),
             familyMemory,
@@ -866,7 +875,7 @@ object YTPlayerUtils {
             }
             // Cleared first, so a pass that fails before writing its own does not report the last song's.
             lastStreamTrail = null
-            val (result, notes) = resolveWithNewVisitor(videoId, playlistId, audioQuality, connectivityManager, policy, wire, preferredMime)
+            val (result, notes) = resolveWithNewVisitor(videoId, playlistId, audioQuality, connectivityManager, policy, wire, preferredMime, steps)
             trails += listOfNotNull(policy?.first?.label, lastStreamTrail).joinToString(": ")
             FamilyChoice.Attempt(result to notes, ok = result.isSuccess, refused = result.isFailure && notes.fallbackBlocked)
         }
@@ -874,6 +883,9 @@ object YTPlayerUtils {
         lastStreamTrail = trails.filter { it.isNotEmpty() }.joinToString("; ").ifEmpty { null }
         val (result, notes) = outcome.chosen.value
         notes.tellThrottle()
+        val tookMs = (System.nanoTime() - started) / 1_000_000
+        if (result.isSuccess) Log.i(TAG, StepLog.resolved(videoId, tookMs, steps))
+        else Log.w(TAG, StepLog.unresolved(videoId, tookMs, steps))
         return result
     }
 
@@ -890,13 +902,14 @@ object YTPlayerUtils {
         policy: AddressPolicy?,
         wire: Wire,
         preferredMime: String?,
+        steps: MutableList<String> = mutableListOf(),
     ): Pair<Result<PlaybackData>, ChainNotes> {
         val sinceFailedSwap = lastSwapFailedAt.takeIf { it != 0L }?.let { SystemClock.elapsedRealtime() - it }
         // While a new visitorData may still be tried, a refused VISIONOS keeps the web client
         // waiting for the pass that tries it: see WEB_FALLBACK_CLIENT.
         val holdWeb = StreamCheck.mayRetryWithNewVisitor(visionosRefused = true, sinceFailedSwap)
         val first = ChainNotes()
-        val result = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, first, policy, wire, holdWeb, preferredMime)
+        val result = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, first, policy, wire, holdWeb, preferredMime, steps)
         if (result.isSuccess || !StreamCheck.mayRetryWithNewVisitor(first.visionosRefused, sinceFailedSwap)) {
             return result to first
         }
@@ -915,7 +928,8 @@ object YTPlayerUtils {
             Log.i(TAG, "[$videoId] VISIONOS refused and no new visitorData to be had, asking again with the web client")
         }
         val second = ChainNotes()
-        val retried = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, second, policy, wire, preferredMime = preferredMime)
+        steps += "new visitorData"
+        val retried = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, second, policy, wire, preferredMime = preferredMime, steps = steps)
         if (fresh != null && retried.isSuccess && !second.visionosRefused) {
             lastSwapFailedAt = 0L
             // Kept for good only when signed out. Signed in, the stored one came from the
@@ -954,7 +968,10 @@ object YTPlayerUtils {
         // The chain's web client is passed over once VISIONOS has been refused in this pass: see resolveWithNewVisitor.
         holdWeb: Boolean = false,
         preferredMime: String? = null,
+        // Each step with its time, for the line the song gets: see StepLog.
+        steps: MutableList<String> = mutableListOf(),
     ): Result<PlaybackData> = runCatchingCancellable {
+        fun msSince(from: Long) = (System.nanoTime() - from) / 1_000_000
         Log.d(TAG, "Playback info requested: $videoId")
 
         /**
@@ -1217,6 +1234,7 @@ object YTPlayerUtils {
             // YouTube wrote it, so a song refused for its own sake now reads in English there.
             // The main client keeps the app's hl: nothing in its answer is shown or read, its
             // routine bot check least of all (see ChainNotes.blocked).
+            val askedAt = System.nanoTime()
             val result =
                 wire.player(
                     videoId, playlistId, client,
@@ -1228,6 +1246,7 @@ object YTPlayerUtils {
                     asWebPage = isWeb,
                 )
                     .onFailure { if (!isTrial) Throttle.noteFailure(it) }
+            steps += StepLog.asked(clientLabel, result.getOrNull()?.playabilityStatus?.status, msSince(askedAt))
             streamPlayerResponse = result.getOrNull()
             result.exceptionOrNull()?.let { failure ->
                 val unreached = StreamOrder.networkDidNotAnswer(failure)
@@ -1317,7 +1336,8 @@ object YTPlayerUtils {
                             )
                         }
                     } else {
-                        findUrlOrNull(format, videoId)
+                        val decipheredAt = System.nanoTime()
+                        findUrlOrNull(format, videoId).also { steps += StepLog.deciphered(msSince(decipheredAt)) }
                     }
                 if (address == null) {
                     // Playable, and nothing the player could fetch. Said in the trail, where this
@@ -1349,11 +1369,13 @@ object YTPlayerUtils {
                 // report made with it on cannot be read as YouTube's doing.
                 val pretended = (isVisionos && visionosTakenForRefused) || (client === VISIONOS && ownVisionosTakenForRefused)
                 if (pretended) Log.w(TAG, "[$videoId] [${client.clientName}] its address is taken for refused: the developer's switch is on")
+                val checkedAt = System.nanoTime()
                 val status = when {
                     trialCheck != null -> trialCheck.status
                     pretended -> 403
                     else -> wire.head(checked)
                 }
+                steps += StepLog.checked(status, msSince(checkedAt))
                 val carried = trialCheck?.pot
                 streamUrl = checked
                 trail[trail.lastIndex] = StreamCheck.trailStep(
@@ -1734,9 +1756,14 @@ object YTPlayerUtils {
      */
     private fun streamStatus(url: String): Int? {
         repeat(2) { attempt ->
+            val started = System.nanoTime()
             try {
                 return checkCalls.newCall(okhttp3.Request.Builder().head().url(url).build()).execute().use { it.code }
             } catch (e: Exception) {
+                // Each failed try, with its time: the first one used to say nothing, and a slow
+                // start could not be explained (FAILURE-MAP weakness 10).
+                val ms = (System.nanoTime() - started) / 1_000_000
+                Log.w(TAG, "HEAD try ${attempt + 1} of 2 failed after ${StepLog.seconds(ms)}: ${StreamCheck.failureForLog(e)}")
                 if (attempt == 1) reportException(e)
             }
         }

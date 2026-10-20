@@ -87,6 +87,8 @@ object StreamFamily {
         .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
         .readTimeout(8, java.util.concurrent.TimeUnit.SECONDS)
         .connectionPool(okhttp3.ConnectionPool(4, 5, java.util.concurrent.TimeUnit.SECONDS))
+        // A stream made to stop or be refused on purpose, in a debug build only: see FaultInjection.
+        .apply { if (FaultInjection.enabled) addInterceptor(FaultInjection.interceptor(FaultInjection.Target.STREAM)) }
         .build()
 
     class Calls(private val base: OkHttpClient, private val system: Dns = Dns.SYSTEM) : Call.Factory {

@@ -79,6 +79,7 @@ import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.ui.screens.OptInCatchUp
 import com.dd3boh.outertune.ui.screens.settings.SETTINGS_TAG
+import com.dd3boh.outertune.utils.FaultInjection
 import com.dd3boh.outertune.utils.Throttle
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.lmScannerCoroutine
@@ -178,6 +179,20 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
 
         if (BuildConfig.DEBUG) {
             HistoryAddressCheckRow()
+            // Faults made on purpose, to see the player keep the music going: see FaultInjection.
+            // In memory only, so it is off again at the next start.
+            var fault by remember { mutableStateOf(FaultInjection.mode) }
+            ListPreference(
+                title = { Text("DEBUG: Make playback fail") },
+                icon = { Icon(Icons.Rounded.Science, null) },
+                selectedValue = fault,
+                values = FaultInjection.Mode.entries,
+                valueText = { it.words },
+                onValueSelected = {
+                    FaultInjection.set(it)
+                    fault = it
+                },
+            )
         }
         if (VisionosTest.offered(testBuild = BuildConfig.DEBUG, identities = Unreleased.VISIONOS_IDENTITIES, fallback = Unreleased.WEB_FALLBACK)) {
             // One row over the two keys. As two switches, "this app's VISIONOS" and "VISIONOS",
