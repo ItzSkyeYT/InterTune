@@ -39,6 +39,12 @@ object RouteTimes {
     /** Clients in a row that ran out of [PLAYER_CAP_MS] before the walk takes the network for slow. */
     const val SLOW_AFTER = 2
 
+    /** How long a network found slow is remembered as slow, and how far back answer times are looked at: see NetworkPace. */
+    const val SLOW_REMEMBER_MS = 5 * 60 * 1000L
+
+    /** After a /player request on a kept connection did not answer, how long every /player goes out on a new one. */
+    const val POOL_SUSPECT_MS = 30_000L
+
     /** The stream check: a second try on a fresh connection. */
     const val HEAD_FRESH_MS = 1_500L
 
@@ -83,6 +89,19 @@ object RouteTimes {
     const val RECOVERIES_PER_SONG = 3
     const val RECOVERIES_IN_ALL = 8
     const val RECOVERY_WINDOW_MS = 10 * 60 * 1000L
+
+    /**
+     * A 403 within this of a change of the network in use is the new public address's, not the
+     * route's: the address named the old one. No strike.
+     */
+    const val NETWORK_CHANGE_GRACE_MS = 60_000L
+
+    /**
+     * A kept address is not handed out in its last stretch: its end is counted from the end of
+     * the walk, up to 20 s after YouTube's answer, and an open there got 403 and struck a
+     * healthy route.
+     */
+    const val ADDRESS_MARGIN_MS = 90_000L
 
     /** Second tries and clients asked alongside: at most this many a minute, and per song. */
     const val HEDGES_PER_MINUTE = 4

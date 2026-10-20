@@ -18,7 +18,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 
 class NetworkConnectivityObserver(
     context: Context,
-    /** Told of every network that becomes available, as the throttle is. */
+    /** Told when the network in use changes to another one, as the throttle is. */
     private val onNetworkChanged: () -> Unit = {},
 ) {
     private val connectivityManager =
@@ -34,11 +34,6 @@ class NetworkConnectivityObserver(
         override fun onAvailable(network: Network) {
             synchronized(availableNetworks) { availableNetworks.add(network) }
             _networkStatus.trySend(true)
-            // A different network almost certainly means a different public IP, and switching
-            // networks is literally what clears this by hand. Over-clearing costs one request that
-            // immediately re-trips; under-clearing costs the user their music.
-            Throttle.onNetworkChanged()
-            runCatching { onNetworkChanged() }
         }
 
         override fun onLost(network: Network) {
@@ -55,14 +50,47 @@ class NetworkConnectivityObserver(
         }
     }
 
+    /**
+     * The network in use. The callback above sees every network with internet: mobile data
+     * coming up beside Wi-Fi, or a VPN, cleared every kept address while nothing the app used
+     * had changed, and leaving Wi-Fi for mobile data that was already up changed nothing at all.
+     * Wi-Fi coming up was also told before it became the one in use.
+     */
+    private var inUse: Network? = null
+
+    private val defaultCallback = object : ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(network: Network) {
+            val before = synchronized(this) { inUse.also { inUse = network } }
+            // The first is the network already in use when this was registered: nothing changed.
+            if (before == null || before == network) return
+            // A different network almost certainly means a different public IP, and switching
+            // networks is literally what clears this by hand. Over-clearing costs one request that
+            // immediately re-trips; under-clearing costs the user their music.
+            Throttle.onNetworkChanged()
+            NetworkPace.forget()
+            runCatching { onNetworkChanged() }
+        }
+    }
+
     init {
+        // Said at once: the callbacks say nothing at all while there is no network, so a start
+        // with none was taken for online, and the wait for the network gave up and never came
+        // back when it arrived.
+        _networkStatus.trySend(onlineNow())
         val request = NetworkRequest.Builder()
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             .build()
         connectivityManager.registerNetworkCallback(request, networkCallback)
+        runCatching { connectivityManager.registerDefaultNetworkCallback(defaultCallback) }
     }
 
+    private fun onlineNow(): Boolean = runCatching {
+        val active = connectivityManager.activeNetwork ?: return@runCatching false
+        connectivityManager.getNetworkCapabilities(active)?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+    }.getOrDefault(true)
+
     fun unregister() {
+        runCatching { connectivityManager.unregisterNetworkCallback(defaultCallback) }
         connectivityManager.unregisterNetworkCallback(networkCallback)
         // Ends the collection too, which would otherwise wait on this channel for good.
         _networkStatus.close()

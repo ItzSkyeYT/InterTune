@@ -20,6 +20,10 @@ object Warmup {
     /** How long after the service starts. */
     const val AFTER_MS = 3_000L
 
+    /** Whether this process has fetched the script ahead already: a service made again in the same process does not. */
+    @Volatile
+    var warmedInProcess = false
+
     /**
      * Whether to fetch the player script now: a network that reaches the internet, Data Saver
      * off for the app, and either a network that costs nothing or a current song that is to be

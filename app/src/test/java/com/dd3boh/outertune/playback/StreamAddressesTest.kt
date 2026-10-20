@@ -30,6 +30,16 @@ class StreamAddressesTest {
     private val checked = "https://rr2---sn-test.example/videoplayback?itag=251"
 
     @Test
+    fun `an address is not handed out in its last stretch, nor is a refusal there the route's`() {
+        val a = StreamAddresses()
+        a.keep("song", "https://x.example/videoplayback", goodUntil = 1_000_000L, client = "VISIONOS", checked = true)
+        assertNull(a.of("song", 1_000_000L - 30_000L))
+        assertFalse(a.refusalIsTheRoutes("song", 1_000_000L - 30_000L))
+        assertEquals("https://x.example/videoplayback", a.of("song", 1_000_000L - 120_000L))
+        assertTrue(a.refusalIsTheRoutes("song", 1_000_000L - 120_000L))
+    }
+
+    @Test
     fun `a refusal forgets the address only while it is still the one kept`() {
         val addresses = StreamAddresses()
         addresses.keep("song", unchecked, now + sixHours, client = "VISIONOS")
@@ -66,7 +76,10 @@ class StreamAddressesTest {
         val addresses = StreamAddresses()
         addresses.keep("song", checked, now + sixHours)
 
-        assertEquals(checked, addresses.of("song", now + sixHours - 1))
+        // With the margin kept before its end: see RouteTimes.ADDRESS_MARGIN_MS.
+        val margin = com.dd3boh.outertune.utils.RouteTimes.ADDRESS_MARGIN_MS
+        assertEquals(checked, addresses.of("song", now + sixHours - margin - 1))
+        assertNull(addresses.of("song", now + sixHours - margin))
         assertNull(addresses.of("song", now + sixHours))
         assertNull(addresses.of("song", now + sixHours + 1))
     }

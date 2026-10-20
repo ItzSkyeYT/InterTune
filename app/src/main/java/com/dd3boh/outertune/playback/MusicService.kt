@@ -505,6 +505,9 @@ class MusicService : MediaLibraryService(),
     private val loadFailures = Recovery.LoadFailures()
     private val recoveryBudget = Recovery.Budget()
 
+    /** When the network in use last changed, elapsed time: a refusal just after is the new address's. */
+    @Volatile private var lastNetworkChangeAt = 0L
+
     /** Route changes made while the buffer still plays: see [changeRoute]. */
     private val routeChanges = Recovery.Budget()
 
@@ -1470,9 +1473,10 @@ class MusicService : MediaLibraryService(),
                     unmetered = !connectivityManager.isActiveNetworkMetered,
                     currentStreamed = id != null && queued?.isLocal != true &&
                         !downloadCache.isCached(id, 0, 1) && !playerCache.isCached(id, 0, CHUNK_LENGTH),
-                    alreadyWarmed = false,
+                    alreadyWarmed = Warmup.warmedInProcess,
                 )
                 if (warm && id != null) {
+                    Warmup.warmedInProcess = true
                     val started = SystemClock.elapsedRealtime()
                     val done = NewPipeUtils.warm(id)
                     Log.i(TAG, "NewPipe's player script ready ahead of the first song in ${StepLog.seconds(SystemClock.elapsedRealtime() - started)}: ${if (done.isSuccess) "ok" else "failed"}")
@@ -1708,6 +1712,7 @@ class MusicService : MediaLibraryService(),
             // A new network is a new public address: the addresses kept name the old one, and a
             // pooled connection to a stream server is on the old link. See StreamAddresses.forgetAll.
             connectivityObserver = NetworkConnectivityObserver(this@MusicService) {
+                lastNetworkChangeAt = SystemClock.elapsedRealtime()
                 streamAddresses.forgetAll()
                 runCatching { playerStreamClient.connectionPool.evictAll() }
             }
@@ -2480,20 +2485,27 @@ class MusicService : MediaLibraryService(),
      * The way the player gets to a song's bytes from its id: its download, the cache, or the
      * stream. A lyrics video cuts its sound out of the song the same way (LyricsVideo).
      */
-    fun songSource(): DataSource.Factory = createDataSourceFactory()
+    fun songSource(): DataSource.Factory = createDataSourceFactory(forPlayer = false)
 
-    private fun createDataSourceFactory(): DataSource.Factory {
+    /**
+     * [forPlayer] false for a lyrics clip: its reads go through calls of their own, which the
+     * stall watch never cuts, and its resolves are not taken for the player's, which pause the
+     * watch. Shared, a clip's reads were cancelled by a stall of the song, and a clip resolving
+     * the current song held the watch off.
+     */
+    private fun createDataSourceFactory(forPlayer: Boolean = true): DataSource.Factory {
         val resolver = SongResolver(streamAddresses)
-        return ResolvingDataSource.Factory(createCacheDataSource(playerCalls)) { dataSpec ->
+        val calls = if (forPlayer) playerCalls else StreamFamily.Calls(playerStreamClient)
+        return ResolvingDataSource.Factory(createCacheDataSource(calls)) { dataSpec ->
             val mediaId = dataSpec.key ?: error("No media id")
             // What the song was resolved to, and whether a resolve of it is out: see StallWatch.
-            resolvingSongs.merge(mediaId, 1, Int::plus)
+            if (forPlayer) resolvingSongs.merge(mediaId, 1, Int::plus)
             val resolved = try {
                 resolver.resolve(mediaId, dataSpec.position, dataSpec.length)
             } finally {
-                resolvingSongs.merge(mediaId, -1) { a, b -> (a + b).takeIf { it > 0 } }
+                if (forPlayer) resolvingSongs.merge(mediaId, -1) { a, b -> (a + b).takeIf { it > 0 } }
             }
-            streamedSongs[mediaId] = resolved is ResolvedSong.KnownStream || resolved is ResolvedSong.NewStream
+            if (forPlayer) streamedSongs[mediaId] = resolved is ResolvedSong.KnownStream || resolved is ResolvedSong.NewStream
             when (resolved) {
                 is ResolvedSong.LocalFile -> dataSpec.withUri(resolved.file.toUri())
                 is ResolvedSong.Downloaded -> dataSpec.withUri(resolved.file.uri)
@@ -3927,8 +3939,12 @@ class MusicService : MediaLibraryService(),
             return
         }
         // A refusal of an address that passed its check is the route's own doing: a strike, so
-        // the next songs start elsewhere too. See StreamOrder.REST_MS.
-        if (refused && streamAddresses.wasChecked(id)) YTPlayerUtils.strike(route, why)
+        // the next songs start elsewhere too. See StreamOrder.REST_MS. Not just after a change of
+        // network, where the address names the old public address, nor near its end.
+        val sinceNetworkChange = now - lastNetworkChangeAt
+        if (refused && streamAddresses.refusalIsTheRoutes(id, System.currentTimeMillis()) &&
+            (lastNetworkChangeAt == 0L || sinceNetworkChange >= RouteTimes.NETWORK_CHANGE_GRACE_MS)
+        ) YTPlayerUtils.strike(route, why)
         streamAddresses.playerFailedOn(id)
         songRoutes.mark(id, route, now)
         Log.w(TAG, StepLog.loadFailed(id, why, route))

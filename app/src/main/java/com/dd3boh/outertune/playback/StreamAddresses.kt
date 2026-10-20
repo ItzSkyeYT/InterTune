@@ -6,6 +6,8 @@
 
 package com.dd3boh.outertune.playback
 
+import com.dd3boh.outertune.utils.RouteTimes
+
 /**
  * The stream address each song was last given, kept so that the rest of a song comes from the
  * address its start came from. No Android in here, so it is tested.
@@ -43,9 +45,13 @@ class StreamAddresses {
 
     private val kept = HashMap<String, Kept>()
 
-    /** The address [mediaId] was given, or null when it has none that is still good at [now]. */
+    /**
+     * The address [mediaId] was given, or null when it has none that is still good at [now],
+     * with [RouteTimes.ADDRESS_MARGIN_MS] to spare: its end is counted from when it was kept,
+     * which is later than YouTube counts from.
+     */
     @Synchronized
-    fun of(mediaId: String, now: Long): String? = kept[mediaId]?.takeIf { it.goodUntil > now }?.address
+    fun of(mediaId: String, now: Long): String? = kept[mediaId]?.takeIf { it.goodUntil - RouteTimes.ADDRESS_MARGIN_MS > now }?.address
 
     /** [address] is where [mediaId] is fetched from until [goodUntil], unless the player fails on it. */
     @Synchronized
@@ -60,6 +66,14 @@ class StreamAddresses {
     /** Whether [mediaId]'s address passed its check: a refusal of it later is then the route's. */
     @Synchronized
     fun wasChecked(mediaId: String?): Boolean = mediaId?.let { kept[it]?.checked } == true
+
+    /**
+     * Whether a refusal of [mediaId]'s address at [now] (wall clock) is the route's doing: it
+     * passed its check and was not near its end, where a 403 is only its age.
+     */
+    @Synchronized
+    fun refusalIsTheRoutes(mediaId: String?, now: Long): Boolean =
+        mediaId?.let { kept[it] }?.let { it.checked && it.goodUntil - RouteTimes.ADDRESS_MARGIN_MS > now } == true
 
     /**
      * The player failed on [mediaId], null when the failure names no song. Returns whether there

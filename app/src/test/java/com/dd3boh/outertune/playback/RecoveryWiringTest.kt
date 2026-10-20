@@ -57,7 +57,8 @@ class RecoveryWiringTest {
 
     @Test
     fun `the stall watch cuts the player's own calls, never the cast server's`() {
-        assertTrue(service.contains("createCacheDataSource(playerCalls)"))
+        assertTrue(service.contains("val calls = if (forPlayer) playerCalls else"))
+        assertTrue(service.contains("ResolvingDataSource.Factory(createCacheDataSource(calls))"))
         assertEquals(2, Regex("""playerCalls\.cancelInFlight\(\)""").findAll(service).count())
     }
 
@@ -106,5 +107,14 @@ class RecoveryWiringTest {
         val destroy = body("override fun onDestroy() {", "override fun onBind(")
         assertTrue(destroy.contains("if (YTPlayerUtils.onLateRefusal === lateRefusal) YTPlayerUtils.onLateRefusal = null"))
         assertTrue(destroy.contains("stallHandler.removeCallbacks(stallTick)"))
+    }
+
+    @Test
+    fun `a lyrics clip reads apart from the player, and its resolves are not the player's`() {
+        assertTrue(service.contains("fun songSource(): DataSource.Factory = createDataSourceFactory(forPlayer = false)"))
+        val factory = body("private fun createDataSourceFactory(", "/**")
+        assertTrue(factory.contains("val calls = if (forPlayer) playerCalls else StreamFamily.Calls(playerStreamClient)"))
+        assertTrue(factory.contains("if (forPlayer) resolvingSongs.merge(mediaId, 1, Int::plus)"))
+        assertTrue(factory.contains("if (forPlayer) streamedSongs[mediaId] ="))
     }
 }
