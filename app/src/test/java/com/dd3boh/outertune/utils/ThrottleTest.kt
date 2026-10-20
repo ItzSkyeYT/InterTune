@@ -53,6 +53,16 @@ class ThrottleTest {
     }
 
     @Test
+    fun `a step we gave up on ourselves never counts toward the back off, a failure that came back does`() {
+        Throttle.clear("test setup")
+        repeat(20) { Throttle.noteFailure(StepTimedOut("/player", 5_000)) }
+        assertFalse(Throttle.isBlocked)
+        repeat(8) { Throttle.noteFailure(java.io.IOException("connection reset")) }
+        assertTrue(Throttle.isBlocked)
+        Throttle.clear("test teardown")
+    }
+
+    @Test
     fun `note does not trip for a plain unavailable song`() {
         Throttle.clear("test setup")
         Throttle.note("UNPLAYABLE", "This video is not available")

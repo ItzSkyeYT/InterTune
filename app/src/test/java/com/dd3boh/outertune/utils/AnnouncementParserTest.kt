@@ -47,6 +47,19 @@ class AnnouncementParserTest {
     }
 
     @Test
+    fun `a playback block beside the announcements changes nothing about them`() {
+        val entries = """{$minimal}, {"id": "b", "banner": "B", "title": "T"}"""
+        val without = AnnouncementParser.parse("""{"announcements": [$entries]}""", 89, now)
+        val with = AnnouncementParser.parse(
+            """{"announcements": [$entries], "playback": {"v": 1, "id": "x", "order": ["VISIONOS_104"], "disabled": ["VISIONOS"]}}""",
+            89,
+            now,
+        )
+        assertEquals(without.map { it.id }, with.map { it.id })
+        assertEquals(without, with)
+    }
+
+    @Test
     fun `an old single button needs both its label and its address`() {
         assertTrue(one("""{$minimal, "actionLabel": "Join"}""").text.actions.isEmpty())
         assertTrue(one("""{$minimal, "actionUrl": "https://discord.gg/abc"}""").text.actions.isEmpty())

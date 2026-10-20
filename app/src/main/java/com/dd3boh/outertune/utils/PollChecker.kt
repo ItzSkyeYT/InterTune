@@ -206,6 +206,9 @@ class PollChecker @Inject constructor(
      */
     private suspend fun pick(json: String): Poll? {
         val store = context.dataStore
+        // The playback block rides in the same document: see RemoteRoutes. Read whatever the two
+        // switches say, since it is about playback and shows nothing.
+        RemoteRoutes.read(json, BuildConfig.VERSION_CODE, store.get(LastPollFetchKey, 0L))
         val answered = store.get(AnsweredPollIdsKey, emptySet())
         val dismissed = store.get(DismissedPollIdsKey, emptySet())
 

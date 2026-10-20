@@ -820,6 +820,9 @@ object YouTube {
         innerTube.deletePlaylist(WEB_REMIX, playlistId)
     }
 
+    /** Closes every idle connection to YouTube's API: see InnerTube.forgetIdleConnections. */
+    fun forgetIdleConnections() = innerTube.forgetIdleConnections()
+
     suspend fun player(
         videoId: String,
         playlistId: String? = null,
@@ -836,8 +839,10 @@ object YouTube {
         addressPolicy: AddressPolicy? = null,
         // As YouTube Music's own page asks: see InnerTube.player.
         asWebPage: Boolean = false,
+        // On a connection of its own, never one kept from before: see InnerTube.player.
+        fresh: Boolean = false,
     ): Result<PlayerResponse> = runCatchingCancellable {
-        innerTube.player(client, videoId, playlistId, signatureTimestamp, webPlayerPot, visitorData, hlOverride, addressPolicy, asWebPage)
+        innerTube.player(client, videoId, playlistId, signatureTimestamp, webPlayerPot, visitorData, hlOverride, addressPolicy, asWebPage, fresh)
             .body<PlayerResponse>()
     }
 

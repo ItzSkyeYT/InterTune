@@ -58,8 +58,13 @@ object YTPlayerUtils {
 
     private const val TAG = "YTPlayerUtils"
 
+    // The base of the check's client and the web client's reads. OkHttp's defaults kept an idle
+    // connection five minutes, the trap a dropped connection set on 20 Oct 2026: see RouteTimes.
     private val httpClient = OkHttpClient.Builder()
         .proxy(YouTube.proxy)
+        .connectTimeout(5, TimeUnit.SECONDS)
+        .readTimeout(8, TimeUnit.SECONDS)
+        .connectionPool(okhttp3.ConnectionPool(4, RouteTimes.IDLE_MS, TimeUnit.MILLISECONDS))
         .build()
 
     /**
@@ -77,11 +82,13 @@ object YTPlayerUtils {
      */
     private val checkCalls = StreamFamily.Calls(
         httpClient.newBuilder()
-            .connectTimeout(3, TimeUnit.SECONDS)
-            .readTimeout(4, TimeUnit.SECONDS)
-            .callTimeout(5, TimeUnit.SECONDS)
+            .connectTimeout(RouteTimes.HEAD_TRY_MS, TimeUnit.MILLISECONDS)
+            .readTimeout(RouteTimes.HEAD_TRY_MS, TimeUnit.MILLISECONDS)
+            .callTimeout(RouteTimes.HEAD_TRY_MS, TimeUnit.MILLISECONDS)
             .retryOnConnectionFailure(false)
             .connectionPool(okhttp3.ConnectionPool(0, 1, TimeUnit.SECONDS))
+            // A check made to hang on purpose, in a debug build only: see FaultInjection.
+            .apply { if (FaultInjection.enabled) addInterceptor(FaultInjection.interceptor(FaultInjection.Target.CHECK)) }
             .build()
     )
 
@@ -230,11 +237,25 @@ object YTPlayerUtils {
             asNewVisitor: Boolean = false,
             /** As YouTube Music's own page asks, for the experiment's client: see InnerTube.player. */
             asWebPage: Boolean = false,
+            /** A second try, on a new connection: see hedged. */
+            fresh: Boolean = false,
         ): Result<PlayerResponse>
 
-        fun head(url: String): Int?
+        /**
+         * The status a HEAD request for [url] gets, or null when none came. Suspends, so that
+         * a walk that stops waiting for it really stops it.
+         */
+        suspend fun head(url: String): Int?
 
         fun signatureTimestamp(videoId: String): Int?
+
+        /**
+         * An app client's address with its signature and n undone, through NewPipeExtractor, or
+         * null when that failed. Suspends so that the walk can stop waiting for it: the first of
+         * a process fetches YouTube's player script, and that fetch once hung with nothing said.
+         * Throws an IOException when the network failed on the way: that is no answer, not a refusal.
+         */
+        suspend fun decipher(format: PlayerResponse.StreamingData.Format, videoId: String): String? = findUrlOrNull(format, videoId)
 
         fun poTokens(videoId: String, sessionId: String?): PoTokenResult?
 
@@ -265,6 +286,12 @@ object YTPlayerUtils {
 
         /** Starts getting the solver ready, for a web client whose turn is a pass away: see [warmWebClient]. Does not wait. */
         fun warmSolver()
+
+        /** Gets the web client ready, po tokens too, the day it may be needed: see [webMayBeNeeded]. Does not wait. */
+        fun warmWeb() {}
+
+        /** A /player request was cut by our deadline: the idle connections beside it are let go. See [poolCut]. */
+        fun connectionsCut() {}
     }
 
     private object Live : Wire {
@@ -278,19 +305,29 @@ object YTPlayerUtils {
             policy: AddressPolicy?,
             asNewVisitor: Boolean,
             asWebPage: Boolean,
+            fresh: Boolean,
         ): Result<PlayerResponse> =
-            if (asNewVisitor) {
-                YouTube.player(videoId, playlistId, client, visitorData = null, addressPolicy = policy)
+            if (FaultInjection.hangsPlayer(client.clientName, client === VISIONOS) && !fresh) {
+                // Made to hang on purpose, in a debug build only: see FaultInjection.
+                delay(FaultInjection.PLAYER_HANG_MS)
+                Result.failure(java.net.SocketTimeoutException("fault injection: /player hung"))
+            } else if (asNewVisitor) {
+                YouTube.player(videoId, playlistId, client, visitorData = null, addressPolicy = policy, fresh = fresh)
             } else {
                 YouTube.player(
                     videoId, playlistId, client, signatureTimestamp, webPlayerPot,
-                    hlOverride = hlOverride, addressPolicy = policy, asWebPage = asWebPage,
+                    hlOverride = hlOverride, addressPolicy = policy, asWebPage = asWebPage, fresh = fresh,
                 )
             }
 
-        override fun head(url: String): Int? = streamStatus(url)
+        override suspend fun head(url: String): Int? = streamStatus(url)
 
         override fun signatureTimestamp(videoId: String): Int? = getSignatureTimestampOrNull(videoId)
+
+        // Apart from the walk, which stops waiting after RouteTimes.DECIPHER_WAIT_MS: a blocking
+        // read in NewPipe's client goes on until its own limit, on a thread of its own.
+        override suspend fun decipher(format: PlayerResponse.StreamingData.Format, videoId: String): String? =
+            background.async { findUrlOrNull(format, videoId) }.await()
 
         override fun poTokens(videoId: String, sessionId: String?): PoTokenResult? = getWebClientPoTokenOrNull(videoId, sessionId)
 
@@ -303,7 +340,12 @@ object YTPlayerUtils {
             null
         }
 
-        override suspend fun pause(ms: Long) = delay(ms)
+        override suspend fun pause(ms: Long) {
+            // A wait for the ads YouTube put before the song is the song's, not the network's:
+            // it does not count against the resolve's time. See withinResolveTime.
+            allowFor(ms)
+            delay(ms)
+        }
 
         override fun cpn(): String = StreamCipher.newCpn()
 
@@ -313,6 +355,10 @@ object YTPlayerUtils {
         override fun canSolve(): Boolean = solverIsInThisBuild
 
         override fun warmSolver() = warmWebClient(tokensToo = false)
+
+        override fun warmWeb() = warmWebClient(tokensToo = true)
+
+        override fun connectionsCut() = YouTube.forgetIdleConnections()
     }
 
     /** Looked up once: the solver's two files are in a build or they are not. */
@@ -324,16 +370,39 @@ object YTPlayerUtils {
     }
 
     /** Adds what one pass learned to [streamMemory], and hands it on to be stored if that changed it. */
-    private fun rememberAsked(asked: List<StreamOrder.Asked>) {
+    private fun rememberAsked(asked: List<StreamOrder.Asked>, why: String = "refused") {
         if (asked.isEmpty()) return
-        val changed = synchronized(this) {
+        val now = System.currentTimeMillis()
+        val (before, changed) = synchronized(this) {
             val before = streamMemory
-            val after = StreamOrder.remember(before, asked, System.currentTimeMillis())
+            val after = StreamOrder.remember(before, asked, now)
             if (after == before) return
             streamMemory = after
-            after
+            before to after
+        }
+        // Each new strike says how long its client now rests: see StreamOrder.REST_MS.
+        for (client in changed.strikes.keys) {
+            val strikes = changed.strikes[client] ?: continue
+            if (before.strikes[client] == strikes && before.refusedAt[client] == changed.refusedAt[client]) continue
+            StreamOrder.restsUntil(changed, client, now)?.let { until -> Log.i(TAG, StepLog.rests(client, clockOf(until), strikes, why)) }
         }
         onStreamMemoryChanged?.invoke(StreamOrder.encode(changed))
+    }
+
+    private fun clockOf(at: Long): String = java.text.SimpleDateFormat("HH:mm", java.util.Locale.ROOT).format(java.util.Date(at))
+
+    /**
+     * A strike on [label] from outside the walk: its address, passed or played unchecked, was
+     * refused later, by the late check or by the player within the song. Returns how long the
+     * client now rests, in words, for the log. The walk only ever heard the check, so a client
+     * whose addresses the player was refused stayed first song after song (FAILURE-MAP H).
+     */
+    fun strike(label: String, why: String): String? {
+        rememberAsked(listOf(StreamOrder.Asked(label, worked = false)), why)
+        val memory = streamMemory
+        val strikes = memory.strikes[label] ?: return null
+        val minutes = StreamOrder.restMs(memory, label) / 60_000
+        return (if (minutes >= 60) "${minutes / 60} h" else "$minutes min") + " ($strikes ${if (strikes == 1) "strike" else "strikes"})"
     }
 
     /**
@@ -627,16 +696,16 @@ object YTPlayerUtils {
                 ", the video's token of ${videoPot?.length ?: 0} characters, the session's of ${sessionPot?.length ?: 0}",
         )
 
-        fun tried(kind: Pot, pot: String?, afterMs: Long): TrialCheck {
+        suspend fun tried(kind: Pot, pot: String?, afterMs: Long): TrialCheck {
             val url = StreamCipher.withCpn(StreamCipher.withPot(address, pot), cpn)
             val at = if (afterMs > 0) "after ${afterMs / 1000} s" else "at once"
             var status = wire.head(url)
             Log.i(TAG, "[$videoId] [${client.clientName}] HEAD ${status ?: "failed"} with ${kind.words}, $at")
             var byReading = false
-            if (status != null && !StreamCheck.accept(status, isLast = false)) {
+            if (status != null && !StreamCheck.accept(status)) {
                 val past = wire.readPast(url, from)
                 Log.i(TAG, "[$videoId] [${client.clientName}] a read past 512 KB got ${past ?: "no answer"} with ${kind.words}, $at")
-                if (past != null && StreamCheck.accept(past, isLast = false)) {
+                if (past != null && StreamCheck.accept(past)) {
                     status = past
                     byReading = true
                 }
@@ -644,7 +713,7 @@ object YTPlayerUtils {
             val how = listOfNotNull(kind.words, at.takeIf { afterMs > 0 }, "by a read past 512 KB".takeIf { byReading })
             return TrialCheck(url, status, kind, how.joinToString(", "))
         }
-        fun settles(check: TrialCheck) = check.status == null || StreamCheck.accept(check.status, isLast = false)
+        fun settles(check: TrialCheck) = check.status == null || StreamCheck.accept(check.status)
 
         val (firstKind, firstPot) = pots.first()
         var waitedMs = 0L
@@ -771,7 +840,23 @@ object YTPlayerUtils {
          * that gives up a good copy for this stream checks it first.
          */
         val validated: Boolean = false,
+        /** The client that gave [streamUrl], as the walk names it: the route a failure in the player is the fault of. */
+        val client: String? = null,
     )
+
+    /**
+     * What the player wants of one song's resolve, carried in the coroutine's context so that
+     * StandIns, which walks the chain for it, need not know: the routes it failed on lately,
+     * asked last (see SongRoutes), and, mid-song, the stream it has bytes of, so the rest comes
+     * in the same encoding when any client offers it.
+     */
+    class RouteWish(
+        val videoId: String,
+        val avoid: Set<String>,
+        val sameStream: Pair<Int, Long>?,
+    ) : kotlin.coroutines.AbstractCoroutineContextElement(Key) {
+        companion object Key : kotlin.coroutines.CoroutineContext.Key<RouteWish>
+    }
 
     /** What one pass of the chain learned, for [playerResponseForPlayback] to act on. */
     private class ChainNotes {
@@ -909,6 +994,14 @@ object YTPlayerUtils {
         preferredMime: String? = null,
     ): Result<PlaybackData> {
         val trails = mutableListOf<String>()
+        val asked = kotlinx.coroutines.currentCoroutineContext()[RouteWish]
+        val wish = asked?.takeIf { it.videoId == videoId }
+        // The song the player asked for, which a stand-in's walk is not: its address is kept
+        // under this id, and a late refusal has to name it to be forgotten.
+        val songId = asked?.videoId ?: videoId
+        // Each step's time, over every pass, for the one line the song gets: see StepLog.
+        val steps = mutableListOf<String>()
+        val started = System.nanoTime()
         val outcome = FamilyChoice.resolve(
             currentNetwork(connectivityManager),
             familyMemory,
@@ -919,7 +1012,7 @@ object YTPlayerUtils {
             }
             // Cleared first, so a pass that fails before writing its own does not report the last song's.
             lastStreamTrail = null
-            val (result, notes) = resolveWithNewVisitor(videoId, playlistId, audioQuality, connectivityManager, policy, wire, preferredMime)
+            val (result, notes) = resolveWithNewVisitor(videoId, playlistId, audioQuality, connectivityManager, policy, wire, preferredMime, steps, wish, songId)
             trails += listOfNotNull(policy?.first?.label, lastStreamTrail).joinToString(": ")
             FamilyChoice.Attempt(result to notes, ok = result.isSuccess, refused = result.isFailure && notes.fallbackBlocked)
         }
@@ -927,6 +1020,9 @@ object YTPlayerUtils {
         lastStreamTrail = trails.filter { it.isNotEmpty() }.joinToString("; ").ifEmpty { null }
         val (result, notes) = outcome.chosen.value
         notes.tellThrottle()
+        val tookMs = (System.nanoTime() - started) / 1_000_000
+        if (result.isSuccess) Log.i(TAG, StepLog.resolved(videoId, tookMs, steps))
+        else Log.w(TAG, StepLog.unresolved(videoId, tookMs, steps))
         return result
     }
 
@@ -943,13 +1039,16 @@ object YTPlayerUtils {
         policy: AddressPolicy?,
         wire: Wire,
         preferredMime: String?,
+        steps: MutableList<String> = mutableListOf(),
+        wish: RouteWish? = null,
+        songId: String = videoId,
     ): Pair<Result<PlaybackData>, ChainNotes> {
         val sinceFailedSwap = lastSwapFailedAt.takeIf { it != 0L }?.let { SystemClock.elapsedRealtime() - it }
         // While a new visitorData may still be tried, a refused VISIONOS keeps the web client
         // waiting for the pass that tries it: see WEB_FALLBACK_CLIENT.
         val holdWeb = StreamCheck.mayRetryWithNewVisitor(visionosRefused = true, sinceFailedSwap)
         val first = ChainNotes()
-        val result = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, first, policy, wire, holdWeb, preferredMime)
+        val result = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, first, policy, wire, holdWeb, preferredMime, steps, wish, songId)
         // Every client called this song gone, and another before it with nothing served between:
         // taken for the connection, and given the same try as the bot check (see goneInARow).
         val goneAgain = result.exceptionOrNull() is SongUnavailable && anotherGoneBefore(videoId)
@@ -977,7 +1076,8 @@ object YTPlayerUtils {
             Log.i(TAG, "[$videoId] VISIONOS refused and no new visitorData to be had, asking again with the web client")
         }
         val second = ChainNotes()
-        val retried = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, second, policy, wire, preferredMime = preferredMime)
+        steps += "new visitorData"
+        val retried = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, second, policy, wire, preferredMime = preferredMime, steps = steps, wish = wish, songId = songId)
         if (fresh != null && retried.isSuccess && !second.visionosRefused) {
             lastSwapFailedAt = 0L
             // Kept for good only when signed out. Signed in, the stored one came from the
@@ -999,12 +1099,111 @@ object YTPlayerUtils {
      * carries a new one whatever it says. sw.js_data would do as well, but it is the very fetch
      * that failed at every launch in issue #17.
      */
-    private suspend fun mintVisitorData(videoId: String, policy: AddressPolicy?, wire: Wire): String? =
-        wire.player(videoId, null, MAIN_CLIENT, null, null, null, policy, asNewVisitor = true)
+    private suspend fun mintVisitorData(videoId: String, policy: AddressPolicy?, wire: Wire): String? {
+        val answer = try {
+            hedged("/player", RouteTimes.playerFreshMs, RouteTimes.playerCapMs, mayHedge = { false }) { _ ->
+                wire.player(videoId, null, MAIN_CLIENT, null, null, null, policy, asNewVisitor = true, fresh = poolSuspect())
+            }
+        } catch (e: StepTimedOut) {
+            poolCut(wire)
+            Result.failure(e)
+        }
+        return answer
             .onFailure { Throttle.noteFailure(it) }
             .getOrNull()
             ?.responseContext?.visitorData
             ?.takeIf { StreamCheck.looksLikeVisitorData(it) }
+    }
+
+    /** What the n step gave, so that a null address can be told from no answer at all. */
+    private class Deciphered(val address: String?)
+
+    /** An address handed over, or kept, without its check's answer, and the check still running. */
+    private class Unchecked(
+        val format: PlayerResponse.StreamingData.Format,
+        val url: String,
+        val expiresInSeconds: Int?,
+        val answer: PlayerResponse?,
+        val client: YouTubeClient,
+        val label: String,
+        val check: Deferred<Int?>?,
+        val trailAt: Int,
+    )
+
+    /**
+     * Told when the check of an address handed to the player unchecked comes back refused: the
+     * song the player asked for (not a stand-in's id), the client the walk knew it by, and the
+     * address refused. Set by MusicService, which forgets the address, if it is still the one
+     * kept, so the player's next open of the song asks afresh. See StreamCheck.playsUnchecked.
+     */
+    @Volatile
+    var onLateRefusal: ((songId: String, client: String, address: String) -> Unit)? = null
+
+    /** When the web client was last got ready because it may be needed: once every 10 minutes at most. */
+    @Volatile
+    private var webWarmedAt = 0L
+
+    private fun webMayBeNeeded(order: List<String>): Boolean {
+        val now = System.currentTimeMillis()
+        val web = order.indexOf(WEB_FALLBACK_CLIENT.clientName)
+        val visionos = order.indexOf(VISIONOS.clientName)
+        val wanted = StreamOrder.isResting(streamMemory, VISIONOS.clientName, now) || (web >= 0 && (visionos < 0 || web < visionos))
+        if (!wanted || now - webWarmedAt in 0 until 10 * 60 * 1000L) return false
+        webWarmedAt = now
+        return true
+    }
+
+    /** For the tests, each of which starts as a new process does. */
+    internal fun forgetWarming() {
+        webWarmedAt = 0L
+        poolSuspectUntil = 0L
+    }
+
+    /**
+     * Until when (System.nanoTime) the kept connections to YouTube's API are not trusted, after
+     * a /player request on one of them did not answer. A request our deadline cut is cancelled,
+     * not timed out, so OkHttp never learns its connection is dead, and the rest idle beside it
+     * on a network that dropped them are no better. The next client and the quiet retry used to
+     * take them, and only a second try on a fresh connection got out, within its budget. For
+     * [RouteTimes.POOL_SUSPECT_MS] every /player goes out on a new connection instead: a new
+     * handshake, never an extra request.
+     */
+    @Volatile
+    private var poolSuspectUntil = 0L
+
+    private fun poolSuspect(): Boolean = poolSuspectUntil != 0L && System.nanoTime() < poolSuspectUntil
+
+    private fun poolCut(wire: Wire) {
+        poolSuspectUntil = System.nanoTime() + RouteTimes.POOL_SUSPECT_MS * 1_000_000
+        runCatching { wire.connectionsCut() }
+    }
+
+    /** The name the walk, the trail and StreamOrder know [client] by. */
+    private fun labelOf(client: YouTubeClient, isLoggedIn: Boolean): String {
+        // An identity of VISIONOS by its own name: to YouTube it is VISIONOS, here it is not the same entry.
+        val name = VISIONOS_IDENTITIES.firstOrNull { it.first === client }?.second ?: client.clientName
+        return if (client.loginSupported && isLoggedIn) "$name (account)" else name
+    }
+
+    /** Whether an address of [label] whose check did not answer may go to the player. */
+    private fun mayPlayUnchecked(label: String): Boolean =
+        StreamCheck.playsUnchecked(label, resting = StreamOrder.isResting(streamMemory, label, System.currentTimeMillis()), allowedRemotely = RemoteRoutes.uncheckedPlay)
+
+    /** Waits out the check of an address played unchecked: a refusal arriving late forgets it. */
+    private fun watchLate(videoId: String, songId: String, unchecked: Unchecked) {
+        val check = unchecked.check ?: return
+        background.launch {
+            val late = check.await() ?: return@launch
+            when (StreamCheck.verdict(late)) {
+                StreamCheck.Verdict.REFUSED -> {
+                    val rest = strike(unchecked.label, "late HEAD $late")
+                    Log.w(TAG, StepLog.lateRefusal(videoId, unchecked.label, late, rest))
+                    onLateRefusal?.invoke(songId, unchecked.label, unchecked.url)
+                }
+                else -> Log.i(TAG, StepLog.lateAnswer(videoId, unchecked.label, late))
+            }
+        }
+    }
 
     private suspend fun resolveOnce(
         videoId: String,
@@ -1017,7 +1216,13 @@ object YTPlayerUtils {
         // The chain's web client is passed over once VISIONOS has been refused in this pass: see resolveWithNewVisitor.
         holdWeb: Boolean = false,
         preferredMime: String? = null,
+        // Each step with its time, for the line the song gets: see StepLog.
+        steps: MutableList<String> = mutableListOf(),
+        wish: RouteWish? = null,
+        // The song the player asked for: see playerResponseForPlayback.
+        songId: String = videoId,
     ): Result<PlaybackData> = runCatchingCancellable {
+        fun msSince(from: Long) = (System.nanoTime() - from) / 1_000_000
         Log.d(TAG, "Playback info requested: $videoId")
 
         /**
@@ -1047,7 +1252,13 @@ object YTPlayerUtils {
         // The account on the web client: see ACCOUNT_WEB_CLIENT.
         val accountOnWeb = !trialOn && wire.canSolve()
         val streamClients = streamClients(isLoggedIn, webInChain, accountOnWeb)
-        val playerClients = listOf(MAIN_CLIENT) + streamClients
+        val chain = listOf(MAIN_CLIENT) + streamClients
+        // The order and the clients taken out by the maintainer's block, while one is in force:
+        // see RemoteRoutes. It can never leave the chain without a client that serves whole songs.
+        val chainLabels = chain.map { labelOf(it, isLoggedIn) }
+        val playerClients =
+            if (chainLabels.distinct().size != chainLabels.size) chain
+            else RemoteRoutes.applyNow(chainLabels).map { chain[chainLabels.indexOf(it)] }
         var trialLeftMs = trialLimitMs
         suspend fun <T> withinTrialTime(work: suspend () -> T): T? {
             if (trialLeftMs <= 0) return null
@@ -1073,19 +1284,24 @@ object YTPlayerUtils {
         // when it gives no stream: see StreamOrder. Clients are known there by the names the trail
         // gives them. Two with one name could not be told apart, so such a chain is asked as
         // written.
-        fun label(client: YouTubeClient): String {
-            // An identity of VISIONOS by its own name: to YouTube it is VISIONOS, here it is not the same entry.
-            val name = VISIONOS_IDENTITIES.firstOrNull { it.first === client }?.second ?: client.clientName
-            return if (client.loginSupported && isLoggedIn) "$name (account)" else name
-        }
+        fun label(client: YouTubeClient): String = labelOf(client, isLoggedIn)
         val written = playerClients.map { label(it) }
         val hasVisitorData = YouTube.visitorData?.let { StreamCheck.looksLikeVisitorData(it) } == true
         val ordered =
             if (written.distinct().size != written.size) playerClients
             else StreamOrder.order(written, streamMemory, System.currentTimeMillis(), hasVisitorData)
                 .map { playerClients[written.indexOf(it)] }
+        // The day VISIONOS rests or the maintainer's block puts the web client before it, the web
+        // client is got ready now, so its first song does not pay 4.4 s of cold WebView. Never
+        // otherwise: a WebView costs memory.
+        if (webInChain && webMayBeNeeded(playerClients.map { label(it) })) wire.warmWeb()
+        // The routes the player failed on for this song lately, asked last and never left out:
+        // see SongRoutes. A retry then starts somewhere else.
+        val avoid = wish?.avoid.orEmpty()
+        val routed = if (avoid.isEmpty()) ordered else ordered.filterNot { label(it) in avoid } + ordered.filter { label(it) in avoid }
+        if (avoid.isNotEmpty()) Log.i(TAG, "[$videoId] asked last for this song: ${avoid.sorted().joinToString(" ")}")
         // The experiment's client before all of them, whatever is remembered: see TRIAL_CLIENT.
-        val clients = listOfNotNull(trial) + ordered
+        val clients = listOfNotNull(trial) + routed
 
         // Worked out on first use rather than up front. The authenticated client asks for a
         // signature timestamp and usually sits at the end of the chain never being reached, so
@@ -1133,10 +1349,18 @@ object YTPlayerUtils {
         fun startPoTokens() {
             if (pots == null) pots = background.async { runCatching { wire.poTokens(videoId, sessionId) }.getOrNull() }
         }
+        // Waited for RouteTimes.PO_TOKEN_WAIT_MS at most in all, the WebView keeping its own
+        // 20 s for the next song: a token that is late is not waited for again in this walk.
+        var tokensDue = 0L
+        suspend fun Deferred<PoTokenResult?>.inTime(): PoTokenResult? {
+            if (tokensDue == 0L) tokensDue = System.nanoTime() + RouteTimes.poTokenWaitMs * 1_000_000
+            val left = (tokensDue - System.nanoTime()) / 1_000_000
+            return if (isCompleted) await() else if (left <= 0) null else withTimeoutOrNull(left) { await() }
+        }
         suspend fun poTokens(): PoTokenResult? {
             val asked = pots == null
             startPoTokens()
-            return checkNotNull(pots).await().also { if (it == null && asked) Log.w(TAG, "[$videoId] No po token") }
+            return checkNotNull(pots).inTime().also { if (it == null && asked) Log.w(TAG, "[$videoId] No po token") }
         }
         // The web client as the account carries tokens made for the account's session, as the
         // experiment's did when it played as the account. The walk's own are the visitor's
@@ -1151,7 +1375,7 @@ object YTPlayerUtils {
             if (client !== ACCOUNT_WEB_CLIENT || !accountTokensApart) return poTokens()
             val asked = accountPots == null
             startTokensFor(client)
-            return checkNotNull(accountPots).await().also { if (it == null && asked) Log.w(TAG, "[$videoId] No po token for the account") }
+            return checkNotNull(accountPots).inTime().also { if (it == null && asked) Log.w(TAG, "[$videoId] No po token for the account") }
         }
 
         // A refusal from one client is not a refusal from YouTube. ANDROID_VR answers "Sign in to
@@ -1210,6 +1434,20 @@ object YTPlayerUtils {
         // What each client asked gave, for StreamOrder to remember. A client the network never
         // reached, or whose url could not be checked, is left out: nothing was learned of it.
         val asked = mutableListOf<StreamOrder.Asked>()
+        // A check that did not answer, and the first VISIONOS address it left unchecked: see
+        // StreamCheck.verdict and the end of the loop.
+        var checkUnanswered = false
+        var candidate: Unchecked? = null
+        // Clients in a row whose /player did not answer in time, and whether the network is taken
+        // for slow: by this walk, or by one in the last few minutes (see NetworkPace).
+        var timedOutInARow = 0
+        var slowNetwork = NetworkPace.isSlow()
+        // Whether the last n step was given up for want of an answer, not failed.
+        var decipherUnanswered = false
+        // Whether any n step of this walk went unanswered. Every app client's goes through the
+        // one player script, so the next would wait as long for the same fetch: 8 s per VISIONOS
+        // name took the walk past its limit before the web client, which needs no NewPipe, was asked.
+        var nStepUnanswered = false
 
         // Says what was asked and answered, and remembers it. Whichever client the loop ended on,
         // successfully or not, and also when a failure ends it early, so a song that failed is
@@ -1224,7 +1462,17 @@ object YTPlayerUtils {
         }
 
         for ((clientIndex, client) in clients.withIndex()) {
+            // A VISIONOS address is in hand and the next client could not be heard and checked
+            // in what is left of the resolve: the address plays, after the loop. Cut off from
+            // outside, the walk used to lose it and the song with it, though it held a playable
+            // address after 3 s.
+            val left = resolveTimeLeft()
+            if (candidate != null && left != null && left < RouteTimes.playerCapMs + RouteTimes.headWaitMs) {
+                Log.w(TAG, "[$videoId] ${StepLog.limit(left)} left of the resolve, too little for ${label(client)}: the address in hand plays")
+                break
+            }
             // reset for each client
+            decipherUnanswered = false
             format = null
             streamUrl = null
             streamExpiresInSeconds = null
@@ -1280,25 +1528,72 @@ object YTPlayerUtils {
             // YouTube wrote it, so a song refused for its own sake now reads in English there.
             // The main client keeps the app's hl: nothing in its answer is shown or read, its
             // routine bot check least of all (see ChainNotes.blocked).
+            val askedAt = System.nanoTime()
+            val timestamp = if (isWeb) playerScript()?.signatureTimestamp else signatureTimestampFor(client)
+            val playerPot = if (isWeb || !client.useWebPoTokens) null else poTokens()?.playerRequestPoToken
+            // A deadline on the request, where it used to have ktor's 30 s: see RouteTimes. The
+            // last client of a walk, and every client once two in a row ran out, get the longer
+            // one, so a network that is only slow still plays.
+            val capMs = if (slowNetwork || clientIndex == clients.lastIndex) RouteTimes.playerSlowCapMs else RouteTimes.playerCapMs
+            // RouteTimes.PLAYER_FRESH_MS, or later where answers are slow but come: see NetworkPace.
+            val hedgeAfterMs = NetworkPace.hedgeAfter(RouteTimes.playerFreshMs, capMs)
             val result =
-                wire.player(
-                    videoId, playlistId, client,
-                    // The timestamp of the very script its address will be solved against.
-                    if (isWeb) playerScript()?.signatureTimestamp else signatureTimestampFor(client),
-                    // None for a web client: its token is for the address. See TRIAL_CLIENT.
-                    if (isWeb || !client.useWebPoTokens) null else poTokens()?.playerRequestPoToken,
-                    hlOverride = if (isMain) null else "en", policy = policy,
-                    asWebPage = isWeb,
-                )
-                    .onFailure { if (!isTrial) Throttle.noteFailure(it) }
+                try {
+                    // A second try of the same client on a new connection at hedgeAfterMs, within
+                    // the budget: see hedged and HedgeBudget. Never the experiment's client.
+                    hedged(
+                        "/player", hedgeAfterMs, capMs,
+                        mayHedge = { !isTrial && HedgeBudget.mayHedge(HedgeBudget.Kind.PLAYER, videoId) },
+                        settles = { answer -> answer.isSuccess || !StreamOrder.networkDidNotAnswer(answer.exceptionOrNull()) },
+                        onHedge = { Log.i(TAG, StepLog.freshTry(videoId, clientLabel, "/player", hedgeAfterMs)) },
+                    ) { fresh ->
+                        val sent = System.nanoTime()
+                        // While the kept connections are not trusted, never one of them: see poolSuspect.
+                        val hedgeTry = fresh && !poolSuspect()
+                        wire.player(
+                            videoId, playlistId, client,
+                            // The timestamp of the very script its address will be solved against.
+                            timestamp,
+                            // None for a web client: its token is for the address. See TRIAL_CLIENT.
+                            playerPot,
+                            hlOverride = if (isMain) null else "en", policy = policy,
+                            asWebPage = isWeb,
+                            fresh = fresh || poolSuspect(),
+                        ).also {
+                            if (fresh) Log.i(TAG, StepLog.freshAnswered(videoId, clientLabel, "/player", msSince(sent)))
+                            // The second try answered where the first did not: that one's connection is dead.
+                            if (hedgeTry && it.isSuccess) poolCut(wire)
+                        }
+                    }
+                } catch (e: StepTimedOut) {
+                    Log.w(TAG, StepLog.timedOut(videoId, clientLabel, "/player", capMs))
+                    poolCut(wire)
+                    Result.failure(e)
+                }
+            result.onFailure { if (!isTrial) Throttle.noteFailure(it) }
+            // Two clients in a row that did not answer in time: the network is slow, not dead,
+            // and the rest of the walk gets the longer limit. Said once.
+            if (result.exceptionOrNull() is StepTimedOut && capMs == RouteTimes.playerCapMs) {
+                if (++timedOutInARow >= RouteTimes.SLOW_AFTER && !slowNetwork) {
+                    slowNetwork = true
+                    NetworkPace.foundSlow()
+                    Log.i(TAG, StepLog.slowNetwork(videoId, RouteTimes.playerSlowCapMs))
+                }
+            } else if (result.isSuccess) {
+                timedOutInARow = 0
+                if (!isTrial) NetworkPace.answered(msSince(askedAt))
+            }
+            steps += StepLog.asked(clientLabel, result.getOrNull()?.playabilityStatus?.status, msSince(askedAt))
             streamPlayerResponse = result.getOrNull()
             result.exceptionOrNull()?.let { failure ->
                 val unreached = StreamOrder.networkDidNotAnswer(failure)
                 if (!unreached) asked += StreamOrder.Asked(clientLabel, worked = false, asAccount)
-                // The main client's failure ends the song, as it always has. So does the first
-                // request of all when the network did not carry it, which used to be the main
-                // client's: see StreamOrder.networkDidNotAnswer.
-                if (isMain || (clientIndex == 0 && unreached)) {
+                // No network at all ends the song at once, at the main client or the first
+                // request of all, so offline the error comes quickly. Anything else, a timeout
+                // above all, goes on to the next client: one request that did not answer said
+                // nothing of the others (20 Oct 2026: VISIONOS hung 30 s and the song stopped).
+                // See StreamOrder.endsWalkAtOnce.
+                if ((isMain || clientIndex == 0) && StreamOrder.endsWalkAtOnce(failure)) {
                     trail += StreamCheck.trailStep(clientLabel, null, null, checked = false)
                     chainDone()
                     throw failure
@@ -1310,7 +1605,11 @@ object YTPlayerUtils {
                 Log.d(TAG, "[$videoId] $clientLabel: the request failed, ${StreamCheck.failureForLog(failure)}")
             }
             // Noted as having given no stream, until its url passes the check below.
-            if (streamPlayerResponse != null) asked += StreamOrder.Asked(clientLabel, worked = false, asAccount)
+            // A song YouTube calls gone, region locked or age gated says nothing of the client:
+            // no strike. See StreamOrder.strikes.
+            if (streamPlayerResponse != null && StreamOrder.strikes(streamPlayerResponse?.playabilityStatus?.reason)) {
+                asked += StreamOrder.Asked(clientLabel, worked = false, asAccount)
+            }
             if (!isMain && !isTrial) streamPlayerResponse?.rememberBlock()
 
             if (isMain) {
@@ -1358,6 +1657,7 @@ object YTPlayerUtils {
                         audioQuality,
                         connectivityManager,
                         preferredMime,
+                        wish?.sameStream,
                     ) ?: continue
                 val address =
                     if (isWeb) {
@@ -1380,20 +1680,40 @@ object YTPlayerUtils {
                             )
                         }
                     } else {
-                        findUrlOrNull(format, videoId)
+                        val decipheredAt = System.nanoTime()
+                        val chosen = format
+                        val needsScript = StreamCipher.read(chosen.url, chosen.signatureCipher)?.needsSolving == true
+                        val got =
+                            if (nStepUnanswered && needsScript) null
+                            else try {
+                                withTimeoutOrNull(RouteTimes.decipherWaitMs) { Deciphered(wire.decipher(chosen, videoId)) }
+                            } catch (e: java.io.IOException) {
+                                // The network failed while the script was fetched: no answer, as a timeout is.
+                                Log.w(TAG, "[$videoId] [${client.clientName}] the n step got no answer (${e.javaClass.simpleName})")
+                                null
+                            }
+                        decipherUnanswered = got == null
+                        if (got == null && needsScript) nStepUnanswered = true
+                        steps += StepLog.deciphered(msSince(decipheredAt), answered = got != null)
+                        got?.address
                     }
                 if (address == null) {
                     // Playable, and nothing the player could fetch. Said in the trail, where this
                     // step otherwise reads as a client that served.
-                    val lacking = if (format.url == null && format.signatureCipher == null) StreamCheck.NO_ADDRESS else StreamCheck.NOT_DECIPHERED
+                    val lacking = when {
+                        format.url == null && format.signatureCipher == null -> StreamCheck.NO_ADDRESS
+                        decipherUnanswered -> StreamCheck.NOT_DECIPHERED_IN_TIME
+                        else -> StreamCheck.NOT_DECIPHERED
+                    }
                     trail[trail.lastIndex] = StreamCheck.trailStep(clientLabel, "OK", null, checked = false, lacking = lacking)
+                    // An n step that did not answer is the connection's, not the client's: no strike.
+                    if (decipherUnanswered && asked.lastOrNull()?.client == clientLabel) asked.removeAt(asked.lastIndex)
                     Log.w(TAG, "[$videoId] [${client.clientName}] answered OK, $lacking")
                     continue
                 }
                 streamExpiresInSeconds =
                     streamPlayerResponse.streamingData?.expiresInSeconds ?: continue
 
-                val isLast = clientIndex == clients.lastIndex
                 // The family the check goes over, for the log: see StreamFamily. A refusal over
                 // the family /player was asked over is the client's or the visitor's, and no
                 // longer something a fetch from another address could explain.
@@ -1412,11 +1732,23 @@ object YTPlayerUtils {
                 // report made with it on cannot be read as YouTube's doing.
                 val pretended = (isVisionos && visionosTakenForRefused) || (client === VISIONOS && ownVisionosTakenForRefused)
                 if (pretended) Log.w(TAG, "[$videoId] [${client.clientName}] its address is taken for refused: the developer's switch is on")
+                val checkedAt = System.nanoTime()
+                // The check runs apart from the walk, which waits for it a few seconds and no
+                // more: an address whose check has not answered by then may still be played (see
+                // StreamCheck.playsUnchecked), and the check goes on in the background to forget
+                // it if the answer, when it comes, is a refusal. See watchLate.
+                var stillChecking: Deferred<Int?>? = null
                 val status = when {
                     trialCheck != null -> trialCheck.status
                     pretended -> 403
-                    else -> wire.head(checked)
+                    else -> {
+                        val check = background.async { withTimeoutOrNull(RouteTimes.headLateMs) { wire.head(checked) } }
+                        withTimeoutOrNull(RouteTimes.headWaitMs) { check.await() }
+                            .also { if (!check.isCompleted) stillChecking = check }
+                    }
                 }
+                val verdict = StreamCheck.verdict(status)
+                steps += StepLog.checked(status, msSince(checkedAt))
                 val carried = trialCheck?.pot
                 streamUrl = checked
                 trail[trail.lastIndex] = StreamCheck.trailStep(
@@ -1425,34 +1757,69 @@ object YTPlayerUtils {
                 )
                 // For StreamOrder the client served or was refused by what the check answered. A
                 // check that could not be made says more of the connection than of the client, so
-                // nothing is remembered of it, even when its url is the last one and is played.
+                // nothing is remembered of it, even when its url is played.
                 asked.removeAt(asked.lastIndex)
                 if (status != null) {
-                    asked += StreamOrder.Asked(clientLabel, worked = StreamCheck.accept(status, isLast = false), asAccount)
+                    asked += StreamOrder.Asked(clientLabel, worked = verdict == StreamCheck.Verdict.PASS, asAccount)
                 }
-                if (StreamCheck.accept(status, isLast)) {
-                    // working stream found, or the last one left with nothing to say it is not
+                if (verdict == StreamCheck.Verdict.PASS) {
+                    // working stream found
                     // The client's own name between the brackets, one word: tools/release-check/smoke.py reads this line.
                     Log.i(TAG, "[$videoId] [${clientLabel.substringBefore(' ')}] found working stream ($status), address issued to $issuedTo")
-                    validated = status != null
-                    if (isWeb && status != null) potThatServed = carried
+                    validated = true
+                    if (isWeb) potThatServed = carried
                     break
+                }
+                if (verdict == StreamCheck.Verdict.NO_ANSWER) {
+                    // No answer is the connection's, not YouTube's: see StreamCheck.verdict.
+                    if (!isTrial) checkUnanswered = true
+                    val unchecked = Unchecked(format, checked, streamExpiresInSeconds, streamPlayerResponse, client, clientLabel, stillChecking, trail.lastIndex)
+                    if (!isWeb && mayPlayUnchecked(clientLabel)) {
+                        trail[trail.lastIndex] = StreamCheck.trailStep(clientLabel, "OK", null, checked = true, note = "played unchecked")
+                        Log.w(TAG, StepLog.playedUnchecked(videoId, clientLabel, RouteTimes.headWaitMs))
+                        Log.i(TAG, "[$videoId] [${clientLabel.substringBefore(' ')}] found working stream (unchecked), address issued to $issuedTo")
+                        validated = false
+                        watchLate(videoId, songId, unchecked)
+                        break
+                    }
+                    // Kept, for a walk that ends with nothing better: VISIONOS's address, which
+                    // plays to the end, rather than none. See after the loop.
+                    // Never with the maintainer's switch off: see RemoteRoutes.uncheckedPlay.
+                    if (!isWeb && clientLabel in StreamCheck.UNCHECKED_OK && candidate == null && RemoteRoutes.uncheckedPlay) candidate = unchecked
+                    Log.w(TAG, "[$videoId] [${clientLabel.substringBefore(' ')}] its check did not answer, address issued to $issuedTo")
+                    streamUrl = null
+                    continue
                 }
                 Log.w(TAG, "[$videoId] [${clientLabel.substringBefore(' ')}] got bad http status code $status, address issued to $issuedTo")
                 // An OK whose address is refused says nothing of the song: it no longer stands in
                 // the way of the others calling it gone. IOS answers OK for songs every other client
                 // calls unavailable, then has its address refused (issue #29, 19 Oct 2026), and the
                 // song failed with YouTube's raw words instead of being looked for under another id.
-                if (status != null && saidOkAt in fallbackSaid.indices && fallbackSaid[saidOkAt].status == "OK") {
+                if (saidOkAt in fallbackSaid.indices && fallbackSaid[saidOkAt].status == "OK") {
                     fallbackSaid.removeAt(saidOkAt)
                     saidOkAt = -1
                 }
-                if (status != null && !isTrial) {
+                if (!isTrial) {
                     refusedStatus = status
                     if (isVisionos) notes.visionosRefused = true
                 }
                 streamUrl = null
             }
+        }
+
+        // No client's check passed, and a VISIONOS address whose check did not answer was kept:
+        // it plays rather than nothing. The last client's address used to be taken unchecked
+        // instead, and signed out that is IOS's, which stops at 512 KB.
+        if (streamUrl == null) candidate?.let { kept ->
+            format = kept.format
+            streamUrl = kept.url
+            streamExpiresInSeconds = kept.expiresInSeconds
+            streamPlayerResponse = kept.answer
+            lastClient = kept.client
+            validated = false
+            trail[kept.trailAt] = StreamCheck.trailStep(kept.label, "OK", null, checked = true, note = "played unchecked")
+            Log.w(TAG, StepLog.playedUnchecked(videoId, kept.label, RouteTimes.headWaitMs))
+            watchLate(videoId, songId, kept)
         }
 
         // Written before the throws below, so a failure is reported with the client that failed.
@@ -1481,6 +1848,17 @@ object YTPlayerUtils {
                     PlaybackException.ERROR_CODE_REMOTE_ERROR,
                 )
             }
+        }
+
+        // No address refused and none answered for: the connection's doing, a timeout for the
+        // player to try again, and not "Could not find stream url".
+        if (streamUrl == null && checkUnanswered) {
+            throw StepTimedOut("stream check", RouteTimes.headWaitMs)
+        }
+        // The same for the n step: the player script that did not come is the network's doing,
+        // where "Missing stream expire time" used to stop the song for good.
+        if (streamUrl == null && nStepUnanswered) {
+            throw StepTimedOut("n step", RouteTimes.decipherWaitMs)
         }
 
         if (streamPlayerResponse == null) {
@@ -1555,6 +1933,7 @@ object YTPlayerUtils {
             streamUrl,
             streamExpiresInSeconds,
             validated,
+            client = lastClient?.let { label(it) },
         )
     }
 
@@ -1745,10 +2124,16 @@ object YTPlayerUtils {
         audioQuality: AudioQuality,
         connectivityManager: ConnectivityManager,
         preferredMime: String? = null,
+        // Mid-song, the stream the player has bytes of: taken whenever it is offered, so the rest
+        // of the song is the same encoding. See RouteWish.
+        sameStream: Pair<Int, Long>? = null,
     ): PlayerResponse.StreamingData.Format? {
         val audioFormats = playerResponse.streamingData?.adaptiveFormats
             ?.filter { it.isAudio && (preferredMime == null || it.mimeType.startsWith(preferredMime)) }
         if (audioFormats.isNullOrEmpty()) return null
+        if (sameStream != null) {
+            audioFormats.firstOrNull { it.itag == sameStream.first && it.contentLength == sameStream.second }?.let { return it }
+        }
         if (TRACE_FORMATS) {
             android.util.Log.d(
                 "YTPlayerUtils",
@@ -1795,15 +2180,39 @@ object YTPlayerUtils {
      * the first 512 KB of a ranged GET, so a url that fails this check fails partway through the
      * song, not at the start. [StreamCheck.accept] turns the answer into a decision.
      */
-    private fun streamStatus(url: String): Int? {
-        repeat(2) { attempt ->
-            try {
-                return checkCalls.newCall(okhttp3.Request.Builder().head().url(url).build()).execute().use { it.code }
-            } catch (e: Exception) {
-                if (attempt == 1) reportException(e)
-            }
+    private suspend fun streamStatus(url: String): Int? {
+        // The second try starts at RouteTimes.HEAD_FRESH_MS beside the first when the budget
+        // allows, and after it otherwise, as it always did. The check's client keeps no
+        // connection, so every try is on a new one.
+        var hedgedYet = false
+        val first = try {
+            hedged(
+                "HEAD", RouteTimes.headFreshMs, 2 * RouteTimes.HEAD_TRY_MS,
+                mayHedge = { HedgeBudget.mayHedge(HedgeBudget.Kind.HEAD, url) },
+                settles = { it != null },
+                onHedge = { hedgedYet = true },
+            ) { fresh -> headTry(url, if (fresh) 2 else 1) }
+        } catch (e: StepTimedOut) {
+            null
         }
-        return null
+        return first ?: if (hedgedYet) null else headTry(url, 2)
+    }
+
+    /** One HEAD request, its status or null; each failed try is logged with its time. */
+    private suspend fun headTry(url: String, attempt: Int): Int? {
+        val started = System.nanoTime()
+        return try {
+            checkCalls.newCall(okhttp3.Request.Builder().head().url(url).build()).await().use { it.code }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // Each failed try, with its time: the first one used to say nothing, and a slow
+            // start could not be explained (FAILURE-MAP weakness 10).
+            val ms = (System.nanoTime() - started) / 1_000_000
+            Log.w(TAG, "HEAD try $attempt of 2 failed after ${StepLog.seconds(ms)}: ${StreamCheck.failureForLog(e)}")
+            if (attempt == 2) reportException(e)
+            null
+        }
     }
 
     /**
@@ -1826,11 +2235,16 @@ object YTPlayerUtils {
         format: PlayerResponse.StreamingData.Format,
         videoId: String
     ): String? {
-        return NewPipeUtils.getStreamUrl(format, videoId)
-            .onFailure {
-                reportException(it)
-            }
-            .getOrNull()
+        val result = NewPipeUtils.getStreamUrl(format, videoId)
+        val failure = result.exceptionOrNull() ?: return result.getOrNull()
+        // The network failed while the script was fetched: thrown, so the walk takes it for no
+        // answer and strikes no client. NewPipe keeps no such failure, nothing to clear.
+        if (failure is java.io.IOException) throw failure
+        reportException(failure)
+        // What NewPipe failed to read it keeps for the life of the process: cleared, at most
+        // every 10 minutes, so the next song tries the script again.
+        if (NewPipeUtils.clearAfterFailure()) Log.w(TAG, "[$videoId] the n step failed, NewPipe's player script is fetched again for the next song")
+        return null
     }
 
     /**
@@ -1848,4 +2262,22 @@ object YTPlayerUtils {
         }
         return null
     }
+}
+
+/**
+ * Runs the call on OkHttp's own threads and suspends until it answers. Cancelling the coroutine
+ * cancels the call, which a blocking execute() never noticed: a walk that gave up on a check left
+ * it holding a thread and a connection until its own limits ran out.
+ */
+internal suspend fun okhttp3.Call.await(): okhttp3.Response = kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
+    continuation.invokeOnCancellation { runCatching { cancel() } }
+    enqueue(object : okhttp3.Callback {
+        override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+            continuation.resume(response) { _, value, _ -> value.close() }
+        }
+
+        override fun onFailure(call: okhttp3.Call, e: java.io.IOException) {
+            if (continuation.isActive) continuation.resumeWith(Result.failure(e))
+        }
+    })
 }

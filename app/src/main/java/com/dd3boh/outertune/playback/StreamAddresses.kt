@@ -6,6 +6,8 @@
 
 package com.dd3boh.outertune.playback
 
+import com.dd3boh.outertune.utils.RouteTimes
+
 /**
  * The stream address each song was last given, kept so that the rest of a song comes from the
  * address its start came from. No Android in here, so it is tested.
@@ -39,19 +41,39 @@ package com.dd3boh.outertune.playback
  * of a failure by the main one, so every call takes the lock. The map this replaces had none.
  */
 class StreamAddresses {
-    private class Kept(val address: String, val goodUntil: Long)
+    private class Kept(val address: String, val goodUntil: Long, val client: String?, val checked: Boolean)
 
     private val kept = HashMap<String, Kept>()
 
-    /** The address [mediaId] was given, or null when it has none that is still good at [now]. */
+    /**
+     * The address [mediaId] was given, or null when it has none that is still good at [now],
+     * with [RouteTimes.ADDRESS_MARGIN_MS] to spare: its end is counted from when it was kept,
+     * which is later than YouTube counts from.
+     */
     @Synchronized
-    fun of(mediaId: String, now: Long): String? = kept[mediaId]?.takeIf { it.goodUntil > now }?.address
+    fun of(mediaId: String, now: Long): String? = kept[mediaId]?.takeIf { it.goodUntil - RouteTimes.ADDRESS_MARGIN_MS > now }?.address
 
     /** [address] is where [mediaId] is fetched from until [goodUntil], unless the player fails on it. */
     @Synchronized
-    fun keep(mediaId: String, address: String, goodUntil: Long) {
-        kept[mediaId] = Kept(address, goodUntil)
+    fun keep(mediaId: String, address: String, goodUntil: Long, client: String? = null, checked: Boolean = false) {
+        kept[mediaId] = Kept(address, goodUntil, client, checked)
     }
+
+    /** The client [mediaId]'s address came from, as the walk names it, while one is kept: the route a failure is the fault of. */
+    @Synchronized
+    fun clientOf(mediaId: String?): String? = mediaId?.let { kept[it]?.client }
+
+    /** Whether [mediaId]'s address passed its check: a refusal of it later is then the route's. */
+    @Synchronized
+    fun wasChecked(mediaId: String?): Boolean = mediaId?.let { kept[it]?.checked } == true
+
+    /**
+     * Whether a refusal of [mediaId]'s address at [now] (wall clock) is the route's doing: it
+     * passed its check and was not near its end, where a 403 is only its age.
+     */
+    @Synchronized
+    fun refusalIsTheRoutes(mediaId: String?, now: Long): Boolean =
+        mediaId?.let { kept[it] }?.let { it.checked && it.goodUntil - RouteTimes.ADDRESS_MARGIN_MS > now } == true
 
     /**
      * The player failed on [mediaId], null when the failure names no song. Returns whether there
@@ -60,4 +82,25 @@ class StreamAddresses {
      */
     @Synchronized
     fun playerFailedOn(mediaId: String?): Boolean = mediaId != null && kept.remove(mediaId) != null
+
+    /**
+     * [address] was refused: forgotten if it is still the one [mediaId] is fetched from. A late
+     * refusal can come seconds after the song moved to another route, and dropping that one
+     * cost the next seek a walk for nothing.
+     */
+    @Synchronized
+    fun refused(mediaId: String, address: String): Boolean {
+        if (kept[mediaId]?.address != address) return false
+        kept.remove(mediaId)
+        return true
+    }
+
+    /**
+     * The network changed: every address names the public address it was issued to, which is
+     * the old one now, so none is handed out again. Each song asks afresh at its next open.
+     */
+    @Synchronized
+    fun forgetAll() {
+        kept.clear()
+    }
 }

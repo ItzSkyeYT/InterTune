@@ -70,6 +70,9 @@ import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.utils.mayPushToYouTube
 import com.dd3boh.outertune.utils.reportException
 import com.dd3boh.outertune.utils.StreamOrder
+import com.dd3boh.outertune.utils.RemoteRoutes
+import com.dd3boh.outertune.constants.CachedPollsJsonKey
+import com.dd3boh.outertune.constants.LastPollFetchKey
 import com.dd3boh.outertune.utils.YTPlayerUtils
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.YouTubeLocale
@@ -156,6 +159,9 @@ class App : Application(), SingletonImageLoader.Factory {
         // not of one YouTube was refusing an hour ago. Read here, like the keys above, and not by
         // the player, which runs on every song. See StreamOrder.
         YTPlayerUtils.streamMemory = StreamOrder.decode(dataStore[StreamOrderKey])
+        // The maintainer's playback block, from the document fetched last: see RemoteRoutes. It is
+        // read again whenever the document is.
+        RemoteRoutes.read(dataStore[CachedPollsJsonKey], BuildConfig.VERSION_CODE, dataStore[LastPollFetchKey] ?: 0L)
         YTPlayerUtils.warmIfTheWebClientServedLast()
         YTPlayerUtils.onStreamMemoryChanged = { changed ->
             GlobalScope.launch { dataStore.edit { it[StreamOrderKey] = changed } }

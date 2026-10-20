@@ -13,7 +13,7 @@
 [![translated](https://hosted.weblate.org/widget/intertune/strings/svg-badge.svg)](https://hosted.weblate.org/engage/intertune/)
 [![licence](https://img.shields.io/badge/licence-GPL--3.0-ed5564?labelColor=1b1f24)](https://github.com/ItzSkyeYT/InterTune/tree/visionos-fix/LICENSE)
 
-[Download](#download) · [Features](#features) · [Good to know](#good-to-know) · [Wiki](https://github.com/ItzSkyeYT/InterTune/wiki) · [Discord](https://discord.gg/68jmqhMjXk) · [Donors](#donors)
+[Website](https://intertune.app) · [Download](#download) · [Features](#features) · [Good to know](#good-to-know) · [Wiki](https://github.com/ItzSkyeYT/InterTune/wiki) · [Discord](https://discord.gg/68jmqhMjXk) · [Donors](#donors)
 
 </div>
 
