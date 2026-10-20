@@ -504,6 +504,12 @@ class MusicService : MediaLibraryService(),
     private val songRoutes = SongRoutes()
     private val loadFailures = Recovery.LoadFailures()
     private val recoveryBudget = Recovery.Budget()
+
+    /** Route changes made while the buffer still plays: see [changeRoute]. */
+    private val routeChanges = Recovery.Budget()
+
+    /** The song the stall watch gave up, and when: the player's own error on it afterwards is the same fault, already told. */
+    private var stallGaveUp: Pair<String, Long>? = null
     private val stallWatch = StallWatch()
     private val stallHandler by lazy { Handler(Looper.getMainLooper()) }
     private var stallWatching = false
@@ -3792,6 +3798,14 @@ class MusicService : MediaLibraryService(),
         if (streamAddresses.playerFailedOn(failedId)) {
             Log.d(TAG, "PLAYING: the player failed on $failedId, its stream address will be asked for again")
         }
+        // The stall watch already gave this song up, said so and stopped or skipped: the player's
+        // own error on it is the same fault, and a second line and a second message only confused.
+        stallGaveUp?.let { (id, at) ->
+            if (id == failedId && !activePlayer.playWhenReady && SystemClock.elapsedRealtime() - at < STALL_ECHO_MS) {
+                Log.d(TAG, "PLAYING: the player's own error on $failedId, already given up by the stall watch")
+                return
+            }
+        }
         // What failed was the song's cached copy, and it is gone: the song goes on from where it
         // stopped, read from YouTube, instead of ending on an error that will not come again.
         // Once: see BadCachedCopy.
@@ -3876,14 +3890,25 @@ class MusicService : MediaLibraryService(),
     /**
      * The route [id] was being fetched over failed: its address is forgotten and the route asked
      * last for the song, so the player's next try resolves it anew elsewhere. A cached or local
-     * song has no route, and nothing changes. A refusal of an address that passed its check is
-     * the route's own doing.
+     * song has no address, and nothing changes. A stand-in's address has no route of its own,
+     * but it is forgotten all the same: kept, the player retried a refused address until the
+     * buffer ran out. A refusal of an address that passed its check is the route's own doing.
+     *
+     * These changes are made while the buffer still plays, and have a budget of their own: on a
+     * long flaky session they used to spend the one the stops need, and the next stop was given
+     * up without a single try.
      */
     private fun changeRoute(id: String, why: String, refused: Boolean = false) {
-        val route = streamAddresses.clientOf(id) ?: return
+        val route = streamAddresses.clientOf(id)
         val now = SystemClock.elapsedRealtime()
-        if (recoveryBudget.take(id, now) == null) {
-            Log.w(TAG, "PLAYING: [$id] $why, no recovery left: the player's own retries go on")
+        if (route == null) {
+            if (streamAddresses.playerFailedOn(id)) Log.w(TAG, StepLog.loadFailed(id, why, null))
+            return
+        }
+        if (routeChanges.take(id, now) == null) {
+            // The address goes all the same: a refused one never comes back, and asking afresh is one walk.
+            streamAddresses.playerFailedOn(id)
+            Log.w(TAG, "PLAYING: [$id] $why, no route change left: asked afresh on the same routes")
             return
         }
         // A refusal of an address that passed its check is the route's own doing: a strike, so
@@ -3967,6 +3992,7 @@ class MusicService : MediaLibraryService(),
     private fun stallGiveUp(id: String, now: Long) {
         stallWatching = false
         stallHandler.removeCallbacks(stallTick)
+        stallGaveUp = id to now
         noteGivenUp(id, recoveryBudget.takenFor(id, now) + 1, "no byte from YouTube's servers for ${StepLog.limit(stallWatch.silentMs(now))}")
         if (dataStore.get(SkipOnErrorKey, false)) skipOnError() else stopOnError()
         Toast.makeText(this@MusicService, getString(R.string.error_youtube_not_answering), Toast.LENGTH_LONG).show()
@@ -5024,6 +5050,9 @@ class MusicService : MediaLibraryService(),
     }
 
     companion object {
+        /** How long after the stall watch gave a song up the player's own error on it is taken for the same fault. */
+        private const val STALL_ECHO_MS = 60_000L
+
         /**
          * Whether a service instance is alive, which decides whether the widget's buttons can
          * speak to it directly or have to go the long way round, through the media button

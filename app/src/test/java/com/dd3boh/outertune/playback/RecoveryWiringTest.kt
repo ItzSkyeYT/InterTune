@@ -7,6 +7,7 @@
 package com.dd3boh.outertune.playback
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -70,5 +71,25 @@ class RecoveryWiringTest {
     fun `the stall watch's own cut is not counted as a failed load`() {
         val cut = body("StallWatch.Action.CUT_CONNECTION ->", "StallWatch.Action.CHANGE_ROUTE ->")
         assertTrue(cut.contains("loadFailures.cutByUs(id, now)"))
+    }
+
+    @Test
+    fun `a route change forgets the address even when the song has no route of its own`() {
+        val change = body("private fun changeRoute(", "private fun noteGivenUp(")
+        assertFalse("a stand-in's refused address is kept and retried until the buffer is empty", change.contains("streamAddresses.clientOf(id) ?: return"))
+    }
+
+    @Test
+    fun `route changes while the buffer plays do not spend the budget the stops need`() {
+        val change = body("private fun changeRoute(", "private fun noteGivenUp(")
+        assertTrue(change.contains("routeChanges.take(id, now)"))
+        assertFalse(change.contains("recoveryBudget."))
+    }
+
+    @Test
+    fun `a song the stall watch gave up is not given up a second time by the player's own error`() {
+        val handler = body("override fun onPlayerError(error: PlaybackException) {", "private fun scheduleQuietRetry(")
+        assertTrue(handler.indexOf("stallGaveUp") in 0 until handler.indexOf("Recovery.kind(error)"))
+        assertTrue(body("private fun stallGiveUp(", "override fun onPlayWhenReadyChanged(").contains("stallGaveUp = id to now"))
     }
 }

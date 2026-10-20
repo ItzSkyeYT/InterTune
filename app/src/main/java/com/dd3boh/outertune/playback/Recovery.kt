@@ -145,7 +145,7 @@ object Recovery {
      * [RouteTimes.RECOVERIES_IN_ALL] in all, within [RouteTimes.RECOVERY_WINDOW_MS]. A changed
      * route, a quiet retry and a stall's new route each take one; a cut connection is free, it is
      * what media3 does anyway. Finished well inside the ten minutes Android keeps a stopped media
-     * service in the foreground.
+     * service in the foreground. A song's first is always allowed, see [take].
      */
     class Budget(
         private val perSong: Int = RouteTimes.RECOVERIES_PER_SONG,
@@ -163,7 +163,10 @@ object Recovery {
         fun take(id: String, now: Long): Int? {
             prune(now)
             val forSong = taken.count { it.first == id }
-            if (forSong >= perSong || taken.size >= inAll) return null
+            // A song's first try is always allowed: a bad stretch on other songs used to leave
+            // every new song stopped on its first passing fault, for up to ten minutes. The cap
+            // in all is for the tries after it, where a loop could hide.
+            if (forSong >= perSong || (forSong > 0 && taken.size >= inAll)) return null
             taken.addLast(id to now)
             return forSong + 1
         }

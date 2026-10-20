@@ -101,8 +101,9 @@ class RecoveryTest {
         assertNull("the fourth for one song", budget.take("a", 3))
         assertEquals("ten minutes after the last", 1, budget.take("a", 600_002))
         for (i in 0 until 7) budget.take("song$i", 600_003)
-        assertNull("eight in all", budget.take("b", 600_004))
-        assertEquals(1, budget.take("b", 1_200_004))
+        assertNull("eight in all, past a song's first", budget.take("song0", 600_004))
+        assertEquals("a new song's first is always allowed", 1, budget.take("b", 600_004))
+        assertEquals(1, budget.take("b", 1_200_005))
     }
 
     @Test
@@ -115,5 +116,13 @@ class RecoveryTest {
         assertEquals("a real one after it still counts", Recovery.Decision.CHANGE_ROUTE, loads.decide("song", reset, 9_000))
         loads.cutByUs("song", 20_000)
         assertEquals("a refusal is never ours", Recovery.Decision.CHANGE_ROUTE, loads.decide("song", refused(403), 20_010))
+    }
+
+    @Test
+    fun `a bad stretch on other songs leaves a new song its first quiet try`() {
+        val budget = Recovery.Budget()
+        for (song in 1..4) repeat(2) { budget.take("song$song", it * 1_000L) }
+        assertEquals(1, budget.take("song5", 60_000L))
+        assertNull("its second waits for the stretch to pass", budget.take("song5", 61_000L))
     }
 }
