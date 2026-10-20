@@ -782,7 +782,23 @@ object YTPlayerUtils {
          * that gives up a good copy for this stream checks it first.
          */
         val validated: Boolean = false,
+        /** The client that gave [streamUrl], as the walk names it: the route a failure in the player is the fault of. */
+        val client: String? = null,
     )
+
+    /**
+     * What the player wants of one song's resolve, carried in the coroutine's context so that
+     * StandIns, which walks the chain for it, need not know: the routes it failed on lately,
+     * asked last (see SongRoutes), and, mid-song, the stream it has bytes of, so the rest comes
+     * in the same encoding when any client offers it.
+     */
+    class RouteWish(
+        val videoId: String,
+        val avoid: Set<String>,
+        val sameStream: Pair<Int, Long>?,
+    ) : kotlin.coroutines.AbstractCoroutineContextElement(Key) {
+        companion object Key : kotlin.coroutines.CoroutineContext.Key<RouteWish>
+    }
 
     /** What one pass of the chain learned, for [playerResponseForPlayback] to act on. */
     private class ChainNotes {
@@ -888,6 +904,7 @@ object YTPlayerUtils {
         preferredMime: String? = null,
     ): Result<PlaybackData> {
         val trails = mutableListOf<String>()
+        val wish = kotlinx.coroutines.currentCoroutineContext()[RouteWish]?.takeIf { it.videoId == videoId }
         // Each step's time, over every pass, for the one line the song gets: see StepLog.
         val steps = mutableListOf<String>()
         val started = System.nanoTime()
@@ -901,7 +918,7 @@ object YTPlayerUtils {
             }
             // Cleared first, so a pass that fails before writing its own does not report the last song's.
             lastStreamTrail = null
-            val (result, notes) = resolveWithNewVisitor(videoId, playlistId, audioQuality, connectivityManager, policy, wire, preferredMime, steps)
+            val (result, notes) = resolveWithNewVisitor(videoId, playlistId, audioQuality, connectivityManager, policy, wire, preferredMime, steps, wish)
             trails += listOfNotNull(policy?.first?.label, lastStreamTrail).joinToString(": ")
             FamilyChoice.Attempt(result to notes, ok = result.isSuccess, refused = result.isFailure && notes.fallbackBlocked)
         }
@@ -929,13 +946,14 @@ object YTPlayerUtils {
         wire: Wire,
         preferredMime: String?,
         steps: MutableList<String> = mutableListOf(),
+        wish: RouteWish? = null,
     ): Pair<Result<PlaybackData>, ChainNotes> {
         val sinceFailedSwap = lastSwapFailedAt.takeIf { it != 0L }?.let { SystemClock.elapsedRealtime() - it }
         // While a new visitorData may still be tried, a refused VISIONOS keeps the web client
         // waiting for the pass that tries it: see WEB_FALLBACK_CLIENT.
         val holdWeb = StreamCheck.mayRetryWithNewVisitor(visionosRefused = true, sinceFailedSwap)
         val first = ChainNotes()
-        val result = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, first, policy, wire, holdWeb, preferredMime, steps)
+        val result = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, first, policy, wire, holdWeb, preferredMime, steps, wish)
         if (result.isSuccess || !StreamCheck.mayRetryWithNewVisitor(first.visionosRefused, sinceFailedSwap)) {
             return result to first
         }
@@ -955,7 +973,7 @@ object YTPlayerUtils {
         }
         val second = ChainNotes()
         steps += "new visitorData"
-        val retried = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, second, policy, wire, preferredMime = preferredMime, steps = steps)
+        val retried = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, second, policy, wire, preferredMime = preferredMime, steps = steps, wish = wish)
         if (fresh != null && retried.isSuccess && !second.visionosRefused) {
             lastSwapFailedAt = 0L
             // Kept for good only when signed out. Signed in, the stored one came from the
@@ -1046,6 +1064,7 @@ object YTPlayerUtils {
         preferredMime: String? = null,
         // Each step with its time, for the line the song gets: see StepLog.
         steps: MutableList<String> = mutableListOf(),
+        wish: RouteWish? = null,
     ): Result<PlaybackData> = runCatchingCancellable {
         fun msSince(from: Long) = (System.nanoTime() - from) / 1_000_000
         Log.d(TAG, "Playback info requested: $videoId")
@@ -1114,8 +1133,13 @@ object YTPlayerUtils {
             if (written.distinct().size != written.size) playerClients
             else StreamOrder.order(written, streamMemory, System.currentTimeMillis(), hasVisitorData)
                 .map { playerClients[written.indexOf(it)] }
+        // The routes the player failed on for this song lately, asked last and never left out:
+        // see SongRoutes. A retry then starts somewhere else.
+        val avoid = wish?.avoid.orEmpty()
+        val routed = if (avoid.isEmpty()) ordered else ordered.filterNot { label(it) in avoid } + ordered.filter { label(it) in avoid }
+        if (avoid.isNotEmpty()) Log.i(TAG, "[$videoId] asked last for this song: ${avoid.sorted().joinToString(" ")}")
         // The experiment's client before all of them, whatever is remembered: see TRIAL_CLIENT.
-        val clients = listOfNotNull(trial) + ordered
+        val clients = listOfNotNull(trial) + routed
 
         // Worked out on first use rather than up front. The authenticated client asks for a
         // signature timestamp and usually sits at the end of the chain never being reached, so
@@ -1434,6 +1458,7 @@ object YTPlayerUtils {
                         audioQuality,
                         connectivityManager,
                         preferredMime,
+                        wish?.sameStream,
                     ) ?: continue
                 val address =
                     if (isWeb) {
@@ -1691,6 +1716,7 @@ object YTPlayerUtils {
             streamUrl,
             streamExpiresInSeconds,
             validated,
+            client = lastClient?.let { label(it) },
         )
     }
 
@@ -1881,10 +1907,16 @@ object YTPlayerUtils {
         audioQuality: AudioQuality,
         connectivityManager: ConnectivityManager,
         preferredMime: String? = null,
+        // Mid-song, the stream the player has bytes of: taken whenever it is offered, so the rest
+        // of the song is the same encoding. See RouteWish.
+        sameStream: Pair<Int, Long>? = null,
     ): PlayerResponse.StreamingData.Format? {
         val audioFormats = playerResponse.streamingData?.adaptiveFormats
             ?.filter { it.isAudio && (preferredMime == null || it.mimeType.startsWith(preferredMime)) }
         if (audioFormats.isNullOrEmpty()) return null
+        if (sameStream != null) {
+            audioFormats.firstOrNull { it.itag == sameStream.first && it.contentLength == sameStream.second }?.let { return it }
+        }
         if (TRACE_FORMATS) {
             android.util.Log.d(
                 "YTPlayerUtils",

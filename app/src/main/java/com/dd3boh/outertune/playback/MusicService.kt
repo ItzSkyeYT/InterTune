@@ -200,6 +200,7 @@ import com.dd3boh.outertune.utils.Throttle
 import com.dd3boh.outertune.utils.codecsOrEmpty
 import com.dd3boh.outertune.utils.contentLengthOrZero
 import com.dd3boh.outertune.utils.SongVersions
+import com.dd3boh.outertune.utils.RouteTimes
 import com.dd3boh.outertune.utils.StepLog
 import com.dd3boh.outertune.utils.StepTimedOut
 import com.dd3boh.outertune.utils.StreamFamily
@@ -495,6 +496,25 @@ class MusicService : MediaLibraryService(),
 
     /** Where each streamed song is fetched from, until the player fails on it: see [StreamAddresses]. */
     private val streamAddresses = StreamAddresses()
+
+    // Keeping the music going on its own: see Recovery, SongRoutes and StallWatch.
+    private val songRoutes = SongRoutes()
+    private val loadFailures = Recovery.LoadFailures()
+    private val recoveryBudget = Recovery.Budget()
+    private val stallWatch = StallWatch()
+    private val stallHandler by lazy { Handler(Looper.getMainLooper()) }
+    private var stallWatching = false
+    private val stallTick = object : Runnable {
+        override fun run() {
+            if (!stallWatching) return
+            watchStall()
+            if (stallWatching) stallHandler.postDelayed(this, 1_000L)
+        }
+    }
+    private var quietRetryJob: Job? = null
+
+    /** Songs whose "cached part stale" has had its one quiet retry. */
+    private val staleCopyRetried = HashSet<String>()
 
     /** Throws out a cached copy of a song that cannot be read: see [BadCachedCopy]. */
     private val badCachedCopy = BadCachedCopy(
@@ -978,6 +998,12 @@ class MusicService : MediaLibraryService(),
                         if (wasCanceled) return
                         val id = loadEventInfo.dataSpec.key
                         badCachedCopy.loadFailed(id, error)
+                        // A route that keeps failing, or refuses the address, is changed while the
+                        // buffer still plays: see Recovery.LoadFailures.
+                        if (loadFailures.decide(id, error, SystemClock.elapsedRealtime()) == Recovery.Decision.CHANGE_ROUTE && id != null) {
+                            val status = Recovery.status(error)
+                            changeRoute(id, if (status != null) "load refused (HTTP $status)" else "load failed twice in 30 s", refused = status == 403 || status == 410)
+                        }
                         // A load that fails is retried without a word, and nothing was written until the
                         // player gave up: a song that stopped said "no error" (issue #20), and Report a
                         // problem had nothing to show. One line a minute a song at most, with its causes.
@@ -1409,7 +1435,10 @@ class MusicService : MediaLibraryService(),
                 }
             // An address played before its check answered, and refused when the answer came: the
             // player's next open of the song asks afresh. See StreamCheck.playsUnchecked.
-            YTPlayerUtils.onLateRefusal = { id, _ -> streamAddresses.playerFailedOn(id) }
+            YTPlayerUtils.onLateRefusal = { id, client ->
+                streamAddresses.playerFailedOn(id)
+                songRoutes.mark(id, client, SystemClock.elapsedRealtime())
+            }
             // Read here rather than in YTPlayerUtils, which runs on every song and would have
             // to block on the datastore to find out.
             dataStore.data.map {
@@ -2413,7 +2442,15 @@ class MusicService : MediaLibraryService(),
         val resolver = SongResolver(streamAddresses)
         return ResolvingDataSource.Factory(createCacheDataSource(playerCalls)) { dataSpec ->
             val mediaId = dataSpec.key ?: error("No media id")
-            when (val resolved = resolver.resolve(mediaId, dataSpec.position, dataSpec.length)) {
+            // What the song was resolved to, and whether a resolve of it is out: see StallWatch.
+            resolvingSongs.merge(mediaId, 1, Int::plus)
+            val resolved = try {
+                resolver.resolve(mediaId, dataSpec.position, dataSpec.length)
+            } finally {
+                resolvingSongs.merge(mediaId, -1) { a, b -> (a + b).takeIf { it > 0 } }
+            }
+            streamedSongs[mediaId] = resolved is ResolvedSong.KnownStream || resolved is ResolvedSong.NewStream
+            when (resolved) {
                 is ResolvedSong.LocalFile -> dataSpec.withUri(resolved.file.toUri())
                 is ResolvedSong.Downloaded -> dataSpec.withUri(resolved.file.uri)
                 ResolvedSong.Cached -> dataSpec
@@ -2443,6 +2480,13 @@ class MusicService : MediaLibraryService(),
      * failed on is forgotten for it as before (onPlayerError). The cast server's keeps its own, so
      * its resolves never disturb the player's.
      */
+    /**
+     * For the stall watch, the player's songs only: whether each was last resolved to a stream
+     * (not a local file, a download or the cache), and the ones whose resolve is out.
+     */
+    private val streamedSongs = ConcurrentHashMap<String, Boolean>()
+    private val resolvingSongs = ConcurrentHashMap<String, Int>()
+
     inner class SongResolver(private val addresses: StreamAddresses = StreamAddresses()) {
         /**
          * What each address kept in [addresses] streams: a receiver is told the type before it
@@ -2543,9 +2587,17 @@ class MusicService : MediaLibraryService(),
             // The whole resolve within RouteTimes.RESOLVE_MS of waiting: each step has its own
             // limit, and they used to add up to minutes. Past it the song fails as a timeout,
             // which the player tries again quietly (see onPlayerError).
+            // The routes the player failed on lately go last, and mid-song the stream the player
+            // has bytes of is taken when offered: see YTPlayerUtils.RouteWish.
+            val wish = YTPlayerUtils.RouteWish(
+                mediaId,
+                songRoutes.avoid(mediaId, SystemClock.elapsedRealtime()),
+                if (position > 0L) runCatching { database.readOrNull { formatRow(mediaId) } }.getOrNull()
+                    ?.let { row -> row.itag to row.contentLength } else null,
+            )
             val played = runBlocking(Dispatchers.IO) {
                 try {
-                    withinResolveTime { standIns.playbackData(mediaId) }
+                    withinResolveTime(context = wish) { standIns.playbackData(mediaId) }
                 } catch (e: StepTimedOut) {
                     Log.w(TAG, "PLAYING: [$mediaId] no stream within ${StepLog.limit(e.ms)}, given up as a timeout")
                     Result.failure(e)
@@ -2672,7 +2724,12 @@ class MusicService : MediaLibraryService(),
 
             // Kept whether or not it answered its check. The rest of the song is fetched from it,
             // and the player failing on it is what takes it out again.
-            addresses.keep(mediaId, streamUrl, System.currentTimeMillis() + (playbackData.streamExpiresInSeconds * 1000L))
+            addresses.keep(
+                mediaId, streamUrl, System.currentTimeMillis() + (playbackData.streamExpiresInSeconds * 1000L),
+                // Under its own id only: a stand-in's route is another song's.
+                client = playbackData.client.takeIf { !standIn },
+                checked = playbackData.validated,
+            )
             formats[mediaId] = format
             return ResolvedSong.NewStream(playbackData)
         }
@@ -3703,6 +3760,8 @@ class MusicService : MediaLibraryService(),
         // the network, which returns, and before skipOnError, which makes the next song current.
         // See StreamAddresses.
         val failedId = PlayBook.itemOf(error, player.currentTimeline) ?: player.currentMediaItem?.mediaId
+        // The route the song failed on, read before its address is forgotten: see SongRoutes.
+        val failedRoute = streamAddresses.clientOf(failedId)
         val goOn = badCachedCopy.playerFailed(failedId, error)
         if (streamAddresses.playerFailedOn(failedId)) {
             Log.d(TAG, "PLAYING: the player failed on $failedId, its stream address will be asked for again")
@@ -3730,6 +3789,29 @@ class MusicService : MediaLibraryService(),
             return
         }
 
+        // A passing fault is tried again quietly, a moment later, from where the song stopped,
+        // with the route it failed on asked last. A timeout used to stop the music here, while a
+        // fresh try a second later played (20 Oct 2026). Within the budget: see Recovery.
+        var gaveUp = false
+        if (failedId != null && failedId == activePlayer.currentMediaItem?.mediaId && !isCasting && !localSong) {
+            val staleCopy = generateSequence(error as Throwable) { it.cause }.take(8)
+                .any { it is PlaybackException && it.message == getString(R.string.error_cached_part_stale) }
+            val passing = if (staleCopy) staleCopyRetried.add(failedId) else Recovery.kind(error) == Recovery.Kind.PASSING
+            if (passing) {
+                val now = SystemClock.elapsedRealtime()
+                val n = recoveryBudget.take(failedId, now)
+                if (n != null) {
+                    songRoutes.mark(failedId, failedRoute, now)
+                    val delayMs = if (n == 1) RouteTimes.QUIET_RETRY_FIRST_MS else RouteTimes.QUIET_RETRY_LATER_MS
+                    Log.w(TAG, StepLog.quietRetry(failedId, if (staleCopy) "cached part stale" else Recovery.what(error), delayMs, n, recoveryBudget.ofSong))
+                    scheduleQuietRetry(failedId, delayMs)
+                    return
+                }
+                gaveUp = true
+                noteGivenUp(failedId, recoveryBudget.takenFor(failedId, now), "no answer from YouTube's servers")
+            }
+        }
+
         if (dataStore.get(SkipOnErrorKey, false)) {
             skipOnError()
         } else {
@@ -3738,9 +3820,115 @@ class MusicService : MediaLibraryService(),
 
         Toast.makeText(
             this@MusicService,
-            ErrorText.withoutAddresses("plr: ${error.message} (${error.errorCode}): ${error.cause?.message ?: ""} "),
+            if (gaveUp) getString(R.string.error_youtube_not_answering)
+            else ErrorText.withoutAddresses("plr: ${error.message} (${error.errorCode}): ${error.cause?.message ?: ""} "),
             Toast.LENGTH_LONG
         ).show()
+    }
+
+    /**
+     * Prepares the song again after [delayMs], if it is still the one that stopped, the player
+     * still stopped and still wanted to play: the listener may have moved on, paused or pressed
+     * play meanwhile, and nothing is restarted under them.
+     */
+    private fun scheduleQuietRetry(id: String, delayMs: Long) {
+        quietRetryJob?.cancel()
+        quietRetryJob = scope.launch(SilentHandler) {
+            delay(delayMs)
+            if (activePlayer.currentMediaItem?.mediaId != id) return@launch
+            if (activePlayer.playbackState != STATE_IDLE || !activePlayer.playWhenReady) return@launch
+            activePlayer.prepare()
+        }
+    }
+
+    /**
+     * The route [id] was being fetched over failed: its address is forgotten and the route asked
+     * last for the song, so the player's next try resolves it anew elsewhere. A cached or local
+     * song has no route, and nothing changes. A refusal of an address that passed its check is
+     * the route's own doing.
+     */
+    private fun changeRoute(id: String, why: String, refused: Boolean = false) {
+        val route = streamAddresses.clientOf(id) ?: return
+        val now = SystemClock.elapsedRealtime()
+        if (recoveryBudget.take(id, now) == null) {
+            Log.w(TAG, "PLAYING: [$id] $why, no recovery left: the player's own retries go on")
+            return
+        }
+        streamAddresses.playerFailedOn(id)
+        songRoutes.mark(id, route, now)
+        Log.w(TAG, StepLog.loadFailed(id, why, route))
+    }
+
+    /** One line at level E, which Report a problem takes for the fault, and the same kept past the process. */
+    private fun noteGivenUp(id: String, tries: Int, reason: String) {
+        val line = StepLog.gaveUp(id, tries, reason)
+        Log.e(TAG, line)
+        StopReasons.keep(this, line)
+    }
+
+    /**
+     * Starts or stops the stall watch: once a second, and only while the player buffers and wants
+     * to play. No timer runs at any other time.
+     */
+    private fun updateStallWatch(player: Player) {
+        val wanted = player.playbackState == Player.STATE_BUFFERING && player.playWhenReady && !isCasting
+        if (wanted && !stallWatching) {
+            stallWatching = true
+            stallHandler.postDelayed(stallTick, 1_000L)
+        } else if (!wanted && stallWatching) {
+            stallWatching = false
+            stallHandler.removeCallbacks(stallTick)
+        }
+    }
+
+    /** One second of the stall watch: see StallWatch. */
+    private fun watchStall() {
+        val id = activePlayer.currentMediaItem?.mediaId
+        val now = SystemClock.elapsedRealtime()
+        val action = stallWatch.tick(
+            StallWatch.Tick(
+                songId = id,
+                wantsToPlay = activePlayer.playWhenReady,
+                buffering = activePlayer.playbackState == Player.STATE_BUFFERING,
+                streamed = id != null && streamedSongs[id] == true,
+                resolving = id != null && (resolvingSongs[id] ?: 0) > 0,
+                casting = isCasting,
+                waitingForNetwork = waitingForNetworkConnection.value,
+                online = isNetworkConnected.value,
+                bytes = StreamProgress.bytes.get(),
+                now = now,
+            )
+        )
+        if (id == null) return
+        val silentMs = stallWatch.silentMs(now)
+        when (action) {
+            StallWatch.Action.NOTHING -> Unit
+            StallWatch.Action.CUT_CONNECTION -> {
+                // Media3's own retry then asks again at once, on a new connection, from the same byte.
+                playerCalls.cancelInFlight()
+                Log.w(TAG, StepLog.stallCut(id, silentMs, activePlayer.currentPosition, 1, 3))
+            }
+            StallWatch.Action.CHANGE_ROUTE -> {
+                val route = streamAddresses.clientOf(id)
+                if (recoveryBudget.take(id, now) != null) {
+                    streamAddresses.playerFailedOn(id)
+                    songRoutes.mark(id, route, now)
+                    playerCalls.cancelInFlight()
+                    Log.w(TAG, StepLog.stallRoute(id, silentMs, activePlayer.currentPosition, route, 2, 3))
+                } else {
+                    stallGiveUp(id, now)
+                }
+            }
+            StallWatch.Action.GIVE_UP -> stallGiveUp(id, now)
+        }
+    }
+
+    private fun stallGiveUp(id: String, now: Long) {
+        stallWatching = false
+        stallHandler.removeCallbacks(stallTick)
+        noteGivenUp(id, recoveryBudget.takenFor(id, now) + 1, "no byte from YouTube's servers for ${StepLog.limit(stallWatch.silentMs(now))}")
+        if (dataStore.get(SkipOnErrorKey, false)) skipOnError() else stopOnError()
+        Toast.makeText(this@MusicService, getString(R.string.error_youtube_not_answering), Toast.LENGTH_LONG).show()
     }
 
     override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
@@ -4108,6 +4296,8 @@ class MusicService : MediaLibraryService(),
             ) {
                 clearNetworkWait()
             }
+            // Silence at the speaker while the song should play: see StallWatch.
+            updateStallWatch(player)
         }
         if (events.containsAny(EVENT_TIMELINE_CHANGED, EVENT_POSITION_DISCONTINUITY)) {
             currentMediaMetadata.value = player.currentMetadata

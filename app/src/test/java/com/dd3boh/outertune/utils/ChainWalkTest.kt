@@ -596,6 +596,43 @@ class ChainWalkTest {
         assertTrue(data.streamUrl.startsWith("https://ANDROID_VR.example/"))
     }
 
+    @Test
+    fun `a route the player failed on for this song is asked last, and still asked`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        val script = Script(
+            says = mapOf(
+                "VISIONOS" to listOf(playable("VISIONOS", loudness = 5.0, seconds = "200")),
+                "ANDROID_VR" to listOf(refused(botInFrench)),
+                "IOS" to listOf(playable("IOS", loudness = 5.0, seconds = "200")),
+            ),
+            heads = mapOf("IOS" to 403),
+        )
+        val data = runBlocking(YTPlayerUtils.RouteWish("TESTVIDEO01", setOf("VISIONOS"), null)) {
+            YTPlayerUtils.playerResponseForPlayback("TESTVIDEO01", null, AudioQuality.HIGH, connectivity, script)
+        }.getOrThrow()
+
+        assertEquals(listOf("ANDROID_VR", "IOS", "VISIONOS"), script.askedOf)
+        assertTrue(data.streamUrl.startsWith("https://VISIONOS.example/"))
+        assertEquals("the walk names the route that served", "VISIONOS", data.client)
+    }
+
+    @Test
+    fun `mid-song, the stream the player has bytes of is taken when the client offers it`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        val answer = playable("VISIONOS", loudness = 5.0, seconds = "200").let { a ->
+            val opus = a.streamingData!!.adaptiveFormats.single()
+            val aac = opus.copy(itag = 140, mimeType = "audio/mp4; codecs=\"mp4a.40.2\"", bitrate = 130_000, contentLength = 2_000_000, url = "https://VISIONOS.example/videoplayback?itag=140")
+            a.copy(streamingData = a.streamingData!!.copy(adaptiveFormats = listOf(opus, aac)))
+        }
+        fun walkWanting(sameStream: Pair<Int, Long>?) = runBlocking(YTPlayerUtils.RouteWish("TESTVIDEO01", emptySet(), sameStream)) {
+            YTPlayerUtils.playerResponseForPlayback("TESTVIDEO01", null, AudioQuality.HIGH, connectivity, Script(mapOf("VISIONOS" to listOf(answer))))
+        }.getOrThrow()
+
+        assertEquals("without a wish, the usual pick", 251, walkWanting(null).format.itag)
+        assertEquals(140, walkWanting(140 to 2_000_000L).format.itag)
+        assertEquals("another length is another stream: the usual pick", 251, walkWanting(140 to 1_999_999L).format.itag)
+    }
+
     /**
      * 8 Oct 2026, 19:05, a Pixel 5 installed minutes before: the main client refused as ever, and
      * VISIONOS and IOS each answering OK with an address its check then got 403 for.

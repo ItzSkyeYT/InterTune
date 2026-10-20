@@ -101,6 +101,14 @@ object StreamPace {
 }
 
 /**
+ * Every byte the player's stream reads brought in, all songs together: what the stall watch
+ * reads to tell a slow stream, which is never cut, from a silent one. See StallWatch.
+ */
+object StreamProgress {
+    val bytes = java.util.concurrent.atomic.AtomicLong(0)
+}
+
+/**
  * A connection to YouTube's stream servers that came in slower than the song plays, given up so
  * that the player asks again on a fresh one. An HTTP read failure as far as anything else can tell,
  * which is what it is: the player tries again at once from where it was, and a cached part of the
@@ -140,9 +148,10 @@ class PaceGuardDataSource(
     }
 
     override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
-        val watching = meter ?: return upstream.read(buffer, offset, length)
+        val watching = meter ?: return upstream.read(buffer, offset, length).also { if (it > 0) StreamProgress.bytes.addAndGet(it.toLong()) }
         val start = clock()
         val read = upstream.read(buffer, offset, length)
+        if (read > 0) StreamProgress.bytes.addAndGet(read.toLong())
         if (watching.slow(read, clock() - start)) {
             cuts.cut()
             meter = null

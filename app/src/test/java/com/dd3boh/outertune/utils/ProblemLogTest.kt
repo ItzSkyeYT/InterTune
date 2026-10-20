@@ -49,6 +49,20 @@ class ProblemLogTest {
     private fun words(excerpt: ProblemLog.Excerpt) = excerpt.lines.map { it.toString() }
 
     @Test
+    fun `a song given up after its quiet tries is the fault, with the tries that led to it`() {
+        val tries = listOf(
+            "10-20 16:14:10.100 W/MusicService( 6711): " + StepLog.stallCut("aaaaaaaaaaa", 6_000, 83_000, 1, 3),
+            "10-20 16:14:16.100 W/MusicService( 6711): " + StepLog.stallRoute("aaaaaaaaaaa", 12_000, 83_000, "VISIONOS", 2, 3),
+            "10-20 16:14:30.000 W/MusicService( 6711): " + StepLog.quietRetry("aaaaaaaaaaa", "Timeout", 1_000, 3, 3),
+        )
+        val gaveUp = "10-20 16:14:48.084 E/MusicService( 6711): " + StepLog.gaveUp("aaaaaaaaaaa", 3, "no answer from YouTube's servers")
+        val excerpt = ProblemLog.excerpt(song + tries + gaveUp + after)
+        val shown = words(excerpt)
+        assertEquals(StepLog.gaveUp("aaaaaaaaaaa", 3, "no answer from YouTube's servers"), excerpt.lines[excerpt.faultAt!!].message)
+        for (line in tries) assertTrue(line, shown.any { it.endsWith(line.substringAfter("): ")) })
+    }
+
+    @Test
     fun `a line of the log is read into its time, its level, who wrote it and what it says`() {
         val line = ProblemLog.parse(fault[0])!!
         assertEquals("18:44:40.811", line.time)

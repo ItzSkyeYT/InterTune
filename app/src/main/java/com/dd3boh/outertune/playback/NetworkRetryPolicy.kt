@@ -74,7 +74,7 @@ object NetworkRetryPolicy {
     }
 
     /** A missing or unreadable file, or a file or decoder the player cannot use. */
-    private fun isLocalFault(code: Int): Boolean =
+    fun isLocalFault(code: Int): Boolean =
         code == PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND ||
                 code == PlaybackException.ERROR_CODE_IO_NO_PERMISSION ||
                 code == PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE ||

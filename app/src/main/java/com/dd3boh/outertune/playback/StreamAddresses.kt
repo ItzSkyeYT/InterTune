@@ -39,7 +39,7 @@ package com.dd3boh.outertune.playback
  * of a failure by the main one, so every call takes the lock. The map this replaces had none.
  */
 class StreamAddresses {
-    private class Kept(val address: String, val goodUntil: Long)
+    private class Kept(val address: String, val goodUntil: Long, val client: String?, val checked: Boolean)
 
     private val kept = HashMap<String, Kept>()
 
@@ -49,9 +49,17 @@ class StreamAddresses {
 
     /** [address] is where [mediaId] is fetched from until [goodUntil], unless the player fails on it. */
     @Synchronized
-    fun keep(mediaId: String, address: String, goodUntil: Long) {
-        kept[mediaId] = Kept(address, goodUntil)
+    fun keep(mediaId: String, address: String, goodUntil: Long, client: String? = null, checked: Boolean = false) {
+        kept[mediaId] = Kept(address, goodUntil, client, checked)
     }
+
+    /** The client [mediaId]'s address came from, as the walk names it, while one is kept: the route a failure is the fault of. */
+    @Synchronized
+    fun clientOf(mediaId: String?): String? = mediaId?.let { kept[it]?.client }
+
+    /** Whether [mediaId]'s address passed its check: a refusal of it later is then the route's. */
+    @Synchronized
+    fun wasChecked(mediaId: String?): Boolean = mediaId?.let { kept[it]?.checked } == true
 
     /**
      * The player failed on [mediaId], null when the failure names no song. Returns whether there

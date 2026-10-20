@@ -107,7 +107,24 @@ object StreamFamily {
             }
         }
 
+        /** The calls made and not yet given up, held weakly: a finished call is let go. */
+        private val made = java.util.Collections.newSetFromMap(java.util.WeakHashMap<Call, Boolean>())
+
         override fun newCall(request: Request): Call =
             clientFor(request.url.toString()).newCall(WebStreamHeaders.on(request))
+                .also { synchronized(made) { made += it } }
+
+        /**
+         * Cancels every call still out, so a read blocked on a connection that went silent throws
+         * at once and the player asks again on a new one, from the same byte. Call.cancel is
+         * safe from any thread, and does nothing to a call already done. For the stall watch,
+         * on the player's own calls only. Returns how many were cancelled.
+         */
+        fun cancelInFlight(): Int = synchronized(made) {
+            val out = made.filterNot { it.isCanceled() }
+            out.forEach { it.cancel() }
+            made.clear()
+            out.size
+        }
     }
 }

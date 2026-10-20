@@ -122,10 +122,15 @@ private val resolves = CoroutineScope(SupervisorJob() + Dispatchers.IO)
  * loading thread: a step that does not stop at once when cancelled finishes on its own, and the
  * player is told at once.
  */
-suspend fun <T> withinResolveTime(limitMs: Long = RouteTimes.resolveMs, work: suspend () -> T): T {
+suspend fun <T> withinResolveTime(
+    limitMs: Long = RouteTimes.resolveMs,
+    /** Carried to the work: what the player wants of this resolve, see YTPlayerUtils.RouteWish. */
+    context: CoroutineContext = kotlin.coroutines.EmptyCoroutineContext,
+    work: suspend () -> T,
+): T {
     val allowance = ResolveAllowance()
     val started = System.nanoTime()
-    val running = resolves.async(allowance) { work() }
+    val running = resolves.async(allowance + context) { work() }
     try {
         while (true) {
             val left = limitMs + allowance.extraMs.get() - (System.nanoTime() - started) / 1_000_000
