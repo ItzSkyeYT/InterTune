@@ -18,28 +18,28 @@ import java.io.IOException
 
 class StreamCheckTest {
     @Test
-    fun `a url that answered 2xx plays, wherever it is in the chain`() {
-        for (isLast in listOf(false, true)) {
-            assertTrue(StreamCheck.accept(200, isLast))
-            assertTrue(StreamCheck.accept(206, isLast))
-        }
+    fun `a check tells a pass, a refusal and no answer apart`() {
+        assertEquals(StreamCheck.Verdict.PASS, StreamCheck.verdict(200))
+        assertEquals(StreamCheck.Verdict.PASS, StreamCheck.verdict(206))
+        assertEquals(StreamCheck.Verdict.REFUSED, StreamCheck.verdict(403))
+        assertEquals(StreamCheck.Verdict.REFUSED, StreamCheck.verdict(500))
+        assertEquals(StreamCheck.Verdict.NO_ANSWER, StreamCheck.verdict(null))
+        assertTrue(StreamCheck.accept(200))
+        assertFalse(StreamCheck.accept(403))
+        assertFalse("no answer is not a pass", StreamCheck.accept(null))
     }
 
     @Test
-    fun `a refused url is dropped, the last client's included`() {
-        // The last client used to be taken unchecked, which is how a refused VISIONOS became
-        // IOS's 403 on every song (issue #17).
-        for (isLast in listOf(false, true)) {
-            assertFalse(StreamCheck.accept(403, isLast))
-            assertFalse(StreamCheck.accept(404, isLast))
-            assertFalse(StreamCheck.accept(500, isLast))
+    fun `only VISIONOS's address is played without its check's answer, and not while it rests or the switch is off`() {
+        for (label in listOf("VISIONOS", "VISIONOS_104", "VISIONOS_SAFARI")) {
+            assertTrue(label, StreamCheck.playsUnchecked(label, resting = false, allowedRemotely = true))
         }
-    }
-
-    @Test
-    fun `a check that could not be made moves on, unless nothing is left to try`() {
-        assertFalse(StreamCheck.accept(null, isLast = false))
-        assertTrue(StreamCheck.accept(null, isLast = true))
+        // IOS and ANDROID stop at 512 KB; a web client's check is part of how it is asked.
+        for (label in listOf("IOS", "ANDROID", "ANDROID_VR", "WEB_REMIX", "WEB_REMIX (account)")) {
+            assertFalse(label, StreamCheck.playsUnchecked(label, resting = false, allowedRemotely = true))
+        }
+        assertFalse(StreamCheck.playsUnchecked("VISIONOS", resting = true, allowedRemotely = true))
+        assertFalse(StreamCheck.playsUnchecked("VISIONOS", resting = false, allowedRemotely = false))
     }
 
     @Test

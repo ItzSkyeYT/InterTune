@@ -21,6 +21,7 @@ import com.zionhuang.innertube.models.Thumbnails
 import com.zionhuang.innertube.models.YouTubeClient
 import com.zionhuang.innertube.models.response.PlayerResponse
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -80,7 +81,12 @@ class ChainWalkTest {
         YTPlayerUtils.streamMemory = Memory()
         YTPlayerUtils.onStreamMemoryChanged = { stored += it }
         YTPlayerUtils.onVisitorDataFound = { adopted += it }
+        YTPlayerUtils.onLateRefusal = { id, client -> lateRefusals += "$id $client" }
+        RouteTimes.reset()
     }
+
+    /** What the checks that answered after the walk went on reported: "video client". */
+    private val lateRefusals = java.util.Collections.synchronizedList(mutableListOf<String>())
 
     @After
     fun leaveNothingBehind() {
@@ -94,6 +100,8 @@ class ChainWalkTest {
         YTPlayerUtils.streamMemory = Memory()
         YTPlayerUtils.onStreamMemoryChanged = null
         YTPlayerUtils.onVisitorDataFound = null
+        YTPlayerUtils.onLateRefusal = null
+        RouteTimes.reset()
         Throttle.clear("the test is over")
     }
 
@@ -113,6 +121,8 @@ class ChainWalkTest {
         private val solver: (suspend (List<String>, List<String>) -> ChallengeSolver.Solved)? = null,
         /** Whether the build has the solver's files. Without them the web client is not in the chain, as in every walk before it was. */
         private val canSolve: Boolean = false,
+        /** How long each client's check takes to answer, by the client its host names. */
+        private val headTakes: Map<String, Long> = emptyMap(),
     ) : YTPlayerUtils.Wire {
         val askedOf = mutableListOf<String>()
 
@@ -176,10 +186,11 @@ class ChainWalkTest {
             }
         }
 
-        override fun head(url: String): Int? {
+        override suspend fun head(url: String): Int? {
             checked += url
-            headOf?.let { return it(url) }
             val client = url.substringAfter("://").substringBefore('.')
+            headTakes[client]?.let { delay(it) }
+            headOf?.let { return it(url) }
             return if (client in heads) heads[client] else 200
         }
 
@@ -399,10 +410,11 @@ class ChainWalkTest {
     }
 
     @Test
-    fun `with no stream check answered the last client's address goes to the player unchecked, and says so`() {
+    fun `with no stream check answered VISIONOS's address goes to the player unchecked, and IOS is never asked`() {
         remembering("VISIONOS", "ANDROID_VR")
         // 8 Oct 2026 on the emulator, with every connection to a stream refused while YouTube
-        // itself still answered: each client is asked and no address can be checked.
+        // itself still answered. It used to walk on to IOS and play its address, which stops at
+        // 512 KB; VISIONOS's plays to the end when it plays at all.
         val script = Script(
             says = mapOf(
                 "VISIONOS" to listOf(playable("VISIONOS", loudness = 5.0, seconds = "200")),
@@ -413,12 +425,9 @@ class ChainWalkTest {
         )
         val data = walk(script).getOrThrow()
 
-        assertEquals(listOf("VISIONOS", "ANDROID_VR", "IOS"), script.askedOf)
-        assertEquals("VISIONOS OK, HEAD failed, ANDROID_VR LOGIN_REQUIRED, IOS OK, HEAD failed", YTPlayerUtils.lastStreamTrail)
-        // IOS's, which answers 403 whenever it can be asked. It is still the best there is, and
-        // what keeps it from being played for good is MusicService forgetting an address the
-        // player fails on: see StreamAddresses.
-        assertTrue(data.streamUrl.startsWith("https://IOS.example/"))
+        assertEquals(listOf("VISIONOS"), script.askedOf)
+        assertEquals("VISIONOS OK, HEAD failed, played unchecked", YTPlayerUtils.lastStreamTrail)
+        assertTrue(data.streamUrl.startsWith("https://VISIONOS.example/"))
         assertFalse(data.validated)
         // A check that could not be made says nothing of the client, so VISIONOS is still first.
         assertEquals("VISIONOS", YTPlayerUtils.streamMemory.worked)
@@ -426,8 +435,83 @@ class ChainWalkTest {
         val next = Script(today)
         val after = walk(next).getOrThrow()
         assertEquals(listOf("VISIONOS"), next.askedOf)
-        assertTrue(after.streamUrl.startsWith("https://VISIONOS.example/"))
         assertTrue(after.validated)
+    }
+
+    @Test
+    fun `a check that hangs costs the song a few seconds, not a walk of the chain`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        RouteTimes.headWaitMs = 100
+        val script = Script(
+            says = mapOf("VISIONOS" to listOf(playable("VISIONOS", loudness = 5.0, seconds = "200"))),
+            headTakes = mapOf("VISIONOS" to 2_000L),
+        )
+        val started = System.nanoTime()
+        val data = walk(script).getOrThrow()
+        val tookMs = (System.nanoTime() - started) / 1_000_000
+
+        assertTrue("waited the check's 100 ms, not its 2 s: took $tookMs ms", tookMs < 1_500)
+        assertEquals(listOf("VISIONOS"), script.askedOf)
+        assertTrue(data.streamUrl.startsWith("https://VISIONOS.example/"))
+        assertFalse(data.validated)
+        assertEquals("VISIONOS OK, HEAD failed, played unchecked", YTPlayerUtils.lastStreamTrail)
+    }
+
+    @Test
+    fun `IOS's address is never played unchecked, and with VISIONOS refused the song fails as before`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        RouteTimes.headWaitMs = 100
+        val script = Script(
+            says = mapOf(
+                "VISIONOS" to listOf(playable("VISIONOS", loudness = 5.0, seconds = "200")),
+                "ANDROID_VR" to listOf(refused(botInFrench)),
+                "IOS" to listOf(playable("IOS", loudness = 5.0, seconds = "200")),
+                "ANDROID_VR as a new visitor" to listOf(refused(botInFrench, carrying = newVisitor)),
+            ),
+            heads = mapOf("VISIONOS" to 403),
+            headTakes = mapOf("IOS" to 2_000L),
+        )
+        val result = walk(script)
+
+        assertEquals("YouTube refused the stream (HTTP 403)", result.exceptionOrNull()?.message)
+        assertTrue(lateRefusals.isEmpty())
+    }
+
+    @Test
+    fun `an app client's check that never answers, with nothing refused, fails the song as a timeout to try again`() {
+        // IOS served the last song; VISIONOS calls this one gone in words that are not the song's own.
+        remembering("IOS", "ANDROID_VR", "VISIONOS")
+        val script = Script(
+            says = mapOf(
+                "IOS" to listOf(playable("IOS", loudness = 5.0, seconds = "200")),
+                "ANDROID_VR" to listOf(refused(botInFrench)),
+                "VISIONOS" to listOf(refused("This video is not available", status = "UNPLAYABLE")),
+            ),
+            heads = mapOf("IOS" to null),
+        )
+        val failure = walk(script).exceptionOrNull()
+
+        assertTrue(failure.toString(), failure is StepTimedOut)
+        assertTrue("a timeout to MusicService, as it always mapped them", failure is java.net.SocketTimeoutException)
+    }
+
+    @Test
+    fun `a check that answers 403 after the walk went on forgets the address, once, and a late 200 says nothing`() {
+        RouteTimes.headWaitMs = 50
+        for ((late, told) in listOf(403 to listOf("TESTVIDEO01 VISIONOS"), 200 to emptyList())) {
+            lateRefusals.clear()
+            remembering("VISIONOS", "ANDROID_VR")
+            val script = Script(
+                says = mapOf("VISIONOS" to listOf(playable("VISIONOS", loudness = 5.0, seconds = "200"))),
+                heads = mapOf("VISIONOS" to late),
+                headTakes = mapOf("VISIONOS" to 300L),
+            )
+            assertFalse(walk(script).getOrThrow().validated)
+            val until = System.nanoTime() + 3_000_000_000L
+            while (lateRefusals.size < told.size && System.nanoTime() < until) Thread.sleep(20)
+            Thread.sleep(400)
+            assertEquals("late $late", told, lateRefusals.toList())
+        }
     }
 
     /**

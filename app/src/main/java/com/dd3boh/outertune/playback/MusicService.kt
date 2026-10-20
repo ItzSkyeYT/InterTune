@@ -1404,6 +1404,9 @@ class MusicService : MediaLibraryService(),
                     // Switched off: nothing waiting, held back or being worked out changes a radio after that.
                     if (!mode.isOn) dropPasses()
                 }
+            // An address played before its check answered, and refused when the answer came: the
+            // player's next open of the song asks afresh. See StreamCheck.playsUnchecked.
+            YTPlayerUtils.onLateRefusal = { id, _ -> streamAddresses.playerFailedOn(id) }
             // Read here rather than in YTPlayerUtils, which runs on every song and would have
             // to block on the datastore to find out.
             dataStore.data.map {

@@ -23,25 +23,49 @@ object StreamCheck {
     /** How long after a failed try with a new visitorData before trying one again. */
     const val NEW_VISITOR_RETRY_MS = 10 * 60 * 1000L
 
+    /** What a stream check came to: see [verdict]. */
+    enum class Verdict { PASS, REFUSED, NO_ANSWER }
+
     /**
-     * Whether a url whose HEAD check got [status] goes to the player. Null means the check itself
-     * failed: no connection, a timeout.
+     * What the check of a stream url says: [Verdict.PASS] for a 2xx, [Verdict.REFUSED] for any
+     * other status YouTube sent, and [Verdict.NO_ANSWER] for null, a check that could not be made
+     * (no connection, a timeout).
      *
-     * The last client in the chain used to be taken without a check at all, and the last client is
-     * IOS. So whenever VISIONOS was refused, the listener got half a minute of every song and then
-     * "Source error (2004): Response code: 403", instead of the reason YouTube had actually given;
-     * and because a url had been found, the refusal was recorded as a success and the back off
-     * never heard about it. Reproduced on the emulator with 0.10.9.5 and a visitorData YouTube did
-     * not recognise, which VISIONOS refuses the way it refuses a distrusted network (issue #17).
-     *
-     * A check that could not be made is only grounds to try the next client. With none left, the
-     * url is still the best there is, so it goes to the player.
+     * The last two used to be one: a check that timed out sent the walk to the next client as a
+     * refusal did, and on 20 Oct 2026 a song sat silent for a minute while each client's check
+     * hung in turn, the network carrying /player in 0.2 s all the while. A refusal is YouTube's
+     * word on a client; no answer is the connection's, and says nothing of the address.
      */
-    fun accept(status: Int?, isLast: Boolean): Boolean = when (status) {
-        null -> isLast
-        in 200..299 -> true
-        else -> false
+    fun verdict(status: Int?): Verdict = when (status) {
+        null -> Verdict.NO_ANSWER
+        in 200..299 -> Verdict.PASS
+        else -> Verdict.REFUSED
     }
+
+    /** Whether a url whose check got [status] passed it. */
+    fun accept(status: Int?): Boolean = verdict(status) == Verdict.PASS
+
+    /**
+     * The clients whose address plays a song to its end without a po token: VISIONOS under each
+     * of its names. Probed on 27 Sep 2026; IOS and ANDROID stop at 512 KB.
+     */
+    val UNCHECKED_OK = setOf("VISIONOS", "VISIONOS_104", "VISIONOS_SAFARI")
+
+    /** Every client that serves whole songs: VISIONOS's names and the web client. The chain always keeps one. */
+    val FULL_STREAM = UNCHECKED_OK + "WEB_REMIX"
+
+    /**
+     * Whether an address whose check got no answer goes to the player all the same, from the
+     * client the walk knows as [label].
+     *
+     * Only VISIONOS's, whose addresses play to the end when they play at all, and only while the
+     * client is not resting after a refusal ([resting]) and the remote switch allows it
+     * ([allowedRemotely], see RemoteRoutes). Never IOS's or ANDROID's, which stop at 512 KB, and
+     * never a web client's, whose check is part of how it is asked. The player has its own
+     * limits, and a check still running in the background forgets an address it finds refused.
+     */
+    fun playsUnchecked(label: String, resting: Boolean, allowedRemotely: Boolean): Boolean =
+        label in UNCHECKED_OK && !resting && allowedRemotely
 
     /**
      * The message when the chain produced urls and every one of them was refused.
@@ -113,12 +137,15 @@ object StreamCheck {
         checked: Boolean,
         lacking: String? = null,
         with: String? = null,
+        /** What was done with an address whose check did not answer: "played unchecked". */
+        note: String? = null,
     ): String =
         buildString {
             append(client).append(' ').append(playability ?: "no answer")
             if (lacking != null) append(", ").append(lacking)
             if (checked) append(", HEAD ").append(head?.toString() ?: "failed")
             if (checked && with != null) append(" with ").append(with)
+            if (note != null) append(", ").append(note)
         }
 
     /** What [resolveOnceFailure] decided to do about a chain that produced no usable stream. */
