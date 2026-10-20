@@ -30,11 +30,36 @@ import java.net.Socket
  * while it announces itself; some routers keep those questions from crossing at all (both seen
  * on 18 Oct 2026). A receiver already used is asked directly instead, at the address it had: a
  * connection opened and closed, which takes a few milliseconds when it is there and shows nothing
- * on its screen.
+ * on its screen. It is listed once it has answered, and everything listed is asked again every
+ * [RECHECK_MS] while the picker is open, so the list holds what is there now. Nothing is asked
+ * while the picker is closed.
  */
 object RecentReceivers {
     const val MOST = 10
     const val PROBE_MS = 800
+
+    /** How often everything listed is asked again while the picker is open: as often as the SSDP search goes out. */
+    const val RECHECK_MS = 10_000L
+
+    /**
+     * What the picker lists, in one order by name so a receiver keeps its place whether it was known
+     * before or found now: what the search [found] unless it has since stopped answering ([silent]),
+     * the receivers [added] by address, and the remembered ones the search has not found, but only
+     * those that have [answered]. A remembered receiver that is off is never shown, not even for
+     * the moment its check takes (his note of 20 Oct 2026: they flashed up and went).
+     */
+    fun listed(
+        found: List<CastDevice>,
+        added: List<CastDevice>,
+        recent: List<CastDevice>,
+        answered: Set<CastDevice>,
+        silent: Set<CastDevice>,
+    ): List<CastDevice> {
+        val live = found.filterNot { it in silent }
+        return (live + added + notFound(recent.filter { it in answered }, live + added))
+            .distinctBy { it.protocol to it.id }
+            .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
+    }
 
     /** [list] with [device] first and no other entry for the same receiver, at most [MOST]. */
     fun remember(list: List<CastDevice>, device: CastDevice): List<CastDevice> =

@@ -143,6 +143,8 @@ import android.content.Intent
 import android.content.IntentFilter
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -395,14 +397,35 @@ private fun CastPicker(session: CastSession, onDismiss: () -> Unit) {
     }
     val found by discovery.devices.collectAsState()
     val added by session.added.collectAsState()
-    // Every receiver seen or cast to before is listed as the picker opens, as a Chromecast's
-    // sender does, and asked directly: one that does not answer within a second is taken off
-    // (RecentReceivers). What the search finds is kept for next time.
+    // Every receiver seen or cast to before is asked directly as the picker opens and listed as
+    // soon as it answers, as a Chromecast's sender lists what it knows; one that is off never shows
+    // (RecentReceivers). While the picker is open, everything listed is asked again every ten
+    // seconds: a receiver switched off meanwhile leaves the list, a remembered one switched on
+    // joins it. What the search finds is kept for next time.
     val recent by session.recent.collectAsState()
-    var gone by remember { mutableStateOf(emptySet<CastDevice>()) }
+    var answered by remember { mutableStateOf(emptySet<CastDevice>()) }
+    var silent by remember { mutableStateOf(emptySet<CastDevice>()) }
     LaunchedEffect(Unit) {
-        for (device in session.recent.value) launch {
-            if (!withContext(Dispatchers.IO) { RecentReceivers.answers(device) }) gone = gone + device
+        var first = true
+        while (true) {
+            // The first time, only the remembered ones: what the search finds has just answered it.
+            val asked = (session.recent.value + if (first) emptyList() else discovery.devices.value).distinct()
+            val yes = mutableSetOf<CastDevice>()
+            val no = mutableSetOf<CastDevice>()
+            coroutineScope {
+                for (device in asked) launch {
+                    if (withContext(Dispatchers.IO) { RecentReceivers.answers(device) }) {
+                        yes += device
+                        if (first) answered = answered + device
+                    } else {
+                        no += device
+                    }
+                }
+            }
+            answered = yes
+            silent = no
+            first = false
+            delay(RecentReceivers.RECHECK_MS)
         }
     }
     LaunchedEffect(found) { session.rememberSeen(found) }
@@ -427,10 +450,7 @@ private fun CastPicker(session: CastSession, onDismiss: () -> Unit) {
     val casting = state as? CastSession.State.Casting
     val connecting = state as? CastSession.State.Connecting
     val current = casting?.device ?: connecting?.device
-    // In one order by name, so a receiver keeps its place whether it was known before or found now.
-    val receivers = (found + added + RecentReceivers.notFound(recent.filterNot { it in gone }, found + added))
-        .distinctBy { it.protocol to it.id }
-        .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
+    val receivers = RecentReceivers.listed(found, added, recent, answered, silent)
         .filterNot { current != null && it.protocol == current.protocol && it.id == current.id }
     val phoneName = local.name ?: stringResource(
         when (local.kind) {
