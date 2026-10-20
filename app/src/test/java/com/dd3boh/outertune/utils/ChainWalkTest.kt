@@ -88,6 +88,7 @@ class ChainWalkTest {
         RouteTimes.reset()
         HedgeBudget.shared = HedgeBudget()
         YTPlayerUtils.forgetWarming()
+        YTPlayerUtils.forgetGoneInARow()
     }
 
     /** What the checks that answered after the walk went on reported: "video client". */
@@ -107,6 +108,7 @@ class ChainWalkTest {
         YTPlayerUtils.onVisitorDataFound = null
         YTPlayerUtils.onLateRefusal = null
         RouteTimes.reset()
+        YTPlayerUtils.forgetGoneInARow()
         Throttle.clear("the test is over")
     }
 
@@ -337,8 +339,10 @@ class ChainWalkTest {
     /** An answer that comes after [ms]. */
     private class Late(val ms: Long, val answer: Any)
 
-    private fun walk(script: Script) = runBlocking {
-        YTPlayerUtils.playerResponseForPlayback("TESTVIDEO01", null, AudioQuality.HIGH, connectivity, script)
+    private fun walk(script: Script) = walkSong("TESTVIDEO01", script)
+
+    private fun walkSong(videoId: String, script: Script) = runBlocking {
+        YTPlayerUtils.playerResponseForPlayback(videoId, null, AudioQuality.HIGH, connectivity, script)
     }
 
     private fun remembering(worked: String, vararg refused: String) {
@@ -864,6 +868,68 @@ class ChainWalkTest {
         assertTrue(failure.toString(), failure is YTPlayerUtils.SongUnavailable)
         assertEquals("This video is not available", failure?.message)
         assertEquals(listOf("ANDROID_VR", "VISIONOS", "IOS"), script.askedOf)
+    }
+
+    // Song after song called gone is the connection, not the songs (issue #28): from the second
+    // in a row, a new visitorData is tried, as for the bot check.
+
+    private val goneWords = refused("This video is not available", status = "UNPLAYABLE")
+
+    private fun everyClientCallsItGone() = Script(mapOf("ANDROID_VR" to listOf(refused(bot)), "VISIONOS" to listOf(goneWords), "IOS" to listOf(goneWords)))
+
+    @Test
+    fun `the second song in a row every client calls gone is walked again with a new visitorData, and plays when that mends it`() {
+        val first = everyClientCallsItGone()
+        assertTrue(walkSong("TESTVIDEO01", first).exceptionOrNull() is YTPlayerUtils.SongUnavailable)
+        assertFalse("one song called gone is a song that is gone", "ANDROID_VR as a new visitor" in first.askedOf)
+
+        val second = Script(
+            mapOf(
+                "ANDROID_VR" to listOf(refused(bot)),
+                "VISIONOS" to listOf(goneWords, playable("VISIONOS", loudness = 5.0, seconds = "200")),
+                "IOS" to listOf(goneWords),
+                "ANDROID_VR as a new visitor" to listOf(refused("This video is not available", status = "UNPLAYABLE", carrying = newVisitor)),
+            )
+        )
+        val data = walkSong("TESTVIDEO02", second).getOrThrow()
+
+        assertTrue("ANDROID_VR as a new visitor" in second.askedOf)
+        assertTrue(data.streamUrl.startsWith("https://VISIONOS.example/"))
+        assertEquals(newVisitor, YouTube.visitorData)
+        assertTrue("kept, signed out", newVisitor in adopted)
+    }
+
+    @Test
+    fun `a song that plays ends the run, and the next song called gone is not walked again`() {
+        walkSong("TESTVIDEO01", everyClientCallsItGone())
+        val plays = Script(
+            mapOf("ANDROID_VR" to listOf(refused(bot)), "VISIONOS" to listOf(playable("VISIONOS", loudness = 5.0, seconds = "200")), "IOS" to listOf(goneWords))
+        )
+        walkSong("TESTVIDEO02", plays).getOrThrow()
+
+        val third = everyClientCallsItGone()
+        assertTrue(walkSong("TESTVIDEO03", third).exceptionOrNull() is YTPlayerUtils.SongUnavailable)
+        assertFalse("ANDROID_VR as a new visitor" in third.askedOf)
+    }
+
+    @Test
+    fun `a second song called gone that a new visitorData does not mend fails as unavailable, and the app keeps its visitorData`() {
+        walkSong("TESTVIDEO01", everyClientCallsItGone())
+        val second = Script(
+            mapOf(
+                "ANDROID_VR" to listOf(refused(bot)),
+                "VISIONOS" to listOf(goneWords),
+                "IOS" to listOf(goneWords),
+                "ANDROID_VR as a new visitor" to listOf(refused("This video is not available", status = "UNPLAYABLE", carrying = newVisitor)),
+            )
+        )
+
+        val failure = walkSong("TESTVIDEO02", second).exceptionOrNull()
+
+        assertTrue(failure.toString(), failure is YTPlayerUtils.SongUnavailable)
+        assertTrue("ANDROID_VR as a new visitor" in second.askedOf)
+        assertEquals(visitor, YouTube.visitorData)
+        assertTrue(adopted.isEmpty())
     }
 
     @Test

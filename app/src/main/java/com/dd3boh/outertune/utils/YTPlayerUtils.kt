@@ -786,6 +786,27 @@ object YTPlayerUtils {
     class SongUnavailable(reason: String?) : PlaybackException(reason, null, PlaybackException.ERROR_CODE_REMOTE_ERROR)
 
     /**
+     * YouTube's words for a song that is gone, said of song after song with nothing served
+     * between them: the connection turned away in those words, not songs that are gone (issue
+     * #28, a phone signed in, every song "This video is not available"). Its own type, and no
+     * [SongUnavailable] among its causes, so that the player says what it is in the listener's
+     * language and nothing takes the songs for gone: see StandIns, which decides it.
+     */
+    class ConnectionTurnedAway(youtubeSaid: String?) :
+        PlaybackException("YouTube turned the connection away: $youtubeSaid", null, PlaybackException.ERROR_CODE_REMOTE_ERROR)
+
+    /** Whether [error] is a [ConnectionTurnedAway], or was caused by one, as [isUnavailableSong] looks. */
+    fun isConnectionTurnedAway(error: Throwable?): Boolean {
+        var t = error
+        var depth = 0
+        while (t != null && depth++ < 8) {
+            if (t is ConnectionTurnedAway) return true
+            t = t.cause
+        }
+        return false
+    }
+
+    /**
      * Whether [error] is a [SongUnavailable], or was caused by one. It reaches the player inside
      * a loader's "unexpected" exception inside ExoPlayer's source error, so the type is looked
      * for down the causes, a few deep and no further.
@@ -860,6 +881,38 @@ object YTPlayerUtils {
     /** When a try with a new visitorData last failed too, in elapsed realtime; 0 if none has. */
     @Volatile
     private var lastSwapFailedAt = 0L
+
+    /**
+     * The songs every client called gone since a stream last resolved, oldest first. One such
+     * song is a song that is gone. Another straight after is more likely the connection: YouTube
+     * says "This video is not available" to a session it has stopped serving as readily as of a
+     * song (issue #28), and no catalogue loses two songs in a row. So from the second, the walk
+     * is tried once more with a visitorData YouTube has just issued, as for the bot check: see
+     * [resolveWithNewVisitor]. StandIns stops believing the run at its third.
+     */
+    private val goneInARow = LinkedHashSet<String>()
+
+    /** What [goneInARow] learns from one song's outcome: a stream ends the run, the song called gone joins it. */
+    private fun noteOutcome(videoId: String, result: Result<PlaybackData>) {
+        synchronized(goneInARow) {
+            when {
+                result.isSuccess -> goneInARow.clear()
+                result.exceptionOrNull() is SongUnavailable -> {
+                    goneInARow.remove(videoId)
+                    goneInARow += videoId
+                    while (goneInARow.size > GONE_IN_A_ROW_KEPT) goneInARow.remove(goneInARow.first())
+                }
+            }
+        }
+    }
+
+    /** Whether a song other than [videoId] was called gone by every client since a stream last resolved. */
+    private fun anotherGoneBefore(videoId: String): Boolean = synchronized(goneInARow) { goneInARow.any { it != videoId } }
+
+    private const val GONE_IN_A_ROW_KEPT = 16
+
+    /** For tests: a run of songs called gone left by one test does not reach the next. */
+    internal fun forgetGoneInARow() = synchronized(goneInARow) { goneInARow.clear() }
 
     /** Which address family worked on which network, for [FamilyChoice]. In memory only. */
     @Volatile
@@ -985,17 +1038,26 @@ object YTPlayerUtils {
         val holdWeb = StreamCheck.mayRetryWithNewVisitor(visionosRefused = true, sinceFailedSwap)
         val first = ChainNotes()
         val result = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, first, policy, wire, holdWeb, preferredMime, steps, wish)
-        if (result.isSuccess || !StreamCheck.mayRetryWithNewVisitor(first.visionosRefused, sinceFailedSwap)) {
+        // Every client called this song gone, and another before it with nothing served between:
+        // taken for the connection, and given the same try as the bot check (see goneInARow).
+        val goneAgain = result.exceptionOrNull() is SongUnavailable && anotherGoneBefore(videoId)
+        if (result.isSuccess || !StreamCheck.mayRetryWithNewVisitor(first.visionosRefused || goneAgain, sinceFailedSwap)) {
+            noteOutcome(videoId, result)
             return result to first
         }
         val previous = YouTube.visitorData
         val fresh = mintVisitorData(videoId, policy, wire)?.takeIf { it != previous }
         if (fresh == null && !first.webHeld) {
+            noteOutcome(videoId, result)
             return result to first
         }
 
         if (fresh != null) {
-            Log.i(TAG, "[$videoId] VISIONOS refused, trying again with a visitorData YouTube has just issued")
+            Log.i(
+                TAG,
+                if (first.visionosRefused) "[$videoId] VISIONOS refused, trying again with a visitorData YouTube has just issued"
+                else "[$videoId] every client called this song gone, as they did the one before it: trying again with a visitorData YouTube has just issued",
+            )
             YouTube.visitorData = fresh
         } else {
             // No new one to be had, and the web client was kept back for a pass that now cannot
@@ -1017,6 +1079,7 @@ object YTPlayerUtils {
             YouTube.visitorData = previous
             lastSwapFailedAt = SystemClock.elapsedRealtime()
         }
+        noteOutcome(videoId, retried)
         return retried to second
     }
 

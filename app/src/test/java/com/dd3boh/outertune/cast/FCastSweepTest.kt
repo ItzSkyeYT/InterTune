@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.cast
 
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -13,6 +14,11 @@ import org.junit.Test
 import java.net.Inet4Address
 import java.net.InetAddress
 import java.net.ServerSocket
+import java.net.Socket
+import java.net.SocketException
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicInteger
+import javax.net.SocketFactory
 import kotlin.concurrent.thread
 
 /** FCast receivers looked for address by address: which addresses, and what a receiver says. */
@@ -81,5 +87,49 @@ class FCastSweepTest {
     fun `nothing there, nothing listed`() {
         val gone = ServerSocket(0).use { it.localPort }
         assertNull(FCastSweep.probe(InetAddress.getLoopbackAddress(), gone))
+    }
+
+    /**
+     * Sockets as a network the app may not use gives them, as on the Xiaomi of issue #33: binding
+     * one to it fails with EPERM before anything is sent. [refuses] picks which, in the order they
+     * are asked for.
+     */
+    private class Forbidding(private val refuses: (Int) -> Boolean = { true }) : SocketFactory() {
+        val asked = AtomicInteger()
+
+        override fun createSocket(): Socket {
+            if (refuses(asked.getAndIncrement())) throw SocketException("Binding socket to network 1040 failed: EPERM (Operation not permitted)")
+            return Socket()
+        }
+
+        override fun createSocket(host: String?, port: Int): Socket = throw UnsupportedOperationException()
+        override fun createSocket(host: String?, port: Int, localHost: InetAddress?, localPort: Int): Socket = throw UnsupportedOperationException()
+        override fun createSocket(host: InetAddress?, port: Int): Socket = throw UnsupportedOperationException()
+        override fun createSocket(address: InetAddress?, port: Int, localAddress: InetAddress?, localPort: Int): Socket = throw UnsupportedOperationException()
+    }
+
+    @Test
+    fun `a network that refuses every socket has no receivers, and the sweep asks every address without failing`() {
+        val forbidden = Forbidding()
+        val hosts = FCastSweep.hosts(ip("192.168.1.47"), 24)
+        val found = CopyOnWriteArrayList<CastDevice>()
+        // The refusal came out of the sweep, then out of the picker's coroutine, and closed the app.
+        runBlocking { FCastSweep.sweep(hosts, forbidden) { found += it } }
+        assertEquals(emptyList<CastDevice>(), found)
+        assertEquals(hosts.size, forbidden.asked.get())
+    }
+
+    @Test
+    fun `a socket refused for one address does not keep the sweep from a receiver at the next`() {
+        receiver("FCast-Google-Pixel 5").use { server ->
+            // Under runBlocking the probes run one after the other, so the refused socket is the first address's.
+            val forbidden = Forbidding { it == 0 }
+            val found = CopyOnWriteArrayList<CastDevice>()
+            runBlocking {
+                FCastSweep.sweep(listOf(ip("127.0.0.2"), InetAddress.getLoopbackAddress()), forbidden, server.localPort) { found += it }
+            }
+            assertEquals(listOf("FCast-Google-Pixel 5"), found.map { it.name })
+            assertEquals(2, forbidden.asked.get())
+        }
     }
 }

@@ -3844,9 +3844,15 @@ class MusicService : MediaLibraryService(),
             stopOnError()
         }
 
+        // YouTube turning the connection away in the words it has for a song that is gone, song
+        // after song (issue #28): said as what it is, in the listener's language, where every
+        // song used to read "This video is not available".
+        val turnedAway = YTPlayerUtils.isConnectionTurnedAway(error)
+        if (turnedAway) Log.w(TAG, "PLAYING: every song in a row called gone, taken for the connection being turned away")
         Toast.makeText(
             this@MusicService,
             if (gaveUp) getString(R.string.error_youtube_not_answering)
+            else if (turnedAway) getString(R.string.error_connection_turned_away)
             else ErrorText.withoutAddresses("plr: ${error.message} (${error.errorCode}): ${error.cause?.message ?: ""} "),
             Toast.LENGTH_LONG
         ).show()

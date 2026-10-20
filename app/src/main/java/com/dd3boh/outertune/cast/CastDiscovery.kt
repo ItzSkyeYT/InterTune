@@ -25,8 +25,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import java.net.DatagramSocket
 import java.net.Inet4Address
@@ -211,12 +209,30 @@ class CastDiscovery(
                     .onFailure { Log.w(TAG, "NSD would not start for $type", it) }
             }
             ssdp = scope.launch(Dispatchers.IO) {
-                while (true) {
-                    searchDlna()
-                    delay(searchEveryMs)
+                safely("SSDP") {
+                    while (true) {
+                        searchDlna()
+                        delay(searchEveryMs)
+                    }
                 }
             }
-            sweep = scope.launch(Dispatchers.IO) { sweepFcast() }
+            sweep = scope.launch(Dispatchers.IO) { safely("FCast sweep") { sweepFcast() } }
+        }
+    }
+
+    /**
+     * Runs one of the searches so that nothing it throws reaches the app: a search that fails has
+     * found nothing, and the others carry on. A failure let out of the picker's coroutines closes
+     * the whole app, as the sweep's did on a network the phone would not let it use (issue #33).
+     * Closing the picker cancels the searches, which still ends them.
+     */
+    private suspend fun safely(search: String, block: suspend () -> Unit) {
+        try {
+            block()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "$search stopped: ${e.javaClass.simpleName}: ${e.message}")
         }
     }
 
@@ -264,15 +280,11 @@ class CastDiscovery(
         val hosts = FCastSweep.hosts(self, prefix)
         if (hosts.isEmpty()) return
         val factory = network()?.socketFactory ?: javax.net.SocketFactory.getDefault()
-        val gate = Semaphore(FCastSweep.PARALLEL)
-        coroutineScope {
-            for (host in hosts) launch {
-                val device = gate.withPermit { FCastSweep.probe(host, socketFactory = factory) } ?: return@launch
-                synchronized(lock) {
-                    if (nsdListeners.isEmpty()) return@launch
-                    swept[device.host] = device
-                    publish()
-                }
+        FCastSweep.sweep(hosts, factory) { device ->
+            synchronized(lock) {
+                if (nsdListeners.isEmpty()) return@sweep
+                swept[device.host] = device
+                publish()
             }
         }
     }

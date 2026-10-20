@@ -66,6 +66,7 @@ class RecoveryTest {
             resolverFailed("File not found", Throwable(), PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND),
             PlaybackException("decoder", null, PlaybackException.ERROR_CODE_DECODING_FAILED),
             stopped(refused(404), PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS),
+            stopped(Loader.UnexpectedLoaderException(YTPlayerUtils.ConnectionTurnedAway("This video is not available"))),
         )
         for (error in final) assertEquals(error.toString(), Recovery.Kind.FINAL, Recovery.kind(error))
     }

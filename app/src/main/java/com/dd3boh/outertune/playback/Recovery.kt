@@ -53,6 +53,8 @@ object Recovery {
     fun kind(error: PlaybackException): Kind {
         val all = causes(error).toList()
         if (YTPlayerUtils.isUnavailableSong(error) || Throttle.isBlock(error) || Throttle.isAgeGated(error)) return Kind.FINAL
+        // Already tried with a fresh visitorData before it was said: another try a second later would only loop (issue #28).
+        if (YTPlayerUtils.isConnectionTurnedAway(error)) return Kind.FINAL
         val codes = all.filterIsInstance<PlaybackException>().map { it.errorCode }
         if (codes.any { NetworkRetryPolicy.isLocalFault(it) }) return Kind.FINAL
         status(error)?.let { return if (it == 403 || it == 410 || it in 500..599) Kind.PASSING else Kind.FINAL }
