@@ -54,7 +54,8 @@ Android 7.0 or later. Once installed, InterTune finds new versions by itself if 
 - Songs play to the end, with several ways round it when YouTube refuses a stream
 - Songs YouTube gave a new id play again, or are set aside with the reason
 - Fade between tracks, and a sleep timer that fades out
-- A queue that keeps itself up to date with what you are playing
+- Radios that learn from your skips and likes, and swap in fresh picks
+- Cast to a Chromecast, an FCast receiver or a DLNA TV
 - The highest audio quality available, with the real codec and bitrate shown
 
 </td>
@@ -120,6 +121,7 @@ Android 7.0 or later. Once installed, InterTune finds new versions by itself if 
 **Look and feel**
 
 - Liquid glass
+- A player background that moves with the music
 - Layouts for a phone on its side and for tablets
 - A home screen widget
 - Android Auto with "Hey Google, play"
