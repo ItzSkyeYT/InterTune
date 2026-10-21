@@ -1581,7 +1581,12 @@ object YTPlayerUtils {
                 }
             } else if (result.isSuccess) {
                 timedOutInARow = 0
-                if (!isTrial) NetworkPace.answered(msSince(askedAt))
+                if (!isTrial) {
+                    // A slow answer takes the network for slow, or keeps it so: see NetworkPace.
+                    val wasSlow = NetworkPace.isSlow()
+                    NetworkPace.answered(msSince(askedAt))
+                    if (!wasSlow && NetworkPace.isSlow()) Log.i(TAG, StepLog.slowAnswer(videoId, clientLabel, msSince(askedAt)))
+                }
             }
             steps += StepLog.asked(clientLabel, result.getOrNull()?.playabilityStatus?.status, msSince(askedAt))
             streamPlayerResponse = result.getOrNull()

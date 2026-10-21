@@ -39,7 +39,7 @@ object RouteTimes {
     /** Clients in a row that ran out of [PLAYER_CAP_MS] before the walk takes the network for slow. */
     const val SLOW_AFTER = 2
 
-    /** How long a network found slow is remembered as slow, and how far back answer times are looked at: see NetworkPace. */
+    /** How long a network is taken for slow after it was found so or last answered slowly, and how far back answer times are looked at: see NetworkPace. */
     const val SLOW_REMEMBER_MS = 5 * 60 * 1000L
 
     /** After a /player request on a kept connection did not answer, how long every /player goes out on a new one. */
