@@ -78,6 +78,9 @@ class ProofCheckTest {
         println("loose: ${loose.why}, ${loose.driftMeanMs}")
         assertFalse(loose.passes)
         assertTrue(loose.driftMeanMs!! > 10)
+        // Late by the same amount on every beat: what lining up again can fix.
+        assertEquals(16.0, loose.lock!!.lateMs, 2.0)
+        assertTrue(loose.lock!!.spreadMs < 2.0)
         val tight = ProofCheck.check(proof(bed(30.0), kicks(8.0, 120.0, offsetMs = 3.0), kicks(8.0, 120.0)))
         println("tight: ${tight.why}, ${tight.driftMeanMs}")
         assertTrue(tight.passes)
@@ -116,6 +119,26 @@ class ProofCheckTest {
         println("quiet intro: ${quiet.why}, sag ${quiet.sagDb}, line dip ${quiet.dipDb}")
         assertTrue(quiet.passes)
         assertTrue(quiet.dipDb < -6)
+    }
+
+    @Test
+    fun kicksLateByASteadyAmountAreLinedUpAgain() {
+        val a = Ends.tail(128.0)
+        val b = Ends.head(126.0)
+        val best = AutoPlanner.candidates(AutoInput(a, b, "a", "b")).first()
+        // The outgoing song's kicks come 14 ms late at the planned anchor; moving its bar 1 later
+        // in its own clock brings them earlier.
+        val renderer = Proof.Renderer { c ->
+            val late = 14.0 - (c.a.atMs - best.a.atMs) / c.speed
+            val mix = bed(30.0)
+            proof(mix, kicks(8.0, 126.0, offsetMs = 20.0 + late), kicks(8.0, 126.0, offsetMs = 20.0), bpm = 126.0)
+        }
+        val p = AutoPlanner.pick(AutoInput(a, b, "a", "b"), renderer)
+        println(p.describe())
+        assertEquals(AutoKind.BEAT_LOCKED, p.kind)
+        assertEquals(best.b.atMs, p.b.atMs, 1e-9)
+        assertEquals(14.0 * p.speed, p.a.atMs - best.a.atMs, 3.0)
+        assertTrue(p.why, p.why.contains("lined up"))
     }
 
     @Test

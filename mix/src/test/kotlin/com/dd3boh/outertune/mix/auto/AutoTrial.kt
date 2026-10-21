@@ -30,10 +30,11 @@ import kotlin.math.min
  * as a playlist would have them, and one a DJ would choose for the same songs, each next song the
  * nearest in tempo (and key) that is left.
  *
- * SUMMARY.md says, for every change, the move and why, how far apart the kicks sit where both
- * songs' beats are heard (measured in the rendered audio), how far the level moves, and the honest
- * count of DESIGN.md's review: changes that are beat locked (both grids trusted, kicks within 10 ms
- * on average and 20 at worst) and start on a phrase line.
+ * SUMMARY.md says, for every change, the move and why, how far apart the two songs' beats sit
+ * where both are heard (their low bands cross-correlated over each two bars of the rendered
+ * audio), how far the level moves, and the honest count of DESIGN.md's review: changes that are
+ * beat locked (both grids trusted, beats within 10 ms on average and 20 at worst) and start on a
+ * phrase line.
  *
  * Run it with --rerun: Gradle does not run a test again for a changed environment variable.
  * Songs are only read; nothing decoded or rendered leaves this PC or goes into git.
@@ -53,7 +54,7 @@ class AutoTrial {
         val file: File?,
         val before: String?,
     ) {
-        /** DESIGN.md review point 4: beat locked (both grids trusted, kicks within 10 ms) and on a phrase. */
+        /** DESIGN.md review point 4: beat locked (both grids trusted, beats within 10 ms) and on a phrase. */
         val honest: Boolean
             get() = pick.kind == AutoKind.BEAT_LOCKED && pick.onPhrase && verdict?.driftMeanMs?.let { it <= 10.0 } == true &&
                 (verdict.driftWorstMs ?: 99.0) <= 20.0
@@ -83,16 +84,18 @@ class AutoTrial {
             "tempo" to byTempo(analysed),
         )
         // AUTOMIX_AUTO_PAIRS=3-9 runs only those changes of the name order, telling every candidate's verdict.
-        val only = System.getenv("AUTOMIX_AUTO_PAIRS")?.takeIf { it.isNotBlank() }?.split("-")?.map { it.trim().toInt() }
+        val pairsWanted = System.getenv("AUTOMIX_AUTO_PAIRS")?.takeIf { it.isNotBlank() }
+        val range = pairsWanted?.contains('-') == true
+        val only = pairsWanted?.split('-', ',')?.map { it.trim().toInt() }
         if (only != null) {
-            orders.remove("tempo")
+            orders.remove(if (System.getenv("AUTOMIX_AUTO_ORDER") == "tempo") "name" else "tempo")
             debug = true
         }
         val summary = StringBuilder()
         summary.append("# Auto on bands, host trial ($label)\n\n")
         File(out, "NOTES.md").takeIf { it.exists() }?.let { summary.append(it.readText().trim()).append("\n\n") }
         summary.append("Songs: `${File(dir).name}`, ${songs.size} of them. Each outgoing song's last %.0f s and each incoming song's first %.0f s analysed as the phone would, Auto's pick on bands, every candidate rendered and checked (ProofCheck) before it is kept. Renders in `renders/$label/<order>/`, from 20 s before the change to 20 s after. Nothing here leaves the PC.\n\n".format(tailSeconds, headSeconds))
-        val totals = StringBuilder("| order | changes | beat locked on a phrase, kicks within 10 ms (honest T4) | beat locked, any | intro mixes | hand-overs on a phrase | hand-overs on a beat | blends | plain | refused by the proof | pairs whose tempos allow a lock |\n|---|---|---|---|---|---|---|---|---|---|---|\n")
+        val totals = StringBuilder("| order | changes | beat locked on a phrase, beats within 10 ms (honest T4) | beat locked, any | intro mixes | hand-overs on a phrase | hand-overs on a beat | blends | plain | refused by the proof | pairs whose tempos allow a lock |\n|---|---|---|---|---|---|---|---|---|---|---|\n")
         val tables = StringBuilder()
         for ((order, list) in orders) {
             val dirOut = File(renders, order).apply { mkdirs() }
@@ -100,7 +103,8 @@ class AutoTrial {
             val rows = ArrayList<Row>()
             val recent = ArrayList<Preset>()
             for (i in 0 until list.size - 1) {
-                if (only != null && (i + 1 < only.first() || i + 1 > only.last())) continue
+                if (only != null && range && (i + 1 < only.first() || i + 1 > only.last())) continue
+                if (only != null && !range && (i + 1) !in only) continue
                 val a = list[i]
                 val b = list[i + 1]
                 rows += change(i + 1, a, b, recent.reversed().take(2), dirOut, if (order == "name") before(beforeDir, i + 1) else null)
@@ -118,14 +122,14 @@ class AutoTrial {
                 rows.count { it.pick.kind == AutoKind.BLEND }, rows.count { it.pick.isPlain }, rows.count { it.pick.why.contains("refused") }, lockable,
             ))
             tables.append("## Order: ${if (order == "name") "the folder's own, by name" else "by tempo, as a DJ would line them up"}\n\n")
-            tables.append("| # | from | into | tempos (trust) | keys | move | kind | phrase | kicks apart, mean / worst | level: sag / dip / rise | peak | silence | A unheard | exact before / after | why | render | before (19 Oct) |\n")
+            tables.append("| # | from | into | tempos (trust) | keys | move | kind | phrase | beats apart, mean / worst | level: sag / dip / rise | peak | silence | A unheard | exact before / after | why | render | before (19 Oct) |\n")
             tables.append("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n")
             for (r in rows) tables.append(row(r, out))
             tables.append("\n")
         }
         summary.append("## Counts\n\n").append(totals).append("\n")
         summary.append("Level, K-weighted over 3 s: sag is how far the mix sank under the quieter of the two songs as each would sound there (the proof refuses over 6 dB); dip and rise are against the straight line from the level before the change to the level after it, which a quiet intro after a loud ending moves too, so they are only reported.\n\n")
-        summary.append("Honest T4 (DESIGN.md, review point 4): only changes that are beat locked, both grids trusted and the kicks heard within 10 ms on average and 20 at worst in the rendered audio, and whose outgoing song's bar 1 sits on a phrase line of 4 bars or longer. \"Pairs whose tempos allow a lock\" counts neighbours whose tempos are within 6% once folded, whatever their trust: no planner can lock the others.\n\n")
+        summary.append("Honest T4 (DESIGN.md, review point 4): only changes that are beat locked, both grids trusted and the two songs' beats heard within 10 ms on average and 20 at worst in the rendered audio (the rises of their bands under 150 Hz, kicks and bass, cross-correlated over each two bars where both play), and whose outgoing song's bar 1 sits on a phrase line of 4 bars or longer. \"Pairs whose tempos allow a lock\" counts neighbours whose tempos are within 6% once folded, whatever their trust: no planner can lock the others.\n\n")
         summary.append(tables)
         summary.append("## The songs\n\n| # | song | opening: tempo, trust, key | end: tempo, trust, key, phrases | analysis ms, opening / end |\n|---|---|---|---|---|\n")
         for ((i, s) in analysed.withIndex()) {
@@ -191,11 +195,23 @@ class AutoTrial {
         val tailSamples = a.song.read(max(0, a.song.frames - (tailSeconds * rate).toInt()), a.song.frames)
         val bSamples = b.song.read(0, min(b.song.frames, 100 * rate))
         val renderer = BandRender(rate, tailSamples, a.tailFromMs, a.tailRegion.guide, a.tailRegion.decimation, bSamples)
-        val proof = Proof.Renderer { c -> renderer.render(c.spec(), c.kind == AutoKind.BEAT_LOCKED, 8.0, 8.0)?.proof(rate) }
+        val proof = Proof.Renderer { c ->
+            val r = renderer.render(c.spec(), c.kind == AutoKind.BEAT_LOCKED, 8.0, 8.0)
+            if (debug && r != null) {
+                val over = (0 until r.mix.size / 2).filter { kotlin.math.abs(r.mix[2 * it]) > 1f || kotlin.math.abs(r.mix[2 * it + 1]) > 1f }
+                if (over.isNotEmpty()) println("    past full scale at frames %s; change %d to %d, B starts %d, bar 1 %d".format(over.take(5), r.changeFrom, r.changeTo, r.bStartFrame, r.o0Frame))
+            }
+            r?.proof(rate)
+        }
         val input = AutoInput(a.tail, b.head, a.song.title, b.song.title, a.song.album, b.song.album, recent = recent)
-        if (debug) println("\n== $n ${a.song.title} into ${b.song.title}\n  A end: ${a.tail.trustNote}\n  B opening: ${b.head.trustNote}")
+        if (debug) {
+            println("\n== $n ${a.song.title} into ${b.song.title}\n  A end: ${a.tail.trustNote}\n  B opening: ${b.head.trustNote}")
+            val all = AutoPlanner.candidates(input)
+            println("  notes: " + all.last().why)
+            for (c in all.take(6)) println("  candidate %.2f %s".format(c.score, c.describe()))
+        }
         val pick = AutoPlanner.pick(input, proof) { c, v ->
-            if (debug) println("  %s (%.2f) %s: %s; dip %.1f, rise %.1f, silence %.0f ms, drift %s".format(c.pill, c.score, c.kind, v.why, v.dipDb, v.bumpDb, v.longestSilenceMs, v.driftMeanMs?.let { "%.1f/%.1f".format(it, v.driftWorstMs) } ?: "-"))
+            if (debug) println("  %s (%.2f) %s: %s; dip %.1f, rise %.1f, silence %.0f ms, drift %s".format(c.pill, c.score, c.kind, v.why, v.dipDb, v.bumpDb, v.longestSilenceMs, v.lock?.let { "%.1f/%.1f over %d beats, late %.1f, spread %.1f".format(it.meanMs, it.worstMs, it.beats, it.lateMs, it.spreadMs) } ?: "-"))
         }
         if (debug) println("  -> ${pick.describe()}")
         if (pick.isPlain) return Row(n, a, b, pick, null, null, null, before)
@@ -222,7 +238,7 @@ class AutoTrial {
             p.kind == AutoKind.BLEND -> "seconds"
             else -> "beat"
         }
-        val drift = v?.driftMeanMs?.let { "%.1f / %.1f ms (%d beats)".format(it, v.driftWorstMs, v.lockBeats) } ?: ""
+        val drift = v?.lock?.let { "%.1f / %.1f ms (%d beats, A %+.1f ms)".format(it.meanMs, it.worstMs, it.beats, it.lateMs) } ?: ""
         val level = v?.let { "%.1f / %.1f / +%.1f dB".format(it.sagDb, it.dipDb, it.bumpDb) } ?: ""
         val peak = v?.let { "%.1f dBFS".format(it.peakDb) } ?: ""
         val silence = v?.let { if (it.longestSilenceMs > 0) "%.0f ms".format(it.longestSilenceMs) else "none" } ?: ""

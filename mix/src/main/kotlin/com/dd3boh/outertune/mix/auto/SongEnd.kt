@@ -227,11 +227,16 @@ class SongEnd(
             // An opening's first beat is its one, as a DJ assumes: a song starts on bar 1. Taken
             // only where the beats are trusted from the very start, the first sound lands on one
             // of them, and the downbeat finder, unsure as it is, leans the same way.
+            var firstBeatNote = ""
             val firstBeatIsOne = firstBeatBars && region.kind == RegionKind.HEAD && !region.barsConfident && region.beatsConfident &&
-                g != null && bars != null && bars.margin >= 0.0 && run {
+                g != null && bars != null && run {
                     val k = region.beatNear(env.firstSound.toDouble())
                     val off = abs(region.beatFrame(k) - env.firstSound) * 1000.0 / rate
-                    off <= FIRST_BEAT_MS && k <= g.firstBeat + 1 && bars.isDownbeat(k)
+                    val ok = bars.margin >= 0.0 && off <= FIRST_BEAT_MS && k <= g.firstBeat + 1 && bars.isDownbeat(k)
+                    if (!ok) firstBeatNote = "; first beat not taken for the one: first sound %.0f ms from beat %d (trusted from %d), %s, margin %.1f".format(
+                        off, k, g.firstBeat, if (bars.isDownbeat(k)) "a downbeat" else "beat ${Math.floorMod(k - bars.phase, bars.beatsPerBar) + 1} of the bar", bars.margin,
+                    )
+                    ok
                 }
             val line = if (g != null) {
                 BeatLine(
@@ -276,7 +281,7 @@ class SongEnd(
                 phrases = phrases,
                 key = Keys.of(region),
                 density = region.onsetDensity(env.firstSound, env.trueEnd),
-                trustNote = region.describe() + if (firstBeatIsOne) "; bars from its first beat" else "",
+                trustNote = region.describe() + (if (firstBeatIsOne) "; bars from its first beat" else firstBeatNote),
                 localLine = local,
             )
         }

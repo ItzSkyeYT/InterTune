@@ -310,7 +310,7 @@ class AutoPlannerTest {
         // A renderer whose proof of the best candidate clips, and of every other is clean.
         val renderer = Proof.Renderer { c ->
             val mix = FloatArray(2 * 44_100 * 20) { 0.3f * kotlin.math.sin(it * 0.05).toFloat() }
-            if (c.spec() == best.spec()) mix[1000] = 1.5f
+            if (c.spec() == best.spec()) mix[2 * 10 * 44_100] = 1.5f
             Proof(44_100, mix, 5 * 44_100, 15 * 44_100)
         }
         val p = AutoPlanner.pick(input(a, b), renderer)

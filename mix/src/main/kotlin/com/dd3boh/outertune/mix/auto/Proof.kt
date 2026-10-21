@@ -6,14 +6,10 @@
 
 package com.dd3boh.outertune.mix.auto
 
-import com.dd3boh.outertune.mix.FrontEnd
-import com.dd3boh.outertune.mix.Peaks
-import com.dd3boh.outertune.mix.Spectrum
 import kotlin.math.abs
 import kotlin.math.log10
 import kotlin.math.max
 import kotlin.math.min
-import kotlin.math.roundToInt
 
 /**
  * A change rendered ahead of time as it would play, for [ProofCheck] to judge before it is used.
@@ -52,7 +48,7 @@ class Proof(
 
 /**
  * Whether a rendered change is clean enough to play: no sample past full scale, the two songs'
- * kicks within a few ms of each other wherever both are heard, no dead air inside the change, and
+ * beats within a few ms of each other wherever both are heard, no dead air inside the change, and
  * the mix never sagging well under both songs as each would sound there on its own.
  *
  * The sag is measured as people hear level: K-weighted (ITU-R BS.1770) over 3 s, every half
@@ -83,6 +79,8 @@ object ProofCheck {
         val driftWorstMs: Double?,
         /** How many beats the drift was measured on. */
         val lockBeats: Int,
+        /** The kicks where both songs have one, with how late the outgoing song's sit; null where too few meet. */
+        val lock: Lock?,
         val longestSilenceMs: Double,
         /** The deepest the mix sank under the quieter of the two songs as each would sound there, in dB; 0 where it never did. */
         val sagDb: Double,
@@ -93,20 +91,23 @@ object ProofCheck {
         val why: String,
     )
 
-    /** Kicks are matched to a beat within this much of it. */
-    const val LOCK_WINDOW_MS = 50.0
-
     fun check(p: Proof, limits: Limits = Limits()): Verdict {
         val rate = p.sampleRate
         val frames = p.mix.size / 2
+        // Only the change is judged: outside it each song plays as it is, its own peaks at full
+        // scale included, and splitting it into lanes and adding them back can leave a few parts
+        // in a million over a sample at full scale, which no output hears.
         var clipped = 0
         var peak = 0.0
-        for (v in p.mix) {
-            val a = abs(v.toDouble())
-            if (a > 1.0) clipped++
+        for (i in 2 * max(0, p.changeFrom) until 2 * min(frames, p.changeTo)) {
+            val a = abs(p.mix[i].toDouble())
+            if (a > 1.0 + 1e-4) clipped++
             if (a > peak) peak = a
         }
-        val (driftMean, driftWorst, beats) = drift(p)
+        val lock = drift(p)
+        val driftMean = lock?.meanMs
+        val driftWorst = lock?.worstMs
+        val beats = lock?.beats ?: 0
         val silence = longestSilence(p.mix, rate, max(0, p.changeFrom), min(frames, p.changeTo), limits.silenceDb)
         val k = Loudness(rate)
         val mixL = k.shortTerm(p.mix)
@@ -115,7 +116,7 @@ object ProofCheck {
         val problems = ArrayList<String>()
         if (clipped > limits.maxClipped) problems += "$clipped samples past full scale"
         if (driftMean != null && driftWorst != null && (driftMean > limits.maxDriftMeanMs || driftWorst > limits.maxDriftWorstMs))
-            problems += "kicks %.1f ms apart on average, %.1f at worst".format(driftMean, driftWorst)
+            problems += "beats %.1f ms apart on average, %.1f at worst".format(driftMean, driftWorst)
         if (silence > limits.maxSilenceMs) problems += "%.0f ms of silence".format(silence)
         if (sag > limits.maxSagDb) problems += "the mix sags %.1f dB under both songs".format(sag)
         return Verdict(
@@ -124,6 +125,7 @@ object ProofCheck {
             driftMeanMs = driftMean,
             driftWorstMs = driftWorst,
             lockBeats = beats,
+            lock = lock,
             longestSilenceMs = silence,
             sagDb = sag,
             dipDb = dip,
@@ -135,34 +137,106 @@ object ProofCheck {
 
     /**
      * How far the outgoing song's kicks sit from the incoming song's, heard in the audio and not
-     * read off fitted lines: at each of the incoming song's beats, the outgoing song's low onset
-     * nearest it within 50 ms against the incoming song's own there, or the beat itself where the
-     * incoming song has none; mean, worst and how many beats. Nulls where fewer than four beats
-     * have a kick from the outgoing song.
+     * read off fitted lines: at each of the incoming song's beats where both songs have a low
+     * onset (a kick or a bass note) within 50 ms of it, how far apart the two are; mean, worst and
+     * how many beats. Nulls where fewer than four beats have both: a beat where only one song
+     * kicks cannot flam, and a fitted line is not what is heard.
      */
-    fun drift(p: Proof): Triple<Double?, Double?, Int> {
-        val a = p.lockA ?: return Triple(null, null, 0)
-        val b = p.lockB ?: return Triple(null, null, 0)
-        if (p.lockBeats.size < 4) return Triple(null, null, 0)
+    /**
+     * How the two songs' beats sit against each other where they meet: over each two bars, the
+     * lag at which the rises of their low bands (kicks, bass notes) best line up; the mean and
+     * the worst of those lags, how many stretches were judged, the median lag (how late the
+     * outgoing song runs, negative early) and how far the lags spread around it.
+     */
+    class Lock(val meanMs: Double, val worstMs: Double, val beats: Int, val lateMs: Double, val spreadMs: Double)
+
+    /** Stretches of this many of the incoming song's beats are judged on their own. */
+    private const val LOCK_BEATS = 8
+
+    fun drift(p: Proof): Lock? {
+        val a = p.lockA ?: return null
+        val b = p.lockB ?: return null
+        if (p.lockBeats.size < LOCK_BEATS + 1) return null
         val rate = p.sampleRate
-        val aKicks = lowOnsets(a, rate)
-        val bKicks = lowOnsets(b, rate)
-        val window = LOCK_WINDOW_MS / 1000.0 * rate
-        val gaps = ArrayList<Double>()
-        for (beat in p.lockBeats) {
-            val ka = aKicks.filter { abs(it - beat) < window }.minByOrNull { abs(it - beat) } ?: continue
-            val kb = bKicks.filter { abs(it - beat) < window }.minByOrNull { abs(it - beat) }
-            gaps += abs(ka - (kb ?: beat)) * 1000.0 / rate
+        val ea = lowRises(a, rate)
+        val eb = lowRises(b, rate)
+        val totalA = ea.sum()
+        val totalB = eb.sum()
+        if (totalA <= 0 || totalB <= 0) return null
+        val lags = ArrayList<Double>()
+        var i = 0
+        while (i + LOCK_BEATS < p.lockBeats.size) {
+            val from = (p.lockBeats[i] * 1000.0 / rate).toInt()
+            val to = (p.lockBeats[i + LOCK_BEATS] * 1000.0 / rate).toInt()
+            i += LOCK_BEATS
+            if (to - from < 200 || to > min(ea.size, eb.size)) continue
+            // Both songs must have their share of low rises here, or there is nothing to line up.
+            val share = (to - from).toDouble() / min(ea.size, eb.size)
+            val sa = (from until to).sumOf { ea[it] }
+            val sb = (from until to).sumOf { eb[it] }
+            if (sa < 0.3 * share * totalA || sb < 0.3 * share * totalB) continue
+            lag(ea, eb, from, to)?.let { lags += it }
         }
-        if (gaps.size < 4) return Triple(null, null, gaps.size)
-        return Triple(gaps.average(), gaps.max(), gaps.size)
+        if (lags.isEmpty()) return null
+        val sorted = lags.sorted()
+        val median = sorted[sorted.size / 2]
+        val spread = lags.map { abs(it - median) }.sorted()[lags.size / 2]
+        return Lock(lags.map { abs(it) }.average(), lags.maxOf { abs(it) }, lags.size * LOCK_BEATS, median, spread)
     }
 
-    /** The low onsets of a mono signal (kicks and bass notes), in frames. */
-    private fun lowOnsets(mono: FloatArray, rate: Int): List<Double> {
-        val shorts = ShortArray(mono.size) { (mono[it] * 32767f).roundToInt().coerceIn(-32768, 32767).toShort() }
-        val spectrum = Spectrum.of(FrontEnd.of(shorts, rate, 1))
-        return Peaks.of(spectrum.lowOnset, 1.5f, 8).map { spectrum.frameToSample(it.frame) }
+    /**
+     * How late [a]'s low band runs behind [b]'s over their whole length, in ms (negative: ahead),
+     * the lag within 40 ms at which their rises best line up; null where either is silent.
+     */
+    fun lagMs(a: FloatArray, b: FloatArray, rate: Int): Double? {
+        val ea = lowRises(a, rate)
+        val eb = lowRises(b, rate)
+        return lag(ea, eb, 0, min(ea.size, eb.size))
+    }
+
+    private fun lag(ea: DoubleArray, eb: DoubleArray, from: Int, to: Int): Double? {
+        val maxLag = 40
+        val lo = max(from, maxLag)
+        val hi = min(to, min(ea.size, eb.size) - maxLag)
+        if (hi - lo < 100) return null
+        var best = 0
+        var bestScore = Double.NEGATIVE_INFINITY
+        val scores = DoubleArray(2 * maxLag + 1)
+        for (l in -maxLag..maxLag) {
+            var sum = 0.0
+            for (t in lo until hi) sum += ea[t + l] * eb[t]
+            scores[l + maxLag] = sum
+            if (sum > bestScore) {
+                bestScore = sum
+                best = l
+            }
+        }
+        if (bestScore <= 0.0) return null
+        var lag = best.toDouble()
+        val i = best + maxLag
+        if (i in 1 until scores.size - 1) {
+            val l = scores[i - 1]
+            val c = scores[i]
+            val r = scores[i + 1]
+            val d = l - 2 * c + r
+            if (d < 0) lag += (0.5 * (l - r) / d).coerceIn(-0.5, 0.5)
+        }
+        return lag
+    }
+
+    /** The rises of a signal's envelope under 150 Hz, one value a millisecond. */
+    private fun lowRises(x: FloatArray, rate: Int): DoubleArray {
+        val lp = Array(2) { com.dd3boh.outertune.mix.Biquad(1).apply { set(com.dd3boh.outertune.mix.FilterKind.LOW_PASS, 150.0, 0.7071067811865476, rate) } }
+        val per = max(1, rate / 1000)
+        val bins = x.size / per
+        val env = DoubleArray(bins)
+        for (i in 0 until bins * per) {
+            val y = lp[1].process(lp[0].process(x[i].toDouble(), 0), 0)
+            env[i / per] += y * y
+        }
+        val out = DoubleArray(bins)
+        for (t in 1 until bins) out[t] = max(0.0, kotlin.math.sqrt(env[t]) - kotlin.math.sqrt(env[t - 1]))
+        return out
     }
 
     /** The longest run of 50 ms windows under [db] between frames [from] and [to], in ms. */

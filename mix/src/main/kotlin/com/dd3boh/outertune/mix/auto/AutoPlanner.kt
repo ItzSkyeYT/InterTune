@@ -28,6 +28,9 @@ enum class AutoPlain(val key: String, val words: String) {
     NOT_READ("not_read", "not ready in time"),
     NOTHING_TO_MIX("nothing_to_mix", "nothing to mix over"),
 
+    /** Nothing Auto knows fits these two: no beat to leave on, and two beats that would slide against each other in a blend. */
+    NO_FIT("no_fit", "no change fits"),
+
     /** Every change Auto could make was rendered and refused by [ProofCheck]. */
     NO_CLEAN_MIX("no_clean_mix", "no clean mix found"),
 }
@@ -85,7 +88,7 @@ class AutoPick(
     val a: Anchor,
     val b: Anchor,
     val moves: Map<LaneId, Move>,
-    /** The outgoing song's bar 1 (or the line it leaves on) sits on a phrase line of 4 bars or longer. */
+    /** The outgoing song's bar 1 (the line it leaves on, for a hand-over; the line the drop lands on, for an intro mix) sits on a phrase line of 4 bars or longer. */
     val onPhrase: Boolean,
     /** The longest phrase that line opens: 16, 8, 4, 2, 1, or 0 where the bars are not known. */
     val phraseBars: Int,
@@ -222,16 +225,49 @@ object AutoPlanner {
         val ranked = candidates(input)
         if (proof == null) return ranked.first()
         val refused = ArrayList<String>()
-        for (c in ranked.take(MAX_PROOFS)) {
-            if (c.isPlain) return if (refused.isEmpty()) c else plain(input, AutoPlain.NO_CLEAN_MIX, refused.joinToString("; "))
-            val p = proof.render(c) ?: return c.withWhy(refused)
-            val verdict = ProofCheck.check(p, limits)
-            heard?.invoke(c, verdict)
-            if (verdict.passes) return c.withWhy(refused)
-            refused += "${c.pill} refused: ${verdict.why}"
+        var proofs = 0
+        for (c0 in ranked) {
+            if (proofs >= MAX_PROOFS) break
+            if (c0.isPlain) return if (refused.isEmpty()) c0 else plain(input, AutoPlain.NO_CLEAN_MIX, refused.joinToString("; "))
+            var c = c0
+            // A beat-locked change whose kicks sit apart by the same amount all through is lined
+            // up again, as a DJ nudges the platter: the outgoing song's bar 1 moved by what was
+            // heard, and heard again.
+            for (nudge in 0..MAX_NUDGES) {
+                val p = proof.render(c) ?: return c.withWhy(refused)
+                proofs++
+                val verdict = ProofCheck.check(p, limits)
+                heard?.invoke(c, verdict)
+                if (verdict.passes) return c.withWhy(refused)
+                val lock = verdict.lock
+                val onlyDrift = verdict.clipped <= limits.maxClipped && verdict.longestSilenceMs <= limits.maxSilenceMs && verdict.sagDb <= limits.maxSagDb
+                if (nudge < MAX_NUDGES && c.kind == AutoKind.BEAT_LOCKED && onlyDrift && lock != null && lock.spreadMs <= NUDGE_SPREAD_MS && abs(lock.lateMs) in 2.0..40.0) {
+                    refused += "${c.pill} beats %.1f ms %s, lined up again".format(abs(lock.lateMs), if (lock.lateMs > 0) "late" else "early")
+                    c = c.nudged(lock.lateMs * c.speed)
+                    continue
+                }
+                refused += "${c.pill} refused: ${verdict.why}"
+                break
+            }
         }
         return plain(input, AutoPlain.NO_CLEAN_MIX, refused.joinToString("; "))
     }
+
+    /** How many times a change's kicks are lined up again before it is given up. */
+    const val MAX_NUDGES = 2
+
+    /**
+     * Kicks are lined up again only where they sit apart by much the same amount on every beat:
+     * within this of their median, which allows for the onsets' own 11.6 ms steps. The change is
+     * heard again after, so a nudge that makes it worse is refused like any other.
+     */
+    const val NUDGE_SPREAD_MS = 15.0
+
+    /** The same change with the outgoing song's bar 1 [ms] later in its own clock, so its music is heard that much earlier. */
+    private fun AutoPick.nudged(ms: Double): AutoPick = AutoPick(
+        kind, move, plain, bars, seconds, beatMatch, a.copy(atMs = a.atMs + ms), b, moves, onPhrase, phraseBars, bOnBar, keyDistance, speed, unheardMs, score,
+        why + "; lined up by %+.1f ms".format(ms),
+    )
 
     private fun AutoPick.withWhy(refused: List<String>): AutoPick =
         if (refused.isEmpty()) this else AutoPick(kind, move, plain, bars, seconds, beatMatch, a, b, moves, onPhrase, phraseBars, bOnBar, keyDistance, speed, unheardMs, score, why + "; " + refused.joinToString("; "))
@@ -247,7 +283,7 @@ object AutoPlanner {
         out += blends(c)
         val sorted = out.sortedWith(compareByDescending<AutoPick> { it.score }.thenBy { it.bars }.thenBy { it.a.atMs })
         val why = if (c.notes.isEmpty()) "nothing fits" else c.notes.distinct().joinToString("; ")
-        return sorted + plain(input, AutoPlain.NOTHING_TO_MIX, why)
+        return sorted + plain(input, AutoPlain.NO_FIT, why)
     }
 
     /** Why the pair stays plain whatever the music, or null. */
@@ -562,10 +598,13 @@ object AutoPlanner {
             }
             val k1 = kD - length * CHANGE_BEATS
             val bAt = lb.msOf(k1)
-            if (bAt < 0) continue
-            // B's intro rises from its first sound, at most 4 bars before bar 1.
+            if (bAt < 0) {
+                c.note("no intro mix of $length bars: the next song's opening is shorter than that")
+                continue
+            }
+            // B's intro rises from its first sound, however long before bar 1 that is: the
+            // budget below says whether this song's end can carry all of it.
             val fromU = ((b.firstSoundMs - bAt) / (lb.beatMs * CHANGE_BEATS)).coerceAtMost(0.0)
-            if (fromU < -4.0) continue
             val beatsA = (length * CHANGE_BEATS * perB).roundToInt()
             val preBeatsA = (-fromU * CHANGE_BEATS * perB).roundToInt()
             for (j in phrases.beats.indices) {
@@ -585,7 +624,9 @@ object AutoPlanner {
                 val level = phrases.level[j]
                 val endLevel = phrases.levelOf(kE)
                 val unheard = max(0.0, a.trueEndMs - aLocal.msOf(kE))
-                var score = 2.8 + startScore(level, length) + endScore(endLevel, length) + 0.15 * phrases.strength[j]
+                // What a DJ lines up in an intro mix is the drop: it must land on the outgoing
+                // song's phrase line. Where the change starts matters less.
+                var score = 2.8 + startScore(endLevel, length) + 0.5 * endScore(level, length) + 0.15 * phrases.strengthOf(kE)
                 score += unheardPenalty(unheard)
                 score += if (abs(introBars - length) <= 0.5) 0.3 else 0.0
                 score -= 10.0 * abs(speed - 1)
@@ -596,13 +637,13 @@ object AutoPlanner {
                 val bAnchorMs = bLocal.msOf(kD) - length * bLocal.beatMs * CHANGE_BEATS
                 val anchorA = Anchor(c.input.aId, aLocal.msOf(kS), aLocal.bpm, CHANGE_BEATS)
                 val anchorB = Anchor(c.input.bId, bAnchorMs, bLocal.bpm, CHANGE_BEATS)
-                val why = "intro mix: the next song's %.1f-bar opening rises under the last %d bars on the %s, its beat drops at %s as this one leaves, A %.2f to B %.2f BPM (A at %.4f)%s".format(
-                    introBars, length, phraseWords(level, phrases.heard), clock(la.msOf(kE)), aLocal.bpm, bLocal.bpm, speed, keyWords(c),
+                val why = "intro mix: the next song's %.1f-bar opening rises under this one for %d bars, its beat drops at %s on the %s as this one leaves, A %.2f to B %.2f BPM (A at %.4f)%s".format(
+                    introBars, length - minOf(0.0, fromU).roundToInt(), clock(la.msOf(kE)), phraseWords(endLevel, phrases.heard), aLocal.bpm, bLocal.bpm, speed, keyWords(c),
                 )
                 out += AutoPick(
                     AutoKind.INTRO_MIX, Preset.RISE, null, length, length * bLocal.beatMs * CHANGE_BEATS / 1000.0, true, anchorA, anchorB,
                     AutoMoves.introRise(length.toDouble(), beatB, fromU),
-                    onPhrase = level >= 4, phraseBars = level, bOnBar = true, keyDistance = c.keyDistance,
+                    onPhrase = endLevel >= 4, phraseBars = endLevel, bOnBar = true, keyDistance = c.keyDistance,
                     speed = speed, unheardMs = unheard, score = score, why = why,
                 )
             }
@@ -642,7 +683,10 @@ object AutoPlanner {
             val p = a.phrases
             for (j in p.beats.indices) if (la.trusts(p.beats[j]) || la.trusts(p.beats[j] - 1)) lines += Line(la.msOf(p.beats[j]), p.level[j], p.strength[j], la.beatMs)
         } else if (la != null && la.beatsTrusted) {
-            for (k in la.firstK..la.lastK + 1) {
+            // Its steady beat is carried on past the trusted stretch to its end: an echo hides the
+            // few ms a line can wander there.
+            val last = if (a.steadyTempo) max(la.lastK + 1, la.kNear(a.trueEndMs)) else la.lastK + 1
+            for (k in la.firstK..last) {
                 val ms = la.msOf(k)
                 if (a.trueEndMs - ms <= 12_000) lines += Line(ms, 0, 0.0, la.beatMs)
             }

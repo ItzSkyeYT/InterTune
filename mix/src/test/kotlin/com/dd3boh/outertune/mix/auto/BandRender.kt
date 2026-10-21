@@ -167,7 +167,11 @@ class BandRender(
         val full = 32768.0
         val step = 512
         val knots = (n + step - 1) / step
+        // Only the change is held down and limited: outside it each song plays as it is, peaks and all.
+        val changeFrom = (changeStart - from).toInt().coerceIn(0, n)
+        val changeTo = (changeEnd - from).toInt().coerceIn(changeFrom, n)
         val needed = DoubleArray(knots) { k ->
+            if ((k + 1) * step <= changeFrom || k * step >= changeTo) return@DoubleArray 1.0
             var peak = 0.0
             for (i in k * step until min(n, (k + 1) * step)) peak = max(peak, max(abs(sum[2 * i]), abs(sum[2 * i + 1])) / full)
             if (peak <= CEILING) 1.0 else CEILING / peak
@@ -190,16 +194,17 @@ class BandRender(
             for (c in 0 until 2) {
                 val v = sum[2 * i + c] * g / full
                 mix[2 * i + c] = v.toFloat()
-                val limitedV = softLimit(v)
-                if (abs(v) > CEILING) limited++
+                val inside = i in changeFrom until changeTo
+                val limitedV = if (inside) softLimit(v) else v
+                if (inside && abs(v) > CEILING) limited++
                 heard[2 * i + c] = (limitedV * full).roundToInt().coerceIn(-32768, 32767).toShort()
             }
         }
 
-        val changeFrom = (changeStart - from).toInt().coerceIn(0, n)
-        val changeTo = (changeEnd - from).toInt().coerceIn(changeFrom, n)
+        // Held against each song outside the change and the shared headroom's lead and tail around it.
+        val lead = (0.5 * rate).toInt()
         var exactBefore = true
-        for (i in 0 until changeFrom) {
+        for (i in 0 until max(0, changeFrom - lead)) {
             val o = from + i
             if (o >= aFrames) break
             if (heard[2 * i] != a[(2 * o).toInt()] || heard[2 * i + 1] != a[(2 * o + 1).toInt()]) {
@@ -208,7 +213,7 @@ class BandRender(
             }
         }
         var exactAfter = true
-        for (i in changeTo until n) {
+        for (i in min(n, changeTo + lead) until n) {
             val bf = from + i - bStart.roundToLong()
             if (bf !in 0 until bFrames) continue
             if (abs(heard[2 * i] - b[(2 * bf).toInt()]) > 1 || abs(heard[2 * i + 1] - b[(2 * bf + 1).toInt()]) > 1) {
