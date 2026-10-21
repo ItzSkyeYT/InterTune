@@ -499,4 +499,17 @@ object Unreleased {
      * the checks that read it, in MusicService, PlayerSettings, PlayerFrag and DeveloperFrag.
      */
     val AUTOMIX = BuildConfig.DEBUG
+
+    /**
+     * Mix, the next step of AutoMix: a Mix switch on each playlist, a line between two songs that
+     * says how one goes into the next, and a page to shape that change by hand and hear it as it
+     * will play, on lows, mids and highs (experiments/features/automix/DESIGN.md, 21 Oct 2026).
+     * A change saved by hand belongs to its two songs, wherever they meet, and is kept in a file of
+     * its own under the app's files (TransitionStore in :mix), not in the database.
+     *
+     * Not in any release. With this off, playlists, the queue and the player are what they were,
+     * and nothing reads or writes those files. It plays only with AUTOMIX on. To ship: set this to
+     * true, or delete it with the checks that read it.
+     */
+    val AUTOMIX_EDITOR = BuildConfig.DEBUG
 }

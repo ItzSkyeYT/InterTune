@@ -75,7 +75,8 @@ class AutomixHeldBackTest {
     fun `the flag is read where its doc comment says and nowhere else`() {
         val readers = sources.walkTopDown()
             .filter { it.extension == "kt" && it.name != "Unreleased.kt" }
-            .filter { "Unreleased.AUTOMIX" in code(it.readText()) }
+            // The whole name: Unreleased.AUTOMIX_EDITOR is another flag, read in other places.
+            .filter { Regex("""Unreleased\.AUTOMIX\b""").containsMatchIn(code(it.readText())) }
             .map { it.relativeTo(sources).path }
             .toSet()
         assertEquals(
