@@ -371,6 +371,14 @@ fun Lyrics(
             currentLineIndex = -1
             return@LaunchedEffect
         }
+        // Once now, paused too, for the same reason the read below may come at once. Next on a
+        // paused player brings the next song's lines up while the loop waits for the music, and
+        // the last song's line number, past the end of shorter lyrics, closed the app at the next
+        // touch on them.
+        LyricsTiming.lyricsPosition(sliderPositionProvider() ?: playerConnection.player.currentPosition, shiftNow).let { at ->
+            currentLineIndex = findCurrentLineIndex(lines, at)
+            currentPos = at
+        }
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (isActive) {
                 if (!playerConnection.isPlaying.value) playerConnection.isPlaying.first { it }
@@ -475,10 +483,12 @@ fun Lyrics(
          * Calculate the lyric offset Based on how many lines (\n chars)
          */
         fun calculateOffset() = with(density) {
+            // Never past the lines: an index that is not theirs counts no new line.
+            val text = lines.getOrNull(currentLineIndex)?.text.orEmpty()
             if (landscapeOffset) {
-                16.dp.toPx().toInt() * countNewLine(lines[currentLineIndex].text) // landscape sits higher by default
+                16.dp.toPx().toInt() * countNewLine(text) // landscape sits higher by default
             } else {
-                20.dp.toPx().toInt() * countNewLine(lines[currentLineIndex].text)
+                20.dp.toPx().toInt() * countNewLine(text)
             }
         }
 
