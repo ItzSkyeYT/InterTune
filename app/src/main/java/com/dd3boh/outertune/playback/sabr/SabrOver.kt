@@ -19,6 +19,7 @@ import com.metrolist.innertubex.sabr.SabrFailureKind
 import com.metrolist.innertubex.sabr.findSabrProtocolException
 import com.metrolist.innertubex.sabr.sabrRequestOrigin
 import com.metrolist.innertubex.sabr.toSabrBootstrap
+import com.zionhuang.innertube.PlayerAnswers
 import com.zionhuang.innertube.YouTube
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
@@ -34,7 +35,8 @@ import com.metrolist.innertubex.models.response.PlayerResponse as SabrPlayerResp
  * a [SabrFile] reading it, and the sabr: address that stands for it ([SabrStarts]). Only from a
  * VISIONOS answer for now: a web client's SABR address carries an n to be solved first.
  *
- * Behind the developer's switch "Stream over SABR only" in a debug build: see YTPlayerUtils.sabrOnly.
+ * The last rung of the walk (YTPlayerUtils.sabrRung), and the developer's switch "Stream over
+ * SABR only" in a debug build (YTPlayerUtils.sabrOnly).
  */
 @OptIn(ExperimentalSabrApi::class)
 object SabrOver {
@@ -98,14 +100,50 @@ object SabrOver {
     const val DOWNLOAD_PACE = 4
 
     /**
-     * [data] with its address replaced by a sabr: address for the same format, or null when the
-     * answer it came from cannot be streamed over SABR (said in the log). [forDownload] paces the
-     * stream by [downloadClock] instead of the player's position.
+     * How long the addresses of an answer that came at [answeredAt] and said they last
+     * [expiresInSeconds] still have at [now]: counted from the answer, not from the start made
+     * of it, which may come seconds later.
      */
-    fun over(videoId: String, data: YTPlayerUtils.PlaybackData, forDownload: Boolean = false): YTPlayerUtils.PlaybackData? = runCatching {
-        val answer = YouTube.playerAnswers.latest(videoId, "VISIONOS")
+    fun secondsLeft(answeredAt: Long, expiresInSeconds: Int, now: Long): Long =
+        (answeredAt + expiresInSeconds * 1000L - now) / 1000
+
+    /**
+     * The developer's "Stream over SABR only": [data] over SABR from the newest VISIONOS answer of
+     * [videoId] kept since [since], the walk's own. See the other [over].
+     */
+    fun over(
+        videoId: String,
+        data: YTPlayerUtils.PlaybackData,
+        since: Long,
+        clockId: String = videoId,
+        forDownload: Boolean = false,
+    ): YTPlayerUtils.PlaybackData? {
+        val answer = YouTube.playerAnswers.latest(videoId, "VISIONOS", since)
         if (answer == null) {
             Log.w(TAG, "[$videoId] no VISIONOS answer kept to start SABR from")
+            return null
+        }
+        return over(answer, data, clockId, forDownload)
+    }
+
+    /**
+     * [data] with its address replaced by a sabr: address for the same format, made from [answer]
+     * and asked for as the client that got it, or null when it cannot be streamed over SABR (said
+     * in the log). Paced by where the player is in [clockId], the song the player asked for, or by
+     * [downloadClock] for a download. The start runs out when the answer's addresses do, counted
+     * from when it came ([secondsLeft]), and the data handed back says so.
+     */
+    fun over(
+        answer: PlayerAnswers.Answer,
+        data: YTPlayerUtils.PlaybackData,
+        clockId: String = answer.videoId,
+        forDownload: Boolean = false,
+        now: Long = System.currentTimeMillis(),
+    ): YTPlayerUtils.PlaybackData? = runCatching {
+        val videoId = answer.videoId
+        val left = secondsLeft(answer.at, data.streamExpiresInSeconds, now)
+        if (left <= 0) {
+            Log.w(TAG, "[$videoId] the answer to start SABR from has run out")
             return null
         }
         val theirs = json.decodeFromString(SabrPlayerResponse.serializer(), answer.text)
@@ -136,9 +174,9 @@ object SabrOver {
                 SabrAudioStream(
                     http, bootstrap,
                     initialPlayerTimeMs = startMs,
-                    // Asked for as a player asks: by where it really is (SabrClock), or for a
-                    // download as a faster player would be (downloadClock).
-                    playbackPositionMs = if (forDownload) downloadClock(startMs) else { { SabrClock.positionIn(videoId) } },
+                    // Asked for as a player asks: by where it really is in the song it plays
+                    // (SabrClock), or for a download as a faster player would be (downloadClock).
+                    playbackPositionMs = if (forDownload) downloadClock(startMs) else { { SabrClock.positionIn(clockId) } },
                     logger = libraryLog,
                     onResponse = { d ->
                         Log.i(
@@ -164,12 +202,12 @@ object SabrOver {
         val address = SabrStarts.put(
             SabrStarts.Start(
                 videoId, format.itag, format.lastModified?.toLongOrNull() ?: 0, file,
-                expiresAtMs = System.currentTimeMillis() + data.streamExpiresInSeconds * 1000L,
+                expiresAtMs = answer.at + data.streamExpiresInSeconds * 1000L,
                 pacedByPlayer = !forDownload,
             )
         )
         // The client's own name between the brackets, as the walk's lines have it.
-        Log.i(TAG, "[$videoId] [VISIONOS] SABR start made: itag ${format.itag}, $length bytes, ${durationMs / 1000} s")
-        data.copy(streamUrl = address)
-    }.onFailure { Log.w(TAG, "[$videoId] could not start SABR", it) }.getOrNull()
+        Log.i(TAG, "[$videoId] [${answer.client.clientName}] SABR start made: itag ${format.itag}, $length bytes, ${durationMs / 1000} s")
+        data.copy(streamUrl = address, streamExpiresInSeconds = left.toInt())
+    }.onFailure { Log.w(TAG, "[${answer.videoId}] could not start SABR", it) }.getOrNull()
 }

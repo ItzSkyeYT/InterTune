@@ -49,15 +49,16 @@ class SabrUpstreamTest {
     }
 
     @Test
-    fun `SABR is the last rung, only after the walk failed and never for a song YouTube turned down`() {
+    fun `SABR is the last rung, only after YouTube turned the walk down and never for a song it calls gone`() {
         val utils = File("src/main/java/com/dd3boh/outertune/utils/YTPlayerUtils.kt").readText()
-        assertTrue(
-            "if (result.isFailure && Unreleased.SABR && !isUnavailableSong(result.exceptionOrNull())) {" in utils
-        )
-        // and from the VISIONOS answer the walk already has: no request of its own
+        assertTrue(Regex("""if \(result\.isFailure && [^\n]*sabrMayTakeOver\(failure\)\) \{""").containsMatchIn(utils))
+        val mayTakeOver = utils.substringAfter("internal fun sabrMayTakeOver(").substringBefore("\n\n")
+        assertTrue(mayTakeOver, "!isUnavailableSong(failure)" in mayTakeOver)
+        assertTrue(mayTakeOver, "!StreamOrder.networkDidNotAnswer(failure)" in mayTakeOver)
+        // and from a VISIONOS answer of this walk, which the wire already has: no request of its own
         val rung = utils.substringAfter("private fun sabrRung(").substringBefore("\n    }\n")
-        assertTrue("YouTube.playerAnswers.latest(videoId, VISIONOS.clientName)" in rung)
-        assertTrue("no request of its own", "wire." !in rung && "YouTube.player(" !in rung)
+        assertTrue("wire.answers().of(videoId, VISIONOS.clientName, since)" in rung)
+        assertTrue("no request of its own", "wire.player(" !in rung && "wire.head(" !in rung && "YouTube.player(" !in rung)
     }
 
     @Test

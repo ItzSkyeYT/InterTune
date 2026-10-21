@@ -2688,6 +2688,8 @@ class MusicService : MediaLibraryService(),
                 // Refused in the player under the visitorData the app has now: see SongRoutes.refused.
                 refusedByPlayer = songRoutes.refused(mediaId, SystemClock.elapsedRealtime(), YouTube.visitorData.orEmpty()),
             )
+            // The answers of this walk come after this: the developer's "Stream over SABR only" starts from one of them.
+            val resolveBegan = System.currentTimeMillis()
             val played = runBlocking(Dispatchers.IO) {
                 try {
                     withinResolveTime(context = wish) { standIns.playbackData(mediaId) }
@@ -2816,7 +2818,8 @@ class MusicService : MediaLibraryService(),
             // The developer's "Stream over SABR only": the same answer over SABR instead of its
             // direct address, the walk otherwise as it always is (playback/sabr/SabrOver).
             val streamed = if (BuildConfig.DEBUG && Unreleased.SABR && YTPlayerUtils.sabrOnly) {
-                SabrOver.over(mediaId, playbackData) ?: playbackData
+                // From the answer for the upload played, paced by the song the player asked for.
+                SabrOver.over(played.from, playbackData, since = resolveBegan, clockId = mediaId) ?: playbackData
             } else {
                 playbackData
             }

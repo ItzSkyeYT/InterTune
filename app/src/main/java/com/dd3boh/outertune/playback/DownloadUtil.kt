@@ -201,6 +201,7 @@ class DownloadUtil @Inject constructor(
         // A song whose own id YouTube no longer serves is downloaded from the id the same
         // recording goes by now, as the player plays it: see StandIns. Downloads keep a run of
         // their own, so a batch of them cannot end the player's (GoneRun), and report nothing.
+        val resolveBegan = System.currentTimeMillis()
         val played = runBlocking(Dispatchers.IO) {
             StandIns(
                 resolve = { id ->
@@ -267,7 +268,7 @@ class DownloadUtil @Inject constructor(
         // The developer's "Stream over SABR only", as the player has it (MusicService): the same
         // answer over SABR, so that a download goes over it too.
         val streamed = if (BuildConfig.DEBUG && Unreleased.SABR && YTPlayerUtils.sabrOnly) {
-            SabrOver.over(mediaId, playbackData, forDownload = true) ?: playbackData
+            SabrOver.over(played.from, playbackData, since = resolveBegan, forDownload = true) ?: playbackData
         } else {
             playbackData
         }
