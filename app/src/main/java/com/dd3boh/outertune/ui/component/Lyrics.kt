@@ -460,8 +460,10 @@ fun Lyrics(
     // line a second) a long press on a line starts picking, where one in four was lost.
     var fingerDown by remember { mutableStateOf(false) }
     // With "Follow the song" off, the lines are placed on the song's line once, when they come up,
-    // and from then on stay where the listener leaves them.
-    var placedOnce by remember(lines) { mutableStateOf(false) }
+    // and from then on stay where the listener leaves them. Once for each lyrics: [lines] is one
+    // list for as long as the view is open, refilled in place, and remembered against it this was
+    // never forgotten, so from the second song on the lines came up wherever the last ones were left.
+    var placedOnce by remember(lyricsModel) { mutableStateOf(false) }
 
     LaunchedEffect(currentLineIndex, lastPreviewTime, picking, fingerDown, lyricsAutoScroll) {
         /**
@@ -483,7 +485,12 @@ fun Lyrics(
         // Nothing moves under a finger, or while lines are picked. Once the finger is lifted, or
         // the picking ends, the song's line is scrolled to again.
         if (!isSynced || picking || fingerDown) return@LaunchedEffect
-        if (!lyricsAutoScroll && placedOnce) return@LaunchedEffect
+        // Placed already, and not to follow the song: the view stays where it is, and only the lit
+        // line keeps up, the one lit while the seek bar is dragged too.
+        if (!lyricsAutoScroll && placedOnce) {
+            deferredCurrentLineIndex = currentLineIndex
+            return@LaunchedEffect
+        }
         if (currentLineIndex != -1) {
             placedOnce = true
             deferredCurrentLineIndex = currentLineIndex
@@ -502,6 +509,8 @@ fun Lyrics(
             // Before the first line, as after a seek back into the song's opening: the view goes
             // back to where the first line will be sung, with no line lit, and follows the song
             // from there. It used to stay on the line it had last shown (reported 18 Oct 2026).
+            // With "Follow the song" off this is the lines' one placement.
+            placedOnce = true
             deferredCurrentLineIndex = -1
             if (isSeeking) {
                 lazyListState.scrollToItem(0, with(density) { 36.dp.toPx().toInt() })
