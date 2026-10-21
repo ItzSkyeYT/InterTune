@@ -1902,4 +1902,6 @@
     <string name="update_wait_stop">Arrêter</string>
     <string name="queue_back_closes_player">Le retour depuis la file d\'attente ferme le lecteur</string>
     <string name="queue_back_closes_player_description">Le retour depuis la file d\'attente ramène directement à l\'écran sous le lecteur. Le lecteur se rouvre ensuite sur la file d\'attente si c\'est là que vous l\'avez laissé.</string>
+    <string name="lyrics_auto_scroll">Suivre la chanson</string>
+    <string name="lyrics_auto_scroll_description">Les paroles défilent jusqu\'à la ligne chantée. Désactivé, elles restent là où vous les laissez.</string>
 </resources>

@@ -173,9 +173,17 @@ val ShowLyricsKey = booleanPreferencesKey("showLyrics")
 val LyricsTextPositionKey = stringPreferencesKey("lyricsTextPosition")
 val MultilineLrcKey = booleanPreferencesKey("multilineLrc")
 val LyricTrimKey = booleanPreferencesKey("lyricTrim")
+/**
+ * How far each song's synced lyrics are moved against it, as "songId=ms" pairs joined by commas
+ * (LyricsTiming): only the songs somebody moved, so a handful of entries, kept with the settings so
+ * that a backup carries them.
+ */
+val LyricsTimingKey = stringPreferencesKey("lyricsTiming")
 val LyricSourcePrefKey = booleanPreferencesKey("preferLocalLyrics")
 val LyricFontSizeKey = intPreferencesKey("lyricFontSize")
 val LyricClickable = booleanPreferencesKey("lyricClickable")
+/** Synced lyrics scroll to the line being sung; off, they are placed on it once and then left where the listener leaves them. */
+val LyricAutoScrollKey = booleanPreferencesKey("lyricAutoScroll")
 val LyricKaraokeEnable = booleanPreferencesKey("lyricKaraokeEnable")
 val LyricUpdateSpeed = stringPreferencesKey("lyricUpdateSpeed")
 
