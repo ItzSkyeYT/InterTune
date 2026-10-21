@@ -109,7 +109,7 @@ class LyricsTimingTest {
     fun `the setting is changed in one edit, and the menu offers the timing only for synced lyrics`() {
         val view = File("src/main/java/com/dd3boh/outertune/ui/component/Lyrics.kt").readText()
         assertTrue(view.contains("dataStore.edit { it[LyricsTimingKey] = LyricsTiming.withShift(it[LyricsTimingKey].orEmpty(), song, shiftMs) }"))
-        assertTrue(view.contains("onAdjustTiming = if (isSynced) ({ startTiming(mediaMetadata.id) }) else null"))
+        assertTrue(view.contains("onAdjustTiming = if (isSynced && lyricsSong == mediaMetadata.id) ({ startTiming(mediaMetadata.id) }) else null"))
         val menu = File("src/main/java/com/dd3boh/outertune/ui/menu/LyricsMenu.kt").readText()
         assertTrue(menu.contains("if (onAdjustTiming != null) GridMenuItem("))
         assertTrue("other lyrics picked in Search start as they come", menu.contains("onOtherLyrics(searchMediaMetadata.id)"))
