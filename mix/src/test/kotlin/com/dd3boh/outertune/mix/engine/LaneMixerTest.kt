@@ -258,6 +258,8 @@ class LaneMixerTest {
         assertTrue(why(fade, facts(a, longB, earliest = 20L * rate))!!.contains("before it can be ready"))
         assertEquals("a plain change", why(fade.copy(plain = true), facts(a, longB)))
         assertTrue(why(fade.copy(lanes = LaneSet.PARTS), facts(a, longB))!!.startsWith("made on parts"))
+        assertEquals("the intro played twice is not played yet", why(fade.copy(introTwice = 2), facts(a, longB)))
+        assertTrue(why(fade.copy(bStartMs = 4_000.0), facts(a, longB))!!.startsWith("a next song starting after"))
         // Beat matched from bar 1 at 20 s: the ramp before it needs 2 s of A that are there.
         val matched = fade.copy(a = fade.a.copy(bpm = 123.0), beatMatch = true)
         assertEquals(null, why(matched, facts(a, longB)))

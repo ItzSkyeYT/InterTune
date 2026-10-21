@@ -128,6 +128,9 @@ object SpecPlan {
         if (spec.plain) return Result.Refused("a plain change")
         if (spec.lanes != LaneSet.BANDS) return Result.Refused("made on ${spec.lanes.key}, which this phone does not split into")
         spec.problems().takeIf { it.isNotEmpty() }?.let { return Result.Refused(it.joinToString("; ")) }
+        // Neither is played yet: a change that asks for one is not played as something else.
+        if (spec.introTwice > 0) return Result.Refused("the intro played twice is not played yet")
+        if (spec.bStartMs > 0.0) return Result.Refused("a next song starting after its first frame is not played yet")
         val rate = facts.sampleRate
         val barFrames = spec.b.barMs * rate / 1000.0
         val beatFrames = barFrames * spec.beat
