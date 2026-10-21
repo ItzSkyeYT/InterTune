@@ -92,6 +92,12 @@ class UpdateChecker @Inject constructor(
      * per IP and everyone behind one carrier NAT shares that budget.
      */
     suspend fun check(force: Boolean = false): Update? = withContext(Dispatchers.IO) {
+        // Debug builds only: the fake-update file stands in for a release, whatever the switch
+        // says, so the whole install can be tried on an emulator. See FAKE_UPDATE_FILE.
+        fakeUpdate()?.let { fake ->
+            _available.value = fake
+            return@withContext fake
+        }
         val store = context.dataStore
         if (!force && !store.get(UpdateCheckEnabledKey, false)) return@withContext null
         // Offline means the check could not be made, not that there is no update: show an update
@@ -192,6 +198,22 @@ class UpdateChecker @Inject constructor(
         )
         _available.value = restored
         return restored
+    }
+
+    /**
+     * A newer version than the one running, made up from the fake-update file: always null in a
+     * release. The apk is the one put in place by hand, so there is nothing to download.
+     */
+    private fun fakeUpdate(): Update? {
+        val bytes = fakeUpdateBytes(context) ?: return null
+        return Update(
+            versionCode = BuildConfig.VERSION_CODE + 1,
+            versionName = "${BuildConfig.VERSION_NAME}-test",
+            releaseUrl = "https://github.com/ItzSkyeYT/InterTune/releases",
+            downloadUrl = "",
+            sizeBytes = bytes,
+            changelog = "A test update from the fake-update file. Installing it puts the apk in the cache back over this build.",
+        )
     }
 
     /** Forgets the pending update entirely, for when it has been installed. */

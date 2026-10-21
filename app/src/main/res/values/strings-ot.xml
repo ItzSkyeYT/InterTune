@@ -2056,4 +2056,14 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="one">New queue \"%2$s\", %1$d song, now playing</item>
         <item quantity="other">New queue \"%2$s\", %1$d songs, now playing</item>
     </plurals>
+    <!-- The update dialog from the tap on Install until Android has installed it (UpdatePrompt, UpdateWaitPhase), and the Install row of Settings > Updates. -->
+    <string name="update_wait_title">Installing InterTune %1$s</string>
+    <string name="update_wait_preparing">Handing the update to Android. Its window opens in a moment.</string>
+    <string name="update_wait_waiting">Android is waiting for your answer. Tap \"%1$s\" in its window to install.</string>
+    <!-- The words on Android's own install button for an update, as the phone shows them in this language: "Update" from Android 12, "Install" before. -->
+    <string name="update_wait_android_update">Update</string>
+    <string name="update_wait_android_install">Install</string>
+    <string name="update_wait_installing">Android is installing it, which can take a minute. InterTune then closes by itself and the music stops. Open it again to use the new version.</string>
+    <string name="update_wait_show_window">Show Android\'s window again</string>
+    <string name="update_wait_stop">Stop</string>
 </resources>

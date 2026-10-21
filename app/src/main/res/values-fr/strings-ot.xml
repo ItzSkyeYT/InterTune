@@ -1890,4 +1890,14 @@
         <item quantity="many">Nouvelle file d\'attente «\u00A0%2$s\u00A0», %1$d titres, en lecture</item>
         <item quantity="other">Nouvelle file d\'attente «\u00A0%2$s\u00A0», %1$d titres, en lecture</item>
     </plurals>
+    <!-- The update dialog from the tap on Install until Android has installed it (UpdatePrompt, UpdateWaitPhase), and the Install row of Settings > Updates. -->
+    <string name="update_wait_title">Installation d\'InterTune %1$s</string>
+    <string name="update_wait_preparing">La mise à jour est transmise à Android. Sa fenêtre s\'ouvre dans un instant.</string>
+    <string name="update_wait_waiting">Android attend votre réponse. Touchez «\u00A0%1$s\u00A0» dans sa fenêtre pour installer.</string>
+    <!-- The words on Android's own install button for an update, as the phone shows them in this language: "Update" from Android 12, "Install" before. -->
+    <string name="update_wait_android_update">Mettre à jour</string>
+    <string name="update_wait_android_install">Installer</string>
+    <string name="update_wait_installing">Android l\'installe, ce qui peut prendre une minute. InterTune se ferme ensuite toute seule et la musique s\'arrête. Rouvrez-la pour utiliser la nouvelle version.</string>
+    <string name="update_wait_show_window">Rouvrir la fenêtre d\'Android</string>
+    <string name="update_wait_stop">Arrêter</string>
 </resources>
