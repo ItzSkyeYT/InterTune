@@ -38,7 +38,10 @@ object AutoSpec {
         val rate = plan.sampleRate
         val start = plan.overlapStart
         val end = plan.overlapEnd
-        fun ms(frames: Double) = frames * 1000.0 / rate
+        // An anchor is kept in ms of its song, never before its first frame. The planner puts the
+        // next song's start on a whole frame, so a song whose first downbeat is its first frame can
+        // come out a fraction of a frame before it; the facts keep the frames exact.
+        fun ms(frames: Double) = (frames * 1000.0 / rate).coerceAtLeast(0.0)
         return when (plan.style) {
             Style.GAPLESS -> null
             Style.BEAT -> {

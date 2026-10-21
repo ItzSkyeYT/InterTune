@@ -81,6 +81,24 @@ class AutoSpecTest {
     }
 
     @Test
+    fun `a next song whose first downbeat is its first frame still gives a spec that plays`() {
+        val cut = Planner.planStyle(input(), Style.CUT)!!
+        // The next song starting three frames after the line: its anchor a little before its first frame.
+        val late = cut.bStart.coerceAtLeast(Math.round(cut.overlapEnd) + 3)
+        val plan = com.dd3boh.outertune.mix.MixPlan(
+            cut.style, cut.reason, cut.sampleRate, cut.channels, cut.tailFrames, late, cut.aMap, minOf(cut.aFirstProcessed, late), cut.aGone,
+            cut.overlapStart, cut.overlapEnd, cut.gainA, cut.gainB, cut.filtersA, cut.filtersB, cut.headroom, cut.incomingLoad,
+            cut.attenuationA, cut.attenuationB, cut.shapedUntil, cut.lockFrom, cut.lockTo, cut.speed, cut.bars,
+        )
+        val made = AutoSpec.of(plan, tailAnalysis, headAnalysis, "a", "b", 0.0, (songB.samples.size / 2).toLong(), 6L * rate)!!
+        assertEquals(emptyList<String>(), made.spec.problems())
+        assertEquals(0.0, made.spec.b.atMs, 0.0)
+        assertTrue(made.facts.bBar1 < 0)
+        val lanePlan = (SpecPlan.plan(made.spec, made.facts) as SpecPlan.Result.Planned).plan
+        assertEquals(late, lanePlan.bStart)
+    }
+
+    @Test
     fun `the beat mix the planner picks is a Fade on bands`() {
         val plan = Planner.plan(input())
         assertEquals(Style.BEAT, plan.style)

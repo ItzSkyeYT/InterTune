@@ -100,9 +100,9 @@ class ChangeRender(
     /** B's part: output frames [LanePlan.bStart] until [LanePlan.mixTo]. */
     val incoming: RenderedIncoming,
     val headroom: Headroom,
-    /** The loudest the two came to together before the headroom, as a share of full scale. */
+    /** The loudest the two came to together, where both can be heard, before the headroom, as a share of full scale. */
     val peakBefore: Double,
-    /** The same after it, rounded as played. */
+    /** The same after it, rounded as played. A song on its own plays at its own level and is not counted. */
     val peakAfter: Double,
     val attenuationA: Double,
     val attenuationB: Double,
@@ -277,7 +277,7 @@ class LaneMixer(private val plan: LanePlan) {
                     val i = ((o - plan.bStart) * channels).toInt()
                     for (c in 0 until channels) bOut[i + c] = toPcm16(fb[c] * attenuationB * h)
                 }
-                for (c in 0 until channels) {
+                if (o >= plan.bothFrom && o < plan.bothTo) for (c in 0 until channels) {
                     val va = if (o < aTo) aOut[((o - from) * channels).toInt() + c].toInt() else 0
                     val vb = if (o >= plan.bStart) bOut[((o - plan.bStart) * channels).toInt() + c].toInt() else 0
                     val s = abs(va + vb) / Pcm.FULL_SCALE.toDouble()
