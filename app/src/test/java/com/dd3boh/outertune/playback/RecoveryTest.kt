@@ -6,18 +6,28 @@
 
 package com.dd3boh.outertune.playback
 
+import androidx.media3.common.C
 import androidx.media3.common.PlaybackException
 import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.exoplayer.ExoPlaybackException
+import androidx.media3.exoplayer.source.LoadEventInfo
+import androidx.media3.exoplayer.source.MediaLoadData
+import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
+import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy
 import androidx.media3.exoplayer.upstream.Loader
 import com.dd3boh.outertune.utils.StepTimedOut
 import com.dd3boh.outertune.utils.YTPlayerUtils
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.IOException
+import java.net.ConnectException
+import java.net.NoRouteToHostException
 import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 
 /**
  * What the player does on its own when a song stops or a load fails, with the errors built as
@@ -136,5 +146,67 @@ class RecoveryTest {
     @Test
     fun `a resolve that failed on YouTube's own server error is passing`() {
         assertEquals(Recovery.Kind.PASSING, Recovery.kind(resolverFailed("Unknown error", serverError(), PlaybackException.ERROR_CODE_REMOTE_ERROR)))
+    }
+
+    private fun noNetwork(cause: IOException) =
+        HttpDataSource.HttpDataSourceException.createForIOException(cause, spec, HttpDataSource.HttpDataSourceException.TYPE_OPEN)
+
+    @Test
+    fun `a load that failed for want of a network is not the route's, and only a refusal changes it then`() {
+        val loads = Recovery.LoadFailures()
+        val reset = HttpDataSource.HttpDataSourceException(SocketTimeoutException("timeout"), spec, PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT, HttpDataSource.HttpDataSourceException.TYPE_READ)
+        // Wi-Fi drops mid-song with nothing to fall back to: the read on the open connection
+        // fails, then every try finds no name and no route. Counted, the second of them changed
+        // the route, and the walk that followed failed for want of a network.
+        assertEquals(Recovery.Decision.RETRY, loads.decide("song", reset, 0))
+        for (at in listOf(100L, 1_100L, 3_100L)) {
+            assertEquals(Recovery.Decision.IGNORE, loads.decide("song", noNetwork(UnknownHostException("rr1---sn-test.googlevideo.com")), at))
+        }
+        assertEquals(Recovery.Decision.IGNORE, loads.decide("song", noNetwork(NoRouteToHostException("no route")), 6_100))
+        assertEquals(Recovery.Decision.IGNORE, loads.decide("song", noNetwork(ConnectException("Network is unreachable")), 7_100))
+        // While the phone says it has none, nothing that fails is the route's either.
+        assertEquals(Recovery.Decision.IGNORE, loads.decide("song", reset, 8_000, online = false))
+        // A refusal is YouTube's answer: whatever the phone says, the network carried it.
+        assertEquals(Recovery.Decision.CHANGE_ROUTE, loads.decide("song", refused(403), 9_000, online = false))
+    }
+
+    /** What media3's own policy makes of a failed load: a wait before its next try, or C.TIME_UNSET for none. */
+    private fun retryDelay(error: IOException, errorCount: Int = 1): Long {
+        val unsafe = Class.forName("sun.misc.Unsafe").getDeclaredField("theUnsafe").apply { isAccessible = true }.get(null)
+        val event = unsafe.javaClass.getMethod("allocateInstance", Class::class.java).invoke(unsafe, LoadEventInfo::class.java) as LoadEventInfo
+        val info = LoadErrorHandlingPolicy.LoadErrorInfo(event, MediaLoadData(C.DATA_TYPE_MEDIA), error, errorCount)
+        return DefaultLoadErrorHandlingPolicy().getRetryDelayMsFor(info)
+    }
+
+    /** What the loader holds when the resolver throws [thrown]: anything that is not an IOException, media3 wraps. */
+    private fun asTheLoaderHasIt(thrown: Exception): IOException = thrown as? IOException ?: Loader.UnexpectedLoaderException(thrown)
+
+    private val noInternet = PlaybackException("No internet", UnknownHostException("music.youtube.com"), PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED)
+
+    @Test
+    fun `mid-song, a fetch that got no answer keeps the player trying, and reads as before if the buffer runs out`() {
+        // A minute and a half in, the song's address forgotten, and the walk finds no network.
+        val held = asTheLoaderHasIt(Recovery.resolveFailed(position = 1_500_000, failure = UnknownHostException("music.youtube.com"), error = noInternet))
+        assertTrue("media3 tries again on its own, where the song used to be given up", retryDelay(held) != C.TIME_UNSET)
+        assertTrue("and again, a few seconds apart", retryDelay(held, errorCount = 6) != C.TIME_UNSET)
+        assertEquals("not the route's failure", Recovery.Decision.IGNORE, Recovery.LoadFailures().decide("song", held, 0))
+        // The buffer ran out with the network still gone: the wait for it, as at a song's start.
+        val stopped = stopped(held)
+        val causeCode = generateSequence(stopped.cause) { it.cause }.filterIsInstance<PlaybackException>().firstOrNull()?.errorCode
+        assertTrue(NetworkRetryPolicy.waitsForNetwork(false, stopped.errorCode, causeCode, localSong = false))
+        assertEquals(Recovery.Kind.PASSING, Recovery.kind(stopped))
+
+        val timeout = StepTimedOut("resolve", 20_000)
+        val cut = asTheLoaderHasIt(Recovery.resolveFailed(1_500_000, timeout, PlaybackException("Timeout", timeout, PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT)))
+        assertTrue("a walk cut by its time, in a lift that keeps the phone online", retryDelay(cut) != C.TIME_UNSET)
+        assertEquals(Recovery.Kind.PASSING, Recovery.kind(stopped(cut)))
+    }
+
+    @Test
+    fun `a song's start, and YouTube's refusal mid-song, end the loading as before`() {
+        assertSame(noInternet, Recovery.resolveFailed(0, UnknownHostException("music.youtube.com"), noInternet))
+        val refusal = PlaybackException("Sign in to confirm you’re not a bot", null, PlaybackException.ERROR_CODE_REMOTE_ERROR)
+        assertSame(refusal, Recovery.resolveFailed(1_500_000, refusal, refusal))
+        assertEquals(C.TIME_UNSET, retryDelay(asTheLoaderHasIt(refusal)))
     }
 }

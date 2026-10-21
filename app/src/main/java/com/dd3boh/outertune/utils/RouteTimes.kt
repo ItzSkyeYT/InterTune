@@ -39,7 +39,7 @@ object RouteTimes {
     /** Clients in a row that ran out of [PLAYER_CAP_MS] before the walk takes the network for slow. */
     const val SLOW_AFTER = 2
 
-    /** How long a network found slow is remembered as slow, and how far back answer times are looked at: see NetworkPace. */
+    /** How long a network is taken for slow after it was found so or last answered slowly, and how far back answer times are looked at: see NetworkPace. */
     const val SLOW_REMEMBER_MS = 5 * 60 * 1000L
 
     /** After a /player request on a kept connection did not answer, how long every /player goes out on a new one. */
@@ -57,6 +57,14 @@ object RouteTimes {
     /** One try of the stream check: connect, read and the whole call. */
     const val HEAD_TRY_MS = 3_000L
 
+    /**
+     * One try of the stream check while the network is taken for slow, for the clients that never
+     * play unchecked, the web client and the account's on it. A HEAD on a new connection is four
+     * or five round trips, past [HEAD_TRY_MS] above 0.7 s each, and their check then never passed:
+     * a song only the account may play stopped on such a link, where 0.12 waited 10 s for it.
+     */
+    const val HEAD_SLOW_TRY_MS = 8_000L
+
     /** NewPipe's n and signature step: how long the walk waits for it. Its first fetch is a 0.7 MB script. */
     const val DECIPHER_WAIT_MS = 8_000L
 
@@ -64,6 +72,13 @@ object RouteTimes {
     const val NEWPIPE_CONNECT_MS = 5_000L
     const val NEWPIPE_READ_MS = 6_000L
     const val IDLE_MS = 5_000L
+
+    /**
+     * NewPipe's own client: one whole fetch. Its player script is about 0.7 MB, which 15 s cut
+     * below about 400 kbit/s, every time; this lets it through down to about 30 kbit/s. A fetch
+     * that stops is ended by [NEWPIPE_READ_MS] long before.
+     */
+    const val NEWPIPE_CALL_MS = 180_000L
 
     /** A web client's po tokens: how long the walk waits; the WebView keeps its own 20 s for the next song. */
     const val PO_TOKEN_WAIT_MS = 8_000L
@@ -77,6 +92,15 @@ object RouteTimes {
 
     /** The player: no byte for this long while it buffers and wants to play is a stall. */
     const val STALL_MS = 6_000L
+
+    /**
+     * The player: how long a connection that has brought no byte yet may wait for its first,
+     * before the stall watch takes its next step. Making one is four or five round trips (DNS,
+     * TCP, TLS, the request), 7 to 9 s where each takes 1.5 to 2 s, and [STALL_MS] counted from
+     * the start cut every connection mid-way on such a link. The stream client's own limits, 5 s
+     * to connect and 8 s for a silent read, end a dead one before this.
+     */
+    const val FIRST_BYTE_MS = 15_000L
 
     /** The player: a second failed load of a song within this changes its route. */
     const val LOAD_FAILURE_WINDOW_MS = 30_000L

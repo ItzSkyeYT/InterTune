@@ -1025,8 +1025,9 @@ class MusicService : MediaLibraryService(),
                         val id = loadEventInfo.dataSpec.key
                         badCachedCopy.loadFailed(id, error)
                         // A route that keeps failing, or refuses the address, is changed while the
-                        // buffer still plays: see Recovery.LoadFailures.
-                        if (loadFailures.decide(id, error, SystemClock.elapsedRealtime()) == Recovery.Decision.CHANGE_ROUTE && id != null) {
+                        // buffer still plays; a load that failed for want of a network is not the
+                        // route's. See Recovery.LoadFailures.
+                        if (loadFailures.decide(id, error, SystemClock.elapsedRealtime(), online = isNetworkConnected.value) == Recovery.Decision.CHANGE_ROUTE && id != null) {
                             val status = Recovery.status(error)
                             changeRoute(id, if (status != null) "load refused (HTTP $status)" else "load failed twice in 30 s", refused = status == 403 || status == 410)
                         }
@@ -1459,20 +1460,17 @@ class MusicService : MediaLibraryService(),
                     // Switched off: nothing waiting, held back or being worked out changes a radio after that.
                     if (!mode.isOn) dropPasses()
                 }
-            // NewPipe's player script fetched a few seconds after the start, when the first song
-            // would fetch it anyway: see Warmup.
+            // NewPipe's player script fetched a few seconds after the start, on a network that
+            // costs nothing: see Warmup.
             scope.launch(Dispatchers.IO + SilentHandler) {
                 delay(Warmup.AFTER_MS)
                 val id = withContext(Dispatchers.Main) { activePlayer.currentMediaItem?.mediaId }
-                val queued = id?.let { queueBoard.getCurrentQueue()?.findSong(it) }
                 val network = connectivityManager.activeNetwork
                 val capabilities = network?.let { connectivityManager.getNetworkCapabilities(it) }
                 val warm = Warmup.newPipe(
                     validated = capabilities?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true,
                     dataSaver = connectivityManager.restrictBackgroundStatus == android.net.ConnectivityManager.RESTRICT_BACKGROUND_STATUS_ENABLED,
                     unmetered = !connectivityManager.isActiveNetworkMetered,
-                    currentStreamed = id != null && queued?.isLocal != true &&
-                        !downloadCache.isCached(id, 0, 1) && !playerCache.isCached(id, 0, CHUNK_LENGTH),
                     alreadyWarmed = Warmup.warmedInProcess,
                 )
                 if (warm && id != null) {
@@ -2464,7 +2462,10 @@ class MusicService : MediaLibraryService(),
                             PaceGuardDataSource.Factory(
                                 // Over the family the address was issued to, and a web client's
                                 // with its page's headers, as its check was made: see StreamFamily.Calls.
-                                OkHttpDataSource.Factory(calls)
+                                OkHttpDataSource.Factory(calls),
+                                // The player's own connections tell the stall watch how long each
+                                // waits for its first byte: see StreamProgress.
+                                firstBytes = calls === playerCalls,
                             )
                         )
                     )
@@ -2653,6 +2654,8 @@ class MusicService : MediaLibraryService(),
                 songRoutes.avoid(mediaId, SystemClock.elapsedRealtime()),
                 if (position > 0L) runCatching { database.readOrNull { formatRow(mediaId) } }.getOrNull()
                     ?.let { row -> row.itag to row.contentLength } else null,
+                // Refused in the player under the visitorData the app has now: see SongRoutes.refused.
+                refusedByPlayer = songRoutes.refused(mediaId, SystemClock.elapsedRealtime(), YouTube.visitorData.orEmpty()),
             )
             val played = runBlocking(Dispatchers.IO) {
                 try {
@@ -2670,31 +2673,31 @@ class MusicService : MediaLibraryService(),
                     Log.i(TAG, "PLAYING: remote song (cache kept, the new stream could not be fetched)", ErrorText.forLog(throwable))
                     return ResolvedSong.Cached
                 }
-                when (throwable) {
-                    is PlaybackException -> throw throwable
+                val error = when (throwable) {
+                    is PlaybackException -> throwable
 
-                    is ConnectException, is UnknownHostException -> {
-                        throw PlaybackException(
-                            getString(R.string.error_no_internet),
-                            throwable,
-                            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED
-                        )
-                    }
+                    is ConnectException, is UnknownHostException -> PlaybackException(
+                        getString(R.string.error_no_internet),
+                        throwable,
+                        PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED
+                    )
 
-                    is SocketTimeoutException -> {
-                        throw PlaybackException(
-                            getString(R.string.error_timeout),
-                            throwable,
-                            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT
-                        )
-                    }
+                    is SocketTimeoutException -> PlaybackException(
+                        getString(R.string.error_timeout),
+                        throwable,
+                        PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT
+                    )
 
-                    else -> throw PlaybackException(
+                    else -> PlaybackException(
                         getString(R.string.error_unknown),
                         throwable,
                         PlaybackException.ERROR_CODE_REMOTE_ERROR
                     )
                 }
+                // Mid-song, a fetch that got no answer (a Wi-Fi blip, a lift, a timeout) goes to
+                // the player as a failure media3 tries again on its own while the buffer plays,
+                // so a short drop is never heard. See Recovery.resolveFailed.
+                throw Recovery.resolveFailed(position, throwable, error)
             }
             val playbackData = played.data
             val format = playbackData.format
@@ -3942,11 +3945,15 @@ class MusicService : MediaLibraryService(),
         // the next songs start elsewhere too. See StreamOrder.REST_MS. Not just after a change of
         // network, where the address names the old public address, nor near its end.
         val sinceNetworkChange = now - lastNetworkChangeAt
-        if (refused && streamAddresses.refusalIsTheRoutes(id, System.currentTimeMillis()) &&
-            (lastNetworkChangeAt == 0L || sinceNetworkChange >= RouteTimes.NETWORK_CHANGE_GRACE_MS)
-        ) YTPlayerUtils.strike(route, why)
+        val sameNetwork = lastNetworkChangeAt == 0L || sinceNetworkChange >= RouteTimes.NETWORK_CHANGE_GRACE_MS
+        if (refused && streamAddresses.refusalIsTheRoutes(id, System.currentTimeMillis()) && sameNetwork) YTPlayerUtils.strike(route, why)
+        // A refusal of an address played unchecked is no strike, its check never having
+        // answered, but the song's next walk is told: it takes VISIONOS's silent check for the
+        // same refusal and tries a new visitorData (issue #17), where the same refused address
+        // used to go to the player again. See SongRoutes.refused.
+        val refusedUnchecked = refused && sameNetwork && !streamAddresses.wasChecked(id)
         streamAddresses.playerFailedOn(id)
-        songRoutes.mark(id, route, now)
+        songRoutes.mark(id, route, now, refusedUnder = if (refusedUnchecked) YouTube.visitorData.orEmpty() else null)
         Log.w(TAG, StepLog.loadFailed(id, why, route))
     }
 
@@ -3992,6 +3999,8 @@ class MusicService : MediaLibraryService(),
                 now = now,
                 // The maintainer's off switch: see RemoteRoutes.
                 allowed = RemoteRoutes.watchdog,
+                // A connection being made is not silence: see StallWatch.
+                connectingMs = id?.let { StreamProgress.waitingMs(it, System.nanoTime()) },
             )
         )
         if (id == null) return

@@ -22,14 +22,17 @@ private class NewPipeDownloaderImpl(proxy: Proxy?) : Downloader() {
     // player script, fetched once a process. OkHttp's defaults kept an idle connection five
     // minutes, the trap a dropped connection set for the player on 20 Oct 2026, and had no
     // limit on a read that never ends. Connect 5 s, 6 s of silence in a read, idle connections
-    // dropped after 5 s, and 15 s for the whole call: enough for a 0.7 MB script on a slow link,
-    // and a fetch that trickles in no longer holds every song's n step behind it for good. The
-    // app's RouteTimes holds the same numbers.
+    // dropped after 5 s, and 3 minutes for the whole call. The script is about 0.7 MB: 15 s for
+    // the whole call cut it below about 400 kbit/s, every time, and a fetch that is cut keeps
+    // nothing, so on a plan slowed after its quota no streamed song of a new process played.
+    // 3 minutes let it through down to about 30 kbit/s and still end a fetch that trickles in
+    // for good; one that stops is ended by the 6 s read limit, and songs wait for the lock 8 s
+    // at most. The app's RouteTimes holds the same numbers.
     private val client = OkHttpClient.Builder()
         .proxy(proxy)
         .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
         .readTimeout(6, java.util.concurrent.TimeUnit.SECONDS)
-        .callTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+        .callTimeout(3, java.util.concurrent.TimeUnit.MINUTES)
         .connectionPool(okhttp3.ConnectionPool(2, 5, java.util.concurrent.TimeUnit.SECONDS))
         .build()
 
