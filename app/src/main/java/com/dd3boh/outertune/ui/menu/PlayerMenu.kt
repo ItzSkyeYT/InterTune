@@ -1,5 +1,8 @@
 package com.dd3boh.outertune.ui.menu
 
+import androidx.media3.common.C
+import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.ui.screens.mix.openMixEditor
 import com.dd3boh.outertune.ui.component.rememberSleepTimerState
 import com.dd3boh.outertune.ui.component.SleepTimerDialog
 import com.dd3boh.outertune.constants.PlayOrigin
@@ -367,6 +370,22 @@ fun PlayerMenu(
             title = R.string.advanced
         ) {
             showPitchTempoDialog = true
+        }
+        // Mix: the change from this song into the next, shaped by hand. Only with a next song to
+        // go into, and after Advanced, so the items people know the place of never move.
+        if (Unreleased.AUTOMIX_EDITOR) {
+            val player = playerConnection.player
+            val next = player.nextMediaItemIndex.takeIf { it != C.INDEX_UNSET }?.let { player.getMediaItemAt(it).mediaId }
+            if (next != null && next != mediaMetadata.id) {
+                GridMenuItem(
+                    icon = R.drawable.ic_mix_transition,
+                    title = R.string.mix_edit_title
+                ) {
+                    navController.openMixEditor(mediaMetadata.id, next)
+                    playerBottomSheetState.collapseSoft()
+                    onDismiss()
+                }
+            }
         }
         // Last, and only while something is actually tracking. It belongs in this menu because the
         // moment you want it is the moment you are listening, but it does not belong above items

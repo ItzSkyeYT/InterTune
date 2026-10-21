@@ -56,6 +56,8 @@ import com.dd3boh.outertune.ui.screens.library.LibraryScreen
 import com.dd3boh.outertune.ui.screens.library.LibrarySongsScreen
 import com.dd3boh.outertune.ui.screens.playlist.AutoPlaylistScreen
 import com.dd3boh.outertune.ui.screens.playlist.LocalPlaylistScreen
+import com.dd3boh.outertune.ui.screens.mix.MIX_EDITOR_ROUTE
+import com.dd3boh.outertune.ui.screens.mix.MixEditorScreen
 import com.dd3boh.outertune.ui.screens.playlist.OnlinePlaylistScreen
 import com.dd3boh.outertune.ui.screens.search.OnlineSearchResult
 import com.dd3boh.outertune.ui.screens.search.SearchBarContainer
@@ -455,6 +457,19 @@ fun NavGraphBuilder.appDestinations(
         }
         screen("login") {
             LoginScreen(navController)
+        }
+
+        // Mix: the change from one song into the next, shaped by hand.
+        if (Unreleased.AUTOMIX_EDITOR) {
+            screen(
+                route = MIX_EDITOR_ROUTE,
+                arguments = listOf(
+                    navArgument("from") { type = NavType.StringType },
+                    navArgument("to") { type = NavType.StringType },
+                ),
+            ) {
+                MixEditorScreen(navController)
+            }
         }
 
         screen("setup_wizard", floating = false) {
