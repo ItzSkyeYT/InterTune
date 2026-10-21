@@ -412,8 +412,12 @@ fun Lyrics(
     val lazyListState = rememberLazyListState()
     val scope = rememberCoroutineScope()
 
-    /** Opens the timing bar on [song], where its lyrics are now. */
+    /** Opens the timing bar on [song], where its lyrics are now, when it is the song playing. */
     fun startTiming(song: String) {
+        // The live song, not the one the lyrics menu was opened on, which it keeps. Tapped after
+        // the next song began, this opened nothing, and the bar came up by itself when the old
+        // song came back.
+        if (song != playerConnection.mediaMetadata.value?.id) return
         timing.song = song
         timing.shiftMs = LyricsTiming.shiftOf(timingSaved, song)
         timing.open = true
