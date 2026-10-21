@@ -7,7 +7,6 @@
 package com.dd3boh.outertune.ui.screens.mix
 
 import android.widget.Toast
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -119,6 +118,7 @@ import com.dd3boh.outertune.mix.edit.Preset
 import com.dd3boh.outertune.mix.edit.Side
 import com.dd3boh.outertune.mix.edit.TransitionSpec
 import com.dd3boh.outertune.ui.component.FloatingTopBar
+import com.dd3boh.outertune.ui.component.ScreenBackHandler
 import com.dd3boh.outertune.ui.component.TopBarActions
 import com.dd3boh.outertune.ui.utils.LocalLandscape
 import com.dd3boh.outertune.utils.rememberPreference
@@ -250,7 +250,8 @@ fun MixEditorScreen(navController: NavController) {
     fun close() {
         if (ui?.dirty == true) discardOpen = true else navController.navigateUp()
     }
-    BackHandler(enabled = canvas.adjust != null || ui?.dirty == true) {
+    // Back leaves Adjust, then asks before changes are lost; with the player open over the page it is the player's.
+    ScreenBackHandler(enabled = canvas.adjust != null || ui?.dirty == true) {
         if (canvas.adjust != null) leaveAdjust(vm, canvas) else discardOpen = true
     }
 
