@@ -159,6 +159,8 @@ import com.dd3boh.outertune.constants.TransitionFadeKey
 import com.dd3boh.outertune.constants.AutomixKey
 import com.dd3boh.outertune.constants.AutomixStyleKey
 import com.dd3boh.outertune.mix.Style
+import com.dd3boh.outertune.mix.edit.JsonFileTransitionStore
+import com.dd3boh.outertune.mix.edit.SongPair
 import com.dd3boh.outertune.playback.automix.AutomixAudioProcessor
 import com.dd3boh.outertune.playback.automix.AutomixAudioSink
 import com.dd3boh.outertune.playback.automix.AutomixController
@@ -1071,6 +1073,9 @@ class MusicService : MediaLibraryService(),
                             this, stage, HeadDecoder(playerSource), scope,
                             conditions = { automixConditions() },
                             normalizationOf = { id -> automixNormalization(id) },
+                            lanes = Unreleased.AUTOMIX_EDITOR,
+                            // Read afresh each time, so a change just saved in the editor is the one that plays.
+                            savedChange = { from, to -> if (Unreleased.AUTOMIX_EDITOR) JsonFileTransitionStore.at(filesDir).get(SongPair(from, to)) else null },
                         ).also { addListener(it) }
                     }
                 }
@@ -3147,6 +3152,7 @@ class MusicService : MediaLibraryService(),
         normalizeNowId = automixNormalizeId,
         volume = playerVolume.value,
         forcedStyle = if (BuildConfig.DEBUG) automixForcedStyle else null,
+        soundBeforeMix = gainProcessor.gain > 1f || !equalizerProcessor.settings.isFlat || binauralProcessor.enabled || spatialUpmixProcessor.enabled,
     )
 
     /** A song's normalisation by the rule the player uses, from what is stored: the bounded read, on IO. */

@@ -17,6 +17,10 @@ import com.dd3boh.outertune.mix.RegionAnalysis
 import com.dd3boh.outertune.mix.RegionKind
 import com.dd3boh.outertune.mix.RenderedOutgoing
 import com.dd3boh.outertune.mix.Style
+import com.dd3boh.outertune.mix.engine.AutoSpec
+import com.dd3boh.outertune.mix.engine.ChangeRender
+import com.dd3boh.outertune.mix.engine.LaneMixer
+import com.dd3boh.outertune.mix.engine.SpecPlan
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -64,6 +68,8 @@ class AutomixAudioProcessorTest {
         val seed: Long = 1,
         val songs: List<ShortArray> = listOf(songA, songB),
         val during: (Run) -> Unit = {},
+        /** Hand over the change on bands, from a copy of the next song: on its own, or after the first plan to take its place. */
+        val bands: Bands? = null,
     ) {
         var clockNanos = 0L
         val notes = ArrayList<String>()
@@ -76,6 +82,8 @@ class AutomixAudioProcessorTest {
         var readAtTail = 0L
         var plan: MixPlan? = null
         var rendered: RenderedOutgoing? = null
+        var change: ChangeRender? = null
+        var tail: ShortArray? = null
         private var offerAtTick = -1L
         private var ticks = 0L
         var songChanges = ArrayList<Boolean>()
@@ -107,6 +115,14 @@ class AutomixAudioProcessorTest {
                     )
                     plan = p
                     rendered = MixRender.renderOutgoing(p, held.heldTail()!!, tail.guide, tail.decimation)
+                    if (bands != null) {
+                        val ring = held.heldTail()!!.copyOf((frames * 2).toInt())
+                        this@Run.tail = ring
+                        val b = songs[1]
+                        val made = AutoSpec.of(p, tail, headB, "a", "b", 0.0, (b.size / 2).toLong(), AutomixSchedule.earliestChange(stage.readMark, rate, 2_000))!!
+                        val lanePlan = (SpecPlan.plan(made.spec, made.facts) as SpecPlan.Result.Planned).plan
+                        change = LaneMixer(lanePlan).render(ring, b, levelA, levelB)
+                    }
                     offerAtTick = ticks + planAfterTicks
                 }
 
@@ -156,14 +172,28 @@ class AutomixAudioProcessorTest {
                 stage.requestArm(AutomixAudioProcessor.Arm(1, ShortArray(AutomixSchedule.capacityFrames(rate) * 2), rate, 2, clockNanos))
             }
             if (offerAtTick >= 0 && ticks >= offerAtTick) {
-                stage.offer(held!!, plan!!, rendered!!)
+                val c = change
+                when {
+                    c == null -> stage.offer(held!!, plan!!, rendered!!)
+                    bands == Bands.ALONE -> stage.offer(held!!, c.heldPlan(), c.outgoing, c.incoming)
+                    else -> {
+                        stage.offer(held!!, plan!!, rendered!!)
+                        // Taken on the next buffer; the change on bands follows a call later.
+                        laterOffer = c
+                    }
+                }
                 offerAtTick = -1
+            } else laterOffer?.let { c ->
+                stage.offer(held!!, c.heldPlan(), c.outgoing, c.incoming, replaces = true)
+                laterOffer = null
             }
             // The player names the next song once it is heard; till then the stage holds its level for it.
             if (song == 1 && stage.levels.now.id == "a") {
                 stage.levels = AutomixAudioProcessor.Levels(AutomixAudioProcessor.Level("b", levelB), AutomixAudioProcessor.Level(null, 1.0))
             }
         }
+
+        private var laterOffer: ChangeRender? = null
 
         val taken: Boolean get() = notes.any { it.startsWith("planned") }
 
@@ -175,6 +205,15 @@ class AutomixAudioProcessorTest {
             fun plain(samples: ShortArray, from: Int, to: Int, level: Double) {
                 val chunk = ShortArray((to - from) * 2) { AutomixAudioProcessor.scale(samples[from * 2 + it], level) }
                 out.add(chunk, 0, chunk.size)
+            }
+            change?.let { c ->
+                val lp = c.plan
+                val armFrame = (a.size / 2 - tailFrames).toInt()
+                plain(a, 0, armFrame + lp.mixFrom.toInt(), levelA)
+                val heard = c.mix(tail!!, b, lp.mixFrom, lp.mixTo)
+                out.add(heard, 0, heard.size)
+                plain(b, (lp.mixTo - lp.bStart).toInt(), b.size / 2, levelB)
+                return out.toArray()
             }
             val p = plan
             val r = rendered
@@ -274,6 +313,23 @@ class AutomixAudioProcessorTest {
         assertTrue(run.notes.toString(), run.taken)
         assertEquals(Style.SMOOTH, run.plan!!.style)
         assertEquals(-1, run.firstDifference())
+    }
+
+    enum class Bands { ALONE, AFTER_THE_FIRST_PLAN }
+
+    @Test
+    fun `a change on bands from a copy of the next song comes out as rendered, to the sample`() {
+        for (way in Bands.entries) {
+            val run = Run(levelA = 0.9, levelB = 0.7, bands = way).go()
+            val wanted = if (way == Bands.ALONE) "planned: " else "planned again: "
+            assertTrue(run.notes.toString(), run.notes.any { it.startsWith(wanted) })
+            assertEquals(listOf(true), run.songChanges)
+            assertEquals("the blend ran to its end", 1, run.blendsDone)
+            assertEquals(-1, run.firstDifference())
+            assertEquals(0, run.driver.stalls)
+            assertEquals(0, run.driver.underruns)
+            assertTrue(run.positionsRunForward())
+        }
     }
 
     @Test

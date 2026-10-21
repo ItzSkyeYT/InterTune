@@ -55,13 +55,29 @@ object AutomixSchedule {
         TOO_LATE,
     }
 
-    /** What is due with [leftMs] of the song left. */
-    fun due(leftMs: Long): Step = when {
+    /**
+     * What is due with [leftMs] of the song left, the end being held from [armFromMs] left: earlier
+     * than usual for a saved change that starts further from the end (see [armFromFor]).
+     */
+    fun due(leftMs: Long, armFromMs: Long = ARM_FROM_LEFT_MS): Step = when {
         leftMs < ARM_UNTIL_LEFT_MS -> Step.TOO_LATE
-        leftMs <= ARM_FROM_LEFT_MS -> Step.ARM
+        leftMs <= armFromMs -> Step.ARM
         leftMs <= READ_LEFT_MS -> Step.READ
         else -> Step.WAIT
     }
+
+    /** The most a saved change may ask the end to be held from: the ring's room, less what the spatial stages add and a margin. */
+    const val ARM_FROM_LEFT_MAX_MS = (CAPACITY_SECONDS - 2) * 1000L
+
+    /**
+     * How long before the first frame a saved change touches its end must be held: the time to
+     * take the end in, which the decoder does at several times the speed it is played, and to work
+     * the change out, with room to spare.
+     */
+    const val SAVED_LEAD_MS = 15_000L
+
+    /** Where the end is held from for a saved change whose first frame is [changeLeftMs] before the song's end. */
+    fun armFromFor(changeLeftMs: Long): Long = (changeLeftMs + SAVED_LEAD_MS).coerceIn(ARM_FROM_LEFT_MS, ARM_FROM_LEFT_MAX_MS)
 
     /**
      * How long to wait, at [speed], before looking again with [leftMs] left: until the next step is
@@ -69,11 +85,11 @@ object AutomixSchedule {
      * for (the songs loaded, the opening read) arrives by itself. Null when nothing is left to do
      * for this song.
      */
-    fun nextLookMs(leftMs: Long, speed: Float): Long? {
+    fun nextLookMs(leftMs: Long, speed: Float, armFromMs: Long = ARM_FROM_LEFT_MS): Long? {
         val s = speed.takeIf { it > 0.01f } ?: 1f
         val untilMs = when {
             leftMs > READ_LEFT_MS -> leftMs - READ_LEFT_MS
-            leftMs > ARM_FROM_LEFT_MS -> leftMs - ARM_FROM_LEFT_MS
+            leftMs > armFromMs -> leftMs - armFromMs
             leftMs >= ARM_UNTIL_LEFT_MS -> return WINDOW_LOOK_MS
             else -> return null
         }

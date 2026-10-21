@@ -12,6 +12,7 @@ import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.audio.BaseAudioProcessor
 import com.dd3boh.outertune.mix.HeldTail
 import com.dd3boh.outertune.mix.MixPlan
+import com.dd3boh.outertune.mix.RenderedIncoming
 import com.dd3boh.outertune.mix.RenderedOutgoing
 import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicReference
@@ -120,9 +121,13 @@ class AutomixAudioProcessor(
     /** Gives up on transition [id]: gapless while nothing planned is heard, then a fade over [fadeFrames]. */
     fun requestAbort(id: Long, why: String, fadeFrames: Long) = abortRequest.set(Abort(id, why, fadeFrames))
 
-    /** Hands a plan to the held end, from any thread; it is checked and taken on the next call. */
-    fun offer(held: HeldTail, plan: MixPlan, rendered: RenderedOutgoing) {
-        if (held === this.held) held.offer(plan, rendered)
+    /**
+     * Hands a plan to the held end, from any thread; it is checked and taken on the next call. With
+     * [incoming], the next song's part is played from its copy too; one that [replaces] may take the
+     * place of a plan handed over before it, while nothing planned has been heard.
+     */
+    fun offer(held: HeldTail, plan: MixPlan, rendered: RenderedOutgoing, incoming: RenderedIncoming? = null, replaces: Boolean = false) {
+        if (held === this.held) held.offer(plan, rendered, incoming, replaces)
     }
 
     // ---- read from other threads

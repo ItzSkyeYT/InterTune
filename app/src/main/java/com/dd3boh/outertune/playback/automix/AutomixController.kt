@@ -29,6 +29,14 @@ import com.dd3boh.outertune.mix.Planner
 import com.dd3boh.outertune.mix.RegionAnalysis
 import com.dd3boh.outertune.mix.RegionKind
 import com.dd3boh.outertune.mix.Style
+import com.dd3boh.outertune.mix.edit.Presets
+import com.dd3boh.outertune.mix.edit.TransitionSpec
+import com.dd3boh.outertune.mix.engine.AutoSpec
+import com.dd3boh.outertune.mix.engine.ChangeFacts
+import com.dd3boh.outertune.mix.engine.LaneMixer
+import com.dd3boh.outertune.mix.engine.LanePlan
+import com.dd3boh.outertune.mix.engine.Placing
+import com.dd3boh.outertune.mix.engine.SpecPlan
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -60,6 +68,12 @@ import kotlin.math.max
  * 4. In a beat mix, the incoming song's first two seconds are held against its analysis, and the
  *    outgoing song fades away at once if they do not line up.
  *
+ * With [lanes] on, the next song's opening is also kept as a full-rate copy, and once the plan of
+ * step 3 is handed over, the change is worked out again on lows, mids and highs from both songs'
+ * copies: the pair's saved change if it has one and it can play, Auto's otherwise. It takes the
+ * place of the first plan if it is in before anything planned is heard, so the change is never
+ * worse for it. A saved change that starts further from the end has the end held earlier.
+ *
  * Every decision is one line in the log, starting "AutoMix:". Nothing here seeks, so a song that
  * ends by itself is still the player's own automatic change, and its listen is ENDED.
  */
@@ -77,6 +91,10 @@ class AutomixController(
      * Blocking, so called on IO.
      */
     private val normalizationOf: (String) -> Pair<Float, Boolean>?,
+    /** Whether changes are worked out on lows, mids and highs from copies of both songs (Unreleased.AUTOMIX_EDITOR). */
+    private val lanes: Boolean = false,
+    /** The change saved by hand from one song into another, or null for Auto. Blocking, so called on IO. */
+    private val savedChange: (from: String, to: String) -> TransitionSpec? = { _, _ -> null },
 ) : Player.Listener, AutomixAudioProcessor.Events {
 
     class Conditions(
@@ -97,6 +115,13 @@ class AutomixController(
         val volume: Float,
         /** A style asked for in the developer options, debug builds only. */
         val forcedStyle: Style?,
+        /**
+         * Whether the boost, the equalizer or spatial audio change the sound before it reaches the
+         * stage. The held end has them in it, a copy of the next song does not, so a change on bands
+         * would play the next song without them and then with them: until they come after the
+         * mixer, such a change keeps to the first plan.
+         */
+        val soundBeforeMix: Boolean = false,
     )
 
     /** Whether the stage scales each song by its normalisation, so that the volume must leave it out (AutomixVolume). */
@@ -171,6 +196,16 @@ class AutomixController(
         var plan: MixPlan? = null
         var finished = false
 
+        /** The next song's opening at the full rate, for its part of a change on bands. */
+        var copy: ShortArray? = null
+        var copyFrames = 0
+
+        /** The change saved for this pair, read with the opening. */
+        var saved: TransitionSpec? = null
+
+        /** How much of the song is left when its end begins to be held: earlier for a saved change that starts further from the end. */
+        var armFromMs = AutomixSchedule.ARM_FROM_LEFT_MS
+
         /** Given up: a plan still being worked out for it is not handed to the stage. Read on the worker. */
         val abandoned = AtomicBoolean(false)
     }
@@ -200,6 +235,10 @@ class AutomixController(
                 transition = Transition(nextTransitionId++, old.a, old.b).also {
                     it.head = old.head
                     it.headFailed = old.headFailed
+                    it.copy = old.copy
+                    it.copyFrames = old.copyFrames
+                    it.saved = old.saved
+                    it.armFromMs = old.armFromMs
                 }
             }
         }
@@ -310,7 +349,7 @@ class AutomixController(
         val duration = player.duration
         if (duration == C.TIME_UNSET || duration <= 0) return later(AutomixSchedule.nextLookMs(Long.MAX_VALUE, 1f))
         val left = duration - player.currentPosition
-        val why = AutomixGuards.whyNot(snapshot(t))
+        val why = AutomixGuards.whyNot(snapshot(t)) ?: t.saved?.takeIf { it.plain }?.let { "a plain change was saved for these two" }
         if (why != null) {
             if (why != t.refusal) {
                 t.refusal = why
@@ -318,11 +357,11 @@ class AutomixController(
             }
             // Conditions can change (a sleep timer cancelled, skip silence turned off), and each
             // is looked at again when its event comes; nothing ticks for a change that cannot be.
-            return later(AutomixSchedule.nextLookMs(left, player.playbackParameters.speed))
+            return later(AutomixSchedule.nextLookMs(left, player.playbackParameters.speed, t.armFromMs))
         }
         t.refusal = null
         val b = t.b!!
-        when (AutomixSchedule.due(left)) {
+        when (AutomixSchedule.due(left, t.armFromMs)) {
             AutomixSchedule.Step.WAIT -> Unit
             AutomixSchedule.Step.READ -> readHead(t, b)
             AutomixSchedule.Step.ARM -> {
@@ -341,7 +380,7 @@ class AutomixController(
                 say("not mixing ${t.a.id} into ${b.id}: $what")
             }
         }
-        if (!t.armRequested) later(AutomixSchedule.nextLookMs(left, player.playbackParameters.speed))
+        if (!t.armRequested) later(AutomixSchedule.nextLookMs(left, player.playbackParameters.speed, t.armFromMs))
     }
 
     private fun later(ms: Long?) {
@@ -355,15 +394,19 @@ class AutomixController(
 
     private fun readHead(t: Transition, b: AutomixGuards.Song) {
         if (t.head != null || t.reading != null || t.headFailed) return
-        heads[b.id]?.let {
+        // On bands the opening is read every time: its full-rate copy is not kept between songs.
+        if (!lanes) heads[b.id]?.let {
             t.head = it
             say("opening of ${b.id} known from before: ${describe(it)}")
             return
         }
         val cancelled = t.cancelled
+        val aId = t.a.id
         t.reading = scope.launch {
+            val saved = if (lanes) withContext(Dispatchers.IO) { runCatching { savedChange(aId, b.id) }.getOrNull() } else null
+            val copySeconds = if (lanes) copySecondsFor(saved) else 0.0
             val result = runCatching {
-                withContext(Dispatchers.IO) { decoder.read(b.id) { cancelled.get() } }
+                withContext(Dispatchers.IO) { decoder.read(b.id, { cancelled.get() }, copySeconds) }
             }
             val read = result.getOrElse { e ->
                 if (!cancelled.get()) {
@@ -387,11 +430,35 @@ class AutomixController(
                     heads[b.id] = keptOpening(head)
                     if (cancelled.get()) return@post
                     t.head = head
+                    t.copy = read.copy
+                    t.copyFrames = read.copyFrames
                     say("opening of ${b.id}: ${describe(head)}, read in ${read.readMs} ms, analysed in ${head.analysisMillis.toLong()} ms")
+                    if (saved != null) savedFor(t, saved)
                     tick()
                 }
             }
         }
+    }
+
+    /** How much of the next song's opening to copy: what Auto can reach, or what the saved change needs of it, a minute at most. */
+    private fun copySecondsFor(saved: TransitionSpec?): Double {
+        val need = saved?.takeIf { !it.plain }?.let { (it.b.atMs + it.lengthMs) / 1000.0 + COPY_MARGIN_S } ?: 0.0
+        return need.coerceAtLeast(AutomixSchedule.HEAD_SECONDS + COPY_MARGIN_S).coerceAtMost(COPY_MAX_S)
+    }
+
+    /** Takes the pair's saved change: the end is held early enough for it, if it can be. */
+    private fun savedFor(t: Transition, saved: TransitionSpec) {
+        t.saved = saved
+        if (saved.plain) {
+            say("saved for ${t.a.id} into ${t.b?.id}: a plain change")
+            return
+        }
+        val duration = t.a.durationMs.takeIf { it > 0 } ?: player.duration.takeIf { it > 0 } ?: return
+        val firstMs = runCatching { SpecPlan.firstChangeMs(Presets.onBands(saved)) }.getOrNull() ?: return
+        val changeLeft = (duration - firstMs).toLong()
+        t.armFromMs = AutomixSchedule.armFromFor(changeLeft)
+        val reach = if (changeLeft + AutomixSchedule.SAVED_LEAD_MS > AutomixSchedule.ARM_FROM_LEFT_MAX_MS) ", which is further from the end than the end can be held: Auto plays" else ""
+        say("saved for ${t.a.id} into ${t.b?.id}: ${saved.label}, it starts %.1f s before the end$reach".format(changeLeft / 1000.0))
     }
 
     private fun arm(t: Transition, left: Long) {
@@ -606,20 +673,32 @@ class AutomixController(
             val started = SystemClock.elapsedRealtime()
             val outcome = runCatching {
                 val tail = RegionAnalysis.analyse(FrontEnd.of(ring, held.sampleRate, held.channels, 0, frames.toInt()), RegionKind.TAIL)
-                val plan = Planner.plan(input(stage.readMark, tail))
+                val planInput = input(stage.readMark, tail)
+                val plan = Planner.plan(planInput)
                 val rendered = MixRender.renderOutgoing(plan, ring, tail.guide, tail.decimation, plan.anchors)
                 // Given up while it was worked out (a sleep timer set, AutoMix switched off): the
                 // stage would refuse it anyway, so it is not handed over.
                 if (!t.abandoned.get()) stage.offer(held, plan, rendered)
-                plan
+                // Then the same change on bands, from copies, to take the place of that one if in time.
+                val onBands = if (lanes && c.soundBeforeMix) {
+                    "not on bands: the boost, the equalizer or spatial audio would be on one song and not the other"
+                } else if (lanes && !t.abandoned.get()) {
+                    runCatching { onBands(t, held, ring, frames, plan, tail, head, planInput.earliestChange, planInput.attenuationA, planInput.attenuationB) }
+                        .getOrElse { e ->
+                            Log.w(TAG, "AutoMix: the change on bands failed", e)
+                            "not on bands: ${e.javaClass.simpleName}"
+                        }
+                } else null
+                plan to onBands
             }
             val workMs = SystemClock.elapsedRealtime() - started
             main.post {
-                val plan = outcome.getOrElse { e ->
+                val (plan, onBands) = outcome.getOrElse { e ->
                     Log.w(TAG, "AutoMix: planning failed", e)
                     say("gapless: planning failed (${e.javaClass.simpleName})")
                     return@post
                 }
+                onBands?.let(::say)
                 lastWorkMs = workMs
                 if (t.abandoned.get()) {
                     say("plan ${plan.style.name.lowercase()} worked out in $workMs ms, not used: the change was given up")
@@ -629,6 +708,49 @@ class AutomixController(
                 say("plan ${plan.describe()}${timesOf(t, plan)}, worked out in $workMs ms")
             }
         }
+    }
+
+    /**
+     * The change on lows, mids and highs, from the held end [ring] and the next song's copy, handed
+     * to the stage to take the place of [plan]: the pair's saved change where it can play here,
+     * Auto's otherwise. On the worker. Says what it did, for the log.
+     */
+    private fun onBands(
+        t: Transition, held: HeldTail, ring: ShortArray, frames: Long, plan: MixPlan, tail: RegionAnalysis, head: RegionAnalysis,
+        earliest: Long, attenuationA: Double, attenuationB: Double,
+    ): String {
+        val copy = t.copy ?: return "not on bands: the next song's opening was not copied"
+        val b = t.b ?: return "not on bands: no next song"
+        val rate = held.sampleRate
+        var why = ""
+        var lanePlan: LanePlan? = null
+        t.saved?.takeIf { !it.plain }?.let { saved ->
+            val spec = Presets.onBands(saved)
+            Placing.facts(spec, rate, held.channels, t.tailStartMs.toDouble(), frames, tail, t.copyFrames.toLong(), earliest).fold(
+                onSuccess = { facts: ChangeFacts ->
+                    when (val r = SpecPlan.plan(spec, facts)) {
+                        is SpecPlan.Result.Planned -> lanePlan = r.plan
+                        is SpecPlan.Result.Refused -> why = "; the saved change cannot play: ${r.why}"
+                    }
+                },
+                onFailure = { e -> why = "; the saved change cannot play: ${e.message}" },
+            )
+        }
+        if (lanePlan == null) {
+            val auto = AutoSpec.of(plan, tail, head, t.a.id, b.id, t.tailStartMs.toDouble(), t.copyFrames.toLong(), earliest)
+                ?: return "not on bands: Auto is plain here$why"
+            when (val r = SpecPlan.plan(auto.spec, auto.facts)) {
+                is SpecPlan.Result.Planned -> lanePlan = r.plan
+                is SpecPlan.Result.Refused -> return "not on bands: ${r.why}$why"
+            }
+        }
+        val p = lanePlan!!
+        val render = LaneMixer(p).render(ring, copy, attenuationA, attenuationB)
+        if (t.abandoned.get()) return "on bands, not used: the change was given up"
+        stage.offer(held, render.heldPlan(), render.outgoing, render.incoming, replaces = true)
+        return "on bands: ${p.describe()}, rendered in %.0f ms, headroom %.1f dB, peak %.2f$why".format(
+            render.renderMillis, render.headroom.deepestDb, render.peakAfter,
+        )
     }
 
     private fun work(): ExecutorService? {
@@ -795,5 +917,9 @@ class AutomixController(
         const val HOLDING_LOOK_MS = 1_000L
         const val KEPT_GUIDE_S = 4.5
         const val LOCK_FAILED_KEPT = 256
+
+        /** The opening is copied this much past what a change needs of it, and a minute at most. */
+        const val COPY_MARGIN_S = 2.0
+        const val COPY_MAX_S = 60.0
     }
 }

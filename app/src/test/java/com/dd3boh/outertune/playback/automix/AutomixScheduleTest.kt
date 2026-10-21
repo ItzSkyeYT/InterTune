@@ -29,6 +29,21 @@ class AutomixScheduleTest {
     }
 
     @Test
+    fun `a saved change that starts further from the end has its end held earlier, as far as the ring allows`() {
+        // Wake Me Up into After Hours: 8 bars at 109 BPM and 4 beats of ramp, ending 9 s before the end.
+        val changeLeft = 9_000L + 17_615L + 2_162L
+        val from = AutomixSchedule.armFromFor(changeLeft)
+        assertEquals(changeLeft + AutomixSchedule.SAVED_LEAD_MS, from)
+        assertEquals(Step.ARM, AutomixSchedule.due(from, from))
+        assertEquals(Step.READ, AutomixSchedule.due(from + 1, from))
+        assertEquals(500L, AutomixSchedule.nextLookMs(from - 100, 1f, from))
+        // A change close to the end is held as Auto's are, and one too far from it no earlier than the ring can hold.
+        assertEquals(AutomixSchedule.ARM_FROM_LEFT_MS, AutomixSchedule.armFromFor(10_000))
+        assertEquals(AutomixSchedule.ARM_FROM_LEFT_MAX_MS, AutomixSchedule.armFromFor(60_000))
+        assertTrue(AutomixSchedule.ARM_FROM_LEFT_MAX_MS < AutomixSchedule.CAPACITY_SECONDS * 1000L)
+    }
+
+    @Test
     fun `it looks again when the next step is due, often in the window, and not at all after it`() {
         assertEquals(60_000L, AutomixSchedule.nextLookMs(240_000, 1f))
         assertEquals(30_000L, AutomixSchedule.nextLookMs(150_000, 1f))
