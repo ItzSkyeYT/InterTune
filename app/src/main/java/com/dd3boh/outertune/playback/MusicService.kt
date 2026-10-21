@@ -136,6 +136,8 @@ import com.dd3boh.outertune.constants.PlaybackAuthModeKey
 import com.dd3boh.outertune.constants.OwnVisionosRefusedKey
 import com.dd3boh.outertune.constants.VisionosRefusedKey
 import com.dd3boh.outertune.constants.WebClientFirstKey
+import com.dd3boh.outertune.constants.SabrOnlyKey
+import com.dd3boh.outertune.constants.EveryDirectRefusedKey
 import com.dd3boh.outertune.constants.PlaybackAuthMode
 import com.dd3boh.outertune.constants.ResumeOnBluetoothKey
 import com.dd3boh.outertune.constants.ResumePlaybackOnLaunchKey
@@ -183,6 +185,9 @@ import com.dd3boh.outertune.models.HybridCacheDataSinkFactory
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.MultiQueueObject
 import com.dd3boh.outertune.models.toMediaMetadata
+import com.dd3boh.outertune.playback.sabr.SabrClock
+import com.dd3boh.outertune.playback.sabr.SabrOrHttp
+import com.dd3boh.outertune.playback.sabr.SabrOver
 import com.dd3boh.outertune.playback.ListenReporting.AddressFrom
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.playback.queues.Queue
@@ -1499,6 +1504,25 @@ class MusicService : MediaLibraryService(),
                     .distinctUntilChanged()
                     .collectLatest(scope) { YTPlayerUtils.askWebClientFirst = it }
             }
+            // A test tool like the switches below: never read in a release.
+            if (BuildConfig.DEBUG && Unreleased.SABR) {
+                dataStore.data.map { it[SabrOnlyKey] ?: false }
+                    .distinctUntilChanged()
+                    .collectLatest(scope) { YTPlayerUtils.sabrOnly = it }
+                dataStore.data.map { it[EveryDirectRefusedKey] ?: false }
+                    .distinctUntilChanged()
+                    .collectLatest(scope) { YTPlayerUtils.everyDirectRefused = it }
+                // SABR's pacing: where the player is, four times a second while a song plays, once
+                // a second otherwise (debug builds only, as the switch). See SabrClock.
+                // Paused or buffering too: after a seek the player sits at the new place waiting for
+                // bytes, and a clock left at the old place had the stream wait for the player.
+                scope.launch {
+                    while (isActive) {
+                        SabrClock.update(activePlayer.currentMediaItem?.mediaId, activePlayer.currentPosition)
+                        delay(if (activePlayer.isPlaying || activePlayer.playbackState == Player.STATE_BUFFERING) 250 else 1000)
+                    }
+                }
+            }
             // And the switches that take VISIONOS for refused. They are a test tool, so they are
             // read only where the developer options have their row, in a debug or preview build,
             // whatever the two flags say. A restored backup can bring a switch that is on into a
@@ -2460,9 +2484,14 @@ class MusicService : MediaLibraryService(),
                             // A connection that brings the song in slower than it plays is given
                             // up and asked again on a fresh one: see StreamPace.
                             PaceGuardDataSource.Factory(
-                                // Over the family the address was issued to, and a web client's
-                                // with its page's headers, as its check was made: see StreamFamily.Calls.
-                                OkHttpDataSource.Factory(calls),
+                                // A sabr: address to the SABR reader, any other as before: over the
+                                // family the address was issued to, and a web client's with its page's
+                                // headers, as its check was made (see StreamFamily.Calls). Inside the
+                                // guard, so that the stall watch hears of SABR's bytes and its wait for
+                                // a first byte too (StreamProgress). The guard only meters a stream
+                                // server's https address, never a sabr: one (StreamPace.isStream), so
+                                // a SABR stream paced by the player is never cut for its pace.
+                                SabrOrHttp.Factory(OkHttpDataSource.Factory(calls)),
                                 // The player's own connections tell the stall watch how long each
                                 // waits for its first byte: see StreamProgress.
                                 firstBytes = calls === playerCalls,
@@ -2782,18 +2811,26 @@ class MusicService : MediaLibraryService(),
             }
             offloadScope.launch { recoverSong(mediaId, playbackData) }
 
-            val streamUrl = playbackData.streamUrl
+            // The developer's "Stream over SABR only": the same answer over SABR instead of its
+            // direct address, the walk otherwise as it always is (playback/sabr/SabrOver).
+            val streamed = if (BuildConfig.DEBUG && Unreleased.SABR && YTPlayerUtils.sabrOnly) {
+                SabrOver.over(mediaId, playbackData) ?: playbackData
+            } else {
+                playbackData
+            }
+            val streamUrl = streamed.streamUrl
 
             // Kept whether or not it answered its check. The rest of the song is fetched from it,
             // and the player failing on it is what takes it out again.
+            // What is kept is the stream played, the SABR one when the switch made one.
             addresses.keep(
-                mediaId, streamUrl, System.currentTimeMillis() + (playbackData.streamExpiresInSeconds * 1000L),
+                mediaId, streamUrl, System.currentTimeMillis() + (streamed.streamExpiresInSeconds * 1000L),
                 // Under its own id only: a stand-in's route is another song's.
-                client = playbackData.client.takeIf { !standIn },
-                checked = playbackData.validated,
+                client = streamed.client.takeIf { !standIn },
+                checked = streamed.validated,
             )
             formats[mediaId] = format
-            return ResolvedSong.NewStream(playbackData)
+            return ResolvedSong.NewStream(streamed)
         }
     }
 
@@ -2830,7 +2867,7 @@ class MusicService : MediaLibraryService(),
                 // web client's with its page's headers. See StreamFamily.Calls.
                 directSource = DefaultDataSource.Factory(
                     this,
-                    OkHttpDataSource.Factory(StreamFamily.Calls(StreamFamily.streamClient(YouTube.proxy))),
+                    SabrOrHttp.Factory(OkHttpDataSource.Factory(StreamFamily.Calls(StreamFamily.streamClient(YouTube.proxy)))),
                 ),
                 isLocalFile = { id -> queueBoard.getCurrentQueue()?.findSong(id)?.isLocal == true },
                 fetchAac = { id ->
