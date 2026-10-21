@@ -247,6 +247,7 @@ fun LengthSheet(vm: MixEditorViewModel, editor: MixEditor, words: EditorWords, o
 fun FixSheet(
     vm: MixEditorViewModel,
     editor: MixEditor,
+    spec: TransitionSpec,
     side: Side,
     words: EditorWords,
     clicking: Boolean,
@@ -255,7 +256,6 @@ fun FixSheet(
 ) {
     val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val haptic = LocalHapticFeedback.current
-    val spec = editor.spec
     val anchor = if (side == Side.A) spec.a else spec.b
     val facts = if (side == Side.A) editor.facts.a else editor.facts.b
     val base = facts.grid

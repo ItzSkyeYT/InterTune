@@ -86,8 +86,15 @@ class SongFacts(
     /** Lays a fix on the grid; the audio side fits it on the song's onsets. */
     private val refit: (SongGrid, BeatFix, Double) -> SongGrid = ::applyFix,
 ) {
-    /** The grid with [fix] on it, or null where there is no trusted grid. */
-    fun gridFor(fix: BeatFix): SongGrid? = grid?.let { if (fix.isNone) it else refit(it, fix, focusMs) }
+    private val fitted = HashMap<BeatFix, SongGrid>()
+
+    /** The grid with [fix] on it, or null where there is no trusted grid. Fitted once per fix: the canvas asks on every frame. */
+    fun gridFor(fix: BeatFix): SongGrid? {
+        val base = grid ?: return null
+        if (fix.isNone) return base
+        val key = fix.copy(source = "")
+        return synchronized(fitted) { fitted.getOrPut(key) { refit(base, key, focusMs) } }
+    }
 }
 
 /**

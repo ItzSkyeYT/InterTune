@@ -107,6 +107,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.media3.common.Player
 import androidx.navigation.NavController
 import coil3.compose.AsyncImage
+import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.LocalSnackbarHostState
@@ -320,7 +321,7 @@ fun MixEditorScreen(navController: NavController) {
             }
             SongRow(songA, aTitle, spec?.let { words.clock(it.a.atMs) }, spec?.a?.bpm, vm.editor?.facts?.a?.grid != null, spec?.a?.fix?.isNone == false, words, landscape) { fixOpen = Side.A }
             when (val p = phase) {
-                is MixEditorViewModel.Phase.Failed -> FailedState(p, aTitle, bTitle, vm)
+                is MixEditorViewModel.Phase.Failed -> FailedState(p, aTitle, bTitle, if (p.side == Side.A) songA else songB, vm)
                 else -> {
                     val e = editor
                     val s = spec ?: e?.spec
@@ -344,7 +345,8 @@ fun MixEditorScreen(navController: NavController) {
                 Spacer(Modifier.height(24.dp))
                 return
             }
-            Lowers(vm, e, s, ui!!, words, phase is MixEditorViewModel.Phase.Ready, landscape, onPreset = { p ->
+            // Adjust holds its own undo step until Done: everything below waits for it.
+            Lowers(vm, e, s, ui!!, words, phase is MixEditorViewModel.Phase.Ready && canvas.adjust == null, landscape, onPreset = { p ->
                 when (vm.edit { tapPreset(p) }) {
                     PresetTap.REPLACED_CUSTOM -> scope.launch {
                         val r = snackbar.showSnackbar(context.getString(R.string.mix_edit_replaced, wordsNow.presetName(p)), context.getString(R.string.mix_edit_undo), duration = SnackbarDuration.Short)
@@ -451,7 +453,7 @@ fun MixEditorScreen(navController: NavController) {
     val e = editor
     if (lengthOpen && e != null) LengthSheet(vm, e, words) { lengthOpen = false }
     fixOpen?.let { side ->
-        if (e != null) FixSheet(vm, e, side, words, clicking, onClick = { on ->
+        if (e != null && spec != null) FixSheet(vm, e, spec, side, words, clicking, onClick = { on ->
             clicking = on
             vm.preview?.click(if (on) side else null)
             if (on) play(e.fitStart())
@@ -831,7 +833,8 @@ private fun LoadingCanvas(colors: MixColors, shimmer: Float) {
 
 /** Where the canvas would be, when a song could not be read: why, and a way on. */
 @Composable
-private fun FailedState(p: MixEditorViewModel.Phase.Failed, aTitle: String, bTitle: String, vm: MixEditorViewModel) {
+private fun FailedState(p: MixEditorViewModel.Phase.Failed, aTitle: String, bTitle: String, song: Song?, vm: MixEditorViewModel) {
+    val downloads = LocalDownloadUtil.current
     Column(Modifier.fillMaxWidth().heightIn(min = 236.dp).padding(horizontal = 24.dp, vertical = 24.dp), verticalArrangement = Arrangement.Center) {
         val text = when {
             p.offline -> stringResource(R.string.mix_edit_offline)
@@ -841,6 +844,10 @@ private fun FailedState(p: MixEditorViewModel.Phase.Failed, aTitle: String, bTit
         Text(text, style = MaterialTheme.typography.bodyLarge)
         Row(Modifier.padding(top = 8.dp)) {
             TextButton(onClick = { vm.retry() }) { Text(stringResource(R.string.mix_edit_try_again)) }
+            // A downloaded song is read from its file, at any time and anywhere in it.
+            if (!p.offline && song != null && song.song.dateDownload == null && !song.song.isLocal) {
+                TextButton(onClick = { downloads.download(song.song) }) { Text(stringResource(R.string.mix_edit_download)) }
+            }
         }
     }
 }

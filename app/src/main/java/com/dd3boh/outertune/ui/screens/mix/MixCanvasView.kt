@@ -11,6 +11,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
@@ -120,6 +121,9 @@ fun MixCanvasView(
                 .fillMaxWidth()
                 .height(heightDp)
                 .semantics { contentDescription = words.summary(editor) }
+                // The system's back gesture takes the screen's edges; on the canvas a drag from
+                // the edge moves a song or a handle instead (Android keeps 200 dp of it per edge).
+                .systemGestureExclusion()
                 .focusable()
                 .onKeyEvent { e ->
                     // A keyboard: arrows move what is selected a beat, with shift a bar.
@@ -185,6 +189,7 @@ fun MixCanvasView(
                             if (event.changes.count { it.pressed } >= 2) {
                                 // Two fingers: zoom from 1x to 8x about their middle.
                                 state.held = null
+                                state.float = null
                                 if (moved) { editor.live(before); vm.publish() }
                                 pinch(event.changes.filter { it.pressed }.map { it.position }, g, state)
                                 return@awaitEachGesture

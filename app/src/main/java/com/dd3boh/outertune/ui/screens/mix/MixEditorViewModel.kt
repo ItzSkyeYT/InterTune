@@ -169,8 +169,17 @@ class MixEditorViewModel @Inject constructor(
         ui.value = Ui(spec, e.lit(), e.canUndo, e.canRedo, e.dirty)
         preview?.update(spec, e.fitStart(), e.fitEnd())
         saved[KEY_SPEC] = spec.toJson()
-        saved[KEY_UNDO] = ArrayList(e.undoSteps.takeLast(MixEditor.KEPT_UNDO).map { it.toJson() })
+        // The undo steps only when they changed: a drag publishes on every frame it moves.
+        val steps = e.undoSteps
+        if (steps.size != keptUndoSize || steps.lastOrNull() !== keptUndoLast) {
+            saved[KEY_UNDO] = ArrayList(steps.takeLast(MixEditor.KEPT_UNDO).map { it.toJson() })
+            keptUndoSize = steps.size
+            keptUndoLast = steps.lastOrNull()
+        }
     }
+
+    private var keptUndoSize = -1
+    private var keptUndoLast: TransitionSpec? = null
 
     /** Runs one edit on the editor and shows it. */
     inline fun <T> edit(block: MixEditor.() -> T): T? {
