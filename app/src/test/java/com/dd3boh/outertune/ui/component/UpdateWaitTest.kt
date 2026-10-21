@@ -140,9 +140,10 @@ class UpdateWaitTest {
                 assertFalse("$folder $name", '\u2014' in text || '\u2013' in text)
                 assertTrue("$folder $name", Regex("[.!?](?=\\s|$)").findAll(text).count() <= 3)
             }
-            // Android's button, named as in the app's other texts that name a button.
+            // Android's button, named as in the app's other texts that name a button: in French inside « »
+            // with non-breaking spaces, as the app's French puts every name in quotes.
             val waiting = texts.getValue("update_wait_waiting")
-            assertTrue(waiting, if (folder == "values") "\\\"%1\$s\\\"" in waiting else "« %1\$s »" in waiting)
+            assertTrue(waiting, if (folder == "values") "\\\"%1\$s\\\"" in waiting else "«\\u00A0%1\$s\\u00A0»" in waiting)
         }
     }
 }

@@ -1,0 +1,11 @@
+Version 0.12.1
+
+- Songs start sooner, and recover when they stop.
+- Music started offline plays once the network is back.
+- If YouTube turns your connection away, the app now says so.
+- Cast discovery no longer crashes on some networks.
+- The queue icon on Liked and Downloaded asks which queue.
+- Updating from the app shows what Android is doing.
+- Report a problem keeps the logs of the last 15 runs.
+
+Full changelog: https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.12.1
