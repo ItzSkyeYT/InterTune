@@ -2181,4 +2181,30 @@ class ChainWalkTest {
         walk(next)
         assertFalse("the try that came to nothing is not made again at once: ${next.askedOf}", "ANDROID_VR as a new visitor" in next.askedOf)
     }
+
+    @Test
+    fun `a refusal in the player of the account's address does not rest the account, and playback always as the account stays so`() {
+        YouTube.cookie = "SAPISID=made-up"
+        YouTube.dataSyncId = "ACCOUNT-DATASYNC-ID"
+        YTPlayerUtils.authMode = PlaybackAuthMode.ALWAYS
+        remembering("VISIONOS", "ANDROID_VR")
+        // A 403 mid-song on the account's checked address, as MusicService.changeRoute reports it.
+        // Struck, the account rested half an hour and VISIONOS served every song as a visitor.
+        YTPlayerUtils.strike("WEB_REMIX (account)", "load refused (HTTP 403)")
+        assertNull(YTPlayerUtils.streamMemory.strikes["WEB_REMIX (account)"])
+        assertFalse("WEB_REMIX (account)" in YTPlayerUtils.streamMemory.refusedAt.keys)
+
+        val script = Script(
+            says = mapOf(
+                "ANDROID_VR" to listOf(refused(bot)),
+                "WEB_REMIX" to listOf(ciphered()),
+                "VISIONOS" to listOf(playable("VISIONOS", loudness = 5.0, seconds = "200")),
+            ),
+            playerScript = playerScript,
+            solver = solving,
+            canSolve = true,
+        )
+        walk(script).getOrThrow()
+        assertEquals("still asked as the account first", "WEB_REMIX" to true, script.carriedInOrder.first { it.first != "ANDROID_VR" })
+    }
 }

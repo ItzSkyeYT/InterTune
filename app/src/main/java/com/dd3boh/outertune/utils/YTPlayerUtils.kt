@@ -412,9 +412,14 @@ object YTPlayerUtils {
      * refused later, by the late check or by the player within the song. Returns how long the
      * client now rests, in words, for the log. The walk only ever heard the check, so a client
      * whose addresses the player was refused stayed first song after song (FAILURE-MAP H).
+     *
+     * Never the account's, which is remembered nowhere, here as in the walk: see
+     * StreamOrder.remember. Struck, "WEB_REMIX (account)" rested half an hour after one 403
+     * within a song, and with playback always as the account the songs meanwhile were asked as a
+     * visitor of VISIONOS.
      */
     fun strike(label: String, why: String): String? {
-        rememberAsked(listOf(StreamOrder.Asked(label, worked = false)), why)
+        rememberAsked(listOf(StreamOrder.Asked(label, worked = false, asAccount = isAccountLabel(label))), why)
         val memory = streamMemory
         val strikes = memory.strikes[label] ?: return null
         val minutes = StreamOrder.restMs(memory, label) / 60_000
@@ -1234,8 +1239,14 @@ object YTPlayerUtils {
     private fun labelOf(client: YouTubeClient, isLoggedIn: Boolean): String {
         // An identity of VISIONOS by its own name: to YouTube it is VISIONOS, here it is not the same entry.
         val name = VISIONOS_IDENTITIES.firstOrNull { it.first === client }?.second ?: client.clientName
-        return if (client.loginSupported && isLoggedIn) "$name (account)" else name
+        return if (client.loginSupported && isLoggedIn) "$name$AS_ACCOUNT" else name
     }
+
+    /** What [labelOf] puts after the name of a client asked as the account. */
+    private const val AS_ACCOUNT = " (account)"
+
+    /** Whether [label] names a client asked as the account: see [labelOf]. */
+    private fun isAccountLabel(label: String): Boolean = label.endsWith(AS_ACCOUNT)
 
     /** Whether an address of [label] whose check did not answer may go to the player. */
     private fun mayPlayUnchecked(label: String): Boolean =
