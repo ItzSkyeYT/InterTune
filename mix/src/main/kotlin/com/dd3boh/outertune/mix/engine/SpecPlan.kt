@@ -85,6 +85,9 @@ class LanePlan internal constructor(
     val sampleRate: Int get() = facts.sampleRate
     val channels: Int get() = facts.channels
 
+    /** Where the grids the change is drawn on start: bar 1's frame, which is the same music in any copy. */
+    val gridOrigin: Long = kotlin.math.floor(bar1).toLong()
+
     /** Bar position at output frame [o]. */
     fun u(o: Double): Double = (o - bar1) / barFrames
 
@@ -102,10 +105,9 @@ class LanePlan internal constructor(
     val seconds: Double get() = (mixTo - mixFrom).toDouble() / sampleRate
 
     fun describe(): String {
-        val length = if (spec.bars > 0) "${spec.bars} bars" else "%.1f s".format(spec.seconds)
         val tempo = if (speed == 1.0) "A at its own speed" else "A at %.4f".format(speed)
-        val name = if (spec.preset == Preset.AUTO) "Auto, ${AutoSpec.label(spec)}" else spec.label
-        return "$name on ${spec.lanes.key}, $length, $tempo, B at frame $bStart, A gone at frame $aGone"
+        val name = if (spec.preset == Preset.AUTO) "Auto (${AutoSpec.label(spec)})" else AutoSpec.label(spec.copy(from = spec.preset))
+        return "$name on ${spec.lanes.key}, $tempo, B at frame $bStart, A gone at frame $aGone"
     }
 }
 
@@ -221,6 +223,24 @@ object SpecPlan {
                 if (echoing.isNotEmpty()) it.echoFadeFrom = max(dryGone, aGone - echoFrames)
             },
         )
+    }
+
+    /**
+     * Where in A, in ms of its own clock, the first frame [spec] touches comes: its first move, or
+     * the tempo ramp before bar 1, or the next song coming in, less the headroom's room. The end
+     * has to be held from before it.
+     */
+    fun firstChangeMs(spec: TransitionSpec): Double {
+        val aLanes = spec.lanes.lanes.map { LaneId(Side.A, it) }
+        val bLanes = spec.lanes.lanes.map { LaneId(Side.B, it) }
+        val aFirst = aLanes.minOf { firstMoveU(spec, it) }
+        val bFirst = bLanes.minOf { firstHeardU(spec, it) ?: (-spec.b.atMs / spec.b.barMs) }
+        var ms = spec.aMsAt(minOf(aFirst, bFirst))
+        if (spec.beatMatched) {
+            val beats = if (abs(spec.tempoRatio() - 1) > LONG_RAMP_ABOVE) LONG_RAMP_BEATS else RAMP_BEATS
+            ms = minOf(ms, spec.a.atMs - beats * 60_000.0 / spec.a.bpm)
+        }
+        return ms - Engine.HEADROOM_PAD_S * 1000
     }
 
     /** Where A's lane [id] first differs from full, in bars. */

@@ -119,37 +119,35 @@ object AutoSpec {
 }
 
 /**
- * Where a saved change's anchors fall in the music at hand on the phone. Each anchor is kept in
- * its song's own clock in ms, and the held end's place in its song is known only to a buffer, so
- * each anchor is put on the nearest beat the analysis of the very frames that will play finds,
- * if one is within half a beat: the editor put it on a beat of the same analysis of the same
- * music, and a beat found again is exact where a clock is not.
+ * Where a saved change's anchors fall in the music at hand on the phone. B's copy starts on B's
+ * first frame, as the editor's did, so B's anchor is exact as it is. The held end's place in A is
+ * known only to a buffer, so A's anchor is put on the nearest beat the analysis of the very frames
+ * that will play finds, within half a beat: the editor put it on a beat of the same analysis of
+ * the same music, and a beat found again is exact where a clock is not. A change timed in bars
+ * whose anchor cannot be found that way is not played, since a few tens of ms off is a flam.
  */
 object Placing {
 
     /**
      * The facts for saved [spec] in A's music at hand, its frame 0 at [aStartMs] of A and analysed
-     * as [tail], and B's copy from its first frame, analysed as [head].
+     * as [tail], and B's copy from its first frame; or why it cannot be placed.
      */
     fun facts(
         spec: TransitionSpec, sampleRate: Int, channels: Int,
         aStartMs: Double, aFrames: Long, tail: RegionAnalysis?,
-        bFrames: Long, head: RegionAnalysis?,
+        bFrames: Long,
         earliest: Long,
-    ): ChangeFacts {
-        val aBeat = 60.0 / spec.a.bpm * sampleRate
-        val bBeat = 60.0 / spec.b.bpm * sampleRate
-        val aBar1 = snap((spec.a.atMs - aStartMs) * sampleRate / 1000.0, tail, aBeat)
-        val bBar1 = snap(spec.b.atMs * sampleRate / 1000.0, head, bBeat)
-        // The stretch lands A's own beats as the analysis heard them, where it trusts them.
+    ): Result<ChangeFacts> {
+        val near = (spec.a.atMs - aStartMs) * sampleRate / 1000.0
+        val aBar1 = if (spec.bars == 0) near else {
+            if (tail == null || !tail.beatsConfident) return Result.failure(IllegalStateException("the end of A has no beat to find its anchor on"))
+            val at = tail.beatFrame(tail.beatNear(near))
+            if (abs(at - near) > 30.0 / spec.a.bpm * sampleRate) return Result.failure(IllegalStateException("no beat of A within half a beat of its anchor"))
+            // A grid nudged by hand in Fix the beat sits that far from the beats the analysis finds.
+            at + spec.a.fix.nudgeMs * sampleRate / 1000.0
+        }
+        // The stretch lands A's own beats as the analysis heard them.
         val anchors = tail?.takeIf { it.beatsConfident && spec.beatMatched }?.beatFrames()
-        return ChangeFacts(sampleRate, channels, aBar1, aFrames, bBar1, bFrames, earliest, anchors = anchors)
-    }
-
-    private fun snap(frame: Double, r: RegionAnalysis?, beat: Double): Double {
-        if (r == null || !r.beatsConfident) return frame
-        val k = r.beatNear(frame)
-        val at = r.beatFrame(k)
-        return if (abs(at - frame) <= beat / 2) at else frame
+        return Result.success(ChangeFacts(sampleRate, channels, aBar1, aFrames, spec.b.atMs * sampleRate / 1000.0, bFrames, earliest, anchors = anchors))
     }
 }

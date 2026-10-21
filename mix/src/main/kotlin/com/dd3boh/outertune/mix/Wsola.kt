@@ -42,6 +42,14 @@ class Wsola(
     private val factor: Int,
     /** Tail frames to land exactly where the map says, sorted. */
     private val anchors: DoubleArray = DoubleArray(0),
+    /**
+     * Where grid frame 0 starts, in output frames. The prototype's grid starts at frame 0 of the
+     * held end; the change on bands starts it on bar 1, the same music in any copy, so a copy of
+     * the song that starts elsewhere is stretched with the same joins.
+     */
+    private val phase: Long = 0,
+    /** The tail frame guide sample 0 was taken at: the guide is every [factor]-th frame from there. */
+    private val guideFrom: Long = 0,
 ) {
     private val anchorRadius = (ANCHOR_S * sampleRate).roundToInt()
     private val tailFrames = tail.size / channels
@@ -72,30 +80,30 @@ class Wsola(
      */
     fun frames(map: TimeMap, from: Long, to: Long): Frames {
         // Each output frame lies in the first half of grid frame k2 and the second half of k2 - 1.
-        val kFirst = Math.floorDiv(from, HOP.toLong()) - 1
-        val kLast = Math.floorDiv(max(from, to - 1), HOP.toLong())
+        val kFirst = Math.floorDiv(from - phase, HOP.toLong()) - 1
+        val kLast = Math.floorDiv(max(from, to - 1) - phase, HOP.toLong())
         // Each search continues the frame before it, so the chain starts from the last grid frame
         // the map leaves alone; it is the same chain whatever stretch is asked for.
         var k0 = kFirst
         while (!isIdentityFrame(map, k0)) k0--
         val positions = LongArray((kLast - kFirst + 1).toInt())
-        var previous = k0 * HOP
+        var previous = start(k0)
         if (k0 >= kFirst) positions[(k0 - kFirst).toInt()] = previous
         var continuing = 0
         for (k in k0 + 1..kLast) {
             var anchored = false
             val p = when {
-                isIdentityFrame(map, k) -> k * HOP
+                isIdentityFrame(map, k) -> start(k)
                 // The two frames after an anchored one, the two that hold the anchor, continue it exactly.
                 continuing > 0 -> previous + HOP
                 else -> {
-                    val target = (map.tailAt(k * HOP + FRAME / 2.0) - FRAME / 2.0).roundToLong()
+                    val target = (map.tailAt(start(k) + FRAME / 2.0) - FRAME / 2.0).roundToLong()
                     // An anchor heard in the second half of the frame after this one: the jump
                     // that puts it on time is made here, a frame early, so that both frames that
                     // hold the anchor continue each other exactly and neither leaves an early
                     // ghost of it near the edge of its window.
-                    val anchor = anchorIn(map.tailAt((k + 2) * HOP.toDouble()), map.tailAt((k + 3) * HOP.toDouble()))
-                    val desired = anchor?.let { (k * HOP + it - map.outAt(it)).roundToLong() }
+                    val anchor = anchorIn(map.tailAt(start(k + 2).toDouble()), map.tailAt(start(k + 3).toDouble()))
+                    val desired = anchor?.let { (start(k) + it - map.outAt(it)).roundToLong() }
                     val lo = if (desired == null) target - search else max(target - search, desired - anchorRadius)
                     val hi = if (desired == null) target + search else kotlin.math.min(target + search, desired + anchorRadius)
                     if (desired != null && lo <= hi) {
@@ -116,8 +124,8 @@ class Wsola(
 
         /** Output frame [o], one sample per channel into [into]. */
         fun frame(o: Long, into: DoubleArray) {
-            val k2 = Math.floorDiv(o, HOP.toLong())
-            val i2 = (o - k2 * HOP).toInt()
+            val k2 = Math.floorDiv(o - phase, HOP.toLong())
+            val i2 = (o - start(k2)).toInt()
             val k1 = k2 - 1
             val i1 = i2 + HOP
             val j1 = (k1 - kFirst).toInt()
@@ -129,7 +137,7 @@ class Wsola(
             // sample's rounding later, so the tail is copied instead and joins the raw tail before
             // it to the bit. That holds wherever both frames are in place, not only where the map
             // is still the identity: the first frames of a ramp are often still in place too.
-            val copy = p1 == k1 * HOP && p2 == k2 * HOP
+            val copy = p1 == start(k1) && p2 == start(k2)
             for (c in 0 until channels) {
                 into[c] = if (copy) sample(o, c) else window[i1] * sample(p1 + i1, c) + window[i2] * sample(p2 + i2, c)
             }
@@ -140,7 +148,10 @@ class Wsola(
         if (t in 0 until tailFrames) tail[(t * channels + channel).toInt()].toDouble() else 0.0
 
     /** Whether grid frame [k] lies wholly where the map is still the identity. */
-    private fun isIdentityFrame(map: TimeMap, k: Long): Boolean = map.isIdentity || (k * HOP + FRAME).toDouble() <= map.rampStart
+    private fun isIdentityFrame(map: TimeMap, k: Long): Boolean = map.isIdentity || (start(k) + FRAME).toDouble() <= map.rampStart
+
+    /** The output frame grid frame [k] starts on. */
+    private fun start(k: Long): Long = phase + k * HOP
 
     /** The first anchor in tail frames [from, to), or null. */
     private fun anchorIn(from: Double, to: Double): Double? {
@@ -169,20 +180,20 @@ class Wsola(
         }
         val overlap = FRAME - HOP
         val g = overlap / factor
-        val naturalG = Math.floorDiv(natural, factor.toLong())
-        val loG = Math.floorDiv(lo, factor.toLong())
-        val hiG = Math.floorDiv(hi, factor.toLong())
-        var bestG = Math.floorDiv(target, factor.toLong())
+        val naturalG = Math.floorDiv(natural - guideFrom, factor.toLong())
+        val loG = Math.floorDiv(lo - guideFrom, factor.toLong())
+        val hiG = Math.floorDiv(hi - guideFrom, factor.toLong())
+        var bestG = Math.floorDiv(target - guideFrom, factor.toLong())
         var bestScore = Double.NEGATIVE_INFINITY
         for (p in loG..hiG) {
-            val score = correlation(p, naturalG, g) { guideAt(it) } - cost(p * factor)
+            val score = correlation(p, naturalG, g) { guideAt(it) } - cost(p * factor + guideFrom)
             if (score > bestScore) {
                 bestScore = score
                 bestG = p
             }
         }
         // At the full rate, around the guide's answer, never outside the window.
-        val centre = (bestG * factor).coerceIn(lo, hi)
+        val centre = (bestG * factor + guideFrom).coerceIn(lo, hi)
         var best = centre
         bestScore = Double.NEGATIVE_INFINITY
         for (d in -REFINE..REFINE) {

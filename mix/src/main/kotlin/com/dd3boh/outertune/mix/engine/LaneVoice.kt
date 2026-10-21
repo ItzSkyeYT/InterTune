@@ -129,8 +129,10 @@ internal class Echo(private val channels: Int, sampleRate: Int, private val dela
 
 /**
  * One lane of one side as the change plays it: its gain, its filters and its echo, all from
- * [com.dd3boh.outertune.mix.edit.laneAt], the same rule the editor draws from, read on an absolute
- * grid of [GRID] output frames and drawn straight between its points.
+ * [com.dd3boh.outertune.mix.edit.laneAt], the same rule the editor draws from, read on a grid of
+ * [GRID] output frames from bar 1 and drawn straight between its points. The grid is the music's,
+ * not the clock's, so the editor's copy and the phone's held end, which start in different places,
+ * give the same samples.
  *
  * The gain never moves faster than from full to silence in [Shapes.CUT_MS]: the editor draws a cut
  * as a step, and a step in a lane playing music is a click. Slower moves are followed exactly,
@@ -165,7 +167,7 @@ internal class LaneVoice(private val id: LaneId, private val plan: LanePlan, pri
 
     /** Moves the lane to output frame [o]: reads the plan where a grid point is passed, and steps the gain. */
     fun moveTo(o: Long) {
-        val offset = Math.floorMod(o, GRID.toLong())
+        val offset = Math.floorMod(o - plan.gridOrigin, GRID.toLong())
         val g = o - offset
         if (g != grid) load(g)
         x = offset.toDouble() / GRID

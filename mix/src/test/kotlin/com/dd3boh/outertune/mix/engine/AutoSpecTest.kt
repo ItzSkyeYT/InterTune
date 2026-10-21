@@ -74,7 +74,7 @@ class AutoSpecTest {
                 assertEquals(plan.overlapEnd, lanePlan.out(spec.lengthBars), 1.0)
             }
             // And it renders: A from the held end, B from its copy.
-            val render = LaneMixer(lanePlan).render(tail, b, 0.9, 0.8, tailAnalysis.guide, tailAnalysis.decimation)
+            val render = LaneMixer(lanePlan).render(tail, b, 0.9, 0.8)
             assertTrue(render.outgoing.frames > 0)
             println("  rendered in %.0f ms, peak %.2f, headroom %.1f dB".format(render.renderMillis, render.peakAfter, render.headroom.deepestDb))
         }

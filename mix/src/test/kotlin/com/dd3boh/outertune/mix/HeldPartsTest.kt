@@ -77,7 +77,7 @@ class HeldPartsTest {
                 plan = p
                 val made = AutoSpec.of(p, analysis, headB, "a", "b", 0.0, (copy.size / 2).toLong(), held.read + rate)!!
                 val lanePlan = (SpecPlan.plan(made.spec, made.facts) as SpecPlan.Result.Planned).plan
-                val r = LaneMixer(lanePlan).render(t, copy, attA, attB, analysis.guide, analysis.decimation)
+                val r = LaneMixer(lanePlan).render(t, copy, attA, attB)
                 render = r
                 heldPlan = r.heldPlan()
                 val first = firstThenLanesAfterTicks

@@ -8,7 +8,8 @@ package com.dd3boh.outertune.mix.engine
 
 import com.dd3boh.outertune.mix.ChangeSum
 import com.dd3boh.outertune.mix.Curve
-import com.dd3boh.outertune.mix.FrontEnd
+import com.dd3boh.outertune.mix.Decimator
+import com.dd3boh.outertune.mix.FloatList
 import com.dd3boh.outertune.mix.Headroom
 import com.dd3boh.outertune.mix.MixPlan
 import com.dd3boh.outertune.mix.Pcm
@@ -198,15 +199,15 @@ class ChangeRender(
 class LaneMixer(private val plan: LanePlan) {
 
     /**
-     * Renders the change from A's music [a] (the held end or the editor's copy of it), with its
-     * decimated [guide] where an analysis made one already, and B's copy [b]. Each song is kept at
-     * its own [attenuationA] and [attenuationB], its loudness normalisation as it plays.
+     * Renders the change from A's music [a] (the held end or the editor's copy of it) and B's copy
+     * [b]. Each song is kept at its own [attenuationA] and [attenuationB], its loudness
+     * normalisation as it plays.
      */
-    fun render(a: ShortArray, b: ShortArray, attenuationA: Double, attenuationB: Double, guide: FloatArray? = null, guideFactor: Int = 0): ChangeRender {
+    fun render(a: ShortArray, b: ShortArray, attenuationA: Double, attenuationB: Double): ChangeRender {
         val started = System.nanoTime()
         val channels = plan.channels
         val rate = plan.sampleRate
-        val aSource = aSource(a, guide, guideFactor)
+        val aSource = aSource(a)
         val bSource = PcmSource(b, channels, plan.facts.bFrames.coerceAtMost((b.size / channels).toLong()), plan.bStart)
         val from = plan.mixFrom
         val to = plan.mixTo
@@ -302,17 +303,30 @@ class LaneMixer(private val plan: LanePlan) {
         )
     }
 
-    private fun aSource(a: ShortArray, guide: FloatArray?, guideFactor: Int): FrameSource {
+    private fun aSource(a: ShortArray): FrameSource {
         val channels = plan.channels
         val frames = plan.facts.aFrames.coerceAtMost((a.size / channels).toLong())
         if (plan.aMap.isIdentity) return PcmSource(a, channels, frames)
-        val (g, f) = if (guide != null && guideFactor > 0) guide to guideFactor else {
-            val front = FrontEnd.of(a, plan.sampleRate, channels, 0, frames.toInt())
-            front.mono to front.factor
+        // The stretch lands A's beats from its own guide, a decimated mono copy taken on the change's
+        // grid, from bar 1: the analysis's own starts wherever the music at hand starts, and two
+        // copies of A that start apart would be searched on other samples and joined elsewhere.
+        val factor = Pcm.decimationFor(plan.sampleRate)
+        val guideFrom = Math.floorMod(plan.gridOrigin, factor.toLong())
+        val decimator = Decimator(plan.sampleRate, factor)
+        val mono = FloatList(((frames - guideFrom) / factor + 1).toInt())
+        val inverse = 1.0 / (Pcm.FULL_SCALE * channels)
+        var i = (guideFrom * channels).toInt()
+        val end = (frames * channels).toInt()
+        while (i < end) {
+            var sum = 0
+            for (c in 0 until channels) sum += a[i + c]
+            decimator.push(sum * inverse, mono)
+            i += channels
         }
         // The stretch is laid out for every frame the band split may read ahead of the change.
-        val end = plan.mixTo + BandSplit.CHUNK + BandSplit.LOOK
-        val wsola = Wsola(a, channels, plan.sampleRate, g, f, plan.anchors).frames(plan.aMap, plan.mixFrom, end)
-        return StretchSource(wsola, plan.mixFrom, end, channels)
+        val to = plan.mixTo + BandSplit.CHUNK + BandSplit.LOOK
+        val wsola = Wsola(a, channels, plan.sampleRate, mono.toArray(), factor, plan.anchors, phase = plan.gridOrigin, guideFrom = guideFrom)
+            .frames(plan.aMap, plan.mixFrom, to)
+        return StretchSource(wsola, plan.mixFrom, to, channels)
     }
 }
