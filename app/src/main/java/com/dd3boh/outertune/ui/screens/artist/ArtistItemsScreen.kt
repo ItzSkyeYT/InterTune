@@ -1,6 +1,6 @@
 package com.dd3boh.outertune.ui.screens.artist
 
-import androidx.activity.compose.BackHandler
+import com.dd3boh.outertune.ui.component.ScreenBackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
@@ -122,7 +122,7 @@ fun ArtistItemsScreen(
         selection.clear()
     }
     if (inSelectMode) {
-        BackHandler(onBack = onExitSelectionMode)
+        ScreenBackHandler(onBack = onExitSelectionMode)
     }
 
     val snackbarHostState = LocalSnackbarHostState.current

@@ -1,12 +1,12 @@
 package com.dd3boh.outertune.ui.screens.library
 
+import com.dd3boh.outertune.ui.component.ScreenBackHandler
 import com.dd3boh.outertune.ui.component.FloatingTopBar
 import com.dd3boh.outertune.ui.component.TopBarPill
 import com.dd3boh.outertune.ui.component.TopBarTitleStyle
 
 import android.content.pm.PackageManager
 import android.util.Log
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -234,9 +234,9 @@ fun FolderScreen(
     }
 
     if (inSelectMode) {
-        BackHandler(onBack = onExitSelectionMode)
+        ScreenBackHandler(onBack = onExitSelectionMode)
     } else if (isSearching) {
-        BackHandler(onBack = { isSearching = false })
+        ScreenBackHandler(onBack = { isSearching = false })
     }
 
     LaunchedEffect(sortType, sortDescending, currDir) {

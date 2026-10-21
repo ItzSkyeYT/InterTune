@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.ui.screens
 
+import com.dd3boh.outertune.ui.component.ScreenBackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.horizontalScroll
 import com.dd3boh.outertune.constants.NewSongsOnlyKey
@@ -28,7 +29,6 @@ import com.dd3boh.outertune.constants.ShowReasonsKey
 import com.dd3boh.outertune.utils.seenSlots
 import com.dd3boh.outertune.utils.CardBox
 import android.annotation.SuppressLint
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
@@ -294,7 +294,7 @@ fun HomeScreen(
     }
 
     if (selectedChip != null) {
-        BackHandler {
+        ScreenBackHandler {
             // if a chip is selected, go back to the normal homepage first
             viewModel.toggleChip(selectedChip)
         }

@@ -6,7 +6,7 @@
 
 package com.dd3boh.outertune.ui.screens.settings
 
-import androidx.activity.compose.BackHandler
+import com.dd3boh.outertune.ui.component.ScreenBackHandler
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -82,7 +82,6 @@ import com.dd3boh.outertune.LocalUpdateChecker
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.ui.component.FloatingTopBar
-import com.dd3boh.outertune.ui.component.LocalPlayerSheet
 import com.dd3boh.outertune.ui.component.LocalTopBarBack
 import com.dd3boh.outertune.ui.component.LocalTopBarGlassHost
 import com.dd3boh.outertune.ui.component.LocalTopBarTitle
@@ -242,11 +241,8 @@ fun SettingsTwoPane(
     // Never down to nothing: a second back can arrive before the first has been drawn, while
     // this still looks like a screen with another under it.
     val up = { if (open.size > 1) show(open.dropLast(1)) }
-    // Not while the player is open over the settings: back is then the player's, which was
-    // there first and would lose to this one.
-    val player = LocalPlayerSheet.current
-    val playerOpen = player != null && !player.isCollapsed && !player.isDismissed
-    BackHandler(enabled = open.size > 1 && !playerOpen, onBack = up)
+    // Not while the player is open over the settings: back is then the player's (ScreenBackHandler).
+    ScreenBackHandler(enabled = open.size > 1, onBack = up)
     val pendingUpdate by LocalUpdateChecker.current.available.collectAsState()
     val updateBadgeLabel = stringResource(R.string.update_available_title)
     val groupTargets = listOf(Tour.SETTINGS_YOU, Tour.SETTINGS_LOOK_AND_SOUND, Tour.SETTINGS_KEPT, Tour.SETTINGS_REST)

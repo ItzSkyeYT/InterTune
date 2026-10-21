@@ -1,7 +1,7 @@
 package com.dd3boh.outertune.ui.screens.library
 
+import com.dd3boh.outertune.ui.component.ScreenBackHandler
 import android.content.pm.PackageManager
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -287,7 +287,7 @@ fun LibraryScreen(
     }
 
     if (filter != LibraryFilter.ALL) {
-        BackHandler {
+        ScreenBackHandler {
             filter = LibraryFilter.ALL
         }
     }
