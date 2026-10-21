@@ -502,9 +502,12 @@ fun Lyrics(
             return@LaunchedEffect
         }
         if (currentLineIndex != -1) {
-            placedOnce = true
             deferredCurrentLineIndex = currentLineIndex
             if (lastPreviewTime == 0L) {
+                // Only once it is made, as below. Counted while the last song's lines were still
+                // being scrolled by hand, it was used up, and the next song's lyrics stayed where
+                // the old ones had been left.
+                placedOnce = true
                 if (isSeeking) {
                     lazyListState.scrollToItem(
                         currentLineIndex,

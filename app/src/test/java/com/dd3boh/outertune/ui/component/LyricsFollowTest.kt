@@ -43,6 +43,21 @@ class LyricsFollowTest {
         assertTrue("the lit line stops while seeking", body.contains("deferredCurrentLineIndex = currentLineIndex"))
     }
 
+    /**
+     * The one placement counts only once it is made. Set before the check for a scroll by hand, it
+     * was used up while the last song's lines were still being scrolled, and the next song's lyrics
+     * stayed where the old ones had been left.
+     */
+    @Test
+    fun `lyrics that come up during a scroll by hand are placed once it is over`() {
+        val lit = scrolling.substringAfter("if (currentLineIndex != -1) {", missingDelimiterValue = "")
+            .substringBefore("} else if (lastPreviewTime == 0L) {")
+        assertTrue("no branch for a lit line", lit.isNotEmpty())
+        val placed = lit.indexOf("placedOnce = true")
+        assertTrue(lit, placed >= 0)
+        assertTrue("placed before the scroll by hand is over", placed > lit.indexOf("if (lastPreviewTime == 0L) {"))
+    }
+
     @Test
     fun `lyrics that come up before the first line are placed there once, then left`() {
         val opening = scrolling.substringAfter("} else if (lastPreviewTime == 0L) {", missingDelimiterValue = "")
