@@ -68,4 +68,16 @@ class ThrottleTest {
         Throttle.note("UNPLAYABLE", "This video is not available")
         assertFalse(Throttle.isBlocked)
     }
+
+    @Test
+    fun `no network at all never counts toward the back off`() {
+        // A song's fetch mid-song is tried again every few seconds while the network is gone, and
+        // a phone with no network is not one YouTube refuses.
+        Throttle.clear("test setup")
+        repeat(10) { Throttle.noteFailure(java.net.UnknownHostException("music.youtube.com")) }
+        repeat(10) { Throttle.noteFailure(java.net.NoRouteToHostException("no route")) }
+        repeat(10) { Throttle.noteFailure(java.net.ConnectException("Network is unreachable")) }
+        assertFalse(Throttle.isBlocked)
+        Throttle.clear("test teardown")
+    }
 }

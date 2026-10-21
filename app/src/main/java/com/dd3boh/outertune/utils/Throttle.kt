@@ -152,8 +152,10 @@ object Throttle {
     /** A thrown /player failure. HTTP 429 is the same condition wearing its other face. */
     fun noteFailure(t: Throwable) {
         // A step we gave up on ourselves says nothing of YouTube: with the shorter limits a
-        // flaky afternoon would trip the back off on our own cuts. See StepTimedOut.
-        if (t is StepTimedOut || t is kotlinx.coroutines.CancellationException) return
+        // flaky afternoon would trip the back off on our own cuts. See StepTimedOut. Nor does no
+        // network at all: a song's fetch mid-song is tried again every few seconds while the
+        // network is gone, and a phone without one is not one YouTube refuses.
+        if (t is StepTimedOut || t is kotlinx.coroutines.CancellationException || StreamOrder.endsWalkAtOnce(t)) return
         val code = (t as? ResponseException)?.response?.status?.value
         if (code == 429) {
             trip("HTTP 429 from /player")

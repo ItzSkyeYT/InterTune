@@ -77,10 +77,14 @@ internal class BadCachedCopy(
     companion object {
         const val TRIES = 3
 
-        /** Whether [error], or anything that caused it, is the network's, which no copy can mend. */
+        /**
+         * Whether [error], or anything that caused it, is the network's, which no copy can mend.
+         * A song's fetch that got no answer mid-song is, whatever ended its request: the player
+         * tries it again every few seconds, and three of them took the copy for a broken one.
+         */
         fun isNetwork(error: Throwable): Boolean = generateSequence(error) { it.cause }.take(10).any {
             it is HttpDataSource.HttpDataSourceException || it is UnknownHostException || it is ConnectException ||
-                it is SocketException || it is SSLException || it is InterruptedIOException
+                it is SocketException || it is SSLException || it is InterruptedIOException || it is Recovery.ResolveNoAnswer
         }
     }
 }

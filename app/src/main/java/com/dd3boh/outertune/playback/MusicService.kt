@@ -1025,8 +1025,9 @@ class MusicService : MediaLibraryService(),
                         val id = loadEventInfo.dataSpec.key
                         badCachedCopy.loadFailed(id, error)
                         // A route that keeps failing, or refuses the address, is changed while the
-                        // buffer still plays: see Recovery.LoadFailures.
-                        if (loadFailures.decide(id, error, SystemClock.elapsedRealtime()) == Recovery.Decision.CHANGE_ROUTE && id != null) {
+                        // buffer still plays; a load that failed for want of a network is not the
+                        // route's. See Recovery.LoadFailures.
+                        if (loadFailures.decide(id, error, SystemClock.elapsedRealtime(), online = isNetworkConnected.value) == Recovery.Decision.CHANGE_ROUTE && id != null) {
                             val status = Recovery.status(error)
                             changeRoute(id, if (status != null) "load refused (HTTP $status)" else "load failed twice in 30 s", refused = status == 403 || status == 410)
                         }
@@ -2670,31 +2671,31 @@ class MusicService : MediaLibraryService(),
                     Log.i(TAG, "PLAYING: remote song (cache kept, the new stream could not be fetched)", ErrorText.forLog(throwable))
                     return ResolvedSong.Cached
                 }
-                when (throwable) {
-                    is PlaybackException -> throw throwable
+                val error = when (throwable) {
+                    is PlaybackException -> throwable
 
-                    is ConnectException, is UnknownHostException -> {
-                        throw PlaybackException(
-                            getString(R.string.error_no_internet),
-                            throwable,
-                            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED
-                        )
-                    }
+                    is ConnectException, is UnknownHostException -> PlaybackException(
+                        getString(R.string.error_no_internet),
+                        throwable,
+                        PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED
+                    )
 
-                    is SocketTimeoutException -> {
-                        throw PlaybackException(
-                            getString(R.string.error_timeout),
-                            throwable,
-                            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT
-                        )
-                    }
+                    is SocketTimeoutException -> PlaybackException(
+                        getString(R.string.error_timeout),
+                        throwable,
+                        PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT
+                    )
 
-                    else -> throw PlaybackException(
+                    else -> PlaybackException(
                         getString(R.string.error_unknown),
                         throwable,
                         PlaybackException.ERROR_CODE_REMOTE_ERROR
                     )
                 }
+                // Mid-song, a fetch that got no answer (a Wi-Fi blip, a lift, a timeout) goes to
+                // the player as a failure media3 tries again on its own while the buffer plays,
+                // so a short drop is never heard. See Recovery.resolveFailed.
+                throw Recovery.resolveFailed(position, throwable, error)
             }
             val playbackData = played.data
             val format = playbackData.format

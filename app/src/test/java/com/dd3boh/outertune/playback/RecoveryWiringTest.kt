@@ -24,7 +24,7 @@ class RecoveryWiringTest {
     @Test
     fun `a failed load is judged, and a route that keeps failing is changed while the buffer plays`() {
         val listener = body("override fun onLoadError(", "override fun onLoadCompleted(")
-        assertTrue(listener.contains("loadFailures.decide(id, error, SystemClock.elapsedRealtime())"))
+        assertTrue(listener.contains("loadFailures.decide(id, error, SystemClock.elapsedRealtime(), online = isNetworkConnected.value)"))
         assertTrue(listener.contains("changeRoute(id,"))
     }
 
@@ -116,5 +116,17 @@ class RecoveryWiringTest {
         assertTrue(factory.contains("val calls = if (forPlayer) playerCalls else StreamFamily.Calls(playerStreamClient)"))
         assertTrue(factory.contains("if (forPlayer) resolvingSongs.merge(mediaId, 1, Int::plus)"))
         assertTrue(factory.contains("if (forPlayer) streamedSongs[mediaId] ="))
+    }
+
+    @Test
+    fun `a song's fetch that got no answer mid-song is handed to media3 as a failure it tries again`() {
+        val resolve = body("fun resolve(mediaId: String, position: Long, length: Long): ResolvedSong {", "val playbackData = played.data")
+        assertTrue(resolve.contains("throw Recovery.resolveFailed(position, throwable,"))
+    }
+
+    @Test
+    fun `a failed load is judged knowing whether the phone has a network`() {
+        val listener = body("override fun onLoadError(", "override fun onLoadCompleted(")
+        assertTrue(listener.contains("online = isNetworkConnected.value"))
     }
 }

@@ -83,6 +83,28 @@ object Recovery {
         else -> error.errorCodeName
     }
 
+    /**
+     * A song's fetch mid-song that got no answer: no network, no name, a timeout, YouTube's own
+     * server failing. An IOException, so media3 tries it again on its own, a few seconds apart,
+     * while the buffer plays; [error] is what the player is told if the buffer runs out first,
+     * read as it always was, by the wait for the network and [kind].
+     *
+     * The resolver used to throw [error] itself, which media3 wraps as an unexpected failure and
+     * never tries again: a Wi-Fi blip that had the song's address forgotten stopped the music
+     * when the buffer ran out, the network long back. 0.12 kept retrying the address it had.
+     */
+    class ResolveNoAnswer(val error: PlaybackException) : IOException(error.message, error)
+
+    /**
+     * What the resolver throws when the fetch of a song's stream from byte [position] failed
+     * with [failure], of which it made [error] for the player: mid-song and for want of an
+     * answer, a failure media3 tries again ([ResolveNoAnswer]); at a song's start, where the
+     * wait for the network or a quiet retry follows at once, and for YouTube's word on the
+     * song, [error] as before.
+     */
+    fun resolveFailed(position: Long, failure: Throwable, error: PlaybackException): Exception =
+        if (position > 0 && StreamOrder.networkDidNotAnswer(failure)) ResolveNoAnswer(error) else error
+
     /** What a failed load calls for. */
     enum class Decision {
         /** Media3's own retry, at once, on a fresh connection: the first failure usually mends. */
@@ -91,7 +113,7 @@ object Recovery {
         /** The address is forgotten and the route avoided for the song; the next retry resolves anew. */
         CHANGE_ROUTE,
 
-        /** Not a failure of the route: the resolver's own, which the player stops on, or the pace guard's cut. */
+        /** Not a failure of the route: the resolver's own, the pace guard's cut or ours, or no network at all. */
         IGNORE,
     }
 
@@ -100,6 +122,12 @@ object Recovery {
      * or 410, changes the route. Media3 retries a progressive stream on the address it has, a
      * 403 three times over, and every retry got the same refused address until the buffer ran
      * out (FAILURE-MAP P and Q).
+     *
+     * A load that failed for want of a network (no name, no route, the network unreachable, or
+     * anything at all while the phone has none, [decide]'s online false) is not the route's: the
+     * address was good a moment ago and is again when the network is back. Counted, a Wi-Fi blip
+     * made a route change of two of them, and the walk that followed failed for want of the same
+     * network. A refusal counts all the same: YouTube's answer came over some network.
      */
     class LoadFailures(private val windowMs: Long = RouteTimes.LOAD_FAILURE_WINDOW_MS) {
         private val last = HashMap<String, Long>()
@@ -116,7 +144,7 @@ object Recovery {
         }
 
         @Synchronized
-        fun decide(id: String?, error: IOException, now: Long): Decision {
+        fun decide(id: String?, error: IOException, now: Long, online: Boolean = true): Decision {
             if (id == null) return Decision.IGNORE
             val all = causes(error).toList()
             if (all.any { it is PlaybackException }) return Decision.IGNORE
@@ -128,6 +156,7 @@ object Recovery {
                 last.remove(id)
                 return Decision.CHANGE_ROUTE
             }
+            if (!online || all.any { StreamOrder.endsWalkAtOnce(it) }) return Decision.IGNORE
             val before = last[id]
             if (before != null && now - before in 0 until windowMs) {
                 last.remove(id)
