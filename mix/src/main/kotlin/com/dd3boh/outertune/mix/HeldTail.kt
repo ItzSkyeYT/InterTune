@@ -235,10 +235,19 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
         if (current != null) {
             // A better plan for the same change, worked out after a first one was handed over so
             // that one was in place in time: taken only while nothing planned has been heard.
-            if (!o.replaces || o.plan.isGapless) return
+            if (!o.replaces) return
             if (aborted || state != State.DRAIN || backFrom >= 0 || fadeFrom >= 0) return
             if (read + leadFrames > current.firstChange) {
                 note = "kept the first plan: the second came ${(read + leadFrames - current.firstChange) * 1000 / sampleRate} ms too late"
+                return
+            }
+            if (o.plan.isGapless) {
+                // The second look found no clean change: the first plan is let go before any of
+                // it is heard, and the held end plays out as it is, today's change.
+                note = "gapless after all: ${o.plan.reason}"
+                plan = null
+                rendered = null
+                incoming = null
                 return
             }
         }

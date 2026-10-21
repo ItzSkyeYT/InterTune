@@ -13,10 +13,11 @@ import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.roundToInt
 
-/** One song's music at hand: interleaved 16-bit frames from [startMs] of the song's own clock. */
-class Copy(val pcm: ShortArray, val sampleRate: Int, val channels: Int, val startMs: Double = 0.0) {
-    val frames: Int get() = pcm.size / channels
-}
+/**
+ * One song's music at hand: interleaved 16-bit frames from [startMs] of the song's own clock, the
+ * first [frames] of [pcm] (all of it unless said: a held end is a ring only partly written).
+ */
+class Copy(val pcm: ShortArray, val sampleRate: Int, val channels: Int, val startMs: Double = 0.0, val frames: Int = pcm.size / channels)
 
 /**
  * A change as it will play, ready to be heard: [pcm] holds output frames [fromFrame] until

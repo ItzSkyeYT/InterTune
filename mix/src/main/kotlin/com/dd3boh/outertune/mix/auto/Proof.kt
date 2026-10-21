@@ -40,9 +40,16 @@ class Proof(
      */
     val plainA: FloatArray? = null,
     val plainB: FloatArray? = null,
+    /** Why the change cannot be played on the music at hand at all, so it is refused unheard; null for a change rendered. */
+    val refused: String? = null,
 ) {
     fun interface Renderer {
         fun render(pick: AutoPick): Proof?
+    }
+
+    companion object {
+        /** A change the renderer cannot play on the music it has (it starts too early, it runs past a copy), with why. */
+        fun refused(sampleRate: Int, why: String) = Proof(sampleRate, FloatArray(0), 0, 0, refused = why)
     }
 }
 
@@ -92,6 +99,9 @@ object ProofCheck {
     )
 
     fun check(p: Proof, limits: Limits = Limits()): Verdict {
+        p.refused?.let { why ->
+            return Verdict(0, -200.0, null, null, 0, null, 0.0, 0.0, 0.0, 0.0, passes = false, why = "cannot play: $why")
+        }
         val rate = p.sampleRate
         val frames = p.mix.size / 2
         // Only the change is judged: outside it each song plays as it is, its own peaks at full

@@ -298,6 +298,9 @@ class LaneMixer(private val plan: LanePlan) {
         )
     }
 
+    /** A's music by output frame as the change takes it, before any lane is shaped: stretched where the plan stretches it. For a change's proof. */
+    internal fun outgoingSource(a: ShortArray): FrameSource = aSource(a)
+
     private fun aSource(a: ShortArray): FrameSource {
         val channels = plan.channels
         val frames = plan.facts.aFrames.coerceAtMost((a.size / channels).toLong())

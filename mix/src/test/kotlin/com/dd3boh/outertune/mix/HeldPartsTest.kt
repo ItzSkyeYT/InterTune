@@ -39,6 +39,8 @@ class HeldPartsTest {
         val copy: ShortArray = songB.samples,
         /** Hand the prototype's plan over first, then the change from copies to take its place, this many ticks later. */
         val firstThenLanesAfterTicks: Int? = null,
+        /** The second look hands over a gapless plan in place of the first one, as Auto does when no change it could make is clean. */
+        val secondIsGapless: Boolean = false,
         val action: (Run) -> Unit = {},
     ) {
         val held = HeldTail(2, rate, 48 * rate).also {
@@ -89,7 +91,12 @@ class HeldPartsTest {
                 }
             }
             if (lanesAt >= 0 && ticks >= lanesAt) {
-                held.offer(heldPlan!!, render!!.outgoing, render!!.incoming, replaces = true)
+                if (secondIsGapless) {
+                    val p = plan!!
+                    held.offer(MixPlan.gapless(rate, 2, p.tailFrames, attA, attB, "no clean change"), RenderedOutgoing(0, 0, 2, ShortArray(0), Headroom.NONE), replaces = true)
+                } else {
+                    held.offer(heldPlan!!, render!!.outgoing, render!!.incoming, replaces = true)
+                }
                 lanesAt = -1
             }
         }
@@ -195,5 +202,18 @@ class HeldPartsTest {
         assertTrue(tooLate.held.note, tooLate.held.note.startsWith("planned:") || tooLate.held.note.startsWith("kept the first plan"))
         assertEquals(0, tooLate.model.stalls)
         assertEquals(tooLate.armFrame + tooLate.plan!!.bStart, tooLate.model.checkpoints.first { it.song == 1 }.trackFrame)
+    }
+
+    @Test
+    fun `a gapless second look lets the first plan go while nothing planned is heard`() {
+        val run = Run(firstThenLanesAfterTicks = 1, secondIsGapless = true).go()
+        assertTrue(run.held.note, run.held.note.startsWith("gapless after all"))
+        assertEquals(0, run.model.stalls)
+        assertEquals(0, run.model.underruns)
+        // A plays out whole, as it is, and B starts from its first frame after it: today's change.
+        assertEquals(run.armFrame + run.tail!!.size / 2L, run.model.checkpoints.first { it.song == 1 }.trackFrame)
+        val heard = run.model.heard.toArray()
+        val end = ShortArray(rate * 2) { attenuate(songB.samples[(songB.frames - rate) * 2 + it], 0.9) }
+        assertArrayEquals(end, heard.copyOfRange(heard.size - rate * 2, heard.size))
     }
 }

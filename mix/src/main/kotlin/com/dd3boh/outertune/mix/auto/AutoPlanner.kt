@@ -220,6 +220,7 @@ object AutoPlanner {
         input: AutoInput,
         proof: Proof.Renderer? = null,
         limits: ProofCheck.Limits = ProofCheck.Limits(),
+        maxProofs: Int = MAX_PROOFS,
         heard: ((AutoPick, ProofCheck.Verdict) -> Unit)? = null,
     ): AutoPick {
         val ranked = candidates(input)
@@ -227,7 +228,7 @@ object AutoPlanner {
         val refused = ArrayList<String>()
         var proofs = 0
         for (c0 in ranked) {
-            if (proofs >= MAX_PROOFS) break
+            if (proofs >= maxProofs) break
             if (c0.isPlain) return if (refused.isEmpty()) c0 else plain(input, AutoPlain.NO_CLEAN_MIX, refused.joinToString("; "))
             var c = c0
             // A beat-locked change whose kicks sit apart by the same amount all through is lined
