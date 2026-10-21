@@ -204,7 +204,11 @@ fun Lyrics(
 
     // NOTE: lyricsModel is the current display lyrics that is updated by playerLyrics AND/OR manually
     val playerLyrics by playerConnection.currentLyrics.collectAsState(initial = null)
-    var lyricsModel by remember { mutableStateOf(playerLyrics) }
+    var lyricsModel by remember { mutableStateOf(playerLyrics?.second) }
+    // The song the lyrics on screen are of. The last song's stay up while the next one's are looked
+    // up, and Lyrics timing is offered only over the playing song's own: a move made against the
+    // old lines was saved for the new song and applied to its own lyrics once they came.
+    var lyricsSong by remember { mutableStateOf(playerLyrics?.first) }
 
     val lines: SnapshotStateList<LyricLine> = remember { mutableStateListOf<LyricLine>() }
 
@@ -213,7 +217,8 @@ fun Lyrics(
     }
 
     LaunchedEffect(playerLyrics) {
-        lyricsModel = playerLyrics
+        lyricsModel = playerLyrics?.second
+        lyricsSong = playerLyrics?.first
     }
 
     // Lines picked to share as a picture, or with synced lyrics a video, by their place in
@@ -907,7 +912,10 @@ fun Lyrics(
                                     }
                                 },
                                 mediaMetadataProvider = { mediaMetadata },
-                                onRefreshRequest = { lyricsModel = it },
+                                onRefreshRequest = {
+                                    lyricsModel = it
+                                    lyricsSong = mediaMetadata.id
+                                },
                                 onDismiss = menuState::dismiss,
                                 shownLines = {
                                     lines.map { it.text }.takeIf { lyricsModel != null && lyricsModel != uninitializedLyric }
@@ -917,7 +925,7 @@ fun Lyrics(
                                     picking = true
                                 },
                                 picksForVideo = isSynced,
-                                onAdjustTiming = if (isSynced) ({ startTiming(mediaMetadata.id) }) else null,
+                                onAdjustTiming = if (isSynced && lyricsSong == mediaMetadata.id) ({ startTiming(mediaMetadata.id) }) else null,
                                 onOtherLyrics = ::forgetTiming,
                             )
                         }
