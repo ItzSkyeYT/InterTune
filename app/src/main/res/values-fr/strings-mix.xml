@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- L'éditeur de transitions de Mix. Hors de strings-ot.xml tant que les mots n'ont pas son accord. -->
+<resources>
+    <string name="mix_edit_title">Modifier la transition</string>
+    <string name="mix_edit_undo">Annuler</string>
+    <string name="mix_edit_redo">Rétablir</string>
+    <string name="mix_edit_close">Fermer</string>
+    <string name="mix_edit_save">Enregistrer</string>
+
+    <string name="mix_edit_bpm">%1$s BPM</string>
+    <string name="mix_edit_bpm_unknown">\? BPM</string>
+    <string name="mix_edit_fix_beat_of">Corriger le tempo de %1$s</string>
+    <string name="mix_edit_bar_one_at">Mesure 1 à %1$s</string>
+    <string name="mix_edit_owner">%1$s</string>
+    <string name="mix_edit_owner_s">%1$s</string>
+
+    <string name="mix_edit_lows">Graves</string>
+    <string name="mix_edit_mids">Médiums</string>
+    <string name="mix_edit_highs">Aigus</string>
+    <string name="mix_edit_vocals">Voix</string>
+    <string name="mix_edit_drums">Batterie</string>
+    <string name="mix_edit_bass">Basse</string>
+    <string name="mix_edit_melody">Mélodie</string>
+
+    <plurals name="mix_edit_bars">
+        <item quantity="one">%d mesure</item>
+        <item quantity="many">%d mesures</item>
+        <item quantity="other">%d mesures</item>
+    </plurals>
+    <plurals name="mix_edit_beats">
+        <item quantity="one">%d temps</item>
+        <item quantity="many">%d temps</item>
+        <item quantity="other">%d temps</item>
+    </plurals>
+    <string name="mix_edit_seconds">%1$s s</string>
+    <string name="mix_edit_length">Durée de la transition</string>
+    <string name="mix_edit_view_songs">Morceaux</string>
+    <string name="mix_edit_view_bands">Bandes</string>
+    <string name="mix_edit_view_parts">Pistes</string>
+
+    <string name="mix_edit_now_bar">Mesure %1$d sur %2$d</string>
+    <string name="mix_edit_now_second">Seconde %1$d sur %2$d</string>
+    <plurals name="mix_edit_now_before">
+        <item quantity="one">%d mesure avant la transition</item>
+        <item quantity="many">%d mesures avant la transition</item>
+        <item quantity="other">%d mesures avant la transition</item>
+    </plurals>
+    <string name="mix_edit_now_before_timed">Avant la transition</string>
+    <string name="mix_edit_now_after">Après la transition</string>
+    <string name="mix_edit_now_plain">Transition simple</string>
+    <string name="mix_edit_plain_yours">Transition simple · votre choix</string>
+    <string name="mix_edit_loses">%1$s perd ses dernières %2$s</string>
+    <string name="mix_edit_reading_a">Lecture de la fin de %1$s…</string>
+    <string name="mix_edit_reading_b">Lecture du début de %1$s…</string>
+    <string name="mix_edit_analysing">Recherche des temps…</string>
+
+    <bool name="mix_edit_plural_lows">true</bool>
+    <bool name="mix_edit_plural_mids">true</bool>
+    <bool name="mix_edit_plural_highs">true</bool>
+    <bool name="mix_edit_plural_vocals">true</bool>
+    <bool name="mix_edit_plural_drums">false</bool>
+    <bool name="mix_edit_plural_bass">false</bool>
+    <bool name="mix_edit_plural_melody">false</bool>
+    <string name="mix_edit_m_swap">Échange des %2$s</string>
+    <string name="mix_edit_m_swap_one">Échange de la %2$s</string>
+    <string name="mix_edit_m_hats">Les charlestons de %1$s arrivent</string>
+    <string name="mix_edit_m_in">Les %2$s de %1$s arrivent</string>
+    <string name="mix_edit_m_in_one">La %2$s de %1$s arrive</string>
+    <string name="mix_edit_m_rise">Les %2$s de %1$s montent en sourdine</string>
+    <string name="mix_edit_m_rise_one">La %2$s de %1$s monte en sourdine</string>
+    <string name="mix_edit_m_out">Les %2$s de %1$s %3$s</string>
+    <string name="mix_edit_m_out_one">La %2$s de %1$s %3$s</string>
+    <string name="mix_edit_v_cut">s\'arrêtent</string>
+    <string name="mix_edit_v_cut_one">s\'arrête</string>
+    <string name="mix_edit_v_fade">s\'effacent</string>
+    <string name="mix_edit_v_fade_one">s\'efface</string>
+    <string name="mix_edit_v_muffle">s\'étouffent</string>
+    <string name="mix_edit_v_muffle_one">s\'étouffe</string>
+    <string name="mix_edit_v_thin">s\'amincissent</string>
+    <string name="mix_edit_v_thin_one">s\'amincit</string>
+    <string name="mix_edit_v_echo">partent en écho</string>
+    <string name="mix_edit_v_echo_one">part en écho</string>
+    <string name="mix_edit_m_muted">Sans les %2$s de %1$s</string>
+    <string name="mix_edit_m_muted_one">Sans la %2$s de %1$s</string>
+    <string name="mix_edit_m_waits">Les %2$s de %1$s attendent la fin de la transition</string>
+    <string name="mix_edit_m_waits_one">La %2$s de %1$s attend la fin de la transition</string>
+    <string name="mix_edit_m_curve">Les %2$s de %1$s suivent votre courbe</string>
+    <string name="mix_edit_m_curve_one">La %2$s de %1$s suit votre courbe</string>
+    <string name="mix_edit_m_under">%1$s démarre sous %2$s</string>
+
+    <string name="mix_edit_presets">Préréglages</string>
+    <string name="mix_preset_custom">Personnalisé</string>
+    <string name="mix_preset_auto">Auto</string>
+    <string name="mix_preset_vocals_over">Voix dessus</string>
+    <string name="mix_preset_beat_under">Rythme dessous</string>
+    <string name="mix_preset_drum_swap">Échange de batterie</string>
+    <string name="mix_preset_riff_rise">Riff montant</string>
+    <string name="mix_preset_fade">Fondu</string>
+    <string name="mix_preset_rise">Montée</string>
+    <string name="mix_preset_blend">Mélange</string>
+    <string name="mix_preset_echo_out">Écho</string>
+    <string name="mix_preset_cut">Coupe</string>
+    <string name="mix_line_custom">Vos propres réglages pour ces deux morceaux.</string>
+    <string name="mix_line_auto">Le choix de l\'appli pour ces deux morceaux.</string>
+    <string name="mix_line_auto_plain">Auto enchaîne ces deux morceaux sans mixage.</string>
+    <string name="mix_line_vocals_over">%1$s continue de chanter sur le rythme de %2$s, puis passe la main.</string>
+    <string name="mix_line_beat_under">La batterie de %1$s porte le début de %2$s, puis %3$s se lance.</string>
+    <string name="mix_line_drum_swap">Il ne reste que la batterie de %1$s, puis %2$s se construit dessus.</string>
+    <string name="mix_line_riff_rise">La mélodie de %1$s monte sous %2$s, qui finit sur sa voix seule.</string>
+    <string name="mix_line_fade">Un passage en douceur, une seule ligne de basse à la fois.</string>
+    <string name="mix_line_rise">%1$s s\'ouvre peu à peu pendant que %2$s s\'amincit.</string>
+    <string name="mix_line_blend">Les deux morceaux se fondent, les basses s\'échangent à mi-chemin.</string>
+    <string name="mix_line_echo_out">La dernière phrase de %1$s part en écho pendant que %2$s arrive.</string>
+    <string name="mix_line_cut">Une coupe nette sur la mesure.</string>
+    <string name="mix_line_plain">Transition simple : %1$s jusqu\'à sa fin, puis %2$s.</string>
+    <string name="mix_edit_two_basslines">Deux lignes de basse pendant %1$s.</string>
+    <string name="mix_edit_needs_parts">Nécessite le mixeur à télécharger</string>
+    <string name="mix_edit_replaced">Réglages personnalisés remplacés par %1$s.</string>
+
+    <string name="mix_edit_beat_matching">Calage du tempo</string>
+    <string name="mix_edit_bm_slower">%1$s joue %2$s %% plus lentement pour se caler sur le rythme de %3$s.</string>
+    <string name="mix_edit_bm_faster">%1$s joue %2$s %% plus vite pour se caler sur le rythme de %3$s.</string>
+    <string name="mix_edit_bm_same">%1$s est déjà sur le rythme de %2$s.</string>
+    <string name="mix_edit_bm_off">Désactivé : les temps s\'écartent de %1$s s sur %2$s.</string>
+    <string name="mix_edit_bm_refused">Les tempos diffèrent de %1$s %%.</string>
+    <string name="mix_edit_bm_no_bars">Sans rythme régulier dans les deux morceaux, la transition se compte en secondes.</string>
+    <string name="mix_edit_intro_twice">Jouer l\'intro deux fois</string>
+    <string name="mix_edit_intro_twice_line">Les %2$d premières mesures de %1$s jouent sous %3$s, puis à nouveau au démarrage.</string>
+    <string name="mix_edit_back_to_auto">Revenir à Auto</string>
+    <string name="mix_edit_plain">Transition simple pour ces deux</string>
+    <string name="mix_edit_parts_need">Les pistes nécessitent le mixeur à télécharger (%1$d Mo).</string>
+
+    <string name="mix_edit_play">Lire</string>
+    <string name="mix_edit_stop">Arrêter</string>
+    <string name="mix_edit_loop">Boucle</string>
+
+    <string name="mix_edit_length_title">Durée</string>
+    <string name="mix_edit_length_note">À %1$s BPM. Chaque durée garde la fin de la transition.</string>
+    <string name="mix_edit_length_note_timed">Chaque durée garde la fin de la transition.</string>
+    <string name="mix_edit_length_at">mesure 1 à %1$s</string>
+    <string name="mix_edit_length_timed">Sans calage du tempo :</string>
+    <string name="mix_edit_length_no_32">Pas de 32 mesures : c\'est plus que ce qui peut être gardé de %1$s.</string>
+
+    <string name="mix_edit_limit_a_reach">Seules les dernières %1$s de %2$s peuvent servir.</string>
+    <string name="mix_edit_limit_a_ends">%1$s se termine à %2$s, avant son dernier mouvement.</string>
+    <string name="mix_edit_limit_b_first">%1$s démarre toujours à sa première seconde.</string>
+    <string name="mix_edit_limit_b_reach">Le début de %1$s n\'est lu que jusqu\'à %2$s.</string>
+    <string name="mix_edit_limit_a_needs">Il faudrait %1$s de la fin de %2$s ; seules les dernières %3$s peuvent servir.</string>
+
+    <string name="mix_fix_title">Corriger le tempo : %1$s</string>
+    <string name="mix_fix_sure">%1$s BPM · sûr</string>
+    <string name="mix_fix_changed">%1$s BPM · modifié par vous</string>
+    <string name="mix_fix_none">Aucun rythme régulier trouvé dans ce passage de %1$s : il se compte en secondes.</string>
+    <string name="mix_fix_half">Moitié</string>
+    <string name="mix_fix_double">Double</string>
+    <string name="mix_fix_tap">Taper</string>
+    <string name="mix_fix_tap_pad">Tapez le rythme, 8 fois ou plus</string>
+    <string name="mix_fix_taps">%1$d tapes sur 8</string>
+    <string name="mix_fix_tapped">%1$d tapes · %2$s BPM</string>
+    <string name="mix_fix_the_one">Le 1 :</string>
+    <string name="mix_fix_earlier">Un temps plus tôt</string>
+    <string name="mix_fix_later">Un temps plus tard</string>
+    <string name="mix_fix_nudge">Décaler :</string>
+    <string name="mix_fix_minus">-10 ms</string>
+    <string name="mix_fix_plus">+10 ms</string>
+    <string name="mix_fix_ms">%1$s ms</string>
+    <string name="mix_fix_click">Écouter avec un clic</string>
+    <string name="mix_fix_click_stop">Arrêter le clic</string>
+    <string name="mix_fix_reset">Réinitialiser</string>
+    <string name="mix_fix_kept">La correction est gardée pour ce morceau, Auto s\'en sert aussi.</string>
+
+    <string name="mix_moments_title">Moments</string>
+    <string name="mix_moments_note">Touchez-en un pour l\'écouter.</string>
+    <string name="mix_moments_plain">Une transition simple n\'a pas de moments.</string>
+    <string name="mix_pos_bar">mesure %1$s</string>
+    <string name="mix_pos_beat">mesure %1$s, temps %2$d</string>
+    <string name="mix_moments_times">%1$s %2$s · %3$s %4$s</string>
+
+    <string name="mix_how_fade">Fondu</string>
+    <string name="mix_how_muffle">Étouffer</string>
+    <string name="mix_how_muffled">En sourdine</string>
+    <string name="mix_how_thin">Amincir</string>
+    <string name="mix_how_echo">Écho</string>
+    <string name="mix_how_cut">Coupe</string>
+    <string name="mix_how_keep">Garder</string>
+    <string name="mix_how_start">Dès le début</string>
+    <string name="mix_how_customize">Personnaliser</string>
+    <string name="mix_how_shorter">Plus court</string>
+    <string name="mix_how_longer">Plus long</string>
+    <string name="mix_how_more">Plus</string>
+    <string name="mix_how_whole">toute la transition</string>
+    <string name="mix_how_on_beat">sur le temps</string>
+    <string name="mix_how_kept">gardé</string>
+    <string name="mix_how_from_start">dès le début</string>
+    <string name="mix_how_mixed">varié</string>
+    <string name="mix_lane_mute">Couper dans cette transition</string>
+    <string name="mix_lane_unmute">Réactiver</string>
+    <string name="mix_lane_alone">Écouter seul</string>
+    <string name="mix_lane_alone_stop">Arrêter l\'écoute seule</string>
+    <string name="mix_lane_keep">Garder tout le long</string>
+    <string name="mix_lane_adjust">Ajuster la courbe</string>
+    <string name="mix_lane_muted">%1$s · coupé</string>
+    <string name="mix_lane_soloed">%1$s · seul</string>
+    <string name="mix_adjust_title">Ajuster : %1$s</string>
+    <string name="mix_adjust_done">OK</string>
+    <string name="mix_adjust_two_points">Une courbe garde au moins deux points.</string>
+
+    <string name="mix_canvas_leaves">part dès %1$s</string>
+    <string name="mix_canvas_comes">arrive dès %1$s</string>
+    <string name="mix_canvas_how_from">%1$s dès %2$s</string>
+    <string name="mix_canvas_how_in_from">%1$s dès %2$s</string>
+    <string name="mix_canvas_cut_at">coupe à %1$s</string>
+    <string name="mix_canvas_from_start">dès son début</string>
+    <string name="mix_canvas_echo">écho</string>
+    <string name="mix_canvas_not_heard">non joué %1$s</string>
+    <string name="mix_canvas_intro_twice">intro double</string>
+    <string name="mix_canvas_plain">Transition simple : %1$s démarre quand %2$s se termine.</string>
+    <string name="mix_canvas_summary">%1$s vers %2$s, %3$s, %4$s.</string>
+    <string name="mix_canvas_by_beats">%1$s · par temps</string>
+
+    <string name="mix_a11y_exit">%1$s, %2$s part à %3$s, %4$s. Utilisez les actions pour le déplacer.</string>
+    <string name="mix_a11y_entry">%1$s, %2$s arrive à %3$s, %4$s. Utilisez les actions pour le déplacer.</string>
+    <string name="mix_a11y_anchor">%1$s à la mesure 1 : %2$s. Utilisez les actions pour le déplacer d\'une mesure.</string>
+    <string name="mix_a11y_bar_earlier">Une mesure plus tôt</string>
+    <string name="mix_a11y_bar_later">Une mesure plus tard</string>
+    <string name="mix_a11y_beat_earlier">Un temps plus tôt</string>
+    <string name="mix_a11y_beat_later">Un temps plus tard</string>
+
+    <string name="mix_edit_discard_title">Abandonner vos modifications ?</string>
+    <string name="mix_edit_keep_editing">Continuer</string>
+    <string name="mix_edit_discard">Abandonner</string>
+    <string name="mix_edit_saved">Transition enregistrée</string>
+    <string name="mix_edit_offline">Les deux morceaux doivent être lus une fois. Connectez-vous à Internet, ou téléchargez-les.</string>
+    <string name="mix_edit_unreadable">La fin de %1$s ne peut pas être lue à l\'avance sur cette connexion. Téléchargez-le pour modifier cette transition.</string>
+    <string name="mix_edit_unreadable_b">Le début de %1$s n\'a pas pu être lu. Réessayez, ou téléchargez-le.</string>
+    <string name="mix_edit_download">Télécharger</string>
+    <string name="mix_edit_try_again">Réessayer</string>
+    <string name="mix_edit_guard_skip_silence">Le saut des silences est activé : cette transition reste simple pour l\'instant.</string>
+    <string name="mix_edit_guard_formats">Les deux morceaux n\'ont pas le même format : cette transition reste simple pour l\'instant.</string>
+    <string name="mix_edit_guard_same_song">Un morceau vers lui-même reste une transition simple.</string>
+    <string name="mix_edit_preview_note">L\'aperçu joue le niveau de chaque morceau, pas encore chaque bande à part.</string>
+</resources>

@@ -10,6 +10,7 @@ import com.dd3boh.outertune.mix.MixPlan
 import com.dd3boh.outertune.mix.Style
 import com.dd3boh.outertune.mix.edit.Preset
 import com.dd3boh.outertune.mix.edit.TransitionSpec
+import com.dd3boh.outertune.mix.edit.aGoneAt
 import kotlin.math.abs
 import kotlin.math.max
 
@@ -38,21 +39,16 @@ object AutoSpec {
                 val bAt = bMsAtOutput(plan.overlapStart).let { at -> gridB?.let { it.beatMs(it.downbeatNear(at)) } ?: at }
                 written(base.copy(a = base.a.copy(atMs = max(0.0, aAt)), b = base.b.copy(atMs = max(0.0, bAt)), bars = bars, seconds = 0.0, beatMatch = true), Preset.FADE)
             }
-            Style.CUT -> {
-                // The cut is where A is gone; the Cut preset cuts in the middle of its change.
-                val aCut = aMsAtOutput(plan.aGone.toDouble())
-                val timed = if (facts.barsMode) base.copy(bars = 2, seconds = 0.0) else base.copy(bars = 0, seconds = TransitionSpec.LENGTHS_SECONDS.first())
-                val perA = timed.b.barMs
-                val half = timed.lengthBars / 2
-                val gridA = facts.a.gridFor(facts.a.fix)
-                val aAt = (aCut - half * perA).let { at -> if (facts.barsMode && gridA != null) gridA.beatMs(gridA.downbeatNear(at)) else at }
-                written(timed.copy(a = timed.a.copy(atMs = max(0.0, aAt)), beatMatch = false), Preset.CUT)
-            }
-            Style.SMOOTH, Style.BLEND -> {
+            // The cut is where A is gone; the Cut preset cuts in the middle of its change.
+            Style.CUT -> cut(base, facts, aMsAtOutput(plan.aGone.toDouble()))
+            // A blend a beat long is how the planner keeps two steady beats from sliding apart:
+            // the editor's shortest blend is 4 s, so it is a cut on that beat here.
+            Style.SMOOTH, Style.BLEND -> if (plan.seconds < MIN_BLEND_S) cut(base, facts, aMsAtOutput((plan.overlapStart + plan.overlapEnd) / 2)) else {
                 val preset = if (plan.style == Style.SMOOTH) Preset.RISE else Preset.BLEND
                 val seconds = TransitionSpec.LENGTHS_SECONDS.minBy { abs(it - plan.seconds) }
-                val aAt = aMsAtOutput(plan.overlapStart)
-                val bAt = max(0.0, bMsAtOutput(plan.overlapStart))
+                // Rounded to a length the editor offers, the blend keeps the planner's end.
+                val aAt = aMsAtOutput(plan.overlapEnd) - seconds * 1000
+                val bAt = max(0.0, bMsAtOutput(plan.overlapEnd) - seconds * 1000)
                 written(base.copy(a = base.a.copy(atMs = max(0.0, aAt)), b = base.b.copy(atMs = bAt), bars = 0, seconds = seconds, beatMatch = false), preset)
             }
         }
@@ -105,6 +101,16 @@ object AutoSpec {
         return grid.beatMs(k)
     }
 
+    /** A cut that leaves A at [aCutMs], B from its first downbeat (or first sound). */
+    private fun cut(base: TransitionSpec, facts: PairFacts, aCutMs: Double): TransitionSpec {
+        val timed = if (facts.barsMode) base.copy(bars = 2, seconds = 0.0) else base.copy(bars = 0, seconds = TransitionSpec.LENGTHS_SECONDS.first())
+        val perA = timed.b.barMs
+        val half = timed.lengthBars / 2
+        val gridA = facts.a.gridFor(facts.a.fix)
+        val aAt = (aCutMs - half * perA).let { at -> if (facts.barsMode && gridA != null) gridA.beatMs(gridA.downbeatNear(at)) else at }
+        return written(timed.copy(a = timed.a.copy(atMs = max(0.0, aAt)), beatMatch = false), Preset.CUT)
+    }
+
     private fun written(s: TransitionSpec, p: Preset): TransitionSpec =
         s.copy(moves = EditorPresets.moves(p, s.lengthBars, s.lanes, s.beat)!!, preset = p)
 
@@ -114,8 +120,13 @@ object AutoSpec {
         val around = if (s.bars == 0) MixEditor.SECONDS_AROUND_MS / s.b.barMs else 2.0
         val aFirst = s.a.atMs - around * perA
         val bLast = s.bMsAt(s.lengthBars + around)
-        return aFirst >= facts.aReachStartMs - 0.5 && bLast <= facts.bReachEndMs + 0.5 && s.a.atMs + s.lengthBars * perA <= facts.a.durationMs + 0.5
+        // A has to last until its last move, not to the change's end: a cut leaves it halfway.
+        val gone = if (s.plain) 0.0 else s.aGoneAt()
+        return aFirst >= facts.aReachStartMs - 0.5 && bLast <= facts.bReachEndMs + 0.5 && s.a.atMs + gone * perA <= facts.a.durationMs + 0.5
     }
+
+    /** The editor's shortest blend; anything shorter from the planner is a cut. */
+    private const val MIN_BLEND_S = 2.0
 
     /** A's end kept clear of the change: the last half second of a song is often its fade to nothing. */
     private const val END_MARGIN_MS = 500.0
