@@ -131,6 +131,18 @@ class UpdateSessionTest {
     }
 
     @Test
+    fun `silence is only counted while the app is in front`() {
+        // Play Protect can ask "Scan app" or "Don't install app" after the yes, in a window over the
+        // app, and the install waits on that answer: the dialog let go after two minutes while the
+        // question waited (emulator, 21 Oct 2026). Time behind another window is not Android going quiet.
+        assertTrue(body("fun recheck()").contains("quietMs = if (inFront)"))
+        val shown = body("fun onShown()")
+        assertTrue("onShown does not start the count again", "lastSign = SystemClock.elapsedRealtime()" in shown)
+        assertTrue("the count starts again before the session is looked at",
+            shown.indexOf("lastSign =") < shown.indexOf("recheck()"))
+    }
+
+    @Test
     fun `the fake update is for debug builds only`() {
         assertTrue(body("internal fun fakeUpdateBytes(").lines()[1].trim() == "if (!BuildConfig.DEBUG) return null")
         // Read nowhere else: everything that acts on the fake update asks fakeUpdateBytes.

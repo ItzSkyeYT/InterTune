@@ -139,6 +139,11 @@ class UpdateInstaller @Inject constructor(
      */
     fun onShown() {
         inFront = true
+        // Time away from the front is not Android going quiet. After the yes, Play Protect can ask
+        // "Scan app" or "Don't install app" in a window over the app, and the install waits on that
+        // answer: the dialog used to give up after two minutes while the question waited. The
+        // count starts again from here.
+        if (_state.value == State.Installing) lastSign = SystemClock.elapsedRealtime()
         recheck()
         showPendingConfirm()
     }
@@ -300,7 +305,8 @@ class UpdateInstaller @Inject constructor(
             exists = info != null,
             accepted = info != null && accepted(info),
             handedOver = windowIntent != null,
-            quietMs = SystemClock.elapsedRealtime() - lastSign,
+            // Only while the app is in front with nothing over it: see onShown.
+            quietMs = if (inFront) SystemClock.elapsedRealtime() - lastSign else 0L,
         )
         when (verdict) {
             SessionVerdict.WAITING -> Unit
