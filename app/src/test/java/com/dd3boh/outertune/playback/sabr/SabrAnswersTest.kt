@@ -68,6 +68,30 @@ class SabrAnswersTest {
         assertNull("the oldest goes once two newer are kept", answers.latest(SONG, "VISIONOS"))
     }
 
+    /**
+     * On a day YouTube refuses the direct addresses, every /player answer is OK and names a SABR
+     * address, whatever the client. Three downloads walk the chain at once, and the eight places
+     * went to their other clients' answers before any walk reached its last rung.
+     */
+    @Test
+    fun `three songs walked at once each still have their VISIONOS answers when their rung reads them`() {
+        val answers = PlayerAnswers()
+        val walk = listOf(
+            YouTubeClient.ANDROID_VR_NO_AUTH, YouTubeClient.VISIONOS, YouTubeClient.VISIONOS_1_04, YouTubeClient.VISIONOS_SAFARI,
+            YouTubeClient.WEB_REMIX, YouTubeClient.IOS, YouTubeClient.ANDROID,
+        )
+        val songs = listOf("WALKSONG001", "WALKSONG002", "WALKSONG003")
+        var at = 1_000L
+        for (client in walk) for (song in songs) answers.put(PlayerAnswers.Answer(song, client, ok, at = at++))
+        for (song in songs) {
+            assertEquals(
+                song,
+                setOf(YouTubeClient.VISIONOS, YouTubeClient.VISIONOS_1_04, YouTubeClient.VISIONOS_SAFARI),
+                answers.of(song, "VISIONOS").map { it.client }.toSet(),
+            )
+        }
+    }
+
     @Test
     fun `a start runs out when its answer's address does, counted from when the answer came`() {
         assertEquals(21_540L - 600, SabrOver.secondsLeft(answeredAt = 1_000_000, expiresInSeconds = 21_540, now = 1_000_000 + 600_000))

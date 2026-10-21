@@ -27,6 +27,8 @@ import com.dd3boh.outertune.constants.PlayerButtonsStyle
 import com.dd3boh.outertune.constants.PlayerButtonsStyleKey
 import com.dd3boh.outertune.constants.PlayerPinsKey
 import com.dd3boh.outertune.constants.QueueButtonKey
+import com.dd3boh.outertune.constants.QueueBackClosesPlayerKey
+import com.dd3boh.outertune.constants.QueueLeftOpenKey
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.rounded.Share
@@ -240,6 +242,7 @@ import com.dd3boh.outertune.extensions.toggleRepeatMode
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.ui.component.BottomSheet
 import com.dd3boh.outertune.ui.component.BottomSheetState
+import com.dd3boh.outertune.ui.component.LocalQueueSheet
 import com.dd3boh.outertune.ui.component.button.ResizableIconButton
 import com.dd3boh.outertune.ui.component.rememberBottomSheetState
 import com.dd3boh.outertune.ui.menu.PlayerMenu
@@ -275,22 +278,12 @@ fun BottomSheetPlayer(
     // Focus follows the sheet for the keys: opened from the mini player, it lands on play and
     // pause; closed again, it goes back to the mini player's title. Left alone it vanished with
     // whichever half had just been taken away, and the next key press had nowhere to start from.
+    // The effect that moves it is below the queue's sheet, which it has to ask about.
     val inputModeManager = LocalInputModeManager.current
     val focusManager = LocalFocusManager.current
     val sheetLayoutDirection = LocalLayoutDirection.current
     val playPauseFocus = remember { FocusRequester() }
     val miniPlayerFocus = remember { FocusRequester() }
-    var sheetWasOpen by remember { mutableStateOf(false) }
-    LaunchedEffect(state.isExpanded, state.isCollapsed) {
-        val keys = inputModeManager.inputMode == InputMode.Keyboard
-        if (state.isExpanded) {
-            sheetWasOpen = true
-            if (keys) runCatching { playPauseFocus.requestFocus() }
-        } else if (state.isCollapsed && sheetWasOpen) {
-            sheetWasOpen = false
-            if (keys) runCatching { miniPlayerFocus.requestFocus() }
-        }
-    }
 
     val playbackState by playerConnection.playbackState.collectAsState()
     val isPlaying by playerConnection.isPlaying.collectAsState()
@@ -395,6 +388,9 @@ fun BottomSheetPlayer(
     val pinsRaw by rememberPreference(PlayerPinsKey, "")
     val pins = remember(pinsRaw) { PlayerPins.read(pinsRaw) }
     val queueAsButton by rememberPreference(QueueButtonKey, defaultValue = false)
+    // Back from the queue closes the whole player, and the player opens where it was left (#30).
+    val queueBackClosesPlayer by rememberPreference(QueueBackClosesPlayerKey, defaultValue = false)
+    var queueLeftOpen by rememberPreference(QueueLeftOpenKey, defaultValue = false)
 
     // Read again on a new song as well as on a new state, since the loop below only reads while the
     // player is ready. A song changed while the one before was still loading kept that song's place
@@ -585,8 +581,37 @@ fun BottomSheetPlayer(
         dismissedBound = queueLayout.sheetDismissed,
         expandedBound = state.expandedBound,
         collapsedBound = queueLayout.sheetCollapsed,
-        initialAnchor = 1
+        // Down, unless it was left open with Back from the queue closing the player: see below.
+        initialAnchor = queueSheetStartAnchor(queueBackClosesPlayer, queueLeftOpen)
     )
+
+    // With Back from the queue closing the player, the player opens where it was left, on the
+    // queue or not, after a restart as well as before one: where the queue's sheet was last sent
+    // is stored here and seeds it at start. Nothing is stored with the switch off, and the sheet
+    // starts down then, as it always has.
+    LaunchedEffect(queueBackClosesPlayer, queueSheetState.anchor) {
+        queueLeftOpenToStore(queueBackClosesPlayer, queueSheetState.anchor)?.let { open ->
+            if (open != queueLeftOpen) queueLeftOpen = open
+        }
+    }
+
+    // Most of the way up over the player, which is then closed to the keys.
+    val queueCovers by remember(queueSheetState) { derivedStateOf { queueSheetState.progress >= 0.5f } }
+
+    // Focus following the sheet, see playPauseFocus. Not to play and pause when the player opens
+    // on the queue, which Back from the queue closing the player leaves open in it: they are
+    // closed to the keys under the queue, which asks for focus itself as the player opens.
+    var sheetWasOpen by remember { mutableStateOf(false) }
+    LaunchedEffect(state.isExpanded, state.isCollapsed) {
+        val keys = inputModeManager.inputMode == InputMode.Keyboard
+        if (state.isExpanded) {
+            sheetWasOpen = true
+            if (keys && !queueCovers) runCatching { playPauseFocus.requestFocus() }
+        } else if (state.isCollapsed && sheetWasOpen) {
+            sheetWasOpen = false
+            if (keys) runCatching { miniPlayerFocus.requestFocus() }
+        }
+    }
 
     // Nothing may move while the queue is on screen. The service does the re-planning on a
     // background thread and has no idea what is visible, so the screen tells it.
@@ -2040,24 +2065,28 @@ fun BottomSheetPlayer(
             }
 
         }
-        // Closed to the keys while the queue is open over it. Focus goes into the queue as it
-        // opens and back to play and pause as it closes, since what had it is gone each time and
-        // Compose would look for a new start in the closed part first.
-        val queueCovers by remember(queueSheetState) { derivedStateOf { queueSheetState.progress >= 0.5f } }
+        // Closed to the keys while the queue is open over it (queueCovers). Focus goes into the
+        // queue as it opens and back to play and pause as it closes, since what had it is gone each
+        // time and Compose would look for a new start in the closed part first.
+        //
+        // Into the queue only once the player is open as well. A queue left open in a closed player
+        // (Back from the queue closing the player) is composed, unseen, whenever the player is not
+        // at rest as the mini player: on its way there, or swiped away. It would take the keys'
+        // focus from the screen under it. It goes in as the player opens on it.
         val queueFocus = remember { FocusRequester() }
         var queueWasOpen by remember { mutableStateOf(false) }
-        LaunchedEffect(queueSheetState.isExpanded, queueSheetState.isCollapsed) {
+        LaunchedEffect(queueSheetState.isExpanded, queueSheetState.isCollapsed, state.isExpanded) {
             val keys = inputModeManager.inputMode == InputMode.Keyboard
             if (queueSheetState.isExpanded) {
                 queueWasOpen = true
-                if (keys) runCatching { queueFocus.requestFocus() }
+                if (keys && state.isExpanded) runCatching { queueFocus.requestFocus() }
             } else if (queueSheetState.isCollapsed && queueWasOpen) {
                 queueWasOpen = false
                 if (keys && state.isExpanded) runCatching { playPauseFocus.requestFocus() }
             }
         }
         Box(Modifier.fillMaxSize().blockFocusWhen(queueCovers)) {
-            lol()
+            CompositionLocalProvider(LocalQueueSheet provides queueSheetState) { lol() }
         }
 
         QueueSheet(
@@ -2074,6 +2103,7 @@ fun BottomSheetPlayer(
             compact = queueLayout.compactSheet,
             backdrop = if (liquidGlass && Unreleased.GLASS_QUEUE) playerBackdrop else null,
             glassIntensity = glassIntensity,
+            backClosesPlayer = queueBack(queueBackClosesPlayer, compact = queueLayout.compactSheet, tabletPane = tabletTwoPane) == QueueBack.CLOSE_PLAYER,
         )
 
         // Where the music is coming out, on a phone on its side, where there is no row for it

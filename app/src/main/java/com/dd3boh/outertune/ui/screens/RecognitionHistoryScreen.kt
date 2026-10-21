@@ -93,25 +93,28 @@ fun RecognitionHistoryScreen(
                     // real and common outcome: search for it, so the row is worth tapping either
                     // way rather than being a name with nothing behind it.
                     onOpen = {
-                        val id = entry.videoId
-                        if (id != null) {
-                            scope.launch {
-                                // Handed the song when the library holds it, so it loads at once
-                                // and the rest joins it. The entry itself cannot stand in: it
-                                // keeps what Shazam called the song, not its title on YouTube, its
-                                // artists or its cover, and the player would show it that way and
-                                // the library keep it that way. Unknown, it waits for the answer.
-                                val known = database.song(id).first()?.toMediaMetadata()
+                        scope.launch {
+                            // Handed the song when the library holds it, so it loads at once
+                            // and the rest joins it. The entry itself cannot stand in: it
+                            // keeps what Shazam called the song, not its title on YouTube, its
+                            // artists or its cover, and the player would show it that way and
+                            // the library keep it that way. Unknown, it waits for the answer.
+                            // The same row says whether an entry saved before its video was
+                            // checked is the song at all: see Heard.idToPlay.
+                            val known = entry.videoId
+                                ?.let { id -> database.song(id).first()?.toMediaMetadata() }
+                            val id = entry.idToPlay(known)
+                            if (id != null) {
                                 playerConnection?.playQueue(
                                     YouTubeQueue(WatchEndpoint(videoId = id), known),
                                     origin = PlayOrigin.RECOGNISED,
                                 )
-                            }
-                        } else {
-                            val query = listOf(entry.title, entry.artist)
-                                .filter { it.isNotBlank() }.joinToString(" ")
-                            if (query.isNotBlank()) {
-                                navController.navigate("search/${query.urlEncode()}")
+                            } else {
+                                val query = listOf(entry.title, entry.artist)
+                                    .filter { it.isNotBlank() }.joinToString(" ")
+                                if (query.isNotBlank()) {
+                                    navController.navigate("search/${query.urlEncode()}")
+                                }
                             }
                         }
                     },

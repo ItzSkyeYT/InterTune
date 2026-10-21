@@ -172,7 +172,7 @@ class DownloadUtil @Inject constructor(
 
         // Not for a stale copy: the cache serves by the song's id whatever address comes back, so
         // a remembered url would still read the old bytes.
-        songUrlCache[mediaId]?.takeIf { !staleCopy && it.second > System.currentTimeMillis() }?.let {
+        songUrlCache[mediaId]?.takeIf { !staleCopy && stillUsable(it.first, it.second) }?.let {
             return@Factory dataSpec.withUri(it.first.toUri())
         }
 
@@ -1198,6 +1198,16 @@ fun applyRescanResult(
     }
     touched.removeAll(used)
 }
+
+/**
+ * Whether an address remembered for a download, kept until [expiresAtMs], can still be read: a
+ * sabr: one only while its start is kept. One SABR fault, in the download's read or the player's
+ * of the same song, forgets every start of the song (SabrStarts.forget), and the remembered
+ * address then failed every retry at once, for as long as it was remembered. A new walk gives a
+ * new start.
+ */
+internal fun stillUsable(address: String, expiresAtMs: Long, nowMs: Long = System.currentTimeMillis(), starts: SabrStarts = SabrStarts): Boolean =
+    expiresAtMs > nowMs && (!address.startsWith(SabrStarts.SCHEME + "://") || starts.forAddress(address, nowMs) != null)
 
 /**
  * The address a download reads: a direct one asks for the whole file as one range, which YouTube

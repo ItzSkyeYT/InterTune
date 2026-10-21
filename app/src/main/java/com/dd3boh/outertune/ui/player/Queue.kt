@@ -243,11 +243,18 @@ fun QueueSheet(
      */
     backdrop: LayerBackdrop? = null,
     glassIntensity: Float = 1f,
+    /**
+     * Whether Back from the open queue closes the whole player and leaves the queue open in it, so
+     * that the player opens on the queue next time (queueBack). Off, Back puts the queue down. A
+     * selection or a search in it is left first either way, by its own handlers further in.
+     */
+    backClosesPlayer: Boolean = false,
 ) {
     Log.v("QueueSheet", "Q-1")
     val haptic = LocalHapticFeedback.current
     BottomSheet(
         state = state,
+        backMoves = if (backClosesPlayer) playerBottomSheetState else state,
         background = {
             Box(
                 modifier = Modifier

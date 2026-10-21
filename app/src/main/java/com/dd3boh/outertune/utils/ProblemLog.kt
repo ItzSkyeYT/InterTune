@@ -59,6 +59,13 @@ object ProblemLog {
     )
 
     /**
+     * Whose lines from information up say what was done with a song, and whose debug lines are a
+     * request's every field: SABR's. Without them a song over SABR left no trace in the run's file
+     * but its failures, and the phone's own log has rolled past the rest within the hour.
+     */
+    val TELLING_FROM_INFO = setOf("SabrOver", "SabrDataSource")
+
+    /**
      * Whose errors count as a fault: the app's own and the player's. Every phone has parts that
      * write errors of their own all day long, and the last of those is not what went wrong.
      */
@@ -79,13 +86,13 @@ object ProblemLog {
     private fun continues(message: String) =
         message.isEmpty() || message[0].isWhitespace() || message.startsWith("at ") || message.startsWith("Caused by") || message.startsWith("...")
 
-    /** Whether a line is worth showing: every warning and error but the chatter, and what [TELLING] says. */
+    /** Whether a line is worth showing: every warning and error but the chatter, what [TELLING] says, and [TELLING_FROM_INFO]'s information. */
     fun keep(line: Line): Boolean = when (line.level) {
         'W', 'E', 'F' -> CHATTER_WORDS.none { it in line.message } &&
             !(line.level == 'W' && line.tag in CHATTER) &&
             // printStackTrace writes a failed request's whole trace here, frame by frame.
             !(line.tag == "System.err" && continues(line.message))
-        else -> line.tag in TELLING
+        else -> line.tag in TELLING || (line.level == 'I' && line.tag in TELLING_FROM_INFO)
     }
 
     /** The first line of something that failed: an error of the app's or the player's, not the middle of a trace. */

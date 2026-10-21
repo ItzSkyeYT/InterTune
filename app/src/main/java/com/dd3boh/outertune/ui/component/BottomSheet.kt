@@ -18,6 +18,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.VectorConverter
+import androidx.compose.animation.core.snap
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.DraggableState
@@ -104,6 +105,16 @@ fun BottomSheet(
      * fades.
      */
     collapsedSpan: Pair<Dp, Dp>? = null,
+    /**
+     * The sheet a Back moves: this one, unless it is told otherwise. The queue's sheet is given the
+     * player's when Back from the queue closes the player (issue #30), and then a Back closes the
+     * whole player in one step and leaves the queue open in it.
+     *
+     * The handler stays this sheet's. The queue's is added as the player opens, so it still goes
+     * before any screen's under the player, and a selection or a search in the queue, added later
+     * again, goes before it. It stands aside while either sheet is down or on its way down.
+     */
+    backMoves: BottomSheetState = state,
     collapsedContent: @Composable BoxScope.() -> Unit,
     collapsedBackgroundColor: Color = Color.Transparent,
     content: @Composable BoxScope.() -> Unit,
@@ -174,7 +185,10 @@ fun BottomSheet(
                     },
                     onDragCancel = {
                         velocityTracker.resetTracking()
-                        state.snapTo(state.collapsedBound)
+                        // At once, as a snap, and recorded as collapsed where it lands. A bare
+                        // snap left its anchor where the drag began: a queue put down this way
+                        // was still kept as open, and came back open after a restart.
+                        state.collapse(snap())
                     },
                     onDragEnd = {
                         val velocity = -velocityTracker.calculateVelocity().y
@@ -199,28 +213,32 @@ fun BottomSheet(
 
         // A sheet already on its way down leaves further back presses to whatever is under it (see
         // isCollapsing): pressing back quickly closes the queue and then the player, instead of
-        // restarting the queue's fall from a standstill with every press.
+        // restarting the queue's fall from a standstill with every press. A Back that moves
+        // another sheet (backMoves) waits on that one as well.
+        val moves = backMoves
+        val backOn = state.takesBack && (moves === state || moves.takesBack)
         if (!backAnimations) {
             // What it did before: no preview, the sheet shuts when the finger leaves the glass.
-            if (!state.isCollapsed && !state.isDismissed && !state.isCollapsing) {
-                BackHandler(onBack = state::collapseSoft)
+            if (backOn) {
+                BackHandler(onBack = moves::collapseSoft)
             }
-        } else PredictiveBackHandler(enabled = !state.isCollapsed && !state.isDismissed && !state.isCollapsing) { progress ->
-            val from = state.value
+        } else PredictiveBackHandler(enabled = backOn) { progress ->
+            val from = moves.value
+            val to = backPreviewEnd(moves.collapsedBound, movesAnother = moves !== state)
             try {
                 progress.collect { event ->
                     // The system hands over a linear 0..1. Used raw it feels dead to start with,
                     // since the first millimetres of the swipe move a full height sheet by almost
                     // nothing. Decelerating gives the sheet an immediate answer to the finger.
                     val eased = 1f - (1f - event.progress).pow(2)
-                    state.seekTo(lerp(from, state.collapsedBound, eased))
+                    moves.seekTo(lerp(from, to, eased))
                 }
-                state.collapseSoft()
+                moves.collapseSoft()
             } catch (cancelled: CancellationException) {
                 // Not rethrown, following the platform's own sample: this is the gesture being
                 // abandoned rather than a failure, and expandSoft launches on the sheet's scope
                 // rather than this one, so the sheet still animates home after the cancellation.
-                state.expandSoft()
+                moves.expandSoft()
             }
         }
 
@@ -288,11 +306,31 @@ fun BottomSheet(
 }
 
 /**
+ * How far down a Back's preview takes the sheet it moves while the finger is still on the glass:
+ * to its collapsed height, or just short of it when the Back is another sheet's ([BottomSheet]'s
+ * backMoves). That is the queue's Back moving the player, and the queue and its handler are the
+ * player's content, which goes at the collapsed height: the gesture would go with them, be called
+ * off, and spring the player open again. Letting go closes it the rest of the way.
+ */
+internal fun backPreviewEnd(collapsedBound: Dp, movesAnother: Boolean): Dp =
+    if (movesAnother) collapsedBound + BackPreviewShortBy else collapsedBound
+
+/** See [backPreviewEnd]. Any height above the collapsed one keeps the content, and one dp does not show. */
+internal val BackPreviewShortBy = 1.dp
+
+/**
  * The player's sheet, for a screen under it that has a back of its own to give way with: while
  * the sheet is open, back is the sheet's (SettingsTwoPane's pages further in). Null where there
  * is no player sheet.
  */
 val LocalPlayerSheet = staticCompositionLocalOf<BottomSheetState?> { null }
+
+/**
+ * The queue's sheet, for what lies under it in the player and has a Back of its own (the lyrics'
+ * timing bar and picking): while the queue takes Back, Back is the queue's. Null where there is
+ * no queue sheet.
+ */
+val LocalQueueSheet = staticCompositionLocalOf<BottomSheetState?> { null }
 
 @Stable
 class BottomSheetState(
@@ -301,6 +339,7 @@ class BottomSheetState(
     private val animatable: Animatable<Dp, AnimationVector1D>,
     private val onAnchorChanged: (Int) -> Unit,
     val collapsedBound: Dp,
+    private val currentAnchor: () -> Int,
 ) : DraggableState by draggableState {
     val dismissedBound: Dp
         get() = animatable.lowerBound!!
@@ -330,6 +369,18 @@ class BottomSheetState(
     val isCollapsing by derivedStateOf {
         animatable.isRunning && animatable.targetValue == collapsedBound
     }
+
+    /** Open, and not on its way down: a sheet that takes a Back (see isCollapsing). */
+    val takesBack: Boolean
+        get() = !isCollapsed && !isDismissed && !isCollapsing
+
+    /**
+     * Where the sheet was last sent: [expandedAnchor], [collapsedAnchor] or [dismissedAnchor]. Set
+     * as it sets off, so a sheet on its way counts where it is going, and one held under the finger
+     * or in a Back's preview still counts where it was.
+     */
+    val anchor: Int
+        get() = currentAnchor()
 
     val progress by derivedStateOf {
         1f - (animatable.upperBound!! - animatable.value) / (animatable.upperBound!! - collapsedBound)
@@ -521,6 +572,7 @@ fun rememberBottomSheetState(
                 }
             },
             onAnchorChanged = { previousAnchor = it },
+            currentAnchor = { previousAnchor },
             coroutineScope = coroutineScope,
             animatable = animatable,
             collapsedBound = collapsedBound

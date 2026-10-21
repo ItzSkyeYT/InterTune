@@ -35,6 +35,8 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.EnableKugouKey
 import com.dd3boh.outertune.constants.EnableLrcLibKey
 import com.dd3boh.outertune.constants.LyricClickable
+import com.dd3boh.outertune.constants.LyricAutoScrollKey
+import androidx.compose.material.icons.rounded.SwapVert
 import com.dd3boh.outertune.constants.LyricFontSizeKey
 import com.dd3boh.outertune.constants.LyricKaraokeEnable
 import com.dd3boh.outertune.constants.LyricLatinKey
@@ -195,6 +197,7 @@ fun ColumnScope.LyricAdvancedFrag() {
     val (lyricUpdateSpeed, onLyricsUpdateSpeedChange) = rememberEnumPreference(LyricUpdateSpeed, Speed.MEDIUM)
     val (lyricsFancy, onLyricsFancyChange) = rememberPreference(LyricKaraokeEnable, false)
     val (syncedLyricsClickable, onSyncedLyricsClickable) = rememberPreference(LyricClickable, defaultValue = true)
+    val (lyricsAutoScroll, onLyricsAutoScrollChange) = rememberPreference(LyricAutoScrollKey, defaultValue = true)
 
     ElevatedCard(
         modifier = Modifier.fillMaxWidth()
@@ -205,6 +208,13 @@ fun ColumnScope.LyricAdvancedFrag() {
             icon = { Icon(Icons.Rounded.TouchApp, null) },
             checked = syncedLyricsClickable,
             onCheckedChange = onSyncedLyricsClickable
+        )
+        SwitchPreference(
+            title = { Text(stringResource(R.string.lyrics_auto_scroll)) },
+            description = stringResource(R.string.lyrics_auto_scroll_description),
+            icon = { Icon(Icons.Rounded.SwapVert, null) },
+            checked = lyricsAutoScroll,
+            onCheckedChange = onLyricsAutoScrollChange
         )
     }
     Spacer(modifier = Modifier.height(16.dp))

@@ -21,6 +21,10 @@ package com.dd3boh.outertune.playback
  * and it is then called gone again: the app was not being turned away in between, and the song
  * still was. The first time is kept in memory only, so a new process starts the count again.
  *
+ * Signed in, the account is asked before a song is called gone (YTPlayerUtils), and when it says
+ * so too, that is the second word, from another identity: the song is written the first time.
+ * A run of songs called gone that is not believed ([GoneRun], issue #28) takes those back.
+ *
  * The three functions are the database's. [load] returns the songs written and still in force,
  * or null when it did not answer, and then nothing is lifted on a guess.
  */
@@ -37,11 +41,24 @@ internal class GoneSongs(
     private var streams = 0L
     private val calledGoneAt = HashMap<String, Long>()
 
+    /** The songs written the first time on the account's word, in this process: see [doubted]. */
+    private val writtenAtOnce = HashSet<String>()
+
+    /** The songs whose being gone has been told, in this process: see [tellOnce]. */
+    private val told = HashSet<String>()
+
     private fun written(): MutableSet<String>? = written ?: load(now())?.toMutableSet()?.also { written = it }
 
-    /** YouTube called [id] gone and no copy of it played. */
+    /** YouTube called [id] gone and no copy of it played; [sure], the account said so too. */
     @Synchronized
-    fun gone(id: String) {
+    fun gone(id: String, sure: Boolean = false) {
+        if (sure) {
+            calledGoneAt.remove(id)
+            mark(id, now())
+            written()?.add(id)
+            writtenAtOnce += id
+            return
+        }
         val first = calledGoneAt[id]
         if (first == null || first == streams) {
             // The first time, or again with nothing had in between, which says nothing new.
@@ -54,11 +71,34 @@ internal class GoneSongs(
         written()?.add(id)
     }
 
+    /**
+     * A run of songs called gone one after the other is not believed ([GoneRun]): what was
+     * written at once of [ids] on the account's word is taken back, and nothing else. What the
+     * second time wrote had a stream had in between, and stands.
+     */
+    @Synchronized
+    fun doubted(ids: Collection<String>) {
+        val back = ids.filter { writtenAtOnce.remove(it) }
+        if (back.isEmpty()) return
+        written()?.removeAll(back.toSet())
+        lift(back)
+    }
+
+    /**
+     * Whether [id]'s being gone is still to be said, true the first time in this process and
+     * after it has played again. The player asks again at every tap, and a song set aside fails
+     * at once (StandIns): the same message at every tap said nothing new. Nothing is written.
+     */
+    @Synchronized
+    fun tellOnce(id: String): Boolean = told.add(id)
+
     /** A stream was had for [id], under its own id or a stand-in's. */
     @Synchronized
     fun plays(id: String) {
         streams++
         calledGoneAt.remove(id)
+        writtenAtOnce.remove(id)
+        told.remove(id)
         // Nearly always a song nothing was ever written of, and then nothing is done.
         if (written()?.remove(id) == true) lift(listOf(id))
     }

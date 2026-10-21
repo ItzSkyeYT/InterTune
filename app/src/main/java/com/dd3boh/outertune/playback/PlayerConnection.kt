@@ -76,8 +76,9 @@ class PlayerConnection(
     val currentSong = mediaMetadata.flatMapLatest {
         database.song(it?.id)
     }
-    val currentLyrics: Flow<SemanticLyrics> = LyricsLookup.bySong(mediaMetadata) { mediaMetadata ->
-        service.lyricsHelper.getLyrics(mediaMetadata) ?: uninitializedLyric
+    /** The playing song's lyrics, with the id of the song they are of: the last song's stay up while the next one's are looked up. */
+    val currentLyrics: Flow<Pair<String, SemanticLyrics>> = LyricsLookup.bySong(mediaMetadata) { mediaMetadata ->
+        mediaMetadata.id to (service.lyricsHelper.getLyrics(mediaMetadata) ?: uninitializedLyric)
     }
 
     private val currentMediaItemIndex = MutableStateFlow(-1)

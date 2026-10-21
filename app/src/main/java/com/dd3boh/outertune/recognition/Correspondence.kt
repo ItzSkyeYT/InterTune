@@ -21,16 +21,28 @@ import com.zionhuang.innertube.models.SongItem
  * not merely overlap, and the artist has to appear as well, because a cover carries the
  * right title and the wrong name.
  */
-internal fun corresponds(track: Recognised, candidate: SongItem): Boolean {
-    val title = normalise(track.title)
-    val candidateTitle = normalise(candidate.title)
+internal fun corresponds(track: Recognised, candidate: SongItem): Boolean =
+    corresponds(track.title, track.artist, candidate.title, candidate.artists.map { it.name })
+
+/**
+ * The same rule on names alone, for a song known only by its title and artists: the library's row
+ * of one, say, against what Shazam called it.
+ */
+internal fun corresponds(
+    trackTitle: String,
+    trackArtist: String?,
+    songTitle: String,
+    songArtists: List<String>,
+): Boolean {
+    val title = normalise(trackTitle)
+    val candidateTitle = normalise(songTitle)
     if (title.isEmpty() || candidateTitle.isEmpty()) return false
 
     // The artist is the discriminator, so it is required outright. A cover carries the right title
     // and the wrong name, and that is the case this exists to catch.
-    val artist = normalise(track.artist.orEmpty())
+    val artist = normalise(trackArtist.orEmpty())
     if (artist.isEmpty()) return false
-    val candidateArtists = normalise(candidate.artists.joinToString(" ") { it.name })
+    val candidateArtists = normalise(songArtists.joinToString(" "))
     // A candidate with no artists, or with an artist made only of symbols such as a star,
     // normalises to "", and String.contains("") is always true: any Shazam artist would pass.
     if (candidateArtists.isEmpty()) return false

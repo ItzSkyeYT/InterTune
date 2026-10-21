@@ -119,6 +119,21 @@ class UpdateSessionTest {
         assertTrue(stop.indexOf("accepted(info)") in 0 until stop.indexOf("abandon()"))
     }
 
+    /**
+     * The session in hand is known only to the process that made it. One Android ended with its
+     * window still waiting, or with the apk half copied, was never found again: the next tap made
+     * a second session with a second copy, and the first stayed with Android until it expired.
+     */
+    @Test
+    fun `a new session first drops the ones an earlier process left, unless Android is installing one`() {
+        val commit = body("private suspend fun commit(")
+        val sweep = commit.indexOf("installer.mySessions")
+        assertTrue(commit, sweep >= 0)
+        assertTrue("after the session in hand is let go", commit.indexOf("abandon()") in 0 until sweep)
+        assertTrue("before the new one is made", sweep < commit.indexOf("installer.createSession("))
+        assertTrue(commit, commit.contains("progress < ACCEPTED_PROGRESS"))
+    }
+
     @Test
     fun `the watch on a session ends with the session`() {
         assertTrue("unwatch()" in body("private fun abandon()"))

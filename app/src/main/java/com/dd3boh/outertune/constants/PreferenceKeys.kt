@@ -196,6 +196,8 @@ val LyricsTimingKey = stringPreferencesKey("lyricsTiming")
 val LyricSourcePrefKey = booleanPreferencesKey("preferLocalLyrics")
 val LyricFontSizeKey = intPreferencesKey("lyricFontSize")
 val LyricClickable = booleanPreferencesKey("lyricClickable")
+/** Synced lyrics scroll to the line being sung; off, they are placed on it once and then left where the listener leaves them. */
+val LyricAutoScrollKey = booleanPreferencesKey("lyricAutoScroll")
 val LyricKaraokeEnable = booleanPreferencesKey("lyricKaraokeEnable")
 val LyricUpdateSpeed = stringPreferencesKey("lyricUpdateSpeed")
 
@@ -407,6 +409,20 @@ val PlayerPinsKey = stringPreferencesKey("playerPins")
  * worked, so nobody loses the gesture they know.
  */
 val QueueButtonKey = booleanPreferencesKey("queueButton")
+
+/**
+ * Whether Back from the queue closes the whole player in one step, as two swipes down would, and
+ * leaves the queue open in it, so that the player opens on the queue next time (issue #30). Off by
+ * default: Back from the queue goes to the song first, as it always has, and a swipe down on the
+ * queue or a tap on its bar still does with it on.
+ */
+val QueueBackClosesPlayerKey = booleanPreferencesKey("queueBackClosesPlayer")
+
+/**
+ * Whether the queue was left open in the player, so that the player opens on it again after a
+ * restart. Written and read only while [QueueBackClosesPlayerKey] is on (queueLeftOpenToStore).
+ */
+val QueueLeftOpenKey = booleanPreferencesKey("queueLeftOpen")
 
 /**
  * The two buttons the phone's media controls show beside previous, play and next, in order, as

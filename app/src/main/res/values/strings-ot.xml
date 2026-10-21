@@ -2175,13 +2175,6 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="support_text">InterTune is free and has no ads. If you would like to donate, send the developer a direct message on the InterTune Discord server.</string>
     <string name="support_thanks">Thanks to those who already gave:</string>
     <string name="support_discord">Open Discord</string>
-    <!-- Lyrics timing (0.13): held from translators until he says yes to the words. -->
-    <string name="lyrics_timing" translatable="false">Lyrics timing</string>
-    <string name="lyrics_timing_original" translatable="false">Original timing</string>
-    <string name="lyrics_timing_earlier" translatable="false">%1$s s earlier</string>
-    <string name="lyrics_timing_later" translatable="false">%1$s s later</string>
-    <string name="lyrics_timing_step_earlier" translatable="false">A tenth of a second earlier</string>
-    <string name="lyrics_timing_step_later" translatable="false">A tenth of a second later</string>
     <!-- Pinned buttons on the player (0.13, issue #27): held from translators until he says yes to the words. -->
     <string name="player_pins" translatable="false">Pinned buttons</string>
     <string name="player_pins_description" translatable="false">What stays on the player. Everything else is in its menu.</string>
@@ -2213,6 +2206,17 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="update_wait_installing">Android is installing it, which can take a minute. InterTune then closes by itself and the music stops. Open it again to use the new version.</string>
     <string name="update_wait_show_window">Show Android\'s window again</string>
     <string name="update_wait_stop">Stop</string>
+    <string name="queue_back_closes_player">Back from the queue closes the player</string>
+    <string name="queue_back_closes_player_description">Back from the queue takes you straight to the screen under the player. The player then opens on the queue if that is where you left it.</string>
+    <string name="lyrics_auto_scroll">Follow the song</string>
+    <string name="lyrics_auto_scroll_description">The lyrics scroll to the line being sung. Off, they stay where you leave them.</string>
+    <!-- Lyrics timing, in the menu of synced lyrics, and its bar (LyricsTimingBar). %1$s is a number of seconds such as 0.4. -->
+    <string name="lyrics_timing">Lyrics timing</string>
+    <string name="lyrics_timing_original">Original timing</string>
+    <string name="lyrics_timing_earlier">%1$s s earlier</string>
+    <string name="lyrics_timing_later">%1$s s later</string>
+    <string name="lyrics_timing_step_earlier">A tenth of a second earlier</string>
+    <string name="lyrics_timing_step_later">A tenth of a second later</string>
     <!-- SABR, a test tool in debug builds: not for translators -->
     <string name="sabr_only" translatable="false">Stream over SABR only</string>
     <string name="every_direct_refused" translatable="false">Take every direct address for refused</string>
