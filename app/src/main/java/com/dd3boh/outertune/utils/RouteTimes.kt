@@ -65,6 +65,13 @@ object RouteTimes {
     const val NEWPIPE_READ_MS = 6_000L
     const val IDLE_MS = 5_000L
 
+    /**
+     * NewPipe's own client: one whole fetch. Its player script is about 0.7 MB, which 15 s cut
+     * below about 400 kbit/s, every time; this lets it through down to about 30 kbit/s. A fetch
+     * that stops is ended by [NEWPIPE_READ_MS] long before.
+     */
+    const val NEWPIPE_CALL_MS = 180_000L
+
     /** A web client's po tokens: how long the walk waits; the WebView keeps its own 20 s for the next song. */
     const val PO_TOKEN_WAIT_MS = 8_000L
 

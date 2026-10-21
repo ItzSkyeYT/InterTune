@@ -87,4 +87,18 @@ class RouteTimesTest {
         val throttle = File("src/main/java/com/dd3boh/outertune/utils/Throttle.kt").readText()
         assertTrue(throttle.substringAfter("fun noteFailure(t: Throwable) {").substringBefore("}").contains("t is StepTimedOut"))
     }
+
+    @Test
+    fun `NewPipe's limit on a whole fetch lets YouTube's player script through on a slow link`() {
+        val newPipe = File("../innertube/src/main/java/com/zionhuang/innertube/NewPipe.kt").readText()
+        val call = Regex("""\.callTimeout\((\d+),\s*java\.util\.concurrent\.TimeUnit\.(\w+)\)""").find(newPipe)
+        // None at all would do as well: the 6 s limit on a silent read ends a dead fetch.
+        val limitMs = call?.let { java.util.concurrent.TimeUnit.valueOf(it.groupValues[2]).toMillis(it.groupValues[1].toLong()) } ?: Long.MAX_VALUE
+        // The script is about 0.7 MB. At 64 kbit/s, a plan slowed after its quota or EDGE, it
+        // comes in about 90 s. 15 s cut it below about 400 kbit/s, every time, and a fetch that
+        // is cut keeps nothing: no streamed song of a new process played.
+        val scriptMs = 700_000L * 8 * 1000 / 64_000
+        assertTrue("a ${limitMs / 1000} s limit cuts a fetch of ${scriptMs / 1000} s", limitMs >= scriptMs)
+        assertEquals("RouteTimes holds NewPipe's number", RouteTimes.NEWPIPE_CALL_MS, limitMs)
+    }
 }
