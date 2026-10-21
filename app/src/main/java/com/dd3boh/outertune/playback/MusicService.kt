@@ -1512,15 +1512,17 @@ class MusicService : MediaLibraryService(),
                 dataStore.data.map { it[EveryDirectRefusedKey] ?: false }
                     .distinctUntilChanged()
                     .collectLatest(scope) { YTPlayerUtils.everyDirectRefused = it }
-                // SABR's pacing: where the player is, four times a second while a song plays, once
-                // a second otherwise (debug builds only, as the switch). See SabrClock.
-                // Paused or buffering too: after a seek the player sits at the new place waiting for
-                // bytes, and a clock left at the old place had the stream wait for the player.
-                scope.launch {
-                    while (isActive) {
-                        SabrClock.update(activePlayer.currentMediaItem?.mediaId, activePlayer.currentPosition)
-                        delay(if (activePlayer.isPlaying || activePlayer.playbackState == Player.STATE_BUFFERING) 250 else 1000)
-                    }
+            }
+            // SABR's pacing, in every build: where the player is, four times a second while a song
+            // plays or buffers, once a second otherwise, and only while a SABR read paced by the
+            // player is open. Paused or buffering too: after a seek the player sits at the new place
+            // waiting for bytes, and a clock left at the old place had the stream wait for the
+            // player. Asleep on an ordinary day, when no song is read over SABR. See SabrClock.
+            SabrClock.reading.collectLatest(scope) { reading ->
+                if (!reading) return@collectLatest
+                while (true) {
+                    SabrClock.update(activePlayer.currentMediaItem?.mediaId, activePlayer.currentPosition)
+                    delay(if (activePlayer.isPlaying || activePlayer.playbackState == Player.STATE_BUFFERING) 250 else 1000)
                 }
             }
             // And the switches that take VISIONOS for refused. They are a test tool, so they are

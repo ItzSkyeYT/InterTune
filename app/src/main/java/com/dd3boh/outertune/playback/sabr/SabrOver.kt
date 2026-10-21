@@ -165,6 +165,7 @@ object SabrOver {
             SabrStarts.Start(
                 videoId, format.itag, format.lastModified?.toLongOrNull() ?: 0, file,
                 expiresAtMs = System.currentTimeMillis() + data.streamExpiresInSeconds * 1000L,
+                pacedByPlayer = !forDownload,
             )
         )
         // The client's own name between the brackets, as the walk's lines have it.
