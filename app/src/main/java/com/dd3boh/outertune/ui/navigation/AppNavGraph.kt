@@ -204,10 +204,16 @@ fun NavGraphBuilder.appDestinations(
             OnlineSearchResult(navController)
         }
         screen(
-            route = "album/{albumId}",
+            // song: the one a link opened the album on, brought into view and lit (youtubeNavigator).
+            route = "album/{albumId}?song={song}",
             arguments = listOf(
                 navArgument("albumId") {
                     type = NavType.StringType
+                },
+                navArgument("song") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
                 },
             )
         ) {

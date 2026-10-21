@@ -26,7 +26,8 @@ class SystemSearchTest {
 
     @Test
     fun `every link a result carries is one the app opens`() {
-        assertEquals(YouTubeLink.Video("dQw4w9WgXcQ", null), YouTubeLink.parse(SystemSearch.songLink("dQw4w9WgXcQ")))
+        // A tap on a song in the phone's search plays it, where a song link from elsewhere only shows it.
+        assertEquals(YouTubeLink.Video("dQw4w9WgXcQ", null, playNow = true), YouTubeLink.parse(SystemSearch.songLink("dQw4w9WgXcQ")))
         assertEquals(YouTubeLink.Channel("UCabc_-1"), YouTubeLink.parse(SystemSearch.artistLink("UCabc_-1")))
         assertEquals(YouTubeLink.Album("MPREb_abc123"), YouTubeLink.parse(SystemSearch.albumLink("MPREb_abc123")))
         assertEquals("LPabcd1234", SystemSearch.playlistOf(SystemSearch.playlistLink("LPabcd1234")))

@@ -13,7 +13,12 @@ import java.net.URLDecoder
 sealed interface YouTubeLink {
     data class Playlist(val id: String) : YouTubeLink
     data class Channel(val id: String) : YouTubeLink
-    data class Video(val id: String, val playlistId: String?) : YouTubeLink
+    /**
+     * A song. A link from outside (the share page, a friend's message, the search box) opens it for
+     * the listener to choose what to do with it ([playNow] false); only the app's own play link,
+     * which the phone's search hands over for a tapped result, plays it at once.
+     */
+    data class Video(val id: String, val playlistId: String?, val playNow: Boolean = false) : YouTubeLink
     /** An album's page, by the id YouTube Music browses it under ("MPREb_..."). */
     data class Album(val id: String) : YouTubeLink
 
@@ -63,6 +68,7 @@ sealed interface YouTubeLink {
                 "playlist" -> list?.let(::Playlist)
                 "channel", "c" -> segments.getOrNull(1)?.takeIf { it.matches(ID) }?.let(::Channel)
                 "watch" -> query["v"]?.takeIf { it.matches(ID) }?.let { Video(it, list) }
+                "play" -> if (scheme != OWN_SCHEME) null else query["v"]?.takeIf { it.matches(ID) }?.let { Video(it, list, playNow = true) }
                 // Only an album's: the other pages YouTube Music browses have links of their own above.
                 "browse" -> segments.getOrNull(1)?.takeIf { it.matches(ID) && it.startsWith("MPRE") }?.let(::Album)
                 else -> null
