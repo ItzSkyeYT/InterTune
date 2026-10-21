@@ -181,8 +181,12 @@ class Headroom(val start: Long, val step: Int, val values: FloatArray) {
         val position = (frame - start).toDouble() / step
         val i = position.toInt()
         if (i >= values.size - 1) return if (i >= values.size) 1.0 else values[i].toDouble()
+        val a = values[i]
+        val b = values[i + 1]
+        // Exactly 1 where it does not dip, so a song meets its own samples there to the bit.
+        if (a == 1f && b == 1f) return 1.0
         val f = position - i
-        return values[i] * (1.0 - f) + values[i + 1] * f
+        return a * (1.0 - f) + b * f
     }
 
     /** The output frame after which it is 1 again. */

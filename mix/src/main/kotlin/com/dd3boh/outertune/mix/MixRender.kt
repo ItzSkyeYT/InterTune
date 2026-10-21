@@ -27,6 +27,50 @@ class RenderedOutgoing(val firstFrame: Long, val frames: Int, val channels: Int,
     }
 }
 
+/**
+ * The incoming song's part of a change, rendered from its copy: output frames [firstFrame] until
+ * [endFrame], at the level [attenuation]. [copy] is the copy it was rendered from, which the stage
+ * holds the song as it really plays against: they are the same decode, so they should agree to
+ * the sample. [beatFrames] is one of its beats, what the outgoing song fades over if they do not.
+ */
+class RenderedIncoming(
+    val firstFrame: Long,
+    val frames: Int,
+    val channels: Int,
+    val samples: ShortArray,
+    val copy: ShortArray,
+    val attenuation: Double,
+    val beatFrames: Long,
+) {
+    val endFrame: Long get() = firstFrame + frames
+    val copyFrames: Int get() = copy.size / channels
+
+    fun at(frame: Long, channel: Int): Short {
+        val i = frame - firstFrame
+        return if (i < 0 || i >= frames) 0 else samples[(i * channels + channel).toInt()]
+    }
+}
+
+/**
+ * Two songs' samples added as the stage adds them. Where only one of them sounds it is given out
+ * as it is, so a song on its own is never bent; where both do, whatever the headroom left above
+ * its ceiling is bent smoothly under full scale, as the prototype's mixer does.
+ */
+object ChangeSum {
+    fun add(a: Double, b: Double): Short = when {
+        a == 0.0 -> toPcm16(b)
+        b == 0.0 -> toPcm16(a)
+        else -> toPcm16(Mixer.limit(a + b))
+    }
+
+    /** Whether the two together would have gone past full scale but for the bend: expected never. */
+    fun wouldClip(a: Double, b: Double): Boolean {
+        if (a == 0.0 || b == 0.0) return false
+        val r = Math.floor(a + b + 0.5)
+        return r > 32767.0 || r < -32768.0
+    }
+}
+
 /** The renderers. The same code renders the trials on the PC and plays on the phone. */
 object MixRender {
 

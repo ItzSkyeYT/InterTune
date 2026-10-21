@@ -86,13 +86,13 @@ enum class How(val key: String, val forExit: Boolean, val forEntry: Boolean) {
     /** Equal power: cosine out, sine in. */
     FADE("fade", forExit = true, forEntry = true),
 
-    /** Out: a low-pass closing from 20 kHz to 600 Hz over the move, then gone. */
+    /** Out: a low-pass closing from 20 kHz to 600 Hz over the move, the lane fading away over its second half. */
     MUFFLE("muffle", forExit = true, forEntry = false),
 
-    /** In: a low-pass opening from 300 Hz to 20 kHz over the move. */
+    /** In: a low-pass opening from 300 Hz to 20 kHz over the move, the lane coming up over its first quarter. */
     MUFFLED("muffled", forExit = false, forEntry = true),
 
-    /** Out: a high-pass rising from 20 to 600 Hz. In: held high-passed at 300 Hz, opening over the move's last beat. */
+    /** Out: a high-pass rising from 20 to 600 Hz, the lane fading away over its second half. In: held high-passed at 300 Hz, opening over the move's last beat. */
     THIN("thin", forExit = true, forEntry = true),
 
     /** Out: the lane goes into an echo for the move, its dry sound stops at the end and the echo rings out. */
