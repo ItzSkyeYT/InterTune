@@ -1890,4 +1890,6 @@
         <item quantity="many">Nouvelle file d\'attente «\u00A0%2$s\u00A0», %1$d titres, en lecture</item>
         <item quantity="other">Nouvelle file d\'attente «\u00A0%2$s\u00A0», %1$d titres, en lecture</item>
     </plurals>
+    <string name="lyrics_auto_scroll">Suivre la chanson</string>
+    <string name="lyrics_auto_scroll_description">Les paroles défilent jusqu\'à la ligne chantée. Désactivé, elles restent là où vous les laissez.</string>
 </resources>

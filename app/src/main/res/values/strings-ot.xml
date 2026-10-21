@@ -2056,4 +2056,6 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="one">New queue \"%2$s\", %1$d song, now playing</item>
         <item quantity="other">New queue \"%2$s\", %1$d songs, now playing</item>
     </plurals>
+    <string name="lyrics_auto_scroll">Follow the song</string>
+    <string name="lyrics_auto_scroll_description">The lyrics scroll to the line being sung. Off, they stay where you leave them.</string>
 </resources>
