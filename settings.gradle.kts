@@ -12,6 +12,7 @@ dependencyResolutionManagement {
 rootProject.name = "OuterTune"
 include(":app")
 include(":innertube")
+include(":sabr")
 include(":kugou")
 include(":lrclib")
 include(":lastfm")

@@ -29,6 +29,7 @@ import com.dd3boh.outertune.utils.potoken.PoTokenResult
 import com.dd3boh.outertune.App
 import com.zionhuang.innertube.AddressPolicy
 import com.zionhuang.innertube.NewPipeUtils
+import com.zionhuang.innertube.PlayerAnswers
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.YouTubeClient
 import com.zionhuang.innertube.models.YouTubeClient.Companion.ANDROID
@@ -312,6 +313,17 @@ object YTPlayerUtils {
 
         /** A /player request was cut by our deadline: the idle connections beside it are let go. See [poolCut]. */
         fun connectionsCut() {}
+
+        /** The player answers kept for a start over SABR, as YouTube.player keeps them: see PlayerAnswers. */
+        fun answers(): PlayerAnswers = YouTube.playerAnswers
+
+        /**
+         * [data], the stream the walk chose, started over SABR from [answer] instead of a direct
+         * address, paced by where the player is in [clockId] or for a download: see SabrOver. Null
+         * when it cannot be had that way.
+         */
+        fun overSabr(answer: PlayerAnswers.Answer, data: PlaybackData, clockId: String, forDownload: Boolean): PlaybackData? =
+            com.dd3boh.outertune.playback.sabr.SabrOver.over(answer, data, clockId, forDownload)
     }
 
     private object Live : Wire {
@@ -564,6 +576,17 @@ object YTPlayerUtils {
     /** The developer options' switch for [TRIAL_CLIENT], set from the preference by MusicService. */
     @Volatile
     var askWebClientFirst: Boolean = false
+
+    /** The developer's "Stream over SABR only": see Unreleased.SABR. Set by MusicService in a debug build. */
+    @Volatile
+    var sabrOnly: Boolean = false
+
+    /**
+     * The developer's "Take every direct address for refused": the day direct addresses stop,
+     * played out on purpose, so that SABR's rung can be seen taking over. Debug builds only.
+     */
+    @Volatile
+    var everyDirectRefused: Boolean = false
 
     /**
      * How long the player script and the solving may take for one song, together, before the
@@ -1019,7 +1042,9 @@ object YTPlayerUtils {
         audioQuality: AudioQuality,
         connectivityManager: ConnectivityManager,
         preferredMime: String? = null,
-    ): Result<PlaybackData> = playerResponseForPlayback(videoId, playlistId, audioQuality, connectivityManager, Live, preferredMime)
+        /** A download's walk: SABR, if it is reached, is paced for a download (SabrOver.downloadClock). */
+        forDownload: Boolean = false,
+    ): Result<PlaybackData> = playerResponseForPlayback(videoId, playlistId, audioQuality, connectivityManager, Live, preferredMime, forDownload)
 
     /** The same over a [Wire] of the caller's own. */
     internal suspend fun playerResponseForPlayback(
@@ -1029,7 +1054,10 @@ object YTPlayerUtils {
         connectivityManager: ConnectivityManager,
         wire: Wire,
         preferredMime: String? = null,
+        forDownload: Boolean = false,
     ): Result<PlaybackData> {
+        // The answers this walk gets come after this, and only those are started over SABR from.
+        val walkBegan = System.currentTimeMillis()
         val trails = mutableListOf<String>()
         val asked = kotlinx.coroutines.currentCoroutineContext()[RouteWish]
         val wish = asked?.takeIf { it.videoId == videoId }
@@ -1060,7 +1088,71 @@ object YTPlayerUtils {
         val tookMs = (System.nanoTime() - started) / 1_000_000
         if (result.isSuccess) Log.i(TAG, StepLog.resolved(videoId, tookMs, steps))
         else Log.w(TAG, StepLog.unresolved(videoId, tookMs, steps))
+        // SABR, the last rung (Unreleased.SABR_RUNG, and the maintainer's switch RemoteRoutes.sabr):
+        // YouTube turned every direct address down, and a VISIONOS answer this walk got can still be
+        // streamed over SABR, so the song plays from that instead of failing. Only on YouTube's
+        // word: see sabrMayTakeOver. After the walk's own line, which says how the direct addresses
+        // fared; the rung says its own.
+        val failure = result.exceptionOrNull()
+        if (result.isFailure && Unreleased.SABR_RUNG && RemoteRoutes.sabr && sabrMayTakeOver(failure)) {
+            sabrRung(videoId, songId, walkBegan, audioQuality, connectivityManager, preferredMime, wish?.sameStream, forDownload, wire)
+                ?.let { return Result.success(it) }
+        } else if (result.isFailure && Unreleased.SABR_RUNG && !isUnavailableSong(failure)) {
+            Log.i(
+                TAG,
+                if (!RemoteRoutes.sabr) "[$videoId] not tried over SABR: the maintainer's block has it off"
+                else "[$videoId] no answer to go on: not tried over SABR, the player asks again",
+            )
+        }
         return result
+    }
+
+    /**
+     * Whether a walk that failed with [failure] may be taken over by SABR: YouTube answered and
+     * turned the direct addresses down (refused them, gave the bot check, gave none). Never for
+     * want of an answer, no network, a timeout, YouTube's own server failing: SABR asks the same
+     * network, and mid-song such a failure goes back to the player, which tries the walk again
+     * while the buffer plays (Recovery.resolveFailed). Taken over by SABR, a Wi-Fi blip ended in a
+     * start from an old answer instead. Never for a song YouTube calls gone.
+     */
+    internal fun sabrMayTakeOver(failure: Throwable?): Boolean =
+        failure != null && !isUnavailableSong(failure) && !StreamOrder.networkDidNotAnswer(failure)
+
+    /**
+     * The song over SABR from a VISIONOS answer this walk got (kept since [since]), its format
+     * chosen as the walk chooses one ([findFormat]): mid-song the stream the player has bytes of
+     * when it is offered ([sameStream]), or the resolver would drop the cached part and start the
+     * song over in another encoding. The newest answer that was OK, asked for as the identity that
+     * got it (VISIONOS and its other identities each keep their own). Paced by the song the player
+     * asked for ([songId]), which a stand-in's walk is not: by the stand-in's id the clock read 0
+     * for the whole song. Null when there is no such answer or it cannot be streamed that way
+     * (SabrOver says why in the log).
+     */
+    private fun sabrRung(
+        videoId: String,
+        songId: String,
+        since: Long,
+        audioQuality: AudioQuality,
+        connectivityManager: ConnectivityManager,
+        preferredMime: String?,
+        sameStream: Pair<Int, Long>?,
+        forDownload: Boolean,
+        wire: Wire,
+    ): PlaybackData? {
+        for (answer in wire.answers().of(videoId, VISIONOS.clientName, since)) {
+            val ours = runCatching { YouTube.decodePlayerAnswer(answer.text) }.getOrNull() ?: continue
+            if (ours.playabilityStatus.status != "OK") continue
+            val format = findFormat(ours, audioQuality, connectivityManager, preferredMime, sameStream) ?: continue
+            val expires = ours.streamingData?.expiresInSeconds ?: continue
+            val asked = PlaybackData(ours.playerConfig?.audioConfig, ours.videoDetails, ours.playbackTracking, format, streamUrl = "", streamExpiresInSeconds = expires)
+            val started = wire.overSabr(answer, asked, songId, forDownload) ?: continue
+            // The client's own name between the brackets, as the walk's lines have it.
+            val label = labelOf(answer.client, isLoggedIn = false)
+            Log.i(TAG, "[$videoId] [$label] every direct address refused: playing over SABR")
+            lastStreamTrail = listOfNotNull(lastStreamTrail, "$label SABR OK").joinToString(", ")
+            return started
+        }
+        return null
     }
 
     /**
@@ -1808,7 +1900,8 @@ object YTPlayerUtils {
                     ?: StreamCipher.withPot(address, if (client.useWebPoTokens) poTokens()?.streamingDataPoToken else null)
                 // The developer's switch: see visionosTakenForRefused. Said in the trail, so a
                 // report made with it on cannot be read as YouTube's doing.
-                val pretended = (isVisionos && visionosTakenForRefused) || (client === VISIONOS && ownVisionosTakenForRefused)
+                val pretended = (isVisionos && visionosTakenForRefused) || (client === VISIONOS && ownVisionosTakenForRefused) ||
+                    (Unreleased.SABR && everyDirectRefused)
                 if (pretended) Log.w(TAG, "[$videoId] [${client.clientName}] its address is taken for refused: the developer's switch is on")
                 val checkedAt = System.nanoTime()
                 // The check runs apart from the walk, which waits for it a few seconds and no
@@ -1817,6 +1910,8 @@ object YTPlayerUtils {
                 // it if the answer, when it comes, is a refusal. See watchLate.
                 var stillChecking: Deferred<Int?>? = null
                 val status = when {
+                    // Before the web client's own check: this one takes every address for refused.
+                    Unreleased.SABR && everyDirectRefused -> 403
                     trialCheck != null -> trialCheck.status
                     pretended -> 403
                     else -> {

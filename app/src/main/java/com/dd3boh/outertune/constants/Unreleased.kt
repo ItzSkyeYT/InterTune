@@ -276,6 +276,26 @@ object Unreleased {
     val WEB_CLIENT_FIRST = BuildConfig.DEBUG
 
     /**
+     * SABR's two developer switches, test tools read in a debug or preview build only: "Stream
+     * over SABR only", which plays each song over SABR from the VISIONOS answer the walk already
+     * has (playback/sabr/SabrOver), and "Take every direct address for refused", which has the
+     * walk end on SABR's rung ([SABR_RUNG]). SABR itself is the way YouTube's own apps stream,
+     * built from InnerTubeX (the sabr module, see experiments/features/sabr/PLAN.md).
+     */
+    val SABR = BuildConfig.DEBUG
+
+    /**
+     * SABR as the last rung of the walk: when YouTube turned every direct address down, the song
+     * plays over SABR from a VISIONOS answer of that walk instead of failing
+     * (YTPlayerUtils.sabrRung). Reached only where a song would otherwise fail, so an ordinary day
+     * never touches it, and the maintainer can turn it off without an update (RemoteRoutes.sabr).
+     * The clock that paces it runs whenever a SABR read is open, whatever this says (SabrClock).
+     *
+     * On in every build from 0.12.5.
+     */
+    val SABR_RUNG = true
+
+    /**
      * YouTube Music's web client as one of the stream chain's own, written after VISIONOS
      * (YTPlayerUtils.WEB_FALLBACK_CLIENT): the day VISIONOS gives no stream it is asked by
      * itself, and it is first for the songs after that for as long as it serves.

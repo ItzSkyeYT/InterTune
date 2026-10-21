@@ -463,6 +463,12 @@ val StandInsKey = stringPreferencesKey("standIns")
  */
 val WebClientFirstKey = booleanPreferencesKey("webClientFirst")
 
+/** The developer's switch that plays every song over SABR: see Unreleased.SABR. Read in a debug build only. */
+val SabrOnlyKey = booleanPreferencesKey("sabrOnly")
+
+/** The developer's switch that takes every direct address for refused, to see SABR's rung: debug builds only. */
+val EveryDirectRefusedKey = booleanPreferencesKey("everyDirectRefused")
+
 /**
  * The developer options' "Pretend VISIONOS is blocked", every version: to see the chain as on the
  * day VISIONOS stops. A test tool, shown and read in debug and preview builds only, whatever

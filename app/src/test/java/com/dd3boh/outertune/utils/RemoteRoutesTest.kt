@@ -28,7 +28,7 @@ class RemoteRoutesTest {
     private val closed = document(
         """{"v": 1, "id": "2026-10-21-visionos-closed", "minVersionCode": 96, "maxVersionCode": 120, "until": "2026-11-15",
            "order": ["VISIONOS_104", "VISIONOS_SAFARI", "WEB_REMIX", "VISIONOS", "IOS"], "disabled": ["VISIONOS"],
-           "hedge": true, "uncheckedPlay": false, "watchdog": true}""",
+           "hedge": true, "uncheckedPlay": false, "watchdog": true, "sabr": true}""",
     )
 
     private fun parse(json: String, version: Int = 100, notes: MutableList<String> = mutableListOf()) =
@@ -108,5 +108,20 @@ class RemoteRoutesTest {
         assertFalse(RemoteRoutes.uncheckedPlay)
         RemoteRoutes.read(null, 100, fetchedAt = System.currentTimeMillis())
         assertTrue(RemoteRoutes.uncheckedPlay)
+    }
+
+    @Test
+    fun `SABR's rung has a switch of its own, on unless a block in force says off`() {
+        assertTrue(RemoteRoutes.sabr)
+        assertTrue(parse(closed)!!.sabr)
+        RemoteRoutes.read(document("""{"v": 1, "id": "x", "sabr": false}"""), 100, fetchedAt = System.currentTimeMillis())
+        assertFalse(RemoteRoutes.sabr)
+        assertTrue("the other switches stay as they are", RemoteRoutes.hedge && RemoteRoutes.uncheckedPlay && RemoteRoutes.watchdog)
+        assertTrue("a string is not a boolean", parse(document("""{"v": 1, "id": "x", "sabr": "false"}"""))!!.sabr)
+        RemoteRoutes.read(null, 100, fetchedAt = System.currentTimeMillis())
+        assertTrue(RemoteRoutes.sabr)
+        // Expired, the block switches nothing off.
+        RemoteRoutes.read(document("""{"v": 1, "id": "x", "sabr": false}"""), 100, fetchedAt = System.currentTimeMillis() - 50 * day)
+        assertTrue(RemoteRoutes.sabr)
     }
 }
