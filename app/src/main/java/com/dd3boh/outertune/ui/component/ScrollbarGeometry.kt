@@ -121,6 +121,12 @@ data class ScrollbarGeometry(
          * padding in its layout, one or two of them depending on how far the first has scrolled,
          * and counting them is what shook the list in issue #34, so they are left out. A pinned
          * sticky header belongs to a row above the first one, so it is left out too.
+         *
+         * The first row is put where it really is, [ScrollbarSnapshot.firstOffset] above the top. A
+         * sticky header that is itself the first row stays pinned at the top while it scrolls up
+         * under it, and Compose reports it there: History's day headings, in a list with no top
+         * padding. Taken at its word, the heading looked as tall as what was left of it, and the
+         * place in the list came out up to half a heading wrong.
          */
         fun chain(s: ScrollbarSnapshot): List<ScrollbarRow> {
             val out = ArrayList<ScrollbarRow>()
@@ -128,7 +134,7 @@ data class ScrollbarGeometry(
             for (row in s.rows.filter { it.index >= s.firstIndex }.sortedBy { it.index }) {
                 if (row.index < next) continue
                 if (row.index > next) break
-                out += row
+                out += if (row.index == s.firstIndex) row.copy(offset = -s.firstOffset) else row
                 next++
             }
             return out

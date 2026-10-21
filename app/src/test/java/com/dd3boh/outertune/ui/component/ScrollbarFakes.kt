@@ -88,11 +88,14 @@ internal class FakeList(
         while (to < sizes.lastIndex && tops[to + 1] - p < contentPx + bottomPadding) to++
         val rows = (from..to).map { ScrollbarRow(it, tops[it] - p, sizes[it]) }.toMutableList()
         val header = headers.lastOrNull { it <= first }
-        if (header != null && header < first) {
-            // The section's header is pinned at the top, pushed up by the next one as it comes.
+        if (header != null) {
+            // The section's header is pinned at the top, pushed up by the next one as it comes, as
+            // Compose 1.9.4's StickToTopPlacement does: at its own place or the top of the padding,
+            // whichever is lower. So is one that is itself the first row, however far it has gone.
             rows.removeAll { it.index == header }
             val next = headers.firstOrNull { it > header }
-            val offset = if (next == null) 0 else minOf(0, tops[next] - p - sizes[header])
+            val pinned = maxOf(-topPadding, tops[header] - p)
+            val offset = if (next == null) pinned else minOf(pinned, tops[next] - p - sizes[header])
             rows.add(0, ScrollbarRow(header, offset, sizes[header]))
         }
         return ScrollbarSnapshot(first, p - tops[first], rows, sizes.size, contentPx)
