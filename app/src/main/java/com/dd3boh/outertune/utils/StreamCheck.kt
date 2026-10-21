@@ -225,6 +225,28 @@ object StreamCheck {
         fallbacks.firstOrNull()?.takeIf { !unreached && fallbacks.all { it.status != "OK" && saysGone(it.reason) } }
 
     /**
+     * Whether the account is asked of a song at its turn, the last of the walk, where it used to be
+     * passed over because every client before it called the song gone: when what they said would
+     * call it gone ([unavailableSong] of [anonymous], [unreached] as there), the account has not
+     * been asked yet in this walk ([askedAlready]: a walk can go round again with a new
+     * visitorData), and the walk is for the song itself, not for another copy of it
+     * ([ofAnotherCopy], a stand-in's or a search's).
+     *
+     * On 21 Oct 2026 a song every client called "not available" was tapped thirteen times on a
+     * phone signed in, and never asked of the account, which YouTube Music may well play.
+     *
+     * Never when a request went unanswered or a client said anything but YouTube's words for a
+     * song that is gone, the bot check above all: the song is not called gone then either, and
+     * those keep their own ways (the player's retry, a new visitorData, the throttle).
+     */
+    fun asksAccountBeforeGone(
+        anonymous: List<PlayerResponse.PlayabilityStatus>,
+        unreached: Boolean,
+        askedAlready: Boolean,
+        ofAnotherCopy: Boolean,
+    ): Boolean = !askedAlready && !ofAnotherCopy && unavailableSong(anonymous, unreached) != null
+
+    /**
      * Whether a fallback client's failed request leaves it open what has become of the song, for
      * [unavailableSong]'s unreached.
      *

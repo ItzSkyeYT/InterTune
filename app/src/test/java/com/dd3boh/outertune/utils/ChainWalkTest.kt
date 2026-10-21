@@ -2115,6 +2115,155 @@ class ChainWalkTest {
         assertEquals(asked(Script.VIDEO_TOKEN), data.streamUrl)
     }
 
+    // --- Signed in, a song every client calls gone is asked of the account before it is called so. ---
+    // 21 Oct 2026, his phone: a radio song tapped 13 times, every client "This video is not
+    // available" in 0.6 s, and the account never asked: the web client is passed over once the
+    // clients before it call a song gone, and the account's turn is on the web client.
+
+    private fun signedIn() {
+        YouTube.cookie = "SAPISID=made-up"
+        YouTube.dataSyncId = "ACCOUNT-DATASYNC-ID"
+    }
+
+    /** Every client calls the song gone; [account] is what the web client says as the account. */
+    private fun goneButFor(account: Any, heads: Map<String, Int?> = emptyMap()) = Script(
+        says = mapOf(
+            "VISIONOS" to listOf(goneWords),
+            "ANDROID_VR" to listOf(goneWords),
+            "IOS" to listOf(goneWords),
+            "WEB_REMIX" to listOf(account),
+            "ANDROID_VR as a new visitor" to listOf(refused("This video is not available", status = "UNPLAYABLE", carrying = newVisitor)),
+        ),
+        heads = heads,
+        playerScript = playerScript,
+        solver = solving,
+        canSolve = true,
+    )
+
+    @Test
+    fun `signed in, a song every client calls gone is asked of the account, and plays when the account is served`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        signedIn()
+        val script = goneButFor(ciphered())
+        val data = walk(script).getOrThrow()
+
+        assertEquals(
+            "VISIONOS UNPLAYABLE, ANDROID_VR UNPLAYABLE, IOS UNPLAYABLE, WEB_REMIX (account) OK, HEAD 200 with the video's token",
+            YTPlayerUtils.lastStreamTrail,
+        )
+        assertEquals("the visitor's web client is still passed over, the account asked", listOf("WEB_REMIX" to true), script.carriedInOrder.filter { it.first == "WEB_REMIX" })
+        assertEquals("with tokens made for the account", listOf<String?>("ACCOUNT-DATASYNC-ID"), script.tokensMadeFor)
+        assertEquals(asked(Script.VIDEO_TOKEN), data.streamUrl)
+        assertTrue(data.validated)
+        assertTrue("a song the account served is not a reason to ask as the account first", YTPlayerUtils.streamMemory.worked?.contains("account") != true)
+    }
+
+    @Test
+    fun `signed in, a song the account calls gone as well is called gone, once asked, with the account's word on it`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        signedIn()
+        val script = goneButFor(goneWords)
+        val failure = walk(script).exceptionOrNull()
+
+        assertTrue(failure.toString(), failure is YTPlayerUtils.SongUnavailable)
+        assertEquals("in the words of the first client, as before", "This video is not available", failure?.message)
+        assertTrue("the account said so too", (failure as YTPlayerUtils.SongUnavailable).byTheAccountToo)
+        assertEquals(listOf("WEB_REMIX" to true), script.carriedInOrder.filter { it.first == "WEB_REMIX" })
+        assertEquals("VISIONOS UNPLAYABLE, ANDROID_VR UNPLAYABLE, IOS UNPLAYABLE, WEB_REMIX (account) UNPLAYABLE", YTPlayerUtils.lastStreamTrail)
+        assertFalse("a song that is gone does not back the app off", Throttle.isBlocked)
+    }
+
+    @Test
+    fun `signed out, a song every client calls gone is called gone as before, and no web client is asked`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        val script = goneButFor(ciphered())
+        val failure = walk(script).exceptionOrNull()
+
+        assertEquals(listOf("VISIONOS", "ANDROID_VR", "IOS"), script.askedOf)
+        assertEquals("no player script fetched", 0, script.scriptsAskedFor)
+        assertTrue(failure.toString(), failure is YTPlayerUtils.SongUnavailable)
+        assertFalse("no account to have said anything", (failure as YTPlayerUtils.SongUnavailable).byTheAccountToo)
+    }
+
+    @Test
+    fun `signed in, the account is not asked when another client's request got no answer, and the song is not called gone`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        signedIn()
+        // What has become of the song is open: the network's path, not the account's (Recovery).
+        val script = Script(
+            says = mapOf("VISIONOS" to listOf(goneWords), "ANDROID_VR" to listOf(goneWords), "IOS" to listOf(UnknownHostException("no address")), "WEB_REMIX" to listOf(ciphered())),
+            playerScript = playerScript,
+            solver = solving,
+            canSolve = true,
+        )
+        val failure = walk(script).exceptionOrNull()
+
+        assertFalse("the account was not asked: ${script.carriedInOrder}", script.carriedInOrder.any { it.second })
+        assertTrue(failure != null)
+        assertFalse(failure.toString(), failure is YTPlayerUtils.SongUnavailable)
+    }
+
+    @Test
+    fun `signed in, the account is asked once in a walk, though the walk goes round again with a new visitorData`() {
+        signedIn()
+        assertTrue(walkSong("TESTVIDEO01", goneButFor(goneWords)).exceptionOrNull() is YTPlayerUtils.SongUnavailable)
+        // The second song in a row called gone is walked twice (issue #28).
+        val second = goneButFor(goneWords)
+        val failure = walkSong("TESTVIDEO02", second).exceptionOrNull()
+
+        assertTrue("walked again with a new visitorData: ${second.askedOf}", "ANDROID_VR as a new visitor" in second.askedOf)
+        assertEquals("the account once, in the first pass: ${second.carriedInOrder}", 1, second.carriedInOrder.count { it == ("WEB_REMIX" to true) })
+        assertTrue(failure.toString(), failure is YTPlayerUtils.SongUnavailable && failure.byTheAccountToo)
+    }
+
+    @Test
+    fun `whatever else the account answers, the song is called gone on what the other clients said, and nothing of the account's answer is counted`() {
+        // The bot check, the age gate, no answer at all, an OK whose address is refused: none of
+        // them says the song is there to be had. The account's own refusals go to no throttle.
+        for (accountSays in listOf<Any>(refused(bot), refused(ageGate), UnknownHostException("no address"), ciphered())) {
+            Throttle.clear("the next case")
+            YTPlayerUtils.forgetGoneInARow()
+            remembering("VISIONOS", "ANDROID_VR")
+            signedIn()
+            val script = goneButFor(accountSays, heads = mapOf("web-remix" to 403))
+            val failure = walk(script).exceptionOrNull()
+
+            assertTrue("$accountSays: $failure", failure is YTPlayerUtils.SongUnavailable)
+            assertEquals("This video is not available", failure?.message)
+            assertFalse("$accountSays: the account did not say it is gone", (failure as YTPlayerUtils.SongUnavailable).byTheAccountToo)
+            assertEquals("$accountSays: asked once", 1, script.carriedInOrder.count { it == ("WEB_REMIX" to true) })
+            assertFalse("$accountSays: nothing told to the throttle", Throttle.isBlocked)
+        }
+    }
+
+    @Test
+    fun `a walk for another copy of the song is not asked of the account, only the song's own`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        signedIn()
+        val script = goneButFor(ciphered())
+        val failure = runBlocking(YTPlayerUtils.OfAnotherCopy()) {
+            YTPlayerUtils.playerResponseForPlayback("TESTVIDEO01", null, AudioQuality.HIGH, connectivity, script)
+        }.exceptionOrNull()
+
+        assertTrue(failure.toString(), failure is YTPlayerUtils.SongUnavailable)
+        assertFalse("WEB_REMIX" in script.askedOf)
+    }
+
+    @Test
+    fun `the same song called gone again and again is one song, and is never walked again with a new visitorData`() {
+        // Issue #28's rule is about songs in a row. His thirteen taps on one song are not a run.
+        signedIn()
+        repeat(13) { tap ->
+            val again = goneButFor(goneWords)
+            assertTrue(walkSong("TESTVIDEO01", again).exceptionOrNull() is YTPlayerUtils.SongUnavailable)
+            assertFalse("tap ${tap + 1}: ${again.askedOf}", "ANDROID_VR as a new visitor" in again.askedOf)
+        }
+        // Another song called gone after it is the second of a run, and gets its try.
+        val another = goneButFor(goneWords)
+        walkSong("TESTVIDEO02", another)
+        assertTrue(another.askedOf.toString(), "ANDROID_VR as a new visitor" in another.askedOf)
+    }
+
     // --- A slow link: the check's longer try, and a refusal the player met where the check said nothing. ---
 
     @Test

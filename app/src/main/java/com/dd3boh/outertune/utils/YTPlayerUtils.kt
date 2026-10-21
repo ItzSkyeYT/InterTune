@@ -843,8 +843,43 @@ object YTPlayerUtils {
      * asked's: each of them says the song is gone, which the last asked, when that is the main
      * client, need not. Its type is for StandIns, which looks for the same recording under
      * another id.
+     *
+     * [byTheAccountToo]: signed in, the account was asked as well and called the song gone too,
+     * a second word from another identity: see [AccountBeforeGone]. StandIns then sets the song
+     * aside at once, where on the visitor's word alone it waits for the second time (GoneSongs).
      */
-    class SongUnavailable(reason: String?) : PlaybackException(reason, null, PlaybackException.ERROR_CODE_REMOTE_ERROR)
+    class SongUnavailable(reason: String?, val byTheAccountToo: Boolean = false) : PlaybackException(reason, null, PlaybackException.ERROR_CODE_REMOTE_ERROR)
+
+    /**
+     * Put round a walk StandIns makes for another id than the song's own: a stand-in's, or a copy
+     * a search found. The account is asked before the song itself is called gone, never before
+     * each of its copies is: one more request, and po tokens made for each id, for an upload
+     * nobody asked for by name. See [StreamCheck.asksAccountBeforeGone].
+     */
+    class OfAnotherCopy : kotlin.coroutines.AbstractCoroutineContextElement(Key) {
+        companion object Key : kotlin.coroutines.CoroutineContext.Key<OfAnotherCopy>
+    }
+
+    /**
+     * What one walk knows of the account asked before a song is called gone, over every pass of
+     * it (the second, with a new visitorData) and both address families: it is asked once in a
+     * walk. See [StreamCheck.asksAccountBeforeGone].
+     *
+     * What it answers there counts only if it plays the song or calls it gone too. Anything else,
+     * no answer, an error, the bot check, the age gate, an OK whose address is refused, is left
+     * out of what the walk counts, for the throttle, for the error and for whether the song is
+     * gone, and the song ends as it did before the account was asked: gone, on the word of the
+     * clients before it. Those answers belong to the account, not to the song, and the paths they
+     * would take (the player's retry, the throttle, the other address family) are the ones a song
+     * every client called gone was never sent down.
+     */
+    private class AccountBeforeGone(val ofAnotherCopy: Boolean) {
+        /** Asked as the account in this walk, wherever it stood in the chain and whatever it said. */
+        var asked = false
+
+        /** It answered in YouTube's words for a song that is gone: see [SongUnavailable.byTheAccountToo]. */
+        var saidGone = false
+    }
 
     /**
      * YouTube's words for a song that is gone, said of song after song with nothing served
@@ -1066,6 +1101,8 @@ object YTPlayerUtils {
         val songId = asked?.videoId ?: videoId
         // Each step's time, over every pass, for the one line the song gets: see StepLog.
         val steps = mutableListOf<String>()
+        // The account before the song is called gone, once over every pass: see AccountBeforeGone.
+        val account = AccountBeforeGone(ofAnotherCopy = kotlinx.coroutines.currentCoroutineContext()[OfAnotherCopy] != null)
         val started = System.nanoTime()
         val outcome = FamilyChoice.resolve(
             currentNetwork(connectivityManager),
@@ -1077,7 +1114,7 @@ object YTPlayerUtils {
             }
             // Cleared first, so a pass that fails before writing its own does not report the last song's.
             lastStreamTrail = null
-            val (result, notes) = resolveWithNewVisitor(videoId, playlistId, audioQuality, connectivityManager, policy, wire, preferredMime, steps, wish, songId)
+            val (result, notes) = resolveWithNewVisitor(videoId, playlistId, audioQuality, connectivityManager, policy, wire, preferredMime, steps, wish, songId, account)
             trails += listOfNotNull(policy?.first?.label, lastStreamTrail).joinToString(": ")
             FamilyChoice.Attempt(result to notes, ok = result.isSuccess, refused = result.isFailure && notes.fallbackBlocked)
         }
@@ -1171,6 +1208,7 @@ object YTPlayerUtils {
         steps: MutableList<String> = mutableListOf(),
         wish: RouteWish? = null,
         songId: String = videoId,
+        account: AccountBeforeGone = AccountBeforeGone(ofAnotherCopy = false),
     ): Pair<Result<PlaybackData>, ChainNotes> {
         val sinceFailedSwap = lastSwapFailedAt.takeIf { it != 0L }?.let { SystemClock.elapsedRealtime() - it }
         // While a new visitorData may still be tried, a refused VISIONOS keeps the web client
@@ -1182,6 +1220,7 @@ object YTPlayerUtils {
         val result = resolveOnce(
             videoId, playlistId, audioQuality, connectivityManager, first, policy, wire, holdWeb, preferredMime, steps, wish, songId,
             refusedByPlayer = wish?.refusedByPlayer.orEmpty(),
+            account = account,
         )
         // Every client called this song gone, and another before it with nothing served between:
         // taken for the connection, and given the same try as the bot check (see goneInARow).
@@ -1217,7 +1256,7 @@ object YTPlayerUtils {
         // for the whole double walk again: the one the app had is put back, and the try noted.
         var settled = false
         try {
-            val retried = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, second, policy, wire, preferredMime = preferredMime, steps = steps, wish = wish, songId = songId)
+            val retried = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, second, policy, wire, preferredMime = preferredMime, steps = steps, wish = wish, songId = songId, account = account)
             if (fresh != null && retried.isSuccess && !second.visionosRefused) {
                 lastSwapFailedAt = 0L
                 // Kept for good only when signed out. Signed in, the stored one came from the
@@ -1382,6 +1421,8 @@ object YTPlayerUtils {
         songId: String = videoId,
         // The first pass's: see RouteWish.refusedByPlayer.
         refusedByPlayer: Set<String> = emptySet(),
+        // The walk's, shared by its passes: see AccountBeforeGone.
+        account: AccountBeforeGone = AccountBeforeGone(ofAnotherCopy = false),
     ): Result<PlaybackData> = runCatchingCancellable {
         fun msSince(from: Long) = (System.nanoTime() - from) / 1_000_000
         Log.d(TAG, "Playback info requested: $videoId")
@@ -1652,10 +1693,19 @@ object YTPlayerUtils {
                     continue
                 }
             }
+            // The account asked only because every client before it called the song gone: what it
+            // says counts only if it plays the song or calls it gone too. See AccountBeforeGone.
+            var beforeGone = false
             if (client === WEB_FALLBACK_CLIENT || client === ACCOUNT_WEB_CLIENT) {
                 // A song every client asked before it calls gone is gone for this one too, and
                 // would cost a player script to hear it said again: see StreamCheck.saysGone.
-                if (fallbackSaid.isNotEmpty() && fallbackSaid.all { it.status != "OK" && StreamCheck.saysGone(it.reason) }) continue
+                // But for the account, once, before the song is called so: it may be served what
+                // a visitor is not. See StreamCheck.asksAccountBeforeGone.
+                if (fallbackSaid.isNotEmpty() && fallbackSaid.all { it.status != "OK" && StreamCheck.saysGone(it.reason) }) {
+                    beforeGone = client === ACCOUNT_WEB_CLIENT &&
+                        StreamCheck.asksAccountBeforeGone(fallbackSaid, unreached = songLeftOpen, askedAlready = account.asked, ofAnotherCopy = account.ofAnotherCopy)
+                    if (!beforeGone) continue
+                }
                 // Held, the account's as well: asked in this pass it would serve every song as the
                 // account, and the visitor's web client, the one that can be remembered, would
                 // never be reached.
@@ -1678,6 +1728,8 @@ object YTPlayerUtils {
             val asAccount = client.loginSupported && isLoggedIn
             // The experiment's client, of which nothing is counted: see TRIAL_CLIENT.
             val isTrial = client === trial
+            if (asAccount && !isTrial) account.asked = true
+            if (beforeGone) Log.i(TAG, "[$videoId] every client before it called the song gone: asking the account before calling it so")
             // Where this client's own answer went in fallbackSaid when it was OK, so that an OK whose
             // address is then refused can be taken back (see the refusal below).
             var saidOkAt = -1
@@ -1733,7 +1785,7 @@ object YTPlayerUtils {
                     poolCut(wire)
                     Result.failure(e)
                 }
-            result.onFailure { if (!isTrial) Throttle.noteFailure(it) }
+            result.onFailure { if (!isTrial && !beforeGone) Throttle.noteFailure(it) }
             // Two clients in a row that did not answer in time: the network is slow, not dead,
             // and the rest of the walk gets the longer limit. Said once.
             if (result.exceptionOrNull() is StepTimedOut && capMs == RouteTimes.playerCapMs) {
@@ -1766,7 +1818,7 @@ object YTPlayerUtils {
                     chainDone()
                     throw failure
                 }
-                if (!isTrial) {
+                if (!isTrial && !beforeGone) {
                     lastFallbackFailure = failure
                     if (StreamCheck.leavesSongOpen(unreached, asAccount)) songLeftOpen = true
                 }
@@ -1778,7 +1830,11 @@ object YTPlayerUtils {
             if (streamPlayerResponse != null && StreamOrder.strikes(streamPlayerResponse?.playabilityStatus?.reason)) {
                 asked += StreamOrder.Asked(clientLabel, worked = false, asAccount)
             }
-            if (!isMain && !isTrial) streamPlayerResponse?.rememberBlock()
+            if (!isMain && !isTrial && !beforeGone) streamPlayerResponse?.rememberBlock()
+            // The account calling the song gone, wherever it stood in the chain: see SongUnavailable.byTheAccountToo.
+            if (asAccount && !isTrial && streamPlayerResponse?.playabilityStatus?.let { it.status != "OK" && StreamCheck.saysGone(it.reason) } == true) {
+                account.saidGone = true
+            }
 
             if (isMain) {
                 mainPlayerResponse = streamPlayerResponse
@@ -1793,7 +1849,7 @@ object YTPlayerUtils {
                         YouTube.visitorData = found
                         onVisitorDataFound?.invoke(found)
                     }
-            } else if (!isTrial) {
+            } else if (!isTrial && !beforeGone) {
                 streamPlayerResponse?.playabilityStatus?.let {
                     if (it.status == "OK") saidOkAt = fallbackSaid.size
                     fallbackSaid += it
@@ -1965,7 +2021,7 @@ object YTPlayerUtils {
                 }
                 if (verdict == StreamCheck.Verdict.NO_ANSWER) {
                     // No answer is the connection's, not YouTube's: see StreamCheck.verdict.
-                    if (!isTrial) checkUnanswered = true
+                    if (!isTrial && !beforeGone) checkUnanswered = true
                     val unchecked = Unchecked(format, checked, streamExpiresInSeconds, streamPlayerResponse, client, clientLabel, stillChecking, trail.lastIndex)
                     if (!isWeb && mayPlayUnchecked(clientLabel)) {
                         trail[trail.lastIndex] = StreamCheck.trailStep(clientLabel, "OK", null, checked = true, note = "played unchecked")
@@ -1992,7 +2048,7 @@ object YTPlayerUtils {
                     fallbackSaid.removeAt(saidOkAt)
                     saidOkAt = -1
                 }
-                if (!isTrial) {
+                if (!isTrial && !beforeGone) {
                     refusedStatus = status
                     if (isVisionos) notes.visionosRefused = true
                 }
@@ -2024,10 +2080,10 @@ object YTPlayerUtils {
         notes.blocked = blockedStatus
 
         // The song itself turned down by every client that serves music: its own kind of failure,
-        // in the words of the first of them.
+        // in the words of the first of them, and with the account's word when it said so too.
         if (streamUrl == null) {
             StreamCheck.unavailableSong(fallbackSaid, unreached = songLeftOpen)?.let { gone ->
-                throw SongUnavailable(gone.reason ?: gone.status)
+                throw SongUnavailable(gone.reason ?: gone.status, byTheAccountToo = account.saidGone)
             }
         }
 
