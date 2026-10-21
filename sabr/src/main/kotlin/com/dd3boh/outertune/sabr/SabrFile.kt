@@ -79,7 +79,10 @@ class SabrFile(
                 produce(start, chunks)
                 chunks.close()
             } catch (e: CancellationException) {
-                chunks.close()
+                // With its cause. Closed with none, a read waiting on the channel took it for the
+                // end of the file when this close won the race with the reader's own (the stall
+                // watch's cut), and media3 kept the cut point as the song's length.
+                chunks.close(e)
                 throw e
             } catch (e: IOException) {
                 chunks.close(e)
