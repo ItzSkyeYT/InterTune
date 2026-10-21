@@ -2237,6 +2237,27 @@ class ChainWalkTest {
     }
 
     @Test
+    fun `signed in, the account is not asked while two other songs in a row were called gone, and is again once a song plays`() {
+        // A connection YouTube turns away (issue #28) calls every song gone: the account is not
+        // asked once more for each of them.
+        signedIn()
+        walkSong("TESTVIDEO01", goneButFor(goneWords))
+        walkSong("TESTVIDEO02", goneButFor(goneWords))
+        val third = goneButFor(ciphered())
+        val failure = walkSong("TESTVIDEO03", third).exceptionOrNull()
+
+        assertTrue(failure.toString(), failure is YTPlayerUtils.SongUnavailable)
+        assertFalse("the account was asked: ${third.carriedInOrder}", third.carriedInOrder.any { it.second })
+        assertFalse((failure as YTPlayerUtils.SongUnavailable).byTheAccountToo)
+
+        // A song that plays ends the run, and the account is asked again.
+        walkSong("TESTVIDEO04", Script(today)).getOrThrow()
+        val after = goneButFor(ciphered())
+        walkSong("TESTVIDEO05", after).getOrThrow()
+        assertTrue(after.carriedInOrder.toString(), ("WEB_REMIX" to true) in after.carriedInOrder)
+    }
+
+    @Test
     fun `a walk for another copy of the song is not asked of the account, only the song's own`() {
         remembering("VISIONOS", "ANDROID_VR")
         signedIn()

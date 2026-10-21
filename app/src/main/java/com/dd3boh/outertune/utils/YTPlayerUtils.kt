@@ -1008,7 +1008,10 @@ object YTPlayerUtils {
     }
 
     /** Whether a song other than [videoId] was called gone by every client since a stream last resolved. */
-    private fun anotherGoneBefore(videoId: String): Boolean = synchronized(goneInARow) { goneInARow.any { it != videoId } }
+    private fun anotherGoneBefore(videoId: String): Boolean = othersGoneInARow(videoId) > 0
+
+    /** How many songs other than [videoId] were called gone by every client since a stream last resolved. */
+    private fun othersGoneInARow(videoId: String): Int = synchronized(goneInARow) { goneInARow.count { it != videoId } }
 
     private const val GONE_IN_A_ROW_KEPT = 16
 
@@ -1703,7 +1706,10 @@ object YTPlayerUtils {
                 // a visitor is not. See StreamCheck.asksAccountBeforeGone.
                 if (fallbackSaid.isNotEmpty() && fallbackSaid.all { it.status != "OK" && StreamCheck.saysGone(it.reason) }) {
                     beforeGone = client === ACCOUNT_WEB_CLIENT &&
-                        StreamCheck.asksAccountBeforeGone(fallbackSaid, unreached = songLeftOpen, askedAlready = account.asked, ofAnotherCopy = account.ofAnotherCopy)
+                        StreamCheck.asksAccountBeforeGone(
+                            fallbackSaid, unreached = songLeftOpen, askedAlready = account.asked, ofAnotherCopy = account.ofAnotherCopy,
+                            othersGoneInARow = othersGoneInARow(videoId),
+                        )
                     if (!beforeGone) continue
                 }
                 // Held, the account's as well: asked in this pass it would serve every song as the

@@ -238,13 +238,23 @@ object StreamCheck {
      * Never when a request went unanswered or a client said anything but YouTube's words for a
      * song that is gone, the bot check above all: the song is not called gone then either, and
      * those keep their own ways (the player's retry, a new visitorData, the throttle).
+     *
+     * Nor while [othersGoneInARow], the other songs called gone since a stream last resolved,
+     * are [ACCOUNT_SPARED_AFTER] or more: a connection YouTube turns away calls every song gone
+     * (issue #28), and the account would be one more request for each of them, made with po
+     * tokens and a player script, at the moment the app is being turned away.
      */
     fun asksAccountBeforeGone(
         anonymous: List<PlayerResponse.PlayabilityStatus>,
         unreached: Boolean,
         askedAlready: Boolean,
         ofAnotherCopy: Boolean,
-    ): Boolean = !askedAlready && !ofAnotherCopy && unavailableSong(anonymous, unreached) != null
+        othersGoneInARow: Int,
+    ): Boolean = !askedAlready && !ofAnotherCopy && othersGoneInARow < ACCOUNT_SPARED_AFTER &&
+        unavailableSong(anonymous, unreached) != null
+
+    /** How many other songs called gone in a row spare the account: see [asksAccountBeforeGone]. */
+    const val ACCOUNT_SPARED_AFTER = 2
 
     /**
      * Whether a fallback client's failed request leaves it open what has become of the song, for
