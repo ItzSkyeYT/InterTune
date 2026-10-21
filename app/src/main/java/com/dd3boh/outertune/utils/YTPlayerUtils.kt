@@ -1835,8 +1835,10 @@ object YTPlayerUtils {
                 )
                 // For StreamOrder the client served or was refused by what the check answered. A
                 // check that could not be made says more of the connection than of the client, so
-                // nothing is remembered of it, even when its url is played.
-                asked.removeAt(asked.lastIndex)
+                // nothing is remembered of it, even when its url is played. The client's own note
+                // goes, when it made one: an OK in words that call the song gone made none (see
+                // StreamOrder.strikes), and the last one noted, another client's, went instead.
+                if (asked.lastOrNull()?.client == clientLabel) asked.removeAt(asked.lastIndex)
                 if (status != null) {
                     asked += StreamOrder.Asked(clientLabel, worked = verdict == StreamCheck.Verdict.PASS, asAccount)
                 }

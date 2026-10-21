@@ -2226,4 +2226,21 @@ class ChainWalkTest {
         walk(script).getOrThrow()
         assertEquals(0, script.webWarmed)
     }
+
+    @Test
+    fun `an OK answer in words that call the song gone, whose address passes, plays and leaves what the others said`() {
+        // Never seen, cheap to guard: no strike was noted for such an answer, so none is taken
+        // back when its address passes. The last one noted, another client's, used to go instead,
+        // or with none noted the walk threw and the song ended as "Unknown error".
+        val oddlyWorded = playable("VISIONOS", loudness = 5.0, seconds = "200").copy(
+            playabilityStatus = PlayerResponse.PlayabilityStatus("OK", "This video is not available"),
+        )
+        val script = Script(mapOf("ANDROID_VR" to listOf(refused(bot)), "VISIONOS" to listOf(oddlyWorded)))
+        val data = walk(script).getOrThrow()
+        assertTrue(data.streamUrl.startsWith("https://VISIONOS.example/"))
+        assertTrue("ANDROID_VR's refusal is still remembered", "ANDROID_VR" in YTPlayerUtils.streamMemory.refusedAt.keys)
+
+        remembering("VISIONOS", "ANDROID_VR")
+        assertTrue("asked first, with nothing noted before it", walk(Script(mapOf("VISIONOS" to listOf(oddlyWorded)))).isSuccess)
+    }
 }
