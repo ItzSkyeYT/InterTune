@@ -1875,4 +1875,16 @@
     <string name="support_text">InterTune est gratuit et sans publicité. Pour faire un don, envoyez un message privé au développeur sur le serveur Discord d\'InterTune.</string>
     <string name="support_thanks">Merci à ceux qui ont déjà donné :</string>
     <string name="support_discord">Ouvrir Discord</string>
+    <plurals name="list_queued_here">
+        <item quantity="one">%1$d titre ajouté à la fin de cette file d\'attente</item>
+        <item quantity="other">%1$d titres ajoutés à la fin de cette file d\'attente</item>
+    </plurals>
+    <plurals name="list_queued_other">
+        <item quantity="one">%1$d titre ajouté à la file d\'attente « %2$s », en lecture</item>
+        <item quantity="other">%1$d titres ajoutés à la file d\'attente « %2$s », en lecture</item>
+    </plurals>
+    <plurals name="list_queued_new">
+        <item quantity="one">Nouvelle file d\'attente « %2$s », %1$d titre, en lecture</item>
+        <item quantity="other">Nouvelle file d\'attente « %2$s », %1$d titres, en lecture</item>
+    </plurals>
 </resources>

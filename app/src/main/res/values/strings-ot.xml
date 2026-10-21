@@ -2044,4 +2044,16 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="support_text">InterTune is free and has no ads. If you would like to donate, send the developer a direct message on the InterTune Discord server.</string>
     <string name="support_thanks">Thanks to those who already gave:</string>
     <string name="support_discord">Open Discord</string>
+    <plurals name="list_queued_here">
+        <item quantity="one">%1$d song added to the end of this queue</item>
+        <item quantity="other">%1$d songs added to the end of this queue</item>
+    </plurals>
+    <plurals name="list_queued_other">
+        <item quantity="one">%1$d song added to the queue \"%2$s\", now playing</item>
+        <item quantity="other">%1$d songs added to the queue \"%2$s\", now playing</item>
+    </plurals>
+    <plurals name="list_queued_new">
+        <item quantity="one">New queue \"%2$s\", %1$d song, now playing</item>
+        <item quantity="other">New queue \"%2$s\", %1$d songs, now playing</item>
+    </plurals>
 </resources>
