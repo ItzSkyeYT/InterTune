@@ -133,6 +133,18 @@ fun rememberSavedTransitions(): Map<SongPair, TransitionSpec> {
 val MixPlanner: PairPlanner = PairPlanner.NOT_YET
 
 /**
+ * The playlist menu's "Mix: on" or "Mix: off" (DESIGN.md 2.4): whether the switch is on, and what
+ * flips it. The menu closes as it is tapped, so the write must not end with the menu.
+ */
+@Composable
+fun rememberMixMenuSwitch(playlistId: String): Pair<Boolean, () -> Unit> {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val on = rememberMixOn(playlistId)
+    return on to { scope.launch(NonCancellable) { MixSwitches.set(context, playlistId, !on) } }
+}
+
+/**
  * The Mix row of a library playlist, under Play and Shuffle (DESIGN.md 2.4): the switch, and one
  * grey line under it saying what Mix is doing here. Only with Unreleased.AUTOMIX_EDITOR and two
  * songs or more, and off until it is switched on.

@@ -2145,6 +2145,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="mix_edit_last_transition">Edit the last transition</string>
     <string name="mix_back_to_auto">Back to Auto</string>
     <string name="mix_plain_for_these">Plain change for these two</string>
+    <string name="mix_menu_on">Mix: on</string>
+    <string name="mix_menu_off">Mix: off</string>
     <string name="mix_next">Next: %1$s into %2$s</string>
     <string name="mixing">Mixing</string>
     <string name="mixing_description">Playlists, parts, storage.</string>

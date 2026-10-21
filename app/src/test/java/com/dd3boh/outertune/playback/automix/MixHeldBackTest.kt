@@ -49,6 +49,7 @@ class MixHeldBackTest {
                 "ui/navigation/AppNavGraph.kt",
                 "ui/player/Queue.kt",
                 "ui/menu/PlayerMenu.kt",
+                "ui/menu/PlaylistMenu.kt",
                 "ui/screens/playlist/LocalPlaylistScreen.kt",
                 "ui/screens/settings/PlayerSettings.kt",
                 "ui/screens/settings/fragments/PlayerFrag.kt",
@@ -82,8 +83,9 @@ class MixHeldBackTest {
         val queue = lines("ui/player/Queue.kt")
         assertTrue("if (Unreleased.AUTOMIX_EDITOR) MixQueueChip(Modifier.padding(start = 12.dp))" in queue)
         assertTrue("if (Unreleased.AUTOMIX_EDITOR && index == currentWindowIndex && !detachedHead && !isSearching) {" in queue)
-        // The player's menu.
+        // The player's menu, and the playlist's.
         assertTrue("val mixEntry = if (Unreleased.AUTOMIX_EDITOR) rememberMixMenuEntry(mediaMetadata.id) else null" in lines("ui/menu/PlayerMenu.kt"))
+        assertTrue("val mixMenu = if (Unreleased.AUTOMIX_EDITOR && songs.size >= 2) rememberMixMenuSwitch(playlist.id) else null" in lines("ui/menu/PlaylistMenu.kt"))
         // Each Mix composable is called from those places only.
         for ((name, home) in mapOf(
             "MixRow(" to "ui/screens/playlist/LocalPlaylistScreen.kt",
@@ -92,6 +94,7 @@ class MixHeldBackTest {
             "MixNextLine(" to "ui/player/Queue.kt",
             "rememberMixMenuEntry(" to "ui/menu/PlayerMenu.kt",
             "MixingEntry(" to "ui/screens/settings/PlayerSettings.kt",
+            "rememberMixMenuSwitch(" to "ui/menu/PlaylistMenu.kt",
         )) {
             val callers = sources.walkTopDown()
                 .filter { it.extension == "kt" && !it.path.contains("/ui/screens/mix/") }
@@ -142,6 +145,8 @@ class MixHeldBackTest {
         // The playlist names itself on the queue only with the flag.
         val playlist = code(source("ui/screens/playlist/LocalPlaylistScreen.kt"))
         assertEquals(3, Regex("""mixPlaylistId = .*takeIf \{ Unreleased\.AUTOMIX_EDITOR \}""").findAll(playlist).count())
+        val menu = code(source("ui/menu/PlaylistMenu.kt"))
+        assertEquals(2, Regex("""mixPlaylistId = playlist\.id\.takeIf \{ Unreleased\.AUTOMIX_EDITOR \}""").findAll(menu).count())
     }
 
     @Test

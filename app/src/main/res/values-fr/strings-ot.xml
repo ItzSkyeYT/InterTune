@@ -1973,6 +1973,8 @@
     <string name="mix_edit_last_transition">Modifier le dernier enchaînement</string>
     <string name="mix_back_to_auto">Revenir à Auto</string>
     <string name="mix_plain_for_these">Sans mix pour ces deux titres</string>
+    <string name="mix_menu_on">Mix : activé</string>
+    <string name="mix_menu_off">Mix : désactivé</string>
     <string name="mix_next">Ensuite : %1$s vers %2$s</string>
     <string name="mixing">Mixage</string>
     <string name="mixing_description">Playlists, pistes, stockage.</string>
