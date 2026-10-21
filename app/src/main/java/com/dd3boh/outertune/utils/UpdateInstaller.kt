@@ -13,6 +13,9 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageInstaller
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.core.content.pm.PackageInfoCompat
@@ -35,6 +38,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -60,8 +64,28 @@ class UpdateInstaller @Inject constructor(
         /** [downloaded] and [total] are bytes; total is 0 when the release did not declare a size. */
         data class Downloading(val downloaded: Long, val total: Long) : State
 
-        /** Handed to Android. The system prompt is up, or about to be. */
-        data object AwaitingConfirmation : State
+        /**
+         * The apk is being copied into Android's installer. Android's window cannot open before the
+         * copy ends, which takes seconds for forty five megabytes, and through it the prompt used to
+         * sit unchanged with its Install button still lit, so the tap looked lost and was repeated.
+         */
+        data object Preparing : State
+
+        /**
+         * Handed to Android, waiting for the person's answer. The system prompt is up, or about to
+         * be, or was left without an answer and waits in its own task. [shownAt] is when Android's
+         * window was last opened, on the elapsedRealtime clock, and 0 until it has been.
+         */
+        data class AwaitingConfirmation(val shownAt: Long = 0L) : State {
+            val shown: Boolean get() = shownAt > 0L
+        }
+
+        /**
+         * The person said yes and Android is installing. Its window closes at once on the tap and
+         * says nothing more, and an update of this app ends with Android closing it before any
+         * answer is sent, so this is the last thing the app can say.
+         */
+        data object Installing : State
 
         /** The user was sent to grant "install unknown apps" and has not come back yet. */
         data object NeedsPermission : State
@@ -91,13 +115,31 @@ class UpdateInstaller @Inject constructor(
     @Volatile private var pendingConfirm: Intent? = null
     @Volatile private var sessionId = -1
 
+    // The same confirmation, kept for as long as the session waits. Android leaves its window out
+    // of recents, so after Home the only way back to it is to start it again, and that is the same
+    // window for the same session, never a new install.
+    @Volatile private var windowIntent: Intent? = null
+
+    // When Android last said anything about the session in hand: the commit, the window handed
+    // over, a step of progress, a change of activity. See sessionVerdict.
+    @Volatile private var lastSign = 0L
+
+    // Listens to Android about the session in hand, from its commit to its end.
+    @Volatile private var watcher: PackageInstaller.SessionCallback? = null
+
+    private val receiverRegistered = AtomicBoolean(false)
+
     init {
         scope.launch { dropInstalledApk() }
     }
 
-    /** The app came to the front: a confirmation held back while it was away is shown now. */
+    /**
+     * The app came to the front: the session is looked at again, then a confirmation held back
+     * while it was away is shown now.
+     */
     fun onShown() {
         inFront = true
+        recheck()
         showPendingConfirm()
     }
 
@@ -147,18 +189,19 @@ class UpdateInstaller @Inject constructor(
     /** Install what is already downloaded, or fetch it first if it is not. */
     fun installOrDownload(url: String, expectedBytes: Long) {
         if (isBusy) return
-        // Android's prompt is on its way and was held back: show it rather than starting a second
-        // install of the same file.
-        if (_state.value == State.AwaitingConfirmation && pendingConfirm != null) {
-            showPendingConfirm()
-            return
-        }
+        // A session Android still holds is never dropped for a new one. Each tap used to start
+        // over, and the abandon in commit() threw away the session Android might be installing and
+        // opened a second window. A tap now brings back the window that is waiting, or, once
+        // Android is installing, only shows that it is.
+        if (resumeLiveSession()) return
         if (isDownloaded(expectedBytes)) {
+            if (!canRequestInstall()) {
+                _state.value = State.NeedsPermission
+                return
+            }
+            // Said at once, before the copy starts, so the tap is answered: see Preparing.
+            _state.value = State.Preparing
             job = scope.launch {
-                if (!canRequestInstall()) {
-                    _state.value = State.NeedsPermission
-                    return@launch
-                }
                 try {
                     commit(File(context.cacheDir, APK_NAME))
                 } catch (e: CancellationException) {
@@ -173,8 +216,191 @@ class UpdateInstaller @Inject constructor(
         }
     }
 
+    /**
+     * Picks up the session in hand if Android still holds it, and says whether it did: nothing
+     * new may start then.
+     */
+    private fun resumeLiveSession(): Boolean {
+        val info = liveSession() ?: return false
+        return when {
+            _state.value == State.Installing || accepted(info) -> {
+                installing()
+                true
+            }
+
+            windowIntent != null -> {
+                showWindowAgain()
+                true
+            }
+
+            // Committed a moment ago, and Android has not handed its window over yet. It opens by
+            // itself when it comes.
+            SystemClock.elapsedRealtime() - lastSign < HANDOVER_QUIET_MS -> true
+
+            // Its window never came, so nobody can answer it, and it is safe to drop for a new one.
+            else -> false
+        }
+    }
+
+    /**
+     * Shows Android's window again for the session it waits on: the Show button of the dialog, and
+     * a tap on Install while the window waits. Never a new session.
+     */
+    fun showWindowAgain() {
+        if (isBusy) return
+        val info = liveSession()
+        if (info == null) {
+            sessionGone(wasInstalling = false)
+            return
+        }
+        // The yes was given after all, and its callback is only slower than this tap. Showing the
+        // window again now would ask about an install that is already under way.
+        if (accepted(info)) {
+            installing()
+            return
+        }
+        // Not handed over yet: it opens by itself when it is.
+        val window = windowIntent ?: return
+        Log.i(TAG, "Showing Android's window again for session $sessionId")
+        pendingConfirm = window
+        showPendingConfirm()
+    }
+
+    /**
+     * Stops an install still waiting for the person's answer, keeping the apk for a later try.
+     * Once Android is installing it is too late, and the dialog says that instead.
+     */
+    fun stop() {
+        if (isBusy) return
+        val info = liveSession()
+        if (info != null && accepted(info)) {
+            installing()
+            return
+        }
+        abandon()
+        _state.value = State.Idle
+    }
+
+    /**
+     * Looks at the session in hand again: when the app comes back to the front, and every
+     * INSTALL_RECHECK_MS while the dialog is up. The callbacks come late at times, an install can
+     * end without its answer reaching the app, and an install Android goes quiet about would
+     * otherwise keep the dialog up for ever. Nothing here abandons anything: a quiet install is
+     * let go of, not stopped, and an answer that arrives later still counts, because the session
+     * stays the one in hand.
+     */
+    fun recheck() {
+        if (isBusy) return
+        val state = _state.value
+        val wasInstalling = state == State.Installing
+        if (!wasInstalling && state !is State.AwaitingConfirmation) return
+        val info = liveSession()
+        val verdict = sessionVerdict(
+            installing = wasInstalling,
+            exists = info != null,
+            accepted = info != null && accepted(info),
+            handedOver = windowIntent != null,
+            quietMs = SystemClock.elapsedRealtime() - lastSign,
+        )
+        when (verdict) {
+            SessionVerdict.WAITING -> Unit
+            SessionVerdict.INSTALLING -> if (!wasInstalling) installing()
+            SessionVerdict.GONE -> sessionGone(wasInstalling)
+            SessionVerdict.STALLED -> {
+                Log.w(TAG, "Android said nothing about the install for a while, letting it go")
+                pendingConfirm = null
+                _state.value = State.Failed(NO_ANSWER)
+            }
+        }
+    }
+
+    /** The session in hand, while Android still has it. Null once it has ended, or was dropped. */
+    private fun liveSession(): PackageInstaller.SessionInfo? {
+        val id = sessionId
+        if (id < 0) return null
+        return runCatching { context.packageManager.packageInstaller.getSessionInfo(id) }.getOrNull()
+    }
+
+    private fun accepted(info: PackageInstaller.SessionInfo): Boolean =
+        installAccepted(progress = info.progress, active = info.isActive, handedOver = windowIntent != null)
+
+    private fun installing() {
+        pendingConfirm = null
+        lastSign = SystemClock.elapsedRealtime()
+        if (_state.value != State.Installing) Log.i(TAG, "Session $sessionId is installing")
+        _state.value = State.Installing
+    }
+
+    /**
+     * The session ended and its answer has not come. It stays the session in hand, so an answer
+     * still on its way is read when it arrives and says what really happened. Ended while
+     * installing, and the app still running, it did not install: an update of this app would have
+     * closed it.
+     */
+    private fun sessionGone(wasInstalling: Boolean) {
+        pendingConfirm = null
+        windowIntent = null
+        unwatch()
+        _state.value = if (wasInstalling) State.Failed(NO_ANSWER) else State.Idle
+    }
+
+    /**
+     * Listens to Android about one session. The status broadcast says how an install ended, but
+     * not that the person said yes: Android's window closes at once on the tap, and for an update
+     * of this app the broadcast never comes, because Android closes the app first. These callbacks
+     * are what say it.
+     */
+    @Synchronized
+    private fun watch(id: Int) {
+        unwatch()
+        val callback = object : PackageInstaller.SessionCallback() {
+            override fun onCreated(sessionId: Int) = Unit
+            override fun onBadgingChanged(sessionId: Int) = Unit
+            override fun onActiveChanged(sessionId: Int, active: Boolean) {
+                if (sessionId == id) heard(id, progress = 0f, active = active)
+            }
+
+            override fun onProgressChanged(sessionId: Int, progress: Float) {
+                if (sessionId == id) heard(id, progress = progress, active = false)
+            }
+
+            // How it ended comes with the broadcast, which says why. This only ends the watch.
+            override fun onFinished(sessionId: Int, success: Boolean) {
+                if (sessionId == id) unwatch()
+            }
+        }
+        runCatching {
+            context.packageManager.packageInstaller.registerSessionCallback(callback, Handler(Looper.getMainLooper()))
+            watcher = callback
+        }.onFailure { Log.w(TAG, "Could not listen to the install", it) }
+    }
+
+    @Synchronized
+    private fun unwatch() {
+        val callback = watcher ?: return
+        watcher = null
+        runCatching { context.packageManager.packageInstaller.unregisterSessionCallback(callback) }
+    }
+
+    private fun heard(id: Int, progress: Float, active: Boolean) {
+        // One already queued when its session was dropped for a newer one.
+        if (id != sessionId) return
+        lastSign = SystemClock.elapsedRealtime()
+        if (_state.value is State.AwaitingConfirmation &&
+            installAccepted(progress = progress, active = active, handedOver = windowIntent != null)
+        ) {
+            installing()
+        }
+    }
+
     private fun start(url: String, expectedBytes: Long, installWhenDone: Boolean) {
         if (isBusy) return
+        // Debug builds only: with the fake-update file there is nothing to fetch, and the apk put
+        // in place by hand must not be deleted by the download below.
+        if (fakeUpdateBytes(context) != null) {
+            _state.value = if (installWhenDone) State.Failed("no apk in place for the fake update") else State.Idle
+            return
+        }
         job = scope.launch {
             val apk = File(context.cacheDir, APK_NAME)
             var whole = false
@@ -251,8 +477,10 @@ class UpdateInstaller @Inject constructor(
     /** Streams the apk into a session and commits it. Android then asks for the confirmation. */
     private suspend fun commit(apk: File) = withContext(Dispatchers.IO) {
         val installer = context.packageManager.packageInstaller
-        // One install at a time: one still waiting is dropped first.
+        // One install at a time. installOrDownload never comes here while Android may still act on
+        // the session in hand, so this only clears one that ended, or whose window never came.
         abandon()
+        _state.value = State.Preparing
         val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
         val id = installer.createSession(params)
         try {
@@ -270,11 +498,16 @@ class UpdateInstaller @Inject constructor(
                 // Stopped while the file was copied: the install must not go ahead after all.
                 ensureActive()
                 sessionId = id
-                _state.value = State.AwaitingConfirmation
+                lastSign = SystemClock.elapsedRealtime()
+                // Before the commit, so not one of Android's answers about it is missed.
+                watch(id)
+                _state.value = State.AwaitingConfirmation()
                 session.commit(pending.intentSender)
+                Log.i(TAG, "Session $id handed to Android")
             }
         } catch (e: Exception) {
             // Out of space, or stopped while copying: a session left open keeps its copy of the apk.
+            unwatch()
             sessionId = -1
             runCatching { installer.abandonSession(id) }
             throw e
@@ -287,6 +520,8 @@ class UpdateInstaller @Inject constructor(
         val id = sessionId
         sessionId = -1
         pendingConfirm = null
+        windowIntent = null
+        unwatch()
         if (id >= 0) runCatching { context.packageManager.packageInstaller.abandonSession(id) }
     }
 
@@ -301,6 +536,11 @@ class UpdateInstaller @Inject constructor(
         if (!shown) {
             abandon()
             _state.value = State.Blocked
+            return
+        }
+        // From here an app back in front without an answer is an app whose window waits.
+        if (_state.value != State.Installing) {
+            _state.value = State.AwaitingConfirmation(shownAt = SystemClock.elapsedRealtime())
         }
     }
 
@@ -308,6 +548,8 @@ class UpdateInstaller @Inject constructor(
     private fun dropInstalledApk() {
         val apk = File(context.cacheDir, APK_NAME)
         if (!apk.exists() || isBusy) return
+        // Debug builds only: the apk put in place for the fake update is the version running.
+        if (fakeUpdateBytes(context) != null) return
         val code = runCatching {
             @Suppress("DEPRECATION")
             context.packageManager.getPackageArchiveInfo(apk.path, 0)?.let { PackageInfoCompat.getLongVersionCode(it) }
@@ -329,10 +571,12 @@ class UpdateInstaller @Inject constructor(
 
     /**
      * Clears a finished or failed run so the row goes back to resting. A confirmation Android is
-     * showing is left alone: the prompt would otherwise come back over it.
+     * showing is left alone, and so is an install under way: the prompt would otherwise come back
+     * over it. Leaving Settings > Updates calls this, and used to drop the wait that way.
      */
     fun acknowledge() {
-        if (!isBusy && _state.value != State.AwaitingConfirmation) _state.value = State.Idle
+        val state = _state.value
+        if (!isBusy && state !is State.AwaitingConfirmation && state != State.Installing) _state.value = State.Idle
     }
 
     /**
@@ -368,6 +612,8 @@ class UpdateInstaller @Inject constructor(
                         _state.value = State.Failed("no install prompt")
                         return
                     }
+                    windowIntent = confirm
+                    lastSign = SystemClock.elapsedRealtime()
                     pendingConfirm = confirm
                     showPendingConfirm()
                 }
@@ -376,33 +622,39 @@ class UpdateInstaller @Inject constructor(
                     // Usually nobody is left to see this: installing over ourselves kills the
                     // process. It still matters when the install did not replace us, and it clears
                     // the stored update so a completed one cannot keep prompting.
-                    sessionId = -1
-                    File(context.cacheDir, APK_NAME).delete()
+                    ended()
+                    // Debug builds only: the apk put in place for the fake update is kept for the next try.
+                    if (fakeUpdateBytes(context) == null) File(context.cacheDir, APK_NAME).delete()
                     _state.value = State.Idle
                     onInstalled?.invoke()
                 }
 
                 PackageInstaller.STATUS_FAILURE_ABORTED -> {
-                    sessionId = -1
-                    pendingConfirm = null
+                    ended()
                     aborted(intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE))
                 }
 
                 PackageInstaller.STATUS_FAILURE_BLOCKED -> {
-                    sessionId = -1
-                    pendingConfirm = null
+                    ended()
                     _state.value = State.Blocked
                 }
 
                 else -> {
-                    sessionId = -1
-                    pendingConfirm = null
+                    ended()
                     val msg = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
                     Log.w(TAG, "Install failed, status $status: $msg")
                     _state.value = State.Failed(msg ?: "status $status")
                 }
             }
         }
+    }
+
+    /** The session in hand has its answer: nothing is left to show, watch or keep. */
+    private fun ended() {
+        sessionId = -1
+        pendingConfirm = null
+        windowIntent = null
+        unwatch()
     }
 
     /**
@@ -415,7 +667,12 @@ class UpdateInstaller @Inject constructor(
         _state.value = if (abortedMeansBlocked(message)) State.Blocked else State.Idle
     }
 
+    /**
+     * Once for the process. The receiver is registered on the application, and MainActivity asks
+     * on every creation, so after a rotation it was registered a second time.
+     */
     fun registerReceiver() {
+        if (!receiverRegistered.compareAndSet(false, true)) return
         ContextCompat.registerReceiver(
             context,
             resultReceiver,
@@ -426,12 +683,89 @@ class UpdateInstaller @Inject constructor(
 
     private companion object {
         private const val TAG = "UpdateInstaller"
-        private const val APK_NAME = "intertune-update.apk"
+        private const val APK_NAME = UPDATE_APK_NAME
         private const val ACTION_INSTALL_RESULT = "com.dd3boh.outertune.INSTALL_RESULT"
         private const val FAKE_AUTO_BLOCKER_FILE = "fake-auto-blocker"
+
+        /** Why the dialog went, when Android went quiet: shown after "Could not install". */
+        private const val NO_ANSWER = "no answer from Android"
     }
 }
 
 /** A cancel reads "User rejected permissions"; Auto Blocker's refusal names a block. */
 internal fun abortedMeansBlocked(message: String?): Boolean =
     message?.contains("block", ignoreCase = true) == true
+
+internal const val UPDATE_APK_NAME = "intertune-update.apk"
+
+/** How often the dialog has the session looked at again while Android has the install. */
+internal const val INSTALL_RECHECK_MS = 10_000L
+
+/**
+ * An install Android says nothing about for this long is let go of. After the yes it sends one
+ * step of progress and then closes the app, within seconds, unless something stopped it without
+ * telling the app. Nobody is kept behind the dialog for that.
+ */
+internal const val INSTALL_QUIET_MS = 2 * 60_000L
+
+/** A window Android has not handed over this long after the commit is not coming. */
+internal const val HANDOVER_QUIET_MS = 30_000L
+
+/** Between the commit's 0.8 and the 0.9 Android reports once the install pass after the yes runs. */
+internal const val ACCEPTED_PROGRESS = 0.85f
+
+/**
+ * Whether the session says the person said yes and Android is installing. The commit puts its
+ * progress at 0.8, and the install pass that runs only after the yes puts it at 0.9, on every
+ * Android from 9 to 16. From 14, Android also marks the session active again at the yes; before
+ * the window was handed over, an active session is only the commit.
+ */
+internal fun installAccepted(progress: Float, active: Boolean, handedOver: Boolean): Boolean =
+    progress >= ACCEPTED_PROGRESS || (active && handedOver)
+
+internal enum class SessionVerdict {
+    /** Android's window waits for an answer, or is about to open. */
+    WAITING,
+    INSTALLING,
+    /** The session ended and its answer did not reach the app. */
+    GONE,
+    /** Android went quiet: the dialog lets go, the session is not touched. */
+    STALLED,
+}
+
+/**
+ * What a look at the session in hand finds. [installing] is what the app already says, [quietMs]
+ * the time since Android last said anything about it, and [handedOver] whether its window has
+ * come. A window that waits is never given up on: the person can take all the time they like,
+ * and the dialog offers Stop.
+ */
+internal fun sessionVerdict(
+    installing: Boolean,
+    exists: Boolean,
+    accepted: Boolean,
+    handedOver: Boolean,
+    quietMs: Long,
+): SessionVerdict = when {
+    !exists -> SessionVerdict.GONE
+    installing && quietMs >= INSTALL_QUIET_MS -> SessionVerdict.STALLED
+    installing || accepted -> SessionVerdict.INSTALLING
+    !handedOver && quietMs >= HANDOVER_QUIET_MS -> SessionVerdict.STALLED
+    else -> SessionVerdict.WAITING
+}
+
+/**
+ * Debug builds only: with this file in filesDir, UpdateChecker reports a newer version, and the
+ * apk put by hand at cacheDir/intertune-update.apk is installed as it, so the whole install can be
+ * tried on an emulator without a release. The file holds that apk's size in bytes; left empty,
+ * the size of the apk in place is taken. Android accepts the same build again as an update.
+ */
+internal const val FAKE_UPDATE_FILE = "fake-update"
+
+/** The fake update's size, or null when there is none: always null in a release. */
+internal fun fakeUpdateBytes(context: Context): Long? {
+    if (!BuildConfig.DEBUG) return null
+    val file = File(context.filesDir, FAKE_UPDATE_FILE)
+    if (!file.exists()) return null
+    return runCatching { file.readText().trim().toLongOrNull() }.getOrNull()
+        ?: File(context.cacheDir, UPDATE_APK_NAME).length()
+}

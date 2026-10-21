@@ -20,6 +20,7 @@ import android.os.Build
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.os.Bundle
+import android.os.SystemClock
 import android.provider.MediaStore
 import android.util.Log
 import android.widget.Toast
@@ -112,6 +113,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -296,10 +298,15 @@ import com.dd3boh.outertune.constants.AutoInstallUpdatesKey
 import com.dd3boh.outertune.constants.UpdateSnoozeUntilKey
 import com.dd3boh.outertune.constants.UPDATE_SNOOZE_MS
 import com.dd3boh.outertune.ui.component.UpdatePrompt
+import com.dd3boh.outertune.ui.component.UpdateWaitPhase
+import com.dd3boh.outertune.ui.component.updateWaitPhase
+import com.dd3boh.outertune.ui.component.UPDATE_SETTLE_MS
+import com.dd3boh.outertune.utils.INSTALL_RECHECK_MS
 import kotlinx.coroutines.delay
 import android.provider.Settings
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.LocalLifecycleOwner
 
@@ -827,11 +834,19 @@ class MainActivity : ComponentActivity() {
                 // re-checks live so it always behaves correctly; this is what makes it also say
                 // the right thing.
                 var canInstall by remember { mutableStateOf(updateInstaller.canRequestInstall()) }
+                // When the app last came to the front, for the update dialog's moment of quiet
+                // after Android's window: see UPDATE_SETTLE_MS.
+                var frontSince by remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
+                // The wait for Android's window, put aside with Back or a tap outside. Until the app
+                // next comes to the front: the window still waits, and the dialog says so again.
+                var waitPutAway by remember { mutableStateOf(false) }
                 val lifecycleOwner = LocalLifecycleOwner.current
                 DisposableEffect(lifecycleOwner) {
                     val observer = LifecycleEventObserver { _, event ->
                         if (event == Lifecycle.Event.ON_RESUME) {
                             canInstall = updateInstaller.canRequestInstall()
+                            frontSince = SystemClock.elapsedRealtime()
+                            waitPutAway = false
                             updateInstaller.onShown()
                         } else if (event == Lifecycle.Event.ON_PAUSE) {
                             updateInstaller.onHidden()
@@ -874,15 +889,55 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                // From the tap on Install until Android has installed it, the prompt turns into a
+                // dialog that says what is happening, with nothing to tap twice. Shown whatever the
+                // snooze, since the tap may have come from Settings > Updates, and never for a
+                // download nobody tapped: that one never gets as far as Android.
+                var settleTick by remember { mutableLongStateOf(0L) }
+                val windowShownAt = (installState as? UpdateInstaller.State.AwaitingConfirmation)?.shownAt ?: 0L
+                val settleFrom = maxOf(windowShownAt, frontSince)
+                val busyPhase = if (fromFdroid) null else updateWaitPhase(
+                    installState,
+                    sinceWindowMs = settleTick.coerceAtLeast(SystemClock.elapsedRealtime()) - settleFrom,
+                )
+                LaunchedEffect(installState, settleFrom) {
+                    // Wakes the dialog when the quiet moment after Android's window is over. A
+                    // plain clock reading would not recompose on its own.
+                    val left = UPDATE_SETTLE_MS - (SystemClock.elapsedRealtime() - settleFrom)
+                    if (installState is UpdateInstaller.State.AwaitingConfirmation && left > 0) {
+                        delay(left)
+                        settleTick = SystemClock.elapsedRealtime()
+                    }
+                }
+                LaunchedEffect(installState) {
+                    // While Android has the install, its session is looked at now and then, so an
+                    // install that ends without a word, or that Android goes quiet about, lets the
+                    // dialog go instead of keeping someone behind it. Only while the app can be
+                    // seen: nobody is behind a dialog in an app that is away, and onShown looks
+                    // again when it is back.
+                    if (installState is UpdateInstaller.State.AwaitingConfirmation ||
+                        installState is UpdateInstaller.State.Installing
+                    ) {
+                        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                            while (true) {
+                                delay(INSTALL_RECHECK_MS)
+                                updateInstaller.recheck()
+                            }
+                        }
+                    }
+                }
+
                 // Hoisted so the walkthrough can stand aside for it. Two full screen prompts on
                 // one launch is one too many, and an update is the more urgent of the two.
-                val updatePromptVisible = pendingUpdate != null &&
-                        snoozeUntil <= snoozeTick.coerceAtLeast(System.currentTimeMillis()) &&
-                        installState !is UpdateInstaller.State.AwaitingConfirmation
+                val snoozed = snoozeUntil > snoozeTick.coerceAtLeast(System.currentTimeMillis())
+                val updatePromptVisible = pendingUpdate != null && if (busyPhase != null) {
+                    !(busyPhase == UpdateWaitPhase.WAITING && waitPutAway)
+                } else {
+                    !snoozed
+                }
 
                 pendingUpdate?.let { found ->
-                    val snoozed = snoozeUntil > snoozeTick.coerceAtLeast(System.currentTimeMillis())
-                    if (!snoozed && installState !is UpdateInstaller.State.AwaitingConfirmation) {
+                    if (updatePromptVisible) {
                         UpdatePrompt(
                             update = found,
                             ready = updateInstaller.isDownloaded(found.sizeBytes),
@@ -897,6 +952,20 @@ class MainActivity : ComponentActivity() {
                             downloadPercent = (installState as? UpdateInstaller.State.Downloading)
                                 ?.takeIf { updateInstaller.isBusy }
                                 ?.let { if (it.total > 0) ((it.downloaded * 100) / it.total).toInt() else -1 },
+                            busy = busyPhase,
+                            onShowWindowAgain = { updateInstaller.showWindowAgain() },
+                            onStop = {
+                                // Stop is "not now": asked again in an hour, as for later. Put off
+                                // first, so the offer does not flash up between the two.
+                                coroutineScope.launch {
+                                    dataStore.edit {
+                                        it[UpdateSnoozeUntilKey] =
+                                            System.currentTimeMillis() + UPDATE_SNOOZE_MS
+                                    }
+                                    updateInstaller.stop()
+                                }
+                            },
+                            onPutAway = { waitPutAway = true },
                             onOpenAutoBlocker = {
                                 updateInstaller.acknowledge()
                                 AutoBlocker.open(this@MainActivity)
