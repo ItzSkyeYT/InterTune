@@ -1,0 +1,11 @@
+Version 0.12.1
+
+- Les titres démarrent plus vite et repartent seuls.
+- Lancée hors ligne, la musique démarre au retour du réseau.
+- Si YouTube refuse votre connexion, l'appli le dit.
+- Caster ne plante plus sur certains réseaux.
+- L'icône de file d'attente des listes auto demande laquelle.
+- La mise à jour dans l'appli montre ce que fait Android.
+- Signaler un problème garde les 15 derniers journaux.
+
+Journal complet : https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.12.1
