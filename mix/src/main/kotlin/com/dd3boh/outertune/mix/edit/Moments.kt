@@ -11,7 +11,7 @@ import kotlin.math.abs
 /**
  * One thing that happens in a change, for the now line ("Bar 5 of 8 · Bass swap") and the
  * moments sheet: at bar position [u], what happens, and to which lane. The editor says it in
- * words; the words go to the owner for his yes before they go anywhere.
+ * words, which are approved before they go to translators, so none are fixed here.
  */
 data class Moment(val u: Double, val kind: Kind, val lane: Lane? = null, val how: How? = null) {
 
