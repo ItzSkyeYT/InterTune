@@ -1900,4 +1900,6 @@
     <string name="update_wait_installing">Android l\'installe, ce qui peut prendre une minute. InterTune se ferme ensuite toute seule et la musique s\'arrête. Rouvrez-la pour utiliser la nouvelle version.</string>
     <string name="update_wait_show_window">Rouvrir la fenêtre d\'Android</string>
     <string name="update_wait_stop">Arrêter</string>
+    <string name="queue_back_closes_player">Le retour depuis la file d\'attente ferme le lecteur</string>
+    <string name="queue_back_closes_player_description">Le retour depuis la file d\'attente ramène directement à l\'écran sous le lecteur. Le lecteur se rouvre ensuite sur la file d\'attente si c\'est là que vous l\'avez laissé.</string>
 </resources>
