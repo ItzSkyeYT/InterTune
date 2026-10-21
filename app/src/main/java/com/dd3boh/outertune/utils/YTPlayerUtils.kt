@@ -634,6 +634,7 @@ object YTPlayerUtils {
         trialLimitMs = TRIAL_LIMIT_MS
         visionosTakenForRefused = false
         ownVisionosTakenForRefused = false
+        lastSwapFailedAt = 0L
     }
 
     /**
@@ -1109,22 +1110,38 @@ object YTPlayerUtils {
         }
         val second = ChainNotes()
         steps += "new visitorData"
-        val retried = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, second, policy, wire, preferredMime = preferredMime, steps = steps, wish = wish, songId = songId)
-        if (fresh != null && retried.isSuccess && !second.visionosRefused) {
-            lastSwapFailedAt = 0L
-            // Kept for good only when signed out. Signed in, the stored one came from the
-            // account's own sign-in page and goes with its cookie, so this one lasts until the
-            // app restarts, and a bad stored one costs one extra pass per launch.
-            if (YouTube.cookie == null) onVisitorDataFound?.invoke(fresh)
-        } else if (fresh != null) {
-            // Refused again, or the song came from another client with VISIONOS as refused as
-            // before: the new one mended nothing, so the one the app had stays.
-            YouTube.visitorData = previous
-            lastSwapFailedAt = SystemClock.elapsedRealtime()
+        // Settled once the second pass has said whether the new one mended anything. Cut off
+        // before that by the resolve's limit, the walk used to leave the new one in place, the
+        // account's own replaced when signed in, and no failed try noted, so the next song paid
+        // for the whole double walk again: the one the app had is put back, and the try noted.
+        var settled = false
+        try {
+            val retried = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, second, policy, wire, preferredMime = preferredMime, steps = steps, wish = wish, songId = songId)
+            if (fresh != null && retried.isSuccess && !second.visionosRefused) {
+                lastSwapFailedAt = 0L
+                // Kept for good only when signed out. Signed in, the stored one came from the
+                // account's own sign-in page and goes with its cookie, so this one lasts until the
+                // app restarts, and a bad stored one costs one extra pass per launch.
+                if (YouTube.cookie == null) onVisitorDataFound?.invoke(fresh)
+            } else if (fresh != null) {
+                // Refused again, or the song came from another client with VISIONOS as refused as
+                // before: the new one mended nothing, so the one the app had stays.
+                YouTube.visitorData = previous
+                lastSwapFailedAt = swapFailedNow()
+            }
+            settled = true
+            noteOutcome(videoId, retried)
+            return retried to second
+        } finally {
+            if (!settled && fresh != null) {
+                YouTube.visitorData = previous
+                lastSwapFailedAt = swapFailedNow()
+            }
         }
-        noteOutcome(videoId, retried)
-        return retried to second
     }
+
+    /** Elapsed realtime for [lastSwapFailedAt], never its 0 for none: a test's clock reads 0. */
+    private fun swapFailedNow(): Long = SystemClock.elapsedRealtime().coerceAtLeast(1L)
 
     /**
      * A visitorData YouTube has only just issued: the main client asked without one, whose answer
@@ -1132,8 +1149,11 @@ object YTPlayerUtils {
      * that failed at every launch in issue #17.
      */
     private suspend fun mintVisitorData(videoId: String, policy: AddressPolicy?, wire: Wire): String? {
+        // As long as the walk's own requests on a network taken for slow: where /player takes
+        // over 5 s, no new visitorData could ever be had, and issue #17's recovery never ran.
+        val capMs = if (NetworkPace.isSlow()) RouteTimes.playerSlowCapMs else RouteTimes.playerCapMs
         val answer = try {
-            hedged("/player", RouteTimes.playerFreshMs, RouteTimes.playerCapMs, mayHedge = { false }) { _ ->
+            hedged("/player", RouteTimes.playerFreshMs, capMs, mayHedge = { false }) { _ ->
                 wire.player(videoId, null, MAIN_CLIENT, null, null, null, policy, asNewVisitor = true, fresh = poolSuspect())
             }
         } catch (e: StepTimedOut) {

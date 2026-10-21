@@ -2123,4 +2123,62 @@ class ChainWalkTest {
         assertFalse(data.validated)
         assertNull("taken for refused on the player's word, which is no strike", YTPlayerUtils.streamMemory.strikes["VISIONOS"])
     }
+
+    // --- A new visitorData on a slow link, and a pass with one cut off by the resolve's limit. ---
+
+    @Test
+    fun `on a network taken for slow, a new visitorData is waited for as long as the walk's own requests`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        RouteTimes.playerCapMs = 100
+        RouteTimes.playerSlowCapMs = 1_000
+        NetworkPace.foundSlow()
+        // Every answer at 40 ms, under the short limit and slow enough not to end the slow spell;
+        // the main client's answer that carries a new visitorData at 300 ms, past the short limit.
+        fun late(answer: Any) = Late(40, answer)
+        val script = Script(
+            mapOf(
+                "VISIONOS" to listOf(late(refused(bot)), late(playable("VISIONOS", loudness = 5.0, seconds = "200"))),
+                "ANDROID_VR" to listOf(late(refused(bot))),
+                "IOS" to listOf(late(refused(bot))),
+                "ANDROID_VR as a new visitor" to listOf(Late(300, refused(bot, carrying = newVisitor))),
+            ),
+        )
+        val data = walk(script).getOrThrow()
+
+        assertTrue(data.streamUrl.startsWith("https://VISIONOS.example/"))
+        assertEquals(newVisitor, YouTube.visitorData)
+    }
+
+    @Test
+    fun `a pass with a new visitorData cut off by the resolve's limit puts the old one back, and the next song does not pay for another`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        val script = Script(
+            mapOf(
+                "VISIONOS" to listOf(refused(bot), Hang),
+                "ANDROID_VR" to listOf(refused(bot)),
+                "IOS" to listOf(refused(bot)),
+                "ANDROID_VR as a new visitor" to listOf(refused(bot, carrying = newVisitor)),
+            ),
+        )
+        val cut = runCatching {
+            runBlocking { withinResolveTime(limitMs = 400) { YTPlayerUtils.playerResponseForPlayback("TESTVIDEO01", null, AudioQuality.HIGH, connectivity, script) } }
+        }.exceptionOrNull()
+        assertTrue("cut by the limit: $cut", cut is StepTimedOut)
+        assertTrue("the second pass was under way", "ANDROID_VR as a new visitor" in script.askedOf)
+        // The walk is cancelled from outside, and lets go of the new visitorData as it stops.
+        val until = System.nanoTime() + 2_000_000_000L
+        while (YouTube.visitorData != visitor && System.nanoTime() < until) Thread.sleep(20)
+        assertEquals("the visitorData the app had is back", visitor, YouTube.visitorData)
+
+        val next = Script(
+            mapOf(
+                "VISIONOS" to listOf(refused(bot)),
+                "ANDROID_VR" to listOf(refused(bot)),
+                "IOS" to listOf(refused(bot)),
+                "ANDROID_VR as a new visitor" to listOf(refused(bot, carrying = newVisitor)),
+            ),
+        )
+        walk(next)
+        assertFalse("the try that came to nothing is not made again at once: ${next.askedOf}", "ANDROID_VR as a new visitor" in next.askedOf)
+    }
 }
