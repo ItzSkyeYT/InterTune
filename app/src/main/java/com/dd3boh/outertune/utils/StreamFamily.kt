@@ -110,21 +110,43 @@ object StreamFamily {
         /** The calls made and not yet given up, held weakly: a finished call is let go. */
         private val made = java.util.Collections.newSetFromMap(java.util.WeakHashMap<Call, Boolean>())
 
+        /**
+         * The reads of a song made beside these calls but not through them: SABR's, whose requests
+         * go out on a client of its own. Cut with the calls by [cancelInFlight] while they are
+         * open, each by the [java.io.Closeable] it gave. Out of reach, a SABR read stayed blocked
+         * through the stall watch's first step, its address was forgotten at the second while it
+         * still waited, and the song was given up at the third.
+         */
+        private val alongside = java.util.concurrent.ConcurrentHashMap.newKeySet<java.io.Closeable>()
+
         override fun newCall(request: Request): Call =
             clientFor(request.url.toString()).newCall(WebStreamHeaders.on(request))
                 .also { synchronized(made) { made += it } }
 
+        /** [cut] is called by [cancelInFlight] until the handle returned is closed, which a read does at its own close. */
+        fun cutAlongside(cut: java.io.Closeable): java.io.Closeable {
+            alongside += cut
+            return java.io.Closeable { alongside -= cut }
+        }
+
         /**
          * Cancels every call still out, so a read blocked on a connection that went silent throws
-         * at once and the player asks again on a new one, from the same byte. Call.cancel is
-         * safe from any thread, and does nothing to a call already done. For the stall watch,
-         * on the player's own calls only. Returns how many were cancelled.
+         * at once and the player asks again on a new one, from the same byte, and cuts the reads
+         * made beside them ([cutAlongside]) the same way. Call.cancel is safe from any thread, and
+         * does nothing to a call already done. For the stall watch, on the player's own calls
+         * only. Returns how many were cancelled or cut.
          */
-        fun cancelInFlight(): Int = synchronized(made) {
-            val out = made.filterNot { it.isCanceled() }
-            out.forEach { it.cancel() }
-            made.clear()
-            out.size
+        fun cancelInFlight(): Int {
+            val calls = synchronized(made) {
+                val out = made.filterNot { it.isCanceled() }
+                out.forEach { it.cancel() }
+                made.clear()
+                out.size
+            }
+            val reads = alongside.toList()
+            alongside.removeAll(reads.toSet())
+            reads.forEach { runCatching { it.close() } }
+            return calls + reads.size
         }
     }
 }

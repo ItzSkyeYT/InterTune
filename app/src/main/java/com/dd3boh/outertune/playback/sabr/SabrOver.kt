@@ -9,6 +9,7 @@ package com.dd3boh.outertune.playback.sabr
 import android.os.SystemClock
 import android.util.Log
 import com.dd3boh.outertune.sabr.SabrFile
+import com.dd3boh.outertune.utils.RouteTimes
 import com.dd3boh.outertune.utils.StreamFamily
 import com.dd3boh.outertune.utils.YTPlayerUtils
 import com.metrolist.innertubex.InnerTubeLogLevel
@@ -48,18 +49,28 @@ object SabrOver {
     }
 
     /**
-     * The calls SABR makes: over the family the address was issued to, as the direct address's
-     * are, and with no redirect followed, since the library refuses them itself. No overall time
-     * limit, since a song is read for as long as it plays.
+     * The client SABR's requests go out on: the player's stream client as the app makes it
+     * (StreamFamily.streamClient: a pool of its own whose idle connections are let go after a few
+     * seconds, 5 s to connect, the fault injection in a debug build), no redirect followed, since
+     * the library refuses them itself, and a read limit of its own. No overall time limit, since a
+     * song is read for as long as it plays. It had OkHttp's defaults and a 30 s read, the trap of
+     * 20 Oct 2026: a kept connection the network had dropped without a word.
      */
-    private val calls = StreamFamily.Calls(
-        OkHttpClient.Builder()
-            .proxy(YouTube.proxy)
-            .followRedirects(false)
-            .followSslRedirects(false)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .build()
-    )
+    private val client: OkHttpClient = StreamFamily.streamClient(YouTube.proxy).newBuilder()
+        .followRedirects(false)
+        .followSslRedirects(false)
+        .readTimeout(RouteTimes.SABR_READ_MS, TimeUnit.MILLISECONDS)
+        .build()
+
+    /** Over the family the address was issued to, as the direct address's are. */
+    private val calls = StreamFamily.Calls(client)
+
+    /**
+     * Lets go of the connections kept: after a change of network they are on the old link. With
+     * the player's own, by MusicService. The family clients and InnerTubeX's share this pool.
+     */
+    fun forgetConnections() = client.connectionPool.evictAll()
+
     private val clients = ConcurrentHashMap<OkHttpClient, HttpClient>()
 
     /** InnerTubeX's own lines, into ours. It leaves addresses, tokens and cookies out by design. */

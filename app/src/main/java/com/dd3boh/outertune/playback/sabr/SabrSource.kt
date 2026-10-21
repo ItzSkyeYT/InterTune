@@ -18,6 +18,7 @@ import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.TransferListener
 import com.dd3boh.outertune.sabr.SabrFile
+import com.dd3boh.outertune.utils.StreamFamily
 import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 
@@ -77,13 +78,15 @@ object SabrStarts {
 /**
  * One read of a song over SABR, what [SabrDataSource] does without Media3's Uri, so that the JVM
  * tests reach it: the start an address stands for, and a reader of its file from the byte asked
- * for. While it is open, a read paced by the player keeps the player's clock running (SabrClock).
+ * for. While it is open, a read paced by the player keeps the player's clock running (SabrClock),
+ * and a cut of [cutWith], the player's calls for the player's reads, ends it as it ends a direct
+ * read: the read fails at once, and media3 opens it again at the same byte, on a new SABR stream.
  * Its failures are put the way the recovery reads a direct address's: see [SabrFailures].
  *
  * The DataSpec given to [open] is only carried by the exceptions it throws.
  */
 @OptIn(UnstableApi::class)
-class SabrRead(private val starts: SabrStarts = SabrStarts) {
+class SabrRead(private val starts: SabrStarts = SabrStarts, private val cutWith: StreamFamily.Calls? = null) {
     private var start: SabrStarts.Start? = null
     private var reader: SabrFile.Reader? = null
     private var bytesRemaining = C.LENGTH_UNSET.toLong()
@@ -91,6 +94,13 @@ class SabrRead(private val starts: SabrStarts = SabrStarts) {
 
     /** Whether this read counts among the clock's open ones, until its close. */
     private var clocked = false
+
+    /** Its place among the reads [cutWith] cuts, while it is open. */
+    private var cuttable: java.io.Closeable? = null
+
+    /** Whether it was cut, from the main thread: the read that fails then says so. */
+    @Volatile
+    private var cut = false
 
     /** The song read, while the read is open. */
     val videoId: String? get() = start?.videoId
@@ -108,7 +118,15 @@ class SabrRead(private val starts: SabrStarts = SabrStarts) {
             clocked = true
             SabrClock.opened()
         }
-        reader = found.file.open(position)
+        val opened = found.file.open(position)
+        reader = opened
+        cut = false
+        cuttable = cutWith?.cutAlongside(
+            java.io.Closeable {
+                cut = true
+                opened.close()
+            }
+        )
         android.util.Log.i("SabrDataSource", "[${found.videoId}] SABR read from byte $position of $size")
         val left = size - position
         bytesRemaining = if (length != C.LENGTH_UNSET.toLong()) minOf(length, left) else left
@@ -127,11 +145,13 @@ class SabrRead(private val starts: SabrStarts = SabrStarts) {
         val n = try {
             reading.read(buffer, offset, asked)
         } catch (e: IOException) {
+            // Cut by the stall watch: a failed read, as a cancelled call's is.
+            val failure = if (cut) IOException("SABR read cut: no byte came", e) else e
             // A seek or a stop interrupts a read on purpose: not a failure.
-            if (e !is java.io.InterruptedIOException || e is java.net.SocketTimeoutException) {
-                android.util.Log.w("SabrDataSource", "[${song?.videoId}] SABR read failed", e)
+            if (failure !is java.io.InterruptedIOException || failure is java.net.SocketTimeoutException) {
+                android.util.Log.w("SabrDataSource", "[${song?.videoId}] SABR read failed", failure)
             }
-            throw SabrFailures.asPlayerSees(e, spec, HttpDataSource.HttpDataSourceException.TYPE_READ) { song?.let { starts.forget(it.videoId) } }
+            throw SabrFailures.asPlayerSees(failure, spec, HttpDataSource.HttpDataSourceException.TYPE_READ) { song?.let { starts.forget(it.videoId) } }
         }
         if (n < 0) return C.RESULT_END_OF_INPUT
         if (bytesRemaining > 0) bytesRemaining -= n
@@ -140,6 +160,8 @@ class SabrRead(private val starts: SabrStarts = SabrStarts) {
 
     fun close() {
         try {
+            cuttable?.close()
+            cuttable = null
             reader?.close()
         } finally {
             reader = null
@@ -155,11 +177,11 @@ class SabrRead(private val starts: SabrStarts = SabrStarts) {
 
 /**
  * A song's bytes over SABR, for the player, its cache, downloads and the cast server alike: the
- * file from the byte asked for, read by [SabrRead]. Media3's side of it only.
+ * file from the byte asked for, read by [SabrRead], and cut with [cutWith]. Media3's side of it only.
  */
 @OptIn(UnstableApi::class)
-class SabrDataSource(starts: SabrStarts = SabrStarts) : BaseDataSource(/* isNetwork = */ true) {
-    private val read = SabrRead(starts)
+class SabrDataSource(starts: SabrStarts = SabrStarts, cutWith: StreamFamily.Calls? = null) : BaseDataSource(/* isNetwork = */ true) {
+    private val read = SabrRead(starts, cutWith)
     private var uri: Uri? = null
     private var opened = false
 
@@ -202,8 +224,13 @@ class SabrDataSource(starts: SabrStarts = SabrStarts) : BaseDataSource(/* isNetw
 class SabrOrHttp private constructor(private val http: DataSource, private val sabr: DataSource) : DataSource {
     private var current: DataSource? = null
 
-    class Factory(private val http: DataSource.Factory) : DataSource.Factory {
-        override fun createDataSource(): DataSource = SabrOrHttp(http.createDataSource(), SabrDataSource())
+    /**
+     * [cutWith]: the calls [http] fetches with. The stall watch's cut of the player's calls then
+     * ends the player's SABR reads too, and only theirs: a download's, a lyrics clip's and the
+     * cast server's are on calls nothing cuts.
+     */
+    class Factory(private val http: DataSource.Factory, private val cutWith: StreamFamily.Calls? = null) : DataSource.Factory {
+        override fun createDataSource(): DataSource = SabrOrHttp(http.createDataSource(), SabrDataSource(cutWith = cutWith))
     }
 
     override fun addTransferListener(transferListener: TransferListener) {

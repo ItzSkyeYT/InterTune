@@ -1739,6 +1739,7 @@ class MusicService : MediaLibraryService(),
                 lastNetworkChangeAt = SystemClock.elapsedRealtime()
                 streamAddresses.forgetAll()
                 runCatching { playerStreamClient.connectionPool.evictAll() }
+                runCatching { SabrOver.forgetConnections() }
             }
 
             offloadScope.launch {
@@ -2492,8 +2493,9 @@ class MusicService : MediaLibraryService(),
                                 // guard, so that the stall watch hears of SABR's bytes and its wait for
                                 // a first byte too (StreamProgress). The guard only meters a stream
                                 // server's https address, never a sabr: one (StreamPace.isStream), so
-                                // a SABR stream paced by the player is never cut for its pace.
-                                SabrOrHttp.Factory(OkHttpDataSource.Factory(calls)),
+                                // a SABR stream paced by the player is never cut for its pace. The
+                                // stall watch's cut of these calls ends a SABR read of them too.
+                                SabrOrHttp.Factory(OkHttpDataSource.Factory(calls), cutWith = calls),
                                 // The player's own connections tell the stall watch how long each
                                 // waits for its first byte: see StreamProgress.
                                 firstBytes = calls === playerCalls,
