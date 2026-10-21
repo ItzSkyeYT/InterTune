@@ -321,6 +321,13 @@ internal val BackPreviewShortBy = 1.dp
  */
 val LocalPlayerSheet = staticCompositionLocalOf<BottomSheetState?> { null }
 
+/**
+ * The queue's sheet, for what lies under it in the player and has a Back of its own (the lyrics'
+ * timing bar and picking): while the queue takes Back, Back is the queue's. Null where there is
+ * no queue sheet.
+ */
+val LocalQueueSheet = staticCompositionLocalOf<BottomSheetState?> { null }
+
 @Stable
 class BottomSheetState(
     draggableState: DraggableState,

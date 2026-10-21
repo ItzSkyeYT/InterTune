@@ -239,6 +239,7 @@ import com.dd3boh.outertune.extensions.toggleRepeatMode
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.ui.component.BottomSheet
 import com.dd3boh.outertune.ui.component.BottomSheetState
+import com.dd3boh.outertune.ui.component.LocalQueueSheet
 import com.dd3boh.outertune.ui.component.button.ResizableIconButton
 import com.dd3boh.outertune.ui.component.rememberBottomSheetState
 import com.dd3boh.outertune.ui.menu.PlayerMenu
@@ -1893,7 +1894,7 @@ fun BottomSheetPlayer(
             }
         }
         Box(Modifier.fillMaxSize().blockFocusWhen(queueCovers)) {
-            lol()
+            CompositionLocalProvider(LocalQueueSheet provides queueSheetState) { lol() }
         }
 
         QueueSheet(

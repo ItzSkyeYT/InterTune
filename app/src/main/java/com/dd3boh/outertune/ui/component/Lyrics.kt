@@ -933,12 +933,16 @@ fun Lyrics(
         }
     }
 
+    // Both step aside while the queue sheet over the lyrics takes Back. Its handler is there from
+    // the moment the player opens, so these, put in place later, came first: one Back with the
+    // queue up closed the timing bar hidden under it, and the queue stayed.
+    val queueTakesBack = LocalQueueSheet.current?.takesBack == true
     // Back closes the timing bar too, composed before the picking's so that picking started over
     // the bar ends first.
-    if (timingOpen) BackHandler(onBack = ::stopTiming)
+    if (timingOpen) BackHandler(enabled = !queueTakesBack, onBack = ::stopTiming)
     // Back stops the picking before it closes anything. Composed only while picking, which makes it
     // the newest, so it comes before the player sheet's own.
-    if (picking) BackHandler(onBack = ::stopPicking)
+    if (picking) BackHandler(enabled = !queueTakesBack, onBack = ::stopPicking)
 }
 
 @Composable
