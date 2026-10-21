@@ -1,3 +1,6 @@
+> [!CAUTION]
+> From 2027, Google wants Android phones to install only apps from developers registered with it, even outside the Play Store. **[Keep Android Open](https://keepandroidopen.org/)**
+
 <div align="center">
 
 <img src="https://raw.githubusercontent.com/ItzSkyeYT/InterTune/visionos-fix/assets/intertune.svg" width="140" height="140" alt="InterTune">
@@ -12,6 +15,7 @@
 [![donors](https://img.shields.io/badge/donors-thank%20you-ed5564?labelColor=1b1f24)](#donors)
 [![translated](https://hosted.weblate.org/widget/intertune/strings/svg-badge.svg)](https://hosted.weblate.org/engage/intertune/)
 [![licence](https://img.shields.io/badge/licence-GPL--3.0-ed5564?labelColor=1b1f24)](https://github.com/ItzSkyeYT/InterTune/tree/visionos-fix/LICENSE)
+[![keep android open](https://img.shields.io/badge/keep%20android-open-c62828?labelColor=1b1f24)](https://keepandroidopen.org/)
 
 [Website](https://intertune.app) · [Download](#download) · [Features](#features) · [Good to know](#good-to-know) · [Wiki](https://github.com/ItzSkyeYT/InterTune/wiki) · [Discord](https://discord.gg/68jmqhMjXk) · [Donors](#donors)
 
@@ -151,6 +155,7 @@ Every change in detail, and why this fork exists: [docs/FEATURES.md](https://git
 - **Coming from OuterTune?** InterTune installs beside it, as `dev.skye.intertune`. Back up in OuterTune (Settings > Backup and restore) and restore the file here.
 - **Signing in is optional.** There is a small chance that YouTube restricts or closes an account used with InterTune. Everything works without one.
 - **Why playback breaks in other apps**, and what InterTune does about it: [docs/403.md](https://github.com/ItzSkyeYT/InterTune/blob/visionos-fix/docs/403.md)
+- **InterTune stands with [Keep Android Open](https://keepandroidopen.org/).** It will not join Google's developer registration, which would tie every Android app to an ID handed to Google.
 - If InterTune is useful to you, a star on this page helps other people find the real one.
 
 ## Translations
