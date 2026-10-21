@@ -11,8 +11,6 @@ import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSource
 import com.dd3boh.outertune.mix.FrontEnd
-import com.dd3boh.outertune.mix.Planner
-import com.dd3boh.outertune.mix.PlanInput
 import com.dd3boh.outertune.mix.RegionAnalysis
 import com.dd3boh.outertune.mix.RegionKind
 import com.dd3boh.outertune.mix.Spectrum
@@ -20,7 +18,10 @@ import com.dd3boh.outertune.mix.Tempo
 import com.dd3boh.outertune.mix.edit.BeatFix
 import com.dd3boh.outertune.mix.edit.Lane
 import com.dd3boh.outertune.mix.edit.Side
+import com.dd3boh.outertune.mix.auto.SongEnd
 import com.dd3boh.outertune.mix.edit.TransitionSpec
+import com.dd3boh.outertune.mix.engine.AutoOnBands
+import com.dd3boh.outertune.mix.engine.Copy
 import java.io.File
 import java.io.IOException
 import java.security.MessageDigest
@@ -38,8 +39,21 @@ class LoadedSong(
     val grid: SongGrid?,
 )
 
-/** Both songs, the facts the editor works from, and Auto's spec. */
-class LoadedPair(val a: LoadedSong, val b: LoadedSong, val facts: PairFacts, val auto: TransitionSpec)
+/**
+ * Both songs, the facts the editor works from, and Auto's spec; [aCopy] and [bCopy] are the two
+ * windows as the engine renders from them, for the preview, which plays the change as the phone
+ * will.
+ */
+class LoadedPair(
+    val a: LoadedSong,
+    val b: LoadedSong,
+    val facts: PairFacts,
+    val auto: TransitionSpec,
+    val aCopy: Copy,
+    val bCopy: Copy,
+    /** Auto's own words for its pick, for the log. */
+    val autoWhy: String = "",
+)
 
 /** Where the editor's windows are kept between openings, in the app's cache: Android may clear it, and that only costs a read. */
 class EditorCache(cacheDir: File) {
@@ -66,11 +80,17 @@ class EditorCache(cacheDir: File) {
 
 /**
  * Reads the end of A and the opening of B for the editor, or takes them from its cache, measures
- * their bands, analyses them with :mix and asks the planner for Auto. Blocking, on Dispatchers.IO;
+ * their bands, analyses them with :mix and asks Auto for its pick, each candidate rendered and
+ * judged as the phone does before it plays one. Blocking, on Dispatchers.IO;
  * [stage] is told which song is being read, for the now line.
  */
 @OptIn(UnstableApi::class)
-class PairLoader(private val source: DataSource.Factory, private val cache: EditorCache) {
+class PairLoader(
+    private val source: DataSource.Factory,
+    private val cache: EditorCache,
+    /** Where what was found of each song's end and opening is kept, for the playlist's pills. */
+    private val kept: ((String, SongEnd) -> Unit)? = null,
+) {
 
     enum class Stage { READING_A, READING_B, ANALYSING }
 
@@ -128,25 +148,48 @@ class PairLoader(private val source: DataSource.Factory, private val cache: Edit
                 (if (side == Side.A) aBands else bBands).active(lane, ms - w.startMs)
             },
         )
-        val plan = if (aAnalysis != null && bAnalysis != null) {
+        // The windows as the engine renders from them, on the heap: Auto's proofs and the preview
+        // play the change from these, exactly as the phone will.
+        val aCopy = copyOf(aWindow)
+        val bCopy = copyOf(bWindow)
+        var autoWhy = "no analysis"
+        val auto = if (aAnalysis != null && bAnalysis != null) {
             runCatching {
-                Planner.plan(
-                    PlanInput(
-                        tail = aAnalysis, head = bAnalysis, readMark = 0,
-                        aDurationMs = aWindow.info.durationMs.toLong(), bDurationMs = bWindow.info.durationMs.toLong(),
-                        aId = a.id, bId = b.id, aAlbum = a.albumId, bAlbum = b.albumId,
-                        tailStartMs = aWindow.info.startMs.toLong(),
-                    )
-                )
-            }.onFailure { Log.w(TAG, "No plan for the pair", it) }.getOrNull()
+                val aSong = AutoOnBands.Song(a.id, aCopy, aAnalysis, aWindow.info.startMs, aWindow.info.durationMs, a.albumId, a.fix)
+                val bSong = AutoOnBands.Song(b.id, bCopy, bAnalysis, bWindow.info.startMs, bWindow.info.durationMs, b.albumId, b.fix)
+                val chosen = AutoOnBands.choose(aSong, bSong)
+                autoWhy = "${chosen.pick.describe()}, ${chosen.proofs} proofs in %.0f ms".format(chosen.millis)
+                kept?.invoke(a.id, aSong.end)
+                kept?.invoke(b.id, bSong.end)
+                autoSpecOf(chosen.spec, aFacts, bFacts, facts)
+            }.onFailure { Log.w(TAG, "No Auto for the pair", it) }.getOrNull()
         } else null
-        plan?.let { Log.i(TAG, "Auto: ${it.describe()}") }
-        val auto = AutoSpec.of(plan, facts, aWindow.info.startMs)
+        Log.i(TAG, "Auto: $autoWhy")
         return LoadedPair(
             LoadedSong(a.id, a.title, aWindow, aBands, aAnalysis, aGrid),
             LoadedSong(b.id, b.title, bWindow, bBands, bAnalysis, bGrid),
-            facts, auto,
+            facts, auto ?: AutoSpec.fallback(facts), aCopy, bCopy, autoWhy,
         )
+    }
+
+    /** A window read whole into the heap, the form the engine renders from. */
+    private fun copyOf(window: PcmWindow): Copy {
+        val pcm = ShortArray(window.frames * window.info.channels)
+        window.read(0, window.frames, pcm)
+        return Copy(pcm, window.info.sampleRate, window.info.channels, window.info.startMs)
+    }
+
+    /**
+     * Auto's spec with its anchors in the editor's own terms (the window and analysis they were
+     * found on, and each song's fix), so the page takes it as Auto's; Auto's fallback when the
+     * pick cannot be heard whole with what may be read of the two songs.
+     */
+    private fun autoSpecOf(spec: TransitionSpec, a: SongFacts, b: SongFacts, facts: PairFacts): TransitionSpec {
+        val written = spec.copy(
+            a = MixEditor.anchor(a, spec.a.atMs, spec.a.bpm).copy(beatsPerBar = spec.a.beatsPerBar),
+            b = MixEditor.anchor(b, spec.b.atMs, spec.b.bpm).copy(beatsPerBar = spec.b.beatsPerBar),
+        )
+        return written.takeIf { it.isValid && (it.plain || AutoSpec.fits(it, facts)) } ?: AutoSpec.fallback(facts)
     }
 
     private fun window(song: SongInput, end: String, cancelled: () -> Boolean): Pair<PcmWindow, BandEnvelopes> {

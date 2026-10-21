@@ -121,7 +121,7 @@ class MixEditorViewModel @Inject constructor(
                 val inputA = input(fromId, a, withContext(Dispatchers.IO) { fixes.get(fromId) } ?: BeatFix.NONE)
                 val inputB = input(toId, b, withContext(Dispatchers.IO) { fixes.get(toId) } ?: BeatFix.NONE)
                 val loaded = withContext(Dispatchers.IO) {
-                    PairLoader(source, EditorCache(context.cacheDir)).load(
+                    PairLoader(source, EditorCache(context.cacheDir)) { id, end -> MixStores.analysed(context, id, end) }.load(
                         inputA, inputB,
                         stage = { phase.value = Phase.Loading(it) },
                         cancelled = { cancelled.get() },
@@ -136,7 +136,8 @@ class MixEditorViewModel @Inject constructor(
                 preview?.release()
                 pair = loaded
                 editor = e
-                preview = CrossfadePreview(loaded.a.pcm, loaded.b.pcm)
+                // The change as the phone will play it, from the engine's own render of the two copies.
+                preview = EnginePreview(loaded.aCopy, loaded.bCopy, loaded.a.analysis)
                 publish()
                 phase.value = Phase.Ready
             } catch (e: CancellationException) {

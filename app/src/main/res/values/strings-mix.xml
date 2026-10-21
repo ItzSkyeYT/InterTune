@@ -256,7 +256,6 @@
     <string name="mix_edit_guard_skip_silence">Skip silence is on, so this plays as a plain change for now.</string>
     <string name="mix_edit_guard_formats">The two songs come in different formats, so this plays as a plain change for now.</string>
     <string name="mix_edit_guard_same_song">A song into itself plays as a plain change.</string>
-    <string name="mix_edit_preview_note">The preview plays each song\'s level, not yet each band apart.</string>
     <!-- Mix (Unreleased.AUTOMIX_EDITOR): the playlist's Mix row, the line between two songs, the queue's line, Settings > Mixing. -->
     <string name="mix">Mix</string>
     <string name="mix_off">Songs flow into each other, like a DJ set.</string>

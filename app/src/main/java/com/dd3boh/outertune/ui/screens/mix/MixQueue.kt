@@ -100,7 +100,7 @@ fun MixNextLine(
     val next = songs.getOrNull(index + 1) ?: songs.firstOrNull()?.takeIf { repeat == Player.REPEAT_MODE_ALL } ?: return
     val saved = rememberSavedTransitions()
     val blocker = rememberMixBlocker()
-    val planner = rememberMixPlanner()
+    val planner = rememberMixPlanner(listOf(current.pillSong(), next.pillSong()))
     val decidedFlow = playerConnection.service.mixDecided ?: NOTHING_DECIDED
     val decided by decidedFlow.collectAsState()
     val pair = SongPair(current.id, next.id)

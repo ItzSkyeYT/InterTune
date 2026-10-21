@@ -239,7 +239,6 @@
     <string name="mix_edit_guard_skip_silence">Le saut des silences est activé : cette transition reste simple pour l\'instant.</string>
     <string name="mix_edit_guard_formats">Les deux morceaux n\'ont pas le même format : cette transition reste simple pour l\'instant.</string>
     <string name="mix_edit_guard_same_song">Un morceau vers lui-même reste une transition simple.</string>
-    <string name="mix_edit_preview_note">L\'aperçu joue le niveau de chaque morceau, pas encore chaque bande à part.</string>
     <!-- Mix (Unreleased.AUTOMIX_EDITOR) -->
     <string name="mix">Mix</string>
     <string name="mix_off">Les titres s\'enchaînent les uns dans les autres, comme un DJ.</string>

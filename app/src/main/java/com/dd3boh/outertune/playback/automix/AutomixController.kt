@@ -29,16 +29,23 @@ import com.dd3boh.outertune.mix.Planner
 import com.dd3boh.outertune.mix.RegionAnalysis
 import com.dd3boh.outertune.mix.RegionKind
 import com.dd3boh.outertune.mix.Style
+import com.dd3boh.outertune.mix.Headroom
+import com.dd3boh.outertune.mix.RenderedOutgoing
+import com.dd3boh.outertune.mix.auto.SongEnd
+import com.dd3boh.outertune.mix.edit.BeatFix
+import com.dd3boh.outertune.mix.edit.Preset
 import com.dd3boh.outertune.mix.edit.Presets
 import com.dd3boh.outertune.mix.edit.TransitionSpec
-import com.dd3boh.outertune.mix.engine.AutoSpec
+import com.dd3boh.outertune.mix.engine.AutoOnBands
 import com.dd3boh.outertune.mix.engine.ChangeFacts
+import com.dd3boh.outertune.mix.engine.Copy
 import com.dd3boh.outertune.mix.engine.LaneMixer
 import com.dd3boh.outertune.mix.engine.LanePlan
 import com.dd3boh.outertune.mix.engine.Placing
 import com.dd3boh.outertune.mix.engine.SpecPlan
 import com.dd3boh.outertune.mix.edit.SongPair
 import com.dd3boh.outertune.mix.pill.AutoChoice
+import com.dd3boh.outertune.mix.pill.AnalysedPlanner
 import com.dd3boh.outertune.mix.pill.PlainReason
 import com.dd3boh.outertune.mix.pill.Pills
 import kotlinx.coroutines.CoroutineScope
@@ -74,9 +81,11 @@ import kotlin.math.max
  *
  * With [lanes] on, the next song's opening is also kept as a full-rate copy, and once the plan of
  * step 3 is handed over, the change is worked out again on lows, mids and highs from both songs'
- * copies: the pair's saved change if it has one and it can play, Auto's otherwise. It takes the
- * place of the first plan if it is in before anything planned is heard, so the change is never
- * worse for it. A saved change that starts further from the end has the end held earlier.
+ * copies: the pair's saved change if it has one and it can play, Auto's otherwise, AutoPlanner's
+ * pick rendered and judged before it is kept (and gapless when no change it could make is clean).
+ * It takes the place of the first plan if it is in before anything planned is heard, so the
+ * change is never worse for it. A saved change that starts further from the end has the end held
+ * earlier.
  *
  * Every decision is one line in the log, starting "AutoMix:". Nothing here seeks, so a song that
  * ends by itself is still the player's own automatic change, and its listen is ENDED.
@@ -99,6 +108,10 @@ class AutomixController(
     private val lanes: Boolean = false,
     /** The change saved by hand from one song into another, or null for Auto. Blocking, so called on IO. */
     private val savedChange: (from: String, to: String) -> TransitionSpec? = { _, _ -> null },
+    /** The listener's fix to a song's beat (Fix the beat), which Auto uses too. Blocking, called on the worker. */
+    private val beatFix: (songId: String) -> BeatFix? = { null },
+    /** What was found of a song's end or opening, kept for the playlist's pills. Called on the worker. */
+    private val analysed: (songId: String, end: SongEnd) -> Unit = { _, _ -> },
 ) : Player.Listener, AutomixAudioProcessor.Events {
 
     class Conditions(
@@ -183,6 +196,12 @@ class AutomixController(
     private val normalizationsAsked = HashSet<String>()
     private val lastStyles = ArrayDeque<Style>()
     private var lastWorkMs: Long? = null
+
+    /** Auto's last moves on bands, newest first, so it does not make the same one three times running. Worker only. */
+    private val recentMoves = ArrayDeque<Preset>()
+
+    /** How long the last change on bands took to work out, Auto's proofs included. Worker only. */
+    @Volatile private var lastBandsMs: Long? = null
 
     /** The song the listener moved within its last minute; its end is not mixed. */
     private var seekedLateId: String? = null
@@ -709,12 +728,12 @@ class AutomixController(
                 if (!t.abandoned.get()) stage.offer(held, plan, rendered)
                 // Then the same change on bands, from copies, to take the place of that one if in time.
                 val onBands = if (lanes && c.soundBeforeMix) {
-                    "not on bands: the boost, the equalizer or spatial audio would be on one song and not the other"
+                    BandsOutcome("not on bands: the boost, the equalizer or spatial audio would be on one song and not the other")
                 } else if (lanes && !t.abandoned.get()) {
-                    runCatching { onBands(t, held, ring, frames, plan, tail, head, planInput.earliestChange, planInput.attenuationA, planInput.attenuationB) }
+                    runCatching { onBands(t, held, ring, frames, tail, head, planInput.earliestChange, planInput.attenuationA, planInput.attenuationB) }
                         .getOrElse { e ->
                             Log.w(TAG, "AutoMix: the change on bands failed", e)
-                            "not on bands: ${e.javaClass.simpleName}"
+                            BandsOutcome("not on bands: ${e.javaClass.simpleName}")
                         }
                 } else null
                 plan to onBands
@@ -727,35 +746,49 @@ class AutomixController(
                     say("gapless: planning failed (${e.javaClass.simpleName})")
                     return@post
                 }
-                onBands?.let(::say)
+                onBands?.let { say(it.log) }
                 lastWorkMs = workMs
                 if (t.abandoned.get()) {
                     say("plan ${plan.style.name.lowercase()} worked out in $workMs ms, not used: the change was given up")
                     return@post
                 }
                 t.plan = plan
-                decide(t, AutoChoice.of(plan.style, plan.bars, plan.seconds, Pills.reasonOfPlanner(plan.reason)))
+                // What was handed over last is what plays, unless it came too late (the log says so):
+                // the saved change, which its own pill names, Auto's change on bands, or the first plan.
+                when {
+                    onBands?.saved == true -> decide(t, null)
+                    onBands?.auto != null -> decide(t, onBands.auto)
+                    else -> decide(t, AutoChoice.of(plan.style, plan.bars, plan.seconds, Pills.reasonOfPlanner(plan.reason)))
+                }
                 say("plan ${plan.describe()}${timesOf(t, plan)}, worked out in $workMs ms")
             }
         }
     }
 
+    /** What the change on bands came to: a line for the log, and what plays if it is taken. */
+    private class BandsOutcome(val log: String, val saved: Boolean = false, val auto: AutoChoice? = null)
+
     /**
      * The change on lows, mids and highs, from the held end [ring] and the next song's copy, handed
-     * to the stage to take the place of [plan]: the pair's saved change where it can play here,
-     * Auto's otherwise. On the worker. Says what it did, for the log.
+     * to the stage to take the place of the first plan: the pair's saved change where it can play
+     * here, Auto's otherwise. Auto is AutoPlanner's pick, each candidate rendered as it would play
+     * and judged before it is kept; when none is clean, the change is today's, gapless. On the
+     * worker.
      */
     private fun onBands(
-        t: Transition, held: HeldTail, ring: ShortArray, frames: Long, plan: MixPlan, tail: RegionAnalysis, head: RegionAnalysis,
+        t: Transition, held: HeldTail, ring: ShortArray, frames: Long, tail: RegionAnalysis, head: RegionAnalysis,
         earliest: Long, attenuationA: Double, attenuationB: Double,
-    ): String {
-        val copy = t.copy ?: return "not on bands: the next song's opening was not copied"
-        val b = t.b ?: return "not on bands: no next song"
+    ): BandsOutcome {
+        val copy = t.copy ?: return BandsOutcome("not on bands: the next song's opening was not copied")
+        val b = t.b ?: return BandsOutcome("not on bands: no next song")
         val rate = held.sampleRate
         var why = ""
-        var lanePlan: LanePlan? = null
-        t.saved?.takeIf { !it.plain }?.let { saved ->
+        // Read again here, so a change saved in the editor while this song played is the one
+        // heard, if what was read of the next song's opening holds it; otherwise it plays next time.
+        val latest = runCatching { savedChange(t.a.id, b.id) }
+        (if (latest.isSuccess) latest.getOrNull() else t.saved)?.takeIf { !it.plain }?.let { saved ->
             val spec = Presets.onBands(saved)
+            var lanePlan: LanePlan? = null
             Placing.facts(spec, rate, held.channels, t.tailStartMs.toDouble(), frames, tail, t.copyFrames.toLong(), earliest).fold(
                 onSuccess = { facts: ChangeFacts ->
                     when (val r = SpecPlan.plan(spec, facts)) {
@@ -765,21 +798,58 @@ class AutomixController(
                 },
                 onFailure = { e -> why = "; the saved change cannot play: ${e.message}" },
             )
-        }
-        if (lanePlan == null) {
-            val auto = AutoSpec.of(plan, tail, head, t.a.id, b.id, t.tailStartMs.toDouble(), t.copyFrames.toLong(), earliest)
-                ?: return "not on bands: Auto is plain here$why"
-            when (val r = SpecPlan.plan(auto.spec, auto.facts)) {
-                is SpecPlan.Result.Planned -> lanePlan = r.plan
-                is SpecPlan.Result.Refused -> return "not on bands: ${r.why}$why"
+            lanePlan?.let { p ->
+                val render = LaneMixer(p).render(ring, copy, attenuationA, attenuationB)
+                if (t.abandoned.get()) return BandsOutcome("on bands, not used: the change was given up")
+                stage.offer(held, render.heldPlan(), render.outgoing, render.incoming, replaces = true)
+                return BandsOutcome(
+                    "on bands, saved: ${p.describe()}, rendered in %.0f ms, headroom %.1f dB, peak %.2f".format(
+                        render.renderMillis, render.headroom.deepestDb, render.peakAfter,
+                    ),
+                    saved = true,
+                )
             }
         }
-        val p = lanePlan!!
-        val render = LaneMixer(p).render(ring, copy, attenuationA, attenuationB)
-        if (t.abandoned.get()) return "on bands, not used: the change was given up"
+        // Auto on bands. By now the first plan has taken its time: the change may start only past
+        // what will have gone out by the time this one is worked out, proofs and all.
+        val started = SystemClock.elapsedRealtime()
+        val allowance = ((lastBandsMs ?: BANDS_FIRST_WORK_MS) * 3 / 2).coerceIn(BANDS_FIRST_WORK_MS, BANDS_MAX_WORK_MS)
+        val ready = max(earliest, AutomixSchedule.earliestChange(stage.readMark, rate, allowance))
+        val a = AutoOnBands.Song(
+            id = t.a.id, copy = Copy(ring, rate, held.channels, t.tailStartMs.toDouble(), frames.toInt()), analysis = tail,
+            analysisStartMs = t.tailStartMs.toDouble(), songMs = t.a.durationMs.toDouble(), album = t.a.albumId,
+            fix = runCatching { beatFix(t.a.id) }.getOrNull(),
+        )
+        val bSong = AutoOnBands.Song(
+            id = b.id, copy = Copy(copy, rate, held.channels, 0.0, t.copyFrames), analysis = head,
+            analysisStartMs = 0.0, songMs = b.durationMs.toDouble(), album = b.albumId,
+            fix = runCatching { beatFix(b.id) }.getOrNull(),
+        )
+        val chosen = AutoOnBands.choose(a, bSong, ready, recentMoves.toList(), attenuationA, attenuationB, maxProofs = PHONE_PROOFS)
+        lastBandsMs = SystemClock.elapsedRealtime() - started
+        // What was found is kept for the playlist's pills, whatever the change came to.
+        runCatching {
+            analysed(t.a.id, a.end)
+            analysed(b.id, bSong.end)
+        }.onFailure { Log.w(TAG, "AutoMix: the analysis could not be kept", it) }
+        val pick = chosen.pick
+        if (t.abandoned.get()) return BandsOutcome("on bands, not used: the change was given up")
+        val render = chosen.render
+        if (pick.isPlain || render == null) {
+            stage.offer(held, MixPlan.gapless(rate, held.channels, frames, attenuationA, attenuationB, "Auto: ${pick.describe()}"), EMPTY_PART, replaces = true)
+            return BandsOutcome(
+                "on bands: Auto stays gapless, ${pick.describe()}, %d proofs in %.0f ms$why".format(chosen.proofs, chosen.millis),
+                auto = if (pick.isPlain) AnalysedPlanner.choiceOf(pick) else AutoChoice.Plain(PlainReason.NO_FIT),
+            )
+        }
         stage.offer(held, render.heldPlan(), render.outgoing, render.incoming, replaces = true)
-        return "on bands: ${p.describe()}, rendered in %.0f ms, headroom %.1f dB, peak %.2f$why".format(
-            render.renderMillis, render.headroom.deepestDb, render.peakAfter,
+        recentMoves.addFirst(pick.move)
+        while (recentMoves.size > 2) recentMoves.removeLast()
+        return BandsOutcome(
+            "on bands: Auto ${pick.describe()}; ${render.plan.describe()}, %d proofs in %.0f ms, headroom %.1f dB, peak %.2f$why".format(
+                chosen.proofs, chosen.millis, render.headroom.deepestDb, render.peakAfter,
+            ),
+            auto = AnalysedPlanner.choiceOf(pick),
         )
     }
 
@@ -959,5 +1029,18 @@ class AutomixController(
         /** The opening is copied this much past what a change needs of it, and a minute at most. */
         const val COPY_MARGIN_S = 2.0
         const val COPY_MAX_S = 60.0
+
+        /**
+         * Auto's changes on bands rendered and judged at most per change on the phone: each costs a
+         * render of a second or two on a slow phone, and the first passes nearly always.
+         */
+        const val PHONE_PROOFS = 4
+
+        /** What Auto on bands is given to be worked out in, before it has been timed, and at most. */
+        const val BANDS_FIRST_WORK_MS = 3_000L
+        const val BANDS_MAX_WORK_MS = 10_000L
+
+        /** The outgoing part handed over with a gapless plan, which plays none of it. */
+        private val EMPTY_PART = RenderedOutgoing(0, 0, 2, ShortArray(0), Headroom.NONE)
     }
 }

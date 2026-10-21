@@ -1097,6 +1097,9 @@ class MusicService : MediaLibraryService(),
                             lanes = Unreleased.AUTOMIX_EDITOR,
                             // The one store the editor saves to, so a change just saved is the one that plays.
                             savedChange = { from, to -> if (Unreleased.AUTOMIX_EDITOR) MixStores.transitions(this@MusicService).get(SongPair(from, to)) else null },
+                            beatFix = { id -> if (Unreleased.AUTOMIX_EDITOR) MixStores.beatFixes(this@MusicService).get(id) else null },
+                            // Each song's end and opening as Auto found them, so the playlist's pills can name Auto's change.
+                            analysed = { id, end -> if (Unreleased.AUTOMIX_EDITOR) MixStores.analysed(this@MusicService, id, end) },
                         ).also { addListener(it) }
                     }
                 }

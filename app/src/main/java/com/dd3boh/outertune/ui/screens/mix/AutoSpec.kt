@@ -116,7 +116,7 @@ object AutoSpec {
         s.copy(moves = EditorPresets.moves(p, s.lengthBars, s.lanes, s.beat)!!, preset = p)
 
     /** Whether the spec can be heard whole with what may be read of the two songs. */
-    private fun fits(s: TransitionSpec, facts: PairFacts): Boolean {
+    fun fits(s: TransitionSpec, facts: PairFacts): Boolean {
         val perA = if (s.beatMatched) s.b.barMs * s.tempoRatio() else s.b.barMs
         val around = if (s.bars == 0) MixEditor.SECONDS_AROUND_MS / s.b.barMs else 2.0
         val aFirst = s.a.atMs - around * perA

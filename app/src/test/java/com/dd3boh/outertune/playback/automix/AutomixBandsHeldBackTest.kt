@@ -27,6 +27,8 @@ class AutomixBandsHeldBackTest {
         assertTrue(
             "savedChange = { from, to -> if (Unreleased.AUTOMIX_EDITOR) MixStores.transitions(this@MusicService).get(SongPair(from, to)) else null }," in service,
         )
+        assertTrue("beatFix = { id -> if (Unreleased.AUTOMIX_EDITOR) MixStores.beatFixes(this@MusicService).get(id) else null }," in service)
+        assertTrue("analysed = { id, end -> if (Unreleased.AUTOMIX_EDITOR) MixStores.analysed(this@MusicService, id, end) }," in service)
         assertTrue("JsonFileTransitionStore" !in service)
     }
 

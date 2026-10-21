@@ -7,14 +7,15 @@
 package com.dd3boh.outertune.ui.screens.mix
 
 import com.dd3boh.outertune.mix.FrontEnd
-import com.dd3boh.outertune.mix.PlanInput
-import com.dd3boh.outertune.mix.Planner
 import com.dd3boh.outertune.mix.RegionAnalysis
 import com.dd3boh.outertune.mix.RegionKind
 import com.dd3boh.outertune.mix.edit.Lane
 import com.dd3boh.outertune.mix.edit.Preset
 import com.dd3boh.outertune.mix.edit.Side
 import com.dd3boh.outertune.mix.edit.toJson
+import com.dd3boh.outertune.mix.engine.AutoOnBands
+import com.dd3boh.outertune.mix.engine.Copy
+import com.dd3boh.outertune.mix.engine.Preview
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 import java.io.DataOutputStream
@@ -26,7 +27,7 @@ import kotlin.math.max
 /**
  * Not a test: the editor's trial on the PC. Each two songs in a row in MIX_EDITOR_TRIAL_DIR go
  * through what the editor does with them on the phone, but for the decoding (ffmpeg here,
- * MediaCodec there): the bands, the analysis, the planner's Auto, the page's state, each bands
+ * MediaCodec there): the bands, the analysis, Auto's proven pick, the page's state, each bands
  * preset, and the preview's sound of Auto and of Fade at 8 bars, written as WAV files with a
  * summary into MIX_EDITOR_TRIAL_OUT. The songs never leave the PC; nothing of them is kept in git.
  *
@@ -72,14 +73,20 @@ class MixEditorTrial {
                 b = SongFacts(b.title, b.title, b.durationMs, 0.0, bWindow.info.endMs, bGrid, firstSoundMs = bFirst, focusMs = bFirst),
                 active = { side, lane: Lane, ms -> (if (side == Side.A) aBands.active(lane, ms - aWindow.info.startMs) else bBands.active(lane, ms)) },
             )
-            val plan = Planner.plan(PlanInput(tail = aAnalysis, head = bAnalysis, readMark = 0, aDurationMs = a.durationMs.toLong(), bDurationMs = b.durationMs.toLong(), tailStartMs = aWindow.info.startMs.toLong()))
-            val auto = AutoSpec.of(plan, facts, aWindow.info.startMs)
+            // Auto as the editor asks it on the phone: AutoPlanner's pick, each candidate rendered and judged.
+            val aCopy = copyOf(aWindow)
+            val bCopy = copyOf(bWindow)
+            val chosen = AutoOnBands.choose(
+                AutoOnBands.Song(a.title, aCopy, aAnalysis, aWindow.info.startMs, a.durationMs),
+                AutoOnBands.Song(b.title, bCopy, bAnalysis, 0.0, b.durationMs),
+            )
+            val auto = chosen.spec.takeIf { it.isValid && (it.plain || AutoSpec.fits(it, facts)) } ?: AutoSpec.fallback(facts)
             val e = MixEditor(facts, auto, null)
             val label = "%02d %s into %s".format(i + 1, safe(a.title).take(36), safe(b.title).take(36))
             summary.append("## $label\n\n")
             summary.append("- read %.0f ms, bands %.0f ms, analysis %.0f ms\n".format(decodedMs, bandsMs, analysisMs))
             summary.append("- A: ${aAnalysis.describe()}; B: ${bAnalysis.describe()}\n")
-            summary.append("- planner: ${plan.describe()}\n")
+            summary.append("- Auto: ${chosen.pick.describe()}, ${chosen.proofs} proofs in %.0f ms\n".format(chosen.millis))
             summary.append("- Auto: ${e.lit()} ${if (auto.bars > 0) "${auto.bars} bars" else "${auto.seconds} s"}, beat matched ${auto.beatMatched} (ratio %.4f), bar 1 at A %s, B %s, A loses %s\n".format(
                 auto.tempoRatio(), clock(auto.a.atMs), clock(auto.b.atMs), clock(e.unheardMs())))
             summary.append("- moments: ${e.moments().joinToString("; ") { "%.2f %s %s %s".format(it.at, it.kind, it.lane ?: "", it.how ?: "") }}\n")
@@ -91,11 +98,11 @@ class MixEditorTrial {
             summary.append("- presets: ${if (bad.isEmpty()) "all valid and lit" else bad.joinToString()}\n")
             summary.append("- lengths: ${e.lengthOptions().joinToString { "${if (it.bars > 0) "${it.bars} bars" else "${it.seconds} s"} ${if (it.refused == null) "ok" else "refused (${it.refused})"}" }}\n")
             e.backToAuto()
-            render(File(out, "$label, auto.wav"), e, aWindow, bWindow)
+            render(File(out, "$label, auto.wav"), e, aCopy, bCopy, aAnalysis)
             if (facts.barsMode) {
                 e.tapPreset(Preset.FADE)
                 if (e.spec.bars != 8) e.setLength(8)
-                render(File(out, "$label, fade 8 bars.wav"), e, aWindow, bWindow)
+                render(File(out, "$label, fade 8 bars.wav"), e, aCopy, bCopy, aAnalysis)
             }
             File(out, "$label, auto.json").writeText(auto.toJson())
             summary.append("\n")
@@ -151,12 +158,15 @@ class MixEditorTrial {
         return RegionAnalysis.analyse(front.result(), kind)
     }
 
-    /** The preview's loop, from 2 bars before the change to 2 after, as the phone plays it. */
-    private fun render(file: File, e: MixEditor, a: PcmWindow, b: PcmWindow) {
-        val spec = e.spec
-        val frames = ((e.fitEnd() - e.fitStart()) * spec.b.barMs / 1000 * rate).toInt()
-        val pcm = ShortArray(frames * 2)
-        PreviewMixer(a, b).render(spec, e.fitStart(), rate, frames, pcm)
+    private fun copyOf(w: PcmWindow): Copy {
+        val pcm = ShortArray(w.frames * w.info.channels)
+        w.read(0, w.frames, pcm)
+        return Copy(pcm, w.info.sampleRate, w.info.channels, w.info.startMs)
+    }
+
+    /** The preview's loop, from 2 bars before the change to 2 after, as the phone plays it: the engine's own render. */
+    private fun render(file: File, e: MixEditor, a: Copy, b: Copy, aAnalysis: RegionAnalysis) {
+        val pcm = Preview.render(e.spec, a, b, aAnalysis).getOrNull()?.pcm ?: return
         DataOutputStream(file.outputStream().buffered()).use { o ->
             fun le32(v: Int) = o.write(ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(v).array())
             fun le16(v: Int) = o.write(ByteBuffer.allocate(2).order(ByteOrder.LITTLE_ENDIAN).putShort(v.toShort()).array())

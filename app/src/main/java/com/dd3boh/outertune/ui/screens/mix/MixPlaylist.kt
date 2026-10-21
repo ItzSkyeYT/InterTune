@@ -62,6 +62,9 @@ import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.mix.edit.SongPair
 import com.dd3boh.outertune.mix.edit.TransitionSpec
+import com.dd3boh.outertune.mix.RegionKind
+import com.dd3boh.outertune.mix.auto.SongEnd
+import com.dd3boh.outertune.mix.pill.AnalysedPlanner
 import com.dd3boh.outertune.mix.pill.HeardChanges
 import com.dd3boh.outertune.mix.pill.MixRowLine
 import com.dd3boh.outertune.mix.pill.PairPlanner
@@ -128,16 +131,30 @@ fun rememberSavedTransitions(): Map<SongPair, TransitionSpec> {
 }
 
 /**
- * Auto for each pair, as far as it is known. Nothing is analysed ahead yet (the analysis cache
- * comes with the engine), so a pair says Auto until its change has been heard once, and then
- * what Auto did (MixStores.heard). The real planner replaces this in one place.
+ * Auto for each pair of [songs] in their order, as far as it is known: what Auto did when the
+ * change was last heard (MixStores.heard), or else Auto's own pick from what the analysis cache
+ * holds of the first song's end and the second song's opening. A pair neither heard nor analysed
+ * says Auto: nothing is read ahead only to fill a pill. Worked out off the main thread, again
+ * whenever a change is heard, saved or analysed.
  */
 @Composable
-fun rememberMixPlanner(): PairPlanner {
+fun rememberMixPlanner(songs: List<PillSong>): PairPlanner {
     val context = LocalContext.current
     val changes by MixStores.changes.collectAsState()
-    val planner by produceState<PairPlanner>(PairPlanner.NOT_YET, changes) {
-        value = HeardPlanner(withContext(Dispatchers.IO) { MixStores.heard(context) }, changes)
+    val planner by produceState<PairPlanner>(PairPlanner.NOT_YET, changes, songs) {
+        value = withContext(Dispatchers.IO) {
+            val heard = MixStores.heard(context)
+            val cache = MixStores.analysis(context)
+            val fixes = runCatching { MixStores.beatFixes(context).all() }.getOrDefault(emptyMap())
+            val albums = songs.associate { it.id to it.albumId }
+            val tails = HashMap<String, SongEnd?>()
+            val heads = HashMap<String, SongEnd?>()
+            fun tail(id: String) = tails.getOrPut(id) { cache.get(id, RegionKind.TAIL) }
+            fun head(id: String) = heads.getOrPut(id) { cache.get(id, RegionKind.HEAD) }
+            val pairs = songs.zipWithNext { a, b -> SongPair(a.id, b.id) }
+            val choices = AnalysedPlanner.plan(pairs, ::tail, ::head, { fixes[it] }, { albums[it] })
+            AnalysedPlanner(HeardPlanner(heard, changes), choices, tails.mapNotNull { (id, end) -> end?.let { id to it } }.toMap())
+        }
     }
     return planner
 }

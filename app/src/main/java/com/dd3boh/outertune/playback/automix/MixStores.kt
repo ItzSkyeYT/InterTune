@@ -10,6 +10,7 @@ import android.content.Context
 import android.util.Log
 import androidx.datastore.preferences.core.edit
 import com.dd3boh.outertune.constants.MixPlaylistsKey
+import com.dd3boh.outertune.mix.auto.SongEnd
 import com.dd3boh.outertune.mix.edit.BeatFixStore
 import com.dd3boh.outertune.mix.edit.JsonFileBeatFixStore
 import com.dd3boh.outertune.mix.edit.JsonFileTransitionStore
@@ -93,6 +94,19 @@ object MixStores {
     }
 
     private fun heardFile(context: Context) = File(context.applicationContext.cacheDir, "mix/heard.json")
+
+    @Volatile
+    private var analysis: MixAnalysisCache? = null
+
+    /** What was found of each song's end and opening, for Auto's pick on the pills. In the cache: losing it costs a listen. */
+    fun analysis(context: Context): MixAnalysisCache = analysis ?: synchronized(this) {
+        analysis ?: MixAnalysisCache(File(context.applicationContext.cacheDir, "mix/analysis")).also { analysis = it }
+    }
+
+    /** Keeps what was found of [songId]'s end or opening, and has the pills look again. Off the main thread. */
+    fun analysed(context: Context, songId: String, end: SongEnd) {
+        if (analysis(context).put(songId, end)) _changes.value += 1
+    }
 
     private class WatchedTransitionStore(
         private val inner: TransitionStore,

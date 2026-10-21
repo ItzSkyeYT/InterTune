@@ -222,7 +222,7 @@ fun LocalPlaylistScreen(
     val mixOn = Unreleased.AUTOMIX_EDITOR && rememberMixOn(viewModel.playlistId)
     val savedMixes = if (Unreleased.AUTOMIX_EDITOR && mixOn) rememberSavedTransitions() else emptyMap()
     val mixBlocker = if (Unreleased.AUTOMIX_EDITOR && mixOn) rememberMixBlocker() else null
-    val mixPlanner = if (Unreleased.AUTOMIX_EDITOR && mixOn) rememberMixPlanner() else null
+    val mixPlanner = if (Unreleased.AUTOMIX_EDITOR && mixOn) rememberMixPlanner(mutableSongs.map { it.song.pillSong() }) else null
 
     var inSelectMode by rememberSaveable { mutableStateOf(false) }
     val selection = rememberSaveable(

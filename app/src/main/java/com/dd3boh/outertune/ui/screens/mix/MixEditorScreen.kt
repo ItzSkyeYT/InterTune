@@ -724,7 +724,7 @@ private fun Lowers(
         TextButton(onClick = { vm.edit { plainChange() } }, enabled = ready && !spec.plain) { Text(stringResource(R.string.mix_edit_plain)) }
     }
     Text(
-        stringResource(R.string.mix_edit_parts_need, PARTS_MB) + " " + stringResource(R.string.mix_edit_preview_note),
+        stringResource(R.string.mix_edit_parts_need, PARTS_MB),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
