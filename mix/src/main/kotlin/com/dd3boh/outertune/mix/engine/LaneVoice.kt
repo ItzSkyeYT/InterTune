@@ -223,6 +223,9 @@ object Engine {
     /** How long a filter takes to join or leave a lane, from or back to its dry sound. */
     const val BYPASS_S = 0.05
 
+    /** How long before it is needed a band split starts, for its filters to settle from rest. */
+    const val SETTLE_S = 0.1
+
     /**
      * Room around where both songs sound, so the shared headroom can bend down before it and come
      * back to exactly 1 after it: more than the 0.29 s its smoothing reaches.

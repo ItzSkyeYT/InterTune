@@ -45,6 +45,11 @@ class BandsTrial {
     private val held = 45.0
     private val readMark = 8.0
 
+    private companion object {
+        /** Pairs chosen by tempo, on top of the songs in name order. */
+        const val MATCHED_PAIRS = 12
+    }
+
     @Test
     fun trial() {
         val dir = TrialSongs.dir
@@ -71,13 +76,14 @@ class BandsTrial {
             if (gap <= 0.04) matched += Triple(a, b, gap)
         }
         val used = HashMap<String, Int>()
+        var added = 0
         for ((a, b, _) in matched.sortedBy { it.third }) {
             if ((used[a.title] ?: 0) >= 2 || (used[b.title] ?: 0) >= 2) continue
             if (pairs.any { it.first === a && it.second === b }) continue
             pairs += a to b
             used[a.title] = (used[a.title] ?: 0) + 1
             used[b.title] = (used[b.title] ?: 0) + 1
-            if (used.size > 24) break
+            if (++added == MATCHED_PAIRS) break
         }
 
         val rows = StringBuilder()

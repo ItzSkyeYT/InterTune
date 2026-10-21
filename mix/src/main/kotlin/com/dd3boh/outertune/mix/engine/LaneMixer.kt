@@ -48,7 +48,7 @@ internal class StretchSource(private val frames: Wsola.Frames, private val from:
 internal class SideRenderer(private val plan: LanePlan, private val side: Side, private val source: FrameSource, origin: Long) {
     private val channels = plan.channels
     private var split: BandSplit? = null
-    private val settle = (SETTLE_S * plan.sampleRate).toLong()
+    private val settle = (Engine.SETTLE_S * plan.sampleRate).toLong()
     private val lanes = plan.spec.lanes.lanes
     private val voices = lanes.map { LaneVoice(LaneId(side, it), plan, channels) }
     private val bandOf = IntArray(lanes.size) {
@@ -85,11 +85,6 @@ internal class SideRenderer(private val plan: LanePlan, private val side: Side, 
         for (c in 0 until channels) out[c] = 0.0
         val echo = if (side == Side.A) Engine.echoLevel(o, plan.echoFadeFrom, plan.aGone) else 1.0
         for (i in voices.indices) voices[i].process(bands[bandOf[i]], out, echo)
-    }
-
-    private companion object {
-        /** How long before it is needed a split starts, for its filters to settle from rest. */
-        const val SETTLE_S = 0.1
     }
 }
 
@@ -323,10 +318,12 @@ class LaneMixer(private val plan: LanePlan) {
             decimator.push(sum * inverse, mono)
             i += channels
         }
-        // The stretch is laid out for every frame the band split may read ahead of the change.
+        // The stretch is laid out for every frame a band split may read: from the time it settles
+        // before the change to its look ahead past it.
+        val from = plan.mixFrom - (Engine.SETTLE_S * plan.sampleRate).toLong() - 1
         val to = plan.mixTo + BandSplit.CHUNK + BandSplit.LOOK
         val wsola = Wsola(a, channels, plan.sampleRate, mono.toArray(), factor, plan.anchors, phase = plan.gridOrigin, guideFrom = guideFrom)
-            .frames(plan.aMap, plan.mixFrom, to)
-        return StretchSource(wsola, plan.mixFrom, to, channels)
+            .frames(plan.aMap, from, to)
+        return StretchSource(wsola, from, to, channels)
     }
 }
