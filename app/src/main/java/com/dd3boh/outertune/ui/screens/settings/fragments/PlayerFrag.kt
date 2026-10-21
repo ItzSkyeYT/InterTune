@@ -41,6 +41,7 @@ import androidx.compose.material.icons.rounded.SurroundSound
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.BluetoothAudio
 import androidx.compose.material.icons.rounded.Gradient
+import androidx.compose.material.icons.rounded.JoinInner
 import androidx.compose.material.icons.rounded.Timer
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -97,6 +98,7 @@ import com.dd3boh.outertune.constants.SleepTimerDefaults
 import com.dd3boh.outertune.constants.SleepTimerFadeDurationKey
 import com.dd3boh.outertune.constants.ShareAudioFocusKey
 import com.dd3boh.outertune.constants.SleepTimerFadeKey
+import com.dd3boh.outertune.constants.AutomixKey
 import com.dd3boh.outertune.constants.TransitionFadeKey
 import com.dd3boh.outertune.constants.TransitionFadeSecondsKey
 import androidx.compose.runtime.LaunchedEffect
@@ -708,19 +710,23 @@ fun ColumnScope.AdaptiveQueueFrag() {
 @Composable
 fun ColumnScope.TransitionFadeFrag() {
     val (enabled, onEnabledChange) = rememberPreference(TransitionFadeKey, defaultValue = false)
+    // AutoMix carries each song into the next by itself, so while it is on the fade has nothing
+    // to do, and the row says so rather than offering a switch that changes nothing.
+    val automixOn = if (Unreleased.AUTOMIX) rememberPreference(AutomixKey, defaultValue = false).value else false
 
     ExplainedSwitchPreference(
         modifier = Modifier.tourTarget(Tour.SETTING_TRANSITION_FADE),
         title = stringResource(R.string.transition_fade),
-        description = stringResource(R.string.transition_fade_description),
+        description = stringResource(if (automixOn) R.string.transition_fade_automix_on else R.string.transition_fade_description),
         explanation = stringResource(R.string.transition_fade_explain),
         picture = ExplainPicture.FADE,
         icon = { Icon(Icons.Rounded.Gradient, null) },
         checked = enabled,
         onCheckedChange = onEnabledChange,
+        isEnabled = !automixOn,
     )
 
-    if (!enabled) return
+    if (!enabled || automixOn) return
 
     val (seconds, onSecondsChange) = rememberPreference(
         TransitionFadeSecondsKey,
@@ -733,6 +739,24 @@ fun ColumnScope.TransitionFadeFrag() {
         values = TransitionFadeEnvelope.SECONDS_CHOICES,
         valueText = { pluralStringResource(R.plurals.transition_fade_length_value, it, it) },
         onValueSelected = onSecondsChange,
+    )
+}
+
+/**
+ * AutoMix: a song that ends by itself blends into the next one. Composed only while
+ * Unreleased.AUTOMIX is on, under the fade it stands in for, and off until it is switched on.
+ */
+@Composable
+fun ColumnScope.AutomixFrag() {
+    val (enabled, onEnabledChange) = rememberPreference(AutomixKey, defaultValue = false)
+
+    ExplainedSwitchPreference(
+        title = stringResource(R.string.automix),
+        description = stringResource(R.string.automix_description),
+        explanation = stringResource(R.string.automix_explain),
+        icon = { Icon(Icons.Rounded.JoinInner, null) },
+        checked = enabled,
+        onCheckedChange = onEnabledChange,
     )
 }
 

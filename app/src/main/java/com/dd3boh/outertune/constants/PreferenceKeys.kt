@@ -165,6 +165,20 @@ val TransitionFadeKey = booleanPreferencesKey("transitionFade")
 /** How long each fade lasts, in seconds. One of TransitionFadeEnvelope.SECONDS_CHOICES. */
 val TransitionFadeSecondsKey = intPreferencesKey("transitionFadeSeconds")
 
+/**
+ * Whether a song that ends by itself blends into the next one, as a DJ would play them. Off when
+ * absent, and read only while Unreleased.AUTOMIX is on. While it is on, Fade between tracks is not
+ * used. See AutomixController.
+ */
+val AutomixKey = booleanPreferencesKey("automix")
+
+/**
+ * Debug builds only: the style every AutoMix transition is asked to take, by its name in
+ * com.dd3boh.outertune.mix.Style, or absent for the planner's own choice. A style that cannot be
+ * done for a pair is still refused, and that change stays as it is today.
+ */
+val AutomixStyleKey = stringPreferencesKey("automixStyle")
+
 
 /**
  * Lyrics

@@ -380,6 +380,8 @@ dependencies {
 
     // modules
     implementation(project(":fingerprint"))
+    // AutoMix's analysis, planning and mixing, pure Kotlin like the fingerprint code (Unreleased.AUTOMIX).
+    implementation(project(":mix"))
     implementation(project(":innertube"))
     implementation(project(":sabr"))
     implementation(libs.ktor.client.okhttp)
