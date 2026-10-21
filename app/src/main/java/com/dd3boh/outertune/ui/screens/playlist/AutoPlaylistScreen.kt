@@ -300,7 +300,7 @@ fun AutoPlaylistScreen(
                 val items = songs.map { it.toMediaMetadata() }
                 val q = board.addQueue(queueName, items, forceInsert = true, delta = false, origin = PlayOrigin.QUEUE)
                 if (q != null) {
-                    board.setCurrQueue(q)
+                    board.setCurrQueue(q, origin = PlayOrigin.QUEUE)
                     val n = items.size
                     val words = when {
                         queueName == playing -> context.resources.getQuantityString(R.plurals.list_queued_here, n, n)
