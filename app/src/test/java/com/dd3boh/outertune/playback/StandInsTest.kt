@@ -125,6 +125,9 @@ class StandInsTest {
         }
 
         fun play(id: String = "OLDID000001") = runBlocking { standIns.playbackData(id) }
+
+        /** The song asked for again by the listener, as the player's Retry or Play on a song it stopped on. */
+        fun playAgainByHand(id: String = "OLDID000001") = runBlocking { standIns.playbackData(id, askedAgain = true) }
     }
 
     private fun nothingFound(vararg ids: String) = World(says = ids.associateWith { isGone }, finds = mapOf("*" to { emptyList() }))
@@ -600,6 +603,20 @@ class StandInsTest {
         assertEquals("nothing asked of YouTube, nothing searched", emptyList<String>(), world.asked)
         assertEquals("nothing reported again", emptyList<String>(), gone)
         assertEquals(listOf("not asked: set aside as gone, and looked for in vain these last days"), reported)
+    }
+
+    @Test
+    fun `asked for again by hand, a song set aside is asked of YouTube again, where a pass of the queue is not`() {
+        StandInMemory.current = StandInMemory.remember(Memory(), "OLDID000001", null, t0 - day)
+        val world = World(says = mapOf("OLDID000001" to goneForTheAccountToo), setAside = setOf("OLDID000001"))
+
+        assertTrue(world.play().exceptionOrNull() is YTPlayerUtils.SongUnavailable)
+        assertEquals("the queue reaching it asks nothing", emptyList<String>(), world.asked)
+
+        val failure = world.playAgainByHand().exceptionOrNull()
+        assertEquals("Retry asks YouTube", listOf("stream OLDID000001"), world.asked)
+        assertTrue(failure.toString(), failure is YTPlayerUtils.SongUnavailable)
+        assertEquals("still gone, and said so", listOf("OLDID000001"), gone)
     }
 
     @Test

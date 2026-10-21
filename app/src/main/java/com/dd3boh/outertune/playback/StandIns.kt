@@ -257,7 +257,9 @@ internal class GoneRun {
  * it fails at once as gone, with nothing asked of YouTube and nothing searched. On 21 Oct 2026 a
  * song set aside at its third tap was walked and searched for at ten more. Within the three days
  * of [StandInMemory.NONE_MS] only, after which it is asked again, as a copy may have been put up
- * or the id come back; and at once when it is lifted.
+ * or the id come back; and at once when it is lifted. Never when the listener asks for it again
+ * ([playbackData]'s askedAgain: Retry, or Play on the song the music stopped on): only the
+ * player's own passes, the queue reaching it and its replays, are spared the walk.
  */
 internal class StandIns(
     private val resolve: suspend (String) -> Result<YTPlayerUtils.PlaybackData>,
@@ -327,18 +329,18 @@ internal class StandIns(
         }
     }
 
-    suspend fun playbackData(videoId: String): Result<Played> {
+    suspend fun playbackData(videoId: String, askedAgain: Boolean = false): Result<Played> {
         if (!enabled()) return resolve(videoId).map { Played(it, videoId) }
         val lookup = Lookup()
-        return lookup.told(look(videoId, lookup))
+        return lookup.told(look(videoId, lookup, askedAgain))
     }
 
-    private suspend fun look(videoId: String, lookup: Lookup): Result<Played> {
+    private suspend fun look(videoId: String, lookup: Lookup, askedAgain: Boolean): Result<Played> {
         val dead = mutableSetOf(videoId)
         val known = StandInMemory.known(StandInMemory.current, videoId, now())
         // Set aside as gone and looked for in vain lately: not asked again at every tap, see
         // setAside. Nothing is counted in the run or reported: YouTube was not asked.
-        if (known == null && StandInMemory.lookedInVain(StandInMemory.current, videoId, now()) && setAside(videoId)) {
+        if (!askedAgain && known == null && StandInMemory.lookedInVain(StandInMemory.current, videoId, now()) && setAside(videoId)) {
             log("[$videoId] set aside as gone from YouTube, and looked for in vain lately: not asked again for now")
             lookup.note(SET_ASIDE)
             return Result.failure(YTPlayerUtils.SongUnavailable(NOT_ASKED))

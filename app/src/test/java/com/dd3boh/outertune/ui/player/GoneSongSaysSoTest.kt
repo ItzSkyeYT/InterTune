@@ -7,6 +7,7 @@
 package com.dd3boh.outertune.ui.player
 
 import com.dd3boh.outertune.utils.YTPlayerUtils
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -76,6 +77,18 @@ class GoneSongSaysSoTest {
         val setAside = standIns.substringAfter("setAside = ", "").substringBefore(".also {")
         assertTrue("StandIns is not told which songs are set aside as gone", setAside.contains("REASON_GONE"))
         assertTrue(standIns.contains("it.onDoubted = goneSongs::doubted"))
+    }
+
+    @Test
+    fun `the song the music stopped on, asked for again, is asked of YouTube whatever was set aside`() {
+        // Retry on this screen, Play in the app or on the notification: the music stopped on the
+        // song, and only the listener starts it again. Skipping onto it, or a radio reaching it,
+        // ends the stop first (onMediaItemTransition), and those respect what was set aside.
+        val resolve = service.substringAfter("fun resolve(mediaId: String, position: Long, length: Long): ResolvedSong {")
+        assertTrue(resolve.contains("standIns.playbackData(mediaId, askedAgain = stoppedByError && stoppedOn == mediaId)"))
+        assertEquals("the music is stopped on an error in one place, which names the song", 1, Regex("""stoppedByError = true""").findAll(service).count())
+        val stopping = service.substringAfter("private fun stopsOnError()").substringBefore("\n    }")
+        assertTrue(stopping.contains("stoppedOn = activePlayer.currentMediaItem?.mediaId"))
     }
 
     @Test

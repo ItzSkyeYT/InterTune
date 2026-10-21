@@ -502,6 +502,14 @@ class MusicService : MediaLibraryService(),
      */
     @Volatile private var stoppedByError = false
 
+    /**
+     * The song the music stopped on, while [stoppedByError]. Asked for again then, by Retry on
+     * the player's error, Play in the app or on the notification, it is the listener asking, and
+     * YouTube is asked even for a song set aside as gone (StandIns). Skipping onto a song, or a
+     * radio reaching it, clears the stop first and leaves what was set aside as it is.
+     */
+    @Volatile private var stoppedOn: String? = null
+
     /** Where each streamed song is fetched from, until the player fails on it: see [StreamAddresses]. */
     private val streamAddresses = StreamAddresses()
 
@@ -2703,7 +2711,7 @@ class MusicService : MediaLibraryService(),
             val resolveBegan = System.currentTimeMillis()
             val played = runBlocking(Dispatchers.IO) {
                 try {
-                    withinResolveTime(context = wish) { standIns.playbackData(mediaId) }
+                    withinResolveTime(context = wish) { standIns.playbackData(mediaId, askedAgain = stoppedByError && stoppedOn == mediaId) }
                 } catch (e: StepTimedOut) {
                     Log.w(TAG, "PLAYING: [$mediaId] no stream within ${StepLog.limit(e.ms)}, given up as a timeout")
                     Result.failure(e)
@@ -3844,15 +3852,20 @@ class MusicService : MediaLibraryService(),
             stopOnError()
             return
         }
-        stoppedByError = true
-        activePlayer.pause()
+        stopsOnError()
         Toast.makeText(this@MusicService, getString(R.string.err_stop_on_too_many_errors), Toast.LENGTH_LONG).show()
     }
 
     fun stopOnError() {
-        stoppedByError = true
-        activePlayer.pause()
+        stopsOnError()
         Toast.makeText(this@MusicService, getString(R.string.err_stop_on_error), Toast.LENGTH_LONG).show()
+    }
+
+    /** The music stops on the current song's error, and which song that is: see [stoppedOn]. */
+    private fun stopsOnError() {
+        stoppedByError = true
+        stoppedOn = activePlayer.currentMediaItem?.mediaId
+        activePlayer.pause()
     }
 
 
