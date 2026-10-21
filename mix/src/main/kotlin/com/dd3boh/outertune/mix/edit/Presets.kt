@@ -11,8 +11,9 @@ import kotlin.math.min
 
 /**
  * The presets as rules: each writes every lane's move from the change's length and a few facts
- * of the pair, as DESIGN.md 3.7 has them. A spec whose moves one of them writes exactly is that
- * preset; any other is Custom.
+ * of the pair, as DESIGN.md 3.7 has them and the editor's clickable mock of 21 Oct plays them
+ * (where the two differ in a detail, the mock's, which was the one heard). A spec whose moves one
+ * of them writes exactly is that preset; any other is Custom.
  *
  * Positions are in bars from the start of bar 1. A swap at u is A's exit and B's entry over the
  * beat before u, both a fade, so one lane hands over to the other in equal power: the bass swap.
@@ -71,7 +72,9 @@ object Presets {
                 w.out(Lane.DRUMS, Lane.HIGHS, Lane.BASS, Lane.LOWS, u = 3 * l / 4, len = 0.0, how = How.CUT)
                 w.inn(Lane.DRUMS, Lane.HIGHS, u = 3 * l / 4, len = 0.0, how = How.CUT)
                 w.out(Lane.VOCALS, u = l - 1, len = 1.0, how = How.ECHO)
-                w.inn(Lane.BASS, Lane.LOWS, Lane.VOCALS, u = l, len = 0.0, how = How.CUT)
+                // B's bass comes up over the beat after the change, its voice on the bar.
+                w.inn(Lane.BASS, Lane.LOWS, u = l, len = beat, how = How.FADE)
+                w.inn(Lane.VOCALS, u = l, len = 0.0, how = How.CUT)
             }
             Preset.VOCALS_OVER -> {
                 w.inn(Lane.DRUMS, Lane.HIGHS, u = 0.0, len = l / 4, how = How.THIN)
@@ -83,19 +86,23 @@ object Presets {
                 w.inn(Lane.VOCALS, u = l, len = 0.0, how = How.CUT)
             }
             Preset.BEAT_UNDER -> {
-                val drums = (facts.bDrumsBar ?: l / 2).coerceIn(1.0, l)
+                // A's drums thin away from where B's own kick comes in, on a beat, as the mock has it.
+                val kick = Math.round((facts.bDrumsBar ?: (l / 2)) / beat) * beat
+                val drums = kick.coerceIn(0.0, maxOf(0.0, l - 1))
                 w.out(Lane.MELODY, u = -1.0, len = 1.0, how = How.MUFFLE)
-                w.out(Lane.VOCALS, Lane.MIDS, u = 0.0, len = 1.0, how = How.ECHO)
-                w.out(Lane.BASS, Lane.LOWS, u = 0.0, len = 0.0, how = How.CUT)
-                w.out(Lane.DRUMS, Lane.HIGHS, u = drums - 1, len = 1.0, how = How.THIN)
+                w.out(Lane.VOCALS, Lane.MIDS, u = 0.0, len = beat, how = How.ECHO)
+                w.out(Lane.BASS, Lane.LOWS, u = 0.0, len = beat, how = How.FADE)
+                w.out(Lane.DRUMS, Lane.HIGHS, u = drums, len = 1.0, how = How.THIN)
                 w.inn(*lanes.lanes.toTypedArray(), u = 0.0, len = 0.0, how = How.FROM_START)
             }
             Preset.DRUM_SWAP -> {
-                w.out(Lane.VOCALS, Lane.MELODY, Lane.MIDS, u = 0.0, len = l / 4, how = How.FADE)
-                w.out(Lane.BASS, Lane.LOWS, u = l / 4, len = 0.0, how = How.CUT)
+                w.out(Lane.VOCALS, Lane.MIDS, u = 0.0, len = l / 4, how = How.FADE)
+                w.out(Lane.MELODY, u = 0.0, len = l / 4, how = How.MUFFLE)
+                w.out(Lane.BASS, Lane.LOWS, u = l / 4, len = beat, how = How.FADE)
                 w.inn(Lane.DRUMS, Lane.HIGHS, u = l / 4, len = l / 4, how = How.THIN)
-                w.out(Lane.DRUMS, Lane.HIGHS, u = l / 2 - min(beat, l / 4), len = min(beat, l / 4), how = How.FADE)
-                w.inn(Lane.BASS, Lane.LOWS, u = l / 2, len = 0.0, how = How.CUT)
+                // The drums swap on the bar halfway: A's stop as B's, held thin till then, open.
+                w.out(Lane.DRUMS, Lane.HIGHS, u = l / 2, len = 0.0, how = How.CUT)
+                w.inn(Lane.BASS, Lane.LOWS, u = l / 2, len = beat, how = How.FADE)
                 w.inn(Lane.MELODY, Lane.MIDS, u = l / 2, len = l / 4, how = How.FADE)
                 w.inn(Lane.VOCALS, u = 3 * l / 4, len = 0.0, how = How.CUT)
             }
