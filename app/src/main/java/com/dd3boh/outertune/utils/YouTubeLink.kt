@@ -21,6 +21,15 @@ sealed interface YouTubeLink {
         private val HOSTS = setOf("youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com")
         private const val SHORT_HOST = "youtu.be"
 
+        /**
+         * The app's own links, which the share page (intertune.app/s/) opens it with: the same pages
+         * as YouTube's, the page's name where the host would be (intertune://watch?v=...,
+         * intertune://playlist?list=...). Brave refuses a page's link to a YouTube address while it
+         * keeps YouTube's links for itself ("Open YouTube links in Brave", brave-browser#46614), and
+         * the share page fell on an error there.
+         */
+        const val OWN_SCHEME = "intertune"
+
         /** The characters of YouTube's ids. Anything else is not one, and would not survive a route. */
         private val ID = Regex("[A-Za-z0-9_-]+")
 
@@ -34,19 +43,22 @@ sealed interface YouTubeLink {
          */
         fun parse(text: String): YouTubeLink? {
             val uri = runCatching { URI(text.trim()) }.getOrNull() ?: return null
-            if (uri.scheme?.lowercase() !in setOf("http", "https")) return null
+            val scheme = uri.scheme?.lowercase()
+            if (scheme != OWN_SCHEME && scheme !in setOf("http", "https")) return null
             val host = uri.host?.lowercase() ?: return null
-            val segments = uri.rawPath.orEmpty().split('/').filter { it.isNotEmpty() }.map(::decode)
+            val path = uri.rawPath.orEmpty().split('/').filter { it.isNotEmpty() }.map(::decode)
             val query = uri.rawQuery.orEmpty().split('&').mapNotNull { pair ->
                 val name = pair.substringBefore('=')
                 if (name.isEmpty() || '=' !in pair) null else decode(name) to decode(pair.substringAfter('='))
             }.toMap()
             val list = query["list"]?.takeIf { it.matches(ID) }
 
-            if (host == SHORT_HOST) {
-                return segments.singleOrNull()?.takeIf { it.matches(ID) }?.let { Video(it, list) }
+            if (scheme != OWN_SCHEME && host == SHORT_HOST) {
+                return path.singleOrNull()?.takeIf { it.matches(ID) }?.let { Video(it, list) }
             }
-            if (host !in HOSTS) return null
+            if (scheme != OWN_SCHEME && host !in HOSTS) return null
+            // On the app's own links the page's name stands where YouTube's host would be.
+            val segments = if (scheme == OWN_SCHEME) listOf(host) + path else path
             return when (segments.firstOrNull()) {
                 "playlist" -> list?.let(::Playlist)
                 "channel", "c" -> segments.getOrNull(1)?.takeIf { it.matches(ID) }?.let(::Channel)

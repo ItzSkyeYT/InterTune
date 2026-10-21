@@ -91,6 +91,19 @@
                 android:name="android.app.searchable"
                 android:resource="@xml/system_searchable" />
 
+            <!-- The app's own links, which the share page (intertune.app/s/) opens it with where a
+                 browser keeps YouTube's addresses to itself: Brave refuses a page's link to one
+                 while "Open YouTube links in Brave" is on (brave-browser#46614). YouTubeLink reads
+                 them as the same pages. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="intertune" />
+            </intent-filter>
+
             <!-- Youtube filter -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />

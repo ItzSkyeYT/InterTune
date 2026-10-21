@@ -10,8 +10,11 @@ import com.dd3boh.outertune.utils.YouTubeLink.Channel
 import com.dd3boh.outertune.utils.YouTubeLink.Playlist
 import com.dd3boh.outertune.utils.YouTubeLink.Video
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 class YouTubeLinkTest {
     @Test
@@ -79,5 +82,30 @@ class YouTubeLinkTest {
         assertNull(YouTubeLink.parse("https://music.youtube.com/"))
         assertNull(YouTubeLink.parse("https://music.youtube.com/watch"))
         assertNull(YouTubeLink.parse("https://music.youtube.com/explore"))
+    }
+
+    @Test
+    fun `the share page's own links, the same pages under the app's scheme`() {
+        // Brave refuses a page's link to a YouTube address while it keeps YouTube's links for
+        // itself ("Open YouTube links in Brave", brave-browser#46614): the share page hands it these.
+        assertEquals(Video("dQw4w9WgXcQ", null), YouTubeLink.parse("intertune://watch?v=dQw4w9WgXcQ"))
+        assertEquals(Video("dQw4w9WgXcQ", "PL123"), YouTubeLink.parse("intertune://watch?v=dQw4w9WgXcQ&list=PL123"))
+        assertEquals(
+            Playlist("OLAK5uy_nMr9h2VlS-2PULNz3M3XVXQj_P3C2bqaY"),
+            YouTubeLink.parse("INTERTUNE://playlist?list=OLAK5uy_nMr9h2VlS-2PULNz3M3XVXQj_P3C2bqaY"),
+        )
+        assertNull(YouTubeLink.parse("intertune://watch"))
+        assertNull(YouTubeLink.parse("intertune://settings"))
+        assertNull(YouTubeLink.parse("intertune:watch?v=dQw4w9WgXcQ"))
+    }
+
+    @Test
+    fun `a browser may hand the app its own scheme`() {
+        val manifest = File("src/main/AndroidManifest.xml").readText()
+        val filter = Regex("""<intent-filter>(?:(?!</intent-filter>).)*android:scheme="intertune"(?:(?!</intent-filter>).)*</intent-filter>""", RegexOption.DOT_MATCHES_ALL)
+            .find(manifest)?.value
+        assertNotNull("a filter for intertune:// links", filter)
+        assertTrue(filter!!.contains("android.intent.action.VIEW"))
+        assertTrue("or no browser hands it over", filter.contains("android.intent.category.BROWSABLE"))
     }
 }
