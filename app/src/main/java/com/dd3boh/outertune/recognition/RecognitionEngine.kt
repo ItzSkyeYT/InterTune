@@ -822,19 +822,20 @@ class RecognitionEngine @Inject constructor(
                 // Recorded the moment Shazam names it, before anything is decided about adding
                 // it or even placing it on YouTube. The history is a record of what the room was
                 // playing, which is true whether or not a video turned up for it. The video it
-                // keeps is the first answer only when that is the song: a tap on the entry played
-                // whatever came first, another song entirely when the search missed.
-                scope.launch {
-                    history.add(
-                        Heard(
-                            title = outcome.track.title,
-                            artist = outcome.track.artist.orEmpty(),
-                            videoId = Heard.idFor(outcome.track, best),
-                            at = System.currentTimeMillis(),
-                            checked = true,
-                        )
-                    )
-                }
+                // keeps is only ever the song: a tap on the entry played whatever came first,
+                // another song entirely when the search missed. And it is the recording added: the
+                // one this run added for the song once it is confirmed, until then the one pickBest
+                // adds for a copy playing as recorded. YouTube's first answer can be a sped-up or
+                // slowed edit of the song, which passes the check, while the original was added.
+                fun heard(song: SongItem?) = Heard(
+                    title = outcome.track.title,
+                    artist = outcome.track.artist.orEmpty(),
+                    videoId = Heard.idFor(outcome.track, song),
+                    at = System.currentTimeMillis(),
+                    checked = true,
+                )
+                val kept = outcome.track.shazamKey?.let { confirmed[it] } ?: pickBest(outcome.track, candidates, PlaybackVariant.ORIGINAL)
+                val saved = scope.launch { history.add(heard(kept)) }
 
                 // Measured only against a first sighting this can really be the second listen to.
                 // A stale one set the rate near zero, and the notification's position all but
@@ -1063,6 +1064,12 @@ class RecognitionEngine @Inject constructor(
                         confirmedAt[it] = heardAtMs
                     }
                     add(chosen)
+                    // A speed measured twice adds another recording than the one just kept, and
+                    // the window that confirms a song can be the last that hears it.
+                    if (chosen.id != kept?.id) scope.launch {
+                        saved.join()
+                        history.add(heard(chosen))
+                    }
                     return
                 }
                 if (keepGoing) {

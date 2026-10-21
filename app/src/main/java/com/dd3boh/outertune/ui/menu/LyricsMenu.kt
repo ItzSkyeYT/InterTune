@@ -101,7 +101,7 @@ fun LyricsMenu(
     picksForVideo: Boolean = false,
     /** Opens the bar that moves the lyrics earlier or later against the song; null for lyrics that are not synced. */
     onAdjustTiming: (() -> Unit)? = null,
-    /** Other lyrics were picked in Search for the song with this id. */
+    /** The lyrics of the song with this id were replaced: picked in Search, refetched as other lyrics, or deleted. */
     onOtherLyrics: (String) -> Unit = {},
 ) {
     val context = LocalContext.current
@@ -393,6 +393,8 @@ fun LyricsMenu(
                             database.query {
                                 delete(it)
                             }
+                            // Their move goes with them: the lyrics found next start as they come.
+                            onOtherLyrics(it.id)
                         }
                     }
                 ) {
@@ -469,8 +471,15 @@ fun LyricsMenu(
             icon = Icons.Rounded.SyncAlt,
             title = R.string.refetch
         ) {
+            val song = mediaMetadataProvider()
+            // Other lyrics than the ones there start as they come, as a pick in Search does: a
+            // move made for the old lines played the new ones late. The same lyrics keep it.
+            val before = dbLyric?.lyrics?.let { readKeptLyrics(it, lyricTrim, multilineLrc) }
             onDismiss()
-            viewModel.refetchLyrics(mediaMetadataProvider()) { onRefreshRequest(it) }
+            viewModel.refetchLyrics(song) { fresh ->
+                onRefreshRequest(fresh)
+                if (fresh != null && fresh != before) onOtherLyrics(song.id)
+            }
         }
         GridMenuItem(
             icon = Icons.Rounded.Search,

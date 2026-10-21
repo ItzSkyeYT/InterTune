@@ -118,19 +118,41 @@ class HeardIdTest {
         assertNull(Heard("Blinding Lights", "The Weeknd", videoId = null, at = 0L, checked = false).idToPlay(null))
     }
 
+    private val engine = File("src/main/java/com/dd3boh/outertune/recognition/RecognitionEngine.kt").readText()
+
     /**
      * The engine is not something a test can run, so this reads it, as SpeedRetryTest does: every
      * entry it saves takes its id from [Heard.idFor], and says the id was checked.
      */
     @Test
     fun `the engine saves only an id that was checked`() {
-        val engine = File("src/main/java/com/dd3boh/outertune/recognition/RecognitionEngine.kt").readText()
         val saved = Regex("""\bHeard\(""").findAll(engine).map { argumentsOf(engine, it.range.last + 1) }.toList()
         assertEquals("the saves this was written for", 1, saved.size)
         saved.forEach {
-            assertTrue(it, "videoId = Heard.idFor(outcome.track, best)" in it)
+            assertTrue(it, "videoId = Heard.idFor(outcome.track, song)" in it)
             assertTrue(it, "checked = true" in it)
         }
+    }
+
+    /**
+     * YouTube can rank a sped-up or slowed edit of the song first, by the same artist, and it
+     * passes [corresponds]. Keep listening adds the recording [pickBest] picks for how the room's
+     * copy plays, and the history kept the first answer: a tap on the entry played the other edit.
+     */
+    @Test
+    fun `the history keeps the recording that is added, not the first answer`() {
+        val track = shazam("Blinding Lights", "The Weeknd")
+        val sped = youtube("sped", "Blinding Lights (Sped Up)", "The Weeknd")
+        val original = youtube("original", "Blinding Lights", "The Weeknd")
+        assertEquals("the edit passes the check", "sped", Heard.idFor(track, sped))
+        assertEquals("original", pickBest(track, listOf(sped, original), PlaybackVariant.ORIGINAL)?.id)
+
+        assertTrue(engine.contains("val kept = outcome.track.shazamKey?.let { confirmed[it] } ?: pickBest(outcome.track, candidates, PlaybackVariant.ORIGINAL)"))
+        assertTrue(engine.contains("history.add(heard(kept))"))
+        // and once more when a measured speed confirms another recording than the one kept
+        val confirming = engine.substringAfter("val chosen = pickBest(outcome.track, candidates, variant) ?: best").substringBefore("return\n")
+        assertTrue(confirming, confirming.contains("history.add(heard(chosen))"))
+        assertTrue(confirming, confirming.contains("saved.join()"))
     }
 
     /** And the list plays an entry's video only when [Heard.idToPlay] hands it back. */

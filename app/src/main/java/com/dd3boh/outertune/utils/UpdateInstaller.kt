@@ -486,6 +486,13 @@ class UpdateInstaller @Inject constructor(
         // One install at a time. installOrDownload never comes here while Android may still act on
         // the session in hand, so this only clears one that ended, or whose window never came.
         abandon()
+        // And the ones an earlier process left. Android keeps a session when the app that made it
+        // is ended, its window waiting or its copy of the apk half made, and nothing here knew of
+        // it any more: the next tap made a second one, with a second copy. Not one Android is
+        // installing.
+        installer.mySessions.forEach { left ->
+            if (left.progress < ACCEPTED_PROGRESS) runCatching { installer.abandonSession(left.sessionId) }
+        }
         _state.value = State.Preparing
         val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
         val id = installer.createSession(params)
