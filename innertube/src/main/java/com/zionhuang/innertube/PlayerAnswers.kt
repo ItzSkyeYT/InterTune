@@ -21,18 +21,23 @@ import com.zionhuang.innertube.models.YouTubeClient
  * and the room of answers that could be. Each keeps when it came ([Answer.at]), so that a start is
  * made only from an answer of the walk that wants one: a VISIONOS answer hours old, its streaming
  * address dead, could be started from after a walk that never got one.
+ *
+ * Only VISIONOS's answers, every identity of it: the only ones a start is made from. On a day
+ * YouTube refuses the direct addresses every answer names a SABR address, whatever the client, and
+ * with all of them kept, three downloads walking the chain at once pushed each other's VISIONOS
+ * answers out before a walk reached its last rung. Room for the three identities of eight songs.
  */
-class PlayerAnswers(private val capacity: Int = 8) {
+class PlayerAnswers(private val capacity: Int = 24) {
     /** [at]: when it came, wall clock, as the end of the addresses in it is counted. */
     class Answer(val videoId: String, val client: YouTubeClient, val text: String, val at: Long = System.currentTimeMillis())
 
     /** Oldest first, in the order they were kept. */
     private val answers = ArrayList<Answer>()
 
-    /** Keeps [answer] when it can be streamed over SABR, in the place of the last of its song and client. */
+    /** Keeps [answer] when it is VISIONOS's and can be streamed over SABR, in the place of the last of its song and client. */
     @Synchronized
     fun put(answer: Answer) {
-        if (!streamsOverSabr(answer.text)) return
+        if (answer.client.clientName != YouTubeClient.VISIONOS.clientName || !streamsOverSabr(answer.text)) return
         answers.removeAll { it.videoId == answer.videoId && it.client == answer.client }
         answers.add(answer)
         while (answers.size > capacity) answers.removeAt(0)
