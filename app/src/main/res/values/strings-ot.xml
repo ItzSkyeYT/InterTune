@@ -2066,4 +2066,15 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="update_wait_installing">Android is installing it, which can take a minute. InterTune then closes by itself and the music stops. Open it again to use the new version.</string>
     <string name="update_wait_show_window">Show Android\'s window again</string>
     <string name="update_wait_stop">Stop</string>
+    <string name="queue_back_closes_player">Back from the queue closes the player</string>
+    <string name="queue_back_closes_player_description">Back from the queue takes you straight to the screen under the player. The player then opens on the queue if that is where you left it.</string>
+    <string name="lyrics_auto_scroll">Follow the song</string>
+    <string name="lyrics_auto_scroll_description">The lyrics scroll to the line being sung. Off, they stay where you leave them.</string>
+    <!-- Lyrics timing, in the menu of synced lyrics, and its bar (LyricsTimingBar). %1$s is a number of seconds such as 0.4. -->
+    <string name="lyrics_timing">Lyrics timing</string>
+    <string name="lyrics_timing_original">Original timing</string>
+    <string name="lyrics_timing_earlier">%1$s s earlier</string>
+    <string name="lyrics_timing_later">%1$s s later</string>
+    <string name="lyrics_timing_step_earlier">A tenth of a second earlier</string>
+    <string name="lyrics_timing_step_later">A tenth of a second later</string>
 </resources>
