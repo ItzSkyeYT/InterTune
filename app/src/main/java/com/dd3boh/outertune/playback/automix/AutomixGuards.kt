@@ -6,6 +6,8 @@
 
 package com.dd3boh.outertune.playback.automix
 
+import com.dd3boh.outertune.mix.pill.PlainReason
+
 /**
  * Whether one change of song may be mixed at all, from a snapshot of the player and the settings.
  * Pure, so tested; AutomixController takes the snapshot. A change that may not be mixed is the
@@ -46,31 +48,39 @@ object AutomixGuards {
         val seekedLate: Boolean,
     )
 
+    /** Why a change may not be mixed: the reason a pill or the queue's line names, and the line for the log. */
+    class Refusal(val reason: PlainReason, val log: String)
+
     /** Why this change may not be mixed, or null when it may. */
-    fun whyNot(s: Snapshot): String? {
+    fun whyNot(s: Snapshot): String? = refusal(s)?.log
+
+    /** Why this change may not be mixed, as a reason for the screen and a line for the log, or null when it may. */
+    fun refusal(s: Snapshot): Refusal? {
         val current = s.current
         val next = s.next
+        fun no(reason: PlainReason, log: String) = Refusal(reason, log)
         return when {
-            !s.settingOn -> "AutoMix is off"
-            s.casting -> "casting"
-            current == null -> "nothing is playing"
-            s.repeatOne -> "repeat one is on"
-            next == null -> "nothing comes next"
-            next.id == current.id -> "the same song comes again"
-            sameAlbum(current, next) -> "the two songs are from one album"
-            current.durationMs in 0 until MIN_SONG_MS -> "this song is under a minute"
-            current.durationMs < 0 -> "this song's length is not known"
-            next.durationMs in 0 until MIN_SONG_MS -> "the next song is under a minute"
-            next.durationMs < 0 -> "the next song's length is not known"
-            s.speed != 1f || s.pitch != 1f -> "the speed or the pitch is not as recorded"
-            s.skipSilence -> "skip silence is on"
-            s.headTracking -> "head tracking is on"
-            s.upmix -> "the surround upmix is on"
-            s.ambience -> "the spatial Ambience is on"
-            s.ffmpeg -> "FFmpeg decodes this build's audio"
-            s.sleepTimer -> "a sleep timer is set"
-            s.seekedLate -> "the song was moved within its last minute"
-            !s.stageInChain -> "AutoMix was not on yet as this song started"
+            // Never on a screen: with AutoMix off nothing is said about the next change.
+            !s.settingOn -> no(PlainReason.YOUR_CHOICE, "AutoMix is off")
+            s.casting -> no(PlainReason.CASTING, "casting")
+            current == null -> no(PlainReason.NOT_READY, "nothing is playing")
+            s.repeatOne -> no(PlainReason.REPEAT_ONE, "repeat one is on")
+            next == null -> no(PlainReason.NO_FIT, "nothing comes next")
+            next.id == current.id -> no(PlainReason.SAME_SONG, "the same song comes again")
+            sameAlbum(current, next) -> no(PlainReason.RUN_TOGETHER, "the two songs are from one album")
+            current.durationMs in 0 until MIN_SONG_MS -> no(PlainReason.SHORT_SONG, "this song is under a minute")
+            current.durationMs < 0 -> no(PlainReason.NOT_READY, "this song's length is not known")
+            next.durationMs in 0 until MIN_SONG_MS -> no(PlainReason.SHORT_SONG, "the next song is under a minute")
+            next.durationMs < 0 -> no(PlainReason.NOT_READY, "the next song's length is not known")
+            s.speed != 1f || s.pitch != 1f -> no(PlainReason.SPEED, "the speed or the pitch is not as recorded")
+            s.skipSilence -> no(PlainReason.SKIP_SILENCE, "skip silence is on")
+            s.headTracking -> no(PlainReason.SPATIAL, "head tracking is on")
+            s.upmix -> no(PlainReason.SPATIAL, "the surround upmix is on")
+            s.ambience -> no(PlainReason.SPATIAL, "the spatial Ambience is on")
+            s.ffmpeg -> no(PlainReason.DECODER, "FFmpeg decodes this build's audio")
+            s.sleepTimer -> no(PlainReason.SLEEP_TIMER, "a sleep timer is set")
+            s.seekedLate -> no(PlainReason.NO_TIME, "the song was moved within its last minute")
+            !s.stageInChain -> no(PlainReason.FROM_NEXT, "AutoMix was not on yet as this song started")
             else -> null
         }
     }

@@ -158,7 +158,13 @@ import com.dd3boh.outertune.constants.StopMusicOnTaskClearKey
 import com.dd3boh.outertune.constants.TransitionFadeKey
 import com.dd3boh.outertune.constants.AutomixKey
 import com.dd3boh.outertune.constants.AutomixStyleKey
+import com.dd3boh.outertune.constants.MixPlaylistsKey
+import com.dd3boh.outertune.constants.MixQueueLinksKey
 import com.dd3boh.outertune.mix.Style
+import com.dd3boh.outertune.mix.pill.PlainReason
+import com.dd3boh.outertune.mix.pill.PlayerFacts
+import com.dd3boh.outertune.mix.pill.Pills
+import com.dd3boh.outertune.mix.pill.QueueLinks
 import com.dd3boh.outertune.playback.automix.AutomixAudioProcessor
 import com.dd3boh.outertune.playback.automix.AutomixAudioSink
 import com.dd3boh.outertune.playback.automix.AutomixController
@@ -255,6 +261,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.plus
 import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.collectLatest
@@ -263,6 +270,7 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -766,6 +774,19 @@ class MusicService : MediaLibraryService(),
 
     /** Debug builds only: the style every AutoMix change is asked to take, from the developer options. */
     @Volatile private var automixForcedStyle: Style? = null
+
+    /**
+     * Mix (Unreleased.AUTOMIX_EDITOR): the library playlist the queue playing was started from,
+     * whose Mix switch decides whether AutoMix mixes it; null for any other queue, and always
+     * without the flag. See [refreshMix].
+     */
+    val mixPlaylistId = MutableStateFlow<String?>(null)
+
+    /** Which playlist each queue was started from, as kept in the settings (QueueLinks). Main thread. */
+    private var mixQueueLinks: Set<String> = emptySet()
+
+    /** What the change after the song playing has come to, for the queue's line. Null without AutoMix. */
+    val mixDecided get() = automix?.decided
 
     private val sleepTimerNotification by lazy { SleepTimerNotification(this) }
 
@@ -1730,9 +1751,7 @@ class MusicService : MediaLibraryService(),
                     .map { it[TransitionFadeSecondsKey] ?: TransitionFadeEnvelope.DEFAULT_SECONDS }
                     .distinctUntilChanged(),
                 // AutoMix carries each song into the next by itself, and the fade would only dip it.
-                dataStore.data
-                    .map { Unreleased.AUTOMIX && (it[AutomixKey] ?: false) }
-                    .distinctUntilChanged(),
+                automixWanted(),
             ) { fade, seconds, automixOn -> (fade && !automixOn) to seconds }
                 .collectLatest(scope) { (fade, seconds) ->
                     transitionFade.fadeMs = TransitionFadeEnvelope.fadeMsFor(seconds)
@@ -1766,7 +1785,14 @@ class MusicService : MediaLibraryService(),
 
             // AutoMix: the setting, and what it needs to know as it changes. Only with the flag.
             if (Unreleased.AUTOMIX) {
-                dataStore.data.map { it[AutomixKey] ?: false }.distinctUntilChanged()
+                if (Unreleased.AUTOMIX_EDITOR) {
+                    dataStore.data.map { it[MixQueueLinksKey] ?: emptySet() }.distinctUntilChanged()
+                        .collectLatest(scope) { links ->
+                            mixQueueLinks = links
+                            refreshMix()
+                        }
+                }
+                automixWanted()
                     .collectLatest(scope) { on ->
                         automix?.enabled = on
                         // Offload skips the chain, the stage with it.
@@ -2128,6 +2154,7 @@ class MusicService : MediaLibraryService(),
             }
             // The steps stop where they are when the service is torn down under them.
             if (destroyed) return@launch
+            if (Unreleased.AUTOMIX_EDITOR) linkMixQueue((queue as? ListQueue)?.mixPlaylistId)
 
             Log.d(TAG, "playQueue: Queue additional data resolution complete")
         }
@@ -3262,7 +3289,70 @@ class MusicService : MediaLibraryService(),
      */
     fun refreshAdaptiveTail() {
         adaptiveTailActive.value = adaptiveQueueMode.isOn && queueBoard.getCurrentQueue()?.playlistId != null
+        refreshMix()
     }
+
+    /**
+     * Mix: which playlist the queue now current was started from, said again whenever the queue
+     * or its links change, on the same calls as [refreshAdaptiveTail]. Main thread.
+     */
+    private fun refreshMix() {
+        if (!Unreleased.AUTOMIX_EDITOR) return
+        mixPlaylistId.value = queueBoard.getCurrentQueue()?.id?.let { QueueLinks.decode(mixQueueLinks)[it] }
+    }
+
+    /**
+     * Mix: the queue just started came from [playlistId], or from no library playlist when null,
+     * which also clears a link left by an earlier queue of the same title. Main thread.
+     */
+    private fun linkMixQueue(playlistId: String?) {
+        if (!Unreleased.AUTOMIX_EDITOR) return
+        val q = queueBoard.getCurrentQueue() ?: return
+        val alive = queueBoard.getAllQueues().map { it.id }.toSet()
+        // At once for the switch, then into the settings so a restored queue keeps it.
+        mixQueueLinks = QueueLinks.with(mixQueueLinks, q.id, playlistId, alive)
+        refreshMix()
+        scope.launch(Dispatchers.IO) {
+            dataStore.edit { it[MixQueueLinksKey] = QueueLinks.with(it[MixQueueLinksKey] ?: emptySet(), q.id, playlistId, alive) }
+        }
+    }
+
+    /**
+     * Mix: what keeps every change plain right now (casting, repeat one, a speed, skip silence,
+     * spatial settings, the FFmpeg decoder, a sleep timer), for the playlist's Mix row and pills,
+     * in the order AutoMix's guards ask. Null when nothing does, and always without the flag.
+     * Main thread.
+     */
+    fun mixBlocker(): PlainReason? {
+        if (!Unreleased.AUTOMIX_EDITOR) return null
+        val c = automixConditions()
+        val parameters = exoPlayer.playbackParameters
+        return Pills.blocker(
+            PlayerFacts(
+                casting = c.casting,
+                repeatOne = exoPlayer.repeatMode == REPEAT_MODE_ONE,
+                speedChanged = parameters.speed != 1f || parameters.pitch != 1f,
+                skipSilence = exoPlayer.skipSilenceEnabled,
+                spatial = c.headTracking || c.upmix || c.ambience,
+                decoder = c.ffmpeg,
+                sleepTimer = c.sleepTimer,
+            )
+        )
+    }
+
+    /**
+     * Whether AutoMix mixes the queue playing: the prototype's one setting, or with Mix
+     * (Unreleased.AUTOMIX_EDITOR) the switch of the library playlist the queue was started from,
+     * which replaces that setting. Never without Unreleased.AUTOMIX.
+     */
+    private fun automixWanted(): Flow<Boolean> = when {
+        !Unreleased.AUTOMIX -> flowOf(false)
+        Unreleased.AUTOMIX_EDITOR -> combine(
+            mixPlaylistId,
+            dataStore.data.map { it[MixPlaylistsKey] ?: emptySet() },
+        ) { playlist, on -> playlist != null && playlist in on }
+        else -> dataStore.data.map { it[AutomixKey] ?: false }
+    }.distinctUntilChanged()
 
     /**
      * Something in the current run changed: the queue sheet hears of it, and the file is written two
