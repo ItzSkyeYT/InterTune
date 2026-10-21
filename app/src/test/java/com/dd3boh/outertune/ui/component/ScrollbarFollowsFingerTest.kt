@@ -16,23 +16,26 @@ import java.io.File
  * scrollbar (LazyColumnScrollbar 2.2.0) worked the list's position out again from its layout on
  * every touch event and launched a scroll for each, a jump to the top of a row and then a scroll
  * on from there, and under our top padding its sums fed back on themselves. This reads the
- * source, as ScreenBackHandlerTest does; ScrollbarGeometryTest runs the arithmetic.
+ * source, comments left out, as ScreenBackHandlerTest does; ScrollbarGeometryTest and
+ * ScrollbarOddRowsTest run the arithmetic.
  */
 class ScrollbarFollowsFingerTest {
 
     private val scrollBar = File("src/main/java/com/dd3boh/outertune/ui/component/ScrollBar.kt").readText()
+        .replace(Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL), "")
+        .replace(Regex("""//[^\n]*"""), "")
 
-    /** The inside of the first block opened after [start], counted by braces. */
-    private fun block(start: String): String {
+    /** The inside of the first block opened with [open] after [start], counted by brackets. */
+    private fun block(start: String, open: Char = '{', close: Char = '}'): String {
         val at = scrollBar.indexOf(start)
         if (at < 0) return ""
-        val open = scrollBar.indexOf('{', at)
-        if (open < 0) return ""
+        val from = scrollBar.indexOf(open, at)
+        if (from < 0) return ""
         var depth = 0
-        for (i in open until scrollBar.length) {
+        for (i in from until scrollBar.length) {
             when (scrollBar[i]) {
-                '{' -> depth++
-                '}' -> if (--depth == 0) return scrollBar.substring(open + 1, i)
+                open -> depth++
+                close -> if (--depth == 0) return scrollBar.substring(from + 1, i)
             }
         }
         return ""
@@ -58,10 +61,12 @@ class ScrollbarFollowsFingerTest {
     }
 
     @Test
-    fun `one loop per press scrolls the list and never reads it back`() {
+    fun `one loop per press scrolls the list and never reads its position back`() {
         val follow = block("suspend fun follow(")
         assertTrue("the loop that scrolls the list could not be found", follow.isNotBlank())
-        assertFalse("the loop reads the list's layout", "layoutInfo" in follow || "snapshot()" in follow)
+        for (read in listOf("layoutInfo", "snapshot()", "firstVisibleItem")) {
+            assertFalse("the loop reads the list's position ($read)", read in follow)
+        }
         assertFalse("the loop launches more", "launch" in follow)
         assertFalse(
             "a jump to the top of a row, to be scrolled on from there",
@@ -71,6 +76,20 @@ class ScrollbarFollowsFingerTest {
 
     @Test
     fun `while held, the thumb is drawn where the finger put it`() {
-        assertTrue("the thumb is not drawn from the held position first", "held?.top ?:" in scrollBar)
+        assertTrue("the thumb is not drawn from the held position first", Regex("""offset\s*\{[^}]*held\?\.top\s*\?:""").containsMatchIn(scrollBar))
+    }
+
+    @Test
+    fun `only the thumb takes a touch, so the rows keep the edge of the screen`() {
+        // Before, a strip the height of the list took every touch along the edge, over the outer
+        // part of each row's menu button and drag handle.
+        val drags = Regex("""\.draggable\(""").findAll(scrollBar).toList()
+        assertTrue("the drag could not be found", drags.isNotEmpty())
+        for (drag in drags) {
+            val chainStart = scrollBar.lastIndexOf("Box(", drag.range.first)
+            val chain = scrollBar.substring(chainStart, drag.range.first)
+            assertTrue("the drag is not on the thumb: $chain", "offset" in chain && "fillMaxHeight(thumbFrac)" in chain)
+            assertFalse("the drag takes a strip the height of the list", "fillMaxHeight()" in chain)
+        }
     }
 }
