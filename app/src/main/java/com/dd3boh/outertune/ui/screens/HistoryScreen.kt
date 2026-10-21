@@ -1,8 +1,8 @@
 package com.dd3boh.outertune.ui.screens
 
+import com.dd3boh.outertune.ui.component.ScreenBackHandler
 import android.text.format.DateFormat
 import android.util.Log
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -137,7 +137,7 @@ fun HistoryScreen(
         }
     }
     if (isSearching) {
-        BackHandler {
+        ScreenBackHandler {
             isSearching = false
             query = TextFieldValue()
         }
@@ -161,7 +161,7 @@ fun HistoryScreen(
         selection.clear()
     }
     if (inSelectMode) {
-        BackHandler(onBack = onExitSelectionMode)
+        ScreenBackHandler(onBack = onExitSelectionMode)
     }
 
     // no multiselect for remote hisory (yet)

@@ -1,7 +1,7 @@
 package com.dd3boh.outertune.ui.screens.playlist
 
+import com.dd3boh.outertune.ui.component.ScreenBackHandler
 import android.widget.Toast
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -213,9 +213,9 @@ fun AutoPlaylistScreen(
     }
 
     if (inSelectMode) {
-        BackHandler(onBack = onExitSelectionMode)
+        ScreenBackHandler(onBack = onExitSelectionMode)
     } else if (isSearching) {
-        BackHandler {
+        ScreenBackHandler {
             isSearching = false
             query = TextFieldValue()
         }

@@ -1,6 +1,6 @@
 package com.dd3boh.outertune.ui.screens
 
-import androidx.activity.compose.BackHandler
+import com.dd3boh.outertune.ui.component.ScreenBackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -161,7 +161,7 @@ fun AlbumScreen(
         selection.clear()
     }
     if (inSelectMode) {
-        BackHandler(onBack = onExitSelectionMode)
+        ScreenBackHandler(onBack = onExitSelectionMode)
     }
 
     val snackbarHostState = LocalSnackbarHostState.current

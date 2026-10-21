@@ -6,7 +6,7 @@
 
 package com.dd3boh.outertune.ui.screens.settings
 
-import androidx.activity.compose.BackHandler
+import com.dd3boh.outertune.ui.component.ScreenBackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -161,7 +161,7 @@ fun LibraryImportScreen(
         source = null
         visited = false
     }
-    BackHandler(enabled = steps != null, onBack = backToSources)
+    ScreenBackHandler(enabled = steps != null, onBack = backToSources)
 
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         LazyColumn(

@@ -1,6 +1,6 @@
 package com.dd3boh.outertune.ui.screens.playlist
 
-import androidx.activity.compose.BackHandler
+import com.dd3boh.outertune.ui.component.ScreenBackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -221,9 +221,9 @@ fun OnlinePlaylistScreen(
     }
 
     if (inSelectMode) {
-        BackHandler(onBack = onExitSelectionMode)
+        ScreenBackHandler(onBack = onExitSelectionMode)
     } else if (isSearching) {
-        BackHandler {
+        ScreenBackHandler {
             isSearching = false
             query = TextFieldValue()
         }

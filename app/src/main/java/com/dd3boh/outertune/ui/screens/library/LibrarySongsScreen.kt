@@ -1,8 +1,8 @@
 package com.dd3boh.outertune.ui.screens.library
 
+import com.dd3boh.outertune.ui.component.ScreenBackHandler
 import android.content.pm.PackageManager
 import android.util.Log
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -137,7 +137,7 @@ fun LibrarySongsScreen(
         selection.clear()
     }
     if (inSelectMode) {
-        BackHandler(onBack = onExitSelectionMode)
+        ScreenBackHandler(onBack = onExitSelectionMode)
     }
 
     LaunchedEffect(songs) {
