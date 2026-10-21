@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.ui.screens.playlist
 
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -59,6 +60,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.toMutableStateList
@@ -120,6 +122,7 @@ import com.dd3boh.outertune.ui.component.TopBarSearchField
 import com.dd3boh.outertune.ui.component.TopBarTitle
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.component.items.SongListItem
+import com.dd3boh.outertune.ui.dialog.AddToQueueDialog
 import com.dd3boh.outertune.ui.dialog.DefaultDialog
 import com.dd3boh.outertune.ui.player.named
 import com.dd3boh.outertune.ui.utils.getNSongsString
@@ -281,6 +284,34 @@ fun AutoPlaylistScreen(
 
     var showRemoveDownloadDialog by remember {
         mutableStateOf(false)
+    }
+
+    // Liked, Downloaded and the other automatic lists have no menu of their own, so the header's
+    // queue button is their Add to queue. It asks which queue, as the menus do, and then says what
+    // happened, since nothing on this screen changes: where the songs went, and what plays now.
+    var showChooseQueueDialog by rememberSaveable { mutableStateOf(false) }
+
+    if (showChooseQueueDialog) {
+        AddToQueueDialog(
+            onAdd = { queueName ->
+                val board = playerConnection.service.queueBoard
+                val playing = board.getCurrentQueue()?.title
+                val existed = board.getAllQueues().any { it.title == queueName }
+                val items = songs.map { it.toMediaMetadata() }
+                val q = board.addQueue(queueName, items, forceInsert = true, delta = false, origin = PlayOrigin.QUEUE)
+                if (q != null) {
+                    board.setCurrQueue(q)
+                    val n = items.size
+                    val words = when {
+                        queueName == playing -> context.resources.getQuantityString(R.plurals.list_queued_here, n, n)
+                        existed -> context.resources.getQuantityString(R.plurals.list_queued_other, n, n, queueName)
+                        else -> context.resources.getQuantityString(R.plurals.list_queued_new, n, n, queueName)
+                    }
+                    Toast.makeText(context, words, Toast.LENGTH_SHORT).show()
+                }
+            },
+            onDismiss = { showChooseQueueDialog = false }
+        )
     }
 
     if (showRemoveDownloadDialog) {
@@ -459,6 +490,13 @@ fun AutoPlaylistScreen(
                                                 )
                                             }
                                         }
+                                    }
+
+                                    IconButton(onClick = { showChooseQueueDialog = true }) {
+                                        Icon(
+                                            Icons.AutoMirrored.Rounded.QueueMusic,
+                                            contentDescription = stringResource(R.string.add_to_queue)
+                                        )
                                     }
                                 }
                             }
