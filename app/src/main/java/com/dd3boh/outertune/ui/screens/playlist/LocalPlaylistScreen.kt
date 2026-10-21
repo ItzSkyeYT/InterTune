@@ -23,7 +23,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Edit
@@ -1041,19 +1040,6 @@ fun LocalPlaylistHeader(
                                     )
                                 }
                             }
-                        }
-
-                        IconButton(
-                            onClick = {
-                                playerConnection.enqueueEnd(
-                                    items = songs.map { it.song.toMediaItem() }
-                                )
-                            }
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
-                                contentDescription = stringResource(R.string.add_to_queue)
-                            )
                         }
                     }
                 }
