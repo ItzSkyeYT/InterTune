@@ -110,4 +110,15 @@ class RouteTimesTest {
         // The stream client gives up on a dead one itself: 5 s to connect, 8 s for a silent read.
         assertTrue(RouteTimes.FIRST_BYTE_MS > 5_000 + 8_000)
     }
+
+    @Test
+    fun `the check's longer try fits a new connection on a slow link and the resolve, and has a client of its own`() {
+        // A HEAD on a new connection is four or five round trips: 3 s is past them above 0.7 s each.
+        assertTrue(RouteTimes.HEAD_SLOW_TRY_MS >= 5 * 1_500)
+        assertTrue(RouteTimes.HEAD_SLOW_TRY_MS > RouteTimes.HEAD_TRY_MS)
+        assertTrue(RouteTimes.HEAD_SLOW_TRY_MS < RouteTimes.RESOLVE_MS)
+        val walk = File("src/main/java/com/dd3boh/outertune/utils/YTPlayerUtils.kt").readText()
+        val patient = walk.substringAfter("private val patientCheckCalls = StreamFamily.Calls(").substringBefore(".build()")
+        assertTrue(patient, Regex("""(connect|read|call)Timeout\(RouteTimes\.HEAD_SLOW_TRY_MS""").findAll(patient).count() == 3)
+    }
 }

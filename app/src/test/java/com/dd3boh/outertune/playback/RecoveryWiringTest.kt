@@ -139,4 +139,12 @@ class RecoveryWiringTest {
         assertTrue(guard.substringAfter("override fun close()").contains("StreamProgress.answered(this)"))
         assertTrue("only the player's own calls are waited on", service.contains("firstBytes = calls === playerCalls"))
     }
+
+    @Test
+    fun `a refusal of an address played unchecked is told to the song's next walk, under the visitorData it was refused with`() {
+        val change = body("private fun changeRoute(", "private fun noteGivenUp(")
+        assertTrue(change.contains("refusedUnder = "))
+        val resolve = body("fun resolve(mediaId: String, position: Long, length: Long): ResolvedSong {", "val playbackData = played.data")
+        assertTrue(resolve.contains("refusedByPlayer = songRoutes.refused(mediaId,"))
+    }
 }

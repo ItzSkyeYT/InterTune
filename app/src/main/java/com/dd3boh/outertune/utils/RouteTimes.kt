@@ -57,6 +57,14 @@ object RouteTimes {
     /** One try of the stream check: connect, read and the whole call. */
     const val HEAD_TRY_MS = 3_000L
 
+    /**
+     * One try of the stream check while the network is taken for slow, for the clients that never
+     * play unchecked, the web client and the account's on it. A HEAD on a new connection is four
+     * or five round trips, past [HEAD_TRY_MS] above 0.7 s each, and their check then never passed:
+     * a song only the account may play stopped on such a link, where 0.12 waited 10 s for it.
+     */
+    const val HEAD_SLOW_TRY_MS = 8_000L
+
     /** NewPipe's n and signature step: how long the walk waits for it. Its first fetch is a 0.7 MB script. */
     const val DECIPHER_WAIT_MS = 8_000L
 

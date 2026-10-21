@@ -2657,6 +2657,8 @@ class MusicService : MediaLibraryService(),
                 songRoutes.avoid(mediaId, SystemClock.elapsedRealtime()),
                 if (position > 0L) runCatching { database.readOrNull { formatRow(mediaId) } }.getOrNull()
                     ?.let { row -> row.itag to row.contentLength } else null,
+                // Refused in the player under the visitorData the app has now: see SongRoutes.refused.
+                refusedByPlayer = songRoutes.refused(mediaId, SystemClock.elapsedRealtime(), YouTube.visitorData.orEmpty()),
             )
             val played = runBlocking(Dispatchers.IO) {
                 try {
@@ -3946,11 +3948,15 @@ class MusicService : MediaLibraryService(),
         // the next songs start elsewhere too. See StreamOrder.REST_MS. Not just after a change of
         // network, where the address names the old public address, nor near its end.
         val sinceNetworkChange = now - lastNetworkChangeAt
-        if (refused && streamAddresses.refusalIsTheRoutes(id, System.currentTimeMillis()) &&
-            (lastNetworkChangeAt == 0L || sinceNetworkChange >= RouteTimes.NETWORK_CHANGE_GRACE_MS)
-        ) YTPlayerUtils.strike(route, why)
+        val sameNetwork = lastNetworkChangeAt == 0L || sinceNetworkChange >= RouteTimes.NETWORK_CHANGE_GRACE_MS
+        if (refused && streamAddresses.refusalIsTheRoutes(id, System.currentTimeMillis()) && sameNetwork) YTPlayerUtils.strike(route, why)
+        // A refusal of an address played unchecked is no strike, its check never having
+        // answered, but the song's next walk is told: it takes VISIONOS's silent check for the
+        // same refusal and tries a new visitorData (issue #17), where the same refused address
+        // used to go to the player again. See SongRoutes.refused.
+        val refusedUnchecked = refused && sameNetwork && !streamAddresses.wasChecked(id)
         streamAddresses.playerFailedOn(id)
-        songRoutes.mark(id, route, now)
+        songRoutes.mark(id, route, now, refusedUnder = if (refusedUnchecked) YouTube.visitorData.orEmpty() else null)
         Log.w(TAG, StepLog.loadFailed(id, why, route))
     }
 
