@@ -50,7 +50,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -215,7 +215,8 @@ fun MixRow(
         if (settings != null) {
             TextButton(
                 onClick = { navController.navigate(settings) },
-                modifier = Modifier.padding(start = 36.dp),
+                // Under the line's words: the icon and its gap before them.
+                modifier = Modifier.padding(start = 32.dp),
             ) {
                 Text(stringResource(R.string.settings))
             }
@@ -267,12 +268,14 @@ fun MixPillLine(
                     .combinedClickable(
                         onClickLabel = stringResource(R.string.mix_edit_transition),
                         onClick = { navController.openMixEditor(pair) },
+                        onLongClickLabel = stringResource(R.string.options),
                         onLongClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             menu = true
                         },
                     )
-                    .semantics { contentDescription = described }
+                    // Said once, whole: both songs and the move, not the pill's words a second time.
+                    .clearAndSetSemantics { contentDescription = described }
                     .padding(horizontal = 10.dp),
             ) {
                 if (pill.edited) {
