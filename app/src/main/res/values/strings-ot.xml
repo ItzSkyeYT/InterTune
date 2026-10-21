@@ -2070,13 +2070,13 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="queue_back_closes_player_description">Back from the queue takes you straight to the screen under the player. The player then opens on the queue if that is where you left it.</string>
     <string name="lyrics_auto_scroll">Follow the song</string>
     <string name="lyrics_auto_scroll_description">The lyrics scroll to the line being sung. Off, they stay where you leave them.</string>
-    <!-- Lyrics timing: held from translators until the words are agreed. -->
-    <string name="lyrics_timing" translatable="false">Lyrics timing</string>
-    <string name="lyrics_timing_original" translatable="false">Original timing</string>
-    <string name="lyrics_timing_earlier" translatable="false">%1$s s earlier</string>
-    <string name="lyrics_timing_later" translatable="false">%1$s s later</string>
-    <string name="lyrics_timing_step_earlier" translatable="false">A tenth of a second earlier</string>
-    <string name="lyrics_timing_step_later" translatable="false">A tenth of a second later</string>
+    <!-- Lyrics timing, in the menu of synced lyrics, and its bar (LyricsTimingBar). %1$s is a number of seconds such as 0.4. -->
+    <string name="lyrics_timing">Lyrics timing</string>
+    <string name="lyrics_timing_original">Original timing</string>
+    <string name="lyrics_timing_earlier">%1$s s earlier</string>
+    <string name="lyrics_timing_later">%1$s s later</string>
+    <string name="lyrics_timing_step_earlier">A tenth of a second earlier</string>
+    <string name="lyrics_timing_step_later">A tenth of a second later</string>
     <!-- SABR, a test tool in debug builds: not for translators -->
     <string name="sabr_only" translatable="false">Stream over SABR only</string>
     <string name="every_direct_refused" translatable="false">Take every direct address for refused</string>
