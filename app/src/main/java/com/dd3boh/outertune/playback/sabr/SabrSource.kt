@@ -7,19 +7,18 @@
 package com.dd3boh.outertune.playback.sabr
 
 import android.net.Uri
+import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.PlaybackException
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.BaseDataSource
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSourceException
 import androidx.media3.datasource.DataSpec
+import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.TransferListener
 import com.dd3boh.outertune.sabr.SabrFile
-import com.metrolist.innertubex.sabr.findSabrProtocolException
 import java.io.IOException
-import java.net.ConnectException
-import java.net.SocketTimeoutException
-import java.net.UnknownHostException
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -79,16 +78,16 @@ object SabrStarts {
  * One read of a song over SABR, what [SabrDataSource] does without Media3's Uri, so that the JVM
  * tests reach it: the start an address stands for, and a reader of its file from the byte asked
  * for. While it is open, a read paced by the player keeps the player's clock running (SabrClock).
- * Its failures are put the way the player's existing handling expects a direct address's: no
- * network as a connection failure, which waits for the network; a refusal as a bad HTTP status
- * after forgetting the start, so that the next try walks the chain again at the same byte.
+ * Its failures are put the way the recovery reads a direct address's: see [SabrFailures].
  *
  * The DataSpec given to [open] is only carried by the exceptions it throws.
  */
+@OptIn(UnstableApi::class)
 class SabrRead(private val starts: SabrStarts = SabrStarts) {
     private var start: SabrStarts.Start? = null
     private var reader: SabrFile.Reader? = null
     private var bytesRemaining = C.LENGTH_UNSET.toLong()
+    private var spec: DataSpec? = null
 
     /** Whether this read counts among the clock's open ones, until its close. */
     private var clocked = false
@@ -98,8 +97,9 @@ class SabrRead(private val starts: SabrStarts = SabrStarts) {
 
     /** Opens [address] at [position] for [length] bytes, C.LENGTH_UNSET for the rest; returns how many will come. */
     fun open(address: String, position: Long, length: Long, spec: DataSpec): Long {
-        val found = starts.forAddress(address)
-            ?: throw DataSourceException(PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS)
+        this.spec = spec
+        // Run out or forgotten: as an address that has run out, so the route changes at once.
+        val found = starts.forAddress(address) ?: throw SabrFailures.startGone(spec)
         start = found
         val size = found.file.contentLength
         if (position > size) throw DataSourceException(PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE)
@@ -119,13 +119,19 @@ class SabrRead(private val starts: SabrStarts = SabrStarts) {
     fun read(buffer: ByteArray, offset: Int, length: Int): Int {
         if (length == 0) return 0
         if (bytesRemaining == 0L) return C.RESULT_END_OF_INPUT
+        // As they are when the read begins: a close from another thread cannot take them from under it.
+        val reading = checkNotNull(reader) { "read before open" }
+        val spec = checkNotNull(this.spec) { "read before open" }
+        val song = start
         val asked = if (bytesRemaining > 0) minOf(length.toLong(), bytesRemaining).toInt() else length
         val n = try {
-            checkNotNull(reader) { "read before open" }.read(buffer, offset, asked)
+            reading.read(buffer, offset, asked)
         } catch (e: IOException) {
             // A seek or a stop interrupts a read on purpose: not a failure.
-            if (e !is java.io.InterruptedIOException) android.util.Log.w("SabrDataSource", "[${start?.videoId}] SABR read failed", e)
-            throw asPlayerSees(e)
+            if (e !is java.io.InterruptedIOException || e is java.net.SocketTimeoutException) {
+                android.util.Log.w("SabrDataSource", "[${song?.videoId}] SABR read failed", e)
+            }
+            throw SabrFailures.asPlayerSees(e, spec, HttpDataSource.HttpDataSourceException.TYPE_READ) { song?.let { starts.forget(it.videoId) } }
         }
         if (n < 0) return C.RESULT_END_OF_INPUT
         if (bytesRemaining > 0) bytesRemaining -= n
@@ -138,24 +144,12 @@ class SabrRead(private val starts: SabrStarts = SabrStarts) {
         } finally {
             reader = null
             start = null
+            spec = null
             if (clocked) {
                 clocked = false
                 SabrClock.closed()
             }
         }
-    }
-
-    private fun asPlayerSees(e: IOException): IOException {
-        if (e is java.io.InterruptedIOException) return e
-        val causes = generateSequence<Throwable>(e) { it.cause }.take(8).toList()
-        if (causes.any { it is UnknownHostException || it is ConnectException || it is SocketTimeoutException }) {
-            return DataSourceException(e, PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED)
-        }
-        if (e.findSabrProtocolException() != null) {
-            start?.let { starts.forget(it.videoId) }
-            return DataSourceException(e, PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS)
-        }
-        return DataSourceException(e, PlaybackException.ERROR_CODE_IO_UNSPECIFIED)
     }
 }
 
@@ -163,6 +157,7 @@ class SabrRead(private val starts: SabrStarts = SabrStarts) {
  * A song's bytes over SABR, for the player, its cache, downloads and the cast server alike: the
  * file from the byte asked for, read by [SabrRead]. Media3's side of it only.
  */
+@OptIn(UnstableApi::class)
 class SabrDataSource(starts: SabrStarts = SabrStarts) : BaseDataSource(/* isNetwork = */ true) {
     private val read = SabrRead(starts)
     private var uri: Uri? = null
@@ -203,6 +198,7 @@ class SabrDataSource(starts: SabrStarts = SabrStarts) : BaseDataSource(/* isNetw
  * other address to [http] as before. The player's cache chain, downloads and the cast server all
  * build on it, so a song started over SABR is cached, downloaded and cast like any other.
  */
+@OptIn(UnstableApi::class)
 class SabrOrHttp private constructor(private val http: DataSource, private val sabr: DataSource) : DataSource {
     private var current: DataSource? = null
 

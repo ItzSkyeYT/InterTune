@@ -8,6 +8,7 @@ package com.dd3boh.outertune.playback
 
 import androidx.media3.common.C
 import androidx.media3.common.PlaybackException
+import androidx.media3.datasource.DataSourceException
 import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.exoplayer.ExoPlaybackException
@@ -16,14 +17,18 @@ import androidx.media3.exoplayer.source.MediaLoadData
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy
 import androidx.media3.exoplayer.upstream.Loader
+import com.dd3boh.outertune.playback.sabr.SabrFailures
 import com.dd3boh.outertune.utils.StepTimedOut
 import com.dd3boh.outertune.utils.YTPlayerUtils
+import com.metrolist.innertubex.sabr.SabrFailureKind
+import com.metrolist.innertubex.sabr.SabrProtocolException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.IOException
+import java.io.InterruptedIOException
 import java.net.ConnectException
 import java.net.NoRouteToHostException
 import java.net.SocketTimeoutException
@@ -208,5 +213,92 @@ class RecoveryTest {
         val refusal = PlaybackException("Sign in to confirm you’re not a bot", null, PlaybackException.ERROR_CODE_REMOTE_ERROR)
         assertSame(refusal, Recovery.resolveFailed(1_500_000, refusal, refusal))
         assertEquals(C.TIME_UNSET, retryDelay(asTheLoaderHasIt(refusal)))
+    }
+
+    // ---- SABR's failures, as its reads throw them (SabrFailures) ----
+
+    private val forgotten = mutableListOf<String>()
+
+    /** A failed read of a song over SABR, as SabrRead hands it to the player. */
+    private fun sabr(e: IOException) = SabrFailures.asPlayerSees(e, spec, HttpDataSource.HttpDataSourceException.TYPE_READ) { forgotten += "start" }
+
+    /** How SabrFile hands on a failure of InnerTubeX's, which is no IOException. */
+    private fun wrapped(e: Throwable) = IOException("SABR stream failed: ${e.message}", e)
+
+    /** What the player reports when it gives up on such a load: its error code is the source's own. */
+    private fun stoppedBy(e: IOException) = stopped(e, (e as? DataSourceException)?.reason ?: PlaybackException.ERROR_CODE_IO_UNSPECIFIED)
+
+    @Test
+    fun `SABR refused is a refused stream, the route changes at once, the start is forgotten, a stop is tried again quietly`() {
+        for (refusal in listOf(
+            SabrProtocolException("SABR stream protection requires attestation (status 3, retry=0/unspecified)", SabrFailureKind.ATTESTATION_REQUIRED),
+            SabrProtocolException("SABR requested a fresh player response", SabrFailureKind.RELOAD_PLAYER),
+            SabrProtocolException("SABR error MEDIA_FORBIDDEN (2)"),
+            SabrProtocolException("SABR request failed with HTTP 403", httpStatusCode = 403),
+        )) {
+            forgotten.clear()
+            val thrown = sabr(wrapped(refusal))
+            assertEquals(refusal.message, 403, Recovery.status(thrown))
+            assertEquals(refusal.message, Recovery.Decision.CHANGE_ROUTE, Recovery.LoadFailures().decide("song", thrown, 0))
+            assertEquals(refusal.message, Recovery.Kind.PASSING, Recovery.kind(stoppedBy(thrown)))
+            assertEquals("the start is forgotten, so the next open walks again", listOf("start"), forgotten)
+        }
+    }
+
+    @Test
+    fun `a SABR start no longer known is an address gone, and the route changes at once`() {
+        val gone = SabrFailures.startGone(spec)
+        assertEquals(410, Recovery.status(gone))
+        assertEquals(Recovery.Decision.CHANGE_ROUTE, Recovery.LoadFailures().decide("song", gone, 0))
+        assertEquals(Recovery.Kind.PASSING, Recovery.kind(stoppedBy(gone)))
+    }
+
+    @Test
+    fun `a gap or a short stream over SABR is a failed read, tried again, and the route changed at the second`() {
+        val loads = Recovery.LoadFailures()
+        val failures = listOf(
+            0L to IOException("SABR left a gap: byte 5 missing, the next chunk starts at 9"),
+            1_000L to IOException("SABR stream ended at byte 10 of 20"),
+        )
+        for ((at, e) in failures) {
+            forgotten.clear()
+            val thrown = sabr(e)
+            assertTrue(thrown.toString(), thrown is HttpDataSource.HttpDataSourceException)
+            assertEquals(Recovery.Kind.PASSING, Recovery.kind(stoppedBy(thrown)))
+            assertTrue("the start stays: it is the read that failed", forgotten.isEmpty())
+            assertEquals(if (at == 0L) Recovery.Decision.RETRY else Recovery.Decision.CHANGE_ROUTE, loads.decide("song", thrown, at))
+        }
+    }
+
+    @Test
+    fun `SABR's own server failing, or no network, is read as it is for a direct address`() {
+        val server = sabr(wrapped(SabrProtocolException("SABR request failed with HTTP 503", httpStatusCode = 503)))
+        assertEquals(503, Recovery.status(server))
+        assertEquals(Recovery.Decision.RETRY, Recovery.LoadFailures().decide("song", server, 0))
+        assertEquals(Recovery.Kind.PASSING, Recovery.kind(stoppedBy(server)))
+        assertTrue("its start stays", forgotten.isEmpty())
+
+        val offline = sabr(UnknownHostException("rr1---sn-test.googlevideo.com"))
+        assertEquals(Recovery.Decision.IGNORE, Recovery.LoadFailures().decide("song", offline, 0))
+        assertEquals(Recovery.Kind.PASSING, Recovery.kind(stoppedBy(offline)))
+        val timeout = sabr(SocketTimeoutException("timeout"))
+        assertEquals(Recovery.Decision.RETRY, Recovery.LoadFailures().decide("song", timeout, 0))
+        assertEquals(Recovery.Kind.PASSING, Recovery.kind(stoppedBy(timeout)))
+        assertTrue(forgotten.isEmpty())
+    }
+
+    @Test
+    fun `no fault of SABR's throws out a good cached copy, and an interrupted read stays an interruption`() {
+        val faults = listOf(
+            wrapped(SabrProtocolException("refused", SabrFailureKind.ATTESTATION_REQUIRED)),
+            IOException("SABR left a gap"),
+            UnknownHostException("rr1---sn-test.googlevideo.com"),
+            wrapped(SabrProtocolException("server", httpStatusCode = 503)),
+        )
+        for (fault in faults) assertTrue(fault.toString(), BadCachedCopy.isNetwork(sabr(fault)))
+        assertTrue(BadCachedCopy.isNetwork(SabrFailures.startGone(spec)))
+        // A seek or a stop interrupts a read on purpose: media3 knows what it did.
+        val interrupted = InterruptedIOException("SABR read interrupted")
+        assertSame(interrupted, sabr(interrupted))
     }
 }
