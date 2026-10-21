@@ -201,6 +201,8 @@ class MixHeldBackTest {
                 val text = Regex("""<(string|plurals) name="$name">(.*?)</\1>""", RegexOption.DOT_MATCHES_ALL).find(file)?.groupValues?.get(2)
                 assertTrue("$name has no $language", text != null)
                 assertTrue("$name in $language has an em dash", '—' !in text!!)
+                // French counts in one, many and other (a million titres): lint refuses a plural without many.
+                if (language == "French" && "<item" in text) assertTrue("$name in French has no many", "quantity=\"many\"" in text)
                 for (item in Regex("""<item quantity="[a-z]+">(.*?)</item>""").findAll(text).map { it.groupValues[1] }.ifEmpty { sequenceOf(text) }) {
                     assertTrue("$name in $language runs past three sentences", Regex("[.!?](?=\\s|$)").findAll(item).count() <= 3)
                 }

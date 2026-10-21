@@ -1943,6 +1943,7 @@
     <string name="mix_move_cut">Coupe</string>
     <plurals name="mix_pill_bars">
         <item quantity="one">%1$s · %2$d mesure</item>
+        <item quantity="many">%1$s · %2$d mesures</item>
         <item quantity="other">%1$s · %2$d mesures</item>
     </plurals>
     <string name="mix_pill_seconds">%1$s · %2$d s</string>
@@ -1987,6 +1988,7 @@
     <string name="mixing_clear">Effacer</string>
     <plurals name="mixing_clear_confirm">
         <item quantity="one">Oublier %d enchaînement enregistré ? Il revient en Auto.</item>
+        <item quantity="many">Oublier %d enchaînements enregistrés ? Chaque paire revient en Auto.</item>
         <item quantity="other">Oublier %d enchaînements enregistrés ? Chaque paire revient en Auto.</item>
     </plurals>
 </resources>
