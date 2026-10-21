@@ -10,6 +10,7 @@
 package com.dd3boh.outertune.ui.component
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.res.Configuration
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -60,6 +61,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
@@ -100,6 +102,7 @@ import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.fastAny
+import androidx.datastore.preferences.core.edit
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -116,12 +119,14 @@ import com.dd3boh.outertune.constants.LyricLatinKey
 import com.dd3boh.outertune.constants.LyricUpdateSpeed
 import com.dd3boh.outertune.constants.LyricsPosition
 import com.dd3boh.outertune.constants.LyricsTextPositionKey
+import com.dd3boh.outertune.constants.LyricsTimingKey
 import com.dd3boh.outertune.constants.ShowLyricsKey
 import com.dd3boh.outertune.constants.Speed
 import com.dd3boh.outertune.db.entities.LyricsEntity
 import com.dd3boh.outertune.db.entities.LyricsEntity.Companion.uninitializedLyric
 import com.dd3boh.outertune.extensions.isPowerSaver
 import com.dd3boh.outertune.lyrics.LyricsShare
+import com.dd3boh.outertune.lyrics.LyricsTiming
 import com.dd3boh.outertune.lyrics.LyricsLatin
 import com.dd3boh.outertune.lyrics.latinTools
 import com.dd3boh.outertune.lyrics.LyricsVideoPlan
@@ -131,9 +136,11 @@ import com.dd3boh.outertune.ui.component.shimmer.ShimmerHost
 import com.dd3boh.outertune.ui.component.shimmer.TextPlaceholder
 import com.dd3boh.outertune.ui.menu.LyricsMenu
 import com.dd3boh.outertune.ui.utils.fadingEdge
+import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
@@ -185,6 +192,16 @@ fun Lyrics(
 
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
 
+    // How far this song's lines are moved against it (LyricsTiming), set in the timing bar. The
+    // bar's own value leads while it is open and after, the setting being written only once the
+    // slider rests, so the lines never jump back while the write is under way.
+    val timingSaved by rememberPreference(LyricsTimingKey, "")
+    val timing: LyricsTimingEdit = viewModel()
+    val songId = mediaMetadata?.id
+    val shiftMs = if (songId != null && timing.song == songId) timing.shiftMs else LyricsTiming.shiftOf(timingSaved, songId)
+    val shiftNow by rememberUpdatedState(shiftMs)
+    val timingOpen = timing.open && songId != null && timing.song == songId
+
     // NOTE: lyricsModel is the current display lyrics that is updated by playerLyrics AND/OR manually
     val playerLyrics by playerConnection.currentLyrics.collectAsState(initial = null)
     var lyricsModel by remember { mutableStateOf(playerLyrics) }
@@ -216,9 +233,11 @@ fun Lyrics(
     val mostLines = pluralStringResource(R.plurals.lyrics_pick_most, LyricsShare.MOST_LINES, LyricsShare.MOST_LINES)
     val mostForVideo = pluralStringResource(R.plurals.lyrics_pick_most_video, LyricsShare.MOST_LINES, LyricsShare.MOST_LINES)
 
-    /** The lines with their times, for a video of them; none for lyrics that are not synced. */
+    /** The lines with their times in the song, as the timing bar moved them, for a video of them; none for lyrics that are not synced. */
     fun timedLines(): List<LyricsVideoPlan.Timed>? = if (!isSynced) null else lines.map {
-        LyricsVideoPlan.Timed(it.text, it.start.toLong(), it.end.toLong(), it.isTranslated)
+        LyricsVideoPlan.Timed(
+            it.text, LyricsTiming.songPosition(it.start.toLong(), shiftNow), LyricsTiming.songPosition(it.end.toLong(), shiftNow), it.isTranslated,
+        )
     }
 
     /** The video of the lines at [chosen], or null where there can be none. */
@@ -357,11 +376,20 @@ fun Lyrics(
                 if (!playerConnection.isPlaying.value) playerConnection.isPlaying.first { it }
                 val sliderPosition = sliderPositionProvider()
                 isSeeking = sliderPosition != null
-                currentLineIndex = findCurrentLineIndex(lines, sliderPosition ?: playerConnection.player.currentPosition)
-                currentPos = sliderPosition ?: playerConnection.player.currentPosition
+                val at = LyricsTiming.lyricsPosition(sliderPosition ?: playerConnection.player.currentPosition, shiftNow)
+                currentLineIndex = findCurrentLineIndex(lines, at)
+                currentPos = at
                 delay(lyricRefreshRate)
             }
         }
+    }
+
+    // A move of the timing shows at once, paused too, where the loop above waits for the music.
+    LaunchedEffect(shiftMs) {
+        if (!isSynced || lines.isEmpty()) return@LaunchedEffect
+        val at = LyricsTiming.lyricsPosition(sliderPositionProvider() ?: playerConnection.player.currentPosition, shiftMs)
+        currentLineIndex = findCurrentLineIndex(lines, at)
+        currentPos = at
     }
 
     LaunchedEffect(isSeeking, lastPreviewTime) {
@@ -375,6 +403,43 @@ fun Lyrics(
 
     val lazyListState = rememberLazyListState()
     val scope = rememberCoroutineScope()
+
+    /** Opens the timing bar on [song], where its lyrics are now. */
+    fun startTiming(song: String) {
+        timing.song = song
+        timing.shiftMs = LyricsTiming.shiftOf(timingSaved, song)
+        timing.open = true
+    }
+
+    /** Closes the timing bar, keeping where it left the song's lyrics. */
+    fun stopTiming() {
+        timing.open = false
+        val song = timing.song ?: return
+        val shift = timing.shiftMs
+        // NonCancellable, as in rememberPreference: the view can be gone before the write is done.
+        scope.launch(NonCancellable) { context.keepLyricsShift(song, shift) }
+    }
+
+    /** Lyrics picked anew for [song] start as they come: a move made for the old ones does not fit them. */
+    fun forgetTiming(song: String) {
+        if (timing.song == song) timing.shiftMs = 0L
+        scope.launch(NonCancellable) { context.keepLyricsShift(song, 0L) }
+    }
+
+    // The bar's value is written once the slider rests: a process ended with the bar left open
+    // keeps it, without a write for every step of a drag.
+    LaunchedEffect(timing.song, timing.shiftMs) {
+        val song = timing.song ?: return@LaunchedEffect
+        val shift = timing.shiftMs
+        if (LyricsTiming.shiftOf(timingSaved, song) == shift) return@LaunchedEffect
+        delay(600)
+        context.keepLyricsShift(song, shift)
+    }
+
+    // Another song coming up closes the bar on the one it was moving.
+    LaunchedEffect(songId) {
+        if (timing.open && timing.song != songId) stopTiming()
+    }
 
     /**
      * Brings line [index] up from under the picking bar, where a long press near the foot of a
@@ -606,7 +671,7 @@ fun Lyrics(
                                     if (picking) {
                                         pick(index)
                                     } else if (seeks) {
-                                        playerConnection.player.seekTo(item.start.toLong())
+                                        playerConnection.player.seekTo(LyricsTiming.songPosition(item.start.toLong(), shiftNow))
                                         currentLineIndex = index
                                         currentPos = item.start.toLong()
                                         lastPreviewTime = 0L
@@ -763,6 +828,7 @@ fun Lyrics(
         mediaMetadata?.let { mediaMetadata ->
             // While lines are picked the view's own two buttons give way to the bar that shares
             // them: neither closing the lyrics nor their menu is what anybody picking lines is after.
+            // The timing bar takes their place the same way while the lyrics are being moved.
             if (picking) LyricsPickBar(
                 picked = picked.size,
                 videoMs = pickedVideoMs,
@@ -772,6 +838,13 @@ fun Lyrics(
                     cardVideo = videoOf(picked)
                     cardLines = LyricsShare.pickedLines(lines.map { it.text }, picked)
                 },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(start = 12.dp, end = 12.dp, bottom = bottomPadding)
+            ) else if (timingOpen) LyricsTimingBar(
+                shiftMs = shiftMs,
+                onShift = { timing.shiftMs = it },
+                onDone = ::stopTiming,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(start = 12.dp, end = 12.dp, bottom = bottomPadding)
@@ -818,6 +891,8 @@ fun Lyrics(
                                     picking = true
                                 },
                                 picksForVideo = isSynced,
+                                onAdjustTiming = if (isSynced) ({ startTiming(mediaMetadata.id) }) else null,
+                                onOtherLyrics = ::forgetTiming,
                             )
                         }
                     }
@@ -849,6 +924,9 @@ fun Lyrics(
         }
     }
 
+    // Back closes the timing bar too, composed before the picking's so that picking started over
+    // the bar ends first.
+    if (timingOpen) BackHandler(onBack = ::stopTiming)
     // Back stops the picking before it closes anything. Composed only while picking, which makes it
     // the newest, so it comes before the player sheet's own.
     if (picking) BackHandler(onBack = ::stopPicking)
@@ -1026,6 +1104,22 @@ class LyricsPicking : ViewModel() {
     var cardLines by mutableStateOf<List<String>?>(null)
     var cardVideo by mutableStateOf<LyricsVideoPlan.Clip?>(null)
     var cardSong by mutableStateOf<MediaMetadata?>(null)
+}
+
+/**
+ * The lyrics timing bar, kept outside the lyrics view like [LyricsPicking] so that a turn of the
+ * phone keeps it open: whether it is, and the song it last moved with how far, which leads over
+ * the setting until another song is moved.
+ */
+class LyricsTimingEdit : ViewModel() {
+    var open by mutableStateOf(false)
+    var song by mutableStateOf<String?>(null)
+    var shiftMs by mutableLongStateOf(0L)
+}
+
+/** Keeps [shiftMs] as [song]'s lyrics timing, read and written in one edit so that no other song's is lost. */
+private suspend fun Context.keepLyricsShift(song: String, shiftMs: Long) {
+    dataStore.edit { it[LyricsTimingKey] = LyricsTiming.withShift(it[LyricsTimingKey].orEmpty(), song, shiftMs) }
 }
 
 /**

@@ -2058,4 +2058,11 @@ while also allowing users to translate our app as well. New, specific strings to
     </plurals>
     <string name="lyrics_auto_scroll">Follow the song</string>
     <string name="lyrics_auto_scroll_description">The lyrics scroll to the line being sung. Off, they stay where you leave them.</string>
+    <!-- Lyrics timing: held from translators until the words are agreed. -->
+    <string name="lyrics_timing" translatable="false">Lyrics timing</string>
+    <string name="lyrics_timing_original" translatable="false">Original timing</string>
+    <string name="lyrics_timing_earlier" translatable="false">%1$s s earlier</string>
+    <string name="lyrics_timing_later" translatable="false">%1$s s later</string>
+    <string name="lyrics_timing_step_earlier" translatable="false">A tenth of a second earlier</string>
+    <string name="lyrics_timing_step_later" translatable="false">A tenth of a second later</string>
 </resources>
