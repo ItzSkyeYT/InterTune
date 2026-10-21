@@ -87,4 +87,38 @@ class RouteTimesTest {
         val throttle = File("src/main/java/com/dd3boh/outertune/utils/Throttle.kt").readText()
         assertTrue(throttle.substringAfter("fun noteFailure(t: Throwable) {").substringBefore("}").contains("t is StepTimedOut"))
     }
+
+    @Test
+    fun `NewPipe's limit on a whole fetch lets YouTube's player script through on a slow link`() {
+        val newPipe = File("../innertube/src/main/java/com/zionhuang/innertube/NewPipe.kt").readText()
+        val call = Regex("""\.callTimeout\((\d+),\s*java\.util\.concurrent\.TimeUnit\.(\w+)\)""").find(newPipe)
+        // None at all would do as well: the 6 s limit on a silent read ends a dead fetch.
+        val limitMs = call?.let { java.util.concurrent.TimeUnit.valueOf(it.groupValues[2]).toMillis(it.groupValues[1].toLong()) } ?: Long.MAX_VALUE
+        // The script is about 0.7 MB. At 64 kbit/s, a plan slowed after its quota or EDGE, it
+        // comes in about 90 s. 15 s cut it below about 400 kbit/s, every time, and a fetch that
+        // is cut keeps nothing: no streamed song of a new process played.
+        val scriptMs = 700_000L * 8 * 1000 / 64_000
+        assertTrue("a ${limitMs / 1000} s limit cuts a fetch of ${scriptMs / 1000} s", limitMs >= scriptMs)
+        assertEquals("RouteTimes holds NewPipe's number", RouteTimes.NEWPIPE_CALL_MS, limitMs)
+    }
+
+    @Test
+    fun `a connection being made is given longer than silence after its first byte, and than the stream client's own limits`() {
+        assertTrue(RouteTimes.FIRST_BYTE_MS > RouteTimes.STALL_MS)
+        // Four or five round trips of up to 2 s on a slow link.
+        assertTrue(RouteTimes.FIRST_BYTE_MS >= 5 * 2_000)
+        // The stream client gives up on a dead one itself: 5 s to connect, 8 s for a silent read.
+        assertTrue(RouteTimes.FIRST_BYTE_MS > 5_000 + 8_000)
+    }
+
+    @Test
+    fun `the check's longer try fits a new connection on a slow link and the resolve, and has a client of its own`() {
+        // A HEAD on a new connection is four or five round trips: 3 s is past them above 0.7 s each.
+        assertTrue(RouteTimes.HEAD_SLOW_TRY_MS >= 5 * 1_500)
+        assertTrue(RouteTimes.HEAD_SLOW_TRY_MS > RouteTimes.HEAD_TRY_MS)
+        assertTrue(RouteTimes.HEAD_SLOW_TRY_MS < RouteTimes.RESOLVE_MS)
+        val walk = File("src/main/java/com/dd3boh/outertune/utils/YTPlayerUtils.kt").readText()
+        val patient = walk.substringAfter("private val patientCheckCalls = StreamFamily.Calls(").substringBefore(".build()")
+        assertTrue(patient, Regex("""(connect|read|call)Timeout\(RouteTimes\.HEAD_SLOW_TRY_MS""").findAll(patient).count() == 3)
+    }
 }

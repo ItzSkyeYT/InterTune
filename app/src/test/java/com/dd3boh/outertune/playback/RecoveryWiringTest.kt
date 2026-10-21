@@ -24,7 +24,7 @@ class RecoveryWiringTest {
     @Test
     fun `a failed load is judged, and a route that keeps failing is changed while the buffer plays`() {
         val listener = body("override fun onLoadError(", "override fun onLoadCompleted(")
-        assertTrue(listener.contains("loadFailures.decide(id, error, SystemClock.elapsedRealtime())"))
+        assertTrue(listener.contains("loadFailures.decide(id, error, SystemClock.elapsedRealtime(), online = isNetworkConnected.value)"))
         assertTrue(listener.contains("changeRoute(id,"))
     }
 
@@ -116,5 +116,35 @@ class RecoveryWiringTest {
         assertTrue(factory.contains("val calls = if (forPlayer) playerCalls else StreamFamily.Calls(playerStreamClient)"))
         assertTrue(factory.contains("if (forPlayer) resolvingSongs.merge(mediaId, 1, Int::plus)"))
         assertTrue(factory.contains("if (forPlayer) streamedSongs[mediaId] ="))
+    }
+
+    @Test
+    fun `a song's fetch that got no answer mid-song is handed to media3 as a failure it tries again`() {
+        val resolve = body("fun resolve(mediaId: String, position: Long, length: Long): ResolvedSong {", "val playbackData = played.data")
+        assertTrue(resolve.contains("throw Recovery.resolveFailed(position, throwable,"))
+    }
+
+    @Test
+    fun `a failed load is judged knowing whether the phone has a network`() {
+        val listener = body("override fun onLoadError(", "override fun onLoadCompleted(")
+        assertTrue(listener.contains("online = isNetworkConnected.value"))
+    }
+
+    @Test
+    fun `the stall watch is told how long the song's connection has waited for its first byte, from the player's own reads`() {
+        val watch = body("private fun watchStall()", "private fun stallGiveUp(")
+        assertTrue(watch.contains("connectingMs = id?.let { StreamProgress.waitingMs(it, System.nanoTime()) }"))
+        val guard = File("src/main/java/com/dd3boh/outertune/playback/PaceGuardDataSource.kt").readText()
+        assertTrue(guard.substringAfter("override fun open(").substringBefore("override fun read(").contains("StreamProgress.opening(this, dataSpec.key"))
+        assertTrue(guard.substringAfter("override fun close()").contains("StreamProgress.answered(this)"))
+        assertTrue("only the player's own calls are waited on", service.contains("firstBytes = calls === playerCalls"))
+    }
+
+    @Test
+    fun `a refusal of an address played unchecked is told to the song's next walk, under the visitorData it was refused with`() {
+        val change = body("private fun changeRoute(", "private fun noteGivenUp(")
+        assertTrue(change.contains("refusedUnder = "))
+        val resolve = body("fun resolve(mediaId: String, position: Long, length: Long): ResolvedSong {", "val playbackData = played.data")
+        assertTrue(resolve.contains("refusedByPlayer = songRoutes.refused(mediaId,"))
     }
 }

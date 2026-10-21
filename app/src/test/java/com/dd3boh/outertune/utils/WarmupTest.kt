@@ -12,14 +12,13 @@ import org.junit.Test
 import java.io.File
 
 class WarmupTest {
-    private fun warms(validated: Boolean = true, dataSaver: Boolean = false, unmetered: Boolean = false, streamed: Boolean = true, warmed: Boolean = false) =
-        Warmup.newPipe(validated, dataSaver, unmetered, streamed, warmed)
+    private fun warms(validated: Boolean = true, dataSaver: Boolean = false, unmetered: Boolean = false, warmed: Boolean = false) =
+        Warmup.newPipe(validated, dataSaver, unmetered, warmed)
 
     @Test
-    fun `on mobile data only for a song that is to be streamed`() {
-        assertTrue(warms(unmetered = false, streamed = true))
-        assertFalse("a local or cached song needs no script", warms(unmetered = false, streamed = false))
-        assertTrue("on Wi-Fi whatever the song", warms(unmetered = true, streamed = false))
+    fun `never on mobile data whatever the song, where the first song that needs the script fetches it`() {
+        assertFalse("0.7 MB at every start of the service, the widget's and the car's too", warms(unmetered = false))
+        assertTrue("on Wi-Fi whatever the song", warms(unmetered = true))
     }
 
     @Test

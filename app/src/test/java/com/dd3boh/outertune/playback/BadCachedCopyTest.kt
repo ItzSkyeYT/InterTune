@@ -7,6 +7,7 @@
 package com.dd3boh.outertune.playback
 
 import androidx.media3.common.ParserException
+import androidx.media3.common.PlaybackException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -80,6 +81,16 @@ class BadCachedCopyTest {
         assertFalse(doubt.playerFailed("other", unreadable))
         online = false
         assertFalse(doubt.playerFailed("song", unreadable))
+        assertTrue(dropped.isEmpty())
+    }
+
+    @Test
+    fun `a song's fetch that got no answer mid-song is the network's, whatever ended the request`() {
+        // The player tries such a fetch again on its own a few seconds apart, and three of them
+        // in a row took the copy that was playing for a broken one.
+        val unanswered = Recovery.ResolveNoAnswer(PlaybackException("Unknown error", EOFException("unexpected end of stream"), PlaybackException.ERROR_CODE_REMOTE_ERROR))
+        repeat(5) { doubt.loadFailed("song", unanswered) }
+        doubt.playerFailed("song", unanswered)
         assertTrue(dropped.isEmpty())
     }
 }

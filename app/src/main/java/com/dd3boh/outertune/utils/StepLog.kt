@@ -75,6 +75,9 @@ object StepLog {
     fun slowNetwork(videoId: String, capMs: Long): String =
         "[$videoId] slow network: /player limit ${limit(capMs)} for the rest of this walk"
 
+    fun slowAnswer(videoId: String, client: String, ms: Long): String =
+        "[$videoId] $client /player answered in ${seconds(ms)}: the network is taken for slow while its answers are"
+
     fun timedOut(videoId: String, client: String, step: String, capMs: Long): String =
         "[$videoId] $client $step no answer in ${limit(capMs)}, the next client is asked"
 

@@ -13,7 +13,8 @@ package com.dd3boh.outertune.utils
  * Slowness used to be found anew by every walk: where /player takes 5 to 10 s, each song, pass
  * and quiet retry had its first two clients cut at the short limit, about 16 s before the first
  * answer, and with a silent check on top the song ran out of its 20 s. So a network found slow
- * stays slow for [RouteTimes.SLOW_REMEMBER_MS], until a quick answer or a change of network.
+ * stays slow while its answers do: for [RouteTimes.SLOW_REMEMBER_MS] after it was found or last
+ * answered slowly, until a quick answer or a change of network.
  *
  * And the second try on a new connection waited a fixed 1.5 s: where every answer takes 2 s, it
  * went out for nearly every song and almost never won, a second handshake on a thin link. So it
@@ -36,12 +37,22 @@ object NetworkPace {
         slowUntil = now + RouteTimes.SLOW_REMEMBER_MS * 1_000_000
     }
 
-    /** A /player answer came after [ms]. One under a third of the short limit ends a slow spell. */
+    /**
+     * A /player answer came after [ms]. One under a third of the short limit ends a slow spell;
+     * one over 60% of it starts one, or keeps it [RouteTimes.SLOW_REMEMBER_MS] more. A spell
+     * used to end five minutes after it was found however slow the answers stayed, and the next
+     * walk cut its first clients at the short limit again, about every other song.
+     */
     @Synchronized
     fun answered(ms: Long, now: Long = System.nanoTime()) {
         answers.addLast(ms to now)
         while (answers.size > KEEP) answers.removeFirst()
-        if (ms < RouteTimes.playerCapMs * 3 / 10) slowUntil = 0L
+        if (ms < RouteTimes.playerCapMs * 3 / 10) {
+            slowUntil = 0L
+        } else if (ms > RouteTimes.playerCapMs * 6 / 10) {
+            val until = now + RouteTimes.SLOW_REMEMBER_MS * 1_000_000
+            if (slowUntil == 0L || until > slowUntil) slowUntil = until
+        }
     }
 
     /**
