@@ -18,6 +18,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.VectorConverter
+import androidx.compose.animation.core.snap
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.DraggableState
@@ -184,7 +185,10 @@ fun BottomSheet(
                     },
                     onDragCancel = {
                         velocityTracker.resetTracking()
-                        state.snapTo(state.collapsedBound)
+                        // At once, as a snap, and recorded as collapsed where it lands. A bare
+                        // snap left its anchor where the drag began: a queue put down this way
+                        // was still kept as open, and came back open after a restart.
+                        state.collapse(snap())
                     },
                     onDragEnd = {
                         val velocity = -velocityTracker.calculateVelocity().y
