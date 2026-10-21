@@ -2056,4 +2056,6 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="one">New queue \"%2$s\", %1$d song, now playing</item>
         <item quantity="other">New queue \"%2$s\", %1$d songs, now playing</item>
     </plurals>
+    <string name="queue_back_closes_player">Back from the queue closes the player</string>
+    <string name="queue_back_closes_player_description">Back from the queue takes you straight to the screen under the player. The player then opens on the queue if that is where you left it.</string>
 </resources>

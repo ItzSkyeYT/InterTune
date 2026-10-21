@@ -19,6 +19,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.KeyboardDoubleArrowDown
 import androidx.compose.material.icons.rounded.SmartButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -37,6 +38,7 @@ import com.dd3boh.outertune.R
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import com.dd3boh.outertune.constants.PlayerButtonsStyle
 import com.dd3boh.outertune.constants.PlayerButtonsStyleKey
+import com.dd3boh.outertune.constants.QueueBackClosesPlayerKey
 import com.dd3boh.outertune.constants.QueueButtonKey
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
@@ -129,5 +131,17 @@ fun ColumnScope.PlayerButtonsFrag() {
         icon = { Icon(Icons.AutoMirrored.Rounded.QueueMusic, null) },
         checked = queueAsButton,
         onCheckedChange = onQueueAsButtonChange
+    )
+
+    // Off keeps Back from the queue going to the song first, as it always has. On, Back from the
+    // queue closes the whole player and leaves the queue open in it, so the player opens on the
+    // queue next time, after a restart too (issue #30).
+    val (backClosesPlayer, onBackClosesPlayerChange) = rememberPreference(QueueBackClosesPlayerKey, defaultValue = false)
+    SwitchPreference(
+        title = { Text(stringResource(R.string.queue_back_closes_player)) },
+        description = stringResource(R.string.queue_back_closes_player_description),
+        icon = { Icon(Icons.Rounded.KeyboardDoubleArrowDown, null) },
+        checked = backClosesPlayer,
+        onCheckedChange = onBackClosesPlayerChange
     )
 }

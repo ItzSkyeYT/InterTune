@@ -1890,4 +1890,6 @@
         <item quantity="many">Nouvelle file d\'attente «\u00A0%2$s\u00A0», %1$d titres, en lecture</item>
         <item quantity="other">Nouvelle file d\'attente «\u00A0%2$s\u00A0», %1$d titres, en lecture</item>
     </plurals>
+    <string name="queue_back_closes_player">Le retour depuis la file d\'attente ferme le lecteur</string>
+    <string name="queue_back_closes_player_description">Le retour depuis la file d\'attente ramène directement à l\'écran sous le lecteur. Le lecteur se rouvre ensuite sur la file d\'attente si c\'est là que vous l\'avez laissé.</string>
 </resources>
