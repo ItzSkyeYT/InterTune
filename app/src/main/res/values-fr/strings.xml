@@ -154,7 +154,7 @@
     </plurals>
     <string name="error_no_stream">Aucun flux disponible</string>
     <string name="error_no_internet">Aucune connexion réseau</string>
-    <string name="error_timeout">Temps libre</string>
+    <string name="error_timeout">Délai dépassé</string>
     <string name="error_unknown">Erreur inconnue</string>
     <string name="action_like">J’aime</string>
     <string name="action_remove_like">Je n’aime plus</string>
