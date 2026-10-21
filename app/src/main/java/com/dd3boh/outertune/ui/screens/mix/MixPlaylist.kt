@@ -62,6 +62,7 @@ import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.mix.edit.SongPair
 import com.dd3boh.outertune.mix.edit.TransitionSpec
+import com.dd3boh.outertune.mix.pill.HeardChanges
 import com.dd3boh.outertune.mix.pill.MixRowLine
 import com.dd3boh.outertune.mix.pill.PairPlanner
 import com.dd3boh.outertune.mix.pill.Pill
@@ -127,10 +128,22 @@ fun rememberSavedTransitions(): Map<SongPair, TransitionSpec> {
 }
 
 /**
- * Auto for each pair. Nothing is analysed ahead yet (the analysis cache comes with the engine), so
- * every pair says Auto until it is; the real planner replaces this one in one place.
+ * Auto for each pair, as far as it is known. Nothing is analysed ahead yet (the analysis cache
+ * comes with the engine), so a pair says Auto until its change has been heard once, and then
+ * what Auto did (MixStores.heard). The real planner replaces this in one place.
  */
-val MixPlanner: PairPlanner = PairPlanner.NOT_YET
+@Composable
+fun rememberMixPlanner(): PairPlanner {
+    val context = LocalContext.current
+    val changes by MixStores.changes.collectAsState()
+    val planner by produceState<PairPlanner>(PairPlanner.NOT_YET, changes) {
+        value = HeardPlanner(withContext(Dispatchers.IO) { MixStores.heard(context) }, changes)
+    }
+    return planner
+}
+
+/** The memory as it stood at one count of [MixStores.changes]: a new value each time, so what shows it draws again. */
+private data class HeardPlanner(val heard: HeardChanges, val version: Int) : PairPlanner by heard
 
 /**
  * The playlist menu's "Mix: on" or "Mix: off" (DESIGN.md 2.4): whether the switch is on, and what
@@ -225,6 +238,7 @@ fun MixPillLine(
     toTitle: String,
     saved: TransitionSpec?,
     blocker: PlainReason?,
+    planner: PairPlanner,
     navController: NavController,
     modifier: Modifier = Modifier,
 ) {
@@ -232,7 +246,7 @@ fun MixPillLine(
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
     val pair = SongPair(from.id, to.id)
-    val pill = Pills.of(from, to, saved, blocker, MixPlanner)
+    val pill = Pills.of(from, to, saved, blocker, planner)
     val described = MixWords.described(pill, fromTitle, toTitle)
     var menu by remember { mutableStateOf(false) }
 

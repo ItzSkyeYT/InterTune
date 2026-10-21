@@ -7,6 +7,8 @@ import com.dd3boh.outertune.ui.screens.mix.MixRow
 import com.dd3boh.outertune.ui.screens.mix.pillSong
 import com.dd3boh.outertune.ui.screens.mix.rememberMixBlocker
 import com.dd3boh.outertune.ui.screens.mix.rememberMixOn
+import com.dd3boh.outertune.ui.screens.mix.rememberMixPlanner
+import com.dd3boh.outertune.mix.pill.PairPlanner
 import com.dd3boh.outertune.ui.screens.mix.rememberSavedTransitions
 import com.dd3boh.outertune.ui.component.ScreenBackHandler
 import android.util.Log
@@ -220,6 +222,7 @@ fun LocalPlaylistScreen(
     val mixOn = Unreleased.AUTOMIX_EDITOR && rememberMixOn(viewModel.playlistId)
     val savedMixes = if (Unreleased.AUTOMIX_EDITOR && mixOn) rememberSavedTransitions() else emptyMap()
     val mixBlocker = if (Unreleased.AUTOMIX_EDITOR && mixOn) rememberMixBlocker() else null
+    val mixPlanner = if (Unreleased.AUTOMIX_EDITOR && mixOn) rememberMixPlanner() else null
 
     var inSelectMode by rememberSaveable { mutableStateOf(false) }
     val selection = rememberSaveable(
@@ -746,6 +749,7 @@ fun LocalPlaylistScreen(
                                 toTitle = next.song.title,
                                 saved = savedMixes[SongPair(song.song.id, next.song.id)],
                                 blocker = mixBlocker,
+                                planner = mixPlanner ?: PairPlanner.NOT_YET,
                                 navController = navController,
                                 modifier = Modifier.background(MaterialTheme.colorScheme.background),
                             )

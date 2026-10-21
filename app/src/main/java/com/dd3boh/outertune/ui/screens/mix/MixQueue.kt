@@ -100,6 +100,7 @@ fun MixNextLine(
     val next = songs.getOrNull(index + 1) ?: songs.firstOrNull()?.takeIf { repeat == Player.REPEAT_MODE_ALL } ?: return
     val saved = rememberSavedTransitions()
     val blocker = rememberMixBlocker()
+    val planner = rememberMixPlanner()
     val decidedFlow = playerConnection.service.mixDecided ?: NOTHING_DECIDED
     val decided by decidedFlow.collectAsState()
     val pair = SongPair(current.id, next.id)
@@ -109,7 +110,7 @@ fun MixNextLine(
             is AutoChoice.Plain -> Pill.Plain(choice.reason)
             is AutoChoice.Mixed -> Pill.Move(choice.preset, choice.length)
         }
-    } ?: Pills.of(current.pillSong(), next.pillSong(), saved[pair], blocker, MixPlanner, shuffled)
+    } ?: Pills.of(current.pillSong(), next.pillSong(), saved[pair], blocker, planner, shuffled)
     val words = MixWords.text(pill).let { if (pill.edited) stringResource(R.string.mix_pill_yours, it) else it }
 
     Text(

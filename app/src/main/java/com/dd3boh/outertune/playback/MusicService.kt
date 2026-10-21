@@ -171,6 +171,7 @@ import com.dd3boh.outertune.playback.automix.AutomixController
 import com.dd3boh.outertune.playback.automix.AutomixProcessorChain
 import com.dd3boh.outertune.playback.automix.AutomixVolume
 import com.dd3boh.outertune.playback.automix.HeadDecoder
+import com.dd3boh.outertune.playback.automix.MixStores
 import androidx.media3.common.audio.AudioProcessorChain
 import com.dd3boh.outertune.constants.TransitionFadeSecondsKey
 import com.dd3boh.outertune.constants.minPlaybackDurKey
@@ -1791,6 +1792,10 @@ class MusicService : MediaLibraryService(),
                             mixQueueLinks = links
                             refreshMix()
                         }
+                    // What each change came to, so its pill names it from then on.
+                    automix?.decided?.collect(scope) { decided ->
+                        if (decided != null) withContext(Dispatchers.IO) { MixStores.heardChange(this@MusicService, decided.pair, decided.choice) }
+                    }
                 }
                 automixWanted()
                     .collectLatest(scope) { on ->

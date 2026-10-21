@@ -54,9 +54,10 @@ fun MixEditorScreen(navController: NavController, pair: SongPair) {
     val to by remember(pair.to) { database.song(pair.to) }.collectAsState(initial = null)
     val saved = rememberSavedTransitions()[pair]
     val blocker = rememberMixBlocker()
+    val planner = rememberMixPlanner()
     val fromSong = from?.pillSong() ?: PillSong(pair.from, null, -1)
     val toSong = to?.pillSong() ?: PillSong(pair.to, null, -1)
-    val pill = Pills.of(fromSong, toSong, saved, blocker, MixPlanner)
+    val pill = Pills.of(fromSong, toSong, saved, blocker, planner)
 
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp),

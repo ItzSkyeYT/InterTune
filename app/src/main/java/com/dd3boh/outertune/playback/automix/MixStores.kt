@@ -14,10 +14,13 @@ import com.dd3boh.outertune.mix.edit.JsonFileTransitionStore
 import com.dd3boh.outertune.mix.edit.SongPair
 import com.dd3boh.outertune.mix.edit.TransitionSpec
 import com.dd3boh.outertune.mix.edit.TransitionStore
+import com.dd3boh.outertune.mix.pill.AutoChoice
+import com.dd3boh.outertune.mix.pill.HeardChanges
 import com.dd3boh.outertune.utils.dataStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.io.File
 
 /**
  * Mix (Unreleased.AUTOMIX_EDITOR): the one store of saved transitions in the app, shared by the
@@ -44,6 +47,37 @@ object MixStores {
             },
         ) { _changes.value += 1 }.also { transitions = it }
     }
+
+    @Volatile
+    private var heard: HeardChanges? = null
+
+    /**
+     * What Auto did between two songs when the change was last heard, for the pills. Read from
+     * cacheDir/mix/heard.json the first time, so call it off the main thread.
+     */
+    fun heard(context: Context): HeardChanges = heard ?: synchronized(this) {
+        heard ?: run {
+            val file = heardFile(context)
+            val text = runCatching { file.takeIf { it.isFile }?.readText() }.getOrNull()
+            (text?.let { HeardChanges.decode(it) } ?: HeardChanges()).also { heard = it }
+        }
+    }
+
+    /** Keeps what a change came to, when it belongs to the pair, and writes the file. Off the main thread. */
+    fun heardChange(context: Context, pair: SongPair, choice: AutoChoice) {
+        val memory = heard(context)
+        if (!memory.put(pair, choice)) return
+        _changes.value += 1
+        runCatching {
+            val file = heardFile(context)
+            file.parentFile?.mkdirs()
+            val fresh = File(file.path + ".new")
+            fresh.writeText(memory.encode())
+            if (!fresh.renameTo(file)) fresh.delete()
+        }.onFailure { Log.w(TAG, "could not keep what was heard", it) }
+    }
+
+    private fun heardFile(context: Context) = File(context.applicationContext.cacheDir, "mix/heard.json")
 
     private class WatchedTransitionStore(
         private val inner: TransitionStore,
