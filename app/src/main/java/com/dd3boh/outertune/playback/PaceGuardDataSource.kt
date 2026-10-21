@@ -102,10 +102,36 @@ object StreamPace {
 
 /**
  * Every byte the player's stream reads brought in, all songs together: what the stall watch
- * reads to tell a slow stream, which is never cut, from a silent one. See StallWatch.
+ * reads to tell a slow stream, which is never cut, from a silent one. And the player's
+ * connections still waiting for their first byte, whose making the watch does not count as
+ * silence. See StallWatch.
  */
 object StreamProgress {
     val bytes = java.util.concurrent.atomic.AtomicLong(0)
+
+    /** The player's connections that have brought no byte yet: the song each is for, and when it was opened (System.nanoTime). */
+    private val waiting = java.util.concurrent.ConcurrentHashMap<Any, Pair<String, Long>>()
+
+    /** [connection], for [songId], was opened at [at] and waits for its first byte. */
+    fun opening(connection: Any, songId: String?, at: Long) {
+        if (songId == null) waiting.remove(connection) else waiting[connection] = songId to at
+    }
+
+    /** [connection] brought its first byte, failed or was closed. */
+    fun answered(connection: Any) {
+        waiting.remove(connection)
+    }
+
+    /**
+     * How long, at [now], [songId]'s newest connection has waited for its first byte, or null
+     * when none waits. The newest: a connection just cut is let go a moment after the one the
+     * player opens in its place.
+     */
+    fun waitingMs(songId: String?, now: Long): Long? {
+        if (songId == null) return null
+        val newest = waiting.values.filter { it.first == songId }.maxOfOrNull { it.second } ?: return null
+        return ((now - newest) / 1_000_000).coerceAtLeast(0)
+    }
 }
 
 /**
@@ -128,11 +154,16 @@ class SlowStreamException(message: String, dataSpec: DataSpec) : HttpDataSource.
 class PaceGuardDataSource(
     private val upstream: DataSource,
     private val clock: () -> Long = System::nanoTime,
+    /** The player's own: how long each of its connections waits for a first byte is told to the stall watch, see StreamProgress. */
+    private val firstBytes: Boolean = false,
 ) : DataSource {
     private val cuts = StreamPace.Cuts()
     private var meter: StreamPace.Meter? = null
     private var need = 0.0
     private var opened: DataSpec? = null
+
+    /** The connection opened last has brought no byte yet. */
+    private var awaitingFirstByte = false
 
     override fun addTransferListener(transferListener: TransferListener) = upstream.addTransferListener(transferListener)
 
@@ -144,14 +175,34 @@ class PaceGuardDataSource(
             need = StreamPace.need(url)
             meter = StreamPace.Meter(need) { cuts.keptPace() }
         }
-        return upstream.open(dataSpec)
+        if (firstBytes) {
+            awaitingFirstByte = true
+            StreamProgress.opening(this, dataSpec.key, clock())
+        }
+        return try {
+            upstream.open(dataSpec)
+        } catch (e: Throwable) {
+            firstByteCame()
+            throw e
+        }
+    }
+
+    /** Not waiting for a first byte any more: one came, the end of the stream did, or the connection failed. */
+    private fun firstByteCame() {
+        if (!awaitingFirstByte) return
+        awaitingFirstByte = false
+        StreamProgress.answered(this)
     }
 
     override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
-        val watching = meter ?: return upstream.read(buffer, offset, length).also { if (it > 0) StreamProgress.bytes.addAndGet(it.toLong()) }
+        val watching = meter ?: return upstream.read(buffer, offset, length).also {
+            if (it > 0) StreamProgress.bytes.addAndGet(it.toLong())
+            if (it != 0) firstByteCame()
+        }
         val start = clock()
         val read = upstream.read(buffer, offset, length)
         if (read > 0) StreamProgress.bytes.addAndGet(read.toLong())
+        if (read != 0) firstByteCame()
         if (watching.slow(read, clock() - start)) {
             cuts.cut()
             meter = null
@@ -169,11 +220,13 @@ class PaceGuardDataSource(
 
     override fun close() {
         meter = null
+        awaitingFirstByte = false
+        StreamProgress.answered(this)
         upstream.close()
     }
 
-    class Factory(private val upstream: DataSource.Factory) : DataSource.Factory {
-        override fun createDataSource(): DataSource = PaceGuardDataSource(upstream.createDataSource())
+    class Factory(private val upstream: DataSource.Factory, private val firstBytes: Boolean = false) : DataSource.Factory {
+        override fun createDataSource(): DataSource = PaceGuardDataSource(upstream.createDataSource(), firstBytes = firstBytes)
     }
 
     private companion object {

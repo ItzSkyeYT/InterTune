@@ -8,6 +8,7 @@ package com.dd3boh.outertune.playback
 
 import com.dd3boh.outertune.playback.StallWatch.Action
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 /** Silence at the speaker, a second at a time. */
@@ -24,7 +25,8 @@ class StallWatchTest {
         waitingForNetwork: Boolean = false,
         online: Boolean = true,
         allowed: Boolean = true,
-    ) = StallWatch.Tick(song, wantsToPlay, buffering, streamed, resolving, casting, waitingForNetwork, online, bytes, now, allowed)
+        connectingMs: Long? = null,
+    ) = StallWatch.Tick(song, wantsToPlay, buffering, streamed, resolving, casting, waitingForNetwork, online, bytes, now, allowed, connectingMs)
 
     /** Every action over [seconds] of ticks a second apart, starting at [from]. */
     private fun StallWatch.run(seconds: Int, from: Long = 0, each: (Long) -> StallWatch.Tick): List<Pair<Long, Action>> =
@@ -93,5 +95,54 @@ class StallWatchTest {
     fun `bytes from the new route after its resolve start the count again`() {
         val actions = StallWatch().run(30) { now -> tick(now, resolving = now in 13_000L..15_000L, bytes = if (now >= 16_000L) 5 else 0) }
         assertEquals(listOf(6_000L to Action.CUT_CONNECTION, 12_000L to Action.CHANGE_ROUTE, 22_000L to Action.CUT_CONNECTION, 28_000L to Action.CHANGE_ROUTE), actions)
+    }
+
+    @Test
+    fun `a connection that takes eight seconds to bring its first byte is never cut`() {
+        // DNS, TCP, TLS and the request, four or five round trips of 1.5 to 2 s on a link whose
+        // uplink a photo backup fills: the first byte at 8 s, then the song comes in. The six
+        // seconds of silence are counted from a connection's first byte, not from its opening.
+        val actions = StallWatch().run(20) { now ->
+            tick(now, bytes = if (now >= 8_000) now else 0, connectingMs = now.takeIf { it < 8_000 })
+        }
+        assertEquals(emptyList<Pair<Long, Action>>(), actions)
+    }
+
+    @Test
+    fun `a connection with no first byte after fifteen seconds takes the next step, and the next connection gets as long`() {
+        // Opened at 0 and never answering; the cut at 15 s makes media3 open another at once.
+        val actions = StallWatch().run(40) { now -> tick(now, connectingMs = if (now <= 15_000) now else now - 15_000) }
+        assertEquals(listOf(15_000L to Action.CUT_CONNECTION, 30_000L to Action.CHANGE_ROUTE), actions)
+    }
+
+    @Test
+    fun `a connection still waiting a moment after its cut is not cut again`() {
+        val actions = StallWatch().run(25) { now -> tick(now, connectingMs = now) }
+        assertEquals(listOf(15_000L to Action.CUT_CONNECTION), actions)
+    }
+
+    @Test
+    fun `silence after bytes is still cut at six seconds, and the connection made after it gets its fifteen`() {
+        // Bytes until 5 s, then the connection goes silent and is cut at 11 s; the next one never answers.
+        val actions = StallWatch().run(40) { now ->
+            tick(now, bytes = minOf(now, 5_000), connectingMs = if (now > 11_000) now - 11_000 else null)
+        }
+        assertEquals(listOf(11_000L to Action.CUT_CONNECTION, 26_000L to Action.CHANGE_ROUTE), actions)
+    }
+
+    @Test
+    fun `a connection waits for its first byte from its opening until that byte comes, song by song`() {
+        val first = Any()
+        val second = Any()
+        StreamProgress.opening(first, "WAITINGSONG", at = 1_000_000_000L)
+        assertEquals(2_000L, StreamProgress.waitingMs("WAITINGSONG", now = 3_000_000_000L))
+        assertNull(StreamProgress.waitingMs("ANOTHERSONG", now = 3_000_000_000L))
+        assertNull(StreamProgress.waitingMs(null, now = 3_000_000_000L))
+        // The retry's connection while the cut one is still being let go: the newest is the one waited on.
+        StreamProgress.opening(second, "WAITINGSONG", at = 2_500_000_000L)
+        assertEquals(500L, StreamProgress.waitingMs("WAITINGSONG", now = 3_000_000_000L))
+        StreamProgress.answered(second)
+        StreamProgress.answered(first)
+        assertNull("both brought a byte, failed or were closed", StreamProgress.waitingMs("WAITINGSONG", now = 3_000_000_000L))
     }
 }

@@ -129,4 +129,14 @@ class RecoveryWiringTest {
         val listener = body("override fun onLoadError(", "override fun onLoadCompleted(")
         assertTrue(listener.contains("online = isNetworkConnected.value"))
     }
+
+    @Test
+    fun `the stall watch is told how long the song's connection has waited for its first byte, from the player's own reads`() {
+        val watch = body("private fun watchStall()", "private fun stallGiveUp(")
+        assertTrue(watch.contains("connectingMs = id?.let { StreamProgress.waitingMs(it, System.nanoTime()) }"))
+        val guard = File("src/main/java/com/dd3boh/outertune/playback/PaceGuardDataSource.kt").readText()
+        assertTrue(guard.substringAfter("override fun open(").substringBefore("override fun read(").contains("StreamProgress.opening(this, dataSpec.key"))
+        assertTrue(guard.substringAfter("override fun close()").contains("StreamProgress.answered(this)"))
+        assertTrue("only the player's own calls are waited on", service.contains("firstBytes = calls === playerCalls"))
+    }
 }

@@ -2465,7 +2465,10 @@ class MusicService : MediaLibraryService(),
                             PaceGuardDataSource.Factory(
                                 // Over the family the address was issued to, and a web client's
                                 // with its page's headers, as its check was made: see StreamFamily.Calls.
-                                OkHttpDataSource.Factory(calls)
+                                OkHttpDataSource.Factory(calls),
+                                // The player's own connections tell the stall watch how long each
+                                // waits for its first byte: see StreamProgress.
+                                firstBytes = calls === playerCalls,
                             )
                         )
                     )
@@ -3993,6 +3996,8 @@ class MusicService : MediaLibraryService(),
                 now = now,
                 // The maintainer's off switch: see RemoteRoutes.
                 allowed = RemoteRoutes.watchdog,
+                // A connection being made is not silence: see StallWatch.
+                connectingMs = id?.let { StreamProgress.waitingMs(it, System.nanoTime()) },
             )
         )
         if (id == null) return

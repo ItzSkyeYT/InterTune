@@ -85,6 +85,15 @@ object RouteTimes {
     /** The player: no byte for this long while it buffers and wants to play is a stall. */
     const val STALL_MS = 6_000L
 
+    /**
+     * The player: how long a connection that has brought no byte yet may wait for its first,
+     * before the stall watch takes its next step. Making one is four or five round trips (DNS,
+     * TCP, TLS, the request), 7 to 9 s where each takes 1.5 to 2 s, and [STALL_MS] counted from
+     * the start cut every connection mid-way on such a link. The stream client's own limits, 5 s
+     * to connect and 8 s for a silent read, end a dead one before this.
+     */
+    const val FIRST_BYTE_MS = 15_000L
+
     /** The player: a second failed load of a song within this changes its route. */
     const val LOAD_FAILURE_WINDOW_MS = 30_000L
 

@@ -19,8 +19,16 @@ import com.dd3boh.outertune.utils.RouteTimes
  * player asks again at once, on a new one, from the same byte); after as long again the route is
  * changed; and after as long again the song is given up with a message. Any byte that comes in
  * starts the count again, so a slow stream that still comes in is never cut.
+ *
+ * The silence is counted from a connection's first byte, not from its opening: making one is
+ * four or five round trips, and on a link where each takes 1.5 to 2 s the first byte came after
+ * the 6 s, so every start, skip and seek was cut mid-way and given up. A connection that has
+ * brought no byte gets [firstByteMs] before the next step instead.
  */
-class StallWatch(private val stallMs: Long = RouteTimes.STALL_MS) {
+class StallWatch(
+    private val stallMs: Long = RouteTimes.STALL_MS,
+    private val firstByteMs: Long = RouteTimes.FIRST_BYTE_MS,
+) {
     /** What the service knows of the player at one moment. */
     data class Tick(
         val songId: String?,
@@ -38,6 +46,11 @@ class StallWatch(private val stallMs: Long = RouteTimes.STALL_MS) {
         val now: Long,
         /** The remote switch: see RemoteRoutes. */
         val allowed: Boolean = true,
+        /**
+         * How long the song's newest connection has waited for its first byte, or null when none
+         * is waiting: see StreamProgress.
+         */
+        val connectingMs: Long? = null,
     )
 
     enum class Action { NOTHING, CUT_CONNECTION, CHANGE_ROUTE, GIVE_UP }
@@ -52,6 +65,9 @@ class StallWatch(private val stallMs: Long = RouteTimes.STALL_MS) {
     /** When the current step began: the next one comes [stallMs] after it. */
     private var stepSince: Long? = null
     private var stage = 0
+
+    /** When the last step was taken: a connection that was waiting then is not stepped on again. */
+    private var lastStepAt: Long? = null
 
     /** How long the song has been silent, for the log. */
     fun silentMs(now: Long): Long = silentSince?.let { now - it } ?: 0
@@ -71,6 +87,7 @@ class StallWatch(private val stallMs: Long = RouteTimes.STALL_MS) {
         silentSince = null
         stepSince = null
         stage = 0
+        lastStepAt = null
     }
 
     fun tick(t: Tick): Action {
@@ -100,10 +117,25 @@ class StallWatch(private val stallMs: Long = RouteTimes.STALL_MS) {
             return Action.NOTHING
         }
         if (silentSince == null) silentSince = t.now
+        val connecting = t.connectingMs
+        if (connecting != null) {
+            // A connection being made: its silence is not counted, it gets [firstByteMs] for
+            // its first byte, and one that was already waiting at the last step (the one that
+            // step cut, still being let go) is not stepped on again.
+            stepSince = null
+            val sinceStep = lastStepAt?.let { t.now - it }
+            if (stage >= 3 || connecting < firstByteMs || (sinceStep != null && sinceStep < firstByteMs)) return Action.NOTHING
+            return step(t.now)
+        }
         val since = stepSince ?: t.now.also { stepSince = it }
         if (stage >= 3 || t.now - since < stallMs) return Action.NOTHING
+        return step(t.now)
+    }
+
+    private fun step(now: Long): Action {
         stage++
-        stepSince = t.now
+        stepSince = now
+        lastStepAt = now
         return when (stage) {
             1 -> Action.CUT_CONNECTION
             2 -> Action.CHANGE_ROUTE

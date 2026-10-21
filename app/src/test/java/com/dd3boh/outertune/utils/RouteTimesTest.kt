@@ -101,4 +101,13 @@ class RouteTimesTest {
         assertTrue("a ${limitMs / 1000} s limit cuts a fetch of ${scriptMs / 1000} s", limitMs >= scriptMs)
         assertEquals("RouteTimes holds NewPipe's number", RouteTimes.NEWPIPE_CALL_MS, limitMs)
     }
+
+    @Test
+    fun `a connection being made is given longer than silence after its first byte, and than the stream client's own limits`() {
+        assertTrue(RouteTimes.FIRST_BYTE_MS > RouteTimes.STALL_MS)
+        // Four or five round trips of up to 2 s on a slow link.
+        assertTrue(RouteTimes.FIRST_BYTE_MS >= 5 * 2_000)
+        // The stream client gives up on a dead one itself: 5 s to connect, 8 s for a silent read.
+        assertTrue(RouteTimes.FIRST_BYTE_MS > 5_000 + 8_000)
+    }
 }
