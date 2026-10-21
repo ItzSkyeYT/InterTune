@@ -1,0 +1,19 @@
+{
+  "uniqueId": "com.metrolist:innertubex",
+  "artifactVersion": "0.10.0",
+  "name": "InnerTubeX",
+  "description": "A Kotlin client for YouTube's streaming protocol (SABR), by the Metrolist developers. Its SABR package and the files that package needs are compiled into InterTune's sabr module.",
+  "website": "https://github.com/MetrolistGroup/innertubex",
+  "developers": [
+    {
+      "name": "MetrolistGroup",
+      "organisationUrl": "https://github.com/MetrolistGroup"
+    }
+  ],
+  "scm": {
+    "url": "https://github.com/MetrolistGroup/innertubex"
+  },
+  "licenses": [
+    "GPL-3.0-only"
+  ]
+}

@@ -7,14 +7,17 @@
 package com.dd3boh.outertune.utils
 
 import android.net.ConnectivityManager
+import androidx.media3.common.PlaybackException
 import com.dd3boh.outertune.constants.AudioQuality
 import com.dd3boh.outertune.constants.PlaybackAuthMode
 import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.playback.Recovery
 import com.dd3boh.outertune.utils.StreamOrder.Memory
 import com.dd3boh.outertune.utils.cipher.ChallengeSolver
 import com.dd3boh.outertune.utils.cipher.PlayerScript
 import com.dd3boh.outertune.utils.potoken.PoTokenResult
 import com.zionhuang.innertube.AddressPolicy
+import com.zionhuang.innertube.PlayerAnswers
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.ResponseContext
 import com.zionhuang.innertube.models.Thumbnails
@@ -25,6 +28,8 @@ import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -51,6 +56,17 @@ import java.util.concurrent.TimeUnit
  */
 /** A /player request that never answers. */
 private object Hang
+
+/**
+ * [answer] as YouTube's text carries it, with the SABR streaming address an OK answer of VISIONOS
+ * has and our model does not read: what PlayerAnswers keeps for a start over SABR.
+ */
+private fun sabrText(answer: PlayerResponse): String {
+    val tree = Json.encodeToJsonElement(PlayerResponse.serializer(), answer).jsonObject
+    val streaming = tree["streamingData"] as? JsonObject ?: return tree.toString()
+    val withSabr = JsonObject(streaming + ("serverAbrStreamingUrl" to JsonPrimitive("https://rr1---sn-test.googlevideo.com/videoplayback?sabr=1")))
+    return JsonObject(tree + ("streamingData" to withSabr)).toString()
+}
 
 class ChainWalkTest {
     /** Synthetic, in the shape YouTube issues them. */
@@ -87,6 +103,7 @@ class ChainWalkTest {
         YTPlayerUtils.onVisitorDataFound = { adopted += it }
         YTPlayerUtils.onLateRefusal = { id, client, _ -> lateRefusals += "$id $client" }
         RouteTimes.reset()
+        RemoteRoutes.current = null
         HedgeBudget.shared = HedgeBudget()
         YTPlayerUtils.forgetWarming()
         YTPlayerUtils.forgetGoneInARow()
@@ -110,6 +127,7 @@ class ChainWalkTest {
         YTPlayerUtils.onVisitorDataFound = null
         YTPlayerUtils.onLateRefusal = null
         RouteTimes.reset()
+        RemoteRoutes.current = null
         YTPlayerUtils.forgetGoneInARow()
         YTPlayerUtils.forgetWarming()
         NetworkPace.forget()
@@ -142,7 +160,26 @@ class ChainWalkTest {
         private val decipherFails: Map<String, Throwable> = emptyMap(),
         /** Whether the network in use costs data. */
         private val metered: Boolean = false,
+        /**
+         * The clients whose answers are kept for a start over SABR, as YouTube.player keeps them:
+         * none unless a test says so, so that every other walk ends as it always did.
+         */
+        private val sabrFrom: Set<String> = emptySet(),
     ) : YTPlayerUtils.Wire {
+        /** The answers kept for a start over SABR, this walk's and any a test put there before it. */
+        val answers = PlayerAnswers()
+
+        override fun answers(): PlayerAnswers = answers
+
+        /** A start over SABR asked for: the answer it is made from, the stream, the song it is paced by, and whether for a download. */
+        class SabrAsked(val answer: PlayerAnswers.Answer, val data: YTPlayerUtils.PlaybackData, val clockId: String, val forDownload: Boolean)
+
+        val sabrAsked = mutableListOf<SabrAsked>()
+
+        override fun overSabr(answer: PlayerAnswers.Answer, data: YTPlayerUtils.PlaybackData, clockId: String, forDownload: Boolean): YTPlayerUtils.PlaybackData? {
+            sabrAsked += SabrAsked(answer, data, clockId, forDownload)
+            return data.copy(streamUrl = "sabr://${answer.videoId}?itag=${data.format.itag}&lmt=0")
+        }
         /** Every n step started, by the client its host names. */
         val deciphered = java.util.Collections.synchronizedList(mutableListOf<String>())
 
@@ -226,6 +263,7 @@ class ChainWalkTest {
                 delay(said.ms)
                 said = said.answer
             }
+            if (said is PlayerResponse && own in sabrFrom) answers.put(PlayerAnswers.Answer(videoId, client, sabrText(said)))
             return when (said) {
                 is Throwable -> Result.failure(said)
                 else -> Result.success(said as PlayerResponse)
@@ -2242,5 +2280,138 @@ class ChainWalkTest {
 
         remembering("VISIONOS", "ANDROID_VR")
         assertTrue("asked first, with nothing noted before it", walk(Script(mapOf("VISIONOS" to listOf(oddlyWorded)))).isSuccess)
+    }
+
+    // ---- SABR, the last rung ----
+
+    /** Every direct address refused, as on the day they stop: each client's check gets 403. */
+    private fun refusedEverywhere(vararg instead: Pair<String, List<Any>>, sabrFrom: Set<String> = setOf("VISIONOS")) = Script(
+        says = mapOf(
+            "ANDROID_VR" to listOf(refused(bot)),
+            "VISIONOS" to listOf(playable("VISIONOS", loudness = 5.0, seconds = "200")),
+            "IOS" to listOf(playable("IOS", loudness = 5.0, seconds = "200")),
+            "ANDROID_VR as a new visitor" to listOf(refused(bot, carrying = newVisitor)),
+        ) + instead,
+        heads = mapOf("VISIONOS" to 403, "VISIONOS_104" to 403, "VISIONOS_SAFARI" to 403, "IOS" to 403),
+        sabrFrom = sabrFrom,
+    )
+
+    @Test
+    fun `SABR takes over a walk YouTube turned down, from this walk's VISIONOS answer`() {
+        val script = refusedEverywhere()
+        val data = walk(script).getOrThrow()
+        assertTrue(data.streamUrl.startsWith("sabr://"))
+        val asked = script.sabrAsked.single()
+        assertEquals(YouTubeClient.VISIONOS, asked.answer.client)
+        assertEquals("paced by the song played", "TESTVIDEO01", asked.clockId)
+        assertFalse(asked.forDownload)
+        assertTrue(YTPlayerUtils.lastStreamTrail.orEmpty(), YTPlayerUtils.lastStreamTrail.orEmpty().endsWith("VISIONOS SABR OK"))
+    }
+
+    @Test
+    fun `SABR may take over only what YouTube turned down, never a walk that heard nothing or a song it calls gone`() {
+        assertTrue("the bot check", YTPlayerUtils.sabrMayTakeOver(PlaybackException(bot, null, PlaybackException.ERROR_CODE_REMOTE_ERROR)))
+        assertTrue("every address refused", YTPlayerUtils.sabrMayTakeOver(PlaybackException("YouTube refused the stream (HTTP 403)", null, PlaybackException.ERROR_CODE_REMOTE_ERROR)))
+        // An OK answer with no direct address in it, which is what a client that streams only over SABR gives.
+        assertTrue("no address given", YTPlayerUtils.sabrMayTakeOver(Exception("Missing stream expire time")))
+        assertFalse("no network", YTPlayerUtils.sabrMayTakeOver(UnknownHostException("music.youtube.com")))
+        assertFalse("our own limit", YTPlayerUtils.sabrMayTakeOver(StepTimedOut("stream check", 3_000)))
+        assertFalse("YouTube's own server failing", YTPlayerUtils.sabrMayTakeOver(serverError()))
+        assertFalse("a song YouTube calls gone", YTPlayerUtils.sabrMayTakeOver(YTPlayerUtils.SongUnavailable("This video is not available")))
+        assertFalse(YTPlayerUtils.sabrMayTakeOver(null))
+    }
+
+    @Test
+    fun `a walk that heard nothing is not taken over by SABR, and mid-song goes back to the player to be tried again`() {
+        // Every check silent and nothing played unchecked: the stream servers are not answering,
+        // and SABR would ask the same network. Mid-song this goes back to media3, which tries the
+        // walk again while the buffer plays (Recovery.resolveFailed, 21 Oct 2026).
+        RouteTimes.headWaitMs = 50
+        RemoteRoutes.current = RemoteRoutes.Block("unchecked-off", emptyList(), emptyList(), Long.MAX_VALUE, hedge = true, uncheckedPlay = false, watchdog = true)
+        val script = Script(
+            says = mapOf(
+                "ANDROID_VR" to listOf(refused(bot)),
+                "VISIONOS" to listOf(playable("VISIONOS", loudness = 5.0, seconds = "200")),
+                "IOS" to listOf(playable("IOS", loudness = 5.0, seconds = "200")),
+            ),
+            heads = mapOf("VISIONOS" to null, "IOS" to null),
+            sabrFrom = setOf("VISIONOS"),
+        )
+        val failure = walk(script).exceptionOrNull()
+        assertTrue("the network's: $failure", failure != null && StreamOrder.networkDidNotAnswer(failure))
+        assertEquals("no start over SABR", 0, script.sabrAsked.size)
+        val error = PlaybackException("Timeout", failure, PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT)
+        assertTrue(Recovery.resolveFailed(1_500_000, failure!!, error) is Recovery.ResolveNoAnswer)
+    }
+
+    @Test
+    fun `an answer from before this walk is never started from`() {
+        // VISIONOS gave no answer this time, and IOS's address was refused: the only VISIONOS
+        // answer kept is one of two hours ago, its streaming address long dead.
+        RouteTimes.playerCapMs = 150
+        val script = refusedEverywhere("VISIONOS" to listOf(Hang))
+        script.answers.put(
+            PlayerAnswers.Answer(
+                "TESTVIDEO01", YouTubeClient.VISIONOS, sabrText(playable("VISIONOS", loudness = 5.0, seconds = "200")),
+                at = System.currentTimeMillis() - 2 * 3_600_000L,
+            )
+        )
+        val result = walk(script)
+        assertEquals(0, script.sabrAsked.size)
+        assertEquals("the walk's own error, as without SABR", "YouTube refused the stream (HTTP 403)", result.exceptionOrNull()?.message)
+    }
+
+    @Test
+    fun `VISIONOS's other identities keep their own answers, and SABR starts from the newest OK one, as the identity that got it`() {
+        YTPlayerUtils.identitiesInChain = true
+        val script = refusedEverywhere(
+            // OK the first time, the bot check under the new visitorData.
+            "VISIONOS" to listOf(playable("VISIONOS", loudness = 5.0, seconds = "200"), refused(bot)),
+            "VISIONOS_104" to listOf(playable("VISIONOS_104", loudness = 5.0, seconds = "200")),
+            "VISIONOS_SAFARI" to listOf(refused(bot)),
+            sabrFrom = setOf("VISIONOS", "VISIONOS_104", "VISIONOS_SAFARI"),
+        )
+        walk(script).getOrThrow()
+        assertEquals(YouTubeClient.VISIONOS_1_04, script.sabrAsked.single().answer.client)
+        assertEquals(
+            "no refusal took an OK answer's place",
+            setOf(YouTubeClient.VISIONOS, YouTubeClient.VISIONOS_1_04),
+            script.answers.of("TESTVIDEO01", "VISIONOS").map { it.client }.toSet(),
+        )
+    }
+
+    @Test
+    fun `mid-song, SABR is asked for the stream the player has bytes of`() {
+        val both = playable("VISIONOS", loudness = 5.0, seconds = "200").let { a ->
+            val opus = a.streamingData!!.adaptiveFormats.single()
+            val aac = opus.copy(itag = 140, mimeType = "audio/mp4; codecs=\"mp4a.40.2\"", bitrate = 130_000, contentLength = 2_000_000, url = "https://VISIONOS.example/videoplayback?itag=140")
+            a.copy(streamingData = a.streamingData!!.copy(adaptiveFormats = listOf(opus, aac)))
+        }
+        val script = refusedEverywhere("VISIONOS" to listOf(both))
+        val data = runBlocking(YTPlayerUtils.RouteWish("TESTVIDEO01", emptySet(), 140 to 2_000_000L)) {
+            YTPlayerUtils.playerResponseForPlayback("TESTVIDEO01", null, AudioQuality.HIGH, connectivity, script)
+        }.getOrThrow()
+        assertEquals("the encoding the player has bytes of", 140, script.sabrAsked.single().data.format.itag)
+        assertEquals(140, data.format.itag)
+    }
+
+    @Test
+    fun `a stand-in's stream over SABR is paced by the song the player asked for`() {
+        val script = refusedEverywhere()
+        runBlocking(YTPlayerUtils.RouteWish("ASKEDSONG01", emptySet(), null)) {
+            YTPlayerUtils.playerResponseForPlayback("TESTVIDEO01", null, AudioQuality.HIGH, connectivity, script)
+        }.getOrThrow()
+        val asked = script.sabrAsked.single()
+        assertEquals("the player's clock names the song it plays", "ASKEDSONG01", asked.clockId)
+        assertEquals("the start is the stand-in's own", "TESTVIDEO01", asked.answer.videoId)
+    }
+
+    @Test
+    fun `with the maintainer's switch off, SABR takes nothing over and the walk ends as it always did`() {
+        RemoteRoutes.current = RemoteRoutes.Block("sabr-off", emptyList(), emptyList(), Long.MAX_VALUE, hedge = true, uncheckedPlay = true, watchdog = true, sabr = false)
+        val script = refusedEverywhere()
+        val result = walk(script)
+        assertEquals(0, script.sabrAsked.size)
+        assertEquals("YouTube refused the stream (HTTP 403)", result.exceptionOrNull()?.message)
     }
 }

@@ -254,6 +254,9 @@ android {
             fetchRemoteLicense = false
             fetchRemoteFunding = false
             filterVariants.addAll("release")
+            // Libraries built from source rather than taken from Maven, which the plugin cannot see:
+            // InnerTubeX's SABR client, compiled into the :sabr module.
+            configPath = file("../config")
         }
 
         export {
@@ -390,6 +393,8 @@ dependencies {
     // AutoMix's analysis, planning and mixing, pure Kotlin like the fingerprint code (Unreleased.AUTOMIX).
     implementation(project(":mix"))
     implementation(project(":innertube"))
+    implementation(project(":sabr"))
+    implementation(libs.ktor.client.okhttp)
     implementation(project(":kugou"))
     implementation(project(":lrclib"))
     implementation(project(":lastfm"))

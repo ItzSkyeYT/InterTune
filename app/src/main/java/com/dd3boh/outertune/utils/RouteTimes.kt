@@ -127,6 +127,13 @@ object RouteTimes {
      */
     const val ADDRESS_MARGIN_MS = 90_000L
 
+    /**
+     * SABR: silence in a read of one of its answers. Each request is answered at once with the
+     * next stretch of the song, and the library waits for the player between requests, never
+     * inside one, so this is the stream client's own 8 s. It had 30 s. To be seen on a phone.
+     */
+    const val SABR_READ_MS = 8_000L
+
     /** Second tries and clients asked alongside: at most this many a minute, and per song. */
     const val HEDGES_PER_MINUTE = 4
     const val EXTRA_PLAYER_PER_SONG = 2

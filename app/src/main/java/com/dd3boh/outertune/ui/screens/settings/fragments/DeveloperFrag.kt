@@ -76,6 +76,8 @@ import com.dd3boh.outertune.constants.VisionosRefusedKey
 import com.dd3boh.outertune.constants.WebClientFirstKey
 import com.dd3boh.outertune.constants.FamiliarFirstKey
 import com.dd3boh.outertune.constants.FamiliarMixKey
+import com.dd3boh.outertune.constants.SabrOnlyKey
+import com.dd3boh.outertune.constants.EveryDirectRefusedKey
 import com.dd3boh.outertune.playback.HistoryAddressCheck
 import com.dd3boh.outertune.ui.component.ListPreference
 import com.dd3boh.outertune.ui.component.PreferenceEntry
@@ -151,6 +153,8 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
     val (webClientFirst, onWebClientFirstChange) = rememberPreference(key = WebClientFirstKey, defaultValue = false)
     val (familiarFirst, onFamiliarFirstChange) = rememberPreference(key = FamiliarFirstKey, defaultValue = false)
     val (familiarMix, onFamiliarMixChange) = rememberPreference(key = FamiliarMixKey, defaultValue = false)
+    val (sabrOnly, onSabrOnlyChange) = rememberPreference(key = SabrOnlyKey, defaultValue = false)
+    val (everyDirectRefused, onEveryDirectRefusedChange) = rememberPreference(key = EveryDirectRefusedKey, defaultValue = false)
     val (visionosRefused, onVisionosRefusedChange) = rememberPreference(key = VisionosRefusedKey, defaultValue = false)
     val (ownVisionosRefused, onOwnVisionosRefusedChange) = rememberPreference(key = OwnVisionosRefusedKey, defaultValue = false)
 
@@ -250,6 +254,22 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
         }
         if (BuildConfig.DEBUG && Unreleased.AUTOMIX) {
             AutomixStyleRow()
+        }
+        if (BuildConfig.DEBUG && Unreleased.SABR) {
+            SwitchPreference(
+                title = { Text(stringResource(R.string.sabr_only)) },
+                description = stringResource(R.string.sabr_only_description),
+                icon = { Icon(Icons.Rounded.Science, null) },
+                checked = sabrOnly,
+                onCheckedChange = onSabrOnlyChange,
+            )
+            SwitchPreference(
+                title = { Text(stringResource(R.string.every_direct_refused)) },
+                description = stringResource(R.string.every_direct_refused_description),
+                icon = { Icon(Icons.Rounded.Science, null) },
+                checked = everyDirectRefused,
+                onCheckedChange = onEveryDirectRefusedChange,
+            )
         }
 
         PreferenceEntry(

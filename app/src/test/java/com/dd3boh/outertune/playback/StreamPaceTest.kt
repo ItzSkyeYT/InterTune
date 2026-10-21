@@ -137,6 +137,8 @@ class StreamPaceTest {
         assertTrue("the player's data source was not found", start >= 0)
         val body = service.substring(start, service.indexOf("\n    }\n", start))
         assertTrue("the player fetches streams without the pace guard", "PaceGuardDataSource.Factory(" in body)
-        assertTrue("the guard no longer wraps the stream fetch", Regex("""PaceGuardDataSource\.Factory\((\s*//[^\n]*)*\s*OkHttpDataSource\.Factory\(""").containsMatchIn(body))
+        // SABR's reader may sit in between: it hands every address but a sabr: one to the fetch
+        // as it is (SabrOrHttp), and the guard never meters a sabr: read.
+        assertTrue("the guard no longer wraps the stream fetch", Regex("""PaceGuardDataSource\.Factory\((\s*//[^\n]*)*\s*(SabrOrHttp\.Factory\(\s*)?OkHttpDataSource\.Factory\(""").containsMatchIn(body))
     }
 }

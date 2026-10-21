@@ -26,13 +26,14 @@ import java.io.File
  */
 class ReleasedFlagsTest {
 
-    /** On in every build, and so in a release. The second line went on for 0.11.5, the third on 14 Oct, the fourth for 0.12, the fifth for 0.12.1. */
+    /** On in every build, and so in a release. The second line went on for 0.11.5, the third on 14 Oct, the fourth for 0.12, the fifth for 0.12.1, the sixth for 0.12.5. */
     private val inEveryBuild = setOf(
         "ENGINE", "SHORT_SETUP", "LOGIN_RETURNS",
         "STAND_INS", "VISIONOS_IDENTITIES", "WEB_FALLBACK", "LANDSCAPE", "EXPLAIN_PICTURES", "LIBRARY_IMPORT",
         "PROBLEM_REPORT", "WELCOME_BACK", "COVER_ACCENT", "GLASS_QUEUE",
         "LIVING_BACKGROUND", "CASTING", "ADAPTIVE_PASS", "EQUALIZER",
         "PREVIOUS_LOGS",
+        "SABR_RUNG",
     )
 
     private val sources = File("src/main/java/com/dd3boh/outertune")
@@ -220,6 +221,27 @@ class ReleasedFlagsTest {
         for (name in names) {
             assertTrue("$name is not open to translators", "<string name=\"$name\">" in english)
             assertTrue("$name has no French", "<string name=\"$name\">" in french)
+        }
+    }
+
+    // ---- what goes on for 0.12.5 ----
+
+    @Test
+    fun `SABR is the last rung of every build, under the maintainer's switch, and its two developer switches stay out of a release`() {
+        assertEquals(setOf("utils/YTPlayerUtils.kt"), readers("SABR_RUNG"))
+        assertWritten("utils/YTPlayerUtils.kt", "if (result.isFailure && Unreleased.SABR_RUNG && RemoteRoutes.sabr && sabrMayTakeOver(failure)) {")
+        // "Stream over SABR only" and "Take every direct address for refused": rows of the
+        // developer options, read in a debug or preview build only. A restored backup can bring a
+        // switch that is on into a release, which has no row to turn it off with.
+        assertEquals("BuildConfig.DEBUG", flags["SABR"])
+        assertEquals(
+            setOf("utils/YTPlayerUtils.kt", "playback/MusicService.kt", "playback/DownloadUtil.kt", "ui/screens/settings/fragments/DeveloperFrag.kt"),
+            readers("SABR"),
+        )
+        assertWritten("playback/MusicService.kt", "if (BuildConfig.DEBUG && Unreleased.SABR) {")
+        assertWritten("ui/screens/settings/fragments/DeveloperFrag.kt", "if (BuildConfig.DEBUG && Unreleased.SABR) {")
+        for (path in listOf("playback/MusicService.kt", "playback/DownloadUtil.kt")) {
+            assertWritten(path, "val streamed = if (BuildConfig.DEBUG && Unreleased.SABR && YTPlayerUtils.sabrOnly) {")
         }
     }
 }

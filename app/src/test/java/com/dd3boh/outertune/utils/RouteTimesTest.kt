@@ -52,6 +52,7 @@ class RouteTimesTest {
         "src/main/java/com/dd3boh/outertune/utils/YTPlayerUtils.kt",
         "src/main/java/com/dd3boh/outertune/utils/StreamFamily.kt",
         "src/main/java/com/dd3boh/outertune/playback/MusicService.kt",
+        "src/main/java/com/dd3boh/outertune/playback/sabr/SabrOver.kt",
         "../innertube/src/main/java/com/zionhuang/innertube/NewPipe.kt",
     )
 
@@ -120,5 +121,19 @@ class RouteTimesTest {
         val walk = File("src/main/java/com/dd3boh/outertune/utils/YTPlayerUtils.kt").readText()
         val patient = walk.substringAfter("private val patientCheckCalls = StreamFamily.Calls(").substringBefore(".build()")
         assertTrue(patient, Regex("""(connect|read|call)Timeout\(RouteTimes\.HEAD_SLOW_TRY_MS""").findAll(patient).count() == 3)
+    }
+
+    @Test
+    fun `SABR's client is the stream client's, with its pool, its limits and the fault injection, and a read limit of its own`() {
+        val over = File("src/main/java/com/dd3boh/outertune/playback/sabr/SabrOver.kt").readText()
+        val built = over.substringAfter("private val client: OkHttpClient = ").substringBefore(".build()")
+        assertTrue(built, built.trimStart().startsWith("StreamFamily.streamClient(YouTube.proxy)"))
+        assertTrue(built, built.contains("readTimeout(RouteTimes.SABR_READ_MS, TimeUnit.MILLISECONDS)"))
+        // The library refuses a redirect itself, and has to see it to.
+        assertTrue(built, built.contains("followRedirects(false)") && built.contains("followSslRedirects(false)"))
+        // A connection gone silent is given up by the client before the stall watch's next step
+        // on a new one: 5 s to connect, then the silent read.
+        assertTrue(RouteTimes.SABR_READ_MS + 5_000 < RouteTimes.FIRST_BYTE_MS)
+        assertTrue("each answer is sent at once: no long wait inside one", RouteTimes.SABR_READ_MS <= 10_000)
     }
 }

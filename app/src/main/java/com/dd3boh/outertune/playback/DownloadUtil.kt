@@ -21,6 +21,11 @@ import androidx.media3.exoplayer.offline.DownloadNotificationHelper
 import androidx.media3.exoplayer.offline.DownloadRequest
 import androidx.media3.exoplayer.offline.DownloadService
 import androidx.media3.exoplayer.scheduler.Requirements
+import com.dd3boh.outertune.playback.sabr.SabrOrHttp
+import com.dd3boh.outertune.playback.sabr.SabrOver
+import com.dd3boh.outertune.playback.sabr.SabrStarts
+import com.dd3boh.outertune.BuildConfig
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.AudioQuality
 import com.dd3boh.outertune.constants.AudioQualityKey
@@ -119,13 +124,16 @@ class DownloadUtil @Inject constructor(
         CacheDataSource.Factory()
             .setCache(playerCache)
             .setUpstreamDataSourceFactory(
-                // Over the family the address was issued to, and a web client's with its page's
-                // headers, as its check was made: see StreamFamily.Calls.
-                OkHttpDataSource.Factory(
-                    StreamFamily.Calls(
-                        OkHttpClient.Builder()
-                            .proxy(YouTube.proxy)
-                            .build()
+                // A sabr: address to the SABR reader, any other over the family the address was
+                // issued to, and a web client's with its page's headers, as its check was made:
+                // see StreamFamily.Calls.
+                SabrOrHttp.Factory(
+                    OkHttpDataSource.Factory(
+                        StreamFamily.Calls(
+                            OkHttpClient.Builder()
+                                .proxy(YouTube.proxy)
+                                .build()
+                        )
                     )
                 )
             )
@@ -193,11 +201,12 @@ class DownloadUtil @Inject constructor(
         // A song whose own id YouTube no longer serves is downloaded from the id the same
         // recording goes by now, as the player plays it: see StandIns. Downloads keep a run of
         // their own, so a batch of them cannot end the player's (GoneRun), and report nothing.
+        val resolveBegan = System.currentTimeMillis()
         val played = runBlocking(Dispatchers.IO) {
             StandIns(
                 resolve = { id ->
                     paced()
-                    YTPlayerUtils.playerResponseForPlayback(id, audioQuality = audioQuality, connectivityManager = connectivityManager)
+                    YTPlayerUtils.playerResponseForPlayback(id, audioQuality = audioQuality, connectivityManager = connectivityManager, forDownload = true)
                 },
                 wanted = { id ->
                     database.readOrNull { songRow(id) }?.let { row ->
@@ -256,12 +265,16 @@ class DownloadUtil @Inject constructor(
             )
         }
 
-        val streamUrl = playbackData.streamUrl.let {
-            // Specify range to avoid YouTube's throttling
-            "${it}&range=0-${format.contentLength ?: 10000000}"
+        // The developer's "Stream over SABR only", as the player has it (MusicService): the same
+        // answer over SABR, so that a download goes over it too.
+        val streamed = if (BuildConfig.DEBUG && Unreleased.SABR && YTPlayerUtils.sabrOnly) {
+            SabrOver.over(played.from, playbackData, since = resolveBegan, forDownload = true) ?: playbackData
+        } else {
+            playbackData
         }
+        val streamUrl = downloadAddress(streamed.streamUrl, format.contentLength)
 
-        songUrlCache[mediaId] = streamUrl to System.currentTimeMillis() + (playbackData.streamExpiresInSeconds * 1000L)
+        songUrlCache[mediaId] = streamUrl to System.currentTimeMillis() + (streamed.streamExpiresInSeconds * 1000L)
         dataSpec.withUri(streamUrl.toUri())
     }
     val downloadNotificationHelper = DownloadNotificationHelper(context, ExoDownloadService.CHANNEL_ID)
@@ -1185,3 +1198,13 @@ fun applyRescanResult(
     }
     touched.removeAll(used)
 }
+
+/**
+ * The address a download reads: a direct one asks for the whole file as one range, which YouTube
+ * throttles less; a sabr: one is the exact text its start was kept under (SabrStarts) and gets
+ * nothing added, or the reader would not find it and the download would fail, as one over SABR's
+ * last try did before 16 Oct 2026.
+ */
+internal fun downloadAddress(streamUrl: String, contentLength: Long?): String =
+    if (streamUrl.startsWith(SabrStarts.SCHEME + "://")) streamUrl
+    else "$streamUrl&range=0-${contentLength ?: 10000000}"
