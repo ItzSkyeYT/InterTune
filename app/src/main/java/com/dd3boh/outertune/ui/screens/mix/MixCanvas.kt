@@ -48,7 +48,6 @@ import kotlin.math.ln
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
-import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
 /** What a tap on the canvas has selected: one handle, or every exit (or entry) of a song. */
@@ -933,6 +932,3 @@ fun rulerTapU(layout: CanvasLayout, x: Float): Double {
     val u = layout.u(x)
     return if (layout.zoom >= 3f) floor(u * 4) / 4 else floor(u)
 }
-
-/** Rounded for the floating label: "bar 5, beat 1". */
-fun approximately(u: Double): Double = (u * 1000).roundToInt() / 1000.0

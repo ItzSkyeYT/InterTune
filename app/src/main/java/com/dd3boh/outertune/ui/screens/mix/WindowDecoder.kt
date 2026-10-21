@@ -8,10 +8,10 @@ package com.dd3boh.outertune.ui.screens.mix
 
 import android.media.AudioFormat
 import android.media.MediaCodec
-import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.net.Uri
 import androidx.annotation.OptIn
+import androidx.core.net.toUri
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSpec
@@ -54,7 +54,7 @@ class WindowDecoder(private val source: DataSource.Factory) {
         val extractor = MediaExtractorCompat(DefaultExtractorsFactory(), KeyedSource(source, mediaId))
         var codec: MediaCodec? = null
         try {
-            extractor.setDataSource(Uri.parse(mediaId), 0)
+            extractor.setDataSource(mediaId.toUri(), 0)
             val track = (0 until extractor.trackCount).firstOrNull {
                 extractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true
             } ?: throw IOException("no audio track")
@@ -67,7 +67,7 @@ class WindowDecoder(private val source: DataSource.Factory) {
             val startUs = (startMs * 1000).toLong()
             // From the first frame the sink trims the encoder delay; anywhere else the times say where a frame is.
             var toTrim = if (startUs == 0L && format.containsKey(KEY_ENCODER_DELAY)) format.getInteger(KEY_ENCODER_DELAY).coerceAtLeast(0) else 0
-            if (startUs > 0) extractor.seekTo(startUs, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
+            if (startUs > 0) extractor.seekTo(startUs, MediaExtractorCompat.SEEK_TO_PREVIOUS_SYNC)
 
             val decoder = runCatching { MediaCodecUtil.getDecoderInfo(mime, false, false)?.name }.getOrNull()
             codec = if (decoder != null) MediaCodec.createByCodecName(decoder) else MediaCodec.createDecoderByType(mime)

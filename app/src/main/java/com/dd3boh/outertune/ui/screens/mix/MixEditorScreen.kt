@@ -88,7 +88,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
@@ -151,7 +153,9 @@ fun MixEditorScreen(navController: NavController) {
     val songB by vm.songB.collectAsState()
     val aTitle = songA?.title ?: vm.pair?.a?.title ?: ""
     val bTitle = songB?.title ?: vm.pair?.b?.title ?: ""
-    val words = remember(context.resources.configuration, aTitle, bTitle) { EditorWords(context.resources, aTitle, bTitle) }
+    val resources = LocalResources.current
+    val configuration = LocalConfiguration.current
+    val words = remember(resources, configuration, aTitle, bTitle) { EditorWords(resources, aTitle, bTitle) }
     val scheme = MaterialTheme.colorScheme
     val colors = remember(scheme) {
         MixColors(
@@ -241,8 +245,6 @@ fun MixEditorScreen(navController: NavController) {
             said = null
         }
     }
-    val shimmerT = rememberInfiniteTransition(label = "shimmer")
-    val shimmer by shimmerT.animateFloat(0f, 1f, infiniteRepeatable(tween(1_400, easing = LinearEasing), RepeatMode.Restart), label = "shimmer")
 
     val editor = vm.editor
     val spec = ui?.spec
@@ -267,7 +269,7 @@ fun MixEditorScreen(navController: NavController) {
                 said = wordsNow.limit(limit)
             }
             override fun note(text: Int) {
-                said = context.getString(text)
+                said = resources.getString(text)
             }
             override fun laneMenu(id: com.dd3boh.outertune.mix.edit.LaneId, action: LaneAction) {
                 when (action) {
@@ -327,9 +329,9 @@ fun MixEditorScreen(navController: NavController) {
                     val e = editor
                     val s = spec ?: e?.spec
                     if (e != null && s != null) {
-                        MixCanvasView(vm, e, s, vm.pair, canvas, words, colors, small, { playU }, actions, shimmer)
+                        MixCanvasView(vm, e, s, vm.pair, canvas, words, colors, small, { playU }, actions, 0f)
                     } else {
-                        LoadingCanvas(colors, shimmer)
+                        LoadingCanvas(colors)
                     }
                 }
             }
@@ -350,10 +352,10 @@ fun MixEditorScreen(navController: NavController) {
             Lowers(vm, e, s, ui!!, words, phase is MixEditorViewModel.Phase.Ready && canvas.adjust == null, landscape, onPreset = { p ->
                 when (vm.edit { tapPreset(p) }) {
                     PresetTap.REPLACED_CUSTOM -> scope.launch {
-                        val r = snackbar.showSnackbar(context.getString(R.string.mix_edit_replaced, wordsNow.presetName(p)), context.getString(R.string.mix_edit_undo), duration = SnackbarDuration.Short)
+                        val r = snackbar.showSnackbar(resources.getString(R.string.mix_edit_replaced, wordsNow.presetName(p)), resources.getString(R.string.mix_edit_undo), duration = SnackbarDuration.Short)
                         if (r == SnackbarResult.ActionPerformed) vm.edit { undo() }
                     }
-                    PresetTap.NEEDS_PARTS -> said = context.getString(R.string.mix_edit_needs_parts)
+                    PresetTap.NEEDS_PARTS -> said = resources.getString(R.string.mix_edit_needs_parts)
                     else -> {}
                 }
                 canvas.flash = 1f
@@ -702,7 +704,7 @@ private fun Lowers(
     ) { on -> vm.edit { setBeatMatch(on) } }
     SwitchRow(
         title = stringResource(R.string.mix_edit_intro_twice),
-        line = if (spec.introTwice > 0) stringResource(R.string.mix_edit_intro_twice_line, words.owner(words.bTitle), spec.introTwice, words.aTitle) else null,
+        line = if (spec.introTwice > 0) stringResource(R.string.mix_edit_intro_twice_line, words.owner(words.bTitle), words.bars(spec.introTwice), words.aTitle) else null,
         checked = spec.introTwice > 0,
         enabled = ready && spec.bars > 0,
     ) { on -> vm.edit { setIntroTwice(if (on) 2 else 0) } }
@@ -811,10 +813,13 @@ private fun SideBar(ui: MixEditorViewModel.Ui?, onClose: () -> Unit, vm: MixEdit
     }
 }
 
-/** The canvas while the two songs are read: its lanes shimmer. */
+/** The canvas while the two songs are read: its lanes shimmer, and only then does anything move. */
 @Composable
-private fun LoadingCanvas(colors: MixColors, shimmer: Float) {
+private fun LoadingCanvas(colors: MixColors) {
+    val transition = rememberInfiniteTransition(label = "shimmer")
+    val shimmerState = transition.animateFloat(0f, 1f, infiniteRepeatable(tween(1_400, easing = LinearEasing), RepeatMode.Restart), label = "shimmer")
     androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(236.dp)) {
+        val shimmer = shimmerState.value
         val pad = 12.dp.toPx()
         for ((top, h) in listOf(0f to 88.dp.toPx(), 148.dp.toPx() to 88.dp.toPx())) {
             val r = androidx.compose.ui.geometry.CornerRadius(8.dp.toPx())
@@ -839,8 +844,8 @@ private fun FailedState(p: MixEditorViewModel.Phase.Failed, aTitle: String, bTit
     Column(Modifier.fillMaxWidth().heightIn(min = 236.dp).padding(horizontal = 24.dp, vertical = 24.dp), verticalArrangement = Arrangement.Center) {
         val text = when {
             p.offline -> stringResource(R.string.mix_edit_offline)
-            p.side == Side.A -> stringResource(R.string.mix_edit_unreadable, EditorWords(LocalContext.current.resources, aTitle, bTitle).owner(aTitle))
-            else -> stringResource(R.string.mix_edit_unreadable_b, EditorWords(LocalContext.current.resources, aTitle, bTitle).owner(bTitle))
+            p.side == Side.A -> stringResource(R.string.mix_edit_unreadable, EditorWords(LocalResources.current, aTitle, bTitle).owner(aTitle))
+            else -> stringResource(R.string.mix_edit_unreadable_b, EditorWords(LocalResources.current, aTitle, bTitle).owner(bTitle))
         }
         Text(text, style = MaterialTheme.typography.bodyLarge)
         Row(Modifier.padding(top = 8.dp)) {

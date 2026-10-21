@@ -61,8 +61,8 @@
     <bool name="mix_edit_plural_drums">false</bool>
     <bool name="mix_edit_plural_bass">false</bool>
     <bool name="mix_edit_plural_melody">false</bool>
-    <string name="mix_edit_m_swap">Échange des %2$s</string>
-    <string name="mix_edit_m_swap_one">Échange de la %2$s</string>
+    <string name="mix_edit_m_swap">%1$s : échange</string>
+    <string name="mix_edit_m_swap_one">%1$s : échange</string>
     <string name="mix_edit_m_hats">Les charlestons de %1$s arrivent</string>
     <string name="mix_edit_m_in">Les %2$s de %1$s arrivent</string>
     <string name="mix_edit_m_in_one">La %2$s de %1$s arrive</string>
@@ -125,7 +125,7 @@
     <string name="mix_edit_bm_refused">Les tempos diffèrent de %1$s %%.</string>
     <string name="mix_edit_bm_no_bars">Sans rythme régulier dans les deux morceaux, la transition se compte en secondes.</string>
     <string name="mix_edit_intro_twice">Jouer l\'intro deux fois</string>
-    <string name="mix_edit_intro_twice_line">Les %2$d premières mesures de %1$s jouent sous %3$s, puis à nouveau au démarrage.</string>
+    <string name="mix_edit_intro_twice_line">%2$s de l\'intro de %1$s jouent sous %3$s, puis à nouveau au démarrage.</string>
     <string name="mix_edit_back_to_auto">Revenir à Auto</string>
     <string name="mix_edit_plain">Transition simple pour ces deux</string>
     <string name="mix_edit_parts_need">Les pistes nécessitent le mixeur à télécharger (%1$d Mo).</string>
@@ -155,8 +155,8 @@
     <string name="mix_fix_double">Double</string>
     <string name="mix_fix_tap">Taper</string>
     <string name="mix_fix_tap_pad">Tapez le rythme, 8 fois ou plus</string>
-    <string name="mix_fix_taps">%1$d tapes sur 8</string>
-    <string name="mix_fix_tapped">%1$d tapes · %2$s BPM</string>
+    <string name="mix_fix_taps">Tapes : %1$d sur 8</string>
+    <string name="mix_fix_tapped">Tapes : %1$d · %2$s BPM</string>
     <string name="mix_fix_the_one">Le 1 :</string>
     <string name="mix_fix_earlier">Un temps plus tôt</string>
     <string name="mix_fix_later">Un temps plus tard</string>

@@ -133,7 +133,7 @@
     <string name="mix_edit_bm_refused">The tempos are %1$s%% apart.</string>
     <string name="mix_edit_bm_no_bars">Without a steady beat in both songs, the change is timed in seconds.</string>
     <string name="mix_edit_intro_twice">Play the intro twice</string>
-    <string name="mix_edit_intro_twice_line">%1$s first %2$d bars play under %3$s, then again as it starts.</string>
+    <string name="mix_edit_intro_twice_line">%1$s first %2$s play under %3$s, then again as it starts.</string>
     <string name="mix_edit_back_to_auto">Back to Auto</string>
     <string name="mix_edit_plain">Plain change for these two</string>
     <string name="mix_edit_parts_need">Parts need the mixer download (%1$d MB).</string>
@@ -167,8 +167,8 @@
     <string name="mix_fix_double">Double</string>
     <string name="mix_fix_tap">Tap</string>
     <string name="mix_fix_tap_pad">Tap the beat, 8 times or more</string>
-    <string name="mix_fix_taps">%1$d of 8 taps</string>
-    <string name="mix_fix_tapped">%1$d taps · %2$s BPM</string>
+    <string name="mix_fix_taps">Taps: %1$d of 8</string>
+    <string name="mix_fix_tapped">Taps: %1$d · %2$s BPM</string>
     <string name="mix_fix_the_one">The 1:</string>
     <string name="mix_fix_earlier">A beat earlier</string>
     <string name="mix_fix_later">A beat later</string>
