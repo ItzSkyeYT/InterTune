@@ -1088,16 +1088,21 @@ object YTPlayerUtils {
         val tookMs = (System.nanoTime() - started) / 1_000_000
         if (result.isSuccess) Log.i(TAG, StepLog.resolved(videoId, tookMs, steps))
         else Log.w(TAG, StepLog.unresolved(videoId, tookMs, steps))
-        // SABR, the last rung (Unreleased.SABR, debug builds for now): YouTube turned every direct
-        // address down, and a VISIONOS answer this walk got can still be streamed over SABR, so the
-        // song plays from that instead of failing. Only on YouTube's word: see sabrMayTakeOver.
-        // After the walk's own line, which says how the direct addresses fared; the rung says its own.
+        // SABR, the last rung (Unreleased.SABR_RUNG, and the maintainer's switch RemoteRoutes.sabr):
+        // YouTube turned every direct address down, and a VISIONOS answer this walk got can still be
+        // streamed over SABR, so the song plays from that instead of failing. Only on YouTube's
+        // word: see sabrMayTakeOver. After the walk's own line, which says how the direct addresses
+        // fared; the rung says its own.
         val failure = result.exceptionOrNull()
-        if (result.isFailure && Unreleased.SABR && sabrMayTakeOver(failure)) {
+        if (result.isFailure && Unreleased.SABR_RUNG && RemoteRoutes.sabr && sabrMayTakeOver(failure)) {
             sabrRung(videoId, songId, walkBegan, audioQuality, connectivityManager, preferredMime, wish?.sameStream, forDownload, wire)
                 ?.let { return Result.success(it) }
-        } else if (result.isFailure && Unreleased.SABR && !isUnavailableSong(failure)) {
-            Log.i(TAG, "[$videoId] no answer to go on: not tried over SABR, the player asks again")
+        } else if (result.isFailure && Unreleased.SABR_RUNG && !isUnavailableSong(failure)) {
+            Log.i(
+                TAG,
+                if (!RemoteRoutes.sabr) "[$videoId] not tried over SABR: the maintainer's block has it off"
+                else "[$videoId] no answer to go on: not tried over SABR, the player asks again",
+            )
         }
         return result
     }

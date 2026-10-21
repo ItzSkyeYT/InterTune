@@ -21,9 +21,9 @@ import kotlinx.serialization.json.jsonObject
  *
  * The day YouTube closes a client, every phone used to find it out for itself, song after song,
  * until a release came. With this the maintainer can put another client first or take one out of
- * the chain for a few weeks, and turn the new recovery off if it misbehaves in the field. It can
- * never take a safeguard away: a chain left without a client that serves whole songs is refused,
- * the three switches only turn new code off, and the block expires by itself.
+ * the chain for a few weeks, and turn the new recovery or SABR's rung off if it misbehaves in the
+ * field. It can never take a safeguard away: a chain left without a client that serves whole songs
+ * is refused, the four switches only turn new code off, and the block expires by itself.
  *
  * ```
  * "playback": {
@@ -31,7 +31,7 @@ import kotlinx.serialization.json.jsonObject
  *   "minVersionCode": 96, "maxVersionCode": 120, "until": "2026-11-15",
  *   "order": ["VISIONOS_104", "VISIONOS_SAFARI", "WEB_REMIX", "VISIONOS", "IOS"],
  *   "disabled": ["VISIONOS"],
- *   "hedge": true, "uncheckedPlay": true, "watchdog": true
+ *   "hedge": true, "uncheckedPlay": true, "watchdog": true, "sabr": true
  * }
  * ```
  *
@@ -64,6 +64,7 @@ object RemoteRoutes {
         val hedge: Boolean,
         val uncheckedPlay: Boolean,
         val watchdog: Boolean,
+        val sabr: Boolean = true,
     )
 
     @Volatile
@@ -75,6 +76,9 @@ object RemoteRoutes {
     val hedge: Boolean get() = active()?.hedge ?: true
     val uncheckedPlay: Boolean get() = active()?.uncheckedPlay ?: true
     val watchdog: Boolean get() = active()?.watchdog ?: true
+
+    /** SABR's rung (Unreleased.SABR_RUNG): off, a song YouTube turned down fails as it did before. */
+    val sabr: Boolean get() = active()?.sabr ?: true
 
     /**
      * The block in [json], or null for none worth taking: no block, a document that is not JSON
@@ -112,7 +116,7 @@ object RemoteRoutes {
             notes += "it disabled every full-stream client"
             disabled = emptyList()
         }
-        return Block(id, names("order"), disabled, until, switch("hedge"), switch("uncheckedPlay"), switch("watchdog"))
+        return Block(id, names("order"), disabled, until, switch("hedge"), switch("uncheckedPlay"), switch("watchdog"), switch("sabr"))
     }
 
     /** Reads [json] and puts its block in force, or none; says so in the log. */

@@ -2405,4 +2405,13 @@ class ChainWalkTest {
         assertEquals("the player's clock names the song it plays", "ASKEDSONG01", asked.clockId)
         assertEquals("the start is the stand-in's own", "TESTVIDEO01", asked.answer.videoId)
     }
+
+    @Test
+    fun `with the maintainer's switch off, SABR takes nothing over and the walk ends as it always did`() {
+        RemoteRoutes.current = RemoteRoutes.Block("sabr-off", emptyList(), emptyList(), Long.MAX_VALUE, hedge = true, uncheckedPlay = true, watchdog = true, sabr = false)
+        val script = refusedEverywhere()
+        val result = walk(script)
+        assertEquals(0, script.sabrAsked.size)
+        assertEquals("YouTube refused the stream (HTTP 403)", result.exceptionOrNull()?.message)
+    }
 }
