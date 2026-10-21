@@ -120,6 +120,18 @@ class RunLogsTest {
     }
 
     @Test
+    fun `SABR's lines from information up are kept, its debug lines are not`() {
+        // A song over SABR left only its failures in the file (21 Oct 2026).
+        val filters = RunLogs.filters()
+        assertTrue("SabrOver:I" in filters)
+        assertTrue("SabrDataSource:I" in filters)
+        assertEquals("*:W", filters.last())
+        assertTrue(ProblemLog.keep(ProblemLog.Line("16:53:22.000", 'I', "SabrOver", "[song0000001] SABR response 0 at 89107 ms: http 200, 2 segments")))
+        assertTrue(ProblemLog.keep(ProblemLog.Line("16:53:22.000", 'I', "SabrDataSource", "[song0000001] SABR read from byte 1700000 of 2600000")))
+        assertFalse(ProblemLog.keep(ProblemLog.Line("16:53:22.000", 'D', "SabrOver", "SabrAudioStream: SABR UMP request #0: playerTime=89107ms")))
+    }
+
+    @Test
     fun `an earlier run's report says which run it is, and keeps saying so when cut to fit`() {
         val lines = (1..300).map { ProblemLog.Line("11:0${it % 10}:00.000", 'I', "MusicService", "line $it of a long run") }
         val report = ProblemLog.report(ProblemLog.Excerpt(lines, null), build = "0.11.6 (94, core debug)", device = "samsung SM-S938B", started = at("2026-10-19 15:12:45"))

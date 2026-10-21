@@ -69,7 +69,8 @@ object RunLogs {
     }
 
     /** logcat's filter: the lines [ProblemLog] reads, so a run's file holds what a report can show. */
-    fun filters(): List<String> = ProblemLog.TELLING.map { "$it:V" } + "*:W"
+    fun filters(): List<String> =
+        ProblemLog.TELLING.map { "$it:V" } + ProblemLog.TELLING_FROM_INFO.map { "$it:I" } + "*:W"
 
     /** This process's file once [start] has made it. */
     @Volatile
