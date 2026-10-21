@@ -7,6 +7,7 @@
 package com.dd3boh.outertune.sabr
 
 import com.metrolist.innertubex.sabr.SabrChunk
+import com.metrolist.innertubex.sabr.findSabrProtocolException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -34,7 +35,9 @@ import java.util.concurrent.ConcurrentSkipListMap
  * segment that starts at or before P when one has been seen, otherwise a guess from P's share of the
  * file, made early on purpose ([earlyByMs]). The stream's init chunk is dropped, its first segment
  * is cut at P, and the rest follows. When the guess still lands after P, the stream is started once
- * more, earlier, from what the late segment said about the song's bytes per second.
+ * more, earlier, from what the late segment said about the song's bytes per second. A start that
+ * InnerTubeX itself refuses, its first segment not covering the time asked, is tried again earlier
+ * too, and from the song's beginning at worst.
  *
  * Every chunk has to begin where the last one ended, and the file has to reach [contentLength]: a
  * gap or a short stream is an IOException, never bytes from the wrong place. Plain Kotlin, no
@@ -170,6 +173,13 @@ class SabrFile(
                 continue
             } catch (stopped: Throwable) {
                 if (stopped is CancellationException || stopped is IOException) throw stopped
+                // As a late start, with no segment to say how late: earlier, then the beginning,
+                // which every stream covers.
+                if (firstMedia && startMs > 0 && stopped.isUncoveredStart()) {
+                    tries++
+                    startMs = if (tries >= MAX_TRIES) 0 else (startMs - earlyByMs).coerceAtLeast(0)
+                    continue
+                }
                 // A stream that made progress and was ended for a reason the caller says a new
                 // stream gets past: carried on at the byte still owed, which the reader never sees.
                 if (next > before && next < contentLength && restarts < MAX_RESTARTS && restartOn(stopped)) {
@@ -190,17 +200,33 @@ class SabrFile(
      * the position's share of the file, [earlyByMs] early so that it lands before rather than after.
      */
     private fun startFor(position: Long): Long {
-        ends[position]?.let { return it }
+        ends[position]?.let { return inside(it) }
         // The segment seen that holds the byte, and only that one: the last one seen before a seek
         // far past it started the stream there, and the read waited on everything in between.
         seen.floorEntry(position)?.let { floor ->
             val end = ends.higherKey(floor.key)
-            if (end != null && position < end) return floor.value
+            if (end != null && position < end) return inside(floor.value)
         }
         if (contentLength <= 0 || durationMs <= 0) return 0
         val guess = (position.toDouble() / contentLength * durationMs).toLong() - earlyByMs
         return guess.coerceIn(0, durationMs)
     }
+
+    /**
+     * A time [INSIDE_MS] into the segment that starts at [startMs], a time read off the segments
+     * seen. Those times are cut to whole milliseconds, a segment's start and its length each
+     * (InnerTubeX's ticksToMs), so for AAC at 44.1 kHz, whose segments mostly start inside a
+     * millisecond, one can fall just before the segment truly starts. Asked for there, YouTube
+     * serves the segment before, which by the cut numbers ends there, and InnerTubeX refuses the
+     * start: "SABR first media segment does not cover the requested start", seen on a phone on 21
+     * Oct 2026. Asked a little further in, the stream begins with the segment wanted.
+     */
+    private fun inside(startMs: Long): Long =
+        (startMs + INSIDE_MS).let { if (durationMs > 0) it.coerceAtMost(maxOf(startMs, durationMs - 1)) else it }
+
+    /** InnerTubeX's refusal of a stream whose first segment does not cover the time it was started at. */
+    private fun Throwable.isUncoveredStart(): Boolean =
+        findSabrProtocolException()?.message?.contains(UNCOVERED_START) == true
 
     /**
      * A start before [startMs] for byte [owed], from the [late] segment the stream began with: the
@@ -220,5 +246,14 @@ class SabrFile(
 
         /** New streams one read may be carried on with ([restartOn]): about a minute each, so an hour. */
         const val MAX_RESTARTS = 60
+
+        /**
+         * How far into a segment seen a stream is started: well past the cut of its start, well
+         * short of its end (SABR's audio segments run about ten seconds).
+         */
+        const val INSIDE_MS = 100L
+
+        /** The words of InnerTubeX's refusal (SabrAudioStream's first-segment check). */
+        const val UNCOVERED_START = "first media segment does not cover the requested start"
     }
 }

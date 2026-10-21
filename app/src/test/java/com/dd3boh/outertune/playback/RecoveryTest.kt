@@ -23,6 +23,7 @@ import com.dd3boh.outertune.utils.YTPlayerUtils
 import com.metrolist.innertubex.sabr.SabrFailureKind
 import com.metrolist.innertubex.sabr.SabrProtocolException
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
@@ -268,6 +269,23 @@ class RecoveryTest {
             assertTrue("the start stays: it is the read that failed", forgotten.isEmpty())
             assertEquals(if (at == 0L) Recovery.Decision.RETRY else Recovery.Decision.CHANGE_ROUTE, loads.decide("song", thrown, at))
         }
+    }
+
+    @Test
+    fun `a start whose first segment InnerTubeX finds short of it is a failed read, never a refusal`() {
+        // Our own start time, not YouTube's word (an AAC song read again part way in, 21 Oct
+        // 2026): as a 403 it gave VISIONOS a strike and benched its good addresses for half
+        // an hour. SabrFile tries such a start again earlier; should one still come through, it
+        // is read again at the same byte, and the start stays.
+        val loads = Recovery.LoadFailures()
+        forgotten.clear()
+        val thrown = sabr(wrapped(SabrProtocolException("SABR first media segment does not cover the requested start")))
+        assertTrue(thrown.toString(), thrown is HttpDataSource.HttpDataSourceException)
+        assertFalse(thrown.toString(), thrown is HttpDataSource.InvalidResponseCodeException)
+        assertNull(Recovery.status(thrown))
+        assertTrue("the start stays", forgotten.isEmpty())
+        assertEquals(Recovery.Decision.RETRY, loads.decide("song", thrown, 0))
+        assertEquals(Recovery.Kind.PASSING, Recovery.kind(stoppedBy(thrown)))
     }
 
     @Test
