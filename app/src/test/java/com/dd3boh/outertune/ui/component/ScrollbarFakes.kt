@@ -6,6 +6,9 @@
 
 package com.dd3boh.outertune.ui.component
 
+import kotlin.coroutines.Continuation
+import kotlin.coroutines.EmptyCoroutineContext
+import kotlin.coroutines.startCoroutine
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -29,13 +32,13 @@ internal interface FakeScrollable {
     val rowCount: Int
     fun snapshot(): ScrollbarSnapshot
 
-    /** The size of [row] while it is laid out. */
-    fun laidOutSize(row: Int): Int?
     fun scrollBy(px: Float)
 
-    /** Puts [row] at the top of the content area, [offsetPx] into it, as scrollToItem does. */
+    /**
+     * Puts [row] at the top of the content area, [offsetPx] into it, as scrollToItem does: an offset
+     * past the end leaves the list at its end, as Compose pulls it back there when it lays it out.
+     */
     fun jumpTo(row: Int, offsetPx: Int)
-    fun jumpToEnd()
 }
 
 internal class FakeList(
@@ -74,10 +77,6 @@ internal class FakeList(
         pos = (tops[row.coerceIn(0, sizes.lastIndex)] + offsetPx).toDouble().coerceIn(0.0, maxScroll)
     }
 
-    override fun jumpToEnd() = jumpTo(sizes.lastIndex, 0)
-
-    override fun laidOutSize(row: Int) = snapshot().rows.firstOrNull { it.index == row }?.size
-
     override fun snapshot(): ScrollbarSnapshot {
         val p = pos.toInt()
         val found = tops.binarySearch(p, 0, sizes.size)
@@ -102,12 +101,22 @@ internal class FakeList(
 
 /**
  * A grid of [items] cells in [columns] columns, under full width header items of [headersDp], one to a
- * line, as in Library > Albums. Its lines are a [FakeList].
+ * line, as in Library > Albums. Line k of the cells is [lineDp] (k) tall. Its lines are a [FakeList].
  */
-internal class FakeGrid(val columns: Int, headersDp: List<Float>, items: Int, lineDp: Float) : FakeScrollable {
+internal class FakeGrid(
+    val columns: Int,
+    headersDp: List<Float>,
+    items: Int,
+    lineDp: (Int) -> Float,
+    topPaddingDp: Float = 94f,
+    bottomPaddingDp: Float = 168f,
+    viewportDp: Float = 851f,
+) : FakeScrollable {
+    constructor(columns: Int, headersDp: List<Float>, items: Int, lineDp: Float) : this(columns, headersDp, items, { lineDp })
+
     private val headers = headersDp.size
     val totalItems = headers + items
-    val lines = FakeList(headersDp + List((items + columns - 1) / columns) { lineDp })
+    val lines = FakeList(headersDp + List((items + columns - 1) / columns) { lineDp(it) }, topPaddingDp, bottomPaddingDp, viewportDp)
     override val contentPx get() = lines.contentPx
     override val pos get() = lines.pos
     override val maxScroll get() = lines.maxScroll
@@ -128,12 +137,9 @@ internal class FakeGrid(val columns: Int, headersDp: List<Float>, items: Int, li
         return ScrollbarGrid.snapshot(cells(), itemsOn(s.firstIndex).first, s.firstOffset, totalItems, columns, s.contentEnd, 0)
     }
 
-    override fun laidOutSize(row: Int) = cells().filter { it.line == row }.maxOfOrNull { it.size }
-
     fun scrollToItem(item: Int, offsetPx: Int) = lines.jumpTo(lineOf(item.coerceIn(0, totalItems - 1)), offsetPx)
 
     override fun jumpTo(row: Int, offsetPx: Int) = scrollToItem(ScrollbarGrid.firstItemOf(row, cells(), columns, totalItems), offsetPx)
-    override fun jumpToEnd() = scrollToItem(totalItems - 1, 0)
     override fun scrollBy(px: Float) = lines.scrollBy(px)
 }
 
@@ -144,12 +150,19 @@ internal fun restingTop(list: FakeScrollable): Float {
 }
 
 /**
- * One press on the thumb of [list], grabbed where the list shows it, and driven the way ScrollBar.kt
- * drives the real list. The only place the tests touch the drag's own steps.
+ * One press on the thumb of [list], grabbed where the list shows it, and driven as ScrollBar.kt drives
+ * the real list: each touch event moves the thumb, then ScrollbarDrag.goTo moves the list, through the
+ * same calls ListScrolling and GridScrolling make. The only place the tests touch the drag's own steps.
  */
 internal class Press(private val list: FakeScrollable) {
+    /** The list as measured at the grab. */
     val geometry: ScrollbarGeometry
-    private val drag: ScrollbarDrag
+    val drag: ScrollbarDrag
+
+    private val target = object : ScrollbarList {
+        override fun layout() = list.snapshot()
+        override suspend fun scrollTo(row: Int, offsetPx: Int) = list.jumpTo(row, offsetPx)
+    }
 
     init {
         val s = list.snapshot()
@@ -164,11 +177,14 @@ internal class Press(private val list: FakeScrollable) {
     /** Moves the finger by [px]; false when the thumb is already against that end. */
     fun finger(px: Float): Boolean {
         if (!drag.moveBy(px)) return false
-        drag.listHas(list.rowCount)
-        when (val move = drag.moveFor(drag.top)) {
-            is ScrollbarMove.To -> list.jumpTo(move.index, drag.geometry.offsetPx(move.fraction, list.laidOutSize(move.index)))
-            ScrollbarMove.End -> list.jumpToEnd()
-        }
+        now { drag.goTo(drag.top, target) }
         return true
     }
+}
+
+/** Runs [block] to its end at once: the fakes never suspend. */
+private fun now(block: suspend () -> Unit) {
+    var done: kotlin.Result<Unit>? = null
+    block.startCoroutine(Continuation(EmptyCoroutineContext) { done = it })
+    checkNotNull(done) { "suspended" }.getOrThrow()
 }

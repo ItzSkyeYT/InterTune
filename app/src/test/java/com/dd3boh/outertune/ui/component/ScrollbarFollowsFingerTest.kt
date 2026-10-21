@@ -21,9 +21,12 @@ import java.io.File
  */
 class ScrollbarFollowsFingerTest {
 
-    private val scrollBar = File("src/main/java/com/dd3boh/outertune/ui/component/ScrollBar.kt").readText()
+    private fun code(name: String) = File("src/main/java/com/dd3boh/outertune/ui/component/$name").readText()
         .replace(Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL), "")
         .replace(Regex("""//[^\n]*"""), "")
+
+    private val scrollBar = code("ScrollBar.kt")
+    private val geometry = code("ScrollbarGeometry.kt")
 
     /** The inside of the first block opened with [open] after [start], counted by brackets. */
     private fun block(start: String, open: Char = '{', close: Char = '}'): String {
@@ -68,15 +71,29 @@ class ScrollbarFollowsFingerTest {
             assertFalse("the loop reads the list's position ($read)", read in follow)
         }
         assertFalse("the loop launches more", "launch" in follow)
-        assertFalse(
-            "a jump to the top of a row, to be scrolled on from there",
-            Regex("""scrollToItem\([^()]*,\s*0\s*\)""").containsMatchIn(scrollBar)
-        )
+        // Every move is to a place. The old library jumped to the top of a row and scrolled on from
+        // there by an amount, and those amounts added up wrong. A row off screen is still brought to
+        // the top first, but only to lay it out before the list is put inside it.
+        for ((name, code) in mapOf("ScrollBar.kt" to scrollBar, "ScrollbarGeometry.kt" to geometry)) {
+            assertFalse(
+                "$name moves the list by an amount",
+                Regex("""\b(scrollBy|animateScrollBy|dispatchRawDelta|animateScrollToItem)\(""").containsMatchIn(code)
+            )
+        }
     }
 
     @Test
     fun `while held, the thumb is drawn where the finger put it`() {
         assertTrue("the thumb is not drawn from the held position first", Regex("""offset\s*\{[^}]*held\?\.top\s*\?:""").containsMatchIn(scrollBar))
+    }
+
+    @Test
+    fun `let go, the thumb stays as the finger left it, and a grab there carries the press on`() {
+        assertTrue("the thumb let go is not drawn before the list's own place", Regex("""offset\s*\{[^}]*held\?\.top\s*\?:\s*kept\?\.top\s*\?:\s*restingTop""").containsMatchIn(scrollBar))
+        assertTrue("its length is not kept", Regex("""\(held\?\.drag\s*\?:\s*kept\)\?\.geometry\?\.thumbFrac""").containsMatchIn(scrollBar))
+        val grab = block("onDragStarted =")
+        assertTrue("a grab does not carry on the press let go", Regex("""letGo\?\.stillAt\(snapshot, trackPx\)\s*\?:""").containsMatchIn(grab))
+        assertTrue("the press let go is not kept", "ScrollbarLetGo(" in grab)
     }
 
     @Test

@@ -97,7 +97,7 @@ class ScrollbarGeometryTest {
             // scrolled 83 px, then one. Counting those rows is what shook the old scrollbar.
             val throughPadding = snapshot.rows.count { it.index < snapshot.firstIndex }
             assertEquals("rows in the top padding at offset $offset", if (offset < 83) 2 else 1, throughPadding)
-            assertTrue(ScrollbarGeometry.contentRows(snapshot).none { it.index < snapshot.firstIndex })
+            assertTrue(ScrollbarGeometry.chain(snapshot).none { it.index < snapshot.firstIndex })
             val visible = requireNotNull(ScrollbarGeometry.of(snapshot)).visibleRows
             assertTrue("$visible rows at offset $offset", abs(visible - 9.20f) < 0.05f)
         }
@@ -107,12 +107,12 @@ class ScrollbarGeometryTest {
     fun `a pinned sticky header is left out, a header at the top is counted once`() {
         val rows = listOf(ScrollbarRow(150, 0, 48)) + (200..210).map { ScrollbarRow(it, (it - 200) * 64 - 10, 64) }
         val pinned = ScrollbarSnapshot(200, 10, rows, 400, 589)
-        assertEquals((200..209).toList(), ScrollbarGeometry.contentRows(pinned).map { it.index })
+        assertEquals((200..210).toList(), ScrollbarGeometry.chain(pinned).map { it.index })
         assertEquals(64f, requireNotNull(ScrollbarGeometry.of(pinned)).rowPx, 0.001f)
 
         val heading = listOf(ScrollbarRow(200, 0, 48)) + (201..210).map { ScrollbarRow(it, 48 + (it - 201) * 64, 64) }
         val atTop = ScrollbarSnapshot(200, 0, heading, 400, 589)
-        assertEquals(1, ScrollbarGeometry.contentRows(atTop).count { it.index == 200 })
+        assertEquals(1, ScrollbarGeometry.chain(atTop).count { it.index == 200 })
     }
 
     @Test

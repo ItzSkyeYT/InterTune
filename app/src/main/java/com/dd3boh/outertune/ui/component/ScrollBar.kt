@@ -95,10 +95,11 @@ private fun Scrollbar(list: Scrolling, modifier: Modifier) {
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
 
     // The list as it is laid out now, null when it has nothing to scroll, and the thumb for it.
-    val snapshot by remember(list) { derivedStateOf { list.snapshot() } }
+    val snapshot by remember(list) { derivedStateOf { list.layout() } }
     val atRest by remember(list) { derivedStateOf { ScrollbarGeometry.of(snapshot) } }
     val restingTop by remember(list) { derivedStateOf { atRest?.thumbTop(snapshot) ?: 0f } }
     var held by remember(list) { mutableStateOf<HeldThumb?>(null) }
+    var letGo by remember(list) { mutableStateOf<ScrollbarLetGo?>(null) }
 
     val shown = held != null || list.isScrolling
     val visibility by animateFloatAsState(
@@ -119,13 +120,15 @@ private fun Scrollbar(list: Scrolling, modifier: Modifier) {
     // A thumb that has faded away takes no touch, so the rows have the edge to themselves.
     val touchable by remember { derivedStateOf { visibility > 0f } }
     val draggableState = rememberDraggableState { delta -> held?.moveBy(delta) }
-
-    // While held, the thumb keeps the length it had when it was grabbed.
-    val thumbFrac = held?.drag?.geometry?.thumbFrac ?: atRest?.thumbFrac ?: return
+    if (held == null && letGo == null && atRest == null) return
 
     BoxWithConstraints(modifier.fillMaxSize()) {
         if (!constraints.hasBoundedHeight || constraints.maxHeight <= 0) return@BoxWithConstraints
         val trackPx = constraints.maxHeight.toFloat()
+        // The last press, while the list is as it left it: the thumb stays as the finger left it.
+        val kept = letGo?.stillAt(snapshot, trackPx)
+        // While held, and after until the list moves, the thumb keeps the length it had at the grab.
+        val thumbFrac = (held?.drag ?: kept)?.geometry?.thumbFrac ?: atRest?.thumbFrac ?: return@BoxWithConstraints
 
         // The thumb, and the one place on the edge that takes a touch: as long as the thumb and as
         // wide as it with its gap on both sides. Before, a strip the height of the list took every
@@ -134,7 +137,7 @@ private fun Scrollbar(list: Scrolling, modifier: Modifier) {
             Modifier
                 .align(Alignment.TopEnd)
                 // Read where the thumb is drawn, so a moving list only moves the thumb.
-                .offset { IntOffset(0, ((held?.top ?: restingTop) * trackPx).roundToInt()) }
+                .offset { IntOffset(0, ((held?.top ?: kept?.top ?: restingTop) * trackPx).roundToInt()) }
                 .width(ThumbThickness + EdgeGap * 2)
                 .fillMaxHeight(thumbFrac)
                 .then(
@@ -142,16 +145,23 @@ private fun Scrollbar(list: Scrolling, modifier: Modifier) {
                         state = draggableState,
                         orientation = Orientation.Vertical,
                         onDragStarted = {
-                            val geometry = atRest
-                            if (geometry != null) {
-                                val grabbed = HeldThumb(ScrollbarDrag(geometry, restingTop, trackPx))
+                            // A grab where the last press let go carries it on while the list is
+                            // still as it left it, else the list is measured afresh.
+                            val drag = letGo?.stillAt(snapshot, trackPx) ?: atRest?.let { ScrollbarDrag(it, restingTop, trackPx) }
+                            if (drag != null) {
+                                val grabbed = HeldThumb(drag)
                                 held = grabbed
+                                letGo = null
                                 scope.launch {
                                     try {
                                         grabbed.follow(list)
                                     } finally {
-                                        // Back to the list's own position once the last move is done.
-                                        if (held === grabbed) held = null
+                                        // Once the last move is done, the thumb stays where the finger
+                                        // left it until the list moves, then goes by the list's own place.
+                                        if (held === grabbed) {
+                                            held = null
+                                            letGo = ScrollbarLetGo(grabbed.drag, list.layout())
+                                        }
                                     }
                                 }
                             }
@@ -200,13 +210,8 @@ private class HeldThumb(val drag: ScrollbarDrag) {
     /** Scrolls the list after the thumb, one move at a time, until the thumb is let go. */
     suspend fun follow(list: Scrolling) {
         for (position in positions) {
-            // A list that loads more near its end can have grown since the last move.
-            drag.listHas(list.rowCount())
             try {
-                when (val move = drag.moveFor(position)) {
-                    is ScrollbarMove.To -> list.jumpTo(move.index, move.fraction, drag.geometry)
-                    ScrollbarMove.End -> list.jumpToEnd()
-                }
+                drag.goTo(position, list)
             } catch (e: CancellationException) {
                 // Another scroll took the list over for a moment, a screen bringing the playing
                 // song into view for one. Every move goes to a place, not by an amount, so the
@@ -218,22 +223,14 @@ private class HeldThumb(val drag: ScrollbarDrag) {
 }
 
 /** What the scrollbar needs from a list or a grid. A grid is counted in lines. */
-private interface Scrolling {
+private interface Scrolling : ScrollbarList {
     val isScrolling: Boolean
-    fun snapshot(): ScrollbarSnapshot
-
-    /** How many rows the list has now. */
-    fun rowCount(): Int
-
-    /** Puts [row] at the top, [fraction] of the way into it. */
-    suspend fun jumpTo(row: Int, fraction: Float, geometry: ScrollbarGeometry)
-    suspend fun jumpToEnd()
 }
 
 private class ListScrolling(private val state: LazyListState) : Scrolling {
     override val isScrolling: Boolean get() = state.isScrollInProgress
 
-    override fun snapshot(): ScrollbarSnapshot {
+    override fun layout(): ScrollbarSnapshot {
         val info = state.layoutInfo
         return ScrollbarSnapshot(
             firstIndex = state.firstVisibleItemIndex,
@@ -245,26 +242,14 @@ private class ListScrolling(private val state: LazyListState) : Scrolling {
         )
     }
 
-    override fun rowCount() = state.layoutInfo.totalItemsCount
-
-    override suspend fun jumpTo(row: Int, fraction: Float, geometry: ScrollbarGeometry) {
-        val info = state.layoutInfo
-        val index = row.coerceIn(0, max(0, info.totalItemsCount - 1))
-        // Only the row's size is taken from the layout, never where the list is.
-        val size = info.visibleItemsInfo.firstOrNull { it.index == index }?.size
-        state.scrollToItem(index, geometry.offsetPx(fraction, size))
-    }
-
-    override suspend fun jumpToEnd() {
-        val last = state.layoutInfo.totalItemsCount - 1
-        if (last >= 0) state.scrollToItem(last)
-    }
+    override suspend fun scrollTo(row: Int, offsetPx: Int) =
+        state.scrollToItem(row.coerceIn(0, max(0, state.layoutInfo.totalItemsCount - 1)), offsetPx)
 }
 
 private class GridScrolling(private val state: LazyGridState) : Scrolling {
     override val isScrolling: Boolean get() = state.isScrollInProgress
 
-    override fun snapshot(): ScrollbarSnapshot {
+    override fun layout(): ScrollbarSnapshot {
         val info = state.layoutInfo
         return ScrollbarGrid.snapshot(
             cells = cells(info),
@@ -277,21 +262,9 @@ private class GridScrolling(private val state: LazyGridState) : Scrolling {
         )
     }
 
-    override fun rowCount(): Int {
+    override suspend fun scrollTo(row: Int, offsetPx: Int) {
         val info = state.layoutInfo
-        return ScrollbarGrid.lineCount(cells(info), info.totalItemsCount, columns(info))
-    }
-
-    override suspend fun jumpTo(row: Int, fraction: Float, geometry: ScrollbarGeometry) {
-        val info = state.layoutInfo
-        val cells = cells(info)
-        val item = ScrollbarGrid.firstItemOf(row, cells, columns(info), info.totalItemsCount)
-        state.scrollToItem(item, geometry.offsetPx(fraction, ScrollbarGrid.lineSize(row, cells)))
-    }
-
-    override suspend fun jumpToEnd() {
-        val last = state.layoutInfo.totalItemsCount - 1
-        if (last >= 0) state.scrollToItem(last)
+        state.scrollToItem(ScrollbarGrid.firstItemOf(row, cells(info), columns(info), info.totalItemsCount), offsetPx)
     }
 
     private fun cells(info: LazyGridLayoutInfo) = info.visibleItemsInfo.filter { it.row >= 0 }.map {
