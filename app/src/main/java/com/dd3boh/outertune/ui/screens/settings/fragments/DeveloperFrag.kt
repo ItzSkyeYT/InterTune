@@ -93,6 +93,11 @@ import com.dd3boh.outertune.utils.scanners.LocalMediaScanner
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import android.webkit.WebView
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 
 /**
  * Which of VISIONOS's identities are taken for refused, to hear the clients behind them take over:
@@ -270,6 +275,35 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
                 checked = everyDirectRefused,
                 onCheckedChange = onEveryDirectRefusedChange,
             )
+        }
+
+        // Debug and preview builds only: the Mix editor as designed on 21 Oct 2026, a clickable page
+        // (experiments/features/automix/mockups/editor.html) kept in those builds' own assets. Nothing
+        // plays: it is there to be tried with a finger before the editor is built.
+        if (BuildConfig.DEBUG) {
+            var mixMockup by remember { mutableStateOf(false) }
+            PreferenceEntry(
+                title = { Text("DEBUG: Mix editor mockup") },
+                icon = { Icon(Icons.Rounded.Science, null) },
+                onClick = { mixMockup = true },
+            )
+            if (mixMockup) {
+                Dialog(
+                    onDismissRequest = { mixMockup = false },
+                    properties = DialogProperties(usePlatformDefaultWidth = false),
+                ) {
+                    AndroidView(
+                        factory = { context ->
+                            WebView(context).apply {
+                                settings.javaScriptEnabled = true
+                                settings.domStorageEnabled = true
+                                loadUrl("file:///android_asset/mix-editor-mockup.html")
+                            }
+                        },
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
         }
 
         PreferenceEntry(
