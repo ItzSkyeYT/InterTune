@@ -1,8 +1,5 @@
 package com.dd3boh.outertune.ui.menu
 
-import androidx.media3.common.C
-import com.dd3boh.outertune.constants.Unreleased
-import com.dd3boh.outertune.ui.screens.mix.openMixEditor
 import com.dd3boh.outertune.ui.component.rememberSleepTimerState
 import com.dd3boh.outertune.ui.component.SleepTimerDialog
 import com.dd3boh.outertune.constants.PlayOrigin
@@ -84,6 +81,9 @@ import androidx.compose.material.icons.rounded.PlaylistRemove
 import androidx.compose.foundation.Image
 import androidx.compose.ui.graphics.ColorFilter
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.ui.screens.mix.openMixEditor
+import com.dd3boh.outertune.ui.screens.mix.rememberMixMenuEntry
 import com.dd3boh.outertune.constants.MAX_PLAYER_VOLUME
 import com.dd3boh.outertune.constants.ShowLyricsKey
 import com.dd3boh.outertune.constants.SyncMode
@@ -170,6 +170,7 @@ fun PlayerMenu(
     }
 
     val (sleepTimerEnabled, sleepTimerTimeLeft) = rememberSleepTimerState(playerConnection)
+    val mixEntry = if (Unreleased.AUTOMIX_EDITOR) rememberMixMenuEntry(mediaMetadata.id) else null
 
     var showSleepTimerDialog by remember {
         mutableStateOf(false)
@@ -371,17 +372,15 @@ fun PlayerMenu(
         ) {
             showPitchTempoDialog = true
         }
-        // Mix: the change from this song into the next, shaped by hand. Only with a next song to
-        // go into, and after Advanced, so the items people know the place of never move.
+        // Mix: the change from this song into the next, shaped by hand, only while a Mix queue
+        // plays, so after every item that is always there. Just after a change it opens that one.
         if (Unreleased.AUTOMIX_EDITOR) {
-            val player = playerConnection.player
-            val next = player.nextMediaItemIndex.takeIf { it != C.INDEX_UNSET }?.let { player.getMediaItemAt(it).mediaId }
-            if (next != null && next != mediaMetadata.id) {
+            if (mixEntry != null) {
                 GridMenuItem(
-                    icon = R.drawable.ic_mix_transition,
-                    title = R.string.mix_edit_title
+                    icon = R.drawable.ic_mix,
+                    title = if (mixEntry.last) R.string.mix_edit_last_transition else R.string.mix_edit_transition,
                 ) {
-                    navController.openMixEditor(mediaMetadata.id, next)
+                    navController.openMixEditor(mixEntry.pair)
                     playerBottomSheetState.collapseSoft()
                     onDismiss()
                 }

@@ -179,6 +179,16 @@ val AutomixKey = booleanPreferencesKey("automix")
  */
 val AutomixStyleKey = stringPreferencesKey("automixStyle")
 
+/**
+ * Mix (Unreleased.AUTOMIX_EDITOR): the library playlists whose Mix switch is on, by their id.
+ * Absent or without a playlist's id, that playlist plays as it always did. In the settings, not the
+ * database, so it needs no migration and still travels with a backup.
+ */
+val MixPlaylistsKey = stringSetPreferencesKey("mixPlaylists")
+
+/** Mix: which playlist each queue was started from, as QueueLinks writes them. See MusicService.refreshMix. */
+val MixQueueLinksKey = stringSetPreferencesKey("mixQueueLinks")
+
 
 /**
  * Lyrics

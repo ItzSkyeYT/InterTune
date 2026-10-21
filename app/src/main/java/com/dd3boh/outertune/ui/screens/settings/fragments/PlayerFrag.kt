@@ -711,8 +711,9 @@ fun ColumnScope.AdaptiveQueueFrag() {
 fun ColumnScope.TransitionFadeFrag() {
     val (enabled, onEnabledChange) = rememberPreference(TransitionFadeKey, defaultValue = false)
     // AutoMix carries each song into the next by itself, so while it is on the fade has nothing
-    // to do, and the row says so rather than offering a switch that changes nothing.
-    val automixOn = if (Unreleased.AUTOMIX) rememberPreference(AutomixKey, defaultValue = false).value else false
+    // to do, and the row says so rather than offering a switch that changes nothing. With Mix it
+    // is on only in the playlists whose switch is on, and the fade stays for everything else.
+    val automixOn = if (Unreleased.AUTOMIX && !Unreleased.AUTOMIX_EDITOR) rememberPreference(AutomixKey, defaultValue = false).value else false
 
     ExplainedSwitchPreference(
         modifier = Modifier.tourTarget(Tour.SETTING_TRANSITION_FADE),

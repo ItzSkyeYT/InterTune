@@ -51,6 +51,8 @@ import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalNetworkConnected
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.ui.screens.mix.rememberMixMenuSwitch
 import com.dd3boh.outertune.db.entities.Playlist
 import com.dd3boh.outertune.db.entities.PlaylistSong
 import com.dd3boh.outertune.db.entities.Song
@@ -123,6 +125,8 @@ fun PlaylistMenu(
 
     val editable: Boolean = playlist.playlist.isEditable
 
+    val mixMenu = if (Unreleased.AUTOMIX_EDITOR && songs.size >= 2) rememberMixMenuSwitch(playlist.id) else null
+
     var showEditDialog by remember {
         mutableStateOf(false)
     }
@@ -189,7 +193,8 @@ fun PlaylistMenu(
                 ListQueue(
                     title = playlist.playlist.name,
                     items = songs.map { it.toMediaMetadata() },
-                    playlistId = playlist.playlist.browseId
+                    playlistId = playlist.playlist.browseId,
+                    mixPlaylistId = playlist.id.takeIf { Unreleased.AUTOMIX_EDITOR },
                 ),
                 origin = PlayOrigin.PLAYLIST,
             )
@@ -205,7 +210,8 @@ fun PlaylistMenu(
                     title = playlist.playlist.name,
                     items = songs.map { it.toMediaMetadata() },
                     startShuffled = true,
-                    playlistId = playlist.playlist.browseId
+                    playlistId = playlist.playlist.browseId,
+                    mixPlaylistId = playlist.id.takeIf { Unreleased.AUTOMIX_EDITOR },
                 ),
                 origin = PlayOrigin.PLAYLIST,
             )
@@ -303,6 +309,17 @@ fun PlaylistMenu(
             title = R.string.m3u_export
         ) {
             m3uLauncher.launch("playlist.m3u")
+        }
+        // Last, so no item people know moves: the playlist's Mix switch, as on its page.
+        if (mixMenu != null) {
+            val (on, flip) = mixMenu
+            GridMenuItem(
+                icon = R.drawable.ic_mix,
+                title = if (on) R.string.mix_menu_on else R.string.mix_menu_off,
+            ) {
+                flip()
+                onDismiss()
+            }
         }
     }
 

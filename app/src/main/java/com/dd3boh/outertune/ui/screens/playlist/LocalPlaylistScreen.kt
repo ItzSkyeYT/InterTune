@@ -1,5 +1,15 @@
 package com.dd3boh.outertune.ui.screens.playlist
 
+import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.mix.edit.SongPair
+import com.dd3boh.outertune.mix.pill.PairPlanner
+import com.dd3boh.outertune.ui.screens.mix.MixPillLine
+import com.dd3boh.outertune.ui.screens.mix.MixRow
+import com.dd3boh.outertune.ui.screens.mix.pillSong
+import com.dd3boh.outertune.ui.screens.mix.rememberMixBlocker
+import com.dd3boh.outertune.ui.screens.mix.rememberMixOn
+import com.dd3boh.outertune.ui.screens.mix.rememberMixPlanner
+import com.dd3boh.outertune.ui.screens.mix.rememberSavedTransitions
 import com.dd3boh.outertune.ui.component.ScreenBackHandler
 import android.util.Log
 import androidx.compose.foundation.background
@@ -207,6 +217,12 @@ fun LocalPlaylistScreen(
     var locked by rememberPreference(PlaylistEditLockKey, defaultValue = false)
     val swipeEnabled by rememberPreference(SwipeToQueueKey, true)
     val syncMode by rememberEnumPreference(key = YtmSyncModeKey, defaultValue = SyncMode.RW)
+    // Mix: the playlist's switch, its saved changes and what keeps every change plain, read only
+    // with the flag, where the pills can show.
+    val mixOn = Unreleased.AUTOMIX_EDITOR && rememberMixOn(viewModel.playlistId)
+    val savedMixes = if (Unreleased.AUTOMIX_EDITOR && mixOn) rememberSavedTransitions() else emptyMap()
+    val mixBlocker = if (Unreleased.AUTOMIX_EDITOR && mixOn) rememberMixBlocker() else null
+    val mixPlanner = if (Unreleased.AUTOMIX_EDITOR && mixOn) rememberMixPlanner() else null
 
     var inSelectMode by rememberSaveable { mutableStateOf(false) }
     val selection = rememberSaveable(
@@ -489,6 +505,7 @@ fun LocalPlaylistScreen(
                             onShowRemoveDownloadDialog = { showRemoveDownloadDialog = true },
                             snackbarHostState = snackbarHostState,
                             modifier = Modifier,
+                            navController = navController,
                         )
                     }
 
@@ -616,7 +633,8 @@ fun LocalPlaylistScreen(
                                 onShowEditDialog = { showEditDialog = true },
                                 onShowRemoveDownloadDialog = { showRemoveDownloadDialog = true },
                                 snackbarHostState = snackbarHostState,
-                                modifier = Modifier // .animateItem()
+                                modifier = Modifier, // .animateItem()
+                                navController = navController,
                             )
                         }
                     }
@@ -666,6 +684,10 @@ fun LocalPlaylistScreen(
 
             // songs
             val thumbnailSize = (ListThumbnailSize.value * density.density).roundToInt()
+            // Mix's line between two songs names a pair that really plays: only with the switch
+            // on, in the playlist's own order, and not over search results or a selection.
+            val showPills = Unreleased.AUTOMIX_EDITOR && mixOn && sortType == PlaylistSongSortType.CUSTOM &&
+                !isSearching && !inSelectMode && !addMode
             itemsIndexed(
                 items = mutableSongs,
                 key = { _, song -> song.map.id },
@@ -676,44 +698,63 @@ fun LocalPlaylistScreen(
                     key = song.map.id,
                     enabled = editable
                 ) {
-                    SongListItem(
-                        song = song.song,
-                        thumbnailSize = thumbnailSize,
-                        playlistSong = song,
-                        playlist =  playlistWithSongs.first,
-                        navController = navController,
-                        snackbarHostState = snackbarHostState,
+                    // The item lays its content over itself, so a column: Mix's line sits under
+                    // the row and moves with it.
+                    Column {
+                        SongListItem(
+                            song = song.song,
+                            thumbnailSize = thumbnailSize,
+                            playlistSong = song,
+                            playlist =  playlistWithSongs.first,
+                            navController = navController,
+                            snackbarHostState = snackbarHostState,
 
-                        isActive = song.song.id == mediaMetadata?.id,
-                        isPlaying = isPlaying,
-                        swipeEnabled = swipeEnabled,
-                        onSelectedChange = {
-                            inSelectMode = true
-                            if (it) {
-                                selection.add(song.song.id)
-                            } else {
-                                selection.remove(song.song.id)
-                            }
-                        },
-                        inSelectMode = inSelectMode,
-                        isSelected = selection.contains(song.song.id),
+                            isActive = song.song.id == mediaMetadata?.id,
+                            isPlaying = isPlaying,
+                            swipeEnabled = swipeEnabled,
+                            onSelectedChange = {
+                                inSelectMode = true
+                                if (it) {
+                                    selection.add(song.song.id)
+                                } else {
+                                    selection.remove(song.song.id)
+                                }
+                            },
+                            inSelectMode = inSelectMode,
+                            isSelected = selection.contains(song.song.id),
 
-                        onPlay = {
-                            playerConnection.playQueue(
-                                ListQueue(
-                                    title =  playlistWithSongs.first!!.playlist.name,
-                                    items = mutableSongs.map { it.song.toMediaMetadata() },
-                                    startIndex = index,
-                                    playlistId =  playlistWithSongs.first?.playlist?.browseId
-                                ),
-                                origin = PlayOrigin.PLAYLIST,
+                            onPlay = {
+                                playerConnection.playQueue(
+                                    ListQueue(
+                                        title =  playlistWithSongs.first!!.playlist.name,
+                                        items = mutableSongs.map { it.song.toMediaMetadata() },
+                                        startIndex = index,
+                                        playlistId =  playlistWithSongs.first?.playlist?.browseId,
+                                        mixPlaylistId = playlistWithSongs.first?.id?.takeIf { Unreleased.AUTOMIX_EDITOR },
+                                    ),
+                                    origin = PlayOrigin.PLAYLIST,
+                                )
+                            },
+                            dragHandleModifier = if (sortType == PlaylistSongSortType.CUSTOM && !locked && !isSearching && editable) Modifier.draggableHandle() else null,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.background),
+                        )
+                        val next = mutableSongs.getOrNull(index + 1)
+                        if (showPills && next != null) {
+                            MixPillLine(
+                                from = song.song.pillSong(),
+                                to = next.song.pillSong(),
+                                fromTitle = song.song.title,
+                                toTitle = next.song.title,
+                                saved = savedMixes[SongPair(song.song.id, next.song.id)],
+                                blocker = mixBlocker,
+                                planner = mixPlanner ?: PairPlanner.NOT_YET,
+                                navController = navController,
+                                modifier = Modifier.background(MaterialTheme.colorScheme.background),
                             )
-                        },
-                        dragHandleModifier = if (sortType == PlaylistSongSortType.CUSTOM && !locked && !isSearching && editable) Modifier.draggableHandle() else null,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.background),
-                    )
+                        }
+                    }
                 }
             }
         }
@@ -732,6 +773,7 @@ fun LocalPlaylistScreen(
                             onShowRemoveDownloadDialog = { showRemoveDownloadDialog = true },
                             snackbarHostState = snackbarHostState,
                             modifier = Modifier,
+                            navController = navController,
                         )
                     }
                 },
@@ -865,6 +907,7 @@ fun LocalPlaylistHeader(
     onShowRemoveDownloadDialog: () -> Unit,
     snackbarHostState: SnackbarHostState,
     modifier: Modifier,
+    navController: NavController? = null,
 ) {
     Log.v("LocalPlaylistScreen", "P_H_RC-1")
     val playerConnection = LocalPlayerConnection.current ?: return
@@ -1052,7 +1095,8 @@ fun LocalPlaylistHeader(
                     playerConnection.playQueue(
                         ListQueue(
                             title = playlist.playlist.name,
-                            items = songs.map { it.song.toMediaMetadata() }.toList()
+                            items = songs.map { it.song.toMediaMetadata() }.toList(),
+                            mixPlaylistId = playlist.id.takeIf { Unreleased.AUTOMIX_EDITOR },
                         ),
                         origin = PlayOrigin.PLAYLIST,
                     )
@@ -1076,6 +1120,7 @@ fun LocalPlaylistHeader(
                             title = playlist.playlist.name,
                             items = songs.map { it.song.toMediaMetadata() },
                             startShuffled = true,
+                            mixPlaylistId = playlist.id.takeIf { Unreleased.AUTOMIX_EDITOR },
                         ),
                         origin = PlayOrigin.PLAYLIST,
                     )
@@ -1091,6 +1136,10 @@ fun LocalPlaylistHeader(
                 Spacer(Modifier.size(ButtonDefaults.IconSpacing))
                 Text(stringResource(R.string.shuffle))
             }
+        }
+
+        if (Unreleased.AUTOMIX_EDITOR && navController != null) {
+            MixRow(playlistId = playlist.id, songCount = songs.size, navController = navController)
         }
     }
 }

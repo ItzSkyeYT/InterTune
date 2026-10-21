@@ -23,9 +23,11 @@ class AutomixBandsHeldBackTest {
     @Test
     fun `the service plays on bands and reads saved changes only under the editor's flag`() {
         assertTrue("lanes = Unreleased.AUTOMIX_EDITOR," in service)
+        // Through the one store the editor saves to, never a second one on the same file.
         assertTrue(
-            "savedChange = { from, to -> if (Unreleased.AUTOMIX_EDITOR) JsonFileTransitionStore.at(filesDir).get(SongPair(from, to)) else null }," in service,
+            "savedChange = { from, to -> if (Unreleased.AUTOMIX_EDITOR) MixStores.transitions(this@MusicService).get(SongPair(from, to)) else null }," in service,
         )
+        assertTrue("JsonFileTransitionStore" !in service)
     }
 
     @Test

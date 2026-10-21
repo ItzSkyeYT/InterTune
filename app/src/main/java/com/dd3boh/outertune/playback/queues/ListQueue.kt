@@ -9,6 +9,11 @@ class ListQueue(
     override val startShuffled: Boolean = false,
     val startIndex: Int = 0,
     val position: Long = 0L,
+    /**
+     * The library playlist this queue is started from, for Mix (Unreleased.AUTOMIX_EDITOR): that
+     * playlist's switch decides whether the queue mixes. Not [playlistId], which marks a radio.
+     */
+    val mixPlaylistId: String? = null,
 ) : Queue {
     override val preloadItem: MediaMetadata? = null
     override suspend fun getInitialStatus() = Queue.Status(title, items, startIndex, position)

@@ -37,6 +37,10 @@ import com.dd3boh.outertune.mix.engine.LaneMixer
 import com.dd3boh.outertune.mix.engine.LanePlan
 import com.dd3boh.outertune.mix.engine.Placing
 import com.dd3boh.outertune.mix.engine.SpecPlan
+import com.dd3boh.outertune.mix.edit.SongPair
+import com.dd3boh.outertune.mix.pill.AutoChoice
+import com.dd3boh.outertune.mix.pill.PlainReason
+import com.dd3boh.outertune.mix.pill.Pills
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -128,6 +132,16 @@ class AutomixController(
     private val _stageNormalises = MutableStateFlow(false)
     val stageNormalises: StateFlow<Boolean> = _stageNormalises.asStateFlow()
 
+    /**
+     * Mix: what the change after the song playing has come to so far, for the queue's line (a
+     * reason it stays plain, or the style its plan took), or null while nothing is decided and
+     * whenever AutoMix is off. Main thread.
+     */
+    class Decided(val pair: SongPair, val choice: AutoChoice)
+
+    private val _decided = MutableStateFlow<Decided?>(null)
+    val decided: StateFlow<Decided?> = _decided.asStateFlow()
+
     /** The setting. Off costs nothing: no tick, no read, no worker. */
     var enabled = false
         set(value) {
@@ -135,6 +149,7 @@ class AutomixController(
             field = value
             stage.wanted = value
             if (!value) {
+                _decided.value = null
                 transition?.let { abort(it, "AutoMix was switched off") }
                 stopWork()
                 say("off; it leaves the chain at the next song")
@@ -205,6 +220,9 @@ class AutomixController(
 
         /** How much of the song is left when its end begins to be held: earlier for a saved change that starts further from the end. */
         var armFromMs = AutomixSchedule.ARM_FROM_LEFT_MS
+
+        /** What the queue's line says of this change; see [decided]. */
+        var decision: AutoChoice? = null
 
         /** Given up: a plan still being worked out for it is not handed to the stage. Read on the worker. */
         val abandoned = AtomicBoolean(false)
@@ -323,6 +341,7 @@ class AutomixController(
         val t = transition
         if (current == null) {
             transition = null
+            _decided.value = null
             publishLevels()
             return
         }
@@ -331,7 +350,9 @@ class AutomixController(
                 old.cancelled.set(true)
                 if (old.a.id == current.mediaId) abort(old, "the next song changed")
             }
-            transition = Transition(nextTransitionId++, song(current, player.duration), next?.let { song(it, -1) })
+            val fresh = Transition(nextTransitionId++, song(current, player.duration), next?.let { song(it, -1) })
+            transition = fresh
+            decide(fresh, null)
         }
         publishLevels()
         tick()
@@ -349,7 +370,12 @@ class AutomixController(
         val duration = player.duration
         if (duration == C.TIME_UNSET || duration <= 0) return later(AutomixSchedule.nextLookMs(Long.MAX_VALUE, 1f))
         val left = duration - player.currentPosition
-        val why = AutomixGuards.whyNot(snapshot(t)) ?: t.saved?.takeIf { it.plain }?.let { "a plain change was saved for these two" }
+        // A plain change saved for the pair is refused like any guard, with its own reason.
+        val refusal = AutomixGuards.refusal(snapshot(t))
+            ?: t.saved?.takeIf { it.plain }?.let { AutomixGuards.Refusal(PlainReason.YOUR_CHOICE, "a plain change was saved for these two") }
+        val why = refusal?.log
+        if (refusal != null) decide(t, AutoChoice.Plain(refusal.reason))
+        else if (t.refusal != null) decide(t, null)
         if (why != null) {
             if (why != t.refusal) {
                 t.refusal = why
@@ -372,6 +398,7 @@ class AutomixController(
             }
             AutomixSchedule.Step.TOO_LATE -> if (!t.armRequested && !t.lateSaid) {
                 t.lateSaid = true
+                decide(t, AutoChoice.Plain(PlainReason.NOT_READY))
                 val what = when {
                     t.headFailed -> "its opening could not be read"
                     t.head == null -> "its opening was not read in time"
@@ -473,6 +500,7 @@ class AutomixController(
             // whole end out and start the next song afresh, which is today's change anyway.
             t.armRequested = true
             t.finished = true
+            decide(t, AutoChoice.Plain(PlainReason.FORMATS))
             say("not mixing ${t.a.id} into ${t.b?.id}: ${rate} Hz, $channels channels into ${head.sampleRate} Hz, ${head.channels}")
             return
         }
@@ -695,6 +723,7 @@ class AutomixController(
             main.post {
                 val (plan, onBands) = outcome.getOrElse { e ->
                     Log.w(TAG, "AutoMix: planning failed", e)
+                    decide(t, AutoChoice.Plain(PlainReason.NO_FIT))
                     say("gapless: planning failed (${e.javaClass.simpleName})")
                     return@post
                 }
@@ -705,6 +734,7 @@ class AutomixController(
                     return@post
                 }
                 t.plan = plan
+                decide(t, AutoChoice.of(plan.style, plan.bars, plan.seconds, Pills.reasonOfPlanner(plan.reason)))
                 say("plan ${plan.describe()}${timesOf(t, plan)}, worked out in $workMs ms")
             }
         }
@@ -825,6 +855,14 @@ class AutomixController(
     }
 
     // ---- small things
+
+    /** Says what [t] has come to, while it is the change after the song playing. */
+    private fun decide(t: Transition, choice: AutoChoice?) {
+        t.decision = choice
+        if (transition !== t) return
+        val b = t.b
+        _decided.value = if (choice == null || b == null) null else Decided(SongPair(t.a.id, b.id), choice)
+    }
 
     private fun snapshot(t: Transition): AutomixGuards.Snapshot {
         val c = conditions()
