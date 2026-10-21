@@ -41,7 +41,11 @@ class AutomixHeldBackTest {
 
     @Test
     fun `the row is composed only under the flag, and starts off`() {
-        assertTrue("if (Unreleased.AUTOMIX) AutomixFrag()" in lines("ui/screens/settings/PlayerSettings.kt"))
+        // With Mix, each playlist's switch takes the place of this one (MixHeldBackTest).
+        val settings = lines("ui/screens/settings/PlayerSettings.kt")
+        val at = settings.indexOf("else if (Unreleased.AUTOMIX) AutomixFrag()")
+        assertTrue(at > 0)
+        assertEquals("if (Unreleased.AUTOMIX_EDITOR) MixingEntry(navController)", settings[at - 1])
         val frag = code(source("ui/screens/settings/fragments/PlayerFrag.kt"))
         val automix = frag.substringAfter("fun ColumnScope.AutomixFrag()").substringBefore("\n}\n")
         assertTrue(automix, "rememberPreference(AutomixKey, defaultValue = false)" in automix)
@@ -51,7 +55,7 @@ class AutomixHeldBackTest {
     fun `the fade row is what it was unless AutoMix is on`() {
         val fade = code(source("ui/screens/settings/fragments/PlayerFrag.kt"))
             .substringAfter("fun ColumnScope.TransitionFadeFrag()").substringBefore("\n}\n")
-        assertTrue(fade, "val automixOn = if (Unreleased.AUTOMIX) rememberPreference(AutomixKey, defaultValue = false).value else false" in fade)
+        assertTrue(fade, "val automixOn = if (Unreleased.AUTOMIX && !Unreleased.AUTOMIX_EDITOR) rememberPreference(AutomixKey, defaultValue = false).value else false" in fade)
         assertTrue(fade, "isEnabled = !automixOn," in fade)
         assertTrue(fade, "if (!enabled || automixOn) return" in fade)
     }
@@ -108,8 +112,13 @@ class AutomixHeldBackTest {
         val text = code(source("playback/MusicService.kt"))
         val made = text.substringBefore("automix = AutomixController(").substringAfterLast("if (Unreleased.AUTOMIX) {")
         assertTrue("the controller is made outside the flag's check", made.lines().size < 4)
-        assertTrue("dataStore.data.map { it[AutomixKey] ?: false }.distinctUntilChanged()" in service)
-        assertTrue(".map { Unreleased.AUTOMIX && (it[AutomixKey] ?: false) }" in service)
+        // One wish for the stage and the fade: never without the flag, the setting off when absent,
+        // or with Mix the switch of the playlist the queue came from.
+        val wanted = text.substringAfter("private fun automixWanted(): Flow<Boolean> = when {").substringBefore("}.distinctUntilChanged()")
+        assertTrue(wanted, "!Unreleased.AUTOMIX -> flowOf(false)" in wanted)
+        assertTrue(wanted, "else -> dataStore.data.map { it[AutomixKey] ?: false }" in wanted)
+        assertTrue(wanted, "{ playlist, on -> playlist != null && playlist in on }" in wanted)
+        assertEquals(2, Regex("""automixWanted\(\)""").findAll(text.substringBefore("private fun automixWanted()")).count())
     }
 
     @Test

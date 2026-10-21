@@ -2087,4 +2087,77 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="every_direct_refused" translatable="false">Take every direct address for refused</string>
     <string name="every_direct_refused_description" translatable="false">Plays the day direct addresses stop: every client\'s address counts as refused, so SABR, the last try, has to take over.</string>
     <string name="sabr_only_description" translatable="false">Plays each song over SABR, as YouTube\'s own apps stream, from the VISIONOS answer the app already has. A song that cannot be started that way plays as before.</string>
+    <!-- Mix (Unreleased.AUTOMIX_EDITOR): the playlist's Mix row, the line between two songs, the queue's line, Settings > Mixing. -->
+    <string name="mix">Mix</string>
+    <string name="mix_off">Songs flow into each other, like a DJ set.</string>
+    <string name="mix_on">Mixed. Tap a change to hear it or shape it.</string>
+    <string name="mix_shuffled">Playing shuffled: each change is Auto.</string>
+    <string name="mix_explain">When a song ends by itself, the next one comes in under it, on the beat when both have a steady one. Songs you skip to change as before.</string>
+    <string name="mix_blocked_casting">Not mixing while casting.</string>
+    <string name="mix_blocked_together">Not mixing while listening together.</string>
+    <string name="mix_blocked_repeat_one">Not mixing while Repeat one is on.</string>
+    <string name="mix_blocked_speed">Not mixing while the speed or pitch is changed.</string>
+    <string name="mix_blocked_skip_silence">Not mixing while Skip silence is on.</string>
+    <string name="mix_blocked_spatial">Not mixing with head tracking, Surround upmix or Ambience on.</string>
+    <string name="mix_blocked_decoder">Not mixing while the FFmpeg decoder is on.</string>
+    <string name="mix_blocked_sleep_timer">Not mixing while a sleep timer is set.</string>
+    <string name="mix_pill_auto">Auto</string>
+    <string name="mix_move_custom">Custom</string>
+    <string name="mix_move_auto">Auto</string>
+    <string name="mix_move_vocals_over">Vocals over</string>
+    <string name="mix_move_beat_under">Beat under</string>
+    <string name="mix_move_drum_swap">Drum swap</string>
+    <string name="mix_move_riff_rise">Riff rise</string>
+    <string name="mix_move_fade">Fade</string>
+    <string name="mix_move_rise">Rise</string>
+    <string name="mix_move_blend">Blend</string>
+    <string name="mix_move_echo_out">Echo out</string>
+    <string name="mix_move_cut">Cut</string>
+    <plurals name="mix_pill_bars">
+        <item quantity="one">%1$s · %2$d bar</item>
+        <item quantity="other">%1$s · %2$d bars</item>
+    </plurals>
+    <string name="mix_pill_seconds">%1$s · %2$d s</string>
+    <string name="mix_pill_bands">%1$s · bands this time</string>
+    <string name="mix_pill_needs_look">needs a look</string>
+    <string name="mix_pill_plain">Plain · %1$s</string>
+    <string name="mix_plain_casting">casting</string>
+    <string name="mix_plain_together">listening together</string>
+    <string name="mix_plain_repeat_one">repeat one</string>
+    <string name="mix_plain_same_song">same song</string>
+    <string name="mix_plain_run_together">they run together</string>
+    <string name="mix_plain_short_song">short song</string>
+    <string name="mix_plain_speed">speed changed</string>
+    <string name="mix_plain_skip_silence">skip silence</string>
+    <string name="mix_plain_spatial">spatial audio</string>
+    <string name="mix_plain_sleep_timer">sleep timer</string>
+    <string name="mix_plain_decoder">FFmpeg decoder</string>
+    <string name="mix_plain_formats">different formats</string>
+    <string name="mix_plain_not_ready">not ready in time</string>
+    <string name="mix_plain_no_time">no time to prepare</string>
+    <string name="mix_plain_from_next">from the next song</string>
+    <string name="mix_plain_no_fit">nothing fits</string>
+    <string name="mix_plain_your_choice">your choice</string>
+    <string name="mix_pill_yours">Your change: %1$s</string>
+    <string name="mix_pill_described">Transition from %1$s to %2$s: %3$s</string>
+    <string name="mix_pair">%1$s into %2$s</string>
+    <string name="mix_edit_transition">Edit transition</string>
+    <string name="mix_edit_last_transition">Edit the last transition</string>
+    <string name="mix_back_to_auto">Back to Auto</string>
+    <string name="mix_plain_for_these">Plain change for these two</string>
+    <string name="mix_next">Next: %1$s into %2$s</string>
+    <string name="mixing">Mixing</string>
+    <string name="mixing_description">Playlists, parts, storage.</string>
+    <string name="mixing_where">Where songs mix</string>
+    <string name="mixing_where_line">Playlists mix when their Mix switch is on.</string>
+    <string name="mixing_parts">Parts</string>
+    <string name="mixing_parts_none">Parts are not in this build yet. Songs mix with lows, mids and highs.</string>
+    <string name="mixing_storage">Storage</string>
+    <string name="mixing_saved">Saved transitions</string>
+    <string name="mixing_clear">Clear</string>
+    <plurals name="mixing_clear_confirm">
+        <item quantity="one">Forget %d saved transition? It goes back to Auto.</item>
+        <item quantity="other">Forget %d saved transitions? Each pair goes back to Auto.</item>
+    </plurals>
+    <string name="mix_editor_stub" translatable="false">The editor is not in this build yet. Back to Auto and Plain change for these two work from the pill\'s long press.</string>
 </resources>

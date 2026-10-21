@@ -86,6 +86,10 @@ import com.dd3boh.outertune.ui.screens.walkthrough.SETTINGS_CLOSER_LOOK
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.TourState
 import com.dd3boh.outertune.ui.screens.walkthrough.TourTargets
+import com.dd3boh.outertune.mix.edit.SongPair
+import com.dd3boh.outertune.ui.screens.mix.MixEditorScreen
+import com.dd3boh.outertune.ui.screens.mix.MixRoutes
+import com.dd3boh.outertune.ui.screens.mix.MixingSettings
 import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeCard
 import com.dd3boh.outertune.ui.screens.walkthrough.tourAll
 import kotlinx.coroutines.CoroutineScope
@@ -400,6 +404,23 @@ fun NavGraphBuilder.appDestinations(
         if (Unreleased.EQUALIZER) {
             screen("settings/player/equalizer") {
                 EqualizerSettings(navController, scrollBehavior)
+            }
+        }
+        if (Unreleased.AUTOMIX_EDITOR) {
+            screen(MixRoutes.SETTINGS) {
+                MixingSettings(navController, scrollBehavior)
+            }
+            screen(
+                route = MixRoutes.EDITOR,
+                arguments = listOf(
+                    navArgument("from") { type = NavType.StringType; defaultValue = "" },
+                    navArgument("to") { type = NavType.StringType; defaultValue = "" },
+                ),
+            ) { entry ->
+                MixEditorScreen(
+                    navController,
+                    SongPair(entry.arguments?.getString("from").orEmpty(), entry.arguments?.getString("to").orEmpty()),
+                )
             }
         }
         screen("settings/storage") {

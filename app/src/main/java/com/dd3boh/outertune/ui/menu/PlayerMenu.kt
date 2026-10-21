@@ -81,6 +81,9 @@ import androidx.compose.material.icons.rounded.PlaylistRemove
 import androidx.compose.foundation.Image
 import androidx.compose.ui.graphics.ColorFilter
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.ui.screens.mix.openMixEditor
+import com.dd3boh.outertune.ui.screens.mix.rememberMixMenuEntry
 import com.dd3boh.outertune.constants.MAX_PLAYER_VOLUME
 import com.dd3boh.outertune.constants.ShowLyricsKey
 import com.dd3boh.outertune.constants.SyncMode
@@ -167,6 +170,7 @@ fun PlayerMenu(
     }
 
     val (sleepTimerEnabled, sleepTimerTimeLeft) = rememberSleepTimerState(playerConnection)
+    val mixEntry = if (Unreleased.AUTOMIX_EDITOR) rememberMixMenuEntry(mediaMetadata.id) else null
 
     var showSleepTimerDialog by remember {
         mutableStateOf(false)
@@ -367,6 +371,17 @@ fun PlayerMenu(
             title = R.string.advanced
         ) {
             showPitchTempoDialog = true
+        }
+        // Only while a Mix queue plays, so after every item that is always there.
+        if (mixEntry != null) {
+            GridMenuItem(
+                icon = R.drawable.ic_mix,
+                title = if (mixEntry.last) R.string.mix_edit_last_transition else R.string.mix_edit_transition,
+            ) {
+                navController.openMixEditor(mixEntry.pair)
+                playerBottomSheetState.collapseSoft()
+                onDismiss()
+            }
         }
         // Last, and only while something is actually tracking. It belongs in this menu because the
         // moment you want it is the moment you are listening, but it does not belong above items

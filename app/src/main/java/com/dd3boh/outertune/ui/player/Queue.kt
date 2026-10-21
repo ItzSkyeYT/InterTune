@@ -136,6 +136,9 @@ import com.dd3boh.outertune.LocalMenuState
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.ui.screens.mix.MixNextLine
+import com.dd3boh.outertune.ui.screens.mix.MixQueueChip
 import com.dd3boh.outertune.constants.CONTENT_TYPE_SONG
 import com.dd3boh.outertune.constants.InsetsSafeE
 import com.dd3boh.outertune.constants.InsetsSafeS
@@ -891,7 +894,7 @@ fun BoxScope.QueueContent(
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp, vertical = 8.dp)
         ) {
-            Column {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = stringResource(R.string.songs),
                     fontSize = 24.sp,
@@ -899,6 +902,8 @@ fun BoxScope.QueueContent(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                // The switch of the playlist this queue came from, so Mix can be turned off here.
+                if (Unreleased.AUTOMIX_EDITOR) MixQueueChip(Modifier.padding(start = 12.dp))
             }
 
             // The lock normally lives in the saved-queues header, which songsOnly hides. Locking
@@ -1127,14 +1132,21 @@ fun BoxScope.QueueContent(
                         )
                     }
 
-                    if (!lockQueue && !inSelectMode && !detachedHead) {
-                        SwipeToDismissBox(
-                            state = dismissState,
-                            backgroundContent = {},
-                            content = { content() }
-                        )
-                    } else {
-                        content()
+                    // A column, as the item lays its content over itself: under the song playing
+                    // in a Mix queue, the next change in a line that is not swiped with the row.
+                    Column {
+                        if (!lockQueue && !inSelectMode && !detachedHead) {
+                            SwipeToDismissBox(
+                                state = dismissState,
+                                backgroundContent = {},
+                                content = { content() }
+                            )
+                        } else {
+                            content()
+                        }
+                        if (Unreleased.AUTOMIX_EDITOR && index == currentWindowIndex && !detachedHead && !isSearching) {
+                            MixNextLine(songs = mutableSongs, index = index, navController = navController)
+                        }
                     }
                 }
             }
