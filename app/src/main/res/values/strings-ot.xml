@@ -1277,6 +1277,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="exclusion_reason_snooze">Less of this artist, for a month</string>
     <string name="exclusion_reason_rest">Rested after a skip</string>
     <string name="exclusion_reason_gone">No longer on YouTube</string>
+    <string name="error_youtube_not_answering">YouTube is not answering right now. The song was tried several ways.</string>
     <string name="error_cached_part_stale">The saved part of this song no longer matches what YouTube serves. Press play to load it again.</string>
     <string name="error_connection_turned_away">YouTube is turning this connection away, so every song looks unavailable. A VPN, or a school or work network, can do this.</string>
     <string name="menu_not_this_song">Not this song</string>
@@ -2036,4 +2037,16 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="support_text">InterTune is free and has no ads. If you would like to donate, send the developer a direct message on the InterTune Discord server.</string>
     <string name="support_thanks">Thanks to those who already gave:</string>
     <string name="support_discord">Open Discord</string>
+    <plurals name="list_queued_here">
+        <item quantity="one">%1$d song added to the end of this queue</item>
+        <item quantity="other">%1$d songs added to the end of this queue</item>
+    </plurals>
+    <plurals name="list_queued_other">
+        <item quantity="one">%1$d song added to the queue \"%2$s\", now playing</item>
+        <item quantity="other">%1$d songs added to the queue \"%2$s\", now playing</item>
+    </plurals>
+    <plurals name="list_queued_new">
+        <item quantity="one">New queue \"%2$s\", %1$d song, now playing</item>
+        <item quantity="other">New queue \"%2$s\", %1$d songs, now playing</item>
+    </plurals>
 </resources>

@@ -960,6 +960,7 @@
     <string name="exclusion_reason_snooze">Moins de cet artiste, pendant un mois</string>
     <string name="exclusion_reason_rest">Mis au repos après avoir été passé</string>
     <string name="exclusion_reason_gone">N\'est plus sur YouTube</string>
+    <string name="error_youtube_not_answering">YouTube ne répond pas pour le moment. Le titre a été essayé de plusieurs façons.</string>
     <string name="error_cached_part_stale">La partie enregistrée de ce titre ne correspond plus à ce que YouTube fournit. Appuyez sur lecture pour le charger à nouveau.</string>
     <string name="error_connection_turned_away">YouTube refuse cette connexion, donc chaque titre semble indisponible. Un VPN, ou un réseau d\'école ou de travail, peut en être la cause.</string>
     <string name="menu_not_this_song">Pas ce titre</string>
@@ -1867,4 +1868,16 @@
     <string name="support_text">InterTune est gratuit et sans publicité. Pour faire un don, envoyez un message privé au développeur sur le serveur Discord d\'InterTune.</string>
     <string name="support_thanks">Merci à ceux qui ont déjà donné :</string>
     <string name="support_discord">Ouvrir Discord</string>
+    <plurals name="list_queued_here">
+        <item quantity="one">%1$d titre ajouté à la fin de cette file d\'attente</item>
+        <item quantity="other">%1$d titres ajoutés à la fin de cette file d\'attente</item>
+    </plurals>
+    <plurals name="list_queued_other">
+        <item quantity="one">%1$d titre ajouté à la file d\'attente « %2$s », en lecture</item>
+        <item quantity="other">%1$d titres ajoutés à la file d\'attente « %2$s », en lecture</item>
+    </plurals>
+    <plurals name="list_queued_new">
+        <item quantity="one">Nouvelle file d\'attente « %2$s », %1$d titre, en lecture</item>
+        <item quantity="other">Nouvelle file d\'attente « %2$s », %1$d titres, en lecture</item>
+    </plurals>
 </resources>
