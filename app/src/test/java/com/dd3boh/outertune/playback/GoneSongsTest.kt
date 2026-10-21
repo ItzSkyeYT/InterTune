@@ -95,6 +95,44 @@ class GoneSongsTest {
         assertEquals(listOf("mark OLDID000001 at 1000"), done)
     }
 
+    // Signed in, the account is asked before a song is called gone. Gone on its word too is the
+    // second opinion the second time stood for: written the first time.
+
+    @Test
+    fun `a song the account called gone too is written the first time`() {
+        val songs = songs()
+
+        songs.gone("OLDID000001", sure = true)
+
+        assertEquals(listOf("mark OLDID000001 at 1000", "load at 1000"), done)
+    }
+
+    @Test
+    fun `a run that is not believed takes back what was written at once, and nothing else`() {
+        val songs = songs()
+        songs.gone("OLDID000001", sure = true)
+        // Written the second time, as before the account was asked: the run does not touch it.
+        songs.gone("OLDID000002"); songs.plays("FINE0000001"); songs.gone("OLDID000002")
+        done.clear()
+
+        songs.doubted(listOf("OLDID000003", "OLDID000001", "OLDID000002"))
+        assertEquals(listOf("lift [OLDID000001]"), done)
+
+        done.clear()
+        songs.doubted(listOf("OLDID000001"))
+        assertEquals("taken back once", emptyList<String>(), done)
+    }
+
+    @Test
+    fun `a song that is gone is told once, and each song for itself`() {
+        val songs = songs()
+
+        assertEquals(true, songs.tellOnce("OLDID000001"))
+        assertEquals(false, songs.tellOnce("OLDID000001"))
+        assertEquals(true, songs.tellOnce("OLDID000002"))
+        assertEquals("the database is not asked", emptyList<String>(), done)
+    }
+
     @Test
     fun `with a database that does not answer a song is still written, and nothing is lifted on a guess`() {
         val songs = songs(already = null)

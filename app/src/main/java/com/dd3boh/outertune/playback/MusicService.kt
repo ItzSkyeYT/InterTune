@@ -588,9 +588,18 @@ class MusicService : MediaLibraryService(),
             search = { query ->
                 YouTube.search(query, YouTube.SearchFilter.FILTER_SONG).getOrThrow().items.filterIsInstance<SongItem>()
             },
+            // Set aside as gone from YouTube, as the Exclusions page lists it: read each time, so
+            // that a Lift there counts at the next tap. A database that does not answer sets
+            // nothing aside, and the song is asked for as any other.
+            setAside = { id ->
+                val now = System.currentTimeMillis()
+                database.readOrNull { exclusion(ExclusionsViewModel.KIND_SONG, id) }
+                    ?.let { it.reason == ExclusionsViewModel.REASON_GONE && (it.expiresAt == null || it.expiresAt > now) } == true
+            },
         ).also {
             it.onGone = goneSongs::gone
             it.onPlays = goneSongs::plays
+            it.onDoubted = goneSongs::doubted
         }
     }
 
@@ -3937,10 +3946,15 @@ class MusicService : MediaLibraryService(),
         // song used to read "This video is not available".
         val turnedAway = YTPlayerUtils.isConnectionTurnedAway(error)
         if (turnedAway) Log.w(TAG, "PLAYING: every song in a row called gone, taken for the connection being turned away")
+        // A song YouTube no longer serves, said in plain words and once for each song. It was the
+        // raw "Unexpected SongUnavailable" at every tap (21 Oct 2026: thirteen taps on one song).
+        val gone = !gaveUp && !turnedAway && YTPlayerUtils.isUnavailableSong(error)
+        if (gone && failedId != null && !goneSongs.tellOnce(failedId)) return
         Toast.makeText(
             this@MusicService,
             if (gaveUp) getString(R.string.error_youtube_not_answering)
             else if (turnedAway) getString(R.string.error_connection_turned_away)
+            else if (gone) getString(R.string.err_song_unavailable)
             else ErrorText.withoutAddresses("plr: ${error.message} (${error.errorCode}): ${error.cause?.message ?: ""} "),
             Toast.LENGTH_LONG
         ).show()

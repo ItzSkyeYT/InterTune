@@ -13,6 +13,7 @@ import com.dd3boh.outertune.utils.YTPlayerUtils
 import com.zionhuang.innertube.models.Artist
 import com.zionhuang.innertube.models.SongItem
 import com.zionhuang.innertube.models.response.PlayerResponse
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -37,6 +38,10 @@ class StandInsTest {
     private val gone = mutableListOf<String>()
     private val plays = mutableListOf<String>()
     private val reported = mutableListOf<String>()
+
+    /** The songs reported gone on the account's word too, and the runs not believed, as they were handed over. */
+    private val sure = mutableListOf<String>()
+    private val doubted = mutableListOf<List<String>>()
 
     @Before
     fun fresh() {
@@ -80,13 +85,19 @@ class StandInsTest {
         private val finds: Map<String, () -> List<SongItem>> = emptyMap(),
         private val knows: Boolean = true,
         on: Boolean = true,
+        /** The songs the database says are set aside as gone: see StandIns' setAside. */
+        setAside: Set<String> = emptySet(),
     ) {
         val asked = mutableListOf<String>()
+
+        /** The ids walked as another copy of the song than its own: see YTPlayerUtils.OfAnotherCopy. */
+        val walkedAsACopy = mutableListOf<String>()
         private var lookedFor = ""
         private var walked: String? = null
         val standIns = StandIns(
             resolve = { id ->
                 asked += "stream $id"
+                if (currentCoroutineContext()[YTPlayerUtils.OfAnotherCopy] != null) walkedAsACopy += id
                 (says[id] ?: error("$id was not expected to be asked")).invoke().also { walked = if (it.isSuccess) "OK" else "ERROR" }
             },
             wanted = { id ->
@@ -103,9 +114,14 @@ class StandInsTest {
             enabled = { on },
             trail = { walked },
             report = { reported += it },
+            setAside = { id -> id in setAside },
         ).also {
-            it.onGone = { id -> gone += id }
+            it.onGone = { id, onTheAccountsWord ->
+                gone += id
+                if (onTheAccountsWord) sure += id
+            }
             it.onPlays = { id -> plays += id }
+            it.onDoubted = { ids -> doubted += ids }
         }
 
         fun play(id: String = "OLDID000001") = runBlocking { standIns.playbackData(id) }
@@ -249,7 +265,7 @@ class StandInsTest {
             enabled = { true },
             trail = { "VISIONOS ERROR" },
             report = { reported += it },
-        ).also { it.onGone = { id -> gone += id } }
+        ).also { it.onGone = { id, _ -> gone += id } }
 
         assertSame(failure, runBlocking { standIns.playbackData("OLDID000001") }.exceptionOrNull())
         assertEquals(emptyList<String>(), gone)
@@ -529,5 +545,117 @@ class StandInsTest {
         assertEquals(true, downloads.doubted())
         assertEquals(false, player.doubted())
         assertEquals(true, player.maySearch("OLDID000009"))
+    }
+
+    // The same song failing again and again is one song, not a run (issue #28's rule is about songs in a row).
+
+    @Test
+    fun `the same song failing again and again is one song of a run, and never taken for the connection turned away`() {
+        // His radio song of 21 Oct 2026, tapped 13 times.
+        val world = nothingFound("OLDID000001", "OLDID000002")
+        for (tap in 1..13) {
+            val failed = world.play("OLDID000001").exceptionOrNull()
+            assertTrue("tap $tap: $failed", failed is YTPlayerUtils.SongUnavailable)
+        }
+        // A second song called gone after them is the second of the run, and still believed.
+        val other = world.play("OLDID000002").exceptionOrNull()
+        assertTrue(other.toString(), other is YTPlayerUtils.SongUnavailable)
+        assertEquals(listOf("OLDID000001", "OLDID000002"), gone)
+    }
+
+    @Test
+    fun `nor when other songs play between the taps`() {
+        val world = World(says = mapOf("OLDID000001" to isGone, "FINE0000001" to serves("FINE0000001"), "OLDID000002" to isGone), finds = mapOf("*" to { emptyList() }))
+        for (tap in 1..13) {
+            assertTrue("tap $tap", world.play("OLDID000001").exceptionOrNull() is YTPlayerUtils.SongUnavailable)
+            world.play("FINE0000001")
+        }
+        world.play("OLDID000001")
+        assertTrue(world.play("OLDID000002").exceptionOrNull() is YTPlayerUtils.SongUnavailable)
+    }
+
+    // Signed in, the account is asked before a song is called gone (YTPlayerUtils). Gone on its
+    // word too and no copy that plays: set aside at once, and not asked again at every tap.
+
+    private val goneForTheAccountToo: () -> Result<YTPlayerUtils.PlaybackData> =
+        { Result.failure(YTPlayerUtils.SongUnavailable("This video is not available", byTheAccountToo = true)) }
+
+    @Test
+    fun `a song the account calls gone too, with no copy that plays, is reported as sure`() {
+        World(says = mapOf("OLDID000001" to goneForTheAccountToo), finds = mapOf("*" to { emptyList() })).play()
+        nothingFound("OLDID000002").play("OLDID000002")
+
+        assertEquals(listOf("OLDID000001", "OLDID000002"), gone)
+        assertEquals("only the one the account called gone", listOf("OLDID000001"), sure)
+    }
+
+    @Test
+    fun `a song set aside as gone and looked for in vain lately is not asked again, and fails at once as gone`() {
+        StandInMemory.current = StandInMemory.remember(Memory(), "OLDID000001", null, t0 - day)
+        val world = World(says = emptyMap(), setAside = setOf("OLDID000001"))
+
+        val failure = world.play().exceptionOrNull()
+
+        assertTrue(failure.toString(), failure is YTPlayerUtils.SongUnavailable)
+        assertEquals("nothing asked of YouTube, nothing searched", emptyList<String>(), world.asked)
+        assertEquals("nothing reported again", emptyList<String>(), gone)
+        assertEquals(listOf("not asked: set aside as gone, and looked for in vain these last days"), reported)
+    }
+
+    @Test
+    fun `a song set aside does not count in a run of songs called gone`() {
+        StandInMemory.current = StandInMemory.remember(Memory(), "OLDID000001", null, t0 - day)
+        val world = World(says = mapOf("OLDID000002" to isGone, "OLDID000003" to isGone), finds = mapOf("*" to { emptyList() }), setAside = setOf("OLDID000001"))
+
+        repeat(5) { world.play("OLDID000001") }
+        world.play("OLDID000002")
+        val third = world.play("OLDID000003").exceptionOrNull()
+
+        assertTrue("two songs called gone in a row, not seven: $third", third is YTPlayerUtils.SongUnavailable)
+        assertEquals(listOf("OLDID000002", "OLDID000003"), gone)
+    }
+
+    @Test
+    fun `lifted, or looked for three days ago, a song set aside is asked again`() {
+        // Lifted on the Exclusions page: the database no longer says it is set aside.
+        StandInMemory.current = StandInMemory.remember(Memory(), "OLDID000001", null, t0 - day)
+        val lifted = World(says = mapOf("OLDID000001" to goneForTheAccountToo))
+        lifted.play()
+        assertEquals(listOf("stream OLDID000001"), lifted.asked)
+        assertEquals("set aside again on the account's word", listOf("OLDID000001"), sure)
+
+        // Three days on: one more walk, and one more search.
+        StandInMemory.current = StandInMemory.remember(Memory(), "OLDID000001", null, t0 - StandInMemory.NONE_MS)
+        val later = World(says = mapOf("OLDID000001" to goneForTheAccountToo), finds = mapOf("*" to { emptyList() }), setAside = setOf("OLDID000001"))
+        later.play()
+        assertEquals(listOf("stream OLDID000001", "song OLDID000001", "search Instant Crush Daft Punk"), later.asked)
+    }
+
+    @Test
+    fun `a run that is not believed hands over its songs, so that what was set aside at once is taken back`() {
+        val world = World(
+            says = mapOf("OLDID000001" to goneForTheAccountToo, "OLDID000002" to goneForTheAccountToo, "OLDID000003" to goneForTheAccountToo),
+            finds = mapOf("*" to { emptyList() }),
+        )
+        world.play("OLDID000001")
+        world.play("OLDID000002")
+        world.play("OLDID000003")
+
+        assertEquals(listOf("OLDID000001", "OLDID000002"), sure)
+        assertEquals(setOf("OLDID000001", "OLDID000002", "OLDID000003"), doubted.single().toSet())
+    }
+
+    @Test
+    fun `a stand-in and the copies a search finds are walked as other copies, the song's own id never`() {
+        StandInMemory.current = StandInMemory.remember(Memory(), "OLDID000001", "NEWID000001", t0 - 1_000)
+        val world = World(
+            says = mapOf("NEWID000001" to isGone, "OLDID000001" to isGone, "NEWID000002" to serves("NEWID000002")),
+            finds = mapOf("*" to { listOf(result("NEWID000001"), result("NEWID000002")) }),
+        )
+
+        world.play()
+
+        assertEquals(listOf("stream NEWID000001", "stream OLDID000001", "song OLDID000001", "search Instant Crush Daft Punk", "stream NEWID000002"), world.asked)
+        assertEquals(listOf("NEWID000001", "NEWID000002"), world.walkedAsACopy)
     }
 }
