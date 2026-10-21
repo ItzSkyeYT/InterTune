@@ -821,14 +821,17 @@ class RecognitionEngine @Inject constructor(
 
                 // Recorded the moment Shazam names it, before anything is decided about adding
                 // it or even placing it on YouTube. The history is a record of what the room was
-                // playing, which is true whether or not a video turned up for it.
+                // playing, which is true whether or not a video turned up for it. The video it
+                // keeps is the first answer only when that is the song: a tap on the entry played
+                // whatever came first, another song entirely when the search missed.
                 scope.launch {
                     history.add(
                         Heard(
                             title = outcome.track.title,
                             artist = outcome.track.artist.orEmpty(),
-                            videoId = best?.id,
+                            videoId = Heard.idFor(outcome.track, best),
                             at = System.currentTimeMillis(),
+                            checked = true,
                         )
                     )
                 }
