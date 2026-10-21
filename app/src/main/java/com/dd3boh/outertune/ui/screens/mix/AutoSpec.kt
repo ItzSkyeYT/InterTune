@@ -73,8 +73,9 @@ object AutoSpec {
         for (bars in listOf(8, 4, 2)) {
             if (gridB == null) break
             val a0 = MixEditor.anchor(facts.a, 0.0, gridA?.bpm)
+            // A without beats of its own keeps its speed: its anchor's tempo is only a stand-in.
             val draft = written(
-                TransitionSpec(a = a0, b = b, lanes = facts.lanes, bars = bars, preset = Preset.AUTO, moves = emptyMap()),
+                TransitionSpec(a = a0, b = b, lanes = facts.lanes, bars = bars, beatMatch = gridA != null, preset = Preset.AUTO, moves = emptyMap()),
                 Preset.FADE,
             )
             val perA = if (draft.beatMatched) draft.b.barMs * draft.tempoRatio() else draft.b.barMs

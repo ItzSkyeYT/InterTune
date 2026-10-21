@@ -396,6 +396,17 @@ class MixEditorTest {
     }
 
     @Test
+    fun `without beats of its own, A keeps its speed and cannot be beat matched`() {
+        // B at 118 BPM is within 4% of the stand-in 120 an anchor carries without a grid.
+        val e = editor(facts(aGrid = null, bGrid = SongGrid(t0Ms = 1_210.0, periodMs = 60_000.0 / 118)))
+        assertEquals(8, e.spec.bars)
+        assertFalse(e.spec.beatMatched)
+        assertFalse(e.beatMatchPossible)
+        assertFalse(e.setBeatMatch(true))
+        assertFalse(e.spec.beatMatched)
+    }
+
+    @Test
     fun `Auto from a beat plan starts bar 1 where the overlap starts in both songs`() {
         val f = facts()
         val rate = 48_000

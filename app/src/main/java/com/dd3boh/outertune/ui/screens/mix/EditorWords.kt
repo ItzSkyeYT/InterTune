@@ -254,6 +254,7 @@ class EditorWords(private val res: Resources, val aTitle: String, val bTitle: St
     fun beatMatchLine(e: MixEditor): String {
         val s = e.spec
         if (s.bars == 0 && !e.facts.barsMode) return res.getString(R.string.mix_edit_bm_no_bars)
+        if (e.facts.a.grid == null) return res.getString(R.string.mix_edit_bm_no_beat_a, aTitle)
         val ratio = s.tempoRatio()
         val pct = String.format(locale, "%.1f", abs(1 - ratio) * 100)
         return when {

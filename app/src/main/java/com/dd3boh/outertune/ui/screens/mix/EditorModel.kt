@@ -347,8 +347,14 @@ class MixEditor(
 
     // ---- switches ----
 
+    /**
+     * Whether A can be locked to B's beat at all: it needs its own beats found. Without them its
+     * anchor carries a stand-in tempo, which the spec's own rule would happily match.
+     */
+    val beatMatchPossible: Boolean get() = facts.a.grid != null && facts.barsMode
+
     fun setBeatMatch(on: Boolean): Boolean {
-        if (on && !spec.beatMatchAllowed()) return false
+        if (on && (!spec.beatMatchAllowed() || !beatMatchPossible)) return false
         return apply(spec.copy(beatMatch = on))
     }
 

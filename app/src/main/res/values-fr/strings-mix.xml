@@ -123,6 +123,7 @@
     <string name="mix_edit_bm_same">%1$s est déjà sur le rythme de %2$s.</string>
     <string name="mix_edit_bm_off">Désactivé : les temps s\'écartent de %1$s s sur %2$s.</string>
     <string name="mix_edit_bm_refused">Les tempos diffèrent de %1$s %%.</string>
+    <string name="mix_edit_bm_no_beat_a">%1$s n\'a pas de rythme régulier ici : il garde sa propre vitesse.</string>
     <string name="mix_edit_bm_no_bars">Sans rythme régulier dans les deux morceaux, la transition se compte en secondes.</string>
     <string name="mix_edit_intro_twice">Jouer l\'intro deux fois</string>
     <string name="mix_edit_intro_twice_line">%2$s de l\'intro de %1$s jouent sous %3$s, puis à nouveau au démarrage.</string>

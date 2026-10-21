@@ -695,11 +695,11 @@ private fun Lowers(
         )
     }
     HorizontalDivider(Modifier.padding(start = 12.dp, end = 12.dp, top = 14.dp, bottom = 6.dp), color = MaterialTheme.colorScheme.outlineVariant)
-    val allowed = spec.beatMatchAllowed()
+    val allowed = spec.beatMatchAllowed() && editor.beatMatchPossible
     SwitchRow(
         title = stringResource(R.string.mix_edit_beat_matching),
         line = words.beatMatchLine(editor),
-        checked = spec.beatMatched,
+        checked = spec.beatMatched && editor.beatMatchPossible,
         enabled = ready && allowed,
     ) { on -> vm.edit { setBeatMatch(on) } }
     SwitchRow(
