@@ -65,6 +65,7 @@ import com.dd3boh.outertune.utils.installSource
 import com.dd3boh.outertune.utils.fdroidPageUrl
 import com.dd3boh.outertune.utils.UpdateInstaller
 import com.dd3boh.outertune.utils.AutoBlocker
+import com.dd3boh.outertune.ui.component.androidUpdateButton
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 
@@ -249,8 +250,17 @@ fun UpdateSettings(
                                 ((st.downloaded * 100) / st.total).toInt()
                             ) else stringResource(R.string.update_downloading_indeterminate)
 
-                        UpdateInstaller.State.AwaitingConfirmation ->
-                            stringResource(R.string.update_awaiting_confirmation)
+                        // The same words as the dialog that is over this screen while Android has
+                        // the install.
+                        UpdateInstaller.State.Preparing -> stringResource(R.string.update_wait_preparing)
+
+                        is UpdateInstaller.State.AwaitingConfirmation ->
+                            if (st.shown) stringResource(
+                                R.string.update_wait_waiting,
+                                stringResource(androidUpdateButton(Build.VERSION.SDK_INT)),
+                            ) else stringResource(R.string.update_awaiting_confirmation)
+
+                        UpdateInstaller.State.Installing -> stringResource(R.string.update_wait_installing)
 
                         UpdateInstaller.State.NeedsPermission ->
                             stringResource(R.string.update_needs_permission)
@@ -269,6 +279,17 @@ fun UpdateSettings(
                     onClick = {
                         when (installState) {
                             is UpdateInstaller.State.Downloading -> installer.cancel()
+
+                            // The copy into Android's installer: the dialog says so, and another
+                            // tap has nothing to add.
+                            UpdateInstaller.State.Preparing -> Unit
+
+                            // Android has the install. Never a new one: the tap brings back
+                            // Android's window if it waits, and otherwise only the dialog that
+                            // says Android is installing. This tap used to start the install
+                            // again, dropping the session Android had and opening a second window.
+                            is UpdateInstaller.State.AwaitingConfirmation, UpdateInstaller.State.Installing ->
+                                installer.installOrDownload(found.downloadUrl, found.sizeBytes)
 
                             // Android will not let us ask until this is granted, so send the user
                             // straight to the one screen that grants it. Once granted, the same tap

@@ -19,6 +19,9 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import android.content.Intent
+import android.os.Build
+import androidx.compose.ui.window.DialogProperties
+import com.dd3boh.outertune.utils.UpdateInstaller
 import androidx.core.net.toUri
 import androidx.compose.ui.platform.LocalContext
 import com.dd3boh.outertune.utils.InstallSource
@@ -49,6 +52,12 @@ import androidx.compose.material3.Button
  * Three ways out on purpose. Cancel is "not this version, stop asking for now", later is "ask me
  * again in an hour", and install is the one that acts. Dismissing by tapping outside is the same as
  * later rather than the same as cancel, because a mis-tap should not silently bury an update.
+ *
+ * From the tap on Install until Android has installed it, [busy] turns the same dialog into one
+ * that says what is happening, with no Install button to tap again. Android's own window says
+ * nothing once its button is tapped, and the app used to show nothing either, so people tapped
+ * Install again and again: in the prompt the taps were lost, and in Settings each one started the
+ * install over.
  */
 @Composable
 fun UpdatePrompt(
@@ -62,6 +71,12 @@ fun UpdatePrompt(
     failedReason: String? = null,
     /** While the apk downloads after a tap on Install: 0 to 100, or -1 when its size is unknown. */
     downloadPercent: Int? = null,
+    /** While Android has the install: what to say in place of the offer. Null for the offer. */
+    busy: UpdateWaitPhase? = null,
+    onShowWindowAgain: () -> Unit = {},
+    onStop: () -> Unit = {},
+    /** Back or a tap outside while Android's window waits. The install is left as it is. */
+    onPutAway: () -> Unit = {},
     onOpenAutoBlocker: () -> Unit = {},
     onTryAgain: () -> Unit = {},
     onInstall: () -> Unit,
@@ -75,10 +90,32 @@ fun UpdatePrompt(
     val context = LocalContext.current
     val fromFdroid = remember { context.installSource() == InstallSource.F_DROID }
 
+    // The offer goes on Back or a tap outside, as later. The busy form stays, but for the wait,
+    // which steps aside without touching the install: Stop is the way out of that one.
+    val dismissable = busy == null || updateWaitDismissable(busy)
+
+    // One dialog for both, so the prompt turns into the busy form in place instead of closing and
+    // another one opening.
     AlertDialog(
-        onDismissRequest = onRemindLater,
-        title = { Text(stringResource(R.string.update_prompt_title, update.versionName)) },
+        onDismissRequest = when {
+            busy == null -> onRemindLater
+            dismissable -> onPutAway
+            else -> ({})
+        },
+        properties = DialogProperties(dismissOnBackPress = dismissable, dismissOnClickOutside = dismissable),
+        title = {
+            Text(
+                stringResource(
+                    if (busy != null) R.string.update_wait_title else R.string.update_prompt_title,
+                    update.versionName,
+                )
+            )
+        },
         text = {
+            if (busy != null) {
+                UpdateWaitText(busy)
+                return@AlertDialog
+            }
             // Scrolls on a short screen, where the trouble line and four buttons did not fit and
             // the words were cut off.
             Column(Modifier.verticalScroll(rememberScrollState())) {
@@ -158,6 +195,11 @@ fun UpdatePrompt(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
+                // Before anything else, so no busy form can ever get the Install button below.
+                if (busy != null) {
+                    UpdateWaitButtons(busy, onShowWindowAgain = onShowWindowAgain, onStop = onStop)
+                    return@Column
+                }
                 if (trouble != null) {
                     TroubleButtons(
                         trouble = trouble,
@@ -216,6 +258,51 @@ fun UpdatePrompt(
         },
         dismissButton = null,
     )
+}
+
+/**
+ * The busy form's words: the download's bar, kept so the prompt seems to turn into this rather than
+ * give way to it, and a line for the phase. The bar never shows a share. Android reports a single
+ * step between the yes and the end, and a bar parked at ninety percent would look stuck.
+ */
+@Composable
+private fun UpdateWaitText(phase: UpdateWaitPhase) {
+    Column {
+        LinearProgressIndicator(
+            strokeCap = StrokeCap.Round,
+            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp).height(4.dp),
+        )
+        updateWaitLine(phase)?.let { line ->
+            Text(
+                text = if (phase == UpdateWaitPhase.WAITING) {
+                    stringResource(line, stringResource(androidUpdateButton(Build.VERSION.SDK_INT)))
+                } else {
+                    stringResource(line)
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/** Full width and stacked, as the prompt's own buttons are. */
+@Composable
+private fun UpdateWaitButtons(phase: UpdateWaitPhase, onShowWindowAgain: () -> Unit, onStop: () -> Unit) {
+    for (button in updateWaitButtons(phase)) {
+        when (button) {
+            UpdateWaitButton.SHOW_WINDOW -> Button(onClick = onShowWindowAgain, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.update_wait_show_window))
+            }
+
+            UpdateWaitButton.STOP -> TextButton(onClick = onStop, modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = stringResource(R.string.update_wait_stop),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
 }
 
 /**
@@ -309,6 +396,75 @@ internal fun updatePromptLine(fromFdroid: Boolean, ready: Boolean, needsPermissi
     ready -> UpdatePromptLine.READY
     else -> UpdatePromptLine.WILL_DOWNLOAD
 }
+
+/**
+ * What the dialog says from the tap on Install until Android has installed the update, or the try
+ * ended another way. Android's own window says nothing after its button is tapped, and an update
+ * of this app ends with Android closing it, so this is all the person gets to see of it.
+ */
+enum class UpdateWaitPhase {
+    /** The apk is copied into Android's installer, or Android's window is about to open. */
+    PREPARING,
+
+    /**
+     * Just after Android's window was opened, or just back from it, with no answer heard yet. The
+     * answer lands within a second as a rule, and "tap Update" said in the meantime would be wrong
+     * for everyone who just did.
+     */
+    SETTLING,
+
+    /** Android's window was shown and is not answered: left with Home, or open beside the app. */
+    WAITING,
+
+    INSTALLING,
+}
+
+/** How long the wait says nothing after Android's window was opened, or the app came back from it. */
+internal const val UPDATE_SETTLE_MS = 3_000L
+
+/**
+ * The phase for an installer state, or null when the prompt itself shows: the offer, a download,
+ * and every way an install can end. [sinceWindowMs] is the time since Android's window was last
+ * opened or the app last came back to the front, whichever was later.
+ */
+internal fun updateWaitPhase(state: UpdateInstaller.State, sinceWindowMs: Long): UpdateWaitPhase? = when (state) {
+    UpdateInstaller.State.Preparing -> UpdateWaitPhase.PREPARING
+    is UpdateInstaller.State.AwaitingConfirmation -> when {
+        !state.shown -> UpdateWaitPhase.PREPARING
+        sinceWindowMs < UPDATE_SETTLE_MS -> UpdateWaitPhase.SETTLING
+        else -> UpdateWaitPhase.WAITING
+    }
+
+    UpdateInstaller.State.Installing -> UpdateWaitPhase.INSTALLING
+    else -> null
+}
+
+internal fun updateWaitLine(phase: UpdateWaitPhase): Int? = when (phase) {
+    UpdateWaitPhase.PREPARING -> R.string.update_wait_preparing
+    UpdateWaitPhase.SETTLING -> null
+    UpdateWaitPhase.WAITING -> R.string.update_wait_waiting
+    UpdateWaitPhase.INSTALLING -> R.string.update_wait_installing
+}
+
+/** None of them installs: a second tap on Install is what the busy form is there to prevent. */
+internal enum class UpdateWaitButton { SHOW_WINDOW, STOP }
+
+internal fun updateWaitButtons(phase: UpdateWaitPhase): List<UpdateWaitButton> = when (phase) {
+    // Only for a window that waits. Started again once Android is installing, it would ask about
+    // an install already under way.
+    UpdateWaitPhase.WAITING -> listOf(UpdateWaitButton.SHOW_WINDOW, UpdateWaitButton.STOP)
+    else -> emptyList()
+}
+
+/** Only the wait steps aside on Back or a tap outside, and it leaves the install as it is. */
+internal fun updateWaitDismissable(phase: UpdateWaitPhase): Boolean = phase == UpdateWaitPhase.WAITING
+
+/**
+ * The word on Android's button for an update, as PackageInstallerActivity has it: "Install" up to
+ * Android 11, "Update" from 12.
+ */
+internal fun androidUpdateButton(sdk: Int): Int =
+    if (sdk >= Build.VERSION_CODES.S) R.string.update_wait_android_update else R.string.update_wait_android_install
 
 /**
  * Makes GitHub release notes readable in a dialog.
