@@ -1460,20 +1460,17 @@ class MusicService : MediaLibraryService(),
                     // Switched off: nothing waiting, held back or being worked out changes a radio after that.
                     if (!mode.isOn) dropPasses()
                 }
-            // NewPipe's player script fetched a few seconds after the start, when the first song
-            // would fetch it anyway: see Warmup.
+            // NewPipe's player script fetched a few seconds after the start, on a network that
+            // costs nothing: see Warmup.
             scope.launch(Dispatchers.IO + SilentHandler) {
                 delay(Warmup.AFTER_MS)
                 val id = withContext(Dispatchers.Main) { activePlayer.currentMediaItem?.mediaId }
-                val queued = id?.let { queueBoard.getCurrentQueue()?.findSong(it) }
                 val network = connectivityManager.activeNetwork
                 val capabilities = network?.let { connectivityManager.getNetworkCapabilities(it) }
                 val warm = Warmup.newPipe(
                     validated = capabilities?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true,
                     dataSaver = connectivityManager.restrictBackgroundStatus == android.net.ConnectivityManager.RESTRICT_BACKGROUND_STATUS_ENABLED,
                     unmetered = !connectivityManager.isActiveNetworkMetered,
-                    currentStreamed = id != null && queued?.isLocal != true &&
-                        !downloadCache.isCached(id, 0, 1) && !playerCache.isCached(id, 0, CHUNK_LENGTH),
                     alreadyWarmed = Warmup.warmedInProcess,
                 )
                 if (warm && id != null) {

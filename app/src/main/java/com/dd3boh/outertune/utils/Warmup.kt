@@ -13,8 +13,11 @@ package com.dd3boh.outertune.utils
  * The first app client's address of a process makes NewPipeExtractor fetch YouTube's player
  * script, about 0.7 MB, and compile its n function. On 20 Oct 2026 the first song waited 11 s
  * with nothing written in between, and the next took 0.3 s. Fetched a few seconds after the
- * service starts, it is paid while nobody waits. It is never an extra fetch: the first streamed
- * song of the process would make it anyway, so it is made only when that song is coming.
+ * service starts, it is paid while nobody waits.
+ *
+ * Only on a network that costs nothing. The service also starts for the widget, a media button
+ * and Android Auto, and on mobile data 0.7 MB at every start, for a song that may never be
+ * played, is not the app's to spend: there the first song that needs the script fetches it.
  */
 object Warmup {
     /** How long after the service starts. */
@@ -25,15 +28,13 @@ object Warmup {
     var warmedInProcess = false
 
     /**
-     * Whether to fetch the player script now: a network that reaches the internet, Data Saver
-     * off for the app, and either a network that costs nothing or a current song that is to be
-     * streamed (not a local file, a download or a song cached whole). Once a process.
+     * Whether to fetch the player script now: a network that reaches the internet and costs
+     * nothing, and Data Saver off for the app. Once a process.
      */
     fun newPipe(
         validated: Boolean,
         dataSaver: Boolean,
         unmetered: Boolean,
-        currentStreamed: Boolean,
         alreadyWarmed: Boolean,
-    ): Boolean = !alreadyWarmed && validated && !dataSaver && (unmetered || currentStreamed)
+    ): Boolean = !alreadyWarmed && validated && !dataSaver && unmetered
 }

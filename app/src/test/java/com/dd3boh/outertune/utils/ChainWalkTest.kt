@@ -140,6 +140,8 @@ class ChainWalkTest {
         private val decipherBlocks: Map<String, Long> = emptyMap(),
         /** How each client's n step fails, by the client its host names. */
         private val decipherFails: Map<String, Throwable> = emptyMap(),
+        /** Whether the network in use costs data. */
+        private val metered: Boolean = false,
     ) : YTPlayerUtils.Wire {
         /** Every n step started, by the client its host names. */
         val deciphered = java.util.Collections.synchronizedList(mutableListOf<String>())
@@ -299,6 +301,8 @@ class ChainWalkTest {
         override fun warmWeb() {
             webWarmed++
         }
+
+        override fun metered(connectivityManager: ConnectivityManager): Boolean = metered
 
         override fun signatureTimestamp(videoId: String): Int? = TIMESTAMP
 
@@ -2206,5 +2210,20 @@ class ChainWalkTest {
         )
         walk(script).getOrThrow()
         assertEquals("still asked as the account first", "WEB_REMIX" to true, script.carriedInOrder.first { it.first != "ANDROID_VR" })
+    }
+
+    @Test
+    fun `on mobile data the web client is not got ready ahead, even while VISIONOS rests`() {
+        // A WebView, its po tokens and maybe the player script, every ten minutes, for a client
+        // that may never be asked: on a network that costs data, only when its turn comes.
+        remembering("VISIONOS_104", "ANDROID_VR", "VISIONOS")
+        YTPlayerUtils.identitiesInChain = true
+        val script = Script(
+            says = mapOf("VISIONOS_104" to listOf(playable("VISIONOS_104", loudness = 5.0, seconds = "200"))),
+            canSolve = true,
+            metered = true,
+        )
+        walk(script).getOrThrow()
+        assertEquals(0, script.webWarmed)
     }
 }

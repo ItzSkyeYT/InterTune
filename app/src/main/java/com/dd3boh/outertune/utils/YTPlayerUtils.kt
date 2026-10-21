@@ -306,6 +306,10 @@ object YTPlayerUtils {
         /** Gets the web client ready, po tokens too, the day it may be needed: see [webMayBeNeeded]. Does not wait. */
         fun warmWeb() {}
 
+        /** Whether the network in use costs the listener data: nothing is got ready ahead of its turn on one. */
+        fun metered(connectivityManager: ConnectivityManager): Boolean =
+            runCatching { connectivityManager.isActiveNetworkMetered }.getOrDefault(true)
+
         /** A /player request was cut by our deadline: the idle connections beside it are let go. See [poolCut]. */
         fun connectionsCut() {}
     }
@@ -1358,8 +1362,10 @@ object YTPlayerUtils {
                 .map { playerClients[written.indexOf(it)] }
         // The day VISIONOS rests or the maintainer's block puts the web client before it, the web
         // client is got ready now, so its first song does not pay 4.4 s of cold WebView. Never
-        // otherwise: a WebView costs memory.
-        if (webInChain && webMayBeNeeded(playerClients.map { label(it) })) wire.warmWeb()
+        // otherwise: a WebView costs memory. Nor on a network that costs data: a WebView, its po
+        // tokens and maybe the player script, every ten minutes while VISIONOS rests after one
+        // late or in-song 403, for a client that may never be asked. There it gets ready on its turn.
+        if (webInChain && !wire.metered(connectivityManager) && webMayBeNeeded(playerClients.map { label(it) })) wire.warmWeb()
         // The routes the player failed on for this song lately, asked last and never left out:
         // see SongRoutes. A retry then starts somewhere else.
         val avoid = wish?.avoid.orEmpty()
