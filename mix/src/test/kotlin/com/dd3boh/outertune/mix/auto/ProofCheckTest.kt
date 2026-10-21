@@ -45,13 +45,13 @@ class ProofCheckTest {
         return FloatArray(2 * n) { (random.nextGaussian() * gain).toFloat().coerceIn(-0.9f, 0.9f) }
     }
 
-    private fun proof(mix: FloatArray, lockA: FloatArray? = null, lockB: FloatArray? = null, bpm: Double = 120.0): Proof {
+    private fun proof(mix: FloatArray, lockA: FloatArray? = null, lockB: FloatArray? = null, bpm: Double = 120.0, plain: FloatArray? = null): Proof {
         val frames = mix.size / 2
         val beats = if (lockA != null) {
             val beat = 60.0 / bpm * rate
             DoubleArray((lockA.size / beat).toInt()) { it * beat }
         } else DoubleArray(0)
-        return Proof(rate, mix, frames / 3, 2 * frames / 3, lockA, lockB, frames / 3, beats)
+        return Proof(rate, mix, frames / 3, 2 * frames / 3, lockA, lockB, frames / 3, beats, plain ?: mix, plain ?: mix)
     }
 
     @Test
@@ -98,29 +98,24 @@ class ProofCheckTest {
     }
 
     @Test
-    fun aHoleInTheLevelIsRefusedAndASlopeIsNot() {
-        val mix = bed(30.0)
+    fun aSagUnderBothSongsIsRefusedAndASongsOwnQuietIntroIsNot() {
+        val plain = bed(30.0)
+        val mix = plain.copyOf()
         val frames = mix.size / 2
-        // 3 s at a quarter of the level in the middle of the change: 12 dB down.
+        // 3 s at a quarter of the level in the middle of the change, where both songs play on: 12 dB down.
         for (f in frames / 2 - 3 * rate / 2 until frames / 2 + 3 * rate / 2) {
             mix[2 * f] *= 0.25f
             mix[2 * f + 1] *= 0.25f
         }
-        val hole = ProofCheck.check(proof(mix))
-        println("hole: ${hole.why}")
+        val hole = ProofCheck.check(proof(mix, plain = plain))
+        println("hole: ${hole.why}, sag ${hole.sagDb}")
         assertFalse(hole.passes)
-        assertTrue(hole.dipDb < -6)
-        // A song 6 dB louder than the one before it: the level moves, but along the line.
-        val slope = bed(30.0, gain = 0.08)
-        for (f in frames / 3 until frames) {
-            val x = ((f - frames / 3).toDouble() / (frames / 3)).coerceAtMost(1.0)
-            val g = Math.pow(10.0, 6 * x / 20).toFloat()
-            slope[2 * f] *= g
-            slope[2 * f + 1] *= g
-        }
-        val v = ProofCheck.check(proof(slope))
-        println("slope: ${v.why}, dip ${v.dipDb}")
-        assertTrue(v.passes)
+        assertTrue(hole.sagDb > 6)
+        // The same drop, but it is the songs' own: the mix follows them, so nothing is taken away.
+        val quiet = ProofCheck.check(proof(mix, plain = mix))
+        println("quiet intro: ${quiet.why}, sag ${quiet.sagDb}, line dip ${quiet.dipDb}")
+        assertTrue(quiet.passes)
+        assertTrue(quiet.dipDb < -6)
     }
 
     @Test

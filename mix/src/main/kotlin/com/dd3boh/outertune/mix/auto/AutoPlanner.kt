@@ -195,17 +195,38 @@ object AutoPlanner {
     const val BUSY = 6.0
     const val SPARSE = 2.5
 
+    /**
+     * A change counts its bars in four beats of the incoming song's grid, whatever the analysis
+     * calls a bar there: a grid at twice a half-time song's beat has bars of eight, and so does a
+     * song whose pattern turns every two bars; in both, four grid beats keep every bar line of the
+     * change on one of the song's own, and the editor shows the grid's tempo with them.
+     */
+    const val CHANGE_BEATS = 4
+
     /** The ramp before bar 1 over which the outgoing song's tempo moves, in beats: twice as long above 3%. */
     fun rampBeats(speed: Double): Int = if (abs(speed - 1) > 0.03) 8 else 4
 
-    fun pick(input: AutoInput, proof: Proof.Renderer? = null, limits: ProofCheck.Limits = ProofCheck.Limits()): AutoPick {
+    /** How many candidates are rendered and checked at most before a change stays plain: each costs a render. */
+    const val MAX_PROOFS = 10
+
+    /**
+     * The best candidate whose proof passes, trying them in order; [heard] is told each verdict,
+     * for the trial. Without a renderer, the best candidate as it stands.
+     */
+    fun pick(
+        input: AutoInput,
+        proof: Proof.Renderer? = null,
+        limits: ProofCheck.Limits = ProofCheck.Limits(),
+        heard: ((AutoPick, ProofCheck.Verdict) -> Unit)? = null,
+    ): AutoPick {
         val ranked = candidates(input)
         if (proof == null) return ranked.first()
         val refused = ArrayList<String>()
-        for (c in ranked) {
+        for (c in ranked.take(MAX_PROOFS)) {
             if (c.isPlain) return if (refused.isEmpty()) c else plain(input, AutoPlain.NO_CLEAN_MIX, refused.joinToString("; "))
             val p = proof.render(c) ?: return c.withWhy(refused)
             val verdict = ProofCheck.check(p, limits)
+            heard?.invoke(c, verdict)
             if (verdict.passes) return c.withWhy(refused)
             refused += "${c.pill} refused: ${verdict.why}"
         }
@@ -391,14 +412,14 @@ object AutoPlanner {
         }
         val phrases = a.phrases
         val out = ArrayList<AutoPick>()
-        val beatB = 1.0 / lb.beatsPerBar
+        val beatB = 1.0 / CHANGE_BEATS
         for (length in LENGTHS) {
             val limit = if (length <= 4) Planner.BEAT_MAX_SPEED else Planner.BEAT_EIGHT_BAR_MAX_SPEED
             if (abs(speed0 - 1) > limit + 1e-9) {
                 c.note("not $length bars: tempos %.1f%% apart".format(abs(speed0 - 1) * 100))
                 continue
             }
-            val kEndB = k1 + length * lb.beatsPerBar
+            val kEndB = k1 + length * CHANGE_BEATS
             // B's beats must hold from its bar 1 to the end of the change, where they are laid on A's.
             if (k1 < lb.firstK - lb.beatsPerBar || kEndB > lb.lastK + 1) {
                 c.note("not $length bars: the next song's beats are not trusted for $length bars")
@@ -410,7 +431,7 @@ object AutoPlanner {
             }
             val bLocal = b.lineFor(k1, kEndB) ?: lb
             // The change in A's beats: one of B's beats is perB of A's.
-            val beatsA = (length * lb.beatsPerBar * perB).roundToInt()
+            val beatsA = (length * CHANGE_BEATS * perB).roundToInt()
             var tried = 0
             for (j in 0 until (phrases?.beats?.size ?: 0)) {
                 val kS = phrases!!.beats[j]
@@ -431,7 +452,7 @@ object AutoPlanner {
                 val level = phrases.level[j]
                 val endLevel = phrases.levelOf(kE)
                 val unheard = max(0.0, a.trueEndMs - aLocal.msOf(kE))
-                val bBarMs = bLocal.barMs
+                val bBarMs = bLocal.beatMs * CHANGE_BEATS
                 val bStartMs = bLocal.msOf(k1)
                 val sparseA = a.density < SPARSE
                 val sparseB = b.density < SPARSE
@@ -469,11 +490,12 @@ object AutoPlanner {
                     Preset.BLEND -> AutoMoves.blend(length.toDouble(), beatB)
                     else -> AutoMoves.fade(length.toDouble(), beatB)
                 }
-                val anchorA = Anchor(c.input.aId, aLocal.msOf(kS), aLocal.bpm, la.beatsPerBar)
-                val anchorB = Anchor(c.input.bId, bStartMs, bLocal.bpm, lb.beatsPerBar)
-                val why = "%d bars on the %s, in at %s, A %.2f to B %.2f BPM (A at %.4f)%s%s".format(
+                val anchorA = Anchor(c.input.aId, aLocal.msOf(kS), aLocal.bpm, CHANGE_BEATS)
+                val anchorB = Anchor(c.input.bId, bStartMs, bLocal.bpm, CHANGE_BEATS)
+                val why = "%d bars on the %s, in at %s, A %.2f to B %.2f BPM (A at %.4f)%s%s%s".format(
                     length, phraseWords(level, phrases.heard), clock(sMs), aLocal.bpm, bLocal.bpm, speed,
                     keyWords(c), if (move != Preset.FADE) ", ${moveWhy(move)}" else "",
+                    if (lb.barsFromFirstBeat) ", the next song's bars from its first beat" else "",
                 )
                 out += AutoPick(
                     AutoKind.BEAT_LOCKED, move, null, length, length * bBarMs / 1000.0, true, anchorA, anchorB, moves,
@@ -499,7 +521,7 @@ object AutoPlanner {
      */
     private fun dropScore(b: SongEnd, lb: BeatLine, k1: Int, length: Int): Double {
         val rise = b.introEndMs ?: return 0.0
-        val d = (rise - lb.msOf(k1)) / lb.barMs
+        val d = (rise - lb.msOf(k1)) / (lb.beatMs * CHANGE_BEATS)
         return when {
             abs(d - length) <= 0.5 -> 0.35
             d > length -> 0.15
@@ -527,10 +549,10 @@ object AutoPlanner {
             return emptyList()
         }
         val (speed0, perB) = ratio(la, lb)
-        val introBars = introMs / lb.barMs
+        val introBars = introMs / (lb.beatMs * CHANGE_BEATS)
         val out = ArrayList<AutoPick>()
         val phrases = a.phrases ?: return emptyList()
-        val beatB = 1.0 / lb.beatsPerBar
+        val beatB = 1.0 / CHANGE_BEATS
         for (length in LENGTHS) {
             if (length > introBars + 0.25) continue
             val limit = if (length <= 4) Planner.BEAT_MAX_SPEED else Planner.BEAT_EIGHT_BAR_MAX_SPEED
@@ -538,14 +560,14 @@ object AutoPlanner {
                 c.note("no intro mix of $length bars: tempos %.1f%% apart".format(abs(speed0 - 1) * 100))
                 continue
             }
-            val k1 = kD - length * lb.beatsPerBar
+            val k1 = kD - length * CHANGE_BEATS
             val bAt = lb.msOf(k1)
             if (bAt < 0) continue
             // B's intro rises from its first sound, at most 4 bars before bar 1.
-            val fromU = ((b.firstSoundMs - bAt) / lb.barMs).coerceAtMost(0.0)
+            val fromU = ((b.firstSoundMs - bAt) / (lb.beatMs * CHANGE_BEATS)).coerceAtMost(0.0)
             if (fromU < -4.0) continue
-            val beatsA = (length * lb.beatsPerBar * perB).roundToInt()
-            val preBeatsA = (-fromU * lb.beatsPerBar * perB).roundToInt()
+            val beatsA = (length * CHANGE_BEATS * perB).roundToInt()
+            val preBeatsA = (-fromU * CHANGE_BEATS * perB).roundToInt()
             for (j in phrases.beats.indices) {
                 val kS = phrases.beats[j]
                 val kE = kS + beatsA
@@ -571,14 +593,14 @@ object AutoPlanner {
                 score += outroScore(a, sMs, la.barMs)
                 score += varietyPenalty(c, Preset.RISE)
                 if (!phrases.heard) score -= 0.1
-                val bAnchorMs = bLocal.msOf(kD) - length * bLocal.barMs
-                val anchorA = Anchor(c.input.aId, aLocal.msOf(kS), aLocal.bpm, la.beatsPerBar)
-                val anchorB = Anchor(c.input.bId, bAnchorMs, bLocal.bpm, lb.beatsPerBar)
+                val bAnchorMs = bLocal.msOf(kD) - length * bLocal.beatMs * CHANGE_BEATS
+                val anchorA = Anchor(c.input.aId, aLocal.msOf(kS), aLocal.bpm, CHANGE_BEATS)
+                val anchorB = Anchor(c.input.bId, bAnchorMs, bLocal.bpm, CHANGE_BEATS)
                 val why = "intro mix: the next song's %.1f-bar opening rises under the last %d bars on the %s, its beat drops at %s as this one leaves, A %.2f to B %.2f BPM (A at %.4f)%s".format(
                     introBars, length, phraseWords(level, phrases.heard), clock(la.msOf(kE)), aLocal.bpm, bLocal.bpm, speed, keyWords(c),
                 )
                 out += AutoPick(
-                    AutoKind.INTRO_MIX, Preset.RISE, null, length, length * bLocal.barMs / 1000.0, true, anchorA, anchorB,
+                    AutoKind.INTRO_MIX, Preset.RISE, null, length, length * bLocal.beatMs * CHANGE_BEATS / 1000.0, true, anchorA, anchorB,
                     AutoMoves.introRise(length.toDouble(), beatB, fromU),
                     onPhrase = level >= 4, phraseBars = level, bOnBar = true, keyDistance = c.keyDistance,
                     speed = speed, unheardMs = unheard, score = score, why = why,
@@ -605,9 +627,9 @@ object AutoPlanner {
             }
             else -> b.firstSoundMs to "its first sound"
         }
-        val bBarMs = lb?.takeIf { it.beatsTrusted }?.barMs ?: (240_000.0 / TransitionSpec.NOMINAL_BPM)
+        val bBarMs = lb?.takeIf { it.beatsTrusted }?.let { it.beatMs * CHANGE_BEATS } ?: (240_000.0 / TransitionSpec.NOMINAL_BPM)
         val bBpm = lb?.takeIf { it.beatsTrusted }?.bpm ?: TransitionSpec.NOMINAL_BPM
-        val bBeats = lb?.takeIf { it.beatsTrusted }?.beatsPerBar ?: 4
+        val bBeats = CHANGE_BEATS
         val beatB = 1.0 / bBeats
         val pickupMs = bAtMs - b.firstSoundMs
         val incoming = if (pickupMs <= PICKUP_MS) AutoMoves.fromStart() else AutoMoves.risingInto(-min(pickupMs, bBarMs) / bBarMs)
@@ -650,17 +672,17 @@ object AutoPlanner {
             // something left to echo.
             val echoScore = base + (if (loudBefore) 0.15 else -0.2) + varietyPenalty(c, Preset.ECHO_OUT)
             val cutScore = base + (if (loudBefore && bLoud) 0.1 else -0.15) + varietyPenalty(c, Preset.CUT)
-            val anchorA = Anchor(c.input.aId, h, la?.bpm ?: TransitionSpec.NOMINAL_BPM, la?.beatsPerBar ?: 4)
+            val anchorA = Anchor(c.input.aId, h, la?.bpm ?: TransitionSpec.NOMINAL_BPM, CHANGE_BEATS)
             val anchorB = Anchor(c.input.bId, bAtMs, bBpm, bBeats)
             val tempo = if (la != null && lb != null) "A %.2f, B %.2f BPM".format(la.bpm, lb.bpm) else "no tempo on one side"
-            val where = if (line.level > 0) phraseWords(line.level, a.phrases?.heard == true) else "a beat"
+            val where = if (line.level > 0) "the " + phraseWords(line.level, a.phrases?.heard == true) else "a beat"
             for ((move, score) in listOf(Preset.ECHO_OUT to echoScore, Preset.CUT to cutScore)) {
                 val moves = if (move == Preset.ECHO_OUT) AutoMoves.echoOn(beatB, incoming = incoming) else AutoMoves.cutOn(incoming)
                 out += AutoPick(
                     AutoKind.HAND_OVER, move, null, 2, 2 * bBarMs / 1000.0, false, anchorA, anchorB, moves,
                     onPhrase = line.level >= 4, phraseBars = line.level, bOnBar = bWhat == "its first downbeat", keyDistance = c.keyDistance,
                     speed = 1.0, unheardMs = unheard, score = score,
-                    why = "%s on the %s at %s, %.1f s before the end, into %s; %s%s".format(
+                    why = "%s on %s at %s, %.1f s before the end, into %s; %s%s".format(
                         if (move == Preset.ECHO_OUT) "echo out" else "cut", where, clock(h), unheard / 1000, bWhat, tempo, keyWords(c),
                     ),
                 )

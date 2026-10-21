@@ -33,6 +33,8 @@ class BeatLine(
     val beatsTrusted: Boolean,
     /** Which beat is the one is clear as well: a mix may line up bars on them. */
     val barsTrusted: Boolean,
+    /** The bars are trusted only because an opening's first beat was taken for its one ([SongEnd.of]). */
+    val barsFromFirstBeat: Boolean = false,
 ) {
     val bpm: Double get() = 60_000.0 / beatMs
     val barMs: Double get() = beatsPerBar * beatMs
@@ -209,7 +211,7 @@ class SongEnd(
          * [songMs]. The phrases are found again here from where the music changes ([PhraseFinder]),
          * and the key from the region's own mono copy.
          */
-        fun of(region: RegionAnalysis, fromMs: Double, songMs: Double): SongEnd {
+        fun of(region: RegionAnalysis, fromMs: Double, songMs: Double, firstBeatBars: Boolean = true): SongEnd {
             val rate = region.sampleRate
             fun ms(frame: Double) = fromMs + frame * 1000.0 / rate
             val env = region.envelope
@@ -222,6 +224,15 @@ class SongEnd(
             val low = lowLevels(spectrum, region, steps)
             val g = region.grid
             val bars = region.downbeats
+            // An opening's first beat is its one, as a DJ assumes: a song starts on bar 1. Taken
+            // only where the beats are trusted from the very start, the first sound lands on one
+            // of them, and the downbeat finder, unsure as it is, leans the same way.
+            val firstBeatIsOne = firstBeatBars && region.kind == RegionKind.HEAD && !region.barsConfident && region.beatsConfident &&
+                g != null && bars != null && bars.margin >= 0.0 && run {
+                    val k = region.beatNear(env.firstSound.toDouble())
+                    val off = abs(region.beatFrame(k) - env.firstSound) * 1000.0 / rate
+                    off <= FIRST_BEAT_MS && k <= g.firstBeat + 1 && bars.isDownbeat(k)
+                }
             val line = if (g != null) {
                 BeatLine(
                     t0Ms = ms(region.beatFrame(0)),
@@ -231,7 +242,8 @@ class SongEnd(
                     beatsPerBar = bars?.beatsPerBar ?: 4,
                     phase = bars?.phase ?: 0,
                     beatsTrusted = region.beatsConfident,
-                    barsTrusted = region.barsConfident,
+                    barsTrusted = region.barsConfident || firstBeatIsOne,
+                    barsFromFirstBeat = firstBeatIsOne,
                 )
             } else null
             val phrases = if (line != null && bars != null && g != null) PhraseFinder.find(spectrum, region, line) else null
@@ -264,10 +276,13 @@ class SongEnd(
                 phrases = phrases,
                 key = Keys.of(region),
                 density = region.onsetDensity(env.firstSound, env.trueEnd),
-                trustNote = region.describe(),
+                trustNote = region.describe() + if (firstBeatIsOne) "; bars from its first beat" else "",
                 localLine = local,
             )
         }
+
+        /** How near a grid beat an opening's first sound must land for that beat to be taken for its one. */
+        const val FIRST_BEAT_MS = 60.0
 
         /** How far the onsets on the beats a mix uses may sit off the line through them, as the prototype's planner allows. */
         const val LOCAL_JITTER_MS = 12.0

@@ -41,7 +41,7 @@ object PhraseFinder {
     /** The lean towards the grid counted back from the last loud bar, against the mean evidence of a bar line. */
     private const val LAST_STRONG_LEAN = 0.35
 
-    /** How clearly the 4-bar grid's place must win over the next best to count as heard and not counted. */
+    /** How clearly the 8-bar grid's place must win over the other one the 4-bar grid allows, to count as heard and not counted. */
     const val HEARD_MARGIN = 1.5
 
     fun find(spectrum: Spectrum, region: RegionAnalysis, line: BeatLine): PhraseMap? {
@@ -140,21 +140,25 @@ object PhraseFinder {
             return s to values
         }
 
+        // Phrases are counted in bars of four beats of the grid: where the analysis found bars of
+        // eight, each of its bar lines is two of those, and the grids are half as many lines.
+        val per = (bar / 4).coerceAtLeast(1)
+        val periods = intArrayOf(4 / per, 8 / per, 16 / per)
         val offsets = IntArray(3)
         var margin = 0.0
         if (opening) {
             // The song's first bar opens its first phrase.
             offsets.fill(0)
         } else {
-            var choices = (0 until 4).toList()
-            for ((i, period) in intArrayOf(4, 8, 16).withIndex()) {
+            var choices = (0 until periods[0]).toList()
+            for ((i, period) in periods.withIndex()) {
                 val scored = choices.map { it to scoreOf(it, period) }.filter { it.second.first.isFinite() }
                 if (scored.isEmpty()) {
-                    offsets[i] = if (i == 0) Math.floorMod(lastStrong, 4) else offsets[i - 1]
+                    offsets[i] = if (i == 0) Math.floorMod(lastStrong, periods[0]) else offsets[i - 1]
                 } else {
                     val ranked = scored.sortedByDescending { it.second.first }
                     offsets[i] = ranked[0].first
-                    if (period == 4 && ranked.size > 1) margin = welch(ranked[0].second.second, ranked[1].second.second)
+                    if (i == 1 && ranked.size > 1) margin = welch(ranked[0].second.second, ranked[1].second.second)
                 }
                 val chosen = offsets[i]
                 choices = listOf(chosen, chosen + period)
@@ -163,10 +167,10 @@ object PhraseFinder {
 
         val level = IntArray(lines.size) { l ->
             when {
-                Math.floorMod(l - offsets[2], 16) == 0 -> 16
-                Math.floorMod(l - offsets[1], 8) == 0 -> 8
-                Math.floorMod(l - offsets[0], 4) == 0 -> 4
-                Math.floorMod(l - offsets[0], 2) == 0 -> 2
+                Math.floorMod(l - offsets[2], periods[2]) == 0 -> 16
+                Math.floorMod(l - offsets[1], periods[1]) == 0 -> 8
+                Math.floorMod(l - offsets[0], periods[0]) == 0 -> 4
+                Math.floorMod(l - offsets[0], max(1, 2 / per)) == 0 -> 2
                 else -> 1
             }
         }
