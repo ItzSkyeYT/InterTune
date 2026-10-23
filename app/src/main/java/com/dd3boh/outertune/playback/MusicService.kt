@@ -60,6 +60,7 @@ import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.datasource.okhttp.OkHttpDataSource
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.analytics.AnalyticsListener
@@ -68,7 +69,6 @@ import androidx.media3.exoplayer.analytics.PlaybackStatsListener
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioOffloadSupportProvider
 import androidx.media3.exoplayer.audio.DefaultAudioSink
-import androidx.media3.exoplayer.audio.DefaultAudioTrackBufferSizeProvider
 import androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.ShuffleOrder
@@ -837,8 +837,13 @@ class MusicService : MediaLibraryService(),
         }
     }
 
-    /** Whether the listener asked for head tracking, independent of whether it is possible. */
-    private var headTrackingWanted = false
+    /**
+     * Whether the listener asked for head tracking, independent of whether it is possible. Read
+     * at construction, so the first song's output is set up knowing it, then kept by the observer
+     * in onCreate. Volatile: the output's buffer asks it on the player's thread.
+     */
+    @Volatile
+    private var headTrackingWanted = dataStore.get(HeadTrackingKey, false)
 
     /**
      * Measure how long it takes a rendered sample to reach the ear, and tell the head tracking.
@@ -873,16 +878,20 @@ class MusicService : MediaLibraryService(),
     private var currentTrackStartMs: Long? = null
 
     /**
-     * Whether to trade buffer headroom for latency, read once at construction like the other
-     * things that decide how the sink is built.
+     * Whether to trade buffer headroom for latency, asked each time the output is set up for a
+     * stream (OutputBufferSize).
      *
      * media3 floors its PCM buffer at 250 ms, so a quarter of a second of already rendered audio
      * sits in front of the DAC before Bluetooth adds its own 150 to 250. That is inaudible for
      * ordinary playback and is most of the perceived lag once the soundstage is supposed to follow
-     * a head turn, which is the only case this shortens it for. Underruns are the cost, so it is
-     * not done for anyone who is not head tracking.
+     * a head turn, which is the only case this shortens it for: the switch on, Spatial audio on
+     * Headphones and a tracker connected. Underruns are the cost, and with the player's thread
+     * waking at half of what the output holds, wake-ups, so it is not done for anyone else. It
+     * used to follow the switch alone, read once when the service started.
      */
-    private val lowLatencyAudio = dataStore.get(HeadTrackingKey, false)
+    private val outputBufferSize = OutputBufferSize(DEFAULT_BUFFER_US, LOW_LATENCY_BUFFER_US) {
+        OutputBufferSize.wantShort(headTrackingWanted, binauralProcessor.enabled) { headTracking.isAvailable }
+    }
     private val isGaplessOffloadAllowed = dataStore.get(AudioGaplessOffloadKey, false)
     val playerVolume = MutableStateFlow(dataStore.get(PlayerVolumeKey, 1f).coerceIn(0f, 1f))
 
@@ -1025,6 +1034,29 @@ class MusicService : MediaLibraryService(),
             )
             .setSeekBackIncrementMs(5000)
             .setSeekForwardIncrementMs(5000)
+            // The player's thread wakes when there is something for it to do, not every 10 ms.
+            // Left to its default it woke a hundred times a second all through a song, each time
+            // to find the output still holding a quarter of a second of music: 8 to 10% of a core
+            // on a Galaxy S25 Ultra, the largest share of what the app cost while it played in
+            // the background (Preview build, 23 Oct 2026). Asked this way it sleeps until half of
+            // what the output holds has played, or until the decoder has a buffer for it, and
+            // near the end of a song it goes back to 10 ms for the change. LevelTap is asked
+            // where the output is at each wake, so it allows for the longer gaps.
+            .experimentalSetDynamicSchedulingEnabled(true)
+            // A streamed song comes down in one burst, then the radio rests. media3's default
+            // kept 50 s ahead and read a megabyte at a time, so the mobile radio woke every 30 to
+            // 50 s of music for the whole song, each time with a tail of several seconds at full
+            // power. Now it reads up to five minutes ahead, into the next song when the queue has
+            // one, and starts again when 30 s are left: about one burst a song. The byte target
+            // stays media3's for audio, 12.5 MiB, which covers five minutes at 256 kbps. A SABR
+            // read is paced by the player's position (SabrClock) and blocks until its stream
+            // sends more, so this does not make SABR fetch faster. Playback starts at 1 s
+            // buffered, 2 s after a stall: a stream that is fast enough fills the rest in moments.
+            .setLoadControl(
+                DefaultLoadControl.Builder()
+                    .setBufferDurationsMs(30_000, 300_000, 1_000, 2_000)
+                    .build()
+            )
             .build()
             .apply {
                 // listeners
@@ -3072,13 +3104,7 @@ class MusicService : MediaLibraryService(),
                         // any, and every normalised track was rounded back to 16 bit after the
                         // multiply for no reason.
                         .setEnableFloatOutput(enableFloatOutput)
-                        .setAudioTrackBufferSizeProvider(
-                            DefaultAudioTrackBufferSizeProvider.Builder()
-                                .setMinPcmBufferDurationUs(
-                                    if (lowLatencyAudio) LOW_LATENCY_BUFFER_US else DEFAULT_BUFFER_US
-                                )
-                                .build()
-                        )
+                        .setAudioTrackBufferSizeProvider(outputBufferSize)
                         .setAudioProcessorChain(
                             DefaultAudioSink.DefaultAudioProcessorChain(
                                 // Upmix last: gain works on the two channels it was written for,
@@ -3114,13 +3140,7 @@ class MusicService : MediaLibraryService(),
                         // any, and every normalised track was rounded back to 16 bit after the
                         // multiply for no reason.
                         .setEnableFloatOutput(enableFloatOutput)
-                        .setAudioTrackBufferSizeProvider(
-                            DefaultAudioTrackBufferSizeProvider.Builder()
-                                .setMinPcmBufferDurationUs(
-                                    if (lowLatencyAudio) LOW_LATENCY_BUFFER_US else DEFAULT_BUFFER_US
-                                )
-                                .build()
-                        )
+                        .setAudioTrackBufferSizeProvider(outputBufferSize)
                         .setAudioProcessorChain(
                             DefaultAudioSink.DefaultAudioProcessorChain(
                                 // Upmix last: gain works on the two channels it was written for,
@@ -4450,6 +4470,14 @@ class MusicService : MediaLibraryService(),
         if (playbackState == STATE_IDLE) {
             queuePlaylistId = null
         }
+    }
+
+    /**
+     * Wi-Fi is kept at full power only while the player loads: see PlayerWakeMode. The phone's
+     * player is asked, not the one that called: while casting this hears the receiver's.
+     */
+    override fun onIsLoadingChanged(isLoading: Boolean) {
+        exoPlayer.setWakeMode(PlayerWakeMode.forLoading(exoPlayer.isLoading))
     }
 
     override fun onEvents(player: Player, events: Player.Events) {
