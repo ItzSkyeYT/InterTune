@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.navigation.NavController
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.Bolt
@@ -69,6 +70,10 @@ import com.dd3boh.outertune.constants.PauseRemoteListenHistoryKey
 import com.dd3boh.outertune.constants.SCANNER_OWNER_LM
 import com.dd3boh.outertune.constants.ScannerImpl
 import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.constants.RecapPopUpShownKey
+import com.dd3boh.outertune.constants.RecapRevealedEarlyKey
+import com.dd3boh.outertune.recap.RecapDoor
+import java.time.LocalDate
 import com.dd3boh.outertune.constants.VisitorDataKey
 import com.dd3boh.outertune.constants.OwnVisionosRefusedKey
 import com.dd3boh.outertune.constants.VisionosRefusedKey
@@ -152,6 +157,7 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
     val (everyDirectRefused, onEveryDirectRefusedChange) = rememberPreference(key = EveryDirectRefusedKey, defaultValue = false)
     val (visionosRefused, onVisionosRefusedChange) = rememberPreference(key = VisionosRefusedKey, defaultValue = false)
     val (ownVisionosRefused, onOwnVisionosRefusedChange) = rememberPreference(key = OwnVisionosRefusedKey, defaultValue = false)
+    val recapRevealedEarly by rememberPreference(key = RecapRevealedEarlyKey, defaultValue = false)
 
     var nukeEnabled by remember {
         mutableStateOf(false)
@@ -195,6 +201,30 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
                 onValueSelected = {
                     FaultInjection.set(it)
                     fault = it
+                },
+            )
+        }
+        if (BuildConfig.DEBUG && Unreleased.RECAP) {
+            // The InterTune Recap on demand, and its reveal day brought forward: see RecapCalendar.
+            PreferenceEntry(
+                title = { Text("DEBUG: Open the InterTune Recap") },
+                description = "This year's, from this phone's listening as it is now.",
+                icon = { Icon(Icons.Rounded.AutoAwesome, null) },
+                onClick = { RecapDoor.open(LocalDate.now().year) },
+            )
+            SwitchPreference(
+                title = { Text("DEBUG: Today is the Recap's reveal day") },
+                description = "Its pop-up comes once at the next start of the app, and its banner is at the top of Settings.",
+                icon = { Icon(Icons.Rounded.AutoAwesome, null) },
+                checked = recapRevealedEarly,
+                onCheckedChange = { on ->
+                    coroutineScope.launch {
+                        context.dataStore.edit {
+                            it[RecapRevealedEarlyKey] = on
+                            // Owed again each time it is switched on.
+                            if (on) it.remove(RecapPopUpShownKey)
+                        }
+                    }
                 },
             )
         }

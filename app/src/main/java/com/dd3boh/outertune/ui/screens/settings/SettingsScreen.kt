@@ -66,6 +66,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.ui.unit.Dp
 import com.dd3boh.outertune.ui.utils.LocalLandscape
+import com.dd3boh.outertune.ui.screens.recap.RecapBanner
+import com.dd3boh.outertune.ui.screens.recap.rememberRecapOnShow
 
 val SETTINGS_TAG = "Settings"
 
@@ -94,6 +96,7 @@ fun SettingsScreen(
     // once"; this says "there is one now, and here it is", which is what the row needs to show.
     val pendingUpdate by LocalUpdateChecker.current.available.collectAsState()
     val updateBadgeLabel = stringResource(R.string.update_available_title)
+    val recapYear = rememberRecapOnShow()
 
     // The four cards, each a thing of its own so that they can be stacked or set two by two.
     val you: @Composable () -> Unit = {
@@ -240,6 +243,11 @@ fun SettingsScreen(
             .padding(horizontal = 16.dp),
         maxContentWidth = if (twoByTwo) Dp.Unspecified else 720.dp,
     ) {
+        // The year's InterTune Recap, from its reveal day: the way back to it after its pop-up.
+        if (Unreleased.RECAP && recapYear != null) {
+            RecapBanner(recapYear)
+            Spacer(modifier = Modifier.height(16.dp))
+        }
         if (twoByTwo) {
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Column(Modifier.weight(1f)) {

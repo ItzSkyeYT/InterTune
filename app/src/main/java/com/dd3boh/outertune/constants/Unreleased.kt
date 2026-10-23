@@ -484,4 +484,21 @@ object Unreleased {
      * Player.kt, CastPicker, CastDiscovery and CastLinks.
      */
     val CASTING = true
+
+    /**
+     * InterTune Recap, the year told as a story (recap/Recaps.kt, ui/screens/recap): worked out on
+     * the phone from the listen log, nothing uploaded. From the reveal day (RecapCalendar) it opens
+     * once by itself, full screen and easy to close, and after that a banner at the top of Settings
+     * opens it whenever wanted. Its first opening each year is counted as a banner's is, with news
+     * switched on (PollChecker.recapOpened). A debug build has two rows in the developer options,
+     * one that opens it at once and one that makes today the reveal day, and a made-up year to
+     * write from adb (RecapSample).
+     *
+     * Phase 1, for the December release: the numbers, the slides, the share cards and the way in.
+     * Silent: nothing plays under the slides yet (RecapSound). Its texts are held back from
+     * translators for now, and the thank-you page holds placeholder words. When it ships:
+     * set this to true, or delete it with the checks that read it, in RecapEntry (twice),
+     * SettingsScreen, SettingsTwoPane, DeveloperFrag and RecapSample.
+     */
+    val RECAP = BuildConfig.DEBUG
 }

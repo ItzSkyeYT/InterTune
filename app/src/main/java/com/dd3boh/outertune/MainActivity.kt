@@ -18,6 +18,7 @@ import android.app.SearchManager
 import android.content.Intent
 import android.os.Build
 import android.appwidget.AppWidgetManager
+import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.os.Bundle
 import android.os.SystemClock
@@ -207,6 +208,8 @@ import com.dd3boh.outertune.ui.screens.walkthrough.SETTINGS_WALK
 import com.dd3boh.outertune.ui.screens.walkthrough.TourStop
 import com.dd3boh.outertune.ui.screens.walkthrough.TourTargets
 import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeBack
+import com.dd3boh.outertune.ui.screens.recap.RecapEntry
+import com.dd3boh.outertune.recap.RecapSample
 import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeShow
 import com.dd3boh.outertune.ui.screens.walkthrough.newThingsFor
 import com.dd3boh.outertune.ui.screens.walkthrough.welcomeCardFor
@@ -458,6 +461,7 @@ class MainActivity : ComponentActivity() {
     lateinit var activeCount: ActiveCount
 
     lateinit var activityLauncher: ActivityLauncherHelper
+    private var recapSample: BroadcastReceiver? = null
     lateinit var connectivityObserver: NetworkConnectivityObserver
 
     private var playerConnection by mutableStateOf<PlayerConnection?>(null)
@@ -587,6 +591,8 @@ class MainActivity : ComponentActivity() {
         }
         lifecycle.removeObserver(controllerViewModel)
         playerConnection = null
+        RecapSample.stop(this, recapSample)
+        recapSample = null
 
         super.onDestroy()
     }
@@ -618,6 +624,8 @@ class MainActivity : ComponentActivity() {
             intent?.let(::handlePlayFromSearch)
         }
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        // A made-up year to look at the Recap with, from adb, in a debug build only: see RecapSample.
+        recapSample = RecapSample.listen(this, database)
 
         activityLauncher = ActivityLauncherHelper(this)
 
@@ -1641,6 +1649,14 @@ class MainActivity : ComponentActivity() {
                         ) {
                             AccountNoticeDialog(onDone = { setAccountNoticeSeen(true) })
                         }
+
+                        // The InterTune Recap: from its reveal day it opens by itself once, after
+                        // whatever came up first; and whenever the banner in Settings asks.
+                        RecapEntry(
+                            setupDone = oobeStatus >= OOBE_VERSION,
+                            quiet = catchUpOpen || welcomeOpen || tourState.running || tourFromWelcome || updatePromptVisible ||
+                                accountNoticeOwed(setupDone = oobeStatus >= OOBE_VERSION, signedIn = signedIn, seen = accountNoticeSeen),
+                        )
 
                         // Behind the expanded player or the walkthrough, the screen is still composed, and
                         // the arrow keys would wander into controls nobody can see.

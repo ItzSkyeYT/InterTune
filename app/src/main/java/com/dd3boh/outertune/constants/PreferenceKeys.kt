@@ -604,6 +604,18 @@ val WelcomeLookedAtKey = stringPreferencesKey("welcomeLookedAt")
 /** Poll and announcement ids whose opening has been counted, so each is counted once per install. */
 val ViewedPollIdsKey = stringSetPreferencesKey("viewedPollIds")
 
+/**
+ * The last year whose InterTune Recap opened by itself (RecapCalendar.popUpOwed), so that the
+ * pop-up comes once a year. 0 for never. Written when it opens, whatever is done with it then.
+ */
+val RecapPopUpShownKey = intPreferencesKey("recapPopUpShown")
+
+/**
+ * The developer options' "today is the reveal day", read in a debug build only: the Recap's
+ * pop-up and its banner in Settings behave as they will from the reveal day.
+ */
+val RecapRevealedEarlyKey = booleanPreferencesKey("recapRevealedEarly")
+
 /** Epoch millis of the last poll fetch, for the rate limit floor. */
 val LastPollFetchKey = longPreferencesKey("lastPollFetch")
 

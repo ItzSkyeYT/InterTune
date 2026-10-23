@@ -92,6 +92,8 @@ import com.dd3boh.outertune.ui.utils.AskForMusicOnOpening
 import com.dd3boh.outertune.ui.utils.LocalLandscape
 import com.dd3boh.outertune.ui.utils.headerPaneInsets
 import com.dd3boh.outertune.ui.utils.paneInsets
+import com.dd3boh.outertune.ui.screens.recap.RecapBanner
+import com.dd3boh.outertune.ui.screens.recap.rememberRecapOnShow
 
 /** One screen of settings as the list names it: where it is, what it is called, its picture. */
 internal data class SettingsCategory(val route: String, @StringRes val title: Int, val icon: ImageVector)
@@ -245,6 +247,7 @@ fun SettingsTwoPane(
     ScreenBackHandler(enabled = open.size > 1, onBack = up)
     val pendingUpdate by LocalUpdateChecker.current.available.collectAsState()
     val updateBadgeLabel = stringResource(R.string.update_available_title)
+    val recapYear = rememberRecapOnShow()
     val groupTargets = listOf(Tour.SETTINGS_YOU, Tour.SETTINGS_LOOK_AND_SOUND, Tour.SETTINGS_KEPT, Tour.SETTINGS_REST)
 
     Row(
@@ -269,6 +272,11 @@ fun SettingsTwoPane(
                 .windowInsetsPadding(if (LocalLandscape.current.active) headerPaneInsets() else paneInsets())
                 .padding(start = 12.dp, end = 4.dp, bottom = 12.dp),
         ) {
+            // The year's InterTune Recap, from its reveal day: it opens full screen, over both panes.
+            if (Unreleased.RECAP && recapYear != null) {
+                RecapBanner(recapYear)
+                Spacer(Modifier.height(10.dp))
+            }
             groups.forEachIndexed { at, group ->
                 if (at > 0) Spacer(Modifier.height(10.dp))
                 Column(
