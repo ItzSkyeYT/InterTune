@@ -486,12 +486,13 @@ class MusicService : MediaLibraryService(),
     /**
      * Settings the transition path asks about, held rather than fetched.
      *
-     * `dataStore.get` is `runBlocking(Dispatchers.IO) { data.first() }`, so every one of these was
-     * parking the player's thread for a dispatch, a flow collection and a dispatch back. Three of
-     * them ran on the application looper on every single song change, which is what made spamming
-     * next or previous feel heavy: each press paid for all three again, one after another, and the
-     * presses queued up behind each other. They are all settings that change about once a year, so
-     * they are read once at start and kept current by the observers in onCreate.
+     * `dataStore.get` was `runBlocking(Dispatchers.IO) { data.first() }` until reads came from
+     * memory (SettingsSnapshot), so every one of these was parking the player's thread for a
+     * dispatch, a flow collection and a dispatch back. Three of them ran on the application
+     * looper on every single song change, which is what made spamming next or previous feel
+     * heavy: each press paid for all three again, one after another, and the presses queued up
+     * behind each other. They are all settings that change about once a year, so they are read
+     * once at start and kept current by the observers in onCreate.
      */
     /**
      * The app stopped the music because a song failed, rather than the listener stopping it.

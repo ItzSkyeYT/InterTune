@@ -9,7 +9,6 @@
 
 package com.dd3boh.outertune
 
-import kotlinx.coroutines.flow.first
 import com.dd3boh.outertune.models.ContentFilter
 import com.dd3boh.outertune.utils.BuiltInKeys
 import android.webkit.CookieManager
@@ -192,7 +191,7 @@ class App : Application(), SingletonImageLoader.Factory {
         }
         // What the switches under Library and content hide, read once here so that a queue started
         // straight away already follows them, then followed. See ContentFilter.
-        ContentFilter.current = ContentFilter.of(runBlocking(Dispatchers.IO) { dataStore.data.first() })
+        ContentFilter.current = ContentFilter.of(dataStore.current)
         GlobalScope.launch {
             dataStore.data
                 .map { ContentFilter.of(it) }
