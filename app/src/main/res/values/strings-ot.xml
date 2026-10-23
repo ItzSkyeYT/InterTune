@@ -2082,4 +2082,160 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="every_direct_refused" translatable="false">Take every direct address for refused</string>
     <string name="every_direct_refused_description" translatable="false">Plays the day direct addresses stop: every client\'s address counts as refused, so SABR, the last try, has to take over.</string>
     <string name="sabr_only_description" translatable="false">Plays each song over SABR, as YouTube\'s own apps stream, from the VISIONOS answer the app already has. A song that cannot be started that way plays as before.</string>
+    <!-- InterTune Recap, behind Unreleased.RECAP: held back from translators until the words are agreed. -->
+    <string name="recap_name" translatable="false">InterTune Recap</string>
+    <string name="recap_short" translatable="false">Recap</string>
+    <string name="recap_open" translatable="false">Open Recap</string>
+    <string name="recap_start_first" translatable="false">Your first one, since you started on %1$s.</string>
+    <string name="recap_start_year" translatable="false">Everything you played in %1$s.</string>
+    <string name="recap_start_foot" translatable="false">Worked out on this phone. Nothing was uploaded.</string>
+    <string name="recap_working" translatable="false">Working out your year</string>
+    <string name="recap_too_little" translatable="false">There is not enough music in %1$s for a Recap yet.</string>
+    <string name="recap_close" translatable="false">Close</string>
+    <string name="recap_next" translatable="false">Next</string>
+    <string name="recap_previous" translatable="false">Back</string>
+    <string name="recap_sound_on" translatable="false">Sound on</string>
+    <string name="recap_sound_off" translatable="false">Sound off</string>
+    <string name="recap_banner_title" translatable="false">Your InterTune Recap</string>
+    <string name="recap_banner_line" translatable="false">Your year in music. Open it again any time.</string>
+    <string name="recap_hours_minutes" translatable="false">%1$s h %2$s min</string>
+    <string name="recap_minutes_only" translatable="false">%1$s min</string>
+    <plurals name="recap_plays" translatable="false">
+        <item quantity="one">%1$s play</item>
+        <item quantity="other">%1$s plays</item>
+    </plurals>
+    <string name="recap_share" translatable="false">Share this</string>
+    <string name="recap_first_kick" translatable="false">Your first InterTune Recap</string>
+    <string name="recap_year_kick" translatable="false">Your InterTune Recap</string>
+    <string name="recap_first_title" translatable="false">Since you started on %1$s</string>
+    <string name="recap_year_title" translatable="false">Your %1$s on InterTune</string>
+    <string name="recap_first_song_at" translatable="false">The first song, at %1$s</string>
+    <string name="recap_first_song_on" translatable="false">The year\'s first song, on %1$s</string>
+    <plurals name="recap_days_since" translatable="false">
+        <item quantity="one">Everything here comes from the day since, worked out on this phone.</item>
+        <item quantity="other">Everything here comes from the %1$s days since, worked out on this phone.</item>
+    </plurals>
+    <string name="recap_this_year_here" translatable="false">Everything here comes from this year, worked out on this phone.</string>
+    <string name="recap_minutes_kick_since" translatable="false">Since %1$s you listened for</string>
+    <string name="recap_minutes_kick_year" translatable="false">In %1$s you listened for</string>
+    <plurals name="recap_minutes_unit" translatable="false">
+        <item quantity="one">minute</item>
+        <item quantity="other">minutes</item>
+    </plurals>
+    <plurals name="recap_minutes_hours" translatable="false">
+        <item quantity="one">That\'s an hour of music.</item>
+        <item quantity="other">That\'s %1$s hours of music.</item>
+    </plurals>
+    <plurals name="recap_minutes_days" translatable="false">
+        <item quantity="one">That\'s a whole day of music.</item>
+        <item quantity="other">That\'s %1$s days of music.</item>
+    </plurals>
+    <string name="recap_minutes_days_half" translatable="false">That\'s %1$s and a half days of music.</string>
+    <string name="recap_minutes_top" translatable="false">%1$s of those minutes went to %2$s, more than to any other song.</string>
+    <string name="recap_flag" translatable="false">%1$s, %2$s</string>
+    <string name="recap_hour_kick" translatable="false">Your listening hour</string>
+    <string name="recap_hour_line" translatable="false">More music between %1$s and %2$s than in any other hour: %3$s minutes. Your song at that hour: %4$s.</string>
+    <string name="recap_late_nights" translatable="false">And %1$s nights went past midnight. The latest song started at %2$s.</string>
+    <string name="recap_streak_kick" translatable="false">Your longest streak</string>
+    <plurals name="recap_streak_unit" translatable="false">
+        <item quantity="one">day in a row</item>
+        <item quantity="other">days in a row</item>
+    </plurals>
+    <string name="recap_streak_line" translatable="false">Music every day from %1$s to %2$s.</string>
+    <plurals name="recap_streak_song" translatable="false">
+        <item quantity="one">%1$s was there on one of them.</item>
+        <item quantity="other">%1$s was there on %2$s of them.</item>
+    </plurals>
+    <string name="recap_artists_kick" translatable="false">Your artists</string>
+    <string name="recap_number_one" translatable="false">Number one</string>
+    <plurals name="recap_artist_minutes" translatable="false">
+        <item quantity="one">%1$s, %2$s minute</item>
+        <item quantity="other">%1$s, %2$s minutes</item>
+    </plurals>
+    <string name="recap_most_played" translatable="false">Most played: %1$s</string>
+    <plurals name="recap_new_artists_first" translatable="false">
+        <item quantity="one">After your first month you still found one new artist.</item>
+        <item quantity="other">After your first month you still found %1$s new artists.</item>
+    </plurals>
+    <plurals name="recap_new_artists_year" translatable="false">
+        <item quantity="one">This year you found one new artist.</item>
+        <item quantity="other">This year you found %1$s new artists.</item>
+    </plurals>
+    <string name="recap_best_of_them" translatable="false">The best of them:</string>
+    <string name="recap_best_find_line" translatable="false">First played on %1$s, %2$s since</string>
+    <string name="recap_only_kick" translatable="false">Only on InterTune</string>
+    <string name="recap_auto_chip" translatable="false">Auto</string>
+    <string name="recap_auto_plays_since" translatable="false">plays since\n%1$s</string>
+    <string name="recap_auto_title" translatable="false">Auto found you %1$s</string>
+    <string name="recap_auto_line" translatable="false">Quick picks played it to you on %1$s, and you kept it.</string>
+    <plurals name="recap_auto_brought_since" translatable="false">
+        <item quantity="one">Since %2$s, Auto brought you one new song, this dot.</item>
+        <item quantity="other">Since %2$s, Auto brought you %1$s new songs, one dot each.</item>
+    </plurals>
+    <plurals name="recap_auto_brought" translatable="false">
+        <item quantity="one">Auto brought you one new song, this dot.</item>
+        <item quantity="other">Auto brought you %1$s new songs, one dot each.</item>
+    </plurals>
+    <string name="recap_auto_kept" translatable="false">You played %1$s of them three times or more (lit) and liked %2$s (ringed).</string>
+    <plurals name="recap_by_ear" translatable="false">
+        <item quantity="one">%1$s song named by ear</item>
+        <item quantity="other">%1$s songs named by ear</item>
+    </plurals>
+    <string name="recap_by_ear_from_to" translatable="false">From %1$s to %2$s</string>
+    <string name="recap_by_ear_on" translatable="false">On %1$s</string>
+    <string name="recap_by_ear_both_on" translatable="false">Both on %1$s</string>
+    <string name="recap_by_ear_all_on" translatable="false">All on %1$s</string>
+    <plurals name="recap_rooms" translatable="false">
+        <item quantity="one">%1$s room with %2$s</item>
+        <item quantity="other">%1$s rooms with %2$s</item>
+    </plurals>
+    <plurals name="recap_people" translatable="false">
+        <item quantity="one">%1$s friend</item>
+        <item quantity="other">%1$s friends</item>
+    </plurals>
+    <string name="recap_listen_together" translatable="false">Listen together</string>
+    <string name="recap_top_songs_kick" translatable="false">Your top songs</string>
+    <string name="recap_tap_for_number" translatable="false">Tap for number %1$s</string>
+    <string name="recap_tap_for_one" translatable="false">Tap for your number one</string>
+    <string name="recap_line_month" translatable="false">%1$s of its %2$s plays came in %3$s.</string>
+    <string name="recap_line_days" translatable="false">Played on %1$s different days, more than any other song here.</string>
+    <string name="recap_line_minutes" translatable="false">%1$s minutes in all, more than any song above it.</string>
+    <string name="recap_line_found_day" translatable="false">%1$s plays on %2$s, the day you found it.</string>
+    <string name="recap_line_in_a_row" translatable="false">%1$s times in a row on %2$s.</string>
+    <string name="recap_line_best_day" translatable="false">%1$s plays on %2$s, its biggest day.</string>
+    <string name="recap_line_first" translatable="false">First played on %1$s.</string>
+    <string name="recap_number_one_kick" translatable="false">Your number one song</string>
+    <plurals name="recap_plays_unit" translatable="false">
+        <item quantity="one">play</item>
+        <item quantity="other">plays</item>
+    </plurals>
+    <string name="recap_found_on" translatable="false">You found it on %1$s at %2$s.</string>
+    <string name="recap_in_a_row_on" translatable="false">On %1$s you played it %2$s times in a row.</string>
+    <string name="recap_times_on" translatable="false">On %1$s you played it %2$s times.</string>
+    <string name="recap_card_described" translatable="false">Your year on one card: top songs, top artists, your minutes, your hour and your longest streak</string>
+    <string name="recap_thanks_title" translatable="false">Thank you</string>
+    <!-- A placeholder: the thank-you page's own words are still to be written. The tag says so on the page itself. -->
+    <string name="recap_thanks_placeholder" translatable="false">Thank you for listening with InterTune this year. Every bug report, every translation and every song you played made it better. I\'m so glad you\'re here.</string>
+    <string name="recap_thanks_signature" translatable="false">Mel</string>
+    <string name="recap_thanks_placeholder_tag" translatable="false">his words go here</string>
+    <string name="recap_see_you_first" translatable="false">See you next December. %1$s, your first song here, plays you out.</string>
+    <string name="recap_see_you_year" translatable="false">See you next December. %1$s, your first song this year, plays you out.</string>
+    <string name="recap_watch_again" translatable="false">Watch again</string>
+    <string name="recap_done" translatable="false">Done</string>
+    <string name="recap_card_number_one" translatable="false">My number one song</string>
+    <string name="recap_card_plays_since" translatable="false">since %1$s</string>
+    <string name="recap_card_plays_in" translatable="false">in %1$s</string>
+    <plurals name="recap_card_plays" translatable="false">
+        <item quantity="one">play %1$s</item>
+        <item quantity="other">plays %1$s</item>
+    </plurals>
+    <string name="recap_card_site" translatable="false">intertune.app</string>
+    <string name="recap_card_made_here" translatable="false">Made on my phone</string>
+    <string name="recap_card_my_year" translatable="false">My %1$s on InterTune</string>
+    <string name="recap_card_top_songs" translatable="false">Top songs</string>
+    <string name="recap_card_top_artists" translatable="false">Top artists</string>
+    <string name="recap_card_minutes" translatable="false">minutes</string>
+    <string name="recap_card_my_hour" translatable="false">my hour</string>
+    <string name="recap_card_days_in_a_row" translatable="false">days in a row</string>
+    <string name="recap_card_since" translatable="false">Since %1$s</string>
 </resources>
