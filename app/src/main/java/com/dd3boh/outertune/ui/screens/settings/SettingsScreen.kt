@@ -12,10 +12,14 @@ package com.dd3boh.outertune.ui.screens.settings
 import com.dd3boh.outertune.ui.component.FloatingTopBar
 
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.union
+import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.LibraryBooks
@@ -253,6 +257,9 @@ fun SettingsScreen(
         modifier = Modifier.fillMaxHeight(),
         columnModifier = Modifier
             .padding(horizontal = 16.dp),
+        // Room for the keyboard under the results, so that the last of them can be scrolled
+        // above it while typing: the window does not shrink for it, edge to edge.
+        contentPadding = LocalPlayerAwareWindowInsets.current.union(WindowInsets.ime),
         maxContentWidth = if (twoByTwo) Dp.Unspecified else 720.dp,
     ) {
         if (Unreleased.SETTINGS_SEARCH) {

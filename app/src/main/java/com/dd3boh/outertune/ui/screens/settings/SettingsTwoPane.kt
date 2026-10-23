@@ -14,13 +14,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.relocation.BringIntoViewRequester
@@ -269,12 +272,13 @@ fun SettingsTwoPane(
         ) {
         // Under the top bar. On a phone on its side the mini player stands under the other half
         // and the list runs down to the gesture bar; in a tall window, a tablet's, the mini player
-        // is the width of the window and the list keeps clear of it too.
+        // is the width of the window and the list keeps clear of it too. Search results keep
+        // clear of the keyboard, so that the last of them can be scrolled above it.
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .windowInsetsPadding(if (LocalLandscape.current.active) headerPaneInsets() else paneInsets())
+                .windowInsetsPadding((if (LocalLandscape.current.active) headerPaneInsets() else paneInsets()).union(WindowInsets.ime))
                 .padding(start = 12.dp, end = 4.dp, bottom = 12.dp),
         ) {
             if (Unreleased.SETTINGS_SEARCH) {
