@@ -185,9 +185,11 @@ import com.dd3boh.outertune.models.HybridCacheDataSinkFactory
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.MultiQueueObject
 import com.dd3boh.outertune.models.toMediaMetadata
+import com.dd3boh.outertune.playback.sabr.SabrAhead
 import com.dd3boh.outertune.playback.sabr.SabrClock
 import com.dd3boh.outertune.playback.sabr.SabrOrHttp
 import com.dd3boh.outertune.playback.sabr.SabrOver
+import com.dd3boh.outertune.playback.sabr.SabrStarts
 import com.dd3boh.outertune.playback.ListenReporting.AddressFrom
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.playback.queues.Queue
@@ -512,6 +514,28 @@ class MusicService : MediaLibraryService(),
 
     /** Where each streamed song is fetched from, until the player fails on it: see [StreamAddresses]. */
     private val streamAddresses = StreamAddresses()
+
+    /**
+     * The player's own resolver, one for the service. The next song SABR reads ahead is resolved
+     * through it ([sabrAhead]), so that the player finds the song's address there when it gets to
+     * it, with or without a network: its formats are kept in it, beside the addresses.
+     */
+    private val playerResolver by lazy { SongResolver(streamAddresses) }
+
+    /**
+     * Which songs SABR reads ahead: the one playing and the next one, told on every change of
+     * song or queue (onEvents). Not with Data Saver on, and not while casting: the cast server
+     * resolves with addresses of its own, and nothing would let go of what it read ahead. See
+     * SabrAhead.
+     */
+    private val sabrAhead = SabrAhead(
+        // Its resolves block for as long as a walk takes: on threads of their own, not offloadScope's four.
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+        allowed = { Unreleased.SABR_AHEAD && !isCasting && !dataSaverOn() },
+        resolve = { id -> resolveAhead(id) },
+        cachedUpTo = { id -> playerCache.getCachedLength(id, 0, Long.MAX_VALUE).coerceAtLeast(0) },
+        log = { Log.i(TAG, it) },
+    )
 
     // Keeping the music going on its own: see Recovery, SongRoutes and StallWatch.
     private val songRoutes = SongRoutes()
@@ -1507,6 +1531,8 @@ class MusicService : MediaLibraryService(),
             // StreamCheck.playsUnchecked.
             // The cast server's resolver keeps addresses of its own, and is told as well.
             YTPlayerUtils.onLateRefusal = lateRefusal
+            // The starts the player reads are read ahead of it, and the next song after them.
+            if (Unreleased.SABR_AHEAD) SabrOver.ahead = sabrAhead
             // Read here rather than in YTPlayerUtils, which runs on every song and would have
             // to block on the datastore to find out.
             dataStore.data.map {
@@ -2545,7 +2571,7 @@ class MusicService : MediaLibraryService(),
      * the current song held the watch off.
      */
     private fun createDataSourceFactory(forPlayer: Boolean = true): DataSource.Factory {
-        val resolver = SongResolver(streamAddresses)
+        val resolver = if (forPlayer) playerResolver else SongResolver(streamAddresses)
         val calls = if (forPlayer) playerCalls else StreamFamily.Calls(playerStreamClient)
         return ResolvingDataSource.Factory(createCacheDataSource(calls)) { dataSpec ->
             val mediaId = dataSpec.key ?: error("No media id")
@@ -2612,10 +2638,13 @@ class MusicService : MediaLibraryService(),
         /**
          * Where the bytes of [mediaId] come from for a read of [length] bytes (C.LENGTH_UNSET for
          * the rest of the song) from [position]. Blocking. Throws PlaybackException when the song
-         * cannot be had.
+         * cannot be had. [ahead]: the next song, resolved while one plays over SABR so that it is
+         * read ahead (SabrAhead), and said so in the log, where a song resolved to play says
+         * PLAYING.
          */
-        fun resolve(mediaId: String, position: Long, length: Long): ResolvedSong {
-            Log.i(TAG, "PLAYING: song id = $mediaId")
+        fun resolve(mediaId: String, position: Long, length: Long, ahead: Boolean = false): ResolvedSong {
+            val said = if (ahead) "AHEAD" else "PLAYING"
+            Log.i(TAG, "$said: song id = $mediaId")
 
             val queued = queueBoard.getCurrentQueue()?.findSong(mediaId)
             // in the case of resumption, queueBoard may not be ready yet
@@ -2631,7 +2660,7 @@ class MusicService : MediaLibraryService(),
             // local song
             if (localPath != null) {
                 if (isLocal) {
-                    Log.i(TAG, "PLAYING: local song")
+                    Log.i(TAG, "$said: local song")
                     val file = File(localPath)
                     if (!file.exists()) {
                         throw PlaybackException(
@@ -2648,7 +2677,7 @@ class MusicService : MediaLibraryService(),
                     // streamed instead of failing.
                     val isDownloadNew = downloadUtil.localMgr.isExists(mediaId)?.takeIf { it.exists() }
                     isDownloadNew?.let {
-                        Log.i(TAG, "PLAYING: Custom downloaded song")
+                        Log.i(TAG, "$said: Custom downloaded song")
                         return ResolvedSong.Downloaded(it)
                     }
                 }
@@ -2677,7 +2706,7 @@ class MusicService : MediaLibraryService(),
             val partialCopy = !isDownload && position == 0L &&
                     isNetworkConnected.value && playerCache.holdsPartFromStart(mediaId)
             if ((isDownload || isCache) && !staleQuality && !partialCopy) {
-                Log.i(TAG, "PLAYING: remote song (cache = ${isCache}, download = ${isDownload})")
+                Log.i(TAG, "$said: remote song (cache = ${isCache}, download = ${isDownload})")
                 offloadScope.launch { recoverSong(mediaId) }
                 return ResolvedSong.Cached
             }
@@ -2686,13 +2715,22 @@ class MusicService : MediaLibraryService(),
             // onPlayerError forgets it, and the try after that asks afresh below.
             addresses.of(mediaId, System.currentTimeMillis())?.takeIf { !staleQuality }?.let { address ->
                 formats[mediaId]?.let { format ->
-                    Log.i(TAG, "PLAYING: remote song (temp cache)")
+                    Log.i(TAG, "$said: remote song (temp cache)")
                     offloadScope.launch { recoverSong(mediaId) }
                     return ResolvedSong.KnownStream(address, format)
                 }
             }
+            // Read ahead over SABR and held from here, its address forgotten since: a change of
+            // network forgets them all, and the song needs no network to play. The start of the
+            // format the player was given, whose file the bytes are. See SabrAhead.
+            formats[mediaId]?.takeIf { !staleQuality }?.let { format ->
+                SabrStarts.heldAt(mediaId, position, format.itag, format.lastModified)?.let { address ->
+                    Log.i(TAG, "$said: remote song (held, read ahead over SABR)")
+                    return ResolvedSong.KnownStream(address, format)
+                }
+            }
 
-            Log.i(TAG, "PLAYING: remote song (online fetch)")
+            Log.i(TAG, "$said: remote song (online fetch)")
 
             // The whole resolve within RouteTimes.RESOLVE_MS of waiting: each step has its own
             // limit, and they used to add up to minutes. Past it the song fails as a timeout,
@@ -2713,7 +2751,7 @@ class MusicService : MediaLibraryService(),
                 try {
                     withinResolveTime(context = wish) { standIns.playbackData(mediaId, askedAgain = stoppedByError && stoppedOn == mediaId) }
                 } catch (e: StepTimedOut) {
-                    Log.w(TAG, "PLAYING: [$mediaId] no stream within ${StepLog.limit(e.ms)}, given up as a timeout")
+                    Log.w(TAG, "$said: [$mediaId] no stream within ${StepLog.limit(e.ms)}, given up as a timeout")
                     Result.failure(e)
                 }
             }.getOrElse { throwable ->
@@ -2722,7 +2760,7 @@ class MusicService : MediaLibraryService(),
                 // than fail a song that plays fine, and leave its row as it is, so the upgrade is
                 // tried again next time.
                 if (staleQuality || partialCopy) {
-                    Log.i(TAG, "PLAYING: remote song (cache kept, the new stream could not be fetched)", ErrorText.forLog(throwable))
+                    Log.i(TAG, "$said: remote song (cache kept, the new stream could not be fetched)", ErrorText.forLog(throwable))
                     return ResolvedSong.Cached
                 }
                 val error = when (throwable) {
@@ -2765,7 +2803,7 @@ class MusicService : MediaLibraryService(),
             if (position > 0L) {
                 val part = runCatching { database.readOrNull { formatRow(mediaId) } }.getOrNull()
                 if (anotherUpload(part?.itag, part?.contentLength, format.itag, format.contentLengthOrZero())) {
-                    Log.w(TAG, "PLAYING: remote song (what is cached of it is another upload's, dropped; this load fails)")
+                    Log.w(TAG, "$said: remote song (what is cached of it is another upload's, dropped; this load fails)")
                     runCatching { playerCache.removeResource(mediaId) }
                         .onFailure { Log.w(TAG, "Could not drop the cached parts of $mediaId", it) }
                     throw PlaybackException(
@@ -2790,7 +2828,7 @@ class MusicService : MediaLibraryService(),
             // Nor is a whole copy of the song given up for a stand-in's stream, however sure the
             // match: the copy is the song, and the stand-in only very likely is.
             if (staleQuality && (!playbackData.validated || standIn) && !partialCopy) {
-                Log.i(TAG, "PLAYING: remote song (cache kept, the new stream was ${if (standIn) "a stand-in's" else "not checked"})")
+                Log.i(TAG, "$said: remote song (cache kept, the new stream was ${if (standIn) "a stand-in's" else "not checked"})")
                 return ResolvedSong.Cached
             }
             // The song from its start with nothing of it cached there, and parts further in: the
@@ -2810,7 +2848,7 @@ class MusicService : MediaLibraryService(),
                 // another upload, and its bytes are not the copy's. See sameStream.
                 val copy = runCatching { database.readOrNull { formatRow(mediaId) } }.getOrNull()
                 if (!sameStream(copy?.itag, copy?.contentLength, format.itag, format.contentLengthOrZero())) {
-                    Log.i(TAG, "PLAYING: remote song (partial copy was itag ${copy?.itag}, ${copy?.contentLength} bytes, the stream is ${format.itag}, ${format.contentLengthOrZero()} bytes, starting over)")
+                    Log.i(TAG, "$said: remote song (partial copy was itag ${copy?.itag}, ${copy?.contentLength} bytes, the stream is ${format.itag}, ${format.contentLengthOrZero()} bytes, starting over)")
                     runCatching { playerCache.removeResource(mediaId) }
                         .onFailure { Log.w(TAG, "Could not drop the partial copy of $mediaId", it) }
                 }
@@ -4481,6 +4519,41 @@ class MusicService : MediaLibraryService(),
             currentMediaMetadata.value = player.currentMetadata
             updateWidget()
         }
+        // SABR reads ahead the song playing and the next one, and lets go of every other: a skip,
+        // a jump, a new queue or a change of shuffle or repeat moves them. See SabrAhead.
+        if (Unreleased.SABR_AHEAD && events.containsAny(
+                Player.EVENT_MEDIA_ITEM_TRANSITION, EVENT_TIMELINE_CHANGED,
+                Player.EVENT_SHUFFLE_MODE_ENABLED_CHANGED, Player.EVENT_REPEAT_MODE_CHANGED,
+            )
+        ) {
+            val next = player.nextMediaItemIndex.takeIf { it != C.INDEX_UNSET }
+                ?.let { runCatching { player.getMediaItemAt(it).mediaId }.getOrNull() }
+            sabrAhead.queueAt(player.currentMediaItem?.mediaId, next)
+        }
+    }
+
+    /** Whether Data Saver holds this app back on the network in use: nothing is read ahead then. */
+    private fun dataSaverOn(): Boolean = runCatching {
+        connectivityManager.isActiveNetworkMetered &&
+            connectivityManager.restrictBackgroundStatus == ConnectivityManager.RESTRICT_BACKGROUND_STATUS_ENABLED
+    }.getOrDefault(false)
+
+    /**
+     * The next song's address, resolved ahead by the player's own resolver while a song plays
+     * over SABR: a sabr: one is read ahead (SabrAhead). Null for a song on the phone already.
+     * Blocking, on SabrAhead's thread.
+     *
+     * A resolve of the song by the player, out when this is asked (SabrAhead.PLAYER_FIRST_MS), is
+     * waited for: this one then finds the address it kept, and the chain is walked once.
+     */
+    private fun resolveAhead(id: String): String? {
+        val until = SystemClock.elapsedRealtime() + RouteTimes.RESOLVE_MS
+        while (resolvingSongs.containsKey(id) && SystemClock.elapsedRealtime() < until) Thread.sleep(100)
+        return when (val resolved = playerResolver.resolve(id, 0L, C.LENGTH_UNSET.toLong(), ahead = true)) {
+            is ResolvedSong.KnownStream -> resolved.url
+            is ResolvedSong.NewStream -> resolved.data.streamUrl
+            else -> null
+        }
     }
 
     /**
@@ -5079,6 +5152,10 @@ class MusicService : MediaLibraryService(),
         // The static would keep this instance, its addresses and routes, until the next service
         // replaced it; and the stall watch's tick is not left to the player's last events.
         if (YTPlayerUtils.onLateRefusal === lateRefusal) YTPlayerUtils.onLateRefusal = null
+        // And what SABR read ahead goes with the service: nothing plays it any more, and a next
+        // song still being resolved ahead is not read ahead once it is.
+        if (SabrOver.ahead === sabrAhead) SabrOver.ahead = null
+        sabrAhead.queueAt(null, null)
         stallWatching = false
         stallHandler.removeCallbacks(stallTick)
         // The timer ran on the scope, so its notification would stay up, frozen, for a timer that

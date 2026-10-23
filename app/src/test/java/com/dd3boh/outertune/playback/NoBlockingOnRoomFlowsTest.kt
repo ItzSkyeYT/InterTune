@@ -70,7 +70,7 @@ class NoBlockingOnRoomFlowsTest {
     fun `the loader and the downloader reach the database only through the bounded read and the queued write`() {
         val blocks = mapOf(
             // Casting made the player's resolver a class the cast server shares: its one function is the block.
-            "MusicService's resolver" to body(service, "fun resolve(mediaId: String, position: Long, length: Long)"),
+            "MusicService's resolver" to body(service, "fun resolve(mediaId: String, position: Long, length: Long, ahead: Boolean = false)"),
             "MusicService.shouldUpgradeCached" to body(service, "private fun shouldUpgradeCached("),
             "DownloadUtil's resolver" to resolver(downloads),
         )
