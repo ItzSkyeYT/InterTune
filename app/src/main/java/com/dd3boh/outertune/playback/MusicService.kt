@@ -1488,7 +1488,14 @@ class MusicService : MediaLibraryService(),
             // costs nothing: see Warmup.
             scope.launch(Dispatchers.IO + SilentHandler) {
                 delay(Warmup.AFTER_MS)
-                val id = withContext(Dispatchers.Main) { activePlayer.currentMediaItem?.mediaId }
+                // A song is only the page the script is found through when YouTube's own small
+                // page for it fails. After a cold start the player holds nothing yet, and with no
+                // song the warm-up was skipped, which left the fetch to the first song: the saved
+                // queue's song then, or none.
+                val id = withContext(Dispatchers.Main) {
+                    activePlayer.currentMediaItem?.mediaId
+                        ?: runCatching { queueBoard.getCurrentQueue()?.getCurrentSong()?.id }.getOrNull()
+                }.orEmpty()
                 val network = connectivityManager.activeNetwork
                 val capabilities = network?.let { connectivityManager.getNetworkCapabilities(it) }
                 val warm = Warmup.newPipe(
@@ -1497,7 +1504,7 @@ class MusicService : MediaLibraryService(),
                     unmetered = !connectivityManager.isActiveNetworkMetered,
                     alreadyWarmed = Warmup.warmedInProcess,
                 )
-                if (warm && id != null) {
+                if (warm) {
                     Warmup.warmedInProcess = true
                     val started = SystemClock.elapsedRealtime()
                     val done = NewPipeUtils.warm(id)
