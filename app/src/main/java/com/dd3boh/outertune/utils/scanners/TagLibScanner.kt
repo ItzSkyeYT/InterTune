@@ -129,24 +129,9 @@ class TagLibScanner : MetadataScanner {
                             }
                         }
 
-                        "TRACKNUMBER" -> {
-                            try {
-                            trackNumber = parseInt(it)
-                            } catch (e: Exception) {
-                                if (SCANNER_DEBUG) {
-                                    e.printStackTrace()
-                                }
-                            }
-                        }
-                        "DISCNUMBER" -> {
-                            try {
-                                discNumber = parseInt(it)
-                            } catch (e: Exception) {
-                                if (SCANNER_DEBUG) {
-                                    e.printStackTrace()
-                                }
-                            }
-                        }
+                        // "4", "04" or "4/12" (TrackTags). The first value that has a number counts.
+                        "TRACKNUMBER" -> if (trackNumber == null) trackNumber = TrackTags.number(it)
+                        "DISCNUMBER" -> if (discNumber == null) discNumber = TrackTags.number(it)
                         else -> {
                             extraData += "$key: $it\n"
                         }
