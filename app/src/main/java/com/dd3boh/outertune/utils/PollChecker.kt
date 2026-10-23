@@ -21,6 +21,7 @@ import com.dd3boh.outertune.constants.Polls
 import com.dd3boh.outertune.constants.PollFetchVersionKey
 import com.dd3boh.outertune.constants.PollsEnabledKey
 import com.dd3boh.outertune.extensions.isInternetConnected
+import com.dd3boh.outertune.recap.RecapCount
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -50,6 +51,8 @@ import javax.inject.Singleton
  *  - on answering, one POST carrying the poll id, the chosen option ids, and the app version
  *  - on first opening a poll or an announcement, one POST carrying its id, its text, whether it
  *    was a poll or an announcement, and the app version: once per install, never again for it
+ *  - on first opening a year's InterTune Recap, with news switched on, the same POST with
+ *    "recap" for what it was ([recapOpened], [RecapCount]): once per install for each year
  * No account, no device id, no install id, no library, nothing derived from the hardware. Umami
  * works out its own visitor figure server side from a rotating hash it computes itself, so the app
  * has no need to identify anyone and does not.
@@ -339,15 +342,7 @@ class PollChecker @Inject constructor(
      * request is one uncounted view, not a count that repeats.
      */
     suspend fun viewed(id: String, text: String, isAnnouncement: Boolean) = withContext(Dispatchers.IO) {
-        var first = false
-        context.dataStore.edit {
-            val seen = it[ViewedPollIdsKey].orEmpty()
-            if (id !in seen) {
-                it[ViewedPollIdsKey] = seen + id
-                first = true
-            }
-        }
-        if (!first || !Polls.isConfigured) return@withContext
+        if (!firstOpening(id) || !Polls.isConfigured) return@withContext
         send(
             Polls.UMAMI_VIEW_EVENT,
             JSONObject()
@@ -356,6 +351,39 @@ class PollChecker @Inject constructor(
                 .put("type", if (isAnnouncement) "announcement" else "poll")
                 .put("version", BuildConfig.VERSION_NAME),
         )
+    }
+
+    /**
+     * Counts the first opening of a year's InterTune Recap, once per install, exactly as [viewed]
+     * counts a banner's: the same event, the same four fields ([RecapCount]), no id, the same fixed
+     * User-Agent, written down before it is sent.
+     *
+     * A banner can only be opened by someone who said yes to news or to questions, since nothing
+     * is fetched otherwise. The Recap is worked out on the phone and opens for everyone, so that
+     * yes is asked for here: News from InterTune, whose words say that the first time one is
+     * opened is counted anonymously. Without it nothing is written down either, so a yes given
+     * later counts the next opening.
+     */
+    suspend fun recapOpened(year: Int) = withContext(Dispatchers.IO) {
+        if (!context.dataStore.get(AnnouncementsEnabledKey, false)) return@withContext
+        if (!firstOpening(RecapCount.id(year)) || !Polls.isConfigured) return@withContext
+        send(Polls.UMAMI_VIEW_EVENT, JSONObject().apply { RecapCount.data(year, BuildConfig.VERSION_NAME).forEach { (k, v) -> put(k, v) } })
+    }
+
+    /**
+     * Writes [id] down as opened, and says whether it had not been before. Written before anything
+     * is sent, as with an answer: a failed request is one uncounted opening, not a count that repeats.
+     */
+    private suspend fun firstOpening(id: String): Boolean {
+        var first = false
+        context.dataStore.edit {
+            val seen = it[ViewedPollIdsKey].orEmpty()
+            if (id !in seen) {
+                it[ViewedPollIdsKey] = seen + id
+                first = true
+            }
+        }
+        return first
     }
 
     /** One Umami event, with the same fixed identity for every install. See [USER_AGENT]. */
