@@ -284,7 +284,7 @@ internal fun MinutesSlide(s: SlideScope) {
             style = RecapType.unit, color = c.ink, modifier = Modifier.padding(top = 6.dp).rise(2f, s),
         )
         Grow(room)
-        Sky(s, Modifier.fillMaxWidth().height(minOf(196.dp, room.height * 0.26f)).padding(top = 24.dp))
+        Sky(s, Modifier.fillMaxWidth().height(minOf(224.dp, room.height * 0.3f)))
         Grow(room)
         val days = minutes / 1440.0
         val half = Math.round(days * 2) / 2.0
@@ -324,6 +324,10 @@ private fun Sky(s: SlideScope, modifier: Modifier) {
     Canvas(modifier.semantics { contentDescription = flag }) {
         val n = r.msByDay.size
         val chartH = size.height - 22.dp.toPx()
+        // The flag of the biggest day stands over its bar, the tallest: room for it above the bars.
+        val style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = c.accent)
+        val layout = measurer.measure(flag, style)
+        val barsH = chartH - layout.size.height - 8.dp.toPx()
         val most = (r.msByDay.maxOrNull() ?: 0L).coerceAtLeast(1L)
         val gap = if (n > 120) 0f else 1.dp.toPx()
         val bar = (size.width - gap * (n - 1)) / n
@@ -332,7 +336,7 @@ private fun Sky(s: SlideScope, modifier: Modifier) {
             if (ms <= 0) continue
             val t = ((grow.value * RecapMotion.SKY_MS - 250f - k * spread) / 700f).coerceIn(0f, 1f)
             val p = 1f - (1f - t).pow(3)
-            val h = max(1.dp.toPx(), ms.toFloat() / most * chartH) * p
+            val h = max(1.dp.toPx(), ms.toFloat() / most * barsH) * p
             val biggest = r.sinceDay + k == r.biggestDay.day
             drawRect(
                 color = if (biggest) c.accent else c.ink.copy(alpha = 0.42f),
@@ -342,9 +346,7 @@ private fun Sky(s: SlideScope, modifier: Modifier) {
         }
         // The flag over the biggest day, turned to the side with more room.
         val bx = ((r.biggestDay.day - r.sinceDay) + 0.5f) / n * size.width
-        val style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = c.accent)
-        val layout = measurer.measure(flag, style)
-        val fy = chartH - r.biggestDay.ms.toFloat() / most * chartH - layout.size.height - 8.dp.toPx()
+        val fy = chartH - r.biggestDay.ms.toFloat() / most * barsH - layout.size.height - 8.dp.toPx()
         val fx = if (bx > size.width * 0.6f) bx - layout.size.width else bx
         drawText(layout, topLeft = Offset(fx.coerceIn(0f, size.width - layout.size.width), fy.coerceAtLeast(0f)), alpha = ((grow.value - 0.5f) * 3f).coerceIn(0f, 1f))
         // The months under it.
@@ -396,7 +398,9 @@ private fun Dial(s: SlideScope, modifier: Modifier) {
     val measurer = rememberTextMeasurer()
     val drawn = remember(s.key) { Animatable(if (s.still) 1f else 0f) }
     LaunchedEffect(s.key) { if (!s.still) drawn.animateTo(1f, tween(RecapMotion.DIAL_MS, easing = LinearEasing)) }
-    val labels = listOf("00", "06", "12", "18").map { s.words.hour(it.toInt()).let { full -> if (full.length <= 5) it else full } }
+    // The quarters of the day as a clock face marks them, in every language: the hour itself is
+    // said above and below in the phone's own way, "6:00 PM" or "18:00", which is too long here.
+    val labels = listOf("00", "06", "12", "18")
     Canvas(modifier) {
         val unit = size.minDimension / 320f
         val cx = size.width / 2
@@ -668,9 +672,10 @@ private fun Dots(auto: AutoFinds, c: SlideColours, modifier: Modifier, maxHeight
     BoxWithConstraints(modifier) {
         val n = auto.marks.size
         val width = maxWidth
-        // 5.6 dp apart as in the mock, closer when that would not fit the height there is.
+        // As far apart as the room there is allows: 5.6 dp in the mock's year of 1,733 songs,
+        // closer for more, and bigger for a few, up to 12 dp.
         val fitting = sqrt(width.value * maxHeight.value / max(1, n)).dp
-        val step = minOf(5.6.dp, maxOf(2.4.dp, fitting))
+        val step = minOf(12.dp, maxOf(2.4.dp, fitting))
         val cols = max(1, floor(width / step).toInt())
         val rows = ceil(n / cols.toFloat()).toInt()
         Canvas(Modifier.fillMaxWidth().height(step * rows)) {
@@ -708,7 +713,15 @@ internal fun CountdownSlide(s: SlideScope, step: Int) {
                     fontSize = 250.sp, fontWeight = FontWeight.Black, lineHeight = 1.em, letterSpacing = (-0.06).em,
                     color = c.accent, drawStyle = Stroke(width = with(androidx.compose.ui.platform.LocalDensity.current) { 2.5.dp.toPx() }),
                 ),
-                modifier = Modifier.offset(x = (-8).dp, y = (-34).dp).graphicsLayer { alpha = pop.value; scaleX = 0.82f + 0.18f * pop.value; scaleY = scaleX },
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Visible,
+                // Taller than the stage, as the mock's is: measured at its own height, so that its
+                // foot is not cut off at the stage's.
+                modifier = Modifier
+                    .wrapContentHeight(Alignment.Top, unbounded = true)
+                    .offset(x = (-8).dp, y = (-34).dp)
+                    .graphicsLayer { alpha = pop.value; scaleX = 0.82f + 0.18f * pop.value; scaleY = scaleX },
             )
             Cover(
                 song?.cover,

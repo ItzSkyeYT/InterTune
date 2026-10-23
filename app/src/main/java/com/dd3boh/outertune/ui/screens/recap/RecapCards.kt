@@ -16,6 +16,8 @@ import android.graphics.ColorMatrixColorFilter
 import android.graphics.LinearGradient
 import android.graphics.Matrix
 import android.graphics.Paint
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
 import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.Typeface
@@ -102,9 +104,16 @@ object RecapCards {
             saturate.alpha = 230
             canvas.drawBitmap(wash, null, RectF(-0.25f * WIDTH, -0.2f * HEIGHT, 1.25f * WIDTH, 1.1f * HEIGHT), saturate)
             saturate.alpha = 140
+            // The copy turned over, faded in from above the middle so that its edge never shows.
+            val layer = canvas.saveLayer(0f, 0f, WIDTH.toFloat(), HEIGHT.toFloat(), null)
             canvas.withRotation(180f, WIDTH / 2f, HEIGHT * 0.8f) {
                 drawBitmap(wash, null, RectF(-0.3f * WIDTH, 0.3f * HEIGHT, 1.3f * WIDTH, 1.4f * HEIGHT), saturate)
             }
+            canvas.drawRect(0f, 0f, WIDTH.toFloat(), HEIGHT.toFloat(), Paint().apply {
+                shader = LinearGradient(0f, 0.25f * HEIGHT, 0f, 0.45f * HEIGHT, 0x00000000, 0xFF000000.toInt(), Shader.TileMode.CLAMP)
+                xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
+            })
+            canvas.restoreToCount(layer)
         }
         canvas.drawColor((colours.deep and 0x00FFFFFF) or (0x57 shl 24))
         canvas.drawRect(0f, 0f, WIDTH.toFloat(), HEIGHT.toFloat(), Paint().apply {
@@ -251,8 +260,10 @@ object RecapCards {
         numbers.forEachIndexed { i, (n, w) ->
             val left = PAD + i * (column + 2f) + if (i > 0) 44f else 0f
             if (i > 0) canvas.drawLine(PAD + i * (column + 2f), y, PAD + i * (column + 2f), y + 150f, hair)
+            // Smaller where it would reach the next hairline: "6:00 PM" is longer than the mock's "18:00".
+            val room = column - (if (i > 0) 44f else 0f) - 28f
             var size = 84f
-            while (size > 48f && big.apply { textSize = size }.measureText(n) > column - 50f) size -= 2f
+            while (size > 48f && big.apply { textSize = size }.measureText(n) > room) size -= 2f
             val baseline = y - big.ascent()
             canvas.drawText(n, left, baseline, big)
             canvas.drawText(w, left, baseline + big.descent() + 12f - small.ascent(), small)

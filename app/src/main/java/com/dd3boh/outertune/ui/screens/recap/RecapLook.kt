@@ -32,11 +32,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -174,25 +177,40 @@ fun CoverBackdrop(covers: RecapCovers, model: Any?, colours: SlideColours, still
                     }
                     .then(blurred),
             )
-            Image(
-                bitmap = picture,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                filterQuality = FilterQuality.High,
-                colorFilter = saturated,
-                alpha = 0.55f,
-                modifier = Modifier
+            // The copy turned over comes up from below the middle, faded in, so that its edge,
+            // which the blur keeps sharp, never shows as a line across the slide.
+            Box(
+                Modifier
                     .fillMaxSize()
-                    .graphicsLayer {
-                        val k = if (still) 0.5f else t2
-                        rotationZ = 180f + 6f * k
-                        scaleX = 1.6f + 0.1f * k
-                        scaleY = 1.6f + 0.1f * k
-                        translationY = size.height * 0.45f
-                        translationX = size.width * (-0.04f + 0.08f * k)
+                    .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                    .drawWithContent {
+                        drawContent()
+                        drawRect(
+                            Brush.verticalGradient(0f to Color.Transparent, 0.3f to Color.Transparent, 0.52f to Color.Black),
+                            blendMode = BlendMode.DstIn,
+                        )
                     }
-                    .then(blurred),
-            )
+            ) {
+                Image(
+                    bitmap = picture,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    filterQuality = FilterQuality.High,
+                    colorFilter = saturated,
+                    alpha = 0.55f,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            val k = if (still) 0.5f else t2
+                            rotationZ = 180f + 6f * k
+                            scaleX = 1.6f + 0.1f * k
+                            scaleY = 1.6f + 0.1f * k
+                            translationY = size.height * 0.45f
+                            translationX = size.width * (-0.04f + 0.08f * k)
+                        }
+                        .then(blurred),
+                )
+            }
         }
         Box(Modifier.fillMaxSize().background(colours.deep.copy(alpha = 0.34f)))
         Box(
