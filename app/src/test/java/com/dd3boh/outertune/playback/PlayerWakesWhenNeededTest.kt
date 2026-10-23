@@ -18,7 +18,8 @@ import java.io.File
  *
  * Measured on a Galaxy S25 Ultra on 23 Oct 2026 (experiments/features/battery-1023): ExoPlayer's
  * own thread was 8 to 10% of a core all through background playback, woken every 10 ms to find the
- * output still full; and Wi-Fi was kept out of power save for as long as music played, cached
+ * output still full; a streamed song came down a megabyte at a time, waking the mobile radio every
+ * 30 to 50 s of music; and Wi-Fi was kept out of power save for as long as music played, cached
  * songs included. A JVM test cannot play, so the places that change that are read from the
  * source, comments taken out, and the rule for the Wi-Fi lock is tested as it is.
  */
@@ -41,6 +42,17 @@ class PlayerWakesWhenNeededTest {
             "the player is built without dynamic scheduling: its thread wakes a hundred times a second while a song plays",
             ".experimentalSetDynamicSchedulingEnabled(true)" in builder(),
         )
+    }
+
+    @Test
+    fun `a streamed song comes down in one burst, not a megabyte every half minute`() {
+        val built = builder()
+        assertTrue("the player keeps media3's default load control: 50 s ahead, read a megabyte at a time", ".setLoadControl(" in built)
+        // Up to five minutes ahead, again when 30 s are left; playing from 1 s buffered, 2 s after a stall.
+        assertTrue(Regex("""DefaultLoadControl\.Builder\(\)\s*\.setBufferDurationsMs\(30_000, 300_000, 1_000, 2_000\)""").containsMatchIn(built))
+        // The byte target stays media3's own for audio (12.5 MiB, five minutes at 256 kbps), and
+        // stays the limit: time is not put before size.
+        assertTrue("setTargetBufferBytes" !in built && "setPrioritizeTimeOverSizeThresholds" !in built)
     }
 
     @Test

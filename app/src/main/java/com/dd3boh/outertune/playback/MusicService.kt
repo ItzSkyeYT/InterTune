@@ -60,6 +60,7 @@ import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.datasource.okhttp.OkHttpDataSource
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.analytics.AnalyticsListener
@@ -1033,6 +1034,20 @@ class MusicService : MediaLibraryService(),
             // near the end of a song it goes back to 10 ms for the change. LevelTap is asked
             // where the output is at each wake, so it allows for the longer gaps.
             .experimentalSetDynamicSchedulingEnabled(true)
+            // A streamed song comes down in one burst, then the radio rests. media3's default
+            // kept 50 s ahead and read a megabyte at a time, so the mobile radio woke every 30 to
+            // 50 s of music for the whole song, each time with a tail of several seconds at full
+            // power. Now it reads up to five minutes ahead, into the next song when the queue has
+            // one, and starts again when 30 s are left: about one burst a song. The byte target
+            // stays media3's for audio, 12.5 MiB, which covers five minutes at 256 kbps. A SABR
+            // read is paced by the player's position (SabrClock) and blocks until its stream
+            // sends more, so this does not make SABR fetch faster. Playback starts at 1 s
+            // buffered, 2 s after a stall: a stream that is fast enough fills the rest in moments.
+            .setLoadControl(
+                DefaultLoadControl.Builder()
+                    .setBufferDurationsMs(30_000, 300_000, 1_000, 2_000)
+                    .build()
+            )
             .build()
             .apply {
                 // listeners
