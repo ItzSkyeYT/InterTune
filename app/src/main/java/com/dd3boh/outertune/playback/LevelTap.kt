@@ -186,9 +186,11 @@ class LevelTap(private val nanoTime: () -> Long = System::nanoTime) {
         if (at == C.TIME_UNSET || !playing) return false
         val since = (nanoTime() - heardAtNanos) / 1000
         // While it plays the output is asked where it is each time the player's thread wakes. That
-        // was every 10 ms; it now sleeps until half of what the output holds has played, 375 ms at
-        // most at normal speed and twice that at half speed. Not asked for this long, it is not
-        // playing, whatever was said last.
+        // was every 10 ms; it now sleeps until half of what the output holds has played: 125 ms
+        // with the usual quarter of a second, 375 ms at most, since media3 gives an output no more
+        // than 750 ms. About the same at any tempo: a slower one fills the output with less of the
+        // song. Not asked for this long, four times the longest sleep, it is not playing, whatever
+        // was said last.
         if (since < 0 || since > ASKED_LATELY_US) return false
         return timeline.read(at + since + aheadUs.coerceAtLeast(0), into)
     }

@@ -269,20 +269,71 @@ class LevelTapTest {
 
     @Test
     fun `nothing playing, no answer`() {
-        give(bassBetween(0, 1000, totalMs = 1000))
+        // Three seconds handed over, so that every moment asked about below is music the tap has
+        // measured: what says no is the rule about being asked, not the end of the music.
+        give(bassBetween(0, 3000, totalMs = 3000))
         tap.position(start + 500_000L)
         tap.playing(false)
         assertFalse("paused", tap.now(got))
         tap.playing(true)
         assertTrue(tap.now(got))
-        // The player's thread sleeps until half of what the output holds has played: up to 375 ms
-        // at normal speed, 750 ms at half speed. Still playing at 750 ms without being asked.
+        // The player's thread sleeps until half of what the output holds has played: 125 ms with
+        // the usual quarter of a second, 375 ms at most. Not asked for twice that, it still plays.
         nanos += 750_000_000L
-        assertTrue("asked at the player's slowest wake, it still plays", tap.now(got))
+        assertTrue("not asked for twice the player's longest sleep, it still plays", tap.now(got))
         nanos += 850_000_000L
         assertFalse("the output has not been asked where it is for over a second and a half", tap.now(got))
         tap.position(AudioSink.CURRENT_POSITION_NOT_SET)
         assertFalse("an output that does not know where it is leaves the clock alone", tap.now(got))
+    }
+
+    /**
+     * What the picture is told on each of its frames, 30 a second for 2.5 s, asking 60 ms ahead,
+     * while the player's thread wakes every [wakeUs]: each time it asks the output where it is and
+     * hands it music until it holds [holdsUs] ahead, as it does with a song of a bass note from 1 s
+     * to 1.5 s. Null for a frame with no answer.
+     */
+    private fun framesSeen(wakeUs: Long, holdsUs: Long): List<Float?> {
+        val fresh = LevelTap { nanos }.apply {
+            watch()
+            configured(pcm = true, encoding = C.ENCODING_PCM_16BIT, sampleRate = rate, channels = 2)
+            playing(true)
+        }
+        val samples = bassBetween(1000, 1500, totalMs = 3000)
+        val perBuffer = 10 * rate / 1000 * 2
+        var handed = 0
+        val t0 = nanos
+        var wake = 0L
+        val seen = mutableListOf<Float?>()
+        for (frame in 0L..2_500_000L step 33_333L) {
+            while (wake <= frame) {
+                nanos = t0 + wake * 1000
+                fresh.position(start + wake)
+                while (handed < samples.size && handed / 2 * 1_000_000L / rate < wake + holdsUs) {
+                    val count = minOf(perBuffer, samples.size - handed)
+                    val buffer = ByteBuffer.allocateDirect(count * 2).order(ByteOrder.nativeOrder())
+                    buffer.asShortBuffer().put(samples, handed, count)
+                    fresh.buffer(buffer, start + handed / 2 * 1_000_000L / rate)
+                    handed += count
+                }
+                wake += wakeUs
+            }
+            nanos = t0 + frame * 1000
+            seen += if (fresh.now(got, aheadUs = 60_000L)) got[MusicLevels.BASS] else null
+        }
+        return seen
+    }
+
+    @Test
+    fun `between the player's wakes the picture is told the same music as when it woke every 10 ms`() {
+        val before = framesSeen(wakeUs = 10_000L, holdsUs = 250_000L)
+        assertTrue("every frame answered when the output was asked every 10 ms", before.all { it != null })
+        assertTrue("the note is seen: ${before.maxOf { it!! }}", before.maxOf { it!! } > 0.8f)
+        assertTrue("and gone before and after it", before.first()!! < 0.05f && before.last()!! < 0.05f)
+        // Asleep until half of what the output holds has played: the usual quarter of a second
+        // output, and media3's largest.
+        assertEquals("woken every 125 ms", before, framesSeen(wakeUs = 125_000L, holdsUs = 250_000L))
+        assertEquals("woken every 375 ms", before, framesSeen(wakeUs = 375_000L, holdsUs = 750_000L))
     }
 
     @Test
