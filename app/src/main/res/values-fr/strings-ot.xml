@@ -402,7 +402,7 @@
     <string name="settings_lyrics_description">D\'où viennent les paroles, et comment elles sont affichées.</string>
     <string name="settings_storage_description">Téléchargements, et espace autorisé pour les caches.</string>
     <string name="settings_privacy_description">Ce que l\'application enregistre à votre sujet, et ce qu\'elle envoie.</string>
-    <string name="settings_updates_description">Vérifiez s\'il existe une nouvelle version, puis installez-la.</string>
+    <string name="settings_updates_description">Chercher une nouvelle version, et l\'installer.</string>
     <string name="settings_advanced_description">Maintenance et options pour développeurs.</string>
     <string name="settings_about_description">Version, licences et remerciements.</string>
     <string name="flush_image_cache_title">Vider les pochettes en cache</string>
@@ -418,8 +418,8 @@
     <string name="pause_search_history_description">Ne plus enregistrer ce que vous recherchez.</string>
     <string name="clear_search_history_description">Supprimer toutes les recherches enregistrées par l\'application.</string>
     <string name="sync_params_description">« Lecture / Écriture » permet à l\'application de modifier votre compte YouTube Music : j\'aime, bibliothèque et playlists. « Remplacer le contenu local » retire de la bibliothèque de ce téléphone tout ce qui n\'est pas dans le compte.</string>
-    <string name="enable_lrclib_description">Retrouvez les paroles sur LRCLIB, une base de données communautaire gratuite.</string>
-    <string name="enable_kugou_description">Recherchez des paroles sur KuGou. Son catalogue est vaste et particulièrement riche en musique chinoise.</string>
+    <string name="enable_lrclib_description">Chercher les paroles sur LRCLIB, une base de paroles communautaire et gratuite.</string>
+    <string name="enable_kugou_description">Chercher les paroles sur KuGou. Son catalogue est vaste et particulièrement riche en musique chinoise.</string>
     <string name="audio_normalization_description">Égalise le volume entre les morceaux, pour qu\'aucun ne soit soudain bien plus fort que le précédent.</string>
     <string name="skip_silence_description">Passer les blancs au début et à la fin d\'un morceau.</string>
     <string name="stop_music_on_task_clear_description">Arrêter la musique quand vous balayez l\'application hors des applications récentes.</string>
@@ -651,7 +651,7 @@
     <string name="tour_search_title">Tout trouver</string>
     <string name="tour_search_body">Cherchez dans votre bibliothèque et sur YouTube Music depuis le même champ.</string>
     <string name="tour_quickpicks_title">Sélection Rapide</string>
-    <string name="tour_quickpicks_body">Variez les plaisirs : la fonction « Auto » s\'adapte à vos habitudes d\'écoute, tandis que « Découvrir » vous fait découvrir de nouveaux horizons.</string>
+    <string name="tour_quickpicks_body">Changez le mélange : Auto suit votre écoute, Découverte va chercher plus loin.</string>
     <string name="tour_recognise_body">Appuyez ici et levez le téléphone. InterTune écoute quelques secondes avec le micro et vous dit quel titre passe autour de vous.</string>
     <string name="tour_library_title">Votre bibliothèque est ici</string>
     <string name="tour_library_body">Playlists, albums, artistes et tout ce qui est enregistré sur cet appareil.</string>
@@ -771,7 +771,7 @@
     <string name="background_update_text">Vous pouvez installer InterTune %1$s.</string>
     <string name="background_poll_title">Une nouvelle question</string>
     <string name="background_check_interval">Vérifier en arrière-plan</string>
-    <string name="background_check_interval_desc">À quelle fréquence vérifier la présence de mises à jour et de questions lorsque l\'application est fermée. Chaque option n\'est prise en compte que si vous l\'avez activée, et vous recevez une notification dès qu\'il y a quelque chose de nouveau.</string>
+    <string name="background_check_interval_desc">À quelle fréquence chercher les mises à jour et les questions quand l\'application est fermée. Chacune n\'est vérifiée que si vous l\'avez activée, et vous êtes prévenu une seule fois quand il y a du nouveau.</string>
     <string name="background_check_off">Seulement à l\'ouverture de l\'application</string>
     <string name="background_check_hours">Toutes les %1$d heures</string>
     <string name="background_check_hour">Toutes les heures</string>
@@ -1678,7 +1678,7 @@
     <string name="tour_closer_content_language">La langue dans laquelle YouTube Music répond : noms des titres et des artistes, et titres des lignes de l\'Accueil.</string>
     <string name="tour_closer_content_country">Le pays dont on vous montre les classements et les nouveautés. Changez-le si les suggestions sont pour un endroit où vous n\'êtes pas.</string>
     <string name="tour_closer_local_media">Activé, les fichiers musicaux de ce téléphone sont dans la même bibliothèque que YouTube Music. Désactivé, ils sont masqués, et l\'analyse de cet écran avec eux.</string>
-    <string name="tour_closer_scan_paths">Quels dossiers sont analysés pour rechercher de la musique ? Si vous excluez ceux qui contiennent des sonneries ou des mémos vocaux, ceux-ci ne figureront pas dans la bibliothèque.</string>
+    <string name="tour_closer_scan_paths">Les dossiers où chercher de la musique. Laissez de côté ceux qui contiennent des sonneries ou des mémos vocaux, et ils restent hors de la bibliothèque.</string>
     <string name="tour_closer_scanner_sensitivity">Ce qui doit concorder pour que deux fichiers comptent comme le même titre : le titre seul, ou aussi les artistes et l\'album.</string>
     <string name="tour_closer_dark_theme">Clair, sombre, ou comme le téléphone. Avec Noir profond en plus, le thème sombre est vraiment noir et pas gris foncé.</string>
     <string name="tour_closer_player_background">Ce qu\'il y a derrière le lecteur pendant un titre : la couleur du thème, ou un dégradé ou un flou tiré de la pochette.</string>
