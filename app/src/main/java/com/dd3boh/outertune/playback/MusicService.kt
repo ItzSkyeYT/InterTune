@@ -4452,6 +4452,14 @@ class MusicService : MediaLibraryService(),
         }
     }
 
+    /**
+     * Wi-Fi is kept at full power only while the player loads: see PlayerWakeMode. The phone's
+     * player is asked, not the one that called: while casting this hears the receiver's.
+     */
+    override fun onIsLoadingChanged(isLoading: Boolean) {
+        exoPlayer.setWakeMode(PlayerWakeMode.forLoading(exoPlayer.isLoading))
+    }
+
     override fun onEvents(player: Player, events: Player.Events) {
         if (events.containsAny(Player.EVENT_PLAYBACK_STATE_CHANGED, Player.EVENT_PLAY_WHEN_READY_CHANGED)) {
             val isBufferingOrReady =
