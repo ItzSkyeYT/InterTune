@@ -38,6 +38,17 @@ class TrackTagsTest {
     }
 
     @Test
+    fun `TagLib's property map gives the first value with a number`() {
+        val map = hashMapOf(
+            "TRACKNUMBER" to arrayOf("", "4/12"),
+            "DISCNUMBER" to arrayOf("1/2"),
+            "TITLE" to arrayOf("Pravus"),
+        )
+        assertEquals(Pair(4, 1), TrackTags.fromPropertyMap(map))
+        assertEquals(Pair(null, null), TrackTags.fromPropertyMap(hashMapOf("TITLE" to arrayOf("No numbers"))))
+    }
+
+    @Test
     fun `MediaStore's text columns win, padded or with a count`() {
         assertEquals(Pair(3, 2), TrackTags.fromMediaStore("3/12", "2/2", 2003))
         // getInt read "08" as octal and gave 0.

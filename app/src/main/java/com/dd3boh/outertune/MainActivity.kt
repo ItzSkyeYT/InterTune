@@ -265,6 +265,7 @@ import com.dd3boh.outertune.utils.lmScannerCoroutine
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.utils.rememberNullablePreference
+import com.dd3boh.outertune.utils.scanners.TrackTagReread
 import com.valentinilk.shimmer.LocalShimmerTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.collectLatest
@@ -745,6 +746,8 @@ class MainActivity : ComponentActivity() {
                         this@MainActivity, database, downloadUtil, coroutineScope, playerConnection,
                         snackbarHostState
                     )
+                    // Once, and quietly: the track numbers of local songs scanned before 0.12.5.
+                    TrackTagReread.runOnce(this@MainActivity, database)
                 }
             }
 

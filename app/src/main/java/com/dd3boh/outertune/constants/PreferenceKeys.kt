@@ -328,6 +328,8 @@ val ExcludedScanPathsKey = stringPreferencesKey("exclScanPaths") // previously "
 val LastLocalScanKey = longPreferencesKey("lastLocalScan")
 /** Whether the automatic scan has asked for the storage permission yet. It asks once; see scanInit. */
 val LocalMediaPermissionAskedKey = booleanPreferencesKey("localMediaPermissionAsked")
+/** Set once TrackTagReread has read the track tags of the local songs that had no number (issue #39). */
+val TrackTagsRereadKey = booleanPreferencesKey("trackTagsReread")
 
 /**
  * Experimental settings
