@@ -99,6 +99,7 @@ import com.dd3boh.outertune.constants.KeepAliveKey
 import com.dd3boh.outertune.constants.MAX_PLAYER_CONSECUTIVE_ERR
 import com.dd3boh.outertune.constants.RELATED_RETRY_COOLDOWN_MS
 import com.dd3boh.outertune.constants.MaxQueuesKey
+import com.dd3boh.outertune.constants.MaxSongCacheSizeKey
 import com.dd3boh.outertune.constants.MediaControlButtonsKey
 import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleLibrary
 import com.dd3boh.outertune.constants.MediaSessionConstants.CommandToggleLike
@@ -2522,9 +2523,15 @@ class MusicService : MediaLibraryService(),
                     )
                     .setCacheWriteDataSinkFactory(
                         HybridCacheDataSinkFactory(playerCache) { dataSpec ->
-                            val isLocal = queueBoard.getCurrentQueue()?.findSong(dataSpec.key ?: "")?.isLocal == true
-                            Log.d(TAG, "SONG CACHE: ${!isLocal}")
-                            !isLocal
+                            // Nothing is written while the song cache is off, its size 0 and the
+                            // default: its evictor deleted each piece the moment it was in, so
+                            // every streamed byte went to storage for nothing. Asked at each
+                            // write, not when the cache was built, so turning it off stops them
+                            // at once.
+                            val write = dataStore.get(MaxSongCacheSizeKey, 0) != 0 &&
+                                queueBoard.getCurrentQueue()?.findSong(dataSpec.key ?: "")?.isLocal != true
+                            Log.d(TAG, "SONG CACHE: $write")
+                            write
                         }
                     )
                     .setFlags(FLAG_IGNORE_CACHE_ON_ERROR)
