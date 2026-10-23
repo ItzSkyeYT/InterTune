@@ -217,6 +217,22 @@ data class MultiQueueObject(
     }
 
     /**
+     * Takes [songs] out of this queue, wherever they stand, and keeps [queuePos] on the current song,
+     * which is never taken. The very objects, not songs equal to them: a song put in with Play next
+     * can be in the list as well, and only the one put in goes. Returns whether any was taken.
+     */
+    fun takeOut(songs: Collection<MediaMetadata>): Boolean {
+        var any = false
+        for (song in songs) {
+            val at = getCurrentQueueShuffled().indexOfFirst { it === song }
+            val current = getQueuePosShuffled()
+            if (at < 0 || at == current) continue
+            if (removeAtPlayIndex(at, current)) any = true
+        }
+        return any
+    }
+
+    /**
      * The place in play order straight after the current song, which is where Play next inserts.
      *
      * [playerIndex] is the player's currentMediaItemIndex, or null while the player holds nothing.

@@ -484,4 +484,17 @@ object Unreleased {
      * Player.kt, CastPicker, CastDiscovery and CastLinks.
      */
     val CASTING = true
+
+    /**
+     * Songs put in with Play next stay next when a song is picked out of a list: they play right
+     * after the picked song, in the order they stood, then the list (PlayNextWaiting), as Spotify's
+     * "Next in queue" does. Asked for in issue #42 (23 Oct 2026). Without it a pick leaves them in
+     * the queue it replaces, or wipes them with it when the list is that queue's own.
+     *
+     * Only a pick takes them, not a list's Play or Shuffle button, nor a radio. Kept in memory, so
+     * a restart forgets which songs they were (they stay in the saved queue). Seen on the emulator
+     * only. To drop it: this flag, PlayNextWaiting, its two reads in MusicService (enqueueNext and
+     * the queue start's Target) and QueueBoard.putInAfterStart and takeOut.
+     */
+    val PLAY_NEXT_STAYS = BuildConfig.DEBUG
 }

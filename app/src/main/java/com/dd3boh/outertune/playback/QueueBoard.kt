@@ -367,6 +367,28 @@ class QueueBoard(
     }
 
     /**
+     * [songs] put into [q] right after the song it starts on, in play order, while [q] is still to
+     * be loaded (QueueStart, between addQueue and setCurrQueue): nothing is asked of the player,
+     * which gets them with the rest of the queue. Saved. Returns the copies the queue now holds.
+     */
+    fun putInAfterStart(q: MultiQueueObject, songs: List<MediaMetadata>): List<MediaMetadata> {
+        if (songs.isEmpty()) return emptyList()
+        val at = q.playNextIndex(null)
+        q.insertAtPlayIndex(at, songs)
+        saveQueueSongs(q)
+        return q.getCurrentQueueShuffled().subList(at, at + songs.size).toList()
+    }
+
+    /**
+     * [songs], the very objects, taken out of [q], a queue the player is not playing, while it is
+     * still on the board: one dropped meanwhile is not saved back. Saved.
+     */
+    fun takeOut(q: MultiQueueObject, songs: List<MediaMetadata>) {
+        if (masterQueues.none { it === q }) return
+        if (q.takeOut(songs)) saveQueueSongs(q)
+    }
+
+    /**
      * Removes song from the current queue
      *
      * @param index Index of item

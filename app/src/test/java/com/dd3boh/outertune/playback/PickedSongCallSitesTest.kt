@@ -16,8 +16,9 @@ import java.io.File
  *
  * A row tapped in a playlist, an album, the library or any other list plays the list from that
  * song, as a ListQueue with a startIndex, and only a queue marked as a pick follows the shuffle
- * button (issue #42). A list screen that left the mark off would start its list in order with
- * shuffle on again, and nothing on screen would say why. A list's Play and Shuffle buttons name no startIndex, say themselves how
+ * button (issue #42) and, in debug builds, keeps the songs put in with Play next. A list screen
+ * that left the mark off would start its list in order with shuffle on again, and nothing on
+ * screen would say why. A list's Play and Shuffle buttons name no startIndex, say themselves how
  * the list is to play, and must not be marked. This reads the source, as PlayOriginCoverageTest
  * does.
  */
