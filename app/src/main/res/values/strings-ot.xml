@@ -882,9 +882,9 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="new_radios_way">Keep radios up to date is in here.</string>
     <string name="new_radios_here">When it is on, the songs further down a radio change with what you skip and like.</string>
     <string name="new_share_links_title" translatable="false">Links for any music app</string>
-    <string name="new_share_links_body" translatable="false">Share can send a page where whoever opens it picks their own music app, instead of a YouTube Music link.</string>
+    <string name="new_share_links_body" translatable="false">Share can send a page where whoever opens it picks their own music app. Your next share asks which link to send, and the shares after it use your pick.</string>
     <string name="new_share_links_way" translatable="false">What Share sends is set in here: the YouTube Music link, or a page for any music app.</string>
-    <string name="new_share_links_here" translatable="false">What Share sends for a song or an album: the YouTube Music link as before, a page where whoever opens it picks their own app, or you are asked each time.</string>
+    <string name="new_share_links_here" translatable="false">What Share sends for a song or an album: the YouTube Music link, or a page where whoever opens it picks their own app. Until you pick one, your next share asks.</string>
     <string name="new_import_body">Bring your playlists from Spotify, Apple Music, Deezer and others. Each song is looked up on YouTube Music.</string>
     <string name="new_import_way">Import from another app is in here. It brings your playlists over from Spotify, Apple Music and others.</string>
     <string name="new_import_here">Pick the app your playlists are in and follow its three steps.</string>
@@ -1883,10 +1883,14 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="share_link_kind_title">Links you share</string>
     <string name="share_link_youtube_music">YouTube Music link</string>
     <string name="share_link_page">A page for any music app</string>
+    <!-- No longer shown: from 0.12.5 the first share asks once and keeps the answer (ShareLinks.START). To go, with its translations, at the next push of texts. -->
     <string name="share_link_ask">Ask each time</string>
     <string name="share_link_choice_title">Which link?</string>
     <string name="share_link_youtube_music_description">Opens in YouTube Music or in InterTune</string>
     <string name="share_link_page_description">They pick their own app: Spotify, Apple Music, Deezer and others</string>
+    <!-- Links you share from 0.12.5: the line under the question the first share asks (%1$s is the Settings screen, Library and content), and the row's value before anything is picked. -->
+    <string name="share_link_choice_kept" translatable="false">Your pick is kept for later shares. You can change it any time in Settings, under %1$s.</string>
+    <string name="share_link_not_chosen" translatable="false">Not chosen yet</string>
     <string name="favourites_strict" translatable="false">Favourites only</string>
     <string name="favourites_strict_on" translatable="false">Turn off to let similar artists join in.</string>
     <string name="favourites_strict_off" translatable="false">Similar artists join in, one song in four at most.</string>

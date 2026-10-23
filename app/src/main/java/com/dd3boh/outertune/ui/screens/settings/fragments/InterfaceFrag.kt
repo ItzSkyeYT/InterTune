@@ -71,6 +71,7 @@ import com.dd3boh.outertune.ui.screens.Screens.LibraryFilter
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 import com.dd3boh.outertune.utils.ShareLinkKind
+import com.dd3boh.outertune.utils.ShareLinks
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import com.zionhuang.innertube.YouTube
@@ -495,9 +496,15 @@ fun ColumnScope.LocalizationFrag() {
     )
 }
 
+/**
+ * "Links you share": what Share sends for a song or an album. It starts with nothing chosen, and
+ * the first share asks (rememberShareLink); the pick made there or here is the setting from then
+ * on. So the list holds the two kinds alone, and until a pick none of them is ticked and the row
+ * says nothing is chosen yet.
+ */
 @Composable
 fun ColumnScope.ShareLinksFrag() {
-    val (kind, onKindChange) = rememberEnumPreference(ShareLinkKindKey, defaultValue = ShareLinkKind.YOUTUBE_MUSIC)
+    val (kind, onKindChange) = rememberEnumPreference(ShareLinkKindKey, defaultValue = ShareLinks.START)
 
     EnumListPreference(
         modifier = Modifier.tourTarget(Tour.SETTING_SHARE_LINKS),
@@ -505,11 +512,12 @@ fun ColumnScope.ShareLinksFrag() {
         icon = { Icon(Icons.Rounded.Share, null) },
         selectedValue = kind,
         onValueSelected = onKindChange,
+        values = ShareLinks.CHOICES,
         valueText = {
             when (it) {
                 ShareLinkKind.YOUTUBE_MUSIC -> stringResource(R.string.share_link_youtube_music)
                 ShareLinkKind.PAGE -> stringResource(R.string.share_link_page)
-                ShareLinkKind.ASK -> stringResource(R.string.share_link_ask)
+                ShareLinkKind.ASK -> stringResource(R.string.share_link_not_chosen)
             }
         }
     )

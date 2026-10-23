@@ -59,11 +59,17 @@ object Unreleased {
 
     /**
      * "Links you share" under Library and content: a song or an album can go out as a link to the share
-     * page (ShareLinks.PAGE), where whoever opens it picks their own music app. Everything is in
-     * place but the page itself is not public yet. When it is: set this to true, or delete it
-     * along with the two checks that read it, in LibrarySettings and rememberShareLink.
+     * page (ShareLinks.PAGE), where whoever opens it picks their own music app.
+     *
+     * On in every build from 0.12.5 (decided on 23 Oct 2026, with the page live at
+     * intertune.app/s/). Everybody starts with nothing chosen: the first share that has a
+     * page asks which link to send, and the pick is the setting from then on (ShareLinks.START,
+     * rememberShareLink). Its six new or redrafted texts (the What's new entry's four, the line
+     * under the question and the row's value before a pick) are English only and not for
+     * translators yet. Left to tidy: the flag and the three checks that read it, in
+     * LibrarySettings, rememberShareLink and the What's new entry in Walkthrough.
      */
-    val SHARE_PAGE = BuildConfig.DEBUG
+    val SHARE_PAGE = true
 
     /**
      * Keep radios up to date the whole way (AdaptivePass, QueuePlanner, QueueBoard.applyAdaptive):
