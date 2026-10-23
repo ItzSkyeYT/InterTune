@@ -1913,6 +1913,59 @@ class MusicService : MediaLibraryService(),
      */
     private val recoverySettled: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
 
+    /**
+     * What a resolve owes recoverSong, by song, until the song is the one playing and the player
+     * is ready to play it: see [recoverWhenPlaying]. With the answer of the resolve's own walk,
+     * when it made one, so that the song's length is not asked for again.
+     */
+    private val recoveryOwed = ConcurrentHashMap<String, OwedRecovery>()
+
+    private class OwedRecovery(val playbackData: YTPlayerUtils.PlaybackData?)
+
+    /**
+     * recoverSong for [mediaId], once it is the song playing and the player is ready to play it
+     * (STATE_READY): paid by onEvents.
+     *
+     * A song is resolved before it starts, and its next, related and Last.fm requests went out
+     * right then, beside the song's own /player, n step, check and first bytes. A song the player
+     * loads ahead (the next one, near the end of the one playing) had them before it played at all,
+     * and whether or not it ever did.
+     */
+    private fun recoverWhenPlaying(mediaId: String, playbackData: YTPlayerUtils.PlaybackData?) {
+        if (mediaId in recoverySettled) return
+        recoveryOwed.merge(mediaId, OwedRecovery(playbackData)) { kept, new -> if (new.playbackData != null) new else kept }
+        // Paid at once when the song plays already, opened again partway through.
+        scope.launch { payOwedRecovery() }
+    }
+
+    /** Pays what is owed to the song playing, when the player is ready to play it. Main thread. */
+    private fun payOwedRecovery() {
+        if (recoveryOwed.isEmpty()) return
+        val player = activePlayer
+        if (player.playbackState != Player.STATE_READY) return
+        val id = player.currentMediaItem?.mediaId ?: return
+        val owed = recoveryOwed.remove(id) ?: return
+        offloadScope.launch { recoverSong(id, owed.playbackData) }
+    }
+
+    /** Forgets what is owed to songs that are no longer ahead in the queue. Main thread. */
+    private fun forgetOwedRecoveryBehind() {
+        if (recoveryOwed.isEmpty()) return
+        val player = activePlayer
+        recoveryOwed.keys.removeIf { player.findNextMediaItemById(it) == null }
+    }
+
+    /**
+     * Returns once the player is not loading a song to start it (STATE_BUFFERING), or after
+     * [NEW_SONG_WAIT_MS] at most: for requests that can wait a few seconds and that went out beside
+     * a new song's own. Looked at every half second while a song loads, and not at all otherwise.
+     */
+    private suspend fun afterSongStarts() {
+        kotlinx.coroutines.withTimeoutOrNull(NEW_SONG_WAIT_MS) {
+            while (withContext(Dispatchers.Main) { activePlayer.playbackState == Player.STATE_BUFFERING }) delay(500)
+        }
+    }
+
     private suspend fun recoverSong(mediaId: String, playbackData: YTPlayerUtils.PlaybackData? = null) {
         if (mediaId in recoverySettled) return
         val song = database.song(mediaId).first()
@@ -2693,7 +2746,7 @@ class MusicService : MediaLibraryService(),
                     isNetworkConnected.value && playerCache.holdsPartFromStart(mediaId)
             if ((isDownload || isCache) && !staleQuality && !partialCopy) {
                 Log.i(TAG, "PLAYING: remote song (cache = ${isCache}, download = ${isDownload})")
-                offloadScope.launch { recoverSong(mediaId) }
+                recoverWhenPlaying(mediaId, null)
                 return ResolvedSong.Cached
             }
 
@@ -2702,7 +2755,7 @@ class MusicService : MediaLibraryService(),
             addresses.of(mediaId, System.currentTimeMillis())?.takeIf { !staleQuality }?.let { address ->
                 formats[mediaId]?.let { format ->
                     Log.i(TAG, "PLAYING: remote song (temp cache)")
-                    offloadScope.launch { recoverSong(mediaId) }
+                    recoverWhenPlaying(mediaId, null)
                     return ResolvedSong.KnownStream(address, format)
                 }
             }
@@ -2847,7 +2900,7 @@ class MusicService : MediaLibraryService(),
                     )
                 )
             }
-            offloadScope.launch { recoverSong(mediaId, playbackData) }
+            recoverWhenPlaying(mediaId, playbackData)
 
             // The developer's "Stream over SABR only": the same answer over SABR instead of its
             // direct address, the walk otherwise as it always is (playback/sabr/SabrOver).
@@ -4496,6 +4549,10 @@ class MusicService : MediaLibraryService(),
             currentMediaMetadata.value = player.currentMetadata
             updateWidget()
         }
+        // What resolves owe recoverSong: paid to the song playing once it is ready, forgotten for
+        // the songs the queue has left behind. See recoverWhenPlaying.
+        if (events.containsAny(EVENT_TIMELINE_CHANGED, Player.EVENT_MEDIA_ITEM_TRANSITION)) forgetOwedRecoveryBehind()
+        if (events.containsAny(Player.EVENT_PLAYBACK_STATE_CHANGED, Player.EVENT_MEDIA_ITEM_TRANSITION)) payOwedRecovery()
     }
 
     /**
@@ -4952,6 +5009,11 @@ class MusicService : MediaLibraryService(),
                 )
                 Log.d(TAG, "Trying to register remote history: $ytHist")
                 if (ytHist) {
+                    // These stats arrive as the next song starts. Its own /player, n step, check
+                    // and first bytes go first: the account's request below looks up the signature
+                    // timestamp under the lock that song's n step waits on, makes a po token and
+                    // asks /player, and the ping follows. See afterSongStarts.
+                    afterSongStarts()
                     // The account's request first, for an address issued to the channel that is
                     // signed in, and the visitor's, the only one there used to be, when that gives
                     // none or has not answered in time.
@@ -5183,6 +5245,9 @@ class MusicService : MediaLibraryService(),
     companion object {
         /** How long after the stall watch gave a song up the player's own error on it is taken for the same fault. */
         private const val STALL_ECHO_MS = 60_000L
+
+        /** The longest a request is held back while a new song loads: see afterSongStarts. */
+        private const val NEW_SONG_WAIT_MS = 20_000L
 
         /**
          * Whether a service instance is alive, which decides whether the widget's buttons can
