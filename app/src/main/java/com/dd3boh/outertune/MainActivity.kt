@@ -1210,6 +1210,13 @@ class MainActivity : ComponentActivity() {
                     // which arrives before this composition runs. Each is held until the player is
                     // connected, which on a cold start comes a moment later, and until setup is
                     // finished, then cleared, so a rotation does not open it again.
+                    // Made before the links are opened below: a song link with no album opens its menu.
+                    // One for as long as this is on screen. It was made anew here whenever this
+                    // was composed again, and the colours above follow the cover of the song
+                    // playing: so every change of song handed the whole app a new menu, closed
+                    // and empty, in place of the one somebody had open.
+                    val menuSheetState = rememberModalBottomSheetState()
+                    val menuState = remember(menuSheetState) { MenuState(menuSheetState) }
                     var pendingLaunchLink by rememberSaveable {
                         mutableStateOf(
                             launchLink(
@@ -1238,17 +1245,11 @@ class MainActivity : ComponentActivity() {
                             navController.navigate("search/${searchWords.urlEncode()}")
                         } else {
                             youtubeNavigator(
-                                this@MainActivity, navController, coroutineScope, connection, snackbarHostState, link.toUri()
+                                this@MainActivity, navController, coroutineScope, connection, snackbarHostState, link.toUri(), menuState
                             )
                         }
                     }
 
-                    // One for as long as this is on screen. It was made anew here whenever this
-                    // was composed again, and the colours above follow the cover of the song
-                    // playing: so every change of song handed the whole app a new menu, closed
-                    // and empty, in place of the one somebody had open.
-                    val menuSheetState = rememberModalBottomSheetState()
-                    val menuState = remember(menuSheetState) { MenuState(menuSheetState) }
                     CompositionLocalProvider(
                         LocalDatabase provides database,
                         LocalContentColor provides contentColorFor(MaterialTheme.colorScheme.surface),
