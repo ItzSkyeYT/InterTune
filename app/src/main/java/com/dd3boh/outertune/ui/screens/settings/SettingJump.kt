@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.ui.screens.settings
 
+import androidx.annotation.StringRes
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -43,8 +44,15 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 
-/** Where a setting is: the screen it is on, and the mark its row carries (see tourTarget). */
-data class Jump(val target: String, val route: String)
+/**
+ * Where a setting is: the screen it is on, and the mark its row carries (see tourTarget, and
+ * settingRow for the marks search finds rows by).
+ *
+ * @param fold the heading of the fold the row is in, opened on the way (SettingsClickToReveal)
+ * @param instead the mark of the row to bring and light when [target] is not on its screen: the
+ *   switch a setting hangs from, while it is off
+ */
+data class Jump(val target: String, val route: String, @StringRes val fold: Int? = null, val instead: String? = null)
 
 /**
  * The settings an explanation can lead to (Unreleased.EXPLANATION_LINKS).
@@ -144,13 +152,36 @@ fun explanationWithLinks(body: String, own: String, onJump: (Jump) -> Unit): Ann
     }
 }
 
-/** The jump that was asked for, and the row that is being flashed. */
+/** The jump that was asked for, the row that is being flashed, and the row a search result lit. */
 object SettingJump {
     var asked by mutableStateOf<Jump?>(null)
         private set
+
+    /** Whether [asked] is a search result's: see [show]. */
+    internal var searched = false
+        private set
     internal var flashing by mutableStateOf<String?>(null)
 
+    /** The row a search result has lit, which draws the light itself (settingRow), and how bright it is. */
+    internal var lit by mutableStateOf<String?>(null)
+    internal val light = Animatable(0f)
+
+    /** The heading of the fold to open on the way to a row, as it is written, while a jump is on its way. */
+    var unfolding by mutableStateOf<String?>(null)
+        internal set
+
+    /** A link in an explanation: the screen opens over the one the link was on, and the row flashes. */
     fun go(jump: Jump) {
+        searched = false
+        asked = jump
+    }
+
+    /**
+     * A search result: the screen opens as from the list, in the list's place in the two panes,
+     * and the row is lit for a moment, as a linked song is on its album.
+     */
+    fun show(jump: Jump) {
+        searched = true
         asked = jump
     }
 
@@ -169,6 +200,33 @@ private const val SETTLE_MS = 350L
 
 private const val FLASH_ALPHA = 0.22f
 
+// How long a row stays lit before it fades, and how long the fade takes: the album's for a linked song.
+private const val LIGHT_HELD_MS = 1_200L
+private const val LIGHT_FADE_MS = 900
+
+// Once the row a setting hangs from is on the screen, how long the setting itself is given to
+// arrive: a fold opening, or a row that comes a frame after the one above it.
+private const val INSTEAD_MS = 700L
+
+/**
+ * The row the jump ends on: its own, or, when that is not on the screen, the one named
+ * [Jump.instead]; null when neither arrives. A row that is not on this install, head tracking on
+ * a phone without it for instance, never does, and the screen is where the jump then ends.
+ */
+private suspend fun arrived(jump: Jump): String? {
+    val target = jump.target
+    val instead = jump.instead
+    if (instead == null) {
+        return target.takeIf { withTimeoutOrNull(ARRIVE_MS) { snapshotFlow { TourTargets.known(target) }.first { it } } == true }
+    }
+    val first = withTimeoutOrNull(ARRIVE_MS) {
+        snapshotFlow { if (TourTargets.known(target)) target else instead.takeIf { TourTargets.known(it) } }.first { it != null }
+    } ?: return null
+    if (first == target) return target
+    val came = withTimeoutOrNull(INSTEAD_MS) { snapshotFlow { TourTargets.known(target) }.first { it } } == true
+    return if (came) target else instead
+}
+
 /**
  * Makes the jump that was asked for, and draws the flash. Beside the tour's overlay, for the same
  * two reasons: the rows report where they are in the root's coordinates, and out here the flash
@@ -178,18 +236,40 @@ private const val FLASH_ALPHA = 0.22f
 fun SettingJumpHost(navController: NavController) {
     val jump = SettingJump.asked
     val room = with(LocalDensity.current) { 96.dp.toPx() }
+    val resources = LocalResources.current
     LaunchedEffect(jump) {
         if (jump == null) return@LaunchedEffect
-        // Opened over where the explanation was, so Back returns there, as from any link.
-        // In the two panes the screen opens on the right, over the one the link was on, and the list stays.
-        if (navController.currentDestination?.route != jump.route) navController.toSettings(jump.route, over = true)
-        val there = withTimeoutOrNull(ARRIVE_MS) { snapshotFlow { TourTargets.known(jump.target) }.first { it } } == true
-        if (there) {
-            delay(SETTLE_MS)
-            TourTargets.bring(jump.target, room)
-            SettingJump.flashing = jump.target
+        val searched = SettingJump.searched
+        try {
+            // A link opens over where the explanation was, so Back returns there, as from any link.
+            // In the two panes the screen opens on the right, over the one the link was on, and the
+            // list stays. A search result opens as the list opens a screen.
+            if (navController.currentDestination?.route != jump.route) navController.toSettings(jump.route, over = !searched)
+            SettingJump.unfolding = jump.fold?.let { resources.getString(it) }
+            val row = arrived(jump)
+            if (row != null) {
+                delay(SETTLE_MS)
+                TourTargets.bring(row, room)
+                if (searched) SettingJump.lit = row else SettingJump.flashing = row
+            }
+        } finally {
+            // Not when another jump has been asked for in the meantime, which is now on its way.
+            if (SettingJump.asked == jump) {
+                SettingJump.unfolding = null
+                SettingJump.made()
+            }
         }
-        SettingJump.made()
+    }
+
+    // A search result's light, drawn by the row itself: on at once, held, then let go, as the album
+    // lights a linked song.
+    val lit = SettingJump.lit
+    LaunchedEffect(lit) {
+        if (lit == null) return@LaunchedEffect
+        SettingJump.light.snapTo(1f)
+        delay(LIGHT_HELD_MS)
+        SettingJump.light.animateTo(0f, tween(LIGHT_FADE_MS))
+        if (SettingJump.lit == lit) SettingJump.lit = null
     }
 
     val row = SettingJump.flashing ?: return
