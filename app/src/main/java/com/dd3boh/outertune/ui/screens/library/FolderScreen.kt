@@ -551,7 +551,7 @@ fun FolderScreen(
                     TopBarPill {
                         Column(modifier = Modifier.padding(horizontal = 18.dp)) {
                             val title = currDir.currentDir.substringAfterLast('/')
-                            val subtitle = currDir.getFullPath().substringBeforeLast('/')
+                            val subtitle = currDir.parentPathLine()
                             Text(
                                 text = if (currDir.currentDir == "storage") {
                                     stringResource(R.string.local_player_settings_title)
