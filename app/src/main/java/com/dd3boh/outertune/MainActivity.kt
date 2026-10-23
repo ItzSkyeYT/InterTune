@@ -433,29 +433,40 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var database: MusicDatabase
 
+    // The rest are each built the first time something asks for it. Injected as themselves, they
+    // were all built before setContent, the song caches with them, whether a screen needed them
+    // or not. The providers in setContent hand them on the same way (providesComputed).
     @Inject
-    lateinit var downloadUtil: DownloadUtil
+    lateinit var lazyDownloadUtil: dagger.Lazy<DownloadUtil>
+    val downloadUtil: DownloadUtil get() = lazyDownloadUtil.get()
 
     @Inject
-    lateinit var syncUtils: SyncUtils
+    lateinit var lazySyncUtils: dagger.Lazy<SyncUtils>
+    val syncUtils: SyncUtils get() = lazySyncUtils.get()
 
     @Inject
-    lateinit var scrobbler: Scrobbler
+    lateinit var lazyScrobbler: dagger.Lazy<Scrobbler>
+    val scrobbler: Scrobbler get() = lazyScrobbler.get()
 
     @Inject
-    lateinit var loudnessRepair: LoudnessRepair
+    lateinit var lazyLoudnessRepair: dagger.Lazy<LoudnessRepair>
+    val loudnessRepair: LoudnessRepair get() = lazyLoudnessRepair.get()
 
     @Inject
-    lateinit var updateChecker: UpdateChecker
+    lateinit var lazyUpdateChecker: dagger.Lazy<UpdateChecker>
+    val updateChecker: UpdateChecker get() = lazyUpdateChecker.get()
 
     @Inject
-    lateinit var updateInstaller: UpdateInstaller
+    lateinit var lazyUpdateInstaller: dagger.Lazy<UpdateInstaller>
+    val updateInstaller: UpdateInstaller get() = lazyUpdateInstaller.get()
 
     @Inject
-    lateinit var pollChecker: PollChecker
+    lateinit var lazyPollChecker: dagger.Lazy<PollChecker>
+    val pollChecker: PollChecker get() = lazyPollChecker.get()
 
     @Inject
-    lateinit var activeCount: ActiveCount
+    lateinit var lazyActiveCount: dagger.Lazy<ActiveCount>
+    val activeCount: ActiveCount get() = lazyActiveCount.get()
 
     lateinit var activityLauncher: ActivityLauncherHelper
     lateinit var connectivityObserver: NetworkConnectivityObserver
@@ -739,10 +750,14 @@ class MainActivity : ComponentActivity() {
                 // there prompting forever if the process happened to survive.
                 updateInstaller.onInstalled = { coroutineScope.launch { updateChecker.clearFound() } }
 
-                // local media & download folders auto scan
+                // local media & download folders auto scan. The downloads are had here, on the
+                // main thread, so that when nothing has built them yet they are built there, as
+                // they always were: building them sets up their download manager, which is used
+                // from the main thread only.
+                val downloads = downloadUtil
                 coroutineScope.launch(lmScannerCoroutine) {
                     scanInit(
-                        this@MainActivity, database, downloadUtil, coroutineScope, playerConnection,
+                        this@MainActivity, database, downloads, coroutineScope, playerConnection,
                         snackbarHostState
                     )
                 }
@@ -1257,15 +1272,19 @@ class MainActivity : ComponentActivity() {
                         LocalPlayerConnection provides playerConnection,
                         LocalPlayerAwareWindowInsets provides playerAwareWindowInsets,
                         LocalPlayerSheet provides playerBottomSheetState,
-                        LocalDownloadUtil provides downloadUtil,
+                        // Computed: each is built when a screen first asks for it (see the
+                        // fields). The lambdas keep their identity across recompositions, the
+                        // Compose compiler remembers them, which a static local needs: one
+                        // handed a new value recomposes everything under it.
+                        LocalDownloadUtil providesComputed { downloadUtil },
                         LocalShimmerTheme provides ShimmerTheme,
-                        LocalSyncUtils provides syncUtils,
-                        LocalScrobbler provides scrobbler,
-                        LocalLoudnessRepair provides loudnessRepair,
-                        LocalUpdateChecker provides updateChecker,
-                        LocalUpdateInstaller provides updateInstaller,
-                        LocalPollChecker provides pollChecker,
-                        LocalActiveCount provides activeCount,
+                        LocalSyncUtils providesComputed { syncUtils },
+                        LocalScrobbler providesComputed { scrobbler },
+                        LocalLoudnessRepair providesComputed { loudnessRepair },
+                        LocalUpdateChecker providesComputed { updateChecker },
+                        LocalUpdateInstaller providesComputed { updateInstaller },
+                        LocalPollChecker providesComputed { pollChecker },
+                        LocalActiveCount providesComputed { activeCount },
                         LocalNetworkConnected provides isNetworkConnected,
                         LocalSnackbarHostState provides snackbarHostState,
                         LocalAppBackdrop provides (if (navGlass) appBackdrop else null),
