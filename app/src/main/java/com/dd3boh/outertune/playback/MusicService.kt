@@ -69,7 +69,6 @@ import androidx.media3.exoplayer.analytics.PlaybackStatsListener
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioOffloadSupportProvider
 import androidx.media3.exoplayer.audio.DefaultAudioSink
-import androidx.media3.exoplayer.audio.DefaultAudioTrackBufferSizeProvider
 import androidx.media3.exoplayer.audio.SilenceSkippingAudioProcessor
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.ShuffleOrder
@@ -837,8 +836,13 @@ class MusicService : MediaLibraryService(),
         }
     }
 
-    /** Whether the listener asked for head tracking, independent of whether it is possible. */
-    private var headTrackingWanted = false
+    /**
+     * Whether the listener asked for head tracking, independent of whether it is possible. Read
+     * at construction, so the first song's output is set up knowing it, then kept by the observer
+     * in onCreate. Volatile: the output's buffer asks it on the player's thread.
+     */
+    @Volatile
+    private var headTrackingWanted = dataStore.get(HeadTrackingKey, false)
 
     /**
      * Measure how long it takes a rendered sample to reach the ear, and tell the head tracking.
@@ -873,16 +877,20 @@ class MusicService : MediaLibraryService(),
     private var currentTrackStartMs: Long? = null
 
     /**
-     * Whether to trade buffer headroom for latency, read once at construction like the other
-     * things that decide how the sink is built.
+     * Whether to trade buffer headroom for latency, asked each time the output is set up for a
+     * stream (OutputBufferSize).
      *
      * media3 floors its PCM buffer at 250 ms, so a quarter of a second of already rendered audio
      * sits in front of the DAC before Bluetooth adds its own 150 to 250. That is inaudible for
      * ordinary playback and is most of the perceived lag once the soundstage is supposed to follow
-     * a head turn, which is the only case this shortens it for. Underruns are the cost, so it is
-     * not done for anyone who is not head tracking.
+     * a head turn, which is the only case this shortens it for: the switch on, Spatial audio on
+     * Headphones and a tracker connected. Underruns are the cost, and with the player's thread
+     * waking at half of what the output holds, wake-ups, so it is not done for anyone else. It
+     * used to follow the switch alone, read once when the service started.
      */
-    private val lowLatencyAudio = dataStore.get(HeadTrackingKey, false)
+    private val outputBufferSize = OutputBufferSize(DEFAULT_BUFFER_US, LOW_LATENCY_BUFFER_US) {
+        OutputBufferSize.wantShort(headTrackingWanted, binauralProcessor.enabled) { headTracking.isAvailable }
+    }
     private val isGaplessOffloadAllowed = dataStore.get(AudioGaplessOffloadKey, false)
     val playerVolume = MutableStateFlow(dataStore.get(PlayerVolumeKey, 1f).coerceIn(0f, 1f))
 
@@ -3087,13 +3095,7 @@ class MusicService : MediaLibraryService(),
                         // any, and every normalised track was rounded back to 16 bit after the
                         // multiply for no reason.
                         .setEnableFloatOutput(enableFloatOutput)
-                        .setAudioTrackBufferSizeProvider(
-                            DefaultAudioTrackBufferSizeProvider.Builder()
-                                .setMinPcmBufferDurationUs(
-                                    if (lowLatencyAudio) LOW_LATENCY_BUFFER_US else DEFAULT_BUFFER_US
-                                )
-                                .build()
-                        )
+                        .setAudioTrackBufferSizeProvider(outputBufferSize)
                         .setAudioProcessorChain(
                             DefaultAudioSink.DefaultAudioProcessorChain(
                                 // Upmix last: gain works on the two channels it was written for,
@@ -3129,13 +3131,7 @@ class MusicService : MediaLibraryService(),
                         // any, and every normalised track was rounded back to 16 bit after the
                         // multiply for no reason.
                         .setEnableFloatOutput(enableFloatOutput)
-                        .setAudioTrackBufferSizeProvider(
-                            DefaultAudioTrackBufferSizeProvider.Builder()
-                                .setMinPcmBufferDurationUs(
-                                    if (lowLatencyAudio) LOW_LATENCY_BUFFER_US else DEFAULT_BUFFER_US
-                                )
-                                .build()
-                        )
+                        .setAudioTrackBufferSizeProvider(outputBufferSize)
                         .setAudioProcessorChain(
                             DefaultAudioSink.DefaultAudioProcessorChain(
                                 // Upmix last: gain works on the two channels it was written for,
