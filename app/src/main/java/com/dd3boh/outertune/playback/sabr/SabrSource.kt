@@ -32,7 +32,10 @@ import java.util.concurrent.ConcurrentHashMap
 object SabrStarts {
     /**
      * [pacedByPlayer]: read at the pace of where the player is (SabrClock), and false for a
-     * download's, which runs at its own clock (SabrOver.downloadClock).
+     * download's, which runs at its own clock (SabrOver.downloadClock). [songId]: the song the
+     * player asked for, which a stand-in's start is not: the queue knows songs by that id
+     * (SabrAhead). [networkChanges]: how many changes of network SabrOver had seen when it was
+     * made, so that a walk after another one makes a start of its own.
      */
     class Start(
         val videoId: String,
@@ -41,6 +44,8 @@ object SabrStarts {
         val file: SabrFile,
         val expiresAtMs: Long,
         val pacedByPlayer: Boolean = true,
+        val songId: String = videoId,
+        val networkChanges: Int = 0,
     )
 
     private val starts = ConcurrentHashMap<String, Start>()
@@ -53,15 +58,20 @@ object SabrStarts {
     fun addressOf(videoId: String, itag: Int, lastModified: Long, forDownload: Boolean = false): String =
         "$SCHEME://$videoId?itag=$itag&lmt=$lastModified" + if (forDownload) "&for=download" else ""
 
-    /** Keeps [start] and gives the address that stands for it. */
+    /**
+     * Keeps [start] and gives the address that stands for it. A start it replaces lets go of what
+     * it read ahead: nothing finds it by its address any more.
+     */
     fun put(start: Start): String =
-        addressOf(start.videoId, start.itag, start.lastModified, forDownload = !start.pacedByPlayer).also { starts[it] = start }
+        addressOf(start.videoId, start.itag, start.lastModified, forDownload = !start.pacedByPlayer).also { address ->
+            starts.put(address, start)?.takeIf { it !== start }?.file?.dropAhead(", replaced by a new start")
+        }
 
     /** The start an address stands for, or null when it was forgotten or has run out. */
     fun forAddress(address: String, nowMs: Long = System.currentTimeMillis()): Start? {
         val start = starts[address] ?: return null
         if (nowMs >= start.expiresAtMs) {
-            starts.remove(address, start)
+            if (starts.remove(address, start)) start.file.dropAhead(", its start ran out")
             return null
         }
         return start
@@ -69,8 +79,34 @@ object SabrStarts {
 
     /** Every start of [videoId] goes, as the direct address does when the player fails on it. */
     fun forget(videoId: String) {
+        val gone = starts.values.filter { it.videoId == videoId }
         starts.entries.removeIf { it.value.videoId == videoId }
+        gone.forEach { it.file.dropAhead(", its start was forgotten") }
     }
+
+    /**
+     * Every song but [songs] lets go of what was read ahead of it: the queue has moved on from
+     * them (SabrAhead). Their starts stay, and a read of one opened later reads ahead again.
+     */
+    fun dropAheadExcept(songs: Set<String>) {
+        starts.values.filter { it.songId !in songs }.forEach { it.file.dropAhead(", the queue moved on") }
+    }
+
+    /** Whether a start of [songId] has the rest of the song held, read ahead to its end. */
+    fun restHeld(songId: String): Boolean = starts.values.any { it.songId == songId && it.file.restHeld }
+
+    /**
+     * The address of a live start of [songId] that holds the byte at [position], read ahead: the
+     * song plays from what is held with no network, even once its address was forgotten (a change
+     * of network forgets every one). Only a start of the format [itag] and [lastModified], the one
+     * the player was given for the song: bytes at a position are that file's only. Null when none.
+     */
+    fun heldAt(songId: String, position: Long, itag: Int, lastModified: Long?, nowMs: Long = System.currentTimeMillis()): String? =
+        starts.entries.firstOrNull { (_, start) ->
+            start.songId == songId && start.pacedByPlayer && start.itag == itag &&
+                (lastModified == null || lastModified == 0L || start.lastModified == lastModified) &&
+                nowMs < start.expiresAtMs && start.file.holds(position)
+        }?.key
 
     const val SCHEME = "sabr"
 }
@@ -118,7 +154,8 @@ class SabrRead(private val starts: SabrStarts = SabrStarts, private val cutWith:
             clocked = true
             SabrClock.opened()
         }
-        val opened = found.file.open(position)
+        // With its length: a part between two cached ones is read ahead only as far as it goes.
+        val opened = found.file.open(position, length)
         reader = opened
         cut = false
         cuttable = cutWith?.cutAlongside(

@@ -296,6 +296,23 @@ object Unreleased {
     val SABR_RUNG = true
 
     /**
+     * A song played over SABR read ahead of the player (SabrFile.Ahead, SabrAhead): the rest of it
+     * on a stream four times faster than it plays, held on the phone, and once it is held to its
+     * end the next song in the queue as well. A connection lost mid-song or at the change of song
+     * then stops nothing while what is held lasts. Without it SABR has about 15 s of music ahead,
+     * YouTube's readahead, where a direct address has ExoPlayer's 50 s. Never for a download, which
+     * has its own fast clock, nor while casting, and not with Data Saver on. Held in memory, at
+     * most 16 MB a song, and at each change of the queue only the song playing and the next one
+     * keep theirs, so the song cache and its size are left as they are: a song reaches the cache
+     * as it plays, as before.
+     *
+     * JVM tests (SabrFileAheadTest, SabrAheadTest) and the read-only emulator only (23 Oct 2026,
+     * experiments/features/sabr/prefetch). To ship: set this to true, or delete it with the checks
+     * that read it, in SabrOver and MusicService.
+     */
+    val SABR_AHEAD = BuildConfig.DEBUG
+
+    /**
      * YouTube Music's web client as one of the stream chain's own, written after VISIONOS
      * (YTPlayerUtils.WEB_FALLBACK_CLIENT): the day VISIONOS gives no stream it is asked by
      * itself, and it is first for the songs after that for as long as it serves.
