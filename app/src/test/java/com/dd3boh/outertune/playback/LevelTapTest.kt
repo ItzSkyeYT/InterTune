@@ -275,8 +275,12 @@ class LevelTapTest {
         assertFalse("paused", tap.now(got))
         tap.playing(true)
         assertTrue(tap.now(got))
-        nanos += 600_000_000L
-        assertFalse("the output has not been asked where it is for over half a second", tap.now(got))
+        // The player's thread sleeps until half of what the output holds has played: up to 375 ms
+        // at normal speed, 750 ms at half speed. Still playing at 750 ms without being asked.
+        nanos += 750_000_000L
+        assertTrue("asked at the player's slowest wake, it still plays", tap.now(got))
+        nanos += 850_000_000L
+        assertFalse("the output has not been asked where it is for over a second and a half", tap.now(got))
         tap.position(AudioSink.CURRENT_POSITION_NOT_SET)
         assertFalse("an output that does not know where it is leaves the clock alone", tap.now(got))
     }

@@ -1024,6 +1024,15 @@ class MusicService : MediaLibraryService(),
             )
             .setSeekBackIncrementMs(5000)
             .setSeekForwardIncrementMs(5000)
+            // The player's thread wakes when there is something for it to do, not every 10 ms.
+            // Left to its default it woke a hundred times a second all through a song, each time
+            // to find the output still holding a quarter of a second of music: 8 to 10% of a core
+            // on a Galaxy S25 Ultra, the largest share of what the app cost while it played in
+            // the background (Preview build, 23 Oct 2026). Asked this way it sleeps until half of
+            // what the output holds has played, or until the decoder has a buffer for it, and
+            // near the end of a song it goes back to 10 ms for the change. LevelTap is asked
+            // where the output is at each wake, so it allows for the longer gaps.
+            .experimentalSetDynamicSchedulingEnabled(true)
             .build()
             .apply {
                 // listeners
