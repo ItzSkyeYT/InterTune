@@ -13,6 +13,10 @@ import com.dd3boh.outertune.db.HistorySql
 import com.dd3boh.outertune.db.entities.HistoryPiece
 import com.dd3boh.outertune.db.entities.HistoryPlayWithSong
 import com.dd3boh.outertune.db.StatsSql
+import com.dd3boh.outertune.db.RecapSql
+import com.dd3boh.outertune.recap.RecapAmount
+import com.dd3boh.outertune.recap.RecapCredit
+import com.dd3boh.outertune.recap.RecapListen
 import com.dd3boh.outertune.engine.EngineSql
 import com.dd3boh.outertune.stats.StatsBounds
 import com.dd3boh.outertune.stats.StatsListen
@@ -400,6 +404,20 @@ interface ListenDao {
 
     @Query(StatsSql.BOUNDS)
     fun statsBounds(): StatsBounds
+
+    // ---- The InterTune Recap, see recap/Recaps.kt. Plain reads, once when it is worked out, with
+    // the Stats page's reads above for what was heard before the year and where the log begins.
+    @Query(RecapSql.LISTENS)
+    fun recapListens(from: Long): List<RecapListen>
+
+    @Query(RecapSql.CREDITS)
+    fun recapCredits(from: Long): List<RecapCredit>
+
+    @Query(RecapSql.LIKED)
+    fun recapLiked(from: Long): List<String>
+
+    @Query(RecapSql.AMOUNT)
+    fun recapAmount(from: Long, to: Long): RecapAmount
 
     data class CodeCount(val code: Int, val n: Int)
 
