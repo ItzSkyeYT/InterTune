@@ -27,6 +27,7 @@ class DirectoryTree(path: String, var culmSongs: CulmSongs) {
     companion object {
         const val TAG = "DirectoryTree"
         var directoryUID = 0
+        private val SLASHES = Regex("/{2,}")
     }
 
     /**
@@ -294,7 +295,15 @@ class DirectoryTree(path: String, var culmSongs: CulmSongs) {
         return fixFilePath((parent + "/" + getSquashedDir()))
     }
 
-    fun getFullPath(): String = "$parent/$currentDir"
+    /**
+     * The folder's path, with one slash between names. A folder's own screen builds its tree with
+     * the whole path as the name and no parent (refreshLocal), and joined as they were the two gave
+     * "//storage/...": the top bar showed it, and the folder's menu counted no songs under it.
+     */
+    fun getFullPath(): String = "$parent/$currentDir".replace(SLASHES, "/")
+
+    /** The path of the folder this one is in, as the Folders screen's top bar shows it under the name. */
+    fun parentPathLine(): String = getFullPath().trimEnd('/').substringBeforeLast('/')
 
     /**
      * Crawl the directory tree, add the subdirectories with songs to the list

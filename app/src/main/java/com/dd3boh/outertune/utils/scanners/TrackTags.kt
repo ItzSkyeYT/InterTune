@@ -21,6 +21,15 @@ object TrackTags {
         raw?.trim()?.takeWhile { it in '0'..'9' }?.toIntOrNull()?.takeIf { it > 0 }
 
     /**
+     * Track and disc from TagLib's property map, as (track, disc): the first value of each that
+     * has a number, as TagLibScanner reads them.
+     */
+    fun fromPropertyMap(map: Map<String, Array<String>>): Pair<Int?, Int?> = Pair(
+        map["TRACKNUMBER"]?.firstNotNullOfOrNull { number(it) },
+        map["DISCNUMBER"]?.firstNotNullOfOrNull { number(it) },
+    )
+
+    /**
      * Track and disc from MediaStore's columns, as (track, disc).
      *
      * CD_TRACK_NUMBER and DISC_NUMBER (Android 11 on) hold the tags' text. Read with getInt, the
