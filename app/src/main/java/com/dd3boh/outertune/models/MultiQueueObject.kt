@@ -168,6 +168,55 @@ data class MultiQueueObject(
     }
 
     /**
+     * Shuffles the play order (each song's shuffleIndex; the stored order stays as it is) and turns
+     * [shuffled] on. With [keepCurrent] the current song goes first and every other song is
+     * shuffled after it: shuffle pressed while a song plays, or a song picked out of a list while
+     * shuffle is on. Without it any song can come first, and that one becomes the current song,
+     * from its start: a list's Shuffle button. [order] is the new place of each stored song in play
+     * order, a shuffle of 0 until the size unless a test gives one.
+     *
+     * QueueBoard.shuffle's own steps, moved here so that a test can hold them (QueueShuffleTest):
+     * the board needs a live MusicService.
+     */
+    fun shufflePlayOrder(keepCurrent: Boolean, order: List<Int> = queue.indices.shuffled()) {
+        if (queue.isEmpty()) return
+        // A stale position read past the end of the list here and crashed the app.
+        validateQueuePos()
+        val currentSong = queue[queuePos]
+        queue.fastForEachIndexed { index, s -> s.shuffleIndex = order[index] }
+        if (keepCurrent) {
+            val first = queue.find { it.shuffleIndex == 0 }
+            if (first != null && currentSong != first) {
+                currentSong.shuffleIndex = first.shuffleIndex.also { first.shuffleIndex = currentSong.shuffleIndex }
+            }
+            queuePos = queue.indexOf(currentSong)
+        } else {
+            queuePos = queue.indexOf(queue.fastFirstOrNull { it.shuffleIndex == 0 })
+            lastSongPos = C.TIME_UNSET
+        }
+        shuffled = true
+    }
+
+    /**
+     * [songs] in place of every song this queue holds, as a list played afresh: in the list's order
+     * from the song at [startIndex], or, when [shuffled], in a shuffled order that begins with that
+     * song when [startFirst] (a song picked out of a list while shuffle is on) and with any song
+     * otherwise (a list's Shuffle button).
+     *
+     * In the list's order whatever this queue was before. Replacing the songs used to keep the old
+     * flag, so a list started again under the title of a queue that had been shuffled played in the
+     * list's order with shuffle showing on, which is what issue #42 reported, and the next press of
+     * the button turned shuffle "off" over an order that had never been shuffled.
+     */
+    fun refill(songs: List<MediaMetadata>, startIndex: Int, shuffled: Boolean, startFirst: Boolean = false) {
+        songs.fastForEachIndexed { index, s -> s.shuffleIndex = index }
+        replaceAll(songs)
+        queuePos = startIndex
+        this.shuffled = false
+        if (shuffled) shufflePlayOrder(keepCurrent = startFirst)
+    }
+
+    /**
      * The place in play order straight after the current song, which is where Play next inserts.
      *
      * [playerIndex] is the player's currentMediaItemIndex, or null while the player holds nothing.

@@ -2118,6 +2118,7 @@ class MusicService : MediaLibraryService(),
             replace: Boolean,
             startIndex: Int,
             continuationEndpoint: String?,
+            startFirst: Boolean,
         ) = queueBoard.addQueue(
             title,
             items,
@@ -2125,7 +2126,12 @@ class MusicService : MediaLibraryService(),
             replace = replace,
             continuationEndpoint = continuationEndpoint,
             startIndex = startIndex,
+            startFirst = startFirst,
         )
+
+        override val shuffleOn: Boolean
+            get() = if (activePlayer.currentMediaItem != null) activePlayer.shuffleModeEnabled
+            else queueBoard.getCurrentQueue()?.shuffled == true
 
         override fun hasQueue(title: String) = queueBoard.masterQueues.any { it.title == title }
 

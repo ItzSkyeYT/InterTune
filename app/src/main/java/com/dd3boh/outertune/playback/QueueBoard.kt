@@ -11,7 +11,6 @@ package com.dd3boh.outertune.playback
 import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
-import androidx.compose.ui.util.fastFirstOrNull
 import androidx.compose.ui.util.fastForEachIndexed
 import androidx.media3.common.C
 import com.dd3boh.outertune.constants.PlayOrigin
@@ -144,6 +143,9 @@ class QueueBoard(
      * @param origin Where the queue began, for a queue made by hand outside playQueue: a new one,
      * or one that says nothing yet, takes it, with a run of its own. A queue that already says
      * where it began keeps that. Null for the callers that set it on the queue themselves.
+     * @param startFirst With [shuffled]: the song at [startIndex] plays first and the others are
+     * shuffled after it, for a song picked out of a list while shuffle is on (QueueStart). Without
+     * it a shuffled queue begins on any song, as a list's Shuffle button asks.
      *
      * @return Boolean whether a full reload of player items should be done. In some cases it may be possible to enqueue
      *      without interrupting playback. Currently this is only supported when adding to extension queues
@@ -158,6 +160,7 @@ class QueueBoard(
         continuationEndpoint: String? = null,
         startIndex: Int = 0,
         origin: PlayOrigin? = null,
+        startFirst: Boolean = false,
     ): MultiQueueObject? {
         if (QUEUE_DEBUG)
             Log.d(
@@ -179,16 +182,11 @@ class QueueBoard(
                 if (QUEUE_DEBUG)
                     Log.d(TAG, "Adding to queue: Replacing all queue items")
 
-                mediaList.fastForEachIndexed { index, s ->
-                    s?.shuffleIndex = index
-                }
-
-                match.replaceAll(mediaList.filterNotNull())
-                match.queuePos = startIndex
-                if (shuffled) {
-                    shuffle(match, false, true)
-                    match.queuePos = match.queue.indexOf(match.queue.find { it.shuffleIndex == 0 })
-                }
+                // In the list's order unless asked to shuffle, whatever the queue was before: see
+                // MultiQueueObject.refill.
+                match.refill(mediaList.filterNotNull(), startIndex, shuffled, startFirst)
+                // A shuffle here went through shuffle(), which also puts the queue on top.
+                if (shuffled) bubbleUp(match)
 
                 match.playlistId = continuationEndpoint
 
@@ -209,7 +207,7 @@ class QueueBoard(
                     // no need update index in db, onMediaItemTransition() has alread done it
                 }
                 if (shuffled) {
-                    shuffle(match, false, true)
+                    shuffle(match, startFirst, true)
                     match.queuePos = match.queue.indexOf(match.queue.find { it.shuffleIndex == 0 })
                 }
 
@@ -242,7 +240,7 @@ class QueueBoard(
                     match.queuePos = match.queue.indexOf(findSong) // track the index we jumped to
                 }
                 if (shuffled) {
-                    shuffle(match, false, true)
+                    shuffle(match, startFirst, true)
                     match.queuePos = match.queue.indexOf(match.queue.find { it.shuffleIndex == 0 })
                 }
 
@@ -318,7 +316,7 @@ class QueueBoard(
             newQueue.startedByHand(origin, System.currentTimeMillis())
             masterQueues.add(newQueue)
             if (shuffled) {
-                shuffle(masterQueues.size - 1, false, true)
+                shuffle(masterQueues.size - 1, startFirst, true)
                 newQueue.queuePos = newQueue.queue.indexOf(newQueue.queue.find { it.shuffleIndex == 0 })
             }
 
@@ -529,24 +527,8 @@ class QueueBoard(
         if (QUEUE_DEBUG)
             Log.d(TAG, "Shuffling queue ${item.title}")
 
-        // A stale position read past the end of the list here and crashed the app.
-        item.validateQueuePos()
-        val currentSong = item.queue[item.queuePos]
-
         // shuffle & push the current song to top if requested to
-        shuffleInPlace(item.queue)
-        if (preserveCurrent) {
-            val s2 = item.queue.find { it.shuffleIndex == 0 }
-            if (s2 != null && currentSong != s2) {
-                currentSong.shuffleIndex = s2.shuffleIndex.also { s2.shuffleIndex = currentSong.shuffleIndex }
-            }
-            item.queuePos = item.queue.indexOf(currentSong)
-        } else {
-            item.queuePos = item.queue.indexOf(item.queue.fastFirstOrNull { it.shuffleIndex == 0 })
-            item.lastSongPos = C.TIME_UNSET
-        }
-
-        item.shuffled = true
+        item.shufflePlayOrder(keepCurrent = preserveCurrent)
 
         if (!bypassSaveToDb) {
             saveQueueSongs(item)
@@ -1008,14 +990,6 @@ class QueueBoard(
          * still be running.
          */
         private val saveDispatcher = Dispatchers.IO.limitedParallelism(1)
-
-        fun shuffleInPlace(list: List<MediaMetadata>) {
-            val rng = (0..(list.size - 1)).shuffled()
-
-            list.forEachIndexed { index, s ->
-                s.shuffleIndex = rng[index]
-            }
-        }
     }
 
 }

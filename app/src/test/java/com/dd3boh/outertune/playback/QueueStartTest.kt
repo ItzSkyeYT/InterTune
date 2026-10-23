@@ -9,6 +9,7 @@ package com.dd3boh.outertune.playback
 import androidx.media3.common.C
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.MultiQueueObject
+import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.playback.queues.Queue
 import com.zionhuang.innertube.models.BrowseEndpoint
 import java.io.IOException
@@ -51,6 +52,7 @@ class QueueStartTest {
     private class LateQueue(
         override val preloadItem: MediaMetadata?,
         override val startShuffled: Boolean = false,
+        override val songPicked: Boolean = false,
     ) : Queue {
         /** Completed once the answer has been asked for, which is where the steps wait. */
         val asked = CompletableDeferred<Unit>()
@@ -109,9 +111,11 @@ class QueueStartTest {
             replace: Boolean,
             startIndex: Int,
             continuationEndpoint: String?,
+            startFirst: Boolean,
         ): MultiQueueObject? {
             asked += "add '$title' ${items.map { it.id }} at $startIndex" +
-                (if (shuffled) " shuffled" else "") + (if (replace) " replace" else "") +
+                (if (shuffled) " shuffled" else "") + (if (startFirst) ", picked song first" else "") +
+                (if (replace) " replace" else "") +
                 (continuationEndpoint?.let { " then $it" } ?: "")
             if (items.isEmpty()) return null
             val match = queues.firstOrNull { it.title == title }
@@ -156,6 +160,9 @@ class QueueStartTest {
             asked += "player: prepare, playWhenReady $playWhenReady"
             wantsToPlay = playWhenReady
         }
+
+        /** The shuffle button as the listener sees it. */
+        override var shuffleOn = false
 
         /** The songs stored as related to a song, by its id, and those on YouTube's related page. */
         val stored = mutableMapOf<String, List<MediaMetadata>>()
@@ -961,6 +968,66 @@ class QueueStartTest {
 
         assertEquals(listOf("B from the top"), service.heard)
         assertEquals(listOf("B Mix"), service.queues.map { it.title })
+    }
+
+    // A song picked out of a list (issue #42). With shuffle on, the list used to play in its own
+    // order from the song, and shuffle went off with it, or stayed showing on over that order when
+    // the list refilled a queue of its own title. The board turns these asks into the order
+    // (MultiQueueObject.refill, QueueShuffleTest).
+
+    private val list = listOf("A", "B", "C", "D", "E").map { song(it) }
+
+    /** The fourth song of the playlist tapped, as the playlist screens ask for it. */
+    private fun picked() = ListQueue(title = "Playlist", items = list, startIndex = 3, songPicked = true)
+
+    @Test
+    fun `a song picked while shuffle is on starts the list shuffled, from that song`() = runBlocking {
+        val service = Service().apply { shuffleOn = true }
+        QueueStart(service).play(picked())
+
+        assertEquals(
+            listOf("add 'Playlist' [A, B, C, D, E] at 3 shuffled, picked song first replace", "load 'Playlist' [A, B, C, D, E] at 3 $tags", started),
+            service.asked,
+        )
+    }
+
+    @Test
+    fun `a song picked while shuffle is off plays the list in its order from that song`() = runBlocking {
+        val service = Service()
+        QueueStart(service).play(picked())
+
+        assertEquals("add 'Playlist' [A, B, C, D, E] at 3 replace", service.board().first())
+    }
+
+    @Test
+    fun `a list's Play button plays it in order, whatever shuffle says`() = runBlocking {
+        val service = Service().apply { shuffleOn = true }
+        QueueStart(service).play(ListQueue(title = "Playlist", items = list))
+
+        assertEquals("add 'Playlist' [A, B, C, D, E] at 0 replace", service.board().first())
+    }
+
+    @Test
+    fun `a list's Shuffle button starts on any song, whatever shuffle says`() = runBlocking {
+        for (on in listOf(false, true)) {
+            val service = Service().apply { shuffleOn = on }
+            QueueStart(service).play(ListQueue(title = "Playlist", items = list, startShuffled = true))
+            assertEquals("add 'Playlist' [A, B, C, D, E] at 0 shuffled replace", service.board().first())
+        }
+    }
+
+    @Test
+    fun `shuffle is read as it was at the tap`() = runBlocking {
+        val service = Service().apply { shuffleOn = true }
+        val pick = LateQueue(preloadItem = null, songPicked = true)
+        val job = launch { QueueStart(service).play(pick) }
+        pick.asked.await()
+        // The queue before this one is still loaded meanwhile, and its shuffle can change.
+        service.shuffleOn = false
+        pick.answer.complete(Queue.Status("Playlist", list, 3))
+        job.join()
+
+        assertEquals("add 'Playlist' [A, B, C, D, E] at 3 shuffled, picked song first replace", service.board().first())
     }
 
     private fun <T> List<T>.repeat(times: Int) = List(times) { this }.flatten()

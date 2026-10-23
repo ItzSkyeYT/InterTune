@@ -49,6 +49,14 @@ import kotlinx.coroutines.withContext
  * A radio that YouTube answers with nothing but the song it was started from goes on from the
  * songs related to that song ([filled]). It used to stop after it: the queue held that one song,
  * and a queue of one never asks for a next page.
+ *
+ * A song picked out of a list ([Queue.songPicked]: a row tapped in a playlist, an album, the
+ * library) plays first, and the rest of the list follows the shuffle button as it was at the tap:
+ * shuffled after the song while shuffle is on, which it stays, and in the list's order while it is
+ * off. It used to play the list in its own order from the song, whatever the button said, and turn
+ * shuffle off with it, or leave it showing on over that order when the list refilled a queue of
+ * its own title that had been shuffled (issue #42). A list's Play and Shuffle buttons say
+ * themselves how the list is to play and are no picks.
  */
 internal class QueueStart(private val service: Target) {
 
@@ -77,7 +85,15 @@ internal class QueueStart(private val service: Target) {
             replace: Boolean,
             startIndex: Int,
             continuationEndpoint: String?,
+            startFirst: Boolean = false,
         ): MultiQueueObject?
+
+        /**
+         * Whether shuffle is on as the listener sees it: the player's flag, or while the player
+         * holds nothing (after a cold start, or once the mini player was swiped away) that of the
+         * queue the board would load, whose flag the shuffle button shows meanwhile.
+         */
+        val shuffleOn: Boolean
 
         /** Whether the board holds a queue of this title. */
         fun hasQueue(title: String): Boolean
@@ -139,6 +155,9 @@ internal class QueueStart(private val service: Target) {
         if (service.destroyed) return
         // Or something else was asked for meanwhile, and this one's song is never loaded.
         if (number != lastStart) return
+        // Read before the board is asked anything, as the button showed it at the tap: see the
+        // class note. Only for a pick; the Shuffle button's own list starts on any song.
+        val pickedShuffled = queue.songPicked && !queue.startShuffled && service.shuffleOn
         if (preloadItem != null) {
             // The temporary title is this tap's alone, so a queue still under it goes first. It is
             // an earlier tap's: one whose answer failed, which leaves its song there alone, or
@@ -211,10 +230,11 @@ internal class QueueStart(private val service: Target) {
             val full = service.addQueue(
                 queueTitle ?: service.untitled,
                 items,
-                shuffled = queue.startShuffled,
+                shuffled = queue.startShuffled || pickedShuffled,
                 replace = replace || preloadItem != null,
                 startIndex = start,
-                continuationEndpoint = if (isRadio) items.takeLast(4).shuffled().first().id else null // yq?.getContinuationEndpoint()
+                continuationEndpoint = if (isRadio) items.takeLast(4).shuffled().first().id else null, // yq?.getContinuationEndpoint()
+                startFirst = pickedShuffled,
             )
             full?.origin = origin
             full?.originSlot = originSlot

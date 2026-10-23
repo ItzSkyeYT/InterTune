@@ -223,7 +223,8 @@ fun ArtistItemsScreen(
                                                 title = "Artist songs: ${song.artists.firstOrNull()?.name}",
                                                 items = itemsPage?.items.orEmpty()
                                                     .map { (it as SongItem).toMediaMetadata() },
-                                                startIndex = index
+                                                startIndex = index,
+                                                songPicked = true,
                                             ),
                                             origin = PlayOrigin.ARTIST,
                                         )
@@ -290,7 +291,8 @@ fun ArtistItemsScreen(
                                         ListQueue(
                                             title = "Artist songs: ${item.artists.firstOrNull()?.name}",
                                             items = itemsPage?.items.orEmpty().map { (it as SongItem).toMediaMetadata() },
-                                            startIndex = index
+                                            startIndex = index,
+                                            songPicked = true,
                                         ),
                                         origin = PlayOrigin.ARTIST,
                                     )
