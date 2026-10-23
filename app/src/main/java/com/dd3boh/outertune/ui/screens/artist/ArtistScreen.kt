@@ -9,11 +9,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.add
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
@@ -122,6 +123,21 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
+
+/**
+ * The padding of an artist's list when its first row is the picture, which runs up under the
+ * status bar and the top bar: the sides and the bottom of the player-aware [insets], and no top.
+ *
+ * The top used to be the insets' own, less the status bar and the top bar, and those were two
+ * readings of the bar: the insets hold it ignoring whether it shows, read at each measure, and the
+ * one taken away was the bar as it showed when the page was last composed. Up to Android 10 the
+ * bars slide away over a quarter of a second when the player opens on a screen on its side, and
+ * both readings follow them down a frame apart: more was taken away than was left, the top went
+ * below zero and the list threw "invalid beforeContentPadding" (#38, a Lenovo tablet on Android
+ * 10). Nothing is taken away now, so there is nothing to go below zero.
+ */
+internal fun artistListInsets(insets: WindowInsets): WindowInsets =
+    insets.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom)
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -592,14 +608,7 @@ fun ArtistScreen(
         } else {
             LazyColumn(
                 state = lazyListState,
-                contentPadding = LocalPlayerAwareWindowInsets.current
-                    .add(
-                        WindowInsets(
-                            top = -WindowInsets.systemBars.asPaddingValues()
-                                .calculateTopPadding() - AppBarHeight
-                        )
-                    )
-                    .asPaddingValues(),
+                contentPadding = artistListInsets(LocalPlayerAwareWindowInsets.current).asPaddingValues(),
                 content = listContent,
             )
         }
