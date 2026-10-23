@@ -40,6 +40,7 @@ import com.dd3boh.outertune.ui.screens.walkthrough.SETTINGS_CLOSER_LOOK
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.TourTargets
 import com.dd3boh.outertune.ui.screens.walkthrough.screen
+import com.dd3boh.outertune.ui.utils.LocalLandscape
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
@@ -236,6 +237,9 @@ private suspend fun arrived(jump: Jump): String? {
 fun SettingJumpHost(navController: NavController) {
     val jump = SettingJump.asked
     val room = with(LocalDensity.current) { 96.dp.toPx() }
+    // A search result's row comes to rest a third of the way into the window, as a linked song
+    // does on its album, and not against the bar along the bottom.
+    val third = with(LocalDensity.current) { LocalLandscape.current.windowHeight.toPx() } / 3f
     val resources = LocalResources.current
     LaunchedEffect(jump) {
         if (jump == null) return@LaunchedEffect
@@ -249,7 +253,7 @@ fun SettingJumpHost(navController: NavController) {
             val row = arrived(jump)
             if (row != null) {
                 delay(SETTLE_MS)
-                TourTargets.bring(row, room)
+                TourTargets.bring(row, if (searched) maxOf(room, third) else room)
                 if (searched) SettingJump.lit = row else SettingJump.flashing = row
             }
         } finally {
