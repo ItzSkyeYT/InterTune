@@ -192,7 +192,7 @@ import com.dd3boh.outertune.playback.ListenReporting.AddressFrom
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.playback.queues.Queue
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
-import com.dd3boh.outertune.utils.CoilBitmapLoader
+import com.dd3boh.outertune.utils.SessionBitmapLoader
 import com.dd3boh.outertune.utils.ErrorText
 import com.dd3boh.outertune.utils.LoudnessRepair
 import com.dd3boh.outertune.utils.NetworkConnectivityObserver
@@ -218,6 +218,7 @@ import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.enumPreference
 import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.utils.playerCoroutine
+import com.dd3boh.outertune.utils.coilCoroutine
 import com.dd3boh.outertune.utils.reportException
 import com.google.common.util.concurrent.MoreExecutors
 import com.dd3boh.outertune.viewmodels.ExclusionsViewModel
@@ -1090,13 +1091,21 @@ class MusicService : MediaLibraryService(),
             toggleLibrary = ::toggleLibrary
         }
 
-        // The session is first handed the small cover that is on the phone, so the lock screen is
-        // never without a picture while the large one downloads. When that arrives the session has
-        // to be made to ask again, which only its player can do: see SessionPlayer.
-        val covers = CoilBitmapLoader(this)
+        // The session is first handed a smaller cover that is on the phone, so the lock screen is
+        // never without a picture while the large one downloads, and a plain stand-in (never the
+        // app's logo) when no cover can be had. When something better arrives the session has to
+        // be made to ask again, which only its player can do: see SessionPlayer. The loader's tries
+        // run on this service's scope and end with it.
+        val covers = SessionBitmapLoader(this, CoroutineScope(scope.coroutineContext + coilCoroutine))
         val sessionPlayer = SessionPlayer(player)
         covers.sharper = { stored, sharp ->
             scope.launch { sessionPlayer.coverArrived(stored.toUri(), sharp.toUri()) }
+        }
+        // A cover that could not be had for want of a connection is tried for as soon as the
+        // connection is back. Nothing else would ask before the next song: the lock screen asks
+        // once a song.
+        isNetworkConnected.collect(scope) { online ->
+            if (online) covers.tryAgain()
         }
         mediaSession = MediaLibrarySession.Builder(this, sessionPlayer, mediaLibrarySessionCallback)
             .setSessionActivity(
