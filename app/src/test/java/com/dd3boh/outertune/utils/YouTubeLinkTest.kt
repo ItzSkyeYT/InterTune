@@ -100,6 +100,17 @@ class YouTubeLinkTest {
     }
 
     @Test
+    fun `a song link shows the song, and only the app's own play link plays it at once`() {
+        // A link from outside (the share page, a friend's message, the search box) opens the song
+        // for the listener to choose what to do; the phone's own search, a tap on a result, plays.
+        assertEquals(false, (YouTubeLink.parse("https://music.youtube.com/watch?v=dQw4w9WgXcQ") as Video).playNow)
+        assertEquals(false, (YouTubeLink.parse("intertune://watch?v=dQw4w9WgXcQ") as Video).playNow)
+        assertEquals(Video("dQw4w9WgXcQ", null, playNow = true), YouTubeLink.parse("intertune://play?v=dQw4w9WgXcQ"))
+        // Not a page of YouTube's: only under the app's scheme.
+        assertNull(YouTubeLink.parse("https://music.youtube.com/play?v=dQw4w9WgXcQ"))
+    }
+
+    @Test
     fun `a browser may hand the app its own scheme`() {
         val manifest = File("src/main/AndroidManifest.xml").readText()
         val filter = Regex("""<intent-filter>(?:(?!</intent-filter>).)*android:scheme="intertune"(?:(?!</intent-filter>).)*</intent-filter>""", RegexOption.DOT_MATCHES_ALL)
