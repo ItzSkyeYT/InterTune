@@ -43,11 +43,14 @@ class ExoDownloadService : DownloadService(
 
     override fun getScheduler(): Scheduler = PlatformScheduler(this, JOB_ID)
 
+    /** A tap on the notification opens Downloaded songs. Made once for the service. */
+    private val openDownloads by lazy { DownloadsShortcut.pendingIntent(this) }
+
     override fun getForegroundNotification(downloads: MutableList<Download>, notMetRequirements: Int): Notification =
         if (downloads.isEmpty()) {
             downloadUtil.downloadNotificationHelper.buildDownloadCompletedNotification(this,
                 R.drawable.download,
-                null,
+                openDownloads,
                 null
             )
         } else {
@@ -55,7 +58,7 @@ class ExoDownloadService : DownloadService(
                 this, downloadUtil.downloadNotificationHelper.buildProgressNotification(
                     this,
                     R.drawable.download,
-                    null,
+                    openDownloads,
                     if (downloads.size == 1) Util.fromUtf8Bytes(downloads[0].request.data)
                     else resources.getQuantityString(R.plurals.n_song, downloads.size, downloads.size),
                     downloads,
@@ -134,12 +137,17 @@ class ExoDownloadService : DownloadService(
             finalException: Exception?,
         ) {
             if (download.state == Download.STATE_FAILED) {
-                val notification = notificationHelper.buildDownloadFailedNotification(
+                // A tap opens the downloads as the running notification's does, and clears this
+                // one: it has been read. Before, it did nothing.
+                val notification = Notification.Builder.recoverBuilder(
                     context,
-                    R.drawable.error,
-                    null,
-                    Util.fromUtf8Bytes(download.request.data)
-                )
+                    notificationHelper.buildDownloadFailedNotification(
+                        context,
+                        R.drawable.error,
+                        DownloadsShortcut.pendingIntent(context),
+                        Util.fromUtf8Bytes(download.request.data)
+                    )
+                ).setAutoCancel(true).build()
                 NotificationUtil.setNotification(context, nextNotificationId++, notification)
             }
         }
