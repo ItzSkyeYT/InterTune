@@ -486,4 +486,18 @@ object Unreleased {
      * Player.kt, CastPicker, CastDiscovery and CastLinks.
      */
     val CASTING = true
+
+    /**
+     * A search field at the top of Settings (SettingsSearch.kt): what is typed finds settings on
+     * every screen by their names, the lines under them and a few other words, in the app's
+     * language, and a result opens the screen it is on, scrolled to its row and lit for a moment.
+     * Asked for in issue #36. What it searches is SETTINGS_INDEX, which SettingsIndexTest holds
+     * to the screens.
+     *
+     * A first cut, seen on an emulator only. Its texts (search_settings*, search_words_*) are
+     * held from translators, their French already beside them in values-fr. Without it Settings
+     * is the list it was. When it is agreed: set this to true, or delete it with the checks that
+     * read it, in SettingsScreen and SettingsTwoPane, and make its texts translatable.
+     */
+    val SETTINGS_SEARCH = BuildConfig.DEBUG
 }

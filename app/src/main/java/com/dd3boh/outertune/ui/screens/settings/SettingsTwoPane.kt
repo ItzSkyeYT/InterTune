@@ -69,6 +69,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -217,6 +218,8 @@ fun SettingsTwoPane(
     navController: NavController,
     scrollBehavior: TopAppBarScrollBehavior,
     tourRunning: Boolean = false,
+    query: String = "",
+    onQueryChange: (String) -> Unit = {},
 ) {
     val groups = settingsGroups()
     val listed = remember(groups) { groups.flatten().map { it.route } }
@@ -246,6 +249,11 @@ fun SettingsTwoPane(
     val pendingUpdate by LocalUpdateChecker.current.available.collectAsState()
     val updateBadgeLabel = stringResource(R.string.update_available_title)
     val groupTargets = listOf(Tour.SETTINGS_YOU, Tour.SETTINGS_LOOK_AND_SOUND, Tour.SETTINGS_KEPT, Tour.SETTINGS_REST)
+    // While something is typed in the search, its results are the list, and the one opened on the
+    // right is filled as the entry of the list it stands for would be.
+    val searching = Unreleased.SETTINGS_SEARCH && query.isNotBlank()
+    var picked by rememberSaveable { mutableStateOf<String?>(null) }
+    val focus = LocalFocusManager.current
 
     Row(
         modifier = Modifier
@@ -269,7 +277,18 @@ fun SettingsTwoPane(
                 .windowInsetsPadding(if (LocalLandscape.current.active) headerPaneInsets() else paneInsets())
                 .padding(start = 12.dp, end = 4.dp, bottom = 12.dp),
         ) {
-            groups.forEachIndexed { at, group ->
+            if (Unreleased.SETTINGS_SEARCH) {
+                SettingsSearchField(query, onQueryChange, Modifier.padding(bottom = 12.dp))
+            }
+            if (searching) {
+                val search = rememberSettingsSearch()
+                val hits = remember(search, query) { search.search(query) }
+                SettingsSearchPaneResults(hits, query, picked, onPick = { hit ->
+                    picked = hit.key
+                    focus.clearFocus()
+                    openHit(hit) { route -> settingsOpened(open, route, listed, further)?.let { show(it) } }
+                })
+            } else groups.forEachIndexed { at, group ->
                 if (at > 0) Spacer(Modifier.height(10.dp))
                 Column(
                     verticalArrangement = Arrangement.spacedBy(2.dp),
