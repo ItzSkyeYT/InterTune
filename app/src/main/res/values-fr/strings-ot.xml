@@ -419,7 +419,7 @@
     <string name="clear_search_history_description">Supprimer toutes les recherches enregistrées par l\'application.</string>
     <string name="sync_params_description">« Lecture / Écriture » permet à l\'application de modifier votre compte YouTube Music : j\'aime, bibliothèque et playlists. « Remplacer le contenu local » retire de la bibliothèque de ce téléphone tout ce qui n\'est pas dans le compte.</string>
     <string name="enable_lrclib_description">Chercher les paroles sur LRCLIB, une base de paroles communautaire et gratuite.</string>
-    <string name="enable_kugou_description">Chercher les paroles sur KuGou. Sa collection est vaste, et particulièrement fournie pour la musique chinoise.</string>
+    <string name="enable_kugou_description">Chercher les paroles sur KuGou. Son catalogue est vaste et particulièrement riche en musique chinoise.</string>
     <string name="audio_normalization_description">Égalise le volume entre les morceaux, pour qu\'aucun ne soit soudain bien plus fort que le précédent.</string>
     <string name="skip_silence_description">Passer les blancs au début et à la fin d\'un morceau.</string>
     <string name="stop_music_on_task_clear_description">Arrêter la musique quand vous balayez l\'application hors des applications récentes.</string>
@@ -1763,7 +1763,6 @@
         <item quantity="many">%1$d nouveautés</item>
         <item quantity="other">%1$d nouveautés</item>
     </plurals>
-
     <!-- Casting, behind Unreleased.CASTING -->
     <string name="cast">Caster</string>
     <string name="cast_to">Caster vers</string>
