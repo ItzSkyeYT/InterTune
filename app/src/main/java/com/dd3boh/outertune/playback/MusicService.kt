@@ -1050,10 +1050,14 @@ class MusicService : MediaLibraryService(),
                         badCachedCopy.loadFailed(id, error)
                         // A route that keeps failing, or refuses the address, is changed while the
                         // buffer still plays; a load that failed for want of a network is not the
-                        // route's. See Recovery.LoadFailures.
+                        // route's. See Recovery.LoadFailures. A load of a song the player only loads
+                        // ahead (preloaded, or the next one near the end of this) changes that song's
+                        // route as well, so that it is fetched afresh before it plays, and strikes no
+                        // client in StreamOrder: nobody is listening to it yet.
                         if (loadFailures.decide(id, error, SystemClock.elapsedRealtime(), online = isNetworkConnected.value) == Recovery.Decision.CHANGE_ROUTE && id != null) {
                             val status = Recovery.status(error)
-                            changeRoute(id, if (status != null) "load refused (HTTP $status)" else "load failed twice in 30 s", refused = status == 403 || status == 410)
+                            val playing = id == exoPlayer.currentMediaItem?.mediaId
+                            changeRoute(id, if (status != null) "load refused (HTTP $status)" else "load failed twice in 30 s", refused = status == 403 || status == 410, strike = playing)
                         }
                         // A load that fails is retried without a word, and nothing was written until the
                         // player gave up: a song that stopped said "no error" (issue #20), and Report a
@@ -1075,6 +1079,17 @@ class MusicService : MediaLibraryService(),
 
                 // misc
                 setOffloadEnabled(dataStore.get(AudioOffloadKey, false))
+                // The next song is made ready while one plays: resolved and its first seconds
+                // loaded, so that Next starts it at once instead of waiting for /player, the n
+                // step, the check and the first bytes. Off by default since media3 1.5. media3
+                // preloads only while it loads nothing else for the song playing, hands what it
+                // preloaded to the song's real load rather than fetching it again, and reports
+                // the preload's loads with that song's id: onLoadError tells the two apart. A
+                // song loaded ahead is no play (onPlaybackStatsReady), owes recoverSong nothing
+                // until it plays (recoverWhenPlaying), and a failed load of it strikes no client.
+                // Its walk notes what it hears like any other: a client refused for it is refused
+                // for the songs after it too, and not asking it again is what StreamOrder is for.
+                preloadConfiguration = ExoPlayer.PreloadConfiguration(PRELOAD_AHEAD_US)
             }
         player = exoPlayer
         if (Unreleased.CASTING) {
@@ -4067,7 +4082,7 @@ class MusicService : MediaLibraryService(),
      * long flaky session they used to spend the one the stops need, and the next stop was given
      * up without a single try.
      */
-    private fun changeRoute(id: String, why: String, refused: Boolean = false) {
+    private fun changeRoute(id: String, why: String, refused: Boolean = false, strike: Boolean = true) {
         val route = streamAddresses.clientOf(id)
         val now = SystemClock.elapsedRealtime()
         if (route == null) {
@@ -4085,7 +4100,7 @@ class MusicService : MediaLibraryService(),
         // network, where the address names the old public address, nor near its end.
         val sinceNetworkChange = now - lastNetworkChangeAt
         val sameNetwork = lastNetworkChangeAt == 0L || sinceNetworkChange >= RouteTimes.NETWORK_CHANGE_GRACE_MS
-        if (refused && streamAddresses.refusalIsTheRoutes(id, System.currentTimeMillis()) && sameNetwork) YTPlayerUtils.strike(route, why)
+        if (strike && refused && streamAddresses.refusalIsTheRoutes(id, System.currentTimeMillis()) && sameNetwork) YTPlayerUtils.strike(route, why)
         // A refusal of an address played unchecked is no strike, its check never having
         // answered, but the song's next walk is told: it takes VISIONOS's silent check for the
         // same refusal and tries a new visitorData (issue #17), where the same refused address
@@ -5248,6 +5263,9 @@ class MusicService : MediaLibraryService(),
 
         /** The longest a request is held back while a new song loads: see afterSongStarts. */
         private const val NEW_SONG_WAIT_MS = 20_000L
+
+        /** How much of the next song is loaded ahead while one plays: 5 s, enough to start it at once. */
+        private const val PRELOAD_AHEAD_US = 5_000_000L
 
         /**
          * Whether a service instance is alive, which decides whether the widget's buttons can
