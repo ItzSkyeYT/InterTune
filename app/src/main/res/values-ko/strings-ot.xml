@@ -37,7 +37,7 @@
     <string name="audio_offload">오프로드 활성화</string>
     <string name="keep_alive_title">시스템이 앱 종료를 시도하는 것을 방지하기</string>
     <string name="persistent_queue_desc_ot">앱 시작 시 이전의 재생목록을 복원합니다</string>
-    <string name="min_playback_duration_description">곡이 재생된 것으로 간주되기 전에 재생되어야 하는 최소 시간</string>
+    <string name="min_playback_duration_description">곡이 재생된 것으로 간주되기 전에 재생되어야 하는 최소 시간. 이것은 재생횟수,\"가장 많이 재생된 곡\" 그리고 당신의 유튜브 기록에 남을 곡을 결정합니다.\"기록\"은 이것이 어떻게 설정되었든 당신이 2초이상 들은 모든 노래를 기록합니다.</string>
     <string name="lyrics_settings_title">자막</string>
     <string name="lyrics_multiline_title">다중 행 가사 읽기</string>
     <string name="lyrics_multiline_description">자막 리더</string>
@@ -73,7 +73,7 @@
     <string name="queue_local_history">최근 감상 기록(로컬)</string>
     <string name="create_sync_playlist">동기화된 재생목록</string>
     <string name="sync_progress_success">동기화 완료</string>
-    <string name="keep_alive_description">InterTune이 백그라운드에서 닫히지 않도록 앱 전면에서 노력합니다.</string>
+    <string name="keep_alive_description">InterTune이 백그라운드에서 닫히지 않도록 앱 전면에서 노력합니다</string>
     <string name="swipe2Queue">스와이프로 재생목록에 추가</string>
     <string name="grp_localization">현지화</string>
     <string name="tab_arrangement_disable_tip">--- 여기로 끌어내리면 비활성화됩니다 ---</string>
@@ -96,7 +96,7 @@
     <string name="create_sync_playlist_description">참고: YouTube Music과 연동됩니다. 이 작업은 취소할 수 없습니다. 동기화된 재생목록에 기기 미디어를 추가할 수 없습니다.</string>
     <string name="grp_audio">오디오</string>
     <string name="grp_library_and_content">라이브러리 및 콘텐츠</string>
-    <string name="token_adv_login_description">고급 로그인 방법입니다. 웹 사이트에서 로그인 하는 대신, 로그인 토큰을 직접 입력하거나 업데이트 할 수 있습니다. 이 방법은 여러 기기에서 로그인할 때 속도를 높일 수 있습니다. 하지만 앱이 파싱할 수 없는 잘못된 토큰 형식은 허용되지 않습니다</string>
+    <string name="token_adv_login_description">고급 로그인 방법입니다. 웹 사이트에서 로그인 하는 대신, 로그인 토큰을 직접 입력하거나 업데이트 할 수 있습니다. 이 방법은 여러 기기에서 로그인할 때 속도를 높일 수 있습니다. 하지만 앱이 읽을 수 없는 토큰 형식은 허용되지 않습니다.</string>
     <string name="grp_extra_scanner_settings">추가 스캔 설정</string>
     <string name="scanner_variant_rescan">라이브러리 전체를 다시 스캔하고 모든 곡의 메타데이터를 다시 불러오기</string>
     <string name="scan_paths_title">스캔 위치 설정…</string>
@@ -125,9 +125,9 @@
     <string name="oobe_welcome_message">InterTune에 오신걸 환영합니다</string>
     <string name="swipe2Queue_description">곡을 스와이프하여 현재 재생 중인 곡 다음에 추가합니다</string>
     <string name="lyrics_prefer_local_description">로컬 가사 파일이 온라인 자막보다 우선됩니다. 이를 끄면 온라인 자막을 우선적으로 표시합니다</string>
-    <string name="playlist_add_local_to_synced_note">참고: 기기 미디어를 동기화된/온라인 재생목록에 추가할 수 없습니다. 다른 조합은 가능합니다</string>
+    <string name="playlist_add_local_to_synced_note">참고: 기기 미디어를 동기화된/온라인 재생목록에 추가할 수 없습니다. 다른 조합은 가능합니다.</string>
     <string name="m3u_import_playlist_failed">가져오기를 실패했습니다</string>
-    <string name="auto_scanner_description">앱을 실행할 때 자동으로 곡을 스캔합니다. 이미 존재하는 곡은 메타 데이터를 재로딩하지는 않습니다.</string>
+    <string name="auto_scanner_description">앱을 실행할 때 자동으로 곡을 스캔합니다. 이미 존재하는 곡은 메타 데이터를 재로딩하지는 않습니다</string>
     <string name="flat_subfolders_description">비활성화시 파일 구조 유지</string>
     <string name="scan_paths_add_folder">새 폴더 추가</string>
     <string name="scanner_warning">일반적으로, 스캔은 위에서 다르게 지정하지 않는 한 기존 곡의 메타데이터를 다시 불러오지 않습니다. 라이브러리 크기에 따라 시간이 걸릴 수 있습니다.</string>
@@ -159,7 +159,7 @@
     <string name="speed_slow">느림</string>
     <string name="speed_medium">중간</string>
     <string name="speed_fast">빠름</string>
-    <string name="disable_lm_confirm">로컬 미디어 기능을 비활성화하시겠습니까?</string>
+    <string name="disable_lm_confirm">로컬 미디어 기능을 비활성화하시겠습니까? 라이브러리 내의 파일들은 영향을 받지 않습니다.</string>
     <string name="scanner_rejected_dir">잘못된 선택입니다. 스캔 폴더는 다운로드 폴더의 하위 폴더이거나, 다운로드 폴더 자체일 수 없습니다</string>
     <string name="scanner_progress_discovering">탐색 중…</string>
     <string name="scanner_progress_processing">처리 중…</string>
@@ -192,7 +192,7 @@
     <string name="dl_rescan_confirm">지금 모든 다운로드 폴더를 다시 스캔하시겠습니까? 라이브러리의 크기에 따라 몇 분 정도 소요될 수 있습니다.</string>
     <string name="dl_rescan_title">다운로드 폴더 다시 스캔…</string>
     <string name="dl_extra_path_title">추가 가져오기 위치 설정…</string>
-    <string name="dl_extra_path_description">이 폴더의 노래는 이전에 재생했거나 재생목록에 추가한 경우에만 앱에 표시됩니다</string>
+    <string name="dl_extra_path_description">이 폴더의 노래는 이전에 재생했거나 재생목록에 추가한 경우에만 앱에 표시됩니다. 이 폴더들은 오로지 읽기만 하며 절대 편집하지 않습니다.</string>
     <string name="dl_calculate_size">탭하여 다운로드 크기 확인하기</string>
     <string name="dl_size_used_cache">내부 저장소: %s 사용</string>
     <string name="dl_size_used_main">외부 저장소: %s 사용</string>
@@ -217,7 +217,7 @@
     <string name="att_translator">번역가 (%s)</string>
     <string name="m3u_import_failed">노래를 찾을 수 없습니다.M3U 파일이 유효하지 않거나 맞지 않는 음악 입니다</string>
     <plurals name="second">
-        <item quantity="other">초</item>
+        <item quantity="other">%d초</item>
     </plurals>
     <string name="att_project_support">프로젝트 지원</string>
     <string name="action_done">완료</string>
@@ -352,4 +352,10 @@
     <string name="pure_black_description">짙은 회색 대신 완전한 검정을 사용합니다. OLED 화면에서는 배터리도 조금 아낍니다.</string>
     <string name="min_playback_duration_short">재생으로 집계되기까지 곡이 얼마나 재생되어야 하는지.</string>
     <string name="throttle_banner_title">YouTube가 이 연결을 일시 중지했습니다</string>
+    <string name="queue_default_name">재생목록</string>
+    <string name="save_queue_as_playlist">재생목록을 플레이리스트로 저장하기</string>
+    <string name="saved_as_playlist">플레이리스트로 저장됨:%1$s</string>
+    <string name="spatial_audio">공간 음향</string>
+    <string name="spatial_audio_description">음악을 머릿속이 아닌 당신 앞에 펼쳐 놓습니다.</string>
+    <string name="spatial_audio_headphones">헤드폰</string>
 </resources>

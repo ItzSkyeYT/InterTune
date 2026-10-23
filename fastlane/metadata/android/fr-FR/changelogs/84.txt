@@ -1,0 +1,6 @@
+Version 0.10.7
+
+=== Modifications et améliorations ===
+• Les deux options d'adhésion (mises à jour et questions) sont désormais proposées une seule fois après une mise à jour ou après la restauration d'une sauvegarde ; elles ne sont donc plus invisibles pour les utilisateurs ayant ignoré la configuration
+
+Journal complet des modifications : https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.10.7
