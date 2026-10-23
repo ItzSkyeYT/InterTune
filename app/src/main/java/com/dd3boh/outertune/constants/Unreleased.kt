@@ -61,7 +61,8 @@ object Unreleased {
      * "Links you share" under Library and content: a song or an album can go out as a link to the share
      * page (ShareLinks.PAGE), where whoever opens it picks their own music app. Everything is in
      * place but the page itself is not public yet. When it is: set this to true, or delete it
-     * along with the two checks that read it, in LibrarySettings and rememberShareLink.
+     * along with the two checks that read it, in LibrarySettings and rememberShareLink, and its
+     * row's entry in SETTINGS_INDEX.
      */
     val SHARE_PAGE = BuildConfig.DEBUG
 
@@ -98,7 +99,7 @@ object Unreleased {
      *
      * Unit tests only (LyricsSourcesTest), not yet seen on a screen. For 0.12. Its nine texts are
      * English only and held back. To ship: set this to true, or delete it with the one check that
-     * reads it, in LyricFrag.
+     * reads it, in LyricFrag, and the three entries of SETTINGS_INDEX that say which rows it shows.
      */
     val LYRICS_SOURCES = BuildConfig.DEBUG
 
@@ -388,8 +389,8 @@ object Unreleased {
      *
      * Tested as arithmetic and not yet judged by ear, which is the whole of what they are for.
      * Without it the three rows are not shown and the renderer is as it was. When it is agreed:
-     * set this to true, or delete it with the checks that read it, in PlayerFrag and
-     * MusicService, and make its six strings translatable.
+     * set this to true, or delete it with the checks that read it, in PlayerFrag, MusicService
+     * and the entries of its rows in SETTINGS_INDEX, and make its six strings translatable.
      */
     val SPATIAL_TUNING = BuildConfig.DEBUG
 
@@ -405,8 +406,9 @@ object Unreleased {
      * Measured and not yet heard: the one controlled listening test there is found no gain from
      * this kind of thing, so it is here to be judged by ear and dropped if it does not convince.
      * Its row is the last under the three of SPATIAL_TUNING and is shown only with them. To
-     * drop it: this flag, the row in PlayerFrag, the collector in MusicService, the key, two
-     * strings, DirectAmbientSplit and everything named "air" in BinauralAudioProcessor.
+     * drop it: this flag, the row in PlayerFrag and its entry in SETTINGS_INDEX, the collector in
+     * MusicService, the key, two strings, DirectAmbientSplit and everything named "air" in
+     * BinauralAudioProcessor.
      */
     val DIRECT_AMBIENT = BuildConfig.DEBUG
 

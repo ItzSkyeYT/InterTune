@@ -197,6 +197,7 @@ fun AboutScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 PreferenceEntry(
+                    modifier = Modifier.settingRow(R.string.attribution_title),
                     title = { Text(stringResource(R.string.attribution_title)) },
                     icon = { Icon(Icons.Rounded.Groups, null) },
                     onClick = {
@@ -204,6 +205,7 @@ fun AboutScreen(
                     }
                 )
                 PreferenceEntry(
+                    modifier = Modifier.settingRow(R.string.oss_licenses_title),
                     title = { Text(stringResource(R.string.oss_licenses_title)) },
                     icon = { Icon(Icons.Rounded.Description, null) },
                     onClick = {
@@ -223,6 +225,7 @@ fun AboutScreen(
                 // Settings between Player and audio and Song recognition, where a row that runs
                 // something reads like a screen full of switches.
                 PreferenceEntry(
+                    modifier = Modifier.settingRow(R.string.walkthrough_start),
                     title = { Text(stringResource(R.string.walkthrough_start)) },
                     icon = { Icon(Icons.Rounded.Explore, null) },
                     onClick = {
@@ -231,6 +234,7 @@ fun AboutScreen(
                 )
                 if (Unreleased.WELCOME_BACK) {
                     PreferenceEntry(
+                        modifier = Modifier.settingRow(R.string.welcome_back_entry),
                         title = { Text(stringResource(R.string.welcome_back_entry)) },
                         icon = { Icon(Icons.Rounded.WavingHand, null) },
                         onClick = {
@@ -238,6 +242,7 @@ fun AboutScreen(
                         }
                     )
                     PreferenceEntry(
+                        modifier = Modifier.settingRow(R.string.tour_closer_entry),
                         title = { Text(stringResource(R.string.tour_closer_entry)) },
                         icon = { Icon(Icons.Rounded.SettingsSuggest, null) },
                         onClick = {
@@ -246,7 +251,7 @@ fun AboutScreen(
                     )
                 }
                 PreferenceEntry(
-                    modifier = Modifier.tourTarget(Tour.SETTING_BUG_REPORT),
+                    modifier = Modifier.tourTarget(Tour.SETTING_BUG_REPORT).settingRow(R.string.help_bug_report_action),
                     title = { Text(stringResource(R.string.help_bug_report_action)) },
                     icon = { Icon(Icons.Rounded.BugReport, null) },
                     onClick = {
@@ -255,6 +260,7 @@ fun AboutScreen(
                     }
                 )
                 PreferenceEntry(
+                    modifier = Modifier.settingRow(R.string.help_support_forum),
                     title = { Text(stringResource(R.string.help_support_forum)) },
                     icon = { Icon(Icons.AutoMirrored.Rounded.Help, null) },
                     onClick = {
@@ -262,6 +268,7 @@ fun AboutScreen(
                     }
                 )
                 PreferenceEntry(
+                    modifier = Modifier.settingRow(R.string.help_discord),
                     title = { Text(stringResource(R.string.help_discord)) },
                     icon = { Icon(Icons.Rounded.Forum, null) },
                     onClick = {
@@ -269,6 +276,7 @@ fun AboutScreen(
                     }
                 )
                 PreferenceEntry(
+                    modifier = Modifier.settingRow(R.string.help_translate),
                     title = { Text(stringResource(R.string.help_translate)) },
                     icon = { Icon(Icons.Rounded.Translate, null) },
                     onClick = {
@@ -277,11 +285,13 @@ fun AboutScreen(
                 )
                 // Another way to help.
                 PreferenceEntry(
+                    modifier = Modifier.settingRow(R.string.support_title),
                     title = { Text(stringResource(R.string.support_title)) },
                     icon = { Icon(Icons.Rounded.VolunteerActivism, null) },
                     onClick = { supporting = true },
                 )
                 PreferenceEntry(
+                    modifier = Modifier.settingRow(R.string.help_contact_email_inquiries),
                     title = { Text(stringResource(R.string.help_contact_email_inquiries)) },
                     description = Links.EMAIL,
                     icon = { Icon(Icons.Rounded.Email, null) },

@@ -50,6 +50,7 @@ import com.dd3boh.outertune.ui.dialog.ActionPromptDialog
 import com.dd3boh.outertune.ui.dialog.InfoLabel
 import com.dd3boh.outertune.utils.rememberPreference
 import sh.calvin.reorderable.ReorderableItem
+import com.dd3boh.outertune.ui.screens.settings.settingRow
 import sh.calvin.reorderable.rememberReorderableLazyListState
 
 /**
@@ -104,7 +105,7 @@ fun LyricsSourcesEntry(modifier: Modifier = Modifier) {
     }
 
     PreferenceEntry(
-        modifier = modifier,
+        modifier = modifier.settingRow(R.string.lyrics_sources),
         title = { Text(stringResource(R.string.lyrics_sources)) },
         description = LyricsSources.order(savedOrder).filter { on[it] != false }.mapNotNull { names[it] }.joinToString(", "),
         icon = { Icon(Icons.Rounded.Lyrics, null) },

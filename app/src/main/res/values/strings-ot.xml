@@ -2082,4 +2082,73 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="every_direct_refused" translatable="false">Take every direct address for refused</string>
     <string name="every_direct_refused_description" translatable="false">Plays the day direct addresses stop: every client\'s address counts as refused, so SABR, the last try, has to take over.</string>
     <string name="sabr_only_description" translatable="false">Plays each song over SABR, as YouTube\'s own apps stream, from the VISIONOS answer the app already has. A song that cannot be started that way plays as before.</string>
+    <!-- The search at the top of Settings (SettingsSearch.kt, Unreleased.SETTINGS_SEARCH). Held from translators until he says yes to the words. %1$s is what was typed. -->
+    <string name="search_settings" translatable="false">Search settings</string>
+    <string name="search_settings_none" translatable="false">No setting matches \"%1$s\".</string>
+    <string name="search_settings_clear" translatable="false">Clear the search</string>
+    <!-- Words that also find a setting in that search, never shown: what people may type for it that its name and line do not say. Comma separated, any order. Held with the rest. -->
+    <string name="search_words_login" translatable="false">sign in, account, Google, YouTube</string>
+    <string name="search_words_logout" translatable="false">sign out, account</string>
+    <string name="search_words_token" translatable="false">token, cookie, advanced login</string>
+    <string name="search_words_lastfm" translatable="false">lastfm, scrobble, scrobbling</string>
+    <string name="search_words_ytm_sync" translatable="false">YouTube Music, playlists, likes, library</string>
+    <string name="search_words_sync_now" translatable="false">sync now, refresh</string>
+    <string name="search_words_share_links" translatable="false">share, link, song link</string>
+    <string name="search_words_explicit" translatable="false">explicit, parental, children, swear words</string>
+    <string name="search_words_language" translatable="false">language, locale</string>
+    <string name="search_words_country" translatable="false">country, region</string>
+    <string name="search_words_local" translatable="false">local files, MP3, FLAC, music on the phone</string>
+    <string name="search_words_folders" translatable="false">folders, music folder, storage</string>
+    <string name="search_words_back_animations" translatable="false">predictive back, gesture</string>
+    <string name="search_words_dynamic_theme" translatable="false">Material You, wallpaper, colours, colors</string>
+    <string name="search_words_dark_theme" translatable="false">dark mode, night mode, light mode</string>
+    <string name="search_words_pure_black" translatable="false">AMOLED, OLED, black</string>
+    <string name="search_words_glass" translatable="false">glass, transparency, blur</string>
+    <string name="search_words_media_buttons" translatable="false">notification, lock screen, like, shuffle</string>
+    <string name="search_words_car" translatable="false">car</string>
+    <string name="search_words_tabs" translatable="false">tabs, navigation bar, order</string>
+    <string name="search_words_start_tab" translatable="false">start screen, first tab</string>
+    <string name="search_words_tablet" translatable="false">landscape, large screen</string>
+    <string name="search_words_gesture" translatable="false">gesture, swipe</string>
+    <string name="search_words_seek" translatable="false">skip seconds, forward, rewind</string>
+    <string name="search_words_audio_quality" translatable="false">bitrate, sound quality, data</string>
+    <string name="search_words_radio" translatable="false">radio, adaptive, queue</string>
+    <string name="search_words_crossfade" translatable="false">crossfade, gapless</string>
+    <string name="search_words_spatial" translatable="false">3D, binaural, surround, Dolby Atmos</string>
+    <string name="search_words_head_tracking" translatable="false">gyroscope, headphones, motion</string>
+    <string name="search_words_normalization" translatable="false">loudness, volume, ReplayGain</string>
+    <string name="search_words_equalizer" translatable="false">EQ, bass, treble</string>
+    <string name="search_words_autoeq" translatable="false">AutoEq, headphones, model</string>
+    <string name="search_words_recents" translatable="false">recent apps, swipe away</string>
+    <string name="search_words_audio_focus" translatable="false">mix, other apps, audio focus</string>
+    <string name="search_words_bluetooth" translatable="false">headphones, car, speaker, autoplay</string>
+    <string name="search_words_sleep" translatable="false">sleep timer, bedtime, night</string>
+    <string name="search_words_account_playback" translatable="false">account, playback errors, sign in</string>
+    <string name="search_words_keep_alive" translatable="false">battery, background, killed</string>
+    <string name="search_words_recognition" translatable="false">Shazam, identify, what is playing</string>
+    <string name="search_words_lyrics_sources" translatable="false">LrcLib, KuGou, providers</string>
+    <string name="search_words_text_size" translatable="false">text size, bigger</string>
+    <string name="search_words_latin" translatable="false">romanization, romaji, transliteration</string>
+    <string name="search_words_mobile_data" translatable="false">mobile data, metered</string>
+    <string name="search_words_offline" translatable="false">offline, liked songs</string>
+    <string name="search_words_download_folder" translatable="false">SD card, storage, location</string>
+    <string name="search_words_cache" translatable="false">cache, storage, space</string>
+    <string name="search_words_backup" translatable="false">export, save, copy</string>
+    <string name="search_words_restore" translatable="false">import, load</string>
+    <string name="search_words_import" translatable="false">Spotify, Apple Music, transfer, playlists</string>
+    <string name="search_words_privacy" translatable="false">privacy, incognito</string>
+    <string name="search_words_polls" translatable="false">survey, questions</string>
+    <string name="search_words_usage_count" translatable="false">analytics, statistics, telemetry</string>
+    <string name="search_words_proxy" translatable="false">VPN, network, server</string>
+    <string name="search_words_updates" translatable="false">new version, upgrade</string>
+    <string name="search_words_version" translatable="false">version, build number, about</string>
+    <string name="search_words_licenses" translatable="false">open source, libraries, legal</string>
+    <string name="search_words_tutorial" translatable="false">tour, tutorial, help</string>
+    <string name="search_words_whats_new" translatable="false">changelog, release notes, new features</string>
+    <string name="search_words_bug" translatable="false">bug, crash, problem, issue, report</string>
+    <string name="search_words_help" translatable="false">help, support, questions</string>
+    <string name="search_words_translate" translatable="false">translation, language, Weblate</string>
+    <string name="search_words_donate" translatable="false">donate, donation, support</string>
+    <string name="search_words_contact" translatable="false">contact, email</string>
+    <string name="search_words_developer" translatable="false">developer, debug</string>
 </resources>

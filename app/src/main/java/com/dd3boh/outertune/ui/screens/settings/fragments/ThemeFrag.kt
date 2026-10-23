@@ -88,6 +88,7 @@ import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.dd3boh.outertune.ui.screens.settings.settingRow
 import kotlin.math.roundToInt
 
 @Composable
@@ -100,6 +101,7 @@ fun ColumnScope.ThemeAppFrag() {
     val (backAnimations, onBackAnimationsChange) = rememberPreference(BackAnimationsKey, defaultValue = true)
 
     SwitchPreference(
+        modifier = Modifier.settingRow(R.string.back_animations),
         title = { Text(stringResource(R.string.back_animations)) },
         description = stringResource(R.string.back_animations_description),
         icon = { Icon(Icons.Rounded.SwipeLeft, null) },
@@ -108,6 +110,7 @@ fun ColumnScope.ThemeAppFrag() {
     )
 
     SwitchPreference(
+        modifier = Modifier.settingRow(R.string.enable_dynamic_theme),
         title = { Text(stringResource(R.string.enable_dynamic_theme)) },
         description = stringResource(R.string.enable_dynamic_theme_description),
         icon = { Icon(Icons.Rounded.Palette, null) },
@@ -116,6 +119,7 @@ fun ColumnScope.ThemeAppFrag() {
     )
     AnimatedVisibility(!dynamicTheme) {
         SwitchPreference(
+            modifier = Modifier.settingRow(R.string.high_contrast),
             title = { Text(stringResource(R.string.high_contrast)) },
             description = stringResource(R.string.high_contrast_description),
             icon = { Icon(Icons.Rounded.Contrast, null) },
@@ -124,7 +128,7 @@ fun ColumnScope.ThemeAppFrag() {
         )
     }
     EnumListPreference(
-        modifier = Modifier.tourTarget(Tour.SETTING_DARK_THEME),
+        modifier = Modifier.tourTarget(Tour.SETTING_DARK_THEME).settingRow(R.string.dark_theme),
         title = { Text(stringResource(R.string.dark_theme)) },
         icon = { Icon(Icons.Rounded.DarkMode, null) },
         selectedValue = darkMode,
@@ -138,6 +142,7 @@ fun ColumnScope.ThemeAppFrag() {
         }
     )
     SwitchPreference(
+        modifier = Modifier.settingRow(R.string.pure_black),
         title = { Text(stringResource(R.string.pure_black)) },
         description = stringResource(R.string.pure_black_description),
         icon = { Icon(Icons.Rounded.Contrast, null) },
@@ -174,7 +179,7 @@ fun ColumnScope.ThemePlayerFrag() {
     )
 
     EnumListPreference(
-        modifier = Modifier.tourTarget(Tour.SETTING_PLAYER_BACKGROUND),
+        modifier = Modifier.tourTarget(Tour.SETTING_PLAYER_BACKGROUND).settingRow(R.string.player_background_style),
         title = { Text(stringResource(R.string.player_background_style)) },
         icon = { Icon(Icons.Rounded.BlurOn, null) },
         selectedValue = playerBackground,
@@ -213,6 +218,7 @@ fun ColumnScope.ThemePlayerFrag() {
                 modifier = Modifier.padding(start = 16.dp, top = 4.dp, end = 16.dp, bottom = 8.dp)
             )
             EnumListPreference(
+                modifier = Modifier.settingRow(R.string.player_living_colours),
                 title = { Text(stringResource(R.string.player_living_colours)) },
                 icon = { Icon(Icons.Rounded.Palette, null) },
                 selectedValue = livingColours,
@@ -225,6 +231,7 @@ fun ColumnScope.ThemePlayerFrag() {
                 }
             )
             PreferenceEntry(
+                modifier = Modifier.settingRow(R.string.player_living_strength),
                 title = { Text(stringResource(R.string.player_living_strength)) },
                 description = stringResource(R.string.player_living_strength_description),
                 icon = { Icon(Icons.Rounded.GraphicEq, null) },
@@ -247,6 +254,7 @@ fun ColumnScope.ThemePlayerFrag() {
                 )
             }
             PreferenceEntry(
+                modifier = Modifier.settingRow(R.string.player_living_smoothing),
                 title = { Text(stringResource(R.string.player_living_smoothing)) },
                 description = stringResource(R.string.player_living_smoothing_description),
                 icon = { Icon(Icons.Rounded.Waves, null) },
@@ -281,7 +289,7 @@ fun ColumnScope.ThemePlayerFrag() {
     // The refraction half needs API 33 for RuntimeShader; the background half does not, so below
     // 33 this still does something and the description says which half you get.
     SwitchPreference(
-        modifier = Modifier.tourTarget(Tour.SETTING_LIQUID_GLASS),
+        modifier = Modifier.tourTarget(Tour.SETTING_LIQUID_GLASS).settingRow(R.string.player_liquid_glass),
         title = { Text(stringResource(R.string.player_liquid_glass)) },
         description = stringResource(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
@@ -299,6 +307,7 @@ fun ColumnScope.ThemePlayerFrag() {
     // 0.10.2 notes could point people at a setting that was not on their screen, and it read as
     // missing. Its description already says it needs Liquid glass, which is the whole explanation.
     SwitchPreference(
+        modifier = Modifier.settingRow(R.string.grouped_player_controls),
         title = { Text(stringResource(R.string.grouped_player_controls)) },
         description = stringResource(R.string.grouped_player_controls_description),
         icon = { Icon(Icons.Rounded.ViewAgenda, null) },
@@ -338,6 +347,7 @@ fun ColumnScope.ThemePlayerFrag() {
             // under the vivid-background switch people read it as belonging to that alone and
             // turned it down looking for more glass, which does the opposite.
             PreferenceEntry(
+                modifier = Modifier.settingRow(R.string.player_glass_intensity),
                 title = { Text(stringResource(R.string.player_glass_intensity)) },
                 description = stringResource(R.string.player_glass_intensity_description),
                 content = noSampleBecause?.let { reason ->

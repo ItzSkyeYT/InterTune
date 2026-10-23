@@ -95,6 +95,7 @@ fun LibrarySettings(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 SwitchPreference(
+                    modifier = Modifier.settingRow(R.string.show_liked_and_downloaded_playlist),
                     title = { Text(stringResource(R.string.show_liked_and_downloaded_playlist)) },
                     description = stringResource(R.string.show_liked_and_downloaded_playlist_description),
                     icon = { Icon(Icons.AutoMirrored.Rounded.PlaylistPlay, null) },
@@ -108,6 +109,7 @@ fun LibrarySettings(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 SwitchPreference(
+                    modifier = Modifier.settingRow(R.string.flat_subfolders_title),
                     title = { Text(stringResource(R.string.flat_subfolders_title)) },
                     description = stringResource(R.string.flat_subfolders_description),
                     icon = { Icon(Icons.Rounded.FolderCopy, null) },
