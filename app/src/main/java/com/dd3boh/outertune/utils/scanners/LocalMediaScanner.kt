@@ -715,6 +715,7 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
             MediaStore.Audio.Media.DATA,
             MediaStore.Audio.Media.MIME_TYPE,
             MediaStore.Audio.Media.SIZE,
+            MediaStore.Audio.Media.TRACK,
         ).apply {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 add(MediaStore.Audio.Media.BITRATE)
@@ -764,6 +765,7 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
             val dateModifiedColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATE_MODIFIED)
             val pathColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
             val mimeColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE)
+            val packedTrackColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TRACK)
 
             var bitrateColumn: Int? = null
             var bitsPerSampleColumn: Int? = null
@@ -798,17 +800,23 @@ class LocalMediaScanner(val context: Context, scannerImpl: ScannerImpl) {
                 var bitrate: Int? = null
                 var bitsPerSample: Int? = null
                 var genre: String? = null
-                var trackNumber: Int? = null
-                var discNumber: Int? = null
+                var trackText: String? = null
+                var discText: String? = null
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     bitrate = cursor.getInt(bitrateColumn!!)
                     if (SdkExtensions.getExtensionVersion(Build.VERSION_CODES.TIRAMISU) >= 15) {
                         bitsPerSample = cursor.getInt(bitsPerSampleColumn!!)
                     }
                     genre = cursor.getString(genreColumn!!)
-                    trackNumber = cursor.getInt(trackNumberColumn!!)
-                    discNumber = cursor.getInt(discNumberColumn!!)
+                    // As text, never getInt: see TrackTags.fromMediaStore.
+                    trackText = cursor.getString(trackNumberColumn!!)
+                    discText = cursor.getString(discNumberColumn!!)
                 }
+                val (trackNumber, discNumber) = TrackTags.fromMediaStore(
+                    trackText,
+                    discText,
+                    if (cursor.isNull(packedTrackColumn)) null else cursor.getInt(packedTrackColumn),
+                )
 
                 if (SCANNER_DEBUG)
                     Log.d(TAG, "ID: $id, Name: $name, ARTIST: $artist, PATH: $path")
