@@ -108,7 +108,7 @@ class SettingsIndexTest {
 
     @Test
     fun `an entry is behind the held flags its row is behind, written on its line`() {
-        assertTrue("the flags of Unreleased.kt were not read", "Unreleased.ENGINE" in alwaysOn && "Unreleased.SHARE_PAGE" !in alwaysOn)
+        assertTrue("the flags of Unreleased.kt were not read", "Unreleased.ENGINE" in alwaysOn && "Unreleased.AUTO_REWORK" !in alwaysOn)
         val lines = File(sources, "ui/screens/settings/SettingsIndex.kt").readLines().filter { "SettingEntry(" in it && "R.string." in it }
         val wrong = mutableListOf<String>()
         for (entry in SETTINGS_INDEX) {
