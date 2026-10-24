@@ -2246,6 +2246,11 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recap_card_my_hour" translatable="false">my hour</string>
     <string name="recap_card_days_in_a_row" translatable="false">days in a row</string>
     <string name="recap_card_since" translatable="false">Since %1$s</string>
+    <!-- The calm shapes look: the badge on the first song's sticker, the artist's badge, the pins under the streak. %1$s is a number. -->
+    <string name="recap_badge_first_play" translatable="false">first play</string>
+    <string name="recap_badge_number_one" translatable="false">No.\n1</string>
+    <string name="recap_streak_day_first" translatable="false">Day 1</string>
+    <string name="recap_streak_day_n" translatable="false">Day %1$s</string>
     <!-- The search at the top of Settings (SettingsSearch.kt, Unreleased.SETTINGS_SEARCH). Held from translators until he says yes to the words. %1$s is what was typed. -->
     <string name="search_settings" translatable="false">Search settings</string>
     <string name="search_settings_none" translatable="false">No setting matches \"%1$s\".</string>

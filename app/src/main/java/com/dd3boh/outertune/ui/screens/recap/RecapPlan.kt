@@ -14,8 +14,9 @@ import com.dd3boh.outertune.recap.RecapSongShown
 enum class SlideKind { SINCE, MINUTES, HOUR, STREAK, ARTISTS, ONLY_HERE, COUNTDOWN, NUMBER_ONE, CARD, THANKS }
 
 /**
- * One slide: how long it stays up for each of its [steps] (0, the last one, stays until left),
- * the song under it at each step, and the cover its colours come from.
+ * One slide: the length the piece of its song is cut to for each of its [steps] (0, the last one,
+ * stays until left), the song under it at each step, and the cover it is about. The story itself
+ * moves on 7 s after everything on the slide has settled (RecapStage.lengthOf), whatever [ms] says.
  */
 class Slide(
     val kind: SlideKind,

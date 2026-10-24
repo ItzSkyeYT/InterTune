@@ -8,14 +8,11 @@ package com.dd3boh.outertune.ui.screens.recap
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapShader
+import android.graphics.Matrix
+import android.graphics.Shader
+import android.graphics.Typeface
 import android.os.Build
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -25,60 +22,180 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.ColorMatrix
-import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.FilterQuality
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.ShaderBrush
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.DeviceFontFamilyName
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import coil3.imageLoader
 import coil3.request.ImageRequest
 import coil3.request.allowHardware
 import coil3.toBitmap
 import com.dd3boh.outertune.R
-import com.dd3boh.outertune.recap.RecapColours
-import com.dd3boh.outertune.recap.RecapPalette
 import com.dd3boh.outertune.utils.coilCoroutine
 import kotlinx.coroutines.withContext
-import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.ceil
+import kotlin.math.pow
+import kotlin.random.Random
 
-/** A slide's colours, ready to draw with. */
-@Immutable
-data class SlideColours(val accent: Color, val ink: Color, val ink2: Color, val deep: Color, val onAccent: Color) {
-    companion object {
-        fun of(c: RecapColours) = SlideColours(Color(c.accent), Color(c.ink), Color(c.ink2), Color(c.deep), Color(c.onAccent))
-        val APP = of(RecapPalette.APP)
-    }
+/**
+ * The Recap's colours: loud papers, an ink and a cream, as the calm shapes design has them
+ * (experiments/features/recap/v5-shapes-calm/recap.src.html, C).
+ */
+internal object RecapInk {
+    val Ink = Color(0xFF17131F)
+    val Cream = Color(0xFFFFF4E2)
+    val White = Color(0xFFFFFCF5)
+    val Red = Color(0xFFED5564)
+    val Blue = Color(0xFF3346FF)
+    val Lemon = Color(0xFFFFE34A)
+    val Pink = Color(0xFFFF6AB1)
+    val Violet = Color(0xFF7B3DF5)
+    val Mint = Color(0xFF3DE2A4)
+    val Orange = Color(0xFFFF8B24)
+    val Sky = Color(0xFF86CCFF)
+    val Lilac = Color(0xFFCFB8FF)
+    val Tomato = Color(0xFFFF5436)
+    val Plum = Color(0xFF5B1FD1)
+    val Sun = Color(0xFFFFD21F)
+
+    /** Shadows are a deep plum, never grey. */
+    val Shade = Color(0xFF190823)
+
+    /** Number one's pill, a little lighter than the ink it floats on. */
+    val NightPill = Color(0xFF2A2433)
 }
 
 /** InterTune's mark: the play button on its red disc, as the launcher icon has it. */
 val RecapRed = Color(0xFFED5564)
 
 /**
- * The covers the Recap draws, read once each: small for a slide's colours and its blurred
- * background, large for a share card. Kept for as long as the Recap is open.
+ * A slide's colours: its paper, the words on it, the quieter words, an accent and the words on
+ * the accent, and the two papers that run just ahead of its sheet as it grows over the last one.
+ */
+@Immutable
+internal class SlidePaper(val paper: Color, val ink: Color, val accent: Color, val onAccent: Color, val rims: List<Color> = emptyList()) {
+    /** The quieter words: as soft as the design's where the paper allows, stronger where it does not. */
+    val ink2: Color = quieter(ink, paper)
+
+    /** A dark paper: light words, and the light status bar icons with them. */
+    val dark: Boolean get() = paper.luminance() < 0.18f
+}
+
+/** The countdown's papers, one for each step, from number five on, as the design gives them. */
+internal class CountdownColours(val paper: Color, val blob: List<Color>, val star: Color, val bits: Color, val pill: Color)
+
+internal val COUNTDOWN_COLOURS = listOf(
+    CountdownColours(RecapInk.Sky, listOf(RecapInk.Tomato, RecapInk.Orange), RecapInk.Blue, RecapInk.Ink, RecapInk.Blue),
+    CountdownColours(RecapInk.Lemon, listOf(RecapInk.Sky, RecapInk.Pink), RecapInk.Blue, RecapInk.Violet, RecapInk.Blue),
+    CountdownColours(RecapInk.Lilac, listOf(RecapInk.Pink, RecapInk.Orange), RecapInk.Violet, RecapInk.Blue, RecapInk.Violet),
+    CountdownColours(RecapInk.Tomato, listOf(RecapInk.Lemon, RecapInk.Cream), RecapInk.Plum, RecapInk.Sky, RecapInk.Plum),
+)
+
+/** The start screen's paper: the app's own red. */
+internal val START_PAPER = SlidePaper(RecapInk.Red, RecapInk.Ink, RecapInk.Ink, RecapInk.Cream)
+
+/** Each slide's colour pair: one loud paper each, the thank-you page in the app's red. */
+internal fun paperOf(kind: SlideKind, step: Int = 0): SlidePaper = with(RecapInk) {
+    when (kind) {
+        SlideKind.SINCE -> SlidePaper(Blue, Cream, Lemon, Ink, listOf(Lemon, Pink))
+        SlideKind.MINUTES -> SlidePaper(Pink, Ink, Lemon, Ink, listOf(Lemon, Violet))
+        SlideKind.HOUR -> SlidePaper(Orange, Ink, Plum, Cream, listOf(Plum, Lemon))
+        SlideKind.STREAK -> SlidePaper(Mint, Ink, Violet, Cream)
+        SlideKind.ARTISTS -> SlidePaper(Plum, Cream, Lemon, Ink, listOf(Pink, Lemon))
+        SlideKind.ONLY_HERE -> SlidePaper(Red, Ink, Cream, Ink, listOf(Cream, Lemon))
+        SlideKind.COUNTDOWN -> SlidePaper(COUNTDOWN_COLOURS[step.coerceIn(0, COUNTDOWN_COLOURS.lastIndex)].paper, Ink, Ink, Cream, listOf(Lemon, Blue))
+        SlideKind.NUMBER_ONE -> SlidePaper(Ink, Cream, Lemon, Ink, listOf(Lemon, Pink))
+        SlideKind.CARD -> SlidePaper(Cream, Ink, Ink, Cream, listOf(Blue, Lemon))
+        SlideKind.THANKS -> SlidePaper(Red, Ink, Ink, Cream, listOf(Pink, Lemon))
+    }
+}
+
+/**
+ * The quieter words of a slide (kickers, artists, notes, ticks): [ink] at 74% over [paper] where
+ * that reads at [least] to 1 or better, stronger where it does not. The grain darkens the paper by
+ * about 6.5%, which matters for dark words, so both papers are checked.
+ */
+internal fun quieter(ink: Color, paper: Color, least: Double = 4.7): Color {
+    fun channel(c: Float): Double = if (c <= 0.04045f) c / 12.92 else ((c + 0.055) / 1.055).pow(2.4)
+    fun lum(r: Double, g: Double, b: Double) = 0.2126 * channel(r.toFloat()) + 0.7152 * channel(g.toFloat()) + 0.0722 * channel(b.toFloat())
+    fun ratio(a: Double, b: Double) = (maxOf(a, b) + 0.05) / (minOf(a, b) + 0.05)
+    val papers = listOf(1.0, 0.935).map { k -> doubleArrayOf(paper.red * k, paper.green * k, paper.blue * k) }
+    var a = 0.74
+    while (a < 1.0) {
+        val ok = papers.all { p ->
+            val mixed = lum(ink.red * a + p[0] * (1 - a), ink.green * a + p[1] * (1 - a), ink.blue * a + p[2] * (1 - a))
+            ratio(mixed, lum(p[0], p[1], p[2])) >= least
+        }
+        if (ok) break
+        a += 0.01
+    }
+    // A colour keeps its alpha in 255 steps: up to the next one, so the rounding never takes it below.
+    return ink.copy(alpha = (ceil(minOf(1.0, a) * 255) / 255).toFloat())
+}
+
+/** The Recap's type: a heavy condensed face for what is shouted, the phone's own for the rest. */
+internal object RecapFaces {
+    private val condensed = DeviceFontFamilyName("sans-serif-condensed")
+
+    val Display = FontFamily(
+        Font(condensed, FontWeight.Black),
+        Font(condensed, FontWeight.Bold),
+    )
+
+    /** The same face for the cards drawn on a Canvas: as heavy as the phone has it. */
+    fun typeface(weight: Int): Typeface {
+        val base = Typeface.create("sans-serif-condensed", Typeface.NORMAL)
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) Typeface.create(base, weight, false)
+        else Typeface.create(base, if (weight >= 600) Typeface.BOLD else Typeface.NORMAL)
+    }
+}
+
+/**
+ * Paper grain: a fixed tile of fine speckles, the same size whatever it lies on, darkening the
+ * paper by about 6.5% as the design's does. Made once, from a fixed seed, so every picture of a
+ * slide is the same.
+ */
+internal object PaperGrain {
+    private const val SIDE = 128
+    private val tile: Bitmap by lazy {
+        val rnd = Random(7)
+        val raw = FloatArray(SIDE * SIDE) { rnd.nextFloat() }
+        val pixels = IntArray(SIDE * SIDE)
+        for (y in 0 until SIDE) for (x in 0 until SIDE) {
+            // A little smoothed, round the edges of the tile too, so the repeat does not show.
+            var sum = 0f
+            for (dy in -1..1) for (dx in -1..1) sum += raw[((y + dy + SIDE) % SIDE) * SIDE + (x + dx + SIDE) % SIDE]
+            val v = ((sum / 9f - 0.5f) * 2.6f + 0.5f).coerceIn(0f, 1f)
+            val alpha = (255 * 0.13f * (0.15f + 0.7f * v)).toInt()
+            pixels[y * SIDE + x] = alpha shl 24
+        }
+        Bitmap.createBitmap(pixels, SIDE, SIDE, Bitmap.Config.ARGB_8888)
+    }
+
+    /** The grain as a brush, each speck about 0.7 dp at [density], or [scale] pixels for a card. */
+    fun brush(density: Float, scale: Float = density * 0.7f): ShaderBrush =
+        ShaderBrush(shader(scale))
+
+    fun shader(scale: Float): Shader = BitmapShader(tile, Shader.TileMode.REPEAT, Shader.TileMode.REPEAT).apply {
+        setLocalMatrix(Matrix().apply { setScale(scale, scale) })
+    }
+}
+
+/**
+ * The covers the Recap draws, read once each and kept for as long as it is open: small for the
+ * stickers, large for a share card.
  */
 class RecapCovers(private val context: Context) {
-    private val colours = ConcurrentHashMap<Any, RecapColours>()
-    private val tiny = ConcurrentHashMap<Any, ImageBitmap>()
-
     suspend fun bitmap(model: Any?, px: Int): Bitmap? {
         if (model == null) return null
         return withContext(coilCoroutine) {
@@ -89,51 +206,6 @@ class RecapCovers(private val context: Context) {
             }.getOrNull()
         }
     }
-
-    /** The cover's colours, the mock's way: measured on 40 by 40 of its middle. */
-    suspend fun colours(model: Any?): RecapColours {
-        if (model == null) return RecapPalette.APP
-        colours[model]?.let { return it }
-        val small = bitmap(model, MEASURED) ?: return RecapPalette.APP
-        val square = squareMiddle(small, MEASURED)
-        val pixels = IntArray(MEASURED * MEASURED)
-        square.getPixels(pixels, 0, MEASURED, 0, 0, MEASURED, MEASURED)
-        return RecapPalette.of(pixels).also { colours[model] = it }
-    }
-
-    /** The cover so small that drawn over the whole screen it is a soft wash of its colours. */
-    suspend fun wash(model: Any?): ImageBitmap? {
-        if (model == null) return null
-        tiny[model]?.let { return it }
-        val small = bitmap(model, MEASURED) ?: return null
-        return squareMiddle(small, WASH).asImageBitmap().also { tiny[model] = it }
-    }
-
-    private fun squareMiddle(b: Bitmap, side: Int): Bitmap {
-        val s = minOf(b.width, b.height)
-        val cut = Bitmap.createBitmap(b, (b.width - s) / 2, (b.height - s) / 2, s, s)
-        return Bitmap.createScaledBitmap(cut, side, side, true)
-    }
-
-    companion object {
-        const val MEASURED = 40
-        const val WASH = 24
-    }
-}
-
-/** A slide's colours from its cover, the app's own until the cover has been read, changing softly. */
-@Composable
-fun slideColours(covers: RecapCovers, model: Any?, brand: Boolean = false): SlideColours {
-    val measured by produceState(SlideColours.APP, model, brand) {
-        value = if (brand) SlideColours.APP else SlideColours.of(covers.colours(model))
-    }
-    val spec = tween<Color>(RecapMotion.COLOUR_MS)
-    val accent by animateColorAsState(measured.accent, spec, label = "accent")
-    val ink by animateColorAsState(measured.ink, spec, label = "ink")
-    val ink2 by animateColorAsState(measured.ink2, spec, label = "ink2")
-    val deep by animateColorAsState(measured.deep, spec, label = "deep")
-    val onAccent by animateColorAsState(measured.onAccent, spec, label = "onAccent")
-    return SlideColours(accent, ink, ink2, deep, onAccent)
 }
 
 /** The mark: [size] across. */
@@ -144,89 +216,7 @@ fun RecapMark(size: Dp, modifier: Modifier = Modifier) {
     }
 }
 
-/**
- * Behind a slide: its cover twice, washed out into its colours and drifting, darker at the top
- * and the foot so the words read, and tinted with its deepest colour. The mock's .bg.
- */
-@Composable
-fun CoverBackdrop(covers: RecapCovers, model: Any?, colours: SlideColours, still: Boolean, modifier: Modifier = Modifier) {
-    val wash by produceState<ImageBitmap?>(null, model) { value = covers.wash(model) }
-    val drift = rememberInfiniteTransition(label = "drift")
-    val t1 by drift.animateFloat(0f, 1f, infiniteRepeatable(tween(RecapMotion.DRIFT_MS, easing = LinearEasing), RepeatMode.Reverse), label = "t1")
-    val t2 by drift.animateFloat(0f, 1f, infiniteRepeatable(tween(RecapMotion.DRIFT_2_MS, easing = LinearEasing), RepeatMode.Reverse), label = "t2")
-    val saturated = remember { ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(1.4f) }) }
-    Box(modifier.fillMaxSize().background(colours.deep)) {
-        wash?.let { picture ->
-            val blurred = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) Modifier.blur(40.dp) else Modifier
-            Image(
-                bitmap = picture,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                filterQuality = FilterQuality.High,
-                colorFilter = saturated,
-                alpha = 0.9f,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        val k = if (still) 0.5f else t1
-                        scaleX = 1.5f + 0.08f * k
-                        scaleY = 1.5f + 0.08f * k
-                        translationX = size.width * (-0.03f + 0.06f * k)
-                        translationY = size.height * (-0.02f + 0.04f * k)
-                        rotationZ = 4f * k
-                    }
-                    .then(blurred),
-            )
-            // The copy turned over comes up from below the middle, faded in, so that its edge,
-            // which the blur keeps sharp, never shows as a line across the slide.
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
-                    .drawWithContent {
-                        drawContent()
-                        drawRect(
-                            Brush.verticalGradient(0f to Color.Transparent, 0.3f to Color.Transparent, 0.52f to Color.Black),
-                            blendMode = BlendMode.DstIn,
-                        )
-                    }
-            ) {
-                Image(
-                    bitmap = picture,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    filterQuality = FilterQuality.High,
-                    colorFilter = saturated,
-                    alpha = 0.55f,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer {
-                            val k = if (still) 0.5f else t2
-                            rotationZ = 180f + 6f * k
-                            scaleX = 1.6f + 0.1f * k
-                            scaleY = 1.6f + 0.1f * k
-                            translationY = size.height * 0.45f
-                            translationX = size.width * (-0.04f + 0.08f * k)
-                        }
-                        .then(blurred),
-                )
-            }
-        }
-        Box(Modifier.fillMaxSize().background(colours.deep.copy(alpha = 0.34f)))
-        Box(
-            Modifier.fillMaxSize().background(
-                Brush.verticalGradient(
-                    0f to Color.Black.copy(alpha = 0.34f),
-                    0.34f to Color.Black.copy(alpha = 0.12f),
-                    0.7f to Color.Black.copy(alpha = 0.30f),
-                    1f to Color.Black.copy(alpha = 0.62f),
-                )
-            )
-        )
-    }
-}
-
-/** The thank-you page's own backdrop, in the app's colours: it is from the people who make it. */
+/** The Settings banner's backdrop, in the app's colours: it is from the people who make it. */
 @Composable
 fun BrandBackdrop(modifier: Modifier = Modifier) {
     Canvas(modifier.fillMaxSize()) {

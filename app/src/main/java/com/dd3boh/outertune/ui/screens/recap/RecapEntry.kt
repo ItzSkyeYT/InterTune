@@ -6,11 +6,7 @@
 
 package com.dd3boh.outertune.ui.screens.recap
 
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -29,15 +26,17 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
@@ -157,7 +156,8 @@ fun RecapDialog(year: Int, onClose: () -> Unit) {
 private fun RecapHost(year: Int, onClose: () -> Unit, viewModel: RecapViewModel = hiltViewModel()) {
     LaunchedEffect(year) { viewModel.load(year) }
     val state by viewModel.state.collectAsState()
-    Box(Modifier.fillMaxSize().background(RecapNight)) {
+    // The story draws its own paper; behind the working screen, the start screen's red.
+    Box(Modifier.fillMaxSize().then(if (state is RecapState.Ready) Modifier else Modifier.background(RecapNight))) {
         when (val s = state) {
             RecapState.Working -> Working()
             RecapState.Nothing -> NothingYet(year, onClose)
@@ -166,20 +166,47 @@ private fun RecapHost(year: Int, onClose: () -> Unit, viewModel: RecapViewModel 
     }
 }
 
-/** While the year is worked out, a moment on most phones: the mark, breathing. */
+/**
+ * While the year is worked out, a moment on most phones: the mark on the start screen's red
+ * paper, a lemon burst behind it turning slowly, once in RecapMotion.Rest.WORKING_TURN_S; still
+ * with Remove animations on. Nothing pulses.
+ */
 @Composable
 private fun Working() {
-    val breath = rememberInfiniteTransition(label = "working")
-    val k by breath.animateFloat(0.55f, 1f, infiniteRepeatable(tween(900), RepeatMode.Reverse), label = "k")
+    val still = remember { RecapMotion.still() }
+    var turn by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(still) {
+        if (still) return@LaunchedEffect
+        var last = withFrameNanos { it }
+        while (true) {
+            val now = withFrameNanos { it }
+            turn = (turn + (now - last) / 1e9f * 360f / RecapMotion.Rest.WORKING_TURN_S) % 360f
+            last = now
+        }
+    }
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
         modifier = Modifier.fillMaxSize(),
     ) {
-        Box(Modifier.graphicsLayer { alpha = k; scaleX = 0.94f + 0.06f * k; scaleY = scaleX }) { RecapMark(64.dp) }
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(128.dp)) {
+            Canvas(Modifier.fillMaxSize().graphicsLayer { rotationZ = turn }) {
+                val pts = PaperShapes.of(Paper.BURST)
+                val path = Path()
+                for (i in 0 until PaperShapes.N) {
+                    val x = pts[2 * i] / 100f * size.width
+                    val y = pts[2 * i + 1] / 100f * size.height
+                    if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                }
+                path.close()
+                paperShadow(path, size.width / 128f, 1f)
+                drawPath(path, RecapInk.Lemon)
+            }
+            RecapMark(64.dp)
+        }
         Text(
             stringResource(R.string.recap_working),
-            fontSize = 15.sp, color = Color.White.copy(alpha = 0.7f),
+            fontSize = 15.sp, fontWeight = FontWeight.Medium, color = RecapInk.Ink,
             modifier = Modifier.padding(top = 20.dp),
         )
     }
@@ -198,17 +225,17 @@ private fun NothingYet(year: Int, onClose: () -> Unit) {
             RecapMark(56.dp)
             Text(
                 stringResource(R.string.recap_too_little, year.toString()),
-                fontSize = 18.sp, fontWeight = FontWeight.Medium, color = Color.White, textAlign = TextAlign.Center,
+                fontSize = 18.sp, fontWeight = FontWeight.Medium, color = RecapInk.Ink, textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 20.dp),
             )
             Text(
                 stringResource(R.string.recap_done),
-                fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color(0xFF561D22),
+                style = RecapType.button, color = RecapInk.Cream,
                 modifier = Modifier
                     .padding(top = 28.dp)
-                    .height(48.dp)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(Color(0xFFFFB3B5))
+                    .height(46.dp)
+                    .clip(RoundedCornerShape(23.dp))
+                    .background(RecapInk.Ink)
                     .recapClick(onClose)
                     .padding(horizontal = 22.dp)
                     .wrapCentre(),

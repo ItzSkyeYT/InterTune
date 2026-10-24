@@ -8,9 +8,17 @@ package com.dd3boh.outertune.ui.screens.recap
 
 import android.graphics.Bitmap
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -47,9 +55,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -60,16 +67,26 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.ClipOp
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
@@ -78,12 +95,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.DialogWindowProvider
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import coil3.compose.AsyncImage
 import com.dd3boh.outertune.R
-import com.dd3boh.outertune.recap.RecapPiece
+import com.dd3boh.outertune.recap.RecapPalette
 import com.dd3boh.outertune.recap.RecapReader
 import com.dd3boh.outertune.recap.RecapShown
 import com.dd3boh.outertune.recap.RecapSongShown
@@ -96,20 +115,21 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** The Recap's own dark, under the start screen and behind every slide while it loads. */
-internal val RecapNight = Color(0xFF0E0A0A)
+/** Behind the Recap while it loads: the start screen's own red paper. */
+internal val RecapNight = RecapInk.Red
 
 /**
- * The year as a story, full screen, as the approved mock tells it: the start screen, then the
- * slides one after another (planSlides). A tap on the right goes on and on the left goes back, a
- * press held keeps the slide where it is, and each slide moves on by itself when its time is up;
- * the bars at the top say how far the story has got. The pill at the foot names the slide's song
- * and the piece of it that plays (RecapSound: nothing plays in phase 1). The thank-you page
- * stays until it is left.
+ * The year as a story, full screen, in the calm shapes look (experiments/features/recap/v5-shapes-calm):
+ * the start screen, then the slides one after another (planSlides), each a loud sheet of paper
+ * growing over the last, eight cut-paper shapes that stay on screen and change from slide to slide,
+ * covers stuck on like stickers. A tap on the right goes on and on the left goes back, a press held
+ * keeps everything where it is, and each slide moves on by itself when its time is up; the bars at
+ * the top say how far the story has got. The pill at the foot names the slide's song (RecapSound:
+ * nothing plays in phase 1). The thank-you page stays until it is left.
  *
- * What it draws, slide by slide, is in RecapSlides; how things move, in RecapMotion. [onOpened]
- * is told once the story is opened from the start screen: that is the Recap looked at, which is
- * what is counted (RecapViewModel.opened).
+ * What a slide holds is in RecapSlides; how things move, in RecapMotion; the shapes and the sheets
+ * in RecapStage. [onOpened] is told once the story is opened from the start screen: that is the
+ * Recap looked at, which is what is counted (RecapViewModel.opened).
  */
 @Composable
 internal fun RecapStory(
@@ -129,73 +149,39 @@ internal fun RecapStory(
     val opened by rememberUpdatedState(onOpened)
     val close by rememberUpdatedState(onClose)
 
-    // Where the story is: 0 is the start screen, then 1 to slides.size. [step] is the place in a
-    // slide of several, the countdown's.
-    var at by rememberSaveable { mutableIntStateOf(0) }
-    var step by rememberSaveable { mutableIntStateOf(0) }
-    // One more each time a slide comes up, so that coming back to one plays its entrances again.
-    var visit by remember { mutableIntStateOf(0) }
-    // Each slide's last step and visit, so that the one fading out stays as it was.
-    val stepOf = remember { mutableStateMapOf<Int, Int>() }
-    val visitOf = remember { mutableStateMapOf<Int, Int>() }
-    var opening by remember { mutableStateOf(false) }
+    // Where the story is, kept across a turn of the phone: 0 is the start screen, then 1 to
+    // slides.size; the step is the place in a slide of several, the countdown's.
+    var savedAt by rememberSaveable { mutableIntStateOf(0) }
+    var savedStep by rememberSaveable { mutableIntStateOf(0) }
+    val stage = remember(slides) { RecapStage(slides, still, savedAt, savedStep) }
+    stage.onPage = { a, s -> savedAt = a; savedStep = s }
+
     var held by remember { mutableStateOf(false) }
     var away by remember { mutableStateOf(false) }
     var sharing by remember { mutableStateOf(false) }
     var muted by rememberSaveable { mutableStateOf(false) }
-    // The first slide spreading out of the Open button, and the start screen opening under it.
-    val reveal = remember { Animatable(1f) }
-    val openness = remember { Animatable(0f) }
-    var revealFrom by remember { mutableStateOf(Offset.Zero) }
-
-    fun go(slide: Int, toStep: Int) {
-        at = slide
-        step = toStep
-        visit++
-        stepOf[slide] = toStep
-        visitOf[slide] = visit
-    }
+    val page = stage.current
 
     fun next() {
-        if (at == 0) return
-        val slide = slides[at - 1]
-        if (step < slide.steps - 1) {
-            step++
-            stepOf[at] = step
-        } else if (at < slides.size) {
-            go(at + 1, 0)
-        }
+        val p = stage.current
+        if (p.at == 0 || stage.opening) return
+        val slide = slides[p.at - 1]
+        if (p.step < slide.steps - 1) stage.go(p.at, p.step + 1, How.ON)
+        else if (p.at < slides.size) stage.go(p.at + 1, 0, How.ON)
     }
 
     fun previous() {
-        if (at <= 1) return
-        if (step > 0) {
-            step--
-            stepOf[at] = step
-        } else {
-            go(at - 1, slides[at - 2].steps - 1)
-        }
+        val p = stage.current
+        if (p.at <= 1 || stage.opening) return
+        if (p.step > 0) stage.go(p.at, p.step - 1, How.BACK)
+        else stage.go(p.at - 1, slides[p.at - 2].steps - 1, How.BACK)
     }
 
-    fun openStory(from: Offset) {
-        if (at != 0 || opening) return
+    fun openStory() {
+        if (stage.current.at != 0 || stage.opening) return
         opened()
         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-        if (still) {
-            go(1, 0)
-            return
-        }
-        revealFrom = from
-        opening = true
-        scope.launch {
-            openness.snapTo(0f)
-            launch { openness.animateTo(1f, tween(RecapMotion.OPEN_MS.toInt() + RecapMotion.REVEAL_MS, easing = RecapMotion.OpenEasing)) }
-            delay(RecapMotion.OPEN_MS)
-            reveal.snapTo(0f)
-            go(1, 0)
-            reveal.animateTo(1f, tween(RecapMotion.REVEAL_MS, easing = RecapMotion.RevealEasing))
-            opening = false
-        }
+        stage.open()
     }
 
     // Away from the app, the share sheet over it included: the story waits.
@@ -212,38 +198,47 @@ internal fun RecapStory(
         onDispose { lifecycle.removeObserver(watcher) }
     }
 
-    // How far the slide on screen has got, 0 to 1, and the clock that moves it on: by frames and
-    // not by an animation, so that with animations switched off the story still keeps its time.
-    val progress = remember(at, step, visit) { mutableFloatStateOf(0f) }
-    val paused = held || away || sharing || opening
-    LaunchedEffect(progress, paused) {
-        if (at == 0) return@LaunchedEffect
-        val ms = slides[at - 1].ms
-        if (ms <= 0L) {
-            progress.floatValue = 1f
-            return@LaunchedEffect
-        }
-        if (paused) return@LaunchedEffect
+    // The story's clock, once a frame: by frames and not by an animation, so that with
+    // animations switched off the story still keeps its time. A held story holds everything.
+    val paused by rememberUpdatedState(held || away || sharing)
+    LaunchedEffect(stage) {
         var last = withFrameNanos { it }
-        while (progress.floatValue < 1f) {
+        while (true) {
             val now = withFrameNanos { it }
-            progress.floatValue = (progress.floatValue + (now - last) / 1e6f / ms).coerceAtMost(1f)
+            // Real time down to ten frames a second; a longer gap (the screen off, a stall) is not motion.
+            stage.frame(((now - last) / 1e6).coerceIn(0.0, 100.0), paused)
             last = now
+            val p = stage.current
+            if (p.at > 0 && !paused && !stage.opening) {
+                val length = stage.lengthOf(p)
+                if (length > 0 && stage.clock.now - p.start >= length) next()
+            }
         }
-        next()
     }
 
-    // Each slide as it comes up: a tick under the finger, a firmer one for number one, and its song.
-    LaunchedEffect(at, step, visit) {
-        if (at == 0) return@LaunchedEffect
-        val slide = slides[at - 1]
+    // Each page as it comes up: a tick under the finger, a firmer one for number one, and its song.
+    LaunchedEffect(page.visit) {
+        if (page.at == 0) return@LaunchedEffect
+        val slide = slides[page.at - 1]
         haptic.performHapticFeedback(if (slide.kind == SlideKind.NUMBER_ONE) HapticFeedbackType.LongPress else HapticFeedbackType.TextHandleMove)
-        val song = slide.song(step)
-        val piece = slide.piece(step)
+        val song = slide.song(page.step)
+        val piece = slide.piece(page.step)
         if (song != null && piece != null) sound.play(song.id, piece)
     }
     LaunchedEffect(held, away) { if (held || away) sound.pause() else sound.resume() }
     DisposableEffect(sound) { onDispose { sound.stop() } }
+
+    // The bars of the phone follow the paper: dark icons on a light one, light on a dark one.
+    val view = LocalView.current
+    val lightPaper = !page.paper.dark
+    LaunchedEffect(lightPaper) {
+        (view.parent as? DialogWindowProvider)?.window?.let { window ->
+            WindowCompat.getInsetsController(window, view).apply {
+                isAppearanceLightStatusBars = lightPaper
+                isAppearanceLightNavigationBars = lightPaper
+            }
+        }
+    }
 
     // The year on one card, drawn once: the slide shows the very picture that is shared.
     var yearCard by remember(shown) { mutableStateOf<Bitmap?>(null) }
@@ -266,12 +261,34 @@ internal fun RecapStory(
         }
     }
 
+    @Composable
+    fun Content(s: SlideScope) {
+        val p = s.page
+        if (p.at == 0) {
+            RecapStart(s, onOpen = { openStory() }, onClose = { close() })
+            return
+        }
+        when (slides[p.at - 1].kind) {
+            SlideKind.SINCE -> SinceSlide(s)
+            SlideKind.MINUTES -> MinutesSlide(s)
+            SlideKind.HOUR -> HourSlide(s)
+            SlideKind.STREAK -> StreakSlide(s)
+            SlideKind.ARTISTS -> ArtistsSlide(s)
+            SlideKind.ONLY_HERE -> OnlySlide(s)
+            SlideKind.COUNTDOWN -> CountdownSlide(s, p.step)
+            SlideKind.NUMBER_ONE -> NumberOneSlide(s, sharing) { share(top = true) }
+            SlideKind.CARD -> CardSlide(s, yearCard, sharing) { share(top = false) }
+            SlideKind.THANKS -> ThanksSlide(s, onAgain = { stage.go(1, 0, How.ON) }, onDone = { close() })
+        }
+    }
+
     val nextWords = stringResource(R.string.recap_next)
     val previousWords = stringResource(R.string.recap_previous)
     Box(
         Modifier
             .fillMaxSize()
-            .background(RecapNight)
+            .onGloballyPositioned { stage.anchors.origin = it.positionInRoot() }
+            .onSizeChanged { stage.resize(it.width.toFloat(), it.height.toFloat()) }
             .semantics {
                 customActions = listOf(
                     CustomAccessibilityAction(nextWords) { next(); true },
@@ -281,7 +298,7 @@ internal fun RecapStory(
             .pointerInput(slides) {
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = true)
-                    if (at == 0 || opening) return@awaitEachGesture
+                    if (stage.current.at == 0 || stage.opening) return@awaitEachGesture
                     val back = down.position.x < size.width * RecapMotion.BACK_SHARE
                     var timedOut = true
                     val up = withTimeoutOrNull(RecapMotion.HOLD_MS) { waitForUpOrCancellation().also { timedOut = false } }
@@ -296,70 +313,36 @@ internal fun RecapStory(
                 }
             }
     ) {
-        // Under the slides: as it opens, the first slide spreads over it from the button.
-        if (at == 0 || opening) {
-            RecapStart(
-                shown = shown,
-                words = words,
-                covers = covers,
-                still = still,
-                openness = { openness.value },
-                onOpen = ::openStory,
-                onClose = { close() },
-            )
+        Papers(stage)
+        Shapes(stage)
+        Grain()
+        Confetti(stage)
+        stage.leaving?.let { gone ->
+            key(gone.page.visit) { PageView(gone.page, stage, shown, words, covers) { Content(it) } }
         }
+        key(page.visit) { PageView(page, stage, shown, words, covers) { Content(it) } }
 
-        if (at > 0) {
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        val r = reveal.value
-                        if (r < 1f) {
-                            clip = true
-                            shape = CircleReveal(revealFrom, r)
-                        }
-                    }
-            ) {
-                AnimatedContent(targetState = at, transitionSpec = { RecapMotion.slideChange(this) }, label = "slide") { index ->
-                    val slide = slides[index - 1]
-                    val stepHere = stepOf[index] ?: 0
-                    val colours = slideColours(covers, slide.cover(stepHere), brand = slide.kind == SlideKind.THANKS)
-                    val s = SlideScope(shown, words, covers, colours, still, key = visitOf[index] ?: 0)
-                    Box(Modifier.fillMaxSize()) {
-                        if (slide.kind == SlideKind.THANKS) BrandBackdrop() else CoverBackdrop(covers, slide.cover(stepHere), colours, still)
-                        when (slide.kind) {
-                            SlideKind.SINCE -> SinceSlide(s)
-                            SlideKind.MINUTES -> MinutesSlide(s)
-                            SlideKind.HOUR -> HourSlide(s)
-                            SlideKind.STREAK -> StreakSlide(s)
-                            SlideKind.ARTISTS -> ArtistsSlide(s)
-                            SlideKind.ONLY_HERE -> OnlyHereSlide(s)
-                            SlideKind.COUNTDOWN -> CountdownSlide(s, stepHere)
-                            SlideKind.NUMBER_ONE -> NumberOneSlide(s, sharing) { share(top = true) }
-                            SlideKind.CARD -> CardSlide(s, yearCard, sharing) { share(top = false) }
-                            SlideKind.THANKS -> ThanksSlide(s, onAgain = { go(1, 0) }, onDone = { close() })
-                        }
-                    }
-                }
-            }
-        }
-
-        val chrome by animateFloatAsState(if (at > 0 && !opening) 1f else 0f, tween(300), label = "chrome")
-        if (at > 0) {
-            val current = slides[at - 1]
+        val chrome by animateFloatAsState(if (page.at > 0 && !stage.opening) 1f else 0f, tween(300), label = "chrome")
+        val ink by animateColorAsState(page.paper.ink, tween(RecapMotion.CHROME_COLOUR_MS), label = "ink")
+        if (page.at > 0) {
+            val current = slides[page.at - 1]
             StoryBars(
                 count = slides.size,
-                at = at,
-                fraction = { (step + progress.floatValue) / current.steps },
+                at = page.at,
+                fraction = {
+                    val length = stage.lengthOf(page)
+                    val p = if (length <= 0L) 1f else ((stage.clock.now - page.start).toFloat() / length).coerceIn(0f, 1f)
+                    (page.step + p) / current.steps
+                },
                 year = recap.year,
+                ink = ink,
                 onClose = { close() },
                 modifier = Modifier.align(Alignment.TopCenter).graphicsLayer { alpha = chrome },
             )
             SongPill(
-                song = current.song(step),
-                piece = current.piece(step),
-                progress = { progress.floatValue },
+                song = current.song(page.step),
+                night = page.paper.dark,
+                still = still,
                 muted = muted,
                 onMute = { muted = !muted },
                 modifier = Modifier.align(Alignment.BottomCenter).graphicsLayer { alpha = chrome },
@@ -368,50 +351,177 @@ internal fun RecapStory(
     }
 }
 
-/** The bars at the top, one for each slide, filling as it plays; the mark, the year and a way out. */
+/** The papers: the slide's own, and while one changes to the next the new sheet growing over the old. */
 @Composable
-private fun StoryBars(count: Int, at: Int, fraction: () -> Float, year: Int, onClose: () -> Unit, modifier: Modifier = Modifier) {
+private fun Papers(stage: RecapStage) {
+    val sheet = remember { Path() }
+    val rim = remember { Path() }
+    Canvas(Modifier.fillMaxSize()) {
+        val w = stage.wipe
+        val now = if (w == null) 0L else stage.clock.now
+        val u = stage.unit
+        if (w == null || w.done(now)) {
+            drawRect(stage.current.paper.paper)
+        } else {
+            drawRect(w.under)
+            when (w.kind) {
+                WipeKind.FADE -> drawRect(w.over, alpha = RecapMotion.Ease.transform(w.progress(now)))
+                WipeKind.GROW -> {
+                    for (i in w.rims.indices.reversed()) {
+                        w.rim(i, now, rim)
+                        paperShadow(rim, u, 1f, 1.3f)
+                        drawPath(rim, w.rims[i])
+                    }
+                    w.inside(now, size, sheet)
+                    paperShadow(sheet, u, 1f, 1.3f)
+                    drawPath(sheet, w.over)
+                }
+                WipeKind.STRIPS -> {
+                    w.inside(now, size, sheet)
+                    paperShadow(sheet, u, 1f, 1.3f)
+                    drawPath(sheet, w.over)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The grain of the paper, once over the papers and the shapes alike and under the words and the
+ * stickers: one pass for the whole screen rather than one for each piece of paper, which a
+ * mid-range phone feels at every frame.
+ */
+@Composable
+private fun Grain() {
+    val density = LocalDensity.current.density
+    val grain = remember(density) { PaperGrain.brush(density) }
+    Canvas(Modifier.fillMaxSize()) { drawRect(grain) }
+}
+
+/** The eight paper shapes, between the papers and the words. */
+@Composable
+private fun Shapes(stage: RecapStage) {
+    val paths = remember { ActorPaths() }
+    Canvas(
+        Modifier
+            .fillMaxSize()
+            .graphicsLayer { alpha = stage.shapesAlpha(stage.clock.now) }
+    ) {
+        drawActors(stage.actors, stage.clock.now, rest = !stage.still, unit = stage.unit, paths = paths)
+    }
+}
+
+/** Confetti flies between the paper shapes and the words: under the cut-outs' words, never over a line of text. */
+@Composable
+private fun Confetti(stage: RecapStage) {
+    Canvas(Modifier.fillMaxSize()) {
+        if (stage.confetti.active) with(stage.confetti) { draw(stage.clock.now) }
+    }
+}
+
+/**
+ * One page's words and stickers: the new one inside the sheet growing in, the old one outside it
+ * until it is covered, or fading where no sheet comes (into the first slide, or with Remove
+ * animations on, when the new one fades in too).
+ */
+@Composable
+private fun PageView(
+    page: PageState,
+    stage: RecapStage,
+    shown: RecapShown,
+    words: RecapWords,
+    covers: RecapCovers,
+    content: @Composable (SlideScope) -> Unit,
+) {
+    val s = remember(page.visit) { SlideScope(shown, words, covers, page.paper, stage, page) }
+    val clip = remember { Path() }
+    Box(
+        Modifier
+            .fillMaxSize()
+            .drawWithContent {
+                val w = stage.wipe
+                val gone = stage.leaving?.takeIf { it.page.visit == page.visit }
+                when {
+                    w == null -> if (gone == null || !gone.covered) drawContent()
+                    else -> {
+                        val now = stage.clock.now
+                        when {
+                            // Covered: nothing of it shows once the sheet is all the way over it.
+                            gone != null && gone.covered && w.done(now) -> Unit
+                            w.kind == WipeKind.FADE || w.done(now) -> drawContent()
+                            else -> {
+                                w.inside(now, size, clip)
+                                clipPath(clip, if (gone == null) ClipOp.Intersect else ClipOp.Difference) { this@drawWithContent.drawContent() }
+                            }
+                        }
+                    }
+                }
+            }
+            .graphicsLayer {
+                val w = stage.wipe
+                val gone = stage.leaving?.takeIf { it.page.visit == page.visit }
+                val going = s.leftFor()
+                when {
+                    gone == null && going <= 0f && w != null && w.kind == WipeKind.FADE && !w.done(stage.clock.now) -> alpha = RecapMotion.Ease.transform(w.progress(stage.clock.now))
+                    going > 0f && (gone == null || !gone.covered) -> {
+                        if (stage.still) {
+                            alpha = 1f - (going / RecapMotion.CALM_LEAVE_MS).coerceIn(0f, 1f)
+                        } else {
+                            val e = RecapMotion.LeaveEasing.transform((going / RecapMotion.LEAVE_MS).coerceIn(0f, 1f))
+                            alpha = 1f - e
+                            scaleX = 1f + 0.05f * e
+                            scaleY = scaleX
+                        }
+                    }
+                }
+            }
+    ) { content(s) }
+}
+
+/** The bars at the top, one for each slide, filling as it plays; the mark, the year and a way out, in the slide's ink. */
+@Composable
+private fun StoryBars(count: Int, at: Int, fraction: () -> Float, year: Int, ink: Color, onClose: () -> Unit, modifier: Modifier = Modifier) {
     Column(
         modifier
             .fillMaxWidth()
             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
-            .padding(top = 8.dp)
+            .padding(top = 9.dp)
     ) {
-        Canvas(Modifier.fillMaxWidth().padding(horizontal = 14.dp).height(3.dp)) {
+        Canvas(Modifier.fillMaxWidth().padding(horizontal = 10.dp).height(3.dp)) {
             val gap = 4.dp.toPx()
             val width = (size.width - gap * (count - 1)) / count
             val corner = CornerRadius(size.height / 2)
             for (i in 0 until count) {
                 val left = i * (width + gap)
-                drawRoundRect(Color.White.copy(alpha = 0.28f), Offset(left, 0f), Size(width, size.height), corner)
+                drawRoundRect(ink.copy(alpha = 0.3f), Offset(left, 0f), Size(width, size.height), corner)
                 val filled = when {
                     i < at - 1 -> 1f
                     i == at - 1 -> fraction().coerceIn(0f, 1f)
                     else -> 0f
                 }
-                if (filled > 0f) drawRoundRect(Color.White, Offset(left, 0f), Size(width * filled, size.height), corner)
+                if (filled > 0f) drawRoundRect(ink, Offset(left, 0f), Size(width * filled, size.height), corner)
             }
         }
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 7.dp, start = 16.dp, end = 8.dp)
-                .height(36.dp),
+                .padding(top = 5.dp, start = 14.dp, end = 6.dp)
+                .height(40.dp),
         ) {
-            RecapMark(22.dp)
+            RecapMark(20.dp)
             Spacer(Modifier.width(8.dp))
-            Text(stringResource(R.string.recap_short), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color.White.copy(alpha = 0.92f))
-            Text(" $year", fontSize = 14.sp, color = Color.White.copy(alpha = 0.62f))
+            Text(stringResource(R.string.recap_short), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = ink)
+            Text(" $year", fontSize = 14.sp, color = ink)
             Spacer(Modifier.weight(1f))
-            CloseButton(onClose)
+            CloseButton(onClose, tint = ink)
         }
     }
 }
 
-/** The way out, white on whatever is behind it. */
+/** The way out, in the ink of whatever is behind it. */
 @Composable
-internal fun CloseButton(onClose: () -> Unit, modifier: Modifier = Modifier) {
+internal fun CloseButton(onClose: () -> Unit, modifier: Modifier = Modifier, tint: Color = RecapInk.Ink) {
     Box(
         modifier
             .size(40.dp)
@@ -419,74 +529,94 @@ internal fun CloseButton(onClose: () -> Unit, modifier: Modifier = Modifier) {
             .clickable(onClick = onClose),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(Icons.Rounded.Close, stringResource(R.string.recap_close), tint = Color.White, modifier = Modifier.size(22.dp))
+        Icon(Icons.Rounded.Close, stringResource(R.string.recap_close), tint = tint, modifier = Modifier.size(22.dp))
     }
 }
 
 /**
- * Where the song plays: one floating pill, as wide as what it holds. The faint line is the whole
- * song and the brighter piece of it what plays under this slide, filling as the slide plays.
+ * Where the song plays: one floating pill of ink, as wide as what it holds. The song that was
+ * playing slides up and out while the next one comes up from below, and the sound bars rise once
+ * with it, one after another, and stand still. With Remove animations on, the two cross-fade.
  */
 @Composable
-private fun SongPill(
-    song: RecapSongShown?,
-    piece: RecapPiece?,
-    progress: () -> Float,
-    muted: Boolean,
-    onMute: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
+private fun SongPill(song: RecapSongShown?, night: Boolean, still: Boolean, muted: Boolean, onMute: () -> Unit, modifier: Modifier = Modifier) {
     if (song == null) return
-    val shape = RoundedCornerShape(28.dp)
-    Box(
-        modifier
+    val shape = RoundedCornerShape(26.dp)
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
-            .padding(bottom = 18.dp)
-            .widthIn(min = 220.dp, max = 356.dp)
-            .height(56.dp)
+            .padding(bottom = 12.dp)
+            .widthIn(max = 366.dp)
+            .height(52.dp)
+            .shadow(10.dp, shape, ambientColor = RecapInk.Shade, spotColor = RecapInk.Shade)
             .clip(shape)
-            .background(Color.White.copy(alpha = 0.13f))
-            .border(1.dp, Color.White.copy(alpha = 0.16f), shape)
+            .background(if (night) RecapInk.NightPill else RecapInk.Ink)
+            .border(1.5.dp, RecapInk.Cream.copy(alpha = if (night) 0.22f else 0.1f), shape)
+            .animateContentSize(tween(RecapMotion.PILL_WIDTH_MS, easing = CubicBezierEasing(0.3f, 1.2f, 0.4f, 1f)))
+            .padding(start = 8.dp, end = 4.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxHeight().padding(start = 10.dp, end = 6.dp)) {
-            AsyncImage(
-                model = song.cover,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.size(36.dp).clip(RoundedCornerShape(8.dp)).background(Color.White.copy(alpha = 0.08f)),
-            )
-            Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f, fill = false)) {
-                Text(song.title, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(song.artists, fontSize = 12.5.sp, color = Color.White.copy(alpha = 0.72f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            Spacer(Modifier.width(10.dp))
-            // Phase 1 is silent (RecapSound): the button only shows the choice there will be.
-            Box(Modifier.size(40.dp).clip(CircleShape).clickable(onClick = onMute), contentAlignment = Alignment.Center) {
-                Icon(
-                    if (muted) Icons.AutoMirrored.Rounded.VolumeOff else Icons.AutoMirrored.Rounded.VolumeUp,
-                    stringResource(if (muted) R.string.recap_sound_off else R.string.recap_sound_on),
-                    tint = Color.White,
-                    modifier = Modifier.size(22.dp),
+        AnimatedContent(
+            targetState = song,
+            transitionSpec = {
+                if (still) fadeIn(tween(420)) togetherWith fadeOut(tween(420))
+                else (slideInVertically(tween(RecapMotion.PILL_IN_MS, RecapMotion.PILL_IN_DELAY_MS, RecapMotion.Snap)) { it / 2 } +
+                    fadeIn(tween(RecapMotion.PILL_IN_MS, RecapMotion.PILL_IN_DELAY_MS))) togetherWith
+                    (slideOutVertically(tween(RecapMotion.PILL_OUT_MS, easing = CubicBezierEasing(0.5f, 0f, 0.75f, 0f))) { -it / 2 } +
+                        fadeOut(tween(RecapMotion.PILL_OUT_MS)))
+            },
+            label = "pill",
+            modifier = Modifier.weight(1f, fill = false),
+        ) { shownSong ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                AsyncImage(
+                    model = shownSong.cover,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.size(36.dp).clip(RoundedCornerShape(8.dp)).background(RecapInk.Cream.copy(alpha = 0.1f)),
                 )
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.widthIn(max = 230.dp)) {
+                    Text(shownSong.title, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = RecapInk.Cream, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(shownSong.artists, fontSize = 12.sp, color = RecapInk.Cream.copy(alpha = 0.72f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
             }
         }
-        val duration = (song.durationS.takeIf { it > 0 } ?: 180) * 1000f
-        // Over the pill and no part of its size, which stays that of what it holds.
-        Canvas(Modifier.matchParentSize()) {
-            val side = 22.dp.toPx()
-            val span = size.width - 2 * side
-            val thick = 4.dp.toPx()
-            val top = size.height - 5.dp.toPx() - thick
-            val line = 2.dp.toPx()
-            drawRoundRect(Color.White.copy(alpha = 0.16f), Offset(side, top + (thick - line) / 2), Size(span, line), CornerRadius(line / 2))
-            if (piece != null && span > 0f) {
-                val from = side + piece.fromMs / duration * span
-                val width = maxOf(10.dp.toPx(), piece.lengthMs / duration * span).coerceAtMost(side + span - from)
-                val corner = CornerRadius(thick / 2)
-                drawRoundRect(Color.White.copy(alpha = 0.38f), Offset(from, top), Size(width, thick), corner)
-                drawRoundRect(Color.White, Offset(from, top), Size(width * progress().coerceIn(0f, 1f), thick), corner)
+        Spacer(Modifier.width(10.dp))
+        SoundBars(song, muted, still)
+        // Phase 1 is silent (RecapSound): the button only shows the choice there will be.
+        Box(Modifier.size(40.dp).clip(CircleShape).clickable(onClick = onMute), contentAlignment = Alignment.Center) {
+            Icon(
+                if (muted) Icons.AutoMirrored.Rounded.VolumeOff else Icons.AutoMirrored.Rounded.VolumeUp,
+                stringResource(if (muted) R.string.recap_sound_off else R.string.recap_sound_on),
+                tint = RecapInk.Cream,
+                modifier = Modifier.size(22.dp),
+            )
+        }
+    }
+}
+
+/** Four sound bars in lemon that stand still; with each new song they rise once, one after another. */
+@Composable
+private fun SoundBars(song: RecapSongShown, muted: Boolean, still: Boolean) {
+    val heights = floatArrayOf(0.5f, 0.95f, 0.68f, 0.38f)
+    val rise = remember { List(4) { Animatable(1f) } }
+    LaunchedEffect(song.id) {
+        if (still) return@LaunchedEffect
+        rise.forEachIndexed { i, bar ->
+            launch {
+                bar.snapTo(0f)
+                delay(220L + i * 60L)
+                bar.animateTo(1f, tween(RecapMotion.EQ_MS, easing = RecapMotion.Bouncy))
             }
+        }
+    }
+    Canvas(Modifier.padding(start = 2.dp).size(19.dp, 16.dp)) {
+        val bar = 2.75.dp.toPx()
+        val gap = (size.width - 4 * bar) / 3
+        for (i in 0 until 4) {
+            val h = size.height * if (muted) 0.25f else (0.12f + (heights[i] - 0.12f) * rise[i].value)
+            drawRoundRect(RecapInk.Lemon, Offset(i * (bar + gap), size.height - h), Size(bar, h), CornerRadius(bar / 2))
         }
     }
 }
@@ -495,14 +625,12 @@ private fun SongPill(
 private suspend fun drawTopCard(context: android.content.Context, shown: RecapShown, words: RecapWords, covers: RecapCovers): Bitmap {
     val model = shown.song(shown.recap.topSongs.first().songId)?.cover
     val cover = covers.bitmap(model, RecapReader.COVER_PX)
-    val colours = covers.colours(model)
-    return withContext(Dispatchers.Default) { RecapCards.top(context, shown, words, cover, colours) }
+    return withContext(Dispatchers.Default) { RecapCards.top(context, shown, words, cover, RecapPalette.APP) }
 }
 
-/** The year on one card: the five covers fanned out, in the number one's colours. */
+/** The year on one card: the five covers fanned out as stickers. */
 private suspend fun drawYearCard(context: android.content.Context, shown: RecapShown, words: RecapWords, covers: RecapCovers): Bitmap = coroutineScope {
     val models = shown.recap.topSongs.map { shown.song(it.songId)?.cover }
     val bitmaps = models.map { async { covers.bitmap(it, 600) } }.awaitAll()
-    val colours = covers.colours(models.firstOrNull())
-    withContext(Dispatchers.Default) { RecapCards.year(context, shown, words, bitmaps, colours) }
+    withContext(Dispatchers.Default) { RecapCards.year(context, shown, words, bitmaps, RecapPalette.APP) }
 }
