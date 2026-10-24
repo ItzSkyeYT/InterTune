@@ -226,6 +226,12 @@
             </intent-filter>
         </service>
 
+        <!-- The car's tap on that cog, with a refusal of the screen caught instead of crashing (AutoSettingsLink). -->
+        <receiver
+            android:name=".playback.AutoSettingsReceiver"
+            android:enabled="${carScreens}"
+            android:exported="false" />
+
         <!-- The app's own screens in a car that draws a music app from templates (AutoCar). -->
         <service
             android:name=".playback.AutoCarService"
