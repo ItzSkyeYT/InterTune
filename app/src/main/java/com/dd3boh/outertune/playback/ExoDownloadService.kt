@@ -43,37 +43,66 @@ class ExoDownloadService : DownloadService(
 
     override fun getScheduler(): Scheduler = PlatformScheduler(this, JOB_ID)
 
-    override fun getForegroundNotification(downloads: MutableList<Download>, notMetRequirements: Int): Notification =
+    /** A tap on the notification opens Downloaded songs. Made once for the service. */
+    private val openDownloads by lazy { DownloadsShortcut.pendingIntent(this) }
+
+    /**
+     * Built again once a second while songs download (the interval given to DownloadService above)
+     * and at each song's change of state, never for every byte that arrives.
+     *
+     * The bar and the count are the run's (DownloadRun), from its first song to its last. media3's
+     * bar was the average of the few songs downloading at that moment and never counted one done,
+     * so a long run read near nothing all the way through. media3's notification stays underneath
+     * for its titles: waiting for Wi-Fi or a network, with no bar, and removing.
+     */
+    override fun getForegroundNotification(downloads: MutableList<Download>, notMetRequirements: Int): Notification {
         if (downloads.isEmpty()) {
-            downloadUtil.downloadNotificationHelper.buildDownloadCompletedNotification(this,
+            return downloadUtil.downloadNotificationHelper.buildDownloadCompletedNotification(
+                this,
                 R.drawable.download,
-                null,
+                openDownloads,
                 null
             )
-        } else {
-            Notification.Builder.recoverBuilder(
-                this, downloadUtil.downloadNotificationHelper.buildProgressNotification(
-                    this,
-                    R.drawable.download,
-                    null,
-                    if (downloads.size == 1) Util.fromUtf8Bytes(downloads[0].request.data)
-                    else resources.getQuantityString(R.plurals.n_song, downloads.size, downloads.size),
-                    downloads,
-                    notMetRequirements
-                )
-            ).addAction(
-                Notification.Action.Builder(
-                    Icon.createWithResource(this, R.drawable.close),
-                    getString(android.R.string.cancel),
-                    PendingIntent.getService(
-                        this,
-                        0,
-                        Intent(this, ExoDownloadService::class.java).setAction(REMOVE_ALL_PENDING_DOWNLOADS),
-                        PendingIntent.FLAG_IMMUTABLE
-                    )
-                ).build()
-            ).let(::liveUpdate).build()
         }
+        val bar = DownloadRun.bar(
+            downloadUtil.downloadRun.endedCount,
+            downloads.map { DownloadRun.Item(it.state, it.percentDownloaded) },
+        )
+        // The run's bar while it runs and nothing holds it back, between two songs as well: none is
+        // downloading for a moment then, and media3's notification would have no title.
+        val runsNow = bar.running && notMetRequirements == 0
+        val message = when {
+            bar.total == 1 && downloads.size == 1 -> Util.fromUtf8Bytes(downloads[0].request.data)
+            bar.running -> resources.getQuantityString(R.plurals.download_progress_songs, bar.total, bar.done, bar.total)
+            else -> resources.getQuantityString(R.plurals.n_song, downloads.size, downloads.size)
+        }
+        return Notification.Builder.recoverBuilder(
+            this, downloadUtil.downloadNotificationHelper.buildProgressNotification(
+                this,
+                R.drawable.download,
+                openDownloads,
+                message,
+                downloads,
+                notMetRequirements
+            )
+        ).apply {
+            if (runsNow) {
+                setContentTitle(getString(androidx.media3.exoplayer.R.string.exo_download_downloading))
+                setProgress(bar.max, bar.position, bar.indeterminate)
+            }
+        }.addAction(
+            Notification.Action.Builder(
+                Icon.createWithResource(this, R.drawable.close),
+                getString(android.R.string.cancel),
+                PendingIntent.getService(
+                    this,
+                    0,
+                    Intent(this, ExoDownloadService::class.java).setAction(REMOVE_ALL_PENDING_DOWNLOADS),
+                    PendingIntent.FLAG_IMMUTABLE
+                )
+            ).build()
+        ).let(::liveUpdate).build()
+    }
 
     /**
      * Opts the download notification into Android 16's Live Updates, which is what Samsung's Now
@@ -100,7 +129,8 @@ class ExoDownloadService : DownloadService(
      *
      * Deliberately does NOT set Notification.ProgressStyle. It qualifies for promotion and reads
      * like the right thing, but One UI 8.5 does not render it, so the download progress bar
-     * disappeared entirely where media3's ordinary one had drawn. media3's bar stays.
+     * disappeared entirely where media3's ordinary one had drawn. The ordinary bar stays, with the
+     * run's numbers in it (getForegroundNotification).
      *
      * The promotion is requested through the extra rather than setRequestPromotedOngoing, which
      * needs API 36.1 to compile against while this builds on 36.
@@ -134,12 +164,17 @@ class ExoDownloadService : DownloadService(
             finalException: Exception?,
         ) {
             if (download.state == Download.STATE_FAILED) {
-                val notification = notificationHelper.buildDownloadFailedNotification(
+                // A tap opens the downloads as the running notification's does, and clears this
+                // one: it has been read. Before, it did nothing.
+                val notification = Notification.Builder.recoverBuilder(
                     context,
-                    R.drawable.error,
-                    null,
-                    Util.fromUtf8Bytes(download.request.data)
-                )
+                    notificationHelper.buildDownloadFailedNotification(
+                        context,
+                        R.drawable.error,
+                        DownloadsShortcut.pendingIntent(context),
+                        Util.fromUtf8Bytes(download.request.data)
+                    )
+                ).setAutoCancel(true).build()
                 NotificationUtil.setNotification(context, nextNotificationId++, notification)
             }
         }
