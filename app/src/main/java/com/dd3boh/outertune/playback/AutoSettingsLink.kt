@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.playback
 
+import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.ComponentName
 import android.content.Context
@@ -30,17 +31,19 @@ object AutoSettingsLink {
         val screen = Intent(Intent.ACTION_VIEW).setComponent(ComponentName(context, AutoSettingsService::class.java))
         val tap = Intent(screen).putExtra(COMPONENT_KEY, screen.component).setClass(context, AutoSettingsReceiver::class.java)
         // The library's flags: mutable, since the car fills in its own binder when it sends it.
-        var flags = (PendingIntent.FLAG_UPDATE_CURRENT and PendingIntent.FLAG_IMMUTABLE.inv()) or FLAG_MUTABLE
-        if (Build.VERSION.SDK_INT >= 34) flags = flags or FLAG_ALLOW_UNSAFE_IMPLICIT_INTENT
+        var flags = PendingIntent.FLAG_UPDATE_CURRENT
+        if (Build.VERSION.SDK_INT >= 31) flags = flags or PendingIntent.FLAG_MUTABLE
+        if (Build.VERSION.SDK_INT >= 34) flags = flags or PendingIntent.FLAG_ALLOW_UNSAFE_IMPLICIT_INTENT
         return PendingIntent.getBroadcast(context, 0, tap, flags)
     }
-
-    // PendingIntent.FLAG_MUTABLE (API 31) and FLAG_ALLOW_UNSAFE_IMPLICIT_INTENT (API 34), as the library spells them.
-    private const val FLAG_MUTABLE = 33554432
-    private const val FLAG_ALLOW_UNSAFE_IMPLICIT_INTENT = 16777216
 }
 
-/** The car library's receiver for that tap, with the car's refusal caught instead of crashing the app. */
+/**
+ * The car library's receiver for that tap, with the car's refusal caught instead of crashing the app.
+ * The library marks its receiver as its own (RestrictedApi), but wrapping it is the only way to catch
+ * what it throws: its pending intent is the only one the car accepts for the settings entry.
+ */
+@SuppressLint("RestrictedApi")
 class AutoSettingsReceiver : CarAppNotificationBroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         try {

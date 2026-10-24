@@ -91,7 +91,7 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
 
     // Library and content
     SettingEntry(Tour.ROUTE_LIBRARY, R.string.quick_picks_source, words = listOf(R.string.recommendations_engine_title, R.string.recommendations_row_try_both, R.string.quick_picks_source_youtube, R.string.quick_picks_source_library)),
-    SettingEntry(Tour.ROUTE_LIBRARY, R.string.share_link_kind_title, words = listOf(R.string.search_words_share_links), there = Unreleased.SHARE_PAGE),
+    SettingEntry(Tour.ROUTE_LIBRARY, R.string.share_link_kind_title, words = listOf(R.string.search_words_share_links)),
     SettingEntry(Tour.ROUTE_LIBRARY, R.string.hide_explicit, R.string.hide_explicit_description, words = listOf(R.string.search_words_explicit)),
     SettingEntry(Tour.ROUTE_LIBRARY, R.string.hide_video_songs, R.string.hide_video_songs_description),
     SettingEntry(Tour.ROUTE_LIBRARY, R.string.content_language, words = listOf(R.string.search_words_language)),
