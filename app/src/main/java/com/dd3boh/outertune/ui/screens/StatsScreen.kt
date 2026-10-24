@@ -182,6 +182,7 @@ fun StatsScreen(
                             items = mostPlayedSongs.map { it.toMediaMetadata() },
                             // The song tapped, not the top of the list.
                             startIndex = index,
+                            songPicked = true,
                         ),
                         origin = PlayOrigin.STATS,
                     )

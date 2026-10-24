@@ -73,6 +73,18 @@ fun String.resize(
     return this
 }
 
+/** The size asked for last on the older host, by [resize] or as it came: `=s120`, `=s120-s1024`. */
+private val GGPHT_ASKED_SIZE = "^https://yt3\\.ggpht\\.com/.*[=-]s(\\d+)$".toRegex()
+
+/**
+ * The width in pixels the image host is asked for at [address], or 0 when the address does not
+ * say (a video still, a file).
+ */
+fun coverSide(address: String): Int =
+    GOOGLE_ART_SIZE.matchEntire(address)?.groupValues?.get(2)?.toIntOrNull()
+        ?: GGPHT_ASKED_SIZE.matchEntire(address)?.groupValues?.get(1)?.toIntOrNull()
+        ?: 0
+
 /**
  * The addresses to try for artwork wanted at [px], best first: the image host asked for that size,
  * then the address as it is [stored].

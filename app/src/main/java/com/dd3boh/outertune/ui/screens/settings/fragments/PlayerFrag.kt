@@ -130,6 +130,7 @@ import com.dd3boh.outertune.ui.dialog.CounterDialog
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import com.dd3boh.outertune.utils.rememberEnumPreference
+import com.dd3boh.outertune.ui.screens.settings.settingRow
 import com.dd3boh.outertune.utils.rememberPreference
 
 @Composable
@@ -143,7 +144,7 @@ fun ColumnScope.PlayerGeneralFrag() {
     )
 
     SwitchPreference(
-        modifier = Modifier.tourTarget(Tour.SETTING_AUTO_LOAD_MORE),
+        modifier = Modifier.tourTarget(Tour.SETTING_AUTO_LOAD_MORE).settingRow(R.string.auto_load_more),
         title = { Text(stringResource(R.string.auto_load_more)) },
         description = stringResource(R.string.auto_load_more_desc),
         icon = { Icon(Icons.Rounded.Autorenew, null) },
@@ -151,6 +152,7 @@ fun ColumnScope.PlayerGeneralFrag() {
         onCheckedChange = onAutoLoadMoreChange
     )
     EnumListPreference(
+        modifier = Modifier.settingRow(R.string.seek_increment),
         title = { Text(stringResource(R.string.seek_increment))},
         icon = { Icon(Icons.Rounded.FastForward, null) },
         selectedValue = seekIncrement,
@@ -186,6 +188,7 @@ fun ColumnScope.ProximityVolumeFrag() {
     ) { granted -> if (granted) onEnabledChange(true) }
 
     ExplainedSwitchPreference(
+        modifier = Modifier.settingRow(R.string.proximity_volume),
         title = stringResource(R.string.proximity_volume),
         description = stringResource(R.string.proximity_volume_description),
         explanation = stringResource(R.string.proximity_volume_explain),
@@ -297,6 +300,7 @@ fun ColumnScope.StageWidthFrag() {
 
     Column(Modifier.onGloballyPositioned { foot.floatValue = it.positionInWindow().y + it.size.height }) {
         StageSliderRow(
+            modifier = Modifier.settingRow(R.string.stage_width),
             title = stringResource(R.string.stage_width),
             explanation = stringResource(R.string.stage_width_explain),
             description = stringResource(R.string.stage_width_value, width),
@@ -311,6 +315,7 @@ fun ColumnScope.StageWidthFrag() {
 
         if (!Unreleased.SPATIAL_TUNING) return@Column
         StageSliderRow(
+            modifier = Modifier.settingRow(R.string.spatial_strength),
             title = stringResource(R.string.spatial_strength),
             description = stringResource(R.string.spatial_strength_value, strength),
             pictured = pictured,
@@ -322,6 +327,7 @@ fun ColumnScope.StageWidthFrag() {
             modifier = Modifier.padding(horizontal = 16.dp),
         )
         StageSliderRow(
+            modifier = Modifier.settingRow(R.string.spatial_room),
             title = stringResource(R.string.spatial_room),
             description = stringResource(R.string.spatial_room_value, room),
             pictured = pictured,
@@ -333,6 +339,7 @@ fun ColumnScope.StageWidthFrag() {
             modifier = Modifier.padding(horizontal = 16.dp),
         )
         SwitchPreference(
+            modifier = Modifier.settingRow(R.string.spatial_bass),
             title = { Text(stringResource(R.string.spatial_bass)) },
             description = stringResource(R.string.spatial_bass_description),
             checked = bassDirect,
@@ -341,6 +348,7 @@ fun ColumnScope.StageWidthFrag() {
 
         if (!Unreleased.DIRECT_AMBIENT) return@Column
         StageSliderRow(
+            modifier = Modifier.settingRow(R.string.spatial_ambience),
             title = stringResource(R.string.spatial_ambience),
             description = stringResource(R.string.spatial_ambience_value, ambience),
             pictured = pictured,
@@ -362,11 +370,11 @@ fun ColumnScope.StageWidthFrag() {
  * none to give: they are only offered in builds that have the picture.
  */
 @Composable
-private fun StageSliderRow(title: String, description: String, pictured: Boolean, explanation: String? = null) {
+private fun StageSliderRow(title: String, description: String, pictured: Boolean, explanation: String? = null, modifier: Modifier = Modifier) {
     if (pictured || explanation == null) {
-        PreferenceEntry(title = { Text(title) }, description = description, onClick = null)
+        PreferenceEntry(modifier = modifier, title = { Text(title) }, description = description, onClick = null)
     } else {
-        ExplainedPreference(title = title, explanation = explanation, description = description)
+        ExplainedPreference(modifier = modifier, title = title, explanation = explanation, description = description)
     }
 }
 
@@ -443,7 +451,7 @@ fun ColumnScope.SpatialAudioModeFrag() {
     val title = stringResource(R.string.spatial_audio)
 
     EnumListPreference(
-        modifier = Modifier.tourTarget(Tour.SETTING_SPATIAL_AUDIO),
+        modifier = Modifier.tourTarget(Tour.SETTING_SPATIAL_AUDIO).settingRow(R.string.spatial_audio),
         title = { Text(title) },
         icon = { Icon(Icons.Rounded.SurroundSound, null) },
         trailingContent = {
@@ -538,7 +546,7 @@ fun ColumnScope.HeadTrackingFrag() {
         // A row rather than a dead switch. A switch that cannot be moved invites people to keep
         // trying it, and greying the whole row would fade the one thing they need to tap.
         ExplainedPreference(
-            modifier = tourMark,
+            modifier = tourMark.settingRow(R.string.head_tracking),
             title = stringResource(R.string.head_tracking),
             description = stringResource(R.string.head_tracking_none),
             explanation = stringResource(R.string.head_tracking_explain),
@@ -550,7 +558,7 @@ fun ColumnScope.HeadTrackingFrag() {
     }
 
     ExplainedSwitchPreference(
-        modifier = tourMark,
+        modifier = tourMark.settingRow(R.string.head_tracking),
         title = stringResource(R.string.head_tracking),
         description = stringResource(R.string.head_tracking_description),
         explanation = stringResource(R.string.head_tracking_explain),
@@ -570,6 +578,7 @@ fun ColumnScope.HeadTrackingFrag() {
     val responseTitle = stringResource(R.string.head_tracking_response)
 
     EnumListPreference(
+        modifier = Modifier.settingRow(R.string.head_tracking_response),
         title = { Text(responseTitle) },
         icon = { Icon(Icons.Rounded.Speed, null) },
         trailingContent = {
@@ -594,6 +603,7 @@ fun ColumnScope.HeadTrackingFrag() {
 
     val (threeD, onThreeDChange) = rememberPreference(HeadTracking3dKey, defaultValue = false)
     ExplainedSwitchPreference(
+        modifier = Modifier.settingRow(R.string.head_tracking_3d),
         title = stringResource(R.string.head_tracking_3d),
         description = stringResource(R.string.head_tracking_3d_description),
         explanation = stringResource(R.string.head_tracking_3d_explain),
@@ -606,6 +616,7 @@ fun ColumnScope.HeadTrackingFrag() {
     // from inside the app. Tuned by ear, once, against the hardware in use.
     val (lead, onLeadChange) = rememberPreference(HeadTrackingLeadKey, defaultValue = 260)
     ExplainedPreference(
+        modifier = Modifier.settingRow(R.string.head_tracking_lead),
         title = stringResource(R.string.head_tracking_lead),
         explanation = stringResource(R.string.head_tracking_lead_full_explain),
         description = stringResource(R.string.head_tracking_lead_value, lead),
@@ -635,6 +646,7 @@ fun ColumnScope.HeadTrackingFrag() {
 
     val running = calibratedAt != 0L && elapsed in 0..CALIBRATION_MS
     ExplainedPreference(
+        modifier = Modifier.settingRow(R.string.head_tracking_calibrate),
         title = stringResource(R.string.head_tracking_calibrate),
         explanation = stringResource(R.string.head_tracking_calibrate_explain),
         description = when {
@@ -690,7 +702,7 @@ fun ColumnScope.AdaptiveQueueFrag() {
     ExplainedSwitchPreference(
         title = stringResource(R.string.adaptive_queue),
         description = stringResource(R.string.adaptive_radio_description),
-        modifier = Modifier.tourTarget(Tour.SETTING_ADAPTIVE_QUEUE),
+        modifier = Modifier.tourTarget(Tour.SETTING_ADAPTIVE_QUEUE).settingRow(R.string.adaptive_queue),
         explanation = stringResource(R.string.adaptive_queue_explain),
         icon = { Icon(Icons.Rounded.AutoAwesome, null) },
         checked = mode.isOn,
@@ -710,7 +722,7 @@ fun ColumnScope.TransitionFadeFrag() {
     val (enabled, onEnabledChange) = rememberPreference(TransitionFadeKey, defaultValue = false)
 
     ExplainedSwitchPreference(
-        modifier = Modifier.tourTarget(Tour.SETTING_TRANSITION_FADE),
+        modifier = Modifier.tourTarget(Tour.SETTING_TRANSITION_FADE).settingRow(R.string.transition_fade),
         title = stringResource(R.string.transition_fade),
         description = stringResource(R.string.transition_fade_description),
         explanation = stringResource(R.string.transition_fade_explain),
@@ -727,6 +739,7 @@ fun ColumnScope.TransitionFadeFrag() {
         defaultValue = TransitionFadeEnvelope.DEFAULT_SECONDS,
     )
     ListPreference(
+        modifier = Modifier.settingRow(R.string.transition_fade_length),
         title = { Text(stringResource(R.string.transition_fade_length)) },
         icon = { Icon(Icons.Rounded.Timer, null) },
         selectedValue = seconds,
@@ -744,6 +757,7 @@ fun ColumnScope.PlaybackAuthFrag() {
     )
 
     EnumListPreference(
+        modifier = Modifier.settingRow(R.string.playback_auth_mode),
         title = { Text(stringResource(R.string.playback_auth_mode)) },
         icon = { Icon(Icons.Rounded.AccountCircle, null) },
         selectedValue = authMode,
@@ -768,7 +782,7 @@ fun ColumnScope.AudioQualityFrag() {
     )
 
     EnumListPreference(
-        modifier = Modifier.tourTarget(Tour.SETTING_AUDIO_QUALITY),
+        modifier = Modifier.tourTarget(Tour.SETTING_AUDIO_QUALITY).settingRow(R.string.audio_quality),
         title = { Text(stringResource(R.string.audio_quality)) },
         icon = { Icon(Icons.Rounded.HighQuality, null) },
         selectedValue = audioQuality,
@@ -850,6 +864,7 @@ fun ColumnScope.AudioEffectsFrag() {
     )
 
     SwitchPreference(
+        modifier = Modifier.settingRow(R.string.audio_normalization),
         title = { Text(stringResource(R.string.audio_normalization)) },
         description = stringResource(R.string.audio_normalization_description),
         icon = { Icon(Icons.AutoMirrored.Rounded.VolumeUp, null) },
@@ -857,6 +872,7 @@ fun ColumnScope.AudioEffectsFrag() {
         onCheckedChange = onAudioNormalizationChange
     )
     SwitchPreference(
+        modifier = Modifier.settingRow(R.string.skip_silence),
         title = { Text(stringResource(R.string.skip_silence)) },
         description = stringResource(R.string.skip_silence_description),
         icon = { Icon(painterResource(R.drawable.skip_next), null) },
@@ -908,6 +924,7 @@ fun LoudnessRepairEntry() {
     }
 
     PreferenceEntry(
+        modifier = Modifier.settingRow(R.string.loudness_repair),
         title = { Text(stringResource(R.string.loudness_repair)) },
         description = description,
         icon = { Icon(Icons.Rounded.AutoFixHigh, null) },
@@ -950,6 +967,7 @@ fun ColumnScope.PlaybackBehaviourFrag() {
     }
 
     SwitchPreference(
+        modifier = Modifier.settingRow(R.string.auto_skip_next_on_error),
         title = { Text(stringResource(R.string.auto_skip_next_on_error)) },
         description = stringResource(R.string.auto_skip_next_on_error_desc),
         icon = { Icon(Icons.Rounded.SkipNext, null) },
@@ -957,6 +975,7 @@ fun ColumnScope.PlaybackBehaviourFrag() {
         onCheckedChange = onSkipOnErrorChange
     )
     SwitchPreference(
+        modifier = Modifier.settingRow(R.string.stop_music_on_task_clear),
         title = { Text(stringResource(R.string.stop_music_on_task_clear)) },
         description = stringResource(R.string.stop_music_on_task_clear_description),
         icon = { Icon(Icons.Rounded.ClearAll, null) },
@@ -966,6 +985,7 @@ fun ColumnScope.PlaybackBehaviourFrag() {
     )
     // The caveats moved behind the i button. A row description is a label, not a paragraph.
     ExplainedSwitchPreference(
+        modifier = Modifier.settingRow(R.string.share_audio_focus),
         title = stringResource(R.string.share_audio_focus),
         description = stringResource(R.string.share_audio_focus_description),
         explanation = stringResource(R.string.share_audio_focus_explain),
@@ -976,7 +996,7 @@ fun ColumnScope.PlaybackBehaviourFrag() {
     // Under the rows about what stops the music, since it is about what starts it again. No
     // permission to ask for: the audio manager says which outputs come and go to any app.
     SwitchPreference(
-        modifier = Modifier.tourTarget(Tour.SETTING_RESUME_BLUETOOTH),
+        modifier = Modifier.tourTarget(Tour.SETTING_RESUME_BLUETOOTH).settingRow(R.string.resume_on_bluetooth),
         title = { Text(stringResource(R.string.resume_on_bluetooth)) },
         description = stringResource(R.string.resume_on_bluetooth_description),
         icon = { Icon(Icons.Rounded.BluetoothAudio, null) },
@@ -984,6 +1004,7 @@ fun ColumnScope.PlaybackBehaviourFrag() {
         onCheckedChange = onResumeOnBluetoothChange,
     )
     SwitchPreference(
+        modifier = Modifier.settingRow(R.string.sleep_timer_fade),
         title = { Text(stringResource(R.string.sleep_timer_fade)) },
         description = stringResource(R.string.sleep_timer_fade_description),
         icon = { Icon(Icons.Rounded.Bedtime, null) },
@@ -991,6 +1012,7 @@ fun ColumnScope.PlaybackBehaviourFrag() {
         onCheckedChange = onSleepTimerFadeChange,
     )
     PreferenceEntry(
+        modifier = Modifier.settingRow(R.string.sleep_timer_fade_duration),
         title = { Text(stringResource(R.string.sleep_timer_fade_duration)) },
         description = stringResource(R.string.sleep_timer_fade_duration_value, sleepTimerFadeDuration),
         icon = { Icon(Icons.Rounded.Timer, null) },
@@ -1049,7 +1071,7 @@ fun ColumnScope.SleepScheduleFrag() {
         icon = { Icon(Icons.Rounded.EventRepeat, null) },
         checked = on,
         onCheckedChange = onOnChange,
-        modifier = Modifier.tourTarget(Tour.SETTING_SLEEP_SCHEDULE),
+        modifier = Modifier.tourTarget(Tour.SETTING_SLEEP_SCHEDULE).settingRow(R.string.sleep_schedule),
     )
 
     if (showStart) {
@@ -1067,12 +1089,14 @@ fun ColumnScope.SleepScheduleFrag() {
     if (!on) return
 
     PreferenceEntry(
+        modifier = Modifier.settingRow(R.string.sleep_schedule_start),
         title = { Text(stringResource(R.string.sleep_schedule_start)) },
         description = time,
         icon = { Icon(Icons.Rounded.Schedule, null) },
         onClick = { showStart = true },
     )
     ListPreference(
+        modifier = Modifier.settingRow(R.string.sleep_schedule_length),
         title = { Text(stringResource(R.string.sleep_schedule_length)) },
         icon = { Icon(Icons.Rounded.Timer, null) },
         selectedValue = length,

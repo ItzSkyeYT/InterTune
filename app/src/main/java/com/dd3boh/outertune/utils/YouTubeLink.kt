@@ -9,7 +9,7 @@ package com.dd3boh.outertune.utils
 import java.net.URI
 import java.net.URLDecoder
 
-/** A YouTube or YouTube Music link the app can open itself. */
+/** A YouTube or YouTube Music link the app can open itself, or the share page's, which carries one. */
 sealed interface YouTubeLink {
     data class Playlist(val id: String) : YouTubeLink
     data class Channel(val id: String) : YouTubeLink
@@ -35,8 +35,19 @@ sealed interface YouTubeLink {
          */
         const val OWN_SCHEME = "intertune"
 
+        /**
+         * The share page's site. A link to the page tapped in a chat opens the app (the manifest's
+         * verified filter for intertune.app/s), and only the page is a link to open: the rest of
+         * the site is not.
+         */
+        private val SITE_HOSTS = setOf("intertune.app", "www.intertune.app")
+
         /** The characters of YouTube's ids. Anything else is not one, and would not survive a route. */
         private val ID = Regex("[A-Za-z0-9_-]+")
+
+        /** The share page's own rules for its ids (site/s/index.html): a song's has 11 characters, a list's 10 to 80. */
+        private val PAGE_SONG = Regex("[A-Za-z0-9_-]{11}")
+        private val PAGE_LIST = Regex("[A-Za-z0-9_-]{10,80}")
 
         /**
          * The link in [text], or null when it is not one.
@@ -44,7 +55,7 @@ sealed interface YouTubeLink {
          * Everything typed into the search went through here, and plain words were taken for
          * links: "watch" parsed as a path with no video id, "c" and "channel" as a channel page,
          * "playlist" as a playlist with no id, and the search did nothing or opened a blank page.
-         * Only an http or https address on a YouTube host counts now.
+         * Only an http or https address on a YouTube host, or the share page's, counts now.
          */
         fun parse(text: String): YouTubeLink? {
             val uri = runCatching { URI(text.trim()) }.getOrNull() ?: return null
@@ -52,15 +63,13 @@ sealed interface YouTubeLink {
             if (scheme != OWN_SCHEME && scheme !in setOf("http", "https")) return null
             val host = uri.host?.lowercase() ?: return null
             val path = uri.rawPath.orEmpty().split('/').filter { it.isNotEmpty() }.map(::decode)
-            val query = uri.rawQuery.orEmpty().split('&').mapNotNull { pair ->
-                val name = pair.substringBefore('=')
-                if (name.isEmpty() || '=' !in pair) null else decode(name) to decode(pair.substringAfter('='))
-            }.toMap()
+            val query = pairs(uri.rawQuery).toMap()
             val list = query["list"]?.takeIf { it.matches(ID) }
 
             if (scheme != OWN_SCHEME && host == SHORT_HOST) {
                 return path.singleOrNull()?.takeIf { it.matches(ID) }?.let { Video(it, list) }
             }
+            if (scheme != OWN_SCHEME && host in SITE_HOSTS) return sharePage(path, uri.rawFragment)
             if (scheme != OWN_SCHEME && host !in HOSTS) return null
             // On the app's own links the page's name stands where YouTube's host would be.
             val segments = if (scheme == OWN_SCHEME) listOf(host) + path else path
@@ -73,6 +82,33 @@ sealed interface YouTubeLink {
                 "browse" -> segments.getOrNull(1)?.takeIf { it.matches(ID) && it.startsWith("MPRE") }?.let(::Album)
                 else -> null
             }
+        }
+
+        /**
+         * The share page's link (ShareLinks.song and .album make them, intertune.app/s/#v=...): what
+         * it opens is after the #, in the page's own keys, v= a song and l= a list, an album's for
+         * one. The name, the artists, the length and the kind beside them (t=, a=, d=, k=) are for
+         * the page to show. With both, it is the song, as on the page.
+         */
+        private fun sharePage(path: List<String>, fragment: String?): YouTubeLink? {
+            if (path != listOf("s")) return null
+            // Split before anything is decoded: a name can hold an & or an = of its own.
+            val keys = pairs(fragment)
+            // The first of a key, as the page's URLSearchParams.get takes it.
+            fun key(name: String) = keys.firstOrNull { it.first == name }?.second
+            val song = key("v")?.takeIf { it.matches(PAGE_SONG) }
+            val list = key("l")?.takeIf { it.matches(PAGE_LIST) }
+            return when {
+                song != null -> Video(song, null)
+                list != null -> Playlist(list)
+                else -> null
+            }
+        }
+
+        /** The names and values of "a=1&b=2", each decoded. A part with no = in it is left out. */
+        private fun pairs(raw: String?): List<Pair<String, String>> = raw.orEmpty().split('&').mapNotNull { pair ->
+            val name = pair.substringBefore('=')
+            if (name.isEmpty() || '=' !in pair) null else decode(name) to decode(pair.substringAfter('='))
         }
 
         private fun decode(part: String): String = runCatching { URLDecoder.decode(part, "UTF-8") }.getOrDefault(part)

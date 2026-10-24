@@ -19,6 +19,9 @@
         <service
             android:name="com.dd3boh.outertune.playback.AutoSettingsService"
             tools:node="remove" />
+        <receiver
+            android:name="com.dd3boh.outertune.playback.AutoSettingsReceiver"
+            tools:node="remove" />
         <meta-data
             android:name="androidx.car.app.minCarApiLevel"
             tools:node="remove" />

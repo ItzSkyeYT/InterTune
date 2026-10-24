@@ -125,7 +125,9 @@ class WelcomeCardTest {
         assertEquals("0.11", releaseAt(88))
         assertEquals("a fix release is known by the release it fixes", "0.11", releaseAt(v0111))
         assertEquals("0.11.5", releaseAt(v0115))
-        assertEquals("what 0.12 brings names the builds from its own on", "0.12", releaseAt(v0115 + 30))
+        assertEquals("what 0.12 brings names the builds from its own on", "0.12", releaseAt(95))
+        assertEquals("and 0.12.1, a fix release, as well", "0.12", releaseAt(96))
+        assertEquals("until what 0.12.5 brings", "0.12.5", releaseAt(v0115 + 30))
     }
 
     @Test

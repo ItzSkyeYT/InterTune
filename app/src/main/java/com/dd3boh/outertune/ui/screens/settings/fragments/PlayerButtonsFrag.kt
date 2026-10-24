@@ -43,6 +43,7 @@ import com.dd3boh.outertune.constants.QueueButtonKey
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.utils.rememberEnumPreference
+import com.dd3boh.outertune.ui.screens.settings.settingRow
 import com.dd3boh.outertune.utils.rememberPreference
 
 /**
@@ -58,6 +59,7 @@ fun ColumnScope.PlayerButtonsFrag() {
     )
 
     PreferenceEntry(
+        modifier = Modifier.settingRow(R.string.player_buttons_style),
         title = { Text(stringResource(R.string.player_buttons_style)) },
         description = stringResource(R.string.player_buttons_style_description),
         icon = { Icon(Icons.Rounded.SmartButton, null) },
@@ -126,6 +128,7 @@ fun ColumnScope.PlayerButtonsFrag() {
     // the row by the title in Classic.
     val (queueAsButton, onQueueAsButtonChange) = rememberPreference(QueueButtonKey, defaultValue = false)
     SwitchPreference(
+        modifier = Modifier.settingRow(R.string.queue_button),
         title = { Text(stringResource(R.string.queue_button)) },
         description = stringResource(R.string.queue_button_description),
         icon = { Icon(Icons.AutoMirrored.Rounded.QueueMusic, null) },
@@ -138,6 +141,7 @@ fun ColumnScope.PlayerButtonsFrag() {
     // queue next time, after a restart too (issue #30).
     val (backClosesPlayer, onBackClosesPlayerChange) = rememberPreference(QueueBackClosesPlayerKey, defaultValue = false)
     SwitchPreference(
+        modifier = Modifier.settingRow(R.string.queue_back_closes_player),
         title = { Text(stringResource(R.string.queue_back_closes_player)) },
         description = stringResource(R.string.queue_back_closes_player_description),
         icon = { Icon(Icons.Rounded.KeyboardDoubleArrowDown, null) },

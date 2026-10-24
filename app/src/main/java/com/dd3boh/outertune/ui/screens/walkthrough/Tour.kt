@@ -71,6 +71,14 @@ object TourTargets {
     }
 
     /**
+     * How big the row marked [id] is, from a mark that never says where it is (settingRow): enough
+     * for [bring] to give it room. Not state, so a row that changes size redraws nothing.
+     */
+    internal fun sized(id: String, bringer: BringIntoViewRequester, size: IntSize) {
+        there[id]?.takeIf { it.bringer === bringer }?.size = size
+    }
+
+    /**
      * The row marked [id] has gone. Only the row that holds the mark takes it away, for the same
      * reason: the one going out is disposed after the one coming in has arrived, and forgetting
      * by id alone then left the tour with nothing to point at on a screen that was right there.

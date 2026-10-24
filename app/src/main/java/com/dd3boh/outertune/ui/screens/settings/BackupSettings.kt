@@ -59,7 +59,7 @@ fun BackupSettings(
             Spacer(modifier = Modifier.height(16.dp))
             ElevatedCard(modifier = Modifier.fillMaxWidth()) {
                 PreferenceEntry(
-                    modifier = Modifier.tourTarget(Tour.SETTING_IMPORT),
+                    modifier = Modifier.tourTarget(Tour.SETTING_IMPORT).settingRow(R.string.import_library_title),
                     title = { Text(stringResource(R.string.import_library_title)) },
                     description = stringResource(R.string.import_library_entry),
                     icon = { Icon(Icons.Rounded.LibraryAdd, null) },

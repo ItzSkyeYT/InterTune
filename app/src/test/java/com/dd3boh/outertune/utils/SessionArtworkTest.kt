@@ -8,8 +8,11 @@ package com.dd3boh.outertune.utils
 
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.ui.utils.artSizeBucket
+import com.dd3boh.outertune.ui.utils.coverSide
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
@@ -127,5 +130,113 @@ class SessionArtworkTest {
             val cover = SessionCover(sessionArtwork(single, 900))
             assertEquals(single, cover.sharp, cover.stored)
         }
+    }
+
+    // When the large cover is not on the phone. Offline, a cover that was not on the phone at the
+    // size it was stored with gave the system the app's logo, though the app's own screens had
+    // fetched it at four other sizes.
+
+    @Test
+    fun `offline, the cover is looked for at every size the app's own screens ask for, largest first`() {
+        // 450 dpi: the grids at 96 dp are 270 pixels, the mini player and the lists at 48 dp 135,
+        // the player's underlay 128, the colours 100
+        assertEquals(
+            listOf(270, 135, 128, 120, 100).map { "https://yt3.googleusercontent.com/AbC-dEf_123=w$it-h$it-l90-rj" },
+            coverOnPhone(stored, sized, 2.8125f),
+        )
+    }
+
+    @Test
+    fun `a cover stored at a larger size is the best of them`() {
+        val at544 = "https://lh3.googleusercontent.com/XyZ=w544-h544-l90-rj"
+        val onPhone = coverOnPhone(at544, "https://lh3.googleusercontent.com/XyZ=w1024-h1024-l90-rj", 3f)
+        assertEquals(at544, onPhone.first())
+        assertEquals(listOf(544, 288, 144, 128, 100), onPhone.map(::coverSide))
+    }
+
+    @Test
+    fun `the large one is never among them`() {
+        // asked for first, and on its own
+        for (density in listOf(1f, 2.625f, 2.8125f, 3f, 3.75f, 10.7f)) {
+            val large = sessionArtwork(stored, sessionArtPx(density)).first()
+            assertFalse(large in coverOnPhone(stored, large, density))
+        }
+    }
+
+    @Test
+    fun `the older host is looked for its own way`() {
+        val old = "https://yt3.ggpht.com/AbC=s120"
+        assertEquals(listOf("$old-s270", "$old-s135", "$old-s128", old, "$old-s100"), coverOnPhone(old, "$old-s1024", 2.8125f))
+    }
+
+    @Test
+    fun `a cover with one address has nowhere else to be`() {
+        for (single in listOf("https://i.ytimg.com/vi/dQw4w9WgXcQ/hq720.jpg", "/storage/emulated/0/Music/song.flac", "")) {
+            assertEquals(single, emptyList<String>(), coverOnPhone(single, single, 2.8125f))
+        }
+    }
+
+    @Test
+    fun `the side of a cover is read off its address`() {
+        assertEquals(120, coverSide(stored))
+        assertEquals(1024, coverSide(sized))
+        assertEquals(60, coverSide("https://yt3.googleusercontent.com/AbC=w60-h60-s-l90-rj"))
+        assertEquals(120, coverSide("https://yt3.ggpht.com/AbC=s120"))
+        assertEquals(1024, coverSide("https://yt3.ggpht.com/AbC=s120-s1024"))
+        assertEquals(0, coverSide("https://i.ytimg.com/vi/dQw4w9WgXcQ/hq720.jpg"))
+    }
+
+    // A better cover in the middle of a song. media3 hands the session a new picture only when the
+    // song's metadata changes, so the session names the cover anew each time a better one is in
+    // hand (see SessionPlayer). A cover with one address, a video still or a file, could not be
+    // named anew at all, and kept the stand-in to the end of the song.
+
+    @Test
+    fun `a cover is named by its large address, and by a mark on it when that is its name already`() {
+        assertEquals(sized, nextCoverName(current = stored, sharp = sized, n = 1))
+        assertEquals("$sized#cover-2", nextCoverName(current = sized, sharp = sized, n = 2))
+        assertEquals(sized, nextCoverName(current = "$sized#cover-2", sharp = sized, n = 3))
+        val still = "https://i.ytimg.com/vi/dQw4w9WgXcQ/hq720.jpg"
+        assertEquals("$still#cover-1", nextCoverName(current = still, sharp = still, n = 1))
+    }
+
+    @Test
+    fun `asked for by a marked name, a cover is the one already in hand`() {
+        val first = SessionCover(sessionArtwork(stored, 900))
+        val marked = SessionCover(sessionArtwork(unmarkedCover(markedCover(sized, 7)), 900))
+        assertEquals(first, marked)
+        val still = "https://i.ytimg.com/vi/dQw4w9WgXcQ/sddefault.jpg?sqp=-oaymwEWCJADEOEBIAQqCghqEJQEGHgg6AJIWg&rs=AMzJL3k"
+        assertEquals(still, unmarkedCover(markedCover(still, 1)))
+        assertEquals(SessionCover(sessionArtwork(still, 900)), SessionCover(sessionArtwork(unmarkedCover(markedCover(still, 12)), 900)))
+    }
+
+    @Test
+    fun `only the mark is read past`() {
+        for (address in listOf(stored, "/storage/emulated/0/Music/Song #1.mp3", "/storage/emulated/0/Music/a#cover.mp3", "https://example.com/a.jpg#top")) {
+            assertEquals(address, unmarkedCover(address))
+        }
+    }
+
+    // How hard the cover is tried for, offline or on a poor connection.
+
+    @Test
+    fun `a cover that could not be had is tried for again within seconds, then less often, a few times a song`() {
+        val waits = COVER_RETRY_DELAYS_MS
+        assertTrue("the first try again comes soon: $waits", waits.first() <= 5_000)
+        assertEquals("never sooner than the one before", waits.sorted(), waits)
+        assertTrue("a handful, not a stream: $waits", waits.size in 3..6)
+        assertTrue("all of them within a few minutes: $waits", waits.sum() <= 5 * 60_000)
+    }
+
+    @Test
+    fun `a picture in a file is decoded no larger than it is shown`() {
+        assertEquals(1, sampleSize(900, 900, 900))
+        assertEquals(1, sampleSize(1000, 1000, 900))
+        assertEquals(2, sampleSize(1800, 1800, 900))
+        assertEquals(2, sampleSize(3000, 3000, 900))
+        assertEquals(4, sampleSize(3600, 4000, 900))
+        assertEquals("the shorter side decides", 1, sampleSize(4000, 1000, 900))
+        assertEquals(1, sampleSize(120, 120, 900))
+        assertEquals(1, sampleSize(0, 0, 900))
     }
 }

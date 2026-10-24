@@ -339,7 +339,8 @@ fun HistoryScreen(
                                                     ListQueue(
                                                         title = context.getString(R.string.queue_remote_history),
                                                         items = section.songs.map { it.toMediaMetadata() },
-                                                        startIndex = index
+                                                        startIndex = index,
+                                                        songPicked = true,
                                                     ),
                                                     origin = PlayOrigin.HISTORY,
                                                 )
@@ -419,7 +420,8 @@ fun HistoryScreen(
                                         ListQueue(
                                             title = "${context.getString(R.string.queue_local_history)}: ${format.day(group.day)}",
                                             items = group.plays.map { it.song.toMediaMetadata() },
-                                            startIndex = index
+                                            startIndex = index,
+                                            songPicked = true,
                                         ),
                                         origin = PlayOrigin.HISTORY,
                                     )

@@ -104,6 +104,24 @@
                 <data android:scheme="intertune" />
             </intent-filter>
 
+            <!-- The share page's links (intertune.app/s/#v=...), tapped in a chat or any other app, open
+                 here straight away once Android has checked intertune.app/.well-known/assetlinks.json,
+                 which names the app (verified domain by domain from Android 12). Without the app they
+                 stay the page. What to open is after the #, which a filter cannot see: YouTubeLink
+                 reads it. The page's two paths only, so the rest of the site stays in the browser: a
+                 pathPrefix of "/s" would take /sitemap.xml too. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="https" />
+                <data android:host="intertune.app" />
+                <data android:path="/s" />
+                <data android:path="/s/" />
+            </intent-filter>
+
             <!-- Youtube filter -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
@@ -207,6 +225,12 @@
                 <category android:name="androidx.car.app.category.SETTINGS" />
             </intent-filter>
         </service>
+
+        <!-- The car's tap on that cog, with a refusal of the screen caught instead of crashing (AutoSettingsLink). -->
+        <receiver
+            android:name=".playback.AutoSettingsReceiver"
+            android:enabled="${carScreens}"
+            android:exported="false" />
 
         <!-- The app's own screens in a car that draws a music app from templates (AutoCar). -->
         <service
@@ -341,6 +365,17 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </service>
+
+        <!--
+            The job media3's PlatformScheduler hands to Android when downloads have to wait (for
+            Wi-Fi, for charging, for storage): ExoDownloadService.getScheduler builds one in its
+            onCreate, and JobScheduler refuses a job whose service is not declared here, which
+            crashed the download service on start (issue #43). Bound by the system alone.
+        -->
+        <service
+            android:name="androidx.media3.exoplayer.scheduler.PlatformScheduler$PlatformSchedulerService"
+            android:exported="true"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
 
         <meta-data
             android:name="com.google.android.gms.car.application"

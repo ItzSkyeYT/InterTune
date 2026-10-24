@@ -704,7 +704,8 @@ fun LocalPlaylistScreen(
                                     title =  playlistWithSongs.first!!.playlist.name,
                                     items = mutableSongs.map { it.song.toMediaMetadata() },
                                     startIndex = index,
-                                    playlistId =  playlistWithSongs.first?.playlist?.browseId
+                                    playlistId =  playlistWithSongs.first?.playlist?.browseId,
+                                    songPicked = true,
                                 ),
                                 origin = PlayOrigin.PLAYLIST,
                             )

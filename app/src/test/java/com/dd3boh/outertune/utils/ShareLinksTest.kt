@@ -127,6 +127,34 @@ class ShareLinksTest {
     }
 
     @Test
+    fun `nothing is chosen at first, so the first share that has a page asks`() {
+        assertEquals(ShareLinkKind.ASK, ShareLinks.START)
+        assertEquals(ShareAction.Ask, ShareLinks.decide(rick(), ShareLinks.START))
+        val album = ShareLinks.album(albumBrowseLink, albumList, "Random Access Memories", listOf("Daft Punk"))
+        assertEquals(ShareAction.Ask, ShareLinks.decide(album, ShareLinks.START))
+    }
+
+    @Test
+    fun `once picked, every share sends the pick and nobody is asked again`() {
+        // A pick, in the question or in Settings, is one of these two, and neither of them asks.
+        assertEquals(listOf(ShareLinkKind.YOUTUBE_MUSIC, ShareLinkKind.PAGE), ShareLinks.CHOICES)
+        val album = ShareLinks.album(albumBrowseLink, albumList, "Random Access Memories", listOf("Daft Punk"))
+        val local = ShareLinks.song("LA1f0c9d2e7b", "Song", listOf("Somebody"), 100, true)
+        for (kind in ShareLinks.CHOICES) for (link in listOf(rick(), rick(seconds = -1, albumTrack = false), album, local)) {
+            assertEquals("$kind, ${link.caption}", ShareAction.Send(ShareLinks.text(link, kind)), ShareLinks.decide(link, kind))
+        }
+    }
+
+    @Test
+    fun `what a pick sends is what the setting sends`() {
+        assertEquals("https://music.youtube.com/watch?v=$id", ShareLinks.text(rick(), ShareLinkKind.YOUTUBE_MUSIC))
+        assertEquals("Never Gonna Give You Up · Rick Astley\n${rick().page}", ShareLinks.text(rick(), ShareLinkKind.PAGE))
+        // Something with no page goes out as its YouTube Music link, whatever was picked.
+        val local = ShareLinks.song("LA1f0c9d2e7b", "Song", listOf("Somebody"), 100, true)
+        assertEquals(local.youTubeMusic, ShareLinks.text(local, ShareLinkKind.PAGE))
+    }
+
+    @Test
     fun `a song with no artist is named by its name alone`() {
         val link = ShareLinks.song(id, "Song", emptyList(), 100, false)
         assertEquals("Song", link.caption)

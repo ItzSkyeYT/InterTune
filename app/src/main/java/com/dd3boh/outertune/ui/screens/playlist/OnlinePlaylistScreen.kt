@@ -660,7 +660,8 @@ fun OnlinePlaylistScreen(
                                                         // searching the start is found among those.
                                                         startIndex = filteredSongs
                                                             .indexOfFirst { it.first == index }
-                                                            .coerceAtLeast(0)
+                                                            .coerceAtLeast(0),
+                                                        songPicked = true,
                                                     ),
                                                     origin = PlayOrigin.PLAYLIST,
                                                 )

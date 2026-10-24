@@ -88,6 +88,7 @@ class AutoBrowseTest {
         for (name in listOf(
             "androidx.car.app.MEDIA_TEMPLATES", "com.dd3boh.outertune.playback.AutoCarService",
             "com.dd3boh.outertune.playback.AutoSettingsService", "androidx.car.app.minCarApiLevel",
+            "com.dd3boh.outertune.playback.AutoSettingsReceiver",
         )) {
             val entry = taken.substringAfter("\"$name\"", "").substringBefore("/>")
             assertTrue("the release manifest does not take out $name", "tools:node=\"remove\"" in entry)

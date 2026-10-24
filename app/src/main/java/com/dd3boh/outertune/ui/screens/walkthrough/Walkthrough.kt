@@ -119,6 +119,13 @@ private const val V0_11_6 = 94
 private const val V0_12 = 95
 
 /**
+ * The first build 0.12.5 can ship as. 0.12.1, fixes only, took 96, so what 0.12.5 brings is
+ * counted from 97: somebody who had a tour on 0.12.1 is then shown it. Raise it if another fix
+ * release comes between.
+ */
+private const val V0_12_5 = 97
+
+/**
  * A walk round Settings: its four groups, one bubble each.
  *
  * Settings is thirteen screens and the rows already say what is in each. What they do not give is
@@ -196,10 +203,9 @@ private fun closer(id: String, target: String, route: String, @StringRes title: 
  *
  * A stop is titled with the string its row is titled with, so the two cannot drift apart, and
  * the test reads both ends to hold them to it. Some of these rows are not on every install:
- * head tracking is only there under spatial audio for headphones, the Last.fm row is another
- * row once connected, links you share is behind a flag. Such a stop costs nothing. It is taken
- * on trust here and left out when the tour gets to its screen and finds it missing
- * (TourState.leaveOut).
+ * head tracking is only there under spatial audio for headphones, and the Last.fm row is another
+ * row once connected. Such a stop costs nothing. It is taken on trust here and left out when the
+ * tour gets to its screen and finds it missing (TourState.leaveOut).
  */
 val SETTINGS_CLOSER_LOOK = listOf(
     closer("login", Tour.SETTING_LOGIN, Tour.ROUTE_ACCOUNT, R.string.login, R.string.tour_closer_login),
@@ -332,6 +338,19 @@ val RECOGNITION_ICON get() = Icons.Rounded.GraphicEq
 /** Newest first: what somebody sees at the top is what they have never seen before. */
 val NEW_THINGS = listOf(
     NewThing(
+        id = "share_links",
+        release = "0.12.5",
+        sinceVersionCode = V0_12_5,
+        title = R.string.new_share_links_title,
+        body = R.string.new_share_links_body,
+        icon = Icons.Rounded.Share,
+        stops = listOf(
+            TourStop("share_links_row", Tour.ROW_LIBRARY, Tour.ROUTE_SETTINGS, R.string.grp_library_and_content, R.string.new_share_links_way, V0_12_5),
+            TourStop("share_links_setting", Tour.SETTING_SHARE_LINKS, Tour.ROUTE_LIBRARY, R.string.share_link_kind_title, R.string.new_share_links_here, V0_12_5),
+        ),
+        there = { Unreleased.SHARE_PAGE },
+    ),
+    NewThing(
         id = "cast",
         release = "0.12",
         sinceVersionCode = V0_12,
@@ -365,19 +384,6 @@ val NEW_THINGS = listOf(
             TourStop("living_blur_setting", Tour.SETTING_PLAYER_BACKGROUND, Tour.ROUTE_LOOK_AND_FEEL, R.string.player_background_style, R.string.new_living_blur_here, V0_12),
         ),
         there = { Unreleased.LIVING_BACKGROUND },
-    ),
-    NewThing(
-        id = "share_links",
-        release = "0.12",
-        sinceVersionCode = V0_12,
-        title = R.string.new_share_links_title,
-        body = R.string.new_share_links_body,
-        icon = Icons.Rounded.Share,
-        stops = listOf(
-            TourStop("share_links_row", Tour.ROW_LIBRARY, Tour.ROUTE_SETTINGS, R.string.grp_library_and_content, R.string.new_share_links_way, V0_12),
-            TourStop("share_links_setting", Tour.SETTING_SHARE_LINKS, Tour.ROUTE_LIBRARY, R.string.share_link_kind_title, R.string.new_share_links_here, V0_12),
-        ),
-        there = { Unreleased.SHARE_PAGE },
     ),
     NewThing(
         id = "sleep_schedule",

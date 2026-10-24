@@ -47,6 +47,7 @@ import com.dd3boh.outertune.utils.rememberPreference
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.utils.parseCookieString
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.settings.settingRow
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -76,7 +77,7 @@ fun ColumnScope.AccountFrag(navController: NavController) {
     }
 
     PreferenceEntry(
-        modifier = Modifier.tourTarget(Tour.SETTING_LOGIN),
+        modifier = Modifier.tourTarget(Tour.SETTING_LOGIN).settingRow(R.string.login),
         title = { Text(if (isLoggedIn) accountName else stringResource(R.string.login)) },
         description = if (isLoggedIn) {
             accountEmail.takeIf { it.isNotEmpty() }
@@ -92,6 +93,7 @@ fun ColumnScope.AccountFrag(navController: NavController) {
     AnimatedVisibility(isLoggedIn) {
         Column {
             PreferenceEntry(
+                modifier = Modifier.settingRow(R.string.action_logout),
                 title = { Text(stringResource(R.string.action_logout)) },
                 icon = { Icon(Icons.AutoMirrored.Rounded.Logout, null) },
                 onClick = {
@@ -103,6 +105,7 @@ fun ColumnScope.AccountFrag(navController: NavController) {
     InfoLabel(text = stringResource(R.string.account_notice_body))
 
     PreferenceEntry(
+        modifier = Modifier.settingRow(R.string.token_hidden),
         title = {
             if (showToken) {
                 Text(stringResource(R.string.token_shown))
@@ -183,6 +186,7 @@ fun ColumnScope.AccountExtrasFrag() {
     val (useLoginForBrowse, onUseLoginForBrowseChange) = rememberPreference(UseLoginForBrowse, true)
 
     SwitchPreference(
+        modifier = Modifier.settingRow(R.string.use_login_for_browse),
         title = { Text(stringResource(R.string.use_login_for_browse)) },
         description = stringResource(R.string.use_login_for_browse_desc),
         icon = { Icon(Icons.Rounded.Person, null) },

@@ -77,7 +77,7 @@ fun RecognitionSettings(
 
         ElevatedCard(modifier = Modifier.fillMaxWidth()) {
             ExplainedSwitchPreference(
-                modifier = Modifier.tourTarget(Tour.SETTING_RECOGNISE_KEEP_LISTENING),
+                modifier = Modifier.tourTarget(Tour.SETTING_RECOGNISE_KEEP_LISTENING).settingRow(R.string.recognise_keep_listening),
                 title = stringResource(R.string.recognise_keep_listening),
                 explanation = stringResource(R.string.recognise_keep_listening_explain),
                 description = stringResource(R.string.recognise_keep_listening_desc),
@@ -85,14 +85,14 @@ fun RecognitionSettings(
                 onCheckedChange = onKeepListeningChange,
             )
             SwitchPreference(
-                modifier = Modifier.tourTarget(Tour.SETTING_RECOGNISE_PAUSE),
+                modifier = Modifier.tourTarget(Tour.SETTING_RECOGNISE_PAUSE).settingRow(R.string.recognise_pause_title),
                 title = { Text(stringResource(R.string.recognise_pause_title)) },
                 description = stringResource(R.string.recognise_pause_desc),
                 checked = pauseOnSpeaker,
                 onCheckedChange = onPauseOnSpeakerChange,
             )
             ExplainedSwitchPreference(
-                modifier = Modifier.tourTarget(Tour.SETTING_RECOGNISE_AUTO_ADD),
+                modifier = Modifier.tourTarget(Tour.SETTING_RECOGNISE_AUTO_ADD).settingRow(R.string.recognise_auto_add),
                 title = stringResource(R.string.recognise_auto_add),
                 explanation = stringResource(R.string.recognise_auto_add_explain),
                 description = stringResource(R.string.recognise_auto_add_desc),
@@ -100,6 +100,7 @@ fun RecognitionSettings(
                 onCheckedChange = onAutoAddChange,
             )
             SwitchPreference(
+                modifier = Modifier.settingRow(R.string.recognise_keep_awake),
                 title = { Text(stringResource(R.string.recognise_keep_awake)) },
                 description = stringResource(R.string.recognise_keep_awake_desc),
                 checked = keepAwake,
@@ -111,7 +112,7 @@ fun RecognitionSettings(
 
         ElevatedCard(modifier = Modifier.fillMaxWidth()) {
             ListPreference(
-                modifier = Modifier.tourTarget(Tour.SETTING_RECOGNISE_SECONDS),
+                modifier = Modifier.tourTarget(Tour.SETTING_RECOGNISE_SECONDS).settingRow(R.string.recognise_listen_seconds),
                 title = { Text(stringResource(R.string.recognise_listen_seconds)) },
                 icon = { Icon(Icons.Rounded.Timer, null) },
                 selectedValue = listenSeconds,
@@ -127,6 +128,7 @@ fun RecognitionSettings(
         var askClear by rememberSaveable { mutableStateOf(false) }
         ElevatedCard(modifier = Modifier.fillMaxWidth()) {
             ExplainedPreference(
+                modifier = Modifier.settingRow(R.string.recognise_clear_history),
                 title = stringResource(R.string.recognise_clear_history),
                 explanation = stringResource(R.string.recognise_clear_history_explain),
                 description = stringResource(R.string.recognise_clear_history_desc),

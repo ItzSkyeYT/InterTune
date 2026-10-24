@@ -25,6 +25,7 @@ import com.dd3boh.outertune.utils.rememberPreference
 import kotlinx.coroutines.launch
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
+import com.dd3boh.outertune.ui.screens.settings.settingRow
 import androidx.compose.ui.Modifier
 
 /**
@@ -74,6 +75,7 @@ fun ColumnScope.LastFmFrag(navController: NavController) {
             }
         )
         SwitchPreference(
+            modifier = Modifier.settingRow(R.string.lastfm_scrobble),
             title = { Text(stringResource(R.string.lastfm_scrobble)) },
             description = stringResource(R.string.lastfm_scrobble_description),
             icon = { Icon(Icons.Rounded.Album, null) },
@@ -82,7 +84,7 @@ fun ColumnScope.LastFmFrag(navController: NavController) {
         )
     } else {
         PreferenceEntry(
-            modifier = Modifier.tourTarget(Tour.SETTING_LASTFM),
+            modifier = Modifier.tourTarget(Tour.SETTING_LASTFM).settingRow(R.string.lastfm_connect),
             title = { Text(stringResource(R.string.lastfm_connect)) },
             description = stringResource(R.string.lastfm_connect_description),
             icon = { Icon(Icons.Rounded.Link, null) },

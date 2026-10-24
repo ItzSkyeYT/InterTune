@@ -22,8 +22,9 @@ import kotlin.math.abs
  * Those are two different moments. Samples are handed to the output a quarter of a second or more
  * before they are heard, and with Bluetooth headphones later still. So every level is kept under
  * the time its samples carry, and the question is answered with the time the output says it has
- * reached, which the player asks it every few milliseconds while it plays. A picture driven by the
- * samples as they arrive would move ahead of the music by a different amount on every device.
+ * reached, which the player asks it each time its thread wakes while it plays, and the clock
+ * carries on from there. A picture driven by the samples as they arrive would move ahead of the
+ * music by a different amount on every device.
  *
  * This is not android.media.audiofx.Visualizer, which would do the same from outside: that one
  * needs the microphone permission, and a music player asking for the microphone is a bad look.
@@ -184,15 +185,19 @@ class LevelTap(private val nanoTime: () -> Long = System::nanoTime) {
         val at = heardUs
         if (at == C.TIME_UNSET || !playing) return false
         val since = (nanoTime() - heardAtNanos) / 1000
-        // While it plays the output is asked where it is every few milliseconds. Not asked for this
-        // long, it is not playing, whatever was said last.
+        // While it plays the output is asked where it is each time the player's thread wakes. That
+        // was every 10 ms; it now sleeps until half of what the output holds has played: 125 ms
+        // with the usual quarter of a second, 375 ms at most, since media3 gives an output no more
+        // than 750 ms. About the same at any tempo: a slower one fills the output with less of the
+        // song. Not asked for this long, four times the longest sleep, it is not playing, whatever
+        // was said last.
         if (since < 0 || since > ASKED_LATELY_US) return false
         return timeline.read(at + since + aheadUs.coerceAtLeast(0), into)
     }
 
     companion object {
         private const val JUMP_US = 100_000L
-        private const val ASKED_LATELY_US = 500_000L
+        private const val ASKED_LATELY_US = 1_500_000L
         private const val IDLE_NANOS = 1_000_000_000L
     }
 }

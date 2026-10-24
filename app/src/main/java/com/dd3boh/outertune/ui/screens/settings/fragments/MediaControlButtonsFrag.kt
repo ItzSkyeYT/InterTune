@@ -51,6 +51,7 @@ import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.dialog.ActionPromptDialog
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.settings.settingRow
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 
 /**
@@ -68,7 +69,7 @@ fun ColumnScope.MediaControlButtonsFrag() {
     var showDialog by remember { mutableStateOf(false) }
 
     PreferenceEntry(
-        modifier = Modifier.tourTarget(Tour.SETTING_MEDIA_BUTTONS),
+        modifier = Modifier.tourTarget(Tour.SETTING_MEDIA_BUTTONS).settingRow(R.string.media_control_buttons),
         title = { Text(stringResource(R.string.media_control_buttons)) },
         description = chosen.map { mediaControlLabel(it) }.joinToString(", "),
         icon = { Icon(Icons.Rounded.ScreenLockPortrait, null) },
