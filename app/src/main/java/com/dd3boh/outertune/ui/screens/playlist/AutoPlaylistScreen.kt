@@ -660,7 +660,8 @@ fun AutoPlaylistScreen(
                                 title = playlist.name,
                                 items = (if (isSearching) filteredSongs else mutableSongs).map { it.toMediaMetadata() },
                                 startIndex = index,
-                                playlistId = playlist.browseId
+                                playlistId = playlist.browseId,
+                                songPicked = true,
                             ),
                             origin = PlayOrigin.PLAYLIST,
                         )

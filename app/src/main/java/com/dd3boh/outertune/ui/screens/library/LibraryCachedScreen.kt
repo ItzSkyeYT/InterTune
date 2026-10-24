@@ -136,6 +136,7 @@ fun LibraryCachedScreen(
                                 title = context.getString(R.string.filter_cached),
                                 items = songs.map { it.toMediaMetadata() },
                                 startIndex = index,
+                                songPicked = true,
                             ),
                             origin = PlayOrigin.LIBRARY,
                         )

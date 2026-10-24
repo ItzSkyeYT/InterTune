@@ -2159,6 +2159,9 @@ class MusicService : MediaLibraryService(),
         }
     }
 
+    /** The songs put in with Play next that have not played yet. Main thread. See [PlayNextWaiting]. */
+    private val playNextWaiting = PlayNextWaiting()
+
     /** The queue board and the player as the steps of playQueue use them. See [QueueStart]. */
     private val queueStart = QueueStart(object : QueueStart.Target {
         override val destroyed get() = this@MusicService.destroyed
@@ -2176,6 +2179,7 @@ class MusicService : MediaLibraryService(),
             replace: Boolean,
             startIndex: Int,
             continuationEndpoint: String?,
+            startFirst: Boolean,
         ) = queueBoard.addQueue(
             title,
             items,
@@ -2183,7 +2187,32 @@ class MusicService : MediaLibraryService(),
             replace = replace,
             continuationEndpoint = continuationEndpoint,
             startIndex = startIndex,
+            startFirst = startFirst,
         )
+
+        override val shuffleOn: Boolean
+            get() = if (activePlayer.currentMediaItem != null) activePlayer.shuffleModeEnabled
+            else queueBoard.getCurrentQueue()?.shuffled == true
+
+        override fun playNextWaiting(): PlayNextWaiting.Taken? {
+            if (!Unreleased.PLAY_NEXT_STAYS) return null
+            return runCatching {
+                val q = queueBoard.getCurrentQueue()
+                // The player's place while it holds the queue; before play after a restart, the
+                // queue's own, as Play next goes by (MultiQueueObject.playNextIndex).
+                val current = if (activePlayer.currentMediaItem != null) activePlayer.currentMediaItemIndex else q?.getQueuePosShuffled() ?: -1
+                playNextWaiting.take(q, current)
+            }.onFailure { Log.w(TAG, "Could not read the songs waiting after Play next", it) }.getOrNull()
+        }
+
+        override fun keepPlayNext(queue: MultiQueueObject, taken: PlayNextWaiting.Taken) {
+            runCatching {
+                val kept = queueBoard.putInAfterStart(queue, PlayNextWaiting.toKeep(taken.songs, queue.getCurrentSong()?.id))
+                if (taken.from !== queue) queueBoard.takeOut(taken.from, taken.songs)
+                playNextWaiting.movedTo(queue, kept)
+                Log.d(TAG, "playQueue: ${kept.size} songs put in with Play next go on after the picked song")
+            }.onFailure { Log.w(TAG, "Could not keep the songs put in with Play next", it) }
+        }
 
         override fun hasQueue(title: String) = queueBoard.masterQueues.any { it.title == title }
 
@@ -2261,7 +2290,16 @@ class MusicService : MediaLibraryService(),
                     // a restart until play is pressed. See MultiQueueObject.playNextIndex.
                     val playerIndex = activePlayer.currentMediaItemIndex.takeIf { activePlayer.currentMediaItem != null }
                     noteByHand(q, items)
-                    queueBoard.addSongsToQueue(q, q.playNextIndex(playerIndex), items.mapNotNull { it.metadata })
+                    val songs = items.mapNotNull { it.metadata }
+                    // Held to the queue's length here as insertAtPlayIndex holds it, so the place
+                    // noted below is the one the songs went to.
+                    val at = q.playNextIndex(playerIndex).coerceIn(0, q.getSize())
+                    queueBoard.addSongsToQueue(q, at, songs)
+                    // Where they went, for a song picked out of a list to keep them (PlayNextWaiting).
+                    if (Unreleased.PLAY_NEXT_STAYS) {
+                        runCatching { playNextWaiting.putIn(q, at, songs.size) }
+                            .onFailure { Log.w(TAG, "Could not note the songs put in with Play next", it) }
+                    }
                 }
             }
         }

@@ -530,7 +530,8 @@ fun FolderScreen(
                             ListQueue(
                                 title = currDir.currentDir.substringAfterLast('/'),
                                 items = shownSongs.map { it.toMediaMetadata() },
-                                startIndex = shownSongs.indexOf(song)
+                                startIndex = shownSongs.indexOf(song),
+                                songPicked = true,
                             ),
                             origin = PlayOrigin.LIBRARY,
                         )
