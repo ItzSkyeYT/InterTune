@@ -104,6 +104,24 @@
                 <data android:scheme="intertune" />
             </intent-filter>
 
+            <!-- The share page's links (intertune.app/s/#v=...), tapped in a chat or any other app, open
+                 here straight away once Android has checked intertune.app/.well-known/assetlinks.json,
+                 which names the app (verified domain by domain from Android 12). Without the app they
+                 stay the page. What to open is after the #, which a filter cannot see: YouTubeLink
+                 reads it. The page's two paths only, so the rest of the site stays in the browser: a
+                 pathPrefix of "/s" would take /sitemap.xml too. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="https" />
+                <data android:host="intertune.app" />
+                <data android:path="/s" />
+                <data android:path="/s/" />
+            </intent-filter>
+
             <!-- Youtube filter -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
