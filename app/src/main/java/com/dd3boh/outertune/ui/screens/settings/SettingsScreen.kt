@@ -12,10 +12,14 @@ package com.dd3boh.outertune.ui.screens.settings
 import com.dd3boh.outertune.ui.component.FloatingTopBar
 
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.union
+import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.LibraryBooks
@@ -43,7 +47,14 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalFocusManager
+import com.dd3boh.outertune.ui.component.ScreenBackHandler
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -84,11 +95,19 @@ fun SettingsScreen(
     scrollBehavior: TopAppBarScrollBehavior,
     tourRunning: Boolean = false,
 ) {
+    // What is typed in the search over the list. Kept through a visit to a result's screen, and
+    // through a turn of the phone, which can change the list into the two panes and back. The
+    // tour points at the list's own groups, so it empties the search when it starts.
+    var query by rememberSaveable { mutableStateOf("") }
+    LaunchedEffect(tourRunning) { if (tourRunning) query = "" }
+    if (Unreleased.SETTINGS_SEARCH) ScreenBackHandler(enabled = query.isNotEmpty()) { query = "" }
+
     // A window wide enough for it has the list and the chosen screen side by side.
     if (Unreleased.SETTINGS_TWO_PANE && LocalLandscape.current.windowWidth >= SettingsTwoPaneMinWidth) {
-        SettingsTwoPane(navController, scrollBehavior, tourRunning)
+        SettingsTwoPane(navController, scrollBehavior, tourRunning, query, onQueryChange = { query = it })
         return
     }
+    val focus = LocalFocusManager.current
 
     // Sourced from the checker rather than the persisted flag. The flag says "an update existed
     // once"; this says "there is one now, and here it is", which is what the row needs to show.
@@ -238,9 +257,23 @@ fun SettingsScreen(
         modifier = Modifier.fillMaxHeight(),
         columnModifier = Modifier
             .padding(horizontal = 16.dp),
+        // Room for the keyboard under the results, so that the last of them can be scrolled
+        // above it while typing: the window does not shrink for it, edge to edge.
+        contentPadding = LocalPlayerAwareWindowInsets.current.union(WindowInsets.ime),
         maxContentWidth = if (twoByTwo) Dp.Unspecified else 720.dp,
     ) {
-        if (twoByTwo) {
+        if (Unreleased.SETTINGS_SEARCH) {
+            SettingsSearchField(query, onQueryChange = { query = it })
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+        if (Unreleased.SETTINGS_SEARCH && query.isNotBlank()) {
+            val search = rememberSettingsSearch()
+            val hits = remember(search, query) { search.search(query) }
+            SettingsSearchResults(hits, query, onPick = { hit ->
+                focus.clearFocus()
+                openHit(hit) { route -> navController.navigate(route) }
+            })
+        } else if (twoByTwo) {
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Column(Modifier.weight(1f)) {
                     you()

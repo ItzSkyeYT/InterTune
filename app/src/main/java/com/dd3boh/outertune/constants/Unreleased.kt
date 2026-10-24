@@ -67,7 +67,8 @@ object Unreleased {
      * rememberShareLink). Its six new or redrafted texts (the What's new entry's four, the line
      * under the question and the row's value before a pick) are English only and not for
      * translators yet. Left to tidy: the flag and the three checks that read it, in
-     * LibrarySettings, rememberShareLink and the What's new entry in Walkthrough.
+     * LibrarySettings, rememberShareLink and the What's new entry in Walkthrough,
+     * and its row's entry in SETTINGS_INDEX.
      */
     val SHARE_PAGE = true
 
@@ -104,7 +105,7 @@ object Unreleased {
      *
      * Unit tests only (LyricsSourcesTest), not yet seen on a screen. For 0.12. Its nine texts are
      * English only and held back. To ship: set this to true, or delete it with the one check that
-     * reads it, in LyricFrag.
+     * reads it, in LyricFrag, and the three entries of SETTINGS_INDEX that say which rows it shows.
      */
     val LYRICS_SOURCES = BuildConfig.DEBUG
 
@@ -411,8 +412,8 @@ object Unreleased {
      *
      * Tested as arithmetic and not yet judged by ear, which is the whole of what they are for.
      * Without it the three rows are not shown and the renderer is as it was. When it is agreed:
-     * set this to true, or delete it with the checks that read it, in PlayerFrag and
-     * MusicService, and make its six strings translatable.
+     * set this to true, or delete it with the checks that read it, in PlayerFrag, MusicService
+     * and the entries of its rows in SETTINGS_INDEX, and make its six strings translatable.
      */
     val SPATIAL_TUNING = BuildConfig.DEBUG
 
@@ -428,8 +429,9 @@ object Unreleased {
      * Measured and not yet heard: the one controlled listening test there is found no gain from
      * this kind of thing, so it is here to be judged by ear and dropped if it does not convince.
      * Its row is the last under the three of SPATIAL_TUNING and is shown only with them. To
-     * drop it: this flag, the row in PlayerFrag, the collector in MusicService, the key, two
-     * strings, DirectAmbientSplit and everything named "air" in BinauralAudioProcessor.
+     * drop it: this flag, the row in PlayerFrag and its entry in SETTINGS_INDEX, the collector in
+     * MusicService, the key, two strings, DirectAmbientSplit and everything named "air" in
+     * BinauralAudioProcessor.
      */
     val DIRECT_AMBIENT = BuildConfig.DEBUG
 
@@ -520,4 +522,18 @@ object Unreleased {
      * the queue start's Target) and QueueBoard.putInAfterStart and takeOut.
      */
     val PLAY_NEXT_STAYS = BuildConfig.DEBUG
+
+    /**
+     * A search field at the top of Settings (SettingsSearch.kt): what is typed finds settings on
+     * every screen by their names, the lines under them and a few other words, in the app's
+     * language, and a result opens the screen it is on, scrolled to its row and lit for a moment.
+     * Asked for in issue #36. What it searches is SETTINGS_INDEX, which SettingsIndexTest holds
+     * to the screens.
+     *
+     * A first cut, seen on an emulator only. Its texts (search_settings*, search_words_*) are
+     * held from translators, their French already beside them in values-fr. Without it Settings
+     * is the list it was. When it is agreed: set this to true, or delete it with the checks that
+     * read it, in SettingsScreen and SettingsTwoPane, and make its texts translatable.
+     */
+    val SETTINGS_SEARCH = BuildConfig.DEBUG
 }

@@ -229,6 +229,7 @@ fun RecommendationsDoingSettings(
             // Learn from listening off its rows wait unchecked, so the line does not promise a
             // day later.
             ExplainedSwitchPreference(
+                modifier = Modifier.settingRow(R.string.shadow_comparison),
                 title = stringResource(R.string.shadow_comparison),
                 explanation = stringResource(R.string.shadow_comparison_info),
                 description = stringResource(
@@ -480,6 +481,7 @@ fun RecommendationsDoingSettings(
                 WeightsEntry(weights, updates)
             }
             ExplainedPreference(
+                modifier = Modifier.settingRow(R.string.engine_developer),
                 title = stringResource(R.string.engine_developer),
                 explanation = stringResource(R.string.engine_developer_info),
                 description = stringResource(R.string.engine_developer_description),
