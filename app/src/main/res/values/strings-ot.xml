@@ -2251,6 +2251,9 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recap_badge_number_one" translatable="false">No.\n1</string>
     <string name="recap_streak_day_first" translatable="false">Day 1</string>
     <string name="recap_streak_day_n" translatable="false">Day %1$s</string>
+    <!-- The pause button in the Recap's top bar: what TalkBack says it does. -->
+    <string name="recap_pause" translatable="false">Pause</string>
+    <string name="recap_play" translatable="false">Play</string>
     <!-- The search at the top of Settings (SettingsSearch.kt, Unreleased.SETTINGS_SEARCH). Held from translators until he says yes to the words. %1$s is what was typed. -->
     <string name="search_settings" translatable="false">Search settings</string>
     <string name="search_settings_none" translatable="false">No setting matches \"%1$s\".</string>

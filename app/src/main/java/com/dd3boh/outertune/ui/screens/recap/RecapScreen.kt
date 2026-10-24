@@ -49,6 +49,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.VolumeOff
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -156,6 +158,9 @@ internal fun RecapStory(
     stage.onPage = { a, s -> savedAt = a; savedStep = s }
 
     var held by remember { mutableStateOf(false) }
+    // The pause button: the story stays where it is, everything on the slide included, until it is
+    // tapped again or the story is tapped on or back. A finger held down pauses only while it is down.
+    var stopped by rememberSaveable { mutableStateOf(false) }
     var away by remember { mutableStateOf(false) }
     var sharing by remember { mutableStateOf(false) }
     var muted by rememberSaveable { mutableStateOf(false) }
@@ -199,7 +204,7 @@ internal fun RecapStory(
 
     // The story's clock, once a frame: by frames and not by an animation, so that with
     // animations switched off the story still keeps its time. A held story holds everything.
-    val paused by rememberUpdatedState(held || away || sharing)
+    val paused by rememberUpdatedState(held || stopped || away || sharing)
     LaunchedEffect(stage) {
         var last = withFrameNanos { it }
         while (true) {
@@ -224,7 +229,7 @@ internal fun RecapStory(
         val piece = slide.piece(page.step)
         if (song != null && piece != null) sound.play(song.id, piece)
     }
-    LaunchedEffect(held, away) { if (held || away) sound.pause() else sound.resume() }
+    LaunchedEffect(held, stopped, away) { if (held || stopped || away) sound.pause() else sound.resume() }
     DisposableEffect(sound) { onDispose { sound.stop() } }
 
     // The bars of the phone follow the paper: dark icons on a light one, light on a dark one.
@@ -307,6 +312,7 @@ internal fun RecapStory(
                         held = false
                     } else if (up != null) {
                         up.consume()
+                        stopped = false
                         if (back) previous() else next()
                     }
                 }
@@ -335,6 +341,8 @@ internal fun RecapStory(
                 },
                 year = recap.year,
                 ink = ink,
+                stopped = stopped,
+                onPause = { stopped = !stopped },
                 onClose = { close() },
                 modifier = Modifier.align(Alignment.TopCenter).graphicsLayer { alpha = chrome },
             )
@@ -477,9 +485,12 @@ private fun PageView(
     ) { content(s) }
 }
 
-/** The bars at the top, one for each slide, filling as it plays; the mark, the year and a way out, in the slide's ink. */
+/**
+ * The bars at the top, one for each slide, filling as it plays; the mark, the year, the pause
+ * button and a way out, in the slide's ink.
+ */
 @Composable
-private fun StoryBars(count: Int, at: Int, fraction: () -> Float, year: Int, ink: Color, onClose: () -> Unit, modifier: Modifier = Modifier) {
+private fun StoryBars(count: Int, at: Int, fraction: () -> Float, year: Int, ink: Color, stopped: Boolean, onPause: () -> Unit, onClose: () -> Unit, modifier: Modifier = Modifier) {
     Column(
         modifier
             .fillMaxWidth()
@@ -513,8 +524,28 @@ private fun StoryBars(count: Int, at: Int, fraction: () -> Float, year: Int, ink
             Text(stringResource(R.string.recap_short), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = ink)
             Text(" $year", fontSize = 14.sp, color = ink)
             Spacer(Modifier.weight(1f))
+            PauseButton(stopped, onPause, ink)
             CloseButton(onClose, tint = ink)
         }
+    }
+}
+
+/** Two bars while the story runs, a play triangle while it is paused. */
+@Composable
+private fun PauseButton(stopped: Boolean, onClick: () -> Unit, tint: Color) {
+    Box(
+        Modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            if (stopped) Icons.Rounded.PlayArrow else Icons.Rounded.Pause,
+            stringResource(if (stopped) R.string.recap_play else R.string.recap_pause),
+            tint = tint,
+            modifier = Modifier.size(24.dp),
+        )
     }
 }
 
