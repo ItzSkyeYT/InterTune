@@ -7,6 +7,7 @@
 package com.dd3boh.outertune.ui.screens.recap
 
 import android.content.Context
+import android.text.format.DateFormat
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -33,6 +34,8 @@ class RecapWords(private val context: Context, private val year: Int) {
     private val monthShort = LocaleDateFormat(locale, "LLL", "LLL")
     private val monthLong = LocaleDateFormat(locale, "MMMM", "MMMM")
     private val clock = LocaleDateFormat(locale, "jm", "HH:mm")
+    private val hourOnly = LocaleDateFormat(locale, "j", "HH")
+    private val twelveHours = runCatching { DateFormat.getBestDateTimePattern(locale, "jm").contains('a') }.getOrDefault(false)
 
     fun number(n: Number): String = numbers.format(n)
 
@@ -55,6 +58,12 @@ class RecapWords(private val context: Context, private val year: Int) {
     fun time(minuteOfDay: Int): String = clock.format(LocalTime.of(minuteOfDay / 60 % 24, minuteOfDay % 60))
 
     fun hour(hour: Int): String = time(hour * 60)
+
+    /**
+     * The hour as short as it reads, for the year's card where room is short: without its
+     * minutes where the language counts twelve hours ("6 PM"), else as [hour] has it ("18:00").
+     */
+    fun hourShort(hour: Int): String = if (twelveHours) hourOnly.format(LocalTime.of(hour % 24, 0)) else hour(hour)
 
     fun minutes(ms: Long): Long = (ms + 30_000) / 60_000
 

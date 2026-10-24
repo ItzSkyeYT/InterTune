@@ -12,28 +12,27 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapShader
 import android.graphics.Canvas
-import android.graphics.ColorMatrixColorFilter
-import android.graphics.LinearGradient
 import android.graphics.Matrix
 import android.graphics.Paint
-import android.graphics.PorterDuff
-import android.graphics.PorterDuffXfermode
+import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Shader
-import android.graphics.Typeface
-import android.os.Build
 import android.text.Layout
+import android.text.SpannableStringBuilder
+import android.text.Spanned
 import android.text.StaticLayout
 import android.text.TextPaint
 import android.text.TextUtils
+import android.text.style.ForegroundColorSpan
 import android.util.Log
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.withRotation
 import androidx.core.graphics.withTranslation
 import com.dd3boh.outertune.R
-import com.dd3boh.outertune.recap.RecapColours
 import com.dd3boh.outertune.recap.RecapShown
 import com.dd3boh.outertune.utils.shareSheet
 import kotlinx.coroutines.Dispatchers
@@ -41,10 +40,13 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
- * The Recap's two cards to share, story sized, 1080 by 1920: "My number one song" and the year on
- * one card. Drawn here with the Canvas at that size, as the lyrics cards are (LyricsCard), so they
- * come out the same from every phone; the mock's .card layouts, to the pixel where it could be.
- * The slide that shows the year's card shows this very picture, so what is seen is what is sent.
+ * The Recap's two cards to share, story sized, 1080 by 1920, in the slides' paper look:
+ * "My number one song" on ink under a burst, and the year on one card on blue with its covers as
+ * stickers and its numbers on squares of coloured paper. The calm shapes design's cardTop and
+ * cardYear (experiments/features/recap/v5-shapes-calm/recap.src.html), to the pixel where it could
+ * be. Drawn here with the Canvas at that size, as the lyrics cards are (LyricsCard), so they come
+ * out the same from every phone. The slide that shows the year's card shows this very picture, so
+ * what is seen is what is sent.
  */
 object RecapCards {
     private const val TAG = "RecapCards"
@@ -55,16 +57,18 @@ object RecapCards {
     /** How long a card stays in the cache: the app it went to may still be reading it. */
     private const val KEPT_MS = 60L * 60 * 1000
 
-    enum class Kind { TOP, YEAR }
+    /** The year card's three numbers: their size, the paper round them, the squares' height and tilts. */
+    private const val NUMBER_PX = 104f
+    private const val TILE_PAD = 30f
+    private const val TILE_HEIGHT = 214f
+    private val TILE_TURNS = floatArrayOf(-3f, 2f, -2f)
 
-    private fun face(weight: Int): Typeface =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) Typeface.create(Typeface.DEFAULT, weight, false)
-        else if (weight >= 600) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
+    private fun Color.int() = toArgb()
 
-    private fun paint(size: Float, colour: Int, weight: Int = 400) = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+    private fun text(size: Float, colour: Color, weight: Int = 400, display: Boolean = false) = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
         textSize = size
-        color = colour
-        typeface = face(weight)
+        color = colour.int()
+        typeface = if (display) RecapFaces.typeface(weight) else android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, if (weight >= 600) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
     }
 
     private fun layout(text: CharSequence, paint: TextPaint, width: Int, maxLines: Int = 1, spacing: Float = 1f): StaticLayout =
@@ -80,10 +84,10 @@ object RecapCards {
      * [text] as large as it fits in [maxLines] from [largest] down to [smallest], cut at the end
      * only below that: a card is a picture, nobody can tap it open.
      */
-    private fun fitted(text: String, largest: Float, smallest: Float, colour: Int, weight: Int, width: Int, maxLines: Int, spacing: Float = 1f): StaticLayout {
+    private fun fitted(text: CharSequence, largest: Float, smallest: Float, colour: Color, weight: Int, width: Int, maxLines: Int, spacing: Float = 1f, display: Boolean = true): StaticLayout {
         var size = largest
         while (true) {
-            val p = paint(size, colour, weight)
+            val p = text(size, colour, weight, display)
             val whole = StaticLayout.Builder.obtain(text, 0, text.length, p, width).setIncludePad(false).setLineSpacing(0f, spacing).build()
             if ((whole.lineCount <= maxLines && (0 until whole.lineCount).all { whole.getLineWidth(it) <= width + 1 }) || size <= smallest) {
                 return layout(text, p, width, maxLines, spacing)
@@ -92,184 +96,204 @@ object RecapCards {
         }
     }
 
-    /** The background: the cover washed out into its colours, as the slides have it, darker top and foot. */
-    private fun backdrop(canvas: Canvas, cover: Bitmap?, colours: RecapColours) {
-        canvas.drawColor(colours.deep)
-        if (cover != null) {
-            val side = minOf(cover.width, cover.height)
-            val wash = Bitmap.createScaledBitmap(Bitmap.createBitmap(cover, (cover.width - side) / 2, (cover.height - side) / 2, side, side), 20, 20, true)
-            val saturate = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG).apply {
-                colorFilter = ColorMatrixColorFilter(android.graphics.ColorMatrix().apply { setSaturation(1.3f) })
+    /** The paper: one loud colour and its grain. */
+    private fun paper(canvas: Canvas, colour: Color) {
+        canvas.drawColor(colour.int())
+        canvas.drawRect(0f, 0f, WIDTH.toFloat(), HEIGHT.toFloat(), Paint().apply { shader = PaperGrain.shader(2.2f) })
+    }
+
+    private fun outline(paper: Paper, cx: Float, cy: Float, side: Float, turn: Float): Path {
+        val pts = PaperShapes.of(paper)
+        val a = Math.toRadians(turn.toDouble())
+        val c = Math.cos(a).toFloat()
+        val s = Math.sin(a).toFloat()
+        return Path().apply {
+            for (p in 0 until PaperShapes.N) {
+                val dx = (pts[2 * p] - 50f) / 100f * side
+                val dy = (pts[2 * p + 1] - 50f) / 100f * side
+                val x = cx + dx * c - dy * s
+                val y = cy + dx * s + dy * c
+                if (p == 0) moveTo(x, y) else lineTo(x, y)
             }
-            saturate.alpha = 230
-            canvas.drawBitmap(wash, null, RectF(-0.25f * WIDTH, -0.2f * HEIGHT, 1.25f * WIDTH, 1.1f * HEIGHT), saturate)
-            saturate.alpha = 140
-            // The copy turned over, faded in from above the middle so that its edge never shows.
-            val layer = canvas.saveLayer(0f, 0f, WIDTH.toFloat(), HEIGHT.toFloat(), null)
-            canvas.withRotation(180f, WIDTH / 2f, HEIGHT * 0.8f) {
-                drawBitmap(wash, null, RectF(-0.3f * WIDTH, 0.3f * HEIGHT, 1.3f * WIDTH, 1.4f * HEIGHT), saturate)
-            }
-            canvas.drawRect(0f, 0f, WIDTH.toFloat(), HEIGHT.toFloat(), Paint().apply {
-                shader = LinearGradient(0f, 0.25f * HEIGHT, 0f, 0.45f * HEIGHT, 0x00000000, 0xFF000000.toInt(), Shader.TileMode.CLAMP)
-                xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
+            close()
+        }
+    }
+
+    /** A cut-paper shape of layers outside in, each with its soft shadow and the paper's grain. */
+    private fun shape(canvas: Canvas, paper: Paper, cx: Float, cy: Float, side: Float, turn: Float, colours: List<Color>, layers: List<Float> = listOf(1f, 0.6f, 0.36f)) {
+        colours.forEachIndexed { i, colour ->
+            val path = outline(paper, cx, cy, side * layers.getOrElse(i) { 1f }, turn)
+            canvas.drawPath(path, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = colour.int()
+                setShadowLayer(24f, 0f, 18f, RecapInk.Shade.copy(alpha = 0.3f).int())
             })
-            canvas.restoreToCount(layer)
+            canvas.drawPath(path, Paint(Paint.ANTI_ALIAS_FLAG).apply { shader = PaperGrain.shader(2.2f) })
         }
-        canvas.drawColor((colours.deep and 0x00FFFFFF) or (0x57 shl 24))
-        canvas.drawRect(0f, 0f, WIDTH.toFloat(), HEIGHT.toFloat(), Paint().apply {
-            shader = LinearGradient(
-                0f, 0f, 0f, HEIGHT.toFloat(),
-                intArrayOf(0x57000000, 0x1F000000, 0x4D000000, 0x9E000000.toInt()),
-                floatArrayOf(0f, 0.34f, 0.7f, 1f),
-                Shader.TileMode.CLAMP,
-            )
-        })
     }
 
-    /** A cover cut square from its middle, with round corners. */
-    private fun drawCover(canvas: Canvas, cover: Bitmap?, into: RectF, radius: Float) {
-        val fill = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-        if (cover == null) {
-            fill.color = 0x14FFFFFF
-            canvas.drawRoundRect(into, radius, radius, fill)
-            return
+    /** A cover stuck on with a white paper edge, turned [turn] degrees round its middle. */
+    private fun sticker(canvas: Canvas, cover: Bitmap?, left: Float, top: Float, side: Float, turn: Float, edge: Float = 16f, radius: Float = 40f, innerRadius: Float = 26f) {
+        canvas.withRotation(turn, left + side / 2, top + side / 2) {
+            val outer = RectF(left, top, left + side, top + side)
+            drawRoundRect(outer, radius, radius, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = RecapInk.White.int()
+                setShadowLayer(60f, 0f, 30f, RecapInk.Shade.copy(alpha = 0.38f).int())
+            })
+            val inner = RectF(left + edge, top + edge, left + side - edge, top + side - edge)
+            val fill = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+            if (cover == null) {
+                fill.color = 0xFFDDDAD3.toInt()
+            } else {
+                val s = minOf(cover.width, cover.height).toFloat()
+                val from = RectF((cover.width - s) / 2, (cover.height - s) / 2, (cover.width + s) / 2, (cover.height + s) / 2)
+                fill.shader = BitmapShader(cover, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).apply {
+                    setLocalMatrix(Matrix().apply { setRectToRect(from, inner, Matrix.ScaleToFit.FILL) })
+                }
+            }
+            drawRoundRect(inner, innerRadius, innerRadius, fill)
         }
-        val side = minOf(cover.width, cover.height).toFloat()
-        val from = RectF((cover.width - side) / 2, (cover.height - side) / 2, (cover.width + side) / 2, (cover.height + side) / 2)
-        fill.shader = BitmapShader(cover, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).apply {
-            setLocalMatrix(Matrix().apply { setRectToRect(from, into, Matrix.ScaleToFit.FILL) })
-        }
-        // A shadow under it, as the mock's box-shadow.
-        val shade = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = 0x00000000
-            setShadowLayer(radius * 2.2f, 0f, radius, 0x80000000.toInt())
-        }
-        canvas.drawRoundRect(into, radius, radius, shade)
-        canvas.drawRoundRect(into, radius, radius, fill)
     }
 
-    /** The mark and [name] after it, the card's first line. */
-    private fun drawBrand(context: Context, canvas: Canvas, name: String, rest: String?, colours: RecapColours) {
-        val icon = 72f
-        canvas.drawCircle(PAD + icon / 2, PAD + icon / 2, icon / 2, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFED5564.toInt() })
+    /** The mark and [line] after it, with [year] in lemon wherever the words put it. */
+    private fun heading(context: Context, canvas: Canvas, template: String, year: String) {
+        val icon = 78f
+        canvas.drawCircle(PAD + icon / 2, PAD + icon / 2, icon / 2, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = RecapRed.int() })
         ContextCompat.getDrawable(context, R.drawable.launcher_foreground)?.mutate()?.let {
             it.setBounds(PAD.toInt(), PAD.toInt(), (PAD + icon).toInt(), (PAD + icon).toInt())
             it.draw(canvas)
         }
-        val bold = paint(40f, colours.ink, 700)
-        val baseline = PAD + icon / 2 - (bold.descent() + bold.ascent()) / 2
-        canvas.drawText(name, PAD + icon + 22f, baseline, bold)
-        if (rest != null) canvas.drawText(rest, PAD + icon + 22f + bold.measureText("$name "), baseline, paint(40f, colours.ink2))
+        val (before, after) = around(template)
+        val line = SpannableStringBuilder(before).apply {
+            val at = length
+            append(year)
+            setSpan(ForegroundColorSpan(RecapInk.Lemon.int()), at, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            append(after)
+        }
+        val words = fitted(line, 62f, 40f, RecapInk.Cream, 900, (WIDTH - 2 * PAD - icon - 22f).toInt(), 1)
+        canvas.withTranslation(PAD + icon + 22f, PAD + icon / 2 - words.height / 2f) { words.draw(this) }
     }
 
-    private fun drawFoot(canvas: Canvas, left: String, right: String, colours: RecapColours) {
-        val p = paint(34f, colours.ink2)
-        val baseline = HEIGHT - 84f - p.descent()
+    private fun foot(canvas: Canvas, left: String, right: String) {
+        val p = text(34f, RecapInk.Cream.copy(alpha = 0.8f), 500)
+        val baseline = HEIGHT - 56f - p.descent()
         canvas.drawText(left, PAD, baseline, p)
         canvas.drawText(right, WIDTH - PAD - p.measureText(right), baseline, p)
     }
 
-    /** "My number one song": its cover, its name, its plays. */
-    fun top(context: Context, shown: RecapShown, words: RecapWords, cover: Bitmap?, colours: RecapColours): Bitmap {
+    /** "My number one song": its cover as a sticker on a giant burst, its name, its plays. */
+    fun top(context: Context, shown: RecapShown, words: RecapWords, cover: Bitmap?): Bitmap {
         val recap = shown.recap
         val top = recap.topSongs.first()
         val song = shown.song(top.songId)
         val card = createBitmap(WIDTH, HEIGHT)
         val canvas = Canvas(card)
-        backdrop(canvas, cover, colours)
-        drawBrand(context, canvas, context.getString(R.string.recap_name), recap.year.toString(), colours)
+        paper(canvas, RecapInk.Ink)
+        shape(canvas, Paper.BURST, 540f, 690f, 1040f, 0f, listOf(RecapInk.Lemon, RecapInk.Pink, RecapInk.Blue), listOf(1f, 0.8f, 0.62f))
+        shape(canvas, Paper.STAR8, 112f, 1046f, 140f, 0f, listOf(RecapInk.Pink))
+        shape(canvas, Paper.TRI, 980f, 1120f, 150f, 20f, listOf(RecapInk.Sky))
+        heading(context, canvas, context.getString(R.string.recap_name) + " " + MARK, recap.year.toString())
+        sticker(canvas, cover, 230f, 380f, 620f, -3f)
         val inner = (WIDTH - 2 * PAD).toInt()
-        var y = PAD + 72f + 96f
-        drawCover(canvas, cover, RectF((WIDTH - 780f) / 2, y, (WIDTH + 780f) / 2, y + 780f), 44f)
-        y += 780f + 84f
-        val kick = layout(context.getString(R.string.recap_card_number_one), paint(46f, colours.accent, 500), inner)
-        canvas.withTranslation(PAD, y) { kick.draw(this) }
-        y += kick.height + 18f
-        val title = fitted(song?.title.orEmpty(), 92f, 56f, colours.ink, 900, inner, maxLines = 2)
-        canvas.withTranslation(PAD, y) { title.draw(this) }
-        y += title.height + 18f
-        val artists = layout(song?.artists.orEmpty(), paint(46f, colours.ink2), inner)
-        canvas.withTranslation(PAD, y) { artists.draw(this) }
-        y += artists.height + 54f
-        val big = paint(200f, colours.accent, 900).apply { letterSpacing = -0.05f }
+        val kick = layout(context.getString(R.string.recap_card_number_one), text(56f, RecapInk.Lemon, 900, display = true), inner)
+        canvas.withTranslation(PAD, 1180f) { kick.draw(this) }
+        val title = fitted(song?.title.orEmpty(), 100f, 60f, RecapInk.Cream, 900, inner, maxLines = 2, spacing = 0.98f)
+        canvas.withTranslation(PAD, 1262f) { title.draw(this) }
+        val artists = layout(song?.artists.orEmpty(), text(46f, RecapInk.Cream.copy(alpha = 0.82f)), inner)
+        canvas.withTranslation(PAD, maxOf(1484f, 1262f + title.height + 22f)) { artists.draw(this) }
+        // The plays, big in lemon, and what they count beside them on two lines.
+        val big = text(230f, RecapInk.Lemon, 900, display = true)
         val count = words.number(top.plays)
-        val baseline = y - big.ascent() * 0.8f
-        canvas.drawText(count, PAD - 8f, baseline, big)
-        val since = if (recap.firstYear) context.getString(R.string.recap_card_plays_since, words.day(recap.sinceDay))
-        else context.getString(R.string.recap_card_plays_in, recap.year.toString())
-        canvas.drawText(
-            context.resources.getQuantityString(R.plurals.recap_card_plays, top.plays, since),
-            PAD - 8f + big.measureText(count) + 26f, baseline, paint(50f, colours.ink, 700),
-        )
-        drawFoot(canvas, context.getString(R.string.recap_card_site), context.getString(R.string.recap_card_made_here), colours)
+        val baseline = 1560f - big.ascent() * 0.86f
+        canvas.drawText(count, 86f, baseline, big)
+        // "plays since" over the day, as the design breaks it.
+        val since = if (recap.firstYear) context.getString(R.string.recap_card_plays_since, "\n" + words.day(recap.sinceDay))
+        else context.getString(R.string.recap_card_plays_in, "\n" + recap.year.toString())
+        val label = context.resources.getQuantityString(R.plurals.recap_card_plays, top.plays, since).replace(" \n", "\n")
+        val left = 86f + big.measureText(count) + 28f
+        val side = fitted(label, 56f, 36f, RecapInk.Cream, 900, (WIDTH - PAD - left).toInt().coerceAtLeast(200), 2, 1.05f)
+        canvas.withTranslation(left, baseline - 30f - side.height) { side.draw(this) }
+        foot(canvas, context.getString(R.string.recap_card_site), context.getString(R.string.recap_card_made_here))
         return card
     }
 
-    /** The year on one card: five covers fanned out, the top songs and artists, three numbers. */
-    fun year(context: Context, shown: RecapShown, words: RecapWords, covers: List<Bitmap?>, colours: RecapColours): Bitmap {
+    /** The year on one card: five covers fanned out as stickers, the top songs and artists, three numbers on coloured paper. */
+    fun year(context: Context, shown: RecapShown, words: RecapWords, covers: List<Bitmap?>): Bitmap {
         val recap = shown.recap
         val card = createBitmap(WIDTH, HEIGHT)
         val canvas = Canvas(card)
-        backdrop(canvas, covers.firstOrNull(), colours)
-        drawBrand(context, canvas, context.getString(R.string.recap_card_my_year, recap.year.toString()), null, colours)
+        paper(canvas, RecapInk.Blue)
+        shape(canvas, Paper.BURST, 930f, 330f, 560f, 0f, listOf(RecapInk.Lemon, RecapInk.Orange))
+        shape(canvas, Paper.BLOB2, -90f, 1640f, 420f, 30f, listOf(RecapInk.Pink))
+        shape(canvas, Paper.CIRCLE, 1010f, 1270f, 260f, 0f, listOf(RecapInk.Mint))
+        shape(canvas, Paper.TRI, 1016f, 1548f, 170f, -18f, listOf(RecapInk.Sky))
+        heading(context, canvas, context.getString(R.string.recap_card_my_year, MARK), recap.year.toString())
+        // The fan: the number one in front, the rest behind it, each its own size and tilt.
+        val sides = floatArrayOf(380f, 320f, 290f, 270f, 250f)
+        val lefts = floatArrayOf(92f, 404f, 632f, 792f, 502f)
+        val tops = floatArrayOf(220f, 238f, 206f, 300f, 400f)
+        val turns = floatArrayOf(-6f, 5f, -4f, 8f, -3f)
+        for (i in minOf(covers.size, 5) - 1 downTo 0) sticker(canvas, covers[i], lefts[i], tops[i], sides[i], turns[i])
         val inner = (WIDTH - 2 * PAD).toInt()
-        var y = PAD + 72f + 70f
-        // The fan: the number one in front, each after it smaller and further back.
-        for (i in covers.indices.reversed()) {
-            val scale = 1f - i * 0.06f
-            val side = 330f * scale
-            val left = PAD + i * 142f
-            val top = y + (330f - side) / 2
-            drawCover(canvas, covers[i], RectF(left, top, left + side, top + side), 28f)
-        }
-        y += 330f + 64f
-        fun list(heading: String, names: List<String>) {
-            val h = layout(heading, paint(40f, colours.accent, 500), inner)
-            canvas.withTranslation(PAD, y) { h.draw(this) }
-            y += h.height + 14f
+        fun list(heading: String, names: List<String>, top: Float) {
+            canvas.drawText(heading, PAD, top - text(54f, RecapInk.Lemon, 900, true).ascent(), text(54f, RecapInk.Lemon, 900, true))
             // One size for the whole list, the largest at which every line fits on one.
             var size = 46f
-            while (size > 34f && names.any { paint(size, colours.ink, 700).measureText(it) > inner - 58f }) size -= 1f
+            while (size > 34f && names.any { text(size, RecapInk.Cream, 700).measureText(it) > inner - 60f }) size -= 1f
+            val line = text(size, RecapInk.Cream, 700)
+            val rank = text(size + 4f, RecapInk.Lemon, 900, true)
+            var y = top + 70f
             for ((i, name) in names.withIndex()) {
-                val rank = paint(size, colours.ink2, 500)
-                val line = paint(size, colours.ink, 700)
-                val baseline = y - line.ascent()
+                val baseline = y + 62f * 0.74f
                 canvas.drawText("${i + 1}", PAD, baseline, rank)
-                canvas.drawText(TextUtils.ellipsize(name, line, inner - 58f, TextUtils.TruncateAt.END).toString(), PAD + 58f, baseline, line)
-                y += size * 1.32f
+                canvas.drawText(TextUtils.ellipsize(name, line, inner - 60f, TextUtils.TruncateAt.END).toString(), PAD + 60f, baseline, line)
+                y += 62f
             }
         }
-        list(context.getString(R.string.recap_card_top_songs), recap.topSongs.map { shown.song(it.songId)?.title.orEmpty() })
+        list(context.getString(R.string.recap_card_top_songs), recap.topSongs.map { shown.song(it.songId)?.title.orEmpty() }, 700f)
         if (recap.topArtists.isNotEmpty()) {
-            y += 64f - 14f
-            list(context.getString(R.string.recap_card_top_artists), recap.topArtists.map { shown.artists[it.artistId]?.name.orEmpty() })
+            list(context.getString(R.string.recap_card_top_artists), recap.topArtists.map { shown.artists[it.artistId]?.name.orEmpty() }, 1110f)
         }
-        // Three numbers under a hairline, each with its word.
-        y += 64f
-        val hair = Paint().apply { color = 0x2EFFFFFF; strokeWidth = 2f }
-        canvas.drawLine(PAD, y, WIDTH - PAD, y, hair)
-        y += 40f
+        // Three numbers, each on its own square of coloured paper, a little crooked: as big as the
+        // design has them, each square as wide as what it holds, the row from 44 px to 44 px.
         val numbers = listOfNotNull(
-            words.number(words.minutes(recap.playedMs)) to context.getString(R.string.recap_card_minutes),
-            words.hour(recap.peakHour) to context.getString(R.string.recap_card_my_hour),
-            recap.streak?.let { words.number(it.days) to context.getString(R.string.recap_card_days_in_a_row) },
+            Triple(words.number(words.minutes(recap.playedMs)), context.getString(R.string.recap_card_minutes), RecapInk.Lemon),
+            Triple(words.hourShort(recap.peakHour), context.getString(R.string.recap_card_my_hour), RecapInk.Pink),
+            recap.streak?.let { Triple(words.number(it.days), context.getString(R.string.recap_card_days_in_a_row), RecapInk.Mint) },
         )
-        val big = paint(84f, colours.accent, 900).apply { letterSpacing = -0.03f }
-        val small = paint(34f, colours.ink2)
-        val column = (inner - (numbers.size - 1) * 2f) / numbers.size
-        numbers.forEachIndexed { i, (n, w) ->
-            val left = PAD + i * (column + 2f) + if (i > 0) 44f else 0f
-            if (i > 0) canvas.drawLine(PAD + i * (column + 2f), y, PAD + i * (column + 2f), y + 150f, hair)
-            // Smaller where it would reach the next hairline: "6:00 PM" is longer than the mock's "18:00".
-            val room = column - (if (i > 0) 44f else 0f) - 28f
-            var size = 84f
-            while (size > 48f && big.apply { textSize = size }.measureText(n) > room) size -= 2f
-            val baseline = y - big.ascent()
-            canvas.drawText(n, left, baseline, big)
-            canvas.drawText(w, left, baseline + big.descent() + 12f - small.ascent(), small)
+        val big = text(NUMBER_PX, RecapInk.Ink, 900, true)
+        val small = text(36f, RecapInk.Ink, 900, true)
+        fun widths(size: Float) = numbers.map { (n, label, _) -> maxOf(big.apply { textSize = size }.measureText(n), small.measureText(label)) + 2 * TILE_PAD }
+        var size = NUMBER_PX
+        var edge = 44f
+        var w = widths(size)
+        // A little more room towards the edges before anything gets smaller; smaller only for a
+        // language whose words would not fit at all, never against the card's edge.
+        if (w.sum() + (numbers.size - 1) * 16f > WIDTH - 2 * edge) edge = 24f
+        while (w.sum() + (numbers.size - 1) * 16f > WIDTH - 2 * edge && size > 64f) {
+            size -= 2f
+            w = widths(size)
+        }
+        val gap = if (numbers.size > 1) (WIDTH - 2 * edge - w.sum()) / (numbers.size - 1) else 0f
+        var left = edge
+        numbers.forEachIndexed { i, (n, label, colour) ->
+            val tileW = w[i]
+            val top = 1560f
+            canvas.withRotation(TILE_TURNS[i % TILE_TURNS.size], left + tileW / 2, top + TILE_HEIGHT / 2) {
+                val rect = RectF(left, top, left + tileW, top + TILE_HEIGHT)
+                drawRoundRect(rect, 14f, 14f, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = colour.int()
+                    setShadowLayer(36f, 0f, 18f, RecapInk.Shade.copy(alpha = 0.32f).int())
+                })
+                drawRoundRect(rect, 14f, 14f, Paint(Paint.ANTI_ALIAS_FLAG).apply { shader = PaperGrain.shader(2.2f) })
+                big.textSize = size
+                val baseline = top + TILE_PAD - big.ascent()
+                drawText(n, left + TILE_PAD, baseline, big)
+                drawText(label, left + TILE_PAD, baseline + big.descent() + 8f - small.ascent(), small)
+            }
+            left += tileW + gap
         }
         val since = if (recap.firstYear) context.getString(R.string.recap_card_since, words.day(recap.sinceDay)) else recap.year.toString()
-        drawFoot(canvas, context.getString(R.string.recap_card_site), since, colours)
+        foot(canvas, context.getString(R.string.recap_card_site), since)
         return card
     }
 

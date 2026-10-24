@@ -102,7 +102,6 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import coil3.compose.AsyncImage
 import com.dd3boh.outertune.R
-import com.dd3boh.outertune.recap.RecapPalette
 import com.dd3boh.outertune.recap.RecapReader
 import com.dd3boh.outertune.recap.RecapShown
 import com.dd3boh.outertune.recap.RecapSongShown
@@ -625,12 +624,12 @@ private fun SoundBars(song: RecapSongShown, muted: Boolean, still: Boolean) {
 private suspend fun drawTopCard(context: android.content.Context, shown: RecapShown, words: RecapWords, covers: RecapCovers): Bitmap {
     val model = shown.song(shown.recap.topSongs.first().songId)?.cover
     val cover = covers.bitmap(model, RecapReader.COVER_PX)
-    return withContext(Dispatchers.Default) { RecapCards.top(context, shown, words, cover, RecapPalette.APP) }
+    return withContext(Dispatchers.Default) { RecapCards.top(context, shown, words, cover) }
 }
 
 /** The year on one card: the five covers fanned out as stickers. */
 private suspend fun drawYearCard(context: android.content.Context, shown: RecapShown, words: RecapWords, covers: RecapCovers): Bitmap = coroutineScope {
     val models = shown.recap.topSongs.map { shown.song(it.songId)?.cover }
     val bitmaps = models.map { async { covers.bitmap(it, 600) } }.awaitAll()
-    withContext(Dispatchers.Default) { RecapCards.year(context, shown, words, bitmaps, RecapPalette.APP) }
+    withContext(Dispatchers.Default) { RecapCards.year(context, shown, words, bitmaps) }
 }
