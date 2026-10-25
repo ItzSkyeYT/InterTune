@@ -40,32 +40,32 @@ object AppModule {
     @Retention(AnnotationRetention.BINARY)
     annotation class PlayerCache
 
+    /*
+     * Each cache is built once. Both used to be built, released and built again (InnerTune's "Fix
+     * player error", 2023, which says nothing of why), and a release waits for the first build to
+     * read its whole folder and index, so that read ran on the thread that asked first: the main
+     * thread, as the first screen or the service was created. A single build reads the folder on
+     * a thread of its own, and the first use of the cache waits for it, as it did for the second.
+     */
+
     @Singleton
     @Provides
     @PlayerCache
-    fun providePlayerCache(@ApplicationContext context: Context, databaseProvider: DatabaseProvider): SimpleCache {
-        val constructor = {
-            SimpleCache(
-                context.filesDir.resolve("exoplayer"),
-                when (val cacheSize = context.dataStore[MaxSongCacheSizeKey] ?: 0) {
-                    -1 -> NoOpCacheEvictor()
-                    else -> LeastRecentlyUsedCacheEvictor(cacheSize * 1024 * 1024L)
-                },
-                databaseProvider
-            )
-        }
-        constructor().release()
-        return constructor()
-    }
+    fun providePlayerCache(@ApplicationContext context: Context, databaseProvider: DatabaseProvider): SimpleCache =
+        SimpleCache(
+            context.filesDir.resolve("exoplayer"),
+            // A new install has its 256 MB stored before this can be read (NewInstallSongCache);
+            // none stored is an older install that never picked a size, and its cache stays off.
+            when (val cacheSize = context.dataStore[MaxSongCacheSizeKey] ?: 0) {
+                -1 -> NoOpCacheEvictor()
+                else -> LeastRecentlyUsedCacheEvictor(cacheSize * 1024 * 1024L)
+            },
+            databaseProvider
+        )
 
     @Singleton
     @Provides
     @DownloadCache
-    fun provideDownloadCache(@ApplicationContext context: Context, databaseProvider: DatabaseProvider): SimpleCache {
-        val constructor = {
-            SimpleCache(context.filesDir.resolve("download"), NoOpCacheEvictor(), databaseProvider)
-        }
-        constructor().release()
-        return constructor()
-    }
+    fun provideDownloadCache(@ApplicationContext context: Context, databaseProvider: DatabaseProvider): SimpleCache =
+        SimpleCache(context.filesDir.resolve("download"), NoOpCacheEvictor(), databaseProvider)
 }

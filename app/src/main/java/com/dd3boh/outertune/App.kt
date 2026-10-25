@@ -9,7 +9,6 @@
 
 package com.dd3boh.outertune
 
-import kotlinx.coroutines.flow.first
 import com.dd3boh.outertune.models.ContentFilter
 import com.dd3boh.outertune.utils.BuiltInKeys
 import android.webkit.CookieManager
@@ -117,6 +116,9 @@ class App : Application(), SingletonImageLoader.Factory {
         // Every request that changes the account asks this first, so "Read only" and signed out
         // hold even where a call site forgot to check.
         YouTube.accountWritesAllowed = { mayPushToYouTube() }
+        // YouTube's player script is kept here between launches, so the first song of a new
+        // process does not wait for it to be fetched again: see NewPipe.kt.
+        YouTube.newPipeCacheDir = cacheDir.resolve("newpipe-http")
 
         val locale = Locale.getDefault()
         val languageTag = locale.toLanguageTag().replace("-Hant", "") // replace zh-Hant-* to zh-*
@@ -192,7 +194,7 @@ class App : Application(), SingletonImageLoader.Factory {
         }
         // What the switches under Library and content hide, read once here so that a queue started
         // straight away already follows them, then followed. See ContentFilter.
-        ContentFilter.current = ContentFilter.of(runBlocking(Dispatchers.IO) { dataStore.data.first() })
+        ContentFilter.current = ContentFilter.of(dataStore.current)
         GlobalScope.launch {
             dataStore.data
                 .map { ContentFilter.of(it) }

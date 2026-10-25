@@ -4,6 +4,7 @@ import com.zionhuang.innertube.models.YouTubeClient
 import com.zionhuang.innertube.models.response.PlayerResponse
 import io.ktor.http.URLBuilder
 import io.ktor.http.parseQueryString
+import okhttp3.Cache
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.schabi.newpipe.extractor.NewPipe
@@ -13,10 +14,11 @@ import org.schabi.newpipe.extractor.downloader.Response
 import org.schabi.newpipe.extractor.exceptions.ParsingException
 import org.schabi.newpipe.extractor.exceptions.ReCaptchaException
 import org.schabi.newpipe.extractor.services.youtube.YoutubeJavaScriptPlayerManager
+import java.io.File
 import java.io.IOException
 import java.net.Proxy
 
-private class NewPipeDownloaderImpl(proxy: Proxy?) : Downloader() {
+private class NewPipeDownloaderImpl(proxy: Proxy?, cacheDir: File?) : Downloader() {
 
     // The n and signature step of every app client goes through here: YouTube's page and its
     // player script, fetched once a process. OkHttp's defaults kept an idle connection five
@@ -34,6 +36,11 @@ private class NewPipeDownloaderImpl(proxy: Proxy?) : Downloader() {
         .readTimeout(6, java.util.concurrent.TimeUnit.SECONDS)
         .callTimeout(3, java.util.concurrent.TimeUnit.MINUTES)
         .connectionPool(okhttp3.ConnectionPool(2, 5, java.util.concurrent.TimeUnit.SECONDS))
+        // The player script kept on disk for as long as YouTube allows, a year, since its address
+        // names its version: a new process reads it there instead of fetching it again before its
+        // first song can play. The small page that names the version in use is asked every time,
+        // as before (it says max-age=0), so a new version is still fetched the day it comes.
+        .apply { if (cacheDir != null) cache(Cache(cacheDir, CACHE_BYTES)) }
         .build()
 
     @Throws(IOException::class, ReCaptchaException::class)
@@ -73,12 +80,16 @@ private class NewPipeDownloaderImpl(proxy: Proxy?) : Downloader() {
         return Response(response.code, response.message, response.headers.toMultimap(), responseBodyToReturn, latestUrl)
     }
 
+    private companion object {
+        /** About 1 MB a version of the script, as it comes compressed: room for several. */
+        const val CACHE_BYTES = 16L * 1024 * 1024
+    }
 }
 
 object NewPipeUtils {
 
     init {
-        NewPipe.init(NewPipeDownloaderImpl(YouTube.proxy))
+        NewPipe.init(NewPipeDownloaderImpl(YouTube.proxy, YouTube.newPipeCacheDir))
     }
 
     /**
@@ -125,7 +136,9 @@ object NewPipeUtils {
 
     /**
      * Fetches YouTube's player script and compiles its n function ahead of the first song, with
-     * [videoId] for the page it is found through. Failures are the first song's to meet again.
+     * [videoId] for the page it is found through when YouTube's own small page for it fails: any
+     * song, or none (""), since that page names the script without one. Failures are the first
+     * song's to meet again.
      */
     fun warm(videoId: String): Result<Unit> = runCatching {
         withScript {
