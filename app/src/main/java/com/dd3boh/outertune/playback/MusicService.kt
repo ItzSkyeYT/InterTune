@@ -2598,11 +2598,11 @@ class MusicService : MediaLibraryService(),
                     )
                     .setCacheWriteDataSinkFactory(
                         HybridCacheDataSinkFactory(playerCache) { dataSpec ->
-                            // Nothing is written while the song cache is off, its size 0 and the
-                            // default: its evictor deleted each piece the moment it was in, so
-                            // every streamed byte went to storage for nothing. Asked at each
-                            // write, not when the cache was built, so turning it off stops them
-                            // at once.
+                            // Nothing is written while the song cache is off, its size 0, as it
+                            // is on an older install that never picked one: its evictor deleted
+                            // each piece the moment it was in, so every streamed byte went to
+                            // storage for nothing. Asked at each write, not when the cache was
+                            // built, so turning it off stops them at once.
                             val write = dataStore.get(MaxSongCacheSizeKey, 0) != 0 &&
                                 queueBoard.getCurrentQueue()?.findSong(dataSpec.key ?: "")?.isLocal != true
                             Log.d(TAG, "SONG CACHE: $write")

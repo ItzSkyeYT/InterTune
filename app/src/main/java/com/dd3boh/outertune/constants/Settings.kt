@@ -1,7 +1,9 @@
 package com.dd3boh.outertune.constants
 
 import android.content.Context
+import androidx.datastore.core.DataMigration
 import androidx.datastore.preferences.core.MutablePreferences
+import androidx.datastore.preferences.core.Preferences
 import com.dd3boh.outertune.R
 
 /*
@@ -242,6 +244,31 @@ fun applyNewInstallDefaults(prefs: MutablePreferences) {
     if (firstSetup && prefs[QuickPicksSourceKey] == null && QuickPicksSource.ENGINE in QuickPicksSource.offered()) {
         prefs[QuickPicksSourceKey] = QuickPicksSource.ENGINE.name
     }
+}
+
+/** The size of the song cache a new install starts with, in MB. See [NewInstallSongCache]. */
+const val NEW_INSTALL_SONG_CACHE_MB = 256
+
+/**
+ * A new install starts with a song cache of 256 MB, so that going back, playing a song again and
+ * repeat one take the song from the phone instead of streaming it all over again.
+ *
+ * Written as the settings are first read, when they hold nothing at all: a new install, or one
+ * whose data was cleared. That is before anything can read the size, AppModule's evictor included,
+ * which is built with it once per run, so the cache works from the first song. Not as setup
+ * finishes ([applyNewInstallDefaults]): by then the cache was built off, and setup's own page for
+ * the cache would have shown Off. An install that has settings is left as it is: a size it picked
+ * stays, and one it never picked still reads as 0, off, as it always did.
+ */
+object NewInstallSongCache : DataMigration<Preferences> {
+    override suspend fun shouldMigrate(currentData: Preferences) = currentData.asMap().isEmpty()
+
+    override suspend fun migrate(currentData: Preferences): Preferences =
+        currentData.toMutablePreferences()
+            .apply { this[MaxSongCacheSizeKey] = NEW_INSTALL_SONG_CACHE_MB }
+            .toPreferences()
+
+    override suspend fun cleanUp() = Unit
 }
 
 /** Where the engine's similar songs come from. Read it through similarSourceOf, never directly. */

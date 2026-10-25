@@ -12,6 +12,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.preferencesDataStore
+import com.dd3boh.outertune.constants.NewInstallSongCache
 import com.dd3boh.outertune.extensions.toEnum
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -19,8 +20,14 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlin.properties.ReadOnlyProperty
 
-/** The file itself, reached only through [dataStore], so that no write goes round the copy in memory. */
-private val Context.settingsFile: DataStore<Preferences> by preferencesDataStore(name = "settings")
+/**
+ * The file itself, reached only through [dataStore], so that no write goes round the copy in memory.
+ * A new install's song cache is written in as the file is first read: see [NewInstallSongCache].
+ */
+private val Context.settingsFile: DataStore<Preferences> by preferencesDataStore(
+    name = "settings",
+    produceMigrations = { listOf(NewInstallSongCache) },
+)
 
 @Volatile
 private var settings: SettingsSnapshot? = null

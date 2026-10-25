@@ -54,6 +54,8 @@ object AppModule {
     fun providePlayerCache(@ApplicationContext context: Context, databaseProvider: DatabaseProvider): SimpleCache =
         SimpleCache(
             context.filesDir.resolve("exoplayer"),
+            // A new install has its 256 MB stored before this can be read (NewInstallSongCache);
+            // none stored is an older install that never picked a size, and its cache stays off.
             when (val cacheSize = context.dataStore[MaxSongCacheSizeKey] ?: 0) {
                 -1 -> NoOpCacheEvictor()
                 else -> LeastRecentlyUsedCacheEvictor(cacheSize * 1024 * 1024L)

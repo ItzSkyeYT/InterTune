@@ -201,6 +201,12 @@ val DownloadExtraPathKey = stringPreferencesKey("dlExtraPath") // previously "do
 val DownloadPathKey = stringPreferencesKey("dlPath") // previously "downloadPath"
 val DownloadOnWifiOnlyKey = booleanPreferencesKey("downloadOnWifiOnly")
 val MaxImageCacheSizeKey = intPreferencesKey("maxImageCacheSize")
+
+/**
+ * The song cache's size in MB: 0 is off, -1 has no limit. A new install starts with 256 written in
+ * (NewInstallSongCache). An older install that never picked a size has none, which every reader
+ * takes as 0, off, as it always did there.
+ */
 val MaxSongCacheSizeKey = intPreferencesKey("maxSongCacheSize")
 
 /**

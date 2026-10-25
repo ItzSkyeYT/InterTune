@@ -13,9 +13,10 @@ import java.io.File
 /**
  * Nothing is written to the song cache while it is off.
  *
- * Off is a size of 0, the default in Settings and in setup. The cache is then built with an
- * evictor of 0 bytes, which deleted each piece the moment it was in, while the write sink still
- * wrote every streamed byte to storage first.
+ * Off is a size of 0, picked in Settings or in setup, or none stored on an older install that never
+ * picked one (a new install starts at 256 MB: NewInstallSongCacheTest). The cache is then built
+ * with an evictor of 0 bytes, which deleted each piece the moment it was in, while the write sink
+ * still wrote every streamed byte to storage first.
  */
 class SongCacheOffWritesNothingTest {
     private val service = File("src/main/java/com/dd3boh/outertune/playback/MusicService.kt").readText()
