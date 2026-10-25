@@ -83,9 +83,14 @@ import com.dd3boh.outertune.ui.utils.LocalLandscape
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 
+/**
+ * [position] is asked where the song is each time the progress line is drawn. Handed in as a
+ * number, it had the whole bar composed again at every tick of the player's clock, twice a second
+ * on every screen, for a line two pixels high that is drawn without composing anything.
+ */
 @Composable
 fun MiniPlayer(
-    position: Long,
+    position: () -> Long,
     duration: Long,
     modifier: Modifier = Modifier,
     /** Opens the player from the keys: the centre key on the title. Touch opens it from the sheet around this. */
@@ -147,7 +152,7 @@ fun MiniPlayer(
     ) {
         PlaybackOrder {
             LinearProgressIndicator(
-                progress = { (position.toFloat() / duration).coerceIn(0f, 1f) },
+                progress = { (position().toFloat() / duration).coerceIn(0f, 1f) },
                 drawStopIndicator = { },
                 modifier = Modifier
                     .fillMaxWidth()

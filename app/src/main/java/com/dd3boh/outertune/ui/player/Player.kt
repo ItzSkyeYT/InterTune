@@ -159,6 +159,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.InputMode
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
@@ -229,6 +230,7 @@ import com.dd3boh.outertune.constants.SeekIncrement
 import com.dd3boh.outertune.constants.SeekIncrementKey
 import com.dd3boh.outertune.constants.ShowLyricsKey
 import com.dd3boh.outertune.constants.SwipeToSkipKey
+import com.dd3boh.outertune.constants.TabletUiKey
 import com.dd3boh.outertune.constants.SwipeToDismissPlayerKey
 import com.dd3boh.outertune.constants.GroupedPlayerControlsKey
 import com.dd3boh.outertune.constants.PlayerGlassIntensityKey
@@ -251,6 +253,7 @@ import com.dd3boh.outertune.ui.utils.readingDirection
 import com.dd3boh.outertune.utils.coilCoroutine
 import com.dd3boh.outertune.utils.makeTimeString
 import com.dd3boh.outertune.utils.rememberEnumPreference
+import com.dd3boh.outertune.utils.rememberNullablePreference
 import com.dd3boh.outertune.utils.rememberPreference
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -340,7 +343,9 @@ fun BottomSheetPlayer(
     // the swipe people make, and dropping it left that queue with no working swipe at all.
     val nextInStrip = nextMediaMetadata?.takeIf { it.id != mediaMetadata?.id }
     val previousInStrip = previousMediaMetadata?.takeIf { it.id != mediaMetadata?.id && it.id != nextInStrip?.id }
-    val mediaItems = listOfNotNull(previousInStrip, mediaMetadata, nextInStrip)
+    // The same list for as long as the three songs are, so the strip is not composed again for a
+    // list that only looks new.
+    val mediaItems = remember(previousInStrip, mediaMetadata, nextInStrip) { listOfNotNull(previousInStrip, mediaMetadata, nextInStrip) }
     val currentMediaIndex = if (previousInStrip != null) 1 else 0
 
 
@@ -407,7 +412,11 @@ fun BottomSheetPlayer(
     // A restored song shows where it stopped until it is loaded into the player, which on a cold
     // start is not until play (see PlayerConnection.restoredPosition).
     val restoredPosition by playerConnection.restoredPosition.collectAsState()
-    val shownPosition = restoredPosition ?: position
+    // Asked for, and not read here. The position moves twice a second while a song plays, and read
+    // in this body it had the whole sheet composed again each time, on every screen: the mini
+    // player, the strip of covers and every control. Only the seek bar and the mini player's line
+    // ask for it now (SeekBar, MiniPlayer).
+    val shownPosition: () -> Long = { restoredPosition ?: position }
     // The song's own length while the player has none: before a restored song is loaded, and while
     // any song is still loading, when the bar used to drop to the start and the length went blank.
     val shownDuration = if (duration == C.TIME_UNSET) {
@@ -500,7 +509,7 @@ fun BottomSheetPlayer(
     }
 
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
-    val tabMode = context.tabMode()
+    val tabMode = rememberTabMode()
     val wideScreen = context.supportsWideScreen()
 
     /**
@@ -1291,16 +1300,16 @@ fun BottomSheetPlayer(
                 }
 
                 PlaybackOrder {
-                    val seekInteraction = remember { MutableInteractionSource() }
-                    Slider(
-                        value = (sliderPosition ?: shownPosition).toFloat(),
-                        valueRange = 0f..(if (shownDuration == C.TIME_UNSET) 0f else shownDuration.toFloat()),
-                        onValueChange = {
-                            sliderPosition = it.toLong()
+                    SeekBar(
+                        position = shownPosition,
+                        duration = shownDuration,
+                        sliderPosition = { sliderPosition },
+                        onSlide = {
+                            sliderPosition = it
                             // slider too granular for this haptic to feel right
     //                    haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
                         },
-                        onValueChangeFinished = {
+                        onSlideDone = {
                             sliderPosition?.let {
                                 if (playerConnection.player.currentMediaItem == null) {
                                     // Nothing is loaded yet, so there is nothing to seek: move where
@@ -1318,74 +1327,33 @@ fun BottomSheetPlayer(
                             sliderPosition = null
                             haptic.performHapticFeedback(HapticFeedbackType.Confirm)
                         },
-                        // Material 3 Expressive: a bar thumb standing clear of a thick track, with the
-                        // stop dot at the end, the same slider the backup settings already use.
-                        interactionSource = seekInteraction,
-                        thumb = {
-                            SliderDefaults.Thumb(
-                                interactionSource = seekInteraction,
-                                thumbSize = DpSize(4.dp, 36.dp),
-                            )
-                        },
-                        track = { sliderState ->
-                            SliderDefaults.Track(
-                                sliderState = sliderState,
-                                modifier = Modifier.height(14.dp),
-                                thumbTrackGapSize = 5.dp,
-                                trackInsideCornerSize = 4.dp,
-                            )
-                        },
-                        modifier = Modifier
-                            .padding(horizontal = hPadding)
-                            // From the keys, left and right seek in steps of a few seconds, which a
-                            // whole song's worth of one percent nudges was not. Up and down move on
-                            // rather than nudging the slider, which would otherwise hold on to focus.
-                            .onPreviewKeyEvent { event ->
-                                val forward = when (event.key) {
-                                    Key.DirectionRight -> true
-                                    Key.DirectionLeft -> false
-                                    Key.DirectionUp, Key.DirectionDown -> {
-                                        if (event.type == KeyEventType.KeyDown) {
-                                            focusManager.moveFocus(
-                                                if (event.key == Key.DirectionUp) FocusDirection.Up else FocusDirection.Down
-                                            )
-                                        }
-                                        return@onPreviewKeyEvent true
+                        // From the keys, left and right seek in steps of a few seconds, which a
+                        // whole song's worth of one percent nudges was not. Up and down move on
+                        // rather than nudging the slider, which would otherwise hold on to focus.
+                        onKey = onKey@{ event ->
+                            val forward = when (event.key) {
+                                Key.DirectionRight -> true
+                                Key.DirectionLeft -> false
+                                Key.DirectionUp, Key.DirectionDown -> {
+                                    if (event.type == KeyEventType.KeyDown) {
+                                        focusManager.moveFocus(
+                                            if (event.key == Key.DirectionUp) FocusDirection.Up else FocusDirection.Down
+                                        )
                                     }
-                                    else -> return@onPreviewKeyEvent false
+                                    return@onKey true
                                 }
-                                if (event.type == KeyEventType.KeyDown && playerConnection.player.currentMediaItem != null) {
-                                    val target = dpadSeekTarget(playerConnection.player.currentPosition, shownDuration, forward)
-                                    playerConnection.player.seekTo(target)
-                                    position = target
-                                }
-                                true
+                                else -> return@onKey false
                             }
+                            if (event.type == KeyEventType.KeyDown && playerConnection.player.currentMediaItem != null) {
+                                val target = dpadSeekTarget(playerConnection.player.currentPosition, shownDuration, forward)
+                                playerConnection.player.seekTo(target)
+                                position = target
+                            }
+                            true
+                        },
+                        gutter = hPadding,
+                        color = onBackgroundColor,
                     )
-
-                    Row(
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = hPadding + 4.dp)
-                    ) {
-                        Text(
-                            text = makeTimeString(sliderPosition ?: shownPosition),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = onBackgroundColor,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-
-                        Text(
-                            text = if (shownDuration != C.TIME_UNSET) makeTimeString(shownDuration) else "",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = onBackgroundColor,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
 
                     Spacer(Modifier.height(controlSizes.gapAboveTransport))
 
@@ -2183,6 +2151,93 @@ private class FadeWhenClippedNode(var length: Dp) : Modifier.Node(), LayoutModif
         drawRect(brush = mask, blendMode = BlendMode.DstIn)
         drawContext.canvas.restore()
     }
+}
+
+/**
+ * The seek bar and the two times under it, as the player has always drawn them: laid straight
+ * into the column they stand in, so nothing about them moves or changes size.
+ *
+ * Here because they are what changes twice a second while a song plays. [position] and
+ * [sliderPosition] are read here and nowhere above, so that each tick composes this alone, and
+ * not the whole sheet round it as it did when the player read the position itself.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SeekBar(
+    position: () -> Long,
+    duration: Long,
+    sliderPosition: () -> Long?,
+    onSlide: (Long) -> Unit,
+    onSlideDone: () -> Unit,
+    onKey: (KeyEvent) -> Boolean,
+    gutter: Dp,
+    color: Color,
+) {
+    val shown = sliderPosition() ?: position()
+    val seekInteraction = remember { MutableInteractionSource() }
+    Slider(
+        value = shown.toFloat(),
+        valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
+        onValueChange = { onSlide(it.toLong()) },
+        onValueChangeFinished = onSlideDone,
+        // Material 3 Expressive: a bar thumb standing clear of a thick track, with the
+        // stop dot at the end, the same slider the backup settings already use.
+        interactionSource = seekInteraction,
+        thumb = {
+            SliderDefaults.Thumb(
+                interactionSource = seekInteraction,
+                thumbSize = DpSize(4.dp, 36.dp),
+            )
+        },
+        track = { sliderState ->
+            SliderDefaults.Track(
+                sliderState = sliderState,
+                modifier = Modifier.height(14.dp),
+                thumbTrackGapSize = 5.dp,
+                trackInsideCornerSize = 4.dp,
+            )
+        },
+        modifier = Modifier
+            .padding(horizontal = gutter)
+            .onPreviewKeyEvent(onKey)
+    )
+
+    Row(
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = gutter + 4.dp)
+    ) {
+        Text(
+            text = makeTimeString(shown),
+            style = MaterialTheme.typography.labelMedium,
+            color = color,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+
+        Text(
+            text = if (duration != C.TIME_UNSET) makeTimeString(duration) else "",
+            style = MaterialTheme.typography.labelMedium,
+            color = color,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+/**
+ * Whether the player lays itself out for a tablet on its side, as Context.tabMode says: read from
+ * the setting as it changes and from the configuration the screen is composed with. The player
+ * used to ask the setting each time it was composed, which it no longer is twice a second, and a
+ * change of the setting would then have waited for something else to compose it.
+ */
+@Composable
+internal fun rememberTabMode(): Boolean {
+    val configuration = LocalConfiguration.current
+    val forced by rememberNullablePreference(TabletUiKey)
+    return tabMode(configuration.smallestScreenWidthDp, configuration.orientation == Configuration.ORIENTATION_LANDSCAPE, forced)
 }
 
 /** The classic player button: a 36dp circle, sitting a little low to line up with the title. */

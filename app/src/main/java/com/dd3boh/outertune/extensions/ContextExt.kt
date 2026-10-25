@@ -34,10 +34,17 @@ fun Context.supportsWideScreen() : Boolean {
 
 fun Context.tabMode(): Boolean {
     val config = resources.configuration
-    val isTablet = config.smallestScreenWidthDp >= 600
-    val isLandscape = config.orientation == Configuration.ORIENTATION_LANDSCAPE
-    val forceTabMode = dataStore.get(TabletUiKey, isTablet)
-    return (isTablet || forceTabMode) && isLandscape
+    return tabMode(config.smallestScreenWidthDp, config.orientation == Configuration.ORIENTATION_LANDSCAPE, dataStore[TabletUiKey])
+}
+
+/**
+ * The tablet layout: a screen at least 600dp across its short side, or one the setting
+ * ([forced], null when never set) puts in it, and only on its side. The player's
+ * rememberTabMode asks the same as the setting changes.
+ */
+fun tabMode(smallestWidthDp: Int, landscape: Boolean, forced: Boolean?): Boolean {
+    val isTablet = smallestWidthDp >= 600
+    return (isTablet || (forced ?: isTablet)) && landscape
 }
 
 fun Context.isPowerSaver(): Boolean {
