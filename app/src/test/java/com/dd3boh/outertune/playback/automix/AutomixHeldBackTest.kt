@@ -52,8 +52,9 @@ class AutomixHeldBackTest {
         val fade = code(source("ui/screens/settings/fragments/PlayerFrag.kt"))
             .substringAfter("fun ColumnScope.TransitionFadeFrag()").substringBefore("\n}\n")
         assertTrue(fade, "val automixOn = if (Unreleased.AUTOMIX) rememberPreference(AutomixKey, defaultValue = false).value else false" in fade)
-        assertTrue(fade, "isEnabled = !automixOn," in fade)
-        assertTrue(fade, "if (!enabled || automixOn) return" in fade)
+        // Battery use's Saver holds the same row (BatteryUse), so the two conditions sit side by side.
+        assertTrue(fade, "isEnabled = !held && !automixOn," in fade)
+        assertTrue(fade, "if (!enabled || automixOn || held) return" in fade)
     }
 
     @Test
