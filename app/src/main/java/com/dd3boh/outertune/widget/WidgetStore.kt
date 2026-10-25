@@ -20,8 +20,10 @@ import coil3.request.ImageRequest
 import coil3.request.allowHardware
 import coil3.toBitmap
 import com.dd3boh.outertune.constants.PauseListenHistoryKey
+import com.dd3boh.outertune.db.entities.SongEntity
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.toMediaMetadata
+import com.dd3boh.outertune.playback.DownloadUtil
 import com.dd3boh.outertune.ui.theme.extractCoverColor
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.ui.utils.coverAddresses
@@ -32,11 +34,20 @@ import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -182,8 +193,12 @@ object WidgetStore {
         _drawn.value = decoded(context, snapshot)
     }
 
-    /** What is playing at the moment the snapshot is written. */
-    data class NowState(val song: MediaMetadata?, val isPlaying: Boolean)
+    /**
+     * What is playing at the moment the snapshot is written. [liked] counts only for a song that was
+     * not playing before (see likedFor): it is the first guess at its heart (see [likeGuess]), and
+     * [followLikes] puts the stored like there once it is read.
+     */
+    data class NowState(val song: MediaMetadata?, val isPlaying: Boolean, val liked: Boolean = false)
 
     /**
      * The song that is playing, and whether it is. Called on every song change and every play or
@@ -205,11 +220,11 @@ object WidgetStore {
         val widgets = hasWidgets(context)
         var owed: Pair<MediaMetadata, List<Int>>? = null
         mutex.withLock {
-            val (song, isPlaying) = state()
+            val (song, isPlaying, liked) = state()
             val old = read(context)
             wantedArt = song?.id
             if (song == null) {
-                write(context, old.copy(nowPlaying = null, isPlaying = false, updatedAt = System.currentTimeMillis()))
+                write(context, old.copy(nowPlaying = null, isPlaying = false, isLiked = false, updatedAt = System.currentTimeMillis()))
             } else {
                 val same = old.nowPlaying?.id == song.id
                 // The picture is only for a widget. The words are written either way, so a widget
@@ -238,7 +253,16 @@ object WidgetStore {
                 val paused = context.dataStore.get(PauseListenHistoryKey, false)
                 val row = (if (widgets && !paused) artOnPhone(context, song.id, ART_PICK_PX) else null) ?: now.artPath
                 val recent = nextRecent(old.recent, now.copy(artPath = row), paused = paused, maxPicks = WidgetLayout.MAX_PICKS)
-                write(context, old.copy(nowPlaying = now, isPlaying = isPlaying, recent = recent, updatedAt = System.currentTimeMillis()))
+                write(
+                    context,
+                    old.copy(
+                        nowPlaying = now,
+                        isPlaying = isPlaying,
+                        isLiked = likedFor(old, song.id, liked),
+                        recent = recent,
+                        updatedAt = System.currentTimeMillis(),
+                    ),
+                )
                 if (widgets) {
                     // Three sizes: a widget given over to the artwork wants a real cover, one with
                     // a title beside it a smaller one, and a list row a thumbnail.
@@ -288,6 +312,37 @@ object WidgetStore {
             )
         }
         return true
+    }
+
+    /**
+     * The heart of the song the widget shows, as stored: [liked] for [songId], drawn at once. Nothing
+     * is written when the widget shows another song by now, or already shows that like.
+     */
+    suspend fun setLiked(context: Context, songId: String, liked: Boolean) {
+        val changed = mutex.withLock {
+            val next = read(context).withLike(songId, liked) ?: return@withLock false
+            write(context, next.copy(updatedAt = System.currentTimeMillis()))
+            true
+        }
+        if (changed && hasWidgets(context)) MusicWidget().updateAll(context)
+    }
+
+    /**
+     * Keeps the widget's heart on the like as stored, wherever it was changed: the player's heart,
+     * the notification's, a menu, the widget's own, or YouTube's list of liked songs. For as long as
+     * [scope] lives, which is the player's service, and for the song the widget shows rather than
+     * the one the player holds: after a cold start the widget still shows the last song while the
+     * player holds none, and a like given it from the player's screen has to fill this heart too.
+     * [likedOf] is the stored like of a song, null when the song is not stored.
+     */
+    fun followLikes(context: Context, scope: CoroutineScope, likedOf: (String) -> Flow<Boolean?>) {
+        scope.launch(Dispatchers.IO) {
+            // What the widget shows, read from the file when this process has not written it yet.
+            if (drawn.value == null && hasWidgets(context)) runCatching { load(context) }
+            likesToDraw(drawn.map { it?.snapshot?.nowPlaying?.id }, likedOf).collect { (id, liked) ->
+                runCatching { setLiked(context, id, liked) }.onFailure { Log.w(TAG, "Could not draw the widget's heart", it) }
+            }
+        }
     }
 
     /**
@@ -372,6 +427,15 @@ object WidgetStore {
                     val art = now.artPath ?: artOnPhone(context, now.id, ART_NOW_PX)
                     snapshot = snapshot.copy(nowPlaying = now.copy(artPath = art, colour = now.colour ?: artColour(art)))
                 }
+                // The heart as stored: the file can be from before the heart existed, which is every
+                // file after the update that brings it, and nothing follows the like while no service
+                // is alive (see followLikes). A tap on a heart drawn empty over a liked song would
+                // take the like away.
+                val stored = runCatching {
+                    EntryPointAccessors.fromApplication(context.applicationContext, WidgetEntryPoint::class.java)
+                        .database().readOrNull { songRow(now.id) }?.liked
+                }.getOrNull()
+                if (stored != null) snapshot = snapshot.copy(isLiked = stored)
             }
             // Every list, not only the one this widget shows: a second widget, or the same one
             // set to another list, then has something to draw the moment it is asked.
@@ -586,6 +650,9 @@ object WidgetStore {
 @InstallIn(SingletonComponent::class)
 interface WidgetEntryPoint {
     fun database(): MusicDatabase
+
+    /** For the heart pressed with no service alive, which downloads a liked song as the service would. */
+    fun downloadUtil(): DownloadUtil
 }
 
 /**
@@ -615,6 +682,25 @@ internal fun <B> coversFor(snapshot: WidgetSnapshot, old: Map<String, B>, decode
     val nowCover = snapshot.nowPlaying?.let { decode(it.artPath) }
     return art to nowCover
 }
+
+/**
+ * The hearts to draw while the widget shows the songs [shown] gives: the stored like of each, from
+ * [likedOf], as it changes, and nothing of a song the widget no longer shows. A song that is not
+ * stored, or nothing at all on the widget, gives nothing.
+ */
+@OptIn(ExperimentalCoroutinesApi::class)
+internal fun likesToDraw(shown: Flow<String?>, likedOf: (String) -> Flow<Boolean?>): Flow<Pair<String, Boolean>> =
+    shown.distinctUntilChanged()
+        .flatMapLatest { id -> if (id == null) emptyFlow() else likedOf(id).filterNotNull().map { id to it } }
+        .distinctUntilChanged()
+
+/**
+ * The first guess at a new song's heart: the player's row of it, once the player has the row of
+ * this song and not still the last one's, otherwise what the song itself says, which is the like as
+ * it was when the queue was made. [WidgetStore.followLikes] corrects it within moments if it is wrong.
+ */
+internal fun likeGuess(song: MediaMetadata?, row: SongEntity?): Boolean =
+    if (song == null) false else row?.takeIf { it.id == song.id }?.liked ?: song.liked
 
 /**
  * The Recently played list after a song starts, honouring Pause listen history: unchanged while

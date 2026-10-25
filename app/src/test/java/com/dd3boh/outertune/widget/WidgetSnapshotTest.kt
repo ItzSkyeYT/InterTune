@@ -34,6 +34,17 @@ class WidgetSnapshotTest {
     }
 
     @Test
+    fun `the heart of what is playing survives the trip to disk, and a file from before it reads as not liked`() {
+        val liked = snapshot().copy(isLiked = true)
+        assertEquals(liked, WidgetCodec.decode(WidgetCodec.encode(liked)))
+        // Written before the heart: three fields on the first line, not four.
+        val old = WidgetCodec.decode("1\nat\t7\t1\nnow\tabc\tRosanna\tToto\t\t\t302\t0\n")
+        assertEquals("Rosanna", old.nowPlaying?.title)
+        assertTrue(old.isPlaying)
+        assertFalse(old.isLiked)
+    }
+
+    @Test
     fun `a title holding the separators comes back whole`() {
         val awkward = song.copy(title = "one\ttwo\nthree\\four", artist = "a\tb")
         val back = WidgetCodec.decode(WidgetCodec.encode(WidgetSnapshot(nowPlaying = awkward)))

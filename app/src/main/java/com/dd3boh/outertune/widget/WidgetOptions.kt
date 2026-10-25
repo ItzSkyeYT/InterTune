@@ -114,6 +114,8 @@ data class WidgetSettings(
     val buttons: WidgetButtons = WidgetButtons.ALL,
     val textSize: WidgetTextSize = WidgetTextSize.NORMAL,
     val rounded: Boolean = true,
+    /** A heart beside previous and next, where the widget has room for one: see [WidgetPlan.like]. */
+    val showLike: Boolean = true,
 )
 
 /** How the now playing part is drawn, which depends on the room it has. */
@@ -177,8 +179,27 @@ data class WidgetPlan(
      * ran out of room is drawn from the top instead, the way any list is.
      */
     val centred: Boolean = true,
+    /**
+     * The heart, filled when the song is liked, the same size as the buttons beside it and where
+     * [WidgetLayout.likeSide] puts it. Only beside previous and next, and only where it fits without
+     * moving them: it is added to a plan that is otherwise final, so nothing else moves, shrinks or
+     * goes for it.
+     */
+    val like: Boolean = false,
 ) {
     val heading: Boolean get() = headingHeight > 0
+}
+
+/** Where the heart goes among the buttons: wherever a shape has room that the buttons do not use. */
+enum class LikeSide {
+    /** Before previous, in a line: the words give it their room, and the buttons stay at the end. */
+    BEFORE,
+
+    /** After next, on a card, whose buttons start at the left under the song. */
+    AFTER,
+
+    /** Before previous on a centred line, with as much left empty after next, so play stays in the middle. */
+    BALANCED,
 }
 
 object WidgetLayout {
@@ -215,6 +236,13 @@ object WidgetLayout {
     /** Words beside a cover never get less than this: the cover, or the skip buttons, go first. */
     const val WORDS_MIN_DP = 64
 
+    /**
+     * What the words of a line keep beside the heart. More than [WORDS_MIN_DP], which is what they
+     * keep when the cover or the skip buttons want their room: the heart is an extra, so it gives way
+     * well before the title is squeezed to a few letters.
+     */
+    const val LIKE_WORDS_MIN_DP = 96
+
     /** The cover in a line of song with a list under it, and the most it grows to on its own. */
     const val ROW_COVER_DP = 56
     const val ROW_COVER_MAX_DP = 72
@@ -247,6 +275,40 @@ object WidgetLayout {
     fun plan(widthDp: Int, heightDp: Int, settings: WidgetSettings, available: Int, fontScale: Float = 1f): WidgetPlan {
         val w = widthDp.coerceAtLeast(1)
         val h = heightDp.coerceAtLeast(1)
+        return withLike(shape(w, h, settings, available, fontScale), w, settings)
+    }
+
+    /** Where the heart goes in each shape: see [LikeSide]. */
+    fun likeSide(shape: NowShape): LikeSide = when (shape) {
+        NowShape.CARD -> LikeSide.AFTER
+        NowShape.STACKED, NowShape.POSTER -> LikeSide.BALANCED
+        else -> LikeSide.BEFORE
+    }
+
+    /**
+     * [plan] with the heart, where it fits beside previous and next without moving them: in a line
+     * the words make room for it and keep [LIKE_WORDS_MIN_DP]; a centred line needs its room twice,
+     * once for the heart and once for the blank that keeps play in the middle; a card needs room
+     * after next. Never where previous and next are not, so never where play alone or no buttons
+     * were asked for.
+     */
+    private fun withLike(plan: WidgetPlan, w: Int, settings: WidgetSettings): WidgetPlan {
+        if (!settings.showLike || !plan.skips) return plan
+        val liked = plan.copy(like = true)
+        val fits = when (plan.shape) {
+            NowShape.ROW, NowShape.SLIM -> w - widthOf(liked) >= LIKE_WORDS_MIN_DP
+            NowShape.CARD, NowShape.STACKED, NowShape.POSTER -> widthOf(liked) <= w
+            NowShape.TINY, NowShape.NONE -> false
+        }
+        return if (fits) liked else plan
+    }
+
+    /** The heart and the gap beside it, twice on a centred line, where a blank of its size balances it. */
+    private fun likeWidth(plan: WidgetPlan): Int =
+        if (!plan.like) 0 else (plan.button + BUTTON_SPACING_DP) * (if (likeSide(plan.shape) == LikeSide.BALANCED) 2 else 1)
+
+    /** Every shape but the heart, which [withLike] adds where it fits. */
+    private fun shape(w: Int, h: Int, settings: WidgetSettings, available: Int, fontScale: Float): WidgetPlan {
         val scale = settings.textSize.scale * fontScale.coerceIn(0.5f, 3f)
         if (settings.content == WidgetContent.LIST) return listOnly(w, h, settings, available, scale)
         if (w < TINY_WIDTH_DP) return tiny(w, h, settings)
@@ -485,7 +547,7 @@ object WidgetLayout {
      * cover at nothing: [fitLine] is what keeps them their minimum wherever the width allows it.
      */
     fun widthOf(plan: WidgetPlan): Int {
-        val controls = controlsWidth(plan.play, plan.skips, plan.button)
+        val controls = controlsWidth(plan.play, plan.skips, plan.button) + likeWidth(plan)
         val now = when (plan.shape) {
             NowShape.NONE -> 0
             NowShape.TINY -> maxOf(plan.cover, if (plan.play) plan.button else 0)
@@ -526,6 +588,7 @@ object WidgetKeys {
     val BUTTONS = stringPreferencesKey("widget_buttons")
     val TEXT_SIZE = stringPreferencesKey("widget_text_size")
     val ROUNDED = booleanPreferencesKey("widget_rounded")
+    val SHOW_LIKE = booleanPreferencesKey("widget_show_like")
 
     fun read(prefs: Preferences): WidgetSettings {
         val fallback = WidgetSettings()
@@ -541,6 +604,7 @@ object WidgetKeys {
             buttons = WidgetButtons.of(prefs[BUTTONS]),
             textSize = WidgetTextSize.of(prefs[TEXT_SIZE]),
             rounded = prefs[ROUNDED] ?: fallback.rounded,
+            showLike = prefs[SHOW_LIKE] ?: fallback.showLike,
         )
     }
 
@@ -556,5 +620,6 @@ object WidgetKeys {
         prefs[BUTTONS] = settings.buttons.name
         prefs[TEXT_SIZE] = settings.textSize.name
         prefs[ROUNDED] = settings.rounded
+        prefs[SHOW_LIKE] = settings.showLike
     }
 }
