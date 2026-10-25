@@ -10,6 +10,8 @@
 package com.dd3boh.outertune.ui.player
 
 import com.dd3boh.outertune.playback.PlayerConnection
+import com.dd3boh.outertune.playback.BatteryUse
+import com.dd3boh.outertune.LocalBatteryMode
 import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.runtime.snapshotFlow
 import com.dd3boh.outertune.ui.menu.rememberShareLink
@@ -432,10 +434,11 @@ fun BottomSheetPlayer(
      * to stretch. The preference is left alone, so a phone keeps whatever was chosen.
      */
     // LIVING is a prototype: a build that does not offer it does not draw it either, wherever the
-    // preference came from (a backup made on a build that does).
+    // preference came from (a backup made on a build that does). Battery use on Saver draws Blur in
+    // its place, about half a core less while the player is open, and keeps the setting as it is.
     val chosenPlayerBackground =
         if (playerBackground == PlayerBackgroundStyle.LIVING && !Unreleased.LIVING_BACKGROUND) DEFAULT_PLAYER_BACKGROUND
-        else playerBackground
+        else BatteryUse.playerBackground(playerBackground, LocalBatteryMode.current, DEFAULT_PLAYER_BACKGROUND)
     val effectivePlayerBackground = if (chosenPlayerBackground == PlayerBackgroundStyle.BLUR && context.supportsWideScreen()) {
         PlayerBackgroundStyle.GRADIENT
     } else {

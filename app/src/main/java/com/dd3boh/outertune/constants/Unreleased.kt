@@ -536,4 +536,20 @@ object Unreleased {
      * read it, in SettingsScreen and SettingsTwoPane, and make its texts translatable.
      */
     val SETTINGS_SEARCH = BuildConfig.DEBUG
+
+    /**
+     * Battery use (BatteryUse), one row under Audio quality with three choices: Full, Balanced and
+     * Saver. Asked for on 23 Oct 2026 ("Different battery usage preferences"), his answers on 24
+     * Oct: Balanced is everyone's default, Saver turns the sound effects off and streams at Low
+     * quality on mobile data. Balanced syncs the library every two hours instead of every half
+     * hour, reads the radios' taste every half hour instead of every five minutes and steps the
+     * playing bars thirty times a second; Saver goes further and plays through the phone's
+     * low-power audio path.
+     *
+     * Without it the row is not there and every build runs as Full, the app as it was. Its texts
+     * (battery_use*, battery_saver_*) are held from translators, their French beside them in
+     * values-fr. When it is agreed: set this to true, make its texts translatable, and give it a
+     * card among the new things of the release it ships in.
+     */
+    val BATTERY_MODES = BuildConfig.DEBUG
 }

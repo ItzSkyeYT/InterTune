@@ -2090,6 +2090,18 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="every_direct_refused" translatable="false">Take every direct address for refused</string>
     <string name="every_direct_refused_description" translatable="false">Plays the day direct addresses stop: every client\'s address counts as refused, so SABR, the last try, has to take over.</string>
     <string name="sabr_only_description" translatable="false">Plays each song over SABR, as YouTube\'s own apps stream, from the VISIONOS answer the app already has. A song that cannot be started that way plays as before.</string>
+    <!-- Battery use, in Player and audio (BatteryUseFrag, Unreleased.BATTERY_MODES): held from translators until the words are agreed, their French beside them in values-fr. The notes go under the rows that Saver holds; %1$s is the name of the background drawn in place of Living blur (Blur or Gradient). -->
+    <string name="battery_use" translatable="false">Battery use</string>
+    <string name="battery_use_full" translatable="false">Full</string>
+    <string name="battery_use_balanced" translatable="false">Balanced</string>
+    <string name="battery_use_saver" translatable="false">Saver</string>
+    <string name="battery_use_full_description" translatable="false">Everything as you set it.</string>
+    <string name="battery_use_balanced_description" translatable="false">The library syncs less often, and the playing bars move more calmly.</string>
+    <string name="battery_use_saver_description" translatable="false">Sound effects off, low-power playback, and Low quality on mobile data.</string>
+    <string name="battery_use_explain" translatable="false">How much InterTune does while you listen. \"Saver\" turns sound effects off, plays through your phone\'s low-power audio path and streams at Low quality on mobile data, so the battery lasts longer. \"Full\" keeps everything as you set it.</string>
+    <string name="battery_saver_holds_note" translatable="false">Set by \"Battery use\" while it is on \"Saver\".</string>
+    <string name="battery_saver_quality_note" translatable="false">Low on mobile data while \"Battery use\" is on \"Saver\".</string>
+    <string name="battery_saver_background_note" translatable="false">%1$s while \"Battery use\" is on \"Saver\".</string>
     <!-- The search at the top of Settings (SettingsSearch.kt, Unreleased.SETTINGS_SEARCH). %1$s is what was typed. -->
     <string name="search_settings">Search settings</string>
     <string name="search_settings_none">No setting matches \"%1$s\".</string>

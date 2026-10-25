@@ -428,6 +428,15 @@ enum class AudioQuality {
     AUTO, HIGH, LOW
 }
 
+/**
+ * How much the app does while music plays (Battery use). FULL is the app as it always was,
+ * BALANCED everyone's default, SAVER the least. What each one turns down is in
+ * playback/BatteryUse.kt; the order here is the order of the choices.
+ */
+enum class BatteryMode {
+    FULL, BALANCED, SAVER
+}
+
 /*
 ---------------------------
 Library & Content
