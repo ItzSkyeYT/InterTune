@@ -57,8 +57,13 @@ object BatteryUse {
 
     // The adaptive queue's taste, a read of the whole listening history.
 
-    /** How long the radios keep the taste they read before reading it again. */
-    fun tasteKeptMs(mode: BatteryMode): Long = when (mode) {
+    /**
+     * How long the radios keep the taste they read before reading it again. Within one run (one
+     * play of one queue) the mode says, since the run's own songs and skips count at once whatever
+     * the taste's age. A new run never takes a taste older than Full keeps it, so a radio started
+     * now leaves out what was just heard in another queue as freshly as it always did.
+     */
+    fun tasteKeptMs(mode: BatteryMode, sameRun: Boolean = true): Long = when (if (sameRun) mode else BatteryMode.FULL) {
         BatteryMode.FULL -> 5 * MINUTE_MS
         BatteryMode.BALANCED -> 30 * MINUTE_MS
         BatteryMode.SAVER -> 60 * MINUTE_MS

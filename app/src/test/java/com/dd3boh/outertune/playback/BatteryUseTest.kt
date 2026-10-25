@@ -82,6 +82,16 @@ class BatteryUseTest {
     }
 
     @Test
+    fun `a new run takes a taste no older than Full keeps it, so a radio's picks stay fresh`() {
+        // Only the taste knows what was just heard in another queue; the run's own songs and skips
+        // count at once whatever its age.
+        for (mode in modes) {
+            assertEquals(BatteryUse.tasteKeptMs(FULL), BatteryUse.tasteKeptMs(mode, sameRun = false))
+            assertEquals(BatteryUse.tasteKeptMs(mode), BatteryUse.tasteKeptMs(mode, sameRun = true))
+        }
+    }
+
+    @Test
     fun `Saver turns the sound effects off`() {
         assertTrue(BatteryUse.holdsEffects(SAVER))
         for (chosen in SpatialAudioMode.entries) assertEquals(SpatialAudioMode.OFF, BatteryUse.spatialAudio(chosen, SAVER))

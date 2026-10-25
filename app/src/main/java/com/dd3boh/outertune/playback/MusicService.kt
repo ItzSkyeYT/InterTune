@@ -3615,11 +3615,15 @@ class MusicService : MediaLibraryService(),
 
     /**
      * The taste, read at most as often as Battery use has it (BatteryUse.tasteKeptMs: every five
-     * minutes on Full, half an hour on Balanced, an hour on Saver). Written on the adaptive dispatcher
+     * minutes on Full, half an hour on Balanced, an hour on Saver, and at a new run once it is five
+     * minutes old in every mode). Written on the adaptive dispatcher
      * only; the radio's top-up reads it on the main thread to leave bans and lasting dislikes out of
      * a new page.
      */
     @Volatile private var tasteCache: Pair<Long, QueueFit.Taste>? = null
+
+    /** The run (AdaptiveQueue.runKey) that last took [tasteCache]. Adaptive dispatcher only. */
+    private var tasteRun: String? = null
 
     /** The related lists read in the current run, by seed, and which run they are for. Adaptive dispatcher only. */
     private var relatedRun: String? = null
@@ -3746,7 +3750,7 @@ class MusicService : MediaLibraryService(),
 
     /** The pass worked out: the taste, the related lists and maybe a radio page, then the plan. Adaptive dispatcher. */
     private suspend fun computePass(snap: PassSnapshot): AdaptivePass.Result {
-        val taste = tasteFor(snap.now)
+        val taste = tasteFor(snap.now, snap.view.key)
         val key = snap.view.key
         if (relatedRun != key) {
             relatedRun = key
@@ -3827,12 +3831,18 @@ class MusicService : MediaLibraryService(),
      * when the read fails. Adaptive dispatcher. The read takes 0.7 to 1.4 s of a 15,000 listen
      * history and grows with it (S25U, 23 Oct 2026), so how often it runs is a mode's to say.
      */
-    private fun tasteFor(now: Long): QueueFit.Taste {
-        tasteCache?.takeIf { now - it.first < BatteryUse.tasteKeptMs(batteryMode) }?.let { return it.second }
+    private fun tasteFor(now: Long, run: String): QueueFit.Taste {
+        // A new run takes a taste no older than Full keeps it: its picks leave out what was just
+        // heard in another queue, which only the taste knows (BatteryUse.tasteKeptMs).
+        tasteCache?.takeIf { now - it.first < BatteryUse.tasteKeptMs(batteryMode, sameRun = run == tasteRun) }?.let {
+            tasteRun = run
+            return it.second
+        }
         val started = SystemClock.elapsedRealtime()
         return try {
             QueueFit.Taste.of(EngineLoader.loadHeard(database, now)).also { taste ->
                 tasteCache = now to taste
+                tasteRun = run
                 Log.d(TAG, "Adaptive queue: taste read in ${SystemClock.elapsedRealtime() - started} ms, ${taste.listens} listens, " +
                     "${taste.songs.size} songs, keep share ${String.format(java.util.Locale.ROOT, "%.2f", taste.habits.base)}")
             }

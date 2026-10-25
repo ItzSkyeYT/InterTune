@@ -82,7 +82,11 @@ class BatteryUseWiringTest {
     @Test
     fun `the stream and the radios' taste follow the mode`() {
         assertTrue(Regex("""BatteryUse\.quality\(quality, metered, batteryMode\)""").containsMatchIn(body(service, "private fun audioQualityNow()")))
-        assertTrue("BatteryUse.tasteKeptMs(batteryMode)" in body(service, "private fun tasteFor("))
+        val taste = body(service, "private fun tasteFor(")
+        assertTrue("BatteryUse.tasteKeptMs(batteryMode, sameRun = run == tasteRun)" in taste)
+        // Told the run, so a new radio takes a taste no older than Full keeps it.
+        assertTrue("tasteFor(snap.now, snap.view.key)" in service)
+        assertEquals("the run is kept with each taste taken", 2, Regex("""tasteRun = run""").findAll(taste).count())
         assertFalse("TASTE_TTL_MS" in service)
     }
 
