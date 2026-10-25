@@ -450,7 +450,7 @@ internal fun ShareButton(s: SlideScope, busy: Boolean, at: Float, onClick: () ->
             .graphicsLayer { alpha = if (busy) 0.6f else 1f },
     ) {
         Icon(Icons.Rounded.Share, null, tint = c.onAccent, modifier = Modifier.size(20.dp))
-        Text(stringResource(R.string.recap_share), style = RecapType.button, color = c.onAccent)
+        Text(stringResource(R.string.recap_share), style = RecapType.button, color = c.onAccent, maxLines = 1, softWrap = false)
     }
 }
 
@@ -544,7 +544,8 @@ internal fun SinceSlide(s: SlideScope) {
             Badge(
                 if (r.firstYear) w.time(r.firstSong.minute) else w.dayShort(r.firstSong.day), s, at = 3.4f, turn = 11f, side = badge,
                 modifier = Modifier.offset(x = 22.dp + side - badge * 0.37f, y = (-2).dp), small = stringResource(R.string.recap_badge_first_play),
-                size = if (badge < 80.dp) 22f else 30f,
+                // Its time on two lines and "first play" under them, inside its circle at any size.
+                size = (badge.value * 0.3f).coerceIn(18f, 30f),
             )
         }
         Text(
@@ -1192,6 +1193,7 @@ private fun countdownWords(line: CountdownLine, w: RecapWords): String = when (l
 
 // ---- 8: number one
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun NumberOneSlide(s: SlideScope, sharing: Boolean, onShare: () -> Unit) {
     val r = s.shown.recap
@@ -1207,10 +1209,16 @@ internal fun NumberOneSlide(s: SlideScope, sharing: Boolean, onShare: () -> Unit
         }
         Words(song?.title.orEmpty(), s, at = 3.8f, step = 0.2f, style = RecapType.h1.copy(fontSize = 33.sp, lineHeight = 1.em), colour = c.ink)
         Text(song?.artists.orEmpty(), fontSize = 16.sp, lineHeight = 1.3.em, color = c.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp, bottom = 10.dp).enter(s, Entrance.UP, 4.6f))
-        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
-            Counted(top.plays.toLong(), s, at = 4.8f, land = 6f, style = RecapType.giant.copy(fontSize = 92.sp), colour = c.accent, format = { w.number(it) })
-            Text(pluralStringResource(R.plurals.recap_plays_unit, top.plays), style = RecapType.tag.copy(fontSize = 28.sp), color = c.ink, modifier = Modifier.padding(bottom = 14.dp).enter(s, Entrance.UP, 5f))
-            Spacer(Modifier.weight(1f))
+        // The plays and Share this on one line where they fit, the button under them where they do not.
+        FlowRow(
+            horizontalArrangement = Arrangement.SpaceBetween,
+            itemVerticalAlignment = Alignment.Bottom,
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+        ) {
+            Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Counted(top.plays.toLong(), s, at = 4.8f, land = 6f, style = RecapType.giant.copy(fontSize = 92.sp), colour = c.accent, format = { w.number(it) })
+                Text(pluralStringResource(R.plurals.recap_plays_unit, top.plays), style = RecapType.tag.copy(fontSize = 28.sp), color = c.ink, modifier = Modifier.padding(bottom = 14.dp).enter(s, Entrance.UP, 5f))
+            }
             ShareButton(s, sharing, at = 6.4f, onClick = onShare, modifier = Modifier.padding(bottom = 12.dp))
         }
         val found = stringResource(R.string.recap_found_on, w.day(top.firstHeardDay), w.time(top.firstHeardMinute))
