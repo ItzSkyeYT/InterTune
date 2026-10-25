@@ -1558,6 +1558,8 @@
     <string name="share_link_choice_title">Quel lien ?</string>
     <string name="share_link_youtube_music_description">S\'ouvre dans YouTube Music ou dans InterTune</string>
     <string name="share_link_page_description">La personne choisit son appli : Spotify, Apple Music, Deezer et d\'autres</string>
+    <string name="share_link_choice_kept">Votre choix est gardé pour les prochains partages. Vous pouvez le changer à tout moment dans Paramètres, sous %1$s.</string>
+    <string name="share_link_not_chosen">Pas encore choisi</string>
     <string name="stats_nothing_played">Rien n\'a été joué sur cette période.</string>
     <string name="sort_order_ascending">Ordre croissant</string>
     <string name="sort_order_descending">Ordre décroissant</string>
@@ -1758,6 +1760,10 @@
     <string name="new_radios_body">Passez ou aimez des titres, et la suite de la radio suit, avec les nouveaux choix marqués dans la file.</string>
     <string name="new_radios_way">Garder les radios à jour se trouve ici.</string>
     <string name="new_radios_here">Activé, la suite d\'une radio change selon les titres que vous passez ou aimez.</string>
+    <string name="new_share_links_title">Des liens pour toutes les applis de musique</string>
+    <string name="new_share_links_body">Partager peut envoyer une page où la personne qui l\'ouvre choisit son appli de musique. Au prochain partage, vous choisissez quel lien envoyer, et les partages suivants gardent ce choix.</string>
+    <string name="new_share_links_way">Ce qu\'envoie Partager se règle ici : le lien YouTube Music, ou une page pour toutes les applis de musique.</string>
+    <string name="new_share_links_here">Ce qu\'envoie Partager pour un titre ou un album : le lien YouTube Music, ou une page où la personne qui l\'ouvre choisit son appli. Tant que vous n\'avez pas choisi, le prochain partage vous le demande.</string>
     <plurals name="welcome_card_since">
         <item quantity="one">%1$d nouveauté depuis la %2$s</item>
         <item quantity="many">%1$d nouveautés depuis la %2$s</item>
@@ -1915,7 +1921,7 @@
     <string name="lyrics_timing_later">%1$s\u00A0s plus tard</string>
     <string name="lyrics_timing_step_earlier">Un dixième de seconde plus tôt</string>
     <string name="lyrics_timing_step_later">Un dixième de seconde plus tard</string>
-    <!-- The search at the top of Settings (SettingsSearch.kt). Held with the English, translatable="false", until he says yes to the words. -->
+    <!-- The search at the top of Settings (SettingsSearch.kt). -->
     <string name="search_settings">Rechercher dans les paramètres</string>
     <string name="search_settings_none">Aucun paramètre ne correspond à «\u00A0%1$s\u00A0».</string>
     <string name="search_settings_clear">Effacer la recherche</string>

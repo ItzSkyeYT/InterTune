@@ -217,10 +217,10 @@ class SettingsSearchTest {
     }
 
     @Test
-    fun `the search's own words are short, plain, and held from translators`() {
+    fun `the search's own words are short, plain, and open to translators`() {
         for (name in english.keys.filter { it.startsWith("search_words_") || it.startsWith("search_settings") }) {
             val en = line("values", name)!!
-            assertTrue("$name is offered to translators before his yes", "translatable=\"false\"" in en)
+            assertFalse("$name is held back from translators", "translatable=\"false\"" in en)
             for (text in listOf(english[name]!!, french[name]!!)) {
                 assertFalse("$name has a long dash", '—' in text)
                 assertTrue("$name runs to ${text.length} characters", text.length <= 80)
