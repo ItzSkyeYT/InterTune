@@ -282,7 +282,7 @@ internal fun RecapStory(
             SlideKind.COUNTDOWN -> CountdownSlide(s, p.step)
             SlideKind.NUMBER_ONE -> NumberOneSlide(s, sharing) { share(top = true) }
             SlideKind.CARD -> CardSlide(s, yearCard, sharing) { share(top = false) }
-            SlideKind.THANKS -> ThanksSlide(s, onAgain = { stage.go(1, 0, How.ON) }, onDone = { close() })
+            SlideKind.THANKS -> ThanksSlide(s, onAgain = { stopped = false; stage.go(1, 0, How.ON) }, onDone = { close() })
         }
     }
 
@@ -294,9 +294,10 @@ internal fun RecapStory(
             .onGloballyPositioned { stage.anchors.origin = it.positionInRoot() }
             .onSizeChanged { stage.resize(it.width.toFloat(), it.height.toFloat()) }
             .semantics {
+                // As a tap on or back: a paused story starts again.
                 customActions = listOf(
-                    CustomAccessibilityAction(nextWords) { next(); true },
-                    CustomAccessibilityAction(previousWords) { previous(); true },
+                    CustomAccessibilityAction(nextWords) { stopped = false; next(); true },
+                    CustomAccessibilityAction(previousWords) { stopped = false; previous(); true },
                 )
             }
             .pointerInput(slides) {
@@ -307,9 +308,13 @@ internal fun RecapStory(
                     var timedOut = true
                     val up = withTimeoutOrNull(RecapMotion.HOLD_MS) { waitForUpOrCancellation().also { timedOut = false } }
                     if (timedOut) {
+                        // Held only while the finger is down: whatever the pause button says holds again after.
                         held = true
-                        waitForUpOrCancellation()
-                        held = false
+                        try {
+                            waitForUpOrCancellation()
+                        } finally {
+                            held = false
+                        }
                     } else if (up != null) {
                         up.consume()
                         stopped = false
