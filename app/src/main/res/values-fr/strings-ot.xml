@@ -1895,6 +1895,22 @@
     <string name="hide_explicit_description">Les titres et albums marqués explicites n\'apparaissent plus dans l\'accueil, la recherche, les pages d\'artiste et ce qu\'ajoute une radio.</string>
     <string name="hide_video_songs">Masquer les clips</string>
     <string name="hide_video_songs_description">Seuls les titres d\'albums et de singles sont proposés, pas les clips ni les vidéos mises en ligne. Un titre que vous choisissez se lit quand même.</string>
+    <!-- The AI filter (Unreleased.AI_FILTER): held with the English until the words are agreed. -->
+    <string name="ai_filter">Musique IA</string>
+    <string name="ai_filter_off">Désactivé</string>
+    <string name="ai_filter_recommendations">Masquer des recommandations</string>
+    <string name="ai_filter_everywhere">Bloquer partout</string>
+    <string name="ai_filter_note">S\'appuie sur une liste d\'artistes IA faite à la main : la liste de blocage YouTube de CevvalKoala et quelques artistes IA connus. Elle peut se tromper : appuyez longuement sur un artiste pour le marquer IA ou non.</string>
+    <string name="ai_filter_explain">« Masquer des recommandations » écarte les titres IA de l\'Accueil, de la « Sélection Rapide », des radios et de la lecture automatique. « Bloquer partout » les masque aussi dans la recherche et passe ceux qui arrivent dans la file d\'attente. Les titres de votre bibliothèque et vos propres playlists ne sont jamais touchés.</string>
+    <string name="ai_filter_mark_ai">Marquer comme IA</string>
+    <string name="ai_filter_not_ai">Pas de l\'IA</string>
+    <plurals name="ai_filter_hidden">
+        <item quantity="one">%1$d résultat IA masqué</item>
+        <item quantity="many">%1$d de résultats IA masqués</item>
+        <item quantity="other">%1$d résultats IA masqués</item>
+    </plurals>
+    <string name="ai_filter_show">Afficher</string>
+    <string name="ai_filter_skipped">Titre IA passé</string>
     <!-- The recognition widget in the launcher's picker (recognition_widget_info). -->
     <string name="recognition_widget_description">Un bouton qui trouve le titre qui passe autour de vous.</string>
     <!-- The sleep timer on a schedule, under the sleep timer's fade in Player and audio (SleepScheduleFrag, ScheduledSleep). -->

@@ -793,4 +793,23 @@ object Unreleased {
      * and add its name to ReleasedFlagsTest.
      */
     val LYRICS_VIDEO_WORDS = BuildConfig.DEBUG
+
+    /**
+     * The AI filter (AiFilter, TODO section 17, upstream #1173): a row under Settings > Library and
+     * content with three states, Off, Hide from recommendations and Block everywhere, going by a
+     * hand-made list of AI artists bundled as assets/ai_artists.txt (tools/ai-filter/build_list.py:
+     * CevvalKoala's blocklist and a few known AI acts). Mark as AI and Not AI in an artist's
+     * long-press menu, and a line over search results saying how many were hidden, with a tap to
+     * show them.
+     *
+     * A first cut, seen on an emulator only, its texts held from translators (ai_filter_*), their
+     * French beside them. Without the flag the setting reads as Off whatever is stored (a restored
+     * backup can bring it), the menus have no row, and the list is never read. Built for 0.12.5 if
+     * it is solid in time (his word, 25 Oct 2026), Off by default: every path is a release's, with
+     * the bundled list and no fetch, so shipping it is this flag set to true and its name added to
+     * ReleasedFlagsTest. AiFilterFlagTest holds its reads: App, AiFilter.modeOf, LibrarySettings,
+     * SettingsIndex, AiArtistMark (the artist menus' row), OnlineSearchResult and MusicService (the
+     * queue's skip). To drop it instead: this flag and those reads, then AiFilter and its calls.
+     */
+    val AI_FILTER = BuildConfig.DEBUG
 }

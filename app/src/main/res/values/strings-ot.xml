@@ -2080,6 +2080,22 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="hide_explicit_description">Songs and albums marked explicit stay out of Home, search, artist pages and what a radio adds.</string>
     <string name="hide_video_songs">Hide music videos</string>
     <string name="hide_video_songs_description">Only album and single tracks are offered, not music videos or uploads. A song you pick still plays.</string>
+    <!-- The AI filter (Unreleased.AI_FILTER, AiFilterFrag in Library and content, the artist menus, over
+         search results): held back from translators until the words are agreed. French beside them in values-fr. -->
+    <string name="ai_filter" translatable="false">AI music</string>
+    <string name="ai_filter_off" translatable="false">Off</string>
+    <string name="ai_filter_recommendations" translatable="false">Hide from recommendations</string>
+    <string name="ai_filter_everywhere" translatable="false">Block everywhere</string>
+    <string name="ai_filter_note" translatable="false">Uses a hand-made list of AI artists: CevvalKoala\'s YouTube blocklist and a few known AI acts. It can be wrong, so long-press an artist to mark it AI or not.</string>
+    <string name="ai_filter_explain" translatable="false">\"Hide from recommendations\" keeps AI songs out of Home, \"Quick picks\", radios and autoplay. \"Block everywhere\" also hides them in search and skips any that reach the queue. Songs in your library and playlists you made are never touched.</string>
+    <string name="ai_filter_mark_ai" translatable="false">Mark as AI</string>
+    <string name="ai_filter_not_ai" translatable="false">Not AI</string>
+    <plurals name="ai_filter_hidden" translatable="false">
+        <item quantity="one">%1$d AI result hidden</item>
+        <item quantity="other">%1$d AI results hidden</item>
+    </plurals>
+    <string name="ai_filter_show" translatable="false">Show</string>
+    <string name="ai_filter_skipped" translatable="false">Skipped an AI song</string>
 
     <!-- The recognition widget in the launcher's picker (recognition_widget_info). -->
     <string name="recognition_widget_description">One button that names the song playing around you.</string>

@@ -53,7 +53,24 @@ interface SongsDao {
             JOIN song ON song.id = ranked.songId
             ORDER BY ranked.totalPlayTime DESC
         """
+
+        /**
+         * The songs the listener chose, which the AI filter never touches (AiFilter.chosenSongs):
+         * in the library, liked or downloaded, or in a playlist they made. A playlist they made is
+         * an editable one, on the phone or on their account, not one of somebody else's they saved.
+         */
+        const val CHOSEN_SONG_IDS = """
+            SELECT id FROM song WHERE inLibrary IS NOT NULL OR liked = 1 OR dateDownload IS NOT NULL
+            UNION
+            SELECT playlist_song_map.songId FROM playlist_song_map
+            JOIN playlist ON playlist.id = playlist_song_map.playlistId
+            WHERE playlist.isEditable = 1
+        """
     }
+
+    /** [CHOSEN_SONG_IDS], followed. Read only while the AI filter is on (App). */
+    @Query(CHOSEN_SONG_IDS)
+    fun chosenSongIds(): Flow<List<String>>
 
     // region Gets
     @Transaction

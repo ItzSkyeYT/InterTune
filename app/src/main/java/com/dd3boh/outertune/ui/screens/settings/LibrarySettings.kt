@@ -10,6 +10,7 @@ package com.dd3boh.outertune.ui.screens.settings
 import com.dd3boh.outertune.ui.menu.rememberArtistBlock
 import com.dd3boh.outertune.ui.menu.BlockArtistIcon
 import com.dd3boh.outertune.ui.component.PreferenceEntry
+import com.dd3boh.outertune.ui.screens.settings.fragments.AiFilterFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.ContentFiltersFrag
 import com.dd3boh.outertune.ui.component.FloatingTopBar
 
@@ -91,6 +92,8 @@ fun LibrarySettings(
             // YouTube Music or intertune.app link tapped elsewhere.
             OpenLinksFrag()
             ContentFiltersFrag()
+            // What it keeps out is what YouTube offers, as the two switches above.
+            if (Unreleased.AI_FILTER) AiFilterFrag()
             // Beside the switches that hide things, the artists hidden altogether (ArtistBlock).
             if (Unreleased.ARTIST_BLOCK) {
                 val blocked = rememberArtistBlock().artists

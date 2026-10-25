@@ -193,6 +193,7 @@ import com.dd3boh.outertune.extensions.metadata
 import com.dd3boh.outertune.extensions.setOffloadEnabled
 import com.dd3boh.outertune.extensions.shouldShowPlayButton
 import com.dd3boh.outertune.lyrics.LyricsHelper
+import com.dd3boh.outertune.models.AiFilter
 import com.dd3boh.outertune.models.ContentFilter
 import com.dd3boh.outertune.models.HybridCacheDataSinkFactory
 import com.dd3boh.outertune.models.MediaMetadata
@@ -2443,7 +2444,7 @@ class MusicService : MediaLibraryService(),
             // the other switches lose nothing here.
             if (ContentFilter.current.explicit) return emptyList()
             return withContext(Dispatchers.IO) {
-                runCatching { ContentFilter.current.blocked.library(database.youtubeRelatedSongs(seed.id)).map { it.toMediaMetadata() } }
+                runCatching { AiFilter.forQueue().recommendedSongs(ContentFilter.current.blocked.library(database.youtubeRelatedSongs(seed.id))).map { it.toMediaMetadata() } }
                     .onFailure { Log.w(TAG, "Could not read the songs related to a radio's song", it) }
                     .getOrDefault(emptyList())
             }
@@ -2460,7 +2461,7 @@ class MusicService : MediaLibraryService(),
                 return emptyList()
             }
             // Kept as recoverSong keeps the list it stores: never a version of the song itself.
-            return ContentFilter.current.apply(page.songs)
+            return AiFilter.forQueue().recommendations(ContentFilter.current.apply(page.songs))
                 .filterNot { SongVersions.isVersionOf(it.title, seed.title) }
                 .map { it.toMediaMetadata() }
         }
@@ -3712,6 +3713,9 @@ class MusicService : MediaLibraryService(),
      */
     private var lastBlockedStop: Pair<String, Long>? = null
 
+    /** The same, set by passOverAiSong: the AI filter moving on says nothing about the song left either. */
+    @Volatile private var skippingAiSong = false
+
     /**
      * Drops songs further down the queue that no longer suit what is being played.
      *
@@ -4054,7 +4058,7 @@ class MusicService : MediaLibraryService(),
         relatedCache[seed]?.let { return it.takeIf { !explicitHidden || it.page } }
         if (explicitHidden) return null
         val songs = try {
-            ContentFilter.current.blocked.library(database.youtubeRelatedSongs(seed)).map { it.toMediaMetadata() }
+            AiFilter.forQueue().recommendedSongs(ContentFilter.current.blocked.library(database.youtubeRelatedSongs(seed))).map { it.toMediaMetadata() }
         } catch (e: Exception) {
             Log.w(TAG, "Adaptive queue: could not read a song's related list", e)
             return null
@@ -4388,6 +4392,38 @@ class MusicService : MediaLibraryService(),
         }
         stopsOnError()
         Toaster.show(this@MusicService, getString(R.string.err_stop_on_too_many_errors), Toast.LENGTH_LONG)
+    }
+
+    /**
+     * Block everywhere (AiFilter.skips): the AI song playing, which the player came to by itself at
+     * the end of the song before, is passed over to the next song that is not one, as next would.
+     * Never the song a queue starts on or one tapped, which are no transitions of their own, nor a
+     * song of the artists the queue was started from (AiFilter.forQueue). With nothing but AI songs
+     * left the music stops on it, unheard. Main thread.
+     */
+    private fun passOverAiSong() {
+        val filter = AiFilter.forQueue()
+        val playing = activePlayer.currentMediaItem?.metadata ?: return
+        if (!filter.skips(playing)) return
+        val timeline = activePlayer.currentTimeline
+        if (timeline.isEmpty) return
+        val shuffle = activePlayer.shuffleModeEnabled
+        val repeat = if (activePlayer.repeatMode == REPEAT_MODE_ALL) REPEAT_MODE_ALL else Player.REPEAT_MODE_OFF
+        val from = activePlayer.currentMediaItemIndex
+        var index = from
+        do {
+            index = timeline.getNextWindowIndex(index, repeat, shuffle)
+        } while (index != C.INDEX_UNSET && index != from && activePlayer.getMediaItemAt(index).metadata?.let(filter::skips) == true)
+        Toaster.show(this, getString(R.string.ai_filter_skipped), Toast.LENGTH_SHORT)
+        if (index == C.INDEX_UNSET || index == from) {
+            Log.d(TAG, "AI filter: nothing but AI songs after ${playing.id}, stopped")
+            activePlayer.pause()
+            activePlayer.seekTo(from, 0)
+            return
+        }
+        Log.d(TAG, "AI filter: passed over ${playing.id}")
+        skippingAiSong = true
+        activePlayer.seekTo(index, C.TIME_UNSET)
     }
 
     fun stopOnError() {
@@ -4884,9 +4920,10 @@ class MusicService : MediaLibraryService(),
         // move made by skip on error, which seeks to the next song just as next does: a run of
         // failing streams used to turn down every artist it reached. Not a tap on another song
         // either, nor anything while casting, where the phone does not know where the receiver was.
-        val fromError = skippingOnError || skippingBlocked
+        val fromError = skippingOnError || skippingBlocked || skippingAiSong
         skippingOnError = false
         skippingBlocked = false
+        skippingAiSong = false
         transitionFromError = fromError
         // A choice whose queue was loaded under the song playing made no transition of its own
         // (carriedOnInto): this one only moves on from that song, and its leave is read by its reason.
@@ -5125,6 +5162,17 @@ class MusicService : MediaLibraryService(),
             scope.launch {
                 if (activePlayer.currentMediaItem?.mediaId == id) {
                     runCatching { passOverBlocked(back) }.onFailure { Log.w(TAG, "Could not pass over $id", it) }
+                }
+            }
+        }
+
+        // Block everywhere: an AI song the player came to by itself is passed over, once this
+        // transition has been seen through like any other (AiFilter).
+        if (Unreleased.AI_FILTER && reason == MEDIA_ITEM_TRANSITION_REASON_AUTO && mediaItem != null) {
+            val id = mediaItem.mediaId
+            scope.launch {
+                if (activePlayer.currentMediaItem?.mediaId == id) {
+                    runCatching { passOverAiSong() }.onFailure { Log.w(TAG, "AI filter: could not pass over $id", it) }
                 }
             }
         }

@@ -1,6 +1,8 @@
 package com.dd3boh.outertune.playback.queues
 
 import com.dd3boh.outertune.constants.Unreleased
+import android.util.Log
+import com.dd3boh.outertune.models.AiFilter
 import com.dd3boh.outertune.models.ContentFilter
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.toMediaMetadata
@@ -33,7 +35,13 @@ class YouTubeQueue(
         endpoint = nextResult.endpoint
         continuation = nextResult.continuation
         // The song it was started from stays even when it is one the switches hide: it was chosen.
-        val (items, start) = ContentFilter.current.radio(nextResult.items, nextResult.currentIndex ?: 0)
+        val first = nextResult.currentIndex ?: 0
+        // And with the AI filter its artists stay for the rest of this queue (AiFilter.forQueue).
+        nextResult.items.getOrNull(first)?.let { song -> AiFilter.startedFrom(song.artists.map { it.id }) }
+        val (kept, at) = ContentFilter.current.radio(nextResult.items, first)
+        // A playlist or an album played from YouTube joins whole; a radio is thinned (AiFilter.forQueuePages).
+        val (items, start) = AiFilter.forQueuePages(playlistId).radio(kept, at)
+        if (items.size < kept.size) Log.d(TAG, "AI filter: ${kept.size - items.size} of ${kept.size} songs left out of the first page")
         val songs = items.map { it.toMediaMetadata() }
         // A mix of YouTube's that does not hold the song tapped would lose its first song to it.
         if (fallback && preloadItem != null && songs.none { it.id == preloadItem.id }) {
@@ -73,7 +81,10 @@ class YouTubeQueue(
             endpoint = nextResult.endpoint
         }
         continuation = nextResult?.continuation
-        return nextResult?.items?.let(ContentFilter.current::apply)?.map { it.toMediaMetadata() } ?: emptyList()
+        val kept = nextResult?.items?.let(ContentFilter.current::apply) ?: return emptyList()
+        val items = AiFilter.forQueuePages(playlistId).recommendations(kept)
+        if (items.size < kept.size) Log.d(TAG, "AI filter: ${kept.size - items.size} of ${kept.size} songs left out of a next page")
+        return items.map { it.toMediaMetadata() }
     }
 
 //    fun getContinuationEndpoint(): String? {
@@ -85,6 +96,8 @@ class YouTubeQueue(
 //    }
 
     companion object {
+        private const val TAG = "YouTubeQueue"
+
         fun radio(song: MediaMetadata) = YouTubeQueue(WatchEndpoint(song.id), song)
     }
 }

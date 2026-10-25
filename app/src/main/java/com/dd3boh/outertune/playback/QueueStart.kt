@@ -7,6 +7,7 @@
 package com.dd3boh.outertune.playback
 
 import android.util.Log
+import com.dd3boh.outertune.models.AiFilter
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.MultiQueueObject
 import com.dd3boh.outertune.playback.queues.Queue
@@ -265,6 +266,8 @@ internal class QueueStart(private val service: Target) {
         Log.d(TAG, "playQueue: Queue initial status item count: ${initialStatus.items.size}")
         if (!initialStatus.items.isEmpty()) {
             val (items, start) = initialStatus.withPreload(preloadItem)
+            // The artists of the song this queue starts from count as chosen in it (AiFilter.forQueue).
+            items.getOrNull(start)?.let { song -> AiFilter.startedFrom(song.artists.map { it.id }) }
             // Taken before the board is asked for the list: a list of the playing queue's own
             // title refills that queue, and the songs put in with Play next went with its old
             // songs. A pick names no song early (a ListQueue), so nothing has changed the board
