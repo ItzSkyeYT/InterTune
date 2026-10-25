@@ -9,7 +9,6 @@
 
 package com.dd3boh.outertune.ui.component.items
 
-import android.annotation.SuppressLint
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandIn
@@ -691,7 +690,6 @@ fun YouTubeCardItem(
     }
 }
 
-@SuppressLint("UnusedBoxWithConstraintsScope")
 @Composable
 fun ItemThumbnail(
     thumbnailUrl: String?,
@@ -705,21 +703,7 @@ fun ItemThumbnail(
 ) {
     val context = LocalContext.current
 
-    BoxWithConstraints(
-        contentAlignment = Alignment.Center,
-        modifier = modifier
-    ) {
-        /**
-         * Fall back to the size this thumbnail is actually being drawn at when the caller does not
-         * name one. [AlbumGridItem] and friends did not, so [preferredSize] stayed -1, and
-         * LocalArtworkPathKeyer builds its cache key as "path;x;y" -- meaning every size shared the
-         * single key "path;-1;-1". Coil samples a bitmap down to whichever view asked first, so a
-         * 48dp list row could poison the entry that a 96dp grid cell then upscaled. Sizing the key
-         * per use gives each one its own entry.
-         */
-        val drawnPx = with(LocalDensity.current) { minOf(maxWidth, maxHeight).roundToPx() }
-        val artSize = if (preferredSize > 0) preferredSize else drawnPx
-
+    val content: @Composable (artSize: Int) -> Unit = { artSize ->
         AsyncImage(
             imageLoader = context.imageLoader,
             model = if (thumbnailUrl?.startsWith("/storage") == true) {
@@ -782,6 +766,33 @@ fun ItemThumbnail(
                     shape = shape
                 )
         )
+    }
+
+    // The size it is drawn at is only wanted for a cover on the phone that no size was asked for:
+    // measured for that alone, and every other thumbnail is a plain Box. A BoxWithConstraints
+    // around each one, a second composition for every row of every list, was for this.
+    if (thumbnailUrl?.startsWith("/storage") == true && preferredSize <= 0) {
+        BoxWithConstraints(
+            contentAlignment = Alignment.Center,
+            modifier = modifier
+        ) {
+            /**
+             * Fall back to the size this thumbnail is actually being drawn at when the caller does not
+             * name one. [AlbumGridItem] and friends did not, so [preferredSize] stayed -1, and
+             * LocalArtworkPathKeyer builds its cache key as "path;x;y" -- meaning every size shared the
+             * single key "path;-1;-1". Coil samples a bitmap down to whichever view asked first, so a
+             * 48dp list row could poison the entry that a 96dp grid cell then upscaled. Sizing the key
+             * per use gives each one its own entry.
+             */
+            content(with(LocalDensity.current) { minOf(maxWidth, maxHeight).roundToPx() })
+        }
+    } else {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = modifier
+        ) {
+            content(preferredSize)
+        }
     }
 }
 

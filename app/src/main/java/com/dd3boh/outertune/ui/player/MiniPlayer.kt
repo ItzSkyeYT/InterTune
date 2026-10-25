@@ -9,12 +9,10 @@
 
 package com.dd3boh.outertune.ui.player
 
-import android.annotation.SuppressLint
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -248,7 +246,6 @@ fun MiniPlayer(
     }
 }
 
-@SuppressLint("UnusedBoxWithConstraintsScope")
 @Composable
 fun MiniMediaInfo(
     mediaMetadata: MediaMetadata,
@@ -266,7 +263,9 @@ fun MiniMediaInfo(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
     ) {
-        BoxWithConstraints(
+        // A plain Box: the size of the cover is known (px, above), and nothing in it asks for
+        // its constraints.
+        Box(
             modifier = Modifier
                 .padding(6.dp)
                 .size(48.dp)
