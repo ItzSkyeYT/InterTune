@@ -70,6 +70,27 @@ class AutoOnBandsTest {
     }
 
     @Test
+    fun `a proof holds a few bytes for each frame it spans, not copies of the whole change`() {
+        val (a, b) = pair()
+        val chosen = AutoOnBands.choose(a, b)
+        val render = chosen.render!!
+        val beatLocked = chosen.pick.kind == AutoKind.BEAT_LOCKED
+        // Once first, so loading the classes is not counted.
+        ProofCheck.check(AutoOnBands.proofOf(render, a.copy, b.copy, beatLocked))
+        val threads = java.lang.management.ManagementFactory.getThreadMXBean() as com.sun.management.ThreadMXBean
+        val before = threads.currentThreadAllocatedBytes
+        val verdict = ProofCheck.check(AutoOnBands.proofOf(render, a.copy, b.copy, beatLocked))
+        val allocated = threads.currentThreadAllocatedBytes - before
+        val plan = render.plan
+        val spans = plan.mixTo - plan.mixFrom + 2 * (AutoOnBands.PROOF_AROUND_S * rate).toLong()
+        println("proof of ${chosen.pick.describe()}: %.1f MB for %.1f s, %.1f bytes a frame".format(allocated / 1e6, spans.toDouble() / rate, allocated.toDouble() / spans))
+        assertTrue(verdict.why, verdict.passes)
+        // Three stereo float copies of the window and three loudness curves in doubles came to
+        // 48 bytes a frame, about 100 MB for a 16-bar change on the phone's shared heap.
+        assertTrue("%.1f bytes a frame".format(allocated.toDouble() / spans), allocated < 8 * spans)
+    }
+
+    @Test
     fun `nothing that would come before it can be ready is ever kept`() {
         val (a, b) = pair()
         // As good as no time left: every candidate starts before it could be in place.
