@@ -119,6 +119,15 @@ class RecoveryWiringTest {
     }
 
     @Test
+    fun `a lyrics clip and the transition editor resolve through the player's own resolver`() {
+        // With a resolver of their own they knew no format for the song playing, fetched it
+        // again, and kept another route's address and format row over the player's mid-song.
+        val factory = body("private fun createDataSourceFactory(", "/**")
+        assertTrue(factory, factory.contains("val resolver = playerResolver"))
+        assertTrue(factory, !factory.contains("SongResolver("))
+    }
+
+    @Test
     fun `a song's fetch that got no answer mid-song is handed to media3 as a failure it tries again`() {
         val resolve = body("fun resolve(mediaId: String, position: Long, length: Long): ResolvedSong {", "val playbackData = played.data")
         assertTrue(resolve.contains("throw Recovery.resolveFailed(position, throwable,"))
