@@ -16,6 +16,7 @@ import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -32,6 +33,21 @@ class EnginePreviewTest {
     )
 
     @Test
+    fun `the preview and its Auto hear each song at its level as the phone plays it`() {
+        val dir = File("src/main/java/com/dd3boh/outertune/ui/screens/mix")
+        val preview = File(dir, "EnginePreview.kt").readText()
+        val model = File(dir, "MixEditorViewModel.kt").readText()
+        val audio = File(dir, "EditorAudio.kt").readText()
+        val screen = File(dir, "MixEditorScreen.kt").readText()
+        assertTrue("the preview renders both songs at full", "Preview.render(alone, a, b, aAnalysis, levelA, levelB)" in preview)
+        assertTrue("the preview is made without the songs' levels", "EnginePreview(loaded.aCopy, loaded.bCopy, loaded.a.analysis, levelA, levelB, volume)" in model)
+        assertTrue("Auto's proofs hear both songs at full", "AutoOnBands.choose(aSong, bSong, attenuationA = levelA, attenuationB = levelB)" in audio)
+        assertTrue("the levels are not the ones the service plays at", "mixLevelOf(" in screen)
+        assertTrue("the preview leaves out the in-app volume", "volume = { service.playerVolume.value }" in screen)
+        assertTrue("the preview's track is not at the in-app volume", "out.setVolume(volume" in preview)
+    }
+
+    @Test
     fun `a plain change plays the next song at its own speed when the two rates differ`() {
         // A: a 48 kHz stream's last 10 s, silent. B: a 44.1 kHz file whose every sample says which frame it is.
         val a = Copy(ShortArray(2 * 48_000 * 10), 48_000, 2, startMs = 100_000.0)
@@ -43,6 +59,16 @@ class EnginePreviewTest {
         val i = heard.indexAt(2.0)
         val frame = heard.pcm[i * 2].toInt()
         assertEquals((88_200 % 20_000).toDouble(), frame.toDouble(), 2.0)
+    }
+
+    @Test
+    fun `a plain change is heard with each song at its level as the phone plays it`() {
+        val a = Copy(ShortArray(2 * 48_000 * 10) { 10_000 }, 48_000, 2, startMs = 100_000.0)
+        val b = Copy(ShortArray(2 * 48_000 * 10) { 20_000 }, 48_000, 2)
+        val heard = PreviewSound(a, b, null, levelA = 0.5, levelB = 0.25).heardOf(PreviewSetup(plain(108_000.0), -1.0, 4.0, null))
+        // A a bar before its end, B two seconds in.
+        assertEquals(5_000, heard.pcm[heard.indexAt(0.0) * 2].toInt())
+        assertEquals(5_000, heard.pcm[heard.indexAt(2.0) * 2].toInt())
     }
 
     /** A window that holds [level] everywhere, over bars [from] to [to] at 48 kHz with two-second bars. */

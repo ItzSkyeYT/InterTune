@@ -95,13 +95,21 @@ class MixEditorViewModel @Inject constructor(
     var adjustEdited = false
 
     private var source: DataSource.Factory? = null
+    private var levelOf: (String) -> Double = { 1.0 }
+    private var volumeOf: () -> Float = { 1f }
     private var job: Job? = null
     private val cancelled = AtomicBoolean(false)
 
-    /** Starts reading the pair through the player's way to the songs, once. */
-    fun start(source: DataSource.Factory) {
+    /**
+     * Starts reading the pair through the player's way to the songs, once. [levelOf] gives a song's
+     * level as Mix's stage plays it now (its loudness normalisation, and the in-app volume above
+     * 100%), [volume] the in-app volume the player plays at.
+     */
+    fun start(source: DataSource.Factory, levelOf: (String) -> Double, volume: () -> Float) {
         if (this.source != null) return
         this.source = source
+        this.levelOf = levelOf
+        this.volumeOf = volume
         load()
     }
 
@@ -120,9 +128,16 @@ class MixEditorViewModel @Inject constructor(
                 val fixes = withContext(Dispatchers.IO) { MixStores.beatFixes(context) }
                 val inputA = input(fromId, a, withContext(Dispatchers.IO) { fixes.get(fromId) } ?: BeatFix.NONE)
                 val inputB = input(toId, b, withContext(Dispatchers.IO) { fixes.get(toId) } ?: BeatFix.NONE)
+                // Each song at its level as the phone plays it now, so the preview is heard as the
+                // change will be, and Auto's proofs judge the sum the phone would play. At full, the
+                // preview came in up to 13 dB louder than the music it paused, the two songs out of
+                // their balance and the shared headroom worked out on a hotter sum.
+                val levelA = withContext(Dispatchers.IO) { runCatching { levelOf(fromId) }.getOrDefault(1.0) }
+                val levelB = withContext(Dispatchers.IO) { runCatching { levelOf(toId) }.getOrDefault(1.0) }
+                val volume = runCatching { volumeOf() }.getOrDefault(1f)
                 val loaded = withContext(Dispatchers.IO) {
                     PairLoader(source, EditorCache(context.cacheDir)) { id, end -> MixStores.analysed(context, id, end) }.load(
-                        inputA, inputB,
+                        inputA, inputB, levelA, levelB,
                         stage = { phase.value = Phase.Loading(it) },
                         cancelled = { cancelled.get() },
                     )
@@ -137,7 +152,7 @@ class MixEditorViewModel @Inject constructor(
                 pair = loaded
                 editor = e
                 // The change as the phone will play it, from the engine's own render of the two copies.
-                preview = EnginePreview(loaded.aCopy, loaded.bCopy, loaded.a.analysis)
+                preview = EnginePreview(loaded.aCopy, loaded.bCopy, loaded.a.analysis, levelA, levelB, volume)
                 publish()
                 phase.value = Phase.Ready
             } catch (e: CancellationException) {

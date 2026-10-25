@@ -3189,6 +3189,15 @@ class MusicService : MediaLibraryService(),
         soundBeforeMix = gainProcessor.gain > 1f || !equalizerProcessor.settings.isFlat || binauralProcessor.enabled || spatialUpmixProcessor.enabled,
     )
 
+    /**
+     * [songId]'s level as Mix's stage would scale it now (AutomixVolume.songAttenuation): its
+     * loudness normalisation, and the in-app volume where it is above 100%. For the transition
+     * editor's preview and its Auto; the volume under 100% stays the player's, [playerVolume].
+     * Reads the database: call it off the main thread.
+     */
+    fun mixLevelOf(songId: String): Double =
+        AutomixVolume.songAttenuation(automixNormalization(songId)?.first ?: normalizeFactor.value, playerVolume.value)
+
     /** A song's normalisation by the rule the player uses, from what is stored: the bounded read, on IO. */
     private fun automixNormalization(id: String): Pair<Float, Boolean>? {
         val normalize = automixNormalizeAudio

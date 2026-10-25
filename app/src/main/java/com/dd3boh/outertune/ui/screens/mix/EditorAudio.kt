@@ -105,7 +105,8 @@ class PairLoader(
         val fix: BeatFix,
     )
 
-    fun load(a: SongInput, b: SongInput, stage: (Stage) -> Unit, cancelled: () -> Boolean): LoadedPair {
+    /** [levelA] and [levelB]: each song's level as the phone plays it now, which Auto's proofs hear it at. */
+    fun load(a: SongInput, b: SongInput, levelA: Double = 1.0, levelB: Double = 1.0, stage: (Stage) -> Unit, cancelled: () -> Boolean): LoadedPair {
         stage(Stage.READING_A)
         val (aWindow, aBands) = try {
             window(a, TAIL, cancelled)
@@ -157,7 +158,7 @@ class PairLoader(
             runCatching {
                 val aSong = AutoOnBands.Song(a.id, aCopy, aAnalysis, aWindow.info.startMs, aWindow.info.durationMs, a.albumId, a.fix)
                 val bSong = AutoOnBands.Song(b.id, bCopy, bAnalysis, bWindow.info.startMs, bWindow.info.durationMs, b.albumId, b.fix)
-                val chosen = AutoOnBands.choose(aSong, bSong)
+                val chosen = AutoOnBands.choose(aSong, bSong, attenuationA = levelA, attenuationB = levelB)
                 autoWhy = "${chosen.pick.describe()}, ${chosen.proofs} proofs in %.0f ms".format(chosen.millis)
                 kept?.invoke(a.id, aSong.end)
                 kept?.invoke(b.id, bSong.end)

@@ -144,7 +144,8 @@ fun MixEditorScreen(navController: NavController) {
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 
     LaunchedEffect(playerConnection) {
-        playerConnection?.service?.songSource()?.let(vm::start)
+        val service = playerConnection?.service ?: return@LaunchedEffect
+        vm.start(service.songSource(), levelOf = { id -> service.mixLevelOf(id) }, volume = { service.playerVolume.value })
     }
 
     val phase by vm.phase.collectAsState()

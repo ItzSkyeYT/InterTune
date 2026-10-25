@@ -38,11 +38,17 @@ import kotlin.math.sin
  *
  * It plays on its own AudioTrack with about 40 ms of buffer, on its own thread at audio priority,
  * looping over the canvas with a short fade at the seam. A plain change is heard as it plays: A to
- * its end, then B from its first frame.
+ * its end, then B from its first frame. Each song is heard at the level the phone plays it at:
+ * [levelA] and [levelB] scale its samples as Mix's stage does (AutomixVolume.songAttenuation), and
+ * [volume], the in-app volume, goes on the track as it goes on the player's.
  */
-class EnginePreview(a: Copy, b: Copy, aAnalysis: RegionAnalysis?) : MixPreview {
+class EnginePreview(
+    a: Copy, b: Copy, aAnalysis: RegionAnalysis?,
+    levelA: Double = 1.0, levelB: Double = 1.0,
+    private val volume: Float = 1f,
+) : MixPreview {
 
-    private val sound = PreviewSound(a, b, aAnalysis)
+    private val sound = PreviewSound(a, b, aAnalysis, levelA, levelB)
 
     private val rate = a.sampleRate
     private val channels = a.channels
@@ -179,6 +185,8 @@ class EnginePreview(a: Copy, b: Copy, aAnalysis: RegionAnalysis?) : MixPreview {
             _playing.value = false
             return
         }
+        // Under 100%, the in-app volume is the player's own volume, on top of the stage's levels.
+        out.setVolume(volume.coerceIn(0f, 1f))
         track = out
         synchronized(marks) { markCount = 0 }
         val block = ShortArray(BLOCK * channels)
@@ -233,7 +241,14 @@ internal class PreviewHeard(val setup: PreviewSetup, val pcm: ShortArray, val fr
  * change, or a plain change, and the song alone with a click (Fix the beat). Pure, off the audio
  * thread, so it can be heard in a test.
  */
-internal class PreviewSound(private val a: Copy, private val b: Copy, private val aAnalysis: RegionAnalysis?) {
+internal class PreviewSound(
+    private val a: Copy,
+    private val b: Copy,
+    private val aAnalysis: RegionAnalysis?,
+    /** Each song's level as the phone plays it: what the stage scales its samples by. */
+    private val levelA: Double = 1.0,
+    private val levelB: Double = 1.0,
+) {
     val rate = a.sampleRate
     val channels = a.channels
 
@@ -245,7 +260,7 @@ internal class PreviewSound(private val a: Copy, private val b: Copy, private va
         // intro twice, a later start) is heard without it, the nearest the editor can give.
         val playable = spec.copy(introTwice = 0, bStartMs = 0.0)
         val alone = s.solo?.let { solo(playable, it, s.from, s.to) } ?: playable
-        val window = Preview.render(alone, a, b, aAnalysis).getOrThrow()
+        val window = Preview.render(alone, a, b, aAnalysis, levelA, levelB).getOrThrow()
         return PreviewHeard(s, window.pcm, window.frames, { i -> window.uAt(i) }, { u -> window.indexAt(u) })
     }
 
@@ -266,7 +281,8 @@ internal class PreviewSound(private val a: Copy, private val b: Copy, private va
         for (i in 0 until n) {
             val u = s.from + i * 1000.0 / rate / barMs
             val (copy, ms) = if (u < endU) a to (spec.a.atMs + u * barMs) else b to ((u - endU) * barMs)
-            for (c in 0 until channels) pcm[i * channels + c] = sampleAt(copy, ms, c, nearest = true).roundToInt().coerceIn(-32768, 32767).toShort()
+            val level = if (copy === a) levelA else levelB
+            for (c in 0 until channels) pcm[i * channels + c] = (sampleAt(copy, ms, c, nearest = true) * level).roundToInt().coerceIn(-32768, 32767).toShort()
         }
         val step = 1000.0 / rate / barMs
         return PreviewHeard(s, pcm, n, { i -> s.from + i * step }, { u -> ((u - s.from) / step).roundToInt().coerceIn(0, n) })
@@ -298,7 +314,7 @@ internal class PreviewSound(private val a: Copy, private val b: Copy, private va
         val anchor = if (side == Side.A) spec.a else spec.b
         val copy = if (side == Side.A) a else b
         val ms = anchor.atMs + u * anchor.barMs
-        var v = sampleAt(copy, ms, c, nearest = false) * 0.7
+        var v = sampleAt(copy, ms, c, nearest = false) * 0.7 * (if (side == Side.A) levelA else levelB)
         val beatMs = anchor.barMs / anchor.beatsPerBar
         val beats = (ms - anchor.atMs) / beatMs
         val k = floor(beats).toInt()
