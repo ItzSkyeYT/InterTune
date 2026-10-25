@@ -19,6 +19,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.ENABLE_FFMETADATAEX
 import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.ui.dialog.togetherAvailable
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.TourTargets
 import java.text.Normalizer
@@ -122,6 +123,7 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.grouped_player_controls, R.string.grouped_player_controls_description),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.player_glass_intensity, R.string.player_glass_intensity_description, under = R.string.player_liquid_glass),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.player_buttons_style, R.string.player_buttons_style_description),
+    SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.player_pins, R.string.player_pins_description),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.queue_button, R.string.queue_button_description),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.queue_back_closes_player, R.string.queue_back_closes_player_description),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.media_control_buttons, words = listOf(R.string.search_words_media_buttons)),
@@ -142,6 +144,7 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
     SettingEntry(Tour.ROUTE_PLAYER, R.string.adaptive_queue, R.string.adaptive_radio_description, words = listOf(R.string.search_words_radio)),
     SettingEntry(Tour.ROUTE_PLAYER, R.string.transition_fade, R.string.transition_fade_description, words = listOf(R.string.search_words_crossfade)),
     SettingEntry(Tour.ROUTE_PLAYER, R.string.transition_fade_length, under = R.string.transition_fade),
+    SettingEntry(Tour.ROUTE_PLAYER, R.string.automix, R.string.automix_description, there = Unreleased.AUTOMIX),
     SettingEntry(Tour.ROUTE_PLAYER, R.string.spatial_audio, words = listOf(R.string.spatial_audio_headphones, R.string.spatial_audio_surround, R.string.search_words_spatial)),
     SettingEntry(Tour.ROUTE_PLAYER, R.string.head_tracking, under = R.string.spatial_audio, words = listOf(R.string.search_words_head_tracking)),
     SettingEntry(Tour.ROUTE_PLAYER, R.string.head_tracking_response, under = R.string.head_tracking),
@@ -197,6 +200,9 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
     SettingEntry(Tour.ROUTE_LYRICS, R.string.lyrics_auto_scroll, R.string.lyrics_auto_scroll_description, fold = R.string.advanced),
     SettingEntry(Tour.ROUTE_LYRICS, R.string.lyrics_karaoke_title, R.string.lyrics_karaoke_description, fold = R.string.advanced),
     SettingEntry(Tour.ROUTE_LYRICS, R.string.lyrics_karaoke_hz_title, fold = R.string.advanced),
+
+    // Listen together, where rooms are offered
+    SettingEntry("settings/together", R.string.together_name_setting, there = togetherAvailable),
 
     // Storage and downloads
     SettingEntry(Tour.ROUTE_STORAGE, R.string.download_on_wifi_only_title, R.string.download_on_wifi_only_description, words = listOf(R.string.search_words_mobile_data)),

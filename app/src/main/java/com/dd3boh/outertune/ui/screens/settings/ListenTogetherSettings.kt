@@ -74,6 +74,7 @@ fun ListenTogetherSettings(
         ElevatedCard(modifier = Modifier.fillMaxWidth()) {
             // Left empty, the phone's own name is used, as it was before there was a setting.
             EditTextPreference(
+                modifier = Modifier.settingRow(R.string.together_name_setting),
                 title = { Text(stringResource(R.string.together_name_setting)) },
                 icon = { Icon(Icons.Rounded.Badge, null) },
                 value = name.ifBlank { phoneName(context) },

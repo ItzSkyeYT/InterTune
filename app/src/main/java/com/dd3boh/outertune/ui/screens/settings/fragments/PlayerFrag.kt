@@ -764,6 +764,7 @@ fun ColumnScope.AutomixFrag() {
     val (enabled, onEnabledChange) = rememberPreference(AutomixKey, defaultValue = false)
 
     ExplainedSwitchPreference(
+        modifier = Modifier.settingRow(R.string.automix),
         title = stringResource(R.string.automix),
         description = stringResource(R.string.automix_description),
         explanation = stringResource(R.string.automix_explain),

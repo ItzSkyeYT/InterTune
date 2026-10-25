@@ -83,6 +83,7 @@ class AutomixHeldBackTest {
                 "ui/screens/settings/PlayerSettings.kt",
                 "ui/screens/settings/fragments/PlayerFrag.kt",
                 "ui/screens/settings/fragments/DeveloperFrag.kt",
+                "ui/screens/settings/SettingsIndex.kt",
                 "playback/MusicService.kt",
             ),
             readers,

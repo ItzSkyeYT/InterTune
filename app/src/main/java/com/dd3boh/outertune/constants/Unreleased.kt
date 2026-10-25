@@ -528,7 +528,8 @@ object Unreleased {
      * For 0.13. Its analysis and its mixes were checked on the PC (AutomixTrial, 38 songs, through
      * a model of media3's audio sink), not yet heard on a phone. The setting starts off, and with
      * it off, or this off, playback is what it was. To ship: set this to true, or delete it with
-     * the checks that read it, in MusicService, PlayerSettings, PlayerFrag and DeveloperFrag.
+     * the checks that read it, in MusicService, PlayerSettings, PlayerFrag and DeveloperFrag, and
+     * its row's entry in SETTINGS_INDEX.
      */
     val AUTOMIX = BuildConfig.DEBUG
 
