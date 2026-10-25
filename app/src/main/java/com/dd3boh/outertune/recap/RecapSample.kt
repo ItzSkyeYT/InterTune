@@ -20,6 +20,7 @@ import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.constants.RecapPopUpShownKey
 import com.dd3boh.outertune.constants.RecapRevealedEarlyKey
 import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.constants.ViewedPollIdsKey
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.db.entities.Listen
 import com.dd3boh.outertune.engine.ContextChip
@@ -127,6 +128,10 @@ object RecapSample {
             Log.w(TAG, "refused: this database already holds $existing listens")
             return false
         }
+        // A made-up year is never counted: its Recap is written down as counted before anything
+        // else, so opening it sends nothing (PollChecker.recapOpened sends only a first opening).
+        val thisYear = LocalDate.now().year
+        context.dataStore.edit { it[ViewedPollIdsKey] = it[ViewedPollIdsKey].orEmpty() + RecapCount.id(thisYear - 1) + RecapCount.id(thisYear) }
         Log.i(TAG, "finding ${NAMES.size} songs by name")
         val named = ArrayList<SongItem>()
         val extras = ArrayList<SongItem>()

@@ -66,6 +66,19 @@ class RecapPrivacyTest {
     }
 
     @Test
+    fun `the made-up year is never counted`() {
+        val sample = code(File(sources, "recap/RecapSample.kt"))
+        // Written down as counted, for the year and the one before, after the refusal and before anything else is written.
+        val counted = sample.indexOf("it[ViewedPollIdsKey] = it[ViewedPollIdsKey].orEmpty() + RecapCount.id(thisYear - 1) + RecapCount.id(thisYear)")
+        assertTrue("the sample does not write its Recap down as counted", counted >= 0)
+        assertTrue(sample.indexOf("if (existing > MOST_EXISTING_LISTENS)") < counted)
+        assertTrue(counted < sample.indexOf("ImportSearch.songs") && counted < sample.indexOf("transactionNow"))
+        // And the count is only ever sent for a first opening, which that record rules out.
+        val poll = code(File(sources, "utils/PollChecker.kt"))
+        assertTrue("if (!firstOpening(RecapCount.id(year)) || !Polls.isConfigured) return@withContext" in poll)
+    }
+
+    @Test
     fun `the developer's ways in are a debug build's only`() {
         val developer = code(File(sources, "ui/screens/settings/fragments/DeveloperFrag.kt"))
         assertTrue("if (BuildConfig.DEBUG && Unreleased.RECAP) {" in developer.lines().map { it.trim() })
