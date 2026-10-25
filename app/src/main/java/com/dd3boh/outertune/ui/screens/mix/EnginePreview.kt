@@ -320,12 +320,18 @@ internal class PreviewPlayhead(private val rate: Int, private val channels: Int,
     private var playingNow: PreviewHeard? = null
     private var index = 0
 
-    // A window giving way to a newer one: both play for a few ms, crossed.
+    // What was heard before a newer render, a seek or the click took over, played on for a few ms
+    // under what comes next, crossed: a window at its frame, or a song alone with its click.
     private var leaving: PreviewHeard? = null
     private var leavingIndex = 0
+    private var leavingSide: Side? = null
+    private var leavingSpec: TransitionSpec? = null
+    private var leavingClickU = 0.0
+    private var leavingStep = 0.0
     private var cross = 0
     private var fadeIn = 0
     private var clickU = 0.0
+    private var lastSide: Side? = null
 
     /** Not looping, the end was reached. */
     var ended = false
@@ -342,27 +348,45 @@ internal class PreviewPlayhead(private val rate: Int, private val channels: Int,
      */
     fun fill(block: ShortArray, newest: PreviewHeard?, takeSeek: () -> Double?, side: Side?, loop: Boolean, written: Long, mark: (Long, Double, Double) -> Unit): Boolean {
         if (newest == null) return false
-        val current = playingNow
-        if (current == null) {
+        val wasHeard = playingNow
+        val wasIndex = index
+        val wasSide = lastSide
+        val wasClickU = clickU
+        if (wasHeard == null) {
             playingNow = newest
             index = newest.indexAt(takeSeek() ?: newest.setup.from)
             fadeIn = EnginePreview.FADE_FRAMES
-        } else if (newest !== current) {
+        } else if (newest !== wasHeard) {
             // The newer render takes over at the bar being heard.
-            leaving = current
-            leavingIndex = index
-            cross = EnginePreview.FADE_FRAMES
             playingNow = newest
-            index = newest.indexAt(current.uAt(index))
+            index = newest.indexAt(wasHeard.uAt(wasIndex))
         }
         val h = playingNow!!
-        takeSeek()?.let {
-            index = h.indexAt(it.coerceIn(h.setup.from, h.setup.to))
-            clickU = it
-            fadeIn = EnginePreview.FADE_FRAMES
-            leaving = null
-            cross = 0
+        val seek = takeSeek()
+        if (seek != null) {
+            index = h.indexAt(seek.coerceIn(h.setup.from, h.setup.to))
+            clickU = seek
         }
+        if (wasHeard != null && (newest !== wasHeard || seek != null || side != wasSide)) {
+            // A newer render, a seek, or the click turned on or off: the block given out last
+            // ended at full level, so what was heard goes on under the new place for a few ms,
+            // crossed. Faded in from silence instead, every tap on the ruler clicked. With the
+            // click on, what was heard is the song alone with its click, never the change's render.
+            if (wasSide != null) {
+                val was = wasHeard.setup.spec
+                leaving = null
+                leavingSide = wasSide
+                leavingSpec = was
+                leavingClickU = wasClickU
+                leavingStep = 1000.0 / rate / (if (wasSide == Side.A) was.a.barMs else was.b.barMs)
+            } else {
+                leaving = wasHeard
+                leavingIndex = wasIndex
+                leavingSide = null
+            }
+            cross = EnginePreview.FADE_FRAMES
+        }
+        lastSide = side
         val spec = h.setup.spec
         // The click starts where the change is being heard.
         if (side == null) clickU = h.uAt(index)
@@ -376,10 +400,17 @@ internal class PreviewPlayhead(private val rate: Int, private val channels: Int,
             for (c in 0 until channels) {
                 val x = if (side != null) sound.clickSample(spec, side, clickU, c) else at(h, index, c)
                 var v = x.toDouble()
-                val lv = leaving
-                if (cross > 0 && lv != null) {
+                if (cross > 0) {
+                    val lv = leaving
+                    val ls = leavingSide
+                    val ld = leavingSpec
+                    val old = when {
+                        ls != null && ld != null -> sound.clickSample(ld, ls, leavingClickU, c).toDouble()
+                        lv != null -> at(lv, leavingIndex, c).toDouble()
+                        else -> null
+                    }
                     val w = cross.toDouble() / EnginePreview.FADE_FRAMES
-                    v = v * (1 - w) + at(lv, leavingIndex, c) * w
+                    if (old != null) v = v * (1 - w) + old * w
                 }
                 val toEnd = if (side != null) ((h.setup.to - clickU) / step).toInt() else toIndex - index
                 var g = 1.0
@@ -390,8 +421,11 @@ internal class PreviewPlayhead(private val rate: Int, private val channels: Int,
             if (fadeIn > 0) fadeIn--
             if (cross > 0) {
                 cross--
-                leavingIndex++
-                if (cross == 0) leaving = null
+                if (leavingSide != null) leavingClickU += leavingStep else leavingIndex++
+                if (cross == 0) {
+                    leaving = null
+                    leavingSide = null
+                }
             }
             if (side != null) clickU += step else index++
             val past = if (side != null) clickU >= h.setup.to else index >= toIndex
@@ -401,6 +435,7 @@ internal class PreviewPlayhead(private val rate: Int, private val channels: Int,
                     clickU = h.setup.from
                     fadeIn = EnginePreview.FADE_FRAMES
                     leaving = null
+                    leavingSide = null
                     cross = 0
                     mark(written + f + 1, h.setup.from, step)
                 } else {
