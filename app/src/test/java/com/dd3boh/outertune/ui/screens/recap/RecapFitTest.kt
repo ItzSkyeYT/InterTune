@@ -81,15 +81,20 @@ class RecapFitTest {
         assertEquals(500f * 300f / 320f, stage.actors[ActorId.R.ordinal].s.target, 0.5f)
         assertEquals(540f, stage.actors[ActorId.D.ordinal].x.target, 0.5f)
         assertEquals(1150f, stage.actors[ActorId.D.ordinal].y.target, 0.5f)
-        // A piece not sitting on a part is placed in the height under the status bar.
+        // A piece not sitting on a part: the design's band of bars on the bars, the rest under them.
         stage.top = 120f
+        stage.chrome = 170f
         val minutes = slides.indexOfFirst { it.kind == SlideKind.MINUTES } + 1
         stage.go(minutes, 0, How.ON)
         repeat(6) { stage.frame(16.0, paused = false) }
-        assertEquals(120f + 248f / 736f * (2340f - 120f), stage.actors[ActorId.B.ordinal].y.target, 0.5f)
+        assertEquals(120f + 170f + (248f - 48f) / (736f - 48f) * (2340f - 120f - 170f), stage.actors[ActorId.B.ordinal].y.target, 0.5f)
         assertEquals(380f / 414f * 1080f, stage.actors[ActorId.B.ordinal].x.target, 0.5f)
+        assertEquals(120f + 85f, stage.pieceY(24f), 0.5f)
+        // On a short screen, a piece the design puts under its bars stays under the bars here.
+        stage.resize(2340f, 1080f)
+        for (y in listOf(74f, 88f, 90f, 98f)) assertTrue("$y", stage.pieceY(y) > 120f + 170f)
         // The start screen's pieces go by the whole height, as its words do.
         stage.go(0, 0, How.INSTANT)
-        assertEquals(116f / 736f * 2340f, stage.pieceY(116f), 0.5f)
+        assertEquals(116f / 736f * 1080f, stage.pieceY(116f), 0.5f)
     }
 }

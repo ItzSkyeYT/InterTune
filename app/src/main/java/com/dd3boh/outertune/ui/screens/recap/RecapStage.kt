@@ -162,11 +162,14 @@ internal class RecapStage(private val slides: List<Slide>, val still: Boolean, s
         private set
 
     /**
-     * Where the story's room begins, in pixels: under the status bar. The design has no status bar
-     * over its slides, so a slide's pieces are placed in the height below it, and the pieces drawn
-     * near the top stay clear of the bars and the pause and close buttons, as the design's do.
+     * Where the story's room begins, in pixels: under the status bar; and how tall the bars, the
+     * pause and the close button are under it. The design has no status bar over its slides, and its
+     * bars take the top 48 of its 736: a slide's pieces are placed so that this band of the design
+     * falls on the bars here, whatever the screen's height, and the pieces drawn below the design's
+     * bars stay clear of the buttons on a short screen too.
      */
     var top = 0f
+    var chrome = 0f
 
     private var visits = 0
     var current by mutableStateOf(page(startAt, startStep, How.INSTANT))
@@ -238,11 +241,21 @@ internal class RecapStage(private val slides: List<Slide>, val still: Boolean, s
     fun at(x: Float, y: Float) = Offset(x / 414f * size.width, y / 736f * size.height)
 
     /**
-     * Where a piece the design puts [y] down (of 736) goes on this screen: on a slide, in the height
-     * under the status bar ([top]); on the start screen, whose words are laid out on the whole
-     * height, in the whole height too.
+     * Where a piece the design puts [y] down (of 736) goes on this screen. On a slide: the design's
+     * band of bars ([BARS] of 736) onto the bars here ([top] to [top] + [chrome]), and the rest of
+     * its height onto the rest of the screen's. On the start screen, which has no bars and whose
+     * words are laid out on the whole height, the whole height.
      */
-    fun pieceY(y: Float): Float = if (current.at == 0) y / 736f * size.height else top + y / 736f * (size.height - top)
+    fun pieceY(y: Float): Float = when {
+        current.at == 0 -> y / 736f * size.height
+        y <= BARS -> top + y / BARS * chrome
+        else -> top + chrome + (y - BARS) / (736f - BARS) * (size.height - top - chrome)
+    }
+
+    private companion object {
+        /** The design's bars at the top: 58 of its 892 pixels, 48 of the 736 its pieces are placed on. */
+        const val BARS = 48f
+    }
 
     private val middle get() = Offset(size.width / 2f, size.height / 2f)
 

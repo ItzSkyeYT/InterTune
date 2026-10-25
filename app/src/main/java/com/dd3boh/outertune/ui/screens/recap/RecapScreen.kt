@@ -158,9 +158,14 @@ internal fun RecapStory(
     val stage = remember(slides) { RecapStage(slides, still, savedAt, savedStep) }
     stage.onPage = { a, s -> savedAt = a; savedStep = s }
 
-    // The pieces of a slide are placed under the status bar, as the design's are under its bars.
-    val topInset = WindowInsets.safeDrawing.getTop(LocalDensity.current)
-    SideEffect { stage.top = topInset.toFloat() }
+    // The pieces of a slide are placed under the status bar and round the bars, as the design's are (RecapStage.pieceY).
+    val density = LocalDensity.current
+    val topInset = WindowInsets.safeDrawing.getTop(density)
+    val chromePx = with(density) { STORY_BARS_DP.dp.toPx() }
+    SideEffect {
+        stage.top = topInset.toFloat()
+        stage.chrome = chromePx
+    }
 
     var held by remember { mutableStateOf(false) }
     // The pause button: the story stays where it is, everything on the slide included, until it is
@@ -494,6 +499,9 @@ private fun PageView(
             }
     ) { content(s) }
 }
+
+/** How tall the bars at the top are under the status bar: 9 dp, the bars' 3, 5 more and the row of 40 (StoryBars). */
+private const val STORY_BARS_DP = 57
 
 /**
  * The bars at the top, one for each slide, filling as it plays; the mark, the year, the pause
