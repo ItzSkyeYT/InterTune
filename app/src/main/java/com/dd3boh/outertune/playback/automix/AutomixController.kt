@@ -165,7 +165,7 @@ class AutomixController(
                 _decided.value = null
                 transition?.let { abort(it, "AutoMix was switched off") }
                 stopWork()
-                say("off; it leaves the chain at the next song")
+                say("off; it leaves the chain at the next song started by hand, levelling the songs till then")
             } else {
                 say("on; it joins the chain at the next song")
             }
@@ -320,9 +320,10 @@ class AutomixController(
 
     /**
      * With AutoMix off the stage can still be in the chain for the song playing: the song that
-     * started under an end held as it was switched off, or one configured just before. It scales
-     * that song by the level it was last told and the volume leaves normalisation out, so the
-     * levels must keep following the songs until the stage leaves the chain at the next song.
+     * started under an end held as it was switched off, one configured just before, and every
+     * song that came by itself since. It scales that song by the level it was last told and the
+     * volume leaves normalisation out, so the levels must keep following the songs until the
+     * stage leaves the chain at a song started by hand or after a stop.
      */
     private fun levelsWhileOff() {
         if (stage.activeForStream) publishLevels()

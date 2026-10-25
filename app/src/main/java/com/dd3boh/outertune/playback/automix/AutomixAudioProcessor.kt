@@ -171,7 +171,11 @@ class AutomixAudioProcessor(
 
     internal fun sinkInput(presentationTimeUs: Long) {
         sinkInputUs = presentationTimeUs
+        buffersSinceRendererFlush++
     }
+
+    /** Buffers the sink was handed since the renderer last flushed it: none yet for a stream started by hand, a seek or a first start. */
+    private var buffersSinceRendererFlush = 0L
 
     // ---- the player's thread only
 
@@ -210,10 +214,16 @@ class AutomixAudioProcessor(
             inputAudioFormat.sampleRate == current.sampleRate &&
             inputAudioFormat.channelCount == current.channelCount
         val holding = held?.state?.let { it != HeldTail.State.PASS } == true
+        // In the chain, the stage levels each song, and the volume takes that over only as the
+        // player names the next song, a moment after its first frames are heard. So it stays in
+        // for a song that comes by itself, levelling it, and steps out at a song started by hand
+        // or after a stop, where both change at once: out at the change by itself, the next
+        // song's first frames went out unlevelled while the volume still left that to the stage.
+        val stays = activeForStream && buffersSinceRendererFlush > 0
         // 16 bit only: the chain runs in 16 bit (MusicService.highPrecisionAudio), and a stage that
         // cannot read a stream steps out of it rather than mangling it.
         val readable = inputAudioFormat.encoding == C.ENCODING_PCM_16BIT && inputAudioFormat.channelCount in 1..8
-        return if (readable && (wanted || holding)) inputAudioFormat else AudioProcessor.AudioFormat.NOT_SET
+        return if (readable && (wanted || holding || stays)) inputAudioFormat else AudioProcessor.AudioFormat.NOT_SET
     }
 
     override fun queueInput(inputBuffer: ByteBuffer) {
@@ -448,6 +458,7 @@ class AutomixAudioProcessor(
             // would pace the new stream by where the old one had got to.
             pinnedId = null
             sinceRendererFlush = true
+            buffersSinceRendererFlush = 0
             armRequest.set(null)
             sinkPositionUs = C.TIME_UNSET
         }
@@ -528,6 +539,7 @@ class AutomixAudioProcessor(
         readMark = 0
         activeForStream = false
         sinceRendererFlush = false
+        buffersSinceRendererFlush = 0
     }
 
     /** Once per stream: what failed goes in the log, and the stream passes through as it is until the next one. */
