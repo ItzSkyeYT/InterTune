@@ -34,6 +34,7 @@ import com.dd3boh.outertune.extensions.metadata
 import com.dd3boh.outertune.extensions.toMediaItem
 import com.dd3boh.outertune.extensions.toggleRepeatMode
 import com.dd3boh.outertune.extensions.toggleShuffleMode
+import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import com.dd3boh.outertune.utils.albumWithOrderedSongs
 import com.dd3boh.outertune.utils.reportException
 import com.dd3boh.outertune.widget.WidgetList
@@ -62,6 +63,8 @@ import javax.inject.Inject
 /** The longest a request to play waits for the saved queues to load at the service's start. */
 private const val QUEUES_LOADED_TIMEOUT_MS = 5_000L
 private const val SEARCH_ONLINE_MS = 6_000L
+/** The longest the answer to a search's request waits for its song to be in the player. See [MediaLibrarySessionCallback.startSearchRadio]. */
+private const val SONG_IN_PLAYER_MS = 2_000L
 private const val LIST = MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_LIST_ITEM
 private const val GRID = MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_GRID_ITEM
 
@@ -392,12 +395,13 @@ class MediaLibrarySessionCallback @Inject constructor(
         // whatever it is given into the player, so an empty answer emptied it, which is what a
         // voice request did. A failed one it leaves alone, in 1.8.0 on both paths: the legacy
         // stub's onFailure does nothing, and a media3 controller gets an error with the player
-        // untouched.
+        // untouched. So does a request this has played itself (a search's radio, the queue carried
+        // on with), which media3 must not load anything over.
         return Futures.transformAsync(
             resolved,
             AsyncFunction<MediaItemsWithStartPosition?, MediaItemsWithStartPosition> { result ->
                 if (result != null) Futures.immediateFuture(result)
-                else Futures.immediateFailedFuture<MediaItemsWithStartPosition>(UnsupportedOperationException("Nothing to play for \"${request?.mediaId}\""))
+                else Futures.immediateFailedFuture<MediaItemsWithStartPosition>(UnsupportedOperationException("Nothing for media3 to load for \"${request?.mediaId}\""))
             },
             MoreExecutors.directExecutor()
         )
@@ -429,20 +433,21 @@ class MediaLibrarySessionCallback @Inject constructor(
             if (request.requestMetadata.mediaUri != null) return null
             val query = request.requestMetadata.searchQuery?.trim().orEmpty()
             if (query.isEmpty()) return continueCurrentQueue()
-            // Named after what was asked: an assistant's "play X" and the phone's search come
-            // this way as much as the car does, and a queue of theirs called "Android Auto" in
-            // the list of queues said where it came from wrongly. In quotes, since a queue's name
-            // is what tells it from the others: a search for an album's title would otherwise
-            // have replaced the songs of that album's own queue.
-            return startExternalQueue(
-                searchCar(query).map { it.toMediaItem() }, 0, C.TIME_UNSET,
-                title = context.getString(R.string.queue_from_search, query),
-            )
+            // The best match, the first found, and its radio (playFound). Where it plays the
+            // songs found instead, the queue is named after what was asked: an assistant's "play
+            // X" and the phone's search come this way as much as the car does, and a queue of
+            // theirs called "Android Auto" in the list of queues said where it came from wrongly.
+            // In quotes, since a queue's name is what tells it from the others: a search for an
+            // album's title would otherwise have replaced the songs of that album's own queue.
+            return playFound(searchCar(query), picked = null, title = context.getString(R.string.queue_from_search, query))
         }
 
         val target = PlayRequest.parse(mediaId) ?: return null
         Log.d(TAG, "Play request: $target")
         if (target is PlayRequest.Resume) return continueCurrentQueue()
+        // A song tapped in the results of a search: the song and its radio (playFound), never the
+        // results after it.
+        if (target is PlayRequest.Search) return playFound(searchCar(target.query), picked = target.songId, title = context.getString(R.string.android_auto))
         if (target is PlayRequest.Shuffle) {
             val list = when {
                 target.list == AutoBrowse.LIKED -> playlistSongs(PlaylistEntity.LIKED_PLAYLIST_ID)
@@ -455,19 +460,57 @@ class MediaLibrarySessionCallback @Inject constructor(
             is PlayRequest.Song -> librarySongs()
             is PlayRequest.Home -> homeSongs(target.section)
             is PlayRequest.Recent -> recentSongs()
-            is PlayRequest.Resume, is PlayRequest.Shuffle -> return null
+            is PlayRequest.Resume, is PlayRequest.Shuffle, is PlayRequest.Search -> return null
             is PlayRequest.Artist -> database.artistSongsByCreateDateAsc(target.artistId).first()
             is PlayRequest.Album -> database.albumWithOrderedSongs(target.albumId).first()?.songs ?: return null
             is PlayRequest.Playlist -> playlistSongs(target.playlistId)
-
-            is PlayRequest.Search -> searchCar(target.query)
         }
         // A stale or removed id (the car's own cache, or a replayed history entry) is a request
         // this cannot place, the same as the Album-not-found case above: fail it rather than
         // coercing -1 to 0 and silently starting whatever sorts first.
         val index = PlayRequestIndex.indexOf(songs.map { it.id }, target.songId) ?: return null
-        val position = if (target is PlayRequest.Search) C.TIME_UNSET else startPositionMs
-        return startExternalQueue(songs.map { it.toMediaItem() }, index, position)
+        return startExternalQueue(songs.map { it.toMediaItem() }, index, startPositionMs)
+    }
+
+    /**
+     * What a search plays, by [SearchPlay]: the song tapped in the results ([picked]), or with
+     * none named the best match, and its radio, as a song picked in the phone's search plays. A
+     * song that is only a file on the device has no radio, and plays on into the songs found with
+     * it in a queue called [title], as every search played before. Null when there is no such
+     * song.
+     */
+    private suspend fun playFound(found: List<Song>, picked: String?, title: String): MediaItemsWithStartPosition? {
+        val plan = SearchPlay.plan(found, picked, { it.id }, { it.song.isLocal })
+        Log.d(TAG, "Search plays: ${plan?.javaClass?.simpleName ?: "nothing"} from \"${picked ?: found.firstOrNull()?.id}\" of ${found.size} found")
+        return when (plan) {
+            null -> null
+            is SearchPlay.Radio -> startSearchRadio(plan.seed)
+            is SearchPlay.Found -> startExternalQueue(plan.songs.map { it.toMediaItem() }, plan.index, C.TIME_UNSET, title)
+        }
+    }
+
+    /**
+     * [seed], then its radio, started with the call a song picked in the phone's search makes
+     * (OnlineSearchScreen), so that it is the phone's own queue: named by YouTube's answer, topped
+     * up as it plays, and kept as a search for what the app learns from what is played.
+     *
+     * It reaches the player through playQueue, which tells the board itself, so the answer is null
+     * and media3 loads nothing (onSetMediaItems): a list handed back would have been loaded over
+     * the radio. playQueue puts the song in the player on a later turn of the main loop, and the
+     * answer waits for that: a controller sends its prepare and play after its request (the app's
+     * own screens in the car, the phone's play from search), and they would otherwise have found
+     * the queue before in the player and started its song for a moment, or in an empty player had
+     * media3 load the saved queue over the radio (onPlaybackResumption). Bounded, for a start that
+     * never comes (another song tapped meanwhile).
+     *
+     * It plays at once, also for a request only to prepare (onPrepareFromSearch): media3 hands that
+     * over the same way as a request to play.
+     */
+    private suspend fun startSearchRadio(seed: Song): MediaItemsWithStartPosition? {
+        val song = seed.toMediaMetadata()
+        service.playQueue(YouTubeQueue.radio(song), replace = true, isRadio = true, origin = PlayOrigin.SEARCH)
+        withTimeoutOrNull(SONG_IN_PLAYER_MS) { service.currentMediaMetadata.first { it?.id == song.id } }
+        return null
     }
 
     /**
