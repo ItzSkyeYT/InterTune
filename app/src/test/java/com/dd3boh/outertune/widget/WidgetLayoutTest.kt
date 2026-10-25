@@ -179,6 +179,7 @@ class WidgetLayoutTest {
             add(WidgetSettings(content = WidgetContent.LIST, showArtwork = false, maxRows = 2))
         }
         var checked = 0
+        var liked = 0
         for (settings in variants) for (fontScale in listOf(1f, 1.3f)) for (available in listOf(0, 2, 6)) {
             val scale = settings.textSize.scale * fontScale
             for (w in 40..600 step 6) for (h in 40..600 step 6) {
@@ -190,6 +191,24 @@ class WidgetLayoutTest {
                 ok(WidgetLayout.heightOf(p, h) <= h, "too tall")
                 ok(WidgetLayout.widthOf(p) <= w, "too wide")
                 ok(p.rows <= available, "more rows than songs")
+                // The heart is only ever added: the same widget without it is the same in every
+                // other respect, so nothing that was there moves, shrinks or goes for it.
+                ok(plan(w, h, settings.copy(showLike = false), available, fontScale) == p.copy(like = false), "the heart moved something")
+                if (p.like) {
+                    liked++
+                    ok(p.skips, "a heart without previous and next")
+                    if (p.shape == NowShape.ROW || p.shape == NowShape.SLIM) {
+                        ok(w - WidgetLayout.widthOf(p) >= WidgetLayout.LIKE_WORDS_MIN_DP, "the heart crowds the words")
+                    }
+                } else if (settings.showLike && p.skips) {
+                    // Left out only where it does not fit, which is what the planner says here.
+                    val withIt = p.copy(like = true)
+                    val fits = when (p.shape) {
+                        NowShape.ROW, NowShape.SLIM -> w - WidgetLayout.widthOf(withIt) >= WidgetLayout.LIKE_WORDS_MIN_DP
+                        else -> WidgetLayout.widthOf(withIt) <= w
+                    }
+                    ok(!fits, "a heart left out where it fits")
+                }
                 if (p.rows > 0) {
                     val words = line(14, scale) + if (p.rowShowsArtist) line(12, scale) else 0
                     ok(words + 4 <= p.rowHeight, "a row's words do not fit")
@@ -231,6 +250,64 @@ class WidgetLayoutTest {
             }
         }
         assertTrue(checked > 100_000)
+        assertTrue("the heart was never drawn", liked > 10_000)
+    }
+
+    /**
+     * Where the heart is and where it is not, at the sizes people use. It sits before previous in a
+     * line (the words make room for it), after next on a card, and before previous on a centred line
+     * with the same room left empty after next, so play stays in the middle. Where it would crowd
+     * the words, or push the other buttons, it is left out.
+     */
+    @Test
+    fun `the heart sits beside previous and next wherever it fits, and nowhere else`() {
+        // Lines: a four by one, a flat four by two, the usual four by two, One UI's five by two.
+        assertTrue(plan(407, 50).like)
+        assertTrue(plan(407, 107).like)
+        assertTrue(plan(406, 225).like)
+        assertTrue(plan(405, 216).like)
+        assertTrue(plan(400, 170).like)
+        // A line three cells wide: its words would be left too little beside it.
+        assertFalse(plan(250, 50).like)
+        assertFalse(plan(300, 225).like)
+        // A card, and a narrower card whose buttons leave no room after next.
+        assertTrue(plan(400, 170, nowOnly).like)
+        assertFalse(plan(300, 140, nowOnly).like)
+        // A poster with its buttons on a line of their own, wide enough for a heart and a blank
+        // of its size on the other side; a small one has play alone and so no heart.
+        assertTrue(plan(260, 260, nowOnly).like)
+        assertFalse(plan(250, 250, nowOnly).like)
+        assertFalse(plan(180, 180, nowOnly).like)
+        // Narrow and tall: three buttons fill the width.
+        assertFalse(plan(150, 300, nowOnly).like)
+        assertTrue(plan(300, 600, nowOnly).like)
+        // A single cell has play over the cover and nothing else, a list has no buttons at all.
+        assertFalse(plan(70, 70).like)
+        assertFalse(plan(70, 150).like)
+        assertFalse(plan(406, 225, listOnly).like)
+        // Never where the listener asked for play alone, or for no buttons, or for no heart.
+        assertFalse(plan(407, 107, WidgetSettings(buttons = WidgetButtons.PLAY_ONLY)).like)
+        assertFalse(plan(407, 107, WidgetSettings(buttons = WidgetButtons.NONE)).like)
+        assertFalse(plan(407, 107, WidgetSettings(showLike = false)).like)
+    }
+
+    @Test
+    fun `the heart takes its place among the buttons from the shape, so the buttons that were there stay put`() {
+        assertEquals(LikeSide.BEFORE, WidgetLayout.likeSide(NowShape.ROW))
+        assertEquals(LikeSide.BEFORE, WidgetLayout.likeSide(NowShape.SLIM))
+        assertEquals(LikeSide.AFTER, WidgetLayout.likeSide(NowShape.CARD))
+        assertEquals(LikeSide.BALANCED, WidgetLayout.likeSide(NowShape.POSTER))
+        assertEquals(LikeSide.BALANCED, WidgetLayout.likeSide(NowShape.STACKED))
+        // In a line the heart and its gap come out of the words; on a centred line twice that is
+        // needed, the heart on one side and a blank of its size on the other.
+        val line = plan(407, 107)
+        assertEquals(WidgetLayout.widthOf(line.copy(like = false)) + line.button + WidgetLayout.BUTTON_SPACING_DP, WidgetLayout.widthOf(line))
+        val poster = plan(300, 300, nowOnly)
+        assertTrue(poster.like)
+        assertEquals(
+            WidgetLayout.widthOf(poster.copy(like = false)) + 2 * (poster.button + WidgetLayout.BUTTON_SPACING_DP),
+            WidgetLayout.widthOf(poster),
+        )
     }
 
     @Test
@@ -274,6 +351,7 @@ class WidgetLayoutTest {
             buttons = WidgetButtons.PLAY_ONLY,
             textSize = WidgetTextSize.LARGE,
             rounded = false,
+            showLike = false,
         )
         WidgetKeys.write(prefs, wanted)
         assertEquals(wanted, WidgetKeys.read(prefs))

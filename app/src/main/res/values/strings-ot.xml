@@ -1589,6 +1589,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="widget_show_artist">Artist names</string>
     <string name="widget_show_heading">The list\'s heading</string>
     <string name="widget_rounded_corners">Rounded corners</string>
+    <!-- The widget's like button (issue #45): held from translators until the words are agreed, its French beside it in values-fr. -->
+    <string name="widget_show_like" translatable="false">Like button, where there is room</string>
 
 <!-- Recommendations: the little "i" beside an item, and what it opens -->
     <string name="tidy_home_rows_info">No Home row shows a song an earlier row already has, and versions of one song (live, remastered, video) count as the same. Nothing fills a gap, so a row can come up short. Off, your exclusions only filter the \"Best recommendations\" row.</string>

@@ -18,6 +18,12 @@ import androidx.glance.appwidget.action.ActionCallback
 import com.dd3boh.outertune.MainActivity
 import com.dd3boh.outertune.playback.MusicService
 import com.dd3boh.outertune.playback.ResumingMediaButtonReceiver
+import com.dd3boh.outertune.playback.turnLike
+import dagger.hilt.android.EntryPointAccessors
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 /**
  * The buttons on the widget.
@@ -68,6 +74,34 @@ object WidgetCommands {
         if (!sent) openApp(context)
     }
 
+    /** One tap of the heart at a time, so two quick taps are two turns of the like, never two reads of the same one. */
+    private val likeTaps = Mutex()
+
+    /**
+     * The heart: the song the widget shows is liked, or its like taken back, as the player's heart
+     * does it. With the player's service alive the tap goes to it, naming the song, so a like from
+     * here reaches the queue the way one from the app does; the service then fills or empties every
+     * heart, this one included, from the like as stored. With no service there is no queue to tell
+     * and nobody to redraw the widget: the song's row is turned over by the function the service
+     * uses, and the widget is drawn with the result here.
+     */
+    suspend fun toggleLike(context: Context) = likeTaps.withLock {
+        val running = MusicService.alive()
+        likeTap(
+            shown = WidgetStore.read(context).nowPlaying?.id,
+            service = running?.let { service -> { id: String -> service.toggleLike(id) } },
+            stored = { id ->
+                withContext(Dispatchers.IO) {
+                    runCatching {
+                        val app = EntryPointAccessors.fromApplication(context.applicationContext, WidgetEntryPoint::class.java)
+                        app.database().turnLike(id, app.downloadUtil())?.liked
+                    }.onFailure { Log.w(TAG, "Could not like the song from the widget", it) }.getOrNull()
+                }
+            },
+            drawn = { id, liked -> WidgetStore.setLiked(context, id, liked) },
+        )
+    }
+
     fun openApp(context: Context) = runCatching {
         context.startActivity(appIntent(context))
     }.onFailure { Log.w(TAG, "Could not open the app", it) }.getOrDefault(Unit)
@@ -112,4 +146,31 @@ class PreviousAction : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
         WidgetCommands.mediaKey(context, KeyEvent.KEYCODE_MEDIA_PREVIOUS)
     }
+}
+
+class LikeAction : ActionCallback {
+    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+        WidgetCommands.toggleLike(context)
+    }
+}
+
+/**
+ * What a tap on the heart does, apart from Android so a test can drive it. The song the widget
+ * shows, [shown], goes to the running [service] when there is one, which draws the heart itself;
+ * otherwise its [stored] like is turned over, giving the like as it now is (null when the song is
+ * not stored), and the widget is [drawn] with it.
+ */
+internal suspend fun likeTap(
+    shown: String?,
+    service: ((String) -> Unit)?,
+    stored: suspend (String) -> Boolean?,
+    drawn: suspend (String, Boolean) -> Unit,
+) {
+    val id = shown ?: return
+    if (service != null) {
+        service(id)
+        return
+    }
+    val liked = stored(id) ?: return
+    drawn(id, liked)
 }

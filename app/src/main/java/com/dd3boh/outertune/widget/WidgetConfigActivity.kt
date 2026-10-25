@@ -268,6 +268,10 @@ private fun Config(initial: WidgetSettings, size: IntSize?, onWallpaper: Boolean
             Choice(stringResource(R.string.widget_buttons_all), s.buttons == WidgetButtons.ALL) { s = s.copy(buttons = WidgetButtons.ALL) }
             Choice(stringResource(R.string.widget_buttons_play), s.buttons == WidgetButtons.PLAY_ONLY) { s = s.copy(buttons = WidgetButtons.PLAY_ONLY) }
             Choice(stringResource(R.string.widget_buttons_none), s.buttons == WidgetButtons.NONE) { s = s.copy(buttons = WidgetButtons.NONE) }
+            // The heart goes beside previous and next, so it is offered only with them.
+            if (s.buttons == WidgetButtons.ALL) {
+                Toggle(stringResource(R.string.widget_show_like), s.showLike) { s = s.copy(showLike = it) }
+            }
 
             Section(stringResource(R.string.widget_config_text_size))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {

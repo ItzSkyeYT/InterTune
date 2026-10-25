@@ -374,11 +374,7 @@ private fun Card(plan: WidgetPlan, snapshot: WidgetSnapshot, art: Bitmap?, frame
         Column(modifier = GlanceModifier.defaultWeight().height(plan.cover.dp)) {
             Titles(song, paint, 16, 13, plan.showArtist, titleLines = plan.titleLines)
             Spacer(modifier = GlanceModifier.defaultWeight())
-            if (plan.play) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Controls(plan, snapshot, paint.playFill, paint.playIcon, paint.text)
-                }
-            }
+            if (plan.play) Controls(plan, snapshot, paint.playFill, paint.playIcon, paint.text)
         }
     }
 }
@@ -421,9 +417,7 @@ private fun Stacked(plan: WidgetPlan, snapshot: WidgetSnapshot, art: Bitmap?, pa
         Titles(song, paint, 14, 12, plan.showArtist, centred = true)
         if (plan.play) {
             Spacer(modifier = GlanceModifier.height(2.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Controls(plan, snapshot, paint.playFill, paint.playIcon, paint.text)
-            }
+            Controls(plan, snapshot, paint.playFill, paint.playIcon, paint.text)
         }
     }
 }
@@ -458,18 +452,56 @@ private fun Titles(
     }
 }
 
-/** Previous, play and next as the plan has room for, play the filled one among them. */
+/**
+ * Previous, play and next as the plan has room for, play the filled one among them, and the heart
+ * where the plan found room for it ([WidgetLayout.likeSide]): never in the place of a button that
+ * was there before it. With nothing playing there is nothing to like, and neither the heart nor
+ * the blank that balances it is drawn.
+ *
+ * In a Row of their own. Glance keeps no more than ten children in a Row or a Column and drops the
+ * rest without a word, and a line of song has four before its buttons: with the heart those were
+ * eleven, and next was the one that went, the others sliding into its place.
+ */
 @Composable
 private fun Controls(plan: WidgetPlan, snapshot: WidgetSnapshot, fill: ColorProvider, icon: ColorProvider, tint: ColorProvider) {
-    if (plan.skips) {
-        TransportButton(R.drawable.skip_previous, R.string.widget_previous, actionRunCallback<PreviousAction>(), plan.button, tint)
-        Spacer(modifier = GlanceModifier.width(BUTTON_SPACING_DP.dp))
+    val side = if (plan.like && snapshot.nowPlaying != null) WidgetLayout.likeSide(plan.shape) else null
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        if (side == LikeSide.BEFORE || side == LikeSide.BALANCED) {
+            LikeButton(snapshot, plan.button, tint)
+            Spacer(modifier = GlanceModifier.width(BUTTON_SPACING_DP.dp))
+        }
+        if (plan.skips) {
+            TransportButton(R.drawable.skip_previous, R.string.widget_previous, actionRunCallback<PreviousAction>(), plan.button, tint)
+            Spacer(modifier = GlanceModifier.width(BUTTON_SPACING_DP.dp))
+        }
+        if (plan.play) PlayButton(snapshot, plan.button, fill, icon)
+        if (plan.skips) {
+            Spacer(modifier = GlanceModifier.width(BUTTON_SPACING_DP.dp))
+            TransportButton(R.drawable.skip_next, R.string.widget_next, actionRunCallback<NextAction>(), plan.button, tint)
+        }
+        when (side) {
+            LikeSide.AFTER -> {
+                Spacer(modifier = GlanceModifier.width(BUTTON_SPACING_DP.dp))
+                LikeButton(snapshot, plan.button, tint)
+            }
+            // As wide as the heart and its gap, so play keeps the middle of a centred line.
+            LikeSide.BALANCED -> Spacer(modifier = GlanceModifier.width((BUTTON_SPACING_DP + plan.button).dp))
+            else -> Unit
+        }
     }
-    if (plan.play) PlayButton(snapshot, plan.button, fill, icon)
-    if (plan.skips) {
-        Spacer(modifier = GlanceModifier.width(BUTTON_SPACING_DP.dp))
-        TransportButton(R.drawable.skip_next, R.string.widget_next, actionRunCallback<NextAction>(), plan.button, tint)
-    }
+}
+
+/** The heart: filled when the song is liked, in the colour of the buttons beside it, as in the player. */
+@Composable
+private fun LikeButton(snapshot: WidgetSnapshot, size: Int, tint: ColorProvider) {
+    CircleIconButton(
+        imageProvider = ImageProvider(if (snapshot.isLiked) R.drawable.favorite else R.drawable.favorite_border),
+        contentDescription = LocalContext.current.getString(if (snapshot.isLiked) R.string.action_remove_like else R.string.action_like),
+        onClick = actionRunCallback<LikeAction>(),
+        backgroundColor = null,
+        contentColor = tint,
+        modifier = GlanceModifier.size(size.dp),
+    )
 }
 
 @Composable

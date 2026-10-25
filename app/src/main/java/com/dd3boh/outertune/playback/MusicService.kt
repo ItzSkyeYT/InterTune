@@ -237,6 +237,8 @@ import dagger.hilt.android.AndroidEntryPoint
 import io.ktor.client.plugins.ResponseException
 import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.NextRenderersFactory
 import com.dd3boh.outertune.widget.WidgetStore
+import com.dd3boh.outertune.widget.likeGuess
+import java.lang.ref.WeakReference
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.currentCoroutineContext
@@ -1021,6 +1023,7 @@ class MusicService : MediaLibraryService(),
         Log.i(TAG, "Starting MusicService")
         super.onCreate()
         isRunning = true
+        instance = WeakReference(this)
         // media3 writes this under its own name only, which Report a problem leaves out, and it is
         // the line that explains a song stopping a minute after the screen goes off (issue #26).
         setListener(object : Listener {
@@ -1281,6 +1284,8 @@ class MusicService : MediaLibraryService(),
         currentSong.collect(scope) {
             updateNotification()
         }
+        // The widget's heart shows the like as stored, wherever it was given or taken back.
+        WidgetStore.followLikes(this, scope) { id -> database.songLiked(id) }
 
         setMediaNotificationProvider(
             DefaultMediaNotificationProvider(
@@ -2183,14 +2188,10 @@ class MusicService : MediaLibraryService(),
         }
     }
 
-    /** See [toggleLibrary] for [shown]. */
+    /** See [toggleLibrary] for [shown]. The widget's heart comes here too, naming the song it shows. */
     fun toggleLike(shown: String? = null) {
         database.query {
-            (shown ?: currentSong.value?.song?.id)?.let { songRow(it) }?.let {
-                // toggleLike sends the like to YouTube itself. A likeSong here sent it again.
-                val song = it.toggleLike()
-                update(song)
-                downloadUtil.autoDownloadOnLike(song)
+            (shown ?: currentSong.value?.song?.id)?.let { turnLike(it, downloadUtil) }?.let { song ->
                 // A like is the clearest thing anyone says by pressing something, so the far end of
                 // the queue gets the reach a skip gets, and two picks like the song. Taken back, it
                 // puts nothing in, even in the second a pass waits.
@@ -5352,8 +5353,12 @@ class MusicService : MediaLibraryService(),
         lastingScope.launch {
             runCatching {
                 WidgetStore.setNowPlaying(this@MusicService) {
-                    if (stopped) WidgetStore.NowState(currentMediaMetadata.value, false)
-                    else withContext(Dispatchers.Main) { WidgetStore.NowState(currentMediaMetadata.value, activePlayer.isPlaying) }
+                    // With the first guess at a new song's heart: see likeGuess.
+                    fun now(playing: Boolean) = currentMediaMetadata.value.let { song ->
+                        WidgetStore.NowState(song, playing, likeGuess(song, currentSong.value?.song))
+                    }
+                    if (stopped) now(false)
+                    else withContext(Dispatchers.Main) { now(activePlayer.isPlaying) }
                 }
             }.onFailure { Log.w(TAG, "Could not update the widget", it) }
         }
@@ -5372,6 +5377,7 @@ class MusicService : MediaLibraryService(),
         headTracking.stop(glideHome = false)
         proximityVolume.stop()
         isRunning = false
+        if (instance?.get() === this) instance = null
         // The widget keeps the song and loses the pause: its play button then resumes the queue
         // through the same receiver a headset button uses. Read as stopped rather than from the
         // player, which is about to be released.
@@ -5502,6 +5508,17 @@ class MusicService : MediaLibraryService(),
         @Volatile
         var isRunning: Boolean = false
             private set
+
+        /**
+         * The instance alive in this process, for the widget's heart: its tap lands in this process
+         * with no controller to send it through, and a like from it has to go through [toggleLike]
+         * the way the player's heart does. Weak, so a destroyed service is never held on to.
+         */
+        @Volatile
+        private var instance: WeakReference<MusicService>? = null
+
+        /** See [instance]. */
+        fun alive(): MusicService? = instance?.get()
 
         /**
          * Normalisation reference, in dB relative to YouTube's -14 LKFS target.
