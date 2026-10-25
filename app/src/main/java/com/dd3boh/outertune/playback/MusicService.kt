@@ -2517,6 +2517,10 @@ class MusicService : MediaLibraryService(),
                 }
             }
             qbInit.value = true
+            // The queue just restored decides whether the sheet folds its far end away, and
+            // nothing else says so before its first song changes: without this, after an update
+            // or a restart a radio's queue showed every song ahead until something played.
+            withContext(Dispatchers.Main) { refreshAdaptiveTail() }
             queuesLoadedOnce.complete(Unit)
             Log.i(TAG, "-initQueue()")
         }

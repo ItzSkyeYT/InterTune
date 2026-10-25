@@ -219,15 +219,15 @@ private fun adaptiveNoteText(note: AdaptiveNote.Note): String = when (note.kind)
 private const val ADAPTIVE_VISIBLE_AHEAD = 4
 
 /**
- * How much further the finger has to go past the top of the queue, in a scroll that moved the list
- * first, before the queue's sheet starts to come down with it (BufferedSheetScrollConnection).
- * A quick scroll up through a long queue tends to run on past the top, and with no room at all the
- * rest of that movement dragged the queue shut, and a flick threw it shut. 64 dp is the height of
- * one song's row: room for a scroll that runs on a little, and short enough that a pull meant to
- * close the queue still does. A pull that starts with the list at its top has no buffer and moves
- * the queue at once, as before.
+ * How far the finger can go past the top of the queue, in a scroll that moved the list first,
+ * before the queue's sheet comes down with it (BufferedSheetScrollConnection): all the way. A
+ * quick scroll up through a long queue runs on past the top, and with no room the rest of that
+ * movement dragged the queue shut, or a flick threw it shut; one song's row of room (64 dp) was
+ * not enough. So a scroll that started in the list never closes the queue, however far or fast it
+ * runs on: closing it takes a pull that starts with the list at its top, which moves the queue at
+ * once, as before.
  */
-internal val QueueOvershootBuffer = 64.dp
+internal val QueueOvershootBuffer = Dp.Infinity
 
 /**
  * The queue's own link from a list to its sheet, with [QueueOvershootBuffer]. Only the queue has
@@ -413,7 +413,10 @@ fun BoxScope.QueueContent(
 
     // multi queue vars
     val fallBackQueue = if (queueWindows.isEmpty()) qb.getCurrentQueue() else null
-    var mqExpand by remember { mutableStateOf(fallBackQueue != null) }
+    // The list of queues opens from its button only. It used to open by itself whenever the player
+    // held nothing yet, after an update or a restart and on the first frame or two of an opening,
+    // and then put a list of queues where the songs should be.
+    var mqExpand by remember { mutableStateOf(false) }
     var detachedHead by remember { mutableStateOf(fallBackQueue != null) }
     var detachedQueue by remember { mutableStateOf<MultiQueueObject?>(fallBackQueue) }
 
@@ -615,10 +618,17 @@ fun BoxScope.QueueContent(
     val adaptivePicks by playerConnection.service.adaptivePicks.collectAsState()
     val adaptiveNote by playerConnection.service.adaptiveNote.collectAsState()
     val adaptiveSaying = adaptiveTailActive && !isSearching && detachedQueue == null
+    // The preview the sheet shows while the player holds nothing yet (after an update or a
+    // restart, until something plays) is of the queue that is playing: its far end is folded
+    // away like the live queue's, from the song it is at, not shown in full. Another queue looked
+    // at from the list of queues still shows all of it.
+    val previewOfPlaying = detachedQueue != null && detachedQueue?.id == qb.getCurrentQueue()?.id
+    val foldTail = adaptiveTailActive && !isSearching && (detachedQueue == null || previewOfPlaying)
     val visibleSongs: List<MediaMetadata> =
-        if (!adaptiveTailActive || isSearching || detachedQueue != null) mutableSongs
+        if (!foldTail) mutableSongs
         else {
-            val settled = AdaptiveQueue.settledThrough(currentWindowIndex, mutableSongs, { it.id }, reachedInQueue)
+            val settled = detachedQueue?.let { AdaptiveQueue.settledThrough(it.getQueuePosShuffled(), mutableSongs, { it.id }, reachedInQueue) }
+                ?: AdaptiveQueue.settledThrough(currentWindowIndex, mutableSongs, { it.id }, reachedInQueue)
             mutableSongs.take((settled + 1 + ADAPTIVE_VISIBLE_AHEAD).coerceIn(0, mutableSongs.size))
         }
     val hiddenTailCount = if (isSearching) 0 else mutableSongs.size - visibleSongs.size
@@ -835,8 +845,17 @@ fun BoxScope.QueueContent(
                                     // drag-to-reorder while you sit in it.
                                     if (playingQueue == index) {
                                         // Already the playing queue, so there is nothing to switch
-                                        // to. Just drop out of any preview.
-                                        exitDetachHead()
+                                        // to: close the list of queues and show its songs. Before
+                                        // anything was played since the app started, the player holds
+                                        // none of them yet, so the songs stay on the preview of this
+                                        // queue, with the play button in the Songs header.
+                                        mqExpand = false
+                                        if (queueWindows.isEmpty()) {
+                                            detachedQueue = mq
+                                            detachedHead = true
+                                        } else {
+                                            exitDetachHead()
+                                        }
                                     } else {
                                         coroutineScope.launch(Dispatchers.Main) {
                                             isSearching = false

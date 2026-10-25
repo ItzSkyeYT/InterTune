@@ -31,7 +31,7 @@ import java.io.File
 import kotlin.math.min
 
 /**
- * The queue's buffer at the top of its list, driven the way Compose drives a list's connection:
+ * The buffer at the top of a list, driven the way Compose drives a list's connection:
  * each finger movement offered to the connection, then to the list, then what the list left back
  * to the connection, and a fling at the end of every gesture. The sheet is a real BottomSheetState
  * at one pixel to the dp, open at 800 and down at 100, with a frame clock that plays its animations
@@ -245,9 +245,46 @@ class QueueOvershootBufferTest {
         assertOpen()
     }
 
+    /** The queue's own: a scroll that moved the list first never takes the sheet down at all. */
+    private val queue = BufferedSheetScrollConnection(sheet, Float.POSITIVE_INFINITY)
+
+    @Test
+    fun `in the queue, a scroll that runs past the top never moves it, however far or fast`() {
+        listOffset = 300f
+        drag(300f + 1500f, queue)
+        assertEquals(0f, listOffset)
+        assertOpen()
+        assertEquals(Velocity.Zero, fling(12_000f, queue))
+        assertOpen()
+    }
+
+    @Test
+    fun `in the queue, a fresh pull from the top still moves it at once, and a fling closes it`() {
+        listOffset = 300f
+        drag(300f + 400f, queue)
+        fling(6000f, queue)
+        assertOpen()
+        drag(16f, queue)
+        assertEquals(open - 16.dp, sheet.value)
+        fling(6000f, queue)
+        assertClosed()
+    }
+
+    @Test
+    fun `in the queue, back up after running far past the top, the list moves once the finger is back where it met the top`() {
+        listOffset = 300f
+        drag(300f + 600f, queue)
+        drag(-600f, queue)
+        assertEquals(0f, listOffset)
+        assertOpen()
+        drag(-24f, queue)
+        assertEquals(24f, listOffset)
+        assertOpen()
+    }
+
     @Test
     fun `only the queue has the buffer`() {
-        assertEquals(64.dp, QueueOvershootBuffer)
+        assertEquals(Dp.Infinity, QueueOvershootBuffer)
         val queue = File("src/main/java/com/dd3boh/outertune/ui/player/Queue.kt").readText()
         // Each of the queue's three: its list of queues, its songs, and the pane round the queues on its side.
         assertEquals(3, Regex("""= rememberQueueSheetScroll\(queueState\)""").findAll(queue).count())
