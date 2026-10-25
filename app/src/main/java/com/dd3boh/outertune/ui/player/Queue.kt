@@ -106,6 +106,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -161,6 +162,7 @@ import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.MultiQueueObject
 import com.dd3boh.outertune.ui.component.BottomSheet
 import com.dd3boh.outertune.ui.component.BottomSheetState
+import com.dd3boh.outertune.ui.component.BufferedSheetScrollConnection
 import com.dd3boh.outertune.ui.component.EmptyPlaceholder
 import com.dd3boh.outertune.playback.AdaptiveNote
 import com.dd3boh.outertune.playback.AdaptiveQueue
@@ -215,6 +217,32 @@ private fun adaptiveNoteText(note: AdaptiveNote.Note): String = when (note.kind)
  * and nothing listed can be taken away while somebody is looking at it.
  */
 private const val ADAPTIVE_VISIBLE_AHEAD = 4
+
+/**
+ * How much further the finger has to go past the top of the queue, in a scroll that moved the list
+ * first, before the queue's sheet starts to come down with it (BufferedSheetScrollConnection).
+ * A quick scroll up through a long queue tends to run on past the top, and with no room at all the
+ * rest of that movement dragged the queue shut, and a flick threw it shut. 64 dp is the height of
+ * one song's row: room for a scroll that runs on a little, and short enough that a pull meant to
+ * close the queue still does. A pull that starts with the list at its top has no buffer and moves
+ * the queue at once, as before.
+ */
+internal val QueueOvershootBuffer = 64.dp
+
+/**
+ * The queue's own link from a list to its sheet, with [QueueOvershootBuffer]. Only the queue has
+ * it: the player's sheet keeps preUpPostDownNestedScrollConnection over its artwork and lyrics, and
+ * the cast picker its own pull, as they were. The queue is the long list that gets scrolled fast,
+ * where running into its top closed the sheet by accident. One for each list, since it holds the
+ * state of the gesture it is in. Null without a sheet (the tablet's side pane).
+ */
+@Composable
+private fun rememberQueueSheetScroll(queueState: BottomSheetState?): NestedScrollConnection? {
+    val density = LocalDensity.current
+    return remember(queueState, density) {
+        queueState?.let { BufferedSheetScrollConnection(it, with(density) { QueueOvershootBuffer.toPx() }) }
+    }
+}
 
 @Composable
 fun QueueSheet(
@@ -770,10 +798,11 @@ fun BoxScope.QueueContent(
             Text(text = stringResource(R.string.queues_empty))
         }
 
+        val queuesScroll = rememberQueueSheetScroll(queueState)
         LazyColumn(
             state = lazyQueuesListState,
             contentPadding = contentPadding,
-            modifier = if (queueState != null) Modifier.nestedScroll(queueState.preUpPostDownNestedScrollConnection) else Modifier
+            modifier = if (queuesScroll != null) Modifier.nestedScroll(queuesScroll) else Modifier
         ) {
             itemsIndexed(
                 items = mutableQueues,
@@ -947,10 +976,11 @@ fun BoxScope.QueueContent(
 
     val songList: @Composable ColumnScope.(PaddingValues) -> Unit = { contentPadding ->
         Log.v("QueueContent", "QC-s_b")
+        val songsScroll = rememberQueueSheetScroll(queueState)
         LazyColumn(
             state = lazySongsListState,
             contentPadding = contentPadding,
-            modifier = if (queueState != null) Modifier.nestedScroll(queueState.preUpPostDownNestedScrollConnection) else Modifier
+            modifier = if (songsScroll != null) Modifier.nestedScroll(songsScroll) else Modifier
         ) {
             if ((if (isSearching) filteredSongs else mutableSongs).isEmpty()) {
                 item {
@@ -1583,8 +1613,12 @@ fun BoxScope.QueueContent(
                         else Modifier
                     )
             ) {
+                // Its own, not the one queueList gives the list inside this column: both are in
+                // the way of that list's scroll, and one connection in both places would see every
+                // movement twice.
+                val paneScroll = rememberQueueSheetScroll(queueState)
                 Column(
-                    modifier = (if (queueState != null) Modifier.nestedScroll(queueState.preUpPostDownNestedScrollConnection) else Modifier)
+                    modifier = (if (paneScroll != null) Modifier.nestedScroll(paneScroll) else Modifier)
                         .fillMaxWidth()
                         .weight(1f, false)
                 ) {
