@@ -245,8 +245,11 @@ class QueueOvershootBufferTest {
         assertOpen()
     }
 
-    /** The queue's own: a scroll that moved the list first never takes the sheet down at all. */
-    private val queue = BufferedSheetScrollConnection(sheet, Float.POSITIVE_INFINITY)
+    /**
+     * The queue's own: a scroll that moved the list first never takes the sheet down at all, a pull
+     * from the top has 48 of dead zone, and a fling counts once the sheet has come 64.
+     */
+    private val queue = BufferedSheetScrollConnection(sheet, Float.POSITIVE_INFINITY, 48f, 64f)
 
     @Test
     fun `in the queue, a scroll that runs past the top never moves it, however far or fast`() {
@@ -259,14 +262,43 @@ class QueueOvershootBufferTest {
     }
 
     @Test
-    fun `in the queue, a fresh pull from the top still moves it at once, and a fling closes it`() {
+    fun `in the queue, a fresh pull from the top moves it past the dead zone, and a fling closes it`() {
         listOffset = 300f
         drag(300f + 400f, queue)
         fling(6000f, queue)
         assertOpen()
-        drag(16f, queue)
-        assertEquals(open - 16.dp, sheet.value)
+        drag(40f, queue) // inside the dead zone
+        assertOpen()
+        drag(8f + 64f, queue) // the dead zone's last 8, then 64
+        assertEquals(open - 64.dp, sheet.value)
         fling(6000f, queue)
+        assertClosed()
+    }
+
+    @Test
+    fun `in the queue, a small pull on a list too short to scroll does nothing`() {
+        listOffset = 0f
+        listEnd = 0f
+        drag(40f, queue)
+        assertOpen()
+        assertEquals(Velocity.Zero, fling(9000f, queue))
+        assertOpen()
+    }
+
+    @Test
+    fun `in the queue, a flick from a short pull past the dead zone puts it back open`() {
+        listOffset = 0f
+        drag(48f + 24f, queue)
+        assertEquals(open - 24.dp, sheet.value)
+        fling(9000f, queue)
+        assertOpen()
+    }
+
+    @Test
+    fun `in the queue, a slow pull from the top past halfway still closes it`() {
+        listOffset = 0f
+        drag(48f + 400f, queue)
+        fling(0f, queue)
         assertClosed()
     }
 
@@ -285,6 +317,8 @@ class QueueOvershootBufferTest {
     @Test
     fun `only the queue has the buffer`() {
         assertEquals(Dp.Infinity, QueueOvershootBuffer)
+        assertEquals(48.dp, QueuePullDeadZone)
+        assertEquals(64.dp, QueueFlingAfter)
         val queue = File("src/main/java/com/dd3boh/outertune/ui/player/Queue.kt").readText()
         // Each of the queue's three: its list of queues, its songs, and the pane round the queues on its side.
         assertEquals(3, Regex("""= rememberQueueSheetScroll\(queueState\)""").findAll(queue).count())

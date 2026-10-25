@@ -230,6 +230,19 @@ private const val ADAPTIVE_VISIBLE_AHEAD = 4
 internal val QueueOvershootBuffer = Dp.Infinity
 
 /**
+ * A pull down that starts with the queue at its top, as every pull does on a queue too short to
+ * scroll (Auto queue shows only a few songs ahead): the queue stays put for the first 48 dp of it,
+ * so a small movement of the finger never closes it.
+ */
+internal val QueuePullDeadZone = 48.dp
+
+/**
+ * How far the queue itself has to have come down before a flick throws it shut, a song's row.
+ * Short of that, letting go puts it back open; a slow drag past halfway still closes it.
+ */
+internal val QueueFlingAfter = 64.dp
+
+/**
  * The queue's own link from a list to its sheet, with [QueueOvershootBuffer]. Only the queue has
  * it: the player's sheet keeps preUpPostDownNestedScrollConnection over its artwork and lyrics, and
  * the cast picker its own pull, as they were. The queue is the long list that gets scrolled fast,
@@ -240,7 +253,11 @@ internal val QueueOvershootBuffer = Dp.Infinity
 private fun rememberQueueSheetScroll(queueState: BottomSheetState?): NestedScrollConnection? {
     val density = LocalDensity.current
     return remember(queueState, density) {
-        queueState?.let { BufferedSheetScrollConnection(it, with(density) { QueueOvershootBuffer.toPx() }) }
+        queueState?.let {
+            with(density) {
+                BufferedSheetScrollConnection(it, QueueOvershootBuffer.toPx(), QueuePullDeadZone.toPx(), QueueFlingAfter.toPx())
+            }
+        }
     }
 }
 

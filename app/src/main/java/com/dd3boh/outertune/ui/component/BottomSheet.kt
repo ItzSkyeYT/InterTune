@@ -545,8 +545,10 @@ class BottomSheetState(
  * finger has gone [bufferPx] further past the top, and the sheet follows only what goes beyond. A
  * fling at the end of such a gesture leaves the sheet open unless it had already moved: the fling
  * stays the list's, which at its top only bounces. A gesture that starts with the list already at
- * its top has no buffer, so a pull down from the top of the list moves the sheet at once, as it
- * always has.
+ * its top has [topBufferPx] of buffer, none unless asked for, so by default a pull down from the
+ * top of the list moves the sheet at once, as it always has. And a fling throws the sheet only
+ * once the sheet itself has come [flingAfterPx] (by default as soon as it moves): short of that,
+ * letting go puts it at the nearer anchor, as after a slow drag.
  *
  * A gesture ends with its fling, which a finger leaving the glass always comes to (at no speed
  * after a slow drag), and the next scroll starts a new one. It holds the state of the gesture it
@@ -555,6 +557,8 @@ class BottomSheetState(
 class BufferedSheetScrollConnection(
     private val sheet: BottomSheetState,
     private val bufferPx: Float,
+    private val topBufferPx: Float = 0f,
+    private val flingAfterPx: Float = 0f,
 ) : NestedScrollConnection {
     private var inGesture = false
 
@@ -614,7 +618,7 @@ class BufferedSheetScrollConnection(
             // The list is at its top and the finger goes on down.
             pastTop = true
             pull = 0f
-            buffer = if (listScrolled) bufferPx else 0f
+            buffer = if (listScrolled) bufferPx else topBufferPx
         }
         val before = sheetPull
         pull += available.y
@@ -633,8 +637,9 @@ class BufferedSheetScrollConnection(
     override suspend fun onPreFling(available: Velocity): Velocity {
         inGesture = false
         if (pastTop && sheetPull > 0f) {
-            // Down past the buffer, or pulled from the top: the fling is the sheet's, as before.
-            sheet.performFling(-available.y, null)
+            // Down past the buffer, or pulled from the top: the fling is the sheet's, as before,
+            // once the sheet has come far enough. A shorter pull goes where it is nearer to.
+            sheet.performFling(if (sheetPull >= flingAfterPx) -available.y else 0f, null)
             return available
         }
         // Taken down and brought back up within this gesture: put home without the fling.
