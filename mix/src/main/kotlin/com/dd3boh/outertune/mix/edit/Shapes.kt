@@ -106,6 +106,7 @@ fun TransitionSpec.laneAt(id: LaneId, u: Double): LaneState {
         return LaneState(if (id.side == Side.A) (if (u < 0) 1.0 else 0.0) else (if (u >= length) 1.0 else 0.0))
     }
     curves[id]?.takeIf { it.gain.isNotEmpty() }?.let { curve ->
+        curveHandOver(id)?.let { at -> if (u >= at) return LaneState(if (id.side == Side.A) 0.0 else 1.0) }
         return LaneState(
             gain = Shapes.eased(curve.gain, u),
             lowPassHz = Shapes.easedHz(curve.lowPassHz, u),
@@ -170,6 +171,7 @@ fun TransitionSpec.goneAt(id: LaneId): Double {
     if (plain) return Double.POSITIVE_INFINITY
     if (id in muted) return 0.0
     curves[id]?.gain?.takeIf { it.isNotEmpty() }?.let { keys ->
+        curveHandOver(id)?.let { return it }
         for (i in keys.indices.reversed()) {
             if (keys[i].value > 0.001) return if (i + 1 < keys.size) keys[i + 1].u else lengthBars
         }
@@ -180,6 +182,25 @@ fun TransitionSpec.goneAt(id: LaneId): Double {
         m.how == How.KEEP -> lengthBars
         m.how == How.CUT -> m.u
         else -> m.end
+    }
+}
+
+/**
+ * Where lane [id]'s curve hands over to the song as it plays once the change is over, in bars:
+ * A's lane is silent from here and B's at full and open, reached in [Shapes.CUT_MS] the way a kept
+ * lane leaves and a muted one comes back. At the change's end, or at the curve's last point if
+ * that is later. Null for a lane with no curve, or one whose curve already ends as the song after
+ * it plays (A's at silence, B's at full with no filter). A curve left where its last point stands
+ * was cut where the render stops (A) or stepped up to the song at the change's end (B).
+ */
+fun TransitionSpec.curveHandOver(id: LaneId): Double? {
+    val curve = curves[id]?.takeIf { it.gain.isNotEmpty() } ?: return null
+    return if (id.side == Side.A) {
+        val last = curve.gain.last()
+        if (last.value <= 0.001) null else max(lengthBars, last.u)
+    } else {
+        val plain = curve.gain.last().value >= 1.0 && curve.lowPassHz.isEmpty() && curve.highPassHz.isEmpty()
+        if (plain) null else max(lengthBars, (curve.gain + curve.lowPassHz + curve.highPassHz).maxOf { it.u })
     }
 }
 

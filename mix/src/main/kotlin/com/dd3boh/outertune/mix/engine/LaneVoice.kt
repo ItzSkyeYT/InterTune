@@ -10,6 +10,7 @@ import com.dd3boh.outertune.mix.Biquad
 import com.dd3boh.outertune.mix.FilterKind
 import com.dd3boh.outertune.mix.edit.LaneId
 import com.dd3boh.outertune.mix.edit.Shapes
+import com.dd3boh.outertune.mix.edit.Side
 import com.dd3boh.outertune.mix.edit.laneAt
 import kotlin.math.PI
 import kotlin.math.abs
@@ -152,7 +153,11 @@ internal class LaneVoice(private val id: LaneId, private val plan: LanePlan, pri
     private var gainNext = 0.0
     private var sendHere = 0.0
     private var sendNext = 0.0
-    private var gain = Double.NaN
+
+    // A's lanes come from where A was before the change, at full, so a first point under full is
+    // reached in a cut's time, not as a step from the held end into the render. B's lanes start
+    // with B, from its first frame, where they are.
+    private var gain = if (id.side == Side.A) 1.0 else Double.NaN
     private var sendLevel = 0.0
 
     /** Whether the lane passes as it is at the frame last moved to: at full, unfiltered, no echo. */

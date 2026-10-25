@@ -14,6 +14,7 @@ import com.dd3boh.outertune.mix.edit.Preset
 import com.dd3boh.outertune.mix.edit.Shapes
 import com.dd3boh.outertune.mix.edit.Side
 import com.dd3boh.outertune.mix.edit.TransitionSpec
+import com.dd3boh.outertune.mix.edit.curveHandOver
 import com.dd3boh.outertune.mix.edit.goneAt
 import kotlin.math.abs
 import kotlin.math.ceil
@@ -273,6 +274,7 @@ object SpecPlan {
     private fun plainFromU(spec: TransitionSpec, id: LaneId): Double {
         if (id in spec.muted) return spec.lengthBars
         spec.curves[id]?.takeIf { it.gain.isNotEmpty() }?.let { c ->
+            spec.curveHandOver(id)?.let { return it }
             return (c.gain + c.lowPassHz + c.highPassHz).maxOf { it.u }
         }
         val m = spec.moves[id] ?: return spec.lengthBars

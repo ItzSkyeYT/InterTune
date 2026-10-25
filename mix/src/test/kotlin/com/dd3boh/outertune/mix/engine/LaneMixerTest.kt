@@ -15,6 +15,9 @@ import com.dd3boh.outertune.mix.Synth
 import com.dd3boh.outertune.mix.SynthSpec
 import com.dd3boh.outertune.mix.edit.Anchor
 import com.dd3boh.outertune.mix.edit.How
+import com.dd3boh.outertune.mix.edit.Key
+import com.dd3boh.outertune.mix.edit.Lane
+import com.dd3boh.outertune.mix.edit.LaneCurve
 import com.dd3boh.outertune.mix.edit.LaneId
 import com.dd3boh.outertune.mix.edit.LaneSet
 import com.dd3boh.outertune.mix.edit.Move
@@ -202,6 +205,28 @@ class LaneMixerTest {
         assertTrue("ringing at %.1f dBFS".format(20 * log10(ringing / 32768)), 20 * log10(ringing / 32768) > -50)
         val last = render.outgoing.frames - 1
         assertEquals(0, render.outgoing.samples[last * 2].toInt())
+    }
+
+    @Test
+    fun `a hand-drawn curve meets each song as it is at the change's edges`() {
+        // A constant goes all into the lows, so the lows lane's gain is heard as the level itself.
+        val dc = ShortArray(2 * 60 * rate) { 10_000 }
+        val moves = every(Side.A, Move(2.0, 4.0, How.FADE)) + every(Side.B, Move(2.0, 4.0, How.FADE))
+        val curves = mapOf(
+            // A's lows under full from their first point, and still at 30% at their last.
+            LaneId(Side.A, Lane.LOWS) to LaneCurve(listOf(Key(1.0, 0.5), Key(6.0, 0.3))),
+            // B's lows brought up to 70% and left there.
+            LaneId(Side.B, Lane.LOWS) to LaneCurve(listOf(Key(2.0, 0.0), Key(6.0, 0.7))),
+        )
+        val plan = planned(spec(moves).copy(curves = curves), facts(dc, dc))
+        val render = LaneMixer(plan).render(dc, dc, 1.0, 1.0)
+        val out = render.outgoing
+        // A comes into the change at full, as the held end plays it until then, and moves no faster than a cut.
+        assertEquals(10_000.0, out.at(plan.mixFrom, 0).toDouble(), 50.0)
+        // A is silent by the last frame of its part, never stopped where it stood.
+        assertEquals(0.0, out.at(out.endFrame - 1, 0).toDouble(), 50.0)
+        // B is at full by the last frame of its part, where B as it plays takes over.
+        assertEquals(10_000.0, render.incoming.at(plan.mixTo - 1, 0).toDouble(), 50.0)
     }
 
     @Test
