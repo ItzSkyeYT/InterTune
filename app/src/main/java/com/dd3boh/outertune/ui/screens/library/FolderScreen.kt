@@ -69,7 +69,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.util.fastSumBy
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalMenuState
@@ -94,6 +93,7 @@ import com.dd3boh.outertune.constants.LocalLibraryEnableKey
 import com.dd3boh.outertune.constants.SwipeToQueueKey
 import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.models.DirectoryTree
+import com.dd3boh.outertune.models.FolderSongOrder
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.ui.component.FloatingFooter
@@ -119,7 +119,6 @@ import com.dd3boh.outertune.ui.utils.backToMain
 import com.dd3boh.outertune.ui.utils.canNavigateUp
 import com.dd3boh.outertune.utils.urlEncode
 import com.dd3boh.outertune.utils.fixFilePath
-import com.dd3boh.outertune.utils.numberToAlpha
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.viewmodels.LibraryFoldersViewModel
@@ -128,7 +127,6 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
-import java.time.ZoneOffset
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class, FlowPreview::class)
@@ -240,19 +238,8 @@ fun FolderScreen(
     }
 
     LaunchedEffect(sortType, sortDescending, currDir) {
-        val tempList = currDir.files.map { it }.toMutableList()
-        // sort songs
-        tempList.sortBy {
-            when (sortType) {
-                FolderSongSortType.CREATE_DATE -> numberToAlpha(it.song.inLibrary?.toEpochSecond(ZoneOffset.UTC) ?: -1L)
-                FolderSongSortType.MODIFIED_DATE -> numberToAlpha(it.song.getDateModifiedLong() ?: -1L)
-                FolderSongSortType.RELEASE_DATE -> numberToAlpha(it.song.getDateLong() ?: -1L)
-                FolderSongSortType.NAME -> it.song.title.lowercase()
-                FolderSongSortType.ARTIST -> it.artists.joinToString { artist -> artist.name }.lowercase()
-                FolderSongSortType.PLAY_COUNT -> numberToAlpha((it.playCount?.fastSumBy { it.count })?.toLong() ?: 0L)
-                FolderSongSortType.TRACK_NUMBER -> numberToAlpha(it.song.trackNumber?.toLong() ?: Long.MAX_VALUE)
-            }
-        }
+        // sort songs (FolderSongOrder, which is tested)
+        val tempList = FolderSongOrder.sorted(currDir.files, sortType, sortDescending)
         // sort folders
         val newSubdirs: ArrayList<DirectoryTree> = ArrayList()
         newSubdirs.addAll(currDir.subdirs.sortedBy { it.currentDir.lowercase() }) // only sort by name
@@ -263,7 +250,6 @@ fun FolderScreen(
                 clear()
                 addAll(newSubdirs)
             }
-            tempList.reverse()
         }
 
         mutableSongs.apply {
@@ -544,7 +530,8 @@ fun FolderScreen(
                             ListQueue(
                                 title = currDir.currentDir.substringAfterLast('/'),
                                 items = shownSongs.map { it.toMediaMetadata() },
-                                startIndex = shownSongs.indexOf(song)
+                                startIndex = shownSongs.indexOf(song),
+                                songPicked = true,
                             ),
                             origin = PlayOrigin.LIBRARY,
                         )
@@ -565,7 +552,7 @@ fun FolderScreen(
                     TopBarPill {
                         Column(modifier = Modifier.padding(horizontal = 18.dp)) {
                             val title = currDir.currentDir.substringAfterLast('/')
-                            val subtitle = currDir.getFullPath().substringBeforeLast('/')
+                            val subtitle = currDir.parentPathLine()
                             Text(
                                 text = if (currDir.currentDir == "storage") {
                                     stringResource(R.string.local_player_settings_title)

@@ -20,6 +20,8 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.SlimNavBarKey
 import com.dd3boh.outertune.constants.TabletUiKey
 import com.dd3boh.outertune.ui.component.SwitchPreference
+import com.dd3boh.outertune.ui.screens.settings.settingRow
+import androidx.compose.ui.Modifier
 import com.dd3boh.outertune.utils.rememberPreference
 
 @Composable
@@ -28,6 +30,7 @@ fun ColumnScope.AppearanceMiscFrag() {
     val (tabletUi, onTabletUiChange) = rememberPreference(TabletUiKey, defaultValue = false)
 
     SwitchPreference(
+        modifier = Modifier.settingRow(R.string.slim_navbar_title),
         title = { Text(stringResource(R.string.slim_navbar_title)) },
         description = stringResource(R.string.slim_navbar_description),
         icon = { Icon(Icons.Rounded.MoreHoriz, null) },
@@ -39,6 +42,7 @@ fun ColumnScope.AppearanceMiscFrag() {
     // app looks on this device, not an experiment, and nobody hunting for it would think to look
     // behind a warning triangle.
     SwitchPreference(
+        modifier = Modifier.settingRow(R.string.tablet_ui_title),
         title = { Text(stringResource(R.string.tablet_ui_title)) },
         description = stringResource(R.string.tablet_ui_title_description),
         icon = { Icon(Icons.Rounded.Devices, null) },

@@ -1,16 +1,12 @@
 package com.dd3boh.outertune.playback
 
 import com.dd3boh.outertune.constants.PlayOrigin
-import android.app.PendingIntent
-import android.content.ComponentName
 import android.content.ContentResolver
 import android.content.Context
-import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import androidx.annotation.DrawableRes
-import androidx.car.app.notification.CarPendingIntent
 import androidx.core.content.FileProvider
 import androidx.core.net.toUri
 import androidx.media3.common.C
@@ -199,10 +195,11 @@ class MediaLibrarySessionCallback @Inject constructor(
     private fun withSettings(params: MediaLibraryService.LibraryParams?): MediaLibraryService.LibraryParams {
         val extras = Bundle(params?.extras ?: Bundle.EMPTY)
         runCatching {
-            val screen = Intent(Intent.ACTION_VIEW).setComponent(ComponentName(context, AutoSettingsService::class.java))
+            // Through AutoSettingsLink, not CarPendingIntent.getCarApp: a car that refuses the
+            // screen must not take the app down with it.
             extras.putParcelable(
                 MediaConstants.EXTRAS_KEY_APPLICATION_PREFERENCES_USING_CAR_APP_LIBRARY_INTENT,
-                CarPendingIntent.getCarApp(context, 0, screen, PendingIntent.FLAG_UPDATE_CURRENT),
+                AutoSettingsLink.forCar(context),
             )
         }.onFailure { Log.w(TAG, "No settings for the car", it) }
         return MediaLibraryService.LibraryParams.Builder()

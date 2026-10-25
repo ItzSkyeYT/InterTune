@@ -278,10 +278,16 @@ class DownloadUtil @Inject constructor(
         dataSpec.withUri(streamUrl.toUri())
     }
     val downloadNotificationHelper = DownloadNotificationHelper(context, ExoDownloadService.CHANNEL_ID)
+
+    /** The run of downloads the notification counts through, from its first song to its last. */
+    internal val downloadRun = DownloadRun()
     val downloadManager: DownloadManager =
         DownloadManager(context, databaseProvider, downloadCache, dataSourceFactory, Executor(Runnable::run)).apply {
             maxParallelDownloads = 3
             requirements = downloadRequirements(context.dataStore.get(DownloadOnWifiOnlyKey, false))
+            // Before the download service's own listener, which builds the notification as each
+            // song ends: the song is counted by then.
+            addListener(downloadRun)
             addListener(
                 ExoDownloadService.TerminalStateNotificationHelper(
                     context = context,

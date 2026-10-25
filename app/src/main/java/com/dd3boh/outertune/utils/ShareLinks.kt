@@ -16,7 +16,14 @@ enum class ShareLinkKind {
     /** The share page, where whoever opens it picks their own music app. */
     PAGE,
 
-    /** Choose between the two at every share. */
+    /**
+     * Not chosen yet, where everybody starts ([ShareLinks.START]): the next share that has a page
+     * asks, and the pick is kept as the setting, so the shares after it go straight through
+     * (rememberShareLink). Settings offers the two above and shows this one as not chosen.
+     *
+     * Before 0.12.5 a debug or preview build offered it as "Ask each time" and asked at every
+     * share. Whoever picked it there is asked once more, and that answer is kept like anyone's.
+     */
     ASK,
 }
 
@@ -39,8 +46,21 @@ sealed interface ShareAction {
  * part to the page's host.
  */
 object ShareLinks {
-    /** Where the share page lives: on the site since 20 Oct 2026. Unreleased.SHARE_PAGE still keeps the setting out of sight in release builds. */
+    /** Where the share page lives: on the site since 20 Oct 2026, offered in every build from 0.12.5 (Unreleased.SHARE_PAGE). */
     const val PAGE = "https://intertune.app/s/"
+
+    /**
+     * What "Links you share" says until somebody picks: nothing yet, so the next share asks
+     * (decided on 23 Oct 2026). Share and the row in Settings both read the setting with this as
+     * its default, so that the two never tell different stories.
+     */
+    val START = ShareLinkKind.ASK
+
+    /**
+     * What Settings offers. Not [START]: a pick in Settings is as lasting as one made in the
+     * question, and a row offering "ask" that then asked only once would say one thing and do another.
+     */
+    val CHOICES = listOf(ShareLinkKind.YOUTUBE_MUSIC, ShareLinkKind.PAGE)
 
     private val videoId = Regex("[A-Za-z0-9_-]{11}")
 
@@ -76,9 +96,11 @@ object ShareLinks {
 
     private fun caption(name: String, by: String) = if (by.isEmpty()) name else "$name · $by"
 
-    fun decide(link: ShareLink, kind: ShareLinkKind): ShareAction = when {
-        link.page == null || kind == ShareLinkKind.YOUTUBE_MUSIC -> ShareAction.Send(link.youTubeMusic)
-        kind == ShareLinkKind.PAGE -> ShareAction.Send("${link.caption}\n${link.page}")
-        else -> ShareAction.Ask
-    }
+    /** What goes out for [kind]. Where there is no page, the YouTube Music link whatever was chosen. */
+    fun text(link: ShareLink, kind: ShareLinkKind): String =
+        if (kind == ShareLinkKind.PAGE && link.page != null) "${link.caption}\n${link.page}" else link.youTubeMusic
+
+    /** Asked only where there is a choice to make: nothing is chosen yet and there is a page. */
+    fun decide(link: ShareLink, kind: ShareLinkKind): ShareAction =
+        if (kind == ShareLinkKind.ASK && link.page != null) ShareAction.Ask else ShareAction.Send(text(link, kind))
 }

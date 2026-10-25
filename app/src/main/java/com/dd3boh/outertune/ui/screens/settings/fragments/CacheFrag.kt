@@ -40,6 +40,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.settings.settingRow
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 
 @Composable
@@ -92,7 +93,7 @@ fun ColumnScope.SongCacheFrag() {
     }
 
     ListPreference(
-        modifier = Modifier.tourTarget(Tour.SETTING_SONG_CACHE),
+        modifier = Modifier.tourTarget(Tour.SETTING_SONG_CACHE).settingRow(R.string.song_cache_max_size),
         title = { Text(stringResource(R.string.song_cache_max_size)) },
         selectedValue = maxSongCacheSize,
         values = listOf(0, 128, 256, 512, 1024, 2048, 4096, 8192, -1),
@@ -108,6 +109,7 @@ fun ColumnScope.SongCacheFrag() {
     InfoLabel(stringResource(R.string.restart_to_apply_changes))
 
     PreferenceEntry(
+        modifier = Modifier.settingRow(R.string.clear_song_cache),
         title = { Text(stringResource(R.string.clear_song_cache)) },
         onClick = {
             showClearConfirmDialog = true
@@ -210,6 +212,7 @@ fun ColumnScope.ImageCacheFrag() {
     }
 
     ListPreference(
+        modifier = Modifier.settingRow(R.string.image_cache_max_size),
         title = { Text(stringResource(R.string.image_cache_max_size)) },
         selectedValue = maxImageCacheSize,
         values = listOf(0, 128, 256, 512, 1024, 2048, 4096, 8192),
@@ -224,6 +227,7 @@ fun ColumnScope.ImageCacheFrag() {
     InfoLabel(stringResource(R.string.restart_to_apply_changes))
 
     PreferenceEntry(
+        modifier = Modifier.settingRow(R.string.clear_image_cache),
         title = { Text(stringResource(R.string.clear_image_cache)) },
         onClick = {
             showClearConfirmDialog = true

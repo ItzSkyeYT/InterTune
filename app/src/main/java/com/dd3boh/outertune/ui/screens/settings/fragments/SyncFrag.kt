@@ -66,6 +66,7 @@ import com.zionhuang.innertube.utils.parseCookieString
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.settings.settingRow
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -78,7 +79,7 @@ fun ColumnScope.SyncAutoFrag() {
     val (ytmSync, onYtmSyncChange) = rememberPreference(YtmSyncKey, defaultValue = true)
 
     SwitchPreference(
-        modifier = Modifier.tourTarget(Tour.SETTING_YTM_SYNC),
+        modifier = Modifier.tourTarget(Tour.SETTING_YTM_SYNC).settingRow(R.string.ytm_sync),
         title = { Text(stringResource(R.string.ytm_sync)) },
         icon = { Icon(Icons.Rounded.Sync, null) },
         checked = ytmSync,
@@ -113,6 +114,7 @@ fun ColumnScope.SyncManualFrag() {
     val isSyncingRecentActivity by syncUtils.isSyncingRecentActivity.collectAsState()
 
     PreferenceEntry(
+        modifier = Modifier.settingRow(R.string.scanner_manual_btn),
         title = { Text(stringResource(R.string.scanner_manual_btn)) },
         icon = { Icon(Icons.Rounded.Sync, null) },
         onClick = {
@@ -230,7 +232,7 @@ fun ColumnScope.SyncParamsFrag() {
     val (syncMode, onSyncModeChange) = rememberEnumPreference(key = YtmSyncModeKey, defaultValue = SyncMode.RW)
 
     EnumListPreference(
-        modifier = Modifier.tourTarget(Tour.SETTING_SYNC_MODE),
+        modifier = Modifier.tourTarget(Tour.SETTING_SYNC_MODE).settingRow(R.string.sync_mode),
         title = { Text(stringResource(R.string.sync_mode)) },
         icon = { Icon(Icons.Rounded.SyncLock, null) },
         selectedValue = syncMode,
@@ -243,6 +245,7 @@ fun ColumnScope.SyncParamsFrag() {
         }
     )
     EnumListPreference(
+        modifier = Modifier.settingRow(R.string.sync_conflict_title),
         title = { Text(stringResource(R.string.sync_conflict_title)) },
         icon = { Icon(Icons.Rounded.SyncProblem, null) },
         selectedValue = syncConflict,

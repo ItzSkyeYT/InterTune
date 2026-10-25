@@ -9,6 +9,7 @@ package com.dd3boh.outertune.playback
 import androidx.media3.common.C
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.MultiQueueObject
+import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.playback.queues.Queue
 import com.zionhuang.innertube.models.BrowseEndpoint
 import java.io.IOException
@@ -51,6 +52,7 @@ class QueueStartTest {
     private class LateQueue(
         override val preloadItem: MediaMetadata?,
         override val startShuffled: Boolean = false,
+        override val songPicked: Boolean = false,
     ) : Queue {
         /** Completed once the answer has been asked for, which is where the steps wait. */
         val asked = CompletableDeferred<Unit>()
@@ -109,9 +111,11 @@ class QueueStartTest {
             replace: Boolean,
             startIndex: Int,
             continuationEndpoint: String?,
+            startFirst: Boolean,
         ): MultiQueueObject? {
             asked += "add '$title' ${items.map { it.id }} at $startIndex" +
-                (if (shuffled) " shuffled" else "") + (if (replace) " replace" else "") +
+                (if (shuffled) " shuffled" else "") + (if (startFirst) ", picked song first" else "") +
+                (if (replace) " replace" else "") +
                 (continuationEndpoint?.let { " then $it" } ?: "")
             if (items.isEmpty()) return null
             val match = queues.firstOrNull { it.title == title }
@@ -155,6 +159,26 @@ class QueueStartTest {
         override fun start(playWhenReady: Boolean) {
             asked += "player: prepare, playWhenReady $playWhenReady"
             wantsToPlay = playWhenReady
+        }
+
+        /** The shuffle button as the listener sees it. */
+        override var shuffleOn = false
+
+        /** The songs put in with Play next and still waiting, and how often they were asked for. */
+        var waiting: PlayNextWaiting.Taken? = null
+        var waitingAsked = 0
+
+        /** Written down only when something waits, which it seldom does. */
+        override fun playNextWaiting(): PlayNextWaiting.Taken? {
+            waitingAsked++
+            waiting?.let { asked += "Play next: ${it.songs.map { s -> s.id }} waiting in '${it.from.title}'" }
+            return waiting
+        }
+
+        /** Puts them after the queue's song in its stored order, which is its play order here. */
+        override fun keepPlayNext(queue: MultiQueueObject, taken: PlayNextWaiting.Taken) {
+            asked += "keep ${taken.songs.map { it.id }} after ${queue.queue[queue.queuePos].id} in '${queue.title}'"
+            queue.queue.addAll(queue.queuePos + 1, taken.songs)
         }
 
         /** The songs stored as related to a song, by its id, and those on YouTube's related page. */
@@ -961,6 +985,145 @@ class QueueStartTest {
 
         assertEquals(listOf("B from the top"), service.heard)
         assertEquals(listOf("B Mix"), service.queues.map { it.title })
+    }
+
+    // A song picked out of a list (issue #42). With shuffle on, the list used to play in its own
+    // order from the song, and shuffle went off with it, or stayed showing on over that order when
+    // the list refilled a queue of its own title. The board turns these asks into the order
+    // (MultiQueueObject.refill, QueueShuffleTest).
+
+    private val list = listOf("A", "B", "C", "D", "E").map { song(it) }
+
+    /** The fourth song of the playlist tapped, as the playlist screens ask for it. */
+    private fun picked() = ListQueue(title = "Playlist", items = list, startIndex = 3, songPicked = true)
+
+    @Test
+    fun `a song picked while shuffle is on starts the list shuffled, from that song`() = runBlocking {
+        val service = Service().apply { shuffleOn = true }
+        QueueStart(service).play(picked())
+
+        assertEquals(
+            listOf("add 'Playlist' [A, B, C, D, E] at 3 shuffled, picked song first replace", "load 'Playlist' [A, B, C, D, E] at 3 $tags", started),
+            service.asked,
+        )
+    }
+
+    @Test
+    fun `a song picked while shuffle is off plays the list in its order from that song`() = runBlocking {
+        val service = Service()
+        QueueStart(service).play(picked())
+
+        assertEquals("add 'Playlist' [A, B, C, D, E] at 3 replace", service.board().first())
+    }
+
+    @Test
+    fun `a list's Play button plays it in order, whatever shuffle says`() = runBlocking {
+        val service = Service().apply { shuffleOn = true }
+        QueueStart(service).play(ListQueue(title = "Playlist", items = list))
+
+        assertEquals("add 'Playlist' [A, B, C, D, E] at 0 replace", service.board().first())
+    }
+
+    @Test
+    fun `a list's Shuffle button starts on any song, whatever shuffle says`() = runBlocking {
+        for (on in listOf(false, true)) {
+            val service = Service().apply { shuffleOn = on }
+            QueueStart(service).play(ListQueue(title = "Playlist", items = list, startShuffled = true))
+            assertEquals("add 'Playlist' [A, B, C, D, E] at 0 shuffled replace", service.board().first())
+        }
+    }
+
+    @Test
+    fun `shuffle is read as it was at the tap`() = runBlocking {
+        val service = Service().apply { shuffleOn = true }
+        val pick = LateQueue(preloadItem = null, songPicked = true)
+        val job = launch { QueueStart(service).play(pick) }
+        pick.asked.await()
+        // The queue before this one is still loaded meanwhile, and its shuffle can change.
+        service.shuffleOn = false
+        pick.answer.complete(Queue.Status("Playlist", list, 3))
+        job.join()
+
+        assertEquals("add 'Playlist' [A, B, C, D, E] at 3 shuffled, picked song first replace", service.board().first())
+    }
+
+    // Songs put in with Play next and not played yet. A pick used to leave them in the queue it
+    // replaced, or wipe them with it when the list was that queue's own. Unreleased.PLAY_NEXT_STAYS
+    // decides whether any are waiting; this holds where they go once some are.
+
+    private fun waitingIn(title: String, vararg ids: String) = PlayNextWaiting.Taken(
+        MultiQueueObject(99, title, ids.map { song(it) }.toMutableList(), queuePos = 0, index = 0),
+        ids.map { song(it) },
+    )
+
+    @Test
+    fun `songs waiting after Play next go on right after the picked song, in the queue before it is loaded`() = runBlocking {
+        val service = Service().apply { waiting = waitingIn("Radio", "X", "Y") }
+        QueueStart(service).play(picked())
+
+        assertEquals(
+            listOf(
+                "Play next: [X, Y] waiting in 'Radio'",
+                "add 'Playlist' [A, B, C, D, E] at 3 replace",
+                "keep [X, Y] after D in 'Playlist'",
+                "load 'Playlist' [A, B, C, D, X, Y, E] at 3 $tags",
+                started,
+            ),
+            service.asked,
+        )
+    }
+
+    @Test
+    fun `they are taken before the list refills the queue they wait in`() = runBlocking {
+        // The playlist playing, songs put in with Play next, and another of its songs tapped: the
+        // refill wiped them with the playlist's old songs.
+        val service = Service().apply { waiting = waitingIn("Playlist", "X", "Y") }
+        QueueStart(service).play(picked())
+
+        val asks = service.board()
+        assertTrue(asks.toString(), asks.indexOf("Play next: [X, Y] waiting in 'Playlist'") < asks.indexOfFirst { it.startsWith("add ") })
+    }
+
+    @Test
+    fun `with shuffle on they still come right after the picked song`() = runBlocking {
+        val service = Service().apply { shuffleOn = true; waiting = waitingIn("Radio", "X", "Y") }
+        QueueStart(service).play(picked())
+
+        assertEquals(
+            listOf(
+                "Play next: [X, Y] waiting in 'Radio'",
+                "add 'Playlist' [A, B, C, D, E] at 3 shuffled, picked song first replace",
+                "keep [X, Y] after D in 'Playlist'",
+                "load 'Playlist' [A, B, C, D, X, Y, E] at 3 $tags",
+            ),
+            service.board(),
+        )
+    }
+
+    @Test
+    fun `a list asked for whole leaves them where they wait`() = runBlocking {
+        val service = Service().apply { waiting = waitingIn("Radio", "X", "Y") }
+        QueueStart(service).play(ListQueue(title = "Playlist", items = list))
+        QueueStart(service).play(ListQueue(title = "Playlist", items = list, startShuffled = true))
+
+        assertEquals(0, service.waitingAsked)
+        assertTrue(service.asked.none { it.startsWith("keep") })
+    }
+
+    @Test
+    fun `a pick that gives way to a later tap keeps nothing`() = runBlocking {
+        val service = Service().apply { waiting = waitingIn("Radio", "X", "Y") }
+        val start = QueueStart(service)
+        val first = LateQueue(preloadItem = null, songPicked = true)
+        val one = launch { start.play(first, runId = 7) }
+        first.asked.await()
+        start.play(picked(), runId = 8)
+        first.answer.complete(Queue.Status("Other list", listOf(song("P"), song("Q")), 1))
+        one.join()
+
+        assertEquals(listOf("keep [X, Y] after D in 'Playlist'"), service.asked.filter { it.startsWith("keep") })
+        assertEquals(1, service.waitingAsked)
+        assertEquals("load 'Playlist' [A, B, C, D, X, Y, E] at 3 (origin 3, slot 2, run 8)", service.board().last())
     }
 
     private fun <T> List<T>.repeat(times: Int) = List(times) { this }.flatten()

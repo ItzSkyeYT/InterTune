@@ -57,6 +57,7 @@ import com.dd3boh.outertune.ui.dialog.CounterDialog
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.settings.settingRow
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 
 @Composable
@@ -73,7 +74,7 @@ fun ColumnScope.LyricFormatFrag() {
     }
 
     EnumListPreference(
-        modifier = Modifier.tourTarget(Tour.SETTING_LYRICS_POSITION),
+        modifier = Modifier.tourTarget(Tour.SETTING_LYRICS_POSITION).settingRow(R.string.lyrics_text_position),
         title = { Text(stringResource(R.string.lyrics_text_position)) },
         icon = { Icon(Icons.Rounded.Lyrics, null) },
         selectedValue = lyricsPosition,
@@ -87,7 +88,7 @@ fun ColumnScope.LyricFormatFrag() {
         }
     )
     PreferenceEntry(
-        modifier = Modifier.tourTarget(Tour.SETTING_LYRICS_FONT_SIZE),
+        modifier = Modifier.tourTarget(Tour.SETTING_LYRICS_FONT_SIZE).settingRow(R.string.lyrics_font_Size),
         title = { Text(stringResource(R.string.lyrics_font_Size)) },
         description = "$lyricFontSize sp",
         icon = { Icon(Icons.Rounded.TextFields, null) },
@@ -96,6 +97,7 @@ fun ColumnScope.LyricFormatFrag() {
     // Below Android 10 the phone has no transliteration to do it with (see latinTools).
     if (latinTools() != null) {
         SwitchPreference(
+            modifier = Modifier.settingRow(R.string.lyrics_latin_title),
             title = { Text(stringResource(R.string.lyrics_latin_title)) },
             description = stringResource(R.string.lyrics_latin_description),
             icon = { Icon(Icons.Rounded.Translate, null) },
@@ -138,6 +140,7 @@ fun ColumnScope.LyricParserFrag() {
 
     // multiline lyrics
     SwitchPreference(
+        modifier = Modifier.settingRow(R.string.lyrics_multiline_title),
         title = { Text(stringResource(R.string.lyrics_multiline_title)) },
         description = stringResource(R.string.lyrics_multiline_description),
         icon = { Icon(Icons.AutoMirrored.Rounded.Sort, null) },
@@ -147,6 +150,7 @@ fun ColumnScope.LyricParserFrag() {
 
     // trim (remove spaces around) lyrics
     SwitchPreference(
+        modifier = Modifier.settingRow(R.string.lyrics_trim_title),
         title = { Text(stringResource(R.string.lyrics_trim_title)) },
         icon = { Icon(Icons.Rounded.ContentCut, null) },
         checked = lyricTrim,
@@ -166,7 +170,7 @@ fun ColumnScope.LyricSourceFrag() {
         LyricsSourcesEntry(sourcesRow)
     } else {
         SwitchPreference(
-            modifier = sourcesRow,
+            modifier = sourcesRow.settingRow(R.string.enable_lrclib),
             title = { Text(stringResource(R.string.enable_lrclib)) },
             description = stringResource(R.string.enable_lrclib_description),
             icon = { Icon(Icons.Rounded.Lyrics, null) },
@@ -174,6 +178,7 @@ fun ColumnScope.LyricSourceFrag() {
             onCheckedChange = onEnableLrcLibChange
         )
         SwitchPreference(
+            modifier = Modifier.settingRow(R.string.enable_kugou),
             title = { Text(stringResource(R.string.enable_kugou)) },
             description = stringResource(R.string.enable_kugou_description),
             icon = { Icon(Icons.Rounded.Lyrics, null) },
@@ -183,7 +188,7 @@ fun ColumnScope.LyricSourceFrag() {
     }
     // prioritize local lyric files over all cloud providers
     SwitchPreference(
-        modifier = Modifier.tourTarget(Tour.SETTING_LYRICS_PREFER_LOCAL),
+        modifier = Modifier.tourTarget(Tour.SETTING_LYRICS_PREFER_LOCAL).settingRow(R.string.lyrics_prefer_local),
         title = { Text(stringResource(R.string.lyrics_prefer_local)) },
         description = stringResource(R.string.lyrics_prefer_local_description),
         icon = { Icon(Icons.Rounded.ContentCut, null) },
@@ -204,12 +209,14 @@ fun ColumnScope.LyricAdvancedFrag() {
     ) {
         // clickable lyrics
         SwitchPreference(
+            modifier = Modifier.settingRow(R.string.lyrics_synced_clickable),
             title = { Text(stringResource(R.string.lyrics_synced_clickable)) },
             icon = { Icon(Icons.Rounded.TouchApp, null) },
             checked = syncedLyricsClickable,
             onCheckedChange = onSyncedLyricsClickable
         )
         SwitchPreference(
+            modifier = Modifier.settingRow(R.string.lyrics_auto_scroll),
             title = { Text(stringResource(R.string.lyrics_auto_scroll)) },
             description = stringResource(R.string.lyrics_auto_scroll_description),
             icon = { Icon(Icons.Rounded.SwapVert, null) },
@@ -223,6 +230,7 @@ fun ColumnScope.LyricAdvancedFrag() {
         modifier = Modifier.fillMaxWidth()
     ) {
         SwitchPreference(
+            modifier = Modifier.settingRow(R.string.lyrics_karaoke_title),
             title = { Text(stringResource(R.string.lyrics_karaoke_title)) },
             description = stringResource(R.string.lyrics_karaoke_description),
             icon = { Icon(Icons.Rounded.TextRotationAngledown, null) },
@@ -231,6 +239,7 @@ fun ColumnScope.LyricAdvancedFrag() {
         )
 
         ListPreference(
+            modifier = Modifier.settingRow(R.string.lyrics_karaoke_hz_title),
             title = { Text(stringResource(R.string.lyrics_karaoke_hz_title)) },
             icon = { Icon(Icons.Rounded.Speed, null) },
             selectedValue = lyricUpdateSpeed,

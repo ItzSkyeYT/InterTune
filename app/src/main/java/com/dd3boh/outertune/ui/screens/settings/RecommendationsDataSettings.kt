@@ -97,11 +97,13 @@ fun RecommendationsDataSettings(
 
         PreferenceGroupTitle(title = stringResource(R.string.recommendations_data_forget))
         PreferenceEntry(
+            modifier = Modifier.settingRow(R.string.forget_last_session),
             title = { Text(stringResource(R.string.forget_last_session)) },
             description = results[DataAction.FORGET_SESSION]?.let { resultText(it) } ?: stringResource(R.string.forget_last_session_description),
             onClick = { tap(DataAction.FORGET_SESSION) },
         )
         ExplainedPreference(
+            modifier = Modifier.settingRow(R.string.forget_today),
             title = stringResource(R.string.forget_today),
             explanation = stringResource(R.string.forget_today_info),
             description = results[DataAction.FORGET_TODAY]?.let { resultText(it) } ?: stringResource(R.string.forget_today_description),
@@ -111,12 +113,14 @@ fun RecommendationsDataSettings(
 
         PreferenceGroupTitle(title = stringResource(R.string.recommendations_data_start_over))
         ExplainedPreference(
+            modifier = Modifier.settingRow(R.string.recommendations_reset_weights),
             title = stringResource(R.string.recommendations_reset_weights),
             explanation = stringResource(R.string.recommendations_reset_weights_info),
             description = results[DataAction.RESET]?.let { resultText(it) } ?: stringResource(R.string.recommendations_reset_weights_description),
             onClick = { tap(DataAction.RESET) },
         )
         PreferenceEntry(
+            modifier = Modifier.settingRow(R.string.recommendations_rebuild_weights),
             title = { Text(stringResource(R.string.recommendations_rebuild_weights)) },
             description = results[DataAction.REBUILD]?.let { resultText(it) } ?: stringResource(R.string.recommendations_rebuild_weights_description),
             onClick = { tap(DataAction.REBUILD) },
@@ -125,12 +129,14 @@ fun RecommendationsDataSettings(
 
         PreferenceGroupTitle(title = stringResource(R.string.recommendations_data_copy))
         ExplainedPreference(
+            modifier = Modifier.settingRow(R.string.export_engine_data),
             title = stringResource(R.string.export_engine_data),
             explanation = stringResource(R.string.export_engine_data_info),
             description = results[DataAction.SAVE]?.let { resultText(it) } ?: stringResource(R.string.export_engine_data_description),
             onClick = { tap(DataAction.SAVE) },
         )
         PreferenceEntry(
+            modifier = Modifier.settingRow(R.string.import_engine_data),
             title = { Text(stringResource(R.string.import_engine_data)) },
             description = results[DataAction.LOAD]?.let { resultText(it) } ?: stringResource(R.string.import_engine_data_description),
             onClick = { tap(DataAction.LOAD) },

@@ -32,6 +32,8 @@ class WelcomeBackTest {
     private val v0115 = 93          // the first build of 0.11.5
     private val v0116 = 94          // 0.11.6, fixes only: it took the number 0.12 was to have
     private val v012 = 95           // the first build 0.12 can be
+    private val v0121 = 96          // 0.12.1, fixes only: it took the number after 0.12's
+    private val v0125 = 97          // the first build 0.12.5 can be
 
     private fun ids(things: List<NewThing>) = things.map { it.id }
 
@@ -202,7 +204,7 @@ class WelcomeBackTest {
     @Test
     fun `a setting is reached the way somebody would go there, through the row it is under`() {
         val insideSettings = NEW_THINGS.filter { thing -> thing.stops.any { it.route != null } }
-        assertEquals(listOf("radios", "living_blur", "share_links", "sleep_schedule", "content_filters", "equalizer", "resume_bluetooth", "library_import", "explain_pictures", "problem_report", "spatial_audio"), ids(insideSettings))
+        assertEquals(listOf("share_links", "radios", "living_blur", "sleep_schedule", "content_filters", "equalizer", "resume_bluetooth", "library_import", "explain_pictures", "problem_report", "spatial_audio"), ids(insideSettings))
         for (thing in insideSettings) {
             assertEquals("${thing.id}: the row, then the setting", 2, thing.stops.size)
             assertEquals("${thing.id} starts on the list of settings", Tour.ROUTE_SETTINGS, thing.stops[0].route)
@@ -347,12 +349,25 @@ class WelcomeBackTest {
 
     @Test
     fun `what is held back for 0_12 waits for it, and is shown to somebody on 0_11_5 when it comes`() {
-        // Living blur and Links for any music app: on in previews only, so 0.11.5 must not claim them.
+        // Living blur: on in previews only before 0.12, so 0.11.5 must not claim it.
         assertTrue(newThingsFor(v011, buildVersionCode = v0115).none { it.release == "0.12" })
         assertTrue(newThingsFor(v011, buildVersionCode = v0116).none { it.release == "0.12" })
         // Somebody who skips 0.11.6 is shown what it brought as well, under its own heading.
-        assertEquals(listOf("cast", "radios", "living_blur", "share_links", "sleep_schedule", "content_filters", "equalizer", "resume_bluetooth", "recognition_tile"), ids(newThingsFor(v0115, buildVersionCode = v012)))
-        assertEquals(listOf("cast", "radios", "living_blur", "share_links", "sleep_schedule", "content_filters", "equalizer"), ids(newThingsFor(v0116, buildVersionCode = v012)))
+        assertEquals(listOf("cast", "radios", "living_blur", "sleep_schedule", "content_filters", "equalizer", "resume_bluetooth", "recognition_tile"), ids(newThingsFor(v0115, buildVersionCode = v012)))
+        assertEquals(listOf("cast", "radios", "living_blur", "sleep_schedule", "content_filters", "equalizer"), ids(newThingsFor(v0116, buildVersionCode = v012)))
+    }
+
+    @Test
+    fun `Links for any music app comes with 0_12_5, and whoever had a tour on 0_12_1 is shown it`() {
+        // In debug and preview builds of 0.12 it was there already; 0.12 and 0.12.1 never had it.
+        assertTrue(newThingsFor(v0116, buildVersionCode = v0121).none { it.id == "share_links" })
+        assertTrue("0.12.1 claims something of 0.12.5", newThingsFor(v012, buildVersionCode = v0121).isEmpty())
+        val things = newThingsFor(v0121, buildVersionCode = v0125)
+        assertTrue(ids(things).toString(), "share_links" in ids(things))
+        assertTrue(things.all { it.release == "0.12.5" })
+        // Somebody who skips 0.12 is shown both, the newest first.
+        assertEquals(listOf("0.12.5", "0.12"), newThingsFor(v0116, buildVersionCode = v0125).map { it.release }.distinct())
+        assertEquals("0.12.5", releaseAt(v0125))
     }
 
     @Test

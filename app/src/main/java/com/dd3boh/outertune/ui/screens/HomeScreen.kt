@@ -1047,7 +1047,8 @@ fun HomeScreen(
                                         ListQueue(
                                             title = queueTitle,
                                             items = forgottenFavorites.map { it.toMediaMetadata() },
-                                            startIndex = index
+                                            startIndex = index,
+                                            songPicked = true,
                                         ),
                                         origin = PlayOrigin.HOME_ROW,
                                     )

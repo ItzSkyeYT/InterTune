@@ -71,11 +71,13 @@ import com.dd3boh.outertune.ui.screens.Screens.LibraryFilter
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 import com.dd3boh.outertune.utils.ShareLinkKind
+import com.dd3boh.outertune.utils.ShareLinks
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import com.zionhuang.innertube.YouTube
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
+import com.dd3boh.outertune.ui.screens.settings.settingRow
 import java.util.Locale
 
 @Composable
@@ -185,7 +187,7 @@ fun ColumnScope.TabArrangementFrag() {
 
 
     PreferenceEntry(
-        modifier = Modifier.tourTarget(Tour.SETTING_TAB_ARRANGEMENT),
+        modifier = Modifier.tourTarget(Tour.SETTING_TAB_ARRANGEMENT).settingRow(R.string.tab_arrangement),
         title = { Text(stringResource(R.string.tab_arrangement)) },
         icon = { Icon(Icons.Rounded.Reorder, null) },
         onClick = {
@@ -193,6 +195,7 @@ fun ColumnScope.TabArrangementFrag() {
         }
     )
     PreferenceEntry(
+        modifier = Modifier.settingRow(R.string.filter_arrangement),
         title = { Text(stringResource(R.string.filter_arrangement)) },
         icon = { Icon(Icons.Rounded.Reorder, null) },
         onClick = {
@@ -395,7 +398,7 @@ fun ColumnScope.TabExtrasFrag() {
     val (defaultOpenTab, onDefaultOpenTabChange) = rememberPreference(DefaultOpenTabKey, defaultValue = "home")
 
     ListPreference(
-        modifier = Modifier.tourTarget(Tour.SETTING_DEFAULT_TAB),
+        modifier = Modifier.tourTarget(Tour.SETTING_DEFAULT_TAB).settingRow(R.string.default_open_tab),
         title = { Text(stringResource(R.string.default_open_tab)) },
         icon = { Icon(Icons.Rounded.Tab, null) },
         selectedValue = Screens.getAllScreens().find { it.route == defaultOpenTab } ?: Screens.Home,
@@ -415,6 +418,7 @@ fun ColumnScope.SwipeGesturesFrag() {
         rememberPreference(SwipeToDismissPlayerKey, defaultValue = true)
 
     SwitchPreference(
+        modifier = Modifier.settingRow(R.string.swipe2Queue),
         title = { Text(stringResource(R.string.swipe2Queue)) },
         description = stringResource(R.string.swipe2Queue_description),
         icon = { Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, null) },
@@ -422,6 +426,7 @@ fun ColumnScope.SwipeGesturesFrag() {
         onCheckedChange = onSwipe2QueueChange
     )
     SwitchPreference(
+        modifier = Modifier.settingRow(R.string.swipe_to_skip_title),
         title = { Text(stringResource(R.string.swipe_to_skip_title)) },
         description = stringResource(R.string.swipe_to_skip_description),
         icon = { Icon(Icons.Rounded.Swipe, null) },
@@ -429,6 +434,7 @@ fun ColumnScope.SwipeGesturesFrag() {
         onCheckedChange = onSwipeToSkipChange
     )
     SwitchPreference(
+        modifier = Modifier.settingRow(R.string.swipe_to_dismiss_player),
         title = { Text(stringResource(R.string.swipe_to_dismiss_player)) },
         description = stringResource(R.string.swipe_to_dismiss_player_description),
         icon = { Icon(Icons.Rounded.SwipeDown, null) },
@@ -446,7 +452,7 @@ fun ColumnScope.LocalizationFrag() {
     val (contentCountry, onContentCountryChange) = rememberPreference(key = ContentCountryKey, defaultValue = "system")
 
     ListPreference(
-        modifier = Modifier.tourTarget(Tour.SETTING_CONTENT_LANGUAGE),
+        modifier = Modifier.tourTarget(Tour.SETTING_CONTENT_LANGUAGE).settingRow(R.string.content_language),
         title = { Text(stringResource(R.string.content_language)) },
         icon = { Icon(Icons.Rounded.Language, null) },
         selectedValue = contentLanguage,
@@ -471,7 +477,7 @@ fun ColumnScope.LocalizationFrag() {
         }
     )
     ListPreference(
-        modifier = Modifier.tourTarget(Tour.SETTING_CONTENT_COUNTRY),
+        modifier = Modifier.tourTarget(Tour.SETTING_CONTENT_COUNTRY).settingRow(R.string.content_country),
         title = { Text(stringResource(R.string.content_country)) },
         icon = { Icon(Icons.Rounded.LocationOn, null) },
         selectedValue = contentCountry,
@@ -495,21 +501,28 @@ fun ColumnScope.LocalizationFrag() {
     )
 }
 
+/**
+ * "Links you share": what Share sends for a song or an album. It starts with nothing chosen, and
+ * the first share asks (rememberShareLink); the pick made there or here is the setting from then
+ * on. So the list holds the two kinds alone, and until a pick none of them is ticked and the row
+ * says nothing is chosen yet.
+ */
 @Composable
 fun ColumnScope.ShareLinksFrag() {
-    val (kind, onKindChange) = rememberEnumPreference(ShareLinkKindKey, defaultValue = ShareLinkKind.YOUTUBE_MUSIC)
+    val (kind, onKindChange) = rememberEnumPreference(ShareLinkKindKey, defaultValue = ShareLinks.START)
 
     EnumListPreference(
-        modifier = Modifier.tourTarget(Tour.SETTING_SHARE_LINKS),
+        modifier = Modifier.tourTarget(Tour.SETTING_SHARE_LINKS).settingRow(R.string.share_link_kind_title),
         title = { Text(stringResource(R.string.share_link_kind_title)) },
         icon = { Icon(Icons.Rounded.Share, null) },
         selectedValue = kind,
         onValueSelected = onKindChange,
+        values = ShareLinks.CHOICES,
         valueText = {
             when (it) {
                 ShareLinkKind.YOUTUBE_MUSIC -> stringResource(R.string.share_link_youtube_music)
                 ShareLinkKind.PAGE -> stringResource(R.string.share_link_page)
-                ShareLinkKind.ASK -> stringResource(R.string.share_link_ask)
+                ShareLinkKind.ASK -> stringResource(R.string.share_link_not_chosen)
             }
         }
     )

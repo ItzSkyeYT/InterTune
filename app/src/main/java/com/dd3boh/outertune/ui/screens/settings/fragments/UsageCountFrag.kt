@@ -22,6 +22,8 @@ import com.dd3boh.outertune.constants.UsageCountEnabledKey
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.utils.rememberPreference
+import com.dd3boh.outertune.ui.screens.settings.settingRow
+import androidx.compose.ui.Modifier
 import kotlinx.coroutines.launch
 
 /**
@@ -53,6 +55,7 @@ fun ColumnScope.UsageCountFrag() {
     val (enabled, onEnabledChange) = rememberPreference(UsageCountEnabledKey, defaultValue = false)
 
     SwitchPreference(
+        modifier = Modifier.settingRow(R.string.usage_count_enabled),
         title = { Text(stringResource(R.string.usage_count_enabled)) },
         description = stringResource(R.string.usage_count_enabled_description),
         icon = { Icon(Icons.Rounded.Groups, null) },
@@ -62,6 +65,7 @@ fun ColumnScope.UsageCountFrag() {
 
     if (enabled) {
         PreferenceEntry(
+            modifier = Modifier.settingRow(R.string.usage_count_forget),
             title = { Text(stringResource(R.string.usage_count_forget)) },
             description = stringResource(R.string.usage_count_forget_description),
             icon = { Icon(Icons.Rounded.RestartAlt, null) },

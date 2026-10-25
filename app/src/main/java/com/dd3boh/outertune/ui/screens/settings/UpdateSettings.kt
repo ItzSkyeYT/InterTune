@@ -134,7 +134,7 @@ fun UpdateSettings(
             )
 
             SwitchPreference(
-                modifier = Modifier.tourTarget(Tour.SETTING_UPDATE_CHECK),
+                modifier = Modifier.tourTarget(Tour.SETTING_UPDATE_CHECK).settingRow(R.string.update_check),
                 title = { Text(stringResource(R.string.update_check)) },
                 description = stringResource(
                     if (fromFdroid) R.string.update_check_description_fdroid
@@ -156,6 +156,7 @@ fun UpdateSettings(
             // time is useless there: an F-Droid copy is sent to F-Droid for its update, so the
             // download would be spent on a file nobody installs.
             if (!fromFdroid) SwitchPreference(
+                modifier = Modifier.settingRow(R.string.update_auto),
                 title = { Text(stringResource(R.string.update_auto)) },
                 description = stringResource(R.string.update_auto_description),
                 icon = { Icon(Icons.Rounded.Download, null) },
@@ -167,7 +168,7 @@ fun UpdateSettings(
             // Governs questions too, which is why the copy says so. Two separate schedules for
             // two small requests would wake the device twice to answer one question.
             ListPreference(
-                modifier = Modifier.tourTarget(Tour.SETTING_BACKGROUND_CHECK),
+                modifier = Modifier.tourTarget(Tour.SETTING_BACKGROUND_CHECK).settingRow(R.string.background_check_interval),
                 title = { Text(stringResource(R.string.background_check_interval)) },
                 icon = { Icon(Icons.Rounded.Schedule, null) },
                 selectedValue = backgroundHours,
@@ -197,7 +198,7 @@ fun UpdateSettings(
             InfoLabel(stringResource(R.string.background_check_interval_desc))
 
             PreferenceEntry(
-                modifier = Modifier.tourTarget(Tour.SETTING_CHECK_NOW),
+                modifier = Modifier.tourTarget(Tour.SETTING_CHECK_NOW).settingRow(R.string.check_for_update),
                 title = { Text(stringResource(R.string.check_for_update)) },
                 description = if (checking) stringResource(R.string.checking_for_update) else null,
                 icon = { Icon(Icons.Rounded.Refresh, null) },
@@ -350,6 +351,7 @@ fun UpdateSettings(
 
         ElevatedCard(modifier = Modifier.fillMaxWidth()) {
             PreferenceEntry(
+                modifier = Modifier.settingRow(R.string.update_installed_version),
                 title = { Text(stringResource(R.string.update_installed_version)) },
                 description = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
                 onClick = null

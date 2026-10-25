@@ -7,6 +7,15 @@ interface Queue {
     val preloadItem: MediaMetadata?
     val playlistId: String?
     val startShuffled: Boolean
+
+    /**
+     * Whether the listener picked the song this queue starts on out of a list: a row tapped in a
+     * playlist, an album, the library. The list then plays from that song and follows the shuffle
+     * button as it stands (QueueStart). False for a list asked for whole, with its Play or Shuffle
+     * button, which says itself how the list is to play.
+     */
+    val songPicked: Boolean get() = false
+
     suspend fun getInitialStatus(): Status
     fun hasNextPage(): Boolean
     suspend fun nextPage(): List<MediaMetadata>

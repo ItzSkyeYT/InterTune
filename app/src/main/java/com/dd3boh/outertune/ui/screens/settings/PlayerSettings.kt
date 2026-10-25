@@ -171,6 +171,7 @@ fun PlayerSettings(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 SwitchPreference(
+                    modifier = Modifier.settingRow(R.string.persistent_queue),
                     title = { Text(stringResource(R.string.persistent_queue)) },
                     description = stringResource(R.string.persistent_queue_desc_ot),
                     icon = { Icon(Icons.AutoMirrored.Rounded.QueueMusic, null) },
@@ -180,6 +181,7 @@ fun PlayerSettings(
                 // Only meaningful when there is a restored queue to start, so it follows the
                 // setting that produces one and is disabled without it.
                 SwitchPreference(
+                    modifier = Modifier.settingRow(R.string.resume_on_launch),
                     title = { Text(stringResource(R.string.resume_on_launch)) },
                     description = stringResource(R.string.resume_on_launch_desc),
                     icon = { Icon(Icons.Rounded.PlayArrow, null) },
@@ -188,6 +190,7 @@ fun PlayerSettings(
                     isEnabled = persistentQueue,
                 )
                 PreferenceEntry(
+                    modifier = Modifier.settingRow(R.string.max_queues_title),
                     title = { Text(stringResource(R.string.max_queues_title)) },
                     description = stringResource(R.string.max_queues_description),
                     icon = { Icon(Icons.Rounded.Queue, null) },
@@ -209,6 +212,7 @@ fun PlayerSettings(
             ) {
                 if (ENABLE_FFMETADATAEX) {
                     ListPreference(
+                        modifier = Modifier.settingRow(R.string.audio_decoder_preference),
                         title = { Text(stringResource(R.string.audio_decoder_preference)) },
                         icon = { Icon(Icons.Rounded.AudioFile, null) },
                         selectedValue = audioDecoder,
@@ -230,6 +234,7 @@ fun PlayerSettings(
                     InfoLabel(stringResource(R.string.restart_to_apply_changes))
                 }
                 SwitchPreference(
+                    modifier = Modifier.settingRow(R.string.keep_alive_title),
                     title = { Text(stringResource(R.string.keep_alive_title)) },
                     description = stringResource(R.string.keep_alive_description),
                     icon = { Icon(Icons.Rounded.NoCell, null) },

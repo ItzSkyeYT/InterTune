@@ -33,7 +33,7 @@ class ReleasedFlagsTest {
         "PROBLEM_REPORT", "WELCOME_BACK", "COVER_ACCENT", "GLASS_QUEUE",
         "LIVING_BACKGROUND", "CASTING", "ADAPTIVE_PASS", "EQUALIZER",
         "PREVIOUS_LOGS",
-        "SABR_RUNG",
+        "SABR_RUNG", "SHARE_PAGE",
     )
 
     private val sources = File("src/main/java/com/dd3boh/outertune")
@@ -243,5 +243,17 @@ class ReleasedFlagsTest {
         for (path in listOf("playback/MusicService.kt", "playback/DownloadUtil.kt")) {
             assertWritten(path, "val streamed = if (BuildConfig.DEBUG && Unreleased.SABR && YTPlayerUtils.sabrOnly) {")
         }
+    }
+
+    @Test
+    fun `the share page is in every build, with its row in Settings, what Share sends and its card among what is new`() {
+        assertEquals(
+            setOf("ui/screens/settings/LibrarySettings.kt", "ui/menu/ShareLinkMenu.kt", "ui/screens/walkthrough/Walkthrough.kt"),
+            readers("SHARE_PAGE"),
+        )
+        assertWritten("ui/screens/settings/LibrarySettings.kt", "if (Unreleased.SHARE_PAGE) ShareLinksFrag()")
+        // What Share sends is what the setting says, in a release as well.
+        assertWritten("ui/menu/ShareLinkMenu.kt", "when (val action = ShareLinks.decide(link, if (Unreleased.SHARE_PAGE) chosen else ShareLinkKind.YOUTUBE_MUSIC)) {")
+        assertWritten("ui/screens/walkthrough/Walkthrough.kt", "there = { Unreleased.SHARE_PAGE },")
     }
 }

@@ -141,6 +141,42 @@ class SabrFileAacTest {
         assertEquals(0L, asked.last(), "the last start is the song's beginning, which every stream covers")
     }
 
+    @Test
+    fun `read ahead through InnerTubeX, the song is held whole, and read again from any byte with no request`() {
+        var paced = 0
+        val sabr = SabrFile(
+            stream = { _ -> paced++; kotlinx.coroutines.flow.flow { throw IllegalStateException("a stream at the player's pace") } },
+            contentLength = file.size.toLong(),
+            durationMs = durationMs,
+            ahead = SabrFile.Ahead(stream = { startMs -> SabrAudioStream(server(), bootstrap, initialPlayerTimeMs = startMs).chunks() }),
+        )
+        assertContentEquals(file, sabr.readAllFrom(0))
+        val deadline = System.currentTimeMillis() + 5_000
+        while (!sabr.restHeld && System.currentTimeMillis() < deadline) Thread.sleep(5)
+        assertTrue(sabr.restHeld, "held to its end")
+        val requests = asked.size
+        for (i in listOf(1, 5, 11)) {
+            val position = at[i] + 17
+            assertContentEquals(file.copyOfRange(position.toInt(), file.size), sabr.readAllFrom(position), "from inside segment $i")
+        }
+        assertEquals(requests, asked.size, "no request once the song is held")
+        assertEquals(0, paced)
+    }
+
+    @Test
+    fun `a read ahead YouTube refuses leaves the song to the player's own stream, without a word to the reader`() {
+        val refusing = HttpClient(MockEngine { respond(ByteArray(0), HttpStatusCode.Forbidden) })
+        val sabr = SabrFile(
+            stream = { startMs -> SabrAudioStream(server(), bootstrap, initialPlayerTimeMs = startMs).chunks() },
+            contentLength = file.size.toLong(),
+            durationMs = durationMs,
+            ahead = SabrFile.Ahead(stream = { startMs -> SabrAudioStream(refusing, bootstrap, initialPlayerTimeMs = startMs).chunks() }),
+        )
+        assertContentEquals(file, sabr.readAllFrom(0))
+        assertEquals(listOf(0L), asked, "the player's own stream, from the start")
+        assertEquals(0L, sabr.heldSize)
+    }
+
     // ---- the server's side ----
 
     /** One answer: the format, the init segment, the segments from [first] to the end, the end of track. */

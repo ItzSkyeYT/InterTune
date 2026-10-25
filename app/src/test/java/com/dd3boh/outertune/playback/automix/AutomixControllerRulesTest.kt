@@ -67,7 +67,9 @@ class AutomixControllerRulesTest {
 
     @Test
     fun `the player's resolver fetches a song once at a time only with AutoMix in the build`() {
-        assertTrue("val resolver = SongResolver(streamAddresses).also { if (Unreleased.AUTOMIX) it.fetches = OneFetchAtATime() }" in service)
-        assertTrue("val one = fetches ?: return fetch(mediaId, position, staleQuality, partialCopy)" in service)
+        // One resolver for the service since SABR reads the next song ahead through it (SabrAhead).
+        assertTrue("private val playerResolver by lazy { SongResolver(streamAddresses).also { if (Unreleased.AUTOMIX) it.fetches = OneFetchAtATime() } }" in service)
+        assertTrue("val resolver = if (forPlayer) playerResolver else SongResolver(streamAddresses)" in service)
+        assertTrue("val one = fetches ?: return fetch(mediaId, position, staleQuality, partialCopy, said)" in service)
     }
 }

@@ -370,7 +370,8 @@ fun LibrarySongsScreen(
                                 ListQueue(
                                     title = context.getString(R.string.queue_all_songs),
                                     items = songs.map { it.toMediaMetadata() },
-                                    startIndex = index
+                                    startIndex = index,
+                                    songPicked = true,
                                 ),
                                 origin = PlayOrigin.LIBRARY,
                             )

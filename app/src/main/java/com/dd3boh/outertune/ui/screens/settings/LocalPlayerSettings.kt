@@ -94,7 +94,7 @@ fun LocalPlayerSettings(
             .padding(horizontal = 16.dp)
     ) {
         SwitchPreference(
-            modifier = Modifier.tourTarget(Tour.SETTING_LOCAL_MEDIA),
+            modifier = Modifier.tourTarget(Tour.SETTING_LOCAL_MEDIA).settingRow(R.string.local_library_enable_title),
             title = { Text(stringResource(R.string.local_library_enable_title)) },
             description = stringResource(R.string.local_library_enable_description),
             icon = { Icon(Icons.Rounded.SdCard, null) },
@@ -118,6 +118,7 @@ fun LocalPlayerSettings(
         ) {
             // automatic scanner
             SwitchPreference(
+                modifier = Modifier.settingRow(R.string.auto_scanner_title),
                 title = { Text(stringResource(R.string.auto_scanner_title)) },
                 description = stringResource(R.string.auto_scanner_description),
                 icon = { Icon(Icons.Rounded.Autorenew, null) },
