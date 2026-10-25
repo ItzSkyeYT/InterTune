@@ -341,7 +341,10 @@ class LibraryViewModel @Inject constructor(
         .distinctUntilChanged()
         .flatMapLatest { (sortType, descending) ->
             combine(artists, albums, playlists) { artists, albums, playlists ->
-                val items = artists + albums + playlists
+                // Once each, by what it is: the screen used to take out repeats by their hash,
+                // which reads every field of every item on each pass, and would drop one of two
+                // different items that happened to hash alike.
+                val items = (artists + albums + playlists).distinctBy(::libraryKey)
                 items.sortedBy { item ->
                     when (sortType) {
                         LibrarySortType.CREATE_DATE -> when (item) {
@@ -388,4 +391,16 @@ class ArtistSongsViewModel @Inject constructor(
             database.artistSongs(artistId, sortType, descending)
         }
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+}
+
+/**
+ * What an item of Library's list of everything is known by, the same for as long as it is the
+ * same album, artist or playlist, whatever else about it changes: its key in the list, and what
+ * repeats are taken out by.
+ */
+internal fun libraryKey(item: Any): Any = when (item) {
+    is Album -> "album:${item.id}"
+    is Artist -> "artist:${item.id}"
+    is Playlist -> "playlist:${item.id}"
+    else -> item
 }

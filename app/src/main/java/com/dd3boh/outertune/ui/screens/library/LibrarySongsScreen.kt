@@ -351,7 +351,9 @@ fun LibrarySongsScreen(
                         snackbarHostState = snackbarHostState,
 
                         isActive = song.song.id == mediaMetadata?.id,
-                        isPlaying = isPlaying,
+                        // Only the playing row hears of play and pause, so a tap on either composes
+                        // that row and not every row on the page.
+                        isPlaying = song.song.id == mediaMetadata?.id && isPlaying,
                         inSelectMode = inSelectMode,
                         isSelected = selection.contains(song.id),
                         onSelectedChange = {

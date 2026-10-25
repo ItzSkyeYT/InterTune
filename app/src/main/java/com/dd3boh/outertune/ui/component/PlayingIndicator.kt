@@ -158,6 +158,13 @@ fun PlayingIndicatorBox(
     playWhenReady: Boolean,
     color: Color = Color.White,
 ) {
+    // While it fades out from a row the song has left, it shows what it showed while that row's.
+    // Rows may hand it play and pause only while they are the playing row (isActive && isPlaying),
+    // so that a tap on play composes that row alone, and the bars would otherwise turn into the
+    // play mark as they fade.
+    val shownWhileActive = remember { BooleanArray(1) { playWhenReady } }
+    if (isActive) shownWhileActive[0] = playWhenReady
+    val playing = if (isActive) playWhenReady else shownWhileActive[0]
     AnimatedVisibility(
         visible = isActive,
         enter = fadeIn(tween(500)),
@@ -167,7 +174,7 @@ fun PlayingIndicatorBox(
             contentAlignment = Alignment.Center,
             modifier = modifier
         ) {
-            if (playWhenReady) {
+            if (playing) {
                 PlayingIndicator(
                     color = color,
                     modifier = Modifier.height(24.dp)
