@@ -7,9 +7,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Album
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -21,7 +21,6 @@ import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.constants.ListThumbnailSize
 import com.dd3boh.outertune.constants.ThumbnailCornerRadius
 import com.dd3boh.outertune.db.entities.Album
-import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.ui.utils.getNSongsString
 import com.dd3boh.outertune.utils.albumSongsToPlay
@@ -39,25 +38,19 @@ fun AlbumListItem(
     badges: @Composable RowScope.() -> Unit = {
         val database = LocalDatabase.current
         val downloadUtil = LocalDownloadUtil.current
-        var songs by remember {
-            mutableStateOf(emptyList<Song>())
-        }
-
-        LaunchedEffect(Unit) {
-            database.albumSongs(album.id).collect {
-                songs = it
-            }
-        }
+        // The ids of its songs that can be downloaded, and nothing else about them: the songs
+        // themselves were read for each tile, with their artists, album and the rest, and read
+        // again at every change to any of those tables, for a mark drawn from their downloads.
+        val toDownload by remember(album.id) { database.albumSongsToDownload(album.id) }.collectAsState(initial = emptyList())
 
         var downloadState by remember {
             mutableIntStateOf(Download.STATE_STOPPED)
         }
 
-        LaunchedEffect(songs) {
-            val songs = songs.filterNot { it.song.isLocal }
-            if (songs.isEmpty()) return@LaunchedEffect
+        LaunchedEffect(toDownload) {
+            if (toDownload.isEmpty()) return@LaunchedEffect
             downloadUtil.downloads.collect { downloads ->
-                downloadState = getDownloadState(songs.map { downloads[it.id] })
+                downloadState = getDownloadState(toDownload.map { downloads[it] })
             }
         }
 
@@ -102,25 +95,17 @@ fun AlbumGridItem(
     badges: @Composable RowScope.() -> Unit = {
         val database = LocalDatabase.current
         val downloadUtil = LocalDownloadUtil.current
-        var songs by remember {
-            mutableStateOf(emptyList<Song>())
-        }
-
-        LaunchedEffect(Unit) {
-            database.albumSongs(album.id).collect {
-                songs = it
-            }
-        }
+        // As AlbumListItem's: the ids of its songs that can be downloaded, and nothing else.
+        val toDownload by remember(album.id) { database.albumSongsToDownload(album.id) }.collectAsState(initial = emptyList())
 
         var downloadState by remember {
             mutableIntStateOf(Download.STATE_STOPPED)
         }
 
-        LaunchedEffect(songs) {
-            val songs = songs.filterNot { it.song.isLocal }
-            if (songs.isEmpty()) return@LaunchedEffect
+        LaunchedEffect(toDownload) {
+            if (toDownload.isEmpty()) return@LaunchedEffect
             downloadUtil.downloads.collect { downloads ->
-                downloadState = getDownloadState(songs.map { downloads[it.id] })
+                downloadState = getDownloadState(toDownload.map { downloads[it] })
             }
         }
 

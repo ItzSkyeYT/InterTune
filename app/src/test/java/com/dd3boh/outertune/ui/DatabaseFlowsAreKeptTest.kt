@@ -44,7 +44,7 @@ class DatabaseFlowsAreKeptTest {
         assertTrue(made.containsMatchIn("val song by database.song(item.id).collectAsState(initial = null)"))
         assertTrue(made.containsMatchIn("val n by remember { database.count() }.collectAsState(initial = 0)").not())
         val kept = File("src/main/java/com/dd3boh/outertune/ui/component/items/Items.kt").readText()
-        assertTrue("Items.kt no longer reads a song for its badges", "remember(item.id) { database.song(item.id) }.collectAsState" in kept)
+        assertTrue("Items.kt no longer reads a song for its badges", "remember(item.id) { if (item is SongItem) database.song(item.id) else flowOf(null) }.collectAsState" in kept)
     }
 
     /** Block comments, and line comments that start a line or follow a space, so a url in a string stays. */

@@ -117,6 +117,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
+import kotlinx.coroutines.flow.flowOf
 
 const val ActiveBoxAlpha = 0.6f
 
@@ -386,7 +387,10 @@ fun MediaMetadataListItem(
             Icon.Library()
         }
         if (showDownloadIcon && !mediaMetadata.isLocal) {
-            val download by LocalDownloadUtil.current.getDownload(mediaMetadata.id).collectAsState(initial = null)
+            // Kept for the row. getDownload makes a new flow at each call, and with a new one each
+            // time the row was composed, its watch on the download started over every time.
+            val downloadUtil = LocalDownloadUtil.current
+            val download by remember(mediaMetadata.id) { downloadUtil.getDownload(mediaMetadata.id) }.collectAsState(initial = null)
             Icon.Download(download)
         }
     },
@@ -439,8 +443,11 @@ fun YouTubeListItem(
     isSelected: Boolean = false,
     badges: @Composable RowScope.() -> Unit = {
         val database = LocalDatabase.current
-        val song by remember(item.id) { database.song(item.id) }.collectAsState(initial = null)
-        val album by remember(item.id) { database.album(item.id) }.collectAsState(initial = null)
+        // Each kind of item asks its own table and no other: a song its song, an album its album.
+        // Every item asked both, whatever it was, so a list of artists or playlists kept two
+        // queries open for each row, run again at every change to either table.
+        val song by remember(item.id) { if (item is SongItem) database.song(item.id) else flowOf(null) }.collectAsState(initial = null)
+        val album by remember(item.id) { if (item is AlbumItem) database.album(item.id) else flowOf(null) }.collectAsState(initial = null)
 
         if (item is SongItem && song?.song?.liked == true ||
             item is AlbumItem && album?.album?.bookmarkedAt != null
@@ -505,8 +512,9 @@ fun YouTubeGridItem(
     coroutineScope: CoroutineScope? = null,
     badges: @Composable RowScope.() -> Unit = {
         val database = LocalDatabase.current
-        val song by remember(item.id) { database.song(item.id) }.collectAsState(initial = null)
-        val album by remember(item.id) { database.album(item.id) }.collectAsState(initial = null)
+        // Each kind of item asks its own table and no other, as YouTubeListItem's do.
+        val song by remember(item.id) { if (item is SongItem) database.song(item.id) else flowOf(null) }.collectAsState(initial = null)
+        val album by remember(item.id) { if (item is AlbumItem) database.album(item.id) else flowOf(null) }.collectAsState(initial = null)
 
         if (item is SongItem && song?.song?.liked == true ||
             item is AlbumItem && album?.album?.bookmarkedAt != null
