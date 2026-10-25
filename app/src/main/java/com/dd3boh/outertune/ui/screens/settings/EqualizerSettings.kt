@@ -65,6 +65,8 @@ import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.ui.dialog.DefaultDialog
 import com.dd3boh.outertune.ui.dialog.InfoLabel
+import com.dd3boh.outertune.ui.screens.settings.fragments.SaverHoldsLabel
+import com.dd3boh.outertune.ui.screens.settings.fragments.saverHolds
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 import com.dd3boh.outertune.utils.rememberPreference
@@ -89,6 +91,9 @@ fun EqualizerSettings(
     val (headphone, onHeadphone) = rememberPreference(EqualizerHeadphoneKey, defaultValue = "")
     val chosen = AutoEq.chosen(headphone, EqualizerPreset.format(gains))
     var picking by remember { mutableStateOf(false) }
+    // Off while Battery use is on Saver, as its row on Player and audio says: the curve stays as
+    // it is and is heard again when the mode changes.
+    val held = saverHolds()
 
     ColumnWithContentPadding(
         modifier = Modifier.fillMaxHeight(),
@@ -99,10 +104,12 @@ fun EqualizerSettings(
                 title = { Text(stringResource(R.string.equalizer)) },
                 description = stringResource(R.string.equalizer_description),
                 icon = { Icon(Icons.Rounded.Equalizer, null) },
-                checked = enabled,
+                checked = enabled && !held,
+                isEnabled = !held,
                 onCheckedChange = onEnabled,
             )
         }
+        if (held) SaverHoldsLabel()
         Spacer(Modifier.height(16.dp))
 
         ElevatedCard(modifier = Modifier.fillMaxWidth()) {
@@ -113,7 +120,7 @@ fun EqualizerSettings(
                 for (p in EqualizerPreset.entries) {
                     FilterChip(
                         selected = p == preset,
-                        enabled = enabled,
+                        enabled = enabled && !held,
                         onClick = { onKept(EqualizerPreset.format(p.gainsDb)) },
                         label = { Text(stringResource(presetName(p))) },
                     )
@@ -121,12 +128,12 @@ fun EqualizerSettings(
             }
             EqualizerGraph(
                 gainsDb = gains,
-                enabled = enabled,
+                enabled = enabled && !held,
                 onBand = { band, db -> onKept(EqualizerPreset.format(gains.toMutableList().also { it[band] = db })) },
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
             )
             Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.End) {
-                TextButton(enabled = enabled && preset != EqualizerPreset.FLAT, onClick = { onKept(EqualizerPreset.format(EqualizerPreset.FLAT.gainsDb)) }) {
+                TextButton(enabled = enabled && !held && preset != EqualizerPreset.FLAT, onClick = { onKept(EqualizerPreset.format(EqualizerPreset.FLAT.gainsDb)) }) {
                     Text(stringResource(R.string.reset))
                 }
             }
@@ -141,7 +148,7 @@ fun EqualizerSettings(
                 description = chosen?.let { (name, source) -> stringResource(R.string.equalizer_headphones_set, name, source) }
                     ?: stringResource(R.string.equalizer_headphones_pick),
                 icon = { Icon(Icons.Rounded.Headphones, null) },
-                isEnabled = enabled,
+                isEnabled = enabled && !held,
                 onClick = { picking = true },
             )
         }
@@ -266,17 +273,21 @@ fun EqualizerEntry(navController: NavController) {
     val (enabled) = rememberPreference(EqualizerEnabledKey, defaultValue = false)
     val (kept) = rememberPreference(EqualizerGainsKey, defaultValue = "")
     val preset = EqualizerPreset.of(EqualizerPreset.parse(kept))
+    // Off while Battery use is on Saver, which keeps the curve and the switch for when it changes.
+    val held = saverHolds()
     PreferenceEntry(
         title = { Text(stringResource(R.string.equalizer)) },
         description = when {
-            !enabled -> stringResource(R.string.equalizer_off)
+            !enabled || held -> stringResource(R.string.equalizer_off)
             preset != null -> stringResource(presetName(preset))
             else -> stringResource(R.string.equalizer_custom)
         },
         icon = { Icon(Icons.Rounded.Equalizer, null) },
         onClick = { navController.navigate("settings/player/equalizer") },
+        isEnabled = !held,
         modifier = Modifier.tourTarget(Tour.SETTING_EQUALIZER).settingRow(R.string.equalizer),
     )
+    if (held) SaverHoldsLabel()
 }
 
 private fun presetName(p: EqualizerPreset): Int = when (p) {

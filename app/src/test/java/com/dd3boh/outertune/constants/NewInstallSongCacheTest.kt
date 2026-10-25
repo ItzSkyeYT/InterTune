@@ -108,25 +108,33 @@ class NewInstallSongCacheTest {
      * A size never stored is off wherever it is read: Settings, setup, the cached songs tab, the
      * evictor and the write sink. Read as anything else in one of them, an older install that
      * never picked a size would be shown a cache it does not have, or build one it never chose.
+     *
+     * One exception, and every reader that knows it asks the same rule: Battery use on Saver keeps
+     * 512 MB where no size was ever picked (BatteryUse.songCacheMb, BatteryUseTest), and off in
+     * every other mode. Such a reader hands the size as stored, none included, to that rule:
+     * straight in, or as the stored value alone that the same file then gives the rule.
      */
     @Test
     fun `every reader takes a size never stored as off`() {
+        val off = Regex("""^MaxSongCacheSizeKey(] \?: 0\b|, (defaultValue = )?0\b)""")
         val reads = File("src/main/java").walk().filter { it.extension == "kt" }.flatMap { source ->
             val text = source.readText()
             Regex("""\bMaxSongCacheSizeKey\b""").findAll(text).mapNotNull { found ->
                 val line = text.substring(text.lastIndexOf('\n', found.range.first) + 1).substringBefore('\n')
                 val after = text.substring(found.range.first).take(80).replace(Regex("""\s+"""), " ")
+                val toRule = line.substringBefore("MaxSongCacheSizeKey").contains("BatteryUse.songCacheMb(") ||
+                    Regex("""val (\w+) by rememberNullablePreference\(MaxSongCacheSizeKey\)""").find(line)
+                        ?.let { "BatteryUse.songCacheMb(${it.groupValues[1]}," in text } == true
                 when {
                     line.trimStart().startsWith("import ") -> null
                     line.trimStart().startsWith("val MaxSongCacheSizeKey =") -> null
                     // The one write: a new install's size, as its settings are first read.
                     after.startsWith("MaxSongCacheSizeKey] = NEW_INSTALL_SONG_CACHE_MB") -> null
-                    else -> "${source.name}: $after"
+                    else -> "${source.name}: $after" to (toRule || off.containsMatchIn(after))
                 }
             }
         }.toList()
         assertTrue("found no reads", reads.size >= 5)
-        val off = Regex("""^\S+: MaxSongCacheSizeKey(] \?: 0\b|, (defaultValue = )?0\b)""")
-        reads.forEach { assertTrue(it, off.containsMatchIn(it)) }
+        reads.forEach { (read, ok) -> assertTrue(read, ok) }
     }
 }

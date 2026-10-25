@@ -6,7 +6,9 @@ import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
 import androidx.media3.datasource.cache.NoOpCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
+import com.dd3boh.outertune.constants.BatteryModeKey
 import com.dd3boh.outertune.constants.MaxSongCacheSizeKey
+import com.dd3boh.outertune.playback.BatteryUse
 import com.dd3boh.outertune.db.InternalDatabase
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.utils.dataStore
@@ -55,8 +57,10 @@ object AppModule {
         SimpleCache(
             context.filesDir.resolve("exoplayer"),
             // A new install has its 256 MB stored before this can be read (NewInstallSongCache);
-            // none stored is an older install that never picked a size, and its cache stays off.
-            when (val cacheSize = context.dataStore[MaxSongCacheSizeKey] ?: 0) {
+            // none stored is an older install that never picked a size, and its cache stays off,
+            // or keeps 512 MB while Battery use is on Saver (BatteryUse.songCacheMb). Read once,
+            // so a change waits for the next start.
+            when (val cacheSize = BatteryUse.songCacheMb(context.dataStore[MaxSongCacheSizeKey], BatteryUse.modeOf(context.dataStore[BatteryModeKey]))) {
                 -1 -> NoOpCacheEvictor()
                 else -> LeastRecentlyUsedCacheEvictor(cacheSize * 1024 * 1024L)
             },
