@@ -364,7 +364,8 @@ fun ArtistScreen(
                                         ListQueue(
                                             title = "Library: ${libraryArtist?.artist?.name}",
                                             items = librarySongs.map { it.toMediaMetadata() },
-                                            startIndex = index
+                                            startIndex = index,
+                                            songPicked = true,
                                         ),
                                         origin = PlayOrigin.ARTIST,
                                     )
@@ -491,7 +492,8 @@ fun ArtistScreen(
                                                             items = section.items.map { (it as SongItem).toMediaMetadata() },
                                                             startIndex = section.items.indexOf(
                                                                 song
-                                                            )
+                                                            ),
+                                                            songPicked = true,
                                                         ),
                                                         origin = PlayOrigin.ARTIST,
                                                     )

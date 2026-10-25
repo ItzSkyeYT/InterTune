@@ -72,7 +72,7 @@ class RouteTimesTest {
     @Test
     fun `the player's resolver gives a song's whole resolve a deadline`() {
         val service = File("src/main/java/com/dd3boh/outertune/playback/MusicService.kt").readText()
-        val resolve = service.substringAfter("fun resolve(mediaId: String, position: Long, length: Long): ResolvedSong {")
+        val resolve = service.substringAfter("fun resolve(mediaId: String, position: Long, length: Long, ahead: Boolean = false): ResolvedSong {")
             .substringBefore("val playbackData = played.data")
         assertTrue(resolve.contains("withinResolveTime(context = wish) { standIns.playbackData("))
         assertTrue("a timeout of our own is a failure like any other", resolve.contains("catch (e: StepTimedOut)"))

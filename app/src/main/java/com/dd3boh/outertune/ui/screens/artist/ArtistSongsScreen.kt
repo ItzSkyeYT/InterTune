@@ -229,7 +229,8 @@ fun ArtistSongsScreen(
                                         title = title,
                                         items = items,
                                         startIndex = start,
-                                        playlistId = playlistId
+                                        playlistId = playlistId,
+                                        songPicked = true,
                                     ),
                                     origin = PlayOrigin.ARTIST,
                                 )

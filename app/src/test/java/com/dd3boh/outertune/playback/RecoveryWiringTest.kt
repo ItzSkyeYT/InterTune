@@ -120,7 +120,7 @@ class RecoveryWiringTest {
 
     @Test
     fun `a song's fetch that got no answer mid-song is handed to media3 as a failure it tries again`() {
-        val resolve = body("fun resolve(mediaId: String, position: Long, length: Long): ResolvedSong {", "val playbackData = played.data")
+        val resolve = body("fun resolve(mediaId: String, position: Long, length: Long, ahead: Boolean = false): ResolvedSong {", "val playbackData = played.data")
         assertTrue(resolve.contains("throw Recovery.resolveFailed(position, throwable,"))
     }
 
@@ -144,7 +144,7 @@ class RecoveryWiringTest {
     fun `a refusal of an address played unchecked is told to the song's next walk, under the visitorData it was refused with`() {
         val change = body("private fun changeRoute(", "private fun noteGivenUp(")
         assertTrue(change.contains("refusedUnder = "))
-        val resolve = body("fun resolve(mediaId: String, position: Long, length: Long): ResolvedSong {", "val playbackData = played.data")
+        val resolve = body("fun resolve(mediaId: String, position: Long, length: Long, ahead: Boolean = false): ResolvedSong {", "val playbackData = played.data")
         assertTrue(resolve.contains("refusedByPlayer = songRoutes.refused(mediaId,"))
     }
 }

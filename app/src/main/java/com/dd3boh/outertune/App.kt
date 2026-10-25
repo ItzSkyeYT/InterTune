@@ -277,7 +277,7 @@ class App : Application(), SingletonImageLoader.Factory {
             // already pass allowHardware(false) on their own request, and must keep doing so.
             //   MainActivity.kt  extractThemeSource
             //   Player.kt        extractGradientColors
-            //   CoilBitmapLoader loadBitmap, whose output is parcelled to the media session
+            //   SessionBitmapLoader, whose output is parcelled to the media session
             .memoryCache {
                 MemoryCache.Builder()
                     .maxSizePercent(context, 0.3)

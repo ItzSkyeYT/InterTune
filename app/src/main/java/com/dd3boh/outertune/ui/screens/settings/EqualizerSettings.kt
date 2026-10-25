@@ -136,6 +136,7 @@ fun EqualizerSettings(
 
         ElevatedCard(modifier = Modifier.fillMaxWidth()) {
             PreferenceEntry(
+                modifier = Modifier.settingRow(R.string.equalizer_headphones),
                 title = { Text(stringResource(R.string.equalizer_headphones)) },
                 description = chosen?.let { (name, source) -> stringResource(R.string.equalizer_headphones_set, name, source) }
                     ?: stringResource(R.string.equalizer_headphones_pick),
@@ -274,7 +275,7 @@ fun EqualizerEntry(navController: NavController) {
         },
         icon = { Icon(Icons.Rounded.Equalizer, null) },
         onClick = { navController.navigate("settings/player/equalizer") },
-        modifier = Modifier.tourTarget(Tour.SETTING_EQUALIZER),
+        modifier = Modifier.tourTarget(Tour.SETTING_EQUALIZER).settingRow(R.string.equalizer),
     )
 }
 

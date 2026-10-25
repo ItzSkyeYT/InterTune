@@ -85,3 +85,33 @@ object PlayRequestIndex {
      */
     fun indexOf(ids: List<String>, target: String): Int? = ids.indexOf(target).takeIf { it >= 0 }
 }
+
+/**
+ * What a song found by a search plays on into, decided apart from MediaLibrarySessionCallback so a
+ * test can hold it to account without a database or a car.
+ *
+ * On the phone a song picked in search starts a radio from it. In the car the songs found became
+ * the queue instead, and after the song asked for came the others that only matched the same
+ * words. A radio is asked of YouTube by the song's id, which a song that is only a file on the
+ * device does not have: that one plays on into the songs found with it, as every search did.
+ */
+object SearchPlay {
+    sealed interface Plan<out T>
+
+    /** [seed], then its radio. */
+    data class Radio<T>(val seed: T) : Plan<T>
+
+    /** [songs], from the one at [index] on. */
+    data class Found<T>(val songs: List<T>, val index: Int) : Plan<T>
+
+    /**
+     * What [found] plays: from the song tapped in the results, [picked], or for a request that
+     * names no song, said to an assistant, from the best match, the first found. Null when there
+     * is no such song, which fails the request as a stale id does.
+     */
+    fun <T> plan(found: List<T>, picked: String?, id: (T) -> String, local: (T) -> Boolean): Plan<T>? {
+        val index = (if (picked == null) 0 else PlayRequestIndex.indexOf(found.map(id), picked)) ?: return null
+        val song = found.getOrNull(index) ?: return null
+        return if (local(song)) Found(found, index) else Radio(song)
+    }
+}

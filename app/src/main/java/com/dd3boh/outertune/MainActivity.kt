@@ -181,6 +181,7 @@ import com.dd3boh.outertune.constants.orOffered
 import com.dd3boh.outertune.constants.SlimNavBarKey
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.playback.DownloadUtil
+import com.dd3boh.outertune.playback.DownloadsShortcut
 import com.dd3boh.outertune.playback.MediaControllerViewModel
 import com.dd3boh.outertune.playback.MusicService
 import com.dd3boh.outertune.playback.PlayerConnection
@@ -265,6 +266,7 @@ import com.dd3boh.outertune.utils.lmScannerCoroutine
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.utils.rememberNullablePreference
+import com.dd3boh.outertune.utils.scanners.TrackTagReread
 import com.valentinilk.shimmer.LocalShimmerTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.collectLatest
@@ -360,6 +362,14 @@ internal class PendingLink : ViewModel() {
  * done. Kept the way [PendingWidgetTap] keeps a tap, so a rotation does not listen again.
  */
 internal class PendingRecognition : ViewModel() {
+    var asked by mutableStateOf(false)
+}
+
+/**
+ * A tap on a download notification, waiting for the first destination and for setup to be done.
+ * Kept the way [PendingWidgetTap] keeps a tap, so a rotation does not open the downloads again.
+ */
+internal class PendingDownloads : ViewModel() {
     var asked by mutableStateOf(false)
 }
 
@@ -477,6 +487,7 @@ class MainActivity : ComponentActivity() {
 
     private val pendingLink: PendingLink by viewModels()
     private val pendingRecognition: PendingRecognition by viewModels()
+    private val pendingDownloads: PendingDownloads by viewModels()
 
     val controllerViewModel: MediaControllerViewModel by viewModels()
 
@@ -515,6 +526,7 @@ class MainActivity : ComponentActivity() {
             ?.let { pendingLink.link = it }
         if (intent.action == ACTION_PLAY_LIKED) playLikedWhenReady()
         if (intent.action == RecognitionShortcut.ACTION) pendingRecognition.asked = true
+        if (intent.action == DownloadsShortcut.ACTION) pendingDownloads.asked = true
         handlePlayFromSearch(intent)
     }
 
@@ -617,6 +629,10 @@ class MainActivity : ComponentActivity() {
         // reopen from recents, which brings the tile's intent back.
         if (RecognitionShortcut.owed(intent?.action, savedInstanceState != null, intent?.flags ?: 0)) {
             pendingRecognition.asked = true
+        }
+        // The same for a tap on a download notification: the downloads open for the tap.
+        if (DownloadsShortcut.owed(intent?.action, savedInstanceState != null, intent?.flags ?: 0)) {
+            pendingDownloads.asked = true
         }
         lifecycle.addObserver(controllerViewModel)
         controllerViewModel.addControllerCallback(lifecycle) { controller, _ ->
@@ -760,6 +776,8 @@ class MainActivity : ComponentActivity() {
                         this@MainActivity, database, downloads, coroutineScope, playerConnection,
                         snackbarHostState
                     )
+                    // Once, and quietly: the track numbers of local songs scanned before 0.12.5.
+                    TrackTagReread.runOnce(this@MainActivity, database)
                 }
             }
 
@@ -1172,6 +1190,22 @@ class MainActivity : ComponentActivity() {
                         snapshotFlow { navBackStackEntry }.first { it != null }
                         pendingRecognition.asked = false
                         navController.navigate(RecognitionShortcut.ROUTE)
+                    }
+
+                    // A tap on a download notification: Downloaded songs, over whatever is open,
+                    // once the first destination is there and setup is done. The player and the
+                    // search overlay are put away first, as a tab's tap puts them away, or the page
+                    // would open behind them; and it is not opened a second time over itself.
+                    LaunchedEffect(pendingDownloads.asked, oobeStatus) {
+                        if (!pendingDownloads.asked || oobeStatus < OOBE_VERSION) return@LaunchedEffect
+                        snapshotFlow { navBackStackEntry }.first { it != null }
+                        pendingDownloads.asked = false
+                        if (playerBottomSheetState.isExpanded) playerBottomSheetState.collapseSoft()
+                        searchActive = false
+                        val entry = navController.currentBackStackEntry
+                        val there = entry?.destination?.route == "auto_playlist/{playlistId}" &&
+                                entry?.arguments?.getString("playlistId") == DownloadsShortcut.PLAYLIST
+                        if (!there) navController.navigate(DownloadsShortcut.ROUTE)
                     }
 
                     // The Songs, Albums and Playlists shortcuts, handled the same way: their tab,

@@ -66,6 +66,7 @@ fun AdvancedSettings(
             )
 
             PreferenceEntry(
+                modifier = Modifier.settingRow(R.string.flush_image_cache_title),
                 title = { Text(stringResource(R.string.flush_image_cache_title)) },
                 description = stringResource(R.string.flush_image_cache_description),
                 icon = { Icon(Icons.Rounded.Delete, null) },
@@ -75,6 +76,7 @@ fun AdvancedSettings(
             )
 
             SwitchPreference(
+                modifier = Modifier.settingRow(R.string.dev_settings_title),
                 title = { Text(stringResource(R.string.dev_settings_title)) },
                 description = stringResource(R.string.dev_settings_description),
                 icon = { Icon(Icons.Rounded.DeveloperMode, null) },

@@ -84,7 +84,7 @@ class GoneSongSaysSoTest {
         // Retry on this screen, Play in the app or on the notification: the music stopped on the
         // song, and only the listener starts it again. Skipping onto it, or a radio reaching it,
         // ends the stop first (onMediaItemTransition), and those respect what was set aside.
-        val resolve = service.substringAfter("fun resolve(mediaId: String, position: Long, length: Long): ResolvedSong {")
+        val resolve = service.substringAfter("fun resolve(mediaId: String, position: Long, length: Long, ahead: Boolean = false): ResolvedSong {")
         assertTrue(resolve.contains("standIns.playbackData(mediaId, askedAgain = stoppedByError && stoppedOn == mediaId)"))
         assertEquals("the music is stopped on an error in one place, which names the song", 1, Regex("""stoppedByError = true""").findAll(service).count())
         val stopping = service.substringAfter("private fun stopsOnError()").substringBefore("\n    }")

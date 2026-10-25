@@ -334,6 +334,8 @@ val ExcludedScanPathsKey = stringPreferencesKey("exclScanPaths") // previously "
 val LastLocalScanKey = longPreferencesKey("lastLocalScan")
 /** Whether the automatic scan has asked for the storage permission yet. It asks once; see scanInit. */
 val LocalMediaPermissionAskedKey = booleanPreferencesKey("localMediaPermissionAsked")
+/** Set once TrackTagReread has read the track tags of the local songs that had no number (issue #39). */
+val TrackTagsRereadKey = booleanPreferencesKey("trackTagsReread")
 
 /**
  * Experimental settings
@@ -371,7 +373,10 @@ val SwipeToSkipKey = booleanPreferencesKey("swipeToSkip")
  */
 val SwipeToDismissPlayerKey = booleanPreferencesKey("swipeToDismissPlayer")
 
-/** What Share sends for a song or an album: a ShareLinkKind, the YouTube Music link unless chosen otherwise. */
+/**
+ * What Share sends for a song or an album: a ShareLinkKind. Unset, it reads as ShareLinks.START,
+ * nothing chosen yet, and the first share asks; the pick made there or in Settings is kept here.
+ */
 val ShareLinkKindKey = stringPreferencesKey("shareLinkKind")
 
 /**

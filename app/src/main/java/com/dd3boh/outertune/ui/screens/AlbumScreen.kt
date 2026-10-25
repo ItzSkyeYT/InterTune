@@ -479,7 +479,8 @@ fun AlbumScreen(
                                 title = albumWithSongsLocal.album.title,
                                 items = albumWithSongsLocal.songs.map { it.toMediaMetadata() },
                                 startIndex = index,
-                                playlistId = albumWithSongsLocal.album.playlistId
+                                playlistId = albumWithSongsLocal.album.playlistId,
+                                songPicked = true,
                             ),
                             origin = PlayOrigin.ALBUM,
                         )
