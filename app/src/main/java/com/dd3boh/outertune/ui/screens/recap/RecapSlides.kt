@@ -24,10 +24,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -47,6 +47,7 @@ import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -87,6 +88,7 @@ import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -151,9 +153,43 @@ internal class SlideScope(
     }
 }
 
-/** The room a slide has: on a short screen, a phone on its side or large text, the slide scrolls instead. [tallFrom] grows with the text size. */
+/** The room a slide has, in the dp it is drawn in (RecapFit): a short one is a phone on its side or large text. [tallFrom] grows with the text size. */
 internal class SlideRoom(val width: Dp, val height: Dp, private val tallFrom: Dp = 540.dp) {
     val tall: Boolean get() = height >= tallFrom
+}
+
+/**
+ * The Recap on a phone smaller than the one it is laid out for: drawn that much smaller, as the
+ * design is zoomed to fill a small phone, rather than cut or made to scroll. Only on a screen held
+ * upright, never below [LEAST], and large text never below its usual size; whatever still does not
+ * fit (a phone on its side, very large text) scrolls (SlideColumn) or stands one under another
+ * (RecapStart).
+ */
+internal object RecapFit {
+    /** The room a slide is laid out for, between the bars at the top and the song at the foot. */
+    val ROOM = 600.dp
+
+    /** The start screen is laid out for the design's whole phone, 736 high. */
+    val START = 736.dp
+
+    /** Never drawn smaller than this. */
+    const val LEAST = 0.7f
+
+    /** How much smaller to draw what needs [need] of height in a space of [width] by [height]: 1 where it fits. */
+    fun zoom(width: Dp, height: Dp, need: Dp, fontScale: Float): Float {
+        if (width >= height || height >= need) return 1f
+        // Larger text than usual is made smaller only as far as its usual size.
+        val least = if (fontScale > 1f) maxOf(LEAST, 1f / fontScale) else LEAST
+        return (height / need).coerceIn(least, 1f)
+    }
+}
+
+/** [content] drawn [zoom] times its size: every dp and sp it lays out in, while the pixels round it stay as they are. */
+@Composable
+internal fun Zoomed(zoom: Float, content: @Composable () -> Unit) {
+    val density = LocalDensity.current
+    if (zoom >= 1f) content()
+    else CompositionLocalProvider(LocalDensity provides Density(density.density * zoom, density.fontScale), content = content)
 }
 
 /** The Recap's type, as the design sets it: a heavy condensed face for what is shouted, the phone's own for the rest. */
@@ -177,7 +213,11 @@ internal fun Modifier.recapClick(onClick: () -> Unit): Modifier = clickable(onCl
 /** Words in a button of fixed height, in the middle of it. */
 internal fun Modifier.wrapCentre(): Modifier = wrapContentHeight(Alignment.CenterVertically)
 
-/** A slide's column: clear of the bars at the top and of the song at the foot. */
+/**
+ * A slide's column: clear of the bars at the top and of the song at the foot. On a phone held
+ * upright with less room than [RecapFit.ROOM], drawn smaller to fit (RecapFit). It fills its room
+ * when it fits, its gaps ([Grow]) sharing out what is spare, and scrolls where it does not.
+ */
 @Composable
 internal fun SlideColumn(content: @Composable ColumnScope.(SlideRoom) -> Unit) {
     BoxWithConstraints(
@@ -187,21 +227,31 @@ internal fun SlideColumn(content: @Composable ColumnScope.(SlideRoom) -> Unit) {
             .padding(top = 62.dp, bottom = 76.dp),
         contentAlignment = Alignment.TopCenter,
     ) {
-        val room = SlideRoom(minOf(maxWidth, 480.dp) - 48.dp, maxHeight, 540.dp * maxOf(1f, LocalDensity.current.fontScale))
-        Column(
-            Modifier
-                .widthIn(max = 480.dp)
-                .fillMaxWidth()
-                .then(if (room.tall) Modifier.fillMaxHeight() else Modifier.verticalScroll(rememberScrollState()))
-                .padding(horizontal = 24.dp)
-        ) { content(room) }
+        val fontScale = LocalDensity.current.fontScale
+        val zoom = RecapFit.zoom(maxWidth, maxHeight, RecapFit.ROOM, fontScale)
+        val width = maxWidth / zoom
+        val height = maxHeight / zoom
+        Zoomed(zoom) {
+            val room = SlideRoom(minOf(width, 480.dp) - 48.dp, height, 540.dp * maxOf(1f, fontScale))
+            val scroll = rememberScrollState()
+            Column(
+                Modifier
+                    .widthIn(max = 480.dp)
+                    .fillMaxWidth()
+                    // Only a slide taller than its room answers a drag: one that fits never stretches.
+                    .verticalScroll(scroll, enabled = scroll.maxValue > 0)
+                    .heightIn(min = height)
+                    .padding(horizontal = 24.dp)
+            ) { content(room) }
+        }
     }
 }
 
-/** The design's flexible gap; a fixed one where the slide scrolls. */
+/** The design's flexible gap: whatever room is spare, and never less than a small fixed one (larger where the slide is short). */
 @Composable
 internal fun ColumnScope.Grow(room: SlideRoom) {
-    if (room.tall) Spacer(Modifier.weight(1f)) else Spacer(Modifier.height(18.dp))
+    Spacer(Modifier.height(if (room.tall) 8.dp else 18.dp))
+    Spacer(Modifier.weight(1f))
 }
 
 @Composable

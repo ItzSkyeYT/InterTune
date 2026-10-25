@@ -38,7 +38,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.Placeable
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -49,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.dd3boh.outertune.R
+import kotlin.math.roundToInt
 
 /** The covers stuck round the start screen: middle x, middle y and size in the design's 414 by 736, and their tilt. */
 private val FLOATS = listOf(
@@ -63,56 +65,64 @@ private val FLOATS = listOf(
  * it opens by itself once. Open Recap opens the blob into a tunnel the story goes through
  * (RecapStage.open), and the covers are thrown off.
  *
- * On a phone held upright the design's proportions; short of height (on its side, or with large
- * text) the same things stand one under another and scroll if they must.
+ * On a phone held upright the design's proportions, drawn smaller on one shorter than the design's
+ * (RecapFit), and the words below the year moved up as far as they must to stay clear of the foot;
+ * short of height (on its side, or with large text) the same things stand one under another and
+ * scroll if they must.
  */
 @Composable
 internal fun RecapStart(s: SlideScope, onOpen: () -> Unit, onClose: () -> Unit) {
-    val recap = s.shown.recap
-    val density = LocalDensity.current
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val width = maxWidth
-        val height = maxHeight
-        val roomy = height >= 600.dp * maxOf(1f, density.fontScale) && width < height
-        // dp for one of the design's pixels, as the stage works it out: the narrower of the two ways.
-        val dpUnit = minOf(width.value / 414f, height.value / 736f)
-        FLOATS.take(minOf(FLOATS.size, s.shown.mosaic.size)).forEachIndexed { i, (x, y, size, turn) ->
-            val side = (size * dpUnit).dp
-            Sticker(
-                s.shown.mosaic[i], side, s,
-                Modifier.offset(x = width * (x / 414f) - side / 2, y = height * (y / 736f) - side / 2),
-                at = 0.4f + i * 0.3f, turn = turn, fx = (x - 207f) * 1.6f, fy = (y - 368f) * 1.6f, fr = turn * 3f,
-                toss = Toss((x - 207f) * 2.2f, (y - 368f) * 2.2f, turn * 4f),
-            )
-        }
-        val yearSize = with(density) { minOf(128.dp, height * 0.17f, width * 0.36f).toSp() }
-        if (roomy) {
-            Brand(s, Modifier.align(Alignment.TopCenter).padding(top = height * (74f / 736f)))
-            Year(s, yearSize, Modifier.align(Alignment.TopCenter).centredAt(height * (330f / 736f)))
-            Since(s, Modifier.align(Alignment.TopCenter).padding(top = height * (550f / 736f), start = 40.dp, end = 40.dp))
-            Open(s, onOpen, Modifier.align(Alignment.TopCenter).padding(top = height * (616f / 736f)))
-            Foot(
-                s,
-                Modifier
-                    .align(Alignment.BottomCenter)
-                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom))
-                    .padding(bottom = 22.dp, start = 24.dp, end = 24.dp),
-            )
-        } else {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-                modifier = Modifier
-                    .fillMaxSize()
-                    .windowInsetsPadding(WindowInsets.safeDrawing)
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 32.dp, vertical = 24.dp),
-            ) {
-                Brand(s, Modifier)
-                Year(s, yearSize, Modifier)
-                Since(s, Modifier)
-                Open(s, onOpen, Modifier)
-                Foot(s, Modifier)
+        val fontScale = LocalDensity.current.fontScale
+        val zoom = RecapFit.zoom(maxWidth, maxHeight, RecapFit.START, fontScale)
+        val width = maxWidth / zoom
+        val height = maxHeight / zoom
+        Zoomed(zoom) {
+            val density = LocalDensity.current
+            val roomy = height >= 600.dp * maxOf(1f, fontScale) && width < height
+            // dp for one of the design's pixels, as the stage works it out: the narrower of the two ways.
+            val dpUnit = minOf(width.value / 414f, height.value / 736f)
+            Box(Modifier.fillMaxSize()) {
+                FLOATS.take(minOf(FLOATS.size, s.shown.mosaic.size)).forEachIndexed { i, (x, y, size, turn) ->
+                    val side = (size * dpUnit).dp
+                    Sticker(
+                        s.shown.mosaic[i], side, s,
+                        Modifier.offset(x = width * (x / 414f) - side / 2, y = height * (y / 736f) - side / 2),
+                        at = 0.4f + i * 0.3f, turn = turn, fx = (x - 207f) * 1.6f, fy = (y - 368f) * 1.6f, fr = turn * 3f,
+                        toss = Toss((x - 207f) * 2.2f, (y - 368f) * 2.2f, turn * 4f),
+                    )
+                }
+                val yearSize = with(density) { minOf(128.dp, height * 0.17f, width * 0.36f).toSp() }
+                if (roomy) {
+                    StartWords(
+                        height,
+                        Modifier
+                            .fillMaxSize()
+                            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom)),
+                    ) {
+                        Brand(s, Modifier)
+                        Year(s, yearSize, Modifier)
+                        Since(s, Modifier.padding(horizontal = 40.dp))
+                        Open(s, onOpen, Modifier)
+                        Foot(s, Modifier.padding(horizontal = 24.dp))
+                    }
+                } else {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .windowInsetsPadding(WindowInsets.safeDrawing)
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = 32.dp, vertical = 24.dp),
+                    ) {
+                        Brand(s, Modifier)
+                        Year(s, yearSize, Modifier)
+                        Since(s, Modifier)
+                        Open(s, onOpen, Modifier)
+                        Foot(s, Modifier)
+                    }
+                }
             }
         }
         CloseButton(
@@ -127,10 +137,32 @@ internal fun RecapStart(s: SlideScope, onOpen: () -> Unit, onClose: () -> Unit) 
     }
 }
 
-/** Places the content with its middle [y] from the top. */
-private fun Modifier.centredAt(y: Dp): Modifier = layout { measurable, constraints ->
-    val p = measurable.measure(constraints.copy(minWidth = 0, minHeight = 0))
-    layout(constraints.maxWidth, constraints.maxHeight) { p.place((constraints.maxWidth - p.width) / 2, y.roundToPx() - p.height / 2) }
+/**
+ * The start screen's words where the design has them on a screen [full] high (the brand, the
+ * year, the line under it and Open Recap, at their share of its height), and the foot at the
+ * bottom. Where the foot would come too close, Open Recap, the line and the year move up just
+ * enough to stay clear of it, each of the one under it.
+ */
+@Composable
+private fun StartWords(full: Dp, modifier: Modifier, content: @Composable () -> Unit) {
+    Layout(content, modifier) { measurables, constraints ->
+        val loose = constraints.copy(minWidth = 0, minHeight = 0)
+        val (brand, year, since, open, foot) = measurables.map { it.measure(loose) }
+        val h = full.toPx()
+        val gap = 14.dp.toPx()
+        val footTop = constraints.maxHeight - 22.dp.toPx() - foot.height
+        val openTop = minOf(h * 616f / 736f, footTop - 1.5f * gap - open.height)
+        val sinceTop = minOf(h * 550f / 736f, openTop - gap - since.height)
+        val yearMiddle = minOf(h * 330f / 736f, sinceTop - gap - year.height / 2f)
+        layout(constraints.maxWidth, constraints.maxHeight) {
+            fun Placeable.centred(top: Float) = place((constraints.maxWidth - width) / 2, top.roundToInt())
+            brand.centred(h * 74f / 736f)
+            year.centred(yearMiddle - year.height / 2f)
+            since.centred(sinceTop)
+            open.centred(openTop)
+            foot.centred(footTop)
+        }
+    }
 }
 
 @Composable
