@@ -98,7 +98,7 @@
     <string name="oobe_use_backup">J\'ai une sauvegarde</string>
     <string name="scan_paths_incl">Chemins d\'analyse</string>
     <string name="scanner_type_taglib">Utiliser l’extracteur de métadonnées intégré TagLib</string>
-    <string name="scanner_type_ffmpeg_ext">Utilisez l\'extracteur de métadonnées FFmpeg. Veuillez utiliser uniquement la version complète de l\'application. La version principale pourrait entraîner des problèmes de suivi des titres.</string>
+    <string name="scanner_type_ffmpeg_ext">Utilisez l\'extracteur de métadonnées FFmpeg. Veuillez utiliser uniquement la version complète de l\'application. La version « Core » pourrait entraîner des problèmes de suivi des titres.</string>
     <string name="scanner_strict_file_name_title">Noms de fichiers stricts</string>
     <string name="dev_settings_description">Révèle des paramètres avancés supplémentaires destinés à une utilisation en développement</string>
     <string name="sync_progress_active">Synchronisation avec le compte YouTube…</string>
@@ -146,7 +146,7 @@
     <string name="filter_arrangement">Organiser les filtres</string>
     <string name="restart_to_apply_changes">Redémarrez l\'application afin que les modifications prennent effet</string>
     <string name="android_auto">Android Auto</string>
-    <string name="missing_media_permission_warning">Des autorisations de stockage sont requises pour les médias locaux. Cliquez pour accorder l\'autorisation.</string>
+    <string name="missing_media_permission_warning">Une autorisation d\'accès au stockage est requise pour les fichiers multimédias locaux. Cliquez ici pour accorder l\'autorisation.</string>
     <string name="more_settings">Paramètres Avancés</string>
     <string name="grp_account_sync">Compte et Synchronisation</string>
     <string name="sync_conflict_overwrite">Remplacer le contenu local par du contenu distant</string>
@@ -157,7 +157,7 @@
     <string name="sync_conflict_add_only">Conservez tout le contenu local, ajoutez du nouveau contenu distant</string>
     <string name="sync_mode_rw">Lecture / Écriture (permet également de modifier le contenu distant)</string>
     <string name="grp_sync">Synchroniser</string>
-    <string name="playlist_missing_note">Playlists manquantes ? Cliquez ici pour activer la synchronisation en lecture/écriture dans les paramètres.</string>
+    <string name="playlist_missing_note">Il manque des playlists ? Cliquez ici pour activer la synchronisation en lecture-écriture dans les paramètres.</string>
     <string name="checking_for_update">Vérification des mises à jour</string>
     <string name="no_updates_available">Aucune mise à jour disponible</string>
     <string name="update_check_failed">Impossible de vérifier les mises à jour</string>
@@ -180,7 +180,7 @@
     <string name="disable_lm_confirm">Voulez-vous vraiment désactiver les fonctionnalités multimédias locales ? Le contenu de votre bibliothèque ne sera pas affecté.</string>
     <string name="scanner_progress_discovering">À la découverte…</string>
     <string name="scanner_progress_processing">Traitement…</string>
-    <string name="clear_image_cache_confirm">Voulez-vous vraiment vider le cache des images ? Toutes les vignettes d\'album existantes seront supprimées.</string>
+    <string name="clear_image_cache_confirm">Voulez-vous vraiment vider le cache des images ? Toutes les vignettes d\'albums existantes seront supprimées.</string>
     <string name="clear_song_cache_confirm">Êtes-vous sûr de vouloir vider le cache des chansons ?</string>
     <string name="dl_extra_path_title">Configurer des emplacements d’importation supplémentaires…</string>
     <string name="dl_main_path_description">Choisissez un dossier vide : InterTune peut y modifier ou supprimer des fichiers.</string>
@@ -200,7 +200,7 @@
     <string name="oobe_complete_title">Vous êtes prêt !</string>
     <string name="scan_paths_description">Sélectionnez les dossiers sur votre stockage local pour rechercher des titres</string>
     <string name="oobe_interface_subtitle">Personnalisez l\'apparence d\'InterTune et le contenu qu\'il vous montre.</string>
-    <string name="scanner_rejected_dir">Sélection non valide. Un dossier d\'analyse ne peut pas être un sous-répertoire du dossier de téléchargement, ni le dossier de téléchargement lui-même.</string>
+    <string name="scanner_rejected_dir">Sélection non valide. Un dossier d\'analyse ne peut pas être un sous-dossier du dossier de téléchargement, ni le dossier de téléchargement lui-même.</string>
     <string name="scanner_holds_download_dir">Ce dossier contient votre dossier de téléchargement (%s), il ne peut donc pas être un dossier d\'analyse</string>
     <string name="scanner_overlap_kept">Chevauche votre dossier de téléchargement ; conservé tel quel car il était déjà enregistré</string>
     <string name="dl_extra_path_overlap_kept">Chevauche un dossier d\'analyse ; conservé tel quel car il était déjà enregistré</string>
@@ -219,16 +219,16 @@
     <string name="dl_size_used_main">Externe : %s utilisés</string>
     <string name="dl_size_used_extra">Importations supplémentaires : %s utilisés</string>
     <string name="dl_storage_tooltip">Les téléchargements internes sont dans le stockage privé de l\'application. Les téléchargements externes vont dans un dossier que vous choisissez ; prenez-en un vide, car InterTune peut y modifier ou supprimer des fichiers. Les dossiers d\'importation supplémentaires sont seulement lus, jamais modifiés.</string>
-    <string name="scanner_sensitivity_L0">Prendre le premier résultat fourni par YouTube lorsque la recherche sur YouTube est activée, sinon faire correspondre le titre.</string>
+    <string name="scanner_sensitivity_L0">Prendre le premier résultat fourni par YouTube lorsque la recherche sur YouTube est activée ; sinon, rechercher une correspondance avec le titre.</string>
     <string name="app_info_title">Informations sur l\'application</string>
     <string name="device_info_title">Informations sur l\'appareil</string>
     <string name="help_bug_report_action">Soumettre un rapport de bogue (via GitHub)</string>
-    <string name="help_contact_email_inquiries">Autres demandes (Appuyez pour copier l\'e-mail)</string>
+    <string name="help_contact_email_inquiries">Autres demandes (Appuyez pour copier l\'adresse e-mail)</string>
     <string name="help_support_forum">Aide et support (via GitHub)</string>
     <string name="wiki">Wiki</string>
-    <string name="err_invalid_ytm_song">Impossible de lire le titre. Seul le contenu accessible sur YouTube Music peut être lu.</string>
+    <string name="err_invalid_ytm_song">Impossible de lire le titre. Seuls les contenus accessibles sur YouTube Music peuvent être lus.</string>
     <string name="err_restore_incompatible_database">Impossible de restaurer une base de données incompatible</string>
-    <string name="m3u_import_failed">Aucun titre trouvé. Fichier M3U invalide ou aucun titre correspondant trouvé.</string>
+    <string name="m3u_import_failed">Aucun titre trouvé. Fichier M3U non valide ou aucun titre correspondant n\'a été trouvé.</string>
     <string name="tap_show_more">Appuyez pour afficher plus d\'informations</string>
     <string name="all_contributors">Afficher tous les contributeurs</string>
     <string name="att_contributor">Contributeur</string>
@@ -258,8 +258,8 @@
     <string name="audio_decoder_system_with_ffmpeg">Donner la priorité aux décodeurs système</string>
     <string name="max_queues_title">Nombre maximal de files d\'attente</string>
     <string name="oobe_welcome_tip">Pour une expérience optimale, nous vous recommandons d\'effectuer une configuration rapide pour personnaliser les paramètres clés tels que le thème, le compte YouTube, les médias locaux et les téléchargements.</string>
-    <string name="oobe_cache_subtitle">Choisissez la taille du cache des chansons. Cela peut contribuer à réduire les problèmes de lecture sur Internet ou via l\'API YouTube.</string>
-    <string name="action_logout_tooltip">Pour vous déconnecter complètement, veuillez vous déconnecter de votre compte YouTube dans le portail Web avant d\'utiliser ce bouton de déconnexion.</string>
+    <string name="oobe_cache_subtitle">Choisissez la taille du cache des titres. Cela peut contribuer à réduire les problèmes de lecture liés à Internet ou à l\'API YouTube.</string>
+    <string name="action_logout_tooltip">Pour vous déconnecter complètement, veuillez vous déconnecter de votre compte YouTube sur le portail Web avant d\'utiliser ce bouton de déconnexion.</string>
     <string name="auto_scanner_tooltip">Pour les médias locaux, cette opération ne recharge pas les métadonnées des titres existants. Utilisez l\'analyse manuelle en cochant la case « Réanalyser » si vous souhaitez également actualiser les métadonnées.</string>
     <string name="scanner_auto_end">L\'actualisation des médias locaux et des téléchargements de titres est terminée !</string>
     <string name="scanner_auto_start">Actualisation des dossiers de téléchargement de médias locaux et de titres…</string>
@@ -818,9 +818,9 @@
     <string name="auto_backup_keep_delete">Supprimer</string>
     <string name="auto_backup_keep_unknown_title">Réduire le nombre de sauvegardes à garder ?</string>
     <plurals name="auto_backup_keep_unknown_text">
-        <item quantity="one">Le dossier des sauvegardes n\'a pas pu être lu, donc la prochaine sauvegarde supprimera les plus anciennes jusqu\'à ce qu\'il en reste %1$d.</item>
-        <item quantity="many">Le dossier des sauvegardes n\'a pas pu être lu, donc la prochaine sauvegarde supprimera les plus anciennes jusqu\'à ce qu\'il en reste %1$d.</item>
-        <item quantity="other">Le dossier des sauvegardes n\'a pas pu être lu, donc la prochaine sauvegarde supprimera les plus anciennes jusqu\'à ce qu\'il en reste %1$d.</item>
+        <item quantity="one">Le dossier des sauvegardes n\'a pas pu être lu ; la prochaine sauvegarde supprimera donc les plus anciennes jusqu\'à ce qu\'il n\'en reste plus que %1$d.</item>
+        <item quantity="many">Le dossier des sauvegardes n\'a pas pu être lu ; la prochaine sauvegarde supprimera donc les plus anciennes jusqu\'à ce qu\'il n\'en reste plus que %1$d.</item>
+        <item quantity="other">Le dossier des sauvegardes n\'a pas pu être lu ; la prochaine sauvegarde supprimera donc les plus anciennes jusqu\'à ce qu\'il n\'en reste plus que %1$d.</item>
     </plurals>
     <string name="auto_backup_keep_lower">Réduire</string>
     <string name="auto_backup_now">Sauvegarder maintenant</string>
