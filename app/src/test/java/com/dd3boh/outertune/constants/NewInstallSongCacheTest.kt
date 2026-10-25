@@ -99,7 +99,8 @@ class NewInstallSongCacheTest {
     fun `the app opens its settings file with it`() {
         val source = File("src/main/java/com/dd3boh/outertune/utils/DataStore.kt").readText()
         assertTrue(
-            Regex("""preferencesDataStore\(\s*name = "settings",\s*produceMigrations = \{ listOf\(NewInstallSongCache\) \},""")
+            // First: it asks for settings that hold nothing at all, and the next migration writes its mark.
+            Regex("""preferencesDataStore\(\s*name = "settings",\s*produceMigrations = \{ listOf\(NewInstallSongCache[,)]""")
                 .containsMatchIn(source)
         )
     }

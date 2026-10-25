@@ -186,6 +186,8 @@ val LyricTrimKey = booleanPreferencesKey("lyricTrim")
  * that a backup carries them.
  */
 val LyricsTimingKey = stringPreferencesKey("lyricsTiming")
+/** True once the moves in [LyricsTimingKey] were made 100 ms later for the lyrics clock put right (LyricsTimingOnTime). */
+val LyricsTimingOnTimeKey = booleanPreferencesKey("lyricsTimingOnTime")
 val LyricSourcePrefKey = booleanPreferencesKey("preferLocalLyrics")
 val LyricFontSizeKey = intPreferencesKey("lyricFontSize")
 val LyricClickable = booleanPreferencesKey("lyricClickable")
