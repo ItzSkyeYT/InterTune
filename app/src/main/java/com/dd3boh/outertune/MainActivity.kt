@@ -180,6 +180,7 @@ import com.dd3boh.outertune.constants.hasChips
 import com.dd3boh.outertune.constants.orOffered
 import com.dd3boh.outertune.constants.SlimNavBarKey
 import com.dd3boh.outertune.db.MusicDatabase
+import com.dd3boh.outertune.playback.BatteryUse
 import com.dd3boh.outertune.playback.DownloadUtil
 import com.dd3boh.outertune.playback.DownloadsShortcut
 import com.dd3boh.outertune.playback.MediaControllerViewModel
@@ -275,6 +276,7 @@ import javax.inject.Inject
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.NavigationBarDefaults
 import com.dd3boh.outertune.constants.PlayerGlassIntensityKey
+import com.dd3boh.outertune.constants.BatteryModeKey
 import com.dd3boh.outertune.constants.PlayerLiquidGlassKey
 import com.dd3boh.outertune.ui.utils.LocalAppBackdrop
 import com.dd3boh.outertune.ui.utils.LocalAppBackdropAvailable
@@ -1065,6 +1067,9 @@ class MainActivity : ComponentActivity() {
 
                 val liquidGlass by rememberPreference(PlayerLiquidGlassKey, defaultValue = false)
                 val glassIntensity by rememberPreference(PlayerGlassIntensityKey, defaultValue = 1f)
+                // Read here once for the whole app (LocalBatteryMode): the playing bars, the
+                // player's background and the rows of Settings that Saver holds.
+                val chosenBatteryMode by rememberEnumPreference(BatteryModeKey, defaultValue = BatteryUse.DEFAULT)
                 // TIRAMISU because lens() needs a RuntimeShader and the settings toggle is only
                 // offered at 33+. !useNavRail because playerAwareWindowInsets reserves left = 80dp
                 // on tablets, so nothing ever scrolls behind the rail and a glass rail would be a
@@ -1325,6 +1330,7 @@ class MainActivity : ComponentActivity() {
                         LocalAppBackdropAvailable provides backdropAvailable,
                         LocalLandscape provides landscape,
                         LocalGlassIntensity provides glassIntensity,
+                        LocalBatteryMode provides BatteryUse.inForce(chosenBatteryMode),
                         dpadBringIntoView(),
                     ) {
                         /**
@@ -2409,3 +2415,10 @@ val LocalPollChecker = staticCompositionLocalOf<PollChecker> { error("No PollChe
 val LocalActiveCount = staticCompositionLocalOf<ActiveCount> { error("No ActiveCount provided") }
 val LocalNetworkConnected = staticCompositionLocalOf<Boolean> { error("No Network Status provided") }
 val LocalSnackbarHostState = staticCompositionLocalOf<SnackbarHostState> { error("No SnackbarHostState provided") }
+
+/**
+ * Battery use in force (BatteryUse), for what is drawn: the playing bars, the player's background
+ * and the rows of Settings that Saver holds. Outside the activity's content, as a build without the
+ * choice runs, and otherwise the default.
+ */
+val LocalBatteryMode = compositionLocalOf { BatteryUse.modeOf(null) }

@@ -65,8 +65,10 @@ import androidx.compose.ui.util.fastSumBy
 import androidx.compose.ui.window.DialogProperties
 import androidx.media3.common.PlaybackParameters
 import androidx.navigation.NavController
+import com.dd3boh.outertune.LocalBatteryMode
 import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.LocalDownloadUtil
+import com.dd3boh.outertune.playback.BatteryUse
 import com.dd3boh.outertune.LocalPlayerConnection
 import androidx.compose.foundation.lazy.items
 import com.dd3boh.outertune.ui.dialog.ListDialog
@@ -204,13 +206,17 @@ fun PlayerMenu(
             modifier = Modifier.size(28.dp)
         )
 
+        // Past 100% the gain is applied to the samples rather than through player.volume, which
+        // cannot exceed unity. Soft clipped, so pushing it hard compresses peaks instead of tearing
+        // them. Battery use on Saver stops the bar at 100%, as it stops the sound there: the
+        // samples go to the phone's low-power path untouched (BatteryUse.volume).
+        val batteryMode = LocalBatteryMode.current
+        val volumeCeiling = BatteryUse.volume(MAX_PLAYER_VOLUME, batteryMode)
+        val volumeShown = remember(batteryMode, playerVolume) { { BatteryUse.volume(playerVolume.value, batteryMode) } }
         BigSeekBar(
-            progressProvider = playerVolume::value,
+            progressProvider = volumeShown,
             onProgressChange = { playerConnection.service.playerVolume.value = it },
-            // Past 100% the gain is applied to the samples rather than through player.volume,
-            // which cannot exceed unity. Soft clipped, so pushing it hard compresses peaks
-            // instead of tearing them.
-            maxProgress = MAX_PLAYER_VOLUME,
+            maxProgress = volumeCeiling,
             modifier = Modifier.weight(1f)
         )
     }

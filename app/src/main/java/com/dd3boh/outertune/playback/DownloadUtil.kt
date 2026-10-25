@@ -30,6 +30,7 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.AudioQuality
 import com.dd3boh.outertune.constants.AudioQualityKey
 import com.dd3boh.outertune.constants.DownloadExtraPathKey
+import com.dd3boh.outertune.constants.BatteryModeKey
 import com.dd3boh.outertune.constants.DownloadOnWifiOnlyKey
 import com.dd3boh.outertune.constants.DownloadPathKey
 import com.dd3boh.outertune.constants.LikedAutoDownloadKey
@@ -284,7 +285,8 @@ class DownloadUtil @Inject constructor(
     val downloadManager: DownloadManager =
         DownloadManager(context, databaseProvider, downloadCache, dataSourceFactory, Executor(Runnable::run)).apply {
             maxParallelDownloads = 3
-            requirements = downloadRequirements(context.dataStore.get(DownloadOnWifiOnlyKey, false))
+            // Download on Wi-Fi only as it is set, and always while Battery use is on Saver.
+            requirements = downloadRequirements(wifiOnlyNow())
             // Before the download service's own listener, which builds the notification as each
             // song ends: the song is counted by then.
             addListener(downloadRun)
@@ -339,6 +341,16 @@ class DownloadUtil @Inject constructor(
         if (wifiOnly) Requirements(Requirements.NETWORK_UNMETERED) else Requirements(Requirements.NETWORK)
 
     /**
+     * Whether downloads wait for Wi-Fi now: the switch as it is set, or Battery use on Saver,
+     * which never writes the switch (BatteryUse.downloadsOnWifiOnly). Blocking, as the reads here
+     * always were; the two rows that change it push the answer with [setDownloadRequirements].
+     */
+    private fun wifiOnlyNow(): Boolean = BatteryUse.downloadsOnWifiOnly(
+        context.dataStore.get(DownloadOnWifiOnlyKey, false),
+        BatteryUse.modeOf(context.dataStore[BatteryModeKey]),
+    )
+
+    /**
      * Applies the requirement immediately, including to downloads already queued or running. media3
      * pauses anything that no longer meets it and resumes automatically once it does, so nothing is
      * lost by toggling this mid-download.
@@ -358,7 +370,7 @@ class DownloadUtil @Inject constructor(
      * failed.
      */
     private fun notifyIfWaitingForWifi() {
-        if (context.dataStore.get(DownloadOnWifiOnlyKey, false) && connectivityManager.isActiveNetworkMetered) {
+        if (wifiOnlyNow() && connectivityManager.isActiveNetworkMetered) {
             // Main.immediate, so the existing UI callers still post inline exactly as before while
             // the auto-download paths stop throwing. Those run on Room's executors and on
             // dlCoroutine, which have no Looper, and Toast kills the process without one. It would

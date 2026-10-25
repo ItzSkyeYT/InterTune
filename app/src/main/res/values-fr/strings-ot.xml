@@ -1921,6 +1921,18 @@
     <string name="lyrics_timing_later">%1$s\u00A0s plus tard</string>
     <string name="lyrics_timing_step_earlier">Un dixième de seconde plus tôt</string>
     <string name="lyrics_timing_step_later">Un dixième de seconde plus tard</string>
+    <!-- Battery use, in Player and audio (BatteryUseFrag): held from translators in values until the words are agreed. -->
+    <string name="battery_use">Utilisation de la batterie</string>
+    <string name="battery_use_full">Complète</string>
+    <string name="battery_use_balanced">Équilibrée</string>
+    <string name="battery_use_saver">Économie</string>
+    <string name="battery_use_full_description">Tout comme vous l\'avez réglé.</string>
+    <string name="battery_use_balanced_description">La bibliothèque se synchronise moins souvent, et les barres de lecture bougent plus calmement.</string>
+    <string name="battery_use_saver_description">Effets sonores coupés, lecture basse consommation et qualité Faible sur les données mobiles.</string>
+    <string name="battery_use_explain">Ce que fait InterTune pendant que vous écoutez. « Économie » coupe les effets sonores, passe par le circuit audio basse consommation du téléphone et diffuse en qualité Faible sur les données mobiles, pour que la batterie dure plus longtemps. « Complète » garde tout comme vous l\'avez réglé.</string>
+    <string name="battery_saver_holds_note">Réglé par « Utilisation de la batterie » tant qu\'elle est sur « Économie ».</string>
+    <string name="battery_saver_quality_note">Faible sur les données mobiles tant que « Utilisation de la batterie » est sur « Économie ».</string>
+    <string name="battery_saver_background_note">%1$s tant que « Utilisation de la batterie » est sur « Économie ».</string>
     <!-- The search at the top of Settings (SettingsSearch.kt). -->
     <string name="search_settings">Rechercher dans les paramètres</string>
     <string name="search_settings_none">Aucun paramètre ne correspond à «\u00A0%1$s\u00A0».</string>

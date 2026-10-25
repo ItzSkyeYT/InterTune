@@ -89,6 +89,9 @@ import com.dd3boh.outertune.utils.rememberPreference
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.dd3boh.outertune.ui.screens.settings.settingRow
+import com.dd3boh.outertune.ui.screens.settings.MeaningLine
+import com.dd3boh.outertune.LocalBatteryMode
+import com.dd3boh.outertune.playback.BatteryUse
 import kotlin.math.roundToInt
 
 @Composable
@@ -178,10 +181,21 @@ fun ColumnScope.ThemePlayerFrag() {
         defaultValue = true
     )
 
+    // Battery use on Saver draws the default background in place of Living blur, and the choice
+    // stays as it is: the line under the row says so.
+    val drawn = BatteryUse.playerBackground(playerBackground, LocalBatteryMode.current, DEFAULT_PLAYER_BACKGROUND)
+    val drawnName = when (drawn) {
+        PlayerBackgroundStyle.GRADIENT -> stringResource(R.string.player_background_gradient)
+        else -> stringResource(R.string.player_background_blur)
+    }
+
     EnumListPreference(
         modifier = Modifier.tourTarget(Tour.SETTING_PLAYER_BACKGROUND).settingRow(R.string.player_background_style),
         title = { Text(stringResource(R.string.player_background_style)) },
         icon = { Icon(Icons.Rounded.BlurOn, null) },
+        content = if (drawn != playerBackground) {
+            @Composable { MeaningLine(stringResource(R.string.battery_saver_background_note, drawnName)) }
+        } else null,
         selectedValue = playerBackground,
         onValueSelected = onPlayerBackgroundChange,
         valueText = {

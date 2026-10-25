@@ -31,7 +31,8 @@ class SongCacheOffWritesNothingTest {
      */
     @Test
     fun theSinkWritesOnlyWhileTheCacheHasASize() {
-        assertTrue(sink, Regex("""val write = dataStore\.get\(MaxSongCacheSizeKey, 0\) != 0 &&""").containsMatchIn(sink))
+        // The size as the cache is built with it: the one picked, or none, or Battery use's on Saver.
+        assertTrue(sink, Regex("""val write = BatteryUse\.songCacheMb\(dataStore\[MaxSongCacheSizeKey], batteryMode\) != 0 &&""").containsMatchIn(sink))
         assertTrue("and still never a song on the phone", "?.isLocal != true" in sink)
         assertTrue(Regex("""\n\s*write\n""").containsMatchIn(sink))
     }

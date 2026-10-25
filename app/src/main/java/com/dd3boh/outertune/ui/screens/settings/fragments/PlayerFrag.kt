@@ -131,7 +131,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.ui.screens.settings.settingRow
+import com.dd3boh.outertune.ui.screens.settings.MeaningLine
 import com.dd3boh.outertune.utils.rememberPreference
+import androidx.compose.material.icons.rounded.Battery5Bar
+import com.dd3boh.outertune.LocalBatteryMode
+import com.dd3boh.outertune.LocalDownloadUtil
+import com.dd3boh.outertune.constants.BatteryMode
+import com.dd3boh.outertune.constants.BatteryModeKey
+import com.dd3boh.outertune.constants.DownloadOnWifiOnlyKey
+import com.dd3boh.outertune.playback.BatteryUse
 
 @Composable
 fun ColumnScope.PlayerGeneralFrag() {
@@ -186,6 +194,9 @@ fun ColumnScope.ProximityVolumeFrag() {
     val scanPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted -> if (granted) onEnabledChange(true) }
+    // Off while Battery use is on Saver: its scan runs for as long as music plays. The switch keeps
+    // what was set and has it back when the mode changes.
+    val held = saverHolds()
 
     ExplainedSwitchPreference(
         modifier = Modifier.settingRow(R.string.proximity_volume),
@@ -193,7 +204,8 @@ fun ColumnScope.ProximityVolumeFrag() {
         description = stringResource(R.string.proximity_volume_description),
         explanation = stringResource(R.string.proximity_volume_explain),
         picture = ExplainPicture.PROXIMITY,
-        checked = enabled,
+        checked = enabled && !held,
+        isEnabled = !held,
         onCheckedChange = { want ->
             if (want && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 scanPermission.launch(android.Manifest.permission.BLUETOOTH_SCAN)
@@ -202,6 +214,7 @@ fun ColumnScope.ProximityVolumeFrag() {
             }
         },
     )
+    if (held) SaverHoldsLabel()
 
     if (!enabled) return
 
@@ -264,7 +277,7 @@ fun ColumnScope.ProximityVolumeFrag() {
 @Composable
 fun ColumnScope.StageWidthFrag() {
     val (spatial) = rememberEnumPreference(key = SpatialAudioKey, defaultValue = SpatialAudioMode.OFF)
-    if (spatial != SpatialAudioMode.HEADPHONES) return
+    if (BatteryUse.spatialAudio(spatial, LocalBatteryMode.current) != SpatialAudioMode.HEADPHONES) return
 
     val (width, onWidthChange) = rememberPreference(
         StageWidthKey,
@@ -449,6 +462,8 @@ fun ColumnScope.SpatialAudioModeFrag() {
         defaultValue = SpatialAudioMode.OFF
     )
     val title = stringResource(R.string.spatial_audio)
+    // Off while Battery use is on Saver, which keeps the choice for when the mode changes.
+    val held = saverHolds()
 
     EnumListPreference(
         modifier = Modifier.tourTarget(Tour.SETTING_SPATIAL_AUDIO).settingRow(R.string.spatial_audio),
@@ -457,7 +472,8 @@ fun ColumnScope.SpatialAudioModeFrag() {
         trailingContent = {
             ExplainButton(title = title, body = stringResource(R.string.spatial_audio_explain))
         },
-        selectedValue = mode,
+        selectedValue = if (held) SpatialAudioMode.OFF else mode,
+        isEnabled = !held,
         onValueSelected = onModeChange,
         valueText = {
             when (it) {
@@ -468,7 +484,7 @@ fun ColumnScope.SpatialAudioModeFrag() {
         }
     )
 
-    InfoLabel(stringResource(R.string.spatial_audio_description))
+    if (held) SaverHoldsLabel() else InfoLabel(stringResource(R.string.spatial_audio_description))
 }
 
 /**
@@ -529,7 +545,8 @@ fun ColumnScope.HeadTrackingFrag() {
     val tracker by rememberHeadTrackerSensor()
     val available = tracker != null
 
-    if (spatial != SpatialAudioMode.HEADPHONES) return
+    // Spatial audio as it plays: off while Battery use is on Saver.
+    if (BatteryUse.spatialAudio(spatial, LocalBatteryMode.current) != SpatialAudioMode.HEADPHONES) return
 
     // Somewhere to go when the answer is "your phone will not". Most phones will not, and being
     // told that is only half of it: the other half is being able to say so when your headphones
@@ -720,6 +737,8 @@ fun ColumnScope.AdaptiveQueueFrag() {
 @Composable
 fun ColumnScope.TransitionFadeFrag() {
     val (enabled, onEnabledChange) = rememberPreference(TransitionFadeKey, defaultValue = false)
+    // Off while Battery use is on Saver, which keeps the switch's setting for when the mode changes.
+    val held = saverHolds()
 
     ExplainedSwitchPreference(
         modifier = Modifier.tourTarget(Tour.SETTING_TRANSITION_FADE).settingRow(R.string.transition_fade),
@@ -728,11 +747,13 @@ fun ColumnScope.TransitionFadeFrag() {
         explanation = stringResource(R.string.transition_fade_explain),
         picture = ExplainPicture.FADE,
         icon = { Icon(Icons.Rounded.Gradient, null) },
-        checked = enabled,
+        checked = enabled && !held,
+        isEnabled = !held,
         onCheckedChange = onEnabledChange,
     )
+    if (held) SaverHoldsLabel()
 
-    if (!enabled) return
+    if (!enabled || held) return
 
     val (seconds, onSecondsChange) = rememberPreference(
         TransitionFadeSecondsKey,
@@ -780,11 +801,17 @@ fun ColumnScope.AudioQualityFrag() {
         key = AudioQualityKey,
         defaultValue = AudioQuality.AUTO
     )
+    // Battery use on Saver streams at Low on mobile data. Said only where that changes something:
+    // Auto already takes the smallest stream there.
+    val lowered = BatteryUse.lowersQuality(audioQuality, LocalBatteryMode.current)
 
     EnumListPreference(
         modifier = Modifier.tourTarget(Tour.SETTING_AUDIO_QUALITY).settingRow(R.string.audio_quality),
         title = { Text(stringResource(R.string.audio_quality)) },
         icon = { Icon(Icons.Rounded.HighQuality, null) },
+        content = if (lowered) {
+            @Composable { MeaningLine(stringResource(R.string.battery_saver_quality_note)) }
+        } else null,
         selectedValue = audioQuality,
         onValueSelected = onAudioQualityChange,
         valueText = {
@@ -833,6 +860,72 @@ fun ColumnScope.AudioQualityFrag() {
         onClick = null,
     )
 }
+
+/**
+ * Battery use: how much the app does while music plays (BatteryUse). Full is the app as it always
+ * was, Balanced everyone's default, Saver the least, and the line under the choice says what it
+ * turns down. Under Audio quality, since Saver changes what is streamed on mobile data.
+ *
+ * The rule for settings set by hand, as BatteryUse has it: a mode never writes one. It is applied
+ * where each setting is used, so leaving Saver gives every effect, quality and style back as it was
+ * set, and each row that Saver holds says so under it (SaverHoldsLabel). This row keeps its own
+ * key and nothing else; it reads Download on Wi-Fi only to tell the downloads already queued at once.
+ * Only offered where Unreleased.BATTERY_MODES is on, which Player and audio asks before it calls this.
+ */
+@Composable
+fun ColumnScope.BatteryUseFrag() {
+    val (mode, onModeChange) = rememberEnumPreference(BatteryModeKey, defaultValue = BatteryUse.DEFAULT)
+    val (wifiOnly) = rememberPreference(DownloadOnWifiOnlyKey, defaultValue = false)
+    val downloadUtil = LocalDownloadUtil.current
+    val title = stringResource(R.string.battery_use)
+
+    EnumListPreference(
+        modifier = Modifier.settingRow(R.string.battery_use),
+        title = { Text(title) },
+        icon = { Icon(Icons.Rounded.Battery5Bar, null) },
+        trailingContent = {
+            ExplainButton(title = title, body = stringResource(R.string.battery_use_explain))
+        },
+        content = { MeaningLine(batteryUseLine(mode)) },
+        selectedValue = mode,
+        onValueSelected = {
+            onModeChange(it)
+            // Downloads queued or running follow at once, as they do for the switch itself.
+            downloadUtil.setDownloadRequirements(BatteryUse.downloadsOnWifiOnly(wifiOnly, it))
+        },
+        valueText = { batteryUseName(it) },
+        valueDescription = { batteryUseLine(it) },
+    )
+}
+
+@Composable
+private fun batteryUseName(mode: BatteryMode): String = stringResource(
+    when (mode) {
+        BatteryMode.FULL -> R.string.battery_use_full
+        BatteryMode.BALANCED -> R.string.battery_use_balanced
+        BatteryMode.SAVER -> R.string.battery_use_saver
+    }
+)
+
+@Composable
+private fun batteryUseLine(mode: BatteryMode): String = stringResource(
+    when (mode) {
+        BatteryMode.FULL -> R.string.battery_use_full_description
+        BatteryMode.BALANCED -> R.string.battery_use_balanced_description
+        BatteryMode.SAVER -> R.string.battery_use_saver_description
+    }
+)
+
+/** Whether Battery use is on Saver, which holds the sound effects off: for the rows it holds. */
+@Composable
+internal fun saverHolds(): Boolean = BatteryUse.holdsEffects(LocalBatteryMode.current)
+
+/**
+ * The note under a row that Battery use holds while it is on Saver. The row shows what plays now
+ * and is greyed; the setting keeps what was set, and has it back as soon as the mode changes.
+ */
+@Composable
+internal fun SaverHoldsLabel() = InfoLabel(stringResource(R.string.battery_saver_holds_note))
 
 /** The codec string YouTube returns, as a name somebody would recognise. */
 private fun readableCodec(codecs: String?): String? = when {

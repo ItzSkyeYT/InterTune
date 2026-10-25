@@ -42,6 +42,7 @@ import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.Player.EVENT_POSITION_DISCONTINUITY
 import androidx.media3.common.Player.EVENT_TIMELINE_CHANGED
@@ -87,6 +88,8 @@ import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.constants.AudioOffloadKey
 import com.dd3boh.outertune.constants.AudioQuality
 import com.dd3boh.outertune.constants.AudioQualityKey
+import com.dd3boh.outertune.constants.BatteryMode
+import com.dd3boh.outertune.constants.BatteryModeKey
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.cast.CastFormats
 import com.dd3boh.outertune.cast.CastNetwork
@@ -310,9 +313,6 @@ private const val ADAPTIVE_MEMORY_WAIT_MS = 2_000L
 
 /** How long a pass waits after the last ask: a burst of presses makes one pass. */
 private const val PASS_WAIT_MS = 1_000L
-
-/** How long the adaptive queue keeps the taste it read, as Home keeps the engine's input. */
-private const val TASTE_TTL_MS = 5L * 60 * 1000
 
 /** At most one radio page this often in a run, for the adaptive queue's picks: about a song, never faster than songs play. */
 private const val PAGE_EVERY_MS = 3L * 60 * 1000
@@ -922,6 +922,18 @@ class MusicService : MediaLibraryService(),
     val playerVolume = MutableStateFlow(dataStore.get(PlayerVolumeKey, 1f).coerceIn(0f, 1f))
 
     /**
+     * Battery use as it stands (BatteryUse), kept by its observer in onCreate. Read at
+     * construction, as the head tracking switch is, so the first song is set up knowing it. A flow
+     * for the volume, which Saver holds at 100%; the radios and the stream's resolver read its value
+     * from their own threads.
+     */
+    private val batteryModeNow = MutableStateFlow(BatteryUse.modeOf(dataStore[BatteryModeKey]))
+    private val batteryMode: BatteryMode get() = batteryModeNow.value
+
+    /** The developer's Enable offload, as last read: offload in every mode while it is on. Main thread. */
+    private var offloadSwitch = dataStore.get(AudioOffloadKey, false)
+
+    /**
      * Quieter the further the listener gets from the phone. One unless it is switched on.
      *
      * Lazy, and not by preference: a field initialiser on a Service runs during the constructor,
@@ -1134,8 +1146,9 @@ class MusicService : MediaLibraryService(),
                     }
                 })
 
-                // misc
-                setOffloadEnabled(dataStore.get(AudioOffloadKey, false))
+                // misc. Nothing needs the app's own path yet: the effects' observers below say so
+                // as they are read, through applyOffload.
+                setOffloadEnabled(BatteryUse.offload(batteryMode, offloadSwitch, needsAppPath = false))
                 // The next song is made ready while one plays: resolved and its first seconds
                 // loaded, so that Next starts it at once instead of waiting for /player, the n
                 // step, the check and the first bytes. Off by default since media3 1.5. media3
@@ -1293,7 +1306,9 @@ class MusicService : MediaLibraryService(),
             }
 
             combine(
-                playerVolume,
+                // Saver holds the volume at 100%: past it the gain is on the samples, which the
+                // low-power path never sees (BatteryUse.volume).
+                combine(playerVolume, batteryModeNow) { volume, mode -> BatteryUse.volume(volume, mode) },
                 normalizeFactor,
                 sleepTimer.fadeFactor,
                 proximityVolume.factor,
@@ -1318,7 +1333,7 @@ class MusicService : MediaLibraryService(),
                 // Only gain above unity goes to the processor, which is where the soft clip lives.
                 // min(total, 1f) is exactly 1f whenever total > 1, so the two stages are disjoint
                 // and their product is exact, with no division to reconstruct.
-                val total = normalizeFactor.value * playerVolume.value
+                val total = normalizeFactor.value * BatteryUse.volume(playerVolume.value, batteryMode)
                 gainProcessor.gain = total
                 withContext(Dispatchers.Main) {
                     // Proximity belongs on this side of the split for the same reason
@@ -1343,6 +1358,8 @@ class MusicService : MediaLibraryService(),
                 .collectLatest(scope) {
                     withContext(Dispatchers.Main) {
                         exoPlayer.skipSilenceEnabled = it
+                        // The low-power path skips nothing: the song stays on the app's own.
+                        applyOffload()
                     }
                 }
 
@@ -1391,15 +1408,20 @@ class MusicService : MediaLibraryService(),
                 .distinctUntilChanged()
                 .collectLatest(scope) { binauralProcessor.stageWidthDegrees = it.toFloat() }
 
-            // Read once a buffer as well: a band is heard moving as its slider moves.
+            // Read once a buffer as well: a band is heard moving as its slider moves. Off while
+            // Battery use is on Saver, the switch keeping what was set (BatteryUse.equalizer).
             dataStore.data.map { prefs ->
                 EqualizerAudioProcessor.Settings(
-                    Unreleased.EQUALIZER && (prefs[EqualizerEnabledKey] ?: false),
+                    Unreleased.EQUALIZER && BatteryUse.equalizer(prefs[EqualizerEnabledKey] ?: false, BatteryUse.modeOf(prefs[BatteryModeKey])),
                     EqualizerPreset.parse(prefs[EqualizerGainsKey]),
                 )
             }
                 .distinctUntilChanged()
-                .collectLatest(scope) { equalizerProcessor.settings = it }
+                .collectLatest(scope) {
+                    equalizerProcessor.settings = it
+                    // A curve that is not flat needs the app's own path, which the low-power one skips.
+                    applyOffload()
+                }
 
             // Both read by the renderer once a buffer, so they are heard as the slider moves.
             dataStore.data.map { it[SpatialStrengthKey] ?: 100 }
@@ -1448,7 +1470,8 @@ class MusicService : MediaLibraryService(),
             // reports no latency for this route.
             // Changes how many harmonics there are to convolve, so the sink has to be told, and
             // the only thing that tells it is the track being re-prepared.
-            dataStore.data.map { it[ProximityVolumeKey] ?: false }.distinctUntilChanged()
+            // Off while Battery use is on Saver, the switch keeping what was set (BatteryUse.proximity).
+            dataStore.data.map { BatteryUse.proximity(it[ProximityVolumeKey] ?: false, BatteryUse.modeOf(it[BatteryModeKey])) }.distinctUntilChanged()
                 .collectLatest(scope) { want ->
                     proximityWanted = want
                     withContext(Dispatchers.Main) {
@@ -1523,10 +1546,12 @@ class MusicService : MediaLibraryService(),
                     }
                 }
 
+            // Off while Battery use is on Saver, the setting keeping what was set (BatteryUse.spatialAudio).
             dataStore.data.map {
-                it[SpatialAudioKey]?.let { name ->
+                val chosen = it[SpatialAudioKey]?.let { name ->
                     runCatching { SpatialAudioMode.valueOf(name) }.getOrNull()
                 } ?: SpatialAudioMode.OFF
+                BatteryUse.spatialAudio(chosen, BatteryUse.modeOf(it[BatteryModeKey]))
             }.distinctUntilChanged()
                 .collectLatest(scope) { mode ->
                     val wantSurround = mode == SpatialAudioMode.SURROUND
@@ -1674,15 +1699,23 @@ class MusicService : MediaLibraryService(),
 
             // Same problem as the switch above: applyOffload() only ran as a side effect of the
             // spatial audio and fade observers reacting to their own keys, so toggling Audio
-            // offload itself never reached the already running player. It needs its own observer.
+            // offload itself never reached the already running player. It needs its own observer,
+            // and so does Battery use, which asks for the low-power path in Saver and sets how
+            // often the radios read the taste and how loud the volume may go.
             dataStore.data
-                .map { it[AudioOffloadKey] ?: false }
+                .map { (it[AudioOffloadKey] ?: false) to BatteryUse.modeOf(it[BatteryModeKey]) }
                 .distinctUntilChanged()
                 .collectLatest(scope) {
                     withContext(Dispatchers.Main) {
+                        offloadSwitch = it.first
+                        batteryModeNow.value = it.second
                         applyOffload()
                     }
                 }
+            // A sleep timer counts down and fades on this thread, which the low-power path lets
+            // sleep for most of a song: while one is set, the song stays on the app's own path.
+            snapshotFlow { sleepTimer.isActive }.distinctUntilChanged()
+                .collectLatest(scope) { applyOffload() }
 
             // The sleep timer's own notification, and the only thing in this app that can be a
             // Live Update: the media notification draws a custom view, which the platform refuses
@@ -1770,8 +1803,9 @@ class MusicService : MediaLibraryService(),
             // On the service scope, which is the player's thread: both setters read the player.
             // The length goes in first, so switching on with a new length starts on its own curve.
             combine(
+                // Off while Battery use is on Saver, the switch keeping what was set (BatteryUse.fade).
                 dataStore.data
-                    .map { it[TransitionFadeKey] ?: false }
+                    .map { BatteryUse.fade(it[TransitionFadeKey] ?: false, BatteryUse.modeOf(it[BatteryModeKey])) }
                     .distinctUntilChanged(),
                 dataStore.data
                     .map { it[TransitionFadeSecondsKey] ?: TransitionFadeEnvelope.DEFAULT_SECONDS }
@@ -2633,13 +2667,19 @@ class MusicService : MediaLibraryService(),
 // Audio playback
 
     /**
-     * Audio offload as the developer setting has it, unless spatial audio or Fade between tracks
-     * is on, neither of which works under it. Called on the main thread whenever any of the three
-     * changes.
+     * The phone's low-power audio path (offload) in Saver, or wherever the developer's switch asks
+     * for it, while nothing needs the app's own path (BatteryUse.offload). The low-power path skips
+     * the app's processing altogether, so spatial audio, the equalizer, skip silence and another
+     * speed or pitch would do nothing under it, and it lets this thread sleep for most of a song,
+     * so a fade between songs or a sleep timer's countdown would stall. Called on the main thread
+     * whenever any of them, the switch or Battery use changes; media3 does nothing when the answer
+     * is the one it has.
      */
     private fun applyOffload() {
-        val needsOffloadOff = spatialUpmixProcessor.enabled || binauralProcessor.enabled || transitionFade.enabled
-        exoPlayer.setOffloadEnabled(!needsOffloadOff && dataStore.get(AudioOffloadKey, false))
+        val needsAppPath = spatialUpmixProcessor.enabled || binauralProcessor.enabled || transitionFade.enabled ||
+            !equalizerProcessor.settings.isFlat || exoPlayer.skipSilenceEnabled ||
+            exoPlayer.playbackParameters != PlaybackParameters.DEFAULT || sleepTimer.isActive
+        exoPlayer.setOffloadEnabled(BatteryUse.offload(batteryMode, offloadSwitch, needsAppPath))
     }
 
     private fun openAudioEffectSession() {
@@ -2718,8 +2758,10 @@ class MusicService : MediaLibraryService(),
                             // is on an older install that never picked one: its evictor deleted
                             // each piece the moment it was in, so every streamed byte went to
                             // storage for nothing. Asked at each write, not when the cache was
-                            // built, so turning it off stops them at once.
-                            val write = dataStore.get(MaxSongCacheSizeKey, 0) != 0 &&
+                            // built, so turning it off stops them at once. The size is as AppModule
+                            // builds the cache with it: Battery use on Saver keeps 512 MB where no
+                            // size was ever picked (BatteryUse.songCacheMb).
+                            val write = BatteryUse.songCacheMb(dataStore[MaxSongCacheSizeKey], batteryMode) != 0 &&
                                 queueBoard.getCurrentQueue()?.findSong(dataSpec.key ?: "")?.isLocal != true
                             Log.d(TAG, "SONG CACHE: $write")
                             write
@@ -3234,10 +3276,15 @@ class MusicService : MediaLibraryService(),
         updateNotification()
     }
 
-    /** What the setting says right now. Read live, because it can change between songs. */
+    /**
+     * What the setting says right now, as Battery use has it: Low on mobile data in Saver
+     * (BatteryUse.quality). Read live, because it can change between songs. A copy cached at Low
+     * on mobile data is then not taken for one to fetch again there, and is fetched again on Wi-Fi.
+     */
     private fun audioQualityNow(): AudioQuality {
         val quality by enumPreference(this@MusicService, AudioQualityKey, AudioQuality.AUTO)
-        return quality
+        val metered = runCatching { connectivityManager.isActiveNetworkMetered }.getOrDefault(true)
+        return BatteryUse.quality(quality, metered, batteryMode)
     }
 
     /**
@@ -3567,7 +3614,8 @@ class MusicService : MediaLibraryService(),
     private var passAsk: PassAsk? = null
 
     /**
-     * The taste, read at most every few minutes (TASTE_TTL_MS). Written on the adaptive dispatcher
+     * The taste, read at most as often as Battery use has it (BatteryUse.tasteKeptMs: every five
+     * minutes on Full, half an hour on Balanced, an hour on Saver). Written on the adaptive dispatcher
      * only; the radio's top-up reads it on the main thread to leave bans and lasting dislikes out of
      * a new page.
      */
@@ -3774,9 +3822,13 @@ class MusicService : MediaLibraryService(),
         }
     }
 
-    /** The taste, read again once it is older than TASTE_TTL_MS; the priors and no habits when the read fails. Adaptive dispatcher. */
+    /**
+     * The taste, read again once it is older than Battery use keeps it; the priors and no habits
+     * when the read fails. Adaptive dispatcher. The read takes 0.7 to 1.4 s of a 15,000 listen
+     * history and grows with it (S25U, 23 Oct 2026), so how often it runs is a mode's to say.
+     */
     private fun tasteFor(now: Long): QueueFit.Taste {
-        tasteCache?.takeIf { now - it.first < TASTE_TTL_MS }?.let { return it.second }
+        tasteCache?.takeIf { now - it.first < BatteryUse.tasteKeptMs(batteryMode) }?.let { return it.second }
         val started = SystemClock.elapsedRealtime()
         return try {
             QueueFit.Taste.of(EngineLoader.loadHeard(database, now)).also { taste ->
@@ -4651,6 +4703,8 @@ class MusicService : MediaLibraryService(),
     }
 
     override fun onEvents(player: Player, events: Player.Events) {
+        // Another speed or pitch is made on the app's own path: see applyOffload.
+        if (events.contains(Player.EVENT_PLAYBACK_PARAMETERS_CHANGED)) applyOffload()
         if (events.containsAny(Player.EVENT_PLAYBACK_STATE_CHANGED, Player.EVENT_PLAY_WHEN_READY_CHANGED)) {
             val isBufferingOrReady =
                 player.playbackState == Player.STATE_BUFFERING || player.playbackState == Player.STATE_READY

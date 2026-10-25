@@ -79,6 +79,13 @@ val AudioQualityKey = stringPreferencesKey("audioQuality")
 val AudioOffloadKey = booleanPreferencesKey("enableOffload")
 
 /**
+ * Battery use, a BatteryMode by name. Never written but by its own row, and never written for
+ * anybody who has not picked one: absent, it reads as Balanced (BatteryUse.DEFAULT), so an update
+ * is on Balanced without anything stored.
+ */
+val BatteryModeKey = stringPreferencesKey("batteryMode")
+
+/**
  * Whether InterTune gives up audio focus, so another app's sound can play at the same time.
  *
  * Off by default, and it has to stay that way. Audio focus is also what pauses the music for a
@@ -205,7 +212,8 @@ val MaxImageCacheSizeKey = intPreferencesKey("maxImageCacheSize")
 /**
  * The song cache's size in MB: 0 is off, -1 has no limit. A new install starts with 256 written in
  * (NewInstallSongCache). An older install that never picked a size has none, which every reader
- * takes as 0, off, as it always did there.
+ * takes as 0, off, as it always did there, but while Battery use is on Saver, which keeps 512 MB
+ * then (BatteryUse.songCacheMb, never written here).
  */
 val MaxSongCacheSizeKey = intPreferencesKey("maxSongCacheSize")
 
