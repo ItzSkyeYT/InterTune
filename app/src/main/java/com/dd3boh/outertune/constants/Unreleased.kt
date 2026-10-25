@@ -514,8 +514,8 @@ object Unreleased {
      * InterTune Recap, the year told as a story (recap/Recaps.kt, ui/screens/recap): worked out on
      * the phone from the listen log, nothing uploaded. From the reveal day (RecapCalendar) it opens
      * once by itself, full screen and easy to close, and after that a banner at the top of Settings
-     * opens it whenever wanted. Its first opening each year is counted as a banner's is, with news
-     * switched on (PollChecker.recapOpened). A debug build has two rows in the developer options,
+     * opens it whenever wanted. Its first opening each year is counted as a banner's is, from
+     * every install (PollChecker.recapOpened). A debug build has two rows in the developer options,
      * one that opens it at once and one that makes today the reveal day, and a made-up year to
      * write from adb (RecapSample).
      *

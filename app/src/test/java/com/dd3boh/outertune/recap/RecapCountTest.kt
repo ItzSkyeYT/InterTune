@@ -39,17 +39,15 @@ class RecapCountTest {
     }
 
     @Test
-    fun `it is sent as a banner's opening is, once per install, and only with news switched on`() {
+    fun `it is sent as a banner's opening is, once per install, from every install`() {
         val recap = body("recapOpened")
         val banner = body("viewed")
         // The same event, written down first through the same record of what was opened.
         assertTrue("Polls.UMAMI_VIEW_EVENT" in recap && "Polls.UMAMI_VIEW_EVENT" in banner)
         assertTrue("firstOpening(RecapCount.id(year))" in recap)
         assertTrue("firstOpening(id)" in banner)
-        // News from InterTune, checked before anything is written down or sent.
-        val news = recap.indexOf("AnnouncementsEnabledKey, false")
-        assertTrue("the Recap's count does not ask for news", news >= 0)
-        assertTrue(news < recap.indexOf("firstOpening"))
+        // Counted for everyone, not only with News from InterTune switched on (24 Oct 2026).
+        assertFalse("the Recap's count asks for news", "AnnouncementsEnabledKey" in recap || "PollsEnabledKey" in recap)
         // Not in a build without the maintainer's keys.
         assertTrue("Polls.isConfigured" in recap)
         // Nothing but RecapCount's fields: no install's name, as the usage count sends.

@@ -79,7 +79,7 @@ class RecapViewModel @Inject constructor(
         }
     }
 
-    /** The story was opened: counted once per install and year, with news switched on (PollChecker.recapOpened). */
+    /** The story was opened: counted once per install and year, a bare number (PollChecker.recapOpened). */
     fun opened(year: Int) {
         viewModelScope.launch { pollChecker.recapOpened(year) }
     }

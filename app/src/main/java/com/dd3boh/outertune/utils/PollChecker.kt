@@ -51,14 +51,15 @@ import javax.inject.Singleton
  *  - on answering, one POST carrying the poll id, the chosen option ids, and the app version
  *  - on first opening a poll or an announcement, one POST carrying its id, its text, whether it
  *    was a poll or an announcement, and the app version: once per install, never again for it
- *  - on first opening a year's InterTune Recap, with news switched on, the same POST with
- *    "recap" for what it was ([recapOpened], [RecapCount]): once per install for each year
+ *  - on first opening a year's InterTune Recap, the same POST with "recap" for what it was
+ *    ([recapOpened], [RecapCount]): once per install for each year, from every install
  * No account, no device id, no install id, no library, nothing derived from the hardware. Umami
  * works out its own visitor figure server side from a rotating hash it computes itself, so the app
  * has no need to identify anyone and does not.
  *
  * Opt in, and silent about it. Until [PollsEnabledKey] or [AnnouncementsEnabledKey] is true nothing
  * is fetched at all, so there is not even a request to explain. Each only shows what it is for.
+ * The one count sent without either is the Recap's first opening each year ([recapOpened]).
  */
 @Singleton
 class PollChecker @Inject constructor(
@@ -359,13 +360,11 @@ class PollChecker @Inject constructor(
      * User-Agent, written down before it is sent.
      *
      * A banner can only be opened by someone who said yes to news or to questions, since nothing
-     * is fetched otherwise. The Recap is worked out on the phone and opens for everyone, so that
-     * yes is asked for here: News from InterTune, whose words say that the first time one is
-     * opened is counted anonymously. Without it nothing is written down either, so a yes given
-     * later counts the next opening.
+     * is fetched otherwise. The Recap is worked out on the phone and opens for everyone, and its
+     * opening is counted for everyone too (decided on 24 Oct 2026): a bare number, the same kind
+     * of count as a banner's, with nothing in it about the phone, the listening or the person.
      */
     suspend fun recapOpened(year: Int) = withContext(Dispatchers.IO) {
-        if (!context.dataStore.get(AnnouncementsEnabledKey, false)) return@withContext
         if (!firstOpening(RecapCount.id(year)) || !Polls.isConfigured) return@withContext
         send(Polls.UMAMI_VIEW_EVENT, JSONObject().apply { RecapCount.data(year, BuildConfig.VERSION_NAME).forEach { (k, v) -> put(k, v) } })
     }
