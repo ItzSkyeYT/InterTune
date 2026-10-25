@@ -191,11 +191,11 @@ class WidgetLikeTest {
         assertTrue("hydrate reads the stored like", "readOrNull { songRow(now.id) }" in hydrate)
     }
 
-    /** The switch's words go to translators only once they are agreed: until then they are held, with their French beside them. */
+    /** The switch's words are agreed (25 Oct 2026): open to translators, with their French beside them. */
     @Test
-    fun `the switch's words are held from translators until they are agreed, with their French beside them`() {
+    fun `the switch's words are open to translators, with their French beside them`() {
         fun line(folder: String) = File("src/main/res/$folder/strings-ot.xml").readLines().single { "name=\"widget_show_like\"" in it }
-        assertTrue("open to translators before the words are agreed", "translatable=\"false\"" in line("values"))
+        assertFalse("still held from translators", "translatable=\"false\"" in line("values"))
         assertTrue("no French", Regex(""">[^<]+</string>""").containsMatchIn(line("values-fr")))
         assertFalse("a long dash", '\u2014' in line("values") || '\u2014' in line("values-fr"))
     }
