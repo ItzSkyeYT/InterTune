@@ -950,7 +950,8 @@ class HomeViewModel @Inject constructor(
         if (ytShown) {
             ytQuickPicks.value = ytQuickPicksPool?.let { yt(it, fresh = true, maxPerArtist = QUICK_PICKS_PER_ARTIST).filterIsInstance<SongItem>().take(20) }
             Log.d("HomeViewModel", "showing the YouTube row: ${ytQuickPicks.value?.size} of a pool of ${ytQuickPicksPool?.size} after tidy, first ${ytQuickPicks.value?.firstOrNull()?.title}")
-            quickPicks.value = quickPicksPool.take(20)
+            // Drawn in its place when the AI filter has left YouTube's row empty, so filtered too.
+            quickPicks.value = ai.recommendedSongs(quickPicksPool).take(20)
         } else {
             quickPicks.value = quickPicksRow()
             ytQuickPicks.value = ytQuickPicksPool?.let(hidden::apply)?.let(ai::recommendations)?.take(20)
