@@ -161,6 +161,13 @@ internal class RecapStage(private val slides: List<Slide>, val still: Boolean, s
     var unit by mutableFloatStateOf(1f)
         private set
 
+    /**
+     * Where the story's room begins, in pixels: under the status bar. The design has no status bar
+     * over its slides, so a slide's pieces are placed in the height below it, and the pieces drawn
+     * near the top stay clear of the bars and the pause and close buttons, as the design's do.
+     */
+    var top = 0f
+
     private var visits = 0
     var current by mutableStateOf(page(startAt, startStep, How.INSTANT))
         private set
@@ -229,6 +236,13 @@ internal class RecapStage(private val slides: List<Slide>, val still: Boolean, s
 
     /** The design's place ([x], [y] of 414 by 736) on this screen. */
     fun at(x: Float, y: Float) = Offset(x / 414f * size.width, y / 736f * size.height)
+
+    /**
+     * Where a piece the design puts [y] down (of 736) goes on this screen: on a slide, in the height
+     * under the status bar ([top]); on the start screen, whose words are laid out on the whole
+     * height, in the whole height too.
+     */
+    fun pieceY(y: Float): Float = if (current.at == 0) y / 736f * size.height else top + y / 736f * (size.height - top)
 
     private val middle get() = Offset(size.width / 2f, size.height / 2f)
 
@@ -411,17 +425,20 @@ internal class RecapStage(private val slides: List<Slide>, val still: Boolean, s
             val p = poses.set[a.id] ?: Pose.HIDE
             var x = Float.NaN
             var y = Float.NaN
+            var side = if (p.s.isNaN()) Float.NaN else p.s * unit
             if (p.at != null) {
-                val c = anchors.get(visit, p.at)?.center ?: at(207f, 368f)
+                val spot = anchors.get(visit, p.at)
+                val c = spot?.center ?: at(207f, 368f)
                 x = c.x + p.dx * unit
                 y = c.y + p.dy * unit
+                if (!p.fit.isNaN() && spot != null && spot.width > 0f) side = p.fit * spot.width
             } else {
                 if (!p.x.isNaN()) x = p.x / 414f * size.width
-                if (!p.y.isNaN()) y = p.y / 736f * size.height
+                if (!p.y.isNaN()) y = pieceY(p.y)
             }
             val m = move(i)
             val own = if (p.mt > 0 || p.me != null) Move(m.delay, if (p.mt > 0) p.mt else m.mt, p.me ?: m.me, m.ms, m.layerStep, m.jump) else m
-            a.place(p, x, y, if (p.s.isNaN()) Float.NaN else p.s * unit, now, own, unit, middle)
+            a.place(p, x, y, side, now, own, unit, middle)
         }
     }
 

@@ -677,13 +677,13 @@ internal fun HourSlide(s: SlideScope) {
     val r = s.shown.recap
     val c = s.paper
     val w = s.words
-    val density = LocalDensity.current.density
     SlideColumn { room ->
         Kick(stringResource(R.string.recap_hour_kick), s)
         Counted(r.peakHour.toLong(), s, at = 1f, land = 3f, style = RecapType.giant, colour = c.ink, format = { w.hour(it.toInt()) }, fit = true, modifier = Modifier.offset(x = (-3).dp))
         Grow(room)
-        // The dial is as big as the sun the shapes put in its middle, the design's 320 to its 128.
-        val side = minOf((320f * s.unit / density).dp, room.width, room.height * 0.42f)
+        // The design's 320, or what the room allows: the sun the shapes put in its middle, and the
+        // ring round it, are sized from it (Choreography, Pose.fit).
+        val side = minOf(320.dp, room.width, room.height * 0.42f)
         Dial(s, side, Modifier.align(Alignment.CenterHorizontally))
         Grow(room)
         PaperNote(s, at = 3.8f, turn = -1.2f) {

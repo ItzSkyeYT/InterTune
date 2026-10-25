@@ -63,8 +63,8 @@ internal object Choreography {
         sh: Paper = Paper.CIRCLE, x: Float = Float.NaN, y: Float = Float.NaN, s: Float = Float.NaN, r: Float = 0f,
         c: List<androidx.compose.ui.graphics.Color> = emptyList(), k: List<Float> = Pose.DEFAULT_K, o: Float = 1f, spin: Float = 0f,
         w: Float = 6f, at: String? = null, dx: Float = 0f, dy: Float = 0f, dr: Float = Float.NaN, mt: Int = 0,
-        me: androidx.compose.animation.core.Easing? = null,
-    ) = Pose(sh, x, y, at, dx, dy, s, r, dr, c, k, o, spin, w, false, mt, me)
+        me: androidx.compose.animation.core.Easing? = null, fit: Float = Float.NaN,
+    ) = Pose(sh, x, y, at, dx, dy, s, r, dr, c, k, o, spin, w, false, mt, me, fit)
 
     private val hide = Pose.HIDE
 
@@ -134,9 +134,10 @@ internal object Choreography {
                     A to pose(Paper.DOME, 207f, 820f, 560f, c = listOf(Plum, Pink, Lemon), k = listOf(1f, 0.78f, 0.56f)),
                     B to pose(Paper.STAR4, 390f, 262f, 52f, c = listOf(Cream), spin = 48f),
                     C to pose(Paper.TRI, 38f, 504f, 62f, 22f, listOf(Plum)),
-                    D to pose(Paper.CIRCLE, at = Spot.DIAL, s = 128f, c = listOf(Lemon, Sun), k = listOf(1f, 0.74f)),
+                    // The sun inside the dial and the ring round it, the design's 128 and 300 to the dial's 320, whatever size the dial is drawn.
+                    D to pose(Paper.CIRCLE, at = Spot.DIAL, s = 128f, fit = 128f / 320f, c = listOf(Lemon, Sun), k = listOf(1f, 0.74f)),
                     F to pose(Paper.PILL, 400f, 420f, 120f, 36f, listOf(Pink)),
-                    R to pose(at = Spot.DIAL, s = 300f, w = 2.5f, c = listOf(Ink), o = 0.3f),
+                    R to pose(at = Spot.DIAL, s = 300f, fit = 300f / 320f, w = 2.5f, c = listOf(Ink), o = 0.3f),
                     Q to hide,
                     H to pose(x = 36f, y = 420f, s = 96f, c = listOf(Plum), o = 0.3f),
                 )

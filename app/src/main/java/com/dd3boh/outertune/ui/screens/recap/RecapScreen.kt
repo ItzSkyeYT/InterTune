@@ -56,6 +56,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -156,6 +157,10 @@ internal fun RecapStory(
     var savedStep by rememberSaveable { mutableIntStateOf(0) }
     val stage = remember(slides) { RecapStage(slides, still, savedAt, savedStep) }
     stage.onPage = { a, s -> savedAt = a; savedStep = s }
+
+    // The pieces of a slide are placed under the status bar, as the design's are under its bars.
+    val topInset = WindowInsets.safeDrawing.getTop(LocalDensity.current)
+    SideEffect { stage.top = topInset.toFloat() }
 
     var held by remember { mutableStateOf(false) }
     // The pause button: the story stays where it is, everything on the slide included, until it is

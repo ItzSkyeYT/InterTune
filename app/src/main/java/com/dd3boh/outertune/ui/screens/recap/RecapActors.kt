@@ -41,6 +41,8 @@ internal enum class ActorKind { SHAPE, RING, SQUIGGLE, DOTS }
  * a turn by [dr] from where it is), its outline [sh], its colours outside in [c] with the size of
  * each layer [k], how opaque [o], a slow turn at rest once in [spin] seconds, the ring's width [w].
  * [hide] shrinks it away where it is. [mt] and [me] give this one move its own time and curve.
+ * [fit], given with [at], makes its size that share of the part's width instead of [s]: for a piece
+ * a slide's drawing is made round, as the hour's sun inside its dial.
  */
 internal class Pose(
     val sh: Paper = Paper.CIRCLE,
@@ -60,6 +62,7 @@ internal class Pose(
     val hide: Boolean = false,
     val mt: Int = 0,
     val me: Easing? = null,
+    val fit: Float = Float.NaN,
 ) {
     companion object {
         val DEFAULT_K = listOf(1f, 0.62f, 0.38f)
