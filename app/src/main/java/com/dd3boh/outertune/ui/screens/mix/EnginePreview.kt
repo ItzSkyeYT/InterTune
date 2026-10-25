@@ -40,12 +40,9 @@ import kotlin.math.sin
  * looping over the canvas with a short fade at the seam. A plain change is heard as it plays: A to
  * its end, then B from its first frame.
  */
-class EnginePreview(private val a: Copy, private val b: Copy, private val aAnalysis: RegionAnalysis?) : MixPreview {
+class EnginePreview(a: Copy, b: Copy, aAnalysis: RegionAnalysis?) : MixPreview {
 
-    private class Setup(val spec: TransitionSpec, val from: Double, val to: Double, val solo: LaneId?)
-
-    /** What is heard over the canvas: [pcm] from bar [fromU], where bar u is frame [indexAt] (u). */
-    private class Heard(val setup: Setup, val pcm: ShortArray, val frames: Int, val uAt: (Int) -> Double, val indexAt: (Double) -> Int)
+    private val sound = PreviewSound(a, b, aAnalysis)
 
     private val rate = a.sampleRate
     private val channels = a.channels
@@ -57,8 +54,8 @@ class EnginePreview(private val a: Copy, private val b: Copy, private val aAnaly
     @Volatile private var soloLane: LaneId? = null
 
     /** The newest spec asked for, and the one rendered from it, which the audio thread plays. */
-    private val wanted = AtomicReference<Setup?>(null)
-    @Volatile private var heard: Heard? = null
+    private val wanted = AtomicReference<PreviewSetup?>(null)
+    @Volatile private var heard: PreviewHeard? = null
     private val renderLock = Object()
     @Volatile private var released = false
     private val renderer = Thread({ renderLoop() }, "MixPreviewRender").apply {
@@ -95,7 +92,7 @@ class EnginePreview(private val a: Copy, private val b: Copy, private val aAnaly
     override fun update(spec: TransitionSpec, from: Double, to: Double) {
         val previous = wanted.get()
         if (previous != null && previous.spec == spec && previous.from == from && previous.to == to && previous.solo == soloLane) return
-        wanted.set(Setup(spec, from, to, soloLane))
+        wanted.set(PreviewSetup(spec, from, to, soloLane))
         synchronized(renderLock) { renderLock.notifyAll() }
     }
 
@@ -138,7 +135,7 @@ class EnginePreview(private val a: Copy, private val b: Copy, private val aAnaly
     private fun renderLoop() {
         // At the default priority: a render is heavy, and must not crowd out the page or the music.
         Process.setThreadPriority(Process.THREAD_PRIORITY_DEFAULT)
-        var done: Setup? = null
+        var done: PreviewSetup? = null
         while (!released) {
             val next = wanted.get()
             if (next == null || next === done) {
@@ -148,46 +145,10 @@ class EnginePreview(private val a: Copy, private val b: Copy, private val aAnaly
                 continue
             }
             done = next
-            runCatching { heardOf(next) }
+            runCatching { sound.heardOf(next) }
                 .onSuccess { heard = it }
                 .onFailure { Log.w(TAG, "The preview could not render this change", it) }
         }
-    }
-
-    /** What [s] sounds like over its canvas, from the engine's render, or as a plain change. */
-    private fun heardOf(s: Setup): Heard {
-        val spec = s.spec
-        if (spec.plain) return plainOf(s)
-        // Played as the engine plays it: a change that asks for what it does not play yet (the
-        // intro twice, a later start) is heard without it, the nearest the editor can give.
-        val playable = spec.copy(introTwice = 0, bStartMs = 0.0)
-        val alone = s.solo?.let { solo(playable, it, s.from, s.to) } ?: playable
-        val window = Preview.render(alone, a, b, aAnalysis).getOrThrow()
-        return Heard(s, window.pcm, window.frames, { i -> window.uAt(i) }, { u -> window.indexAt(u) })
-    }
-
-    /** [spec] with every lane but [id] silent across the canvas, [id] keeping its own move: Listen alone. */
-    private fun solo(spec: TransitionSpec, id: LaneId, from: Double, to: Double): TransitionSpec {
-        val silent = LaneCurve(gain = listOf(Key(from - 1.0, 0.0), Key(to + 1.0, 0.0)))
-        return spec.copy(curves = spec.lanes.ids.filter { it != id }.associateWith { silent } + spec.curves.filterKeys { it == id })
-    }
-
-    /** A plain change: A at its own speed to its end, then B from its first frame, on A's bars. */
-    private fun plainOf(s: Setup): Heard {
-        val spec = s.spec
-        val barMs = spec.b.barMs
-        val aEndMs = a.startMs + a.frames * 1000.0 / rate
-        val endU = (aEndMs - spec.a.atMs) / barMs
-        val n = max(1, ((s.to - s.from) * barMs * rate / 1000.0).roundToInt())
-        val pcm = ShortArray(n * channels)
-        for (i in 0 until n) {
-            val u = s.from + i * 1000.0 / rate / barMs
-            val (copy, ms) = if (u < endU) a to (spec.a.atMs + u * barMs) else b to ((u - endU) * barMs)
-            val f = ((ms - copy.startMs) * rate / 1000.0).roundToInt()
-            if (f in 0 until copy.frames) for (c in 0 until channels) pcm[i * channels + c] = copy.pcm[f * copy.channels + min(c, copy.channels - 1)]
-        }
-        val step = 1000.0 / rate / barMs
-        return Heard(s, pcm, n, { i -> s.from + i * step }, { u -> ((u - s.from) / step).roundToInt().coerceIn(0, n) })
     }
 
     // ---- playing
@@ -222,92 +183,16 @@ class EnginePreview(private val a: Copy, private val b: Copy, private val aAnaly
         synchronized(marks) { markCount = 0 }
         val block = ShortArray(BLOCK * channels)
         var written = 0L
-        var playingNow: Heard? = null
-        var index = 0
-        // A window giving way to a newer one: both play for a few ms, crossed.
-        var leaving: Heard? = null
-        var leavingIndex = 0
-        var cross = 0
-        var fadeIn = 0
-        var ended = false
-        var clickU = 0.0
+        val playhead = PreviewPlayhead(rate, channels, sound)
         try {
             out.play()
-            while (!stopAsked && !ended) {
-                val newest = heard
-                if (newest == null) {
+            while (!stopAsked && !playhead.ended) {
+                val filled = playhead.fill(block, heard, { seekTo?.also { seekTo = null } }, clickSide, loop, written) { at, u, step -> mark(at, u, step) }
+                if (!filled) {
                     Thread.sleep(10)
                     continue
                 }
-                val current = playingNow
-                if (current == null) {
-                    playingNow = newest
-                    index = newest.indexAt(seekTo ?: newest.setup.from)
-                    seekTo = null
-                    fadeIn = FADE_FRAMES
-                } else if (newest !== current) {
-                    // The newer render takes over at the bar being heard.
-                    leaving = current
-                    leavingIndex = index
-                    cross = FADE_FRAMES
-                    playingNow = newest
-                    index = newest.indexAt(current.uAt(index))
-                }
-                val h = playingNow!!
-                seekTo?.let {
-                    index = h.indexAt(it.coerceIn(h.setup.from, h.setup.to))
-                    clickU = it
-                    seekTo = null
-                    fadeIn = FADE_FRAMES
-                    leaving = null
-                    cross = 0
-                }
-                val spec = h.setup.spec
-                val side = clickSide
-                // The click starts where the change is being heard.
-                if (side == null) clickU = h.uAt(index)
-                // With the click, the song plays alone at its own speed, so its own bars are counted.
-                val step = 1000.0 / rate / (if (side == Side.A) spec.a.barMs else spec.b.barMs)
-                val toIndex = h.indexAt(h.setup.to)
-                val u0 = if (side != null) clickU else h.uAt(index)
-                mark(written, u0, step)
-                for (f in 0 until BLOCK) {
-                    for (c in 0 until channels) {
-                        val x = if (side != null) clickSample(spec, side, clickU, c) else at(h, index, c)
-                        var v = x.toDouble()
-                        val lv = leaving
-                        if (cross > 0 && lv != null) {
-                            val w = cross.toDouble() / FADE_FRAMES
-                            v = v * (1 - w) + at(lv, leavingIndex, c) * w
-                        }
-                        val toEnd = if (side != null) ((h.setup.to - clickU) / step).toInt() else toIndex - index
-                        var g = 1.0
-                        if (fadeIn > 0) g *= 1.0 - fadeIn.toDouble() / FADE_FRAMES
-                        if (toEnd < FADE_FRAMES) g *= max(0.0, toEnd.toDouble() / FADE_FRAMES)
-                        block[f * channels + c] = (v * g).roundToInt().coerceIn(-32768, 32767).toShort()
-                    }
-                    if (fadeIn > 0) fadeIn--
-                    if (cross > 0) {
-                        cross--
-                        leavingIndex++
-                        if (cross == 0) leaving = null
-                    }
-                    if (side != null) clickU += step else index++
-                    val past = if (side != null) clickU >= h.setup.to else index >= toIndex
-                    if (past) {
-                        if (loop) {
-                            index = h.indexAt(h.setup.from)
-                            clickU = h.setup.from
-                            fadeIn = FADE_FRAMES
-                            leaving = null
-                            cross = 0
-                            mark(written + f + 1, h.setup.from, step)
-                        } else {
-                            ended = true
-                        }
-                    }
-                }
-                lastU = if (side != null) clickU else h.uAt(index)
+                lastU = playhead.lastU
                 var done = 0
                 while (done < block.size && !stopAsked) {
                     val n = out.write(block, done, block.size - done)
@@ -327,27 +212,7 @@ class EnginePreview(private val a: Copy, private val b: Copy, private val aAnaly
         }
     }
 
-    private fun at(h: Heard, i: Int, c: Int): Short = if (i in 0 until h.frames) h.pcm[i * channels + c] else 0
-
-    /** One song alone at its own speed with a click on each beat and a higher one on each 1 (Fix the beat), at bar [u]. */
-    private fun clickSample(spec: TransitionSpec, side: Side, u: Double, c: Int): Short {
-        val anchor = if (side == Side.A) spec.a else spec.b
-        val copy = if (side == Side.A) a else b
-        val ms = anchor.atMs + u * anchor.barMs
-        val f = floor((ms - copy.startMs) * rate / 1000.0).toInt()
-        var v = if (f in 0 until copy.frames) copy.pcm[f * copy.channels + min(c, copy.channels - 1)] * 0.7 else 0.0
-        val beatMs = anchor.barMs / anchor.beatsPerBar
-        val beats = (ms - anchor.atMs) / beatMs
-        val k = floor(beats).toInt()
-        val since = (beats - k) * beatMs
-        if (since < CLICK_MS) {
-            val hz = if (Math.floorMod(k, anchor.beatsPerBar) == 0) 1_760.0 else 1_320.0
-            v += sin(2 * PI * hz * since / 1000.0) * (1 - since / CLICK_MS) * 9_000.0
-        }
-        return v.roundToInt().coerceIn(-32768, 32767).toShort()
-    }
-
-    private companion object {
+    internal companion object {
         const val TAG = "MixPreview"
         const val BUFFER_MS = 40
         const val BLOCK = 512
@@ -355,4 +220,197 @@ class EnginePreview(private val a: Copy, private val b: Copy, private val aAnaly
         const val FADE_FRAMES = 480
         const val CLICK_MS = 25.0
     }
+}
+
+/** The spec to hear and the stretch of bars it is heard over, with the lane played alone, if any. */
+internal class PreviewSetup(val spec: TransitionSpec, val from: Double, val to: Double, val solo: LaneId?)
+
+/** What is heard over the canvas: [pcm] from bar [PreviewSetup.from], where bar u is frame [indexAt] (u). */
+internal class PreviewHeard(val setup: PreviewSetup, val pcm: ShortArray, val frames: Int, val uAt: (Int) -> Double, val indexAt: (Double) -> Int)
+
+/**
+ * What the preview plays for a setup, from the editor's two copies: the engine's render of the
+ * change, or a plain change, and the song alone with a click (Fix the beat). Pure, off the audio
+ * thread, so it can be heard in a test.
+ */
+internal class PreviewSound(private val a: Copy, private val b: Copy, private val aAnalysis: RegionAnalysis?) {
+    val rate = a.sampleRate
+    val channels = a.channels
+
+    /** What [s] sounds like over its canvas, from the engine's render, or as a plain change. */
+    fun heardOf(s: PreviewSetup): PreviewHeard {
+        val spec = s.spec
+        if (spec.plain) return plainOf(s)
+        // Played as the engine plays it: a change that asks for what it does not play yet (the
+        // intro twice, a later start) is heard without it, the nearest the editor can give.
+        val playable = spec.copy(introTwice = 0, bStartMs = 0.0)
+        val alone = s.solo?.let { solo(playable, it, s.from, s.to) } ?: playable
+        val window = Preview.render(alone, a, b, aAnalysis).getOrThrow()
+        return PreviewHeard(s, window.pcm, window.frames, { i -> window.uAt(i) }, { u -> window.indexAt(u) })
+    }
+
+    /** [spec] with every lane but [id] silent across the canvas, [id] keeping its own move: Listen alone. */
+    private fun solo(spec: TransitionSpec, id: LaneId, from: Double, to: Double): TransitionSpec {
+        val silent = LaneCurve(gain = listOf(Key(from - 1.0, 0.0), Key(to + 1.0, 0.0)))
+        return spec.copy(curves = spec.lanes.ids.filter { it != id }.associateWith { silent } + spec.curves.filterKeys { it == id })
+    }
+
+    /** A plain change: A at its own speed to its end, then B from its first frame, on A's bars. */
+    private fun plainOf(s: PreviewSetup): PreviewHeard {
+        val spec = s.spec
+        val barMs = spec.b.barMs
+        val aEndMs = a.startMs + a.frames * 1000.0 / rate
+        val endU = (aEndMs - spec.a.atMs) / barMs
+        val n = max(1, ((s.to - s.from) * barMs * rate / 1000.0).roundToInt())
+        val pcm = ShortArray(n * channels)
+        for (i in 0 until n) {
+            val u = s.from + i * 1000.0 / rate / barMs
+            val (copy, ms) = if (u < endU) a to (spec.a.atMs + u * barMs) else b to ((u - endU) * barMs)
+            for (c in 0 until channels) pcm[i * channels + c] = sampleAt(copy, ms, c, nearest = true).roundToInt().coerceIn(-32768, 32767).toShort()
+        }
+        val step = 1000.0 / rate / barMs
+        return PreviewHeard(s, pcm, n, { i -> s.from + i * step }, { u -> ((u - s.from) / step).roundToInt().coerceIn(0, n) })
+    }
+
+    /**
+     * [copy]'s channel [c] at [ms] of its song's own clock, read at the copy's own rate: a copy at
+     * another rate than the preview's track (a 44.1 kHz file after a 48 kHz stream) is drawn
+     * straight between its two nearest frames, so it is heard at its own speed and pitch. Read at
+     * the track's rate it was 8.8% fast and 1.5 semitones sharp. At the track's own rate, the
+     * copy's own sample: the [nearest] frame, or the one at or before [ms].
+     */
+    private fun sampleAt(copy: Copy, ms: Double, c: Int, nearest: Boolean): Double {
+        val pos = (ms - copy.startMs) * copy.sampleRate / 1000.0
+        val ch = min(c, copy.channels - 1)
+        if (copy.sampleRate == rate) {
+            val f = if (nearest) pos.roundToInt() else floor(pos).toInt()
+            return if (f in 0 until copy.frames) copy.pcm[f * copy.channels + ch].toDouble() else 0.0
+        }
+        val f = floor(pos).toInt()
+        if (f < 0 || f >= copy.frames) return 0.0
+        val x0 = copy.pcm[f * copy.channels + ch].toDouble()
+        val x1 = if (f + 1 < copy.frames) copy.pcm[(f + 1) * copy.channels + ch].toDouble() else x0
+        return x0 + (x1 - x0) * (pos - f)
+    }
+
+    /** One song alone at its own speed with a click on each beat and a higher one on each 1 (Fix the beat), at bar [u]. */
+    fun clickSample(spec: TransitionSpec, side: Side, u: Double, c: Int): Short {
+        val anchor = if (side == Side.A) spec.a else spec.b
+        val copy = if (side == Side.A) a else b
+        val ms = anchor.atMs + u * anchor.barMs
+        var v = sampleAt(copy, ms, c, nearest = false) * 0.7
+        val beatMs = anchor.barMs / anchor.beatsPerBar
+        val beats = (ms - anchor.atMs) / beatMs
+        val k = floor(beats).toInt()
+        val since = (beats - k) * beatMs
+        if (since < EnginePreview.CLICK_MS) {
+            val hz = if (Math.floorMod(k, anchor.beatsPerBar) == 0) 1_760.0 else 1_320.0
+            v += sin(2 * PI * hz * since / 1000.0) * (1 - since / EnginePreview.CLICK_MS) * 9_000.0
+        }
+        return v.roundToInt().coerceIn(-32768, 32767).toShort()
+    }
+}
+
+/**
+ * Where the preview is in what it plays, block after block: the newest render taking over at the
+ * bar being heard, a seek, the loop's seam and the click. Pure, on the audio thread, so a test can
+ * play it block by block.
+ */
+internal class PreviewPlayhead(private val rate: Int, private val channels: Int, private val sound: PreviewSound) {
+    private var playingNow: PreviewHeard? = null
+    private var index = 0
+
+    // A window giving way to a newer one: both play for a few ms, crossed.
+    private var leaving: PreviewHeard? = null
+    private var leavingIndex = 0
+    private var cross = 0
+    private var fadeIn = 0
+    private var clickU = 0.0
+
+    /** Not looping, the end was reached. */
+    var ended = false
+        private set
+
+    /** The bar heard at the end of the last block. */
+    var lastU = 0.0
+        private set
+
+    /**
+     * Fills [block] from [newest], the newest render; [takeSeek] gives the bar asked for, once.
+     * [side] plays that song alone with a click; [mark] is told where each block and each loop
+     * begins, for the playhead on screen. False, with nothing filled, while nothing is rendered.
+     */
+    fun fill(block: ShortArray, newest: PreviewHeard?, takeSeek: () -> Double?, side: Side?, loop: Boolean, written: Long, mark: (Long, Double, Double) -> Unit): Boolean {
+        if (newest == null) return false
+        val current = playingNow
+        if (current == null) {
+            playingNow = newest
+            index = newest.indexAt(takeSeek() ?: newest.setup.from)
+            fadeIn = EnginePreview.FADE_FRAMES
+        } else if (newest !== current) {
+            // The newer render takes over at the bar being heard.
+            leaving = current
+            leavingIndex = index
+            cross = EnginePreview.FADE_FRAMES
+            playingNow = newest
+            index = newest.indexAt(current.uAt(index))
+        }
+        val h = playingNow!!
+        takeSeek()?.let {
+            index = h.indexAt(it.coerceIn(h.setup.from, h.setup.to))
+            clickU = it
+            fadeIn = EnginePreview.FADE_FRAMES
+            leaving = null
+            cross = 0
+        }
+        val spec = h.setup.spec
+        // The click starts where the change is being heard.
+        if (side == null) clickU = h.uAt(index)
+        // With the click, the song plays alone at its own speed, so its own bars are counted.
+        val step = 1000.0 / rate / (if (side == Side.A) spec.a.barMs else spec.b.barMs)
+        val toIndex = h.indexAt(h.setup.to)
+        val u0 = if (side != null) clickU else h.uAt(index)
+        mark(written, u0, step)
+        val frames = block.size / channels
+        for (f in 0 until frames) {
+            for (c in 0 until channels) {
+                val x = if (side != null) sound.clickSample(spec, side, clickU, c) else at(h, index, c)
+                var v = x.toDouble()
+                val lv = leaving
+                if (cross > 0 && lv != null) {
+                    val w = cross.toDouble() / EnginePreview.FADE_FRAMES
+                    v = v * (1 - w) + at(lv, leavingIndex, c) * w
+                }
+                val toEnd = if (side != null) ((h.setup.to - clickU) / step).toInt() else toIndex - index
+                var g = 1.0
+                if (fadeIn > 0) g *= 1.0 - fadeIn.toDouble() / EnginePreview.FADE_FRAMES
+                if (toEnd < EnginePreview.FADE_FRAMES) g *= max(0.0, toEnd.toDouble() / EnginePreview.FADE_FRAMES)
+                block[f * channels + c] = (v * g).roundToInt().coerceIn(-32768, 32767).toShort()
+            }
+            if (fadeIn > 0) fadeIn--
+            if (cross > 0) {
+                cross--
+                leavingIndex++
+                if (cross == 0) leaving = null
+            }
+            if (side != null) clickU += step else index++
+            val past = if (side != null) clickU >= h.setup.to else index >= toIndex
+            if (past) {
+                if (loop) {
+                    index = h.indexAt(h.setup.from)
+                    clickU = h.setup.from
+                    fadeIn = EnginePreview.FADE_FRAMES
+                    leaving = null
+                    cross = 0
+                    mark(written + f + 1, h.setup.from, step)
+                } else {
+                    ended = true
+                }
+            }
+        }
+        lastU = if (side != null) clickU else h.uAt(index)
+        return true
+    }
+
+    private fun at(h: PreviewHeard, i: Int, c: Int): Short = if (i in 0 until h.frames) h.pcm[i * channels + c] else 0
 }
