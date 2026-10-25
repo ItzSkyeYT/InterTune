@@ -91,6 +91,10 @@ fun PlayingIndicator(
                         val gap = targets[i] - animatable.value
                         if (abs(gap) > ARRIVED) animatable.snapTo(animatable.value + gap * STEP_SHARE)
                     }
+                    // Paused, and every bar down where it rests: nothing is left to draw, so the
+                    // clock stops too, instead of waking thirty times a second for nothing. Playing
+                    // again starts this effect over.
+                    if (!isPlaying && animatables.all { abs(0.15f - it.value) <= ARRIVED }) return@collectLatest
                     delay(BatteryUse.BARS_STEP_MS)
                 }
             }

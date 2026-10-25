@@ -116,6 +116,18 @@ class BatteryUseWiringTest {
     }
 
     @Test
+    fun `the bars' clock on Balanced stops once paused bars are at rest`() {
+        // A paused song's bars on screen would otherwise wake the main thread thirty times a
+        // second to draw nothing.
+        val bars = source("ui/component/PlayingIndicator.kt")
+        val stepped = bars.indexOf("if (pace == BatteryUse.Bars.STEPPED)")
+        assertTrue("no stepped bars", stepped >= 0)
+        val stops = bars.indexOf("if (!isPlaying && animatables.all { abs(0.15f - it.value) <= ARRIVED }) return@collectLatest", stepped)
+        val waits = bars.indexOf("delay(BatteryUse.BARS_STEP_MS)", stepped)
+        assertTrue("the clock never stops while paused", stops in stepped until waits)
+    }
+
+    @Test
     fun `the row is offered only where the build has the choice, under Audio quality`() {
         val screen = source("ui/screens/settings/PlayerSettings.kt")
         val row = screen.indexOf("if (Unreleased.BATTERY_MODES) BatteryUseFrag()")
