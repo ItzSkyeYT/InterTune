@@ -76,6 +76,7 @@ import com.dd3boh.outertune.ui.utils.keyboardClickable
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import com.dd3boh.outertune.ui.utils.rememberGlassSpec
+import com.dd3boh.outertune.ui.utils.stillGlass
 import com.dd3boh.outertune.utils.rememberPreference
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
@@ -125,8 +126,9 @@ fun MiniPlayer(
                 if (glassOn) {
                     Modifier
                         .padding(horizontal = 8.dp, vertical = 2.dp)
-                        .drawBackdrop(
-                            backdrop = glass!!.backdrop,
+                        // Still on Saver: the same panel, a frosted pane, nothing behind it read (GlassSpec.still).
+                        .then(if (glass!!.still) Modifier.stillGlass { glassShape }.background(glass.stillFill(), glassShape) else Modifier.drawBackdrop(
+                            backdrop = glass.backdrop,
                             shape = { glassShape },
                             effects = {
                                 vibrancy()
@@ -140,7 +142,7 @@ fun MiniPlayer(
                                     chromaticAberration = true
                                 )
                             }
-                        )
+                        ))
                         .background(glassTint, glassShape)
                 } else Modifier
             )

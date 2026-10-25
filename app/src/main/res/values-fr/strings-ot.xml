@@ -1927,12 +1927,16 @@
     <string name="battery_use_balanced">Équilibrée</string>
     <string name="battery_use_saver">Économie</string>
     <string name="battery_use_full_description">Tout comme vous l\'avez réglé.</string>
-    <string name="battery_use_balanced_description">La bibliothèque se synchronise moins souvent, et les barres de lecture bougent plus calmement.</string>
-    <string name="battery_use_saver_description">Effets sonores coupés, lecture basse consommation et qualité Faible sur les données mobiles.</string>
-    <string name="battery_use_explain">Ce que fait InterTune pendant que vous écoutez. « Économie » coupe les effets sonores, passe par le circuit audio basse consommation du téléphone et diffuse en qualité Faible sur les données mobiles, pour que la batterie dure plus longtemps. « Complète » garde tout comme vous l\'avez réglé.</string>
+    <string name="battery_use_balanced_description">La bibliothèque se synchronise toutes les deux heures au lieu de toutes les demi-heures, et les barres de lecture bougent plus calmement.</string>
+    <string name="battery_use_saver_description">Effets sonores coupés, thème noir, moins d\'images par seconde et qualité Faible sur les données mobiles. Synchronisation et téléchargements attendent le Wi-Fi.</string>
+    <string name="battery_use_explain">Ce que fait InterTune pendant que vous écoutez. « Équilibrée » synchronise la bibliothèque moins souvent et calme les barres de lecture. « Économie » coupe aussi les effets sonores, affiche un thème noir avec moins d\'images par seconde et diffuse en qualité Faible sur les données mobiles.</string>
     <string name="battery_saver_holds_note">Réglé par « Utilisation de la batterie » tant qu\'elle est sur « Économie ».</string>
     <string name="battery_saver_quality_note">Faible sur les données mobiles tant que « Utilisation de la batterie » est sur « Économie ».</string>
     <string name="battery_saver_background_note">%1$s tant que « Utilisation de la batterie » est sur « Économie ».</string>
+    <string name="battery_saver_glass_note">Sans flou tant que « Utilisation de la batterie » est sur « Économie ».</string>
+    <string name="battery_follow_phone">Suivre l\'économiseur de batterie du téléphone</string>
+    <string name="battery_follow_phone_description">« Économie » tant que l\'économiseur de batterie du téléphone est activé.</string>
+    <string name="battery_follow_phone_now">« Économie » en ce moment : l\'économiseur de batterie du téléphone est activé.</string>
     <!-- The search at the top of Settings (SettingsSearch.kt). -->
     <string name="search_settings">Rechercher dans les paramètres</string>
     <string name="search_settings_none">Aucun paramètre ne correspond à «\u00A0%1$s\u00A0».</string>

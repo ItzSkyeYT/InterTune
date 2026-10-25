@@ -34,20 +34,22 @@ class BatteryUseTest {
     @Test
     fun `a mode never chosen is Balanced, on a new install and on one that updated`() {
         // An update has no key for it either: nothing is written, so it reads as the default.
-        assertEquals(BALANCED, BatteryUse.modeOf(null, offered = true))
+        assertEquals(BALANCED, BatteryUse.modeOf(null, null, phoneSaver = false, offered = true))
         assertEquals(BALANCED, BatteryUse.DEFAULT)
         // A name this build does not know, from a backup made by a newer one, is the default too.
-        assertEquals(BALANCED, BatteryUse.modeOf("TURBO", offered = true))
-        for (mode in modes) assertEquals(mode, BatteryUse.modeOf(mode.name, offered = true))
+        assertEquals(BALANCED, BatteryUse.modeOf("TURBO", null, phoneSaver = false, offered = true))
+        for (mode in modes) assertEquals(mode, BatteryUse.modeOf(mode.name, null, phoneSaver = false, offered = true))
     }
 
     @Test
     fun `a build that does not offer the choice runs as Full, whatever is stored`() {
-        for (stored in listOf(null, "BALANCED", "SAVER", "FULL")) {
-            assertEquals(FULL, BatteryUse.modeOf(stored, offered = false))
+        for (stored in listOf(null, "BALANCED", "SAVER", "FULL")) for (follow in listOf(null, true, false)) for (phone in listOf(true, false)) {
+            assertEquals(FULL, BatteryUse.modeOf(stored, follow, phone, offered = false))
         }
-        for (mode in modes) assertEquals(FULL, BatteryUse.inForce(mode, offered = false))
-        for (mode in modes) assertEquals(mode, BatteryUse.inForce(mode, offered = true))
+        for (mode in modes) for (phone in listOf(true, false)) {
+            assertEquals(FULL, BatteryUse.inForce(mode, follow = true, phoneSaver = phone, offered = false))
+            assertEquals(mode, BatteryUse.inForce(mode, follow = false, phoneSaver = phone, offered = true))
+        }
     }
 
     @Test
@@ -181,5 +183,94 @@ class BatteryUseTest {
         assertTrue(BatteryUse.tasteKeptMs(FULL) < BatteryUse.tasteKeptMs(BALANCED))
         assertTrue(BatteryUse.tasteKeptMs(BALANCED) < BatteryUse.tasteKeptMs(SAVER))
         assertEquals(listOf(FULL, BALANCED, SAVER), modes)
+    }
+
+    // Round two, his word of 25 Oct 2026.
+
+    @Test
+    fun `the phone's battery saver runs the app as Saver while the switch lets it, in every combination`() {
+        assertTrue("on for everyone", BatteryUse.FOLLOW_PHONE_DEFAULT)
+        for (picked in modes) for (follow in listOf(true, false)) for (phone in listOf(true, false)) {
+            val expected = if (follow && phone) SAVER else picked
+            assertEquals("$picked, switch $follow, phone saver $phone", expected, BatteryUse.effective(picked, follow, phone))
+            assertEquals(expected, BatteryUse.modeOf(picked.name, follow, phone, offered = true))
+            assertEquals(expected, BatteryUse.inForce(picked, follow, phone, offered = true))
+            // The note under the switch only when the phone is what turned Saver on.
+            assertEquals(follow && phone && picked != SAVER, BatteryUse.saverFromPhone(picked, follow, phone))
+        }
+        // A switch never set follows the phone.
+        for (picked in modes) assertEquals(SAVER, BatteryUse.modeOf(picked.name, null, phoneSaver = true, offered = true))
+        // Nothing stored and the phone's saver on: Saver; off again: Balanced, as nothing was written.
+        assertEquals(SAVER, BatteryUse.modeOf(null, null, phoneSaver = true, offered = true))
+        assertEquals(BALANCED, BatteryUse.modeOf(null, null, phoneSaver = false, offered = true))
+    }
+
+    @Test
+    fun `Saver shows a black dark theme, as Android's own battery saver does, and gives the theme back after`() {
+        for (chosen in listOf(true, false)) {
+            assertTrue("dark even where light was picked", BatteryUse.darkTheme(chosen, SAVER))
+            assertTrue(BatteryUse.pureBlack(chosen, SAVER))
+            for (mode in listOf(FULL, BALANCED)) {
+                assertEquals(chosen, BatteryUse.darkTheme(chosen, mode))
+                assertEquals(chosen, BatteryUse.pureBlack(chosen, mode))
+            }
+        }
+    }
+
+    @Test
+    fun `Saver keeps the glass still and asks for thirty frames a second`() {
+        assertTrue(BatteryUse.glassStill(SAVER))
+        assertTrue(BatteryUse.lowFrameRate(SAVER))
+        for (mode in listOf(FULL, BALANCED)) {
+            assertFalse(BatteryUse.glassStill(mode))
+            assertFalse(BatteryUse.lowFrameRate(mode))
+        }
+        assertEquals(30f, BatteryUse.SAVER_FRAME_RATE)
+    }
+
+    @Test
+    fun `Saver holds the window to the slowest mode at the same size that is still at least 30 Hz`() {
+        fun m(id: Int, hz: Float, w: Int = 1080, h: Int = 2340) = BatteryUse.ScreenMode(id, w, h, hz)
+        // A Pixel 5: 60 and 90.
+        assertEquals(1, BatteryUse.saverScreenMode(listOf(m(1, 60f), m(2, 90f)), m(2, 90f))?.id)
+        // The same while the system happens to be at 60 already: the hold is what keeps it from
+        // going back up to 90 on the next scroll.
+        assertEquals(1, BatteryUse.saverScreenMode(listOf(m(1, 60f), m(2, 90f)), m(1, 60f))?.id)
+        // 60, 90 and 120, and one at another size that is never taken.
+        assertEquals(4, BatteryUse.saverScreenMode(listOf(m(3, 120f), m(4, 60f), m(5, 90f), m(6, 30f, 720, 1560)), m(3, 120f))?.id)
+        // A panel with a 30 Hz mode, and one under 30 that is left out.
+        assertEquals(8, BatteryUse.saverScreenMode(listOf(m(7, 120f), m(8, 30f), m(9, 24f)), m(7, 120f))?.id)
+        // A 29.97 Hz mode counts as 30.
+        assertEquals(10, BatteryUse.saverScreenMode(listOf(m(10, 29.97f), m(11, 60f)), m(11, 60f))?.id)
+        // One rate at this size: nothing to hold back, the window only hints the rate.
+        assertEquals(null, BatteryUse.saverScreenMode(listOf(m(12, 60f)), m(12, 60f)))
+        assertEquals(null, BatteryUse.saverScreenMode(listOf(m(13, 60f), m(14, 24f)), m(13, 60f)))
+        assertEquals(null, BatteryUse.saverScreenMode(listOf(m(15, 60f), m(16, 120f, 1440, 3120)), m(15, 60f)))
+    }
+
+    @Test
+    fun `Home's engine rows, Full as before, Balanced at most every three hours when enough changed, Saver on a pull only`() {
+        val hour = 3_600_000L
+        // Full: a new session, a new part of the day or three hours.
+        assertTrue(BatteryUse.rowStands(FULL, hour, sameSession = true, sameDayPart = true, listensSince = 50))
+        assertFalse(BatteryUse.rowStands(FULL, hour, sameSession = false, sameDayPart = true, listensSince = 0))
+        assertFalse(BatteryUse.rowStands(FULL, hour, sameSession = true, sameDayPart = false, listensSince = 0))
+        assertFalse(BatteryUse.rowStands(FULL, 3 * hour, sameSession = true, sameDayPart = true, listensSince = 0))
+        // Balanced: under three hours it stands whatever happened.
+        for (session in listOf(true, false)) for (part in listOf(true, false)) {
+            assertTrue(BatteryUse.rowStands(BALANCED, 3 * hour - 1, session, part, listensSince = 500))
+        }
+        // After three hours, only enough listens or a day gone by builds it again.
+        assertTrue(BatteryUse.rowStands(BALANCED, 5 * hour, sameSession = false, sameDayPart = false, listensSince = BatteryUse.ROWS_REBUILD_LISTENS - 1))
+        assertFalse(BatteryUse.rowStands(BALANCED, 5 * hour, sameSession = true, sameDayPart = true, listensSince = BatteryUse.ROWS_REBUILD_LISTENS))
+        assertFalse(BatteryUse.rowStands(BALANCED, BatteryUse.ROWS_OLD_MS, sameSession = true, sameDayPart = true, listensSince = 0))
+        // Saver: until a pull to refresh, which the caller builds on.
+        assertTrue(BatteryUse.rowStands(SAVER, 30 * 24 * hour, sameSession = false, sameDayPart = false, listensSince = 10_000))
+        assertFalse(BatteryUse.buildsUnseenRows(SAVER))
+        assertFalse(BatteryUse.rowFollowsSession(SAVER))
+        for (mode in listOf(FULL, BALANCED)) {
+            assertTrue(BatteryUse.buildsUnseenRows(mode))
+            assertTrue(BatteryUse.rowFollowsSession(mode))
+        }
     }
 }

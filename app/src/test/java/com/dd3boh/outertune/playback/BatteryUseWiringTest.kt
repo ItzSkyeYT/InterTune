@@ -50,8 +50,34 @@ class BatteryUseWiringTest {
         assertTrue("the volume past 100%", "BatteryUse.volume(" in service)
         assertTrue("Quieter as you walk away", "BatteryUse.proximity(" in service)
         // Each of them reads the mode from the same settings it reads its own value from, so the
-        // two can never disagree for a moment.
-        assertEquals(5, Regex("""BatteryUse\.modeOf\((it|prefs)\[BatteryModeKey]\)""").findAll(service).count())
+        // two can never disagree for a moment, and again when the phone's battery saver changes.
+        assertEquals(5, Regex("""dataStore\.data\s*\.combine\(PhoneBatterySaver\.on\) \{ prefs, phoneSaver ->""").findAll(service).count())
+        assertEquals(5, Regex("""prefs\.batteryMode\(phoneSaver\)""").findAll(service).count())
+        assertTrue(Regex("""private fun Preferences\.batteryMode\(phoneSaver: Boolean\): BatteryMode =\s*BatteryUse\.modeOf\(this\[BatteryModeKey], this\[FollowPhoneSaverKey], phoneSaver\)""").containsMatchIn(service))
+    }
+
+    @Test
+    fun `every reader of the mode takes the phone's battery saver into account`() {
+        // The mode from the stored key alone was round one's: nothing may still ask for it.
+        for (file in root.walkTopDown().filter { it.extension == "kt" }) {
+            val text = stripComments(file.readText())
+            assertFalse("${file.name} asks for the mode without the phone's battery saver", Regex("""BatteryUse\.modeOf\([^,()]*\)""").containsMatchIn(text))
+            assertFalse("${file.name} asks for the mode in force without the phone's battery saver", Regex("""BatteryUse\.inForce\([^,()]*\)""").containsMatchIn(text))
+        }
+        val watch = source("playback/PhoneBatterySaver.kt")
+        assertTrue("the change is listened for", "IntentFilter(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED)" in watch)
+        assertTrue("and read from the system", "isPowerSaveMode" in watch)
+        assertTrue("the readers that ask when they act", Regex("""fun Context\.batteryModeNow\(\): BatteryMode =\s*BatteryUse\.modeOf\(dataStore\[BatteryModeKey], dataStore\[FollowPhoneSaverKey], PhoneBatterySaver\.isOn\(this\)\)""").containsMatchIn(watch))
+        assertTrue("started with the app", "PhoneBatterySaver.start(this)" in source("App.kt"))
+        val main = source("MainActivity.kt")
+        // Read again whenever the app is seen, since the broadcast can be missed in the background.
+        assertTrue("PhoneBatterySaver.read(this)" in body(main, "override fun onStart()"))
+        assertTrue("PhoneBatterySaver.read(this)" in body(main, "override fun onResume()"))
+        for (reader in listOf("utils/SyncUtils.kt", "playback/DownloadUtil.kt", "di/AppModule.kt", "viewmodels/HomeViewModel.kt")) {
+            assertTrue("$reader does not ask for the mode in force", "batteryModeNow()" in source(reader))
+        }
+        // Downloads waiting for Wi-Fi follow the phone's saver at once, straight on the manager.
+        assertTrue("PhoneBatterySaver.on.drop(1).collect" in source("playback/DownloadUtil.kt"))
     }
 
     @Test
@@ -136,10 +162,62 @@ class BatteryUseWiringTest {
     }
 
     @Test
-    fun `the whole app is told the mode in force, once, from the setting`() {
+    fun `the whole app is told the mode in force, once, from the setting, its switch and the phone`() {
         val main = source("MainActivity.kt")
-        assertTrue("LocalBatteryMode provides BatteryUse.inForce(chosenBatteryMode)" in main)
-        assertTrue(Regex("""val LocalBatteryMode = compositionLocalOf \{ BatteryUse\.modeOf\(null\) \}""").containsMatchIn(main))
+        assertTrue("val batteryMode = BatteryUse.inForce(chosenBatteryMode, followPhoneSaver, phoneSaverOn)" in main)
+        assertTrue("LocalBatteryMode provides batteryMode" in main)
+        assertTrue(Regex("""val LocalBatteryMode = compositionLocalOf \{ BatteryUse\.modeOf\(null, null, phoneSaver = false\) \}""").containsMatchIn(main))
+    }
+
+    @Test
+    fun `Saver's screen, the black dark theme, the still glass and the slower frame rate, each by its rule`() {
+        val main = source("MainActivity.kt")
+        assertTrue("the theme", Regex("""BatteryUse\.darkTheme\(if \(darkTheme == DarkMode\.AUTO\) isSystemInDarkTheme else darkTheme == DarkMode\.ON, batteryMode\)""").containsMatchIn(main))
+        assertTrue("pure black", "val pureBlack = BatteryUse.pureBlack(chosenPureBlack, batteryMode)" in main)
+        // Every other place that works out whether the app is dark asks the same rule, or a
+        // player over a black theme would draw the light theme's colours.
+        for (file in root.walkTopDown().filter { it.extension == "kt" }) {
+            val text = stripComments(file.readText())
+            if ("rememberEnumPreference(DarkModeKey" !in text || file.name == "ThemeFrag.kt") continue
+            assertTrue("${file.name} works out the theme without Battery use", "BatteryUse.darkTheme(" in text)
+        }
+        assertTrue("the glass", "val glassStill = BatteryUse.glassStill(batteryMode)" in main)
+        assertTrue("LocalGlassStill provides glassStill" in main)
+        // Every place that records a layer for the glass or draws a panel from one asks whether
+        // the glass is still: a panel reading a layer that was not recorded draws nothing.
+        for (file in root.walkTopDown().filter { it.extension == "kt" }) {
+            val text = stripComments(file.readText())
+            if ("drawBackdrop(" !in text && ".layerBackdrop(" !in text) continue
+            assertTrue("${file.name} records or draws glass without asking whether it is still", "LocalGlassStill" in text || "glassStill" in text || ".still" in text)
+        }
+        assertTrue("the frame rate", "LaunchedEffect(lowFrameRate) { ScreenRate.apply(this@MainActivity, lowFrameRate) }" in main)
+        assertTrue("val lowFrameRate = BatteryUse.lowFrameRate(batteryMode)" in main)
+        val rate = source("ui/utils/ScreenRate.kt")
+        assertTrue("BatteryUse.saverScreenMode(" in rate)
+        assertTrue("REQUESTED_FRAME_RATE_CATEGORY_LOW" in rate)
+    }
+
+    @Test
+    fun `Home's engine rows stand by the rule, and a row that stands reads nothing to be shown`() {
+        val home = source("viewmodels/HomeViewModel.kt")
+        assertTrue("BatteryUse.rowStands(mode, now - builtAt, sameSession, sameDayPart, since)" in home)
+        // No row is kept or built again on the old fixed three hours any more.
+        assertFalse("3 * 3_600_000L && session ==" in home)
+        assertFalse(Regex("""now - last\w*BuildAt < 3 \* 3_600_000L""").containsMatchIn(home))
+        assertTrue("the row nobody sees", "BatteryUse.buildsUnseenRows(context.batteryModeNow())" in home)
+        assertTrue("Playing now following the session", "BatteryUse.rowFollowsSession(context.batteryModeNow())" in home)
+        // A row that stands is shown without reading the library, whenever that read would be needed.
+        val build = body(home, "private suspend fun buildEngineRow(")
+        val fast = build.indexOf("engineInputWouldRead(now)")
+        assertTrue("the kept row waits on the library's read", fast in 0 until build.indexOf("val input = engineInput(now, mode)"))
+        // Nor is the library read at all as Home opens on rows that stand.
+        assertTrue(Regex("""if \(!opensOnKeptRows\(\)\) engineInput\(""").containsMatchIn(home))
+    }
+
+    @Test
+    fun `the radios' taste reads the listen log a little at a time`() {
+        assertTrue("EngineLoader.loadHeard(database, now, listenLog)" in body(service, "private fun tasteFor("))
+        assertTrue("val rawListens = log?.read(RoomListens(database)) ?: database.engineListens()" in source("engine/EngineLoader.kt"))
     }
 
     @Test
@@ -151,7 +229,10 @@ class BatteryUseWiringTest {
         // queued at once, and never takes that setting's setter.
         val row = body(source("ui/screens/settings/fragments/PlayerFrag.kt"), "fun ColumnScope.BatteryUseFrag()")
         val kept = Regex("""remember(?:Enum)?Preference\((\w+)""").findAll(row).map { it.groupValues[1] }.toList()
-        assertEquals(listOf("BatteryModeKey", "DownloadOnWifiOnlyKey"), kept)
+        assertEquals(listOf("BatteryModeKey", "DownloadOnWifiOnlyKey", "FollowPhoneSaverKey"), kept)
+        // The switch under it writes its own key only, and only when it is tapped.
+        assertTrue(Regex("""val \(followPhone, onFollowPhoneChange\) = rememberPreference\(FollowPhoneSaverKey""").containsMatchIn(row))
+        assertEquals(1, Regex("""onFollowPhoneChange\(""").findAll(row).count())
         assertTrue(Regex("""val \((\w+)\) = rememberPreference\(DownloadOnWifiOnlyKey""").containsMatchIn(row))
         assertFalse("dataStore" in row)
     }

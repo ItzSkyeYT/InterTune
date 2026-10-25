@@ -86,6 +86,12 @@ val AudioOffloadKey = booleanPreferencesKey("enableOffload")
 val BatteryModeKey = stringPreferencesKey("batteryMode")
 
 /**
+ * Whether Battery use runs as Saver while the phone's own battery saver is on (PhoneBatterySaver).
+ * Never written but by its own switch: absent, it reads as on (BatteryUse.FOLLOW_PHONE_DEFAULT).
+ */
+val FollowPhoneSaverKey = booleanPreferencesKey("batteryFollowPhoneSaver")
+
+/**
  * Whether InterTune gives up audio focus, so another app's sound can play at the same time.
  *
  * Off by default, and it has to stay that way. Audio focus is also what pauses the music for a

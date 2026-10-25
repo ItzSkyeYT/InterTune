@@ -86,8 +86,11 @@ object EngineLoader {
      * too much to repeat in the service while a radio plays. The edges the queue needs are one
      * seed's related list at a time, read where they are needed. Blocking, on the calling thread.
      */
-    fun loadHeard(database: MusicDatabase, now: Long = System.currentTimeMillis()): HeardRows {
+    fun loadHeard(database: MusicDatabase, now: Long = System.currentTimeMillis(), log: ListenLog? = null): HeardRows {
         val tz = TimeZone.getDefault().getOffset(now) / 60_000
+        // With [log], only the listens new since its last read and those still open then are
+        // fetched, and the rest is the log as it was read: the same list, in id order (ListenLog).
+        val rawListens = log?.read(RoomListens(database)) ?: database.engineListens()
         val all = database.engineExclusions(now)
         val (gone, exclusions) = splitGone(all)
         val songs = HashMap<String, SongRow>()
@@ -99,13 +102,20 @@ object EngineLoader {
         val input = EngineInput(
             now = now,
             songs = songs,
-            listens = EngineListens.forBuild(database.engineListens(), now),
+            listens = EngineListens.forBuild(rawListens, now),
             edges = emptyList(),
             exclusions = exclusions,
             bucket = dayPartBucket(now, tz),
             tzOffsetMin = tz,
         )
         return HeardRows(input, all, Weights(database.engineWeights().associate { it.name to it.value.toDouble() }))
+    }
+
+    /** [ListenLog]'s reads, as the database answers them. */
+    private class RoomListens(private val database: MusicDatabase) : ListenLog.Source {
+        override fun all() = database.engineListensInOrder()
+        override fun newOrOpen(after: Long, open: Collection<Long>) = database.engineListensNewOrOpen(after, open)
+        override fun mark(upTo: Long, except: Collection<Long>) = database.engineListenMark(upTo, except)
     }
 
     /** What [loadHeard] read: the slim input, every exclusion in force with its reason and label, and the weights. */

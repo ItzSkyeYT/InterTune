@@ -6,6 +6,10 @@
 
 package com.dd3boh.outertune.ui.utils
 
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Shape
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.backdrops.emptyBackdrop
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
@@ -64,7 +68,21 @@ data class GlassSpec(
     val backdrop: LayerBackdrop,
     /** The user's "glass intensity", 0..1. 0 is almost the solid bar, 1 is as glassy as it gets. */
     val intensity: Float,
+    /**
+     * Battery use on Saver (BatteryUse.glassStill, [LocalGlassStill]): the panel keeps its shape and
+     * its place and is drawn as a still frosted pane, [stillFill], with nothing behind it recorded,
+     * blurred or bent. [backdrop] is then never recorded, so it must not be drawn either.
+     */
+    val still: Boolean = false,
 ) {
+    /**
+     * The still pane: the panel's surface, nearly opaque, so what scrolls behind it is only a shadow
+     * of itself and never sharp text under the panel's own.
+     */
+    @Composable
+    fun stillFill(elevation: Dp = 6.dp): Color =
+        MaterialTheme.colorScheme.surfaceColorAtElevation(elevation).copy(alpha = STILL_ALPHA)
+
     /** Lens strength. More intensity, more bend. */
     val refraction: Float get() = intensity.coerceIn(0f, 1f)
 
@@ -123,8 +141,27 @@ fun rememberGlassSpec(): GlassSpec? {
         val stored by rememberPreference(PlayerGlassIntensityKey, defaultValue = 1f)
         stored
     }
-    return GlassSpec(backdrop, intensity.coerceIn(0f, 1f))
+    return GlassSpec(backdrop, intensity.coerceIn(0f, 1f), still = LocalGlassStill.current)
 }
+
+/** How opaque a still pane is: see [GlassSpec.stillFill]. */
+const val STILL_ALPHA = 0.94f
+
+/**
+ * A pane of glass drawn still, for Battery use's Saver ([LocalGlassStill]): the glass's own rim
+ * and shadow in [shape], drawn over an empty backdrop, so nothing behind the pane is recorded,
+ * blurred or bent, and the pane is drawn again only when it changes itself. The caller lays its
+ * fill over it ([GlassSpec.stillFill]), as the live glass lays its tint.
+ */
+fun Modifier.stillGlass(shape: () -> Shape): Modifier = drawBackdrop(backdrop = emptyBackdrop(), shape = shape, effects = {})
+
+/**
+ * Whether the glass is drawn still, as Battery use on Saver has it (BatteryUse.glassStill):
+ * MainActivity says so. Every layer recorded for glass and every panel drawn from one asks this,
+ * the recording to be skipped and the panel to be drawn as [GlassSpec.stillFill], so nothing reads
+ * a layer that was not recorded.
+ */
+val LocalGlassStill = staticCompositionLocalOf { false }
 
 /**
  * The glass intensity, handed down by MainActivity, which already reads the preference.
