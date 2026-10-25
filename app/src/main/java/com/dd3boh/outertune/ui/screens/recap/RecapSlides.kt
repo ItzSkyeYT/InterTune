@@ -1269,32 +1269,24 @@ internal fun ThanksSlide(s: SlideScope, onAgain: () -> Unit, onDone: () -> Unit)
             style = RecapType.h1.copy(fontSize = 84.sp, lineHeight = 0.92.em, shadow = Shadow(RecapInk.Ink, Offset(with(density) { 5.dp.toPx() }, with(density) { 6.dp.toPx() }), 0f)),
             colour = RecapInk.Cream,
         )
-        // The thank-you words, once they are written. Until then the box says whose they will be.
-        Box(Modifier.padding(top = 22.dp, bottom = 14.dp).enter(s, Entrance.FLY, 2f, -1.2f, fy = 300f, fr = 8f)) {
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .drawBehind {
-                        drawRoundRect(
-                            RecapInk.Ink.copy(alpha = 0.55f),
-                            cornerRadius = CornerRadius(8.dp.toPx()),
-                            style = Stroke(2.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(7.dp.toPx(), 5.dp.toPx()))),
-                        )
-                    }
-                    .background(RecapInk.Cream.copy(alpha = 0.22f), RoundedCornerShape(8.dp))
-                    .padding(start = 18.dp, end = 18.dp, top = 24.dp, bottom = 18.dp)
-            ) {
-                Text(stringResource(R.string.recap_thanks_placeholder), fontSize = 18.sp, lineHeight = 1.45.em, color = RecapInk.Ink)
-                Text(stringResource(R.string.recap_thanks_signature), style = RecapType.tag.copy(fontSize = 24.sp), color = RecapInk.Ink, modifier = Modifier.padding(top = 10.dp))
-            }
-            Text(
-                stringResource(R.string.recap_thanks_placeholder_tag), style = RecapType.tag.copy(fontSize = 15.sp), color = RecapInk.Ink,
-                modifier = Modifier
-                    .offset(x = 12.dp, y = (-13).dp)
-                    .graphicsLayer { rotationZ = -3f }
-                    .background(RecapInk.Lemon, RoundedCornerShape(7.dp))
-                    .padding(start = 9.dp, end = 9.dp, top = 5.dp, bottom = 6.dp),
-            )
+        // The thank-you words, signed, in the design's box.
+        Column(
+            Modifier
+                .padding(top = 22.dp, bottom = 14.dp)
+                .enter(s, Entrance.FLY, 2f, -1.2f, fy = 300f, fr = 8f)
+                .fillMaxWidth()
+                .drawBehind {
+                    drawRoundRect(
+                        RecapInk.Ink.copy(alpha = 0.55f),
+                        cornerRadius = CornerRadius(8.dp.toPx()),
+                        style = Stroke(2.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(7.dp.toPx(), 5.dp.toPx()))),
+                    )
+                }
+                .background(RecapInk.Cream.copy(alpha = 0.22f), RoundedCornerShape(8.dp))
+                .padding(start = 18.dp, end = 18.dp, top = 20.dp, bottom = 18.dp)
+        ) {
+            Text(stringResource(R.string.recap_thanks_words), fontSize = 18.sp, lineHeight = 1.45.em, color = RecapInk.Ink)
+            Text(stringResource(R.string.recap_thanks_signature), style = RecapType.tag.copy(fontSize = 24.sp), color = RecapInk.Ink, modifier = Modifier.padding(top = 10.dp))
         }
         Grow(room)
         Text(

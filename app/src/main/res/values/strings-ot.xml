@@ -2222,10 +2222,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recap_times_on" translatable="false">On %1$s you played it %2$s times.</string>
     <string name="recap_card_described" translatable="false">Your year on one card: top songs, top artists, your minutes, your hour and your longest streak</string>
     <string name="recap_thanks_title" translatable="false">Thank you</string>
-    <!-- A placeholder: the thank-you page's own words are still to be written. The tag says so on the page itself. -->
-    <string name="recap_thanks_placeholder" translatable="false">Thank you for listening with InterTune this year. Every bug report, every translation and every song you played made it better. I\'m so glad you\'re here.</string>
+    <string name="recap_thanks_words" translatable="false">Thank you for using InterTune this year. It\'s a small project I make in my free time, and I\'ve loved every bit of it (still do!). Thank you for reporting bugs, sharing ideas and translating. You\'re the reason it keeps going!</string>
     <string name="recap_thanks_signature" translatable="false">Mel</string>
-    <string name="recap_thanks_placeholder_tag" translatable="false">his words go here</string>
     <string name="recap_see_you_first" translatable="false">See you next December. %1$s, your first song here, plays you out.</string>
     <string name="recap_see_you_year" translatable="false">See you next December. %1$s, your first song this year, plays you out.</string>
     <string name="recap_watch_again" translatable="false">Watch again</string>
