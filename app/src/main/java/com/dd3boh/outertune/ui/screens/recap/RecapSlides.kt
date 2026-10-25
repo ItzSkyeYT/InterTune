@@ -255,8 +255,8 @@ internal fun ColumnScope.Grow(room: SlideRoom) {
 }
 
 @Composable
-internal fun Kick(text: String, s: SlideScope, at: Float = 0.7f) {
-    Text(text, style = RecapType.kick, color = s.paper.ink2, modifier = Modifier.padding(bottom = 6.dp).enter(s, Entrance.UP, at))
+internal fun Kick(text: String, s: SlideScope, at: Float = 0.7f, modifier: Modifier = Modifier) {
+    Text(text, style = RecapType.kick, color = s.paper.ink2, modifier = Modifier.padding(bottom = 6.dp).then(modifier).enter(s, Entrance.UP, at))
 }
 
 /** [template] with %1$s cut out: what comes before it and after it. */
@@ -270,7 +270,8 @@ internal const val MARK = "⁣"
 /**
  * Words that rise out of their own line one after another, from step [at], [step] steps apart;
  * [strip], when given, sits among them on a strip of the slide's accent, slapped on at [stripAt].
- * Very long words wrap within their own line.
+ * Very long words wrap within their own line. Given a name, [behind], confetti passes behind
+ * them, each word kept clear as it rises (Modifier.overConfetti).
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -286,27 +287,32 @@ internal fun Words(
     after: String = "",
     stripAt: Float = at + 0.9f,
     stripTurn: Float = -2.5f,
+    behind: String? = null,
 ) {
     val before = text.split(' ').filter { it.isNotEmpty() }
     val later = after.split(' ').filter { it.isNotEmpty() }
     val gap = with(LocalDensity.current) { (style.fontSize * 0.24f).toDp() }
+    fun clear(i: Int, from: Float) = if (behind == null) Modifier else Modifier.overConfetti(s, "$behind/$i", from)
     FlowRow(
         modifier.clearAndSetSemantics { contentDescription = listOfNotNull(text, strip, after).joinToString(" ") },
         horizontalArrangement = Arrangement.spacedBy(gap),
         itemVerticalAlignment = Alignment.CenterVertically,
     ) {
-        before.forEachIndexed { i, word -> RisingWord(word, s, at + i * step, style, colour) }
+        before.forEachIndexed { i, word -> RisingWord(word, s, at + i * step, style, colour, clear(i, at + i * step)) }
         if (strip != null) Strip(strip, s, stripAt, stripTurn, style)
-        later.forEachIndexed { i, word -> RisingWord(word, s, stripAt + 0.3f + i * step, style, colour) }
+        later.forEachIndexed { i, word ->
+            val from = stripAt + 0.3f + i * step
+            RisingWord(word, s, from, style, colour, clear(before.size + i, from))
+        }
     }
 }
 
 /** One word coming up out of its line: the line clips it, so it seems to rise from under the words above. */
 @Composable
-private fun RisingWord(word: String, s: SlideScope, at: Float, style: TextStyle, colour: Color) {
+private fun RisingWord(word: String, s: SlideScope, at: Float, style: TextStyle, colour: Color, modifier: Modifier = Modifier) {
     s.arrives(at, if (s.still) RecapMotion.CALM_FADE_MS else RecapMotion.WORD_MS)
     Box(
-        Modifier.drawWithContent {
+        modifier.drawWithContent {
             val pad = size.height * 0.06f
             clipRect(-pad, -pad, size.width + pad, size.height * 1.2f) { this@drawWithContent.drawContent() }
         }
@@ -1201,14 +1207,19 @@ internal fun NumberOneSlide(s: SlideScope, sharing: Boolean, onShare: () -> Unit
     val c = s.paper
     val w = s.words
     val song = s.shown.song(top.songId)
+    // Its confetti passes behind every line of its words (Modifier.overConfetti): falling over them, it made them hard to read.
+    val foundLines = remember { TextLines() }
     SlideColumn { room ->
-        Kick(stringResource(R.string.recap_number_one_kick), s, at = 0.6f)
+        Kick(stringResource(R.string.recap_number_one_kick), s, at = 0.6f, modifier = Modifier.overConfetti(s, "kick", 0.6f))
         val side = minOf(260.dp, room.width * 0.72f, room.height * 0.36f)
         Box(Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 14.dp).height(side + 28.dp), contentAlignment = Alignment.Center) {
             Sticker(song?.cover, side, s, Modifier.anchor(s, Spot.HERO), how = Entrance.BOOM, at = 3f, turn = -3f, toss = Toss(0f, 600f, 40f))
         }
-        Words(song?.title.orEmpty(), s, at = 3.8f, step = 0.2f, style = RecapType.h1.copy(fontSize = 33.sp, lineHeight = 1.em), colour = c.ink)
-        Text(song?.artists.orEmpty(), fontSize = 16.sp, lineHeight = 1.3.em, color = c.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp, bottom = 10.dp).enter(s, Entrance.UP, 4.6f))
+        Words(song?.title.orEmpty(), s, at = 3.8f, step = 0.2f, style = RecapType.h1.copy(fontSize = 33.sp, lineHeight = 1.em), colour = c.ink, behind = "title")
+        Text(
+            song?.artists.orEmpty(), fontSize = 16.sp, lineHeight = 1.3.em, color = c.ink2, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 6.dp, bottom = 10.dp).overConfetti(s, "artists", 4.6f).enter(s, Entrance.UP, 4.6f),
+        )
         // The plays and Share this on one line where they fit, the button under them where they do not.
         FlowRow(
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -1216,8 +1227,14 @@ internal fun NumberOneSlide(s: SlideScope, sharing: Boolean, onShare: () -> Unit
             modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
         ) {
             Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Counted(top.plays.toLong(), s, at = 4.8f, land = 6f, style = RecapType.giant.copy(fontSize = 92.sp), colour = c.accent, format = { w.number(it) })
-                Text(pluralStringResource(R.plurals.recap_plays_unit, top.plays), style = RecapType.tag.copy(fontSize = 28.sp), color = c.ink, modifier = Modifier.padding(bottom = 14.dp).enter(s, Entrance.UP, 5f))
+                Counted(
+                    top.plays.toLong(), s, at = 4.8f, land = 6f, style = RecapType.giant.copy(fontSize = 92.sp), colour = c.accent, format = { w.number(it) },
+                    modifier = Modifier.overConfetti(s, "plays", 4.8f),
+                )
+                Text(
+                    pluralStringResource(R.plurals.recap_plays_unit, top.plays), style = RecapType.tag.copy(fontSize = 28.sp), color = c.ink,
+                    modifier = Modifier.padding(bottom = 14.dp).overConfetti(s, "unit", 5f).enter(s, Entrance.UP, 5f),
+                )
             }
             ShareButton(s, sharing, at = 6.4f, onClick = onShare, modifier = Modifier.padding(bottom = 12.dp))
         }
@@ -1225,7 +1242,10 @@ internal fun NumberOneSlide(s: SlideScope, sharing: Boolean, onShare: () -> Unit
         val day = RecapStory.numberOneDay(top)?.let {
             " " + stringResource(if (it.inARow) R.string.recap_in_a_row_on else R.string.recap_times_on, w.day(it.day), w.number(it.times))
         }.orEmpty()
-        Text(found + day, style = RecapType.line, color = c.ink, modifier = Modifier.enter(s, Entrance.UP, 5.6f))
+        Text(
+            found + day, style = RecapType.line, color = c.ink, onTextLayout = { foundLines.layout = it },
+            modifier = Modifier.overConfetti(s, "found", 5.6f) { foundLines.layout }.enter(s, Entrance.UP, 5.6f),
+        )
         Grow(room)
     }
 }

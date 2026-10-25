@@ -74,6 +74,7 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.ClipOp
 import androidx.compose.ui.graphics.Color
@@ -433,13 +434,32 @@ private fun Shapes(stage: RecapStage) {
     }
 }
 
-/** Confetti flies between the paper shapes and the words: under the cut-outs' words, never over a line of text. */
+/**
+ * Confetti flies between the paper shapes and the words, and behind the words: on the lines of
+ * words a slide marks (Modifier.overConfetti, number one's), once they begin to arrive, it is not
+ * drawn at all, so they read clearly while it falls rather than seeming to be under it.
+ */
 @Composable
 private fun Confetti(stage: RecapStage) {
+    val clear = remember { Path() }
     Canvas(Modifier.fillMaxSize()) {
-        if (stage.confetti.active) with(stage.confetti) { draw(stage.clock.now) }
+        if (!stage.confetti.active) return@Canvas
+        val now = stage.clock.now
+        val page = stage.current
+        val lines = stage.anchors.behind(page.visit, now - page.start)
+        if (lines.isEmpty()) {
+            with(stage.confetti) { draw(now) }
+            return@Canvas
+        }
+        val margin = CONFETTI_MARGIN_DP.dp.toPx()
+        clear.rewind()
+        for (line in lines) clear.addRoundRect(RoundRect(line.inflate(margin), CornerRadius(margin)))
+        clipPath(clear, ClipOp.Difference) { with(stage.confetti) { draw(now) } }
     }
 }
+
+/** How far round a line of words confetti is kept clear of it. */
+private const val CONFETTI_MARGIN_DP = 4
 
 /**
  * One page's words and stickers: the new one inside the sheet growing in, the old one outside it

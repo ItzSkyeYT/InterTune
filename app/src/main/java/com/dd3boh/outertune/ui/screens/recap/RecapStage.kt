@@ -21,6 +21,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.unit.toSize
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.hypot
@@ -122,10 +125,14 @@ internal class Wipe(
     }
 }
 
-/** Where the parts of each page are on the screen, as they report it: what the paper shapes sit on. */
+/** Where the parts of each page are on the screen, as they report it: what the paper shapes sit on, and the words confetti passes behind. */
 internal class RecapAnchors {
     private val spots = HashMap<String, Rect>()
+    private val kept = HashMap<String, Kept>()
     var origin = Offset.Zero
+
+    /** Words on page [visit] kept clear of confetti: a box for each of their lines, where they rest, and when they begin to arrive, in ms after the page came up. */
+    private class Kept(val visit: Int, val from: Long, val lines: List<Rect>)
 
     fun put(visit: Int, name: String, bounds: Rect) {
         spots["$visit/$name"] = bounds.translate(-origin)
@@ -133,14 +140,43 @@ internal class RecapAnchors {
 
     fun get(visit: Int, name: String): Rect? = spots["$visit/$name"]
 
+    /** Words on page [visit] that confetti passes behind from [from] ms after the page came up (Modifier.overConfetti). */
+    fun words(visit: Int, name: String, from: Long, lines: List<Rect>) {
+        kept["$visit/$name"] = Kept(visit, from, lines.map { it.translate(-origin) })
+    }
+
+    /** The lines of words on page [visit] that confetti is not drawn on, [since] ms after the page came up: those that have begun to arrive. */
+    fun behind(visit: Int, since: Long): List<Rect> = kept.values.filter { it.visit == visit && since >= it.from }.flatMap { it.lines }
+
     fun forget(keep: Set<Int>) {
         spots.keys.removeAll { key -> key.substringBefore('/').toIntOrNull() !in keep }
+        kept.values.removeAll { it.visit !in keep }
     }
 }
 
 /** Marks this part of a slide as the spot [name], for the paper shapes to sit on. Before any entrance, so it is where the part rests. */
 internal fun Modifier.anchor(s: SlideScope, name: String): Modifier = onGloballyPositioned {
     s.stage.anchors.put(s.visit, name, it.boundsInRoot())
+}
+
+/**
+ * Marks these words of a slide as ones that confetti passes behind: from step [at], as they begin
+ * to arrive, it is not drawn on them, so they read clearly while it falls. A text that gives its
+ * [layout] counts each of its lines as a box of its own, so the end of a short last line is not
+ * kept clear for nothing; otherwise the part is one box. Before any entrance, so it is where the
+ * words rest.
+ */
+internal fun Modifier.overConfetti(s: SlideScope, name: String, at: Float, layout: () -> TextLayoutResult? = { null }): Modifier = onGloballyPositioned {
+    val o = it.positionInRoot()
+    val text = layout()
+    val lines = if (text == null || text.lineCount == 0) listOf(Rect(o, it.size.toSize()))
+    else List(text.lineCount) { i -> Rect(o.x + text.getLineLeft(i), o.y + text.getLineTop(i), o.x + text.getLineRight(i), o.y + text.getLineBottom(i)) }
+    s.stage.anchors.words(s.visit, name, (at * RecapMotion.STEP_MS).toLong(), lines)
+}
+
+/** Where a text's lines were laid out, for [overConfetti]: a plain holder rather than state, read only once the text is placed. */
+internal class TextLines {
+    var layout: TextLayoutResult? = null
 }
 
 /**

@@ -6,6 +6,8 @@
 
 package com.dd3boh.outertune.ui.screens.recap
 
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import com.dd3boh.outertune.recap.AutoFinds
 import com.dd3boh.outertune.recap.DayAmount
 import com.dd3boh.outertune.recap.FirstSong
@@ -137,6 +139,35 @@ class RecapStageTest {
         // Over in a few seconds; then the page rests.
         st.run(12_000)
         assertFalse(st.confetti.active)
+    }
+
+    @Test
+    fun `confetti passes behind number one's words from the moment each begins to arrive`() {
+        val anchors = RecapAnchors()
+        anchors.origin = Offset(0f, 40f)
+        anchors.words(7, "kick", 300L, listOf(Rect(72f, 240f, 500f, 290f)))
+        anchors.words(7, "title/0", 1_900L, listOf(Rect(72f, 1000f, 400f, 1090f)))
+        anchors.words(7, "found", 2_800L, listOf(Rect(72f, 1500f, 1010f, 1560f), Rect(72f, 1560f, 480f, 1620f)))
+        // Each from when it begins to arrive, where it rests on the stage, a line of a text a box of its own.
+        assertEquals(listOf(Rect(72f, 200f, 500f, 250f)), anchors.behind(7, 1_500L))
+        assertEquals(2, anchors.behind(7, 2_000L).size)
+        assertEquals(4, anchors.behind(7, 3_000L).size)
+        assertTrue(Rect(72f, 1520f, 480f, 1580f) in anchors.behind(7, 3_000L))
+        // Only on its own page, and forgotten with it.
+        assertTrue(anchors.behind(8, 3_000L).isEmpty())
+        anchors.forget(setOf(8))
+        assertTrue(anchors.behind(7, 3_000L).isEmpty())
+    }
+
+    @Test
+    fun `every line of number one's words is marked for the confetti to pass behind`() {
+        val code = java.io.File("src/main/java/com/dd3boh/outertune/ui/screens/recap/RecapSlides.kt").readText()
+        val one = code.substringAfter("internal fun NumberOneSlide(").substringBefore("\n}\n")
+        for (part in listOf("\"kick\"", "behind = \"title\"", "\"artists\"", "\"plays\"", "\"unit\"", "\"found\"")) {
+            assertTrue("number one's $part", part in one)
+        }
+        val screen = java.io.File("src/main/java/com/dd3boh/outertune/ui/screens/recap/RecapScreen.kt").readText()
+        assertTrue("the confetti keeps clear of them", "anchors.behind(" in screen && "ClipOp.Difference" in screen)
     }
 
     @Test
