@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.ui.screens.mix
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -41,9 +42,6 @@ import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
 import com.dd3boh.outertune.ui.component.FloatingTopBar
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.launch
 
 /**
  * The row in Player and audio's Audio card, under Fade between tracks, that opens [MixingSettings]
@@ -126,7 +124,7 @@ fun MixingSettings(
             confirmButton = {
                 TextButton(onClick = {
                     confirming = false
-                    scope.launch(Dispatchers.IO + NonCancellable) { MixStores.transitions(context).clear() }
+                    MixStores.changeTransitions(scope, context, failed = { Toast.makeText(context, R.string.error_unknown, Toast.LENGTH_LONG).show() }) { it.clear() }
                 }) { Text(stringResource(R.string.mixing_clear)) }
             },
         )

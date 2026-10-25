@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.ui.screens.mix
 
+import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -326,7 +327,7 @@ fun MixPillLine(
                     enabled = saved != null,
                     onClick = {
                         menu = false
-                        scope.launch(Dispatchers.IO + NonCancellable) { MixStores.transitions(context).delete(pair) }
+                        MixStores.changeTransitions(scope, context, failed = { Toast.makeText(context, R.string.error_unknown, Toast.LENGTH_LONG).show() }) { it.delete(pair) }
                     },
                 )
                 DropdownMenuItem(
@@ -334,8 +335,8 @@ fun MixPillLine(
                     enabled = saved?.plain != true && from.id != to.id,
                     onClick = {
                         menu = false
-                        scope.launch(Dispatchers.IO + NonCancellable) {
-                            MixStores.transitions(context).put(Pills.plainSpec(pair, saved))
+                        MixStores.changeTransitions(scope, context, failed = { Toast.makeText(context, R.string.error_unknown, Toast.LENGTH_LONG).show() }) {
+                            it.put(Pills.plainSpec(pair, saved))
                         }
                     },
                 )
