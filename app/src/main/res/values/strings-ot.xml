@@ -2104,8 +2104,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="battery_saver_background_note" translatable="false">%1$s while \"Battery use\" is on \"Saver\".</string>
     <string name="battery_saver_glass_note" translatable="false">Without its blur while \"Battery use\" is on \"Saver\".</string>
     <string name="battery_follow_phone" translatable="false">Follow the phone\'s battery saver</string>
-    <string name="battery_follow_phone_description" translatable="false">\"Saver\" while your phone\'s battery saver is on.</string>
-    <string name="battery_follow_phone_now" translatable="false">\"Saver\" now: your phone\'s battery saver is on.</string>
+    <string name="battery_follow_phone_description" translatable="false">\"Saver\" while it is on.</string>
+    <string name="battery_follow_phone_now" translatable="false">\"Saver\" now: the phone\'s battery saver is on.</string>
     <!-- The search at the top of Settings (SettingsSearch.kt, Unreleased.SETTINGS_SEARCH). %1$s is what was typed. -->
     <string name="search_settings">Search settings</string>
     <string name="search_settings_none">No setting matches \"%1$s\".</string>

@@ -1935,8 +1935,8 @@
     <string name="battery_saver_background_note">%1$s tant que « Utilisation de la batterie » est sur « Économie ».</string>
     <string name="battery_saver_glass_note">Sans flou tant que « Utilisation de la batterie » est sur « Économie ».</string>
     <string name="battery_follow_phone">Suivre l\'économiseur de batterie du téléphone</string>
-    <string name="battery_follow_phone_description">« Économie » tant que l\'économiseur de batterie du téléphone est activé.</string>
-    <string name="battery_follow_phone_now">« Économie » en ce moment : l\'économiseur de batterie du téléphone est activé.</string>
+    <string name="battery_follow_phone_description">« Économie » tant qu\'il est activé.</string>
+    <string name="battery_follow_phone_now">« Économie » en ce moment : l\'économiseur du téléphone est activé.</string>
     <!-- The search at the top of Settings (SettingsSearch.kt). -->
     <string name="search_settings">Rechercher dans les paramètres</string>
     <string name="search_settings_none">Aucun paramètre ne correspond à «\u00A0%1$s\u00A0».</string>

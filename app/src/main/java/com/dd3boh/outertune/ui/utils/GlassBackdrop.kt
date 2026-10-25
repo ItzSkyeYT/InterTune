@@ -76,8 +76,9 @@ data class GlassSpec(
     val still: Boolean = false,
 ) {
     /**
-     * The still pane: the panel's surface, nearly opaque, so what scrolls behind it is only a shadow
-     * of itself and never sharp text under the panel's own.
+     * The still pane: the panel's surface, all but opaque. With no blur behind it, anything that
+     * showed through would be sharp: at 94% the rows scrolling under the dock read as text under
+     * its labels (seen on the emulator, 25 Oct 2026).
      */
     @Composable
     fun stillFill(elevation: Dp = 6.dp): Color =
@@ -145,7 +146,7 @@ fun rememberGlassSpec(): GlassSpec? {
 }
 
 /** How opaque a still pane is: see [GlassSpec.stillFill]. */
-const val STILL_ALPHA = 0.94f
+const val STILL_ALPHA = 0.98f
 
 /**
  * A pane of glass drawn still, for Battery use's Saver ([LocalGlassStill]): the glass's own rim
