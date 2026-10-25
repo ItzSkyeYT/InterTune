@@ -531,6 +531,128 @@ class BottomSheetState(
         }
 }
 
+/**
+ * [BottomSheetState.preUpPostDownNestedScrollConnection] with a buffer at the top of the list, for
+ * the queue (in ui/player/Queue.kt, QueueOvershootBuffer says how big and rememberQueueSheetScroll
+ * why only the queue).
+ *
+ * The plain connection gives a list's overscroll to its sheet at once. The moment the list reaches
+ * its top during a gesture, the rest of that finger movement drags the sheet down, and the fling
+ * that ends the gesture throws the sheet with the list's speed. A quick scroll up through the queue
+ * that ran on past the top started to close it, and a flick closed it outright.
+ *
+ * Here a gesture in which the list itself scrolled first leaves the sheet where it is until the
+ * finger has gone [bufferPx] further past the top, and the sheet follows only what goes beyond. A
+ * fling at the end of such a gesture leaves the sheet open unless it had already moved: the fling
+ * stays the list's, which at its top only bounces. A gesture that starts with the list already at
+ * its top has no buffer, so a pull down from the top of the list moves the sheet at once, as it
+ * always has.
+ *
+ * A gesture ends with its fling, which a finger leaving the glass always comes to (at no speed
+ * after a slow drag), and the next scroll starts a new one. It holds the state of the gesture it
+ * is in, so each list needs its own.
+ */
+class BufferedSheetScrollConnection(
+    private val sheet: BottomSheetState,
+    private val bufferPx: Float,
+) : NestedScrollConnection {
+    private var inGesture = false
+
+    /** The list moved under the finger earlier in this gesture: running into its top then has the buffer. */
+    private var listScrolled = false
+
+    /** The sheet moved in this gesture: whatever happens to the fling, it goes back to an anchor. */
+    private var sheetMoved = false
+
+    /** The finger is past the list's top: by [pull] pixels, of which the sheet ignores the first [buffer]. */
+    private var pastTop = false
+    private var pull = 0f
+    private var buffer = 0f
+
+    /** How far the sheet has been taken down: what the pull has gone beyond the buffer. */
+    private val sheetPull: Float
+        get() = (pull - buffer).coerceAtLeast(0f)
+
+    override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+        // Only the finger moves the sheet. A list's own fling running into its top never has.
+        if (source != NestedScrollSource.UserInput) return Offset.Zero
+        if (!inGesture) {
+            inGesture = true
+            listScrolled = false
+            sheetMoved = false
+            pastTop = false
+            pull = 0f
+        }
+        if (!pastTop || available.y >= 0f) return Offset.Zero
+
+        // The finger going back up from past the top: it brings the sheet back up first, then
+        // winds the buffer back, and only what is left scrolls the list. The list moves again
+        // once the finger is back where the list met its top.
+        if (sheet.isExpanded) pull = pull.coerceAtMost(buffer) // home, and it can go no higher
+        var up = -available.y
+        val toSheet = up.coerceAtMost(sheetPull)
+        if (toSheet > 0f) {
+            sheet.dispatchRawDelta(-toSheet)
+            pull -= toSheet
+            up -= toSheet
+        }
+        val toBuffer = up.coerceAtMost(pull)
+        pull -= toBuffer
+        up -= toBuffer
+        if (pull <= 0f) {
+            pastTop = false
+            pull = 0f
+        }
+        return Offset(0f, available.y + up)
+    }
+
+    override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+        if (source != NestedScrollSource.UserInput) return Offset.Zero
+        if (consumed.y != 0f) listScrolled = true
+        if (available.y <= 0f) return Offset.Zero
+        if (!pastTop) {
+            // The list is at its top and the finger goes on down.
+            pastTop = true
+            pull = 0f
+            buffer = if (listScrolled) bufferPx else 0f
+        }
+        val before = sheetPull
+        pull += available.y
+        val down = sheetPull - before
+        if (down > 0f) {
+            sheet.dispatchRawDelta(down)
+            sheetMoved = true
+        }
+        // All of it, the part the buffer swallows as well. Left over, it would stretch the list's
+        // edge, and a stretched edge takes the first of the finger's way back up for itself before
+        // this sees any of it: the count of the buffer would come out wrong, and a sheet that had
+        // come down would wait for the edge before going back up.
+        return available
+    }
+
+    override suspend fun onPreFling(available: Velocity): Velocity {
+        inGesture = false
+        if (pastTop && sheetPull > 0f) {
+            // Down past the buffer, or pulled from the top: the fling is the sheet's, as before.
+            sheet.performFling(-available.y, null)
+            return available
+        }
+        // Taken down and brought back up within this gesture: put home without the fling.
+        if (sheetMoved) sheet.performFling(0f, null)
+        return Velocity.Zero
+    }
+
+    override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+        // The gesture already ended with onPreFling. Unless a new one began while the list was
+        // still flinging, whose state this is not to touch.
+        if (!inGesture) {
+            pastTop = false
+            pull = 0f
+        }
+        return Velocity.Zero
+    }
+}
+
 const val expandedAnchor = 2
 const val collapsedAnchor = 1
 const val dismissedAnchor = 0
