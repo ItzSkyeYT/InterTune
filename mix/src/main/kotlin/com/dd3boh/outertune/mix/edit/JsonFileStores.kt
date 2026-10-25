@@ -138,9 +138,10 @@ class JsonFileTransitionStore(file: File, private val onProblem: StoreProblem = 
     companion object {
         private const val FIELD = "transitions"
 
-        /** Where the app keeps it, under its files (not its cache): filesDir/mix/transitions.json. */
-        fun at(filesDir: File, onProblem: StoreProblem = { _, _ -> }) =
-            JsonFileTransitionStore(File(File(filesDir, "mix"), "transitions.json"), onProblem)
+        /** Where the app keeps it under its files (not its cache), and what the app's backup carries it as. */
+        const val FILE = "mix/transitions.json"
+
+        fun at(filesDir: File, onProblem: StoreProblem = { _, _ -> }) = JsonFileTransitionStore(File(filesDir, FILE), onProblem)
     }
 }
 
@@ -194,8 +195,9 @@ class JsonFileBeatFixStore(file: File, private val onProblem: StoreProblem = { _
     companion object {
         private const val FIELD = "fixes"
 
-        /** filesDir/mix/beat-fixes.json. */
-        fun at(filesDir: File, onProblem: StoreProblem = { _, _ -> }) =
-            JsonFileBeatFixStore(File(File(filesDir, "mix"), "beat-fixes.json"), onProblem)
+        /** Where the app keeps it under its files, and what the app's backup carries it as. */
+        const val FILE = "mix/beat-fixes.json"
+
+        fun at(filesDir: File, onProblem: StoreProblem = { _, _ -> }) = JsonFileBeatFixStore(File(filesDir, FILE), onProblem)
     }
 }
