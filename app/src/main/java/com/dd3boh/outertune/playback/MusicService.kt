@@ -971,7 +971,15 @@ class MusicService : MediaLibraryService(),
      */
     private val outputBufferSize = OutputBufferSize(DEFAULT_BUFFER_US, LOW_LATENCY_BUFFER_US) {
         OutputBufferSize.wantShort(headTrackingWanted, binauralProcessor.enabled) { headTracking.isAvailable }
+            .also { outputIsShort = it }
     }
+
+    /**
+     * Whether the output was last set up with the short buffer, which it keeps until the next
+     * setup: AutoMix stands aside while it does (automixConditions), as it does while head
+     * tracking is switched on. Written on the player's thread.
+     */
+    @Volatile private var outputIsShort = false
     private val isGaplessOffloadAllowed = dataStore.get(AudioGaplessOffloadKey, false)
     val playerVolume = MutableStateFlow(dataStore.get(PlayerVolumeKey, 1f).coerceIn(0f, 1f))
 
@@ -3286,8 +3294,8 @@ class MusicService : MediaLibraryService(),
     private fun automixConditions() = AutomixController.Conditions(
         casting = isCasting,
         sleepTimer = sleepTimer.isActive,
-        // The setting, not whether it runs: the sink was built with the short buffer for it.
-        headTracking = headTrackingWanted || lowLatencyAudio,
+        // The setting, not whether it runs, and the short buffer the output was last set up with for it.
+        headTracking = headTrackingWanted || outputIsShort,
         upmix = spatialUpmixProcessor.enabled,
         ambience = binauralProcessor.enabled && binauralProcessor.ambience > 0f,
         ffmpeg = ENABLE_FFMETADATAEX && audioDecoder != DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF,
