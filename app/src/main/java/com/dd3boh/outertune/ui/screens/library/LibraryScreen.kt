@@ -101,6 +101,7 @@ import com.dd3boh.outertune.ui.utils.SameTextSize
 import com.dd3boh.outertune.ui.utils.SideBySide
 import com.dd3boh.outertune.ui.utils.itemsInColumns
 import com.dd3boh.outertune.ui.utils.rememberListColumns
+import com.dd3boh.outertune.viewmodels.libraryKey
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -445,16 +446,19 @@ fun LibraryScreen(
                                     }
                                 }
 
+                                // Each item once already (LibraryViewModel.allItems), and known by
+                                // what it is rather than by its hash: a row is no longer made anew
+                                // when anything about its item changes.
                                 val gathered: List<Any> =
                                     if (showLikedAndDownloadedPlaylist && columns > 1) {
-                                        autoPlaylists + allItems.distinctBy { it.hashCode() }
+                                        autoPlaylists + allItems
                                     } else {
-                                        allItems.distinctBy { it.hashCode() }
+                                        allItems
                                     }
                                 itemsInColumns(
                                     items = gathered,
                                     columns = columns,
-                                    key = { _, item -> if (item is PlaylistEntity) item.id else item.hashCode() },
+                                    key = { _, item -> if (item is PlaylistEntity) item.id else libraryKey(item) },
                                     contentType = { _, _ -> CONTENT_TYPE_LIST }
                                 ) { _, item ->
                                     when (item) {
@@ -605,8 +609,8 @@ fun LibraryScreen(
                                 }
 
                                 items(
-                                    items = allItems.distinctBy { it.hashCode() },
-                                    key = { it.hashCode() },
+                                    items = allItems,
+                                    key = { libraryKey(it) },
                                     contentType = { CONTENT_TYPE_LIST }
                                 ) { item ->
                                     when (item) {

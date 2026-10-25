@@ -13,6 +13,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.preferencesDataStore
 import com.dd3boh.outertune.constants.NewInstallSongCache
+import com.dd3boh.outertune.lyrics.LyricsTimingOnTime
 import com.dd3boh.outertune.extensions.toEnum
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -23,10 +24,12 @@ import kotlin.properties.ReadOnlyProperty
 /**
  * The file itself, reached only through [dataStore], so that no write goes round the copy in memory.
  * A new install's song cache is written in as the file is first read: see [NewInstallSongCache].
+ * At the same moment, once, the lyrics timing saved before the lyrics clock was put right is moved
+ * 100 ms later: see [LyricsTimingOnTime].
  */
 private val Context.settingsFile: DataStore<Preferences> by preferencesDataStore(
     name = "settings",
-    produceMigrations = { listOf(NewInstallSongCache) },
+    produceMigrations = { listOf(NewInstallSongCache, LyricsTimingOnTime) },
 )
 
 @Volatile

@@ -6,6 +6,10 @@
 
 package com.dd3boh.outertune.lyrics
 
+import androidx.datastore.core.DataMigration
+import androidx.datastore.preferences.core.Preferences
+import com.dd3boh.outertune.constants.LyricsTimingKey
+import com.dd3boh.outertune.constants.LyricsTimingOnTimeKey
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToLong
@@ -26,6 +30,13 @@ object LyricsTiming {
     /** One press of the fine buttons, and the slider's own step. */
     const val STEP_MS = 100L
 
+    /**
+     * How much later the lyrics came on screen than they were sung before the lyrics clock was put
+     * right (LyricsClock, 25 Oct 2026), and so how much earlier the moves saved then made them:
+     * what [caughtUp] gives back.
+     */
+    const val CLOCK_CAUGHT_UP_MS = 100L
+
     /** The song's shift in [raw], 0 for a song never moved or a null [songId]. */
     fun shiftOf(raw: String, songId: String?): Long {
         if (songId == null || raw.isEmpty()) return 0L
@@ -38,6 +49,18 @@ object LyricsTiming {
         val kept = snap(shiftMs)
         if (kept == 0L) all.remove(songId) else all[songId] = kept
         return all.entries.joinToString(",") { "${it.key}=${it.value}" }
+    }
+
+    /**
+     * [raw] with every song's move [CLOCK_CAUGHT_UP_MS] later, kept to the slider's range and
+     * steps, and a song that comes back to 0 forgotten: a move saved against the late lyrics, as
+     * it stands with them on time. See [LyricsTimingOnTime].
+     */
+    fun caughtUp(raw: String): String {
+        if (raw.isEmpty()) return raw
+        return parse(raw).entries
+            .mapNotNull { (song, ms) -> snap(ms + CLOCK_CAUGHT_UP_MS).takeIf { it != 0L }?.let { "$song=$it" } }
+            .joinToString(",")
     }
 
     /** [shiftMs] kept within ±[MOST_MS], on a whole number of [STEP_MS]. */
@@ -63,4 +86,28 @@ object LyricsTiming {
             val at = pair.lastIndexOf('=')
             if (at <= 0) null else pair.substring(at + 1).toLongOrNull()?.let { pair.substring(0, at) to it }
         }.toMap()
+}
+
+/**
+ * The lyrics timing saved before the lyrics clock was put right (25 Oct 2026), moved once by what
+ * the clock had lost: 100 ms later. Those moves were made against lines that came on screen late,
+ * most of them the 0.1 s earlier that made up for it, and with the lines on time they would now
+ * come early. A song at -0.1 s goes back to 0 and is forgotten, -0.3 s becomes -0.2 s, +0.2 s
+ * becomes +0.3 s.
+ *
+ * Run as the settings are first read, after NewInstallSongCache, which needs them empty. Once:
+ * [LyricsTimingOnTimeKey] says so, written by the first launch of a build with the clock on time
+ * whether anything was moved or not, so that a move made from then on is never moved again. A
+ * backup from before it brings its moves and no mark, and has them moved as it is restored.
+ */
+object LyricsTimingOnTime : DataMigration<Preferences> {
+    override suspend fun shouldMigrate(currentData: Preferences) = currentData[LyricsTimingOnTimeKey] != true
+
+    override suspend fun migrate(currentData: Preferences): Preferences =
+        currentData.toMutablePreferences().apply {
+            this[LyricsTimingKey]?.let { this[LyricsTimingKey] = LyricsTiming.caughtUp(it) }
+            this[LyricsTimingOnTimeKey] = true
+        }.toPreferences()
+
+    override suspend fun cleanUp() = Unit
 }
