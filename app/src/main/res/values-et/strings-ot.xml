@@ -192,7 +192,7 @@
     <string name="poll_send">Saada mu vastus</string>
     <string name="poll_not_now">Mitte praegu</string>
     <string name="poll_anonymous_notice">Sinu vastus on anonüümne. Saadetakse ainult see, milline küsimus see oli, mida valisid, ja rakenduse versioon. Ei mingit kontot, seadme andmeid ega midagi sinu teegi kohta.</string>
-    <string name="grp_polls">Küsimused</string>
+    <string name="grp_polls">Küsimused ja uudised</string>
     <string name="polls_enabled">Küsi minult aeg-ajalt midagi</string>
     <string name="polls_enabled_description">InterTune vaatab aeg-ajalt, kas on mõni küsimus, ja näitab seda avakuva ülaosas. Vaikimisi väljas. Vastused on anonüümsed: saadetakse ainult küsimus, sinu valik ja rakenduse versioon. Kuni see on väljas, ei laadita midagi alla.</string>
     <string name="polls_none">Praegu küsimusi pole</string>
