@@ -31,7 +31,7 @@
 [<img src="https://raw.githubusercontent.com/ItzSkyeYT/InterTune/visionos-fix/assets/badge_obtainium.png" alt="Get it on Obtainium" height="60">](https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22dev.skye.intertune%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FItzSkyeYT%2FInterTune%22%2C%22author%22%3A%22ItzSkyeYT%22%2C%22name%22%3A%22InterTune%22%2C%22additionalSettings%22%3A%22%7B%5C%22apkFilterRegEx%5C%22%3A%20%5C%22core-release%5C%22%7D%22%7D)<br>
 [<img src="https://raw.githubusercontent.com/ItzSkyeYT/InterTune/visionos-fix/assets/badge_fdroid.svg" alt="Get it on F-Droid" height="60">](https://f-droid.org/packages/dev.skye.intertune/)
 [<img src="https://raw.githubusercontent.com/RookieEnough/Orion-Store/refs/heads/main/assets/orion-badge.png" alt="Get it on Orion Store" height="60">](https://rookieenough.github.io/Orion-Data/redirect.html?id=intertune)
-[<img src="https://www.openapk.net/images/openapk-badge.png" alt="Get it on OpenAPK" height="86">](https://www.openapk.net/intertune/dev.skye.intertune/)
+[<img src="https://raw.githubusercontent.com/ItzSkyeYT/InterTune/visionos-fix/assets/badge_openapk.png" alt="Get it on OpenAPK" height="60">](https://www.openapk.net/intertune/dev.skye.intertune/)
 
 Android 7.0 or later. Once installed, InterTune finds new versions by itself if you let it.
 
