@@ -374,6 +374,7 @@ fun PlayerMenu(
         }
         // Mix: the change from this song into the next, shaped by hand, only while a Mix queue
         // plays, so after every item that is always there. Just after a change it opens that one.
+        // It opens on Simple, a sheet over the player, so the player stays open under it.
         if (Unreleased.AUTOMIX_EDITOR) {
             if (mixEntry != null) {
                 GridMenuItem(
@@ -381,7 +382,6 @@ fun PlayerMenu(
                     title = if (mixEntry.last) R.string.mix_edit_last_transition else R.string.mix_edit_transition,
                 ) {
                     navController.openMixEditor(mixEntry.pair)
-                    playerBottomSheetState.collapseSoft()
                     onDismiss()
                 }
             }

@@ -315,4 +315,52 @@
         <item quantity="many">Oublier %d enchaînements enregistrés ? Chaque paire revient en Auto.</item>
         <item quantity="other">Oublier %d enchaînements enregistrés ? Chaque paire revient en Auto.</item>
     </plurals>
+
+    <!-- Simple : la feuille que chaque accès ouvre, un réglage par ligne -->
+    <string name="mix_simple_level_simple">Simple</string>
+    <string name="mix_simple_level_advanced">Avancé</string>
+    <string name="mix_simple_hear">Écouter la transition</string>
+    <string name="mix_simple_starts">Commence à %1$s dans %2$s</string>
+    <string name="mix_simple_starts_lost">Commence à %1$s dans %2$s · ses %3$s de fin ne s\'entendent pas</string>
+    <string name="mix_simple_window">La transition, à %1$s dans %2$s. Faites-la glisser pour la déplacer d\'une mesure.</string>
+    <string name="mix_simple_key">Tonalité %1$s</string>
+    <string name="mix_simple_auto_picked">Auto a choisi %1$s. %2$s</string>
+    <string name="mix_simple_line_custom">Votre propre mélange des réglages ci-dessous.</string>
+    <string name="mix_simple_set_in_advanced">Réglé dans Avancé</string>
+    <string name="mix_simple_set_by_auto">Réglé par Auto</string>
+    <string name="mix_simple_advanced_note">Modifié dans Avancé. Un choix ici le remplace.</string>
+    <string name="mix_simple_auto_note">Un réglage propre à Auto. Un choix ici le remplace.</string>
+    <string name="mix_simple_replaced">Réglages d\'Avancé remplacés.</string>
+    <string name="mix_simple_length_no_32">Plus long que ce qui peut servir de %1$s</string>
+    <string name="mix_simple_open">Ouvert</string>
+    <string name="mix_simple_closed">Fermé</string>
+    <string name="mix_simple_volume">Volume</string>
+    <string name="mix_simple_eq">Égaliseur</string>
+    <string name="mix_simple_filter">Filtre</string>
+    <string name="mix_simple_effects">Effets</string>
+    <string name="mix_simple_parts">Pistes</string>
+    <string name="mix_simple_none">Aucun</string>
+    <string name="mix_simple_overlap">Chevauchement</string>
+    <string name="mix_simple_overlap_line">Les deux jouent en entier, puis %1$s s\'arrête</string>
+    <string name="mix_simple_crossfade">Fondu enchaîné</string>
+    <string name="mix_simple_crossfade_line">L\'un baisse pendant que l\'autre monte</string>
+    <string name="mix_simple_cut">Coupe</string>
+    <string name="mix_simple_cut_line">De l\'un à l\'autre d\'un coup, sur une mesure</string>
+    <string name="mix_simple_bass_swap">Échange des basses</string>
+    <string name="mix_simple_bass_swap_line">Les basses changent de place sur un temps, jamais deux à la fois</string>
+    <string name="mix_simple_lows_first">Graves d\'abord</string>
+    <string name="mix_simple_lows_first_line">La basse de %1$s part avant le reste</string>
+    <string name="mix_simple_low_pass_in">Passe-bas en entrée</string>
+    <string name="mix_simple_low_pass_in_line">%1$s s\'ouvre peu à peu, d\'abord étouffé</string>
+    <string name="mix_simple_high_pass_out">Passe-haut en sortie</string>
+    <string name="mix_simple_high_pass_out_line">%1$s s\'amincit en partant</string>
+    <string name="mix_simple_both">Les deux</string>
+    <string name="mix_simple_both_line">%1$s s\'ouvre pendant que %2$s s\'amincit</string>
+    <string name="mix_simple_echo_out">Écho en sortie</string>
+    <string name="mix_simple_echo_out_line">La dernière phrase de %1$s part en écho</string>
+    <string name="mix_simple_parts_off">Non</string>
+    <string name="mix_simple_parts_off_line">Morceaux entiers</string>
+    <string name="mix_simple_vocals_over_line">%1$s continue de chanter sur le rythme de %2$s</string>
+    <string name="mix_simple_beat_under_line">La batterie de %1$s porte le début de %2$s</string>
+    <string name="mix_simple_drum_swap_line">Les batteries changent de place sur une mesure</string>
 </resources>

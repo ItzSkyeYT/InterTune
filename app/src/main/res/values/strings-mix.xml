@@ -330,4 +330,52 @@
         <item quantity="one">Forget %d saved transition? It goes back to Auto.</item>
         <item quantity="other">Forget %d saved transitions? Each pair goes back to Auto.</item>
     </plurals>
+
+    <!-- Simple: the sheet every way in opens, a row per choice (DESIGN.md, "Two levels") -->
+    <string name="mix_simple_level_simple">Simple</string>
+    <string name="mix_simple_level_advanced">Advanced</string>
+    <string name="mix_simple_hear">Hear the change</string>
+    <string name="mix_simple_starts">Starts at %1$s in %2$s</string>
+    <string name="mix_simple_starts_lost">Starts at %1$s in %2$s · its last %3$s not heard</string>
+    <string name="mix_simple_window">The change, at %1$s in %2$s. Drag it to move it a bar at a time.</string>
+    <string name="mix_simple_key">Key %1$s</string>
+    <string name="mix_simple_auto_picked">Auto picked %1$s. %2$s</string>
+    <string name="mix_simple_line_custom">Your own mix of the rows below.</string>
+    <string name="mix_simple_set_in_advanced">Set in Advanced</string>
+    <string name="mix_simple_set_by_auto">Set by Auto</string>
+    <string name="mix_simple_advanced_note">Changed in Advanced. A choice here replaces it.</string>
+    <string name="mix_simple_auto_note">Auto\'s own move. A choice here replaces it.</string>
+    <string name="mix_simple_replaced">Moves from Advanced replaced.</string>
+    <string name="mix_simple_length_no_32">Longer than what can be used of %1$s</string>
+    <string name="mix_simple_open">Open</string>
+    <string name="mix_simple_closed">Closed</string>
+    <string name="mix_simple_volume">Volume</string>
+    <string name="mix_simple_eq">EQ</string>
+    <string name="mix_simple_filter">Filter</string>
+    <string name="mix_simple_effects">Effects</string>
+    <string name="mix_simple_parts">Parts</string>
+    <string name="mix_simple_none">None</string>
+    <string name="mix_simple_overlap">Overlap</string>
+    <string name="mix_simple_overlap_line">Both play in full, then %1$s drops out</string>
+    <string name="mix_simple_crossfade">Crossfade</string>
+    <string name="mix_simple_crossfade_line">One fades out as the other fades in</string>
+    <string name="mix_simple_cut">Cut</string>
+    <string name="mix_simple_cut_line">Straight from one to the other on a bar line</string>
+    <string name="mix_simple_bass_swap">Bass swap</string>
+    <string name="mix_simple_bass_swap_line">The basses trade places on one beat, never two at once</string>
+    <string name="mix_simple_lows_first">Lows out first</string>
+    <string name="mix_simple_lows_first_line">%1$s bass leaves before the rest</string>
+    <string name="mix_simple_low_pass_in">Low pass filter in</string>
+    <string name="mix_simple_low_pass_in_line">%1$s opens up from muffled</string>
+    <string name="mix_simple_high_pass_out">High pass filter out</string>
+    <string name="mix_simple_high_pass_out_line">%1$s thins out as it leaves</string>
+    <string name="mix_simple_both">Both</string>
+    <string name="mix_simple_both_line">%1$s opens up while %2$s thins out</string>
+    <string name="mix_simple_echo_out">Echo out</string>
+    <string name="mix_simple_echo_out_line">%1$s last line echoes away</string>
+    <string name="mix_simple_parts_off">Off</string>
+    <string name="mix_simple_parts_off_line">Whole songs</string>
+    <string name="mix_simple_vocals_over_line">%1$s keeps singing over %2$s beat</string>
+    <string name="mix_simple_beat_under_line">%1$s drums carry %2$s opening</string>
+    <string name="mix_simple_drum_swap_line">The drums trade places on one bar line</string>
 </resources>

@@ -17,8 +17,14 @@ import com.dd3boh.outertune.mix.edit.Lane
 import com.dd3boh.outertune.mix.edit.LaneId
 import com.dd3boh.outertune.mix.edit.LaneSet
 import com.dd3boh.outertune.mix.edit.Preset
+import com.dd3boh.outertune.mix.edit.EffectsRow
+import com.dd3boh.outertune.mix.edit.EqRow
+import com.dd3boh.outertune.mix.edit.FilterRow
+import com.dd3boh.outertune.mix.edit.PartsRow
 import com.dd3boh.outertune.mix.edit.Side
+import com.dd3boh.outertune.mix.edit.SimpleRows
 import com.dd3boh.outertune.mix.edit.TransitionSpec
+import com.dd3boh.outertune.mix.edit.VolumeRow
 import com.dd3boh.outertune.mix.edit.toJson
 import com.dd3boh.outertune.mix.edit.transitionSpecOf
 import org.junit.Assert.assertEquals
@@ -464,5 +470,88 @@ class MixEditorTest {
         assertTrue(e.twoBasslines() <= 0.25)
         e.apply(e.handleMoved(e.spec, bLows, 1.0))
         assertTrue(e.twoBasslines() >= 2.0)
+    }
+
+    // ---- the Simple level ----
+
+    @Test
+    fun `Simple opens on Auto's rows, and a row set lights Custom, one undo step`() {
+        val e = editor()
+        // Auto's fallback is Fade's rule at 8 bars: its rows are Fade's.
+        assertEquals(SimpleRows.of(Preset.FADE, LaneSet.BANDS), e.rows().rows)
+        assertEquals(RowEdit.DONE, e.setRows { it.withFilter(FilterRow.LOW_PASS_IN) })
+        assertEquals(Preset.CUSTOM, e.lit())
+        assertEquals(FilterRow.LOW_PASS_IN, e.rows().filter)
+        assertTrue(e.spec.isValid)
+        assertTrue(e.dirty)
+        assertTrue(e.undo())
+        assertEquals(Preset.AUTO, e.lit())
+        assertFalse(e.dirty)
+    }
+
+    @Test
+    fun `rows that are a preset's own light that preset, and the same choice again does nothing`() {
+        val e = editor()
+        e.tapPreset(Preset.FADE)
+        assertEquals(RowEdit.DONE, e.setRows { it.withVolume(VolumeRow.CROSSFADE) })
+        assertEquals(Preset.BLEND, e.lit())
+        assertEquals(RowEdit.DONE, e.setRows { it.withFilter(FilterRow.BOTH).withVolume(VolumeRow.OVERLAP) })
+        assertEquals(Preset.RISE, e.lit())
+        assertEquals(RowEdit.NOTHING, e.setRows { it.withFilter(FilterRow.BOTH) })
+        // Every bands preset tapped reads as its own rows, at every length.
+        for (bars in TransitionSpec.LENGTHS_BARS) {
+            assertTrue(e.setLength(bars) || e.spec.bars == bars)
+            for (p in listOf(Preset.FADE, Preset.RISE, Preset.BLEND, Preset.ECHO_OUT, Preset.CUT, Preset.RIFF_RISE)) {
+                e.tapPreset(p)
+                assertEquals("$p at $bars", SimpleRows.of(p, LaneSet.BANDS), e.rows().rows)
+            }
+        }
+    }
+
+    @Test
+    fun `a handle moved in Advanced reads Set in Advanced there, and a row set in Simple replaces it, with undo`() {
+        val e = editor()
+        e.tapPreset(Preset.BLEND)
+        e.apply(e.handleMoved(e.spec, aMids, 2.0))
+        val custom = e.spec
+        val read = e.rows()
+        assertNull(read.volume)
+        assertEquals(EqRow.BASS_SWAP, read.eq)
+        assertEquals(EffectsRow.NONE, read.effects)
+        // Simple and back is only a look: the spec is the editor's, untouched.
+        assertEquals(custom, e.spec)
+        assertEquals(RowEdit.REPLACED_ADVANCED, e.setRows { it.withEffects(EffectsRow.ECHO_OUT) })
+        // The volume the page could not show came from Blend, the preset the change was made from.
+        assertEquals(SimpleRows(VolumeRow.CROSSFADE, EqRow.BASS_SWAP, FilterRow.NONE, EffectsRow.ECHO_OUT), e.rows().rows)
+        assertTrue(e.undo())
+        assertEquals(custom.moves, e.spec.moves)
+    }
+
+    @Test
+    fun `rows set in Simple keep their rows at a new length, as a preset does`() {
+        val e = editor()
+        e.setRows { it.withFilter(FilterRow.LOW_PASS_IN).withEq(EqRow.LOWS_OUT_FIRST) }
+        val rows = e.rows().rows
+        assertNotNull(rows)
+        assertTrue(e.setLength(16))
+        assertEquals(rows, e.rows().rows)
+        assertEquals(Preset.CUSTOM, e.lit())
+        // A change made by hand in Advanced still keeps its moves at the same share.
+        e.apply(e.handleMoved(e.spec, aMids, 6.0))
+        assertNull(e.rows().rows)
+        assertTrue(e.setLength(8))
+        assertEquals(3.0, e.spec.moves.getValue(aMids).u, 1e-9)
+    }
+
+    @Test
+    fun `a part move needs the parts, and a row set over a plain change mixes it again`() {
+        val e = editor()
+        assertEquals(RowEdit.NEEDS_PARTS, e.setRows { it.withParts(PartsRow.VOCALS_OVER, e.spec.lanes) })
+        assertFalse(e.canUndo)
+        e.plainChange()
+        assertTrue(e.spec.plain)
+        assertEquals(RowEdit.DONE, e.setRows { it.withEq(EqRow.LOWS_OUT_FIRST) })
+        assertFalse(e.spec.plain)
+        assertEquals(EqRow.LOWS_OUT_FIRST, e.rows().eq)
     }
 }

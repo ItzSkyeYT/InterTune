@@ -359,10 +359,10 @@ class CanvasLayout(
 }
 
 /** A cutoff's place on a log scale from 20 Hz to 20 kHz, 0 to 1. */
-private fun logPlace(hz: Double): Float = (ln(hz / 20) / ln(1000.0)).toFloat().coerceIn(0f, 1f)
+internal fun logPlace(hz: Double): Float = (ln(hz / 20) / ln(1000.0)).toFloat().coerceIn(0f, 1f)
 
 /** How much of a band a filter lets through: a 2nd-order slope from the band's middle. */
-private fun passed(lane: Lane, state: LaneState): Float {
+internal fun passed(lane: Lane, state: LaneState): Float {
     val f = when (lane) {
         Lane.LOWS, Lane.BASS -> 60.0
         Lane.HIGHS -> 10_000.0

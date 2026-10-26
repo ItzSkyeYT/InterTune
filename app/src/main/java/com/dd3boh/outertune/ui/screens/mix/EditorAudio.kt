@@ -11,6 +11,8 @@ import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSource
 import com.dd3boh.outertune.mix.FrontEnd
+import com.dd3boh.outertune.mix.KeyEstimate
+import com.dd3boh.outertune.mix.Keys
 import com.dd3boh.outertune.mix.RegionAnalysis
 import com.dd3boh.outertune.mix.RegionKind
 import com.dd3boh.outertune.mix.Spectrum
@@ -37,6 +39,8 @@ class LoadedSong(
     val bands: BandEnvelopes,
     val analysis: RegionAnalysis?,
     val grid: SongGrid?,
+    /** The key of the read part of the song, for its key pill; shown only where it is sure. */
+    val key: KeyEstimate? = null,
 )
 
 /**
@@ -153,6 +157,8 @@ class PairLoader(
         val aCopy = copyOf(aWindow)
         val bCopy = copyOf(bWindow)
         var autoWhy = "no analysis"
+        var aKey: KeyEstimate? = null
+        var bKey: KeyEstimate? = null
         val auto = if (aAnalysis != null && bAnalysis != null) {
             runCatching {
                 val aSong = AutoOnBands.Song(a.id, aCopy, aAnalysis, aWindow.info.startMs, aWindow.info.durationMs, a.albumId, a.fix)
@@ -161,13 +167,18 @@ class PairLoader(
                 autoWhy = "${chosen.pick.describe()}, ${chosen.proofs} proofs in %.0f ms".format(chosen.millis)
                 kept?.invoke(a.id, aSong.end)
                 kept?.invoke(b.id, bSong.end)
+                aKey = aSong.end.key
+                bKey = bSong.end.key
                 autoSpecOf(chosen.spec, aFacts, bFacts, facts)
             }.onFailure { Log.w(TAG, "No Auto for the pair", it) }.getOrNull()
         } else null
         Log.i(TAG, "Auto: $autoWhy")
+        // Auto found the keys on its way; without it, they are read here, as Auto reads them.
+        if (aKey == null) aKey = aAnalysis?.let { runCatching { Keys.of(it) }.getOrNull() }
+        if (bKey == null) bKey = bAnalysis?.let { runCatching { Keys.of(it) }.getOrNull() }
         return LoadedPair(
-            LoadedSong(a.id, a.title, aWindow, aBands, aAnalysis, aGrid),
-            LoadedSong(b.id, b.title, bWindow, bBands, bAnalysis, bGrid),
+            LoadedSong(a.id, a.title, aWindow, aBands, aAnalysis, aGrid, aKey),
+            LoadedSong(b.id, b.title, bWindow, bBands, bAnalysis, bGrid, bKey),
             facts, auto ?: AutoSpec.fallback(facts), aCopy, bCopy, autoWhy,
         )
     }

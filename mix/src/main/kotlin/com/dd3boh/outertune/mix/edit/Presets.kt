@@ -179,8 +179,11 @@ object Presets {
 
     private const val EPS = 1e-9
 
-    /** Writes moves for whichever of the named lanes are in [lanes]: a band and its parts are named together. */
-    private class Writer(private val lanes: LaneSet, private val beat: Double) {
+    /**
+     * Writes moves for whichever of the named lanes are in [lanes]: a band and its parts are named
+     * together. The first move written for a lane stays. SimpleRows writes with it too.
+     */
+    internal class Writer(private val lanes: LaneSet, private val beat: Double) {
         val moves = LinkedHashMap<LaneId, Move>()
 
         fun out(vararg named: Lane, u: Double, len: Double, how: How) = put(Side.A, named, Move(u, len, how))

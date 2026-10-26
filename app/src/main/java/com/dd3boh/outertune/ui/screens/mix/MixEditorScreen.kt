@@ -65,6 +65,7 @@ import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -120,6 +121,7 @@ import com.dd3boh.outertune.mix.edit.Preset
 import com.dd3boh.outertune.mix.edit.Side
 import com.dd3boh.outertune.mix.edit.TransitionSpec
 import com.dd3boh.outertune.ui.component.FloatingTopBar
+import com.dd3boh.outertune.ui.component.LocalPlayerSheet
 import com.dd3boh.outertune.ui.component.ScreenBackHandler
 import com.dd3boh.outertune.ui.component.TopBarActions
 import com.dd3boh.outertune.ui.utils.LocalLandscape
@@ -132,6 +134,9 @@ import kotlinx.coroutines.launch
  * canvas, the presets, the length, Beat matching, Fix the beat, undo, and a preview that plays
  * what is on the page. Opened for one ordered pair of songs; saving keeps the change for that pair
  * wherever the two meet.
+ *
+ * It opens on Simple ([MixSimpleSheet]), a sheet over the player with a row per choice; this page
+ * is Advanced, under it. Both edit the one spec of the view model, so either way nothing is lost.
  */
 @Composable
 fun MixEditorScreen(navController: NavController) {
@@ -142,6 +147,8 @@ fun MixEditorScreen(navController: NavController) {
     val haptic = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
+    val simple by vm.simple.collectAsState()
+    val playerSheet = LocalPlayerSheet.current
 
     LaunchedEffect(playerConnection) {
         playerConnection?.service?.songSource()?.let(vm::start)
@@ -224,12 +231,13 @@ fun MixEditorScreen(navController: NavController) {
         lifecycle.addObserver(observer)
         onDispose { lifecycle.removeObserver(observer) }
     }
-    // The preview starts on opening, from 2 bars before the change.
+    // The preview starts on opening Advanced, from 2 bars before the change. Simple is a sheet
+    // over what is playing: it waits for its play button.
     var started by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(phase) {
         if (phase is MixEditorViewModel.Phase.Ready && !started) {
             started = true
-            vm.editor?.let { play(it.fitStart()) }
+            if (!vm.simple.value) vm.editor?.let { play(it.fitStart()) }
         }
     }
     // Songs to Bands: the shape separates into its lanes over 300 ms, and folds back.
@@ -251,6 +259,19 @@ fun MixEditorScreen(navController: NavController) {
 
     fun close() {
         if (ui?.dirty == true) discardOpen = true else navController.navigateUp()
+    }
+    // A preset chip, on either level: what it replaced is said where the level shows its messages.
+    fun presetTapped(p: Preset, host: SnackbarHostState) {
+        when (vm.edit { tapPreset(p) }) {
+            PresetTap.REPLACED_CUSTOM -> scope.launch {
+                val r = host.showSnackbar(resources.getString(R.string.mix_edit_replaced, wordsNow.presetName(p)), resources.getString(R.string.mix_edit_undo), duration = SnackbarDuration.Short)
+                if (r == SnackbarResult.ActionPerformed) vm.edit { undo() }
+            }
+            PresetTap.NEEDS_PARTS -> said = resources.getString(R.string.mix_edit_needs_parts)
+            else -> {}
+        }
+        canvas.flash = 1f
+        scope.launch { Animatable(1f).animateTo(0f, tween(200)) { canvas.flash = value } }
     }
     // Back leaves Adjust, then asks before changes are lost; with the player open over the page it is the player's.
     ScreenBackHandler(enabled = canvas.adjust != null || ui?.dirty == true) {
@@ -300,20 +321,26 @@ fun MixEditorScreen(navController: NavController) {
         }
     }
 
+    // A guard that will refuse at playback, said on both levels.
+    val guard = when {
+        vm.fromId == vm.toId -> stringResource(R.string.mix_edit_guard_same_song)
+        skipSilence -> stringResource(R.string.mix_edit_guard_skip_silence)
+        vm.pair?.let { it.a.pcm.info.sampleRate != it.b.pcm.info.sampleRate || it.a.pcm.info.channels != it.b.pcm.info.channels } == true ->
+            stringResource(R.string.mix_edit_guard_formats)
+        else -> null
+    }
+
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val tall = maxHeight >= 700.dp
         val landscape = LocalLandscape.current.active
         val insets = LocalPlayerAwareWindowInsets.current
-        val guard = when {
-            vm.fromId == vm.toId -> stringResource(R.string.mix_edit_guard_same_song)
-            skipSilence -> stringResource(R.string.mix_edit_guard_skip_silence)
-            vm.pair?.let { it.a.pcm.info.sampleRate != it.b.pcm.info.sampleRate || it.a.pcm.info.channels != it.b.pcm.info.channels } == true ->
-                stringResource(R.string.mix_edit_guard_formats)
-            else -> null
-        }
 
         @Composable
         fun Upper(small: Boolean) {
+            // Simple | Advanced, upright under the top bar; on its side over the right half.
+            if (!landscape) {
+                LevelSwitch(simple = false, onSimple = { vm.showSimple(true) }, onAdvanced = {}, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp))
+            }
             if (guard != null) {
                 Text(
                     guard,
@@ -349,18 +376,7 @@ fun MixEditorScreen(navController: NavController) {
                 return
             }
             // Adjust holds its own undo step until Done: everything below waits for it.
-            Lowers(vm, e, s, ui!!, words, phase is MixEditorViewModel.Phase.Ready && canvas.adjust == null, landscape, onPreset = { p ->
-                when (vm.edit { tapPreset(p) }) {
-                    PresetTap.REPLACED_CUSTOM -> scope.launch {
-                        val r = snackbar.showSnackbar(resources.getString(R.string.mix_edit_replaced, wordsNow.presetName(p)), resources.getString(R.string.mix_edit_undo), duration = SnackbarDuration.Short)
-                        if (r == SnackbarResult.ActionPerformed) vm.edit { undo() }
-                    }
-                    PresetTap.NEEDS_PARTS -> said = resources.getString(R.string.mix_edit_needs_parts)
-                    else -> {}
-                }
-                canvas.flash = 1f
-                scope.launch { Animatable(1f).animateTo(0f, tween(200)) { canvas.flash = value } }
-            })
+            Lowers(vm, e, s, ui!!, words, phase is MixEditorViewModel.Phase.Ready && canvas.adjust == null, landscape, onPreset = { p -> presetTapped(p, snackbar) })
         }
 
         if (landscape) {
@@ -373,6 +389,7 @@ fun MixEditorScreen(navController: NavController) {
                 Column(Modifier.weight(1f).fillMaxHeight()) {
                     Spacer(Modifier.windowInsetsTopHeight(androidx.compose.foundation.layout.WindowInsets.statusBars))
                     SideBar(ui, ::close, vm, onSave = { save(vm, context, haptic, navController) })
+                    LevelSwitch(simple = false, onSimple = { vm.showSimple(true) }, onAdvanced = {}, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp))
                     Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
                         Lower()
                         Spacer(Modifier.height(96.dp))
@@ -450,6 +467,29 @@ fun MixEditorScreen(navController: NavController) {
                 },
             )
         }
+    }
+
+    // Simple: the sheet over the player (or over this page, once Advanced has been opened).
+    if (simple) {
+        MixSimpleSheet(
+            vm = vm,
+            words = words,
+            colors = colors,
+            guard = guard,
+            playing = playing,
+            playU = { playU },
+            said = said,
+            onSay = { said = it },
+            onPlay = { if (playing) stop() else vm.editor?.let { e -> play(if (playU >= e.fitEnd() - 1e-6 || playU < e.fitStart()) e.fitStart() else playU) } },
+            onPreset = ::presetTapped,
+            onAdvanced = {
+                vm.showSimple(false)
+                // Advanced is this page: the player opened over it gives way.
+                playerSheet?.collapseSoft()
+            },
+            onClose = ::close,
+            onSave = { save(vm, context, haptic, navController) },
+        )
     }
 
     // Sheets and the dialog.
@@ -839,7 +879,7 @@ private fun LoadingCanvas(colors: MixColors) {
 
 /** Where the canvas would be, when a song could not be read: why, and a way on. */
 @Composable
-private fun FailedState(p: MixEditorViewModel.Phase.Failed, aTitle: String, bTitle: String, song: Song?, vm: MixEditorViewModel) {
+internal fun FailedState(p: MixEditorViewModel.Phase.Failed, aTitle: String, bTitle: String, song: Song?, vm: MixEditorViewModel) {
     val downloads = LocalDownloadUtil.current
     Column(Modifier.fillMaxWidth().heightIn(min = 236.dp).padding(horizontal = 24.dp, vertical = 24.dp), verticalArrangement = Arrangement.Center) {
         val text = when {

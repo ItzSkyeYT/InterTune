@@ -80,6 +80,17 @@ class MixEditorViewModel @Inject constructor(
     val phase = MutableStateFlow<Phase>(Phase.Loading(PairLoader.Stage.READING_A))
     val ui = MutableStateFlow<Ui?>(null)
 
+    /**
+     * Which level of the editor is shown: Simple, a sheet over the player with a row per choice,
+     * which every way in opens, or Advanced, the full page. Both edit the one spec here, so going
+     * from one to the other loses nothing.
+     */
+    val simple: StateFlow<Boolean> = saved.getStateFlow(KEY_SIMPLE, true)
+
+    fun showSimple(on: Boolean) {
+        saved[KEY_SIMPLE] = on
+    }
+
     var editor: MixEditor? = null
         private set
     var pair: LoadedPair? = null
@@ -223,6 +234,7 @@ class MixEditorViewModel @Inject constructor(
         const val TAG = "MixEditor"
         const val KEY_SPEC = "mix_spec"
         const val KEY_UNDO = "mix_undo"
+        const val KEY_SIMPLE = "mix_simple"
         const val ROW_WAIT_MS = 2_000L
     }
 }

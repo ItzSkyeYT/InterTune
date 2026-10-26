@@ -12,6 +12,9 @@ import com.dd3boh.outertune.mix.edit.LaneSet
 import com.dd3boh.outertune.mix.edit.Move
 import com.dd3boh.outertune.mix.edit.Preset
 import com.dd3boh.outertune.mix.edit.Presets
+import com.dd3boh.outertune.mix.edit.SimpleRead
+import com.dd3boh.outertune.mix.edit.SimpleRows
+import com.dd3boh.outertune.mix.edit.TransitionSpec
 import kotlin.math.abs
 
 /**
@@ -34,6 +37,15 @@ object EditorPresets {
         if (preset.needsParts && lanes != LaneSet.PARTS) return null
         return Presets.moves(preset, lanes, length, beat, Presets.Facts(bDrumsBar = kickU))
     }
+
+    /** What the rules here know of the pair: Beat under hands A's drums over on bar 1, as [moves] has it. */
+    private val FACTS = Presets.Facts(bDrumsBar = 0.0)
+
+    /** [spec] read as the Simple level's rows, by the same rules as the chips. */
+    fun rows(spec: TransitionSpec): SimpleRead = SimpleRows.read(spec, FACTS)
+
+    /** The moves [rows] write on [lanes] at [length] bars; null for a part move on bands. */
+    fun moves(rows: SimpleRows, length: Double, lanes: LaneSet, beat: Double): Map<LaneId, Move>? = rows.moves(lanes, length, beat, FACTS)
 
     /**
      * Whether two sets of moves say the same thing: the same how on every lane, the same place

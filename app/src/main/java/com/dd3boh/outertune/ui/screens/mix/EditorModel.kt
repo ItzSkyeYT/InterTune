@@ -17,6 +17,8 @@ import com.dd3boh.outertune.mix.edit.LaneSet
 import com.dd3boh.outertune.mix.edit.Move
 import com.dd3boh.outertune.mix.edit.Preset
 import com.dd3boh.outertune.mix.edit.Side
+import com.dd3boh.outertune.mix.edit.SimpleRead
+import com.dd3boh.outertune.mix.edit.SimpleRows
 import com.dd3boh.outertune.mix.edit.SongPair
 import com.dd3boh.outertune.mix.edit.TransitionSpec
 import com.dd3boh.outertune.mix.edit.aGoneAt
@@ -70,6 +72,18 @@ enum class PresetTap {
     REPLACED_CUSTOM,
 
     /** A parts preset on a phone that has only bands. */
+    NEEDS_PARTS,
+}
+
+/** What happened to a choice made in a row of the Simple level. */
+enum class RowEdit {
+    DONE,
+    NOTHING,
+
+    /** Moves made in Advanced that the rows could not show were replaced: "Moves from Advanced replaced." with Undo. */
+    REPLACED_ADVANCED,
+
+    /** A part move on a phone that has only bands. */
     NEEDS_PARTS,
 }
 
@@ -282,6 +296,37 @@ class MixEditor(
 
     fun plainChange(): Boolean = if (spec.plain) false else apply(spec.copy(plain = true))
 
+    // ---- the Simple level ----
+
+    /** The Simple level's rows for [s]: a choice in each, or null where the moves say more than that row can. */
+    fun rows(s: TransitionSpec = spec): SimpleRead = EditorPresets.rows(s)
+
+    /**
+     * The rows the Simple level writes from: [s] read as rows, and a row it cannot show taken from
+     * the preset the change was made from (Auto's rule, or Fade, where it was made from neither).
+     */
+    fun rowsFilled(s: TransitionSpec = spec): SimpleRows {
+        val fallback = SimpleRows.of(s.from, s.lanes) ?: SimpleRows.of(autoRule, s.lanes) ?: SimpleRows.of(Preset.FADE, s.lanes)!!
+        return rows(s).filled(fallback)
+    }
+
+    /**
+     * One row of the Simple level set: [change] makes the new rows from the ones on the page (null
+     * for a part move without parts), and the change is written again from them, one undo step.
+     * Played mixed again if it was plain. A row the page could not show takes the choice the change
+     * was made from, so moves made in Advanced that the rows cannot show are replaced.
+     */
+    fun setRows(change: (SimpleRows) -> SimpleRows?): RowEdit {
+        val read = rows()
+        val next = change(rowsFilled()) ?: return RowEdit.NEEDS_PARTS
+        if (read.rows == next && !spec.plain) return RowEdit.NOTHING
+        val moves = EditorPresets.moves(next, spec.lengthBars, spec.lanes, spec.beat) ?: return RowEdit.NEEDS_PARTS
+        val current = lit()
+        val from = if (current != null && current != Preset.AUTO && current != Preset.CUSTOM) current else spec.from
+        apply(spec.copy(moves = moves, curves = emptyMap(), muted = emptySet(), plain = false, from = from))
+        return if (read.rows == null) RowEdit.REPLACED_ADVANCED else RowEdit.DONE
+    }
+
     // ---- length ----
 
     /** The lengths offered, in bars, then in seconds when the beats are not matched. */
@@ -323,10 +368,13 @@ class MixEditor(
         if (grid != null && bars > 0) aAt = grid.beatMs(grid.downbeatNear(aAt))
         next = next.copy(a = next.a.copy(atMs = max(0.0, aAt)))
         val current = lit(s)
-        next = if (current != null && current != Preset.CUSTOM && !s.plain) {
-            written(next, current, newL).copy(from = current)
-        } else {
-            scaled(next, newL / oldL)
+        // The Simple level's rows are rules too: a change they write exactly is written again by them.
+        val rows = if (current == Preset.CUSTOM && !s.plain) rows(s).rows else null
+        val byRows = rows?.let { EditorPresets.moves(it, newL, next.lanes, next.beat) }
+        next = when {
+            current != null && current != Preset.CUSTOM && !s.plain -> written(next, current, newL).copy(from = current)
+            byRows != null -> next.copy(moves = byRows)
+            else -> scaled(next, newL / oldL)
         }
         return next
     }
