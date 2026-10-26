@@ -46,7 +46,10 @@ class RecognitionShortcutTest {
         assertTrue("android:permission=\"android.permission.BIND_QUICK_SETTINGS_TILE\"" in tile)
         assertTrue("android.service.quicksettings.action.QS_TILE" in tile)
         assertTrue("android.service.quicksettings.TOGGLEABLE_TILE" in tile)
-        assertTrue("android:label=\"@string/recognise\"" in tile)
+        // "Song around you" since the tile that asks took "What's playing?" (PhoneAudioTest).
+        assertTrue("android:label=\"@string/recognition_room_tile\"" in tile)
+        val asks = declaration(".recognition.RecognitionChoiceTileService")
+        assertTrue("android:permission=\"android.permission.BIND_QUICK_SETTINGS_TILE\"" in asks)
     }
 
     @Test

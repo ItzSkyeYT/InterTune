@@ -603,6 +603,9 @@ val RecognisePauseOnSpeakerKey = booleanPreferencesKey("recognisePauseOnSpeaker"
 /** Seconds of audio taken per identification attempt. MicrophoneListener.DEFAULT_SECONDS. */
 val RecogniseListenSecondsKey = intPreferencesKey("recogniseListenSeconds")
 
+/** Song on this phone's tile has said once why Android asks to record the screen (PhoneListenActivity). */
+val PhoneAudioExplainedKey = booleanPreferencesKey("phoneAudioExplained")
+
 /** Add confident matches to the playlist without being asked. Continuous runs only. */
 val RecogniseAutoAddKey = booleanPreferencesKey("recogniseAutoAdd")
 
