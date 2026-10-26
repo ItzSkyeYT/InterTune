@@ -148,6 +148,7 @@ fun ColumnScope.PlayerButtonsFrag() {
     val (pinsRaw, onPinsRawChange) = rememberPreference(PlayerPinsKey, defaultValue = "")
     val pins = remember(pinsRaw) { PlayerPins.read(pinsRaw) }
     PreferenceEntry(
+        modifier = Modifier.settingRow(R.string.player_pins),
         title = { Text(stringResource(R.string.player_pins)) },
         description = stringResource(R.string.player_pins_description),
         icon = { Icon(Icons.Rounded.PushPin, null) },
