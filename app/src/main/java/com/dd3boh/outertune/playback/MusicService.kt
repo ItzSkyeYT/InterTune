@@ -201,6 +201,7 @@ import com.dd3boh.outertune.playback.ListenReporting.AddressFrom
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.playback.queues.Queue
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
+import com.dd3boh.outertune.utils.PhoneState
 import com.dd3boh.outertune.utils.SessionBitmapLoader
 import com.dd3boh.outertune.utils.ErrorText
 import com.dd3boh.outertune.utils.LoudnessRepair
@@ -1910,7 +1911,10 @@ class MusicService : MediaLibraryService(),
                 streamAddresses.forgetAll()
                 runCatching { playerStreamClient.connectionPool.evictAll() }
                 runCatching { SabrOver.forgetConnections() }
+                // For Report a problem: the connection and the battery as they are now. See PhoneState.
+                runCatching { Log.i(TAG, "PHONE: ${PhoneState.read(this@MusicService).describe()}") }
             }
+            runCatching { Log.i(TAG, "PHONE: ${PhoneState.read(this@MusicService).describe()}") }
 
             offloadScope.launch {
                 connectivityObserver.networkStatus.collect { isConnected ->
