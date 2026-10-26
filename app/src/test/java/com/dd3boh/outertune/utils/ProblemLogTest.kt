@@ -228,4 +228,23 @@ class ProblemLogTest {
         assertTrue("ProblemLog.fittedForLink(text.orEmpty(), room, FORM_LOG_LIMIT)" in dialog)
         assertTrue("private const val FORM_LINK_LIMIT = 6000" in dialog)
     }
+
+    @Test
+    fun `a file on the phone keeps its name but not its folders`() {
+        assertEquals(
+            "W/LocalMediaScanner: ERROR READING METADATA: bad header for: …/x.mp3",
+            ProblemLog.scrub("W/LocalMediaScanner: ERROR READING METADATA: bad header for: /storage/emulated/0/Music/Mel's Phone/Best of (2010)/x.mp3"),
+        )
+        assertEquals(
+            "java.io.FileNotFoundException: …/x.mp3: open failed: ENOENT (No such file or directory)",
+            ProblemLog.scrub("java.io.FileNotFoundException: /storage/emulated/0/Music/x.mp3: open failed: ENOENT (No such file or directory)"),
+        )
+        assertEquals("playing …/c.flac", ProblemLog.scrub("playing file:///storage/emulated/0/Download/a b/c.flac"))
+        assertEquals(
+            "content://com.android.externalstorage.documents/tree/… failed",
+            ProblemLog.scrub("content://com.android.externalstorage.documents/tree/primary%3AMusic%2FMel/document/primary%3AMusic%2FMel%2Fx.mp3 failed"),
+        )
+        // What is not a file on the phone is left alone.
+        assertEquals("W/LocalMediaScanner: 3/4 read", ProblemLog.scrub("W/LocalMediaScanner: 3/4 read"))
+    }
 }
