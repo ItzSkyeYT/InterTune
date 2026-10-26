@@ -2094,6 +2094,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="sabr_only_description" translatable="false">Plays each song over SABR, as YouTube\'s own apps stream, from the VISIONOS answer the app already has. A song that cannot be started that way plays as before.</string>
     <!-- Battery use, in Player and audio (BatteryUseFrag, Unreleased.BATTERY_MODES): held from translators until the words are agreed, their French beside them in values-fr. The notes go under the rows that Saver holds; %1$s is the name of the background drawn in place of Living blur (Blur or Gradient). -->
     <string name="battery_use" translatable="false">Battery use</string>
+    <string name="battery_use_entry" translatable="false">How much the app does while you listen, to make the battery last longer.</string>
     <string name="battery_use_full" translatable="false">Full</string>
     <string name="battery_use_balanced" translatable="false">Balanced</string>
     <string name="battery_use_saver" translatable="false">Saver</string>

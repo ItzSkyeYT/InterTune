@@ -154,11 +154,17 @@ class BatteryUseWiringTest {
     }
 
     @Test
-    fun `the row is offered only where the build has the choice, under Audio quality`() {
-        val screen = source("ui/screens/settings/PlayerSettings.kt")
-        val row = screen.indexOf("if (Unreleased.BATTERY_MODES) BatteryUseFrag()")
-        assertTrue(row > screen.indexOf("AudioQualityFrag()"))
-        assertTrue(row < screen.indexOf("AdaptiveQueueFrag()"))
+    fun `Battery use has a page of its own, listed under Storage and downloads where the build has the choice`() {
+        // It changes the whole app, not only what plays, so it is not under Player and audio (his word, 26 Oct 2026).
+        assertFalse("BatteryUseFrag" in source("ui/screens/settings/PlayerSettings.kt"))
+        assertTrue("BatteryUseFrag()" in source("ui/screens/settings/BatterySettings.kt"))
+        val list = source("ui/screens/settings/SettingsScreen.kt")
+        val row = list.indexOf("if (Unreleased.BATTERY_MODES) {\n                PreferenceEntry(\n                    title = { Text(stringResource(R.string.battery_use)) }")
+        assertTrue(row > list.indexOf("navController.navigate(\"settings/storage\")"))
+        assertTrue(row < list.indexOf("navController.navigate(\"settings/backup\")"))
+        assertTrue("navController.navigate(\"settings/battery\")" in list.substring(row))
+        val nav = source("ui/navigation/AppNavGraph.kt")
+        assertTrue(Regex("""if \(Unreleased\.BATTERY_MODES\) \{\s*screen\("settings/battery"\)""").containsMatchIn(nav))
     }
 
     @Test

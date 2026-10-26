@@ -867,13 +867,13 @@ fun ColumnScope.AudioQualityFrag() {
 /**
  * Battery use: how much the app does while music plays (BatteryUse). Full is the app as it always
  * was, Balanced everyone's default, Saver the least, and the line under the choice says what it
- * turns down. Under Audio quality, since Saver changes what is streamed on mobile data.
+ * turns down. On a page of its own (BatterySettings), since it changes the whole app.
  *
  * The rule for settings set by hand, as BatteryUse has it: a mode never writes one. It is applied
  * where each setting is used, so leaving Saver gives every effect, quality and style back as it was
  * set, and each row that Saver holds says so under it (SaverHoldsLabel). This row keeps its own
  * key and nothing else; it reads Download on Wi-Fi only to tell the downloads already queued at once.
- * Only offered where Unreleased.BATTERY_MODES is on, which Player and audio asks before it calls this.
+ * Only offered where Unreleased.BATTERY_MODES is on, which the list and the route ask first.
  */
 @Composable
 fun ColumnScope.BatteryUseFrag() {

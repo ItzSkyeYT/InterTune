@@ -58,7 +58,6 @@ import com.dd3boh.outertune.ui.dialog.CounterDialog
 import com.dd3boh.outertune.ui.dialog.InfoLabel
 import com.dd3boh.outertune.ui.screens.settings.fragments.AudioEffectsFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.AudioQualityFrag
-import com.dd3boh.outertune.ui.screens.settings.fragments.BatteryUseFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.AdaptiveQueueFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.SpatialAudioFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.HeadTrackingFrag
@@ -127,7 +126,6 @@ fun PlayerSettings(
             // is in Advanced at the bottom. A screen of switches that do nothing until some other
             // switch is on is a screen nobody can read.
             AudioQualityFrag()
-            if (Unreleased.BATTERY_MODES) BatteryUseFrag()
             AdaptiveQueueFrag()
             TransitionFadeFrag()
         }
