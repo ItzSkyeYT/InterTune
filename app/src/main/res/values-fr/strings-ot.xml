@@ -1921,6 +1921,22 @@
     <string name="lyrics_timing_later">%1$s\u00A0s plus tard</string>
     <string name="lyrics_timing_step_earlier">Un dixième de seconde plus tôt</string>
     <string name="lyrics_timing_step_later">Un dixième de seconde plus tard</string>
+    <string name="battery_use">Utilisation de la batterie</string>
+    <string name="battery_use_entry">Ce que l\'application fait pendant l\'écoute, pour que la batterie tienne plus longtemps.</string>
+    <string name="battery_use_full">Complète</string>
+    <string name="battery_use_balanced">Équilibrée</string>
+    <string name="battery_use_saver">Économie</string>
+    <string name="battery_use_full_description">Tout comme vous l\'avez réglé.</string>
+    <string name="battery_use_balanced_description">La bibliothèque se synchronise toutes les deux heures au lieu de toutes les demi-heures, et les barres de lecture bougent plus calmement.</string>
+    <string name="battery_use_saver_description">Effets sonores coupés, thème noir, moins d\'images par seconde et qualité Faible sur les données mobiles. Synchronisation et téléchargements attendent le Wi-Fi.</string>
+    <string name="battery_use_explain">Ce que fait InterTune pendant que vous écoutez. « Équilibrée » synchronise la bibliothèque moins souvent et calme les barres de lecture. « Économie » coupe aussi les effets sonores, affiche un thème noir avec moins d\'images par seconde et diffuse en qualité Faible sur les données mobiles.</string>
+    <string name="battery_saver_holds_note">Réglé par « Utilisation de la batterie » tant qu\'elle est sur « Économie ».</string>
+    <string name="battery_saver_quality_note">Faible sur les données mobiles tant que « Utilisation de la batterie » est sur « Économie ».</string>
+    <string name="battery_saver_background_note">%1$s tant que « Utilisation de la batterie » est sur « Économie ».</string>
+    <string name="battery_saver_glass_note">Sans flou tant que « Utilisation de la batterie » est sur « Économie ».</string>
+    <string name="battery_follow_phone">Suivre l\'économiseur de batterie du téléphone</string>
+    <string name="battery_follow_phone_description">« Économie » tant qu\'il est activé.</string>
+    <string name="battery_follow_phone_now">« Économie » en ce moment : l\'économiseur du téléphone est activé.</string>
     <!-- The search at the top of Settings (SettingsSearch.kt). -->
     <string name="search_settings">Rechercher dans les paramètres</string>
     <string name="search_settings_none">Aucun paramètre ne correspond à «\u00A0%1$s\u00A0».</string>
@@ -1990,4 +2006,16 @@
     <string name="search_words_donate">don, faire un don, soutien</string>
     <string name="search_words_contact">contact, e-mail</string>
     <string name="search_words_developer">développeur, débogage</string>
+    <string name="auto_more_downloaded">Téléchargés</string>
+    <string name="auto_more_downloaded_line">Se joue sans réseau</string>
+    <string name="auto_more_recent">Écoutés récemment</string>
+    <string name="auto_more_recent_line">Reprenez là où vous en étiez</string>
+    <string name="auto_more_shuffle_library">Ma bibliothèque en aléatoire</string>
+    <string name="auto_more_shuffle_line">Tout ce que vous avez gardé, mélangé</string>
+    <string name="auto_settings_sound">Son</string>
+    <string name="auto_settings_playback">Lecture</string>
+    <string name="auto_level_line">Un volume égal d\'un titre à l\'autre</string>
+    <string name="auto_silence_line">Coupe les silences au début et à la fin</string>
+    <string name="auto_more_line">La file d\'attente ne s\'arrête jamais</string>
+    <string name="auto_radios_line">Suit vos passages et vos J\'aime</string>
 </resources>
