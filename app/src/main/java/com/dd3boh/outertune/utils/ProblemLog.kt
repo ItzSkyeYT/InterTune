@@ -168,6 +168,32 @@ object ProblemLog {
         return head + tail.substringAfter('\n', tail)
     }
 
+    /**
+     * How long [text] is once escaped for a link: a letter, a digit or one of - _ . ~ stays one
+     * character, every other byte of it becomes three (a space is %20, a colon %3A).
+     */
+    fun linkLength(text: String): Int = text.toByteArray(Charsets.UTF_8).sumOf { byte ->
+        val c = byte.toInt() and 0xFF
+        val plain = c in 'a'.code..'z'.code || c in 'A'.code..'Z'.code || c in '0'.code..'9'.code ||
+            c == '-'.code || c == '_'.code || c == '.'.code || c == '~'.code
+        if (plain) 1 else 3
+    }
+
+    /**
+     * [report] cut as [fitted] cuts it, from [most] characters down, until escaped for a link it
+     * takes [budget] characters at most. GitHub answers a link to its form that is too long with
+     * "Something went wrong", and a log of spaces, colons and brackets doubles once escaped.
+     */
+    fun fittedForLink(report: String, budget: Int, most: Int): String {
+        var limit = minOf(report.length, most)
+        var cut = fitted(report, limit)
+        while (limit > 0 && linkLength(cut) > budget) {
+            limit = limit * 4 / 5
+            cut = fitted(report, limit)
+        }
+        return if (linkLength(cut) <= budget) cut else ""
+    }
+
     fun build(): String = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}, ${BuildConfig.FLAVOR} ${BuildConfig.BUILD_TYPE})"
 
     fun device(): String = "${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
