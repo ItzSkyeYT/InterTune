@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Badge
+import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -36,6 +37,8 @@ import androidx.navigation.NavController
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.TogetherCatchUpKey
 import com.dd3boh.outertune.constants.TogetherDelayKey
+import com.dd3boh.outertune.constants.TogetherShowTimingKey
+import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.constants.TogetherNameKey
 import com.dd3boh.outertune.constants.TogetherToleranceKey
 import com.dd3boh.outertune.together.SyncLock
@@ -65,6 +68,7 @@ fun ListenTogetherSettings(
     val (tolerance, onToleranceChange) = rememberPreference(TogetherToleranceKey, defaultValue = SyncLock.DEFAULT_TOLERANCE_MS.toInt())
     val (catchUp, onCatchUpChange) = rememberPreference(TogetherCatchUpKey, defaultValue = TogetherTuning.DEFAULT_CATCH_UP_PERCENT)
     val (delay, onDelayChange) = rememberPreference(TogetherDelayKey, defaultValue = 0)
+    val (showTiming, onShowTimingChange) = rememberPreference(TogetherShowTimingKey, defaultValue = false)
 
     ColumnWithContentPadding(
         modifier = Modifier.fillMaxHeight(),
@@ -113,6 +117,15 @@ fun ListenTogetherSettings(
                 range = 0..TogetherTuning.MAX_DELAY_MS.toInt(),
                 step = 10,
                 onDone = onDelayChange,
+            )
+            HorizontalDivider(Modifier.padding(horizontal = 16.dp))
+            SwitchPreference(
+                modifier = Modifier.settingRow(R.string.together_show_timing),
+                title = { Text(stringResource(R.string.together_show_timing)) },
+                description = stringResource(R.string.together_show_timing_description),
+                icon = { Icon(Icons.Rounded.Timer, null) },
+                checked = showTiming,
+                onCheckedChange = onShowTimingChange,
             )
         }
         Spacer(Modifier.height(16.dp))

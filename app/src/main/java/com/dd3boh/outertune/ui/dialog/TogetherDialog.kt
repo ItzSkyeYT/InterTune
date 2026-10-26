@@ -131,6 +131,7 @@ import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.TogetherNameKey
 import com.dd3boh.outertune.constants.TogetherRelaysKey
+import com.dd3boh.outertune.constants.TogetherShowTimingKey
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.playback.PlayerConnection
@@ -139,6 +140,7 @@ import com.dd3boh.outertune.together.TogetherSession
 import com.dd3boh.outertune.ui.utils.LocalLandscape
 import com.dd3boh.outertune.ui.utils.shrinkToFit
 import com.dd3boh.outertune.utils.dataStore
+import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.utils.shareSheet
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -329,6 +331,7 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
     val clipboard = LocalClipboard.current
     val haptics = LocalHapticFeedback.current
     val status by room.status.collectAsState()
+    val showTiming by rememberPreference(TogetherShowTimingKey, defaultValue = false)
     val copied = stringResource(R.string.together_copied)
     val invite = stringResource(R.string.together_invite_text, room.code.pretty, room.code.appLink)
     var showingQr by rememberSaveable { mutableStateOf(false) }
@@ -458,7 +461,8 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
                     },
                 )
                 status.pausedHere -> PausedHere()
-                else -> SyncMeter(status.driftMs, status.locked, status.toleranceMs)
+                // How close this phone follows is for those who want to see it (Settings > Listen together).
+                else -> if (showTiming) SyncMeter(status.driftMs, status.locked, status.toleranceMs)
             }
         }
         if (status.leading) status.lastSuggestion?.let {

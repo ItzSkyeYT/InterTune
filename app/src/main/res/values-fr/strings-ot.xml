@@ -1965,6 +1965,8 @@
     <string name="together_delay">Retard du son sur ce téléphone</string>
     <string name="together_delay_value">%1$d ms</string>
     <string name="together_delay_explain">Les casques et enceintes Bluetooth jouent en retard. Indiquez de combien, et ce téléphone compense dans les salons.</string>
+    <string name="together_show_timing">Afficher l\'écart avec l\'hôte</string>
+    <string name="together_show_timing_description">Une jauge sous le titre du salon indique de combien ce téléphone joue en retard ou en avance.</string>
     <string name="together_qr">Code QR</string>
     <string name="together_qr_title">Scannez pour rejoindre</string>
     <string name="together_qr_hint">Pointez l\'appareil photo de l\'autre téléphone ici. Il ouvre le salon dans InterTune.</string>
