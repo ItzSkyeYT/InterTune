@@ -146,6 +146,10 @@ class TogetherSession(
     private var repeatTaken = false
     private var queueJob: Job? = null
     private val lock = SyncLock()
+
+    /** How the room has gone lately, logged once a minute for Report a problem. */
+    private val health = RoomHealth()
+
     /** How late this phone's sound comes out (Settings > Listen together). */
     private var delayMs = 0L
     private var pausedHere = false
@@ -212,7 +216,8 @@ class TogetherSession(
     }
 
     fun start() {
-        Log.i(TAG, "Room ${code.pretty}: ${if (owner) "made here" else "joining"} through ${relays.size} relays")
+        // Never the code: a report can be posted in public, and the code lets anyone in.
+        Log.i(TAG, "A room ${if (owner) "made here" else "joined"}, through ${relays.size} relays")
         pool.start()
         service.exoPlayer.addListener(listener)
         scope.launch { pool.connected.collect { n -> _status.value = _status.value.copy(relaysConnected = n) } }
@@ -261,6 +266,18 @@ class TogetherSession(
                 delay(SYNC_TICK_MS)
             }
         }
+        // How the room has gone lately, once a minute, for Report a problem: see RoomHealth.
+        scope.launch {
+            while (isActive) {
+                delay(RoomHealth.EVERY_MS)
+                val now = _status.value
+                Log.i(TAG, "room: " + health.line(
+                    owner = owner, leading = leading, others = now.others, relaysAnswering = now.relaysConnected,
+                    relays = relays.size, roundTripMs = if (gap.known) gap.bestRoundTripMs else null,
+                    waitingForLeader = now.waitingForHost, ownWay = now.ownWay, pausedHere = now.pausedHere,
+                ))
+            }
+        }
         publish()
     }
 
@@ -270,7 +287,7 @@ class TogetherSession(
         if (repeatTaken) service.exoPlayer.repeatMode = repeatBefore
         pool.stop()
         scope.cancel()
-        Log.i(TAG, "Left room ${code.pretty}")
+        Log.i(TAG, "Left the room")
     }
 
     private fun sayHere() = send(TogetherMessage.Here(name, owner, lead = if (owner) leaderKey else null))
@@ -396,7 +413,8 @@ class TogetherSession(
             }
             is TogetherMessage.Propose -> if (leading && message.songs.isNotEmpty()) {
                 _status.value = _status.value.copy(proposal = Proposal(message.songs, message.positionMs, message.by, now))
-                Log.i(TAG, "${message.by} proposed ${message.songs.first().id} and ${message.songs.size - 1} after it")
+                // By key, never by the name they chose: see RoomHealth.
+                Log.i(TAG, "${from.take(8)} proposed ${message.songs.first().id} and ${message.songs.size - 1} after it")
             }
             is TogetherMessage.Suggest -> if (leading) {
                 val song = MediaMetadata(
@@ -408,7 +426,7 @@ class TogetherSession(
                     genre = null,
                 )
                 service.enqueueNext(listOf(song.toMediaItem()))
-                Log.i(TAG, "${message.by} suggested ${message.songId}: next in the queue")
+                Log.i(TAG, "${from.take(8)} suggested ${message.songId}: next in the queue")
                 _status.value = _status.value.copy(lastSuggestion = "${message.title}, ${message.by}")
                 Toast.makeText(service, service.getString(R.string.together_from_guest, message.by, message.title), Toast.LENGTH_LONG).show()
             }
@@ -555,7 +573,7 @@ class TogetherSession(
         if (!leading) return
         val songs = proposal.songs.map(::metadataOf)
         service.playQueue(ListQueue(items = songs), replace = true, origin = PlayOrigin.EXTERNAL)
-        Log.i(TAG, "Playing ${proposal.by}'s ${songs.first().id} and what came after it")
+        Log.i(TAG, "Playing the song proposed, ${songs.first().id}, and what came after it")
         scope.launch {
             // The queue loads a moment after it is asked for; the guest's spot is then a little further on.
             val first = songs.first().id
@@ -678,7 +696,8 @@ class TogetherSession(
         val local = player.currentPosition
         if (now - lastLoggedDrift >= 2_000) {
             lastLoggedDrift = now
-            Log.i(TAG, "drift ${target - local} ms, speed ${"%.3f".format(player.playbackParameters.speed)}, ${if (lock.locked) "locked" else "not locked"} (tolerance ${lock.toleranceMs} ms), clock gap ${gap.offsetMs} ms (round trip ${if (gap.known) gap.bestRoundTripMs else -1} ms)")
+            // Every two seconds: under a tag of its own, which a report leaves out for the line a minute.
+            Log.i(SYNC_TAG, "drift ${target - local} ms, speed ${"%.3f".format(player.playbackParameters.speed)}, ${if (lock.locked) "locked" else "not locked"} (tolerance ${lock.toleranceMs} ms), clock gap ${gap.offsetMs} ms (round trip ${if (gap.known) gap.bestRoundTripMs else -1} ms)")
         }
         if (!state.playing) {
             // Paused, both stand on the leader's spot, so that they start again together: the
@@ -688,6 +707,7 @@ class TogetherSession(
             _status.value = _status.value.copy(driftMs = target - local, locked = false)
             return
         }
+        health.drift(target - local)
         when (val decision = lock.decide(target, local, state.speed)) {
             is Follow.Seek -> seek(player, decision.positionMs)
             is Follow.Nudge -> speed(player, decision.speed)
@@ -823,6 +843,9 @@ class TogetherSession(
 
     companion object {
         private const val TAG = "Together"
+
+        /** The follower's look every two seconds: in the phone's log, not in a report. */
+        private const val SYNC_TAG = "TogetherSync"
         private const val SYNC_TICK_MS = 250L
         /** After a seek, time for the player to land before the next look. */
         private const val SETTLE_MS = 500L

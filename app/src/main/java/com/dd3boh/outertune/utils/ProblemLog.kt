@@ -63,7 +63,7 @@ object ProblemLog {
      * request's every field: SABR's. Without them a song over SABR left no trace in the run's file
      * but its failures, and the phone's own log has rolled past the rest within the hour.
      */
-    val TELLING_FROM_INFO = setOf("SabrOver", "SabrDataSource")
+    val TELLING_FROM_INFO = setOf("SabrOver", "SabrDataSource", "Together")
 
     /**
      * Whose errors count as a fault: the app's own and the player's. Every phone has parts that
