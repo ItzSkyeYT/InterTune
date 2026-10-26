@@ -346,8 +346,14 @@ class TogetherSession(
         if (from == me || event.kind != TogetherMessage.KIND || from in sentOut) return
         val message = code.open(event.content)?.let(TogetherMessage::decode) ?: return
         val now = System.currentTimeMillis()
-        // A newcomer gets the leader's queue at once rather than at its next round.
-        if (from !in heard && leading) queueSoon()
+        // A newcomer gets where the leader is and its queue at once, not at the next beat two
+        // seconds on: a guest who joined waited seconds for the song (his ask of 26 Oct 2026). The
+        // queue goes again once the player is done with it, as after any change.
+        if (from !in heard && leading) {
+            sendQueue()
+            sendState()
+            queueSoon()
+        }
         heard[from] = now
         heard.entries.removeAll { now - it.value > MEMBER_TIMEOUT_MS }
         if (message is TogetherMessage.Here) {
@@ -616,7 +622,8 @@ class TogetherSession(
 
     /** What the session does to the player next is its own, not the listener's, for [forMs]. */
     private fun mine(forMs: Long = OWN_COMMAND_MS) {
-        ownCommandUntil = System.currentTimeMillis() + forMs
+        // Never shorter than a window already given: a jump just after a song change is part of it.
+        ownCommandUntil = maxOf(ownCommandUntil, System.currentTimeMillis() + forMs)
     }
 
     /** The leader's repeat mode on this phone's player too, so that a song repeats here as it does there. */
@@ -661,6 +668,7 @@ class TogetherSession(
         loadingSong = null
         waitingFor = null
         if (player.playbackState != Player.STATE_READY && player.playbackState != Player.STATE_BUFFERING) return
+        if (arriving) arrive(player, state, now)
         if (roomQueue !== matchedQueue) matchQueue()
         if (player.playWhenReady != state.playing) {
             mine()
@@ -709,7 +717,10 @@ class TogetherSession(
             matchedQueue = null
             lock.reset()
             mine(SONG_SWITCH_MS)
-            player.seekTo(index, 0)
+            // Straight to the leader's spot: from 0:00 the song was fetched twice, its start and
+            // then the leader's spot, which on a slow line took seconds (his ask of 26 Oct 2026).
+            arriving = true
+            player.seekTo(index, (Follow.target(state, gap.hostNow(now)) + delayMs).coerceAtLeast(0))
             return
         }
         // Else with the leader's queue from that song on, which it sends a moment after a change,
@@ -727,6 +738,8 @@ class TogetherSession(
         loadingSong = state.songId
         matchedQueue = null
         lock.reset()
+        // A queue starts its song at 0:00: follow sends it to the leader's spot while it loads.
+        arriving = true
         Log.i(TAG, "The leader plays ${state.songId}: playing it here, ${if (queue != null) "with its queue" else "the queue to follow"}")
         // A queue resolves for a moment before its song arrives: all of that is the room's doing.
         // And the leader chose it, not this listener: learning must not read it as their pick.
@@ -803,10 +816,33 @@ class TogetherSession(
     )
 
     private var loadingSong: String? = null
+
+    /** The leader's song was asked for here and has not been ready yet: see [arrive]. */
+    private var arriving = false
+
     private var lastLoggedDrift = 0L
     private var lastStateAt = 0L
     private var ownWay = false
     private var ownCommandUntil = 0L
+
+    /**
+     * The leader's song has just come and is still loading here: if it starts well before the
+     * leader's spot, off to that spot at once, before its start is fetched for nothing. Waiting
+     * until it was ready fetched the song twice, from 0:00 and again from the leader's spot, which
+     * on a slow line took seconds (his ask of 26 Oct 2026). Once ready, follow takes over.
+     */
+    private fun arrive(player: Player, state: TogetherMessage.State, now: Long) {
+        if (player.playbackState == Player.STATE_READY) {
+            arriving = false
+            return
+        }
+        val target = Follow.target(state, gap.hostNow(now)) + delayMs
+        val length = player.duration
+        if (target - player.currentPosition <= Follow.DRIFT_MS || (length != C.TIME_UNSET && target >= length)) return
+        arriving = false
+        Log.i(TAG, "Off to the leader's spot while the song loads, ${target / 1000} s in")
+        seek(player, target)
+    }
 
     private fun seek(player: Player, positionMs: Long) {
         mine()
