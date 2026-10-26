@@ -373,14 +373,67 @@ fun queryWords(query: String): List<String> {
     return telling.ifEmpty { words }
 }
 
-/** One thing to search: a title, and the other words it is found by, both as [searchWords]. */
-class Searchable(val title: List<String>, val rest: List<String>)
+/**
+ * One thing to search, as [searchWords]: a title, the other words it is found by (its search words,
+ * the screen it is on), and the line under it. The line is found only as written: a sentence is
+ * full of everyday words, and a typing mistake for one ("power" for "lower") is no reason to show
+ * its setting.
+ */
+class Searchable(val title: List<String>, val rest: List<String>, val described: List<String> = emptyList())
 
 private const val AT_TITLE_START = 8
 private const val IN_TITLE_WORD = 6
+private const val NEAR_TITLE_WORD = 4
 private const val INSIDE_TITLE_WORD = 3
 private const val IN_OTHER_WORD = 2
 private const val INSIDE_OTHER_WORD = 1
+private const val NEAR_OTHER_WORD = 1
+
+/**
+ * Typing mistakes between [a] and [b]: a letter missing, one too many, one wrong, or two
+ * neighbours swapped, each counting one. Stops counting once past [limit].
+ */
+internal fun typingMistakes(a: String, b: String, limit: Int): Int {
+    if (kotlin.math.abs(a.length - b.length) > limit) return limit + 1
+    var before = IntArray(b.length + 1)
+    var row = IntArray(b.length + 1) { it }
+    var next = IntArray(b.length + 1)
+    for (i in 1..a.length) {
+        next[0] = i
+        var least = next[0]
+        for (j in 1..b.length) {
+            val cost = if (a[i - 1] == b[j - 1]) 0 else 1
+            var d = minOf(row[j] + 1, next[j - 1] + 1, row[j - 1] + cost)
+            if (i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1]) d = minOf(d, before[j - 2] + 1)
+            next[j] = d
+            least = minOf(least, d)
+        }
+        if (least > limit) return limit + 1
+        val spare = before
+        before = row
+        row = next
+        next = spare
+    }
+    return row[b.length]
+}
+
+/** How many typing mistakes a word may hold and still find what it means: none under four letters, one up to seven, two from eight. */
+private fun mistakesAllowed(word: String) = when {
+    word.length < 4 -> 0
+    word.length < 8 -> 1
+    else -> 2
+}
+
+/** Whether [typed] is [w], or the start of it, give or take a typing mistake or two ("equaliser", "cahce", "lyircs"). */
+private fun near(typed: String, w: String, mistakes: Int): Boolean {
+    if (typingMistakes(typed, w, mistakes) <= mistakes) return true
+    // Only the start of a longer word typed, with a mistake in it ("equalz" for "equalizer"), never
+    // a start shorter than what was typed: "black" is not a mistake for the "back" of "background".
+    for (length in typed.length..(typed.length + mistakes)) {
+        if (length < w.length && typingMistakes(typed, w.substring(0, length), mistakes) <= mistakes) return true
+    }
+    return false
+}
 
 /** How well [word] matches one of [words]: from the start of one, or, from three letters on, inside one. */
 private fun bestIn(word: String, words: List<String>, start: Int, inside: Int): Int {
@@ -392,27 +445,54 @@ private fun bestIn(word: String, words: List<String>, start: Int, inside: Int): 
     return best
 }
 
+/** How well one typed [word] finds [item] as it is typed: the title counting most, its first word more. */
+private fun asTyped(word: String, item: Searchable): Int {
+    val first = item.title.firstOrNull()
+    val inTitle = if (first != null && first.startsWith(word)) AT_TITLE_START
+    else bestIn(word, item.title, IN_TITLE_WORD, INSIDE_TITLE_WORD)
+    return maxOf(inTitle, bestIn(word, item.rest, IN_OTHER_WORD, INSIDE_OTHER_WORD), bestIn(word, item.described, IN_OTHER_WORD, INSIDE_OTHER_WORD))
+}
+
 /**
- * How well the query's [words] find [item]: each of them must start a word of its title or of
- * the rest, or stand inside one from three letters on, and the score adds up how well, a word of
- * the title counting most and the title's first word more. Null when one of them is not there.
- *
- * A word that is not there as typed is tried without its plural s, so "downloads" finds
- * "Download on Wi-Fi only".
+ * How well one typed word finds [item], 0 when it does not: as typed, then without its plural s
+ * ("downloads" finds "Download on Wi-Fi only"), then give or take a typing mistake, then as two
+ * words typed as one ("darkmode", "wifi", "logout"), each step counting less.
+ */
+internal fun wordScore(typed: String, item: Searchable): Int {
+    val tries = if (typed.length > 3 && typed.endsWith('s')) listOf(typed, typed.dropLast(1)) else listOf(typed)
+    for (word in tries) asTyped(word, item).let { if (it > 0) return it }
+    val mistakes = mistakesAllowed(typed)
+    if (mistakes > 0) {
+        if (item.title.any { near(typed, it, mistakes) }) return NEAR_TITLE_WORD
+        if (item.rest.any { near(typed, it, mistakes) }) return NEAR_OTHER_WORD
+    }
+    if (typed.length >= 4) {
+        for (cut in 2..typed.length - 2) {
+            val a = startsOne(typed.substring(0, cut), item)
+            val b = startsOne(typed.substring(cut), item)
+            if (a > 0 && b > 0) return minOf(a, b)
+        }
+    }
+    return 0
+}
+
+/** How well [part] starts a word of [item], never from inside one: half of a word cut in two ("power" is not "po" and the "wer" of "lower"). */
+private fun startsOne(part: String, item: Searchable): Int = when {
+    item.title.firstOrNull()?.startsWith(part) == true -> AT_TITLE_START
+    item.title.any { it.startsWith(part) } -> IN_TITLE_WORD
+    item.rest.any { it.startsWith(part) } || item.described.any { it.startsWith(part) } -> IN_OTHER_WORD
+    else -> 0
+}
+
+/**
+ * How well the query's [words] find [item]: each of them must be there (see [wordScore]), and the
+ * score adds up how well. Null when one of them is not there.
  */
 fun searchScore(words: List<String>, item: Searchable): Int? {
     if (words.isEmpty()) return null
     var score = 0
     for (typed in words) {
-        val tries = if (typed.length > 3 && typed.endsWith('s')) listOf(typed, typed.dropLast(1)) else listOf(typed)
-        var best = 0
-        for (word in tries) {
-            val first = item.title.firstOrNull()
-            val inTitle = if (first != null && first.startsWith(word)) AT_TITLE_START
-            else bestIn(word, item.title, IN_TITLE_WORD, INSIDE_TITLE_WORD)
-            best = maxOf(best, inTitle, bestIn(word, item.rest, IN_OTHER_WORD, INSIDE_OTHER_WORD))
-            if (best > 0) break
-        }
+        val best = wordScore(typed, item)
         if (best == 0) return null
         score += best
     }
@@ -449,12 +529,14 @@ internal class SettingsSearchIndex(entries: List<SettingEntry>, categories: List
         val twice = there.groupBy { text(it.title) to places[it] }.filterValues { it.size > 1 }.values.flatten().toSet()
         for (entry in there) {
             val title = text(entry.title)
-            val rest = buildString {
-                entry.description?.let { append(text(it)).append(' ') }
-                for (word in entry.words) append(text(word)).append(' ')
-            }
             val place = places[entry]!! + (entry.under?.takeIf { entry in twice }?.let { " › " + text(it) } ?: "")
-            add(Item(entry, entry.route, title, place, Searchable(searchWords(title), searchWords(rest))))
+            val rest = buildString {
+                for (word in entry.words) append(text(word)).append(' ')
+                // The screen it is on: "lyrics size" finds Font size on the Lyrics screen.
+                append(place)
+            }
+            val described = entry.description?.let { searchWords(text(it)) }.orEmpty()
+            add(Item(entry, entry.route, title, place, Searchable(searchWords(title), searchWords(rest), described)))
         }
     }
 
@@ -475,11 +557,34 @@ internal class SettingsSearchIndex(entries: List<SettingEntry>, categories: List
     fun search(query: String, limit: Int = 60): List<SettingHit> {
         val words = queryWords(query)
         if (words.isEmpty()) return emptyList()
-        return items.withIndex()
+        val all = items.withIndex()
             .mapNotNull { (at, item) -> searchScore(words, item.searchable)?.let { Triple(at, item, it) } }
+        val found = all.ifEmpty { closest(words) }
+        return found
             .sortedWith(compareByDescending<Triple<Int, Item, Int>> { it.third }.thenBy { it.first })
             .take(limit)
             .map { (_, item, score) -> SettingHit(item.entry, item.route, item.title, item.place, score) }
+    }
+
+    /**
+     * When no setting has every word typed ("turn on dark theme", "change audio quality"): the ones
+     * with the most of them, a word that few settings have counting for more than one that many
+     * have, so "music quality" leads with Audio quality rather than every setting about music.
+     */
+    private fun closest(words: List<String>): List<Triple<Int, Item, Int>> {
+        if (words.size < 2) return emptyList()
+        val scores = items.map { item -> words.map { wordScore(it, item.searchable) } }
+        val rarity = words.indices.map { w ->
+            val having = scores.count { it[w] > 0 }
+            if (having == 0) 0.0 else 1.0 + kotlin.math.ln(items.size.toDouble() / having)
+        }
+        val matched = scores.map { s -> s.count { it > 0 } }
+        val most = matched.maxOrNull() ?: 0
+        if (most == 0) return emptyList()
+        return items.indices.filter { matched[it] == most }.map { at ->
+            val score = words.indices.sumOf { w -> scores[at][w] * rarity[w] }
+            Triple(at, items[at], (score * 10).toInt())
+        }
     }
 
     companion object {

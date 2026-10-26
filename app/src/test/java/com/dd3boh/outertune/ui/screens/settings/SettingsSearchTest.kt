@@ -102,7 +102,31 @@ class SettingsSearchTest {
     fun `a plural finds the word without its s`() {
         val wifi = Searchable(searchWords("Download on Wi-Fi only"), emptyList())
         assertTrue(searchScore(listOf("downloads"), wifi)!! > 0)
-        assertNull(searchScore(listOf("downloadz"), wifi))
+        // The s is all that comes off: three letters too many is another word.
+        assertNull(searchScore(listOf("downloadxyz"), wifi))
+    }
+
+    @Test
+    fun `a typing mistake counts one, a swap of two neighbours too, and counting stops past the limit`() {
+        assertEquals(1, typingMistakes("cahce", "cache", 1))
+        assertEquals(1, typingMistakes("equalzer", "equalizer", 1))
+        assertEquals(1, typingMistakes("equaliser", "equalizer", 2))
+        assertEquals(0, typingMistakes("same", "same", 1))
+        assertEquals(2, typingMistakes("abc", "xyz", 1))
+    }
+
+    @Test
+    fun `a word with a typing mistake still finds its setting, from four letters on, and less well than as written`() {
+        assertTrue(searchScore(listOf("qualty"), quality)!! > 0)
+        assertTrue(searchScore(listOf("quality"), quality)!! > searchScore(listOf("qualty"), quality)!!)
+        // Under four letters a mistake is another word.
+        assertNull(searchScore(listOf("dta"), quality))
+    }
+
+    @Test
+    fun `two words typed as one are found as two`() {
+        assertTrue(searchScore(listOf("audioquality"), quality)!! > 0)
+        assertNull(searchScore(listOf("audiolyrics"), quality))
     }
 
     // Searching all of it, in the app's own words
@@ -120,6 +144,17 @@ class SettingsSearchTest {
         assertTrue("Dark theme" in titles(inEnglish, "DARK"))
         assertTrue("Equalizer" in titles(inEnglish, "equal"))
         assertTrue("Lyrics text position" in titles(inEnglish, "lyr pos"))
+    }
+
+    @Test
+    fun `what people type is found, with mistakes, words run together, a word too many, or the screen's name`() {
+        assertEquals("Equalizer", titles(inEnglish, "equaliser").first())
+        assertEquals("Dark theme", titles(inEnglish, "darkmode").first())
+        assertEquals("Log out", titles(inEnglish, "logout").first())
+        assertEquals("Dark theme", titles(inEnglish, "turn on dark theme").first())
+        assertEquals("Audio quality", titles(inEnglish, "change audio quality").first())
+        assertTrue("Font size" in titles(inEnglish, "lyrics size").take(3))
+        assertEquals("Égaliseur", titles(inFrench, "egaliser").first())
     }
 
     @Test
