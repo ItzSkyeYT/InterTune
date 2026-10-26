@@ -2191,4 +2191,32 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="search_words_donate">donate, donation, support</string>
     <string name="search_words_contact">contact, email</string>
     <string name="search_words_developer">developer, debug</string>
+    <!-- Signal path (SignalPathDialog): what changes the sound between YouTube and the ear. -->
+    <string name="signal_path">Signal path</string>
+    <string name="signal_path_sub">From YouTube to your ears, right now</string>
+    <string name="signal_source_stream">From YouTube</string>
+    <string name="signal_source_local">From this phone</string>
+    <string name="signal_format">%1$s, %2$d kbps</string>
+    <string name="signal_text">%1$s</string>
+    <string name="signal_unknown">Not known yet</string>
+    <string name="signal_off">Off</string>
+    <string name="signal_on">On</string>
+    <string name="signal_not_needed">Not needed for this song</string>
+    <string name="signal_turned_down">Turned down %1$s dB to match your other songs</string>
+    <string name="signal_headphones">Headphones: places the sound around you</string>
+    <string name="signal_surround">Surround: made into 5.1 for the phone\'s own spatial audio</string>
+    <string name="signal_speed_pitch">Speed and pitch</string>
+    <string name="signal_normal">Normal</string>
+    <string name="signal_speed_value">Speed %1$s×, pitch %2$s×</string>
+    <string name="signal_skipping">Silent parts of songs are skipped</string>
+    <string name="signal_plays_on">Plays on</string>
+    <string name="signal_output_rate">%1$s, %2$s kHz</string>
+    <string name="signal_phone_speaker">Phone speaker</string>
+    <string name="signal_wired">Wired headphones</string>
+    <string name="signal_other_output">Another device</string>
+    <string name="signal_volume">Phone volume</string>
+    <string name="signal_percent">%1$d%%</string>
+    <string name="signal_legend_untouched">Untouched</string>
+    <string name="signal_legend_changed">Changed by a setting you chose</string>
+    <string name="signal_legend_where">Where it plays</string>
 </resources>

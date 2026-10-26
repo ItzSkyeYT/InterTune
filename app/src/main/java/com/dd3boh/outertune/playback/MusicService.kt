@@ -258,6 +258,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.plus
 import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
@@ -817,6 +818,9 @@ class MusicService : MediaLibraryService(),
     }
 
     private val normalizeFactor = MutableStateFlow(1f)
+
+    /** The volume levelling applied to the song playing, as a linear factor: what the Signal path sheet shows. */
+    val loudnessFactor: StateFlow<Float> get() = normalizeFactor
 
     private val audioDecoder = dataStore.get(AudioDecoderKey, DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF)
 

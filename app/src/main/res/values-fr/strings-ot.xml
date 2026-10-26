@@ -2022,4 +2022,32 @@
     <string name="auto_silence_line">Coupe les silences au début et à la fin</string>
     <string name="auto_more_line">La file d\'attente ne s\'arrête jamais</string>
     <string name="auto_radios_line">Suit vos passages et vos J\'aime</string>
+    <!-- Signal path (SignalPathDialog): what changes the sound between YouTube and the ear. -->
+    <string name="signal_path">Chemin du son</string>
+    <string name="signal_path_sub">De YouTube à vos oreilles, en ce moment</string>
+    <string name="signal_source_stream">Depuis YouTube</string>
+    <string name="signal_source_local">Depuis ce téléphone</string>
+    <string name="signal_format">%1$s, %2$d kb/s</string>
+    <string name="signal_text">%1$s</string>
+    <string name="signal_unknown">Pas encore connu</string>
+    <string name="signal_off">Désactivé</string>
+    <string name="signal_on">Activé</string>
+    <string name="signal_not_needed">Inutile pour ce titre</string>
+    <string name="signal_turned_down">Baissé de %1$s dB pour s\'accorder à vos autres titres</string>
+    <string name="signal_headphones">Casque : place le son autour de vous</string>
+    <string name="signal_surround">Surround : passé en 5.1 pour l\'audio spatial du téléphone</string>
+    <string name="signal_speed_pitch">Vitesse et hauteur</string>
+    <string name="signal_normal">Normales</string>
+    <string name="signal_speed_value">Vitesse %1$s×, hauteur %2$s×</string>
+    <string name="signal_skipping">Les passages silencieux des titres sont sautés</string>
+    <string name="signal_plays_on">Joue sur</string>
+    <string name="signal_output_rate">%1$s, %2$s kHz</string>
+    <string name="signal_phone_speaker">Haut-parleur du téléphone</string>
+    <string name="signal_wired">Écouteurs filaires</string>
+    <string name="signal_other_output">Un autre appareil</string>
+    <string name="signal_volume">Volume du téléphone</string>
+    <string name="signal_percent">%1$d %%</string>
+    <string name="signal_legend_untouched">Intact</string>
+    <string name="signal_legend_changed">Modifié par un réglage que vous avez choisi</string>
+    <string name="signal_legend_where">Où il joue</string>
 </resources>
