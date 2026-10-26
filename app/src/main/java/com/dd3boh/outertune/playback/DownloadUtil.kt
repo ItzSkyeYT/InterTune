@@ -30,7 +30,7 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.AudioQuality
 import com.dd3boh.outertune.constants.AudioQualityKey
 import com.dd3boh.outertune.constants.DownloadExtraPathKey
-import com.dd3boh.outertune.constants.BatteryModeKey
+import kotlinx.coroutines.flow.drop
 import com.dd3boh.outertune.constants.DownloadOnWifiOnlyKey
 import com.dd3boh.outertune.constants.DownloadPathKey
 import com.dd3boh.outertune.constants.LikedAutoDownloadKey
@@ -347,7 +347,7 @@ class DownloadUtil @Inject constructor(
      */
     private fun wifiOnlyNow(): Boolean = BatteryUse.downloadsOnWifiOnly(
         context.dataStore.get(DownloadOnWifiOnlyKey, false),
-        BatteryUse.modeOf(context.dataStore[BatteryModeKey]),
+        context.batteryModeNow(),
     )
 
     /**
@@ -1058,6 +1058,16 @@ class DownloadUtil @Inject constructor(
         // TODO: make sure db is update when download is queued
         CoroutineScope(dlCoroutine).launch {
             rescanDownloads()
+        }
+        // The phone's battery saver can turn Battery use's Saver on and off at any time
+        // (PhoneBatterySaver), and Saver downloads on Wi-Fi only: the manager is told at once.
+        // Straight to the manager, on the thread it was made on, rather than through the download
+        // service, which an intent would start from the background.
+        CoroutineScope(Dispatchers.Main).launch {
+            PhoneBatterySaver.on.drop(1).collect {
+                runCatching { downloadManager.requirements = downloadRequirements(wifiOnlyNow()) }
+                    .onFailure { Log.w(TAG, "Could not apply the download requirement", it) }
+            }
         }
 
         downloadManager.addListener(

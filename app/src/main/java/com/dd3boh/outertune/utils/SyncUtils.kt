@@ -14,7 +14,7 @@ import android.util.Log
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import com.dd3boh.outertune.constants.AccountEmailKey
-import com.dd3boh.outertune.constants.BatteryModeKey
+import com.dd3boh.outertune.playback.batteryModeNow
 import com.dd3boh.outertune.constants.DataSyncIdKey
 import com.dd3boh.outertune.constants.LastAlbumSyncKey
 import com.dd3boh.outertune.constants.LastArtistSyncKey
@@ -193,7 +193,7 @@ class SyncUtils @Inject constructor(
      * wait here.
      */
     private fun autoSyncHeld(key: Preferences.Key<Long>): String? {
-        val mode = BatteryUse.modeOf(context.dataStore[BatteryModeKey])
+        val mode = context.batteryModeNow()
         if (!BatteryUse.syncAllowed(mode, metered())) return "Battery use waits for a network that is not metered"
         val every = BatteryUse.syncEverySeconds(mode)
         // Default 0, not now: an account that has never synced should sync straight away

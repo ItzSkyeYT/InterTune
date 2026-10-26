@@ -56,6 +56,7 @@ import com.dd3boh.outertune.constants.UseLoginForBrowse
 import com.dd3boh.outertune.constants.VisitorDataKey
 import com.dd3boh.outertune.extensions.toEnum
 import com.dd3boh.outertune.extensions.toInetSocketAddress
+import com.dd3boh.outertune.playback.PhoneBatterySaver
 import com.dd3boh.outertune.playback.PlayerLogger
 import com.dd3boh.outertune.playback.ProximityProbe
 import com.dd3boh.outertune.playback.StandInMemory
@@ -103,6 +104,8 @@ class App : Application(), SingletonImageLoader.Factory {
         if (Unreleased.PREVIOUS_LOGS) GlobalScope.launch(Dispatchers.IO) { RunLogs.start(this@App) }
         // Before anything can read a built-in key: until it has run they all read as empty.
         BuiltInKeys.verify(this)
+        // Before anything reads Battery use: the phone's battery saver can turn Saver on (PhoneBatterySaver).
+        PhoneBatterySaver.start(this)
 
         if (BuildConfig.DEBUG) {
             System.setProperty("kotlinx.coroutines.debug", "on")
