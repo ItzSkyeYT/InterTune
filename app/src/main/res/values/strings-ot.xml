@@ -2163,7 +2163,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="search_words_bluetooth">headphones, car, speaker, autoplay</string>
     <string name="search_words_sleep">sleep timer, bedtime, night</string>
     <string name="search_words_account_playback">account, playback errors, sign in</string>
-    <string name="search_words_keep_alive">battery, background, killed</string>
+    <string name="search_words_keep_alive">battery, background, killed, keep alive</string>
+    <string name="search_words_battery_use">power saving, energy</string>
     <string name="search_words_recognition">Shazam, identify, what is playing</string>
     <string name="search_words_lyrics_sources">LrcLib, KuGou, providers</string>
     <string name="search_words_text_size">text size, bigger</string>

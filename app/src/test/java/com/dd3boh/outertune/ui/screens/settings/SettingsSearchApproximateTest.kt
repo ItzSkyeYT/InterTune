@@ -16,7 +16,8 @@ import java.io.File
  * "amoled"), a British spelling, words in another order, a word too many ("make the lyrics
  * bigger"). Each search has the settings that are a right answer; the right one has to be among
  * the first three results. Prints the table with -i. On 26 Oct 2026, 38 of the 70 did before
- * typing mistakes, run-together words, the closest matches and screen names were found, 67 after;
+ * typing mistakes, run-together words, the closest matches and screen names were found, 67 after,
+ * 69 with two more search words;
  * the floor keeps it there.
  */
 class SettingsSearchApproximateTest {

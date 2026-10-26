@@ -1982,7 +1982,8 @@
     <string name="search_words_bluetooth">casque, voiture, enceinte, lecture automatique</string>
     <string name="search_words_sleep">minuterie de sommeil, coucher, nuit</string>
     <string name="search_words_account_playback">compte, erreurs de lecture, connexion</string>
-    <string name="search_words_keep_alive">batterie, arrière-plan, fermée</string>
+    <string name="search_words_keep_alive">batterie, arrière-plan, fermée, maintenir actif</string>
+    <string name="search_words_battery_use">économie d\'énergie, énergie</string>
     <string name="search_words_recognition">Shazam, identifier, quel est ce titre</string>
     <string name="search_words_lyrics_sources">LrcLib, KuGou, fournisseurs</string>
     <string name="search_words_text_size">taille du texte, plus grand</string>

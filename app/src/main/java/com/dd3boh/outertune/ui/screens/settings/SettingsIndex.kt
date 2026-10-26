@@ -139,7 +139,7 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
     SettingEntry(Tour.ROUTE_PLAYER, R.string.auto_load_more, R.string.auto_load_more_desc),
     SettingEntry(Tour.ROUTE_PLAYER, R.string.seek_increment, words = listOf(R.string.search_words_seek)),
     SettingEntry(Tour.ROUTE_PLAYER, R.string.audio_quality, words = listOf(R.string.search_words_audio_quality)),
-    SettingEntry(Tour.ROUTE_BATTERY, R.string.battery_use, words = listOf(R.string.battery_use_full, R.string.battery_use_balanced, R.string.battery_use_saver), there = Unreleased.BATTERY_MODES),
+    SettingEntry(Tour.ROUTE_BATTERY, R.string.battery_use, words = listOf(R.string.battery_use_full, R.string.battery_use_balanced, R.string.battery_use_saver, R.string.search_words_battery_use), there = Unreleased.BATTERY_MODES),
     SettingEntry(Tour.ROUTE_BATTERY, R.string.battery_follow_phone, R.string.battery_follow_phone_description, under = R.string.battery_use, there = Unreleased.BATTERY_MODES),
     SettingEntry(Tour.ROUTE_PLAYER, R.string.adaptive_queue, R.string.adaptive_radio_description, words = listOf(R.string.search_words_radio)),
     SettingEntry(Tour.ROUTE_PLAYER, R.string.transition_fade, R.string.transition_fade_description, words = listOf(R.string.search_words_crossfade)),
