@@ -150,8 +150,29 @@ class WidgetSnapshotTest {
 
     @Test
     fun `a flat widget keeps a small cover until it is too flat for one`() {
-        assertTrue(WidgetLayout.plan(400, 60, WidgetSettings(), 6).cover > 0)
-        assertEquals(0, WidgetLayout.plan(400, 40, WidgetSettings(), 6).cover)
-        assertEquals(0, WidgetLayout.plan(400, 60, WidgetSettings(showArtwork = false), 6).cover)
+        assertTrue(WidgetLayout.plan(400, 60, WidgetSettings(), 6).coverW > 0)
+        assertEquals(32, WidgetLayout.plan(400, 40, WidgetSettings(), 6).coverW)
+        assertEquals(0, WidgetLayout.plan(400, 36, WidgetSettings(), 6).coverW)
+        assertEquals(0, WidgetLayout.plan(400, 60, WidgetSettings(showArtwork = false), 6).coverW)
+    }
+
+    @Test
+    fun `Up next and the shuffle survive the trip to disk, and a file from before them reads without`() {
+        val queued = snapshot().copy(isShuffled = true, upNext = listOf(song.copy(id = "n1", title = "Next"), song.copy(id = "n2", title = "After")))
+        assertEquals(queued, WidgetCodec.decode(WidgetCodec.encode(queued)))
+        assertEquals(7, queued.songs().size)
+        // Written before them: four fields on the first line, and no line of the kind "next".
+        val old = WidgetCodec.decode("1\nat\t7\t1\t1\nnow\tabc\tRosanna\tToto\t\t\t302\t0\n")
+        assertTrue(old.isLiked)
+        assertFalse(old.isShuffled)
+        assertTrue(old.upNext.isEmpty())
+        // Nothing playing has nothing up next.
+        assertTrue(WidgetCodec.decode(WidgetCodec.encode(WidgetSnapshot(upNext = queued.upNext))).upNext.isEmpty())
+    }
+
+    @Test
+    fun `Up next's covers count as in use`() {
+        val snap = WidgetSnapshot(nowPlaying = song, upNext = listOf(song.copy(id = "n1", artPath = "/art/n1_128c.png")))
+        assertTrue("/art/n1_128c.png" in snap.artPathsInUse { "/art/${it}_320c.png" })
     }
 }

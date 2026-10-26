@@ -239,7 +239,9 @@ import com.zionhuang.innertube.models.WatchEndpoint
 import dagger.hilt.android.AndroidEntryPoint
 import io.ktor.client.plugins.ResponseException
 import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.NextRenderersFactory
+import com.dd3boh.outertune.widget.WidgetLayout
 import com.dd3boh.outertune.widget.WidgetStore
+import com.dd3boh.outertune.widget.upNext
 import com.dd3boh.outertune.widget.likeGuess
 import java.lang.ref.WeakReference
 import kotlinx.coroutines.CancellationException
@@ -5340,6 +5342,8 @@ class MusicService : MediaLibraryService(),
     }
 
     override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
+        // The widget's shuffle button lights with the player's.
+        updateWidget()
         val q = queueBoard.getCurrentQueue()
         exoPlayer.setShuffleOrder(ShuffleOrder.UnshuffledShuffleOrder(exoPlayer.mediaItemCount))
         if (q == null || q.shuffled == shuffleModeEnabled) {
@@ -5380,8 +5384,15 @@ class MusicService : MediaLibraryService(),
                     fun now(playing: Boolean) = currentMediaMetadata.value.let { song ->
                         WidgetStore.NowState(song, playing, likeGuess(song, currentSong.value?.song))
                     }
+                    // The queue's shuffle and Up next are the player's, so they are read with it on the
+                    // main thread. Going away, the player is not asked, and the widget keeps the last.
                     if (stopped) now(false)
-                    else withContext(Dispatchers.Main) { now(activePlayer.isPlaying) }
+                    else withContext(Dispatchers.Main) {
+                        now(activePlayer.isPlaying).copy(
+                            shuffled = activePlayer.shuffleModeEnabled,
+                            upNext = activePlayer.upNext(WidgetLayout.MAX_UP_NEXT),
+                        )
+                    }
                 }
             }.onFailure { Log.w(TAG, "Could not update the widget", it) }
         }
