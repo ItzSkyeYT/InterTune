@@ -530,8 +530,10 @@ object Unreleased {
      * it off, or this off, playback is what it was. To ship: set this to true, or delete it with
      * the checks that read it, in MusicService, PlayerSettings, PlayerFrag and DeveloperFrag, and
      * its row's entry in SETTINGS_INDEX.
+     *
+     * Debug builds only since 26 Oct 2026: kept out of the previews that testers get.
      */
-    val AUTOMIX = BuildConfig.DEBUG
+    val AUTOMIX = BuildConfig.DEBUG && BuildConfig.BUILD_TYPE == "debug"
 
     /**
      * Songs put in with Play next stay next when a song is picked out of a list: they play right

@@ -12,7 +12,7 @@ import org.junit.Test
 import java.io.File
 
 /**
- * AutoMix is held back: on in debug and preview builds, off in a release, and off in every build
+ * AutoMix is held back: on in debug builds, off in previews and in a release, and off in every build
  * until the listener switches it on. With the flag or the setting off, playback has to be exactly
  * what it was, so this holds the places the flag is read to the shape they were written in: the
  * row composed only under the flag, the key read as off when absent, the fade row unchanged
@@ -35,8 +35,8 @@ class AutomixHeldBackTest {
     private fun lines(path: String) = code(source(path)).lines().map { it.trim() }
 
     @Test
-    fun `AutoMix is on in debug and preview builds only`() {
-        assertTrue(Regex("""val AUTOMIX = BuildConfig\.DEBUG\s*$""", RegexOption.MULTILINE).containsMatchIn(code(source("constants/Unreleased.kt"))))
+    fun `AutoMix is on in debug builds only, not in the previews testers get`() {
+        assertTrue(Regex("""val AUTOMIX = BuildConfig\.DEBUG && BuildConfig\.BUILD_TYPE == "debug"\s*$""", RegexOption.MULTILINE).containsMatchIn(code(source("constants/Unreleased.kt"))))
     }
 
     @Test
