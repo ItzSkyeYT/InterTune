@@ -10,6 +10,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.os.SystemClock
 import android.os.Build
 import android.text.format.DateUtils
 import android.widget.Toast
@@ -54,7 +55,9 @@ import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.Links
 import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.playback.PlayHealth
 import com.dd3boh.outertune.playback.StopReasons
+import com.dd3boh.outertune.utils.PhoneState
 import com.dd3boh.outertune.utils.ProblemLog
 import com.dd3boh.outertune.utils.RunLogs
 import com.dd3boh.outertune.utils.installedFrom
@@ -76,10 +79,19 @@ private const val FIRST_SHOWN = 4
  * are dated, and they outlive the run they ended. Where the app came from is asked once for all
  * of them: Android keeps only the latest install's.
  */
-private class LogChoice(val run: RunLogs.Run?, val excerpt: ProblemLog.Excerpt, val stops: List<String>, val installedFrom: String) {
+private class LogChoice(
+    val run: RunLogs.Run?,
+    val excerpt: ProblemLog.Excerpt,
+    val stops: List<String>,
+    val installedFrom: String,
+    val phoneNow: String,
+    val playback: String? = null,
+) {
     val version: String get() = run?.versionName ?: BuildConfig.VERSION_NAME
     val build: String get() = run?.build ?: ProblemLog.build()
-    fun report(): String = ProblemLog.report(excerpt, build = build, installedFrom = installedFrom, stops = stops, started = run?.started)
+    fun report(): String = ProblemLog.report(
+        excerpt, build = build, installedFrom = installedFrom, phoneNow = phoneNow, playback = playback, stops = stops, started = run?.started,
+    )
 }
 
 /**
@@ -101,9 +113,13 @@ fun ProblemReportDialog(onDismiss: () -> Unit) {
             // This run's file when one is kept: the phone's log may have turned over since the start.
             val lines = (if (Unreleased.PREVIOUS_LOGS) RunLogs.now() else null) ?: ProblemLog.read()
             val installedFrom = context.installedFrom()
-            val now = LogChoice(null, ProblemLog.excerpt(lines), StopReasons.read(context), installedFrom)
+            // The connection and the battery as they are now, asked once: an earlier run's own are in its lines.
+            val phoneNow = PhoneState.read(context).describe()
+            // How playback has gone since the app started: this run's only, see PlayHealth.
+            val playback = PlayHealth.thisRun.describe(SystemClock.elapsedRealtime())
+            val now = LogChoice(null, ProblemLog.excerpt(lines), StopReasons.read(context), installedFrom, phoneNow, playback)
             val earlier = if (Unreleased.PREVIOUS_LOGS) {
-                RunLogs.earlier(context).map { LogChoice(it, ProblemLog.excerpt(RunLogs.read(it)), emptyList(), installedFrom) }
+                RunLogs.earlier(context).map { LogChoice(it, ProblemLog.excerpt(RunLogs.read(it)), emptyList(), installedFrom, phoneNow) }
             } else emptyList()
             listOf(now) + earlier
         }
