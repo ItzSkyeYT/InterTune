@@ -69,10 +69,12 @@ class ReleasedFlagsTest {
     }
 
     @Test
-    fun `every other flag is on in debug and preview builds only`() {
+    fun `every other flag is on in debug and preview builds only, or in debug builds only`() {
         // Not false, which would take a feature from the debug build too, and nothing worked out.
+        // Debug builds only keeps a feature from the previews testers get (AutoMix, 26 Oct 2026).
+        val held = setOf("BuildConfig.DEBUG", "BuildConfig.DEBUG && BuildConfig.BUILD_TYPE == \"debug\"")
         for ((flag, value) in flags - inEveryBuild) {
-            assertEquals("$flag is neither on in every build nor held back", "BuildConfig.DEBUG", value)
+            assertTrue("$flag is neither on in every build nor held back: $value", value in held)
         }
     }
 
