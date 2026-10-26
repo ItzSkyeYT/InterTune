@@ -64,6 +64,18 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="spatial_room_value" translatable="false">%1$d%% of a small room</string>
     <string name="auto_for_you" translatable="false">For you</string>
     <string name="auto_recent" translatable="false">Recent</string>
+    <string name="auto_more_downloaded" translatable="false">Downloaded</string>
+    <string name="auto_more_downloaded_line" translatable="false">Plays with no signal</string>
+    <string name="auto_more_recent" translatable="false">Recently played</string>
+    <string name="auto_more_recent_line" translatable="false">Pick up where you left off</string>
+    <string name="auto_more_shuffle_library" translatable="false">Shuffle my library</string>
+    <string name="auto_more_shuffle_line" translatable="false">Everything you saved, mixed</string>
+    <string name="auto_settings_sound" translatable="false">Sound</string>
+    <string name="auto_settings_playback" translatable="false">Playback</string>
+    <string name="auto_level_line" translatable="false">Even out the volume</string>
+    <string name="auto_silence_line" translatable="false">Cut quiet starts and ends</string>
+    <string name="auto_more_line" translatable="false">The queue never runs out</string>
+    <string name="auto_radios_line" translatable="false">Follows your skips and likes</string>
     <string name="auto_jump_back_in" translatable="false">Jump back in</string>
     <string name="auto_carry_on" translatable="false">Carry on</string>
     <string name="auto_now_playing" translatable="false">Now playing</string>

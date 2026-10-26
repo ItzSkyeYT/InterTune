@@ -227,7 +227,7 @@ class MediaLibrarySessionCallback @Inject constructor(
         val bar = if (Unreleased.AUTO_REWORK && !own && parentId in AutoBrowse.TABS) listOfNotNull(nowPlaying()) else emptyList()
         LibraryResult.ofItemList(
             bar + when (parentId) {
-                MusicService.ROOT -> if (Unreleased.AUTO_REWORK) carTabs() else listOf(
+                MusicService.ROOT -> if (Unreleased.AUTO_REWORK) carTabs() + carMore() else listOf(
                     browsableMediaItem(
                         MusicService.SONG,
                         context.getString(R.string.songs),
@@ -452,6 +452,7 @@ class MediaLibrarySessionCallback @Inject constructor(
             val list = when {
                 target.list == AutoBrowse.LIKED -> playlistSongs(PlaylistEntity.LIKED_PLAYLIST_ID)
                 target.list == AutoBrowse.DOWNLOADED -> playlistSongs(PlaylistEntity.DOWNLOADED_PLAYLIST_ID)
+                target.list == AutoBrowse.LIBRARY -> librarySongs()
                 else -> playlistSongs(target.list.removePrefix(AutoBrowse.PLAYLIST_PREFIX))
             }
             return startExternalQueue(list.shuffled().map { it.toMediaItem() }, 0, C.TIME_UNSET)
@@ -741,6 +742,36 @@ class MediaLibrarySessionCallback @Inject constructor(
                 MediaMetadata.MEDIA_TYPE_FOLDER_MIXED, style(playable = LIST, browsable = LIST),
             )
         }
+    }
+
+    /**
+     * What Android Auto lists under its own More tab, under the settings it puts first: every item
+     * of the root past the three tabs goes there (AutoBrowse.TABS). Ways back to what is kept, so
+     * More holds more than the settings alone (his ask, 26 Oct 2026). The car's own screens take
+     * the first three only, so these never become tabs there.
+     */
+    private suspend fun carMore(): List<MediaItem> {
+        val liked = database.likedSongsCount().first()
+        return listOf(
+            browsableMediaItem(
+                "${MusicService.PLAYLIST}/${PlaylistEntity.LIKED_PLAYLIST_ID}", context.getString(R.string.liked_songs),
+                context.resources.getQuantityString(R.plurals.n_song, liked, liked), drawableUri(R.drawable.favorite),
+                MediaMetadata.MEDIA_TYPE_PLAYLIST, style(playable = LIST),
+            ),
+            browsableMediaItem(
+                "${MusicService.PLAYLIST}/${PlaylistEntity.DOWNLOADED_PLAYLIST_ID}", context.getString(R.string.auto_more_downloaded),
+                context.getString(R.string.auto_more_downloaded_line), drawableUri(R.drawable.download),
+                MediaMetadata.MEDIA_TYPE_PLAYLIST, style(playable = LIST),
+            ),
+            browsableMediaItem(
+                AutoBrowse.RECENT, context.getString(R.string.auto_more_recent), context.getString(R.string.auto_more_recent_line),
+                drawableUri(R.drawable.auto_recent), MediaMetadata.MEDIA_TYPE_PLAYLIST, style(playable = LIST),
+            ),
+            action(
+                "${AutoBrowse.SHUFFLE}/${AutoBrowse.LIBRARY}", context.getString(R.string.auto_more_shuffle_library),
+                context.getString(R.string.auto_more_shuffle_line), drawableUri(R.drawable.shuffle_on),
+            ),
+        )
     }
 
     /**
