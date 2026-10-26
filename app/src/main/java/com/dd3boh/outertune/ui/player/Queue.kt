@@ -713,7 +713,8 @@ fun BoxScope.QueueContent(
             Log.d("Queue.kt", "Trigger loading queue. init = $init")
             if (init) {
                 mutableQueues.clear()
-                mutableQueues.addAll(qb.getAllQueues())
+                // Never two with the same id: the list keys queues by it (#46).
+                mutableQueues.addAll(qb.getAllQueues().distinctBy { it.id })
                 playingQueue = updatedList.indexOf(qb.getCurrentQueue())
             }
         }
