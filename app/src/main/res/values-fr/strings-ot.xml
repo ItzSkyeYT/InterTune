@@ -1315,6 +1315,12 @@
     <string name="widget_rounded_corners">Coins arrondis</string>
     <!-- The widget's like button: held from translators in values until the words are agreed. -->
     <string name="widget_show_like">Bouton J\'aime, s\'il y a la place</string>
+    <!-- The widget's styles: held from translators in values until the words are agreed. -->
+    <string name="widget_config_style">Style</string>
+    <string name="widget_style_cover">Pochette</string>
+    <string name="widget_style_full_cover">Pochette entière</string>
+    <string name="widget_style_shelf">Étagère</string>
+    <string name="widget_up_next">À suivre</string>
     <!-- Recommendations: the little "i" beside an item, and what it opens -->
     <string name="tidy_home_rows_info">Aucune rangée de l\'accueil ne montre un titre déjà présent dans une rangée précédente, et les versions d\'un même titre (live, remasterisé, vidéo) comptent pour une. Rien ne comble les trous, donc une rangée peut être plus courte. Désactivé, vos exclusions ne filtrent plus que la rangée « Meilleures recommandations ».</string>
     <string name="rank_with_listening_info">Remet la « Sélection Rapide » dans un ordre qui vous convient : les titres que vous écoutez souvent, écoutés récemment ou aimés passent plutôt devant. Rien n\'est ajouté ni retiré. La rangée est laissée telle quelle quand « Meilleures recommandations » ou « Essayer les deux » la remplit.</string>
@@ -2108,7 +2114,8 @@
     <string name="search_words_bluetooth">casque, voiture, enceinte, lecture automatique</string>
     <string name="search_words_sleep">minuterie de sommeil, coucher, nuit</string>
     <string name="search_words_account_playback">compte, erreurs de lecture, connexion</string>
-    <string name="search_words_keep_alive">batterie, arrière-plan, fermée</string>
+    <string name="search_words_keep_alive">batterie, arrière-plan, fermée, maintenir actif</string>
+    <string name="search_words_battery_use">économie d\'énergie, énergie</string>
     <string name="search_words_recognition">Shazam, identifier, quel est ce titre</string>
     <string name="search_words_lyrics_sources">LrcLib, KuGou, fournisseurs</string>
     <string name="search_words_text_size">taille du texte, plus grand</string>
@@ -2147,4 +2154,12 @@
     <string name="auto_silence_line">Coupe les silences au début et à la fin</string>
     <string name="auto_more_line">La file d\'attente ne s\'arrête jamais</string>
     <string name="auto_radios_line">Suit vos passages et vos J\'aime</string>
+    <!-- Signal path (SignalPathDialog): what changes the sound between YouTube and the ear. -->
+    <!-- The player's pinned buttons (PlayerButtonsFrag, PlayerPins). -->
+    <string name="player_pins">Boutons épinglés</string>
+    <string name="player_pins_description">Ce qui reste sur le lecteur. Tout le reste est dans son menu.</string>
+    <string name="player_pins_by_title">À côté du titre</string>
+    <string name="player_pins_under_controls">Sous les commandes</string>
+    <string name="player_pin_lyrics">Paroles</string>
+    <string name="player_pins_reset">Réinitialiser</string>
 </resources>

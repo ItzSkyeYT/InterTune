@@ -64,6 +64,9 @@ import kotlinx.coroutines.withContext
 /** GitHub turns down a very long address, and what led up to the fault is what the form is for. */
 private const val FORM_LOG_LIMIT = 5000
 
+/** The whole link to the bug form at most. Asked on 26 Oct 2026: GitHub opens the form for a link of 6,900 characters and answers 7,100 with "Something went wrong". */
+private const val FORM_LINK_LIMIT = 6000
+
 /** Logs listed before "Show older": this run's and the three before it. */
 private const val FIRST_SHOWN = 4
 
@@ -147,11 +150,16 @@ fun ProblemReportDialog(onDismiss: () -> Unit) {
                 enabled = text != null,
                 onClick = {
                     // The form's own boxes, by their ids in .github/ISSUE_TEMPLATE/bug_report.yml.
-                    val uri = "${Links.ISSUES}/new".toUri().buildUpon()
+                    val form = "${Links.ISSUES}/new".toUri().buildUpon()
                         .appendQueryParameter("template", "bug_report.yml")
                         .appendQueryParameter("build", choice?.build ?: ProblemLog.build())
                         .appendQueryParameter("device", ProblemLog.device())
-                        .appendQueryParameter("logs", ProblemLog.fitted(text.orEmpty(), FORM_LOG_LIMIT))
+                        .build()
+                    // The log as much as the link holds: past about 7,000 characters GitHub says
+                    // "Something went wrong" instead of opening the form.
+                    val room = FORM_LINK_LIMIT - form.toString().length - "&logs=".length
+                    val uri = form.buildUpon()
+                        .appendQueryParameter("logs", ProblemLog.fittedForLink(text.orEmpty(), room, FORM_LOG_LIMIT))
                         .build()
                     runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
                     onDismiss()

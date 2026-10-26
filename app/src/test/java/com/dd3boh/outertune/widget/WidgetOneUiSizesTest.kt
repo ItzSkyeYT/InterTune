@@ -7,7 +7,6 @@
 package com.dd3boh.outertune.widget
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -35,51 +34,43 @@ class WidgetOneUiSizesTest {
     private fun plan(w: Int, h: Int, settings: WidgetSettings = WidgetSettings(), available: Int = WidgetLayout.MAX_PICKS) =
         WidgetLayout.plan(w, h, settings, available)
 
+    private val shelf = WidgetSettings(style = WidgetStyle.SHELF)
+
+    /**
+     * Since the styles (25 Oct 2026) the list is a Shelf's covers, in full rows only. Five by three
+     * is square enough to take the four by four's shape: its buttons on a line of their own and
+     * three bigger covers rather than four. From five by four up there is room for all six.
+     */
     @Test
-    fun `what is playing and a list shows two rows at five by two and six from five by four up`() {
-        assertEquals(listOf(2, 4, 6, 6, 6), portrait.map { (w, h) -> plan(w, h).rows })
-        assertEquals(listOf(6, 6, 6, 6, 6), landscape.map { (w, h) -> plan(w, h).rows })
-        // With what is playing above them, in a line, at every one of these sizes.
-        (portrait + landscape).forEach { (w, h) -> assertEquals("$w x $h", NowShape.ROW, plan(w, h).shape) }
+    fun `a Shelf shows four covers at five by two and all six from five by four up`() {
+        assertEquals(listOf(4, 3, 6, 6, 6), portrait.map { (w, h) -> plan(w, h, shelf).shown })
+        assertEquals(listOf(6, 6, 5, 6, 6), landscape.map { (w, h) -> plan(w, h, shelf).shown })
+        (portrait + landscape).forEach { (w, h) -> assertEquals("$w x $h", WidgetShape.SHELF, plan(w, h, shelf).shape) }
     }
 
     @Test
-    fun `a list on its own shows three rows at five by two and six from five by four up`() {
-        val list = WidgetSettings(content = WidgetContent.LIST)
-        assertEquals(listOf(3, 5, 6, 6, 6), portrait.map { (w, h) -> plan(w, h, list).rows })
-        assertEquals(listOf(6, 6, 6, 6, 6), landscape.map { (w, h) -> plan(w, h, list).rows })
+    fun `Cover and Full cover draw what is playing at every one of these sizes, never a list`() {
+        for ((w, h) in portrait + landscape) for (style in listOf(WidgetStyle.COVER, WidgetStyle.FULL_COVER)) {
+            val p = plan(w, h, WidgetSettings(style = style))
+            assertEquals("$w x $h $style", 0, p.shown)
+            assertTrue("$w x $h $style", p.play && p.skips)
+        }
+        assertEquals(WidgetShape.SIDE, plan(405, 216, WidgetSettings(style = WidgetStyle.COVER)).shape)
+        assertEquals(WidgetShape.TOP, plan(405, 432, WidgetSettings(style = WidgetStyle.COVER)).shape)
     }
 
     @Test
-    fun `every setting of what it shows and how many rows gets all the rows that fit`() {
+    fun `every setting of what a Shelf holds and how many rows gets the covers that fit, in full rows`() {
         val problems = mutableListOf<String>()
-        for ((w, h) in portrait + landscape) for (content in WidgetContent.entries) for (maxRows in 0..WidgetLayout.MAX_PICKS) {
-            val p = plan(w, h, WidgetSettings(content = content, maxRows = maxRows))
+        for ((w, h) in portrait + landscape) for (content in listOf(WidgetContent.BOTH, WidgetContent.LIST)) for (maxRows in 0..WidgetLayout.MAX_PICKS) {
+            val p = plan(w, h, shelf.copy(content = content, maxRows = maxRows))
             val at = "$w x $h, $content, rows set to $maxRows"
-            if (content == WidgetContent.NOW_PLAYING) {
-                if (p.rows != 0) problems += "$at: ${p.rows} rows on a widget set to show no list"
-                continue
-            }
-            val allowed = if (maxRows > 0) maxRows else WidgetLayout.MAX_PICKS
-            if (p.rows > allowed) problems += "$at: ${p.rows} rows, over the ceiling"
-            if (WidgetLayout.heightOf(p, h) > h) problems += "$at: taller than the widget"
-            // Fewer than were allowed only when one more, at the shortest a row can be, would not fit.
-            val withOneMore = WidgetLayout.heightOf(p, h) - p.rows * p.rowHeight + (p.rows + 1) * WidgetLayout.LIST_ROW_MIN_DP
-            if (p.rows < allowed && withOneMore <= h) problems += "$at: ${p.rows} rows where ${p.rows + 1} fit"
+            if (maxRows > 0 && p.shelfRows > maxRows) problems += "$at: ${p.shelfRows} rows, over the ceiling"
+            if (p.shown > WidgetLayout.MAX_PICKS || p.shown > p.columns * p.shelfRows) problems += "$at: ${p.shown} covers"
+            if (p.shelfRows > 1 && p.columns * p.shelfRows > WidgetLayout.MAX_PICKS) problems += "$at: a row not full"
+            if (p.shown == 0) problems += "$at: no covers"
         }
         assertEquals(problems.joinToString("\n"), emptyList<String>(), problems)
-    }
-
-    @Test
-    fun `two rows under what is playing is the plan for 203 to 252 dp of height and for no other`() {
-        val heights = (100..700).filter { h -> plan(405, h).rows == 2 }
-        assertEquals((203..252).toList(), heights)
-        // So the same two rows at five by four mean the list was short or the ceiling was two.
-        val short = plan(405, 432, available = 2)
-        assertEquals(2, short.rows)
-        assertFalse("a list that ran out of songs starts at the top", short.centred)
-        assertEquals(2, plan(405, 432, WidgetSettings(maxRows = 2)).rows)
-        assertTrue(plan(405, 432).centred)
     }
 
     /**

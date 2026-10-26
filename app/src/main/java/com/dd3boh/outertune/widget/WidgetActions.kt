@@ -15,7 +15,12 @@ import androidx.core.content.ContextCompat
 import androidx.glance.GlanceId
 import androidx.glance.action.ActionParameters
 import androidx.glance.appwidget.action.ActionCallback
+import androidx.media3.common.C
+import androidx.media3.common.Player
 import com.dd3boh.outertune.MainActivity
+import com.dd3boh.outertune.extensions.metadata
+import com.dd3boh.outertune.extensions.toggleShuffleMode
+import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.playback.MusicService
 import com.dd3boh.outertune.playback.ResumingMediaButtonReceiver
 import com.dd3boh.outertune.playback.turnLike
@@ -102,6 +107,44 @@ object WidgetCommands {
         )
     }
 
+    /**
+     * Shuffle, as the player's own button does it: the player's flag turned over, which the service
+     * answers by shuffling the queue or putting it back. With no service there is no queue to
+     * shuffle, and the tap opens the app instead, as next and previous do then.
+     */
+    suspend fun toggleShuffle(context: Context) {
+        val service = MusicService.alive()
+        val done = service != null && withContext(Dispatchers.Main) {
+            runCatching { service.activePlayer.toggleShuffleMode() }
+                .onFailure { Log.w(TAG, "Could not shuffle from the widget", it) }.isSuccess
+        }
+        if (!done) openApp(context)
+    }
+
+    /** The song an Up next row is for. */
+    val UpNextSong = ActionParameters.Key<String>("widget_up_next_song")
+
+    /**
+     * A song of Up next tapped: the queue plays on from it, as a tap on it in the queue does. With no
+     * service, or a queue that has moved on and no longer has it next, the song is played the way a
+     * Quick pick on the widget plays it, so the tap is never silence.
+     */
+    suspend fun playUpNext(context: Context, songId: String) {
+        val service = MusicService.alive()
+        val played = service != null && withContext(Dispatchers.Main) {
+            runCatching { service.activePlayer.playOnFrom(songId) }
+                .onFailure { Log.w(TAG, "Could not play from Up next", it) }.getOrDefault(false)
+        }
+        if (played) return
+        val song = WidgetStore.read(context).upNext.firstOrNull { it.id == songId }
+        if (song == null) {
+            openApp(context)
+            return
+        }
+        runCatching { context.startActivity(playIntent(context, song)) }
+            .onFailure { Log.w(TAG, "Could not open the app on the song", it) }
+    }
+
     fun openApp(context: Context) = runCatching {
         context.startActivity(appIntent(context))
     }.onFailure { Log.w(TAG, "Could not open the app", it) }.getOrDefault(Unit)
@@ -152,6 +195,58 @@ class LikeAction : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
         WidgetCommands.toggleLike(context)
     }
+}
+
+class ShuffleAction : ActionCallback {
+    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+        WidgetCommands.toggleShuffle(context)
+    }
+}
+
+class PlayUpNextAction : ActionCallback {
+    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+        val id = parameters[WidgetCommands.UpNextSong] ?: return
+        WidgetCommands.playUpNext(context, id)
+    }
+}
+
+/** The next [count] songs of the queue after the one playing, in the order the player will play them. */
+fun Player.upNext(count: Int): List<MediaMetadata> {
+    val timeline = currentTimeline
+    if (timeline.isEmpty || count <= 0) return emptyList()
+    val songs = ArrayList<MediaMetadata>(count)
+    var index = currentMediaItemIndex
+    while (songs.size < count) {
+        index = timeline.getNextWindowIndex(index, Player.REPEAT_MODE_OFF, shuffleModeEnabled)
+        if (index == C.INDEX_UNSET) break
+        getMediaItemAt(index).metadata?.let { songs += it }
+    }
+    return songs
+}
+
+/** Plays the queue on from the first [songId] after the song playing: true when it was there. */
+internal fun Player.playOnFrom(songId: String): Boolean {
+    val at = nextIndexOf(songId, currentMediaItemIndex, mediaItemCount, { getMediaItemAt(it).mediaId }) { index ->
+        currentTimeline.getNextWindowIndex(index, Player.REPEAT_MODE_OFF, shuffleModeEnabled)
+    } ?: return false
+    seekToDefaultPosition(at)
+    play()
+    return true
+}
+
+/**
+ * Where [songId] is next in a queue of [count] songs, after [current]: following [next] from one
+ * song to the one after it, as the player plays them, and never round past the end. Null when the
+ * queue does not have it coming.
+ */
+internal fun nextIndexOf(songId: String, current: Int, count: Int, idAt: (Int) -> String, next: (Int) -> Int): Int? {
+    var index = current
+    repeat(count) {
+        index = next(index)
+        if (index == C.INDEX_UNSET || index !in 0 until count) return null
+        if (idAt(index) == songId) return index
+    }
+    return null
 }
 
 /**

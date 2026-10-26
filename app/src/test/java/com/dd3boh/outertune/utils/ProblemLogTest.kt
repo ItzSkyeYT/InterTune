@@ -201,4 +201,31 @@ class ProblemLogTest {
         val failed = "10-14 10:20:00.000 W/System.err( 6711): io.ktor.client.plugins.ClientRequestException: Client request invalid: 400"
         assertTrue(words(ProblemLog.excerpt(song + failed)).any { "ClientRequestException" in it })
     }
+    @Test
+    fun `a log for the form's link is cut until escaped it fits, its heading kept`() {
+        val heading = "InterTune 0.12.1 (96, core release)\nsamsung SM-S942B, Android 17 (API 37)\n\n"
+        val lines = (1..400).joinToString("\n") { "18:35:%02d.324 I/MusicService: PLAYING: song id = Cvlu8cvv3dY (temp cache) [%d]".format(it % 60, it) }
+        val report = heading + lines
+        val cut = ProblemLog.fittedForLink(report, 5800, 5000)
+        assertTrue(ProblemLog.linkLength(cut) <= 5800)
+        assertTrue(cut.startsWith("InterTune 0.12.1"))
+        assertTrue("the newest lines are the ones kept", cut.trimEnd().endsWith("[400]"))
+        // The cut by characters alone, as it was, escapes half as long again: past what the link holds.
+        assertTrue(ProblemLog.linkLength(ProblemLog.fitted(report, 5000)) > 7000)
+    }
+
+    @Test
+    fun `escaping counts three for a space, a colon or a letter outside ASCII, one for the rest`() {
+        assertEquals(3, ProblemLog.linkLength("abc"))
+        assertEquals(9, ProblemLog.linkLength("a b:c"))
+        assertEquals(6, ProblemLog.linkLength("é"))
+        assertEquals(4, ProblemLog.linkLength("-_.~"))
+    }
+
+    @Test
+    fun `the form's link is built with the log fitted to what is left of it`() {
+        val dialog = java.io.File("src/main/java/com/dd3boh/outertune/ui/component/ProblemReportDialog.kt").readText()
+        assertTrue("ProblemLog.fittedForLink(text.orEmpty(), room, FORM_LOG_LIMIT)" in dialog)
+        assertTrue("private const val FORM_LINK_LIMIT = 6000" in dialog)
+    }
 }
