@@ -69,12 +69,17 @@ object StreamPace {
         private var bytes = 0L
         private var waited = 0L
 
+        /** The pace of the last window judged, in bytes a second: what a slow connection came in at, for the log. */
+        var lastPace = 0.0
+            private set
+
         /** One read: [read] bytes in [nanos] spent waiting for them. True when the connection is too slow to keep. */
         fun slow(read: Int, nanos: Long): Boolean {
             bytes += read.coerceAtLeast(0)
             waited += nanos.coerceAtLeast(0)
             if (waited < WINDOW_NANOS) return false
             val pace = bytes * 1e9 / waited
+            lastPace = pace
             bytes = 0
             waited = 0
             if (pace < needBytesPerSecond) return true
@@ -207,7 +212,8 @@ class PaceGuardDataSource(
             cuts.cut()
             meter = null
             val after = if (cuts.mayCut()) "" else "; the next one is kept however slow"
-            val message = "a stream slower than its song (under ${"%.1f".format(need / 1000)} KB/s), asked again on a fresh connection$after"
+            // What it came in at beside what the song needs: a report then says how slow the line was.
+            val message = "a stream slower than its song (${"%.1f".format(watching.lastPace / 1000)} KB/s where it needs ${"%.1f".format(need / 1000)}), asked again on a fresh connection$after"
             Log.i(TAG, message)
             throw SlowStreamException(message, opened ?: DataSpec(Uri.EMPTY))
         }
