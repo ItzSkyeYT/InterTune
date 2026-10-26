@@ -202,6 +202,7 @@ import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.playback.queues.Queue
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import com.dd3boh.outertune.utils.PhoneState
+import com.dd3boh.outertune.utils.SoundRoute
 import com.dd3boh.outertune.utils.SessionBitmapLoader
 import com.dd3boh.outertune.utils.ErrorText
 import com.dd3boh.outertune.utils.LoudnessRepair
@@ -2771,6 +2772,8 @@ class MusicService : MediaLibraryService(),
                                 // The player's own connections tell the stall watch how long each
                                 // waits for its first byte: see StreamProgress.
                                 firstBytes = calls === playerCalls,
+                                // How fast its streams came in, for Report a problem: see PlayHealth.
+                                health = if (calls === playerCalls) PlayHealth.thisRun else null,
                             )
                         )
                     )
@@ -4193,6 +4196,7 @@ class MusicService : MediaLibraryService(),
                 return
             }
         }
+        PlayHealth.thisRun.failed()
         // What failed was the song's cached copy, and it is gone: the song goes on from where it
         // stopped, read from YouTube, instead of ending on an error that will not come again.
         // Once: see BadCachedCopy.
@@ -4332,6 +4336,8 @@ class MusicService : MediaLibraryService(),
      */
     private fun updateStallWatch(player: Player) {
         val wanted = player.playbackState == Player.STATE_BUFFERING && player.playWhenReady && !isCasting
+        // The same wait, counted and timed for Report a problem: see PlayHealth.
+        PlayHealth.thisRun.waiting(wanted, SystemClock.elapsedRealtime())
         if (wanted && !stallWatching) {
             stallWatching = true
             // A silence from before a pause or a quiet retry is not this one's.
@@ -4373,6 +4379,7 @@ class MusicService : MediaLibraryService(),
                 // Media3's own retry then asks again at once, on a new connection, from the same byte.
                 loadFailures.cutByUs(id, now)
                 playerCalls.cancelInFlight()
+                PlayHealth.thisRun.silenceCut()
                 Log.w(TAG, StepLog.stallCut(id, silentMs, activePlayer.currentPosition, 1, 3))
             }
             StallWatch.Action.CHANGE_ROUTE -> {
@@ -4382,6 +4389,7 @@ class MusicService : MediaLibraryService(),
                     songRoutes.mark(id, route, now)
                     loadFailures.cutByUs(id, now)
                     playerCalls.cancelInFlight()
+                    PlayHealth.thisRun.silenceCut()
                     Log.w(TAG, StepLog.stallRoute(id, silentMs, activePlayer.currentPosition, route, 2, 3))
                 } else {
                     stallGiveUp(id, now)
@@ -4395,6 +4403,7 @@ class MusicService : MediaLibraryService(),
         stallWatching = false
         stallHandler.removeCallbacks(stallTick)
         stallGaveUp = id to now
+        PlayHealth.thisRun.failed()
         noteGivenUp(id, recoveryBudget.takenFor(id, now) + 1, "no byte from YouTube's servers for ${StepLog.limit(stallWatch.silentMs(now))}")
         if (dataStore.get(SkipOnErrorKey, false)) skipOnError() else stopOnError()
         Toast.makeText(this@MusicService, getString(R.string.error_youtube_not_answering), Toast.LENGTH_LONG).show()
@@ -4516,6 +4525,12 @@ class MusicService : MediaLibraryService(),
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
         super.onMediaItemTransition(mediaItem, reason)
         songChanges.value += 1
+        // How playback has gone so far, at every song, so that a report of a run that ended
+        // carries it too. Where the sound goes by kind only, never a device's name: see PlayHealth.
+        if (mediaItem != null) {
+            PlayHealth.thisRun.song(if (isCasting) "a cast receiver" else SoundRoute.read(this))
+            Log.i(TAG, "health: ${PlayHealth.thisRun.describe(SystemClock.elapsedRealtime())}")
+        }
         // A cast play records nothing in the listening history for now. A row is closed by what the
         // phone's own player reports, and it reports nothing while casting, so a row opened here
         // would never be closed. Whether cast plays should count at all is still to be decided.

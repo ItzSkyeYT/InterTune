@@ -139,11 +139,14 @@ object ProblemLog {
         started: Date? = null,
         /** The connection and the battery when the report is made ([PhoneState]); a run's own are in its lines. */
         phoneNow: String? = null,
+        /** How playback has gone this run, for this run's report only (PlayHealth); an earlier run's is in its lines. */
+        playback: String? = null,
     ): String = buildString {
         appendLine("InterTune $build")
         appendLine(device)
         appendLine("Installed from: $installedFrom")
         phoneNow?.let { appendLine("Phone now: $it") }
+        playback?.let { appendLine("Playback this run: $it") }
         // A run before this one: which, since its lines carry the time of day and not the date.
         started?.let { appendLine("From the run that began ${SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.ROOT).format(it)}") }
         appendLine(if (excerpt.faultAt == null) "Nothing that looks like a fault. The last lines:" else "The last fault and what led up to it:")

@@ -65,7 +65,12 @@ object StreamPace {
      * Slow means slower than the song itself plays. A connection that only just keeps up is left
      * alone: a fresh one on a slow network would be no better, and every cut costs a reconnect.
      */
-    class Meter(private val needBytesPerSecond: Double, private val keptPace: () -> Unit = {}) {
+    class Meter(
+        private val needBytesPerSecond: Double,
+        /** Each window judged: its bytes and the time waited for them, for this run's tally (PlayHealth). */
+        private val judged: (bytes: Long, nanos: Long) -> Unit = { _, _ -> },
+        private val keptPace: () -> Unit = {},
+    ) {
         private var bytes = 0L
         private var waited = 0L
 
@@ -80,6 +85,7 @@ object StreamPace {
             if (waited < WINDOW_NANOS) return false
             val pace = bytes * 1e9 / waited
             lastPace = pace
+            judged(bytes, waited)
             bytes = 0
             waited = 0
             if (pace < needBytesPerSecond) return true
@@ -161,6 +167,8 @@ class PaceGuardDataSource(
     private val clock: () -> Long = System::nanoTime,
     /** The player's own: how long each of its connections waits for a first byte is told to the stall watch, see StreamProgress. */
     private val firstBytes: Boolean = false,
+    /** The player's own: the pace of its streams and its cuts go into this run's tally. */
+    private val health: PlayHealth? = null,
 ) : DataSource {
     private val cuts = StreamPace.Cuts()
     private var meter: StreamPace.Meter? = null
@@ -177,8 +185,9 @@ class PaceGuardDataSource(
         opened = dataSpec
         meter = null
         if (StreamPace.isStream(url) && cuts.mayCut()) {
-            need = StreamPace.need(url)
-            meter = StreamPace.Meter(need) { cuts.keptPace() }
+            val needed = StreamPace.need(url)
+            need = needed
+            meter = StreamPace.Meter(needed, judged = { bytes, nanos -> health?.paced(bytes, nanos, needed) }) { cuts.keptPace() }
         }
         if (firstBytes) {
             awaitingFirstByte = true
@@ -210,6 +219,7 @@ class PaceGuardDataSource(
         if (read != 0) firstByteCame()
         if (watching.slow(read, clock() - start)) {
             cuts.cut()
+            health?.slowCut()
             meter = null
             val after = if (cuts.mayCut()) "" else "; the next one is kept however slow"
             // What it came in at beside what the song needs: a report then says how slow the line was.
@@ -231,8 +241,12 @@ class PaceGuardDataSource(
         upstream.close()
     }
 
-    class Factory(private val upstream: DataSource.Factory, private val firstBytes: Boolean = false) : DataSource.Factory {
-        override fun createDataSource(): DataSource = PaceGuardDataSource(upstream.createDataSource(), firstBytes = firstBytes)
+    class Factory(
+        private val upstream: DataSource.Factory,
+        private val firstBytes: Boolean = false,
+        private val health: PlayHealth? = null,
+    ) : DataSource.Factory {
+        override fun createDataSource(): DataSource = PaceGuardDataSource(upstream.createDataSource(), firstBytes = firstBytes, health = health)
     }
 
     private companion object {
