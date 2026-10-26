@@ -2070,4 +2070,11 @@
     <string name="signal_legend_untouched">Intact</string>
     <string name="signal_legend_changed">Modifié par un réglage que vous avez choisi</string>
     <string name="signal_legend_where">Où il joue</string>
+    <!-- The player's pinned buttons (PlayerButtonsFrag, PlayerPins). -->
+    <string name="player_pins">Boutons épinglés</string>
+    <string name="player_pins_description">Ce qui reste sur le lecteur. Tout le reste est dans son menu.</string>
+    <string name="player_pins_by_title">À côté du titre</string>
+    <string name="player_pins_under_controls">Sous les commandes</string>
+    <string name="player_pin_lyrics">Paroles</string>
+    <string name="player_pins_reset">Réinitialiser</string>
 </resources>
