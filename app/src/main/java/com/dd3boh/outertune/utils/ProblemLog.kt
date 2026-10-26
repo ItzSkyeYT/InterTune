@@ -118,11 +118,25 @@ object ProblemLog {
     private val STREAM_HOST = Regex("""[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.googlevideo\.com""")
 
     /**
-     * Without what says where the phone is: network addresses ([ErrorText]) and the name of the
-     * server a song came from, which names the provider and the town. Song ids stay: the fault is
-     * often one song's, and the id is how it is found again.
+     * A file's folders on the phone, up to its name: a folder can be named after whoever owns the
+     * phone. A warning of any part is kept, and the library scan's names the file it could not read.
+     * Inside a path a colon has no space after it: Java writes "path: open failed".
      */
-    fun scrub(text: String): String = ErrorText.withoutAddresses(text).replace(STREAM_HOST, "a stream host")
+    private val FOLDERS = Regex("""(?:file://)?/(?:storage|sdcard|mnt)/(?:[^"\n:]|:(?! ))*/""")
+
+    /** A file or folder picked through Android's own picker: its path is inside the address. */
+    private val PICKED = Regex("""(content://[^\s"'/]+/(?:tree|document)/)[^\s"']+""")
+
+    /**
+     * Without what says where the phone is or whose it is: network addresses ([ErrorText]), the
+     * name of the server a song came from, which names the provider and the town, and the folders
+     * of a file on the phone. Song ids stay: the fault is often one song's, and the id is how it is
+     * found again.
+     */
+    fun scrub(text: String): String = ErrorText.withoutAddresses(text)
+        .replace(STREAM_HOST, "a stream host")
+        .replace(FOLDERS, "…/")
+        .replace(PICKED, "$1…")
 
     /**
      * What is copied: the build, the phone and where the app came from ([installedFrom]), then

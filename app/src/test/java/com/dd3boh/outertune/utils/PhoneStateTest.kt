@@ -29,6 +29,12 @@ class PhoneStateTest {
     }
 
     @Test
+    fun `InterTune's own Battery use comes beside the phone's saver`() {
+        val line = PhoneState(network = "Wi-Fi", batterySaver = true, batteryUse = "Saver", backgroundRestricted = false).describe()
+        assertTrue(line, line.endsWith("; battery saver on, Battery use Saver, not restricted in the background"))
+    }
+
+    @Test
     fun `no network, and a network with no internet behind it`() {
         assertTrue(PhoneState(network = null).describe().startsWith("no network, Data Saver off"))
         assertTrue("no internet behind it" in PhoneState(network = "Wi-Fi", validated = false).describe())

@@ -12,6 +12,7 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.PowerManager
+import com.dd3boh.outertune.playback.batteryModeNow
 
 /**
  * What the phone's connection and battery are like, for Report a problem: whether it is on Wi-Fi
@@ -35,6 +36,8 @@ data class PhoneState(
     val upKbps: Int? = null,
     val dataSaver: Boolean = false,
     val batterySaver: Boolean = false,
+    /** InterTune's own Battery use in force (Full, Balanced, Saver), the phone's saver counted. */
+    val batteryUse: String? = null,
     /** Null where the phone cannot say (before Android 9 for the restriction). */
     val backgroundRestricted: Boolean? = null,
     val optimisationExempt: Boolean? = null,
@@ -50,6 +53,7 @@ data class PhoneState(
         }
         append(if (dataSaver) ", Data Saver on" else ", Data Saver off")
         append("; battery saver ").append(if (batterySaver) "on" else "off")
+        batteryUse?.let { append(", Battery use ").append(it) }
         backgroundRestricted?.let { append(", ").append(if (it) "restricted in the background" else "not restricted in the background") }
         optimisationExempt?.let { append(", battery optimisation ").append(if (it) "off for InterTune" else "on for InterTune") }
     }
@@ -88,6 +92,7 @@ data class PhoneState(
                 upKbps = caps?.linkUpstreamBandwidthKbps?.takeIf { it > 0 },
                 dataSaver = runCatching { connectivity?.restrictBackgroundStatus == ConnectivityManager.RESTRICT_BACKGROUND_STATUS_ENABLED }.getOrNull() == true,
                 batterySaver = runCatching { power?.isPowerSaveMode }.getOrNull() == true,
+                batteryUse = runCatching { context.batteryModeNow() }.getOrNull()?.name?.lowercase()?.replaceFirstChar { it.uppercase() },
                 backgroundRestricted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) runCatching { activity?.isBackgroundRestricted }.getOrNull() else null,
                 optimisationExempt = runCatching { power?.isIgnoringBatteryOptimizations(context.packageName) }.getOrNull(),
             )
