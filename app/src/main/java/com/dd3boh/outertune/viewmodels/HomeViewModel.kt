@@ -6,6 +6,9 @@ import com.dd3boh.outertune.constants.EngineOverridesKey
 import com.dd3boh.outertune.engine.EngineTuning
 import com.dd3boh.outertune.engine.ContextChip
 import com.dd3boh.outertune.constants.ContextChipKey
+import com.dd3boh.outertune.constants.BatteryMode
+import com.dd3boh.outertune.playback.BatteryUse
+import com.dd3boh.outertune.playback.batteryModeNow
 import com.dd3boh.outertune.constants.QuickPicksLeanKey
 import com.dd3boh.outertune.db.Converters
 import com.dd3boh.outertune.engine.Lean
@@ -375,7 +378,8 @@ class HomeViewModel @Inject constructor(
         val standing = lastDiscoverRow ?: if (!force) restoreDiscoverRow(now) else null
         val variety = discoverVarietyOnNextBuild && standing != null
         discoverVarietyOnNextBuild = false
-        val row = if (standing != null && !force && now - lastDiscoverBuildAt < 3 * 3_600_000L && session == lastDiscoverSession) standing
+        // Discover has no part of the day of its own: as before, only the session and the hours count.
+        val row = if (standing != null && !force && rowStands(lastDiscoverBuildAt, session == lastDiscoverSession, sameDayPart = true, now = now)) standing
         else {
             val mode = similarMode()
             val input = engineInput(now, mode)
@@ -561,8 +565,30 @@ class HomeViewModel @Inject constructor(
         }.onFailure { Log.w("HomeViewModel", "Could not work out the Last.fm share", it) }.getOrDefault(0.5)
 
     init {
-        // Warmed up in the background as the app opens, so the first build or ranking does not wait for the read.
-        viewModelScope.launch(Dispatchers.IO) { runCatching { engineInput(System.currentTimeMillis()) } }
+        // Warmed up in the background as the app opens, so the first build or ranking does not wait
+        // for the read. Not when Home opens on rows that stand: nothing reads it before they are
+        // built again, by when the five minutes it is kept are long gone, and a pull reads it anew.
+        viewModelScope.launch(Dispatchers.IO) { runCatching { if (!opensOnKeptRows()) engineInput(System.currentTimeMillis()) } }
+    }
+
+    /** Whether the engine's input would be read from the database for a build now, as [engineInput] decides. */
+    private fun engineInputWouldRead(now: Long): Boolean = engineInputCache?.let { now - it.first >= ENGINE_INPUT_TTL_MS } ?: true
+
+    /**
+     * Whether Home opens on engine rows kept from before, which stand as Battery use has them
+     * ([rowStands]): Quick picks is the engine's, its last build would be restored, and so would
+     * Discover's where it is shown. Looked up without restoring anything, which the first build does.
+     */
+    private suspend fun opensOnKeptRows(): Boolean {
+        val source = quickPicksSource()
+        if (source != QuickPicksSource.ENGINE && source != QuickPicksSource.COMPARE) return false
+        val now = System.currentTimeMillis()
+        val engine = database.lastBuild(1) ?: return false
+        if (!rowIsFresh(engine.builtAt, engine.sessionId, engine.bucket, now)) return false
+        if (engine.contextChip != context.dataStore.get(ContextChipKey, 0) || engine.lean != storedLean().code) return false
+        if (!discoverWanted()) return true
+        val discover = database.lastBuild(DISCOVER_ROW_KEY) ?: return false
+        return rowIsFresh(discover.builtAt, discover.sessionId, discover.bucket, now)
     }
 
     private fun currentSessionOf(now: Long): Long = runCatching {
@@ -570,7 +596,23 @@ class HomeViewModel @Inject constructor(
     }.getOrNull() ?: -1L
 
     private fun rowIsFresh(builtAt: Long, session: Long, bucket: Int, now: Long): Boolean =
-        now - builtAt < 3 * 3_600_000L && session == currentSessionOf(now) && bucket == dayPartBucket(now, java.util.TimeZone.getDefault().getOffset(now) / 60_000)
+        rowStands(builtAt, session == currentSessionOf(now), bucket == dayPartBucket(now, java.util.TimeZone.getDefault().getOffset(now) / 60_000), now)
+
+    /**
+     * Whether a row built at [builtAt] stands when Home appears, as Battery use has it
+     * (BatteryUse.rowStands): on Full until a new session, a new part of the day or three hours, as
+     * before; on Balanced at least three hours and then until enough was played or a day went by;
+     * on Saver until a pull to refresh. A pull, and a change of what the row is built under, are
+     * decided by the callers. The listens since the build are counted only where Balanced asks.
+     */
+    private fun rowStands(builtAt: Long, sameSession: Boolean, sameDayPart: Boolean, now: Long): Boolean {
+        // A build time of 0 is how a change of what the row is built under asks for a new one (a
+        // source of similar songs, a seed or a song turned down): in every mode, Saver's included.
+        if (builtAt <= 0L) return false
+        val mode = context.batteryModeNow()
+        val since = if (mode == BatteryMode.BALANCED) runCatching { database.listenCountSince(builtAt) }.getOrDefault(0) else 0
+        return BatteryUse.rowStands(mode, now - builtAt, sameSession, sameDayPart, since)
+    }
 
     /** The last engine build from the database, when it is still fresh: shown at once, no seconds of building. */
     private suspend fun restoreEngineRow(now: Long): BuiltRow? = withContext(Dispatchers.IO) {
@@ -630,6 +672,8 @@ class HomeViewModel @Inject constructor(
      */
     private fun shadowBuild() {
         if (!context.dataStore.get(ShadowComparisonKey, true)) return
+        // Not while Battery use is on Saver: a row nobody sees (BatteryUse.buildsUnseenRows).
+        if (!BatteryUse.buildsUnseenRows(context.batteryModeNow())) return
         val power = context.getSystemService(android.content.Context.POWER_SERVICE) as? android.os.PowerManager
         if (power?.isPowerSaveMode == true) return
         viewModelScope.launch(Dispatchers.Default) {
@@ -682,10 +726,12 @@ class HomeViewModel @Inject constructor(
         val newOnlyNow = context.dataStore.get(NewSongsOnlyKey, false)
         val familiarityNow = context.dataStore.get(FamiliarityKey, 25)
         val leanNow = storedLean()
-        if (restored != null && !force && now - lastEngineBuildAt < 3 * 3_600_000L && session == lastEngineSession && newOnlyNow == lastEngineNewOnly && familiarityNow == lastEngineFamiliarity && context.dataStore.get(ContextChipKey, 0) == lastEngineChip &&
-            leanNow == lastEngineLean &&
-            lastEngineBucket == dayPartBucket(now, java.util.TimeZone.getDefault().getOffset(now) / 60_000) && engineInputCache == null) {
-            // Fresh and restored from the database: shown as it was, without reading the library first.
+        // A row that stands, restored from the database or kept from the last build, is shown as it
+        // was without reading the library first, whenever that read would be needed: on Balanced
+        // and Saver a row stands for hours, and the read kept in memory only for five minutes.
+        if (restored != null && !force && newOnlyNow == lastEngineNewOnly && familiarityNow == lastEngineFamiliarity && context.dataStore.get(ContextChipKey, 0) == lastEngineChip &&
+            leanNow == lastEngineLean && engineInputWouldRead(now) &&
+            rowStands(lastEngineBuildAt, session == lastEngineSession, lastEngineBucket == dayPartBucket(now, java.util.TimeZone.getDefault().getOffset(now) / 60_000), now)) {
             engineReasons.value = (restored.cards + restored.pool).associate { c -> c.songId to c.reasons.map { CardReason(it, null) } }
             engineSeeds.value = restored.seeds.map { it to it }; engineQuotas.value = restored.quotas
             val wanted = (restored.cards + restored.pool).map { it.songId }
@@ -695,7 +741,8 @@ class HomeViewModel @Inject constructor(
             // played" song.
             val byId = database.songsByIds((wanted + restored.seeds + (restored.cards + restored.pool).mapNotNull { it.seedId }).distinct()).first().associateBy { it.id }
             engineSeeds.value = restored.seeds.map { id -> id to (byId[id]?.song?.title ?: id) }
-            engineReasons.value = (restored.cards + restored.pool).associate { c -> c.songId to c.reasons.map { key -> when (key) { "x_seed" -> CardReason(key, c.seedId?.let { byId[it]?.song?.title }); "x_art" -> CardReason(key, byId[c.songId]?.artists?.firstOrNull()?.name); else -> CardReason(key, null) } } }
+            val chipNow = context.dataStore.get(ContextChipKey, ContextChip.AUTO)
+            engineReasons.value = (restored.cards + restored.pool).associate { c -> c.songId to c.reasons.map { key -> when (key) { "x_seed" -> CardReason(key, c.seedId?.let { byId[it]?.song?.title }); "x_art" -> CardReason(key, byId[c.songId]?.artists?.firstOrNull()?.name); "x_ctx" -> CardReason(key, if (chipNow in ContextChip.MOODS) chipNow.toString() else null); else -> CardReason(key, null) } } }
             return@withContext wanted.mapNotNull { byId[it] }
         }
         val mode = similarMode()
@@ -721,7 +768,8 @@ class HomeViewModel @Inject constructor(
         val familiarity = context.dataStore.get(FamiliarityKey, 25)
         val chip = context.dataStore.get(ContextChipKey, ContextChip.AUTO)
         engineChipTagged.value = if (chip in ContextChip.MOODS) input.listens.count { it.contextChip == chip } else -1
-        val row = if (standing != null && !force && now - lastEngineBuildAt < 3 * 3_600_000L && session == lastEngineSession && input.bucket == lastEngineBucket && newOnly == lastEngineNewOnly && familiarity == lastEngineFamiliarity && chip == lastEngineChip && leanNow == lastEngineLean) standing
+        val row = if (standing != null && !force && newOnly == lastEngineNewOnly && familiarity == lastEngineFamiliarity && chip == lastEngineChip && leanNow == lastEngineLean &&
+            rowStands(lastEngineBuildAt, session == lastEngineSession, input.bucket == lastEngineBucket, now)) standing
         else EngineRow.build(varied.copy(notSeeds = rejectedSeeds.toSet(), chip = chip), weights = weightsInUse, p = engineParams(familiarity), dial = context.dataStore.get(AdventurousnessKey, DefaultAdventurousness) / 100.0, newOnly = newOnly, lastFmShare = lastFmShare(mode, now), stored = leanNow).also {
             lastEngineRow = it; lastEngineBuildAt = now; lastEngineSession = session; lastEngineBucket = input.bucket; lastEngineNewOnly = newOnly; lastEngineFamiliarity = familiarity; lastEngineChip = chip
             lastEngineLean = leanNow
@@ -810,6 +858,8 @@ class HomeViewModel @Inject constructor(
      * songs played since may be the ones that have some.
      */
     private suspend fun similarRebuildDue(): Boolean = runCatching {
+        // On Battery use's Saver only a pull to refresh builds the row (BatteryUse.rowFollowsSession).
+        if (!BatteryUse.rowFollowsSession(context.batteryModeNow())) return false
         val row = lastEngineRow ?: return false
         if (row.asked != Lean.SIMILAR || engineFallback.value != 0) return false
         val source = quickPicksSource()

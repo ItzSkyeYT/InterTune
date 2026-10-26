@@ -19,6 +19,8 @@ import com.dd3boh.outertune.utils.ShareLinks
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberUpdatedState
 import com.dd3boh.outertune.ui.utils.LocalAppBackdrop
+import com.dd3boh.outertune.ui.utils.LocalGlassStill
+import com.dd3boh.outertune.ui.utils.stillGlass
 import com.dd3boh.outertune.ui.utils.LocalLandscape
 import com.dd3boh.outertune.ui.utils.CoverBlur
 import com.kyant.backdrop.effects.vibrancy
@@ -363,6 +365,9 @@ fun BottomSheetPlayer(
     val swipeToDismissPlayer by rememberPreference(SwipeToDismissPlayerKey, defaultValue = true)
     val groupedControls by rememberPreference(GroupedPlayerControlsKey, defaultValue = true)
     val playerBackdrop = rememberLayerBackdrop()
+    // Battery use on Saver: the glass keeps its shapes and places and is drawn still, so the
+    // player's background is not recorded for it and nothing blurs or bends it (LocalGlassStill).
+    val glassStill = LocalGlassStill.current
 
     val seekIncrement by rememberEnumPreference(
         key = SeekIncrementKey,
@@ -371,8 +376,10 @@ fun BottomSheetPlayer(
 
     val darkTheme by rememberEnumPreference(DarkModeKey, defaultValue = DarkMode.AUTO)
     val isSystemInDarkTheme = isSystemInDarkTheme()
-    val useDarkTheme = remember(darkTheme, isSystemInDarkTheme) {
-        if (darkTheme == DarkMode.AUTO) isSystemInDarkTheme else darkTheme == DarkMode.ON
+    // As the app's theme is: dark on Battery use's Saver whatever was picked (BatteryUse.darkTheme).
+    val batteryMode = LocalBatteryMode.current
+    val useDarkTheme = remember(darkTheme, isSystemInDarkTheme, batteryMode) {
+        BatteryUse.darkTheme(if (darkTheme == DarkMode.AUTO) isSystemInDarkTheme else darkTheme == DarkMode.ON, batteryMode)
     }
 
     val onBackgroundColor = when (playerBackground) {
@@ -752,8 +759,9 @@ fun BottomSheetPlayer(
                     .fillMaxSize()
                     // Publishes the artwork and gradient we already draw as a backdrop so the glass
                     // panel can refract it. Capturing here keeps this self-contained: no MainActivity
-                    // change, and the lens only ever sees pixels the player itself drew.
-                    .layerBackdrop(playerBackdrop)
+                    // change, and the lens only ever sees pixels the player itself drew. Not while the
+                    // glass is still, when nothing reads it.
+                    .then(if (glassStill) Modifier else Modifier.layerBackdrop(playerBackdrop))
             ) {
                 // "Glass" look, requested in upstream #1282. The one-off
                 // pre_rel-0.10.1-b1-glass build differed from stock only in this background: it
@@ -1363,7 +1371,10 @@ fun BottomSheetPlayer(
                             .fillMaxWidth()
                             .padding(horizontal = hPadding)
                         .then(
-                            if (liquidGlass && groupedControls) {
+                            if (liquidGlass && groupedControls && glassStill) {
+                                // The same bar, still: its rim and shadow, and a light wash where the lens was.
+                                Modifier.stillGlass { RoundedCornerShape(32.dp) }.background(onBackgroundColor.copy(alpha = 0.10f), RoundedCornerShape(32.dp))
+                            } else if (liquidGlass && groupedControls) {
                                 Modifier.drawBackdrop(
                                     backdrop = playerBackdrop,
                                     shape = { RoundedCornerShape(32.dp) },
@@ -2295,8 +2306,9 @@ private fun PlayerActionSegment(
                 // size the rim made the buttons read as empty outlines. So this is only the blur and
                 // vibrancy, clipped to the shape, under the button's colour: a filled button keeps
                 // most of its fill, an idle one gets a wash.
+                // Still on Saver (LocalGlassStill): the same fill and wash, nothing behind them blurred.
                 if (backdrop != null) Modifier
-                    .drawBackdrop(
+                    .then(if (LocalGlassStill.current) Modifier else Modifier.drawBackdrop(
                         backdrop = backdrop,
                         shape = { shape },
                         effects = {
@@ -2306,7 +2318,7 @@ private fun PlayerActionSegment(
                         // The library's default highlight and shadow are the rim.
                         highlight = { null },
                         shadow = { null },
-                    )
+                    ))
                     .background(
                         if (filled) container.copy(alpha = lerp(0.95f, 0.8f, glassIntensity.coerceIn(0f, 1f)))
                         else content.copy(alpha = 0.16f)

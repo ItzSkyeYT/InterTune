@@ -134,6 +134,9 @@ import com.dd3boh.outertune.ui.screens.settings.settingRow
 import com.dd3boh.outertune.ui.screens.settings.MeaningLine
 import com.dd3boh.outertune.utils.rememberPreference
 import androidx.compose.material.icons.rounded.Battery5Bar
+import androidx.compose.material.icons.rounded.BatterySaver
+import com.dd3boh.outertune.constants.FollowPhoneSaverKey
+import com.dd3boh.outertune.playback.PhoneBatterySaver
 import com.dd3boh.outertune.LocalBatteryMode
 import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.constants.BatteryMode
@@ -876,6 +879,11 @@ fun ColumnScope.AudioQualityFrag() {
 fun ColumnScope.BatteryUseFrag() {
     val (mode, onModeChange) = rememberEnumPreference(BatteryModeKey, defaultValue = BatteryUse.DEFAULT)
     val (wifiOnly) = rememberPreference(DownloadOnWifiOnlyKey, defaultValue = false)
+    // Saver while the phone's own battery saver is on, on for everyone (his ask of 25 Oct 2026):
+    // nothing is written when the phone's saver turns on or off, so the mode picked here stands
+    // for after (BatteryUse.effective, PhoneBatterySaver).
+    val (followPhone, onFollowPhoneChange) = rememberPreference(FollowPhoneSaverKey, defaultValue = BatteryUse.FOLLOW_PHONE_DEFAULT)
+    val phoneSaverOn by PhoneBatterySaver.on.collectAsState()
     val downloadUtil = LocalDownloadUtil.current
     val title = stringResource(R.string.battery_use)
 
@@ -891,11 +899,24 @@ fun ColumnScope.BatteryUseFrag() {
         onValueSelected = {
             onModeChange(it)
             // Downloads queued or running follow at once, as they do for the switch itself.
-            downloadUtil.setDownloadRequirements(BatteryUse.downloadsOnWifiOnly(wifiOnly, it))
+            downloadUtil.setDownloadRequirements(BatteryUse.downloadsOnWifiOnly(wifiOnly, BatteryUse.effective(it, followPhone, phoneSaverOn)))
         },
         valueText = { batteryUseName(it) },
         valueDescription = { batteryUseLine(it) },
     )
+
+    SwitchPreference(
+        modifier = Modifier.settingRow(R.string.battery_follow_phone),
+        title = { Text(stringResource(R.string.battery_follow_phone)) },
+        description = stringResource(R.string.battery_follow_phone_description),
+        icon = { Icon(Icons.Rounded.BatterySaver, null) },
+        checked = followPhone,
+        onCheckedChange = { want ->
+            onFollowPhoneChange(want)
+            downloadUtil.setDownloadRequirements(BatteryUse.downloadsOnWifiOnly(wifiOnly, BatteryUse.effective(mode, want, phoneSaverOn)))
+        },
+    )
+    if (BatteryUse.saverFromPhone(mode, followPhone, phoneSaverOn)) InfoLabel(stringResource(R.string.battery_follow_phone_now))
 }
 
 @Composable

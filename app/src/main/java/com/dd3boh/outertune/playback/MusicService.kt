@@ -37,6 +37,7 @@ import android.util.Log
 import android.widget.Toast
 import androidx.core.content.getSystemService
 import androidx.core.net.toUri
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -90,6 +91,7 @@ import com.dd3boh.outertune.constants.AudioQuality
 import com.dd3boh.outertune.constants.AudioQualityKey
 import com.dd3boh.outertune.constants.BatteryMode
 import com.dd3boh.outertune.constants.BatteryModeKey
+import com.dd3boh.outertune.constants.FollowPhoneSaverKey
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.cast.CastFormats
 import com.dd3boh.outertune.cast.CastNetwork
@@ -129,6 +131,7 @@ import com.dd3boh.outertune.constants.SpatialAudioKey
 import com.dd3boh.outertune.constants.SpatialAudioMode
 import com.dd3boh.outertune.constants.PersistentQueueKey
 import com.dd3boh.outertune.engine.EngineLoader
+import com.dd3boh.outertune.engine.ListenLog
 import com.dd3boh.outertune.engine.TagFit
 import com.dd3boh.outertune.engine.SongTags
 import com.dd3boh.outertune.constants.AdaptiveQueueModeKey
@@ -929,8 +932,16 @@ class MusicService : MediaLibraryService(),
      * for the volume, which Saver holds at 100%; the radios and the stream's resolver read its value
      * from their own threads.
      */
-    private val batteryModeNow = MutableStateFlow(BatteryUse.modeOf(dataStore[BatteryModeKey]))
+    private val batteryModeNow = MutableStateFlow(dataStore.current.batteryMode(PhoneBatterySaver.on.value))
     private val batteryMode: BatteryMode get() = batteryModeNow.value
+
+    /**
+     * Battery use in force from these settings and the phone's battery saver, which runs the app as
+     * Saver while the switch under Battery use lets it (BatteryUse.modeOf). Each observer below
+     * reads it beside its own setting, from the same settings, and again when the phone's saver changes.
+     */
+    private fun Preferences.batteryMode(phoneSaver: Boolean): BatteryMode =
+        BatteryUse.modeOf(this[BatteryModeKey], this[FollowPhoneSaverKey], phoneSaver)
 
     /** The developer's Enable offload, as last read: offload in every mode while it is on. Main thread. */
     private var offloadSwitch = dataStore.get(AudioOffloadKey, false)
@@ -1415,9 +1426,9 @@ class MusicService : MediaLibraryService(),
 
             // Read once a buffer as well: a band is heard moving as its slider moves. Off while
             // Battery use is on Saver, the switch keeping what was set (BatteryUse.equalizer).
-            dataStore.data.map { prefs ->
+            dataStore.data.combine(PhoneBatterySaver.on) { prefs, phoneSaver ->
                 EqualizerAudioProcessor.Settings(
-                    Unreleased.EQUALIZER && BatteryUse.equalizer(prefs[EqualizerEnabledKey] ?: false, BatteryUse.modeOf(prefs[BatteryModeKey])),
+                    Unreleased.EQUALIZER && BatteryUse.equalizer(prefs[EqualizerEnabledKey] ?: false, prefs.batteryMode(phoneSaver)),
                     EqualizerPreset.parse(prefs[EqualizerGainsKey]),
                 )
             }
@@ -1476,7 +1487,7 @@ class MusicService : MediaLibraryService(),
             // Changes how many harmonics there are to convolve, so the sink has to be told, and
             // the only thing that tells it is the track being re-prepared.
             // Off while Battery use is on Saver, the switch keeping what was set (BatteryUse.proximity).
-            dataStore.data.map { BatteryUse.proximity(it[ProximityVolumeKey] ?: false, BatteryUse.modeOf(it[BatteryModeKey])) }.distinctUntilChanged()
+            dataStore.data.combine(PhoneBatterySaver.on) { prefs, phoneSaver -> BatteryUse.proximity(prefs[ProximityVolumeKey] ?: false, prefs.batteryMode(phoneSaver)) }.distinctUntilChanged()
                 .collectLatest(scope) { want ->
                     proximityWanted = want
                     withContext(Dispatchers.Main) {
@@ -1552,11 +1563,11 @@ class MusicService : MediaLibraryService(),
                 }
 
             // Off while Battery use is on Saver, the setting keeping what was set (BatteryUse.spatialAudio).
-            dataStore.data.map {
-                val chosen = it[SpatialAudioKey]?.let { name ->
+            dataStore.data.combine(PhoneBatterySaver.on) { prefs, phoneSaver ->
+                val chosen = prefs[SpatialAudioKey]?.let { name ->
                     runCatching { SpatialAudioMode.valueOf(name) }.getOrNull()
                 } ?: SpatialAudioMode.OFF
-                BatteryUse.spatialAudio(chosen, BatteryUse.modeOf(it[BatteryModeKey]))
+                BatteryUse.spatialAudio(chosen, prefs.batteryMode(phoneSaver))
             }.distinctUntilChanged()
                 .collectLatest(scope) { mode ->
                     val wantSurround = mode == SpatialAudioMode.SURROUND
@@ -1708,7 +1719,7 @@ class MusicService : MediaLibraryService(),
             // and so does Battery use, which asks for the low-power path in Saver and sets how
             // often the radios read the taste and how loud the volume may go.
             dataStore.data
-                .map { (it[AudioOffloadKey] ?: false) to BatteryUse.modeOf(it[BatteryModeKey]) }
+                .combine(PhoneBatterySaver.on) { prefs, phoneSaver -> (prefs[AudioOffloadKey] ?: false) to prefs.batteryMode(phoneSaver) }
                 .distinctUntilChanged()
                 .collectLatest(scope) {
                     withContext(Dispatchers.Main) {
@@ -1810,7 +1821,7 @@ class MusicService : MediaLibraryService(),
             combine(
                 // Off while Battery use is on Saver, the switch keeping what was set (BatteryUse.fade).
                 dataStore.data
-                    .map { BatteryUse.fade(it[TransitionFadeKey] ?: false, BatteryUse.modeOf(it[BatteryModeKey])) }
+                    .combine(PhoneBatterySaver.on) { prefs, phoneSaver -> BatteryUse.fade(prefs[TransitionFadeKey] ?: false, prefs.batteryMode(phoneSaver)) }
                     .distinctUntilChanged(),
                 dataStore.data
                     .map { it[TransitionFadeSecondsKey] ?: TransitionFadeEnvelope.DEFAULT_SECONDS }
@@ -3626,6 +3637,13 @@ class MusicService : MediaLibraryService(),
     /** The run (AdaptiveQueue.runKey) that last took [tasteCache]. Adaptive dispatcher only. */
     private var tasteRun: String? = null
 
+    /**
+     * The listen log as the taste last read it, so a read fetches only the listens new since and
+     * the one still open, and reads it all again only when an older one changed (ListenLog).
+     * Adaptive dispatcher only.
+     */
+    private val listenLog = ListenLog()
+
     /** The related lists read in the current run, by seed, and which run they are for. Adaptive dispatcher only. */
     private var relatedRun: String? = null
     private val relatedCache = HashMap<String, AdaptivePass.Source>()
@@ -3841,10 +3859,11 @@ class MusicService : MediaLibraryService(),
         }
         val started = SystemClock.elapsedRealtime()
         return try {
-            QueueFit.Taste.of(EngineLoader.loadHeard(database, now)).also { taste ->
+            QueueFit.Taste.of(EngineLoader.loadHeard(database, now, listenLog)).also { taste ->
                 tasteCache = now to taste
                 tasteRun = run
-                Log.d(TAG, "Adaptive queue: taste read in ${SystemClock.elapsedRealtime() - started} ms, ${taste.listens} listens, " +
+                Log.d(TAG, "Adaptive queue: taste read in ${SystemClock.elapsedRealtime() - started} ms, ${taste.listens} listens " +
+                    "(${if (listenLog.lastWasFull) "all" else "${listenLog.lastFetched}"} fetched), " +
                     "${taste.songs.size} songs, keep share ${String.format(java.util.Locale.ROOT, "%.2f", taste.habits.base)}")
             }
         } catch (e: Exception) {

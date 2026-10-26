@@ -35,13 +35,31 @@ object BatteryUse {
     /** Everyone's, existing installs included: a key never written reads as this. */
     val DEFAULT = BatteryMode.BALANCED
 
-    /** The mode in force: as stored, the default when nothing is, and Full in a build that does not offer the choice. */
-    fun modeOf(stored: String?, offered: Boolean = Unreleased.BATTERY_MODES): BatteryMode =
-        if (!offered) BatteryMode.FULL else stored.toEnum(DEFAULT)
+    /** Saver while the phone's battery saver is on, unless the switch under Battery use says no: on for everyone. */
+    const val FOLLOW_PHONE_DEFAULT = true
 
-    /** [chosen] as the row shows it, in force only where this build offers the choice. */
-    fun inForce(chosen: BatteryMode, offered: Boolean = Unreleased.BATTERY_MODES): BatteryMode =
-        if (!offered) BatteryMode.FULL else chosen
+    /**
+     * The mode in force: Saver while the phone's own battery saver is on and [follow] lets it in
+     * (his ask of 25 Oct 2026), otherwise the one picked. Nothing is written either way, so the
+     * phone's saver going off gives the picked mode back at once.
+     */
+    fun effective(picked: BatteryMode, follow: Boolean, phoneSaver: Boolean): BatteryMode =
+        if (follow && phoneSaver) BatteryMode.SAVER else picked
+
+    /**
+     * The mode in force from what is stored: the picked mode (the default when none), the switch
+     * (on when never set) and the phone's battery saver; Full in a build that does not offer the choice.
+     */
+    fun modeOf(stored: String?, follow: Boolean?, phoneSaver: Boolean, offered: Boolean = Unreleased.BATTERY_MODES): BatteryMode =
+        if (!offered) BatteryMode.FULL else effective(stored.toEnum(DEFAULT), follow ?: FOLLOW_PHONE_DEFAULT, phoneSaver)
+
+    /** [chosen] as the row shows it, with the phone's saver, in force only where this build offers the choice. */
+    fun inForce(chosen: BatteryMode, follow: Boolean, phoneSaver: Boolean, offered: Boolean = Unreleased.BATTERY_MODES): BatteryMode =
+        if (!offered) BatteryMode.FULL else effective(chosen, follow, phoneSaver)
+
+    /** Whether the row under Battery use says that Saver is on because of the phone. */
+    fun saverFromPhone(picked: BatteryMode, follow: Boolean, phoneSaver: Boolean): Boolean =
+        follow && phoneSaver && picked != BatteryMode.SAVER
 
     // The library sync, which walks the whole library when the app opens.
 
@@ -152,6 +170,80 @@ object BatteryUse {
      */
     fun songCacheMb(stored: Int?, mode: BatteryMode): Int =
         stored ?: if (mode == BatteryMode.SAVER) SAVER_SONG_CACHE_MB else 0
+
+    // The screen: what is drawn and how often (round two, his word of 25 Oct 2026).
+
+    /**
+     * The dark theme, as Android's own battery saver has it: on in Saver even where light was
+     * picked, since a black screen is what saves on an OLED panel. [chosenDark] is the theme as the
+     * person set it, the system's included.
+     */
+    fun darkTheme(chosenDark: Boolean, mode: BatteryMode): Boolean = chosenDark || mode == BatteryMode.SAVER
+
+    /** Pure black for the dark theme's surfaces: on in Saver, otherwise as set. */
+    fun pureBlack(chosen: Boolean, mode: BatteryMode): Boolean = chosen || mode == BatteryMode.SAVER
+
+    /**
+     * Liquid glass without its live blur: in Saver the panels keep their shapes and places and are
+     * drawn as still frosted panes, so nothing behind them is recorded and blurred at every frame.
+     */
+    fun glassStill(mode: BatteryMode): Boolean = mode == BatteryMode.SAVER
+
+    /**
+     * Whether the app's window is held to a slower frame rate: in Saver, the slowest the display
+     * offers at the size in use that is still at least [SAVER_FRAME_RATE] ([saverScreenMode]);
+     * otherwise the screen's own rate. 30 where a panel has it, 60 on most phones.
+     */
+    fun lowFrameRate(mode: BatteryMode): Boolean = mode == BatteryMode.SAVER
+
+    const val SAVER_FRAME_RATE = 30f
+
+    /** One of the display's modes, as Display.Mode gives it. */
+    data class ScreenMode(val id: Int, val width: Int, val height: Int, val refreshRate: Float)
+
+    /**
+     * The display mode Saver holds the window to: the lowest refresh rate at the size in use that
+     * is still at least [SAVER_FRAME_RATE], or null where the display has no faster one at that
+     * size to hold back (then the window only hints the rate). Not compared with the mode in use,
+     * which moves with what the system picks: at 60 for a still screen, a phone that also has 90
+     * would go back up on the next scroll. A mode at another size would change the picture, so it
+     * is never taken.
+     */
+    fun saverScreenMode(modes: List<ScreenMode>, current: ScreenMode): ScreenMode? {
+        val sameSize = modes.filter { it.width == current.width && it.height == current.height }
+        val slowest = sameSize.filter { it.refreshRate >= SAVER_FRAME_RATE - 0.5f }.minByOrNull { it.refreshRate } ?: return null
+        return slowest.takeIf { sameSize.any { it.refreshRate > slowest.refreshRate + 0.5f } }
+    }
+
+    // Home's engine rows (Quick picks by the engine and Discover), 7.5 s and 3.7 s of processor a
+    // build in Preview on 23 Oct 2026 (MEASURE.md section 4).
+
+    /** Listens since a build after which Balanced builds Home's rows again, once three hours have gone by. */
+    const val ROWS_REBUILD_LISTENS = 10
+
+    /** A row this old is built again on Balanced however little was played since. */
+    const val ROWS_OLD_MS = 24 * 60 * 60 * 1000L
+
+    private const val ROWS_FRESH_MS = 3 * 60 * 60 * 1000L
+
+    /**
+     * Whether a built row stands when Home appears. A pull to refresh always builds, and so does a
+     * change of what the row is built under (the lean, the chip, Familiarity): the caller decides
+     * those before asking. Full, as before: until a new listening session, a new part of the day
+     * or three hours. Balanced: at least three hours, and then only once [ROWS_REBUILD_LISTENS]
+     * listens have started since the build, or a day has gone by. Saver: until a pull to refresh.
+     */
+    fun rowStands(mode: BatteryMode, ageMs: Long, sameSession: Boolean, sameDayPart: Boolean, listensSince: Int): Boolean = when (mode) {
+        BatteryMode.FULL -> ageMs < ROWS_FRESH_MS && sameSession && sameDayPart
+        BatteryMode.BALANCED -> ageMs < ROWS_FRESH_MS || (listensSince < ROWS_REBUILD_LISTENS && ageMs < ROWS_OLD_MS)
+        BatteryMode.SAVER -> true
+    }
+
+    /** Whether Home builds rows nobody sees (the shadow row How it's doing compares against). Not in Saver. */
+    fun buildsUnseenRows(mode: BatteryMode): Boolean = mode != BatteryMode.SAVER
+
+    /** Whether Playing now follows the session by itself (a rebuild after enough listens). In Saver only a pull builds. */
+    fun rowFollowsSession(mode: BatteryMode): Boolean = mode != BatteryMode.SAVER
 
     private const val HOUR_S = 60 * 60L
     private const val MINUTE_MS = 60 * 1000L

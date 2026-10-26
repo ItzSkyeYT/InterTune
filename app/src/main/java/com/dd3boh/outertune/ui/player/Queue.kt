@@ -182,6 +182,9 @@ import com.dd3boh.outertune.utils.rememberPreference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import com.dd3boh.outertune.ui.utils.GlassSpec
+import com.dd3boh.outertune.ui.utils.LocalGlassStill
+import com.dd3boh.outertune.ui.utils.STILL_ALPHA
+import com.dd3boh.outertune.ui.utils.stillGlass
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
@@ -1314,6 +1317,9 @@ fun BoxScope.QueueContent(
     // and the bar's height is the room left under its last row. Upright that list is the songs, on
     // its side the queues, which is what the bar stands under there.
     val listBackdrop = if (backdrop != null) rememberLayerBackdrop() else null
+    // Battery use on Saver: the pane keeps its shape and place, frosted still, and the list is not
+    // recorded for it (LocalGlassStill).
+    val glassStill = LocalGlassStill.current
     val listUnderBar = listBackdrop != null
     var barHeight by remember { mutableStateOf(0.dp) }
 
@@ -1340,7 +1346,7 @@ fun BoxScope.QueueContent(
                         Modifier
                             .windowInsetsPadding(barInsets)
                             .padding(start = 12.dp, top = 4.dp, end = 12.dp, bottom = 8.dp)
-                            .glassPane(paneBackdrop, glassIntensity, barShape, barTint)
+                            .glassPane(paneBackdrop, glassIntensity, barShape, barTint, glassStill, MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp).copy(alpha = STILL_ALPHA))
                             .clip(barShape)
                             .fillMaxWidth()
                     } else {
@@ -1645,7 +1651,8 @@ fun BoxScope.QueueContent(
                     // As upright: what the pane looks through, the fill in the picture, the pane outside it.
                     .then(
                         if (listBackdrop != null) Modifier
-                            .layerBackdrop(listBackdrop)
+                            // Not recorded while the glass is still: the pane does not read it then.
+                            .then(if (glassStill) Modifier else Modifier.layerBackdrop(listBackdrop))
                             .background(MaterialTheme.colorScheme.surfaceColorAtElevation(NavigationBarDefaults.Elevation))
                         else Modifier
                     )
@@ -1721,7 +1728,7 @@ fun BoxScope.QueueContent(
                 // pane is not in this column, which a layer's own reader must never be.
                 .then(
                     if (listBackdrop != null) Modifier
-                        .layerBackdrop(listBackdrop)
+                        .then(if (glassStill) Modifier else Modifier.layerBackdrop(listBackdrop))
                         .background(MaterialTheme.colorScheme.surfaceColorAtElevation(NavigationBarDefaults.Elevation))
                     else Modifier
                 )
@@ -1813,7 +1820,9 @@ fun BoxScope.QueueContent(
  * The bar at the foot of the queue as one pane of glass: the dock's recipe, over [backdrop], under
  * a wash of [tint] that keeps what is written on it readable.
  */
-private fun Modifier.glassPane(backdrop: LayerBackdrop, intensity: Float, shape: Shape, tint: Color): Modifier {
+private fun Modifier.glassPane(backdrop: LayerBackdrop, intensity: Float, shape: Shape, tint: Color, still: Boolean, stillFill: Color): Modifier {
+    // Still on Saver (LocalGlassStill): the same pane, frosted, nothing behind it read.
+    if (still) return this.stillGlass { shape }.background(stillFill, shape).background(tint, shape)
     val glass = GlassSpec(backdrop, intensity.coerceIn(0f, 1f))
     return this
         .drawBackdrop(

@@ -277,8 +277,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.NavigationBarDefaults
 import com.dd3boh.outertune.constants.PlayerGlassIntensityKey
 import com.dd3boh.outertune.constants.BatteryModeKey
+import com.dd3boh.outertune.constants.FollowPhoneSaverKey
+import com.dd3boh.outertune.playback.PhoneBatterySaver
 import com.dd3boh.outertune.constants.PlayerLiquidGlassKey
 import com.dd3boh.outertune.ui.utils.LocalAppBackdrop
+import com.dd3boh.outertune.ui.utils.ScreenRate
+import com.dd3boh.outertune.ui.utils.LocalGlassStill
+import com.dd3boh.outertune.ui.utils.stillGlass
 import com.dd3boh.outertune.ui.utils.LocalAppBackdropAvailable
 import com.dd3boh.outertune.ui.utils.Landscape
 import com.dd3boh.outertune.ui.utils.LocalLandscape
@@ -598,6 +603,18 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // The phone's battery saver can turn Battery use's Saver on (PhoneBatterySaver). Its broadcast
+    // can be missed while the app is in the background, so it is read again whenever the app is seen.
+    override fun onStart() {
+        super.onStart()
+        PhoneBatterySaver.read(this)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        PhoneBatterySaver.read(this)
+    }
+
     override fun onDestroy() {
         Log.i(MAIN_TAG, "onDestroy() called. isFinishing = $isFinishing")
         try {
@@ -659,11 +676,25 @@ class MainActivity : ComponentActivity() {
             val enableDynamicTheme by rememberPreference(DynamicThemeKey, defaultValue = true)
             val darkTheme by rememberEnumPreference(DarkModeKey, defaultValue = DarkMode.AUTO)
             val highContrastCompat by rememberPreference(HighContrastKey, defaultValue = false)
-            val pureBlack by rememberPreference(PureBlackKey, defaultValue = false)
+            val chosenPureBlack by rememberPreference(PureBlackKey, defaultValue = false)
             val isSystemInDarkTheme = isSystemInDarkTheme()
-            val useDarkTheme = remember(darkTheme, isSystemInDarkTheme) {
-                if (darkTheme == DarkMode.AUTO) isSystemInDarkTheme else darkTheme == DarkMode.ON
+            // Battery use in force, read here once for the whole app (LocalBatteryMode): the mode
+            // picked, and Saver while the phone's battery saver is on and the switch under it lets
+            // it in. The theme, the glass, the frame rate, the playing bars, the player's background
+            // and the rows of Settings that Saver holds all follow it.
+            val chosenBatteryMode by rememberEnumPreference(BatteryModeKey, defaultValue = BatteryUse.DEFAULT)
+            val followPhoneSaver by rememberPreference(FollowPhoneSaverKey, defaultValue = BatteryUse.FOLLOW_PHONE_DEFAULT)
+            val phoneSaverOn by PhoneBatterySaver.on.collectAsState()
+            val batteryMode = BatteryUse.inForce(chosenBatteryMode, followPhoneSaver, phoneSaverOn)
+            // Saver is dark with pure black, as Android's own battery saver is, whatever was picked;
+            // nothing is written, so leaving Saver gives the theme back (BatteryUse.darkTheme).
+            val useDarkTheme = remember(darkTheme, isSystemInDarkTheme, batteryMode) {
+                BatteryUse.darkTheme(if (darkTheme == DarkMode.AUTO) isSystemInDarkTheme else darkTheme == DarkMode.ON, batteryMode)
             }
+            val pureBlack = BatteryUse.pureBlack(chosenPureBlack, batteryMode)
+            // Saver holds the window to a slower frame rate (ScreenRate), undone at once when the mode changes.
+            val lowFrameRate = BatteryUse.lowFrameRate(batteryMode)
+            LaunchedEffect(lowFrameRate) { ScreenRate.apply(this@MainActivity, lowFrameRate) }
 
             val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
             // The window, measured once for everything that is laid out differently when a phone
@@ -1067,9 +1098,6 @@ class MainActivity : ComponentActivity() {
 
                 val liquidGlass by rememberPreference(PlayerLiquidGlassKey, defaultValue = false)
                 val glassIntensity by rememberPreference(PlayerGlassIntensityKey, defaultValue = 1f)
-                // Read here once for the whole app (LocalBatteryMode): the playing bars, the
-                // player's background and the rows of Settings that Saver holds.
-                val chosenBatteryMode by rememberEnumPreference(BatteryModeKey, defaultValue = BatteryUse.DEFAULT)
                 // TIRAMISU because lens() needs a RuntimeShader and the settings toggle is only
                 // offered at 33+. !useNavRail because playerAwareWindowInsets reserves left = 80dp
                 // on tablets, so nothing ever scrolls behind the rail and a glass rail would be a
@@ -1079,6 +1107,9 @@ class MainActivity : ComponentActivity() {
                 val backdropAvailable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                         (!useNavRail || landscape.active)
                 val navGlass = liquidGlass && backdropAvailable
+                // Saver keeps the glass where it is and draws it still: no layer is recorded for it
+                // and no panel blurs or bends one (BatteryUse.glassStill, LocalGlassStill).
+                val glassStill = BatteryUse.glassStill(batteryMode)
                 val appBackdrop = rememberLayerBackdrop()
 
                 val navController = rememberNavController()
@@ -1330,7 +1361,8 @@ class MainActivity : ComponentActivity() {
                         LocalAppBackdropAvailable provides backdropAvailable,
                         LocalLandscape provides landscape,
                         LocalGlassIntensity provides glassIntensity,
-                        LocalBatteryMode provides BatteryUse.inForce(chosenBatteryMode),
+                        LocalBatteryMode provides batteryMode,
+                        LocalGlassStill provides glassStill,
                         dpadBringIntoView(),
                     ) {
                         /**
@@ -1891,7 +1923,9 @@ class MainActivity : ComponentActivity() {
                                                         end = 12.dp,
                                                         bottom = (bottomInset - 4.dp).coerceAtLeast(6.dp)
                                                     )
-                                                    .drawBackdrop(
+                                                    // Still on Saver: the same dock, a frosted pane
+                                                    // with nothing recorded behind it (GlassSpec.still).
+                                                    .then(if (dockGlass?.still == true) Modifier.stillGlass { dockShape }.background(dockGlass.stillFill(), dockShape) else Modifier.drawBackdrop(
                                                         backdrop = appBackdrop,
                                                         shape = { dockShape },
                                                         effects = {
@@ -1903,7 +1937,7 @@ class MainActivity : ComponentActivity() {
                                                                 depthEffect = true
                                                             )
                                                         }
-                                                    )
+                                                    ))
                                                     // Tint goes here, not in onDrawSurface: that
                                                     // callback runs on the node's own unclipped
                                                     // canvas, so it would paint a square patch.
@@ -2117,7 +2151,8 @@ class MainActivity : ComponentActivity() {
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .then(
-                                        if (navGlass) {
+                                        // Not recorded while the glass is still (Saver): no panel reads it then.
+                                        if (navGlass && !glassStill) {
                                             Modifier
                                                 .layerBackdrop(appBackdrop)
                                                 .background(MaterialTheme.colorScheme.surface)
@@ -2132,7 +2167,7 @@ class MainActivity : ComponentActivity() {
                                 Box(
                                     Modifier
                                         .fillMaxSize()
-                                        .then(if (navGlass) Modifier.layerBackdrop(navHostBackdrop).graphicsLayer() else Modifier)
+                                        .then(if (navGlass && !glassStill) Modifier.layerBackdrop(navHostBackdrop).graphicsLayer() else Modifier)
                                 ) {
                                     // Under the open player the pages cannot be seen, and what
                                     // only moves for the eye holds still (PlayingIndicator).
@@ -2144,7 +2179,7 @@ class MainActivity : ComponentActivity() {
                                 // Only this search bar gets the glass. The "search" destination composes another
                                 // one inside the nav host, and that one would be reading a layer it is part of.
                                 CompositionLocalProvider(
-                                    LocalSearchBarGlass provides if (navGlass) GlassSpec(navHostBackdrop, glassIntensity.coerceIn(0f, 1f)) else null
+                                    LocalSearchBarGlass provides if (navGlass) GlassSpec(navHostBackdrop, glassIntensity.coerceIn(0f, 1f), still = glassStill) else null
                                 ) {
                                     SearchBarContainer(navController, scrollBehavior, searchActive) { searchActive = it }
                                 }
@@ -2421,4 +2456,4 @@ val LocalSnackbarHostState = staticCompositionLocalOf<SnackbarHostState> { error
  * and the rows of Settings that Saver holds. Outside the activity's content, as a build without the
  * choice runs, and otherwise the default.
  */
-val LocalBatteryMode = compositionLocalOf { BatteryUse.modeOf(null) }
+val LocalBatteryMode = compositionLocalOf { BatteryUse.modeOf(null, null, phoneSaver = false) }
