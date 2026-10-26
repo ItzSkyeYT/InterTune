@@ -16,23 +16,30 @@ import androidx.car.app.Session
 import androidx.car.app.SessionInfo
 import androidx.car.app.constraints.ConstraintManager
 import androidx.car.app.model.Action
+import androidx.car.app.model.CarIcon
 import androidx.car.app.model.Header
 import androidx.car.app.model.ItemList
 import androidx.car.app.model.ListTemplate
 import androidx.car.app.model.Row
+import androidx.car.app.model.SectionedItemList
 import androidx.car.app.model.Template
 import androidx.car.app.model.Toggle
 import androidx.car.app.validation.HostValidator
 import androidx.car.app.versioning.CarAppApiLevels
+import androidx.core.graphics.drawable.IconCompat
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.lifecycle.lifecycleScope
+import androidx.annotation.DrawableRes
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.constants.AdaptiveQueueMode
+import com.dd3boh.outertune.constants.AdaptiveQueueModeKey
 import com.dd3boh.outertune.constants.AudioNormalizationKey
 import com.dd3boh.outertune.constants.AudioQuality
 import com.dd3boh.outertune.constants.AudioQualityKey
 import com.dd3boh.outertune.constants.AutoLoadMoreKey
 import com.dd3boh.outertune.constants.SkipSilenceKey
+import com.dd3boh.outertune.constants.isOn
 import com.dd3boh.outertune.extensions.toEnum
 import com.dd3boh.outertune.utils.dataStore
 import kotlinx.coroutines.CoroutineScope
@@ -55,9 +62,17 @@ data class AutoSettings(
     /** Every song at about the same loudness. */
     val level: Boolean,
     val silence: Boolean,
+    /** Radios and mixes keep up to date as songs are skipped, finished and liked. */
+    val radios: Boolean = true,
 ) {
-    /** The lines of the list, top to bottom. A car cuts a list off, at six lines on most. */
-    enum class Line { MORE, QUALITY, LEVEL, SILENCE }
+    /** The lines of the list, top to bottom, under their headings. A car cuts a list off, at six lines on most. */
+    enum class Line { QUALITY, LEVEL, SILENCE, MORE, RADIOS }
+
+    /** The headings, each with its lines: Sound and Playback (26 Oct 2026, as he approved them drawn). */
+    enum class Section(@StringRes val title: Int, val lines: List<Line>) {
+        SOUND(R.string.auto_settings_sound, listOf(Line.QUALITY, Line.LEVEL, Line.SILENCE)),
+        PLAYBACK(R.string.auto_settings_playback, listOf(Line.MORE, Line.RADIOS)),
+    }
 
     companion object {
         /** The qualities to choose from, as the phone lists them. */
@@ -69,6 +84,7 @@ data class AutoSettings(
             quality = saved[AudioQualityKey].toEnum(AudioQuality.AUTO),
             level = saved[AudioNormalizationKey] ?: true,
             silence = saved[SkipSilenceKey] ?: false,
+            radios = saved[AdaptiveQueueModeKey].toEnum(AdaptiveQueueMode.AUTOPLAY_ONLY).isOn,
         )
     }
 }
@@ -127,34 +143,53 @@ private class AutoSettingsScreen(carContext: CarContext) : Screen(carContext) {
     override fun onGetTemplate(): Template {
         val list = ListTemplate.Builder().titled(carContext, R.string.settings)
         val now = shown ?: return list.setLoading(true).build()
-        return list.setSingleList(settingsLines(carContext, now, screenManager)).build()
+        settingsSections(carContext, now, screenManager).forEach { list.addSectionedList(it) }
+        return list.build()
     }
 }
 
-/** The lines of the settings: for the tab of the app's own screens, and for the screen an older car opens. */
-internal fun settingsLines(car: CarContext, now: AutoSettings, screens: ScreenManager): ItemList {
-    val most = car.getCarService(ConstraintManager::class.java).getContentLimit(ConstraintManager.CONTENT_LIMIT_TYPE_LIST)
-    fun switch(@StringRes title: Int, on: Boolean, key: Preferences.Key<Boolean>) = Row.Builder()
+/** A row's picture: one of the car's white icons, tinted by the car. */
+private fun icon(car: CarContext, @DrawableRes id: Int) = CarIcon.Builder(IconCompat.createWithResource(car, id)).build()
+
+/**
+ * The settings under their headings, each row with its icon and a line on what it does: for the
+ * tab of the app's own screens, and for the screen Android Auto opens from More. A car cuts a list
+ * off (six lines on most): rows past its limit are left out, the last heading first.
+ */
+internal fun settingsSections(car: CarContext, now: AutoSettings, screens: ScreenManager): List<SectionedItemList> {
+    var room = car.getCarService(ConstraintManager::class.java).getContentLimit(ConstraintManager.CONTENT_LIMIT_TYPE_LIST)
+    fun switch(@StringRes title: Int, @StringRes line: Int, @DrawableRes picture: Int, on: Boolean, flip: (Boolean) -> Unit) = Row.Builder()
         .setTitle(car.getString(title))
-        .setToggle(Toggle.Builder { chosen -> car.save(key, chosen) }.setChecked(on).build())
+        .addText(car.getString(line))
+        .setImage(icon(car, picture), Row.IMAGE_TYPE_ICON)
+        .setToggle(Toggle.Builder { chosen -> flip(chosen) }.setChecked(on).build())
         .build()
-    val lines = ItemList.Builder()
-    for (line in AutoSettings.Line.entries.take(most)) {
-        lines.addItem(
-            when (line) {
-                AutoSettings.Line.MORE -> switch(R.string.auto_load_more, now.more, AutoLoadMoreKey)
-                AutoSettings.Line.QUALITY -> Row.Builder()
-                    .setTitle(car.getString(R.string.audio_quality))
-                    .addText(car.getString(now.quality.label))
-                    .setBrowsable(true)
-                    .setOnClickListener { screens.push(AutoQualityScreen(car)) }
-                    .build()
-                AutoSettings.Line.LEVEL -> switch(R.string.audio_normalization, now.level, AudioNormalizationKey)
-                AutoSettings.Line.SILENCE -> switch(R.string.skip_silence, now.silence, SkipSilenceKey)
-            }
-        )
+    fun row(line: AutoSettings.Line): Row = when (line) {
+        AutoSettings.Line.QUALITY -> Row.Builder()
+            .setTitle(car.getString(R.string.audio_quality))
+            .addText(car.getString(now.quality.label))
+            .setImage(icon(car, R.drawable.auto_quality), Row.IMAGE_TYPE_ICON)
+            .setBrowsable(true)
+            .setOnClickListener { screens.push(AutoQualityScreen(car)) }
+            .build()
+        AutoSettings.Line.LEVEL -> switch(R.string.audio_normalization, R.string.auto_level_line, R.drawable.auto_level, now.level) { car.save(AudioNormalizationKey, it) }
+        AutoSettings.Line.SILENCE -> switch(R.string.skip_silence, R.string.auto_silence_line, R.drawable.auto_silence, now.silence) { car.save(SkipSilenceKey, it) }
+        AutoSettings.Line.MORE -> switch(R.string.auto_load_more, R.string.auto_more_line, R.drawable.auto_more, now.more) { car.save(AutoLoadMoreKey, it) }
+        // As the phone's switch writes it (AdaptiveQueueFrag): on is the default mode, off is off.
+        AutoSettings.Line.RADIOS -> switch(R.string.adaptive_queue, R.string.auto_radios_line, R.drawable.auto_radio, now.radios) {
+            car.save(AdaptiveQueueModeKey, (if (it) AdaptiveQueueMode.AUTOPLAY_ONLY else AdaptiveQueueMode.OFF).name)
+        }
     }
-    return lines.build()
+    val sections = mutableListOf<SectionedItemList>()
+    for (section in AutoSettings.Section.entries) {
+        val lines = section.lines.take(room.coerceAtLeast(0))
+        if (lines.isEmpty()) break
+        room -= lines.size
+        val items = ItemList.Builder()
+        lines.forEach { items.addItem(row(it)) }
+        sections += SectionedItemList.create(items.build(), car.getString(section.title))
+    }
+    return sections
 }
 
 /** The qualities, one of them chosen: a tap chooses another and goes back. */

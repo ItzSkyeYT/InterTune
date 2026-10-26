@@ -2009,4 +2009,16 @@
     <string name="search_words_donate">don, faire un don, soutien</string>
     <string name="search_words_contact">contact, e-mail</string>
     <string name="search_words_developer">développeur, débogage</string>
+    <string name="auto_more_downloaded">Téléchargés</string>
+    <string name="auto_more_downloaded_line">Se joue sans réseau</string>
+    <string name="auto_more_recent">Écoutés récemment</string>
+    <string name="auto_more_recent_line">Reprenez là où vous en étiez</string>
+    <string name="auto_more_shuffle_library">Ma bibliothèque en aléatoire</string>
+    <string name="auto_more_shuffle_line">Tout ce que vous avez gardé, mélangé</string>
+    <string name="auto_settings_sound">Son</string>
+    <string name="auto_settings_playback">Lecture</string>
+    <string name="auto_level_line">Un volume égal d\'un titre à l\'autre</string>
+    <string name="auto_silence_line">Coupe les silences au début et à la fin</string>
+    <string name="auto_more_line">La file d\'attente ne s\'arrête jamais</string>
+    <string name="auto_radios_line">Suit vos passages et vos J\'aime</string>
 </resources>
