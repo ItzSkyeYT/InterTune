@@ -33,6 +33,7 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.SdCard
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Backup
+import androidx.compose.material.icons.rounded.Battery5Bar
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.AutoAwesome
@@ -182,6 +183,14 @@ fun SettingsScreen(
                 icon = { Icon(Icons.Rounded.Storage, null) },
                 onClick = { navController.navigate("settings/storage") }
             )
+            if (Unreleased.BATTERY_MODES) {
+                PreferenceEntry(
+                    title = { Text(stringResource(R.string.battery_use)) },
+                    description = stringResource(R.string.battery_use_entry),
+                    icon = { Icon(Icons.Rounded.Battery5Bar, null) },
+                    onClick = { navController.navigate("settings/battery") }
+                )
+            }
             PreferenceEntry(
                 modifier = Modifier.tourTarget(Tour.ROW_BACKUP),
                 title = { Text(stringResource(R.string.backup_restore)) },

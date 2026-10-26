@@ -1925,6 +1925,7 @@
     <string name="lyrics_timing_step_later">Un dixième de seconde plus tard</string>
     <!-- Battery use, in Player and audio (BatteryUseFrag): held from translators in values until the words are agreed. -->
     <string name="battery_use">Utilisation de la batterie</string>
+    <string name="battery_use_entry">Ce que l\'application fait pendant l\'écoute, pour que la batterie tienne plus longtemps.</string>
     <string name="battery_use_full">Complète</string>
     <string name="battery_use_balanced">Équilibrée</string>
     <string name="battery_use_saver">Économie</string>

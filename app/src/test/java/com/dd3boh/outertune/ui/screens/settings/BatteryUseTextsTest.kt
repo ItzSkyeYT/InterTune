@@ -33,7 +33,7 @@ class BatteryUseTextsTest {
 
     @Test
     fun `every text of Battery use is held from translators and has its French`() {
-        assertEquals(names.toString(), 15, names.size)
+        assertEquals(names.toString(), 16, names.size)
         for (name in names) {
             val line = english.single { "name=\"$name\"" in it }
             assertTrue("$name is open to translators before his yes", "translatable=\"false\"" in line)
