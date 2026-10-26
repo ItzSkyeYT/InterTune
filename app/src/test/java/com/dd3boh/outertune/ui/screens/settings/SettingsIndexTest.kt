@@ -160,6 +160,7 @@ class SettingsIndexTest {
             "settings/local" to "Tour.ROUTE_LOCAL",
             "settings/appearance" to "Tour.ROUTE_LOOK_AND_FEEL",
             "settings/player" to "Tour.ROUTE_PLAYER",
+            "settings/battery" to "Tour.ROUTE_BATTERY",
             "settings/recognition" to "Tour.ROUTE_RECOGNITION",
             "settings/library/lyrics" to "Tour.ROUTE_LYRICS",
             "settings/storage" to "Tour.ROUTE_STORAGE",
