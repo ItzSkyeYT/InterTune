@@ -161,7 +161,7 @@ val CLOSER_LOOK_QUESTION = TourStop(
  * through them in this order, and SettingsCloserLookTest reads the list off SettingsScreen and
  * fails when the two differ, so that a screen added there is not forgotten here.
  */
-val SETTINGS_CATEGORIES = listOf(
+val SETTINGS_CATEGORIES = listOfNotNull(
     Tour.ROUTE_ACCOUNT,
     Tour.ROUTE_LIBRARY,
     Tour.ROUTE_LOCAL,
@@ -170,6 +170,7 @@ val SETTINGS_CATEGORIES = listOf(
     Tour.ROUTE_RECOGNITION,
     Tour.ROUTE_LYRICS,
     Tour.ROUTE_STORAGE,
+    Tour.ROUTE_BATTERY.takeIf { Unreleased.BATTERY_MODES },
     Tour.ROUTE_BACKUP,
     Tour.ROUTE_PRIVACY,
     Tour.ROUTE_UPDATES,
@@ -183,6 +184,7 @@ val SETTINGS_CATEGORIES = listOf(
  * has either stops or a reason: the test fails on one with neither.
  */
 val CLOSER_LOOK_LEFT_OUT = mapOf(
+    Tour.ROUTE_BATTERY to "One choice, and the line under it says what each mode turns down: a bubble would only say it again.",
     Tour.ROUTE_ADVANCED to "Emptying the image cache and the switch for the developer's own settings: upkeep, with nothing to choose between.",
     Tour.ROUTE_ABOUT to "Nothing on it is a setting. It holds the way back into this tour.",
 )
