@@ -316,6 +316,9 @@ class DownloadUtil @Inject constructor(
     val downloadMgr = DownloadManagerOt(localMgr)
     var isProcessingDownloads = MutableStateFlow(false)
 
+    /** Songs whose download finished since the last move into the folder, on the download manager's thread: see its onIdle. */
+    private val finishedSinceMove = mutableSetOf<String>()
+
     fun getDownload(songId: String): Flow<LocalDateTime?> = downloads.map { it[songId] }
 
     fun download(songs: List<MediaMetadata>) {
@@ -780,52 +783,28 @@ class DownloadUtil @Inject constructor(
     }
 
     /**
-     * Migrated existing downloads from the download cache to the new system in external storage
+     * Moves the downloads kept inside the app into the download folder: all of them when asked
+     * from Settings (Migrate), or [only] these songs, just downloaded, without a word ([quiet]).
      */
-    suspend fun migrateDownloads() = scanLock.withLock {
+    suspend fun migrateDownloads(quiet: Boolean = false, only: Set<String>? = null) = scanLock.withLock {
         isProcessingDownloads.value = true
 
         var runs = 0
         try {
-            // "skeleton" of old download manager to access old download data
-            val dataSourceFactory = ResolvingDataSource.Factory(
-                CacheDataSource.Factory()
-                    .setCache(playerCache)
-                    .setUpstreamDataSourceFactory(
-                        OkHttpDataSource.Factory(
-                            OkHttpClient.Builder()
-                                .proxy(YouTube.proxy)
-                                .build()
-                        )
-                    )
-            ) { dataSpec ->
-                return@Factory dataSpec
-            }
-
-            val downloadManager: DownloadManager = DownloadManager(
-                context,
-                databaseProvider,
-                downloadCache,
-                dataSourceFactory,
-                Executor(Runnable::run)
-            ).apply {
-                maxParallelDownloads = 3
-            }
-
-            // actual migration code
+            // What media3 holds, read from its index. A second DownloadManager over it, as this
+            // used to make for the same list, started a thread of its own that was never let go.
+            val migratedIndex = DefaultDownloadIndex(databaseProvider)
             val downloadedSongs = mutableMapOf<String, Download>()
-            val cursor = downloadManager.downloadIndex.getDownloads()
-            while (cursor.moveToNext()) {
-                downloadedSongs[cursor.download.request.id] = cursor.download
+            migratedIndex.getDownloads().use { cursor ->
+                while (cursor.moveToNext()) downloadedSongs[cursor.download.request.id] = cursor.download
             }
 
             // copy all completed downloads
-            val toMigrate = downloadedSongs.filter { it.value.state == Download.STATE_COMPLETED }
-            val migratedIndex = DefaultDownloadIndex(databaseProvider)
+            val toMigrate = downloadedSongs.filter { it.value.state == Download.STATE_COMPLETED && (only == null || it.key in only) }
             toMigrate.forEach { s ->
                 if (runs++ % 10 == 0) {
                     Log.d(TAG, "Migrating download: $runs/${toMigrate.size}")
-                    if (runs % 20 == 0) {
+                    if (runs % 20 == 0 && !quiet) {
                         withContext(Dispatchers.Main) {
                             Toast.makeText(context, "$runs/${toMigrate.size}", LENGTH_SHORT).show()
                         }
@@ -1072,11 +1051,27 @@ class DownloadUtil @Inject constructor(
 
         downloadManager.addListener(
             object : DownloadManager.Listener {
+                /**
+                 * Every download done for now: with a folder of the person's own set, the songs
+                 * just finished go into it, the way Migrate moves earlier ones. A download is
+                 * always made inside the app first, and only Migrate ever took songs out, so a
+                 * folder set in Settings never got a new download (dvd on Discord, 26 Oct 2026).
+                 * Songs downloaded before the folder was set stay where they are: Migrate's call.
+                 */
+                override fun onIdle(downloadManager: DownloadManager) {
+                    if (finishedSinceMove.isEmpty()) return
+                    val just = finishedSinceMove.toSet()
+                    finishedSinceMove.clear()
+                    if (context.dataStore.get(DownloadPathKey, "").isEmpty()) return
+                    CoroutineScope(Dispatchers.IO).launch { migrateDownloads(quiet = true, only = just) }
+                }
+
                 override fun onDownloadChanged(
                     downloadManager: DownloadManager,
                     download: Download,
                     finalException: Exception?
                 ) {
+                    if (download.state == Download.STATE_COMPLETED) finishedSinceMove += download.request.id
                     // The map's removal below is all it ever shows of a failure, which looks the
                     // same as a song media3 has not been handed yet. The catch up needs the
                     // difference, so the ending is recorded for it here.
