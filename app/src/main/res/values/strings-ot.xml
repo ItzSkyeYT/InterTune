@@ -64,18 +64,18 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="spatial_room_value" translatable="false">%1$d%% of a small room</string>
     <string name="auto_for_you" translatable="false">For you</string>
     <string name="auto_recent" translatable="false">Recent</string>
-    <string name="auto_more_downloaded" translatable="false">Downloaded</string>
-    <string name="auto_more_downloaded_line" translatable="false">Plays with no signal</string>
-    <string name="auto_more_recent" translatable="false">Recently played</string>
-    <string name="auto_more_recent_line" translatable="false">Pick up where you left off</string>
-    <string name="auto_more_shuffle_library" translatable="false">Shuffle my library</string>
-    <string name="auto_more_shuffle_line" translatable="false">Everything you saved, mixed</string>
-    <string name="auto_settings_sound" translatable="false">Sound</string>
-    <string name="auto_settings_playback" translatable="false">Playback</string>
-    <string name="auto_level_line" translatable="false">Even out the volume</string>
-    <string name="auto_silence_line" translatable="false">Cut quiet starts and ends</string>
-    <string name="auto_more_line" translatable="false">The queue never runs out</string>
-    <string name="auto_radios_line" translatable="false">Follows your skips and likes</string>
+    <string name="auto_more_downloaded">Downloaded</string>
+    <string name="auto_more_downloaded_line">Plays with no signal</string>
+    <string name="auto_more_recent">Recently played</string>
+    <string name="auto_more_recent_line">Pick up where you left off</string>
+    <string name="auto_more_shuffle_library">Shuffle my library</string>
+    <string name="auto_more_shuffle_line">Everything you saved, mixed</string>
+    <string name="auto_settings_sound">Sound</string>
+    <string name="auto_settings_playback">Playback</string>
+    <string name="auto_level_line">Even out the volume</string>
+    <string name="auto_silence_line">Cut quiet starts and ends</string>
+    <string name="auto_more_line">The queue never runs out</string>
+    <string name="auto_radios_line">Follows your skips and likes</string>
     <string name="auto_jump_back_in" translatable="false">Jump back in</string>
     <string name="auto_carry_on" translatable="false">Carry on</string>
     <string name="auto_now_playing" translatable="false">Now playing</string>
@@ -2104,23 +2104,23 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="every_direct_refused" translatable="false">Take every direct address for refused</string>
     <string name="every_direct_refused_description" translatable="false">Plays the day direct addresses stop: every client\'s address counts as refused, so SABR, the last try, has to take over.</string>
     <string name="sabr_only_description" translatable="false">Plays each song over SABR, as YouTube\'s own apps stream, from the VISIONOS answer the app already has. A song that cannot be started that way plays as before.</string>
-    <!-- Battery use, in Player and audio (BatteryUseFrag, Unreleased.BATTERY_MODES): held from translators until the words are agreed, their French beside them in values-fr. The notes go under the rows that Saver holds; %1$s is the name of the background drawn in place of Living blur (Blur or Gradient). -->
-    <string name="battery_use" translatable="false">Battery use</string>
-    <string name="battery_use_entry" translatable="false">How much the app does while you listen, to make the battery last longer.</string>
-    <string name="battery_use_full" translatable="false">Full</string>
-    <string name="battery_use_balanced" translatable="false">Balanced</string>
-    <string name="battery_use_saver" translatable="false">Saver</string>
-    <string name="battery_use_full_description" translatable="false">Everything as you set it.</string>
-    <string name="battery_use_balanced_description" translatable="false">Your library syncs every two hours instead of every half hour, and the playing bars move more calmly.</string>
-    <string name="battery_use_saver_description" translatable="false">Sound effects off, a black theme, fewer frames a second and Low quality on mobile data. Syncs and downloads wait for Wi-Fi.</string>
-    <string name="battery_use_explain" translatable="false">How much InterTune does while you listen. \"Balanced\" syncs your library less often and calms the playing bars. \"Saver\" also turns sound effects off, shows a black theme at fewer frames a second and streams at Low quality on mobile data.</string>
-    <string name="battery_saver_holds_note" translatable="false">Set by \"Battery use\" while it is on \"Saver\".</string>
-    <string name="battery_saver_quality_note" translatable="false">Low on mobile data while \"Battery use\" is on \"Saver\".</string>
-    <string name="battery_saver_background_note" translatable="false">%1$s while \"Battery use\" is on \"Saver\".</string>
-    <string name="battery_saver_glass_note" translatable="false">Without its blur while \"Battery use\" is on \"Saver\".</string>
-    <string name="battery_follow_phone" translatable="false">Follow the phone\'s battery saver</string>
-    <string name="battery_follow_phone_description" translatable="false">\"Saver\" while it is on.</string>
-    <string name="battery_follow_phone_now" translatable="false">\"Saver\" now: the phone\'s battery saver is on.</string>
+    <!-- Battery use, on its own page under Storage and downloads (BatterySettings, BatteryUseFrag, Unreleased.BATTERY_MODES). The notes go under the rows that Saver holds; %1$s is the name of the background drawn in place of Living blur (Blur or Gradient). -->
+    <string name="battery_use">Battery use</string>
+    <string name="battery_use_entry">How much the app does while you listen, to make the battery last longer.</string>
+    <string name="battery_use_full">Full</string>
+    <string name="battery_use_balanced">Balanced</string>
+    <string name="battery_use_saver">Saver</string>
+    <string name="battery_use_full_description">Everything as you set it.</string>
+    <string name="battery_use_balanced_description">Your library syncs every two hours instead of every half hour, and the playing bars move more calmly.</string>
+    <string name="battery_use_saver_description">Sound effects off, a black theme, fewer frames a second and Low quality on mobile data. Syncs and downloads wait for Wi-Fi.</string>
+    <string name="battery_use_explain">How much InterTune does while you listen. \"Balanced\" syncs your library less often and calms the playing bars. \"Saver\" also turns sound effects off, shows a black theme at fewer frames a second and streams at Low quality on mobile data.</string>
+    <string name="battery_saver_holds_note">Set by \"Battery use\" while it is on \"Saver\".</string>
+    <string name="battery_saver_quality_note">Low on mobile data while \"Battery use\" is on \"Saver\".</string>
+    <string name="battery_saver_background_note">%1$s while \"Battery use\" is on \"Saver\".</string>
+    <string name="battery_saver_glass_note">Without its blur while \"Battery use\" is on \"Saver\".</string>
+    <string name="battery_follow_phone">Follow the phone\'s battery saver</string>
+    <string name="battery_follow_phone_description">\"Saver\" while it is on.</string>
+    <string name="battery_follow_phone_now">\"Saver\" now: the phone\'s battery saver is on.</string>
     <!-- The search at the top of Settings (SettingsSearch.kt, Unreleased.SETTINGS_SEARCH). %1$s is what was typed. -->
     <string name="search_settings">Search settings</string>
     <string name="search_settings_none">No setting matches \"%1$s\".</string>

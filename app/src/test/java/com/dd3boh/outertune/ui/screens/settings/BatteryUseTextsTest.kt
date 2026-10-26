@@ -13,8 +13,8 @@ import org.junit.Test
 import java.io.File
 
 /**
- * The words of Battery use wait for his yes before they go to translators, so they are held
- * (translatable="false") with their French beside them, and they are short: a line or two under
+ * The words of Battery use went to translators on his yes (26 Oct 2026), each with its French
+ * beside it, and they are short: a line or two under
  * each choice, two or three short sentences behind the (i).
  */
 class BatteryUseTextsTest {
@@ -32,11 +32,11 @@ class BatteryUseTextsTest {
     private fun sentences(text: String) = Regex("""[.!?](?=\s|$)""").findAll(text).count()
 
     @Test
-    fun `every text of Battery use is held from translators and has its French`() {
+    fun `every text of Battery use is open to translators and has its French`() {
         assertEquals(names.toString(), 16, names.size)
         for (name in names) {
             val line = english.single { "name=\"$name\"" in it }
-            assertTrue("$name is open to translators before his yes", "translatable=\"false\"" in line)
+            assertFalse("$name is still held from translators", "translatable=\"false\"" in line)
             assertTrue("$name has no French", text(french, name) != null)
         }
     }
