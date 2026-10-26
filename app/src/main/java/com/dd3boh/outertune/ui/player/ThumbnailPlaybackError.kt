@@ -57,6 +57,7 @@ import com.dd3boh.outertune.utils.ErrorText
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.Throttle
 import com.dd3boh.outertune.utils.YTPlayerUtils
+import com.dd3boh.outertune.utils.installedFrom
 import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
 
@@ -151,6 +152,7 @@ fun ThumbnailPlaybackError(
                 appendLine("${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) | ${BuildConfig.FLAVOR}")
                 appendLine("${BuildConfig.APPLICATION_ID} | ${BuildConfig.BUILD_TYPE}")
                 appendLine("${Build.BRAND} ${Build.DEVICE} (${Build.MODEL})")
+                appendLine("Installed from: ${context.installedFrom()}")
                 appendLine("Android ${Build.VERSION.RELEASE}, API ${Build.VERSION.SDK_INT} (${Build.ID})")
                 // Which of the player clients produced the url. Without it a report of a 403
                 // partway through a song says nothing about which of three clients to go and

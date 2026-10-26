@@ -50,6 +50,7 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -198,6 +199,7 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import java.time.LocalDateTime
@@ -244,6 +246,19 @@ internal val QueuePullDeadZone = 48.dp
  * Short of that, letting go puts it back open; a slow drag past halfway still closes it.
  */
 internal val QueueFlingAfter = 64.dp
+
+/**
+ * Puts the list at [index] once its rows reach that far, and says whether it did. Rows just put
+ * into the list are laid out a frame later, and a scroll asked for before then is cut to the top.
+ * Done once per opening, that was never put right, so the queue opened at its first song instead
+ * of the one playing (his report, 26 Oct 2026).
+ */
+internal suspend fun LazyListState.scrollToWhenLaidOut(index: Int): Boolean {
+    if (index < 0) return false
+    withTimeoutOrNull(2_000) { snapshotFlow { layoutInfo.totalItemsCount }.first { it > index } } ?: return false
+    scrollToItem(index)
+    return true
+}
 
 /**
  * The queue's own link from a list to its sheet, with [QueueOvershootBuffer]. Only the queue has
@@ -676,10 +691,9 @@ fun BoxScope.QueueContent(
             }
             val showing = "detached " + detachedQueue!!.id
             if (!isSearching && scrolledFor != showing) {
-                detachedQueue?.let {
-                    lazySongsListState.scrollToItem(it.getQueuePosShuffled())
-                }
-                scrolledFor = showing
+                // Marked done only once the list was really put there: see scrollToWhenLaidOut.
+                val at = detachedQueue!!.getQueuePosShuffled()
+                if (mutableSongs.size > at && lazySongsListState.scrollToWhenLaidOut(at)) scrolledFor = showing
             }
             return@LaunchedEffect
         }
@@ -702,9 +716,10 @@ fun BoxScope.QueueContent(
         }
 
         val showing = "playing " + qb.getCurrentQueue()?.id
-        if (currentWindowIndex != -1 && !isSearching && scrolledFor != showing) {
-            lazySongsListState.scrollToItem(currentWindowIndex)
-            scrolledFor = showing
+        // Not before the song playing is in the list: queueWindows can still be empty on the
+        // first run after opening, and a scroll then went to the top and counted as done.
+        if (currentWindowIndex != -1 && !isSearching && scrolledFor != showing && mutableSongs.size > currentWindowIndex) {
+            if (lazySongsListState.scrollToWhenLaidOut(currentWindowIndex)) scrolledFor = showing
         }
     }
 

@@ -149,13 +149,13 @@ class ProblemLogTest {
 
     @Test
     fun `what is copied does not say where the phone is`() {
-        val text = ProblemLog.report(ProblemLog.excerpt(song + fault + after), build = "0.11.5 (93, core release)", device = "samsung SM-S938B, Android 16 (API 36)")
+        val text = ProblemLog.report(ProblemLog.excerpt(song + fault + after), build = "0.11.5 (93, core release)", device = "samsung SM-S938B, Android 16 (API 36)", installedFrom = "F-Droid")
         assertFalse("the server's name is in it", "googlevideo.com" in text)
         assertFalse("sn-2oaig5" in text)
         assertTrue("stream url: a stream host, itag 251" in text)
         // The song's id stays: it is how the fault is found again.
         assertTrue("[aaaaaaaaaaa]" in text)
-        assertTrue(text.startsWith("InterTune 0.11.5 (93, core release)\nsamsung SM-S938B, Android 16 (API 36)\nThe last fault and what led up to it:\n"))
+        assertTrue(text.startsWith("InterTune 0.11.5 (93, core release)\nsamsung SM-S938B, Android 16 (API 36)\nInstalled from: F-Droid\nThe last fault and what led up to it:\n"))
         assertTrue(">>> here\n18:44:40.811 E/MediaCodecAudioRenderer: Audio sink error" in text)
         // An address in a line goes as it does everywhere else.
         val withAddress = ProblemLog.scrub("18:00:00.000 W/MusicService: failed to connect to /192.168.1.20 (port 443) from /10.0.0.7")
@@ -166,20 +166,20 @@ class ProblemLogTest {
     @Test
     fun `what goes into the form's address is cut from the front, never the fault`() {
         val long = List(40) { "10-13 18:00:00.000 D/MusicService( 6711): earlier line number $it of the forty that led up to it" } + fault
-        val report = ProblemLog.report(ProblemLog.excerpt(long), build = "b", device = "d")
+        val report = ProblemLog.report(ProblemLog.excerpt(long), build = "b", device = "d", installedFrom = "F-Droid")
         assertEquals(report, ProblemLog.fitted(report, report.length))
         val cut = ProblemLog.fitted(report, 1200)
         assertTrue(cut.length <= 1200)
-        assertTrue(cut.startsWith("InterTune b\nd\nThe last fault and what led up to it:\n(the earlier lines are left out)\n"))
+        assertTrue(cut.startsWith("InterTune b\nd\nInstalled from: F-Droid\nThe last fault and what led up to it:\n(the earlier lines are left out)\n"))
         assertTrue(cut.endsWith("at android.os.HandlerThread.run(HandlerThread.java:139)"))
         assertTrue(">>> here" in cut)
         // From the start of a line: no half line after the note.
-        assertTrue(cut.lines()[4].startsWith("18:00:00.000 D/MusicService: earlier line number"))
+        assertTrue(cut.lines()[5].startsWith("18:00:00.000 D/MusicService: earlier line number"))
     }
 
     @Test
     fun `with nothing wrong what is copied says so`() {
-        val text = ProblemLog.report(ProblemLog.excerpt(song + after), build = "b", device = "d")
+        val text = ProblemLog.report(ProblemLog.excerpt(song + after), build = "b", device = "d", installedFrom = "F-Droid")
         assertTrue("Nothing that looks like a fault. The last lines:" in text)
         assertFalse(">>> here" in text)
     }

@@ -47,11 +47,11 @@ class StopReasonsTest {
     fun `the report ends with the stops, and the form's cut keeps them`() {
         val lines = (1..400).map { "10-17 18:0${it % 10}:00.000 I/MusicService( 4242): PLAYING: song id = id$it" }
         val stops = listOf("10-17 18:05:01 STOPPED: the player's service ended while playing (screen off, NOT in the foreground)")
-        val report = ProblemLog.report(ProblemLog.excerpt(lines), build = "b", device = "d", stops = stops)
+        val report = ProblemLog.report(ProblemLog.excerpt(lines), build = "b", device = "d", installedFrom = "F-Droid", stops = stops)
         assertTrue(report.endsWith("Stops nobody asked for, the latest last:\n" + stops.single()))
         assertTrue(ProblemLog.fitted(report, 1500).endsWith(stops.single()))
         // And none when there are none.
-        assertTrue("Stops nobody" !in ProblemLog.report(ProblemLog.excerpt(lines), build = "b", device = "d"))
+        assertTrue("Stops nobody" !in ProblemLog.report(ProblemLog.excerpt(lines), build = "b", device = "d", installedFrom = "F-Droid"))
     }
 
     @Test

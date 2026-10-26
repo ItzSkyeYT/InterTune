@@ -57,6 +57,7 @@ import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.playback.StopReasons
 import com.dd3boh.outertune.utils.ProblemLog
 import com.dd3boh.outertune.utils.RunLogs
+import com.dd3boh.outertune.utils.installedFrom
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -69,12 +70,13 @@ private const val FIRST_SHOWN = 4
 /**
  * One log to choose from: this run's, read from the phone's log as the page opens, or an earlier
  * run's, read from its file ([RunLogs]). Only this run's carries the stops nobody asked for: they
- * are dated, and they outlive the run they ended.
+ * are dated, and they outlive the run they ended. Where the app came from is asked once for all
+ * of them: Android keeps only the latest install's.
  */
-private class LogChoice(val run: RunLogs.Run?, val excerpt: ProblemLog.Excerpt, val stops: List<String>) {
+private class LogChoice(val run: RunLogs.Run?, val excerpt: ProblemLog.Excerpt, val stops: List<String>, val installedFrom: String) {
     val version: String get() = run?.versionName ?: BuildConfig.VERSION_NAME
     val build: String get() = run?.build ?: ProblemLog.build()
-    fun report(): String = ProblemLog.report(excerpt, build = build, stops = stops, started = run?.started)
+    fun report(): String = ProblemLog.report(excerpt, build = build, installedFrom = installedFrom, stops = stops, started = run?.started)
 }
 
 /**
@@ -95,9 +97,10 @@ fun ProblemReportDialog(onDismiss: () -> Unit) {
         choices = withContext(Dispatchers.IO) {
             // This run's file when one is kept: the phone's log may have turned over since the start.
             val lines = (if (Unreleased.PREVIOUS_LOGS) RunLogs.now() else null) ?: ProblemLog.read()
-            val now = LogChoice(null, ProblemLog.excerpt(lines), StopReasons.read(context))
+            val installedFrom = context.installedFrom()
+            val now = LogChoice(null, ProblemLog.excerpt(lines), StopReasons.read(context), installedFrom)
             val earlier = if (Unreleased.PREVIOUS_LOGS) {
-                RunLogs.earlier(context).map { LogChoice(it, ProblemLog.excerpt(RunLogs.read(it)), emptyList()) }
+                RunLogs.earlier(context).map { LogChoice(it, ProblemLog.excerpt(RunLogs.read(it)), emptyList(), installedFrom) }
             } else emptyList()
             listOf(now) + earlier
         }

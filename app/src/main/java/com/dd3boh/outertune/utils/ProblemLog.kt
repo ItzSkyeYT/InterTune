@@ -125,19 +125,22 @@ object ProblemLog {
     fun scrub(text: String): String = ErrorText.withoutAddresses(text).replace(STREAM_HOST, "a stream host")
 
     /**
-     * What is copied: the build and the phone, then the lines, then the last times the music
-     * stopped with nobody asking ([com.dd3boh.outertune.playback.StopReasons]). Those come last
-     * because [fitted] keeps the end, and they outlive the process the lines above belong to.
+     * What is copied: the build, the phone and where the app came from ([installedFrom]), then
+     * the lines, then the last times the music stopped with nobody asking
+     * ([com.dd3boh.outertune.playback.StopReasons]). Those come last because [fitted] keeps the
+     * end, and they outlive the process the lines above belong to.
      */
     fun report(
         excerpt: Excerpt,
         build: String = build(),
         device: String = device(),
+        installedFrom: String,
         stops: List<String> = emptyList(),
         started: Date? = null,
     ): String = buildString {
         appendLine("InterTune $build")
         appendLine(device)
+        appendLine("Installed from: $installedFrom")
         // A run before this one: which, since its lines carry the time of day and not the date.
         started?.let { appendLine("From the run that began ${SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.ROOT).format(it)}") }
         appendLine(if (excerpt.faultAt == null) "Nothing that looks like a fault. The last lines:" else "The last fault and what led up to it:")
@@ -154,12 +157,12 @@ object ProblemLog {
     }.trimEnd()
 
     /**
-     * [report] in no more than [limit] characters: the build and the phone, then as much of the
-     * end as fits, from the start of a line. The end is where the fault is.
+     * [report] in no more than [limit] characters: its heading, the lines above the first empty
+     * one, then as much of the end as fits, from the start of a line. The end is where the fault is.
      */
     fun fitted(report: String, limit: Int): String {
         if (report.length <= limit) return report
-        val heading = if (report.lineSequence().drop(2).firstOrNull()?.startsWith("From the run") == true) 4 else 3
+        val heading = report.lineSequence().takeWhile { it.isNotEmpty() }.count()
         val head = report.lineSequence().take(heading).joinToString("\n") + "\n(the earlier lines are left out)\n"
         val tail = report.takeLast((limit - head.length).coerceAtLeast(0))
         return head + tail.substringAfter('\n', tail)

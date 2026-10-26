@@ -46,6 +46,19 @@ class QueueSheetOpensOnSongsTest {
     }
 
     @Test
+    fun `the queue opens at the song playing once the list holds it`() {
+        // A scroll asked for before the rows were laid out went to the top and was marked done, so
+        // the queue opened at its first song (his report, 26 Oct 2026).
+        assertTrue(queue.contains("internal suspend fun LazyListState.scrollToWhenLaidOut(index: Int): Boolean"))
+        val marks = Regex("""scrolledFor = showing""").findAll(queue).map { m ->
+            queue.substring(queue.lastIndexOf('\n', m.range.first) + 1, m.range.last + 1)
+        }.toList()
+        assertEquals(2, marks.size)
+        marks.forEach { assertTrue(it, it.contains("scrollToWhenLaidOut(")) }
+        assertTrue(queue.contains("scrolledFor != showing && mutableSongs.size > currentWindowIndex"))
+    }
+
+    @Test
     fun `a restored queue says at once whether its far end is folded`() {
         val loaded = service.substringAfter("qbInit.value = true").substringBefore("queuesLoadedOnce.complete(Unit)")
         assertTrue(loaded, loaded.contains("refreshAdaptiveTail()"))

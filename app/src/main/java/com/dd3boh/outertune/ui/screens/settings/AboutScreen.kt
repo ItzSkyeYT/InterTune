@@ -79,10 +79,12 @@ import com.dd3boh.outertune.ui.component.ContributorType.CUSTOM
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SettingsClickToReveal
 import com.dd3boh.outertune.ui.component.button.IconLabelButton
+import com.dd3boh.outertune.utils.installedFrom
 import com.dd3boh.outertune.utils.scanners.FFmpegScanner
 import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.FfmpegLibrary
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import com.dd3boh.outertune.ui.component.ProblemReportDialog
@@ -343,8 +345,11 @@ fun AboutScreen(
                     ElevatedCard(
                         modifier = Modifier.fillMaxWidth()
                     ) {
+                        // Asked of Android once, as the fold opens.
+                        val installedFrom = remember { context.installedFrom() }
                         val info = mutableListOf<String>(
                             "Device: ${Build.BRAND} ${Build.DEVICE} (${Build.MODEL})",
+                            "Installed from: $installedFrom",
                             "Manufacturer: ${Build.MANUFACTURER}",
                             "HW: ${Build.BOARD} (${Build.HARDWARE})",
                             "ABIs: ${Build.SUPPORTED_ABIS.joinToString()})",

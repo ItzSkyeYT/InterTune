@@ -23,6 +23,19 @@ class AutoBrowseTest {
     }
 
     @Test
+    fun `More holds the kept songs after the three tabs`() {
+        // Android Auto lists every root item past the tabs under its own More, after the settings
+        // (his ask, 26 Oct 2026: "make the more menu more sexy").
+        val callback = java.io.File("src/main/java/com/dd3boh/outertune/playback/MediaLibrarySessionCallback.kt").readText()
+        assertTrue("MusicService.ROOT -> if (Unreleased.AUTO_REWORK) carTabs() + carMore() else" in callback)
+        val more = callback.substringAfter("private suspend fun carMore()").substringBefore("\n    }\n")
+        for (row in listOf("PlaylistEntity.LIKED_PLAYLIST_ID", "PlaylistEntity.DOWNLOADED_PLAYLIST_ID", "AutoBrowse.RECENT", "\"\${AutoBrowse.SHUFFLE}/\${AutoBrowse.LIBRARY}\"")) {
+            assertTrue("More has no $row", row in more)
+        }
+        assertTrue("a shuffle of the library plays the library", "target.list == AutoBrowse.LIBRARY -> librarySongs()" in callback)
+    }
+
+    @Test
     fun `a list can be subscribed to`() {
         // Media3's own onSubscribe asks onGetItem for the list, which knows songs only: the car
         // was refused and never heard of a change. Read from the source: a JVM test cannot run it.

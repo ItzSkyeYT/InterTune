@@ -38,6 +38,7 @@ import androidx.compose.material.icons.automirrored.rounded.LibraryBooks
 import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Backup
+import androidx.compose.material.icons.rounded.Battery5Bar
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Group
 import androidx.compose.material.icons.rounded.Info
@@ -106,7 +107,11 @@ internal data class SettingsCategory(val route: String, @StringRes val title: In
  * The screens of settings in the list's four groups, the ones the cards of the upright list are:
  * your music, how the app presents it, what it keeps on the device, the app itself.
  */
-internal fun settingsGroups(engine: Boolean = Unreleased.ENGINE, together: Boolean = togetherAvailable): List<List<SettingsCategory>> = listOf(
+internal fun settingsGroups(
+    engine: Boolean = Unreleased.ENGINE,
+    together: Boolean = togetherAvailable,
+    battery: Boolean = Unreleased.BATTERY_MODES,
+): List<List<SettingsCategory>> = listOf(
     listOf(
         SettingsCategory("settings/account_sync", R.string.grp_account_sync, Icons.Rounded.AccountCircle),
         SettingsCategory("settings/library", R.string.grp_library_and_content, Icons.AutoMirrored.Rounded.LibraryBooks),
@@ -120,8 +125,9 @@ internal fun settingsGroups(engine: Boolean = Unreleased.ENGINE, together: Boole
         // Last of the group, so that no entry above it moves where rooms are offered.
         SettingsCategory("settings/together", R.string.together_title, Icons.Rounded.Group).takeIf { together },
     ),
-    listOf(
+    listOfNotNull(
         SettingsCategory("settings/storage", R.string.grp_storage_and_downloads, Icons.Rounded.Storage),
+        SettingsCategory(Tour.ROUTE_BATTERY, R.string.battery_use, Icons.Rounded.Battery5Bar).takeIf { battery },
         SettingsCategory("settings/backup", R.string.backup_restore, Icons.Rounded.Backup),
         SettingsCategory("settings/privacy", R.string.grp_privacy_and_history, Icons.Rounded.Shield),
     ),
@@ -418,6 +424,7 @@ private fun SettingsPane(route: String, navController: NavController, scrollBeha
         "settings/library/lyrics" -> LyricsSettings(navController, scrollBehavior)
         "settings/together" -> ListenTogetherSettings(navController, scrollBehavior)
         "settings/storage" -> StorageSettings(navController, scrollBehavior)
+        Tour.ROUTE_BATTERY -> BatterySettings(navController, scrollBehavior)
         "settings/backup" -> BackupSettings(navController, scrollBehavior)
         "settings/privacy" -> PrivacySettings(navController, scrollBehavior)
         "settings/updates" -> UpdateSettings(navController, scrollBehavior)
