@@ -639,6 +639,20 @@
     <string name="recognise_keep_listening">Écoute continue</string>
     <string name="recognise_once_desc">Identifie un titre, puis s\'arrête.</string>
     <string name="recognise_keep_listening_short">Continue jusqu\'à ce que vous l\'arrêtiez.</string>
+    <string name="recognition_source_room">Autour de vous</string>
+    <string name="recognition_source_phone">Sur ce téléphone</string>
+    <string name="recognition_phone_note">Android ne laisse une appli entendre les autres qu\'en enregistrant l\'écran, d\'où sa question. InterTune ne prend que le son, jamais l\'image, et seulement pour cette écoute.</string>
+    <string name="recognition_phone_tile">Titre sur ce téléphone</string>
+    <string name="recognition_service_title_phone">À l\'écoute de ce téléphone</string>
+    <string name="recognition_phone_found_tap">touchez pour l\'ouvrir dans InterTune</string>
+    <string name="recognition_phone_nothing">Aucun titre trouvé sur ce téléphone</string>
+    <string name="recognition_phone_nothing_hint">Réessayez pendant que le titre joue.</string>
+    <string name="recognition_phone_results_channel">Titres trouvés sur ce téléphone</string>
+    <string name="recognition_phone_needs_permission">InterTune a aussi besoin de l\'autorisation du micro pour écouter ce téléphone.</string>
+    <string name="recognition_phone_heard_nothing">Aucun son n\'est venu du téléphone. InterTune laisse de côté ses propres titres, et certaines applis bloquent l\'enregistrement.</string>
+    <string name="recognition_room_tile">Titre autour de vous</string>
+    <string name="recognition_phone_continue">Continuer</string>
+    <string name="recognition_phone_needs_notifications">InterTune a besoin des notifications pour vous donner le titre.</string>
     <string name="recognise_tap_to_listen">Appuyez pour écouter</string>
     <string name="recognise_screen_off_hint">Vous pouvez éteindre l\'écran : l\'écoute ne s\'arrête pas.</string>
     <string name="recognise_history_title">Reconnus pendant cette session</string>
@@ -1295,6 +1309,14 @@
     <string name="widget_show_artist">Les noms des artistes</string>
     <string name="widget_show_heading">Le titre de la liste</string>
     <string name="widget_rounded_corners">Coins arrondis</string>
+    <!-- The widget's like button (issue #45). -->
+    <string name="widget_show_like">Bouton J\'aime, s\'il y a la place</string>
+    <!-- The widget's styles (25 Oct 2026). -->
+    <string name="widget_config_style">Style</string>
+    <string name="widget_style_cover">Pochette</string>
+    <string name="widget_style_full_cover">Pochette entière</string>
+    <string name="widget_style_shelf">Étagère</string>
+    <string name="widget_up_next">À suivre</string>
     <!-- Recommendations: the little "i" beside an item, and what it opens -->
     <string name="tidy_home_rows_info">Aucune rangée de l\'accueil ne montre un titre déjà présent dans une rangée précédente, et les versions d\'un même titre (live, remasterisé, vidéo) comptent pour une. Rien ne comble les trous, donc une rangée peut être plus courte. Désactivé, vos exclusions ne filtrent plus que la rangée « Meilleures recommandations ».</string>
     <string name="rank_with_listening_info">Remet la « Sélection Rapide » dans un ordre qui vous convient : les titres que vous écoutez souvent, écoutés récemment ou aimés passent plutôt devant. Rien n\'est ajouté ni retiré. La rangée est laissée telle quelle quand « Meilleures recommandations » ou « Essayer les deux » la remplit.</string>
@@ -1933,6 +1955,7 @@
     <string name="battery_saver_holds_note">Réglé par « Utilisation de la batterie » tant qu\'elle est sur « Économie ».</string>
     <string name="battery_saver_quality_note">Faible sur les données mobiles tant que « Utilisation de la batterie » est sur « Économie ».</string>
     <string name="battery_saver_background_note">%1$s tant que « Utilisation de la batterie » est sur « Économie ».</string>
+    <string name="living_blur_still_animations">Reste immobile tant que les animations sont désactivées dans les réglages d\'Android.</string>
     <string name="battery_saver_glass_note">Sans flou tant que « Utilisation de la batterie » est sur « Économie ».</string>
     <string name="battery_follow_phone">Suivre l\'économiseur de batterie du téléphone</string>
     <string name="battery_follow_phone_description">« Économie » tant qu\'il est activé.</string>
@@ -1979,7 +2002,8 @@
     <string name="search_words_bluetooth">casque, voiture, enceinte, lecture automatique</string>
     <string name="search_words_sleep">minuterie de sommeil, coucher, nuit</string>
     <string name="search_words_account_playback">compte, erreurs de lecture, connexion</string>
-    <string name="search_words_keep_alive">batterie, arrière-plan, fermée</string>
+    <string name="search_words_keep_alive">batterie, arrière-plan, fermée, maintenir actif</string>
+    <string name="search_words_battery_use">économie d\'énergie, énergie</string>
     <string name="search_words_recognition">Shazam, identifier, quel est ce titre</string>
     <string name="search_words_lyrics_sources">LrcLib, KuGou, fournisseurs</string>
     <string name="search_words_text_size">taille du texte, plus grand</string>
@@ -2017,5 +2041,40 @@
     <string name="auto_level_line">Un volume égal d\'un titre à l\'autre</string>
     <string name="auto_silence_line">Coupe les silences au début et à la fin</string>
     <string name="auto_more_line">La file d\'attente ne s\'arrête jamais</string>
-    <string name="auto_radios_line">Suit vos passages et vos J\'aime</string>
+    <string name="auto_radios_line">Suit ce que vous passez et aimez</string>
+    <!-- Signal path (SignalPathDialog): what changes the sound between YouTube and the ear. -->
+    <string name="signal_path">Chemin du son</string>
+    <string name="signal_path_sub">De YouTube à vos oreilles, en ce moment</string>
+    <string name="signal_source_stream">Depuis YouTube</string>
+    <string name="signal_source_local">Depuis ce téléphone</string>
+    <string name="signal_format">%1$s, %2$d kb/s</string>
+    <string name="signal_text">%1$s</string>
+    <string name="signal_unknown">Pas encore connu</string>
+    <string name="signal_off">Désactivé</string>
+    <string name="signal_on">Activé</string>
+    <string name="signal_not_needed">Inutile pour ce titre</string>
+    <string name="signal_turned_down">Baissé de %1$s dB pour s\'accorder à vos autres titres</string>
+    <string name="signal_headphones">Casque : place le son autour de vous</string>
+    <string name="signal_surround">Surround : passé en 5.1 pour l\'audio spatial du téléphone</string>
+    <string name="signal_speed_pitch">Vitesse et hauteur</string>
+    <string name="signal_normal">Normales</string>
+    <string name="signal_speed_value">Vitesse %1$s×, hauteur %2$s×</string>
+    <string name="signal_skipping">Les passages silencieux des titres sont sautés</string>
+    <string name="signal_plays_on">Joue sur</string>
+    <string name="signal_output_rate">%1$s, %2$s kHz</string>
+    <string name="signal_phone_speaker">Haut-parleur du téléphone</string>
+    <string name="signal_wired">Casque filaire</string>
+    <string name="signal_other_output">Un autre appareil</string>
+    <string name="signal_volume">Volume du téléphone</string>
+    <string name="signal_percent">%1$d %%</string>
+    <string name="signal_legend_untouched">Intact</string>
+    <string name="signal_legend_changed">Modifié par un réglage que vous avez choisi</string>
+    <string name="signal_legend_where">Où il joue</string>
+    <!-- The player's pinned buttons (PlayerButtonsFrag, PlayerPins). -->
+    <string name="player_pins">Boutons épinglés</string>
+    <string name="player_pins_description">Ce qui reste sur le lecteur. Tout le reste est dans son menu.</string>
+    <string name="player_pins_by_title">À côté du titre</string>
+    <string name="player_pins_under_controls">Sous les commandes</string>
+    <string name="player_pin_lyrics">Paroles</string>
+    <string name="player_pins_reset">Réinitialiser</string>
 </resources>

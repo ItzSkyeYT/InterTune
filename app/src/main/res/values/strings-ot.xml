@@ -819,6 +819,20 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recognise_keep_listening">Keep listening</string>
     <string name="recognise_once_desc">Names one song, then stops.</string>
     <string name="recognise_keep_listening_short">Keeps going until you stop it.</string>
+    <string name="recognition_source_room">Around you</string>
+    <string name="recognition_source_phone">On this phone</string>
+    <string name="recognition_phone_note">Android lets an app hear other apps only through screen recording, so it asks first. InterTune takes the sound alone, never the picture, and only for this listen.</string>
+    <string name="recognition_phone_tile">Song on this phone</string>
+    <string name="recognition_service_title_phone">Listening to this phone</string>
+    <string name="recognition_phone_found_tap">tap to open in InterTune</string>
+    <string name="recognition_phone_nothing">No song found on this phone</string>
+    <string name="recognition_phone_nothing_hint">Try again while the song is playing.</string>
+    <string name="recognition_phone_results_channel">Songs found on this phone</string>
+    <string name="recognition_phone_needs_permission">InterTune needs the microphone permission to listen to this phone too.</string>
+    <string name="recognition_phone_heard_nothing">No sound came through from the phone. InterTune leaves its own songs out, and some apps block recording.</string>
+    <string name="recognition_room_tile">Song around you</string>
+    <string name="recognition_phone_continue">Continue</string>
+    <string name="recognition_phone_needs_notifications">InterTune needs notifications to give you the song.</string>
     <string name="recognise_tap_to_listen">Tap to listen</string>
     <string name="recognise_screen_off_hint">You can turn the screen off. It keeps listening.</string>
     <string name="recognise_history_title">Recognised this session</string>
@@ -1601,6 +1615,15 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="widget_show_artist">Artist names</string>
     <string name="widget_show_heading">The list\'s heading</string>
     <string name="widget_rounded_corners">Rounded corners</string>
+    <!-- The widget's like button (issue #45). -->
+    <string name="widget_show_like">Like button, where there is room</string>
+    <!-- The widget's styles (25 Oct 2026). -->
+    <string name="widget_config_style">Style</string>
+    <string name="widget_style_cover">Cover</string>
+    <string name="widget_style_full_cover">Full cover</string>
+    <string name="widget_style_shelf">Shelf</string>
+    <!-- Over the next songs of the queue, on a widget as wide as a tablet's. -->
+    <string name="widget_up_next">Up next</string>
 
 <!-- Recommendations: the little "i" beside an item, and what it opens -->
     <string name="tidy_home_rows_info">No Home row shows a song an earlier row already has, and versions of one song (live, remastered, video) count as the same. Nothing fills a gap, so a row can come up short. Off, your exclusions only filter the \"Best recommendations\" row.</string>
@@ -2109,6 +2132,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="battery_saver_holds_note">Set by \"Battery use\" while it is on \"Saver\".</string>
     <string name="battery_saver_quality_note">Low on mobile data while \"Battery use\" is on \"Saver\".</string>
     <string name="battery_saver_background_note">%1$s while \"Battery use\" is on \"Saver\".</string>
+    <string name="living_blur_still_animations">Stands still while animations are off in Android\'s settings.</string>
     <string name="battery_saver_glass_note">Without its blur while \"Battery use\" is on \"Saver\".</string>
     <string name="battery_follow_phone">Follow the phone\'s battery saver</string>
     <string name="battery_follow_phone_description">\"Saver\" while it is on.</string>
@@ -2155,7 +2179,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="search_words_bluetooth">headphones, car, speaker, autoplay</string>
     <string name="search_words_sleep">sleep timer, bedtime, night</string>
     <string name="search_words_account_playback">account, playback errors, sign in</string>
-    <string name="search_words_keep_alive">battery, background, killed</string>
+    <string name="search_words_keep_alive">battery, background, killed, keep alive</string>
+    <string name="search_words_battery_use">power saving, energy</string>
     <string name="search_words_recognition">Shazam, identify, what is playing</string>
     <string name="search_words_lyrics_sources">LrcLib, KuGou, providers</string>
     <string name="search_words_text_size">text size, bigger</string>
@@ -2182,4 +2207,39 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="search_words_donate">donate, donation, support</string>
     <string name="search_words_contact">contact, email</string>
     <string name="search_words_developer">developer, debug</string>
+    <!-- Signal path (SignalPathDialog): what changes the sound between YouTube and the ear. -->
+    <string name="signal_path">Signal path</string>
+    <string name="signal_path_sub">From YouTube to your ears, right now</string>
+    <string name="signal_source_stream">From YouTube</string>
+    <string name="signal_source_local">From this phone</string>
+    <string name="signal_format">%1$s, %2$d kbps</string>
+    <string name="signal_text">%1$s</string>
+    <string name="signal_unknown">Not known yet</string>
+    <string name="signal_off">Off</string>
+    <string name="signal_on">On</string>
+    <string name="signal_not_needed">Not needed for this song</string>
+    <string name="signal_turned_down">Turned down %1$s dB to match your other songs</string>
+    <string name="signal_headphones">Headphones: places the sound around you</string>
+    <string name="signal_surround">Surround: made into 5.1 for the phone\'s own spatial audio</string>
+    <string name="signal_speed_pitch">Speed and pitch</string>
+    <string name="signal_normal">Normal</string>
+    <string name="signal_speed_value">Speed %1$s×, pitch %2$s×</string>
+    <string name="signal_skipping">Silent parts of songs are skipped</string>
+    <string name="signal_plays_on">Plays on</string>
+    <string name="signal_output_rate">%1$s, %2$s kHz</string>
+    <string name="signal_phone_speaker">Phone speaker</string>
+    <string name="signal_wired">Wired headphones</string>
+    <string name="signal_other_output">Another device</string>
+    <string name="signal_volume">Phone volume</string>
+    <string name="signal_percent">%1$d%%</string>
+    <string name="signal_legend_untouched">Untouched</string>
+    <string name="signal_legend_changed">Changed by a setting you chose</string>
+    <string name="signal_legend_where">Where it plays</string>
+    <!-- Pinned buttons on the player (issue #27). -->
+    <string name="player_pins">Pinned buttons</string>
+    <string name="player_pins_description">What stays on the player. Everything else is in its menu.</string>
+    <string name="player_pins_by_title">By the title</string>
+    <string name="player_pins_under_controls">Under the controls</string>
+    <string name="player_pin_lyrics">Lyrics</string>
+    <string name="player_pins_reset">Reset to default</string>
 </resources>
