@@ -27,7 +27,7 @@ import androidx.compose.material.icons.rounded.LibraryAdd
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.Recommend
 import androidx.compose.material.icons.rounded.Share
-import androidx.compose.material.icons.rounded.BatterySaver
+import androidx.compose.material.icons.rounded.Battery5Bar
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.SurroundSound
@@ -377,7 +377,7 @@ val NEW_THINGS = listOf(
         sinceVersionCode = V0_12_5,
         title = R.string.battery_use,
         body = R.string.new_battery_use_body,
-        icon = Icons.Rounded.BatterySaver,
+        icon = Icons.Rounded.Battery5Bar,
         action = NewThingAction.NONE,
         there = { Unreleased.BATTERY_MODES },
     ),
