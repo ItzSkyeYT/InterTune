@@ -1985,9 +1985,9 @@ class MainActivity : ComponentActivity() {
                                                     contentDescription = null
                                                 )
                                             },
-                                            label = {
-                                                if (!slimNav) TabLabel(stringResource(screen.titleId), tabNames)
-                                            },
+                                            // No label at all when slim: an empty one still kept its room and
+                                            // lifted the icon off the bar's middle (dvd, 27 Oct 2026).
+                                            label = if (slimNav) null else ({ TabLabel(stringResource(screen.titleId), tabNames) }),
                                             onClick = {
                                                 if (playerBottomSheetState.isExpanded) {
                                                     playerBottomSheetState.collapseSoft()
@@ -2089,9 +2089,9 @@ class MainActivity : ComponentActivity() {
                                                     contentDescription = null
                                                 )
                                             },
-                                            label = {
-                                                if (!slimNav) TabLabel(stringResource(screen.titleId), tabNames)
-                                            },
+                                            // No label at all when slim: an empty one still kept its room and
+                                            // lifted the icon off the bar's middle (dvd, 27 Oct 2026).
+                                            label = if (slimNav) null else ({ TabLabel(stringResource(screen.titleId), tabNames) }),
                                             onClick = {
                                                 if (playerBottomSheetState.isExpanded) {
                                                     playerBottomSheetState.collapseSoft()
