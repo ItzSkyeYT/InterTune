@@ -1,0 +1,11 @@
+Version 0.12.5
+
+- Le widget en trois styles, avec un cœur J'aime.
+- Choisissez les boutons qui restent sur le lecteur.
+- Recherche dans les paramètres, même avec des fautes.
+- Utilisation de la batterie : Complète, Équilibrée ou Économie.
+- Chemin du son : d'où vient le titre, ce qui modifie le son.
+- Titre sur ce téléphone nomme ce que jouent les autres applis.
+- Paroles synchronisées à l'heure, réglables par titre.
+
+Journal complet : https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.12.5
