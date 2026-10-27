@@ -1794,6 +1794,8 @@
     <string name="new_settings_search_title">Recherche dans les paramètres</string>
     <string name="new_settings_search_body">Tapez en haut des paramètres pour trouver n\'importe quel réglage, même avec des fautes, et y arriver directement.</string>
     <string name="new_battery_use_body">Complète, Équilibrée ou Économie, dans Paramètres &gt; Lecteur et Audio. Économie s\'active avec l\'économiseur de batterie du téléphone, sauf si vous le désactivez.</string>
+    <!-- About in a fork's build, in place of InterTune's name and logo (FORKS.md, his yes of 27 Oct 2026). -->
+    <string name="unofficial_build">Version non officielle. Cette appli est basée sur InterTune mais n\'est pas InterTune, et son créateur ne la prend pas en charge.</string>
     <plurals name="welcome_card_since">
         <item quantity="one">%1$d nouveauté depuis la %2$s</item>
         <item quantity="many">%1$d nouveautés depuis la %2$s</item>

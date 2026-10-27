@@ -9,6 +9,7 @@
 
 package com.dd3boh.outertune
 
+import com.dd3boh.outertune.utils.BuiltInKeys
 import com.dd3boh.outertune.recognition.RecognitionShortcut
 import com.dd3boh.outertune.ui.navigation.appDestinations
 import android.annotation.SuppressLint
@@ -74,6 +75,7 @@ import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.datastore.preferences.core.edit
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.UpdateCheckEnabledKey
 import com.dd3boh.outertune.constants.UsageCountEnabledKey
 import com.dd3boh.outertune.utils.dataStore
@@ -1486,7 +1488,8 @@ class MainActivity : ComponentActivity() {
                         // Not of what has been looked at either: this holds the tour's new stops back
                         // until the build is marked as seen, and the last tick comes a moment before
                         // that mark.
-                        val welcomeOwed = welcomeCardFor(walkthroughSeen, install = install) != null
+                        // What is new in InterTune is not a fork's to tell (FORKS.md).
+                        val welcomeOwed = welcomeCardFor(walkthroughSeen, install = install, enabled = Unreleased.WELCOME_BACK && BuiltInKeys.official) != null
                         // The card as Home is to show it at this moment. A tour on its way from
                         // the page counts as one that is up: the card would otherwise show for
                         // the moment between the page closing and the first bubble.
@@ -1494,6 +1497,7 @@ class MainActivity : ComponentActivity() {
                             welcomeCardFor(
                                 walkthroughSeen,
                                 install = install,
+                                enabled = Unreleased.WELCOME_BACK && BuiltInKeys.official,
                                 setupDone = oobeStatus >= OOBE_VERSION,
                                 questionsOpen = catchUpOpen,
                                 tourUp = tourState.running || tourFromWelcome,

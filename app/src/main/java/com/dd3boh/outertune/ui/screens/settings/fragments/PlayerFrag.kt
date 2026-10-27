@@ -2,6 +2,7 @@ package com.dd3boh.outertune.ui.screens.settings.fragments
 
 import androidx.compose.material.icons.rounded.EventRepeat
 import androidx.compose.material.icons.rounded.Schedule
+import com.dd3boh.outertune.utils.BuiltInKeys
 import com.dd3boh.outertune.constants.SleepScheduleKey
 import com.dd3boh.outertune.constants.SleepScheduleLengthKey
 import com.dd3boh.outertune.constants.SleepScheduleStartKey
@@ -554,9 +555,10 @@ fun ColumnScope.HeadTrackingFrag() {
     // Somewhere to go when the answer is "your phone will not". Most phones will not, and being
     // told that is only half of it: the other half is being able to say so when your headphones
     // do have it and this still says they do not.
-    val reportLinks = listOf(
+    val reportLinks = listOfNotNull(
         ExplainLink(stringResource(R.string.link_wiki), HEAD_TRACKING_WIKI),
-        ExplainLink(stringResource(R.string.link_report), HEAD_TRACKING_ISSUE),
+        // InterTune's tracker, not a fork's (FORKS.md).
+        ExplainLink(stringResource(R.string.link_report), HEAD_TRACKING_ISSUE).takeIf { BuiltInKeys.official },
     )
 
     // One mark for the tour, on whichever of the two rows is there: it is the same setting

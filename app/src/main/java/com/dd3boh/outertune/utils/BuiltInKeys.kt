@@ -49,12 +49,23 @@ object BuiltInKeys {
      * each developer's own debug key and are always let through.
      */
     fun verify(context: Context) {
-        genuine = BuildConfig.DEBUG || runCatching { signingCerts(context) }
+        // InterTune's own debug and preview builds, not a fork's: theirs carry their own app id.
+        genuine = (BuildConfig.DEBUG && context.packageName.startsWith(OWN_PACKAGE)) || runCatching { signingCerts(context) }
             .onFailure { Log.w(TAG, "Could not read the app's signature", it) }
             .getOrDefault(emptySet())
             .any { it in RELEASE_CERTS }
         if (!genuine) Log.w(TAG, "Not signed with the InterTune release key, so the built-in keys are off")
     }
+
+    /**
+     * Whether this is InterTune itself: signed with the release key, or InterTune's own debug or
+     * preview build. A fork is not, and the app then leaves InterTune's services alone: besides
+     * these keys, the update check, Report a problem's form, the community links, the share page
+     * and the donors list (FORKS.md, his rules of 27 Oct 2026).
+     */
+    val official: Boolean get() = genuine
+
+    private const val OWN_PACKAGE = "dev.skye.intertune"
 
     val lastFmApiKey: String get() = revealIfGenuine(BuildConfig.LASTFM_API_KEY)
     val lastFmApiSecret: String get() = revealIfGenuine(BuildConfig.LASTFM_API_SECRET)

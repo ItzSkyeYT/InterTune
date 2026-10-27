@@ -51,6 +51,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
+import com.dd3boh.outertune.utils.BuiltInKeys
 import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.Links
@@ -162,7 +163,8 @@ fun ProblemReportDialog(onDismiss: () -> Unit) {
             }
         },
         confirmButton = {
-            TextButton(
+            // A fork's reports are its own: no form on InterTune's tracker (FORKS.md). Copy stays.
+            if (BuiltInKeys.official) TextButton(
                 enabled = text != null,
                 onClick = {
                     // The form's own boxes, by their ids in .github/ISSUE_TEMPLATE/bug_report.yml.

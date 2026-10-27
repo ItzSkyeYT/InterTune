@@ -181,7 +181,7 @@ class ReleasedFlagsTest {
     @Test
     fun `the welcome back page and the closer look at Settings are in every build`() {
         assertEquals(
-            setOf("ui/navigation/AppNavGraph.kt", "ui/screens/settings/AboutScreen.kt", "ui/screens/walkthrough/Walkthrough.kt"),
+            setOf("MainActivity.kt", "ui/navigation/AppNavGraph.kt", "ui/screens/settings/AboutScreen.kt", "ui/screens/walkthrough/Walkthrough.kt"),
             readers("WELCOME_BACK"),
         )
         assertWritten("ui/navigation/AppNavGraph.kt", "if (Unreleased.WELCOME_BACK) {")
@@ -269,7 +269,7 @@ class ReleasedFlagsTest {
         )
         assertWritten("ui/screens/settings/LibrarySettings.kt", "if (Unreleased.SHARE_PAGE) ShareLinksFrag()")
         // What Share sends is what the setting says, in a release as well.
-        assertWritten("ui/menu/ShareLinkMenu.kt", "when (val action = ShareLinks.decide(link, if (Unreleased.SHARE_PAGE) chosen else ShareLinkKind.YOUTUBE_MUSIC)) {")
+        assertWritten("ui/menu/ShareLinkMenu.kt", "when (val action = ShareLinks.decide(link, if (Unreleased.SHARE_PAGE && BuiltInKeys.official) chosen else ShareLinkKind.YOUTUBE_MUSIC)) {")
         assertWritten("ui/screens/walkthrough/Walkthrough.kt", "there = { Unreleased.SHARE_PAGE },")
     }
 }
