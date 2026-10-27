@@ -241,6 +241,8 @@ InterTune stands on a lot of other people's work.
 
 GPL-3.0-only. See [LICENSE](https://github.com/ItzSkyeYT/InterTune/tree/visionos-fix/LICENSE).
 
+Forking InterTune? Read the [fork rules](FORKS.md) first: they apply before you share a single build.
+
 <details>
 <summary>Why "only"</summary>
 
