@@ -915,6 +915,16 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="new_share_links_body">Share can send a page where whoever opens it picks their own music app. Your next share asks which link to send, and the shares after it use your pick.</string>
     <string name="new_share_links_way">What Share sends is set in here: the YouTube Music link, or a page for any music app.</string>
     <string name="new_share_links_here">What Share sends for a song or an album: the YouTube Music link, or a page where whoever opens it picks their own app. Until you pick one, your next share asks.</string>
+    <!-- What's new in 0.12.5 (his yes of 27 Oct 2026). -->
+    <string name="new_widget_styles_title">The widget in three styles</string>
+    <string name="new_widget_styles_body">Cover, Full cover or Shelf, picked in the widget\'s settings and laid out for every size. A heart likes the song playing.</string>
+    <string name="new_player_pins_title">Your player buttons</string>
+    <string name="new_player_pins_body">Pick which of share, lyrics, the sleep timer and like stay on the player, in Settings &gt; Look and feel &gt; Pinned buttons.</string>
+    <string name="new_settings_search_title">Search in Settings</string>
+    <string name="new_settings_search_body">Type at the top of Settings to find any setting, typos and all, and land right on it.</string>
+    <string name="new_battery_use_body">Full, Balanced or Saver, in Settings &gt; Player and audio. Saver comes on with the phone\'s battery saver unless you turn that off.</string>
+    <!-- About in a fork's build, in place of InterTune's name and logo (FORKS.md, his yes of 27 Oct 2026). -->
+    <string name="unofficial_build">Unofficial build. This app is based on InterTune but is not InterTune, and InterTune\'s maker does not support it.</string>
     <string name="new_import_body">Bring your playlists from Spotify, Apple Music, Deezer and others. Each song is looked up on YouTube Music.</string>
     <string name="new_import_way">Import from another app is in here. It brings your playlists over from Spotify, Apple Music and others.</string>
     <string name="new_import_here">Pick the app your playlists are in and follow its three steps.</string>
