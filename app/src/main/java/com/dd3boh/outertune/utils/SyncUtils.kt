@@ -509,20 +509,21 @@ class SyncUtils @Inject constructor(
                 }
             }
 
-            // Add or mark albums in local database
-            runBlocking {
-                remoteAlbums.forEach { remoteAlbum ->
-                    launch(Dispatchers.IO) {
-                        val localAlbum = database.album(remoteAlbum.id).firstOrNull()
-                        if (localAlbum == null) {
-                            database.insert(remoteAlbum)
-                            database.album(remoteAlbum.id).firstOrNull()?.let {
-                                database.update(it.album.localToggleLike())
-                            }
-                        } else if (localAlbum.album.bookmarkedAt == null) {
-                            database.update(localAlbum.album.localToggleLike())
-                        }
+            // Add or mark albums in local database, one after another in the order YouTube lists them
+            // (oldest first, see getRemoteData), each a millisecond after the one before, so Library >
+            // Albums by date added keeps YouTube's order. Marked in parallel, each took the time it
+            // happened to run, and a first sync shuffled the whole album library (27 Oct 2026).
+            val firstStamp = LocalDateTime.now().minusNanos(remoteAlbums.size * 1_000_000L)
+            remoteAlbums.forEachIndexed { index, remoteAlbum ->
+                val stamp = firstStamp.plusNanos(index * 1_000_000L)
+                val localAlbum = database.album(remoteAlbum.id).firstOrNull()
+                if (localAlbum == null) {
+                    database.insert(remoteAlbum)
+                    database.album(remoteAlbum.id).firstOrNull()?.let {
+                        database.update(it.album.copy(bookmarkedAt = stamp))
                     }
+                } else if (localAlbum.album.bookmarkedAt == null) {
+                    database.update(localAlbum.album.copy(bookmarkedAt = stamp))
                 }
             }
             result = if (remote.complete) SyncResult.SYNCED else SyncResult.FAILED
