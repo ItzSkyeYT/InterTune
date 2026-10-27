@@ -27,6 +27,9 @@ import androidx.compose.material.icons.rounded.LibraryAdd
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.Recommend
 import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.BatterySaver
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.SurroundSound
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Widgets
@@ -339,6 +342,45 @@ val RECOGNITION_ICON get() = Icons.Rounded.GraphicEq
 
 /** Newest first: what somebody sees at the top is what they have never seen before. */
 val NEW_THINGS = listOf(
+    // 0.12.5's own: no tour, the card says where each is (his yes of 27 Oct 2026).
+    NewThing(
+        id = "widget_styles",
+        release = "0.12.5",
+        sinceVersionCode = V0_12_5,
+        title = R.string.new_widget_styles_title,
+        body = R.string.new_widget_styles_body,
+        icon = Icons.Rounded.Widgets,
+        action = NewThingAction.NONE,
+    ),
+    NewThing(
+        id = "player_pins",
+        release = "0.12.5",
+        sinceVersionCode = V0_12_5,
+        title = R.string.new_player_pins_title,
+        body = R.string.new_player_pins_body,
+        icon = Icons.Rounded.PushPin,
+        action = NewThingAction.NONE,
+    ),
+    NewThing(
+        id = "settings_search",
+        release = "0.12.5",
+        sinceVersionCode = V0_12_5,
+        title = R.string.new_settings_search_title,
+        body = R.string.new_settings_search_body,
+        icon = Icons.Rounded.Search,
+        action = NewThingAction.NONE,
+        there = { Unreleased.SETTINGS_SEARCH },
+    ),
+    NewThing(
+        id = "battery_use",
+        release = "0.12.5",
+        sinceVersionCode = V0_12_5,
+        title = R.string.battery_use,
+        body = R.string.new_battery_use_body,
+        icon = Icons.Rounded.BatterySaver,
+        action = NewThingAction.NONE,
+        there = { Unreleased.BATTERY_MODES },
+    ),
     NewThing(
         id = "share_links",
         release = "0.12.5",

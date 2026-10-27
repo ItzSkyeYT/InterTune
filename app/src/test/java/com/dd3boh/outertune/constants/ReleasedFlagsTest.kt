@@ -80,7 +80,7 @@ class ReleasedFlagsTest {
     fun `0_12_5's picks are in every build, read where they were written`() {
         assertEquals(setOf("playback/MusicService.kt", "playback/sabr/SabrOver.kt"), readers("SABR_AHEAD"))
         assertEquals(setOf("playback/MusicService.kt"), readers("PLAY_NEXT_STAYS"))
-        assertEquals(setOf("ui/screens/settings/SettingsScreen.kt", "ui/screens/settings/SettingsTwoPane.kt"), readers("SETTINGS_SEARCH"))
+        assertEquals(setOf("ui/screens/settings/SettingsScreen.kt", "ui/screens/settings/SettingsTwoPane.kt", "ui/screens/walkthrough/Walkthrough.kt"), readers("SETTINGS_SEARCH"))
         assertEquals(
             setOf(
                 "playback/BatteryUse.kt", "ui/navigation/AppNavGraph.kt", "ui/screens/settings/SettingsIndex.kt",
