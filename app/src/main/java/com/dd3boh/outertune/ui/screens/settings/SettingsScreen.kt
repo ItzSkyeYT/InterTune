@@ -188,7 +188,8 @@ fun SettingsScreen(
                     title = { Text(stringResource(R.string.battery_use)) },
                     description = stringResource(R.string.battery_use_entry),
                     icon = { Icon(Icons.Rounded.Battery5Bar, null) },
-                    onClick = { navController.navigate("settings/battery") }
+                    onClick = { navController.navigate("settings/battery") },
+                    modifier = Modifier.tourTarget(Tour.ROW_BATTERY),
                 )
             }
             PreferenceEntry(
@@ -272,7 +273,7 @@ fun SettingsScreen(
         maxContentWidth = if (twoByTwo) Dp.Unspecified else 720.dp,
     ) {
         if (Unreleased.SETTINGS_SEARCH) {
-            SettingsSearchField(query, onQueryChange = { query = it })
+            SettingsSearchField(query, onQueryChange = { query = it }, modifier = Modifier.tourTarget(Tour.SETTINGS_SEARCH_FIELD))
             Spacer(modifier = Modifier.height(16.dp))
         }
         if (Unreleased.SETTINGS_SEARCH && query.isNotBlank()) {

@@ -284,7 +284,7 @@ fun SettingsTwoPane(
                 .padding(start = 12.dp, end = 4.dp, bottom = 12.dp),
         ) {
             if (Unreleased.SETTINGS_SEARCH) {
-                SettingsSearchField(query, onQueryChange, Modifier.padding(bottom = 12.dp))
+                SettingsSearchField(query, onQueryChange, Modifier.padding(bottom = 12.dp).tourTarget(Tour.SETTINGS_SEARCH_FIELD))
             }
             if (searching) {
                 val search = rememberSettingsSearch()
@@ -309,6 +309,7 @@ fun SettingsTwoPane(
                                 Tour.ROUTE_LOOK_AND_FEEL -> Modifier.tourTarget(Tour.ROW_LOOK_AND_FEEL)
                                 "settings/player" -> Modifier.tourTarget(Tour.ROW_PLAYER)
                                 Tour.ROUTE_LIBRARY -> Modifier.tourTarget(Tour.ROW_LIBRARY)
+                                Tour.ROUTE_BATTERY -> Modifier.tourTarget(Tour.ROW_BATTERY)
                                 Tour.ROUTE_BACKUP -> Modifier.tourTarget(Tour.ROW_BACKUP)
                                 Tour.ROUTE_ABOUT -> Modifier.tourTarget(Tour.ROW_ABOUT)
                                 else -> Modifier

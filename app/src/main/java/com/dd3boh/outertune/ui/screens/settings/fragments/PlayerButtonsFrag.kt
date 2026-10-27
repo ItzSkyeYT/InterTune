@@ -59,6 +59,8 @@ import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.ui.screens.settings.settingRow
+import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 import com.dd3boh.outertune.utils.rememberPreference
 
 /**
@@ -147,68 +149,72 @@ fun ColumnScope.PlayerButtonsFrag() {
     // a chip each, in the places that style has. Today's until somebody chooses.
     val (pinsRaw, onPinsRawChange) = rememberPreference(PlayerPinsKey, defaultValue = "")
     val pins = remember(pinsRaw) { PlayerPins.read(pinsRaw) }
-    PreferenceEntry(
-        modifier = Modifier.settingRow(R.string.player_pins),
-        title = { Text(stringResource(R.string.player_pins)) },
-        description = stringResource(R.string.player_pins_description),
-        icon = { Icon(Icons.Rounded.PushPin, null) },
-        onClick = null
-    )
-    val places = if (buttonsStyle == PlayerButtonsStyle.CLASSIC) listOf(PinPlace.CLASSIC)
-    else listOf(PinPlace.CONNECTED_TITLE, PinPlace.CONNECTED_ROW)
-    places.forEach { place ->
-        if (places.size > 1) {
-            Text(
-                text = stringResource(if (place == PinPlace.CONNECTED_TITLE) R.string.player_pins_by_title else R.string.player_pins_under_controls),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp)
-            )
-        }
-        val most = if (place == PinPlace.CLASSIC) PlayerPins.classicMost(queueAsButton) else place.most
-        val chosen = pins[place].orEmpty()
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
-        ) {
-            PlayerPin.entries.forEach { pin ->
-                val on = pin in chosen
-                FilterChip(
-                    selected = on,
-                    // A full place takes no more until one comes off.
-                    enabled = on || chosen.size < most,
-                    onClick = { onPinsRawChange(PlayerPins.write(PlayerPins.toggle(pins, place, pin, most))) },
-                    label = { Text(pinName(pin)) },
-                    leadingIcon = {
-                        Icon(
-                            painter = when (pin) {
-                                PlayerPin.SHARE -> rememberVectorPainter(Icons.Rounded.Share)
-                                PlayerPin.LYRICS -> rememberVectorPainter(Icons.Rounded.Lyrics)
-                                PlayerPin.TIMER -> rememberVectorPainter(Icons.Rounded.Timer)
-                                PlayerPin.LIKE -> painterResource(R.drawable.favorite)
-                            },
-                            contentDescription = null,
-                            modifier = Modifier.size(FilterChipDefaults.IconSize)
-                        )
-                    }
+    // The row, its chips and the way back to the default under one mark, for the tour from What's
+    // new: its bubble is about the chips, and with the row alone marked it would stand over them.
+    Column(Modifier.fillMaxWidth().tourTarget(Tour.SETTING_PLAYER_PINS)) {
+        PreferenceEntry(
+            modifier = Modifier.settingRow(R.string.player_pins),
+            title = { Text(stringResource(R.string.player_pins)) },
+            description = stringResource(R.string.player_pins_description),
+            icon = { Icon(Icons.Rounded.PushPin, null) },
+            onClick = null
+        )
+        val places = if (buttonsStyle == PlayerButtonsStyle.CLASSIC) listOf(PinPlace.CLASSIC)
+        else listOf(PinPlace.CONNECTED_TITLE, PinPlace.CONNECTED_ROW)
+        places.forEach { place ->
+            if (places.size > 1) {
+                Text(
+                    text = stringResource(if (place == PinPlace.CONNECTED_TITLE) R.string.player_pins_by_title else R.string.player_pins_under_controls),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp)
                 )
             }
+            val most = if (place == PinPlace.CLASSIC) PlayerPins.classicMost(queueAsButton) else place.most
+            val chosen = pins[place].orEmpty()
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
+            ) {
+                PlayerPin.entries.forEach { pin ->
+                    val on = pin in chosen
+                    FilterChip(
+                        selected = on,
+                        // A full place takes no more until one comes off.
+                        enabled = on || chosen.size < most,
+                        onClick = { onPinsRawChange(PlayerPins.write(PlayerPins.toggle(pins, place, pin, most))) },
+                        label = { Text(pinName(pin)) },
+                        leadingIcon = {
+                            Icon(
+                                painter = when (pin) {
+                                    PlayerPin.SHARE -> rememberVectorPainter(Icons.Rounded.Share)
+                                    PlayerPin.LYRICS -> rememberVectorPainter(Icons.Rounded.Lyrics)
+                                    PlayerPin.TIMER -> rememberVectorPainter(Icons.Rounded.Timer)
+                                    PlayerPin.LIKE -> painterResource(R.drawable.favorite)
+                                },
+                                contentDescription = null,
+                                modifier = Modifier.size(FilterChipDefaults.IconSize)
+                            )
+                        }
+                    )
+                }
+            }
         }
-    }
-    // Back to the buttons the style shown has always had (his ask of 18 Oct 2026). Always there,
-    // and only greyed out while nothing differs, so the way back is never hidden.
-    Row(
-        horizontalArrangement = Arrangement.End,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(end = 8.dp)
-    ) {
-        TextButton(
-            enabled = PlayerPins.changed(pins, places),
-            onClick = { onPinsRawChange(PlayerPins.write(PlayerPins.reset(pins, places))) },
-        ) { Text(stringResource(R.string.player_pins_reset)) }
+        // Back to the buttons the style shown has always had (his ask of 18 Oct 2026). Always there,
+        // and only greyed out while nothing differs, so the way back is never hidden.
+        Row(
+            horizontalArrangement = Arrangement.End,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(end = 8.dp)
+        ) {
+            TextButton(
+                enabled = PlayerPins.changed(pins, places),
+                onClick = { onPinsRawChange(PlayerPins.write(PlayerPins.reset(pins, places))) },
+            ) { Text(stringResource(R.string.player_pins_reset)) }
+        }
     }
     SwitchPreference(
         modifier = Modifier.settingRow(R.string.queue_button),

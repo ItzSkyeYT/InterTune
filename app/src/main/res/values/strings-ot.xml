@@ -923,6 +923,11 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="new_settings_search_title">Search in Settings</string>
     <string name="new_settings_search_body">Type at the top of Settings to find any setting, typos and all, and land right on it.</string>
     <string name="new_battery_use_body">Full, Balanced or Saver, in Settings &gt; Battery use. Saver comes on with the phone\'s battery saver unless you turn that off.</string>
+    <!-- The bubbles of their Show me tours: held from translators until the words are agreed, their French beside them in values-fr. -->
+    <string name="new_player_pins_way" translatable="false">The buttons that stay on the player are picked in here.</string>
+    <string name="new_player_pins_here" translatable="false">Tap a button to pin it to the player, and tap it again to put it back in the menu.</string>
+    <string name="new_settings_search_here" translatable="false">Type what you want to change, typos and all, and tap a result to land right on it.</string>
+    <string name="new_battery_use_here" translatable="false">Pick Full, Balanced or Saver in here, and Saver comes on with the phone\'s battery saver.</string>
     <!-- About in a fork's build, in place of InterTune's name and logo (FORKS.md, his yes of 27 Oct 2026). -->
     <string name="unofficial_build">Unofficial build. This app is based on InterTune but is not InterTune, and InterTune\'s maker does not support it.</string>
     <string name="new_import_body">Bring your playlists from Spotify, Apple Music, Deezer and others. Each song is looked up on YouTube Music.</string>

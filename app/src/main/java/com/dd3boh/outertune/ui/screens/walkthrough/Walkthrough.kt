@@ -305,6 +305,7 @@ enum class NewThingAction {
  * @param release the version it came with, as people know it. The page groups by it.
  * @param stops where it lives, as the way there: for a setting, the row to open in Settings and
  *   then the setting itself, because half of explaining a setting is showing which menu it is in.
+ *   What is on the list of Settings itself, its search or a row of its own, is the one stop there.
  *   Each of those bubbles says what the setting does, in a sentence, unless what it points at
  *   already says so on screen: the row in Settings lists other things than this one, and most
  *   settings are a name and a value with no description under them. A bubble that only says
@@ -342,7 +343,9 @@ val RECOGNITION_ICON get() = Icons.Rounded.GraphicEq
 
 /** Newest first: what somebody sees at the top is what they have never seen before. */
 val NEW_THINGS = listOf(
-    // 0.12.5's own: no tour, the card says where each is (his yes of 27 Oct 2026).
+    // 0.12.5's own. The widget is added from its card, as 0.11's was: its styles are picked in
+    // the question it asks when it is dropped. The other three are shown where they are. The
+    // search and Battery use are on the list of settings itself, so each is one stop there.
     NewThing(
         id = "widget_styles",
         release = "0.12.5",
@@ -350,7 +353,7 @@ val NEW_THINGS = listOf(
         title = R.string.new_widget_styles_title,
         body = R.string.new_widget_styles_body,
         icon = Icons.Rounded.Widgets,
-        action = NewThingAction.NONE,
+        action = NewThingAction.ADD_WIDGET,
     ),
     NewThing(
         id = "player_pins",
@@ -359,7 +362,10 @@ val NEW_THINGS = listOf(
         title = R.string.new_player_pins_title,
         body = R.string.new_player_pins_body,
         icon = Icons.Rounded.PushPin,
-        action = NewThingAction.NONE,
+        stops = listOf(
+            TourStop("player_pins_row", Tour.ROW_LOOK_AND_FEEL, Tour.ROUTE_SETTINGS, R.string.look_and_feel, R.string.new_player_pins_way, V0_12_5),
+            TourStop("player_pins_setting", Tour.SETTING_PLAYER_PINS, Tour.ROUTE_LOOK_AND_FEEL, R.string.player_pins, R.string.new_player_pins_here, V0_12_5),
+        ),
     ),
     NewThing(
         id = "settings_search",
@@ -368,7 +374,9 @@ val NEW_THINGS = listOf(
         title = R.string.new_settings_search_title,
         body = R.string.new_settings_search_body,
         icon = Icons.Rounded.Search,
-        action = NewThingAction.NONE,
+        stops = listOf(
+            TourStop("settings_search_field", Tour.SETTINGS_SEARCH_FIELD, Tour.ROUTE_SETTINGS, R.string.search_settings, R.string.new_settings_search_here, V0_12_5),
+        ),
         there = { Unreleased.SETTINGS_SEARCH },
     ),
     NewThing(
@@ -378,7 +386,9 @@ val NEW_THINGS = listOf(
         title = R.string.battery_use,
         body = R.string.new_battery_use_body,
         icon = Icons.Rounded.Battery5Bar,
-        action = NewThingAction.NONE,
+        stops = listOf(
+            TourStop("battery_use_row", Tour.ROW_BATTERY, Tour.ROUTE_SETTINGS, R.string.battery_use, R.string.new_battery_use_here, V0_12_5),
+        ),
         there = { Unreleased.BATTERY_MODES },
     ),
     NewThing(
