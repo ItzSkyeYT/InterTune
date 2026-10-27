@@ -604,6 +604,19 @@ fun newThingsFor(
 }
 
 /**
+ * What of [newThingsFor] there is to look at: the cards with a button. A card with no button is
+ * read on the page and has nothing more to give, and nothing ever ticks it. So the card on Home
+ * does not count it, and the build is marked as seen without it once the rest have been looked
+ * at. Waited for as well, as it was, it kept the build from ever being marked as seen wherever
+ * one was listed (casting, for whoever came to 0.12 from before it).
+ */
+fun owedThingsFor(
+    seenVersionCode: Int,
+    buildVersionCode: Int = BuildConfig.VERSION_CODE,
+    install: Install = Install(),
+): List<NewThing> = newThingsFor(seenVersionCode, buildVersionCode, install = install).filter { it.action != NewThingAction.NONE }
+
+/**
  * The release a build numbered [versionCode] belongs to, as people know it ("0.11"), or null for
  * a build from before any release the list of new things knows.
  *
@@ -649,10 +662,8 @@ fun welcomeCardFor(
     lookedAt: Set<String> = emptySet(),
 ): WelcomeCard? {
     if (!enabled || !setupDone || questionsOpen || tourUp || pageOpen) return null
-    // A card with no button is read on the page and has nothing more to give, so it never keeps
-    // the card on Home waiting for a look that cannot come.
-    val things = newThingsFor(seenVersionCode, buildVersionCode, install = install)
-        .filter { it.action != NewThingAction.NONE && it.id !in lookedAt }
+    // A card with no button never keeps the card on Home waiting for a look that cannot come.
+    val things = owedThingsFor(seenVersionCode, buildVersionCode, install).filter { it.id !in lookedAt }
     if (things.isEmpty()) return null
     return WelcomeCard(count = things.size, since = releaseAt(seenVersionCode))
 }

@@ -26,6 +26,8 @@ class WelcomeCardTest {
     private val v011 = 91           // 0.11 as it shipped
     private val v0111 = 92          // 0.11.1, fixes only: it took the number 0.11.5 was to have
     private val v0115 = 93          // the first build of 0.11.5
+    private val v0116 = 94          // 0.11.6, fixes only: it took the number 0.12 was to have
+    private val v012 = 95           // the first build 0.12 can be
 
     private val main = File("src/main/java/com/dd3boh/outertune")
 
@@ -196,6 +198,20 @@ class WelcomeCardTest {
         for (closed in listOf("!welcomeOpen", "!tourState.running", "!tourFromWelcome")) assertTrue(closed, closed in effect)
         assertTrue("setWalkthroughSeen(BuildConfig.VERSION_CODE)" in effect)
         assertTrue("setWelcomeLookedAt(\"\")" in effect)
+    }
+
+    @Test
+    fun `a card with no button does not keep the build from being marked as seen`() {
+        // Nothing ticks a card with no button. Waited for with the rest, casting kept whoever came
+        // to 0.12 from before it from ever having the build marked as seen: the next update listed
+        // 0.12's things again, and its card named the version they had before 0.12.
+        val listed = newThingsFor(v0116, buildVersionCode = v012).map { it.id }
+        assertTrue("cast" in listed)
+        assertEquals(listed - "cast", owedThingsFor(v0116, buildVersionCode = v012).map { it.id })
+        // The card on Home and the mark of the build go by that one rule.
+        assertEquals(listed.size - 1, card(seen = v0116, build = v012)!!.count)
+        val activity = File(main, "MainActivity.kt").readText()
+        assertTrue("val owedThings = remember(walkthroughSeen, quickPicksSource) { owedThingsFor(walkthroughSeen, install = install) }" in activity)
     }
 
     @Test

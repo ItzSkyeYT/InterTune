@@ -213,6 +213,7 @@ import com.dd3boh.outertune.ui.screens.walkthrough.TourTargets
 import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeBack
 import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeShow
 import com.dd3boh.outertune.ui.screens.walkthrough.newThingsFor
+import com.dd3boh.outertune.ui.screens.walkthrough.owedThingsFor
 import com.dd3boh.outertune.ui.screens.walkthrough.welcomeCardFor
 import com.dd3boh.outertune.widget.MusicWidgetReceiver
 import com.dd3boh.outertune.widget.RecognitionWidgetReceiver
@@ -1527,8 +1528,9 @@ class MainActivity : ComponentActivity() {
                         // Every new thing looked at, and the page and its tours closed: the card's
                         // work is done. The build is marked as seen, as the cross does, and the
                         // ticks are let go. Not while the page is open, whose list would empty
-                        // under the finger, nor during a tour from it.
-                        val owedThings = remember(walkthroughSeen, quickPicksSource) { newThingsFor(walkthroughSeen, install = install) }
+                        // under the finger, nor during a tour from it. A thing with no button is
+                        // not waited for: nothing ever ticks it (owedThingsFor).
+                        val owedThings = remember(walkthroughSeen, quickPicksSource) { owedThingsFor(walkthroughSeen, install = install) }
                         LaunchedEffect(owedThings, welcomeLookedAt, welcomeOpen, tourState.running, tourFromWelcome) {
                             if (owedThings.isNotEmpty() && owedThings.all { it.id in welcomeLookedAt } &&
                                 !welcomeOpen && !tourState.running && !tourFromWelcome
