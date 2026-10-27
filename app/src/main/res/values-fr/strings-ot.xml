@@ -41,7 +41,7 @@
     <string name="ytm_sync">Synchronisation automatique avec votre compte YouTube Music</string>
     <string name="wifi_only">Wi-Fi uniquement</string>
     <string name="grp_audio">Audio</string>
-    <string name="auto_scanner_description">Actualiser régulièrement les dossiers « Titres » et « Téléchargements personnalisés » du lecteur multimédia local à l\'ouverture de l\'application</string>
+    <string name="auto_scanner_description">Actualiser périodiquement les titres locaux et les dossiers de téléchargement personnalisés à l\'ouverture de l\'application</string>
     <string name="scan_paths_title">Configurer les emplacements d’analyse…</string>
     <string name="scan_paths_tooltip">Tous les sous-répertoires seront également affectés</string>
     <string name="scan_paths_add_folder">Ajouter un nouveau dossier</string>
@@ -1044,14 +1044,14 @@
     <string name="recommendations_held_nothing">%1$s : rien à comparer pour l\'instant, car vous n\'avez choisi vous-même aucun titre dans %2$s</string>
     <string name="recommendations_after_refresh">la journée suivant son actualisation</string>
     <plurals name="recommendations_after_refreshes">
-        <item quantity="one">le lendemain de sa mise à jour %1$d</item>
-        <item quantity="many">le lendemain de chacune de ses mises à jour %1$d</item>
-        <item quantity="other">le lendemain de chacune de ses mises à jour %1$d</item>
+        <item quantity="one">la journée suivant chacune de ses %1$d actualisations</item>
+        <item quantity="many">la journée suivant chacune de ses %1$d actualisations</item>
+        <item quantity="other">la journée suivant chacune de ses %1$d actualisations</item>
     </plurals>
     <plurals name="recommendations_after_any_refresh">
-        <item quantity="one">le lendemain de sa mise à jour %1$d</item>
-        <item quantity="many">le lendemain de l\'une de ses mises à jour %1$d</item>
-        <item quantity="other">le lendemain de l\'une de ses mises à jour %1$d</item>
+        <item quantity="one">la journée suivant l\'une de ses %1$d actualisations</item>
+        <item quantity="many">la journée suivant l\'une de ses %1$d actualisations</item>
+        <item quantity="other">la journée suivant l\'une de ses %1$d actualisations</item>
     </plurals>
     <plurals name="recommendations_refreshes">
         <item quantity="one">%1$d actualisation</item>
@@ -1907,7 +1907,7 @@
     <string name="equalizer_preset_bass">Plus de basses</string>
     <string name="equalizer_preset_treble">Plus d\'aigus</string>
     <string name="equalizer_preset_vocals">Voix</string>
-    <string name="equalizer_preset_loudness">Volume sonore</string>
+    <string name="equalizer_preset_loudness">Loudness</string>
     <string name="equalizer_preset_small_speakers">Petits haut-parleurs</string>
     <string name="equalizer_headphones">Votre casque</string>
     <string name="equalizer_headphones_pick">Choisissez votre modèle, et les bandes suivent ses mesures d\'AutoEq.</string>

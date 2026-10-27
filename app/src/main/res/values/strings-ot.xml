@@ -478,6 +478,7 @@ while also allowing users to translate our app as well. New, specific strings to
 
 <!-- Scanner settings -->
     <string name="auto_scanner_title">Scan automatically</string>
+    <!-- Translators: rescans the songs on the device and the download folders when the app opens; there are no folders with these names. -->
     <string name="auto_scanner_description">Periodically refresh local media songs and custom downloads folders when opening the app</string>
     <string name="auto_scanner_tooltip">For local media, automatic scanning does not reload the metadata of existing songs. Use the manual scanner with the rescan checkbox selected if you also wish to refresh metadata.</string>
 
@@ -1383,10 +1384,12 @@ while also allowing users to translate our app as well. New, specific strings to
     </plurals>
     <string name="recommendations_held_nothing">%1$s: nothing to compare yet, since you chose no song yourself in %2$s</string>
     <string name="recommendations_after_refresh">the day after its refresh</string>
+    <!-- Translators: a fragment that follows "in" in recommendations_held_songs; a refresh of a Home row, not an app update. -->
     <plurals name="recommendations_after_refreshes">
         <item quantity="one">the day after its %1$d refresh</item>
         <item quantity="other">the day after each of its %1$d refreshes</item>
     </plurals>
+    <!-- Translators: a fragment that follows "in" in recommendations_held_nothing; a refresh of a Home row, not an app update. -->
     <plurals name="recommendations_after_any_refresh">
         <item quantity="one">the day after its %1$d refresh</item>
         <item quantity="other">the day after any of its %1$d refreshes</item>
@@ -2059,6 +2062,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="equalizer_preset_bass">More bass</string>
     <string name="equalizer_preset_treble">More treble</string>
     <string name="equalizer_preset_vocals">Vocals</string>
+    <!-- Translators: the name of a bass and treble curve (as on a hi-fi), not the volume; keep it as audio people say it. -->
     <string name="equalizer_preset_loudness">Loudness</string>
     <string name="equalizer_preset_small_speakers">Small speakers</string>
 
