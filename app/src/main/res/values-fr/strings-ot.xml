@@ -1651,6 +1651,16 @@
     <string name="problem_report_copy">Copier</string>
     <string name="problem_report_copied">Copié</string>
     <string name="problem_report_close">Fermer</string>
+    <string name="problem_report_send">Envoyer à InterTune</string>
+    <string name="problem_report_contact">Comment vous joindre (facultatif)</string>
+    <string name="problem_report_contact_hint">Pseudo Discord ou e-mail</string>
+    <string name="problem_report_contact_note">Seule l\'équipe d\'InterTune le voit.</string>
+    <string name="problem_report_sent">Envoyé sous le n°\u00A0%1$d</string>
+    <string name="problem_report_sent_body">Tout le monde peut le suivre sur GitHub, sans compte.</string>
+    <string name="problem_report_open_issue">Ouvrir le n°\u00A0%1$d</string>
+    <string name="problem_report_copy_link">Copier le lien</string>
+    <string name="problem_report_held">Envoyé. Il paraîtra sur GitHub une fois relu.</string>
+    <string name="problem_report_send_failed">Envoi impossible. Réessayez, ou copiez-le et postez-le dans #bug-reports.</string>
     <string name="problem_report_now">Maintenant</string>
     <string name="problem_report_went_wrong">%1$s · erreur à %2$s</string>
     <string name="problem_report_no_fault">%1$s · aucune erreur notée</string>

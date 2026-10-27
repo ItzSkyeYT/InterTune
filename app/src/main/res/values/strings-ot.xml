@@ -1985,6 +1985,17 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="problem_report_copy">Copy</string>
     <string name="problem_report_copied">Copied</string>
     <string name="problem_report_close">Close</string>
+    <!-- Send to InterTune (Unreleased.REPORT_RELAY): for translators only after his yes on the words (kept off visionos-fix until then). -->
+    <string name="problem_report_send">Send to InterTune</string>
+    <string name="problem_report_contact">How to reach you (optional)</string>
+    <string name="problem_report_contact_hint">Discord name or email</string>
+    <string name="problem_report_contact_note">Only the InterTune team sees this.</string>
+    <string name="problem_report_sent">Sent as #%1$d</string>
+    <string name="problem_report_sent_body">Anyone can follow it on GitHub, no account needed.</string>
+    <string name="problem_report_open_issue">Open #%1$d</string>
+    <string name="problem_report_copy_link">Copy link</string>
+    <string name="problem_report_held">Sent. It goes on GitHub once someone has looked at it.</string>
+    <string name="problem_report_send_failed">Couldn\'t send it. Try again, or copy it and post it in #bug-reports.</string>
     <string name="problem_report_now">Now</string>
     <string name="problem_report_went_wrong">%1$s · went wrong at %2$s</string>
     <string name="problem_report_no_fault">%1$s · no fault noted</string>
