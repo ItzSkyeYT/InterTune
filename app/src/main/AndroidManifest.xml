@@ -278,9 +278,12 @@
           The home screen widget. Its updates come from the app itself as things happen, never on
           a timer, so nothing here wakes for a widget with nothing new to show.
         -->
-        <!-- What a widget holds, asked when it is dropped and answerable again from the launcher. -->
+        <!-- What a widget holds, asked when it is dropped and answerable again from the launcher. In a task
+             of its own: the launcher opens it with CLEAR_TASK, which in the app's task closed the app's
+             own screen behind it (seen 27 Oct 2026). -->
         <activity
             android:name=".widget.WidgetConfigActivity"
+            android:taskAffinity=""
             android:enabled="true"
             android:excludeFromRecents="true"
             android:exported="true"
