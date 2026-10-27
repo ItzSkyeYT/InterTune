@@ -1,5 +1,10 @@
 package com.dd3boh.outertune.playback
 
+import coil3.imageLoader
+import coil3.request.CachePolicy
+import coil3.request.ImageRequest
+import com.dd3boh.outertune.ui.player.ART_PREVIEW_PX
+import com.dd3boh.outertune.ui.utils.resize
 import android.content.Context
 import android.net.ConnectivityManager
 import android.util.Log
@@ -783,6 +788,25 @@ class DownloadUtil @Inject constructor(
     }
 
     /**
+     * A downloaded song's cover, fetched now into the image cache, so it shows with no network even
+     * if the song never played online (dvd, 27 Oct 2026: covers came only from playing). Two
+     * addresses, the ones that are the same on every phone: the plain one lists ask for, and the
+     * player's small first cover (ART_PREVIEW_PX). The player's sharp cover depends on the screen;
+     * offline it falls back to the small one under it.
+     */
+    private fun keepCoverForOffline(id: String) {
+        CoroutineScope(Dispatchers.IO).launch {
+            val url = runCatching { database.song(id).first()?.thumbnailUrl }.getOrNull()
+            if (url.isNullOrBlank() || !url.startsWith("http")) return@launch
+            for (model in listOf(url, url.resize(ART_PREVIEW_PX, ART_PREVIEW_PX))) {
+                context.imageLoader.enqueue(
+                    ImageRequest.Builder(context).data(model).memoryCachePolicy(CachePolicy.DISABLED).build()
+                )
+            }
+        }
+    }
+
+    /**
      * Moves the downloads kept inside the app into the download folder: all of them when asked
      * from Settings (Migrate), or [only] these songs, just downloaded, without a word ([quiet]).
      */
@@ -1071,7 +1095,10 @@ class DownloadUtil @Inject constructor(
                     download: Download,
                     finalException: Exception?
                 ) {
-                    if (download.state == Download.STATE_COMPLETED) finishedSinceMove += download.request.id
+                    if (download.state == Download.STATE_COMPLETED) {
+                        finishedSinceMove += download.request.id
+                        keepCoverForOffline(download.request.id)
+                    }
                     // The map's removal below is all it ever shows of a failure, which looks the
                     // same as a song media3 has not been handed yet. The catch up needs the
                     // difference, so the ending is recorded for it here.
