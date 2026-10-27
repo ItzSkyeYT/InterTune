@@ -218,6 +218,7 @@ InterTune stands on a lot of other people's work.
 | [OuterTune](https://github.com/OuterTune/OuterTune) | [Michael Zh](https://github.com/mikooomich) · [Davide Garberi](https://github.com/DD3Boh) | The fork InterTune is built on, where the heavy lifting is |
 | [AsterTune](https://github.com/yuuichi-s/AsterTune) | [yuuichi-s](https://github.com/yuuichi-s) | The same `VISIONOS` fix, found on its own; several fixes here were rewritten from it |
 | [Metrolist](https://github.com/MetrolistGroup/Metrolist) | [MetrolistGroup](https://github.com/MetrolistGroup) | A lot of inspiration, this README included |
+| [Essentials](https://github.com/sameerasw/essentials) · [sameerasw.com](https://sameerasw.com) | [Sameera Wijerathna](https://github.com/sameerasw) | The design language the app and its site learn from |
 
 #### Libraries and data
 
