@@ -1309,9 +1309,9 @@
     <string name="widget_show_artist">Les noms des artistes</string>
     <string name="widget_show_heading">Le titre de la liste</string>
     <string name="widget_rounded_corners">Coins arrondis</string>
-    <!-- The widget's like button: held from translators in values until the words are agreed. -->
+    <!-- The widget's like button (issue #45). -->
     <string name="widget_show_like">Bouton J\'aime, s\'il y a la place</string>
-    <!-- The widget's styles: held from translators in values until the words are agreed. -->
+    <!-- The widget's styles (25 Oct 2026). -->
     <string name="widget_config_style">Style</string>
     <string name="widget_style_cover">Pochette</string>
     <string name="widget_style_full_cover">Pochette entière</string>
@@ -2042,7 +2042,7 @@
     <string name="auto_level_line">Un volume égal d\'un titre à l\'autre</string>
     <string name="auto_silence_line">Coupe les silences au début et à la fin</string>
     <string name="auto_more_line">La file d\'attente ne s\'arrête jamais</string>
-    <string name="auto_radios_line">Suit vos passages et vos J\'aime</string>
+    <string name="auto_radios_line">Suit ce que vous passez et aimez</string>
     <!-- Signal path (SignalPathDialog): what changes the sound between YouTube and the ear. -->
     <string name="signal_path">Chemin du son</string>
     <string name="signal_path_sub">De YouTube à vos oreilles, en ce moment</string>
@@ -2064,7 +2064,7 @@
     <string name="signal_plays_on">Joue sur</string>
     <string name="signal_output_rate">%1$s, %2$s kHz</string>
     <string name="signal_phone_speaker">Haut-parleur du téléphone</string>
-    <string name="signal_wired">Écouteurs filaires</string>
+    <string name="signal_wired">Casque filaire</string>
     <string name="signal_other_output">Un autre appareil</string>
     <string name="signal_volume">Volume du téléphone</string>
     <string name="signal_percent">%1$d %%</string>

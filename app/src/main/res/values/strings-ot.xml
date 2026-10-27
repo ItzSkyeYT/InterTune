@@ -1615,15 +1615,15 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="widget_show_artist">Artist names</string>
     <string name="widget_show_heading">The list\'s heading</string>
     <string name="widget_rounded_corners">Rounded corners</string>
-    <!-- The widget's like button (issue #45): held from translators until the words are agreed, its French beside it in values-fr. -->
+    <!-- The widget's like button (issue #45). -->
     <string name="widget_show_like">Like button, where there is room</string>
-    <!-- The widget's styles (25 Oct 2026): held from translators until the words are agreed, their French beside them in values-fr. -->
-    <string name="widget_config_style" translatable="false">Style</string>
-    <string name="widget_style_cover" translatable="false">Cover</string>
-    <string name="widget_style_full_cover" translatable="false">Full cover</string>
-    <string name="widget_style_shelf" translatable="false">Shelf</string>
+    <!-- The widget's styles (25 Oct 2026). -->
+    <string name="widget_config_style">Style</string>
+    <string name="widget_style_cover">Cover</string>
+    <string name="widget_style_full_cover">Full cover</string>
+    <string name="widget_style_shelf">Shelf</string>
     <!-- Over the next songs of the queue, on a widget as wide as a tablet's. -->
-    <string name="widget_up_next" translatable="false">Up next</string>
+    <string name="widget_up_next">Up next</string>
 
 <!-- Recommendations: the little "i" beside an item, and what it opens -->
     <string name="tidy_home_rows_info">No Home row shows a song an earlier row already has, and versions of one song (live, remastered, video) count as the same. Nothing fills a gap, so a row can come up short. Off, your exclusions only filter the \"Best recommendations\" row.</string>
@@ -2241,11 +2241,11 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="signal_legend_untouched">Untouched</string>
     <string name="signal_legend_changed">Changed by a setting you chose</string>
     <string name="signal_legend_where">Where it plays</string>
-    <!-- Pinned buttons on the player (0.13, issue #27): held from translators until he says yes to the words. -->
-    <string name="player_pins" translatable="false">Pinned buttons</string>
-    <string name="player_pins_description" translatable="false">What stays on the player. Everything else is in its menu.</string>
-    <string name="player_pins_by_title" translatable="false">By the title</string>
-    <string name="player_pins_under_controls" translatable="false">Under the controls</string>
-    <string name="player_pin_lyrics" translatable="false">Lyrics</string>
-    <string name="player_pins_reset" translatable="false">Reset to default</string>
+    <!-- Pinned buttons on the player (issue #27). -->
+    <string name="player_pins">Pinned buttons</string>
+    <string name="player_pins_description">What stays on the player. Everything else is in its menu.</string>
+    <string name="player_pins_by_title">By the title</string>
+    <string name="player_pins_under_controls">Under the controls</string>
+    <string name="player_pin_lyrics">Lyrics</string>
+    <string name="player_pins_reset">Reset to default</string>
 </resources>
