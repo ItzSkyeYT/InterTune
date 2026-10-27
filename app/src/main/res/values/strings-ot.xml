@@ -2138,6 +2138,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="battery_saver_holds_note">Set by \"Battery use\" while it is on \"Saver\".</string>
     <string name="battery_saver_quality_note">Low on mobile data while \"Battery use\" is on \"Saver\".</string>
     <string name="battery_saver_background_note">%1$s while \"Battery use\" is on \"Saver\".</string>
+    <string name="living_blur_still_animations">Stands still while animations are off in Android\'s settings.</string>
     <string name="battery_saver_glass_note">Without its blur while \"Battery use\" is on \"Saver\".</string>
     <string name="battery_follow_phone">Follow the phone\'s battery saver</string>
     <string name="battery_follow_phone_description">\"Saver\" while it is on.</string>

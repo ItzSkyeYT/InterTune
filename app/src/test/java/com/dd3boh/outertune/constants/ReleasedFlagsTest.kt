@@ -85,6 +85,8 @@ class ReleasedFlagsTest {
             setOf(
                 "playback/BatteryUse.kt", "ui/navigation/AppNavGraph.kt", "ui/screens/settings/SettingsIndex.kt",
                 "ui/screens/settings/SettingsScreen.kt", "ui/screens/settings/SettingsTwoPane.kt", "ui/screens/walkthrough/Walkthrough.kt",
+                // Without Battery use, the phone's battery saver stills Living blur itself (#49).
+                "ui/player/LivingBackground.kt",
             ),
             readers("BATTERY_MODES"),
         )

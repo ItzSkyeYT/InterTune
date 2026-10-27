@@ -1956,6 +1956,7 @@
     <string name="battery_saver_holds_note">Réglé par « Utilisation de la batterie » tant qu\'elle est sur « Économie ».</string>
     <string name="battery_saver_quality_note">Faible sur les données mobiles tant que « Utilisation de la batterie » est sur « Économie ».</string>
     <string name="battery_saver_background_note">%1$s tant que « Utilisation de la batterie » est sur « Économie ».</string>
+    <string name="living_blur_still_animations">Reste immobile tant que les animations sont désactivées dans les réglages d\'Android.</string>
     <string name="battery_saver_glass_note">Sans flou tant que « Utilisation de la batterie » est sur « Économie ».</string>
     <string name="battery_follow_phone">Suivre l\'économiseur de batterie du téléphone</string>
     <string name="battery_follow_phone_description">« Économie » tant qu\'il est activé.</string>
