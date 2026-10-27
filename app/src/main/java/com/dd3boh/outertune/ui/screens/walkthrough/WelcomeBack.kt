@@ -65,6 +65,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.ui.utils.LocalGlassStill
 import com.dd3boh.outertune.constants.PlayerLiquidGlassKey
 import com.dd3boh.outertune.utils.rememberPreference
 import com.kyant.backdrop.backdrops.layerBackdrop
@@ -143,7 +144,8 @@ fun WelcomeBack(
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
-                .then(if (liquidGlass) Modifier.layerBackdrop(pageBackdrop) else Modifier)
+                // Not recorded while the glass is still (Battery use on Saver): the button does not read it then.
+                .then(if (liquidGlass && !LocalGlassStill.current) Modifier.layerBackdrop(pageBackdrop) else Modifier)
                 .fillMaxSize()
                 // Outside the scroll, so that nothing of the page is ever drawn under the
                 // navigation bar. Inside it the room for the bar came only at the end of the
@@ -251,7 +253,8 @@ fun WelcomeBack(
                     // button's colour, and no rim, which made small controls read as outlines.
                     if (liquidGlass) Modifier
                         .clip(CircleShape)
-                        .drawBackdrop(
+                        // Still on Saver: the wash alone, nothing behind it blurred.
+                        .then(if (LocalGlassStill.current) Modifier else Modifier.drawBackdrop(
                             backdrop = pageBackdrop,
                             shape = { CircleShape },
                             effects = {
@@ -260,7 +263,7 @@ fun WelcomeBack(
                             },
                             highlight = { null },
                             shadow = { null },
-                        )
+                        ))
                         .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f), CircleShape)
                     else Modifier
                 ),

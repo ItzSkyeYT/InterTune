@@ -37,8 +37,13 @@ class PlaybackOrderTest {
     @Test
     fun `the full player keeps its line, its two times and its five buttons in order`() {
         val block = kept("Player.kt").single()
-        for (thing in listOf("Slider(", "makeTimeString(shownDuration)", "shuffleName(", "Icons.Rounded.SkipPrevious", "playPauseName(", "Icons.Rounded.SkipNext", "repeatName(")) {
+        // The line and its two times are the seek bar's, which is drawn inside the block.
+        for (thing in listOf("SeekBar(", "shuffleName(", "Icons.Rounded.SkipPrevious", "playPauseName(", "Icons.Rounded.SkipNext", "repeatName(")) {
             assertTrue(thing, thing in block)
+        }
+        val bar = File(player, "Player.kt").readText().substringAfter("private fun SeekBar(").substringBefore("\n}\n")
+        for (thing in listOf("Slider(", "makeTimeString(shown)", "makeTimeString(duration)")) {
+            assertTrue(thing, thing in bar)
         }
         // Previous is drawn before next, which is left of it once the order is left to right.
         assertTrue(block.indexOf("Icons.Rounded.SkipPrevious") < block.indexOf("Icons.Rounded.SkipNext"))

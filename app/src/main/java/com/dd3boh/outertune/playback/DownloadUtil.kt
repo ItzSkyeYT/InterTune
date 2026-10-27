@@ -21,10 +21,16 @@ import androidx.media3.exoplayer.offline.DownloadNotificationHelper
 import androidx.media3.exoplayer.offline.DownloadRequest
 import androidx.media3.exoplayer.offline.DownloadService
 import androidx.media3.exoplayer.scheduler.Requirements
+import com.dd3boh.outertune.playback.sabr.SabrOrHttp
+import com.dd3boh.outertune.playback.sabr.SabrOver
+import com.dd3boh.outertune.playback.sabr.SabrStarts
+import com.dd3boh.outertune.BuildConfig
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.AudioQuality
 import com.dd3boh.outertune.constants.AudioQualityKey
 import com.dd3boh.outertune.constants.DownloadExtraPathKey
+import kotlinx.coroutines.flow.drop
 import com.dd3boh.outertune.constants.DownloadOnWifiOnlyKey
 import com.dd3boh.outertune.constants.DownloadPathKey
 import com.dd3boh.outertune.constants.LikedAutoDownloadKey
@@ -119,13 +125,16 @@ class DownloadUtil @Inject constructor(
         CacheDataSource.Factory()
             .setCache(playerCache)
             .setUpstreamDataSourceFactory(
-                // Over the family the address was issued to, and a web client's with its page's
-                // headers, as its check was made: see StreamFamily.Calls.
-                OkHttpDataSource.Factory(
-                    StreamFamily.Calls(
-                        OkHttpClient.Builder()
-                            .proxy(YouTube.proxy)
-                            .build()
+                // A sabr: address to the SABR reader, any other over the family the address was
+                // issued to, and a web client's with its page's headers, as its check was made:
+                // see StreamFamily.Calls.
+                SabrOrHttp.Factory(
+                    OkHttpDataSource.Factory(
+                        StreamFamily.Calls(
+                            OkHttpClient.Builder()
+                                .proxy(YouTube.proxy)
+                                .build()
+                        )
                     )
                 )
             )
@@ -164,7 +173,7 @@ class DownloadUtil @Inject constructor(
 
         // Not for a stale copy: the cache serves by the song's id whatever address comes back, so
         // a remembered url would still read the old bytes.
-        songUrlCache[mediaId]?.takeIf { !staleCopy && it.second > System.currentTimeMillis() }?.let {
+        songUrlCache[mediaId]?.takeIf { !staleCopy && stillUsable(it.first, it.second) }?.let {
             return@Factory dataSpec.withUri(it.first.toUri())
         }
 
@@ -193,11 +202,12 @@ class DownloadUtil @Inject constructor(
         // A song whose own id YouTube no longer serves is downloaded from the id the same
         // recording goes by now, as the player plays it: see StandIns. Downloads keep a run of
         // their own, so a batch of them cannot end the player's (GoneRun), and report nothing.
+        val resolveBegan = System.currentTimeMillis()
         val played = runBlocking(Dispatchers.IO) {
             StandIns(
                 resolve = { id ->
                     paced()
-                    YTPlayerUtils.playerResponseForPlayback(id, audioQuality = audioQuality, connectivityManager = connectivityManager)
+                    YTPlayerUtils.playerResponseForPlayback(id, audioQuality = audioQuality, connectivityManager = connectivityManager, forDownload = true)
                 },
                 wanted = { id ->
                     database.readOrNull { songRow(id) }?.let { row ->
@@ -256,19 +266,30 @@ class DownloadUtil @Inject constructor(
             )
         }
 
-        val streamUrl = playbackData.streamUrl.let {
-            // Specify range to avoid YouTube's throttling
-            "${it}&range=0-${format.contentLength ?: 10000000}"
+        // The developer's "Stream over SABR only", as the player has it (MusicService): the same
+        // answer over SABR, so that a download goes over it too.
+        val streamed = if (BuildConfig.DEBUG && Unreleased.SABR && YTPlayerUtils.sabrOnly) {
+            SabrOver.over(played.from, playbackData, since = resolveBegan, forDownload = true) ?: playbackData
+        } else {
+            playbackData
         }
+        val streamUrl = downloadAddress(streamed.streamUrl, format.contentLength)
 
-        songUrlCache[mediaId] = streamUrl to System.currentTimeMillis() + (playbackData.streamExpiresInSeconds * 1000L)
+        songUrlCache[mediaId] = streamUrl to System.currentTimeMillis() + (streamed.streamExpiresInSeconds * 1000L)
         dataSpec.withUri(streamUrl.toUri())
     }
     val downloadNotificationHelper = DownloadNotificationHelper(context, ExoDownloadService.CHANNEL_ID)
+
+    /** The run of downloads the notification counts through, from its first song to its last. */
+    internal val downloadRun = DownloadRun()
     val downloadManager: DownloadManager =
         DownloadManager(context, databaseProvider, downloadCache, dataSourceFactory, Executor(Runnable::run)).apply {
             maxParallelDownloads = 3
-            requirements = downloadRequirements(context.dataStore.get(DownloadOnWifiOnlyKey, false))
+            // Download on Wi-Fi only as it is set, and always while Battery use is on Saver.
+            requirements = downloadRequirements(wifiOnlyNow())
+            // Before the download service's own listener, which builds the notification as each
+            // song ends: the song is counted by then.
+            addListener(downloadRun)
             addListener(
                 ExoDownloadService.TerminalStateNotificationHelper(
                     context = context,
@@ -295,6 +316,9 @@ class DownloadUtil @Inject constructor(
     val downloadMgr = DownloadManagerOt(localMgr)
     var isProcessingDownloads = MutableStateFlow(false)
 
+    /** Songs whose download finished since the last move into the folder, on the download manager's thread: see its onIdle. */
+    private val finishedSinceMove = mutableSetOf<String>()
+
     fun getDownload(songId: String): Flow<LocalDateTime?> = downloads.map { it[songId] }
 
     fun download(songs: List<MediaMetadata>) {
@@ -320,6 +344,16 @@ class DownloadUtil @Inject constructor(
         if (wifiOnly) Requirements(Requirements.NETWORK_UNMETERED) else Requirements(Requirements.NETWORK)
 
     /**
+     * Whether downloads wait for Wi-Fi now: the switch as it is set, or Battery use on Saver,
+     * which never writes the switch (BatteryUse.downloadsOnWifiOnly). Blocking, as the reads here
+     * always were; the two rows that change it push the answer with [setDownloadRequirements].
+     */
+    private fun wifiOnlyNow(): Boolean = BatteryUse.downloadsOnWifiOnly(
+        context.dataStore.get(DownloadOnWifiOnlyKey, false),
+        context.batteryModeNow(),
+    )
+
+    /**
      * Applies the requirement immediately, including to downloads already queued or running. media3
      * pauses anything that no longer meets it and resumes automatically once it does, so nothing is
      * lost by toggling this mid-download.
@@ -339,7 +373,7 @@ class DownloadUtil @Inject constructor(
      * failed.
      */
     private fun notifyIfWaitingForWifi() {
-        if (context.dataStore.get(DownloadOnWifiOnlyKey, false) && connectivityManager.isActiveNetworkMetered) {
+        if (wifiOnlyNow() && connectivityManager.isActiveNetworkMetered) {
             // Main.immediate, so the existing UI callers still post inline exactly as before while
             // the auto-download paths stop throwing. Those run on Room's executors and on
             // dlCoroutine, which have no Looper, and Toast kills the process without one. It would
@@ -749,52 +783,28 @@ class DownloadUtil @Inject constructor(
     }
 
     /**
-     * Migrated existing downloads from the download cache to the new system in external storage
+     * Moves the downloads kept inside the app into the download folder: all of them when asked
+     * from Settings (Migrate), or [only] these songs, just downloaded, without a word ([quiet]).
      */
-    suspend fun migrateDownloads() = scanLock.withLock {
+    suspend fun migrateDownloads(quiet: Boolean = false, only: Set<String>? = null) = scanLock.withLock {
         isProcessingDownloads.value = true
 
         var runs = 0
         try {
-            // "skeleton" of old download manager to access old download data
-            val dataSourceFactory = ResolvingDataSource.Factory(
-                CacheDataSource.Factory()
-                    .setCache(playerCache)
-                    .setUpstreamDataSourceFactory(
-                        OkHttpDataSource.Factory(
-                            OkHttpClient.Builder()
-                                .proxy(YouTube.proxy)
-                                .build()
-                        )
-                    )
-            ) { dataSpec ->
-                return@Factory dataSpec
-            }
-
-            val downloadManager: DownloadManager = DownloadManager(
-                context,
-                databaseProvider,
-                downloadCache,
-                dataSourceFactory,
-                Executor(Runnable::run)
-            ).apply {
-                maxParallelDownloads = 3
-            }
-
-            // actual migration code
+            // What media3 holds, read from its index. A second DownloadManager over it, as this
+            // used to make for the same list, started a thread of its own that was never let go.
+            val migratedIndex = DefaultDownloadIndex(databaseProvider)
             val downloadedSongs = mutableMapOf<String, Download>()
-            val cursor = downloadManager.downloadIndex.getDownloads()
-            while (cursor.moveToNext()) {
-                downloadedSongs[cursor.download.request.id] = cursor.download
+            migratedIndex.getDownloads().use { cursor ->
+                while (cursor.moveToNext()) downloadedSongs[cursor.download.request.id] = cursor.download
             }
 
             // copy all completed downloads
-            val toMigrate = downloadedSongs.filter { it.value.state == Download.STATE_COMPLETED }
-            val migratedIndex = DefaultDownloadIndex(databaseProvider)
+            val toMigrate = downloadedSongs.filter { it.value.state == Download.STATE_COMPLETED && (only == null || it.key in only) }
             toMigrate.forEach { s ->
                 if (runs++ % 10 == 0) {
                     Log.d(TAG, "Migrating download: $runs/${toMigrate.size}")
-                    if (runs % 20 == 0) {
+                    if (runs % 20 == 0 && !quiet) {
                         withContext(Dispatchers.Main) {
                             Toast.makeText(context, "$runs/${toMigrate.size}", LENGTH_SHORT).show()
                         }
@@ -1028,14 +1038,40 @@ class DownloadUtil @Inject constructor(
         CoroutineScope(dlCoroutine).launch {
             rescanDownloads()
         }
+        // The phone's battery saver can turn Battery use's Saver on and off at any time
+        // (PhoneBatterySaver), and Saver downloads on Wi-Fi only: the manager is told at once.
+        // Straight to the manager, on the thread it was made on, rather than through the download
+        // service, which an intent would start from the background.
+        CoroutineScope(Dispatchers.Main).launch {
+            PhoneBatterySaver.on.drop(1).collect {
+                runCatching { downloadManager.requirements = downloadRequirements(wifiOnlyNow()) }
+                    .onFailure { Log.w(TAG, "Could not apply the download requirement", it) }
+            }
+        }
 
         downloadManager.addListener(
             object : DownloadManager.Listener {
+                /**
+                 * Every download done for now: with a folder of the person's own set, the songs
+                 * just finished go into it, the way Migrate moves earlier ones. A download is
+                 * always made inside the app first, and only Migrate ever took songs out, so a
+                 * folder set in Settings never got a new download (dvd on Discord, 26 Oct 2026).
+                 * Songs downloaded before the folder was set stay where they are: Migrate's call.
+                 */
+                override fun onIdle(downloadManager: DownloadManager) {
+                    if (finishedSinceMove.isEmpty()) return
+                    val just = finishedSinceMove.toSet()
+                    finishedSinceMove.clear()
+                    if (context.dataStore.get(DownloadPathKey, "").isEmpty()) return
+                    CoroutineScope(Dispatchers.IO).launch { migrateDownloads(quiet = true, only = just) }
+                }
+
                 override fun onDownloadChanged(
                     downloadManager: DownloadManager,
                     download: Download,
                     finalException: Exception?
                 ) {
+                    if (download.state == Download.STATE_COMPLETED) finishedSinceMove += download.request.id
                     // The map's removal below is all it ever shows of a failure, which looks the
                     // same as a song media3 has not been handed yet. The catch up needs the
                     // difference, so the ending is recorded for it here.
@@ -1185,3 +1221,23 @@ fun applyRescanResult(
     }
     touched.removeAll(used)
 }
+
+/**
+ * Whether an address remembered for a download, kept until [expiresAtMs], can still be read: a
+ * sabr: one only while its start is kept. One SABR fault, in the download's read or the player's
+ * of the same song, forgets every start of the song (SabrStarts.forget), and the remembered
+ * address then failed every retry at once, for as long as it was remembered. A new walk gives a
+ * new start.
+ */
+internal fun stillUsable(address: String, expiresAtMs: Long, nowMs: Long = System.currentTimeMillis(), starts: SabrStarts = SabrStarts): Boolean =
+    expiresAtMs > nowMs && (!address.startsWith(SabrStarts.SCHEME + "://") || starts.forAddress(address, nowMs) != null)
+
+/**
+ * The address a download reads: a direct one asks for the whole file as one range, which YouTube
+ * throttles less; a sabr: one is the exact text its start was kept under (SabrStarts) and gets
+ * nothing added, or the reader would not find it and the download would fail, as one over SABR's
+ * last try did before 16 Oct 2026.
+ */
+internal fun downloadAddress(streamUrl: String, contentLength: Long?): String =
+    if (streamUrl.startsWith(SabrStarts.SCHEME + "://")) streamUrl
+    else "$streamUrl&range=0-${contentLength ?: 10000000}"

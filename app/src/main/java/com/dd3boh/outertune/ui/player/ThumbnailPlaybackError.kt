@@ -48,6 +48,8 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.DEFAULT_PLAYER_BACKGROUND
 import com.dd3boh.outertune.constants.DarkMode
 import com.dd3boh.outertune.constants.DarkModeKey
+import com.dd3boh.outertune.LocalBatteryMode
+import com.dd3boh.outertune.playback.BatteryUse
 import com.dd3boh.outertune.constants.PlayerBackgroundStyle
 import com.dd3boh.outertune.constants.PlayerBackgroundStyleKey
 import com.dd3boh.outertune.ui.utils.fadingEdge
@@ -55,6 +57,7 @@ import com.dd3boh.outertune.utils.ErrorText
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.Throttle
 import com.dd3boh.outertune.utils.YTPlayerUtils
+import com.dd3boh.outertune.utils.installedFrom
 import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
 
@@ -74,8 +77,10 @@ fun ThumbnailPlaybackError(
     )
     val darkTheme by rememberEnumPreference(DarkModeKey, defaultValue = DarkMode.AUTO)
     val isSystemInDarkTheme = isSystemInDarkTheme()
-    val useDarkTheme = remember(darkTheme, isSystemInDarkTheme) {
-        if (darkTheme == DarkMode.AUTO) isSystemInDarkTheme else darkTheme == DarkMode.ON
+    // As the app's theme is: dark on Battery use's Saver whatever was picked (BatteryUse.darkTheme).
+    val batteryMode = LocalBatteryMode.current
+    val useDarkTheme = remember(darkTheme, isSystemInDarkTheme, batteryMode) {
+        BatteryUse.darkTheme(if (darkTheme == DarkMode.AUTO) isSystemInDarkTheme else darkTheme == DarkMode.ON, batteryMode)
     }
 
     val textColor = when (playerBackground) {
@@ -147,6 +152,7 @@ fun ThumbnailPlaybackError(
                 appendLine("${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) | ${BuildConfig.FLAVOR}")
                 appendLine("${BuildConfig.APPLICATION_ID} | ${BuildConfig.BUILD_TYPE}")
                 appendLine("${Build.BRAND} ${Build.DEVICE} (${Build.MODEL})")
+                appendLine("Installed from: ${context.installedFrom()}")
                 appendLine("Android ${Build.VERSION.RELEASE}, API ${Build.VERSION.SDK_INT} (${Build.ID})")
                 // Which of the player clients produced the url. Without it a report of a 403
                 // partway through a song says nothing about which of three clients to go and

@@ -14,6 +14,8 @@ import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.constants.DEFAULT_PLAYER_BACKGROUND
 import com.dd3boh.outertune.constants.DarkMode
 import com.dd3boh.outertune.constants.DarkModeKey
+import com.dd3boh.outertune.LocalBatteryMode
+import com.dd3boh.outertune.playback.BatteryUse
 import com.dd3boh.outertune.constants.PlayerBackgroundStyle
 import com.dd3boh.outertune.constants.PlayerBackgroundStyleKey
 import com.dd3boh.outertune.ui.component.BottomSheetState
@@ -37,8 +39,10 @@ fun PlayerScreen(
 
     val darkTheme by rememberEnumPreference(DarkModeKey, defaultValue = DarkMode.AUTO)
     val isSystemInDarkTheme = isSystemInDarkTheme()
-    val useDarkTheme = remember(darkTheme, isSystemInDarkTheme) {
-        if (darkTheme == DarkMode.AUTO) isSystemInDarkTheme else darkTheme == DarkMode.ON
+    // As the app's theme is: dark on Battery use's Saver whatever was picked (BatteryUse.darkTheme).
+    val batteryMode = LocalBatteryMode.current
+    val useDarkTheme = remember(darkTheme, isSystemInDarkTheme, batteryMode) {
+        BatteryUse.darkTheme(if (darkTheme == DarkMode.AUTO) isSystemInDarkTheme else darkTheme == DarkMode.ON, batteryMode)
     }
 
     val onBackgroundColor = when (playerBackground) {

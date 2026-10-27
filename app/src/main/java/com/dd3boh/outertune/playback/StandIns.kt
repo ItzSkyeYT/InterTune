@@ -14,6 +14,7 @@ import com.dd3boh.outertune.migration.normalise
 import com.dd3boh.outertune.migration.score
 import com.dd3boh.outertune.utils.YTPlayerUtils
 import com.zionhuang.innertube.models.SongItem
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -250,6 +251,15 @@ internal class GoneRun {
  *
  * [trail] is what the walk just made answered, as the error report words it, and [report] puts
  * a whole lookup there in its place: see [Lookup].
+ *
+ * [setAside] says whether a song is set aside as gone (GoneSongs: the Exclusions page lists it,
+ * with Lift). Such a song, looked for in vain these last days, is not asked again at every tap:
+ * it fails at once as gone, with nothing asked of YouTube and nothing searched. On 21 Oct 2026 a
+ * song set aside at its third tap was walked and searched for at ten more. Within the three days
+ * of [StandInMemory.NONE_MS] only, after which it is asked again, as a copy may have been put up
+ * or the id come back; and at once when it is lifted. Never when the listener asks for it again
+ * ([playbackData]'s askedAgain: Retry, or Play on the song the music stopped on): only the
+ * player's own passes, the queue reaching it and its replays, are spared the walk.
  */
 internal class StandIns(
     private val resolve: suspend (String) -> Result<YTPlayerUtils.PlaybackData>,
@@ -262,12 +272,22 @@ internal class StandIns(
     private val enabled: () -> Boolean = { Unreleased.STAND_INS },
     private val trail: () -> String? = { YTPlayerUtils.lastStreamTrail },
     private val report: (String) -> Unit = { YTPlayerUtils.reportTrail(it) },
+    private val setAside: suspend (String) -> Boolean = { false },
 ) {
     /** A stream, and the id it was had under: the song's own, or its stand-in's. */
     class Played(val data: YTPlayerUtils.PlaybackData, val from: String)
 
-    /** Told a song's id each time YouTube called it gone and no copy of it played. */
-    var onGone: ((String) -> Unit)? = null
+    /**
+     * Told a song's id each time YouTube called it gone and no copy of it played, and whether the
+     * account said so too ([YTPlayerUtils.SongUnavailable.byTheAccountToo]).
+     */
+    var onGone: ((id: String, sure: Boolean) -> Unit)? = null
+
+    /**
+     * Told the songs of a run that is not believed ([GoneRun]), as what the run noted of them is
+     * put back: what was set aside at once on the account's word goes back with it.
+     */
+    var onDoubted: ((List<String>) -> Unit)? = null
 
     /** Told a song's id each time a stream was had for it, under its own id or a stand-in's. */
     var onPlays: ((String) -> Unit)? = null
@@ -293,7 +313,9 @@ internal class StandIns(
 
         suspend fun walk(what: String, id: String): Result<YTPlayerUtils.PlaybackData> {
             if (what != OWN || steps.isNotEmpty()) plain = false
-            return resolve(id).also { steps += "$what: ${trail() ?: "unknown"}" }
+            // Another copy is not asked of the account: see YTPlayerUtils.OfAnotherCopy.
+            val walked = if (what == OWN) resolve(id) else withContext(YTPlayerUtils.OfAnotherCopy()) { resolve(id) }
+            return walked.also { steps += "$what: ${trail() ?: "unknown"}" }
         }
 
         fun note(what: String) {
@@ -307,15 +329,22 @@ internal class StandIns(
         }
     }
 
-    suspend fun playbackData(videoId: String): Result<Played> {
+    suspend fun playbackData(videoId: String, askedAgain: Boolean = false): Result<Played> {
         if (!enabled()) return resolve(videoId).map { Played(it, videoId) }
         val lookup = Lookup()
-        return lookup.told(look(videoId, lookup))
+        return lookup.told(look(videoId, lookup, askedAgain))
     }
 
-    private suspend fun look(videoId: String, lookup: Lookup): Result<Played> {
+    private suspend fun look(videoId: String, lookup: Lookup, askedAgain: Boolean): Result<Played> {
         val dead = mutableSetOf(videoId)
         val known = StandInMemory.known(StandInMemory.current, videoId, now())
+        // Set aside as gone and looked for in vain lately: not asked again at every tap, see
+        // setAside. Nothing is counted in the run or reported: YouTube was not asked.
+        if (!askedAgain && known == null && StandInMemory.lookedInVain(StandInMemory.current, videoId, now()) && setAside(videoId)) {
+            log("[$videoId] set aside as gone from YouTube, and looked for in vain lately: not asked again for now")
+            lookup.note(SET_ASIDE)
+            return Result.failure(YTPlayerUtils.SongUnavailable(NOT_ASKED))
+        }
         if (known != null) {
             val played = lookup.walk("stand-in", known)
             if (played.isSuccess) return had(videoId, played, known)
@@ -336,6 +365,8 @@ internal class StandIns(
         }
         val failed = own.map { Played(it, videoId) }
         if (own.exceptionOrNull() !is YTPlayerUtils.SongUnavailable) return failed
+        // The account was asked and called it gone too: see YTPlayerUtils.SongUnavailable.
+        val sure = (own.exceptionOrNull() as YTPlayerUtils.SongUnavailable).byTheAccountToo
         if (!run.maySearch(videoId)) {
             lookup.note(
                 if (run.doubted()) "no search: ${GoneRun.LIMIT} songs in a row were called gone, which is not believed"
@@ -346,7 +377,7 @@ internal class StandIns(
         // Looked for these last days, and nothing was surely it: it fails as fast as it used to.
         if (known == null && StandInMemory.lookedInVain(StandInMemory.current, videoId, now())) {
             lookup.note("no search: looked for these last days, and nothing was surely it")
-            onGone?.invoke(videoId)
+            onGone?.invoke(videoId, sure)
             return failed
         }
         if (searchFailedAt?.let { now() - it in 0 until StandIn.SEARCH_REST_MS } == true) {
@@ -393,7 +424,7 @@ internal class StandIns(
             }
         }
         log("[$videoId] gone, and " + if (copies.isEmpty()) "none of ${found.size} results is surely the same recording" else "so is every copy of it that was found")
-        noCopy(videoId)
+        noCopy(videoId, sure)
         // The song that makes the run too long to believe is the first said to be the connection.
         return if (run.doubted()) turnedAway(failed) else failed
     }
@@ -420,10 +451,12 @@ internal class StandIns(
 
     /**
      * [videoId] is gone and no copy of it played. Noted, so it is not looked for again for a few
-     * days, and reported. Unless it is the one that makes the run too long to believe: then what
-     * the run noted is put back as it was, and nothing is reported.
+     * days, and reported, [sure] when the account said so too. Unless it is the one that makes the
+     * run too long to believe: then what the run noted is put back as it was, the run's songs are
+     * handed to [onDoubted], and nothing is reported.
      */
-    private fun noCopy(videoId: String) {
+    private fun noCopy(videoId: String, sure: Boolean) {
+        var doubted: List<String>? = null
         val told = synchronized(run) {
             val ids = run.gone(videoId)
             if (videoId !in before) before[videoId] = StandInMemory.current.of[videoId]
@@ -433,6 +466,7 @@ internal class StandIns(
                 for ((id, entry) in before) {
                     memory = if (entry == null) StandInMemory.forget(memory, id) else StandInMemory.Memory(memory.of + (id to entry))
                 }
+                doubted = before.keys.toList()
                 before.clear()
                 StandInMemory.set(memory)
                 false
@@ -441,11 +475,18 @@ internal class StandIns(
                 true
             }
         }
-        if (told) onGone?.invoke(videoId)
+        doubted?.let { onDoubted?.invoke(it) }
+        if (told) onGone?.invoke(videoId, sure)
     }
 
     private companion object {
         const val TAG = "StandIns"
         const val OWN = "own id"
+
+        /** For the error report, in place of a walk: see setAside. */
+        const val SET_ASIDE = "not asked: set aside as gone, and looked for in vain these last days"
+
+        /** The failure's words, for the log and the error's details: the player shows its own sentence for any song that is gone. */
+        const val NOT_ASKED = "Set aside as gone from YouTube, not asked again for now"
     }
 }

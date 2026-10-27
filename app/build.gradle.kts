@@ -52,8 +52,8 @@ android {
         applicationId = "dev.skye.intertune"
         minSdk = 24
         targetSdk = 36
-        versionCode = 96
-        versionName = "0.12.1"
+        versionCode = 97
+        versionName = "0.12.5"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // Obfuscated, not encrypted, and the difference matters. Anything the app can read, so
@@ -254,6 +254,9 @@ android {
             fetchRemoteLicense = false
             fetchRemoteFunding = false
             filterVariants.addAll("release")
+            // Libraries built from source rather than taken from Maven, which the plugin cannot see:
+            // InnerTubeX's SABR client, compiled into the :sabr module.
+            configPath = file("../config")
         }
 
         export {
@@ -327,7 +330,6 @@ dependencies {
     // ui
     implementation(libs.coil)
     implementation(libs.coil.network.okhttp)
-    implementation(libs.lazycolumnscrollbar)
     implementation(libs.shimmer)
     implementation(libs.glance)
     implementation(libs.glance.material3)
@@ -378,6 +380,8 @@ dependencies {
     // modules
     implementation(project(":fingerprint"))
     implementation(project(":innertube"))
+    implementation(project(":sabr"))
+    implementation(libs.ktor.client.okhttp)
     implementation(project(":kugou"))
     implementation(project(":lrclib"))
     implementation(project(":lastfm"))

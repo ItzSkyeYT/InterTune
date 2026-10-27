@@ -20,7 +20,15 @@ class BackWhileClosingTest {
     @Test
     fun `both back handlers stand aside while the sheet is closing`() {
         assertTrue(source.contains("animatable.isRunning && animatable.targetValue == collapsedBound"))
-        assertTrue(source.contains("if (!state.isCollapsed && !state.isDismissed && !state.isCollapsing) {\n                BackHandler(onBack = state::collapseSoft)"))
-        assertTrue(source.contains("PredictiveBackHandler(enabled = !state.isCollapsed && !state.isDismissed && !state.isCollapsing)"))
+        assertTrue(source.contains("val takesBack: Boolean\n        get() = !isCollapsed && !isDismissed && !isCollapsing"))
+        assertTrue(source.contains("if (backOn) {\n                BackHandler(onBack = moves::collapseSoft)"))
+        assertTrue(source.contains("PredictiveBackHandler(enabled = backOn)"))
+    }
+
+    @Test
+    fun `a Back that moves another sheet stands aside while that one is closing too`() {
+        // The queue's Back, when it closes the player (issue #30): pressed again while the player
+        // falls, it goes under the player, as the second of two quick presses always did.
+        assertTrue(source.contains("val backOn = state.takesBack && (moves === state || moves.takesBack)"))
     }
 }

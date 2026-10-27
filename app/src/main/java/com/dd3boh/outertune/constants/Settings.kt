@@ -1,7 +1,9 @@
 package com.dd3boh.outertune.constants
 
 import android.content.Context
+import androidx.datastore.core.DataMigration
 import androidx.datastore.preferences.core.MutablePreferences
+import androidx.datastore.preferences.core.Preferences
 import com.dd3boh.outertune.R
 
 /*
@@ -244,6 +246,31 @@ fun applyNewInstallDefaults(prefs: MutablePreferences) {
     }
 }
 
+/** The size of the song cache a new install starts with, in MB. See [NewInstallSongCache]. */
+const val NEW_INSTALL_SONG_CACHE_MB = 256
+
+/**
+ * A new install starts with a song cache of 256 MB, so that going back, playing a song again and
+ * repeat one take the song from the phone instead of streaming it all over again.
+ *
+ * Written as the settings are first read, when they hold nothing at all: a new install, or one
+ * whose data was cleared. That is before anything can read the size, AppModule's evictor included,
+ * which is built with it once per run, so the cache works from the first song. Not as setup
+ * finishes ([applyNewInstallDefaults]): by then the cache was built off, and setup's own page for
+ * the cache would have shown Off. An install that has settings is left as it is: a size it picked
+ * stays, and one it never picked still reads as 0, off, as it always did.
+ */
+object NewInstallSongCache : DataMigration<Preferences> {
+    override suspend fun shouldMigrate(currentData: Preferences) = currentData.asMap().isEmpty()
+
+    override suspend fun migrate(currentData: Preferences): Preferences =
+        currentData.toMutablePreferences()
+            .apply { this[MaxSongCacheSizeKey] = NEW_INSTALL_SONG_CACHE_MB }
+            .toPreferences()
+
+    override suspend fun cleanUp() = Unit
+}
+
 /** Where the engine's similar songs come from. Read it through similarSourceOf, never directly. */
 enum class SimilarSource {
     /** Both lists, with the similar-song places shared by how the listener takes to each. */
@@ -399,6 +426,15 @@ enum class AudioQuality {
      */
     MAX,
     AUTO, HIGH, LOW
+}
+
+/**
+ * How much the app does while music plays (Battery use). FULL is the app as it always was,
+ * BALANCED everyone's default, SAVER the least. What each one turns down is in
+ * playback/BatteryUse.kt; the order here is the order of the choices.
+ */
+enum class BatteryMode {
+    FULL, BALANCED, SAVER
 }
 
 /*

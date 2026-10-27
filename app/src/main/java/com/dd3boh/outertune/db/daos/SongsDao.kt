@@ -12,6 +12,7 @@ import com.dd3boh.outertune.constants.SongSortType
 import com.dd3boh.outertune.db.DownloadSql
 import com.dd3boh.outertune.db.FavouritesSql
 import com.dd3boh.outertune.db.LibrarySql
+import com.dd3boh.outertune.db.LocalSongFile
 import com.dd3boh.outertune.db.LocalSql
 import com.dd3boh.outertune.db.entities.PlayCountEntity
 import com.dd3boh.outertune.db.entities.SimilarSong
@@ -66,6 +67,10 @@ interface SongsDao {
      */
     @Query("SELECT * FROM song WHERE id = :songId")
     fun songRow(songId: String?): SongEntity?
+
+    /** Whether a song is liked, as it changes, and nothing else of the row: for the widget's heart. Null when it is not stored. */
+    @Query("SELECT liked FROM song WHERE id = :songId")
+    fun songLiked(songId: String): Flow<Boolean?>
 
     /** The names of a song's artists in the order the song lists them, read once like [songRow]. */
     @Query(
@@ -262,6 +267,14 @@ interface SongsDao {
     @Transaction
     @Query("SELECT count(*) FROM song WHERE isLocal = 1 and inLibrary IS NOT NULL AND localpath LIKE :path || '%'")
     fun localSongCountInPath(path: String): Flow<Int>
+
+    /** See LocalSql.SONGS_WITHOUT_TRACK_NUMBER and TrackTagReread. */
+    @Query(LocalSql.SONGS_WITHOUT_TRACK_NUMBER)
+    fun localSongsWithoutTrackNumber(afterId: String, limit: Int): List<LocalSongFile>
+
+    /** See LocalSql.SET_TRACK_TAGS. */
+    @Query(LocalSql.SET_TRACK_TAGS)
+    fun setTrackTags(id: String, track: Int?, disc: Int?)
 
     /**
      * Local songs sharing a file, for the scan's duplicate sweep, which deletes all but one. Local

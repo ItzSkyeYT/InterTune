@@ -10,6 +10,8 @@
 package com.dd3boh.outertune.ui.player
 
 import com.dd3boh.outertune.playback.PlayerConnection
+import com.dd3boh.outertune.playback.BatteryUse
+import com.dd3boh.outertune.LocalBatteryMode
 import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.runtime.snapshotFlow
 import com.dd3boh.outertune.ui.menu.rememberShareLink
@@ -17,13 +19,18 @@ import com.dd3boh.outertune.utils.ShareLinks
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberUpdatedState
 import com.dd3boh.outertune.ui.utils.LocalAppBackdrop
+import com.dd3boh.outertune.ui.utils.LocalGlassStill
+import com.dd3boh.outertune.ui.utils.stillGlass
 import com.dd3boh.outertune.ui.utils.LocalLandscape
 import com.dd3boh.outertune.ui.utils.CoverBlur
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.dd3boh.outertune.constants.PlayerButtonsStyle
 import com.dd3boh.outertune.constants.PlayerButtonsStyleKey
+import com.dd3boh.outertune.constants.PlayerPinsKey
 import com.dd3boh.outertune.constants.QueueButtonKey
+import com.dd3boh.outertune.constants.QueueBackClosesPlayerKey
+import com.dd3boh.outertune.constants.QueueLeftOpenKey
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.rounded.Share
@@ -155,6 +162,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.InputMode
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
@@ -225,6 +233,7 @@ import com.dd3boh.outertune.constants.SeekIncrement
 import com.dd3boh.outertune.constants.SeekIncrementKey
 import com.dd3boh.outertune.constants.ShowLyricsKey
 import com.dd3boh.outertune.constants.SwipeToSkipKey
+import com.dd3boh.outertune.constants.TabletUiKey
 import com.dd3boh.outertune.constants.SwipeToDismissPlayerKey
 import com.dd3boh.outertune.constants.GroupedPlayerControlsKey
 import com.dd3boh.outertune.constants.PlayerGlassIntensityKey
@@ -237,6 +246,7 @@ import com.dd3boh.outertune.extensions.toggleRepeatMode
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.ui.component.BottomSheet
 import com.dd3boh.outertune.ui.component.BottomSheetState
+import com.dd3boh.outertune.ui.component.LocalQueueSheet
 import com.dd3boh.outertune.ui.component.button.ResizableIconButton
 import com.dd3boh.outertune.ui.component.rememberBottomSheetState
 import com.dd3boh.outertune.ui.menu.PlayerMenu
@@ -246,6 +256,7 @@ import com.dd3boh.outertune.ui.utils.readingDirection
 import com.dd3boh.outertune.utils.coilCoroutine
 import com.dd3boh.outertune.utils.makeTimeString
 import com.dd3boh.outertune.utils.rememberEnumPreference
+import com.dd3boh.outertune.utils.rememberNullablePreference
 import com.dd3boh.outertune.utils.rememberPreference
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -272,22 +283,12 @@ fun BottomSheetPlayer(
     // Focus follows the sheet for the keys: opened from the mini player, it lands on play and
     // pause; closed again, it goes back to the mini player's title. Left alone it vanished with
     // whichever half had just been taken away, and the next key press had nowhere to start from.
+    // The effect that moves it is below the queue's sheet, which it has to ask about.
     val inputModeManager = LocalInputModeManager.current
     val focusManager = LocalFocusManager.current
     val sheetLayoutDirection = LocalLayoutDirection.current
     val playPauseFocus = remember { FocusRequester() }
     val miniPlayerFocus = remember { FocusRequester() }
-    var sheetWasOpen by remember { mutableStateOf(false) }
-    LaunchedEffect(state.isExpanded, state.isCollapsed) {
-        val keys = inputModeManager.inputMode == InputMode.Keyboard
-        if (state.isExpanded) {
-            sheetWasOpen = true
-            if (keys) runCatching { playPauseFocus.requestFocus() }
-        } else if (state.isCollapsed && sheetWasOpen) {
-            sheetWasOpen = false
-            if (keys) runCatching { miniPlayerFocus.requestFocus() }
-        }
-    }
 
     val playbackState by playerConnection.playbackState.collectAsState()
     val isPlaying by playerConnection.isPlaying.collectAsState()
@@ -345,7 +346,9 @@ fun BottomSheetPlayer(
     // the swipe people make, and dropping it left that queue with no working swipe at all.
     val nextInStrip = nextMediaMetadata?.takeIf { it.id != mediaMetadata?.id }
     val previousInStrip = previousMediaMetadata?.takeIf { it.id != mediaMetadata?.id && it.id != nextInStrip?.id }
-    val mediaItems = listOfNotNull(previousInStrip, mediaMetadata, nextInStrip)
+    // The same list for as long as the three songs are, so the strip is not composed again for a
+    // list that only looks new.
+    val mediaItems = remember(previousInStrip, mediaMetadata, nextInStrip) { listOfNotNull(previousInStrip, mediaMetadata, nextInStrip) }
     val currentMediaIndex = if (previousInStrip != null) 1 else 0
 
 
@@ -363,6 +366,9 @@ fun BottomSheetPlayer(
     val swipeToDismissPlayer by rememberPreference(SwipeToDismissPlayerKey, defaultValue = true)
     val groupedControls by rememberPreference(GroupedPlayerControlsKey, defaultValue = true)
     val playerBackdrop = rememberLayerBackdrop()
+    // Battery use on Saver: the glass keeps its shapes and places and is drawn still, so the
+    // player's background is not recorded for it and nothing blurs or bends it (LocalGlassStill).
+    val glassStill = LocalGlassStill.current
 
     val seekIncrement by rememberEnumPreference(
         key = SeekIncrementKey,
@@ -371,8 +377,10 @@ fun BottomSheetPlayer(
 
     val darkTheme by rememberEnumPreference(DarkModeKey, defaultValue = DarkMode.AUTO)
     val isSystemInDarkTheme = isSystemInDarkTheme()
-    val useDarkTheme = remember(darkTheme, isSystemInDarkTheme) {
-        if (darkTheme == DarkMode.AUTO) isSystemInDarkTheme else darkTheme == DarkMode.ON
+    // As the app's theme is: dark on Battery use's Saver whatever was picked (BatteryUse.darkTheme).
+    val batteryMode = LocalBatteryMode.current
+    val useDarkTheme = remember(darkTheme, isSystemInDarkTheme, batteryMode) {
+        BatteryUse.darkTheme(if (darkTheme == DarkMode.AUTO) isSystemInDarkTheme else darkTheme == DarkMode.ON, batteryMode)
     }
 
     val onBackgroundColor = when (playerBackground) {
@@ -388,7 +396,13 @@ fun BottomSheetPlayer(
 
     var showLyrics by rememberPreference(ShowLyricsKey, defaultValue = false)
     val buttonsStyle by rememberEnumPreference(PlayerButtonsStyleKey, defaultValue = PlayerButtonsStyle.CLASSIC)
+    // The buttons kept outside the menu, per place (PlayerPins, issue #27): today's until chosen.
+    val pinsRaw by rememberPreference(PlayerPinsKey, "")
+    val pins = remember(pinsRaw) { PlayerPins.read(pinsRaw) }
     val queueAsButton by rememberPreference(QueueButtonKey, defaultValue = false)
+    // Back from the queue closes the whole player, and the player opens where it was left (#30).
+    val queueBackClosesPlayer by rememberPreference(QueueBackClosesPlayerKey, defaultValue = false)
+    var queueLeftOpen by rememberPreference(QueueLeftOpenKey, defaultValue = false)
 
     // Read again on a new song as well as on a new state, since the loop below only reads while the
     // player is ready. A song changed while the one before was still loading kept that song's place
@@ -409,7 +423,11 @@ fun BottomSheetPlayer(
     // A restored song shows where it stopped until it is loaded into the player, which on a cold
     // start is not until play (see PlayerConnection.restoredPosition).
     val restoredPosition by playerConnection.restoredPosition.collectAsState()
-    val shownPosition = restoredPosition ?: position
+    // Asked for, and not read here. The position moves twice a second while a song plays, and read
+    // in this body it had the whole sheet composed again each time, on every screen: the mini
+    // player, the strip of covers and every control. Only the seek bar and the mini player's line
+    // ask for it now (SeekBar, MiniPlayer).
+    val shownPosition: () -> Long = { restoredPosition ?: position }
     // The song's own length while the player has none: before a restored song is loaded, and while
     // any song is still loading, when the bar used to drop to the start and the length went blank.
     val shownDuration = if (duration == C.TIME_UNSET) {
@@ -436,10 +454,11 @@ fun BottomSheetPlayer(
      * to stretch. The preference is left alone, so a phone keeps whatever was chosen.
      */
     // LIVING is a prototype: a build that does not offer it does not draw it either, wherever the
-    // preference came from (a backup made on a build that does).
+    // preference came from (a backup made on a build that does). Battery use on Saver draws Blur in
+    // its place, about half a core less while the player is open, and keeps the setting as it is.
     val chosenPlayerBackground =
         if (playerBackground == PlayerBackgroundStyle.LIVING && !Unreleased.LIVING_BACKGROUND) DEFAULT_PLAYER_BACKGROUND
-        else playerBackground
+        else BatteryUse.playerBackground(playerBackground, LocalBatteryMode.current, DEFAULT_PLAYER_BACKGROUND)
     val effectivePlayerBackground = if (chosenPlayerBackground == PlayerBackgroundStyle.BLUR && context.supportsWideScreen()) {
         PlayerBackgroundStyle.GRADIENT
     } else {
@@ -501,7 +520,7 @@ fun BottomSheetPlayer(
     }
 
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
-    val tabMode = context.tabMode()
+    val tabMode = rememberTabMode()
     val wideScreen = context.supportsWideScreen()
 
     /**
@@ -579,8 +598,37 @@ fun BottomSheetPlayer(
         dismissedBound = queueLayout.sheetDismissed,
         expandedBound = state.expandedBound,
         collapsedBound = queueLayout.sheetCollapsed,
-        initialAnchor = 1
+        // Down, unless it was left open with Back from the queue closing the player: see below.
+        initialAnchor = queueSheetStartAnchor(queueBackClosesPlayer, queueLeftOpen)
     )
+
+    // With Back from the queue closing the player, the player opens where it was left, on the
+    // queue or not, after a restart as well as before one: where the queue's sheet was last sent
+    // is stored here and seeds it at start. Nothing is stored with the switch off, and the sheet
+    // starts down then, as it always has.
+    LaunchedEffect(queueBackClosesPlayer, queueSheetState.anchor) {
+        queueLeftOpenToStore(queueBackClosesPlayer, queueSheetState.anchor)?.let { open ->
+            if (open != queueLeftOpen) queueLeftOpen = open
+        }
+    }
+
+    // Most of the way up over the player, which is then closed to the keys.
+    val queueCovers by remember(queueSheetState) { derivedStateOf { queueSheetState.progress >= 0.5f } }
+
+    // Focus following the sheet, see playPauseFocus. Not to play and pause when the player opens
+    // on the queue, which Back from the queue closing the player leaves open in it: they are
+    // closed to the keys under the queue, which asks for focus itself as the player opens.
+    var sheetWasOpen by remember { mutableStateOf(false) }
+    LaunchedEffect(state.isExpanded, state.isCollapsed) {
+        val keys = inputModeManager.inputMode == InputMode.Keyboard
+        if (state.isExpanded) {
+            sheetWasOpen = true
+            if (keys && !queueCovers) runCatching { playPauseFocus.requestFocus() }
+        } else if (state.isCollapsed && sheetWasOpen) {
+            sheetWasOpen = false
+            if (keys) runCatching { miniPlayerFocus.requestFocus() }
+        }
+    }
 
     // Nothing may move while the queue is on screen. The service does the re-planning on a
     // background thread and has no idea what is visible, so the screen tells it.
@@ -715,8 +763,9 @@ fun BottomSheetPlayer(
                     .fillMaxSize()
                     // Publishes the artwork and gradient we already draw as a backdrop so the glass
                     // panel can refract it. Capturing here keeps this self-contained: no MainActivity
-                    // change, and the lens only ever sees pixels the player itself drew.
-                    .layerBackdrop(playerBackdrop)
+                    // change, and the lens only ever sees pixels the player itself drew. Not while the
+                    // glass is still, when nothing reads it.
+                    .then(if (glassStill) Modifier else Modifier.layerBackdrop(playerBackdrop))
             ) {
                 // "Glass" look, requested in upstream #1282. The one-off
                 // pre_rel-0.10.1-b1-glass build differed from stock only in this background: it
@@ -972,6 +1021,46 @@ fun BottomSheetPlayer(
                 )
             }
 
+            // Lyrics on and off, as the connected row's button has always done it.
+            val toggleLyrics: () -> Unit = {
+                if (!showLyrics) mediaMetadata?.id?.let { ActivityLog.note(context, database, it, SignalKind.LYRICS) }
+                showLyrics = !showLyrics
+            }
+            // A local file has no link to share, so a pinned share stays away while one plays.
+            val canShareSong = mediaMetadata?.isLocal == false
+            val shareCircle: @Composable () -> Unit = {
+                PlayerCircleButton(
+                    painter = rememberVectorPainter(Icons.Rounded.Share),
+                    contentDescription = stringResource(R.string.share),
+                    container = MaterialTheme.colorScheme.primary,
+                    content = MaterialTheme.colorScheme.onPrimary,
+                    onClick = shareSong
+                )
+            }
+            val lyricsCircle: @Composable () -> Unit = {
+                PlayerCircleButton(
+                    painter = rememberVectorPainter(Icons.Rounded.Lyrics),
+                    contentDescription = stringResource(R.string.toggle_lyrics),
+                    container = if (showLyrics) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
+                    content = if (showLyrics) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.onPrimary,
+                    onClick = toggleLyrics
+                )
+            }
+            val pinCircle: @Composable (PlayerPin) -> Unit = { pin ->
+                when (pin) {
+                    PlayerPin.SHARE -> shareCircle()
+                    PlayerPin.LYRICS -> lyricsCircle()
+                    PlayerPin.TIMER -> timerCircle()
+                    PlayerPin.LIKE -> likeCircle()
+                }
+            }
+
+            /** Classic's pins by the title, as many as fit there beside the queue's circle or without it. */
+            fun classicPins(queueCircle: Boolean): List<PlayerPin> =
+                pins[PinPlace.CLASSIC].orEmpty()
+                    .takeLast(PlayerPins.classicMost(queueCircle))
+                    .filter { it != PlayerPin.SHARE || canShareSong }
+
             val classicButtons: @Composable RowScope.() -> Unit = {
                 Log.v(TAG, "PLR-3.xa")
                 Spacer(modifier = Modifier.width(10.dp))
@@ -980,10 +1069,10 @@ fun BottomSheetPlayer(
                     queueCircle()
                     Spacer(modifier = Modifier.width(7.dp))
                 }
-                timerCircle()
-                Spacer(modifier = Modifier.width(7.dp))
-                likeCircle()
-                Spacer(modifier = Modifier.width(7.dp))
+                classicPins(queueCircle = queueLayout.queueButton).forEach { pin ->
+                    pinCircle(pin)
+                    Spacer(modifier = Modifier.width(7.dp))
+                }
                 menuCircle()
             }
 
@@ -1000,50 +1089,86 @@ fun BottomSheetPlayer(
                     verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    if (left) {
-                        queueCircle()
-                        timerCircle()
-                    } else {
-                        likeCircle()
-                        menuCircle()
+                    // The queue first and the menu last with the pins between, half on each side.
+                    val pinned = classicPins(queueCircle = true)
+                    val count = pinned.size + 2
+                    val onLeft = (count + 1) / 2
+                    for (i in 0 until count) {
+                        if ((i < onLeft) != left) continue
+                        when (i) {
+                            0 -> queueCircle()
+                            count - 1 -> menuCircle()
+                            else -> pinCircle(pinned[i - 1])
+                        }
                     }
                 }
             }
 
             // Connected: share and like beside the title as one pair, round on the outside and
             // nearly square where they meet. A local file has no link to share, so it gets like alone.
-            val connectedButtons: @Composable RowScope.() -> Unit = {
-                Log.v(TAG, "PLR-3.xa")
-                Spacer(modifier = Modifier.width(10.dp))
-
-                val canShare = mediaMetadata?.isLocal == false
+            // Connected's pair by the title: share and like as they have always been, and the timer
+            // and lyrics in share's colours while off, their own while on.
+            val titleSegment: @Composable (PlayerPin, Shape) -> Unit = { pin, shape ->
                 val liked = currentSong?.song?.liked == true
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(ConnectedButtonGap),
-                    modifier = Modifier.offset(y = 4.dp)
-                ) {
-                    if (canShare) {
-                        PlayerActionSegment(
-                            painter = rememberVectorPainter(Icons.Rounded.Share),
-                            contentDescription = stringResource(R.string.share),
-                            shape = connectedShape(first = true, last = false),
-                            container = MaterialTheme.colorScheme.secondaryContainer,
-                            content = MaterialTheme.colorScheme.onSecondaryContainer,
-                            onClick = shareSong,
-                            backdrop = buttonBackdrop,
-                            glassIntensity = glassIntensity,
-                        )
-                    }
-                    PlayerActionSegment(
+                when (pin) {
+                    PlayerPin.SHARE -> PlayerActionSegment(
+                        painter = rememberVectorPainter(Icons.Rounded.Share),
+                        contentDescription = stringResource(R.string.share),
+                        shape = shape,
+                        container = MaterialTheme.colorScheme.secondaryContainer,
+                        content = MaterialTheme.colorScheme.onSecondaryContainer,
+                        onClick = shareSong,
+                        backdrop = buttonBackdrop,
+                        glassIntensity = glassIntensity,
+                    )
+                    PlayerPin.LIKE -> PlayerActionSegment(
                         painter = painterResource(if (liked) R.drawable.favorite else R.drawable.favorite_border),
                         contentDescription = likeName(liked),
-                        shape = connectedShape(first = !canShare, last = true),
+                        shape = shape,
                         container = MaterialTheme.colorScheme.primary,
                         content = MaterialTheme.colorScheme.onPrimary,
                         onClick = playerConnection::toggleLike,
                         backdrop = buttonBackdrop,
                         glassIntensity = glassIntensity,
                     )
+                    PlayerPin.TIMER -> PlayerActionSegment(
+                        painter = rememberVectorPainter(Icons.Rounded.Timer),
+                        contentDescription = stringResource(R.string.sleep_timer),
+                        shape = shape,
+                        container = if (sleepTimerOn) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.secondaryContainer,
+                        content = if (sleepTimerOn) MaterialTheme.colorScheme.onTertiary else MaterialTheme.colorScheme.onSecondaryContainer,
+                        onClick = {
+                            if (sleepTimerOn) playerConnection.service.sleepTimer.clear()
+                            else showSleepTimerDialog = true
+                        },
+                        backdrop = buttonBackdrop,
+                        glassIntensity = glassIntensity,
+                    )
+                    PlayerPin.LYRICS -> PlayerActionSegment(
+                        painter = rememberVectorPainter(Icons.Rounded.Lyrics),
+                        contentDescription = stringResource(R.string.toggle_lyrics),
+                        shape = shape,
+                        container = if (showLyrics) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer,
+                        content = if (showLyrics) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer,
+                        onClick = toggleLyrics,
+                        backdrop = buttonBackdrop,
+                        glassIntensity = glassIntensity,
+                    )
+                }
+            }
+
+            val connectedButtons: @Composable RowScope.() -> Unit = {
+                Log.v(TAG, "PLR-3.xa")
+                Spacer(modifier = Modifier.width(10.dp))
+
+                val titlePins = pins[PinPlace.CONNECTED_TITLE].orEmpty().filter { it != PlayerPin.SHARE || canShareSong }
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(ConnectedButtonGap),
+                    modifier = Modifier.offset(y = 4.dp)
+                ) {
+                    titlePins.forEachIndexed { i, pin ->
+                        titleSegment(pin, connectedShape(first = i == 0, last = i == titlePins.lastIndex))
+                    }
                 }
             }
 
@@ -1083,10 +1208,12 @@ fun BottomSheetPlayer(
             // has it, so there it is simply one of four, all centred together.
             val quickActions: @Composable () -> Unit = {
                 val inactive = onBackgroundColor.copy(alpha = 0.12f)
+                val rowPins = pins[PinPlace.CONNECTED_ROW].orEmpty().filter { it != PlayerPin.SHARE || canShareSong }
                 val actionWidth = if (compactPlayer) {
                     compactQuickActionWidth(
                         rowWidth = windowWidth() - hPadding * 2,
-                        count = 4,
+                        // The queue, the pins and the menu.
+                        count = rowPins.size + 2,
                         gap = ConnectedButtonGap,
                         preferred = QuickActionWidth,
                     )
@@ -1115,41 +1242,68 @@ fun BottomSheetPlayer(
                         .padding(top = 16.dp)
                 ) {
                     if (compactPlayer) queueSegment()
-                    PlayerActionSegment(
-                        painter = rememberVectorPainter(Icons.Rounded.Lyrics),
-                        contentDescription = stringResource(R.string.toggle_lyrics),
-                        shape = connectedShape(first = !queueLayout.queueButton, last = false),
-                        container = if (showLyrics) MaterialTheme.colorScheme.primary else inactive,
-                        filled = showLyrics,
-                        content = if (showLyrics) MaterialTheme.colorScheme.onPrimary else onBackgroundColor,
-                        width = actionWidth,
-                        backdrop = buttonBackdrop,
-                        glassIntensity = glassIntensity,
-                        onClick = {
-                            if (!showLyrics) mediaMetadata?.id?.let { ActivityLog.note(context, database, it, SignalKind.LYRICS) }
-                            showLyrics = !showLyrics
-                        },
-                    )
-                    PlayerActionSegment(
-                        painter = rememberVectorPainter(Icons.Rounded.Timer),
-                        contentDescription = stringResource(R.string.sleep_timer),
-                        shape = connectedShape(first = false, last = false),
-                        container = if (sleepTimerOn) MaterialTheme.colorScheme.tertiary else inactive,
-                        filled = sleepTimerOn,
-                        content = if (sleepTimerOn) MaterialTheme.colorScheme.onTertiary else onBackgroundColor,
-                        width = actionWidth,
-                        label = if (sleepTimerOn && sleepTimerLeft > 0) makeTimeString(sleepTimerLeft) else null,
-                        backdrop = buttonBackdrop,
-                        glassIntensity = glassIntensity,
-                        onClick = {
-                            if (sleepTimerOn) playerConnection.service.sleepTimer.clear()
-                            else showSleepTimerDialog = true
-                        },
-                    )
+                    rowPins.forEachIndexed { i, pin ->
+                        val shape = connectedShape(first = i == 0 && !queueLayout.queueButton, last = false)
+                        val liked = currentSong?.song?.liked == true
+                        when (pin) {
+                            PlayerPin.LYRICS -> PlayerActionSegment(
+                                painter = rememberVectorPainter(Icons.Rounded.Lyrics),
+                                contentDescription = stringResource(R.string.toggle_lyrics),
+                                shape = shape,
+                                container = if (showLyrics) MaterialTheme.colorScheme.primary else inactive,
+                                filled = showLyrics,
+                                content = if (showLyrics) MaterialTheme.colorScheme.onPrimary else onBackgroundColor,
+                                width = actionWidth,
+                                backdrop = buttonBackdrop,
+                                glassIntensity = glassIntensity,
+                                onClick = toggleLyrics,
+                            )
+                            PlayerPin.TIMER -> PlayerActionSegment(
+                                painter = rememberVectorPainter(Icons.Rounded.Timer),
+                                contentDescription = stringResource(R.string.sleep_timer),
+                                shape = shape,
+                                container = if (sleepTimerOn) MaterialTheme.colorScheme.tertiary else inactive,
+                                filled = sleepTimerOn,
+                                content = if (sleepTimerOn) MaterialTheme.colorScheme.onTertiary else onBackgroundColor,
+                                width = actionWidth,
+                                label = if (sleepTimerOn && sleepTimerLeft > 0) makeTimeString(sleepTimerLeft) else null,
+                                backdrop = buttonBackdrop,
+                                glassIntensity = glassIntensity,
+                                onClick = {
+                                    if (sleepTimerOn) playerConnection.service.sleepTimer.clear()
+                                    else showSleepTimerDialog = true
+                                },
+                            )
+                            PlayerPin.SHARE -> PlayerActionSegment(
+                                painter = rememberVectorPainter(Icons.Rounded.Share),
+                                contentDescription = stringResource(R.string.share),
+                                shape = shape,
+                                container = inactive,
+                                filled = false,
+                                content = onBackgroundColor,
+                                width = actionWidth,
+                                backdrop = buttonBackdrop,
+                                glassIntensity = glassIntensity,
+                                onClick = shareSong,
+                            )
+                            PlayerPin.LIKE -> PlayerActionSegment(
+                                painter = painterResource(if (liked) R.drawable.favorite else R.drawable.favorite_border),
+                                contentDescription = likeName(liked),
+                                shape = shape,
+                                container = if (liked) MaterialTheme.colorScheme.primary else inactive,
+                                filled = liked,
+                                content = if (liked) MaterialTheme.colorScheme.onPrimary else onBackgroundColor,
+                                width = actionWidth,
+                                backdrop = buttonBackdrop,
+                                glassIntensity = glassIntensity,
+                                onClick = playerConnection::toggleLike,
+                            )
+                        }
+                    }
                     PlayerActionSegment(
                         painter = rememberVectorPainter(Icons.Rounded.MoreVert),
                         contentDescription = stringResource(R.string.options),
-                        shape = connectedShape(first = false, last = true),
+                        shape = connectedShape(first = rowPins.isEmpty() && !queueLayout.queueButton, last = true),
                         container = inactive,
                         filled = false,
                         content = onBackgroundColor,
@@ -1263,16 +1417,16 @@ fun BottomSheetPlayer(
                 }
 
                 PlaybackOrder {
-                    val seekInteraction = remember { MutableInteractionSource() }
-                    Slider(
-                        value = (sliderPosition ?: shownPosition).toFloat(),
-                        valueRange = 0f..(if (shownDuration == C.TIME_UNSET) 0f else shownDuration.toFloat()),
-                        onValueChange = {
-                            sliderPosition = it.toLong()
+                    SeekBar(
+                        position = shownPosition,
+                        duration = shownDuration,
+                        sliderPosition = { sliderPosition },
+                        onSlide = {
+                            sliderPosition = it
                             // slider too granular for this haptic to feel right
     //                    haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
                         },
-                        onValueChangeFinished = {
+                        onSlideDone = {
                             sliderPosition?.let {
                                 if (playerConnection.player.currentMediaItem == null) {
                                     // Nothing is loaded yet, so there is nothing to seek: move where
@@ -1290,74 +1444,33 @@ fun BottomSheetPlayer(
                             sliderPosition = null
                             haptic.performHapticFeedback(HapticFeedbackType.Confirm)
                         },
-                        // Material 3 Expressive: a bar thumb standing clear of a thick track, with the
-                        // stop dot at the end, the same slider the backup settings already use.
-                        interactionSource = seekInteraction,
-                        thumb = {
-                            SliderDefaults.Thumb(
-                                interactionSource = seekInteraction,
-                                thumbSize = DpSize(4.dp, 36.dp),
-                            )
-                        },
-                        track = { sliderState ->
-                            SliderDefaults.Track(
-                                sliderState = sliderState,
-                                modifier = Modifier.height(14.dp),
-                                thumbTrackGapSize = 5.dp,
-                                trackInsideCornerSize = 4.dp,
-                            )
-                        },
-                        modifier = Modifier
-                            .padding(horizontal = hPadding)
-                            // From the keys, left and right seek in steps of a few seconds, which a
-                            // whole song's worth of one percent nudges was not. Up and down move on
-                            // rather than nudging the slider, which would otherwise hold on to focus.
-                            .onPreviewKeyEvent { event ->
-                                val forward = when (event.key) {
-                                    Key.DirectionRight -> true
-                                    Key.DirectionLeft -> false
-                                    Key.DirectionUp, Key.DirectionDown -> {
-                                        if (event.type == KeyEventType.KeyDown) {
-                                            focusManager.moveFocus(
-                                                if (event.key == Key.DirectionUp) FocusDirection.Up else FocusDirection.Down
-                                            )
-                                        }
-                                        return@onPreviewKeyEvent true
+                        // From the keys, left and right seek in steps of a few seconds, which a
+                        // whole song's worth of one percent nudges was not. Up and down move on
+                        // rather than nudging the slider, which would otherwise hold on to focus.
+                        onKey = onKey@{ event ->
+                            val forward = when (event.key) {
+                                Key.DirectionRight -> true
+                                Key.DirectionLeft -> false
+                                Key.DirectionUp, Key.DirectionDown -> {
+                                    if (event.type == KeyEventType.KeyDown) {
+                                        focusManager.moveFocus(
+                                            if (event.key == Key.DirectionUp) FocusDirection.Up else FocusDirection.Down
+                                        )
                                     }
-                                    else -> return@onPreviewKeyEvent false
+                                    return@onKey true
                                 }
-                                if (event.type == KeyEventType.KeyDown && playerConnection.player.currentMediaItem != null) {
-                                    val target = dpadSeekTarget(playerConnection.player.currentPosition, shownDuration, forward)
-                                    playerConnection.player.seekTo(target)
-                                    position = target
-                                }
-                                true
+                                else -> return@onKey false
                             }
+                            if (event.type == KeyEventType.KeyDown && playerConnection.player.currentMediaItem != null) {
+                                val target = dpadSeekTarget(playerConnection.player.currentPosition, shownDuration, forward)
+                                playerConnection.player.seekTo(target)
+                                position = target
+                            }
+                            true
+                        },
+                        gutter = hPadding,
+                        color = onBackgroundColor,
                     )
-
-                    Row(
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = hPadding + 4.dp)
-                    ) {
-                        Text(
-                            text = makeTimeString(sliderPosition ?: shownPosition),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = onBackgroundColor,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-
-                        Text(
-                            text = if (shownDuration != C.TIME_UNSET) makeTimeString(shownDuration) else "",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = onBackgroundColor,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
 
                     Spacer(Modifier.height(controlSizes.gapAboveTransport))
 
@@ -1367,7 +1480,10 @@ fun BottomSheetPlayer(
                             .fillMaxWidth()
                             .padding(horizontal = hPadding)
                         .then(
-                            if (liquidGlass && groupedControls) {
+                            if (liquidGlass && groupedControls && glassStill) {
+                                // The same bar, still: its rim and shadow, and a light wash where the lens was.
+                                Modifier.stillGlass { RoundedCornerShape(32.dp) }.background(onBackgroundColor.copy(alpha = 0.10f), RoundedCornerShape(32.dp))
+                            } else if (liquidGlass && groupedControls) {
                                 Modifier.drawBackdrop(
                                     backdrop = playerBackdrop,
                                     shape = { RoundedCornerShape(32.dp) },
@@ -1848,24 +1964,28 @@ fun BottomSheetPlayer(
             }
 
         }
-        // Closed to the keys while the queue is open over it. Focus goes into the queue as it
-        // opens and back to play and pause as it closes, since what had it is gone each time and
-        // Compose would look for a new start in the closed part first.
-        val queueCovers by remember(queueSheetState) { derivedStateOf { queueSheetState.progress >= 0.5f } }
+        // Closed to the keys while the queue is open over it (queueCovers). Focus goes into the
+        // queue as it opens and back to play and pause as it closes, since what had it is gone each
+        // time and Compose would look for a new start in the closed part first.
+        //
+        // Into the queue only once the player is open as well. A queue left open in a closed player
+        // (Back from the queue closing the player) is composed, unseen, whenever the player is not
+        // at rest as the mini player: on its way there, or swiped away. It would take the keys'
+        // focus from the screen under it. It goes in as the player opens on it.
         val queueFocus = remember { FocusRequester() }
         var queueWasOpen by remember { mutableStateOf(false) }
-        LaunchedEffect(queueSheetState.isExpanded, queueSheetState.isCollapsed) {
+        LaunchedEffect(queueSheetState.isExpanded, queueSheetState.isCollapsed, state.isExpanded) {
             val keys = inputModeManager.inputMode == InputMode.Keyboard
             if (queueSheetState.isExpanded) {
                 queueWasOpen = true
-                if (keys) runCatching { queueFocus.requestFocus() }
+                if (keys && state.isExpanded) runCatching { queueFocus.requestFocus() }
             } else if (queueSheetState.isCollapsed && queueWasOpen) {
                 queueWasOpen = false
                 if (keys && state.isExpanded) runCatching { playPauseFocus.requestFocus() }
             }
         }
         Box(Modifier.fillMaxSize().blockFocusWhen(queueCovers)) {
-            lol()
+            CompositionLocalProvider(LocalQueueSheet provides queueSheetState) { lol() }
         }
 
         QueueSheet(
@@ -1882,6 +2002,7 @@ fun BottomSheetPlayer(
             compact = queueLayout.compactSheet,
             backdrop = if (liquidGlass && Unreleased.GLASS_QUEUE) playerBackdrop else null,
             glassIntensity = glassIntensity,
+            backClosesPlayer = queueBack(queueBackClosesPlayer, compact = queueLayout.compactSheet, tabletPane = tabletTwoPane) == QueueBack.CLOSE_PLAYER,
         )
 
         // Where the music is coming out, on a phone on its side, where there is no row for it
@@ -2152,6 +2273,93 @@ private class FadeWhenClippedNode(var length: Dp) : Modifier.Node(), LayoutModif
     }
 }
 
+/**
+ * The seek bar and the two times under it, as the player has always drawn them: laid straight
+ * into the column they stand in, so nothing about them moves or changes size.
+ *
+ * Here because they are what changes twice a second while a song plays. [position] and
+ * [sliderPosition] are read here and nowhere above, so that each tick composes this alone, and
+ * not the whole sheet round it as it did when the player read the position itself.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SeekBar(
+    position: () -> Long,
+    duration: Long,
+    sliderPosition: () -> Long?,
+    onSlide: (Long) -> Unit,
+    onSlideDone: () -> Unit,
+    onKey: (KeyEvent) -> Boolean,
+    gutter: Dp,
+    color: Color,
+) {
+    val shown = sliderPosition() ?: position()
+    val seekInteraction = remember { MutableInteractionSource() }
+    Slider(
+        value = shown.toFloat(),
+        valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
+        onValueChange = { onSlide(it.toLong()) },
+        onValueChangeFinished = onSlideDone,
+        // Material 3 Expressive: a bar thumb standing clear of a thick track, with the
+        // stop dot at the end, the same slider the backup settings already use.
+        interactionSource = seekInteraction,
+        thumb = {
+            SliderDefaults.Thumb(
+                interactionSource = seekInteraction,
+                thumbSize = DpSize(4.dp, 36.dp),
+            )
+        },
+        track = { sliderState ->
+            SliderDefaults.Track(
+                sliderState = sliderState,
+                modifier = Modifier.height(14.dp),
+                thumbTrackGapSize = 5.dp,
+                trackInsideCornerSize = 4.dp,
+            )
+        },
+        modifier = Modifier
+            .padding(horizontal = gutter)
+            .onPreviewKeyEvent(onKey)
+    )
+
+    Row(
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = gutter + 4.dp)
+    ) {
+        Text(
+            text = makeTimeString(shown),
+            style = MaterialTheme.typography.labelMedium,
+            color = color,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+
+        Text(
+            text = if (duration != C.TIME_UNSET) makeTimeString(duration) else "",
+            style = MaterialTheme.typography.labelMedium,
+            color = color,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+/**
+ * Whether the player lays itself out for a tablet on its side, as Context.tabMode says: read from
+ * the setting as it changes and from the configuration the screen is composed with. The player
+ * used to ask the setting each time it was composed, which it no longer is twice a second, and a
+ * change of the setting would then have waited for something else to compose it.
+ */
+@Composable
+internal fun rememberTabMode(): Boolean {
+    val configuration = LocalConfiguration.current
+    val forced by rememberNullablePreference(TabletUiKey)
+    return tabMode(configuration.smallestScreenWidthDp, configuration.orientation == Configuration.ORIENTATION_LANDSCAPE, forced)
+}
+
 /** The classic player button: a 36dp circle, sitting a little low to line up with the title. */
 @Composable
 private fun PlayerCircleButton(
@@ -2207,8 +2415,9 @@ private fun PlayerActionSegment(
                 // size the rim made the buttons read as empty outlines. So this is only the blur and
                 // vibrancy, clipped to the shape, under the button's colour: a filled button keeps
                 // most of its fill, an idle one gets a wash.
+                // Still on Saver (LocalGlassStill): the same fill and wash, nothing behind them blurred.
                 if (backdrop != null) Modifier
-                    .drawBackdrop(
+                    .then(if (LocalGlassStill.current) Modifier else Modifier.drawBackdrop(
                         backdrop = backdrop,
                         shape = { shape },
                         effects = {
@@ -2218,7 +2427,7 @@ private fun PlayerActionSegment(
                         // The library's default highlight and shadow are the rim.
                         highlight = { null },
                         shadow = { null },
-                    )
+                    ))
                     .background(
                         if (filled) container.copy(alpha = lerp(0.95f, 0.8f, glassIntensity.coerceIn(0f, 1f)))
                         else content.copy(alpha = 0.16f)

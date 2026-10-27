@@ -9,7 +9,6 @@
 
 package com.dd3boh.outertune
 
-import kotlinx.coroutines.flow.first
 import com.dd3boh.outertune.models.ContentFilter
 import com.dd3boh.outertune.utils.BuiltInKeys
 import android.webkit.CookieManager
@@ -57,6 +56,7 @@ import com.dd3boh.outertune.constants.UseLoginForBrowse
 import com.dd3boh.outertune.constants.VisitorDataKey
 import com.dd3boh.outertune.extensions.toEnum
 import com.dd3boh.outertune.extensions.toInetSocketAddress
+import com.dd3boh.outertune.playback.PhoneBatterySaver
 import com.dd3boh.outertune.playback.PlayerLogger
 import com.dd3boh.outertune.playback.ProximityProbe
 import com.dd3boh.outertune.playback.StandInMemory
@@ -104,6 +104,8 @@ class App : Application(), SingletonImageLoader.Factory {
         if (Unreleased.PREVIOUS_LOGS) GlobalScope.launch(Dispatchers.IO) { RunLogs.start(this@App) }
         // Before anything can read a built-in key: until it has run they all read as empty.
         BuiltInKeys.verify(this)
+        // Before anything reads Battery use: the phone's battery saver can turn Saver on (PhoneBatterySaver).
+        PhoneBatterySaver.start(this)
 
         if (BuildConfig.DEBUG) {
             System.setProperty("kotlinx.coroutines.debug", "on")
@@ -117,6 +119,9 @@ class App : Application(), SingletonImageLoader.Factory {
         // Every request that changes the account asks this first, so "Read only" and signed out
         // hold even where a call site forgot to check.
         YouTube.accountWritesAllowed = { mayPushToYouTube() }
+        // YouTube's player script is kept here between launches, so the first song of a new
+        // process does not wait for it to be fetched again: see NewPipe.kt.
+        YouTube.newPipeCacheDir = cacheDir.resolve("newpipe-http")
 
         val locale = Locale.getDefault()
         val languageTag = locale.toLanguageTag().replace("-Hant", "") // replace zh-Hant-* to zh-*
@@ -192,7 +197,7 @@ class App : Application(), SingletonImageLoader.Factory {
         }
         // What the switches under Library and content hide, read once here so that a queue started
         // straight away already follows them, then followed. See ContentFilter.
-        ContentFilter.current = ContentFilter.of(runBlocking(Dispatchers.IO) { dataStore.data.first() })
+        ContentFilter.current = ContentFilter.of(dataStore.current)
         GlobalScope.launch {
             dataStore.data
                 .map { ContentFilter.of(it) }
@@ -275,7 +280,7 @@ class App : Application(), SingletonImageLoader.Factory {
             // already pass allowHardware(false) on their own request, and must keep doing so.
             //   MainActivity.kt  extractThemeSource
             //   Player.kt        extractGradientColors
-            //   CoilBitmapLoader loadBitmap, whose output is parcelled to the media session
+            //   SessionBitmapLoader, whose output is parcelled to the media session
             .memoryCache {
                 MemoryCache.Builder()
                     .maxSizePercent(context, 0.3)

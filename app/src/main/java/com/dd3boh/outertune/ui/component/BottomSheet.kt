@@ -18,6 +18,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.VectorConverter
+import androidx.compose.animation.core.snap
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.DraggableState
@@ -104,6 +105,16 @@ fun BottomSheet(
      * fades.
      */
     collapsedSpan: Pair<Dp, Dp>? = null,
+    /**
+     * The sheet a Back moves: this one, unless it is told otherwise. The queue's sheet is given the
+     * player's when Back from the queue closes the player (issue #30), and then a Back closes the
+     * whole player in one step and leaves the queue open in it.
+     *
+     * The handler stays this sheet's. The queue's is added as the player opens, so it still goes
+     * before any screen's under the player, and a selection or a search in the queue, added later
+     * again, goes before it. It stands aside while either sheet is down or on its way down.
+     */
+    backMoves: BottomSheetState = state,
     collapsedContent: @Composable BoxScope.() -> Unit,
     collapsedBackgroundColor: Color = Color.Transparent,
     content: @Composable BoxScope.() -> Unit,
@@ -174,7 +185,10 @@ fun BottomSheet(
                     },
                     onDragCancel = {
                         velocityTracker.resetTracking()
-                        state.snapTo(state.collapsedBound)
+                        // At once, as a snap, and recorded as collapsed where it lands. A bare
+                        // snap left its anchor where the drag began: a queue put down this way
+                        // was still kept as open, and came back open after a restart.
+                        state.collapse(snap())
                     },
                     onDragEnd = {
                         val velocity = -velocityTracker.calculateVelocity().y
@@ -199,28 +213,32 @@ fun BottomSheet(
 
         // A sheet already on its way down leaves further back presses to whatever is under it (see
         // isCollapsing): pressing back quickly closes the queue and then the player, instead of
-        // restarting the queue's fall from a standstill with every press.
+        // restarting the queue's fall from a standstill with every press. A Back that moves
+        // another sheet (backMoves) waits on that one as well.
+        val moves = backMoves
+        val backOn = state.takesBack && (moves === state || moves.takesBack)
         if (!backAnimations) {
             // What it did before: no preview, the sheet shuts when the finger leaves the glass.
-            if (!state.isCollapsed && !state.isDismissed && !state.isCollapsing) {
-                BackHandler(onBack = state::collapseSoft)
+            if (backOn) {
+                BackHandler(onBack = moves::collapseSoft)
             }
-        } else PredictiveBackHandler(enabled = !state.isCollapsed && !state.isDismissed && !state.isCollapsing) { progress ->
-            val from = state.value
+        } else PredictiveBackHandler(enabled = backOn) { progress ->
+            val from = moves.value
+            val to = backPreviewEnd(moves.collapsedBound, movesAnother = moves !== state)
             try {
                 progress.collect { event ->
                     // The system hands over a linear 0..1. Used raw it feels dead to start with,
                     // since the first millimetres of the swipe move a full height sheet by almost
                     // nothing. Decelerating gives the sheet an immediate answer to the finger.
                     val eased = 1f - (1f - event.progress).pow(2)
-                    state.seekTo(lerp(from, state.collapsedBound, eased))
+                    moves.seekTo(lerp(from, to, eased))
                 }
-                state.collapseSoft()
+                moves.collapseSoft()
             } catch (cancelled: CancellationException) {
                 // Not rethrown, following the platform's own sample: this is the gesture being
                 // abandoned rather than a failure, and expandSoft launches on the sheet's scope
                 // rather than this one, so the sheet still animates home after the cancellation.
-                state.expandSoft()
+                moves.expandSoft()
             }
         }
 
@@ -288,11 +306,31 @@ fun BottomSheet(
 }
 
 /**
+ * How far down a Back's preview takes the sheet it moves while the finger is still on the glass:
+ * to its collapsed height, or just short of it when the Back is another sheet's ([BottomSheet]'s
+ * backMoves). That is the queue's Back moving the player, and the queue and its handler are the
+ * player's content, which goes at the collapsed height: the gesture would go with them, be called
+ * off, and spring the player open again. Letting go closes it the rest of the way.
+ */
+internal fun backPreviewEnd(collapsedBound: Dp, movesAnother: Boolean): Dp =
+    if (movesAnother) collapsedBound + BackPreviewShortBy else collapsedBound
+
+/** See [backPreviewEnd]. Any height above the collapsed one keeps the content, and one dp does not show. */
+internal val BackPreviewShortBy = 1.dp
+
+/**
  * The player's sheet, for a screen under it that has a back of its own to give way with: while
  * the sheet is open, back is the sheet's (SettingsTwoPane's pages further in). Null where there
  * is no player sheet.
  */
 val LocalPlayerSheet = staticCompositionLocalOf<BottomSheetState?> { null }
+
+/**
+ * The queue's sheet, for what lies under it in the player and has a Back of its own (the lyrics'
+ * timing bar and picking): while the queue takes Back, Back is the queue's. Null where there is
+ * no queue sheet.
+ */
+val LocalQueueSheet = staticCompositionLocalOf<BottomSheetState?> { null }
 
 @Stable
 class BottomSheetState(
@@ -301,6 +339,7 @@ class BottomSheetState(
     private val animatable: Animatable<Dp, AnimationVector1D>,
     private val onAnchorChanged: (Int) -> Unit,
     val collapsedBound: Dp,
+    private val currentAnchor: () -> Int,
 ) : DraggableState by draggableState {
     val dismissedBound: Dp
         get() = animatable.lowerBound!!
@@ -330,6 +369,18 @@ class BottomSheetState(
     val isCollapsing by derivedStateOf {
         animatable.isRunning && animatable.targetValue == collapsedBound
     }
+
+    /** Open, and not on its way down: a sheet that takes a Back (see isCollapsing). */
+    val takesBack: Boolean
+        get() = !isCollapsed && !isDismissed && !isCollapsing
+
+    /**
+     * Where the sheet was last sent: [expandedAnchor], [collapsedAnchor] or [dismissedAnchor]. Set
+     * as it sets off, so a sheet on its way counts where it is going, and one held under the finger
+     * or in a Back's preview still counts where it was.
+     */
+    val anchor: Int
+        get() = currentAnchor()
 
     val progress by derivedStateOf {
         1f - (animatable.upperBound!! - animatable.value) / (animatable.upperBound!! - collapsedBound)
@@ -480,6 +531,133 @@ class BottomSheetState(
         }
 }
 
+/**
+ * [BottomSheetState.preUpPostDownNestedScrollConnection] with a buffer at the top of the list, for
+ * the queue (in ui/player/Queue.kt, QueueOvershootBuffer says how big and rememberQueueSheetScroll
+ * why only the queue).
+ *
+ * The plain connection gives a list's overscroll to its sheet at once. The moment the list reaches
+ * its top during a gesture, the rest of that finger movement drags the sheet down, and the fling
+ * that ends the gesture throws the sheet with the list's speed. A quick scroll up through the queue
+ * that ran on past the top started to close it, and a flick closed it outright.
+ *
+ * Here a gesture in which the list itself scrolled first leaves the sheet where it is until the
+ * finger has gone [bufferPx] further past the top, and the sheet follows only what goes beyond. A
+ * fling at the end of such a gesture leaves the sheet open unless it had already moved: the fling
+ * stays the list's, which at its top only bounces. A gesture that starts with the list already at
+ * its top has [topBufferPx] of buffer, none unless asked for, so by default a pull down from the
+ * top of the list moves the sheet at once, as it always has. And a fling throws the sheet only
+ * once the sheet itself has come [flingAfterPx] (by default as soon as it moves): short of that,
+ * letting go puts it at the nearer anchor, as after a slow drag.
+ *
+ * A gesture ends with its fling, which a finger leaving the glass always comes to (at no speed
+ * after a slow drag), and the next scroll starts a new one. It holds the state of the gesture it
+ * is in, so each list needs its own.
+ */
+class BufferedSheetScrollConnection(
+    private val sheet: BottomSheetState,
+    private val bufferPx: Float,
+    private val topBufferPx: Float = 0f,
+    private val flingAfterPx: Float = 0f,
+) : NestedScrollConnection {
+    private var inGesture = false
+
+    /** The list moved under the finger earlier in this gesture: running into its top then has the buffer. */
+    private var listScrolled = false
+
+    /** The sheet moved in this gesture: whatever happens to the fling, it goes back to an anchor. */
+    private var sheetMoved = false
+
+    /** The finger is past the list's top: by [pull] pixels, of which the sheet ignores the first [buffer]. */
+    private var pastTop = false
+    private var pull = 0f
+    private var buffer = 0f
+
+    /** How far the sheet has been taken down: what the pull has gone beyond the buffer. */
+    private val sheetPull: Float
+        get() = (pull - buffer).coerceAtLeast(0f)
+
+    override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+        // Only the finger moves the sheet. A list's own fling running into its top never has.
+        if (source != NestedScrollSource.UserInput) return Offset.Zero
+        if (!inGesture) {
+            inGesture = true
+            listScrolled = false
+            sheetMoved = false
+            pastTop = false
+            pull = 0f
+        }
+        if (!pastTop || available.y >= 0f) return Offset.Zero
+
+        // The finger going back up from past the top: it brings the sheet back up first, then
+        // winds the buffer back, and only what is left scrolls the list. The list moves again
+        // once the finger is back where the list met its top.
+        if (sheet.isExpanded) pull = pull.coerceAtMost(buffer) // home, and it can go no higher
+        var up = -available.y
+        val toSheet = up.coerceAtMost(sheetPull)
+        if (toSheet > 0f) {
+            sheet.dispatchRawDelta(-toSheet)
+            pull -= toSheet
+            up -= toSheet
+        }
+        val toBuffer = up.coerceAtMost(pull)
+        pull -= toBuffer
+        up -= toBuffer
+        if (pull <= 0f) {
+            pastTop = false
+            pull = 0f
+        }
+        return Offset(0f, available.y + up)
+    }
+
+    override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+        if (source != NestedScrollSource.UserInput) return Offset.Zero
+        if (consumed.y != 0f) listScrolled = true
+        if (available.y <= 0f) return Offset.Zero
+        if (!pastTop) {
+            // The list is at its top and the finger goes on down.
+            pastTop = true
+            pull = 0f
+            buffer = if (listScrolled) bufferPx else topBufferPx
+        }
+        val before = sheetPull
+        pull += available.y
+        val down = sheetPull - before
+        if (down > 0f) {
+            sheet.dispatchRawDelta(down)
+            sheetMoved = true
+        }
+        // All of it, the part the buffer swallows as well. Left over, it would stretch the list's
+        // edge, and a stretched edge takes the first of the finger's way back up for itself before
+        // this sees any of it: the count of the buffer would come out wrong, and a sheet that had
+        // come down would wait for the edge before going back up.
+        return available
+    }
+
+    override suspend fun onPreFling(available: Velocity): Velocity {
+        inGesture = false
+        if (pastTop && sheetPull > 0f) {
+            // Down past the buffer, or pulled from the top: the fling is the sheet's, as before,
+            // once the sheet has come far enough. A shorter pull goes where it is nearer to.
+            sheet.performFling(if (sheetPull >= flingAfterPx) -available.y else 0f, null)
+            return available
+        }
+        // Taken down and brought back up within this gesture: put home without the fling.
+        if (sheetMoved) sheet.performFling(0f, null)
+        return Velocity.Zero
+    }
+
+    override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+        // The gesture already ended with onPreFling. Unless a new one began while the list was
+        // still flinging, whose state this is not to touch.
+        if (!inGesture) {
+            pastTop = false
+            pull = 0f
+        }
+        return Velocity.Zero
+    }
+}
+
 const val expandedAnchor = 2
 const val collapsedAnchor = 1
 const val dismissedAnchor = 0
@@ -521,6 +699,7 @@ fun rememberBottomSheetState(
                 }
             },
             onAnchorChanged = { previousAnchor = it },
+            currentAnchor = { previousAnchor },
             coroutineScope = coroutineScope,
             animatable = animatable,
             collapsedBound = collapsedBound

@@ -119,6 +119,7 @@ fun PrivacySettings(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 SwitchPreference(
+                    modifier = Modifier.settingRow(R.string.enable_proxy),
                     title = { Text(stringResource(R.string.enable_proxy)) },
                     description = stringResource(R.string.enable_proxy_description),
                     icon = { Icon(Icons.Rounded.Lan, null) },
@@ -129,6 +130,7 @@ fun PrivacySettings(
                 AnimatedVisibility(proxyEnabled) {
                     Column {
                         ListPreference(
+                            modifier = Modifier.settingRow(R.string.proxy_type),
                             title = { Text(stringResource(R.string.proxy_type)) },
                             selectedValue = proxyType,
                             values = listOf(Proxy.Type.HTTP, Proxy.Type.SOCKS),
@@ -136,6 +138,7 @@ fun PrivacySettings(
                             onValueSelected = onProxyTypeChange
                         )
                         EditTextPreference(
+                            modifier = Modifier.settingRow(R.string.proxy_url),
                             title = { Text(stringResource(R.string.proxy_url)) },
                             value = proxyUrl,
                             onValueChange = onProxyUrlChange

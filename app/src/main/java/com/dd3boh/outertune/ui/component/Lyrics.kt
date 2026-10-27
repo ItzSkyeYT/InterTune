@@ -10,14 +10,12 @@
 package com.dd3boh.outertune.ui.component
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.res.Configuration
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animate
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -60,6 +58,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
@@ -100,6 +99,7 @@ import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.fastAny
+import androidx.datastore.preferences.core.edit
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -109,18 +109,21 @@ import com.dd3boh.outertune.LocalMenuState
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.LyricClickable
+import com.dd3boh.outertune.constants.LyricAutoScrollKey
 import com.dd3boh.outertune.constants.LyricFontSizeKey
 import com.dd3boh.outertune.constants.LyricKaraokeEnable
 import com.dd3boh.outertune.constants.LyricLatinKey
 import com.dd3boh.outertune.constants.LyricUpdateSpeed
 import com.dd3boh.outertune.constants.LyricsPosition
 import com.dd3boh.outertune.constants.LyricsTextPositionKey
+import com.dd3boh.outertune.constants.LyricsTimingKey
 import com.dd3boh.outertune.constants.ShowLyricsKey
 import com.dd3boh.outertune.constants.Speed
 import com.dd3boh.outertune.db.entities.LyricsEntity
 import com.dd3boh.outertune.db.entities.LyricsEntity.Companion.uninitializedLyric
 import com.dd3boh.outertune.extensions.isPowerSaver
 import com.dd3boh.outertune.lyrics.LyricsShare
+import com.dd3boh.outertune.lyrics.LyricsTiming
 import com.dd3boh.outertune.lyrics.LyricsLatin
 import com.dd3boh.outertune.lyrics.latinTools
 import com.dd3boh.outertune.lyrics.LyricsVideoPlan
@@ -130,9 +133,11 @@ import com.dd3boh.outertune.ui.component.shimmer.ShimmerHost
 import com.dd3boh.outertune.ui.component.shimmer.TextPlaceholder
 import com.dd3boh.outertune.ui.menu.LyricsMenu
 import com.dd3boh.outertune.ui.utils.fadingEdge
+import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
@@ -143,6 +148,15 @@ import org.akanework.gramophone.logic.utils.SemanticLyrics
 import org.akanework.gramophone.logic.utils.SemanticLyrics.LyricLine
 import java.io.File
 import kotlin.time.Duration.Companion.seconds
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.unit.Density
+import androidx.media3.common.Player
+import com.dd3boh.outertune.lyrics.LyricsClock
+import com.dd3boh.outertune.lyrics.LyricsMoments
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.withTimeoutOrNull
 
 @SuppressLint("UnusedBoxWithConstraintsScope")
 @Composable
@@ -176,6 +190,7 @@ fun Lyrics(
     val lyricsFontSize by rememberPreference(LyricFontSizeKey, 20)
 
     val lyricsClickable by rememberPreference(LyricClickable, true)
+    val lyricsAutoScroll by rememberPreference(LyricAutoScrollKey, true)
     val lyricsFancy by rememberPreference(LyricKaraokeEnable, false)
     val lyricsUpdateSpeed by rememberEnumPreference(LyricUpdateSpeed, Speed.MEDIUM)
     var lyricRefreshRate = lyricsUpdateSpeed.toLrcRefreshMillis()
@@ -183,9 +198,23 @@ fun Lyrics(
 
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
 
+    // How far this song's lines are moved against it (LyricsTiming), set in the timing bar. The
+    // bar's own value leads while it is open and after, the setting being written only once the
+    // slider rests, so the lines never jump back while the write is under way.
+    val timingSaved by rememberPreference(LyricsTimingKey, "")
+    val timing: LyricsTimingEdit = viewModel()
+    val songId = mediaMetadata?.id
+    val shiftMs = if (songId != null && timing.song == songId) timing.shiftMs else LyricsTiming.shiftOf(timingSaved, songId)
+    val shiftNow by rememberUpdatedState(shiftMs)
+    val timingOpen = timing.open && songId != null && timing.song == songId
+
     // NOTE: lyricsModel is the current display lyrics that is updated by playerLyrics AND/OR manually
     val playerLyrics by playerConnection.currentLyrics.collectAsState(initial = null)
-    var lyricsModel by remember { mutableStateOf(playerLyrics) }
+    var lyricsModel by remember { mutableStateOf(playerLyrics?.second) }
+    // The song the lyrics on screen are of. The last song's stay up while the next one's are looked
+    // up, and Lyrics timing is offered only over the playing song's own: a move made against the
+    // old lines was saved for the new song and applied to its own lyrics once they came.
+    var lyricsSong by remember { mutableStateOf(playerLyrics?.first) }
 
     val lines: SnapshotStateList<LyricLine> = remember { mutableStateListOf<LyricLine>() }
 
@@ -194,7 +223,8 @@ fun Lyrics(
     }
 
     LaunchedEffect(playerLyrics) {
-        lyricsModel = playerLyrics
+        lyricsModel = playerLyrics?.second
+        lyricsSong = playerLyrics?.first
     }
 
     // Lines picked to share as a picture, or with synced lyrics a video, by their place in
@@ -214,9 +244,11 @@ fun Lyrics(
     val mostLines = pluralStringResource(R.plurals.lyrics_pick_most, LyricsShare.MOST_LINES, LyricsShare.MOST_LINES)
     val mostForVideo = pluralStringResource(R.plurals.lyrics_pick_most_video, LyricsShare.MOST_LINES, LyricsShare.MOST_LINES)
 
-    /** The lines with their times, for a video of them; none for lyrics that are not synced. */
+    /** The lines with their times in the song, as the timing bar moved them, for a video of them; none for lyrics that are not synced. */
     fun timedLines(): List<LyricsVideoPlan.Timed>? = if (!isSynced) null else lines.map {
-        LyricsVideoPlan.Timed(it.text, it.start.toLong(), it.end.toLong(), it.isTranslated)
+        LyricsVideoPlan.Timed(
+            it.text, LyricsTiming.songPosition(it.start.toLong(), shiftNow), LyricsTiming.songPosition(it.end.toLong(), shiftNow), it.isTranslated,
+        )
     }
 
     /** The video of the lines at [chosen], or null where there can be none. */
@@ -321,7 +353,50 @@ fun Lyrics(
     var isSeeking by remember {
         mutableStateOf(false)
     }
+    // Where the lines are, as the lines read it: written only when it reaches a moment that changes
+    // how one of them looks (LyricsMoments), so that between two of those nothing is composed. It
+    // was written at every read, and every line on screen was composed again at each: eight times
+    // a second, thirty word by word.
     var currentPos by remember { mutableLongStateOf(0L) }
+    // Where the lines are at the frame being drawn, for a line lit word by word, which reads it
+    // only as it draws.
+    var drawnPos by remember { mutableLongStateOf(0L) }
+
+    // Where the song is between two of the player's own readings (LyricsClock): what the line and
+    // the lit word follow, so that they come on the frame they are sung on and not up to a quarter
+    // of a second after. Started again whenever the song stops running on in real time or jumps,
+    // and the loop below is woken to look at once.
+    val clock = remember { LyricsClock() }
+    val woken = remember { Channel<Unit>(Channel.CONFLATED) }
+    fun restartClock(why: LyricsClock.Why = LyricsClock.Why.JUMP) {
+        val player = playerConnection.player
+        clock.restart(player.currentPosition, System.nanoTime(), player.isPlaying, player.playbackParameters.speed, why)
+        woken.trySend(Unit)
+    }
+    DisposableEffect(playerConnection) {
+        val player = playerConnection.player
+        val listener = object : Player.Listener {
+            override fun onEvents(player: Player, events: Player.Events) {
+                val why = when {
+                    events.containsAny(Player.EVENT_POSITION_DISCONTINUITY, Player.EVENT_MEDIA_ITEM_TRANSITION) -> LyricsClock.Why.JUMP
+                    events.contains(Player.EVENT_PLAY_WHEN_READY_CHANGED) && !player.playWhenReady -> LyricsClock.Why.PAUSE
+                    events.containsAny(
+                        Player.EVENT_IS_PLAYING_CHANGED, Player.EVENT_PLAYBACK_PARAMETERS_CHANGED, Player.EVENT_PLAYBACK_STATE_CHANGED,
+                    ) -> LyricsClock.Why.CHANGE
+                    else -> return
+                }
+                restartClock(why)
+            }
+        }
+        player.addListener(listener)
+        onDispose { player.removeListener(listener) }
+    }
+
+    /** Where the lines are at [drawnAt]: the seek bar's place while it is dragged, else the song's by the clock, read anew, moved by the timing. */
+    fun lyricsAt(drawnAt: Long, sliderPosition: Long?): Long {
+        clock.read(playerConnection.player.currentPosition, System.nanoTime())
+        return LyricsTiming.lyricsPosition(sliderPosition ?: clock.at(drawnAt), shiftNow)
+    }
 
     // Every 125 ms, or with word-by-word karaoke every 33 ms by default and 16 ms at the fastest
     // setting, so this more than anything has to know when to stop. Composition is not disposed
@@ -344,22 +419,61 @@ fun Lyrics(
     // that fills lines is keyed on the same lyricsModel, is launched first, and never suspends,
     // so lines is already full by the time this runs. That ordering matters: findCurrentLineIndex
     // throws on an empty list, and the old loop never had to care because it slept first.
+    //
+    // In the last moments before a line changes, and until the clock has caught one of the
+    // player's wakes, it looks at every frame instead, and reads the song as it stands at that
+    // frame (LyricsClock.wait), so that the line changes on the frame it is sung on. A pause, a
+    // seek or a change of speed wakes it at once.
     val lifecycleOwner = LocalLifecycleOwner.current
     LaunchedEffect(lyricsModel, lifecycleOwner) {
         if (lyricsModel == null || !isSynced || (lyricsModel as SemanticLyrics.SyncedLyrics).text.isEmpty()) {
             currentLineIndex = -1
             return@LaunchedEffect
         }
+        // Once now, paused too, for the same reason the read below may come at once. Next on a
+        // paused player brings the next song's lines up while the loop waits for the music, and
+        // the last song's line number, past the end of shorter lyrics, closed the app at the next
+        // touch on them.
+        LyricsTiming.lyricsPosition(sliderPositionProvider() ?: playerConnection.player.currentPosition, shiftNow).let { at ->
+            currentLineIndex = findCurrentLineIndex(lines, at)
+            currentPos = at
+            drawnPos = at
+        }
+        val moments = LyricsMoments(lines)
+        /** One look at where the song is, for a frame drawn at [drawnAt]: what to show, and how long until the next. */
+        fun follow(drawnAt: Long): Long {
+            val sliderPosition = sliderPositionProvider()
+            isSeeking = sliderPosition != null
+            val at = lyricsAt(drawnAt, sliderPosition)
+            currentLineIndex = findCurrentLineIndex(lines, at)
+            if (moments.passed(at) != moments.passed(currentPos)) currentPos = at
+            drawnPos = at
+            return clock.wait(System.nanoTime(), moments.untilNext(at), sliderPosition != null, lyricRefreshRate)
+        }
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            restartClock()
+            var byFrame = false
             while (isActive) {
-                if (!playerConnection.isPlaying.value) playerConnection.isPlaying.first { it }
-                val sliderPosition = sliderPositionProvider()
-                isSeeking = sliderPosition != null
-                currentLineIndex = findCurrentLineIndex(lines, sliderPosition ?: playerConnection.player.currentPosition)
-                currentPos = sliderPosition ?: playerConnection.player.currentPosition
-                delay(lyricRefreshRate)
+                if (!playerConnection.isPlaying.value) {
+                    // Where it stopped, once, then nothing until it plays again.
+                    follow(System.nanoTime())
+                    playerConnection.isPlaying.first { it }
+                }
+                val wait = if (byFrame) withFrameNanos { frame -> follow(frame) } else follow(System.nanoTime())
+                byFrame = wait == 0L
+                if (!byFrame) withTimeoutOrNull(wait) { woken.receive() }
             }
         }
+    }
+
+    // A move of the timing shows at once, paused too, where the loop above waits for the music.
+    LaunchedEffect(shiftMs) {
+        if (!isSynced || lines.isEmpty()) return@LaunchedEffect
+        val at = lyricsAt(System.nanoTime(), sliderPositionProvider())
+        currentLineIndex = findCurrentLineIndex(lines, at)
+        currentPos = at
+        drawnPos = at
+        woken.trySend(Unit)
     }
 
     LaunchedEffect(isSeeking, lastPreviewTime) {
@@ -373,6 +487,47 @@ fun Lyrics(
 
     val lazyListState = rememberLazyListState()
     val scope = rememberCoroutineScope()
+
+    /** Opens the timing bar on [song], where its lyrics are now, when it is the song playing. */
+    fun startTiming(song: String) {
+        // The live song, not the one the lyrics menu was opened on, which it keeps. Tapped after
+        // the next song began, this opened nothing, and the bar came up by itself when the old
+        // song came back.
+        if (song != playerConnection.mediaMetadata.value?.id) return
+        timing.song = song
+        timing.shiftMs = LyricsTiming.shiftOf(timingSaved, song)
+        timing.open = true
+    }
+
+    /** Closes the timing bar, keeping where it left the song's lyrics. */
+    fun stopTiming() {
+        timing.open = false
+        val song = timing.song ?: return
+        val shift = timing.shiftMs
+        // NonCancellable, as in rememberPreference: the view can be gone before the write is done.
+        scope.launch(NonCancellable) { context.keepLyricsShift(song, shift) }
+    }
+
+    /** Lyrics picked anew for [song] start as they come: a move made for the old ones does not fit them. */
+    fun forgetTiming(song: String) {
+        if (timing.song == song) timing.shiftMs = 0L
+        scope.launch(NonCancellable) { context.keepLyricsShift(song, 0L) }
+    }
+
+    // The bar's value is written once the slider rests: a process ended with the bar left open
+    // keeps it, without a write for every step of a drag.
+    LaunchedEffect(timing.song, timing.shiftMs) {
+        val song = timing.song ?: return@LaunchedEffect
+        val shift = timing.shiftMs
+        if (LyricsTiming.shiftOf(timingSaved, song) == shift) return@LaunchedEffect
+        delay(600)
+        context.keepLyricsShift(song, shift)
+    }
+
+    // Another song coming up closes the bar on the one it was moving.
+    LaunchedEffect(songId) {
+        if (timing.open && timing.song != songId) stopTiming()
+    }
 
     /**
      * Brings line [index] up from under the picking bar, where a long press near the foot of a
@@ -392,8 +547,13 @@ fun Lyrics(
     // also a glide that leaves touches alone (glideToItem), so that in a quick part of a song (a
     // line a second) a long press on a line starts picking, where one in four was lost.
     var fingerDown by remember { mutableStateOf(false) }
+    // With "Follow the song" off, the lines are placed on the song's line once, when they come up,
+    // and from then on stay where the listener leaves them. Once for each lyrics: [lines] is one
+    // list for as long as the view is open, refilled in place, and remembered against it this was
+    // never forgotten, so from the second song on the lines came up wherever the last ones were left.
+    var placedOnce by remember(lyricsModel) { mutableStateOf(false) }
 
-    LaunchedEffect(currentLineIndex, lastPreviewTime, picking, fingerDown) {
+    LaunchedEffect(currentLineIndex, lastPreviewTime, picking, fingerDown, lyricsAutoScroll) {
         /**
          * Count number of new lines in a lyric
          */
@@ -403,19 +563,31 @@ fun Lyrics(
          * Calculate the lyric offset Based on how many lines (\n chars)
          */
         fun calculateOffset() = with(density) {
+            // Never past the lines: an index that is not theirs counts no new line.
+            val text = lines.getOrNull(currentLineIndex)?.text.orEmpty()
             if (landscapeOffset) {
-                16.dp.toPx().toInt() * countNewLine(lines[currentLineIndex].text) // landscape sits higher by default
+                16.dp.toPx().toInt() * countNewLine(text) // landscape sits higher by default
             } else {
-                20.dp.toPx().toInt() * countNewLine(lines[currentLineIndex].text)
+                20.dp.toPx().toInt() * countNewLine(text)
             }
         }
 
         // Nothing moves under a finger, or while lines are picked. Once the finger is lifted, or
         // the picking ends, the song's line is scrolled to again.
         if (!isSynced || picking || fingerDown) return@LaunchedEffect
+        // Placed already, and not to follow the song: the view stays where it is, and only the lit
+        // line keeps up, the one lit while the seek bar is dragged too.
+        if (!lyricsAutoScroll && placedOnce) {
+            deferredCurrentLineIndex = currentLineIndex
+            return@LaunchedEffect
+        }
         if (currentLineIndex != -1) {
             deferredCurrentLineIndex = currentLineIndex
             if (lastPreviewTime == 0L) {
+                // Only once it is made, as below. Counted while the last song's lines were still
+                // being scrolled by hand, it was used up, and the next song's lyrics stayed where
+                // the old ones had been left.
+                placedOnce = true
                 if (isSeeking) {
                     lazyListState.scrollToItem(
                         currentLineIndex,
@@ -430,6 +602,8 @@ fun Lyrics(
             // Before the first line, as after a seek back into the song's opening: the view goes
             // back to where the first line will be sung, with no line lit, and follows the song
             // from there. It used to stay on the line it had last shown (reported 18 Oct 2026).
+            // With "Follow the song" off this is the lines' one placement.
+            placedOnce = true
             deferredCurrentLineIndex = -1
             if (isSeeking) {
                 lazyListState.scrollToItem(0, with(density) { 36.dp.toPx().toInt() })
@@ -509,7 +683,8 @@ fun Lyrics(
             } else if (lyricsModel != uninitializedLyric) {
                 val maxW = maxWidth - 48.dp
                 itemsIndexed(
-                    items = lines
+                    items = lines,
+                    contentType = { _, _ -> LYRICS_LINE },
                 ) { index, item ->
                     var lyricFontSizeAdjusted = lyricsFontSize
                     if (item.speaker?.isBackground == true) {
@@ -523,6 +698,12 @@ fun Lyrics(
                         if (item.isTranslated) null else latinLines?.let { LyricsLatin.under(item.text, it) }
                     }
                     val latinSize = (lyricFontSizeAdjusted * 0.75).toInt()
+
+                    // Whether the song is in this line, and whether it is done with it. Worked out
+                    // from where the lines are, but kept as those two alone, so that a line is
+                    // composed again when one of them changes for it, and not for its neighbours.
+                    val inLine by remember(item) { derivedStateOf { currentPos.toULong() in item.start..item.end + 100.toULong() } }
+                    val doneWith by remember(item) { derivedStateOf { currentPos.toULong() > (item.end + 100.toULong()) } }
 
                     val isPicked = picking && index in picked
                     // Unsynced lines touch, so picked ones side by side are lit as one block.
@@ -599,69 +780,44 @@ fun Lyrics(
                                     if (picking) {
                                         pick(index)
                                     } else if (seeks) {
-                                        playerConnection.player.seekTo(item.start.toLong())
+                                        playerConnection.player.seekTo(LyricsTiming.songPosition(item.start.toLong(), shiftNow))
                                         currentLineIndex = index
                                         currentPos = item.start.toLong()
+                                        drawnPos = item.start.toLong()
                                         lastPreviewTime = 0L
                                         haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
                                     }
                                 },
                             )
                     ) {
-                        if (currentPos.toULong() in item.start..item.end + 100.toULong() && lyricsFancy
-                            && item.words != null && !context.isPowerSaver() && !picking
-                        ) { // word by word
+                        if (inLine && lyricsFancy && item.words != null && !context.isPowerSaver() && !picking) { // word by word
                             // now do eye bleach to make lyric line babies
                             val style = LocalTextStyle.current.copy(
                                 fontSize = lyricsFontSize.sp,
                                 color = textColor,
                                 fontWeight = FontWeight.Bold
                             )
-                            val rawSplitLines = splitTextToLines(item.text, style, maxW)
-                            val lyricLines = ArrayList<LyricLine>()
-                            if (rawSplitLines.size > 1) {
-                                var from = 0
-                                for (i in rawSplitLines) {
-                                    // Two throws lived here, and the coerce on the old subList
-                                    // call only looked like it covered them.
-                                    //
-                                    // `from = to` took the uncoerced value, so once the wrapped
-                                    // lines held more words than the timing data does, from walked
-                                    // past words.size and the next subList threw fromIndex > size.
-                                    // Word counts disagree easily: splitTextToLines wraps on
-                                    // rendered width, and one timed word can carry punctuation or
-                                    // an elision that the split counts as two.
-                                    //
-                                    // And when the coerce did bite, it produced an empty slice,
-                                    // whose first() and last() then threw NoSuchElementException.
-                                    // A line with no timing left is still a line worth showing, so
-                                    // it keeps the parent's range rather than being dropped.
-                                    val to = (from + i.split(' ').size).coerceAtMost(item.words.size)
-                                    val words: MutableList<SemanticLyrics.Word> =
-                                        if (from < to) item.words.subList(from, to)
-                                        else mutableListOf()
-                                    lyricLines.add(
-                                        if (words.isEmpty()) {
-                                            item.copy(text = i, words = mutableListOf())
-                                        } else {
-                                            item.copy(
-                                                text = i,
-                                                start = words.first().timeRange.start,
-                                                end = words.last().timeRange.endInclusive,
-                                                words = words
-                                            )
-                                        }
-                                    )
-                                    from = to
-                                }
-                            } else {
-                                lyricLines.add(item)
+                            // Measured once for the line. It was measured again at every read of the
+                            // song, a word at a time.
+                            val textMeasurer = rememberTextMeasurer()
+                            val lyricLines = remember(item, style, maxW, textMeasurer, density) {
+                                karaokeLines(item, splitTextToLines(item.text, style, maxW, textMeasurer, density))
                             }
 
+                            // Lit as the frames are drawn, at where the song is at each one: the line
+                            // asks for every frame while it is being sung and the music plays.
+                            LaunchedEffect(Unit) {
+                                lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                                    while (isActive) {
+                                        if (!playerConnection.isPlaying.value) playerConnection.isPlaying.first { it }
+                                        withFrameNanos { frame -> drawnPos = lyricsAt(frame, sliderPositionProvider()) }
+                                    }
+                                }
+                            }
 
                             lyricLines.forEach {
                                 HorizontalReveal(
-                                    progress = calculateLineProgress(it, currentPos),
+                                    progress = { calculateLineProgress(it, drawnPos) },
                                     modifier = Modifier
                                 ) {
                                     Text(
@@ -689,7 +845,7 @@ fun Lyrics(
 
 
                         } else { // regular
-                            val isConsumed = currentPos.toULong() > (item.end + 100.toULong())
+                            val isConsumed = doneWith
                             val isHighlighted =
                                 ((index == displayedCurrentLineIndex || (index == displayedCurrentLineIndex + 1 && item.isTranslated)))
                             Text(
@@ -756,6 +912,7 @@ fun Lyrics(
         mediaMetadata?.let { mediaMetadata ->
             // While lines are picked the view's own two buttons give way to the bar that shares
             // them: neither closing the lyrics nor their menu is what anybody picking lines is after.
+            // The timing bar takes their place the same way while the lyrics are being moved.
             if (picking) LyricsPickBar(
                 picked = picked.size,
                 videoMs = pickedVideoMs,
@@ -765,6 +922,13 @@ fun Lyrics(
                     cardVideo = videoOf(picked)
                     cardLines = LyricsShare.pickedLines(lines.map { it.text }, picked)
                 },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(start = 12.dp, end = 12.dp, bottom = bottomPadding)
+            ) else if (timingOpen) LyricsTimingBar(
+                shiftMs = shiftMs,
+                onShift = { timing.shiftMs = it },
+                onDone = ::stopTiming,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(start = 12.dp, end = 12.dp, bottom = bottomPadding)
@@ -801,7 +965,10 @@ fun Lyrics(
                                     }
                                 },
                                 mediaMetadataProvider = { mediaMetadata },
-                                onRefreshRequest = { lyricsModel = it },
+                                onRefreshRequest = {
+                                    lyricsModel = it
+                                    lyricsSong = mediaMetadata.id
+                                },
                                 onDismiss = menuState::dismiss,
                                 shownLines = {
                                     lines.map { it.text }.takeIf { lyricsModel != null && lyricsModel != uninitializedLyric }
@@ -811,6 +978,8 @@ fun Lyrics(
                                     picking = true
                                 },
                                 picksForVideo = isSynced,
+                                onAdjustTiming = if (isSynced && lyricsSong == mediaMetadata.id) ({ startTiming(mediaMetadata.id) }) else null,
+                                onOtherLyrics = ::forgetTiming,
                             )
                         }
                     }
@@ -842,24 +1011,33 @@ fun Lyrics(
         }
     }
 
+    // Both step aside while the queue sheet over the lyrics takes Back. Its handler is there from
+    // the moment the player opens, so these, put in place later, came first: one Back with the
+    // queue up closed the timing bar hidden under it, and the queue stayed.
+    val queueTakesBack = LocalQueueSheet.current?.takesBack == true
+    // Back closes the timing bar too, composed before the picking's so that picking started over
+    // the bar ends first.
+    if (timingOpen) BackHandler(enabled = !queueTakesBack, onBack = ::stopTiming)
     // Back stops the picking before it closes anything. Composed only while picking, which makes it
     // the newest, so it comes before the player sheet's own.
-    if (picking) BackHandler(onBack = ::stopPicking)
+    if (picking) BackHandler(enabled = !queueTakesBack, onBack = ::stopPicking)
 }
 
+/**
+ * [content] twice, the second over the first and lit from the start up to [progress] of its width.
+ *
+ * [progress] is asked as the line is drawn, at each frame while it is being sung. It used to be a
+ * number eased to over 100 ms, which had the lit words a tenth of a second behind the song on top
+ * of the time it took to read the song.
+ */
 @Composable
 fun HorizontalReveal(
-    progress: Float,
+    progress: () -> Float,
     modifier: Modifier = Modifier,
     backgroundAlpha: Float = 0.5f,
     rtl: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val animatedProgress by animateFloatAsState(
-        targetValue = progress.coerceIn(0f, 1f),
-        animationSpec = tween(durationMillis = 100, easing = LinearEasing)
-    )
-
     Box(modifier = modifier.padding(start = 1.dp)) {
         Box(modifier = Modifier.alpha(backgroundAlpha)) {
             content()
@@ -872,7 +1050,7 @@ fun HorizontalReveal(
                     shape = RectangleShape
                 }
                 .drawWithContent {
-                    val clipWidth = size.width * animatedProgress
+                    val clipWidth = size.width * progress().coerceIn(0f, 1f)
                     val left = if (!rtl) 0f else size.width - clipWidth
                     val right = if (!rtl) clipWidth else size.width
                     clipRect(left, 0f, right, size.height) {
@@ -885,15 +1063,66 @@ fun HorizontalReveal(
     }
 }
 
-@Composable
+/**
+ * [item] cut into the lines [split] gives, each with its own words and times, for lighting word by
+ * word one line after the other.
+ */
+internal fun karaokeLines(item: LyricLine, split: List<String>): List<LyricLine> {
+    val lyricLines = ArrayList<LyricLine>()
+    val itemWords = item.words
+    if (split.size > 1 && itemWords != null) {
+        var from = 0
+        for (i in split) {
+            // Two throws lived here, and the coerce on the old subList
+            // call only looked like it covered them.
+            //
+            // `from = to` took the uncoerced value, so once the wrapped
+            // lines held more words than the timing data does, from walked
+            // past words.size and the next subList threw fromIndex > size.
+            // Word counts disagree easily: splitTextToLines wraps on
+            // rendered width, and one timed word can carry punctuation or
+            // an elision that the split counts as two.
+            //
+            // And when the coerce did bite, it produced an empty slice,
+            // whose first() and last() then threw NoSuchElementException.
+            // A line with no timing left is still a line worth showing, so
+            // it keeps the parent's range rather than being dropped.
+            val to = (from + i.split(' ').size).coerceAtMost(itemWords.size)
+            val words: MutableList<SemanticLyrics.Word> =
+                if (from < to) itemWords.subList(from, to)
+                else mutableListOf()
+            lyricLines.add(
+                if (words.isEmpty()) {
+                    item.copy(text = i, words = mutableListOf())
+                } else {
+                    item.copy(
+                        text = i,
+                        start = words.first().timeRange.start,
+                        end = words.last().timeRange.endInclusive,
+                        words = words
+                    )
+                }
+            )
+            from = to
+        }
+    } else {
+        lyricLines.add(item)
+    }
+    return lyricLines
+}
+
+/**
+ * [text] in lines no wider than [maxWidth] in [style], a word at a time, as the lines lit word by
+ * word are laid out. Not composable: the caller keeps the answer for the line (remember), where it
+ * was worked out again at every read of the song.
+ */
 fun splitTextToLines(
     text: String,
     style: TextStyle,
-    maxWidth: Dp
+    maxWidth: Dp,
+    textMeasurer: TextMeasurer,
+    density: Density,
 ): List<String> {
-    val textMeasurer = rememberTextMeasurer()
-    val density = LocalDensity.current
-
     val words = text.split(" ")
     val lines = mutableListOf<String>()
     var currentLine = ""
@@ -1005,6 +1234,9 @@ const val animateScrollDuration = 300L
 
 /** What the picking bar takes at the foot of the lyrics view: its own height and a little room over it. */
 private val PickBarRoom = 64.dp
+
+/** The kind of item a line of the lyrics is, so the view reuses one line's composition for the next. */
+private const val LYRICS_LINE = "line"
 val LyricsPreviewTime = 7.seconds
 
 /**
@@ -1019,6 +1251,22 @@ class LyricsPicking : ViewModel() {
     var cardLines by mutableStateOf<List<String>?>(null)
     var cardVideo by mutableStateOf<LyricsVideoPlan.Clip?>(null)
     var cardSong by mutableStateOf<MediaMetadata?>(null)
+}
+
+/**
+ * The lyrics timing bar, kept outside the lyrics view like [LyricsPicking] so that a turn of the
+ * phone keeps it open: whether it is, and the song it last moved with how far, which leads over
+ * the setting until another song is moved.
+ */
+class LyricsTimingEdit : ViewModel() {
+    var open by mutableStateOf(false)
+    var song by mutableStateOf<String?>(null)
+    var shiftMs by mutableLongStateOf(0L)
+}
+
+/** Keeps [shiftMs] as [song]'s lyrics timing, read and written in one edit so that no other song's is lost. */
+private suspend fun Context.keepLyricsShift(song: String, shiftMs: Long) {
+    dataStore.edit { it[LyricsTimingKey] = LyricsTiming.withShift(it[LyricsTimingKey].orEmpty(), song, shiftMs) }
 }
 
 /**

@@ -225,6 +225,38 @@ object StreamCheck {
         fallbacks.firstOrNull()?.takeIf { !unreached && fallbacks.all { it.status != "OK" && saysGone(it.reason) } }
 
     /**
+     * Whether the account is asked of a song at its turn, the last of the walk, where it used to be
+     * passed over because every client before it called the song gone: when what they said would
+     * call it gone ([unavailableSong] of [anonymous], [unreached] as there), the account has not
+     * been asked yet in this walk ([askedAlready]: a walk can go round again with a new
+     * visitorData), and the walk is for the song itself, not for another copy of it
+     * ([ofAnotherCopy], a stand-in's or a search's).
+     *
+     * On 21 Oct 2026 a song every client called "not available" was tapped thirteen times on a
+     * phone signed in, and never asked of the account, which YouTube Music may well play.
+     *
+     * Never when a request went unanswered or a client said anything but YouTube's words for a
+     * song that is gone, the bot check above all: the song is not called gone then either, and
+     * those keep their own ways (the player's retry, a new visitorData, the throttle).
+     *
+     * Nor while [othersGoneInARow], the other songs called gone since a stream last resolved,
+     * are [ACCOUNT_SPARED_AFTER] or more: a connection YouTube turns away calls every song gone
+     * (issue #28), and the account would be one more request for each of them, made with po
+     * tokens and a player script, at the moment the app is being turned away.
+     */
+    fun asksAccountBeforeGone(
+        anonymous: List<PlayerResponse.PlayabilityStatus>,
+        unreached: Boolean,
+        askedAlready: Boolean,
+        ofAnotherCopy: Boolean,
+        othersGoneInARow: Int,
+    ): Boolean = !askedAlready && !ofAnotherCopy && othersGoneInARow < ACCOUNT_SPARED_AFTER &&
+        unavailableSong(anonymous, unreached) != null
+
+    /** How many other songs called gone in a row spare the account: see [asksAccountBeforeGone]. */
+    const val ACCOUNT_SPARED_AFTER = 2
+
+    /**
      * Whether a fallback client's failed request leaves it open what has become of the song, for
      * [unavailableSong]'s unreached.
      *

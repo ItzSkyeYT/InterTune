@@ -57,11 +57,13 @@ import com.zionhuang.innertube.utils.runCatchingCancellable
 import io.ktor.client.call.body
 import io.ktor.client.plugins.ResponseException
 import io.ktor.client.statement.bodyAsText
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
+import java.io.File
 import java.net.Proxy
 import kotlin.random.Random
 
@@ -102,6 +104,14 @@ object YouTube {
         set(value) {
             innerTube.useLoginForBrowse = value
         }
+
+    /**
+     * Where NewPipe's client keeps what YouTube lets it keep, YouTube's player script above all:
+     * a folder in the app's cache. Read once, when NewPipe is first used, so it is set before the
+     * first song. Null keeps nothing.
+     */
+    @Volatile
+    var newPipeCacheDir: File? = null
 
     /**
      * Asked before every request that changes the signed-in account: likes, saved albums and
@@ -842,8 +852,25 @@ object YouTube {
         // On a connection of its own, never one kept from before: see InnerTube.player.
         fresh: Boolean = false,
     ): Result<PlayerResponse> = runCatchingCancellable {
-        innerTube.player(client, videoId, playlistId, signatureTimestamp, webPlayerPot, visitorData, hlOverride, addressPolicy, asWebPage, fresh)
-            .body<PlayerResponse>()
+        // Read as text first, so that the answer can be kept for a start over SABR (playerAnswers),
+        // and decoded with the settings the client's own content negotiation uses.
+        val text = innerTube.player(client, videoId, playlistId, signatureTimestamp, webPlayerPot, visitorData, hlOverride, addressPolicy, asWebPage, fresh)
+            .bodyAsText()
+        answerJson.decodeFromString<PlayerResponse>(text).also {
+            playerAnswers.put(PlayerAnswers.Answer(videoId, client, text))
+        }
+    }
+
+    /** The last player answers as text: see [PlayerAnswers]. */
+    val playerAnswers = PlayerAnswers()
+
+    /** A kept answer read back into our model, as [player] reads it. */
+    fun decodePlayerAnswer(text: String): PlayerResponse = answerJson.decodeFromString<PlayerResponse>(text)
+
+    private val answerJson = Json {
+        ignoreUnknownKeys = true
+        explicitNulls = false
+        encodeDefaults = true
     }
 
     /**

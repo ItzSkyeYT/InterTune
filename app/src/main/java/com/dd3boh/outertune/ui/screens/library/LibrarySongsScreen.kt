@@ -351,7 +351,9 @@ fun LibrarySongsScreen(
                         snackbarHostState = snackbarHostState,
 
                         isActive = song.song.id == mediaMetadata?.id,
-                        isPlaying = isPlaying,
+                        // Only the playing row hears of play and pause, so a tap on either composes
+                        // that row and not every row on the page.
+                        isPlaying = song.song.id == mediaMetadata?.id && isPlaying,
                         inSelectMode = inSelectMode,
                         isSelected = selection.contains(song.id),
                         onSelectedChange = {
@@ -370,7 +372,8 @@ fun LibrarySongsScreen(
                                 ListQueue(
                                     title = context.getString(R.string.queue_all_songs),
                                     items = songs.map { it.toMediaMetadata() },
-                                    startIndex = index
+                                    startIndex = index,
+                                    songPicked = true,
                                 ),
                                 origin = PlayOrigin.LIBRARY,
                             )

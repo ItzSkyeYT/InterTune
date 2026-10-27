@@ -107,6 +107,8 @@ fun <T> ListPreference(
     onValueSelected: (T) -> Unit,
     onDisabled: (T) -> Boolean = { false },
     isEnabled: Boolean = true,
+    /** A line under each choice in the list, on what it does. None by default. */
+    valueDescription: (@Composable (T) -> String)? = null,
 ) {
     var showDialog by remember {
         mutableStateOf(false)
@@ -118,7 +120,8 @@ fun <T> ListPreference(
             items(values) { value ->
                 val isDisabled = onDisabled(value)
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
+                    // With a line under each choice the button stands by the name, at the top.
+                    verticalAlignment = if (valueDescription != null) Alignment.Top else Alignment.CenterVertically,
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable(enabled = !isDisabled) {
@@ -133,13 +136,23 @@ fun <T> ListPreference(
                         enabled = !isDisabled
                     )
 
-                    Text(
-                        text = valueText(value),
-                        style = MaterialTheme.typography.bodyLarge,
+                    Column(
                         modifier = Modifier
                             .padding(start = 16.dp)
                             .alpha(if (isDisabled) 0.5f else 1f)
-                    )
+                    ) {
+                        Text(
+                            text = valueText(value),
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                        if (valueDescription != null) {
+                            Text(
+                                text = valueDescription(value),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -169,7 +182,8 @@ inline fun <reified T : Enum<T>> EnumListPreference(
     noinline onValueSelected: (T) -> Unit,
     isEnabled: Boolean = true,
     values: List<T> = enumValues<T>().toList(),
-    noinline disabled: (T) -> Boolean = { false }
+    noinline disabled: (T) -> Boolean = { false },
+    noinline valueDescription: (@Composable (T) -> String)? = null,
 ) {
     ListPreference(
         modifier = modifier,
@@ -182,7 +196,8 @@ inline fun <reified T : Enum<T>> EnumListPreference(
         valueText = valueText,
         onValueSelected = onValueSelected,
         isEnabled = isEnabled,
-        onDisabled = disabled
+        onDisabled = disabled,
+        valueDescription = valueDescription,
     )
 }
 

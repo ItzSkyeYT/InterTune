@@ -59,6 +59,13 @@ object ProblemLog {
     )
 
     /**
+     * Whose lines from information up say what was done with a song, and whose debug lines are a
+     * request's every field: SABR's. Without them a song over SABR left no trace in the run's file
+     * but its failures, and the phone's own log has rolled past the rest within the hour.
+     */
+    val TELLING_FROM_INFO = setOf("SabrOver", "SabrDataSource")
+
+    /**
      * Whose errors count as a fault: the app's own and the player's. Every phone has parts that
      * write errors of their own all day long, and the last of those is not what went wrong.
      */
@@ -79,13 +86,13 @@ object ProblemLog {
     private fun continues(message: String) =
         message.isEmpty() || message[0].isWhitespace() || message.startsWith("at ") || message.startsWith("Caused by") || message.startsWith("...")
 
-    /** Whether a line is worth showing: every warning and error but the chatter, and what [TELLING] says. */
+    /** Whether a line is worth showing: every warning and error but the chatter, what [TELLING] says, and [TELLING_FROM_INFO]'s information. */
     fun keep(line: Line): Boolean = when (line.level) {
         'W', 'E', 'F' -> CHATTER_WORDS.none { it in line.message } &&
             !(line.level == 'W' && line.tag in CHATTER) &&
             // printStackTrace writes a failed request's whole trace here, frame by frame.
             !(line.tag == "System.err" && continues(line.message))
-        else -> line.tag in TELLING
+        else -> line.tag in TELLING || (line.level == 'I' && line.tag in TELLING_FROM_INFO)
     }
 
     /** The first line of something that failed: an error of the app's or the player's, not the middle of a trace. */
@@ -111,26 +118,49 @@ object ProblemLog {
     private val STREAM_HOST = Regex("""[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.googlevideo\.com""")
 
     /**
-     * Without what says where the phone is: network addresses ([ErrorText]) and the name of the
-     * server a song came from, which names the provider and the town. Song ids stay: the fault is
-     * often one song's, and the id is how it is found again.
+     * A file's folders on the phone, up to its name: a folder can be named after whoever owns the
+     * phone. A warning of any part is kept, and the library scan's names the file it could not read.
+     * Inside a path a colon has no space after it: Java writes "path: open failed".
      */
-    fun scrub(text: String): String = ErrorText.withoutAddresses(text).replace(STREAM_HOST, "a stream host")
+    private val FOLDERS = Regex("""(?:file://)?/(?:storage|sdcard|mnt)/(?:[^"\n:]|:(?! ))*/""")
+
+    /** A file or folder picked through Android's own picker: its path is inside the address. */
+    private val PICKED = Regex("""(content://[^\s"'/]+/(?:tree|document)/)[^\s"']+""")
 
     /**
-     * What is copied: the build and the phone, then the lines, then the last times the music
-     * stopped with nobody asking ([com.dd3boh.outertune.playback.StopReasons]). Those come last
-     * because [fitted] keeps the end, and they outlive the process the lines above belong to.
+     * Without what says where the phone is or whose it is: network addresses ([ErrorText]), the
+     * name of the server a song came from, which names the provider and the town, and the folders
+     * of a file on the phone. Song ids stay: the fault is often one song's, and the id is how it is
+     * found again.
+     */
+    fun scrub(text: String): String = ErrorText.withoutAddresses(text)
+        .replace(STREAM_HOST, "a stream host")
+        .replace(FOLDERS, "…/")
+        .replace(PICKED, "$1…")
+
+    /**
+     * What is copied: the build, the phone and where the app came from ([installedFrom]), then
+     * the lines, then the last times the music stopped with nobody asking
+     * ([com.dd3boh.outertune.playback.StopReasons]). Those come last because [fitted] keeps the
+     * end, and they outlive the process the lines above belong to.
      */
     fun report(
         excerpt: Excerpt,
         build: String = build(),
         device: String = device(),
+        installedFrom: String,
         stops: List<String> = emptyList(),
         started: Date? = null,
+        /** The connection and the battery when the report is made ([PhoneState]); a run's own are in its lines. */
+        phoneNow: String? = null,
+        /** How playback has gone this run, for this run's report only (PlayHealth); an earlier run's is in its lines. */
+        playback: String? = null,
     ): String = buildString {
         appendLine("InterTune $build")
         appendLine(device)
+        appendLine("Installed from: $installedFrom")
+        phoneNow?.let { appendLine("Phone now: $it") }
+        playback?.let { appendLine("Playback this run: $it") }
         // A run before this one: which, since its lines carry the time of day and not the date.
         started?.let { appendLine("From the run that began ${SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.ROOT).format(it)}") }
         appendLine(if (excerpt.faultAt == null) "Nothing that looks like a fault. The last lines:" else "The last fault and what led up to it:")
@@ -147,15 +177,41 @@ object ProblemLog {
     }.trimEnd()
 
     /**
-     * [report] in no more than [limit] characters: the build and the phone, then as much of the
-     * end as fits, from the start of a line. The end is where the fault is.
+     * [report] in no more than [limit] characters: its heading, the lines above the first empty
+     * one, then as much of the end as fits, from the start of a line. The end is where the fault is.
      */
     fun fitted(report: String, limit: Int): String {
         if (report.length <= limit) return report
-        val heading = if (report.lineSequence().drop(2).firstOrNull()?.startsWith("From the run") == true) 4 else 3
+        val heading = report.lineSequence().takeWhile { it.isNotEmpty() }.count()
         val head = report.lineSequence().take(heading).joinToString("\n") + "\n(the earlier lines are left out)\n"
         val tail = report.takeLast((limit - head.length).coerceAtLeast(0))
         return head + tail.substringAfter('\n', tail)
+    }
+
+    /**
+     * How long [text] is once escaped for a link: a letter, a digit or one of - _ . ~ stays one
+     * character, every other byte of it becomes three (a space is %20, a colon %3A).
+     */
+    fun linkLength(text: String): Int = text.toByteArray(Charsets.UTF_8).sumOf { byte ->
+        val c = byte.toInt() and 0xFF
+        val plain = c in 'a'.code..'z'.code || c in 'A'.code..'Z'.code || c in '0'.code..'9'.code ||
+            c == '-'.code || c == '_'.code || c == '.'.code || c == '~'.code
+        if (plain) 1 else 3
+    }
+
+    /**
+     * [report] cut as [fitted] cuts it, from [most] characters down, until escaped for a link it
+     * takes [budget] characters at most. GitHub answers a link to its form that is too long with
+     * "Something went wrong", and a log of spaces, colons and brackets doubles once escaped.
+     */
+    fun fittedForLink(report: String, budget: Int, most: Int): String {
+        var limit = minOf(report.length, most)
+        var cut = fitted(report, limit)
+        while (limit > 0 && linkLength(cut) > budget) {
+            limit = limit * 4 / 5
+            cut = fitted(report, limit)
+        }
+        return if (linkLength(cut) <= budget) cut else ""
     }
 
     fun build(): String = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}, ${BuildConfig.FLAVOR} ${BuildConfig.BUILD_TYPE})"

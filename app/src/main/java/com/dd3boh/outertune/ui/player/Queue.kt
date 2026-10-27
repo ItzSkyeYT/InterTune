@@ -50,6 +50,7 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -106,6 +107,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -161,6 +163,7 @@ import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.MultiQueueObject
 import com.dd3boh.outertune.ui.component.BottomSheet
 import com.dd3boh.outertune.ui.component.BottomSheetState
+import com.dd3boh.outertune.ui.component.BufferedSheetScrollConnection
 import com.dd3boh.outertune.ui.component.EmptyPlaceholder
 import com.dd3boh.outertune.playback.AdaptiveNote
 import com.dd3boh.outertune.playback.AdaptiveQueue
@@ -180,6 +183,9 @@ import com.dd3boh.outertune.utils.rememberPreference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import com.dd3boh.outertune.ui.utils.GlassSpec
+import com.dd3boh.outertune.ui.utils.LocalGlassStill
+import com.dd3boh.outertune.ui.utils.STILL_ALPHA
+import com.dd3boh.outertune.ui.utils.stillGlass
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
@@ -193,6 +199,7 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import java.time.LocalDateTime
@@ -215,6 +222,62 @@ private fun adaptiveNoteText(note: AdaptiveNote.Note): String = when (note.kind)
  * and nothing listed can be taken away while somebody is looking at it.
  */
 private const val ADAPTIVE_VISIBLE_AHEAD = 4
+
+/**
+ * How far the finger can go past the top of the queue, in a scroll that moved the list first,
+ * before the queue's sheet comes down with it (BufferedSheetScrollConnection): all the way. A
+ * quick scroll up through a long queue runs on past the top, and with no room the rest of that
+ * movement dragged the queue shut, or a flick threw it shut; one song's row of room (64 dp) was
+ * not enough. So a scroll that started in the list never closes the queue, however far or fast it
+ * runs on: closing it takes a pull that starts with the list at its top, which moves the queue at
+ * once, as before.
+ */
+internal val QueueOvershootBuffer = Dp.Infinity
+
+/**
+ * A pull down that starts with the queue at its top, as every pull does on a queue too short to
+ * scroll (Auto queue shows only a few songs ahead): the queue stays put for the first 48 dp of it,
+ * so a small movement of the finger never closes it.
+ */
+internal val QueuePullDeadZone = 48.dp
+
+/**
+ * How far the queue itself has to have come down before a flick throws it shut, a song's row.
+ * Short of that, letting go puts it back open; a slow drag past halfway still closes it.
+ */
+internal val QueueFlingAfter = 64.dp
+
+/**
+ * Puts the list at [index] once its rows reach that far, and says whether it did. Rows just put
+ * into the list are laid out a frame later, and a scroll asked for before then is cut to the top.
+ * Done once per opening, that was never put right, so the queue opened at its first song instead
+ * of the one playing (his report, 26 Oct 2026).
+ */
+internal suspend fun LazyListState.scrollToWhenLaidOut(index: Int): Boolean {
+    if (index < 0) return false
+    withTimeoutOrNull(2_000) { snapshotFlow { layoutInfo.totalItemsCount }.first { it > index } } ?: return false
+    scrollToItem(index)
+    return true
+}
+
+/**
+ * The queue's own link from a list to its sheet, with [QueueOvershootBuffer]. Only the queue has
+ * it: the player's sheet keeps preUpPostDownNestedScrollConnection over its artwork and lyrics, and
+ * the cast picker its own pull, as they were. The queue is the long list that gets scrolled fast,
+ * where running into its top closed the sheet by accident. One for each list, since it holds the
+ * state of the gesture it is in. Null without a sheet (the tablet's side pane).
+ */
+@Composable
+private fun rememberQueueSheetScroll(queueState: BottomSheetState?): NestedScrollConnection? {
+    val density = LocalDensity.current
+    return remember(queueState, density) {
+        queueState?.let {
+            with(density) {
+                BufferedSheetScrollConnection(it, QueueOvershootBuffer.toPx(), QueuePullDeadZone.toPx(), QueueFlingAfter.toPx())
+            }
+        }
+    }
+}
 
 @Composable
 fun QueueSheet(
@@ -243,11 +306,18 @@ fun QueueSheet(
      */
     backdrop: LayerBackdrop? = null,
     glassIntensity: Float = 1f,
+    /**
+     * Whether Back from the open queue closes the whole player and leaves the queue open in it, so
+     * that the player opens on the queue next time (queueBack). Off, Back puts the queue down. A
+     * selection or a search in it is left first either way, by its own handlers further in.
+     */
+    backClosesPlayer: Boolean = false,
 ) {
     Log.v("QueueSheet", "Q-1")
     val haptic = LocalHapticFeedback.current
     BottomSheet(
         state = state,
+        backMoves = if (backClosesPlayer) playerBottomSheetState else state,
         background = {
             Box(
                 modifier = Modifier
@@ -378,7 +448,10 @@ fun BoxScope.QueueContent(
 
     // multi queue vars
     val fallBackQueue = if (queueWindows.isEmpty()) qb.getCurrentQueue() else null
-    var mqExpand by remember { mutableStateOf(fallBackQueue != null) }
+    // The list of queues opens from its button only. It used to open by itself whenever the player
+    // held nothing yet, after an update or a restart and on the first frame or two of an opening,
+    // and then put a list of queues where the songs should be.
+    var mqExpand by remember { mutableStateOf(false) }
     var detachedHead by remember { mutableStateOf(fallBackQueue != null) }
     var detachedQueue by remember { mutableStateOf<MultiQueueObject?>(fallBackQueue) }
 
@@ -580,10 +653,17 @@ fun BoxScope.QueueContent(
     val adaptivePicks by playerConnection.service.adaptivePicks.collectAsState()
     val adaptiveNote by playerConnection.service.adaptiveNote.collectAsState()
     val adaptiveSaying = adaptiveTailActive && !isSearching && detachedQueue == null
+    // The preview the sheet shows while the player holds nothing yet (after an update or a
+    // restart, until something plays) is of the queue that is playing: its far end is folded
+    // away like the live queue's, from the song it is at, not shown in full. Another queue looked
+    // at from the list of queues still shows all of it.
+    val previewOfPlaying = detachedQueue != null && detachedQueue?.id == qb.getCurrentQueue()?.id
+    val foldTail = adaptiveTailActive && !isSearching && (detachedQueue == null || previewOfPlaying)
     val visibleSongs: List<MediaMetadata> =
-        if (!adaptiveTailActive || isSearching || detachedQueue != null) mutableSongs
+        if (!foldTail) mutableSongs
         else {
-            val settled = AdaptiveQueue.settledThrough(currentWindowIndex, mutableSongs, { it.id }, reachedInQueue)
+            val settled = detachedQueue?.let { AdaptiveQueue.settledThrough(it.getQueuePosShuffled(), mutableSongs, { it.id }, reachedInQueue) }
+                ?: AdaptiveQueue.settledThrough(currentWindowIndex, mutableSongs, { it.id }, reachedInQueue)
             mutableSongs.take((settled + 1 + ADAPTIVE_VISIBLE_AHEAD).coerceIn(0, mutableSongs.size))
         }
     val hiddenTailCount = if (isSearching) 0 else mutableSongs.size - visibleSongs.size
@@ -611,10 +691,9 @@ fun BoxScope.QueueContent(
             }
             val showing = "detached " + detachedQueue!!.id
             if (!isSearching && scrolledFor != showing) {
-                detachedQueue?.let {
-                    lazySongsListState.scrollToItem(it.getQueuePosShuffled())
-                }
-                scrolledFor = showing
+                // Marked done only once the list was really put there: see scrollToWhenLaidOut.
+                val at = detachedQueue!!.getQueuePosShuffled()
+                if (mutableSongs.size > at && lazySongsListState.scrollToWhenLaidOut(at)) scrolledFor = showing
             }
             return@LaunchedEffect
         }
@@ -637,9 +716,10 @@ fun BoxScope.QueueContent(
         }
 
         val showing = "playing " + qb.getCurrentQueue()?.id
-        if (currentWindowIndex != -1 && !isSearching && scrolledFor != showing) {
-            lazySongsListState.scrollToItem(currentWindowIndex)
-            scrolledFor = showing
+        // Not before the song playing is in the list: queueWindows can still be empty on the
+        // first run after opening, and a scroll then went to the top and counted as done.
+        if (currentWindowIndex != -1 && !isSearching && scrolledFor != showing && mutableSongs.size > currentWindowIndex) {
+            if (lazySongsListState.scrollToWhenLaidOut(currentWindowIndex)) scrolledFor = showing
         }
     }
 
@@ -651,7 +731,8 @@ fun BoxScope.QueueContent(
             Log.d("Queue.kt", "Trigger loading queue. init = $init")
             if (init) {
                 mutableQueues.clear()
-                mutableQueues.addAll(qb.getAllQueues())
+                // Never two with the same id: the list keys queues by it (#46).
+                mutableQueues.addAll(qb.getAllQueues().distinctBy { it.id })
                 playingQueue = updatedList.indexOf(qb.getCurrentQueue())
             }
         }
@@ -763,10 +844,11 @@ fun BoxScope.QueueContent(
             Text(text = stringResource(R.string.queues_empty))
         }
 
+        val queuesScroll = rememberQueueSheetScroll(queueState)
         LazyColumn(
             state = lazyQueuesListState,
             contentPadding = contentPadding,
-            modifier = if (queueState != null) Modifier.nestedScroll(queueState.preUpPostDownNestedScrollConnection) else Modifier
+            modifier = if (queuesScroll != null) Modifier.nestedScroll(queuesScroll) else Modifier
         ) {
             itemsIndexed(
                 items = mutableQueues,
@@ -799,8 +881,17 @@ fun BoxScope.QueueContent(
                                     // drag-to-reorder while you sit in it.
                                     if (playingQueue == index) {
                                         // Already the playing queue, so there is nothing to switch
-                                        // to. Just drop out of any preview.
-                                        exitDetachHead()
+                                        // to: close the list of queues and show its songs. Before
+                                        // anything was played since the app started, the player holds
+                                        // none of them yet, so the songs stay on the preview of this
+                                        // queue, with the play button in the Songs header.
+                                        mqExpand = false
+                                        if (queueWindows.isEmpty()) {
+                                            detachedQueue = mq
+                                            detachedHead = true
+                                        } else {
+                                            exitDetachHead()
+                                        }
                                     } else {
                                         coroutineScope.launch(Dispatchers.Main) {
                                             isSearching = false
@@ -940,10 +1031,11 @@ fun BoxScope.QueueContent(
 
     val songList: @Composable ColumnScope.(PaddingValues) -> Unit = { contentPadding ->
         Log.v("QueueContent", "QC-s_b")
+        val songsScroll = rememberQueueSheetScroll(queueState)
         LazyColumn(
             state = lazySongsListState,
             contentPadding = contentPadding,
-            modifier = if (queueState != null) Modifier.nestedScroll(queueState.preUpPostDownNestedScrollConnection) else Modifier
+            modifier = if (songsScroll != null) Modifier.nestedScroll(songsScroll) else Modifier
         ) {
             if ((if (isSearching) filteredSongs else mutableSongs).isEmpty()) {
                 item {
@@ -1240,6 +1332,9 @@ fun BoxScope.QueueContent(
     // and the bar's height is the room left under its last row. Upright that list is the songs, on
     // its side the queues, which is what the bar stands under there.
     val listBackdrop = if (backdrop != null) rememberLayerBackdrop() else null
+    // Battery use on Saver: the pane keeps its shape and place, frosted still, and the list is not
+    // recorded for it (LocalGlassStill).
+    val glassStill = LocalGlassStill.current
     val listUnderBar = listBackdrop != null
     var barHeight by remember { mutableStateOf(0.dp) }
 
@@ -1266,7 +1361,7 @@ fun BoxScope.QueueContent(
                         Modifier
                             .windowInsetsPadding(barInsets)
                             .padding(start = 12.dp, top = 4.dp, end = 12.dp, bottom = 8.dp)
-                            .glassPane(paneBackdrop, glassIntensity, barShape, barTint)
+                            .glassPane(paneBackdrop, glassIntensity, barShape, barTint, glassStill, MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp).copy(alpha = STILL_ALPHA))
                             .clip(barShape)
                             .fillMaxWidth()
                     } else {
@@ -1571,13 +1666,18 @@ fun BoxScope.QueueContent(
                     // As upright: what the pane looks through, the fill in the picture, the pane outside it.
                     .then(
                         if (listBackdrop != null) Modifier
-                            .layerBackdrop(listBackdrop)
+                            // Not recorded while the glass is still: the pane does not read it then.
+                            .then(if (glassStill) Modifier else Modifier.layerBackdrop(listBackdrop))
                             .background(MaterialTheme.colorScheme.surfaceColorAtElevation(NavigationBarDefaults.Elevation))
                         else Modifier
                     )
             ) {
+                // Its own, not the one queueList gives the list inside this column: both are in
+                // the way of that list's scroll, and one connection in both places would see every
+                // movement twice.
+                val paneScroll = rememberQueueSheetScroll(queueState)
                 Column(
-                    modifier = (if (queueState != null) Modifier.nestedScroll(queueState.preUpPostDownNestedScrollConnection) else Modifier)
+                    modifier = (if (paneScroll != null) Modifier.nestedScroll(paneScroll) else Modifier)
                         .fillMaxWidth()
                         .weight(1f, false)
                 ) {
@@ -1643,7 +1743,7 @@ fun BoxScope.QueueContent(
                 // pane is not in this column, which a layer's own reader must never be.
                 .then(
                     if (listBackdrop != null) Modifier
-                        .layerBackdrop(listBackdrop)
+                        .then(if (glassStill) Modifier else Modifier.layerBackdrop(listBackdrop))
                         .background(MaterialTheme.colorScheme.surfaceColorAtElevation(NavigationBarDefaults.Elevation))
                     else Modifier
                 )
@@ -1735,7 +1835,9 @@ fun BoxScope.QueueContent(
  * The bar at the foot of the queue as one pane of glass: the dock's recipe, over [backdrop], under
  * a wash of [tint] that keeps what is written on it readable.
  */
-private fun Modifier.glassPane(backdrop: LayerBackdrop, intensity: Float, shape: Shape, tint: Color): Modifier {
+private fun Modifier.glassPane(backdrop: LayerBackdrop, intensity: Float, shape: Shape, tint: Color, still: Boolean, stillFill: Color): Modifier {
+    // Still on Saver (LocalGlassStill): the same pane, frosted, nothing behind it read.
+    if (still) return this.stillGlass { shape }.background(stillFill, shape).background(tint, shape)
     val glass = GlassSpec(backdrop, intensity.coerceIn(0f, 1f))
     return this
         .drawBackdrop(

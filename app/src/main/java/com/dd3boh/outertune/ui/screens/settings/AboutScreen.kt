@@ -9,6 +9,7 @@
 
 package com.dd3boh.outertune.ui.screens.settings
 
+import com.dd3boh.outertune.utils.BuiltInKeys
 import com.dd3boh.outertune.ui.component.FloatingTopBar
 import com.dd3boh.outertune.constants.Unreleased
 
@@ -47,6 +48,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBarDefaults
 import androidx.compose.material3.Text
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
@@ -79,10 +81,12 @@ import com.dd3boh.outertune.ui.component.ContributorType.CUSTOM
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SettingsClickToReveal
 import com.dd3boh.outertune.ui.component.button.IconLabelButton
+import com.dd3boh.outertune.utils.installedFrom
 import com.dd3boh.outertune.utils.scanners.FFmpegScanner
 import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.FfmpegLibrary
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import com.dd3boh.outertune.ui.component.ProblemReportDialog
@@ -113,25 +117,36 @@ fun AboutScreen(
             .fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Image(
-            painter = painterResource(R.drawable.launcher_monochrome),
-            contentDescription = null,
-            colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onBackground, BlendMode.SrcIn),
-            modifier = Modifier
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceColorAtElevation(NavigationBarDefaults.Elevation))
-                .clickable { }
-        )
+        // A fork's build is not InterTune, and says so in place of InterTune's name and logo (FORKS.md).
+        if (BuiltInKeys.official) {
+            Image(
+                painter = painterResource(R.drawable.launcher_monochrome),
+                contentDescription = null,
+                colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onBackground, BlendMode.SrcIn),
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceColorAtElevation(NavigationBarDefaults.Elevation))
+                    .clickable { }
+            )
 
-        Row(
-            verticalAlignment = Alignment.Top,
-        ) {
+            Row(
+                verticalAlignment = Alignment.Top,
+            ) {
+                Text(
+                    // Was hardcoded, so the rebrand's string sweep never reached it.
+                    text = stringResource(R.string.app_name),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                )
+            }
+        } else {
             Text(
-                // Was hardcoded, so the rebrand's string sweep never reached it.
-                text = stringResource(R.string.app_name),
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                text = stringResource(R.string.unofficial_build),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
             )
         }
 
@@ -167,7 +182,7 @@ fun AboutScreen(
 
         Spacer(Modifier.height(4.dp))
 
-        Row(
+        if (BuiltInKeys.official) Row(
             horizontalArrangement = Arrangement.Center,
             modifier = Modifier.padding(vertical = 16.dp)
         ) {
@@ -197,6 +212,7 @@ fun AboutScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 PreferenceEntry(
+                    modifier = Modifier.settingRow(R.string.attribution_title),
                     title = { Text(stringResource(R.string.attribution_title)) },
                     icon = { Icon(Icons.Rounded.Groups, null) },
                     onClick = {
@@ -204,6 +220,7 @@ fun AboutScreen(
                     }
                 )
                 PreferenceEntry(
+                    modifier = Modifier.settingRow(R.string.oss_licenses_title),
                     title = { Text(stringResource(R.string.oss_licenses_title)) },
                     icon = { Icon(Icons.Rounded.Description, null) },
                     onClick = {
@@ -223,6 +240,7 @@ fun AboutScreen(
                 // Settings between Player and audio and Song recognition, where a row that runs
                 // something reads like a screen full of switches.
                 PreferenceEntry(
+                    modifier = Modifier.settingRow(R.string.walkthrough_start),
                     title = { Text(stringResource(R.string.walkthrough_start)) },
                     icon = { Icon(Icons.Rounded.Explore, null) },
                     onClick = {
@@ -231,6 +249,7 @@ fun AboutScreen(
                 )
                 if (Unreleased.WELCOME_BACK) {
                     PreferenceEntry(
+                        modifier = Modifier.settingRow(R.string.welcome_back_entry),
                         title = { Text(stringResource(R.string.welcome_back_entry)) },
                         icon = { Icon(Icons.Rounded.WavingHand, null) },
                         onClick = {
@@ -238,6 +257,7 @@ fun AboutScreen(
                         }
                     )
                     PreferenceEntry(
+                        modifier = Modifier.settingRow(R.string.tour_closer_entry),
                         title = { Text(stringResource(R.string.tour_closer_entry)) },
                         icon = { Icon(Icons.Rounded.SettingsSuggest, null) },
                         onClick = {
@@ -246,7 +266,7 @@ fun AboutScreen(
                     )
                 }
                 PreferenceEntry(
-                    modifier = Modifier.tourTarget(Tour.SETTING_BUG_REPORT),
+                    modifier = Modifier.tourTarget(Tour.SETTING_BUG_REPORT).settingRow(R.string.help_bug_report_action),
                     title = { Text(stringResource(R.string.help_bug_report_action)) },
                     icon = { Icon(Icons.Rounded.BugReport, null) },
                     onClick = {
@@ -254,49 +274,60 @@ fun AboutScreen(
                         if (Unreleased.PROBLEM_REPORT) reportingProblem = true else uriHandler.openUri(Links.ISSUES)
                     }
                 )
-                PreferenceEntry(
-                    title = { Text(stringResource(R.string.help_support_forum)) },
-                    icon = { Icon(Icons.AutoMirrored.Rounded.Help, null) },
-                    onClick = {
-                        uriHandler.openUri(Links.DISCUSSIONS)
-                    }
-                )
-                PreferenceEntry(
-                    title = { Text(stringResource(R.string.help_discord)) },
-                    icon = { Icon(Icons.Rounded.Forum, null) },
-                    onClick = {
-                        uriHandler.openUri(Links.DISCORD)
-                    }
-                )
-                PreferenceEntry(
-                    title = { Text(stringResource(R.string.help_translate)) },
-                    icon = { Icon(Icons.Rounded.Translate, null) },
-                    onClick = {
-                        uriHandler.openUri(Links.TRANSLATE)
-                    }
-                )
-                // Another way to help.
-                PreferenceEntry(
-                    title = { Text(stringResource(R.string.support_title)) },
-                    icon = { Icon(Icons.Rounded.VolunteerActivism, null) },
-                    onClick = { supporting = true },
-                )
-                PreferenceEntry(
-                    title = { Text(stringResource(R.string.help_contact_email_inquiries)) },
-                    description = Links.EMAIL,
-                    icon = { Icon(Icons.Rounded.Email, null) },
-                    onClick = {
-                        val clipData = ClipData.newPlainText(
-                            context.getString(R.string.app_name),
-                            AnnotatedString(Links.EMAIL)
-                        )
-                        clipboardManager.nativeClipboard.setPrimaryClip(clipData)
-                        // Android 13 and later say it was copied themselves; before, nothing did.
-                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-                            Toast.makeText(context, R.string.copied, Toast.LENGTH_SHORT).show()
+                // InterTune's community, not a fork's (FORKS.md).
+                if (BuiltInKeys.official) {
+                    PreferenceEntry(
+                        modifier = Modifier.settingRow(R.string.help_support_forum),
+                        title = { Text(stringResource(R.string.help_support_forum)) },
+                        icon = { Icon(Icons.AutoMirrored.Rounded.Help, null) },
+                        onClick = {
+                            uriHandler.openUri(Links.DISCUSSIONS)
                         }
-                    }
-                )
+                    )
+                    PreferenceEntry(
+                        modifier = Modifier.settingRow(R.string.help_discord),
+                        title = { Text(stringResource(R.string.help_discord)) },
+                        icon = { Icon(Icons.Rounded.Forum, null) },
+                        onClick = {
+                            uriHandler.openUri(Links.DISCORD)
+                        }
+                    )
+                    PreferenceEntry(
+                        modifier = Modifier.settingRow(R.string.help_translate),
+                        title = { Text(stringResource(R.string.help_translate)) },
+                        icon = { Icon(Icons.Rounded.Translate, null) },
+                        onClick = {
+                            uriHandler.openUri(Links.TRANSLATE)
+                        }
+                    )
+                }
+                // InterTune's support and address, not a fork's (FORKS.md).
+                if (BuiltInKeys.official) {
+                    // Another way to help.
+                    PreferenceEntry(
+                        modifier = Modifier.settingRow(R.string.support_title),
+                        title = { Text(stringResource(R.string.support_title)) },
+                        icon = { Icon(Icons.Rounded.VolunteerActivism, null) },
+                        onClick = { supporting = true },
+                    )
+                    PreferenceEntry(
+                        modifier = Modifier.settingRow(R.string.help_contact_email_inquiries),
+                        title = { Text(stringResource(R.string.help_contact_email_inquiries)) },
+                        description = Links.EMAIL,
+                        icon = { Icon(Icons.Rounded.Email, null) },
+                        onClick = {
+                            val clipData = ClipData.newPlainText(
+                                context.getString(R.string.app_name),
+                                AnnotatedString(Links.EMAIL)
+                            )
+                            clipboardManager.nativeClipboard.setPrimaryClip(clipData)
+                            // Android 13 and later say it was copied themselves; before, nothing did.
+                            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                                Toast.makeText(context, R.string.copied, Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    )
+                }
             }
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -333,8 +364,11 @@ fun AboutScreen(
                     ElevatedCard(
                         modifier = Modifier.fillMaxWidth()
                     ) {
+                        // Asked of Android once, as the fold opens.
+                        val installedFrom = remember { context.installedFrom() }
                         val info = mutableListOf<String>(
                             "Device: ${Build.BRAND} ${Build.DEVICE} (${Build.MODEL})",
+                            "Installed from: $installedFrom",
                             "Manufacturer: ${Build.MANUFACTURER}",
                             "HW: ${Build.BOARD} (${Build.HARDWARE})",
                             "ABIs: ${Build.SUPPORTED_ABIS.joinToString()})",

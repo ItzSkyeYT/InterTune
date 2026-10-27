@@ -1,0 +1,300 @@
+/*
+ * Copyright (C) 2026 InterTune
+ *
+ * SPDX-License-Identifier: GPL-3.0
+ */
+
+package com.dd3boh.outertune.playback.sabr
+
+import android.os.SystemClock
+import android.util.Log
+import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.sabr.SabrFile
+import com.dd3boh.outertune.utils.RouteTimes
+import com.dd3boh.outertune.utils.StreamFamily
+import com.dd3boh.outertune.utils.YTPlayerUtils
+import com.metrolist.innertubex.InnerTubeLogLevel
+import com.metrolist.innertubex.InnerTubeLogger
+import com.metrolist.innertubex.sabr.ExperimentalSabrApi
+import com.metrolist.innertubex.sabr.SabrAudioStream
+import com.metrolist.innertubex.sabr.SabrFailureKind
+import com.metrolist.innertubex.sabr.SabrResponseDiagnostics
+import com.metrolist.innertubex.sabr.findSabrProtocolException
+import com.metrolist.innertubex.sabr.sabrRequestOrigin
+import com.metrolist.innertubex.sabr.toSabrBootstrap
+import com.zionhuang.innertube.PlayerAnswers
+import com.zionhuang.innertube.YouTube
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.okhttp.OkHttp
+import kotlinx.serialization.json.Json
+import okhttp3.OkHttpClient
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
+import com.metrolist.innertubex.models.response.PlayerResponse as SabrPlayerResponse
+
+/**
+ * A song the walk has an answer for, started over SABR instead of its direct address: the same
+ * answer read into InnerTubeX's model (the SABR fields are not in ours), the format the walk chose,
+ * a [SabrFile] reading it, and the sabr: address that stands for it ([SabrStarts]). Only from a
+ * VISIONOS answer for now: a web client's SABR address carries an n to be solved first.
+ *
+ * The last rung of the walk (YTPlayerUtils.sabrRung), and the developer's switch "Stream over
+ * SABR only" in a debug build (YTPlayerUtils.sabrOnly).
+ *
+ * A start the player reads is read ahead of it too, on a stream of its own at a download's pace
+ * ([ahead], SabrFile.Ahead): the rest of the song held on the phone, so that a lost connection
+ * does not stop it within YouTube's 15 s of readahead. A download's start is not: it has its own
+ * fast clock already.
+ */
+@OptIn(ExperimentalSabrApi::class)
+object SabrOver {
+    private const val TAG = "SabrOver"
+
+    private val json = Json {
+        ignoreUnknownKeys = true
+        explicitNulls = false
+    }
+
+    /**
+     * The client SABR's requests go out on: the player's stream client as the app makes it
+     * (StreamFamily.streamClient: a pool of its own whose idle connections are let go after a few
+     * seconds, 5 s to connect, the fault injection in a debug build), no redirect followed, since
+     * the library refuses them itself, and a read limit of its own. No overall time limit, since a
+     * song is read for as long as it plays. It had OkHttp's defaults and a 30 s read, the trap of
+     * 20 Oct 2026: a kept connection the network had dropped without a word.
+     */
+    private val client: OkHttpClient = StreamFamily.streamClient(YouTube.proxy).newBuilder()
+        .followRedirects(false)
+        .followSslRedirects(false)
+        .readTimeout(RouteTimes.SABR_READ_MS, TimeUnit.MILLISECONDS)
+        .build()
+
+    /** Over the family the address was issued to, as the direct address's are. */
+    private val calls = StreamFamily.Calls(client)
+
+    /**
+     * Which songs are read ahead of the player, set by MusicService while it runs (SabrAhead).
+     * Null, or with Unreleased.SABR_AHEAD off, no start reads ahead and SABR streams as before.
+     */
+    @Volatile
+    var ahead: SabrAhead? = null
+
+    /**
+     * How many changes of network there have been ([forgetConnections]). A start made before the
+     * last one is not taken again by a new walk: its session was issued to the old network, and
+     * whether YouTube takes it from the new one is not known, so the walk makes a new start from
+     * its own answer, as it always did.
+     */
+    private val networkChanges = AtomicInteger()
+
+    /** For the tests, which make starts of their own. */
+    internal val networkChangesSeen: Int get() = networkChanges.get()
+
+    /** One start made at a time: see [over]. */
+    private val making = Any()
+
+    /**
+     * Lets go of the connections kept: after a change of network they are on the old link. With
+     * the player's own, by MusicService. The family clients and InnerTubeX's share this pool.
+     */
+    fun forgetConnections() {
+        networkChanges.incrementAndGet()
+        client.connectionPool.evictAll()
+    }
+
+    private val clients = ConcurrentHashMap<OkHttpClient, HttpClient>()
+
+    /** InnerTubeX's own lines, into ours. It leaves addresses, tokens and cookies out by design. */
+    private val libraryLog = InnerTubeLogger { e ->
+        val line = "${e.tag}: ${e.message}" + if (e.details.isEmpty()) "" else " ${e.details}"
+        when (e.level) {
+            InnerTubeLogLevel.DEBUG -> Log.d(TAG, line)
+            InnerTubeLogLevel.INFO -> Log.i(TAG, line)
+            InnerTubeLogLevel.WARN -> Log.w(TAG, line)
+            InnerTubeLogLevel.ERROR -> Log.e(TAG, line)
+        }
+    }
+
+    private fun httpFor(url: String): HttpClient {
+        val okHttp = calls.clientFor(url)
+        return clients.getOrPut(okHttp) {
+            HttpClient(OkHttp) {
+                engine { preconfigured = okHttp }
+                expectSuccess = false
+                // Ktor follows them by itself otherwise, before the library could refuse them.
+                followRedirects = false
+            }
+        }
+    }
+
+    /**
+     * A download's clock, as a player [DOWNLOAD_PACE] times faster than real time would read from
+     * where the stream began. A SABR stream asks for the next stretch by where the player is; with
+     * no player on the song the library waits a minute for each ten seconds of it, and a song of
+     * 3:43 would have taken 22 minutes to download (16 Oct 2026, every answer still accepted).
+     */
+    fun downloadClock(startMs: Long, now: () -> Long = SystemClock::elapsedRealtime): () -> Long {
+        val opened = now()
+        return { startMs + (now() - opened) * DOWNLOAD_PACE }
+    }
+
+    /** How many times faster than real time a download's clock runs: a 3:43 song in about a minute. */
+    const val DOWNLOAD_PACE = 4
+
+    /**
+     * How long the addresses of an answer that came at [answeredAt] and said they last
+     * [expiresInSeconds] still have at [now]: counted from the answer, not from the start made
+     * of it, which may come seconds later.
+     */
+    fun secondsLeft(answeredAt: Long, expiresInSeconds: Int, now: Long): Long =
+        (answeredAt + expiresInSeconds * 1000L - now) / 1000
+
+    /**
+     * The developer's "Stream over SABR only": [data] over SABR from the newest VISIONOS answer of
+     * [videoId] kept since [since], the walk's own. See the other [over].
+     */
+    fun over(
+        videoId: String,
+        data: YTPlayerUtils.PlaybackData,
+        since: Long,
+        clockId: String = videoId,
+        forDownload: Boolean = false,
+    ): YTPlayerUtils.PlaybackData? {
+        val answer = YouTube.playerAnswers.latest(videoId, "VISIONOS", since)
+        if (answer == null) {
+            Log.w(TAG, "[$videoId] no VISIONOS answer kept to start SABR from")
+            return null
+        }
+        return over(answer, data, clockId, forDownload)
+    }
+
+    /**
+     * [data] with its address replaced by a sabr: address for the same format, made from [answer]
+     * and asked for as the client that got it, or null when it cannot be streamed over SABR (said
+     * in the log). Paced by where the player is in [clockId], the song the player asked for, or by
+     * [downloadClock] for a download. The start runs out when the answer's addresses do, counted
+     * from when it came ([secondsLeft]), and the data handed back says so.
+     *
+     * A live start of the same song, format and pace is taken as it is rather than made again: two
+     * walks of one song can end at once (the player's own load of the next song and SabrAhead's),
+     * and the second start replaced the first, which let go of what it had read ahead. Not one
+     * made before a change of network ([networkChanges]).
+     */
+    fun over(
+        answer: PlayerAnswers.Answer,
+        data: YTPlayerUtils.PlaybackData,
+        clockId: String = answer.videoId,
+        forDownload: Boolean = false,
+        now: Long = System.currentTimeMillis(),
+    ): YTPlayerUtils.PlaybackData? = runCatching {
+        val videoId = answer.videoId
+        val left = secondsLeft(answer.at, data.streamExpiresInSeconds, now)
+        if (left <= 0) {
+            Log.w(TAG, "[$videoId] the answer to start SABR from has run out")
+            return null
+        }
+        val theirs = json.decodeFromString(SabrPlayerResponse.serializer(), answer.text)
+        val formats = theirs.streamingData?.adaptiveFormats.orEmpty()
+        val format = formats.firstOrNull { it.itag == data.format.itag && it.lastModified == data.format.lastModified?.toString() }
+            ?: formats.firstOrNull { it.itag == data.format.itag }
+        if (format == null) {
+            Log.w(TAG, "[$videoId] the VISIONOS answer has no itag ${data.format.itag}")
+            return null
+        }
+        val lastModified = format.lastModified?.toLongOrNull() ?: 0
+        // Taken and made under one lock: two walks ending together each found no start, and the
+        // second one made replaced the first.
+        synchronized(making) {
+            if (!forDownload) {
+                val same = SabrStarts.addressOf(videoId, format.itag, lastModified)
+                SabrStarts.forAddress(same, now)
+                    ?.takeIf { it.songId == clockId && it.pacedByPlayer && it.networkChanges == networkChanges.get() }
+                    ?.let { kept ->
+                        Log.i(TAG, "[$videoId] [${answer.client.clientName}] SABR start kept from a walk before: itag ${format.itag}")
+                        return data.copy(streamUrl = same, streamExpiresInSeconds = minOf(left, (kept.expiresAtMs - now) / 1000).toInt())
+                    }
+            }
+            val bootstrap = theirs.toSabrBootstrap(
+                clientId = answer.client.clientId.toInt(),
+                clientVersion = answer.client.clientVersion,
+                audioFormat = format,
+                requestUserAgent = answer.client.userAgent,
+                requestOrigin = sabrRequestOrigin(answer.client.clientName),
+            )
+            val length = format.contentLength ?: data.format.contentLength
+            val durationMs = format.approxDurationMs?.toLongOrNull()
+                ?: data.videoDetails?.lengthSeconds?.toLongOrNull()?.times(1000)
+            if (length == null || durationMs == null) {
+                Log.w(TAG, "[$videoId] no length or duration for itag ${format.itag}")
+                return null
+            }
+            val http = httpFor(bootstrap.serverAbrStreamingUrl)
+            fun said(what: String): (SabrResponseDiagnostics) -> Unit = { d ->
+                Log.i(
+                    TAG,
+                    "[$videoId] $what ${d.requestNumber} at ${d.requestPlayerTimeMs} ms: http ${d.httpStatus}, " +
+                        "${d.selectedSegmentCount} segments, ${d.responseBytes} bytes, retries ${d.transientRetryCount}, " +
+                        "no progress ${d.noProgressRequestCount}, protection ${d.protectionStatus}, backoff ${d.backoffTimeMs} ms, " +
+                        "readahead ${d.targetAudioReadaheadMs} ms" + (d.failureCategory?.let { ", $it: ${d.failureMessage}" } ?: ""),
+                )
+            }
+            // Read ahead for the player only, and only while MusicService runs.
+            val reads = ahead?.takeIf { Unreleased.SABR_AHEAD && !forDownload }
+            val file = SabrFile(
+                stream = { startMs ->
+                    SabrAudioStream(
+                        http, bootstrap,
+                        initialPlayerTimeMs = startMs,
+                        // Asked for as a player asks: by where it really is in the song it plays
+                        // (SabrClock), or for a download as a faster player would be (downloadClock).
+                        playbackPositionMs = if (forDownload) downloadClock(startMs) else { { SabrClock.positionIn(clockId) } },
+                        logger = libraryLog,
+                        onResponse = said("SABR response"),
+                    ).chunks()
+                },
+                contentLength = length,
+                durationMs = durationMs,
+                // Protection still "pending" after InnerTubeX's five answers: a new stream at the byte
+                // owed (SabrFile.restartOn). A real refusal, status 3, is not carried on.
+                restartOn = { e ->
+                    e.findSabrProtocolException()?.let {
+                        it.kind == SabrFailureKind.ATTESTATION_REQUIRED && "(status 2," in (it.message ?: "")
+                    } == true
+                },
+                ahead = reads?.let { songs ->
+                    SabrFile.Ahead(
+                        // As a download is asked for: as a player DOWNLOAD_PACE times faster than real
+                        // time would be, from where the read ahead began. 73 such answers of a row of
+                        // downloads were accepted on the emulator (16 Oct 2026).
+                        stream = { startMs ->
+                            SabrAudioStream(
+                                http, bootstrap,
+                                initialPlayerTimeMs = startMs,
+                                playbackPositionMs = downloadClock(startMs),
+                                logger = libraryLog,
+                                onResponse = said("SABR ahead response"),
+                            ).chunks()
+                        },
+                        allowed = songs::allowedNow,
+                        log = { Log.i(TAG, "[$videoId] $it") },
+                        // By the song the player asked for, as the queue knows it.
+                        onRestHeld = { songs.restHeld(clockId) },
+                    )
+                },
+            )
+            val address = SabrStarts.put(
+                SabrStarts.Start(
+                    videoId, format.itag, lastModified, file,
+                    expiresAtMs = answer.at + data.streamExpiresInSeconds * 1000L,
+                    pacedByPlayer = !forDownload,
+                    songId = clockId,
+                    networkChanges = networkChanges.get(),
+                )
+            )
+            // The client's own name between the brackets, as the walk's lines have it.
+            Log.i(TAG, "[$videoId] [${answer.client.clientName}] SABR start made: itag ${format.itag}, $length bytes, ${durationMs / 1000} s")
+            data.copy(streamUrl = address, streamExpiresInSeconds = left.toInt())
+        }
+    }.onFailure { Log.w(TAG, "[${answer.videoId}] could not start SABR", it) }.getOrNull()
+}

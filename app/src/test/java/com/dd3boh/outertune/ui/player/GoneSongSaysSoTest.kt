@@ -7,6 +7,7 @@
 package com.dd3boh.outertune.ui.player
 
 import com.dd3boh.outertune.utils.YTPlayerUtils
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -57,6 +58,37 @@ class GoneSongSaysSoTest {
         assertTrue("the player has no sentence for a song that is gone", goneAt >= 0)
         assertTrue("its place is after the busy line and the age gate, and before the raw text", busy in 0 until age && age < goneAt && goneAt < raw)
         assertTrue("YTPlayerUtils.isUnavailableSong(error)" in box)
+    }
+
+    private val service get() = File("src/main/java/com/dd3boh/outertune/playback/MusicService.kt").readText()
+
+    @Test
+    fun `when the player skips or stops on it, the toast says it in plain words, once for each song`() {
+        // His phone, 21 Oct 2026: thirteen taps, each answered with "plr: Source error (2000):
+        // Unexpected SongUnavailable: This video is not available".
+        val onError = service.substringAfter("override fun onPlayerError(").substringBefore("override fun onPlayWhenReadyChanged(")
+        assertTrue("no plain sentence for a gone song in onPlayerError", onError.contains("getString(R.string.err_song_unavailable)"))
+        assertTrue("not told once for each song", onError.contains("goneSongs.tellOnce("))
+    }
+
+    @Test
+    fun `the player's stand-ins know a song set aside as gone, and a run not believed takes back what was set aside at once`() {
+        val standIns = service.substringAfter("private val standIns by lazy").substringBefore("private val goneSongs = GoneSongs(")
+        val setAside = standIns.substringAfter("setAside = ", "").substringBefore(".also {")
+        assertTrue("StandIns is not told which songs are set aside as gone", setAside.contains("REASON_GONE"))
+        assertTrue(standIns.contains("it.onDoubted = goneSongs::doubted"))
+    }
+
+    @Test
+    fun `the song the music stopped on, asked for again, is asked of YouTube whatever was set aside`() {
+        // Retry on this screen, Play in the app or on the notification: the music stopped on the
+        // song, and only the listener starts it again. Skipping onto it, or a radio reaching it,
+        // ends the stop first (onMediaItemTransition), and those respect what was set aside.
+        val resolve = service.substringAfter("fun resolve(mediaId: String, position: Long, length: Long, ahead: Boolean = false): ResolvedSong {")
+        assertTrue(resolve.contains("standIns.playbackData(mediaId, askedAgain = stoppedByError && stoppedOn == mediaId)"))
+        assertEquals("the music is stopped on an error in one place, which names the song", 1, Regex("""stoppedByError = true""").findAll(service).count())
+        val stopping = service.substringAfter("private fun stopsOnError()").substringBefore("\n    }")
+        assertTrue(stopping.contains("stoppedOn = activePlayer.currentMediaItem?.mediaId"))
     }
 
     @Test

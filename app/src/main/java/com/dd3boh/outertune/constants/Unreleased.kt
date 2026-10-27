@@ -59,11 +59,18 @@ object Unreleased {
 
     /**
      * "Links you share" under Library and content: a song or an album can go out as a link to the share
-     * page (ShareLinks.PAGE), where whoever opens it picks their own music app. Everything is in
-     * place but the page itself is not public yet. When it is: set this to true, or delete it
-     * along with the two checks that read it, in LibrarySettings and rememberShareLink.
+     * page (ShareLinks.PAGE), where whoever opens it picks their own music app.
+     *
+     * On in every build from 0.12.5 (decided on 23 Oct 2026, with the page live at
+     * intertune.app/s/). Everybody starts with nothing chosen: the first share that has a
+     * page asks which link to send, and the pick is the setting from then on (ShareLinks.START,
+     * rememberShareLink). Its six new or redrafted texts (the What's new entry's four, the line
+     * under the question and the row's value before a pick) are English only and not for
+     * translators yet. Left to tidy: the flag and the three checks that read it, in
+     * LibrarySettings, rememberShareLink and the What's new entry in Walkthrough,
+     * and its row's entry in SETTINGS_INDEX.
      */
-    val SHARE_PAGE = BuildConfig.DEBUG
+    val SHARE_PAGE = true
 
     /**
      * Keep radios up to date the whole way (AdaptivePass, QueuePlanner, QueueBoard.applyAdaptive):
@@ -98,7 +105,7 @@ object Unreleased {
      *
      * Unit tests only (LyricsSourcesTest), not yet seen on a screen. For 0.12. Its nine texts are
      * English only and held back. To ship: set this to true, or delete it with the one check that
-     * reads it, in LyricFrag.
+     * reads it, in LyricFrag, and the three entries of SETTINGS_INDEX that say which rows it shows.
      */
     val LYRICS_SOURCES = BuildConfig.DEBUG
 
@@ -276,6 +283,48 @@ object Unreleased {
     val WEB_CLIENT_FIRST = BuildConfig.DEBUG
 
     /**
+     * SABR's two developer switches, test tools read in a debug or preview build only: "Stream
+     * over SABR only", which plays each song over SABR from the VISIONOS answer the walk already
+     * has (playback/sabr/SabrOver), and "Take every direct address for refused", which has the
+     * walk end on SABR's rung ([SABR_RUNG]). SABR itself is the way YouTube's own apps stream,
+     * built from InnerTubeX (the sabr module, see experiments/features/sabr/PLAN.md).
+     *
+     * Stays held back in 0.12.5: SABR itself reaches everyone through [SABR_RUNG] and [SABR_AHEAD],
+     * and a switch of these restored from a debug build's backup would have no row in a release.
+     */
+    val SABR = BuildConfig.DEBUG
+
+    /**
+     * SABR as the last rung of the walk: when YouTube turned every direct address down, the song
+     * plays over SABR from a VISIONOS answer of that walk instead of failing
+     * (YTPlayerUtils.sabrRung). Reached only where a song would otherwise fail, so an ordinary day
+     * never touches it, and the maintainer can turn it off without an update (RemoteRoutes.sabr).
+     * The clock that paces it runs whenever a SABR read is open, whatever this says (SabrClock).
+     *
+     * On in every build from 0.12.5.
+     */
+    val SABR_RUNG = true
+
+    /**
+     * A song played over SABR read ahead of the player (SabrFile.Ahead, SabrAhead): the rest of it
+     * on a stream four times faster than it plays, held on the phone, and once it is held to its
+     * end the next song in the queue as well. A connection lost mid-song or at the change of song
+     * then stops nothing while what is held lasts. Without it SABR has about 15 s of music ahead,
+     * YouTube's readahead, where a direct address has ExoPlayer's 50 s. Never for a download, which
+     * has its own fast clock, nor while casting, and not with Data Saver on. Held in memory, at
+     * most 16 MB a song, and at each change of the queue only the song playing and the next one
+     * keep theirs, so the song cache and its size are left as they are: a song reaches the cache
+     * as it plays, as before.
+     *
+     * JVM tests (SabrFileAheadTest, SabrAheadTest) and the read-only emulator only (23 Oct 2026,
+     * experiments/features/sabr/prefetch). To ship: set this to true, or delete it with the checks
+     * that read it, in SabrOver and MusicService.
+     *
+     * On in every build from 0.12.5, picked on 26 Oct 2026.
+     */
+    val SABR_AHEAD = true
+
+    /**
      * YouTube Music's web client as one of the stream chain's own, written after VISIONOS
      * (YTPlayerUtils.WEB_FALLBACK_CLIENT): the day VISIONOS gives no stream it is asked by
      * itself, and it is first for the songs after that for as long as it serves.
@@ -368,8 +417,8 @@ object Unreleased {
      *
      * Tested as arithmetic and not yet judged by ear, which is the whole of what they are for.
      * Without it the three rows are not shown and the renderer is as it was. When it is agreed:
-     * set this to true, or delete it with the checks that read it, in PlayerFrag and
-     * MusicService, and make its six strings translatable.
+     * set this to true, or delete it with the checks that read it, in PlayerFrag, MusicService
+     * and the entries of its rows in SETTINGS_INDEX, and make its six strings translatable.
      */
     val SPATIAL_TUNING = BuildConfig.DEBUG
 
@@ -385,8 +434,9 @@ object Unreleased {
      * Measured and not yet heard: the one controlled listening test there is found no gain from
      * this kind of thing, so it is here to be judged by ear and dropped if it does not convince.
      * Its row is the last under the three of SPATIAL_TUNING and is shown only with them. To
-     * drop it: this flag, the row in PlayerFrag, the collector in MusicService, the key, two
-     * strings, DirectAmbientSplit and everything named "air" in BinauralAudioProcessor.
+     * drop it: this flag, the row in PlayerFrag and its entry in SETTINGS_INDEX, the collector in
+     * MusicService, the key, two strings, DirectAmbientSplit and everything named "air" in
+     * BinauralAudioProcessor.
      */
     val DIRECT_AMBIENT = BuildConfig.DEBUG
 
@@ -464,4 +514,53 @@ object Unreleased {
      * Player.kt, CastPicker, CastDiscovery and CastLinks.
      */
     val CASTING = true
+
+    /**
+     * Songs put in with Play next stay next when a song is picked out of a list: they play right
+     * after the picked song, in the order they stood, then the list (PlayNextWaiting), as Spotify's
+     * "Next in queue" does. Asked for in issue #42 (23 Oct 2026). Without it a pick leaves them in
+     * the queue it replaces, or wipes them with it when the list is that queue's own.
+     *
+     * Only a pick takes them, not a list's Play or Shuffle button, nor a radio. Kept in memory, so
+     * a restart forgets which songs they were (they stay in the saved queue). Seen on the emulator
+     * only. To drop it: this flag, PlayNextWaiting, its two reads in MusicService (enqueueNext and
+     * the queue start's Target) and QueueBoard.putInAfterStart and takeOut.
+     *
+     * On in every build from 0.12.5, picked on 26 Oct 2026.
+     */
+    val PLAY_NEXT_STAYS = true
+
+    /**
+     * A search field at the top of Settings (SettingsSearch.kt): what is typed finds settings on
+     * every screen by their names, the lines under them and a few other words, in the app's
+     * language, and a result opens the screen it is on, scrolled to its row and lit for a moment.
+     * Asked for in issue #36. What it searches is SETTINGS_INDEX, which SettingsIndexTest holds
+     * to the screens.
+     *
+     * A first cut, seen on an emulator only. Its texts (search_settings*, search_words_*) are
+     * held from translators, their French already beside them in values-fr. Without it Settings
+     * is the list it was. When it is agreed: set this to true, or delete it with the checks that
+     * read it, in SettingsScreen and SettingsTwoPane, and make its texts translatable.
+     *
+     * On in every build from 0.12.5, picked on 26 Oct 2026.
+     */
+    val SETTINGS_SEARCH = true
+
+    /**
+     * Battery use (BatteryUse), one row under Audio quality with three choices: Full, Balanced and
+     * Saver. Asked for on 23 Oct 2026 ("Different battery usage preferences"), his answers on 24
+     * Oct: Balanced is everyone's default, Saver turns the sound effects off and streams at Low
+     * quality on mobile data. Balanced syncs the library every two hours instead of every half
+     * hour, reads the radios' taste every half hour instead of every five minutes and steps the
+     * playing bars thirty times a second; Saver goes further and plays through the phone's
+     * low-power audio path.
+     *
+     * Without it the row is not there and every build runs as Full, the app as it was. Its texts
+     * (battery_use*, battery_saver_*) are held from translators, their French beside them in
+     * values-fr. When it is agreed: set this to true, make its texts translatable, and give it a
+     * card among the new things of the release it ships in.
+     *
+     * On in every build from 0.12.5, picked on 26 Oct 2026.
+     */
+    val BATTERY_MODES = true
 }

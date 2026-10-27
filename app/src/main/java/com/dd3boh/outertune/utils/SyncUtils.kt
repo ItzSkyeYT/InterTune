@@ -9,10 +9,12 @@
 package com.dd3boh.outertune.utils
 
 import android.content.Context
+import android.net.ConnectivityManager
 import android.util.Log
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import com.dd3boh.outertune.constants.AccountEmailKey
+import com.dd3boh.outertune.playback.batteryModeNow
 import com.dd3boh.outertune.constants.DataSyncIdKey
 import com.dd3boh.outertune.constants.LastAlbumSyncKey
 import com.dd3boh.outertune.constants.LastArtistSyncKey
@@ -21,7 +23,6 @@ import com.dd3boh.outertune.constants.LastLibSongSyncKey
 import com.dd3boh.outertune.constants.LastLikeSongSyncKey
 import com.dd3boh.outertune.constants.LastPlaylistSyncKey
 import com.dd3boh.outertune.constants.LastRecentActivitySyncKey
-import com.dd3boh.outertune.constants.SYNC_CD
 import com.dd3boh.outertune.constants.SyncConflictResolution
 import com.dd3boh.outertune.constants.SyncContent
 import com.dd3boh.outertune.constants.YtmSyncConflictKey
@@ -37,6 +38,7 @@ import com.dd3boh.outertune.extensions.isInternetConnected
 import com.dd3boh.outertune.extensions.isUserLoggedIn
 import com.dd3boh.outertune.extensions.toEnum
 import com.dd3boh.outertune.models.toMediaMetadata
+import com.dd3boh.outertune.playback.BatteryUse
 import com.dd3boh.outertune.playback.DownloadUtil
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.AlbumItem
@@ -154,13 +156,8 @@ class SyncUtils @Inject constructor(
         }
         Log.d(TAG, "Starting auto sync job")
         if (!bypassCd) {
-            // Default 0, not now: an account that has never synced should sync straight away
-            // rather than sit out a cooldown it never earned.
-            val lastSync = context.dataStore.get(LastFullSyncKey, 0L)
-            val currentTime = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
-            val elapsed = currentTime - lastSync
-            if (elapsed < SYNC_CD) {
-                Log.d(TAG, "Aborting auto sync. ${(SYNC_CD - elapsed) / 60} minutes until eligible")
+            autoSyncHeld(LastFullSyncKey)?.let { why ->
+                Log.d(TAG, "Aborting auto sync. $why")
                 return SyncResult.NOTHING
             }
         }
@@ -183,15 +180,32 @@ class SyncUtils @Inject constructor(
     }
 
     private fun checkPartialSyncEligibility(key: Preferences.Key<Long>): Boolean {
-        val lastSync = context.dataStore.get(key, 0L)
-        val currentTime = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
-        val elapsed = currentTime - lastSync
-        if (elapsed < SYNC_CD) {
-            Log.d(TAG, "Aborting auto sync. ${(SYNC_CD - elapsed) / 60} minutes until eligible")
-            return false
-        }
-        return true
+        val why = autoSyncHeld(key) ?: return true
+        Log.d(TAG, "Aborting auto sync. $why")
+        return false
     }
+
+    /**
+     * Why an automatic sync waits, or null when it may go: the time Battery use has it wait since
+     * the last one, which [key] holds (half an hour on Full, two hours on Balanced, six on Saver),
+     * and in Saver a network that is not metered (BatteryUse). The walk ran 20 s and more on each
+     * opening of the app (S25U, 23 Oct 2026). Sync now and a pull are somebody asking, and never
+     * wait here.
+     */
+    private fun autoSyncHeld(key: Preferences.Key<Long>): String? {
+        val mode = context.batteryModeNow()
+        if (!BatteryUse.syncAllowed(mode, metered())) return "Battery use waits for a network that is not metered"
+        val every = BatteryUse.syncEverySeconds(mode)
+        // Default 0, not now: an account that has never synced should sync straight away
+        // rather than sit out a cooldown it never earned.
+        val elapsed = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC) - context.dataStore.get(key, 0L)
+        return if (elapsed < every) "${(every - elapsed) / 60} minutes until eligible" else null
+    }
+
+    /** Whether the network in use costs the listener data; taken as yes when it cannot be told. */
+    private fun metered(): Boolean = runCatching {
+        context.getSystemService(ConnectivityManager::class.java).isActiveNetworkMetered
+    }.getOrDefault(true)
 
     private fun checkOverwrite(item: SyncConflictResolution): Boolean {
         return context.dataStore.get(YtmSyncConflictKey, SyncConflictResolution.ADD_ONLY.name)

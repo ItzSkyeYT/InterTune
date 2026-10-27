@@ -15,9 +15,20 @@ import androidx.core.content.ContextCompat
 import androidx.glance.GlanceId
 import androidx.glance.action.ActionParameters
 import androidx.glance.appwidget.action.ActionCallback
+import androidx.media3.common.C
+import androidx.media3.common.Player
 import com.dd3boh.outertune.MainActivity
+import com.dd3boh.outertune.extensions.metadata
+import com.dd3boh.outertune.extensions.toggleShuffleMode
+import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.playback.MusicService
 import com.dd3boh.outertune.playback.ResumingMediaButtonReceiver
+import com.dd3boh.outertune.playback.turnLike
+import dagger.hilt.android.EntryPointAccessors
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 /**
  * The buttons on the widget.
@@ -68,6 +79,72 @@ object WidgetCommands {
         if (!sent) openApp(context)
     }
 
+    /** One tap of the heart at a time, so two quick taps are two turns of the like, never two reads of the same one. */
+    private val likeTaps = Mutex()
+
+    /**
+     * The heart: the song the widget shows is liked, or its like taken back, as the player's heart
+     * does it. With the player's service alive the tap goes to it, naming the song, so a like from
+     * here reaches the queue the way one from the app does; the service then fills or empties every
+     * heart, this one included, from the like as stored. With no service there is no queue to tell
+     * and nobody to redraw the widget: the song's row is turned over by the function the service
+     * uses, and the widget is drawn with the result here.
+     */
+    suspend fun toggleLike(context: Context) = likeTaps.withLock {
+        val running = MusicService.alive()
+        likeTap(
+            shown = WidgetStore.read(context).nowPlaying?.id,
+            service = running?.let { service -> { id: String -> service.toggleLike(id) } },
+            stored = { id ->
+                withContext(Dispatchers.IO) {
+                    runCatching {
+                        val app = EntryPointAccessors.fromApplication(context.applicationContext, WidgetEntryPoint::class.java)
+                        app.database().turnLike(id, app.downloadUtil())?.liked
+                    }.onFailure { Log.w(TAG, "Could not like the song from the widget", it) }.getOrNull()
+                }
+            },
+            drawn = { id, liked -> WidgetStore.setLiked(context, id, liked) },
+        )
+    }
+
+    /**
+     * Shuffle, as the player's own button does it: the player's flag turned over, which the service
+     * answers by shuffling the queue or putting it back. With no service there is no queue to
+     * shuffle, and the tap opens the app instead, as next and previous do then.
+     */
+    suspend fun toggleShuffle(context: Context) {
+        val service = MusicService.alive()
+        val done = service != null && withContext(Dispatchers.Main) {
+            runCatching { service.activePlayer.toggleShuffleMode() }
+                .onFailure { Log.w(TAG, "Could not shuffle from the widget", it) }.isSuccess
+        }
+        if (!done) openApp(context)
+    }
+
+    /** The song an Up next row is for. */
+    val UpNextSong = ActionParameters.Key<String>("widget_up_next_song")
+
+    /**
+     * A song of Up next tapped: the queue plays on from it, as a tap on it in the queue does. With no
+     * service, or a queue that has moved on and no longer has it next, the song is played the way a
+     * Quick pick on the widget plays it, so the tap is never silence.
+     */
+    suspend fun playUpNext(context: Context, songId: String) {
+        val service = MusicService.alive()
+        val played = service != null && withContext(Dispatchers.Main) {
+            runCatching { service.activePlayer.playOnFrom(songId) }
+                .onFailure { Log.w(TAG, "Could not play from Up next", it) }.getOrDefault(false)
+        }
+        if (played) return
+        val song = WidgetStore.read(context).upNext.firstOrNull { it.id == songId }
+        if (song == null) {
+            openApp(context)
+            return
+        }
+        runCatching { context.startActivity(playIntent(context, song)) }
+            .onFailure { Log.w(TAG, "Could not open the app on the song", it) }
+    }
+
     fun openApp(context: Context) = runCatching {
         context.startActivity(appIntent(context))
     }.onFailure { Log.w(TAG, "Could not open the app", it) }.getOrDefault(Unit)
@@ -112,4 +189,83 @@ class PreviousAction : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
         WidgetCommands.mediaKey(context, KeyEvent.KEYCODE_MEDIA_PREVIOUS)
     }
+}
+
+class LikeAction : ActionCallback {
+    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+        WidgetCommands.toggleLike(context)
+    }
+}
+
+class ShuffleAction : ActionCallback {
+    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+        WidgetCommands.toggleShuffle(context)
+    }
+}
+
+class PlayUpNextAction : ActionCallback {
+    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+        val id = parameters[WidgetCommands.UpNextSong] ?: return
+        WidgetCommands.playUpNext(context, id)
+    }
+}
+
+/** The next [count] songs of the queue after the one playing, in the order the player will play them. */
+fun Player.upNext(count: Int): List<MediaMetadata> {
+    val timeline = currentTimeline
+    if (timeline.isEmpty || count <= 0) return emptyList()
+    val songs = ArrayList<MediaMetadata>(count)
+    var index = currentMediaItemIndex
+    while (songs.size < count) {
+        index = timeline.getNextWindowIndex(index, Player.REPEAT_MODE_OFF, shuffleModeEnabled)
+        if (index == C.INDEX_UNSET) break
+        getMediaItemAt(index).metadata?.let { songs += it }
+    }
+    return songs
+}
+
+/** Plays the queue on from the first [songId] after the song playing: true when it was there. */
+internal fun Player.playOnFrom(songId: String): Boolean {
+    val at = nextIndexOf(songId, currentMediaItemIndex, mediaItemCount, { getMediaItemAt(it).mediaId }) { index ->
+        currentTimeline.getNextWindowIndex(index, Player.REPEAT_MODE_OFF, shuffleModeEnabled)
+    } ?: return false
+    seekToDefaultPosition(at)
+    play()
+    return true
+}
+
+/**
+ * Where [songId] is next in a queue of [count] songs, after [current]: following [next] from one
+ * song to the one after it, as the player plays them, and never round past the end. Null when the
+ * queue does not have it coming.
+ */
+internal fun nextIndexOf(songId: String, current: Int, count: Int, idAt: (Int) -> String, next: (Int) -> Int): Int? {
+    var index = current
+    repeat(count) {
+        index = next(index)
+        if (index == C.INDEX_UNSET || index !in 0 until count) return null
+        if (idAt(index) == songId) return index
+    }
+    return null
+}
+
+/**
+ * What a tap on the heart does, apart from Android so a test can drive it. The song the widget
+ * shows, [shown], goes to the running [service] when there is one, which draws the heart itself;
+ * otherwise its [stored] like is turned over, giving the like as it now is (null when the song is
+ * not stored), and the widget is [drawn] with it.
+ */
+internal suspend fun likeTap(
+    shown: String?,
+    service: ((String) -> Unit)?,
+    stored: suspend (String) -> Boolean?,
+    drawn: suspend (String, Boolean) -> Unit,
+) {
+    val id = shown ?: return
+    if (service != null) {
+        service(id)
+        return
+    }
+    val liked = stored(id) ?: return
+    drawn(id, liked)
 }

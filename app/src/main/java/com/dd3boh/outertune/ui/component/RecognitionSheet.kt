@@ -272,7 +272,8 @@ fun RecognitionSheet(
 
                 is RecognitionEngine.State.Failed -> Problem(
                     text = stringResource(
-                        if (s.heardNothing) R.string.recognition_heard_nothing
+                        if (s.heardNothing && s.fromPhone) R.string.recognition_phone_heard_nothing
+                        else if (s.heardNothing) R.string.recognition_heard_nothing
                         else R.string.recognition_failed
                     ),
                     onRetry = { start() },

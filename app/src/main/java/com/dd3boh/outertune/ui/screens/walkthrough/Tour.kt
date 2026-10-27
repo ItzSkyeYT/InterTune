@@ -71,6 +71,14 @@ object TourTargets {
     }
 
     /**
+     * How big the row marked [id] is, from a mark that never says where it is (settingRow): enough
+     * for [bring] to give it room. Not state, so a row that changes size redraws nothing.
+     */
+    internal fun sized(id: String, bringer: BringIntoViewRequester, size: IntSize) {
+        there[id]?.takeIf { it.bringer === bringer }?.size = size
+    }
+
+    /**
      * The row marked [id] has gone. Only the row that holds the mark takes it away, for the same
      * reason: the one going out is disposed after the one coming in has arrived, and forgetting
      * by id alone then left the tour with nothing to point at on a screen that was right there.
@@ -183,19 +191,22 @@ object Tour {
     const val NAV_LIBRARY = "nav_library"
     const val HISTORY = "home_history"
 
-    // Settings: its four groups, the rows the welcome back leads through, and the settings themselves.
+    // Settings: its four groups, its search, the rows the welcome back leads through, and the settings themselves.
     const val SETTINGS_YOU = "settings_group_you"
     const val SETTINGS_LOOK_AND_SOUND = "settings_group_look_and_sound"
     const val SETTINGS_KEPT = "settings_group_kept"
     const val SETTINGS_REST = "settings_group_rest"
+    const val SETTINGS_SEARCH_FIELD = "settings_search_field"
     const val ROW_LOOK_AND_FEEL = "settings_row_look_and_feel"
     const val ROW_PLAYER = "settings_row_player"
     const val ROW_LIBRARY = "settings_row_library"
+    const val ROW_BATTERY = "settings_row_battery"
     const val ROW_BACKUP = "settings_row_backup"
     const val ROW_ABOUT = "settings_row_about"
     const val SETTING_IMPORT = "setting_import"
     const val SETTING_BUG_REPORT = "setting_bug_report"
     const val SETTING_PLAYER_BACKGROUND = "setting_player_background"
+    const val SETTING_PLAYER_PINS = "setting_player_pins"
     const val SETTING_SHARE_LINKS = "setting_share_links"
     const val SETTING_SPATIAL_AUDIO = "setting_spatial_audio"
 
@@ -265,6 +276,7 @@ object Tour {
     const val ROUTE_RECOGNITION = "settings/recognition"
     const val ROUTE_LYRICS = "settings/library/lyrics"
     const val ROUTE_STORAGE = "settings/storage"
+    const val ROUTE_BATTERY = "settings/battery"
     const val ROUTE_BACKUP = "settings/backup"
     const val ROUTE_PRIVACY = "settings/privacy"
     const val ROUTE_UPDATES = "settings/updates"

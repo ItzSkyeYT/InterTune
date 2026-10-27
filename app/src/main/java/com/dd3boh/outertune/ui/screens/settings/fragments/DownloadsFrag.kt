@@ -46,8 +46,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
+import com.dd3boh.outertune.LocalBatteryMode
 import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalPlayerConnection
+import com.dd3boh.outertune.playback.BatteryUse
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.DownloadExtraPathKey
 import com.dd3boh.outertune.constants.DownloadPathKey
@@ -80,6 +82,7 @@ import com.dd3boh.outertune.playback.DownloadUtil
 import com.dd3boh.outertune.ui.component.EnumListPreference
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.settings.settingRow
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 
 /**
@@ -146,21 +149,28 @@ fun ColumnScope.DownloadsFrag() {
         }
     }
 
+    // On while Battery use is on Saver, which never writes the switch: it is greyed and on, and has
+    // what was set back when the mode changes.
+    val batteryMode = LocalBatteryMode.current
+    val heldOn = !downloadOnWifiOnly && BatteryUse.downloadsOnWifiOnly(false, batteryMode)
     SwitchPreference(
+        modifier = Modifier.settingRow(R.string.download_on_wifi_only_title),
         title = { Text(stringResource(R.string.download_on_wifi_only_title)) },
         description = stringResource(R.string.download_on_wifi_only_description),
         icon = { Icon(Icons.Rounded.Wifi, null) },
-        checked = downloadOnWifiOnly,
+        checked = BatteryUse.downloadsOnWifiOnly(downloadOnWifiOnly, batteryMode),
+        isEnabled = !heldOn,
         onCheckedChange = {
             onDownloadOnWifiOnlyChange(it)
             // Push it to the running service too, so queued and in-flight downloads follow the new
             // rule rather than waiting for the next app start.
-            downloadUtil.setDownloadRequirements(it)
+            downloadUtil.setDownloadRequirements(BatteryUse.downloadsOnWifiOnly(it, batteryMode))
         }
     )
+    if (heldOn) SaverHoldsLabel()
 
     EnumListPreference(
-        modifier = Modifier.tourTarget(Tour.SETTING_LIKED_AUTODOWNLOAD),
+        modifier = Modifier.tourTarget(Tour.SETTING_LIKED_AUTODOWNLOAD).settingRow(R.string.like_autodownload),
         title = { Text(stringResource(R.string.like_autodownload)) },
         icon = { Icon(Icons.Rounded.Favorite, null) },
         selectedValue = likedAutodownload,
@@ -191,6 +201,7 @@ fun ColumnScope.DownloadsFrag() {
     }
 
     PreferenceEntry(
+        modifier = Modifier.settingRow(R.string.liked_autodownload_backfill_title),
         title = { Text(stringResource(R.string.liked_autodownload_backfill_title)) },
         description = when (val st = likedDownloadState) {
             // Failures are said out loud. A run with some failed ends short of its total, and
@@ -234,7 +245,7 @@ fun ColumnScope.DownloadsFrag() {
     )
 
     PreferenceEntry(
-        modifier = Modifier.tourTarget(Tour.SETTING_DOWNLOAD_FOLDER),
+        modifier = Modifier.tourTarget(Tour.SETTING_DOWNLOAD_FOLDER).settingRow(R.string.dl_main_path_title),
         title = { Text(stringResource(R.string.dl_main_path_title)) },
         description = if (downloadPath != "") uriListFromString(downloadPath).firstOrNull()
             ?.let { absoluteFilePathFromUri(context, it) } ?: downloadPath else null,
@@ -303,6 +314,7 @@ fun ColumnScope.DownloadsFrag() {
     }
 
     PreferenceEntry(
+        modifier = Modifier.settingRow(R.string.clear_all_downloads),
         title = { Text(stringResource(R.string.clear_all_downloads)) },
         onClick = {
             showClearConfirmDialog = true
@@ -311,6 +323,7 @@ fun ColumnScope.DownloadsFrag() {
 
     SettingsClickToReveal(stringResource(R.string.advanced)) {
         PreferenceEntry(
+            modifier = Modifier.settingRow(R.string.dl_extra_path_title),
             title = { Text(stringResource(R.string.dl_extra_path_title)) },
             description = stringResource(R.string.dl_extra_path_description),
             icon = { Icon(Icons.Rounded.FolderCopy, null) },
@@ -321,6 +334,7 @@ fun ColumnScope.DownloadsFrag() {
         )
 
         PreferenceEntry(
+            modifier = Modifier.settingRow(R.string.dl_rescan_title),
             title = { Text(stringResource(R.string.dl_rescan_title)) },
             description = stringResource(R.string.dl_rescan_description),
             icon = {
@@ -341,6 +355,7 @@ fun ColumnScope.DownloadsFrag() {
         )
 
         PreferenceEntry(
+            modifier = Modifier.settingRow(R.string.dl_migrate_title),
             title = { Text(stringResource(R.string.dl_migrate_title)) },
             description = stringResource(R.string.dl_migrate_description),
             icon = {

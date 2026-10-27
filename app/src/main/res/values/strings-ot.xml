@@ -1937,6 +1937,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="share_link_kind_title">Links you share</string>
     <string name="share_link_youtube_music">YouTube Music link</string>
     <string name="share_link_page">A page for any music app</string>
+    <!-- No longer shown: from 0.12.5 the first share asks once and keeps the answer (ShareLinks.START). To go, with its translations, once the released line has 0.12.5: 0.12.1's InterfaceFrag still reads it. -->
     <string name="share_link_ask">Ask each time</string>
     <string name="share_link_choice_title">Which link?</string>
     <string name="share_link_youtube_music_description">Opens in YouTube Music or in InterTune</string>
@@ -2134,6 +2135,11 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="lyrics_timing_later">%1$s s later</string>
     <string name="lyrics_timing_step_earlier">A tenth of a second earlier</string>
     <string name="lyrics_timing_step_later">A tenth of a second later</string>
+    <!-- SABR, a test tool in debug builds: not for translators -->
+    <string name="sabr_only" translatable="false">Stream over SABR only</string>
+    <string name="every_direct_refused" translatable="false">Take every direct address for refused</string>
+    <string name="every_direct_refused_description" translatable="false">Plays the day direct addresses stop: every client\'s address counts as refused, so SABR, the last try, has to take over.</string>
+    <string name="sabr_only_description" translatable="false">Plays each song over SABR, as YouTube\'s own apps stream, from the VISIONOS answer the app already has. A song that cannot be started that way plays as before.</string>
     <!-- Battery use, on its own page under Storage and downloads (BatterySettings, BatteryUseFrag, Unreleased.BATTERY_MODES). The notes go under the rows that Saver holds; %1$s is the name of the background drawn in place of Living blur (Blur or Gradient). -->
     <string name="battery_use">Battery use</string>
     <string name="battery_use_entry">How much the app does while you listen, to make the battery last longer.</string>

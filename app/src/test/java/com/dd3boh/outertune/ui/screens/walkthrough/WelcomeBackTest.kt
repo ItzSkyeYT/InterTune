@@ -32,6 +32,8 @@ class WelcomeBackTest {
     private val v0115 = 93          // the first build of 0.11.5
     private val v0116 = 94          // 0.11.6, fixes only: it took the number 0.12 was to have
     private val v012 = 95           // the first build 0.12 can be
+    private val v0121 = 96          // 0.12.1, fixes only: it took the number after 0.12's
+    private val v0125 = 97          // the first build 0.12.5 can be
 
     private fun ids(things: List<NewThing>) = things.map { it.id }
 
@@ -109,6 +111,49 @@ class WelcomeBackTest {
             "if (result < StatusBarManager.TILE_ADD_REQUEST_ERROR_MISMATCHED_PACKAGE) welcomeShow.looked(thing.id)\n" in main.replace(Regex("""\n\s+"""), "\n"),
         )
         assertTrue("a refusal no longer offers the home screen button", "else pinWidget(RecognitionWidgetReceiver::class.java)" in main)
+    }
+
+    @Test
+    fun `0_12_5's widget is added from its card, and dropped it asks which style`() {
+        assertEquals(NewThingAction.ADD_WIDGET, NEW_THINGS.single { it.id == "widget_styles" }.action)
+        // The player's widget, as 0.11's card adds it, and its question when it is dropped is
+        // where the styles are picked. A launcher may skip a question that is optional.
+        val main = File("src/main/java/com/dd3boh/outertune/MainActivity.kt").readText()
+        assertTrue("NewThingAction.ADD_WIDGET -> pinWidget(MusicWidgetReceiver::class.java)" in main)
+        val info = File("src/main/res/xml/music_widget_info.xml").readText()
+        assertTrue("android:configure=\"com.dd3boh.outertune.widget.WidgetConfigActivity\"" in info)
+        val features = Regex("""android:widgetFeatures="([^"]*)"""").find(info)?.groupValues?.get(1).orEmpty()
+        assertFalse(features, "configuration_optional" in features)
+    }
+
+    @Test
+    fun `0_12_5's pinned buttons, search and Battery use are shown where they are`() {
+        val pins = NEW_THINGS.single { it.id == "player_pins" }
+        assertEquals(NewThingAction.SHOW, pins.action)
+        assertEquals(listOf(Tour.ROW_LOOK_AND_FEEL, Tour.SETTING_PLAYER_PINS), pins.stops.map { it.targetId })
+        assertEquals(listOf(Tour.ROUTE_SETTINGS, Tour.ROUTE_LOOK_AND_FEEL), pins.stops.map { it.route })
+
+        val search = NEW_THINGS.single { it.id == "settings_search" }
+        assertEquals(NewThingAction.SHOW, search.action)
+        assertEquals(listOf(Tour.SETTINGS_SEARCH_FIELD), search.stops.map { it.targetId })
+        assertEquals(listOf(Tour.ROUTE_SETTINGS), search.stops.map { it.route })
+
+        // Its own row on the list, not under Player and audio.
+        val battery = NEW_THINGS.single { it.id == "battery_use" }
+        assertEquals(NewThingAction.SHOW, battery.action)
+        assertEquals(listOf(Tour.ROW_BATTERY), battery.stops.map { it.targetId })
+        assertEquals(listOf(Tour.ROUTE_SETTINGS), battery.stops.map { it.route })
+
+        for (stop in pins.stops + search.stops + battery.stops) assertEquals(stop.id, v0125, stop.sinceVersionCode)
+    }
+
+    @Test
+    fun `somebody on 0_12_1 who opens 0_12_5 has all five of its cards counted, and looked at they send the card away`() {
+        val things = newThingsFor(v0121, buildVersionCode = v0125)
+        assertEquals(listOf("widget_styles", "player_pins", "settings_search", "battery_use", "share_links"), ids(things))
+        assertTrue("a card with no button is never ticked", things.none { it.action == NewThingAction.NONE })
+        assertEquals(WelcomeCard(count = 5, since = "0.12"), welcomeCardFor(seenVersionCode = v0121, buildVersionCode = v0125, enabled = true))
+        assertNull(welcomeCardFor(seenVersionCode = v0121, buildVersionCode = v0125, enabled = true, lookedAt = ids(things).toSet()))
     }
 
     @Test
@@ -202,8 +247,15 @@ class WelcomeBackTest {
     @Test
     fun `a setting is reached the way somebody would go there, through the row it is under`() {
         val insideSettings = NEW_THINGS.filter { thing -> thing.stops.any { it.route != null } }
-        assertEquals(listOf("radios", "living_blur", "share_links", "sleep_schedule", "content_filters", "equalizer", "resume_bluetooth", "library_import", "explain_pictures", "problem_report", "spatial_audio"), ids(insideSettings))
+        assertEquals(listOf("player_pins", "settings_search", "battery_use", "share_links", "radios", "living_blur", "sleep_schedule", "content_filters", "equalizer", "resume_bluetooth", "library_import", "explain_pictures", "problem_report", "spatial_audio"), ids(insideSettings))
+        // What is on the list of settings itself is pointed at there, and there is nothing to go
+        // into: the search over the list, and Battery use, a row of its own on it.
+        val onTheList = listOf("settings_search", "battery_use")
         for (thing in insideSettings) {
+            if (thing.id in onTheList) {
+                assertEquals("${thing.id} is one stop, on the list of settings", listOf(Tour.ROUTE_SETTINGS), thing.stops.map { it.route })
+                continue
+            }
             assertEquals("${thing.id}: the row, then the setting", 2, thing.stops.size)
             assertEquals("${thing.id} starts on the list of settings", Tour.ROUTE_SETTINGS, thing.stops[0].route)
             assertTrue("${thing.id} then goes one screen in", thing.stops[1].route!!.startsWith(Tour.ROUTE_SETTINGS + "/"))
@@ -267,6 +319,19 @@ class WelcomeBackTest {
         state.start(NEW_THINGS.first { it.id == "living_blur" }.stops)
         assertTrue(state.running)
         assertEquals(2, state.stops.size)
+    }
+
+    @Test
+    fun `a tour of one stop on the list of settings starts, and its one bubble is the last step`() {
+        for (id in listOf("settings_search", "battery_use")) {
+            val state = TourState()
+            state.start(NEW_THINGS.single { it.id == id }.stops)
+            assertTrue(id, state.running)
+            assertTrue("$id: its bubble reads Done", state.onLastStep)
+            assertNull("$id: the list is no category to go on from", state.nextScreen)
+            state.next()
+            assertFalse("$id: Done ends it", state.running)
+        }
     }
 
     @Test
@@ -347,12 +412,25 @@ class WelcomeBackTest {
 
     @Test
     fun `what is held back for 0_12 waits for it, and is shown to somebody on 0_11_5 when it comes`() {
-        // Living blur and Links for any music app: on in previews only, so 0.11.5 must not claim them.
+        // Living blur: on in previews only before 0.12, so 0.11.5 must not claim it.
         assertTrue(newThingsFor(v011, buildVersionCode = v0115).none { it.release == "0.12" })
         assertTrue(newThingsFor(v011, buildVersionCode = v0116).none { it.release == "0.12" })
         // Somebody who skips 0.11.6 is shown what it brought as well, under its own heading.
-        assertEquals(listOf("cast", "radios", "living_blur", "share_links", "sleep_schedule", "content_filters", "equalizer", "resume_bluetooth", "recognition_tile"), ids(newThingsFor(v0115, buildVersionCode = v012)))
-        assertEquals(listOf("cast", "radios", "living_blur", "share_links", "sleep_schedule", "content_filters", "equalizer"), ids(newThingsFor(v0116, buildVersionCode = v012)))
+        assertEquals(listOf("cast", "radios", "living_blur", "sleep_schedule", "content_filters", "equalizer", "resume_bluetooth", "recognition_tile"), ids(newThingsFor(v0115, buildVersionCode = v012)))
+        assertEquals(listOf("cast", "radios", "living_blur", "sleep_schedule", "content_filters", "equalizer"), ids(newThingsFor(v0116, buildVersionCode = v012)))
+    }
+
+    @Test
+    fun `Links for any music app comes with 0_12_5, and whoever had a tour on 0_12_1 is shown it`() {
+        // In debug and preview builds of 0.12 it was there already; 0.12 and 0.12.1 never had it.
+        assertTrue(newThingsFor(v0116, buildVersionCode = v0121).none { it.id == "share_links" })
+        assertTrue("0.12.1 claims something of 0.12.5", newThingsFor(v012, buildVersionCode = v0121).isEmpty())
+        val things = newThingsFor(v0121, buildVersionCode = v0125)
+        assertTrue(ids(things).toString(), "share_links" in ids(things))
+        assertTrue(things.all { it.release == "0.12.5" })
+        // Somebody who skips 0.12 is shown both, the newest first.
+        assertEquals(listOf("0.12.5", "0.12"), newThingsFor(v0116, buildVersionCode = v0125).map { it.release }.distinct())
+        assertEquals("0.12.5", releaseAt(v0125))
     }
 
     @Test

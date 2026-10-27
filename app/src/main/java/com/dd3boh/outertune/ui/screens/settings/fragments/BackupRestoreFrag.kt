@@ -94,6 +94,7 @@ import android.widget.Toast
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.withContext
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.settings.settingRow
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 
 // The expressive slider track, the one with the gap beside the thumb, is still marked
@@ -234,7 +235,7 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
         // A spinner while it writes, because on a large library this is several seconds during
         // which the row looked like it had ignored the tap, which is when people tap it again.
         PreferenceEntry(
-            modifier = Modifier.tourTarget(Tour.SETTING_BACKUP),
+            modifier = Modifier.tourTarget(Tour.SETTING_BACKUP).settingRow(R.string.action_backup),
             title = { Text(stringResource(R.string.action_backup)) },
             description = if (backingUp) stringResource(R.string.backup_in_progress) else null,
             icon = { Icon(Icons.Rounded.Backup, null) },
@@ -260,7 +261,7 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
         // Same reasoning as the Backup card above: a real-sized restore is seconds of disk I/O
         // and Room migration work, and the row needs to say so instead of looking ignored.
         PreferenceEntry(
-            modifier = Modifier.tourTarget(Tour.SETTING_RESTORE),
+            modifier = Modifier.tourTarget(Tour.SETTING_RESTORE).settingRow(R.string.action_restore),
             title = { Text(stringResource(R.string.action_restore)) },
             description = if (restoring) stringResource(R.string.restore_in_progress) else null,
             icon = { Icon(Icons.Rounded.Restore, null) },
@@ -285,7 +286,7 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
         modifier = Modifier.fillMaxWidth()
     ) {
         SwitchPreference(
-            modifier = Modifier.tourTarget(Tour.SETTING_AUTO_BACKUP),
+            modifier = Modifier.tourTarget(Tour.SETTING_AUTO_BACKUP).settingRow(R.string.auto_backup),
             title = { Text(stringResource(R.string.auto_backup)) },
             description = stringResource(R.string.auto_backup_description),
             icon = { Icon(Icons.Rounded.Schedule, null) },
@@ -315,6 +316,7 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
         )
 
         PreferenceEntry(
+            modifier = Modifier.settingRow(R.string.auto_backup_folder),
             title = { Text(stringResource(R.string.auto_backup_folder)) },
             description = folderName ?: stringResource(R.string.auto_backup_choose_folder),
             icon = { Icon(Icons.Rounded.Folder, null) },
@@ -325,6 +327,7 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
         )
 
         ListPreference(
+            modifier = Modifier.settingRow(R.string.auto_backup_interval),
             title = { Text(stringResource(R.string.auto_backup_interval)) },
             selectedValue = autoBackupHours,
             values = AutoBackup.INTERVAL_CHOICES,
@@ -363,6 +366,7 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
         }
         var keepShown by remember(autoBackupKeep) { mutableIntStateOf(keepToConfirm?.first ?: autoBackupKeep) }
         PreferenceEntry(
+            modifier = Modifier.settingRow(R.string.auto_backup_keep),
             title = { Text(stringResource(R.string.auto_backup_keep)) },
             description = pluralStringResource(R.plurals.auto_backup_keep_count, keepShown, keepShown),
             onClick = null,
@@ -488,6 +492,7 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
         }
 
         PreferenceEntry(
+            modifier = Modifier.settingRow(R.string.auto_backup_now),
             title = { Text(stringResource(R.string.auto_backup_now)) },
             icon = { Icon(Icons.Rounded.Backup, null) },
             isEnabled = autoBackupFolder.isNotBlank() && !restoring,
@@ -526,6 +531,7 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
         modifier = Modifier.fillMaxWidth()
     ) {
         PreferenceEntry(
+            modifier = Modifier.settingRow(R.string.export_playlists_m3u),
             title = { Text(stringResource(R.string.export_playlists_m3u)) },
             description = stringResource(R.string.export_playlists_m3u_description),
             icon = { Icon(Icons.Rounded.Output, null) },

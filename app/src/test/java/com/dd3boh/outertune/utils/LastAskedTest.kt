@@ -311,4 +311,151 @@ class LastAskedTest {
         assertTrue(again.isDone)
         assertEquals("small a", again.soon())
     }
+
+    // The stand-in. Offline, with nothing of the cover on the phone, the system was handed the
+    // app's logo, and the lock screen kept it for the whole song: nothing told the session that a
+    // cover had come, because only a cover replacing a small one was news.
+
+    @Test
+    fun `the cover that comes after the stand-in takes its place, and whoever holds the stand-in is told`() {
+        open("a", null)                                        // nothing on the phone, no connection
+        assertEquals("placeholder for a", covers.ask("a").soon())
+        assertTrue(toldBetter.isEmpty())
+        gates["a"] = CompletableDeferred("cover a")           // the connection is back
+        waitFor("word that the cover is there") { covers.ask("a"); toldBetter.toList() == listOf("a") }
+        val again = covers.ask("a")
+        assertTrue(again.isDone)
+        assertEquals("cover a", again.soon())
+    }
+
+    @Test
+    fun `with the stand-in out, the cover is tried for again by itself`() {
+        // the lock screen asks once a song: nobody else may be counted on to ask again
+        val tried = Collections.synchronizedList(mutableListOf<String>())
+        val patient = LastAsked<String, String>(
+            scope,
+            find = { key, _ -> tried += key; if (tried.size < 3) null else "cover $key" },
+            instead = { "placeholder" },
+            better = { toldBetter += it },
+            retryDelaysMs = listOf(20L, 20L, 20L),
+        )
+        assertEquals("placeholder", patient.ask("a").soon())
+        waitFor("two more tries, with nobody asking") { toldBetter.toList() == listOf("a") }
+        assertEquals(3, tried.size)
+        assertEquals("cover a", patient.ask("a").soon())
+    }
+
+    @Test
+    fun `it tries by itself only as often as it was told`() {
+        val tried = Collections.synchronizedList(mutableListOf<String>())
+        val patient = LastAsked<String, String>(
+            scope, find = { key, _ -> tried += key; null }, instead = { "placeholder" }, retryDelaysMs = listOf(10L, 10L),
+        )
+        assertEquals("placeholder", patient.ask("a").soon())
+        waitFor("the two tries") { tried.size == 3 }
+        Thread.sleep(150)
+        assertEquals("the first and two more, then it waits to be asked", 3, tried.size)
+    }
+
+    @Test
+    fun `it also tries again by itself while a small cover stands in for the large one`() {
+        val tried = Collections.synchronizedList(mutableListOf<String>())
+        val patient = LastAsked<String, String>(
+            scope,
+            find = { key, meanwhile -> tried += key; meanwhile("small $key"); if (tried.size < 2) null else "cover $key" },
+            instead = { "placeholder" },
+            better = { toldBetter += it },
+            retryAfterMs = 60_000,                             // asking would not try again for a minute
+            retryDelaysMs = listOf(20L),
+        )
+        assertEquals("small a", patient.ask("a").soon())
+        waitFor("the large one, by itself") { toldBetter.toList() == listOf("a") }
+        assertEquals("cover a", patient.ask("a").soon())
+    }
+
+    @Test
+    fun `a small cover found after the stand-in takes its place, and the large one after that`() {
+        val round = AtomicLong(0)
+        val found = LastAsked<String, String>(
+            scope,
+            find = { key, meanwhile ->
+                when (round.incrementAndGet()) {
+                    1L -> null                                 // offline: nothing at all
+                    2L -> { meanwhile("small $key"); gate(key).await() }
+                    else -> null
+                }
+            },
+            instead = { "placeholder" },
+            better = { toldBetter += it },
+        )
+        assertEquals("placeholder", found.ask("a").soon())
+        waitFor("the small one in the stand-in's place") { found.ask("a"); toldBetter.size == 1 }
+        assertEquals("small a", found.ask("a").soon())
+        open("a", "cover a")
+        waitFor("the large one in the small one's place") { toldBetter.size == 2 }
+        assertEquals("cover a", found.ask("a").soon())
+        assertEquals(listOf("a", "a"), toldBetter.toList())
+    }
+
+    @Test
+    fun `a small cover found again on another try is no news`() {
+        // what is on the phone is found at every try: only something better is worth a word
+        val patient = LastAsked<String, String>(
+            scope,
+            find = { key, meanwhile -> started += key; meanwhile("small $key"); null },
+            instead = { "placeholder" },
+            better = { toldBetter += it },
+            retryDelaysMs = listOf(10L, 10L, 10L),
+        )
+        assertEquals("small a", patient.ask("a").soon())
+        waitFor("the tries") { started.size == 4 }
+        Thread.sleep(30)
+        assertTrue(toldBetter.isEmpty())
+        assertEquals("small a", patient.ask("a").soon())
+    }
+
+    @Test
+    fun `when the connection is back the cover is tried for at once`() {
+        open("a", null)
+        val patient = LastAsked<String, String>(
+            scope,
+            find = { key, _ -> started += key; gate(key).await() },
+            instead = { "placeholder" },
+            better = { toldBetter += it },
+            retryAfterMs = 60_000,                             // nobody's asking would try again for a minute
+        )
+        assertEquals("placeholder", patient.ask("a").soon())
+        gates["a"] = CompletableDeferred("cover a")
+        patient.tryAgain()
+        waitFor("the cover") { toldBetter.toList() == listOf("a") }
+        assertEquals("cover a", patient.ask("a").soon())
+        assertEquals(listOf("a", "a"), started.toList())
+    }
+
+    @Test
+    fun `trying again does nothing when the cover is in hand, or still on its way, or never asked for`() {
+        covers.tryAgain()                                      // nothing asked for yet
+        assertTrue(started.isEmpty())
+        val first = covers.ask("a")
+        covers.tryAgain()                                      // still on its way
+        open("a", "cover a")
+        assertEquals("cover a", first.soon())
+        covers.tryAgain()                                      // in hand
+        Thread.sleep(50)
+        assertEquals(listOf("a"), started.toList())
+    }
+
+    @Test
+    fun `nothing is tried again for a song nobody is playing any more`() {
+        val tried = Collections.synchronizedList(mutableListOf<String>())
+        val patient = LastAsked<String, String>(
+            scope, find = { key, _ -> tried += key; if (key == "b") "cover b" else null }, instead = { "placeholder" }, retryDelaysMs = listOf(40L, 40L, 40L),
+        )
+        assertEquals("placeholder", patient.ask("a").soon())
+        assertEquals("cover b", patient.ask("b").soon())
+        Thread.sleep(200)
+        patient.tryAgain()
+        Thread.sleep(50)
+        assertEquals(listOf("a", "b"), tried.toList())
+    }
 }

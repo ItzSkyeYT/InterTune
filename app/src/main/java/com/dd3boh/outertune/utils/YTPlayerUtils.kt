@@ -29,6 +29,7 @@ import com.dd3boh.outertune.utils.potoken.PoTokenResult
 import com.dd3boh.outertune.App
 import com.zionhuang.innertube.AddressPolicy
 import com.zionhuang.innertube.NewPipeUtils
+import com.zionhuang.innertube.PlayerAnswers
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.YouTubeClient
 import com.zionhuang.innertube.models.YouTubeClient.Companion.ANDROID
@@ -312,6 +313,17 @@ object YTPlayerUtils {
 
         /** A /player request was cut by our deadline: the idle connections beside it are let go. See [poolCut]. */
         fun connectionsCut() {}
+
+        /** The player answers kept for a start over SABR, as YouTube.player keeps them: see PlayerAnswers. */
+        fun answers(): PlayerAnswers = YouTube.playerAnswers
+
+        /**
+         * [data], the stream the walk chose, started over SABR from [answer] instead of a direct
+         * address, paced by where the player is in [clockId] or for a download: see SabrOver. Null
+         * when it cannot be had that way.
+         */
+        fun overSabr(answer: PlayerAnswers.Answer, data: PlaybackData, clockId: String, forDownload: Boolean): PlaybackData? =
+            com.dd3boh.outertune.playback.sabr.SabrOver.over(answer, data, clockId, forDownload)
     }
 
     private object Live : Wire {
@@ -564,6 +576,17 @@ object YTPlayerUtils {
     /** The developer options' switch for [TRIAL_CLIENT], set from the preference by MusicService. */
     @Volatile
     var askWebClientFirst: Boolean = false
+
+    /** The developer's "Stream over SABR only": see Unreleased.SABR. Set by MusicService in a debug build. */
+    @Volatile
+    var sabrOnly: Boolean = false
+
+    /**
+     * The developer's "Take every direct address for refused": the day direct addresses stop,
+     * played out on purpose, so that SABR's rung can be seen taking over. Debug builds only.
+     */
+    @Volatile
+    var everyDirectRefused: Boolean = false
 
     /**
      * How long the player script and the solving may take for one song, together, before the
@@ -820,8 +843,43 @@ object YTPlayerUtils {
      * asked's: each of them says the song is gone, which the last asked, when that is the main
      * client, need not. Its type is for StandIns, which looks for the same recording under
      * another id.
+     *
+     * [byTheAccountToo]: signed in, the account was asked as well and called the song gone too,
+     * a second word from another identity: see [AccountBeforeGone]. StandIns then sets the song
+     * aside at once, where on the visitor's word alone it waits for the second time (GoneSongs).
      */
-    class SongUnavailable(reason: String?) : PlaybackException(reason, null, PlaybackException.ERROR_CODE_REMOTE_ERROR)
+    class SongUnavailable(reason: String?, val byTheAccountToo: Boolean = false) : PlaybackException(reason, null, PlaybackException.ERROR_CODE_REMOTE_ERROR)
+
+    /**
+     * Put round a walk StandIns makes for another id than the song's own: a stand-in's, or a copy
+     * a search found. The account is asked before the song itself is called gone, never before
+     * each of its copies is: one more request, and po tokens made for each id, for an upload
+     * nobody asked for by name. See [StreamCheck.asksAccountBeforeGone].
+     */
+    class OfAnotherCopy : kotlin.coroutines.AbstractCoroutineContextElement(Key) {
+        companion object Key : kotlin.coroutines.CoroutineContext.Key<OfAnotherCopy>
+    }
+
+    /**
+     * What one walk knows of the account asked before a song is called gone, over every pass of
+     * it (the second, with a new visitorData) and both address families: it is asked once in a
+     * walk. See [StreamCheck.asksAccountBeforeGone].
+     *
+     * What it answers there counts only if it plays the song or calls it gone too. Anything else,
+     * no answer, an error, the bot check, the age gate, an OK whose address is refused, is left
+     * out of what the walk counts, for the throttle, for the error and for whether the song is
+     * gone, and the song ends as it did before the account was asked: gone, on the word of the
+     * clients before it. Those answers belong to the account, not to the song, and the paths they
+     * would take (the player's retry, the throttle, the other address family) are the ones a song
+     * every client called gone was never sent down.
+     */
+    private class AccountBeforeGone(val ofAnotherCopy: Boolean) {
+        /** Asked as the account in this walk, wherever it stood in the chain and whatever it said. */
+        var asked = false
+
+        /** It answered in YouTube's words for a song that is gone: see [SongUnavailable.byTheAccountToo]. */
+        var saidGone = false
+    }
 
     /**
      * YouTube's words for a song that is gone, said of song after song with nothing served
@@ -950,7 +1008,10 @@ object YTPlayerUtils {
     }
 
     /** Whether a song other than [videoId] was called gone by every client since a stream last resolved. */
-    private fun anotherGoneBefore(videoId: String): Boolean = synchronized(goneInARow) { goneInARow.any { it != videoId } }
+    private fun anotherGoneBefore(videoId: String): Boolean = othersGoneInARow(videoId) > 0
+
+    /** How many songs other than [videoId] were called gone by every client since a stream last resolved. */
+    private fun othersGoneInARow(videoId: String): Int = synchronized(goneInARow) { goneInARow.count { it != videoId } }
 
     private const val GONE_IN_A_ROW_KEPT = 16
 
@@ -1019,7 +1080,9 @@ object YTPlayerUtils {
         audioQuality: AudioQuality,
         connectivityManager: ConnectivityManager,
         preferredMime: String? = null,
-    ): Result<PlaybackData> = playerResponseForPlayback(videoId, playlistId, audioQuality, connectivityManager, Live, preferredMime)
+        /** A download's walk: SABR, if it is reached, is paced for a download (SabrOver.downloadClock). */
+        forDownload: Boolean = false,
+    ): Result<PlaybackData> = playerResponseForPlayback(videoId, playlistId, audioQuality, connectivityManager, Live, preferredMime, forDownload)
 
     /** The same over a [Wire] of the caller's own. */
     internal suspend fun playerResponseForPlayback(
@@ -1029,7 +1092,10 @@ object YTPlayerUtils {
         connectivityManager: ConnectivityManager,
         wire: Wire,
         preferredMime: String? = null,
+        forDownload: Boolean = false,
     ): Result<PlaybackData> {
+        // The answers this walk gets come after this, and only those are started over SABR from.
+        val walkBegan = System.currentTimeMillis()
         val trails = mutableListOf<String>()
         val asked = kotlinx.coroutines.currentCoroutineContext()[RouteWish]
         val wish = asked?.takeIf { it.videoId == videoId }
@@ -1038,6 +1104,8 @@ object YTPlayerUtils {
         val songId = asked?.videoId ?: videoId
         // Each step's time, over every pass, for the one line the song gets: see StepLog.
         val steps = mutableListOf<String>()
+        // The account before the song is called gone, once over every pass: see AccountBeforeGone.
+        val account = AccountBeforeGone(ofAnotherCopy = kotlinx.coroutines.currentCoroutineContext()[OfAnotherCopy] != null)
         val started = System.nanoTime()
         val outcome = FamilyChoice.resolve(
             currentNetwork(connectivityManager),
@@ -1049,7 +1117,7 @@ object YTPlayerUtils {
             }
             // Cleared first, so a pass that fails before writing its own does not report the last song's.
             lastStreamTrail = null
-            val (result, notes) = resolveWithNewVisitor(videoId, playlistId, audioQuality, connectivityManager, policy, wire, preferredMime, steps, wish, songId)
+            val (result, notes) = resolveWithNewVisitor(videoId, playlistId, audioQuality, connectivityManager, policy, wire, preferredMime, steps, wish, songId, account)
             trails += listOfNotNull(policy?.first?.label, lastStreamTrail).joinToString(": ")
             FamilyChoice.Attempt(result to notes, ok = result.isSuccess, refused = result.isFailure && notes.fallbackBlocked)
         }
@@ -1060,7 +1128,71 @@ object YTPlayerUtils {
         val tookMs = (System.nanoTime() - started) / 1_000_000
         if (result.isSuccess) Log.i(TAG, StepLog.resolved(videoId, tookMs, steps))
         else Log.w(TAG, StepLog.unresolved(videoId, tookMs, steps))
+        // SABR, the last rung (Unreleased.SABR_RUNG, and the maintainer's switch RemoteRoutes.sabr):
+        // YouTube turned every direct address down, and a VISIONOS answer this walk got can still be
+        // streamed over SABR, so the song plays from that instead of failing. Only on YouTube's
+        // word: see sabrMayTakeOver. After the walk's own line, which says how the direct addresses
+        // fared; the rung says its own.
+        val failure = result.exceptionOrNull()
+        if (result.isFailure && Unreleased.SABR_RUNG && RemoteRoutes.sabr && sabrMayTakeOver(failure)) {
+            sabrRung(videoId, songId, walkBegan, audioQuality, connectivityManager, preferredMime, wish?.sameStream, forDownload, wire)
+                ?.let { return Result.success(it) }
+        } else if (result.isFailure && Unreleased.SABR_RUNG && !isUnavailableSong(failure)) {
+            Log.i(
+                TAG,
+                if (!RemoteRoutes.sabr) "[$videoId] not tried over SABR: the maintainer's block has it off"
+                else "[$videoId] no answer to go on: not tried over SABR, the player asks again",
+            )
+        }
         return result
+    }
+
+    /**
+     * Whether a walk that failed with [failure] may be taken over by SABR: YouTube answered and
+     * turned the direct addresses down (refused them, gave the bot check, gave none). Never for
+     * want of an answer, no network, a timeout, YouTube's own server failing: SABR asks the same
+     * network, and mid-song such a failure goes back to the player, which tries the walk again
+     * while the buffer plays (Recovery.resolveFailed). Taken over by SABR, a Wi-Fi blip ended in a
+     * start from an old answer instead. Never for a song YouTube calls gone.
+     */
+    internal fun sabrMayTakeOver(failure: Throwable?): Boolean =
+        failure != null && !isUnavailableSong(failure) && !StreamOrder.networkDidNotAnswer(failure)
+
+    /**
+     * The song over SABR from a VISIONOS answer this walk got (kept since [since]), its format
+     * chosen as the walk chooses one ([findFormat]): mid-song the stream the player has bytes of
+     * when it is offered ([sameStream]), or the resolver would drop the cached part and start the
+     * song over in another encoding. The newest answer that was OK, asked for as the identity that
+     * got it (VISIONOS and its other identities each keep their own). Paced by the song the player
+     * asked for ([songId]), which a stand-in's walk is not: by the stand-in's id the clock read 0
+     * for the whole song. Null when there is no such answer or it cannot be streamed that way
+     * (SabrOver says why in the log).
+     */
+    private fun sabrRung(
+        videoId: String,
+        songId: String,
+        since: Long,
+        audioQuality: AudioQuality,
+        connectivityManager: ConnectivityManager,
+        preferredMime: String?,
+        sameStream: Pair<Int, Long>?,
+        forDownload: Boolean,
+        wire: Wire,
+    ): PlaybackData? {
+        for (answer in wire.answers().of(videoId, VISIONOS.clientName, since)) {
+            val ours = runCatching { YouTube.decodePlayerAnswer(answer.text) }.getOrNull() ?: continue
+            if (ours.playabilityStatus.status != "OK") continue
+            val format = findFormat(ours, audioQuality, connectivityManager, preferredMime, sameStream) ?: continue
+            val expires = ours.streamingData?.expiresInSeconds ?: continue
+            val asked = PlaybackData(ours.playerConfig?.audioConfig, ours.videoDetails, ours.playbackTracking, format, streamUrl = "", streamExpiresInSeconds = expires)
+            val started = wire.overSabr(answer, asked, songId, forDownload) ?: continue
+            // The client's own name between the brackets, as the walk's lines have it.
+            val label = labelOf(answer.client, isLoggedIn = false)
+            Log.i(TAG, "[$videoId] [$label] every direct address refused: playing over SABR")
+            lastStreamTrail = listOfNotNull(lastStreamTrail, "$label SABR OK").joinToString(", ")
+            return started
+        }
+        return null
     }
 
     /**
@@ -1079,6 +1211,7 @@ object YTPlayerUtils {
         steps: MutableList<String> = mutableListOf(),
         wish: RouteWish? = null,
         songId: String = videoId,
+        account: AccountBeforeGone = AccountBeforeGone(ofAnotherCopy = false),
     ): Pair<Result<PlaybackData>, ChainNotes> {
         val sinceFailedSwap = lastSwapFailedAt.takeIf { it != 0L }?.let { SystemClock.elapsedRealtime() - it }
         // While a new visitorData may still be tried, a refused VISIONOS keeps the web client
@@ -1090,6 +1223,7 @@ object YTPlayerUtils {
         val result = resolveOnce(
             videoId, playlistId, audioQuality, connectivityManager, first, policy, wire, holdWeb, preferredMime, steps, wish, songId,
             refusedByPlayer = wish?.refusedByPlayer.orEmpty(),
+            account = account,
         )
         // Every client called this song gone, and another before it with nothing served between:
         // taken for the connection, and given the same try as the bot check (see goneInARow).
@@ -1125,7 +1259,7 @@ object YTPlayerUtils {
         // for the whole double walk again: the one the app had is put back, and the try noted.
         var settled = false
         try {
-            val retried = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, second, policy, wire, preferredMime = preferredMime, steps = steps, wish = wish, songId = songId)
+            val retried = resolveOnce(videoId, playlistId, audioQuality, connectivityManager, second, policy, wire, preferredMime = preferredMime, steps = steps, wish = wish, songId = songId, account = account)
             if (fresh != null && retried.isSuccess && !second.visionosRefused) {
                 lastSwapFailedAt = 0L
                 // Kept for good only when signed out. Signed in, the stored one came from the
@@ -1290,6 +1424,8 @@ object YTPlayerUtils {
         songId: String = videoId,
         // The first pass's: see RouteWish.refusedByPlayer.
         refusedByPlayer: Set<String> = emptySet(),
+        // The walk's, shared by its passes: see AccountBeforeGone.
+        account: AccountBeforeGone = AccountBeforeGone(ofAnotherCopy = false),
     ): Result<PlaybackData> = runCatchingCancellable {
         fun msSince(from: Long) = (System.nanoTime() - from) / 1_000_000
         Log.d(TAG, "Playback info requested: $videoId")
@@ -1560,10 +1696,22 @@ object YTPlayerUtils {
                     continue
                 }
             }
+            // The account asked only because every client before it called the song gone: what it
+            // says counts only if it plays the song or calls it gone too. See AccountBeforeGone.
+            var beforeGone = false
             if (client === WEB_FALLBACK_CLIENT || client === ACCOUNT_WEB_CLIENT) {
                 // A song every client asked before it calls gone is gone for this one too, and
                 // would cost a player script to hear it said again: see StreamCheck.saysGone.
-                if (fallbackSaid.isNotEmpty() && fallbackSaid.all { it.status != "OK" && StreamCheck.saysGone(it.reason) }) continue
+                // But for the account, once, before the song is called so: it may be served what
+                // a visitor is not. See StreamCheck.asksAccountBeforeGone.
+                if (fallbackSaid.isNotEmpty() && fallbackSaid.all { it.status != "OK" && StreamCheck.saysGone(it.reason) }) {
+                    beforeGone = client === ACCOUNT_WEB_CLIENT &&
+                        StreamCheck.asksAccountBeforeGone(
+                            fallbackSaid, unreached = songLeftOpen, askedAlready = account.asked, ofAnotherCopy = account.ofAnotherCopy,
+                            othersGoneInARow = othersGoneInARow(videoId),
+                        )
+                    if (!beforeGone) continue
+                }
                 // Held, the account's as well: asked in this pass it would serve every song as the
                 // account, and the visitor's web client, the one that can be remembered, would
                 // never be reached.
@@ -1586,6 +1734,8 @@ object YTPlayerUtils {
             val asAccount = client.loginSupported && isLoggedIn
             // The experiment's client, of which nothing is counted: see TRIAL_CLIENT.
             val isTrial = client === trial
+            if (asAccount && !isTrial) account.asked = true
+            if (beforeGone) Log.i(TAG, "[$videoId] every client before it called the song gone: asking the account before calling it so")
             // Where this client's own answer went in fallbackSaid when it was OK, so that an OK whose
             // address is then refused can be taken back (see the refusal below).
             var saidOkAt = -1
@@ -1641,7 +1791,7 @@ object YTPlayerUtils {
                     poolCut(wire)
                     Result.failure(e)
                 }
-            result.onFailure { if (!isTrial) Throttle.noteFailure(it) }
+            result.onFailure { if (!isTrial && !beforeGone) Throttle.noteFailure(it) }
             // Two clients in a row that did not answer in time: the network is slow, not dead,
             // and the rest of the walk gets the longer limit. Said once.
             if (result.exceptionOrNull() is StepTimedOut && capMs == RouteTimes.playerCapMs) {
@@ -1674,7 +1824,7 @@ object YTPlayerUtils {
                     chainDone()
                     throw failure
                 }
-                if (!isTrial) {
+                if (!isTrial && !beforeGone) {
                     lastFallbackFailure = failure
                     if (StreamCheck.leavesSongOpen(unreached, asAccount)) songLeftOpen = true
                 }
@@ -1686,7 +1836,11 @@ object YTPlayerUtils {
             if (streamPlayerResponse != null && StreamOrder.strikes(streamPlayerResponse?.playabilityStatus?.reason)) {
                 asked += StreamOrder.Asked(clientLabel, worked = false, asAccount)
             }
-            if (!isMain && !isTrial) streamPlayerResponse?.rememberBlock()
+            if (!isMain && !isTrial && !beforeGone) streamPlayerResponse?.rememberBlock()
+            // The account calling the song gone, wherever it stood in the chain: see SongUnavailable.byTheAccountToo.
+            if (asAccount && !isTrial && streamPlayerResponse?.playabilityStatus?.let { it.status != "OK" && StreamCheck.saysGone(it.reason) } == true) {
+                account.saidGone = true
+            }
 
             if (isMain) {
                 mainPlayerResponse = streamPlayerResponse
@@ -1701,7 +1855,7 @@ object YTPlayerUtils {
                         YouTube.visitorData = found
                         onVisitorDataFound?.invoke(found)
                     }
-            } else if (!isTrial) {
+            } else if (!isTrial && !beforeGone) {
                 streamPlayerResponse?.playabilityStatus?.let {
                     if (it.status == "OK") saidOkAt = fallbackSaid.size
                     fallbackSaid += it
@@ -1808,7 +1962,8 @@ object YTPlayerUtils {
                     ?: StreamCipher.withPot(address, if (client.useWebPoTokens) poTokens()?.streamingDataPoToken else null)
                 // The developer's switch: see visionosTakenForRefused. Said in the trail, so a
                 // report made with it on cannot be read as YouTube's doing.
-                val pretended = (isVisionos && visionosTakenForRefused) || (client === VISIONOS && ownVisionosTakenForRefused)
+                val pretended = (isVisionos && visionosTakenForRefused) || (client === VISIONOS && ownVisionosTakenForRefused) ||
+                    (Unreleased.SABR && everyDirectRefused)
                 if (pretended) Log.w(TAG, "[$videoId] [${client.clientName}] its address is taken for refused: the developer's switch is on")
                 val checkedAt = System.nanoTime()
                 // The check runs apart from the walk, which waits for it a few seconds and no
@@ -1817,6 +1972,8 @@ object YTPlayerUtils {
                 // it if the answer, when it comes, is a refusal. See watchLate.
                 var stillChecking: Deferred<Int?>? = null
                 val status = when {
+                    // Before the web client's own check: this one takes every address for refused.
+                    Unreleased.SABR && everyDirectRefused -> 403
                     trialCheck != null -> trialCheck.status
                     pretended -> 403
                     else -> {
@@ -1870,7 +2027,7 @@ object YTPlayerUtils {
                 }
                 if (verdict == StreamCheck.Verdict.NO_ANSWER) {
                     // No answer is the connection's, not YouTube's: see StreamCheck.verdict.
-                    if (!isTrial) checkUnanswered = true
+                    if (!isTrial && !beforeGone) checkUnanswered = true
                     val unchecked = Unchecked(format, checked, streamExpiresInSeconds, streamPlayerResponse, client, clientLabel, stillChecking, trail.lastIndex)
                     if (!isWeb && mayPlayUnchecked(clientLabel)) {
                         trail[trail.lastIndex] = StreamCheck.trailStep(clientLabel, "OK", null, checked = true, note = "played unchecked")
@@ -1897,7 +2054,7 @@ object YTPlayerUtils {
                     fallbackSaid.removeAt(saidOkAt)
                     saidOkAt = -1
                 }
-                if (!isTrial) {
+                if (!isTrial && !beforeGone) {
                     refusedStatus = status
                     if (isVisionos) notes.visionosRefused = true
                 }
@@ -1929,10 +2086,10 @@ object YTPlayerUtils {
         notes.blocked = blockedStatus
 
         // The song itself turned down by every client that serves music: its own kind of failure,
-        // in the words of the first of them.
+        // in the words of the first of them, and with the account's word when it said so too.
         if (streamUrl == null) {
             StreamCheck.unavailableSong(fallbackSaid, unreached = songLeftOpen)?.let { gone ->
-                throw SongUnavailable(gone.reason ?: gone.status)
+                throw SongUnavailable(gone.reason ?: gone.status, byTheAccountToo = account.saidGone)
             }
         }
 

@@ -26,13 +26,14 @@ import java.io.File
  */
 class ReleasedFlagsTest {
 
-    /** On in every build, and so in a release. The second line went on for 0.11.5, the third on 14 Oct, the fourth for 0.12, the fifth for 0.12.1. */
+    /** On in every build, and so in a release. The second line went on for 0.11.5, the third on 14 Oct, the fourth for 0.12, the fifth for 0.12.1, the sixth for 0.12.5 (its last four picked on 26 Oct 2026). */
     private val inEveryBuild = setOf(
         "ENGINE", "SHORT_SETUP", "LOGIN_RETURNS",
         "STAND_INS", "VISIONOS_IDENTITIES", "WEB_FALLBACK", "LANDSCAPE", "EXPLAIN_PICTURES", "LIBRARY_IMPORT",
         "PROBLEM_REPORT", "WELCOME_BACK", "COVER_ACCENT", "GLASS_QUEUE",
         "LIVING_BACKGROUND", "CASTING", "ADAPTIVE_PASS", "EQUALIZER",
         "PREVIOUS_LOGS",
+        "SABR_RUNG", "SHARE_PAGE", "SABR_AHEAD", "PLAY_NEXT_STAYS", "SETTINGS_SEARCH", "BATTERY_MODES",
     )
 
     private val sources = File("src/main/java/com/dd3boh/outertune")
@@ -73,6 +74,22 @@ class ReleasedFlagsTest {
         for ((flag, value) in flags - inEveryBuild) {
             assertEquals("$flag is neither on in every build nor held back", "BuildConfig.DEBUG", value)
         }
+    }
+
+    @Test
+    fun `0_12_5's picks are in every build, read where they were written`() {
+        assertEquals(setOf("playback/MusicService.kt", "playback/sabr/SabrOver.kt"), readers("SABR_AHEAD"))
+        assertEquals(setOf("playback/MusicService.kt"), readers("PLAY_NEXT_STAYS"))
+        assertEquals(setOf("ui/screens/settings/SettingsScreen.kt", "ui/screens/settings/SettingsTwoPane.kt", "ui/screens/walkthrough/Walkthrough.kt"), readers("SETTINGS_SEARCH"))
+        assertEquals(
+            setOf(
+                "playback/BatteryUse.kt", "ui/navigation/AppNavGraph.kt", "ui/screens/settings/SettingsIndex.kt",
+                "ui/screens/settings/SettingsScreen.kt", "ui/screens/settings/SettingsTwoPane.kt", "ui/screens/walkthrough/Walkthrough.kt",
+                // Without Battery use, the phone's battery saver stills Living blur itself (#49).
+                "ui/player/LivingBackground.kt",
+            ),
+            readers("BATTERY_MODES"),
+        )
     }
 
     @Test
@@ -164,7 +181,7 @@ class ReleasedFlagsTest {
     @Test
     fun `the welcome back page and the closer look at Settings are in every build`() {
         assertEquals(
-            setOf("ui/navigation/AppNavGraph.kt", "ui/screens/settings/AboutScreen.kt", "ui/screens/walkthrough/Walkthrough.kt"),
+            setOf("MainActivity.kt", "ui/navigation/AppNavGraph.kt", "ui/screens/settings/AboutScreen.kt", "ui/screens/walkthrough/Walkthrough.kt"),
             readers("WELCOME_BACK"),
         )
         assertWritten("ui/navigation/AppNavGraph.kt", "if (Unreleased.WELCOME_BACK) {")
@@ -221,5 +238,38 @@ class ReleasedFlagsTest {
             assertTrue("$name is not open to translators", "<string name=\"$name\">" in english)
             assertTrue("$name has no French", "<string name=\"$name\">" in french)
         }
+    }
+
+    // ---- what goes on for 0.12.5 ----
+
+    @Test
+    fun `SABR is the last rung of every build, under the maintainer's switch, and its two developer switches stay out of a release`() {
+        assertEquals(setOf("utils/YTPlayerUtils.kt"), readers("SABR_RUNG"))
+        assertWritten("utils/YTPlayerUtils.kt", "if (result.isFailure && Unreleased.SABR_RUNG && RemoteRoutes.sabr && sabrMayTakeOver(failure)) {")
+        // "Stream over SABR only" and "Take every direct address for refused": rows of the
+        // developer options, read in a debug or preview build only. A restored backup can bring a
+        // switch that is on into a release, which has no row to turn it off with.
+        assertEquals("BuildConfig.DEBUG", flags["SABR"])
+        assertEquals(
+            setOf("utils/YTPlayerUtils.kt", "playback/MusicService.kt", "playback/DownloadUtil.kt", "ui/screens/settings/fragments/DeveloperFrag.kt"),
+            readers("SABR"),
+        )
+        assertWritten("playback/MusicService.kt", "if (BuildConfig.DEBUG && Unreleased.SABR) {")
+        assertWritten("ui/screens/settings/fragments/DeveloperFrag.kt", "if (BuildConfig.DEBUG && Unreleased.SABR) {")
+        for (path in listOf("playback/MusicService.kt", "playback/DownloadUtil.kt")) {
+            assertWritten(path, "val streamed = if (BuildConfig.DEBUG && Unreleased.SABR && YTPlayerUtils.sabrOnly) {")
+        }
+    }
+
+    @Test
+    fun `the share page is in every build, with its row in Settings, what Share sends and its card among what is new`() {
+        assertEquals(
+            setOf("ui/screens/settings/LibrarySettings.kt", "ui/menu/ShareLinkMenu.kt", "ui/screens/walkthrough/Walkthrough.kt"),
+            readers("SHARE_PAGE"),
+        )
+        assertWritten("ui/screens/settings/LibrarySettings.kt", "if (Unreleased.SHARE_PAGE) ShareLinksFrag()")
+        // What Share sends is what the setting says, in a release as well.
+        assertWritten("ui/menu/ShareLinkMenu.kt", "when (val action = ShareLinks.decide(link, if (Unreleased.SHARE_PAGE && BuiltInKeys.official) chosen else ShareLinkKind.YOUTUBE_MUSIC)) {")
+        assertWritten("ui/screens/walkthrough/Walkthrough.kt", "there = { Unreleased.SHARE_PAGE },")
     }
 }
