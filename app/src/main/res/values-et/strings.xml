@@ -57,8 +57,8 @@
     <string name="songs">Lood</string>
     <string name="artists">Esitajaid</string>
     <plurals name="n_selected">
-        <item quantity="one">%d valitud</item>
-        <item quantity="other">%d valitud</item>
+        <item quantity="one">%d on valitud</item>
+        <item quantity="other">%d on valitud</item>
     </plurals>
     <string name="quick_picks">Kiirvalikud</string>
     <string name="your_youtube_playlists">Sinu YouTube\'i esitusloendid</string>
@@ -183,7 +183,7 @@
     <string name="listen_history">Kuulamiste ajalugu</string>
     <string name="pause_listen_history">Peata kuulamiste ajaloo salvestamine</string>
     <string name="clear_listen_history">Kustuta kuulamiste ajalugu</string>
-    <string name="clear_listen_history_confirm">Kas sa oled kindel, et soovid kustutada kogu kuulamiste ajaloo?</string>
+    <string name="clear_listen_history_confirm">Kas sa oled kindel, et soovid kustutada kogu kuulamiste ajaloo? See kustutab ka logi, millest „Kiirvalikud“ õpib, senise õpitu ning andmed selle kohta, milliseid kaarte sulle on näidatud.</string>
     <string name="search_history">Otsingute ajalugu</string>
     <string name="pause_search_history">Peata otsingute ajaloo salvestamine</string>
     <string name="clear_search_history">Kustuta otsingute ajalugu</string>
@@ -279,4 +279,11 @@
     <string name="use_login_for_browse">Sisu sirvimiseks logi sisse</string>
     <string name="use_login_for_browse_desc">See võib mõjutada mis sisu sa näed, sealhulgas kui kasutad YouTube Premium-kontot, siis YouTube Premiumi jaoks mõeldud albumeid</string>
     <string name="action_login">Logi sisse</string>
+    <string name="favorite_artists">Lemmikesitajad</string>
+    <string name="crash_report_title">InterTune jooksis viimati kokku</string>
+    <string name="crash_report_text">Vabandame selle pärast. Allpool näidatud veateade jäi siia nutiseadmesse ja midagi kuhugi ei saadetud. Sellest teatamine aitab seda viga sinu seadmes parandada.</string>
+    <string name="crash_report_github">Teata GitHubis</string>
+    <string name="crash_report_copy">Kopeeri</string>
+    <string name="crash_report_dismiss">Loobu</string>
+    <string name="crash_report_copied">Veateade on kopeeritud</string>
 </resources>
