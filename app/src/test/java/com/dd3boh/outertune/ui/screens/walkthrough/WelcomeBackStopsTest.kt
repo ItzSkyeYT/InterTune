@@ -184,12 +184,12 @@ class WelcomeBackStopsTest {
     }
 
     @Test
-    fun `0_12_5's new bubbles are one short sentence each, held from translators until their words are agreed`() {
+    fun `0_12_5's new bubbles are one short sentence each, open to translators since his yes of 27 Oct`() {
         // To translators once the words are agreed, as the widget's styles went: this then says they are open.
         val bubbles = NEW_THINGS.filter { it.id in listOf("player_pins", "settings_search", "battery_use") }.flatMap { it.stops }.map { stringName(it.body) }
         assertEquals(listOf("new_player_pins_way", "new_player_pins_here", "new_settings_search_here", "new_battery_use_here"), bubbles)
         for (name in bubbles) {
-            assertTrue("$name went to translators before its words were agreed", "translatable=\"false\"" in line(english, name)!!)
+            assertFalse("$name is held from translators", "translatable=\"false\"" in line(english, name)!!)
             for (words in listOf(line(english, name), line(french, name)).map { wordsOf(it!!) }) {
                 assertEquals("$name is one sentence: $words", 1, Regex("""[.?]( |$)""").findAll(words).count())
                 assertTrue("$name runs to ${words.length} characters", words.length <= 130)
