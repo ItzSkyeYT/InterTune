@@ -165,7 +165,18 @@ object WidgetStore {
 
     /** The artwork the snapshot names, as bitmaps. Small, few, and only re-read when they change. */
     private fun decoded(context: Context, snapshot: WidgetSnapshot): Drawn {
-        val (art, nowCover) = coversFor(snapshot, _drawn.value?.art.orEmpty(), ::decode, ::decodeCover)
+        val artworkDirectory = artDir(context)
+        val resolvedPaths = snapshot.songs().mapNotNull { song ->
+            song.artPath?.let { path ->
+                path to resolveStoredWidgetArtworkFile(artworkDirectory, song.id, path).absolutePath
+            }
+        }.toMap()
+        val (art, nowCover) = coversFor(
+            snapshot,
+            _drawn.value?.art.orEmpty(),
+            { path -> decode(resolvedPaths[path] ?: path) },
+            { path -> decodeCover(resolvedPaths[path] ?: path) },
+        )
         return Drawn(
             snapshot,
             art,
@@ -203,14 +214,16 @@ object WidgetStore {
      * scaled up to the size in their name. Under the old name they would be taken for the real
      * thing and never replaced.
      */
-    private fun artFile(context: Context, id: String, px: Int) = File(artDir(context), "${hash(id)}_${px}c.png")
+    private fun artFile(context: Context, id: String, px: Int) =
+        resolveWidgetArtworkFile(artDir(context), id, "_${px}c.png")
 
     /**
      * Artwork made from the stored address because the cover at its size could not be had, which
      * means no connection. The name every artwork file had before, so the ones already on the phone
      * are found here and serve as exactly that.
      */
-    private fun lesserArtFile(context: Context, id: String, px: Int) = File(artDir(context), "${hash(id)}_$px.png")
+    private fun lesserArtFile(context: Context, id: String, px: Int) =
+        resolveWidgetArtworkFile(artDir(context), id, "_$px.png")
 
     private fun bigArtPath(context: Context, id: String) = artFile(context, id, ART_BIG_PX).absolutePath
 
@@ -751,18 +764,69 @@ object WidgetStore {
      * nothing to fetch it again because the path was still recorded.
      */
     private fun prune(context: Context, snapshot: WidgetSnapshot) = runCatching {
-        val files = artDir(context).listFiles().orEmpty()
+        val artworkDirectory = artDir(context)
+        val files = artworkDirectory.listFiles().orEmpty()
         if (files.size <= MAX_ART_FILES) return@runCatching
-        val inUse = snapshot.artPathsInUse { id -> bigArtPath(context, id) }
+        val inUse = snapshot.artPathsInUse { id -> bigArtPath(context, id) }.toMutableSet().apply {
+            addAll(snapshot.songs().mapNotNull { song ->
+                song.artPath?.let { path ->
+                    resolveStoredWidgetArtworkFile(artworkDirectory, song.id, path).absolutePath
+                }
+            })
+        }
         files.filter { it.absolutePath !in inUse }
             .sortedBy { it.lastModified() }
             .dropLast(MAX_ART_FILES)
             .forEach { it.delete() }
     }.getOrDefault(Unit)
 
-    private fun hash(id: String): String =
-        MessageDigest.getInstance("SHA-1").digest(id.toByteArray()).joinToString("") { "%02x".format(it) }.take(16)
+    private fun hash(id: String): String = currentWidgetArtworkHash(id)
 }
+
+private val widgetArtworkMigrationLock = Any()
+
+internal fun resolveWidgetArtworkFile(artworkDirectory: File, id: String, suffix: String): File {
+    val destination = File(artworkDirectory, "${currentWidgetArtworkHash(id)}$suffix")
+    val legacy = File(artworkDirectory, "${legacySha1WidgetArtworkHash(id)}$suffix")
+    synchronized(widgetArtworkMigrationLock) {
+        if (!destination.exists() && legacy.exists()) {
+            // A concurrent caller may have completed the move after this rename attempt failed.
+            // In either successful case callers use only the current destination, never legacy.
+            if (!legacy.renameTo(destination) && !destination.exists()) return destination
+        }
+    }
+    return destination
+}
+
+private fun resolveStoredWidgetArtworkFile(artworkDirectory: File, id: String, storedPath: String): File {
+    val stored = File(storedPath)
+    if (stored.parentFile?.absolutePath != artworkDirectory.absolutePath) return stored
+
+    val currentPrefix = "${currentWidgetArtworkHash(id)}_"
+    val legacyPrefix = "${legacySha1WidgetArtworkHash(id)}_"
+    val suffix = when {
+        stored.name.startsWith(currentPrefix) -> stored.name.removePrefix(currentWidgetArtworkHash(id))
+        stored.name.startsWith(legacyPrefix) -> stored.name.removePrefix(legacySha1WidgetArtworkHash(id))
+        else -> null
+    }
+    return if (suffix != null && isWidgetArtworkFilenameSuffix(suffix)) {
+        resolveWidgetArtworkFile(artworkDirectory, id, suffix)
+    } else {
+        stored
+    }
+}
+
+private fun isWidgetArtworkFilenameSuffix(suffix: String): Boolean {
+    if (!suffix.startsWith("_") || !suffix.endsWith(".png")) return false
+    val size = suffix.removePrefix("_").removeSuffix(".png").removeSuffix("c")
+    return size.isNotEmpty() && size.all { it.isDigit() }
+}
+
+private fun currentWidgetArtworkHash(id: String): String =
+    MessageDigest.getInstance("SHA-256").digest(id.toByteArray()).joinToString("") { "%02x".format(it) }.take(16)
+
+private fun legacySha1WidgetArtworkHash(id: String): String =
+    MessageDigest.getInstance("SHA-1").digest(id.toByteArray()).joinToString("") { "%02x".format(it) }.take(16)
 
 /** How a broadcast receiver, which Hilt does not inject into here, reaches the one database. */
 @EntryPoint
