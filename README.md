@@ -17,7 +17,7 @@
 [![licence](https://img.shields.io/badge/licence-GPL--3.0-ed5564?labelColor=1b1f24)](https://github.com/ItzSkyeYT/InterTune/tree/visionos-fix/LICENSE)
 [![keep android open](https://img.shields.io/badge/keep%20android-open-c62828?labelColor=1b1f24)](https://keepandroidopen.org/)
 
-[Website](https://intertune.app) · [Download](#download) · [Features](#features) · [Good to know](#good-to-know) · [Wiki](https://github.com/ItzSkyeYT/InterTune/wiki) · [Discord](https://discord.gg/68jmqhMjXk) · [Donors](#donors)
+[Website](https://intertune.app) · [Download](#download) · [Features](#features) · [Good to know](#good-to-know) · [Roadmap](#roadmap) · [Wiki](https://github.com/ItzSkyeYT/InterTune/wiki) · [Discord](https://discord.gg/68jmqhMjXk) · [Donors](#donors)
 
 </div>
 
@@ -159,13 +159,60 @@ Every change in detail, and why this fork exists: [docs/FEATURES.md](https://git
 - **InterTune stands with [Keep Android Open](https://keepandroidopen.org/).** It will not join Google's developer registration, which would tie every Android app to an ID handed to Google.
 - If InterTune is useful to you, a star on this page helps other people find the real one.
 
+## Roadmap
+
+What's being worked on, roughly in order. `[x]` is done, `[~]` is built and being tested, `[ ]` is still to do. Nothing here has a date, and plans can change. Ideas are welcome in #feature-requests on [Discord](https://discord.gg/68jmqhMjXk) or as a [GitHub issue](https://github.com/ItzSkyeYT/InterTune/issues/new/choose).
+
+<details>
+<summary><b>Next: 0.12.6 (fixes)</b> · 3 of 6 done, 3 to test</summary>
+
+`[x]` Slim navbar icons centred again ([#54](https://github.com/ItzSkyeYT/InterTune/issues/54))\
+`[x]` A crash on some artist pages fixed ([#53](https://github.com/ItzSkyeYT/InterTune/issues/53))\
+`[~]` Covers of downloaded songs show without a connection\
+`[~]` Saved albums keep YouTube Music's order\
+`[~]` High and Highest quality prefer Opus over a slightly larger AAC stream ([#57](https://github.com/ItzSkyeYT/InterTune/issues/57))\
+`[x]` InterTune in Polish
+
+</details>
+
+<details>
+<summary><b>Then: 0.13</b> · 0 of 18 done, 6 to test</summary>
+
+`[ ]` Listen together: one person plays, friends follow the same song in real time *(in progress)*\
+`[ ]` Your year in InterTune, a recap *(in progress)*\
+`[ ]` What's playing works offline and names the song once you're back online ([#48](https://github.com/ItzSkyeYT/InterTune/issues/48)) *(in progress)*\
+`[~]` What's playing can name a song playing in another app on your phone, like Reels or TikTok\
+`[ ]` With shuffle on, picking a song from a playlist keeps the shuffle going\
+`[ ]` Report a problem without a GitHub account, and follow it on GitHub from a link *(in progress)*\
+`[ ]` Find songs you saved twice, in Liked or your library ([#47](https://github.com/ItzSkyeYT/InterTune/issues/47))\
+`[ ]` Premium accounts get the 256 kbps stream\
+`[~]` A sheet that shows everything that changes the sound on its way to your ears\
+`[~]` Spatial audio for surround recordings, and Strength, Room and Ambience controls\
+`[~]` Choose which lyrics sources are used, and in what order\
+`[~]` Similar artists in the Favourite artists mix\
+`[ ]` Downloads in their own quality, with tags and a cover so other players can use them\
+`[ ]` Choose what's in the three-dot menus\
+`[ ]` Tablets: settings in two panes, and the player as a side pane *(in progress)*\
+`[ ]` A look made for foldable and flip phones *(in progress)*\
+`[ ]` Match your library from another service by logging in to it\
+`[~]` A filter for AI-made songs, if the poll in #general says yes
+
+</details>
+
+<details>
+<summary><b>Later</b></summary>
+
+`[ ]` Mix: songs in a playlist blend into each other like a DJ set, with an editor to shape each change *(in progress)*
+
+</details>
+
 ## Translations
 
-InterTune is translated on [Weblate](https://hosted.weblate.org/engage/intertune/). It is complete in French, German, Spanish, Brazilian Portuguese, Indonesian, Hindi, Italian and Russian; every other language needs a hand.
+InterTune is translated on [Weblate](https://hosted.weblate.org/engage/intertune/). The chart below shows how far each language is, and every one of them can use a hand.
 
 <a href="https://hosted.weblate.org/engage/intertune/"><img src="https://hosted.weblate.org/widget/intertune/strings/horizontal-auto.svg" alt="Translation status"></a>
 
-The oldest strings, the ones InnerTune started with, are not on Weblate: if one of those is wrong in your language, [say so here](https://github.com/ItzSkyeYT/InterTune/issues/new?template=translation_report.yml).
+Spotted a wrong translation? Fix it on Weblate, or [say so here](https://github.com/ItzSkyeYT/InterTune/issues/new?template=translation_report.yml).
 
 ## Building
 
