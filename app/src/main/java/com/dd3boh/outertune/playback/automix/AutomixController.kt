@@ -796,7 +796,15 @@ class AutomixController(
         // heard, if what was read of the next song's opening holds it; otherwise it plays next time.
         // Shuffled, Auto alone.
         val latest = if (t.shuffled) Result.success(null) else runCatching { savedChange(t.a.id, b.id) }
-        (if (latest.isSuccess) latest.getOrNull() else t.saved)?.takeIf { !it.plain }?.let { saved ->
+        val latestSaved = if (latest.isSuccess) latest.getOrNull() else t.saved
+        if (latestSaved?.plain == true) {
+            // Plain saved for these two after the end began to be held: they meet as they would
+            // without Mix, as the line now says, not as Auto would mix them.
+            if (t.abandoned.get()) return BandsOutcome("on bands, not used: the change was given up")
+            stage.offer(held, MixPlan.gapless(rate, held.channels, frames, attenuationA, attenuationB, "a plain change, saved"), EMPTY_PART, replaces = true)
+            return BandsOutcome("on bands: a plain change, saved for these two", auto = AutoChoice.Plain(PlainReason.YOUR_CHOICE))
+        }
+        latestSaved?.let { saved ->
             val spec = Presets.onBands(saved)
             var lanePlan: LanePlan? = null
             Placing.facts(spec, rate, held.channels, t.tailStartMs.toDouble(), frames, tail, t.copyFrames.toLong(), earliest).fold(

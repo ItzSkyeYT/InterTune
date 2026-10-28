@@ -83,4 +83,15 @@ class AutomixControllerRulesTest {
         // Nothing else reads the saved changes.
         assertTrue(Regex("""savedChange\(""").findAll(controller).count() == 2)
     }
+
+    @Test
+    fun `a plain change saved while the end is held is heard plain, not mixed by Auto`() {
+        // The end is held before the store is read again on the worker: a plain change saved by
+        // then hands the stage a gapless plan, as the queue's line says, instead of Auto's mix.
+        val bands = controller.substringAfter("private fun onBands(").substringBefore("val allowance = ")
+        val plain = bands.substringAfter("if (latestSaved?.plain == true) {").substringBefore("\n        }\n")
+        assertTrue(plain, "stage.offer(held, MixPlan.gapless(" in plain && "replaces = true)" in plain)
+        assertTrue(plain, "auto = AutoChoice.Plain(PlainReason.YOUR_CHOICE)" in plain)
+        assertFalse(bands, ".takeIf { !it.plain }" in bands)
+    }
 }
