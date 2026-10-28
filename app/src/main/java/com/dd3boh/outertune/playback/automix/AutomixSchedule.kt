@@ -6,6 +6,9 @@
 
 package com.dd3boh.outertune.playback.automix
 
+import com.dd3boh.outertune.mix.edit.TransitionSpec
+import com.dd3boh.outertune.mix.engine.Engine
+
 /**
  * When AutoMix does each thing, by how much of the song playing is left, and the checks on what
  * it was handed. No Android in here, so it is tested; AutomixController reads the player for it.
@@ -131,4 +134,22 @@ object AutomixSchedule {
     private const val MAX_WAIT_MS = 60_000L
     private const val END_SLACK_MS = 300L
     private const val MIN_WORK_MS = 2_000L
+
+    /** The opening is copied this much past what a change needs of it, and a minute at most. */
+    const val COPY_MARGIN_S = 2.0
+    const val COPY_MAX_S = 60.0
+
+    /**
+     * How much of the next song's opening to copy, in seconds: what Auto can reach, or what the
+     * saved change needs of it, a minute at most. A lane leaving by Echo rings up to
+     * [Engine.ECHO_MAX_BARS_AFTER] bars past the change's end, and the end has the headroom's pad
+     * after it: a change whose last exit was an echo was refused for a copy a second or two short,
+     * and Auto played while the editor's preview, with a minute of B, had played it whole.
+     */
+    fun copySecondsFor(saved: TransitionSpec?): Double {
+        val need = saved?.takeIf { !it.plain }?.let {
+            (it.b.atMs + it.lengthMs + Engine.ECHO_MAX_BARS_AFTER * it.b.barMs) / 1000.0 + Engine.HEADROOM_PAD_S + COPY_MARGIN_S
+        } ?: 0.0
+        return need.coerceAtLeast(HEAD_SECONDS + COPY_MARGIN_S).coerceAtMost(COPY_MAX_S)
+    }
 }

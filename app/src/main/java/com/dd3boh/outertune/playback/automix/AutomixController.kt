@@ -495,11 +495,8 @@ class AutomixController(
         }
     }
 
-    /** How much of the next song's opening to copy: what Auto can reach, or what the saved change needs of it, a minute at most. */
-    private fun copySecondsFor(saved: TransitionSpec?): Double {
-        val need = saved?.takeIf { !it.plain }?.let { (it.b.atMs + it.lengthMs) / 1000.0 + COPY_MARGIN_S } ?: 0.0
-        return need.coerceAtLeast(AutomixSchedule.HEAD_SECONDS + COPY_MARGIN_S).coerceAtMost(COPY_MAX_S)
-    }
+    /** How much of the next song's opening to copy; see [AutomixSchedule.copySecondsFor]. */
+    private fun copySecondsFor(saved: TransitionSpec?): Double = AutomixSchedule.copySecondsFor(saved)
 
     /** Takes the pair's saved change: the end is held early enough for it, if it can be. */
     private fun savedFor(t: Transition, saved: TransitionSpec) {
@@ -1044,9 +1041,6 @@ class AutomixController(
         const val KEPT_GUIDE_S = 4.5
         const val LOCK_FAILED_KEPT = 256
 
-        /** The opening is copied this much past what a change needs of it, and a minute at most. */
-        const val COPY_MARGIN_S = 2.0
-        const val COPY_MAX_S = 60.0
 
         /**
          * Auto's changes on bands rendered and judged at most per change on the phone: each costs a
