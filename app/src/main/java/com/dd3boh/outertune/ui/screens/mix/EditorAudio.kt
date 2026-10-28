@@ -159,7 +159,7 @@ class PairLoader(
                 val aSong = AutoOnBands.Song(a.id, aCopy, aAnalysis, aWindow.info.startMs, aWindow.info.durationMs, a.albumId, a.fix)
                 val bSong = AutoOnBands.Song(b.id, bCopy, bAnalysis, bWindow.info.startMs, bWindow.info.durationMs, b.albumId, b.fix)
                 val chosen = AutoOnBands.choose(aSong, bSong, attenuationA = levelA, attenuationB = levelB)
-                autoWhy = "${chosen.pick.describe()}, ${chosen.proofs} proofs in %.0f ms".format(chosen.millis)
+                autoWhy = "${chosen.pick.describe()}, ${chosen.proofs} proofs in " + "%.0f ms".format(chosen.millis)
                 kept?.invoke(a.id, aSong.end)
                 kept?.invoke(b.id, bSong.end)
                 autoSpecOf(chosen.spec, aFacts, bFacts, facts)
