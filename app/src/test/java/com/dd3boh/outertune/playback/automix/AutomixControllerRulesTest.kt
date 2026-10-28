@@ -102,4 +102,17 @@ class AutomixControllerRulesTest {
         assertTrue(play, "if (Unreleased.AUTOMIX_EDITOR && started) linkMixQueue((queue as? ListQueue)?.mixPlaylistId)" in play)
         assertTrue(Regex("""linkMixQueue\(""").findAll(service).count() == 2)
     }
+
+    @Test
+    fun `a decision said again is not a new value for the queue's line and the heard changes`() {
+        // decide() runs at every look while a change is refused; StateFlow drops a value equal to
+        // the last, so what is said again neither rewrites heard.json nor plans every pair again.
+        assertTrue("data class Decided(val pair: SongPair, val choice: AutoChoice)" in controller)
+        val pair = com.dd3boh.outertune.mix.edit.SongPair("a", "b")
+        val plain = com.dd3boh.outertune.mix.pill.AutoChoice.Plain(com.dd3boh.outertune.mix.pill.PlainReason.RUN_TOGETHER)
+        val flow = kotlinx.coroutines.flow.MutableStateFlow<AutomixController.Decided?>(AutomixController.Decided(pair, plain))
+        val before = flow.value
+        flow.value = AutomixController.Decided(pair, com.dd3boh.outertune.mix.pill.AutoChoice.Plain(com.dd3boh.outertune.mix.pill.PlainReason.RUN_TOGETHER))
+        assertTrue(flow.value === before)
+    }
 }

@@ -148,9 +148,11 @@ class AutomixController(
     /**
      * Mix: what the change after the song playing has come to so far, for the queue's line (a
      * reason it stays plain, or the style its plan took), or null while nothing is decided and
-     * whenever AutoMix is off. Main thread.
+     * whenever AutoMix is off. Main thread. Compared by what it says, so a refusal said again at
+     * every look (twice a second for the last 15 s of a song) is not a new value: each one used to
+     * rewrite heard.json and plan every pair of an open playlist page again.
      */
-    class Decided(val pair: SongPair, val choice: AutoChoice)
+    data class Decided(val pair: SongPair, val choice: AutoChoice)
 
     private val _decided = MutableStateFlow<Decided?>(null)
     val decided: StateFlow<Decided?> = _decided.asStateFlow()
