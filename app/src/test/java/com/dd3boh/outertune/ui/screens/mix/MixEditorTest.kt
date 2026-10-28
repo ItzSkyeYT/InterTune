@@ -23,10 +23,12 @@ import com.dd3boh.outertune.mix.edit.FilterRow
 import com.dd3boh.outertune.mix.edit.PartsRow
 import com.dd3boh.outertune.mix.edit.Side
 import com.dd3boh.outertune.mix.edit.SimpleRows
+import com.dd3boh.outertune.mix.edit.SongPair
 import com.dd3boh.outertune.mix.edit.TransitionSpec
 import com.dd3boh.outertune.mix.edit.VolumeRow
 import com.dd3boh.outertune.mix.edit.toJson
 import com.dd3boh.outertune.mix.edit.transitionSpecOf
+import com.dd3boh.outertune.mix.pill.Pills
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -318,6 +320,32 @@ class MixEditorTest {
         assertTrue(back.backToAuto())
         assertEquals(Preset.AUTO, back.lit())
         assertTrue(back.saveAction(5L) is SaveAction.Forget)
+    }
+
+    @Test
+    fun `a plain change made from a pill opens at Auto's place, so a preset tapped there can play`() {
+        val f = facts()
+        val auto = AutoSpec.fallback(f)
+        // Plain change for these two, from a pill with nothing saved: a stand-in at each song's first second.
+        val fromPill = Pills.plainSpec(SongPair("wake-me-up", "after-hours"), null)
+        assertTrue(fromPill.plain)
+        val opened = MixEditor.openable(fromPill, auto, f)!!
+        assertTrue(opened.plain)
+        assertEquals(auto.a.atMs, opened.a.atMs, 1e-6)
+        assertEquals(auto.b.atMs, opened.b.atMs, 1e-6)
+        val e = MixEditor(f, auto, opened)
+        assertNull(e.lit())
+        assertFalse(e.dirty)
+        e.tapPreset(Preset.FADE)
+        assertEquals(Preset.FADE, e.lit())
+        assertNull(e.reachOf(e.spec))
+        assertTrue(AutoSpec.fits(e.spec, f))
+        // A plain change saved in the editor keeps its own place, and anything else opens as it is.
+        val mine = auto.copy(plain = true, a = auto.a.copy(atMs = auto.a.atMs - 4 * auto.b.barMs))
+        assertTrue(AutoSpec.fits(mine, f))
+        assertEquals(mine, MixEditor.openable(mine, auto, f))
+        assertEquals(auto, MixEditor.openable(auto, auto, f))
+        assertNull(MixEditor.openable(null, auto, f))
     }
 
     @Test

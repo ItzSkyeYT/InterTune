@@ -155,7 +155,7 @@ class MixEditorViewModel @Inject constructor(
                 }
                 val stored = withContext(Dispatchers.IO) { runCatching { MixStores.transitions(context).get(SongPair(fromId, toId)) }.getOrNull() }
                 // A change made on parts waits for the parts: on bands it opens on Auto.
-                val usable = stored?.takeIf { it.lanes == LaneSet.BANDS && it.isValid }
+                val usable = MixEditor.openable(stored?.takeIf { it.lanes == LaneSet.BANDS && it.isValid }, loaded.auto, loaded.facts)
                 val restoredSpec = saved.get<String>(KEY_SPEC)?.let(::transitionSpecOf)?.takeIf { it.pair == SongPair(fromId, toId) }
                 val restoredUndo = saved.get<ArrayList<String>>(KEY_UNDO)?.mapNotNull(::transitionSpecOf).orEmpty()
                 val e = MixEditor(loaded.facts, loaded.auto, usable, restoredUndo, restoredSpec)
