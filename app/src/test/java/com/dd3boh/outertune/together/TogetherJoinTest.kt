@@ -44,6 +44,48 @@ class TogetherJoinTest {
         assertNull(Follow.arrival(targetMs = 214_500, positionMs = 0, durationMs = 213_000))
     }
 
+    private fun state(at: Long, playing: Boolean = true) =
+        TogetherMessage.State("song", "", "", positionMs = 70_000, playing = playing, speed = 1.0, atMs = at)
+
+    @Test
+    fun `before the clocks are compared, clocks that seem to agree are taken at their word`() {
+        // Sent at 1,000,000 by the host's clock, here 150 ms later by this one's: a believable trip.
+        val guessed = Follow.guess(state(at = 1_000_000), heardAtMs = 1_000_150, nowMs = 1_000_650)
+        assertEquals(Follow.target(state(at = 1_000_000), 1_000_650), guessed)
+        assertEquals(70_650L, guessed)
+    }
+
+    @Test
+    fun `a clock that is off does not send a guest that far off before the first pong`() {
+        // This phone's clock 14 s behind the host's, as the emulator's was on 28 Oct 2026: the
+        // word seems to arrive before it was sent. By when it came, behind by its trip alone.
+        val behind = Follow.guess(state(at = 1_000_000), heardAtMs = 986_150, nowMs = 986_650)
+        assertEquals(70_500L, behind)
+        // And 14 s ahead: a trip of 14 s is not believed either.
+        val ahead = Follow.guess(state(at = 1_000_000), heardAtMs = 1_014_150, nowMs = 1_014_650)
+        assertEquals(70_500L, ahead)
+        // A paused host is where it says, whatever the clocks.
+        assertEquals(70_000L, Follow.guess(state(at = 1_000_000, playing = false), heardAtMs = 986_150, nowMs = 990_000))
+    }
+
+    @Test
+    fun `before the first pong, the session places the leader by that guess`() {
+        val at = session.substringAfter("private fun leaderAt(").substringBefore("\n\n")
+        assertTrue(at.contains("if (gap.known) Follow.target(state, gap.hostNow(now)) else Follow.guess(state, lastStateAt, now)"))
+        for (place in listOf("private fun follow()", "private fun toLeadersSong(", "private fun arrive(")) {
+            val body = session.substringAfter(place).substringBefore("\n    }\n")
+            assertFalse("$place takes the clocks as equal", body.contains("Follow.target(state, gap.hostNow(now))"))
+            assertTrue("$place does not use leaderAt", body.contains("leaderAt(state, now)"))
+        }
+    }
+
+    @Test
+    fun `a guest says it is here as soon as a relay is up, so the leader can answer it`() {
+        val start = session.substringAfter("fun start() {").substringBefore("\n    }\n")
+        val connected = start.substringAfter("pool.connected.collect").substringBefore("scope.launch")
+        assertTrue(connected.contains("if (n > before) sayHere()"))
+    }
+
     @Test
     fun `the leader answers a newcomer with where it is and its queue at once`() {
         val newcomer = session.substringAfter("if (from !in heard && leading) {").substringBefore("}")
@@ -65,7 +107,7 @@ class TogetherJoinTest {
         val switch = session.substringAfter("private fun toLeadersSong(").substringBefore("private fun matchQueue(")
         assertFalse(switch.contains("seekTo(index, 0)"))
         val inQueue = switch.substringAfter("indexOf(player, state.songId)?.let { index ->").substringBefore("return\n")
-        assertTrue(inQueue.contains("seekTo(index, (Follow.target(state"))
+        assertTrue(inQueue.contains("seekTo(index, (leaderAt(state, now)"))
         assertTrue("a second jump while it loads would throw the first load away", inQueue.contains("arriving = false"))
         // A new queue starts its song at 0:00: it is marked, and follow sends it on while it loads.
         assertTrue(switch.substringAfter("val queue = roomQueue?.songs").contains("arriving = true"))

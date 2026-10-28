@@ -215,7 +215,17 @@ class TogetherSession(
         Log.i(TAG, "Room ${code.pretty}: ${if (owner) "made here" else "joining"} through ${relays.size} relays")
         pool.start()
         service.exoPlayer.addListener(listener)
-        scope.launch { pool.connected.collect { n -> _status.value = _status.value.copy(relaysConnected = n) } }
+        scope.launch {
+            var before = 0
+            pool.connected.collect { n ->
+                _status.value = _status.value.copy(relaysConnected = n)
+                // A relay that has just come up hears this phone at once. The Here said as the
+                // room opened went nowhere, no relay being up yet, and the leader answers a
+                // newcomer only once it hears it: a guest waited for the leader's next beat.
+                if (n > before) sayHere()
+                before = n
+            }
+        }
         scope.launch { pool.events.collect { onEvent(it) } }
         // Settings > Listen together, taken as they change, a room under way included.
         scope.launch {
@@ -681,10 +691,10 @@ class TogetherSession(
             player.playWhenReady = state.playing
         }
         if (now < settleUntil || player.playbackState != Player.STATE_READY) return
-        // Before the first pong, the clocks are taken as equal: close enough to start, and a pong
-        // within a second puts it right. The leader's own delay is out of its word already; this
-        // phone's is added, so that what comes out of each is in step.
-        val target = Follow.target(state, gap.hostNow(now)) + delayMs
+        // Before the first pong, where the leader is is a guess (leaderAt), and a pong within a
+        // second puts it right. The leader's own delay is out of its word already; this phone's
+        // is added, so that what comes out of each is in step.
+        val target = leaderAt(state, now) + delayMs
         // Past the end the leader is moving on or starting the song again, and its word that it
         // did is on the way: a jump there would only land at the end.
         val length = player.duration
@@ -728,7 +738,7 @@ class TogetherSession(
             // Not arriving: the spot is asked for already, and a second jump while it loads
             // would only throw that load away.
             arriving = false
-            player.seekTo(index, (Follow.target(state, gap.hostNow(now)) + delayMs).coerceAtLeast(0))
+            player.seekTo(index, (leaderAt(state, now) + delayMs).coerceAtLeast(0))
             return
         }
         // Else with the leader's queue from that song on, which it sends a moment after a change,
@@ -834,6 +844,14 @@ class TogetherSession(
     private var ownCommandUntil = 0L
 
     /**
+     * Where the leader is now in [state]'s song: by the leader's clock once the gap to it is known,
+     * until then as Follow.guess has it. A guest that joins asks for the song before any pong is
+     * back, so this spot is the one it fetches.
+     */
+    private fun leaderAt(state: TogetherMessage.State, now: Long): Long =
+        if (gap.known) Follow.target(state, gap.hostNow(now)) else Follow.guess(state, lastStateAt, now)
+
+    /**
      * The leader's song has just come and is still loading here: if it starts well before the
      * leader's spot, off to that spot at once, before its start is fetched for nothing. Waiting
      * until it was ready fetched the song twice, from 0:00 and again from the leader's spot, which
@@ -844,7 +862,7 @@ class TogetherSession(
             arriving = false
             return
         }
-        val target = Follow.target(state, gap.hostNow(now)) + delayMs
+        val target = leaderAt(state, now) + delayMs
         val spot = Follow.arrival(target, player.currentPosition, player.duration.takeIf { it != C.TIME_UNSET }) ?: return
         arriving = false
         Log.i(TAG, "Off to the leader's spot while the song loads, ${spot / 1000} s in")

@@ -206,6 +206,22 @@ sealed interface Follow {
             if (state.playing) state.positionMs + ((hostNowMs - state.atMs) * state.speed).toLong() else state.positionMs
 
         /**
+         * Where the host is now by its last [state], heard at [heardAtMs], before the gap between
+         * the clocks is known, all by this phone's clock: by the host's clock as if the two agreed
+         * when its word took a believable time to come ([TRIP_MS] at most), else by when the word
+         * came, which is behind by its trip alone. Taken as agreeing whatever they said, a phone
+         * whose clock was off went to a spot off by as much (14 s on an emulator).
+         */
+        fun guess(state: TogetherMessage.State, heardAtMs: Long, nowMs: Long): Long = when {
+            heardAtMs - state.atMs in 0..TRIP_MS -> target(state, nowMs)
+            state.playing -> state.positionMs + ((nowMs - heardAtMs) * state.speed).toLong()
+            else -> state.positionMs
+        }
+
+        /** The longest a word of the host's is believed to take to come, through the relays. */
+        const val TRIP_MS = 2_000L
+
+        /**
          * Where a guest whose song is still loading at [positionMs] goes, or null to let it load
          * there: the host's spot [targetMs] when that is more than [DRIFT_MS] on, unless it lies at
          * or past the song's end [durationMs] (null while not known), where the host is moving on.
