@@ -147,6 +147,7 @@
     <string name="mix_edit_limit_b_first">%1$s démarre toujours à sa première seconde.</string>
     <string name="mix_edit_limit_b_reach">Le début de %1$s n\'est lu que jusqu\'à %2$s.</string>
     <string name="mix_edit_limit_a_needs">Il faudrait %1$s de la fin de %2$s ; seules les dernières %3$s peuvent servir.</string>
+    <string name="mix_edit_limit_a_plays">Pour l\'instant, un enchaînement enregistré commence au plus tôt %1$s avant la fin de %2$s.</string>
 
     <string name="mix_fix_title">Corriger le tempo : %1$s</string>
     <string name="mix_fix_sure">%1$s BPM · sûr</string>

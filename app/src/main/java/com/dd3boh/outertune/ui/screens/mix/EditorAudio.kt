@@ -144,6 +144,7 @@ class PairLoader(
         )
         val facts = PairFacts(
             a = aFacts, b = bFacts,
+            playReachMs = PairFacts.PLAY_REACH_MS,
             active = { side, lane: Lane, ms ->
                 val w = if (side == Side.A) aWindow.info else bWindow.info
                 (if (side == Side.A) aBands else bBands).active(lane, ms - w.startMs)

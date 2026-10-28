@@ -16,12 +16,14 @@ import com.dd3boh.outertune.mix.edit.LaneId
 import com.dd3boh.outertune.mix.edit.LaneSet
 import com.dd3boh.outertune.mix.edit.Move
 import com.dd3boh.outertune.mix.edit.Preset
+import com.dd3boh.outertune.mix.edit.Presets
 import com.dd3boh.outertune.mix.edit.Side
 import com.dd3boh.outertune.mix.edit.SongPair
 import com.dd3boh.outertune.mix.edit.TransitionSpec
 import com.dd3boh.outertune.mix.edit.aGoneAt
 import com.dd3boh.outertune.mix.edit.laneAt
 import com.dd3boh.outertune.mix.edit.unheardMs
+import com.dd3boh.outertune.mix.engine.SpecPlan
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.max
@@ -44,6 +46,9 @@ sealed interface Limit {
 
     /** "16 bars needs 0:52 of Wake Me Up's end; only 1:12 can be used." */
     data class ANeeds(val neededMs: Double, val reachMs: Double) : Limit
+
+    /** "For now a saved change can start at most 0:31 before the end of Wake Me Up." */
+    data class APlays(val reachMs: Double) : Limit
 }
 
 /** One line of the length sheet. */
@@ -310,7 +315,18 @@ class MixEditor(
         val aFirst = s.aMsAt(fitStart(s))
         if (aFirst < facts.aReachStartMs - 0.5) return Limit.ANeeds(facts.a.durationMs - aFirst, facts.aReachMs)
         if (s.bMsAt(fitEnd(s)) > facts.bReachEndMs + 0.5) return Limit.BReach(facts.bReachEndMs)
-        return null
+        return playLimitOf(s)
+    }
+
+    /**
+     * Why [s] would never be played, or null: its first frame comes further before A's end than
+     * playback can hold A for a saved change ([PairFacts.playReachMs]), so Auto would play instead.
+     * Auto's own change and a plain one save nothing to hold, so they are never refused for it.
+     */
+    fun playLimitOf(s: TransitionSpec): Limit? {
+        if (s.plain || sameAsAuto(s)) return null
+        val first = runCatching { SpecPlan.firstChangeMs(Presets.onBands(s)) }.getOrNull() ?: return null
+        return if (facts.a.durationMs - first > facts.playReachMs + 0.5) Limit.APlays(facts.playReachMs) else null
     }
 
     /** Sets the length; the change keeps its end in A, and a preset is written again at the new length. */
@@ -384,7 +400,11 @@ class MixEditor(
             return bMoved(from, deltaMs, byBeats)
         }
         val per = perA(from)
-        val earliest = facts.aReachStartMs - fitStart(from) * per
+        val reachEarliest = facts.aReachStartMs - fitStart(from) * per
+        // Bar 1 as early as playback can hold the change's first frame, which moves with it.
+        val lead = runCatching { from.a.atMs - SpecPlan.firstChangeMs(Presets.onBands(from)) }.getOrNull()
+        val playEarliest = if (from.plain || lead == null) reachEarliest else facts.a.durationMs - facts.playReachMs + lead
+        val earliest = max(reachEarliest, playEarliest)
         val latest = facts.a.durationMs - from.aGoneAt() * per
         val wanted = from.a.atMs - deltaMs
         val grid = gridA(from)
@@ -396,7 +416,7 @@ class MixEditor(
         var at = snapped
         var limit: Limit? = null
         if (at < earliest - 0.5) {
-            limit = Limit.AReach(facts.aReachMs)
+            limit = if (playEarliest > reachEarliest) Limit.APlays(facts.playReachMs) else Limit.AReach(facts.aReachMs)
             while (at < earliest - 0.5) at += stepMs
         }
         if (at > latest + 0.5) {

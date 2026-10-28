@@ -108,6 +108,7 @@ class EditorWords(private val res: Resources, val aTitle: String, val bTitle: St
         Limit.BFirstSecond -> res.getString(R.string.mix_edit_limit_b_first, bTitle)
         is Limit.BReach -> res.getString(R.string.mix_edit_limit_b_reach, owner(bTitle), clock(l.reachMs))
         is Limit.ANeeds -> res.getString(R.string.mix_edit_limit_a_needs, clock(l.neededMs), owner(aTitle), clock(l.reachMs))
+        is Limit.APlays -> res.getString(R.string.mix_edit_limit_a_plays, clock(l.reachMs), aTitle)
     }
 
     fun howName(h: How): String = res.getString(

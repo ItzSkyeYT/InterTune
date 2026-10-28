@@ -158,6 +158,7 @@
     <string name="mix_edit_limit_b_first">%1$s always starts at its first second.</string>
     <string name="mix_edit_limit_b_reach">%1$s opening is read up to %2$s.</string>
     <string name="mix_edit_limit_a_needs">This needs %1$s of %2$s end; only the last %3$s can be used.</string>
+    <string name="mix_edit_limit_a_plays">For now a saved change can start at most %1$s before the end of %2$s.</string>
 
     <!-- fix the beat -->
     <string name="mix_fix_title">Fix the beat: %1$s</string>
