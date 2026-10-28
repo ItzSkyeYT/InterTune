@@ -1652,6 +1652,7 @@
     <string name="problem_report_copied">Copié</string>
     <string name="problem_report_close">Fermer</string>
     <string name="problem_report_send">Envoyer à InterTune</string>
+    <string name="problem_report_what">Que s\'est-il passé\u00A0? (facultatif)</string>
     <string name="problem_report_contact">Comment vous joindre (facultatif)</string>
     <string name="problem_report_contact_hint">Pseudo Discord ou e-mail</string>
     <string name="problem_report_contact_note">Seule l\'équipe d\'InterTune le voit.</string>

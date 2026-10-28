@@ -43,6 +43,15 @@ class ReportRelayTest {
     }
 
     @Test
+    fun `what the person wrote goes with the report, trimmed and cut to what the site takes`() {
+        val json = sent(ReportRelay.body("0.12.6 (98)", "Pixel 5", "log", null, null, "  It stopped after a skip.  "))
+        assertEquals("It stopped after a skip.", json["what"]!!.jsonPrimitive.content)
+        assertEquals(2000, sent(ReportRelay.body("0.12.6 (98)", "Pixel 5", "log", null, null, "w".repeat(3000)))["what"]!!.jsonPrimitive.content.length)
+        assertFalse("what" in sent(ReportRelay.body("0.12.6 (98)", "Pixel 5", "log", null, null, "   ")))
+        assertFalse("what" in sent(ReportRelay.body("0.12.6 (98)", "Pixel 5", "log", null, null)))
+    }
+
+    @Test
     fun `a long title or contact is cut to what the site takes`() {
         val json = sent(ReportRelay.body("0.12.6 (98)", "Pixel 5", "log", "t".repeat(300), "c".repeat(300)))
         assertEquals(120, json["title"]!!.jsonPrimitive.content.length)
@@ -79,6 +88,11 @@ class ReportRelayTest {
         assertTrue(dialog.contains("val relay = Unreleased.REPORT_RELAY && BuiltInKeys.official"))
         // Without the flag the page is as it was: the form, Copy and Close.
         assertTrue(dialog.contains("if (!relay) TextButton(onClick = onDismiss) { Text(stringResource(R.string.problem_report_close)) }"))
+        // The crash page sends the same way, under the same guard, and keeps its own buttons without it.
+        val crash = File("src/main/java/com/dd3boh/outertune/ui/component/CrashReportDialog.kt").readText()
+        assertTrue(crash.contains("val relay = Unreleased.REPORT_RELAY && BuiltInKeys.official"))
+        assertTrue(crash.contains("if (!relay) TextButton(onClick = forget) { Text(stringResource(R.string.crash_report_dismiss)) }"))
+        assertTrue(crash.contains("else if (BuiltInKeys.official) TextButton(onClick = openGitHub)"))
     }
 
     @Test
@@ -86,7 +100,7 @@ class ReportRelayTest {
         val names = listOf(
             "problem_report_send", "problem_report_contact", "problem_report_contact_hint", "problem_report_contact_note",
             "problem_report_sent", "problem_report_sent_body", "problem_report_open_issue", "problem_report_copy_link",
-            "problem_report_held", "problem_report_send_failed",
+            "problem_report_held", "problem_report_send_failed", "problem_report_what",
         )
         for (folder in listOf("values", "values-fr")) {
             val texts = File("src/main/res/$folder/strings-ot.xml").readText()

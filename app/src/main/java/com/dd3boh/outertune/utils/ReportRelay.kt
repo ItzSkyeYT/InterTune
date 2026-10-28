@@ -39,6 +39,7 @@ object ReportRelay {
     const val URL = "https://intertune.app/api/report"
     private const val MOST_TITLE = 120
     private const val MOST_CONTACT = 200
+    private const val MOST_WHAT = 2000
 
     sealed interface Outcome {
         /** Filed as [number], to be followed at [url]. 0 only from a draft of the site, which files nothing. */
@@ -58,13 +59,17 @@ object ReportRelay {
             .build()
     }
 
-    /** What the site is sent: the report exactly as the page showed it, the contact beside it. */
-    fun body(build: String, device: String, report: String, title: String?, contact: String?): String =
+    /**
+     * What the site is sent: the report exactly as the page showed it, what the person wrote about it
+     * (it goes in the issue's "What happens"), and the contact beside it, which never goes in the issue.
+     */
+    fun body(build: String, device: String, report: String, title: String?, contact: String?, what: String? = null): String =
         buildJsonObject {
             put("build", build)
             put("device", device)
             put("report", report)
             title?.trim()?.takeIf { it.isNotEmpty() }?.let { put("title", it.take(MOST_TITLE)) }
+            what?.trim()?.takeIf { it.isNotEmpty() }?.let { put("what", it.take(MOST_WHAT)) }
             contact?.trim()?.takeIf { it.isNotEmpty() }?.let { put("contact", it.take(MOST_CONTACT)) }
         }.toString()
 
@@ -87,13 +92,13 @@ object ReportRelay {
     fun title(excerpt: ProblemLog.Excerpt?): String? =
         excerpt?.faultAt?.let { excerpt.lines.getOrNull(it) }?.let { "${it.tag.trim()}: ${it.message.trim()}" }?.take(MOST_TITLE)
 
-    suspend fun send(build: String, device: String, report: String, title: String?, contact: String?): Outcome =
+    suspend fun send(build: String, device: String, report: String, title: String?, contact: String?, what: String? = null): Outcome =
         withContext(Dispatchers.IO) {
             if (!BuiltInKeys.official) return@withContext Outcome.Failed("not InterTune's own build")
             try {
                 val request = Request.Builder()
                     .url(URL)
-                    .post(body(build, device, report, title, contact).toRequestBody("application/json".toMediaType()))
+                    .post(body(build, device, report, title, contact, what).toRequestBody("application/json".toMediaType()))
                     .build()
                 client.newCall(request).execute().use { outcome(it.code, it.body?.string()) }
             } catch (e: CancellationException) {

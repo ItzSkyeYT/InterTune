@@ -149,6 +149,7 @@ fun ProblemReportDialog(onDismiss: () -> Unit) {
     // Send to InterTune (Unreleased.REPORT_RELAY): the report goes to intertune.app, which files the issue
     // and gives back its link (ReportRelay). A fork keeps Copy only (FORKS.md).
     val relay = Unreleased.REPORT_RELAY && BuiltInKeys.official
+    var what by rememberSaveable { mutableStateOf("") }
     var contact by rememberSaveable { mutableStateOf("") }
     var sending by remember { mutableStateOf(false) }
     var outcome by remember { mutableStateOf<ReportRelay.Outcome?>(null) }
@@ -198,6 +199,15 @@ fun ProblemReportDialog(onDismiss: () -> Unit) {
                 }
                 if (relay && text != null) {
                     Spacer(Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = what,
+                        onValueChange = { what = it.take(2000) },
+                        label = { Text(stringResource(R.string.problem_report_what)) },
+                        minLines = 2,
+                        maxLines = 5,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(8.dp))
                     val failed = outcome is ReportRelay.Outcome.Failed
                     OutlinedTextField(
                         value = contact,
@@ -231,8 +241,9 @@ fun ProblemReportDialog(onDismiss: () -> Unit) {
                             build = choice?.build ?: ProblemLog.build(),
                             device = ProblemLog.device(),
                             report = text.orEmpty(),
-                            title = ReportRelay.title(found),
+                            title = ReportRelay.title(found) ?: what.lineSequence().firstOrNull()?.trim(),
                             contact = contact,
+                            what = what,
                         )
                         if (result is ReportRelay.Outcome.Failed) Log.w("ProblemReport", "Not sent: ${result.why}")
                         outcome = result
@@ -272,7 +283,7 @@ fun ProblemReportDialog(onDismiss: () -> Unit) {
 
 /** After Send to InterTune: the issue's number and its link, which anyone can follow without an account. */
 @Composable
-private fun SentDialog(sent: ReportRelay.Outcome.Sent, onDismiss: () -> Unit) {
+internal fun SentDialog(sent: ReportRelay.Outcome.Sent, onDismiss: () -> Unit) {
     val context = LocalContext.current
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -305,7 +316,7 @@ private fun SentDialog(sent: ReportRelay.Outcome.Sent, onDismiss: () -> Unit) {
 
 /** After Send to InterTune, when the site keeps the report for a look before it goes on GitHub. */
 @Composable
-private fun HeldDialog(onDismiss: () -> Unit) {
+internal fun HeldDialog(onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.problem_report_title)) },

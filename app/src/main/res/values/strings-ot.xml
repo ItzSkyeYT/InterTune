@@ -1987,6 +1987,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="problem_report_close">Close</string>
     <!-- Send to InterTune (Unreleased.REPORT_RELAY): for translators only after his yes on the words (kept off visionos-fix until then). -->
     <string name="problem_report_send">Send to InterTune</string>
+    <string name="problem_report_what">What happened? (optional)</string>
     <string name="problem_report_contact">How to reach you (optional)</string>
     <string name="problem_report_contact_hint">Discord name or email</string>
     <string name="problem_report_contact_note">Only the InterTune team sees this.</string>
