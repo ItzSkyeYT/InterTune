@@ -225,6 +225,21 @@ fun MixEditorScreen(navController: NavController) {
         lifecycle.addObserver(observer)
         onDispose { lifecycle.removeObserver(observer) }
     }
+    // Headphones unplugged or gone: the preview stops, as the music would, instead of carrying on
+    // from the loudspeaker. Its own track has no noisy handling of its own, and the player it
+    // paused hears nothing.
+    DisposableEffect(context) {
+        val noisy = object : android.content.BroadcastReceiver() {
+            override fun onReceive(c: android.content.Context, intent: android.content.Intent) {
+                if (intent.action == android.media.AudioManager.ACTION_AUDIO_BECOMING_NOISY) vm.preview?.stop()
+            }
+        }
+        androidx.core.content.ContextCompat.registerReceiver(
+            context, noisy, android.content.IntentFilter(android.media.AudioManager.ACTION_AUDIO_BECOMING_NOISY),
+            androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
+        onDispose { runCatching { context.unregisterReceiver(noisy) } }
+    }
     // The preview starts on opening, from 2 bars before the change.
     var started by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(phase) {

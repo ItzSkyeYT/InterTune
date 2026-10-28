@@ -77,4 +77,12 @@ class MixEditorHeldBackTest {
         assertTrue(screen, "if (INTRO_TWICE_PLAYS || spec.introTwice > 0) SwitchRow(" in screen)
         assertTrue("private const val INTRO_TWICE_PLAYS = ${!refused}" in screen)
     }
+
+    @Test
+    fun `the preview stops when the headphones go`() {
+        val screen = code("ui/screens/mix/MixEditorScreen.kt")
+        val noisy = screen.substringAfter("DisposableEffect(context) {").substringBefore("\n    }\n")
+        assertTrue(noisy, "intent.action == android.media.AudioManager.ACTION_AUDIO_BECOMING_NOISY) vm.preview?.stop()" in noisy)
+        assertTrue(noisy, "context.unregisterReceiver(noisy)" in noisy)
+    }
 }
