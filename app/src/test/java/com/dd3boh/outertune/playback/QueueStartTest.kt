@@ -13,10 +13,12 @@ import com.dd3boh.outertune.playback.queues.Queue
 import com.zionhuang.innertube.models.BrowseEndpoint
 import java.io.IOException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.yield
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -961,6 +963,25 @@ class QueueStartTest {
 
         assertEquals(listOf("B from the top"), service.heard)
         assertEquals(listOf("B Mix"), service.queues.map { it.title })
+    }
+
+
+    @Test
+    fun `a start dropped for a newer tap says it started nothing, the newer one that it did`() = runBlocking {
+        // The caller links only a queue a tap started to its Mix playlist: the dropped one used to
+        // unlink the playlist that went on playing, turning Mix off under it.
+        val service = Service()
+        val first = LateQueue(song("A"))
+        val second = LateQueue(song("B"))
+        val start = QueueStart(service)
+        val one = async { start.play(first, runId = 7) }
+        first.asked.await()
+        val two = async { start.play(second, runId = 8) }
+        second.asked.await()
+        first.answer.complete(Queue.Status("A Mix", listOf(song("A"), song("A2")), 0))
+        assertFalse(one.await())
+        second.answer.complete(Queue.Status("B Mix", listOf(song("B"), song("B2")), 0))
+        assertTrue(two.await())
     }
 
     private fun <T> List<T>.repeat(times: Int) = List(times) { this }.flatten()

@@ -94,4 +94,12 @@ class AutomixControllerRulesTest {
         assertTrue(plain, "auto = AutoChoice.Plain(PlainReason.YOUR_CHOICE)" in plain)
         assertFalse(bands, ".takeIf { !it.plain }" in bands)
     }
+
+    @Test
+    fun `only a queue a tap started is linked to its Mix playlist`() {
+        val play = service.substringAfter("fun playQueue(").substringBefore("private val queueStart = QueueStart(")
+        assertTrue(play, "val started = try {" in play)
+        assertTrue(play, "if (Unreleased.AUTOMIX_EDITOR && started) linkMixQueue((queue as? ListQueue)?.mixPlaylistId)" in play)
+        assertTrue(Regex("""linkMixQueue\(""").findAll(service).count() == 2)
+    }
 }
