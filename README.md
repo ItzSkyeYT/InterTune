@@ -164,14 +164,14 @@ Every change in detail, and why this fork exists: [docs/FEATURES.md](https://git
 What's being worked on, roughly in order. `[x]` is done, `[~]` is built and being tested, `[ ]` is still to do. Nothing here has a date, and plans can change. Ideas are welcome in #feature-requests on [Discord](https://discord.gg/68jmqhMjXk) or as a [GitHub issue](https://github.com/ItzSkyeYT/InterTune/issues/new/choose).
 
 <details>
-<summary><b>Next: 0.12.6 (fixes)</b> · 3 of 6 done, 3 to test</summary>
+<summary><b>Next: 0.12.6 (fixes)</b> · 2 of 6 done, 3 to test</summary>
 
 `[x]` Slim navbar icons centred again ([#54](https://github.com/ItzSkyeYT/InterTune/issues/54))\
-`[x]` A crash on some artist pages fixed ([#53](https://github.com/ItzSkyeYT/InterTune/issues/53))\
-`[~]` Covers of downloaded songs show without a connection\
+`[~]` A crash on some artist pages fixed ([#53](https://github.com/ItzSkyeYT/InterTune/issues/53))\
+`[ ]` Covers of downloaded songs show without a connection *(in progress)*\
 `[~]` Saved albums keep YouTube Music's order\
-`[~]` High and Highest quality prefer Opus over a slightly larger AAC stream ([#57](https://github.com/ItzSkyeYT/InterTune/issues/57))\
-`[x]` InterTune in Polish
+`[x]` High and Highest quality prefer Opus over a slightly larger AAC stream ([#57](https://github.com/ItzSkyeYT/InterTune/issues/57))\
+`[~]` InterTune in Polish
 
 </details>
 
