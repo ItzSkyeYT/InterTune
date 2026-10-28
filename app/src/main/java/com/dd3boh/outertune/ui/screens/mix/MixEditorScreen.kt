@@ -703,7 +703,9 @@ private fun Lowers(
         checked = spec.beatMatched && editor.beatMatchPossible,
         enabled = ready && allowed,
     ) { on -> vm.edit { setBeatMatch(on) } }
-    SwitchRow(
+    // Offered once playback plays it (M10): until then a change saved with it is refused at the
+    // change and Auto plays. A change that already has it keeps the switch, to turn it off.
+    if (INTRO_TWICE_PLAYS || spec.introTwice > 0) SwitchRow(
         title = stringResource(R.string.mix_edit_intro_twice),
         line = if (spec.introTwice > 0) stringResource(R.string.mix_edit_intro_twice_line, words.owner(words.bTitle), words.bars(spec.introTwice), words.aTitle) else null,
         checked = spec.introTwice > 0,
@@ -858,3 +860,6 @@ private fun FailedState(p: MixEditorViewModel.Phase.Failed, aTitle: String, bTit
         }
     }
 }
+
+/** Whether playback plays a change that plays the next song's intro twice; SpecPlan refuses one until M10. */
+private const val INTRO_TWICE_PLAYS = false
