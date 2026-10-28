@@ -44,6 +44,7 @@
     <string name="from_your_library">Z Twojej biblioteki</string>
     <string name="liked_songs">Polubione utwory</string>
     <string name="downloaded_songs">Pobrane utwory</string>
+    <string name="favorite_artists">Ulubieni artyści</string>
     <string name="playlist_is_empty">Playlista jest pusta</string>
     <string name="retry">Ponów</string>
     <string name="radio">Radio</string>
@@ -238,6 +239,12 @@
     <string name="new_version_available">Dostępna nowa wersja</string>
     <string name="translation_models">Modele tłumaczeń</string>
     <string name="clear_translation_models">Wyczyść modele tłumaczeń</string>
+    <string name="crash_report_title">Ostatnio wystąpiła awaria InterTune</string>
+    <string name="crash_report_text">Przepraszamy. Poniższy błąd pozostał na tym telefonie i nic nie zostało nigdzie wysłane. Zgłoszenie pomoże naprawić ten błąd na Twoim urządzeniu.</string>
+    <string name="crash_report_github">Zgłoś na GitHubie</string>
+    <string name="crash_report_copy">Kopiuj</string>
+    <string name="crash_report_dismiss">Zamknij</string>
+    <string name="crash_report_copied">Skopiowano błąd</string>
     <string name="auto_skip_next_on_error_desc">Zapewnij ciągłość odtwarzania</string>
     <string name="add_all_to_library">Dodaj wszystko do biblioteki</string>
     <string name="big">Duży</string>
