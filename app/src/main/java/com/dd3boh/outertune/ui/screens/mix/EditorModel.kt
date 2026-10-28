@@ -103,12 +103,12 @@ data class Moment(val at: Double, val priority: Int, val kind: Kind, val lane: L
  * and every edit the page can make. The screen draws [spec] and calls these; a drag goes through
  * [live] while the finger moves and [commit] when it is lifted, so a gesture is one undo step.
  *
- * [auto] is the planner's pick written as a spec ([AutoSpec]); [saved] what the store holds for
- * the pair, if anything. The page opens on the saved spec, or Auto.
+ * [pick] is the planner's pick written as a spec ([AutoSpec]), taken as [auto]; [saved] what the
+ * store holds for the pair, if anything. The page opens on the saved spec, or Auto.
  */
 class MixEditor(
     val facts: PairFacts,
-    auto: TransitionSpec,
+    pick: TransitionSpec,
     saved: TransitionSpec?,
     /** The undo steps kept from before the process was ended, oldest first. */
     restoredUndo: List<TransitionSpec> = emptyList(),
@@ -120,7 +120,7 @@ class MixEditor(
      * word lit Fade for Auto's own change, so Back to Auto did nothing and Save could never forget
      * the pair. A preset tapped on purpose names itself and stays lit, the same moves or not.
      */
-    val auto: TransitionSpec = auto.copy(from = Preset.AUTO)
+    val auto: TransitionSpec = pick.copy(from = Preset.AUTO)
 
     /** What Save compares the page with, its preset worked out as the page works it out. */
     val opened: TransitionSpec = normalised(saved ?: auto)
