@@ -563,4 +563,20 @@ object Unreleased {
      * On in every build from 0.12.5, picked on 26 Oct 2026.
      */
     val BATTERY_MODES = true
+
+    /**
+     * What's playing with no connection (issue #48, planned for 0.13 on 26 Oct 2026): a listen
+     * whose request finds no connection keeps the fingerprint the phone made of it, never the
+     * sound, and the song is named once the phone is back online (RecogniseLater,
+     * RecogniseLaterWorker), into What you have heard at the time it was heard, with one quiet
+     * notification. Listen once stops there and says so; Keep listening keeps one about every two
+     * minutes and goes on. What waits shows in What you have heard.
+     *
+     * A first cut, debug and preview builds only. Its texts (recognise_later_*) are held from
+     * translators until their words are agreed, the French beside them in values-fr. Without it a
+     * listen with no connection fails as before. To ship: set this to true, or delete it with the
+     * checks that read it, in RecognitionEngine.keepForLater, RecogniseLaterWorker and
+     * RecognitionHistoryScreen.
+     */
+    val RECOGNISE_OFFLINE = BuildConfig.DEBUG
 }

@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.MicOff
 import androidx.compose.material3.Button
@@ -82,6 +83,7 @@ import com.dd3boh.outertune.recognition.SheetRun
 import com.zionhuang.innertube.models.SongItem
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.graphics.vector.ImageVector
 
 /**
  * Listen to what is playing nearby, then show what it was.
@@ -277,6 +279,13 @@ fun RecognitionSheet(
                         else R.string.recognition_failed
                     ),
                     onRetry = { start() },
+                )
+
+                // No connection, and what it heard kept to be named once there is one.
+                RecognitionEngine.State.Kept -> Problem(
+                    text = stringResource(R.string.recognise_later_kept),
+                    onRetry = { start() },
+                    icon = Icons.Rounded.CloudOff,
                 )
             }
 
@@ -622,7 +631,7 @@ internal fun Elsewhere(run: SheetRun.Other, listenHere: String, note: String?, o
 }
 
 @Composable
-private fun Problem(text: String, onRetry: () -> Unit) {
+private fun Problem(text: String, onRetry: () -> Unit, icon: ImageVector = Icons.Rounded.MicOff) {
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
@@ -632,7 +641,7 @@ private fun Problem(text: String, onRetry: () -> Unit) {
             .background(MaterialTheme.colorScheme.surfaceVariant),
     ) {
         Icon(
-            imageVector = Icons.Rounded.MicOff,
+            imageVector = icon,
             contentDescription = null,
             modifier = Modifier.size(40.dp),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,

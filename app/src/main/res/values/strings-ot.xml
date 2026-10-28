@@ -2267,4 +2267,13 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="player_pins_under_controls">Under the controls</string>
     <string name="player_pin_lyrics">Lyrics</string>
     <string name="player_pins_reset">Reset to default</string>
+    <!-- What's playing with no connection (issue #48, RecogniseLater, Unreleased.RECOGNISE_OFFLINE): a listen kept to be named once the phone is back online. -->
+    <string name="recognise_later_kept">No connection. It kept what it heard and will name the song once you are back online.</string>
+    <string name="recognise_later_waiting">Waiting for a connection</string>
+    <string name="recognise_later_channel">Songs heard offline</string>
+    <plurals name="recognise_later_named">
+        <item quantity="one">Found the song you heard offline</item>
+        <item quantity="other">Found %1$d songs you heard offline</item>
+    </plurals>
+    <string name="recognise_later_none">Nothing found for what you heard offline</string>
 </resources>

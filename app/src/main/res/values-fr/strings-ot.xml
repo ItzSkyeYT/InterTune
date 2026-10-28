@@ -2092,4 +2092,14 @@
     <string name="player_pins_under_controls">Sous les commandes</string>
     <string name="player_pin_lyrics">Paroles</string>
     <string name="player_pins_reset">Réinitialiser</string>
+    <!-- What's playing with no connection (issue #48, RecogniseLater, Unreleased.RECOGNISE_OFFLINE): a listen kept to be named once the phone is back online. -->
+    <string name="recognise_later_kept">Pas de connexion. Ce qui a été entendu est gardé, et le titre sera trouvé dès votre retour en ligne.</string>
+    <string name="recognise_later_waiting">En attente de connexion</string>
+    <string name="recognise_later_channel">Titres entendus hors ligne</string>
+    <plurals name="recognise_later_named">
+        <item quantity="one">%1$d titre entendu hors ligne a été trouvé</item>
+        <item quantity="many">%1$d titres entendus hors ligne ont été trouvés</item>
+        <item quantity="other">%1$d titres entendus hors ligne ont été trouvés</item>
+    </plurals>
+    <string name="recognise_later_none">Aucun titre trouvé pour ce qui a été entendu hors ligne</string>
 </resources>

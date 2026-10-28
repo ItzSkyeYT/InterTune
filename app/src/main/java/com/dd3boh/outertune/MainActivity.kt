@@ -1328,6 +1328,9 @@ class MainActivity : ComponentActivity() {
                         val searchWords = SystemSearch.searchOf(link)
                         if (libraryPlaylist != null) {
                             navController.navigate("local_playlist/$libraryPlaylist")
+                        } else if (SystemSearch.isHeard(link)) {
+                            // Songs named once the phone was back online (RecogniseLaterWorker).
+                            navController.navigate("recognition/history")
                         } else if (searchWords != null) {
                             // Words handed over by the phone's search: InterTune's own search for them.
                             navController.navigate("search/${searchWords.urlEncode()}")

@@ -596,6 +596,20 @@ fun RecognitionScreen(
             }
         }
 
+        // No connection: not a failure, so not in the error's colour. The song comes later, into
+        // What you have heard, where the listen waits meanwhile.
+        if (state == RecognitionEngine.State.Kept) {
+            item(key = "kept") {
+                Text(
+                    text = stringResource(R.string.recognise_later_kept),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                )
+            }
+        }
+
         if (state is RecognitionEngine.State.NoMatch) {
             item(key = "no_match") {
                 Text(

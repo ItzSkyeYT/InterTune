@@ -351,13 +351,18 @@ class RecognitionService : Service() {
         }
     }
 
-    /** The tile's listen ended without a song. Quiet, and gone when tapped. */
+    /**
+     * The tile's listen ended without a song. Quiet, and gone when tapped. With no connection it
+     * says what it kept, to be named once there is one ([RecogniseLater]).
+     */
     private fun notifyNothing() {
+        val kept = engine.state.value == RecognitionEngine.State.Kept
+        val hint = getString(if (kept) R.string.recognise_later_kept else nothingHint())
         val notification = NotificationCompat.Builder(this, RESULTS_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_recognise)
-            .setContentTitle(getString(R.string.recognition_phone_nothing))
-            .setStyle(NotificationCompat.BigTextStyle().bigText(getString(nothingHint())))
-            .setContentText(getString(nothingHint()))
+            .setContentTitle(getString(if (kept) R.string.recognise_later_waiting else R.string.recognition_phone_nothing))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(hint))
+            .setContentText(hint)
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()

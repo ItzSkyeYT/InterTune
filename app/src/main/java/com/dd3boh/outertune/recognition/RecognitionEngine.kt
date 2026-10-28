@@ -17,6 +17,7 @@ import com.dd3boh.outertune.utils.ErrorText
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.constants.RecogniseListenSecondsKey
 import com.dd3boh.outertune.constants.RecogniseAutoAddKey
+import com.dd3boh.outertune.constants.Unreleased
 import android.content.Context
 import androidx.annotation.RequiresPermission
 import com.dd3boh.outertune.db.MusicDatabase
@@ -63,6 +64,7 @@ class RecognitionEngine @Inject constructor(
     private val shazam: ShazamClient,
     private val database: MusicDatabase,
     private val history: RecognitionHistory,
+    private val later: RecogniseLater,
     @ApplicationContext private val context: Context,
 ) {
     data class Added(
@@ -138,6 +140,12 @@ class RecognitionEngine @Inject constructor(
         data class Confirming(val track: Recognised) : State
         data object NoMatch : State
         data class Failed(val reason: String, val heardNothing: Boolean, val fromPhone: Boolean = false) : State
+
+        /**
+         * Listen once found no connection, and kept what it heard to be named once there is one
+         * ([RecogniseLater]). The end of that listen, as a song found is.
+         */
+        data object Kept : State
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -546,6 +554,11 @@ class RecognitionEngine @Inject constructor(
                     ) {
                         return@collect halt()
                     }
+                    // Kept for later with no connection is as much the end of a listen as a song
+                    // found: the next windows would only be kept too, or fail the same way.
+                    if (!this@RecognitionEngine.continuous.value && _state.value == State.Kept) {
+                        return@collect halt()
+                    }
                     if (!this@RecognitionEngine.continuous.value && _state.value is State.Found) {
                         // Single shot stops on a result and waits for the person to choose. halt,
                         // not stop: stop ends by writing Idle, so it replaced the Found it was meant
@@ -618,7 +631,7 @@ class RecognitionEngine @Inject constructor(
                 Log.i(TAG, "Asking about ${"%.1f".format(question.seconds)} s of the phone's sound: ${question.why}, closest repeat ${clip.closestRepeat}")
                 val endedAtMs = piece.startedAtMs + 1000L
                 identify(MicrophoneListener.Window(question.samples, endedAtMs - (question.seconds * 1000).toLong()))
-                if (_state.value is State.Found) return@collect halt()
+                if (_state.value is State.Found || _state.value == State.Kept) return@collect halt()
             }
             if (clip.over) {
                 Log.i(TAG, "The phone's sound heard as long as it will be: loop=${clip.loopSeconds}, closest repeat ${clip.closestRepeat}")
@@ -647,7 +660,7 @@ class RecognitionEngine @Inject constructor(
             }
             pace(outcome, endMs, keepGoing)
             unwatchAcrossGap(outcome, endMs)
-            respondTo(outcome, keepGoing, window.startedAtMs)
+            respondTo(outcome, keepGoing, window.startedAtMs, kept = keepForLater(outcome, window, keepGoing))
         } finally {
             // Back to plain listening once the answer has been dealt with, unless dealing with it
             // moved the state somewhere else. Nothing used to clear this. Every arm that returns
@@ -695,6 +708,35 @@ class RecognitionEngine @Inject constructor(
             }
         }
         return null
+    }
+
+    /**
+     * A window whose request found no connection, kept to be named once there is one
+     * ([RecogniseLater]): its fingerprint, which the request already carried, and in Listen once
+     * the same window put back from the two speeds it would have tried next. Never the sound.
+     * RecogniseLaterWorker waits for a connection, and the song goes into the list of everything
+     * heard at the time it was heard. Whether it was kept.
+     *
+     * Keep listening keeps a window each time it asks, which with no connection is about every two
+     * minutes ([ShazamBackoff]): about one or two a song, where every window would be five or six.
+     */
+    private suspend fun keepForLater(outcome: RecognitionOutcome, window: MicrophoneListener.Window, keepGoing: Boolean): Boolean {
+        if (!Unreleased.RECOGNISE_OFFLINE) return false
+        val heard = (outcome as? RecognitionOutcome.Failed)?.unsent ?: return false
+        return try {
+            // Off this loop's thread for the fingerprints and the file, as everything it waits on is.
+            withContext(Dispatchers.IO) {
+                later.keep(KeptListen(window.startedAtMs, RecogniseLater.printsFor(window.samples, heard, once = !keepGoing)))
+                RecogniseLaterWorker.schedule(context)
+            }
+            Log.i(TAG, "No connection: kept what was heard for later" + if (keepGoing) "" else ", and stopping")
+            true
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not keep what was heard for later", e)
+            false
+        }
     }
 
     /** Keeps [backoff] and [retryAt] up with what Shazam said about the window that ended at [endMs]. */
@@ -758,8 +800,9 @@ class RecognitionEngine @Inject constructor(
      * @param heardAtMs when the first sample of the window was heard. Every time below is this
      * rather than the clock when the answer came back, for the position and for the gap between
      * two sightings alike: the answer's arrival moves with the network, and the audio does not.
+     * @param kept whether the window found no connection and was kept for later ([keepForLater]).
      */
-    private suspend fun respondTo(outcome: RecognitionOutcome, keepGoing: Boolean, heardAtMs: Long) {
+    private suspend fun respondTo(outcome: RecognitionOutcome, keepGoing: Boolean, heardAtMs: Long, kept: Boolean = false) {
         when (outcome) {
             is RecognitionOutcome.Failed -> {
                 // Silence means the room has stopped, so whatever was on show has finished. The
@@ -778,7 +821,9 @@ class RecognitionEngine @Inject constructor(
                 // Nothing to say in continuous mode. A quiet stretch or one refused request is not
                 // a reason to stop listening or to ask somebody to press try again.
                 if (!keepGoing) {
-                    _state.value = State.Failed(outcome.reason, outcome.reason == "silence", fromPhone = listenedToPhone)
+                    _state.value =
+                        if (kept) State.Kept
+                        else State.Failed(outcome.reason, outcome.reason == "silence", fromPhone = listenedToPhone)
                 }
             }
 
