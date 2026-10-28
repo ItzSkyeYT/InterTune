@@ -237,6 +237,12 @@ class AutomixController(
         /** The change saved for this pair, read with the opening. */
         var saved: TransitionSpec? = null
 
+        /**
+         * Whether the queue was shuffled as the opening was read: shuffled playback mixes by Auto
+         * alone, as the queue's line says, so no saved change is read for it, a plain one included.
+         */
+        var shuffled = false
+
         /** How much of the song is left when its end begins to be held: earlier for a saved change that starts further from the end. */
         var armFromMs = AutomixSchedule.ARM_FROM_LEFT_MS
 
@@ -449,8 +455,10 @@ class AutomixController(
         }
         val cancelled = t.cancelled
         val aId = t.a.id
+        t.shuffled = player.shuffleModeEnabled
+        val shuffled = t.shuffled
         t.reading = scope.launch {
-            val saved = if (lanes) withContext(Dispatchers.IO) { runCatching { savedChange(aId, b.id) }.getOrNull() } else null
+            val saved = if (lanes && !shuffled) withContext(Dispatchers.IO) { runCatching { savedChange(aId, b.id) }.getOrNull() } else null
             val copySeconds = if (lanes) copySecondsFor(saved) else 0.0
             val result = runCatching {
                 withContext(Dispatchers.IO) { decoder.read(b.id, { cancelled.get() }, copySeconds) }
@@ -786,7 +794,8 @@ class AutomixController(
         var why = ""
         // Read again here, so a change saved in the editor while this song played is the one
         // heard, if what was read of the next song's opening holds it; otherwise it plays next time.
-        val latest = runCatching { savedChange(t.a.id, b.id) }
+        // Shuffled, Auto alone.
+        val latest = if (t.shuffled) Result.success(null) else runCatching { savedChange(t.a.id, b.id) }
         (if (latest.isSuccess) latest.getOrNull() else t.saved)?.takeIf { !it.plain }?.let { saved ->
             val spec = Presets.onBands(saved)
             var lanePlan: LanePlan? = null
