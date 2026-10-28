@@ -108,12 +108,20 @@ data class Moment(val at: Double, val priority: Int, val kind: Kind, val lane: L
  */
 class MixEditor(
     val facts: PairFacts,
-    val auto: TransitionSpec,
+    auto: TransitionSpec,
     saved: TransitionSpec?,
     /** The undo steps kept from before the process was ended, oldest first. */
     restoredUndo: List<TransitionSpec> = emptyList(),
     restoredSpec: TransitionSpec? = null,
 ) {
+    /**
+     * Auto's pick as the page takes it: made by Auto, whatever move wrote its moves. The phone's
+     * own pick names its move there (a Fade's moves are Fade's), and a page that took it at its
+     * word lit Fade for Auto's own change, so Back to Auto did nothing and Save could never forget
+     * the pair. A preset tapped on purpose names itself and stays lit, the same moves or not.
+     */
+    val auto: TransitionSpec = auto.copy(from = Preset.AUTO)
+
     /** What Save compares the page with, its preset worked out as the page works it out. */
     val opened: TransitionSpec = normalised(saved ?: auto)
 

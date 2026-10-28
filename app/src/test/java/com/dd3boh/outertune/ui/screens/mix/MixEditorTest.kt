@@ -287,6 +287,34 @@ class MixEditorTest {
     }
 
     @Test
+    fun `Auto's pick from the phone lights Auto, not the move it was written by`() {
+        val f = facts()
+        // The phone's pick names its move as where its moves come from (AutoPick.spec: from = the move).
+        val picked = AutoSpec.fallback(f).copy(from = Preset.FADE)
+        val e = MixEditor(f, picked, null)
+        assertEquals(Preset.AUTO, e.lit())
+        assertFalse(e.dirty)
+        assertFalse(e.backToAuto())
+        assertTrue(e.saveAction(1L) is SaveAction.Forget)
+        // Fade tapped on purpose is the listener's own, the same moves or not, and kept on Save.
+        e.tapPreset(Preset.FADE)
+        assertEquals(Preset.FADE, e.lit())
+        assertTrue(e.saveAction(2L) is SaveAction.Keep)
+        // Auto again forgets the pair.
+        e.tapPreset(Preset.AUTO)
+        assertEquals(Preset.AUTO, e.lit())
+        assertTrue(e.saveAction(3L) is SaveAction.Forget)
+        // A saved custom change, then Back to Auto: Save forgets.
+        val custom = MixEditor(f, picked, null).also { it.apply(it.handleMoved(it.spec, aMids, 2.0)) }
+        val saved = (custom.saveAction(4L) as SaveAction.Keep).spec
+        val back = MixEditor(f, picked, saved)
+        assertEquals(Preset.CUSTOM, back.lit())
+        assertTrue(back.backToAuto())
+        assertEquals(Preset.AUTO, back.lit())
+        assertTrue(back.saveAction(5L) is SaveAction.Forget)
+    }
+
+    @Test
     fun `a saved change opens as it was, and Save is greyed until it changes`() {
         val first = editor()
         first.tapPreset(Preset.ECHO_OUT)
