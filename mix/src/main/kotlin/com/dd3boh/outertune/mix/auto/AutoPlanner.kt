@@ -743,16 +743,12 @@ object AutoPlanner {
         // Two steady beats at different speeds slide apart within a bar: no blend over both. A
         // song with a steady pulse is taken to keep it at its end, unless its trusted beats stop
         // before a quiet outro; and at its start, unless its first big rise comes well after its
-        // first sound, past a quiet intro.
-        val aOutroQuiet = outroOf(a)?.let { outro -> a.line?.takeIf { it.beatsTrusted }?.let { it.msOf(it.lastK) <= outro + it.beatMs } ?: true } ?: false
-        val bIntroQuiet = b.introEndMs?.let { rise ->
-            rise - b.firstSoundMs >= 6_000 && (b.line?.takeIf { it.beatsTrusted }?.let { it.msOf(it.firstK) >= rise - it.beatMs } ?: true)
-        } ?: false
-        val aBeat = a.steadyTempo && !aOutroQuiet
-        val bBeat = b.steadyTempo && !bIntroQuiet
-        if (aBeat && bBeat) {
-            c.note("no blend: both songs keep a steady beat, which would slide against the other's")
-            return emptyList()
+        // first sound, past a quiet intro. The quiet stretch has to cover the whole blend, as the
+        // prototype's planner had it: one longer than the outro or the intro lays the two beats
+        // over each other for the rest of it.
+        val outro = outroOf(a)?.takeIf { from -> a.line?.takeIf { it.beatsTrusted }?.let { it.msOf(it.lastK) <= from + it.beatMs } ?: true }
+        val rise = b.introEndMs?.takeIf { at ->
+            at - b.firstSoundMs >= 6_000 && (b.line?.takeIf { it.beatsTrusted }?.let { it.msOf(it.firstK) >= at - it.beatMs } ?: true)
         }
         val out = ArrayList<AutoPick>()
         val fade = a.fadeMs?.let { it / 1000.0 }
@@ -762,6 +758,12 @@ object AutoPlanner {
             val end = a.trueEndMs
             val start = end - seconds * 1000
             if (start < c.input.earliestMs + 1_000) continue
+            val aBeat = a.steadyTempo && (outro == null || outro > start)
+            val bBeat = b.steadyTempo && (rise == null || rise < b.firstSoundMs + seconds * 1000)
+            if (aBeat && bBeat) {
+                c.note("no blend: both songs keep a steady beat through it, which would slide against the other's")
+                continue
+            }
             val barMs = 240_000.0 / TransitionSpec.NOMINAL_BPM
             val length = seconds * 1000 / barMs
             val beat = 0.25

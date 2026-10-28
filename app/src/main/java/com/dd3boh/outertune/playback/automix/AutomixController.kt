@@ -165,7 +165,7 @@ class AutomixController(
                 _decided.value = null
                 transition?.let { abort(it, "AutoMix was switched off") }
                 stopWork()
-                say("off; it leaves the chain at the next song")
+                say("off; it leaves the chain at the next song started by hand, levelling the songs till then")
             } else {
                 say("on; it joins the chain at the next song")
             }
@@ -320,9 +320,10 @@ class AutomixController(
 
     /**
      * With AutoMix off the stage can still be in the chain for the song playing: the song that
-     * started under an end held as it was switched off, or one configured just before. It scales
-     * that song by the level it was last told and the volume leaves normalisation out, so the
-     * levels must keep following the songs until the stage leaves the chain at the next song.
+     * started under an end held as it was switched off, one configured just before, and every
+     * song that came by itself since. It scales that song by the level it was last told and the
+     * volume leaves normalisation out, so the levels must keep following the songs until the
+     * stage leaves the chain at a song started by hand or after a stop.
      */
     private fun levelsWhileOff() {
         if (stage.activeForStream) publishLevels()
@@ -504,7 +505,7 @@ class AutomixController(
         val changeLeft = (duration - firstMs).toLong()
         t.armFromMs = AutomixSchedule.armFromFor(changeLeft)
         val reach = if (changeLeft + AutomixSchedule.SAVED_LEAD_MS > AutomixSchedule.ARM_FROM_LEFT_MAX_MS) ", which is further from the end than the end can be held: Auto plays" else ""
-        say("saved for ${t.a.id} into ${t.b?.id}: ${saved.label}, it starts %.1f s before the end$reach".format(changeLeft / 1000.0))
+        say("saved for ${t.a.id} into ${t.b?.id}: ${saved.label}, it starts " + "%.1f s before the end".format(changeLeft / 1000.0) + reach)
     }
 
     private fun arm(t: Transition, left: Long) {
@@ -587,7 +588,7 @@ class AutomixController(
         val position = player.currentPosition
         t.tailStartMs = position + ahead
         t.expectedTailMs = (player.duration - position - ahead).coerceAtLeast(0)
-        say("holding the end of ${t.a.id}, %.1f s left".format(t.expectedTailMs / 1000.0))
+        say("holding the end of ${t.a.id}, " + "%.1f s left".format(t.expectedTailMs / 1000.0))
     }
 
     override fun tailHeld(id: Long, held: HeldTail, ring: ShortArray, frames: Long, songChange: Boolean, formatMatches: Boolean) = main.postFor(id) { t ->
@@ -803,7 +804,7 @@ class AutomixController(
                 if (t.abandoned.get()) return BandsOutcome("on bands, not used: the change was given up")
                 stage.offer(held, render.heldPlan(), render.outgoing, render.incoming, replaces = true)
                 return BandsOutcome(
-                    "on bands, saved: ${p.describe()}, rendered in %.0f ms, headroom %.1f dB, peak %.2f".format(
+                    "on bands, saved: ${p.describe()}, " + "rendered in %.0f ms, headroom %.1f dB, peak %.2f".format(
                         render.renderMillis, render.headroom.deepestDb, render.peakAfter,
                     ),
                     saved = true,
@@ -838,7 +839,7 @@ class AutomixController(
         if (pick.isPlain || render == null) {
             stage.offer(held, MixPlan.gapless(rate, held.channels, frames, attenuationA, attenuationB, "Auto: ${pick.describe()}"), EMPTY_PART, replaces = true)
             return BandsOutcome(
-                "on bands: Auto stays gapless, ${pick.describe()}, %d proofs in %.0f ms$why".format(chosen.proofs, chosen.millis),
+                "on bands: Auto stays gapless, ${pick.describe()}, " + "%d proofs in %.0f ms".format(chosen.proofs, chosen.millis) + why,
                 auto = if (pick.isPlain) AnalysedPlanner.choiceOf(pick) else AutoChoice.Plain(PlainReason.NO_FIT),
             )
         }
@@ -846,9 +847,9 @@ class AutomixController(
         recentMoves.addFirst(pick.move)
         while (recentMoves.size > 2) recentMoves.removeLast()
         return BandsOutcome(
-            "on bands: Auto ${pick.describe()}; ${render.plan.describe()}, %d proofs in %.0f ms, headroom %.1f dB, peak %.2f$why".format(
+            "on bands: Auto ${pick.describe()}; ${render.plan.describe()}, " + "%d proofs in %.0f ms, headroom %.1f dB, peak %.2f".format(
                 chosen.proofs, chosen.millis, render.headroom.deepestDb, render.peakAfter,
-            ),
+            ) + why,
             auto = AnalysedPlanner.choiceOf(pick),
         )
     }
@@ -980,7 +981,7 @@ class AutomixController(
 
     private fun describe(r: RegionAnalysis): String {
         val firstDown = r.firstDownbeat?.let { "%.2f s".format(r.beatFrame(it) / r.sampleRate) } ?: "none"
-        return "${r.describe()}, first sound %.2f s, first downbeat %s".format(r.envelope.firstSound.toDouble() / r.sampleRate, firstDown)
+        return r.describe() + ", first sound %.2f s, first downbeat %s".format(r.envelope.firstSound.toDouble() / r.sampleRate, firstDown)
     }
 
     private fun timesOf(t: Transition, plan: MixPlan): String {

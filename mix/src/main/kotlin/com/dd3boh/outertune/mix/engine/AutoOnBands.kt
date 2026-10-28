@@ -86,6 +86,9 @@ object AutoOnBands {
         var proofs = 0
         val renderer = Proof.Renderer { pick ->
             proofs++
+            // The candidate before this one failed its proof, or this one would not be asked for:
+            // its render is let go before the next is made, so two are never held at once.
+            last = null
             when (val r = render(pick.spec(), a, b, earliest, attenuationA, attenuationB)) {
                 is Rendered.Refused -> Proof.refused(rate, r.why)
                 is Rendered.Done -> {
@@ -137,7 +140,8 @@ object AutoOnBands {
     /**
      * The proof of a rendered change: the sum as heard, before any limit, from a few seconds before
      * it to a few after; each song as it would sound there on its own; and where both beats are
-     * heard together, the two as they meet, for the lock to be measured on.
+     * heard together, the two as they meet, for the lock to be measured on. Each frame is handed to
+     * the proof as it is made and none is kept: the window can run to 40 s.
      */
     fun proofOf(render: ChangeRender, a: Copy, b: Copy, beatLocked: Boolean): Proof {
         val plan = render.plan
@@ -147,14 +151,22 @@ object AutoOnBands {
         val from = max(0L, plan.mixFrom - around)
         val to = min(plan.mixTo + around, plan.bStart + b.frames)
         val n = (to - from).toInt().coerceAtLeast(0)
-        val mix = FloatArray(2 * n)
-        val plainA = FloatArray(2 * n)
-        val plainB = FloatArray(2 * n)
+        val changeFrom = (plan.mixFrom - from).toInt().coerceIn(0, n)
+        val changeTo = (min(render.outgoing.endFrame, plan.mixTo) - from).toInt().coerceIn(changeFrom, n)
+        // Where both beats meet: the change itself, A as stretched before its lanes are shaped
+        // and B as it plays, on B's beats.
+        val lockFrom = if (beatLocked) (plan.out(0.0).toLong() - from).toInt().coerceIn(0, n) else 0
+        val lockTo = if (beatLocked) (plan.out(plan.spec.lengthBars).toLong() - from).toInt().coerceIn(lockFrom, n) else 0
+        val lockA = if (beatLocked) Proof.Rises(rate, lockTo - lockFrom) else null
+        val lockB = if (beatLocked) Proof.Rises(rate, lockTo - lockFrom) else null
+        val proof = Proof.Builder(rate, n, changeFrom, changeTo)
         val stretched = LaneMixer(plan).outgoingSource(a.pcm)
         val raw = PcmSource(a.pcm, channels, a.frames.toLong())
         val bSource = PcmSource(b.pcm, channels, b.frames.toLong(), plan.bStart)
         val fa = DoubleArray(channels)
         val fb = DoubleArray(channels)
+        // The frame as heard, then A, then B, each left and right.
+        val frame = FloatArray(6)
         val scale = 1.0 / Pcm.FULL_SCALE
         val aEnd = plan.aMap.outAt(a.frames.toDouble())
         for (i in 0 until n) {
@@ -166,31 +178,28 @@ object AutoOnBands {
                 val ch = min(c, channels - 1)
                 val va = fa[ch] * render.attenuationA
                 val vb = fb[ch] * render.attenuationB
-                plainA[2 * i + c] = (va * scale).toFloat()
-                plainB[2 * i + c] = (vb * scale).toFloat()
+                frame[2 + c] = (va * scale).toFloat()
+                frame[4 + c] = (vb * scale).toFloat()
                 val heard = when {
                     o < plan.mixFrom -> va
                     o >= plan.mixTo -> vb
                     else -> render.outgoing.at(o, ch).toDouble() + render.incoming.at(o, ch).toDouble()
                 }
-                mix[2 * i + c] = (heard * scale).toFloat()
+                frame[c] = (heard * scale).toFloat()
+            }
+            proof.add(frame[0], frame[1], frame[2], frame[3], frame[4], frame[5])
+            if (lockA != null && lockB != null && i >= lockFrom && i < lockTo) {
+                lockA.push((frame[2] + frame[3]) / 2)
+                lockB.push((frame[4] + frame[5]) / 2)
             }
         }
-        val changeFrom = (plan.mixFrom - from).toInt().coerceIn(0, n)
-        val changeTo = (min(render.outgoing.endFrame, plan.mixTo) - from).toInt().coerceIn(changeFrom, n)
-        if (!beatLocked) return Proof(rate, mix, changeFrom, changeTo, plainA = plainA, plainB = plainB)
-        // Where both beats meet: the change itself, A as stretched before its lanes are shaped
-        // and B as it plays, on B's beats.
-        val lockFrom = (plan.out(0.0).toLong() - from).toInt().coerceIn(0, n)
-        val lockTo = (plan.out(plan.spec.lengthBars).toLong() - from).toInt().coerceIn(lockFrom, n)
-        val lockA = FloatArray(lockTo - lockFrom) { (plainA[2 * (lockFrom + it)] + plainA[2 * (lockFrom + it) + 1]) / 2 }
-        val lockB = FloatArray(lockTo - lockFrom) { (plainB[2 * (lockFrom + it)] + plainB[2 * (lockFrom + it) + 1]) / 2 }
+        if (!beatLocked) return proof.build()
         val spec = plan.spec
         val beatMsB = spec.b.barMs / spec.b.beatsPerBar
         val beats = (0..(spec.lengthBars * spec.b.beatsPerBar).toInt())
             .map { (spec.b.atMs - b.startMs + it * beatMsB) * rate / 1000.0 + plan.bStart - from - lockFrom }
             .filter { it >= 0 && it < lockTo - lockFrom }
             .toDoubleArray()
-        return Proof(rate, mix, changeFrom, changeTo, lockA, lockB, lockFrom, beats, plainA, plainB)
+        return proof.build(lockFrom, beats, lockA, lockB)
     }
 }

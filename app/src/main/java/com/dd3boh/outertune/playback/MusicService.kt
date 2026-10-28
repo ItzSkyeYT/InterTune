@@ -2620,14 +2620,25 @@ class MusicService : MediaLibraryService(),
     fun songSource(): DataSource.Factory = createDataSourceFactory(forPlayer = false)
 
     /**
+     * The resolver the player reads songs through, one for the service. A lyrics clip and the
+     * transition editor resolve through it too, on calls of their own: with one of their own they
+     * knew no format for the song playing, so they fetched it again, and the address and format
+     * row they kept could be another route's or another encoding's than the one the player was
+     * streaming, which a reopen partway into the song then read on from. With AutoMix in the
+     * build, one song is fetched once at a time: see SongResolver.fetches.
+     */
+    private val playerResolver: SongResolver by lazy {
+        SongResolver(streamAddresses).also { if (Unreleased.AUTOMIX) it.fetches = OneFetchAtATime() }
+    }
+
+    /**
      * [forPlayer] false for a lyrics clip: its reads go through calls of their own, which the
      * stall watch never cuts, and its resolves are not taken for the player's, which pause the
      * watch. Shared, a clip's reads were cancelled by a stall of the song, and a clip resolving
      * the current song held the watch off.
      */
     private fun createDataSourceFactory(forPlayer: Boolean = true): DataSource.Factory {
-        // With AutoMix in the build, one song is fetched once at a time: see SongResolver.fetches.
-        val resolver = SongResolver(streamAddresses).also { if (Unreleased.AUTOMIX) it.fetches = OneFetchAtATime() }
+        val resolver = playerResolver
         val calls = if (forPlayer) playerCalls else StreamFamily.Calls(playerStreamClient)
         return ResolvingDataSource.Factory(createCacheDataSource(calls)) { dataSpec ->
             val mediaId = dataSpec.key ?: error("No media id")
@@ -3188,6 +3199,15 @@ class MusicService : MediaLibraryService(),
         forcedStyle = if (BuildConfig.DEBUG) automixForcedStyle else null,
         soundBeforeMix = gainProcessor.gain > 1f || !equalizerProcessor.settings.isFlat || binauralProcessor.enabled || spatialUpmixProcessor.enabled,
     )
+
+    /**
+     * [songId]'s level as Mix's stage would scale it now (AutomixVolume.songAttenuation): its
+     * loudness normalisation, and the in-app volume where it is above 100%. For the transition
+     * editor's preview and its Auto; the volume under 100% stays the player's, [playerVolume].
+     * Reads the database: call it off the main thread.
+     */
+    fun mixLevelOf(songId: String): Double =
+        AutomixVolume.songAttenuation(automixNormalization(songId)?.first ?: normalizeFactor.value, playerVolume.value)
 
     /** A song's normalisation by the rule the player uses, from what is stored: the bounded read, on IO. */
     private fun automixNormalization(id: String): Pair<Float, Boolean>? {

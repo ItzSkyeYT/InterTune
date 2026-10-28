@@ -20,9 +20,14 @@ import com.dd3boh.outertune.mix.edit.TransitionStore
 import com.dd3boh.outertune.mix.pill.AutoChoice
 import com.dd3boh.outertune.mix.pill.HeardChanges
 import com.dd3boh.outertune.utils.dataStore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
@@ -49,6 +54,27 @@ object MixStores {
                 Log.w(TAG, "saved transitions: $message", cause)
             },
         ) { _changes.value += 1 }.also { transitions = it }
+    }
+
+    /**
+     * A change to the saved transitions asked for by a tap (the pill's menu, Settings > Mixing >
+     * Clear): written off the main thread and carried through when the page is left. A write the
+     * disk refuses (full, or the file cannot be replaced) is logged and [failed] is told on the main
+     * thread. Thrown, it left a coroutine nothing catches, and the app closed.
+     */
+    fun changeTransitions(scope: CoroutineScope, context: Context, failed: () -> Unit, change: (TransitionStore) -> Unit) {
+        scope.launch(Dispatchers.IO + NonCancellable) {
+            if (!tryChange(transitions(context), change)) withContext(Dispatchers.Main) { failed() }
+        }
+    }
+
+    /** Runs [change] on [store]; false, and logged, when the store refuses it. */
+    fun tryChange(store: TransitionStore, change: (TransitionStore) -> Unit): Boolean = try {
+        change(store)
+        true
+    } catch (e: Exception) {
+        Log.w(TAG, "the saved transitions could not be written", e)
+        false
     }
 
     @Volatile

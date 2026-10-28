@@ -171,6 +171,30 @@ class AutoPlannerTest {
     }
 
     @Test
+    fun aBlendIsNeverLongerThanTheQuietStretchThatLetsItThrough() {
+        // A keeps a steady 100 BPM pulse its beats cannot be trusted on, and ends in an 8 s quiet
+        // outro after a fade; B's beat starts with its first sound. Blending is allowed only while
+        // A is in its outro: a 12 s blend would lay A's pulse under B's beat for 4 s.
+        val a = Ends.tail(100.0, beatsTrusted = false, barsTrusted = false, outroMs = 8_000.0, fadeMs = 10_000.0)
+        val steadyA = SongEnd(
+            a.kind, a.songMs, a.fromMs, a.toMs, a.sampleRate, a.channels, a.firstSoundMs, a.trueEndMs, a.outroStartMs, a.introEndMs,
+            a.fadeMs, a.medianDb, a.levelDb, a.lowDb, a.stepMs, a.bpm, true, a.line, null, null, a.density, "steady, not trusted",
+        )
+        val intoBeat = AutoPlanner.candidates(input(steadyA, Ends.head(128.0))).filter { it.kind == AutoKind.BLEND }
+        intoBeat.forEach { println("${it.pill}: ${it.why}") }
+        assertTrue(intoBeat.isNotEmpty())
+        assertTrue(intoBeat.joinToString { it.pill }, intoBeat.all { it.a.atMs >= steadyA.outroStartMs })
+        // The other way round: A keeps its trusted beat to the end, and B's quiet intro lasts 7.5 s
+        // before its beat comes in. No blend runs past it.
+        val quietIntro = Ends.head(128.0, introEndBars = 4.0, beatsFromBars = 4)
+        val introQuiet = quietIntro.introEndMs!! - quietIntro.firstSoundMs
+        val fromBeat = AutoPlanner.candidates(input(Ends.tail(120.0), quietIntro)).filter { it.kind == AutoKind.BLEND }
+        fromBeat.forEach { println("${it.pill}: ${it.why}") }
+        assertTrue(fromBeat.isNotEmpty())
+        assertTrue(fromBeat.joinToString { it.pill }, fromBeat.all { it.seconds * 1000 <= introQuiet })
+    }
+
+    @Test
     fun everyGuardGivesPlainWithItsReason() {
         val a = Ends.tail(128.0)
         val b = Ends.head(124.0)

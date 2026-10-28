@@ -284,14 +284,31 @@ class CanvasLayout(
                     else -> words.comes(where)
                 }
                 val strip = if (side == Side.A) aStrip else bStrip
-                val tw = measure(label) + 14 * dp
+                val (text, tw) = fitted(label, width - 2 * pad, measure)
                 val x1 = x(u1)
                 val x2 = x(u2)
                 val mid = if (same) x1 + 10 * dp + tw / 2 else (x1 + x2) / 2
-                val labelX = mid.coerceIn(pad + tw / 2, width - pad - tw / 2)
-                brackets += Bracket(side, x1, x2, strip.centre, labelX, label, same)
+                val labelX = if (tw <= width - 2 * pad) mid.coerceIn(pad + tw / 2, width - pad - tw / 2) else width / 2
+                brackets += Bracket(side, x1, x2, strip.centre, labelX, text, same)
             }
         }
+    }
+
+    /**
+     * A bracket's label and its width with its pill, shortened with an ellipsis to fit in [room]:
+     * a long language at the largest font size on a narrow phone makes one wider than the canvas,
+     * which had no place to go and threw while the page was drawn.
+     */
+    private fun fitted(label: String, room: Float, measure: (String) -> Float): Pair<String, Float> {
+        var text = label
+        var tw = measure(text) + 14 * dp
+        var keep = label.length
+        while (tw > room && keep > 1) {
+            keep--
+            text = label.take(keep).trimEnd() + "\u2026"
+            tw = measure(text) + 14 * dp
+        }
+        return text to tw
     }
 
     /** What lies under [p]: the nearest grip within 24 dp wins, as the equalizer's graph does. */

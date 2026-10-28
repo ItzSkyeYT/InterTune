@@ -273,6 +273,19 @@ class AutomixAudioProcessorTest {
     }
 
     @Test
+    fun `switched off in a song, the stage goes on levelling the songs that come by themselves`() {
+        // The volume takes the levelling back only as the player names the next song, a moment
+        // after its first frames are heard: out of the chain at the change by itself, those
+        // frames went out unlevelled, 6 to 10 dB too loud.
+        val run = Run(armSecondsLeft = null, levelA = 0.8, levelB = 0.5, during = { r ->
+            val (song, frame) = r.driver.position()
+            if (song == 0 && frame > 20L * rate) r.stage.wanted = false
+        }).go()
+        assertEquals("the stage left the chain at the change by itself", listOf(true), run.actives)
+        assertEquals(-1, run.firstDifference())
+    }
+
+    @Test
     fun `an end held without a plan is the change of today, sample for sample`() {
         val run = Run(style = null).go()
         assertTrue(run.armed)
