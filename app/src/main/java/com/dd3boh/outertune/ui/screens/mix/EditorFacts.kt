@@ -10,6 +10,7 @@ import com.dd3boh.outertune.mix.edit.BeatFix
 import com.dd3boh.outertune.mix.edit.Lane
 import com.dd3boh.outertune.mix.edit.LaneSet
 import com.dd3boh.outertune.mix.edit.Side
+import com.dd3boh.outertune.playback.automix.AutomixSchedule
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -110,6 +111,12 @@ class PairFacts(
     val bReachMs: Double = REACH_B_MS,
     /** Question 2 of the design, unanswered: B always starts at its first second until it is yes. */
     val laterStartAllowed: Boolean = false,
+    /**
+     * How far before A's end a change of the listener's may make its first frame, so that playback
+     * can hold A's end in time for it ([PLAY_REACH_MS] on the phone); the whole reach where nothing
+     * holds it back.
+     */
+    val playReachMs: Double = aReachMs,
     val active: (Side, Lane, Double) -> Boolean = { _, _, _ -> true },
 ) {
     /** The earliest moment of A that may be heard in a change. */
@@ -125,6 +132,13 @@ class PairFacts(
         /** The design's reach: A's last 72 s, B's first 60 s (DESIGN.md 3.2). */
         const val REACH_A_MS = 72_000.0
         const val REACH_B_MS = 60_000.0
+
+        /**
+         * What playback can do today: it holds at most the last 46 s of A and wants a saved
+         * change's first frame 15 s after that, so a change that starts further from the end is
+         * never played (Auto plays). The design's 72 s waits for longer holds (M3).
+         */
+        const val PLAY_REACH_MS = (AutomixSchedule.ARM_FROM_LEFT_MAX_MS - AutomixSchedule.SAVED_LEAD_MS).toDouble()
     }
 }
 

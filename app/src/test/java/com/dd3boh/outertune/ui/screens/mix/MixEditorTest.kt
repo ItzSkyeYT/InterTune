@@ -21,6 +21,7 @@ import com.dd3boh.outertune.mix.edit.EffectsRow
 import com.dd3boh.outertune.mix.edit.EqRow
 import com.dd3boh.outertune.mix.edit.FilterRow
 import com.dd3boh.outertune.mix.edit.PartsRow
+import com.dd3boh.outertune.mix.edit.Presets
 import com.dd3boh.outertune.mix.edit.Side
 import com.dd3boh.outertune.mix.edit.SimpleRows
 import com.dd3boh.outertune.mix.edit.SongPair
@@ -28,6 +29,7 @@ import com.dd3boh.outertune.mix.edit.TransitionSpec
 import com.dd3boh.outertune.mix.edit.VolumeRow
 import com.dd3boh.outertune.mix.edit.toJson
 import com.dd3boh.outertune.mix.edit.transitionSpecOf
+import com.dd3boh.outertune.mix.engine.SpecPlan
 import com.dd3boh.outertune.mix.pill.Pills
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -346,6 +348,30 @@ class MixEditorTest {
         assertEquals(mine, MixEditor.openable(mine, auto, f))
         assertEquals(auto, MixEditor.openable(auto, auto, f))
         assertNull(MixEditor.openable(null, auto, f))
+    }
+
+    @Test
+    fun `a change starts no further from A's end than playback can hold it, and says why`() {
+        val base = facts()
+        val f = PairFacts(base.a, base.b, playReachMs = PairFacts.PLAY_REACH_MS)
+        val e = MixEditor(f, AutoSpec.fallback(f), null)
+        // Auto's own change saves nothing to hold, so it is never refused for it.
+        assertNull(e.playLimitOf(e.spec))
+        // Dragged 20 s earlier, bar 1 stops where the change's first frame is 31 s before A's end.
+        val (moved, limit) = e.anchorMoved(e.spec, Side.A, 20_000.0, byBeats = false)
+        assertEquals(Limit.APlays(PairFacts.PLAY_REACH_MS), limit)
+        val left = f.a.durationMs - SpecPlan.firstChangeMs(Presets.onBands(moved))
+        assertTrue("$left", left <= PairFacts.PLAY_REACH_MS + 0.5)
+        assertTrue("$left", left > PairFacts.PLAY_REACH_MS - f.a.grid!!.barMs)
+        assertNull(e.reachOf(moved))
+        // 16 bars at 109 BPM take 35 s: more than playback holds for now.
+        assertEquals(Limit.APlays(PairFacts.PLAY_REACH_MS), e.lengthOptions().first { it.bars == 16 }.refused)
+        assertFalse(e.setLength(16))
+        assertNull(e.lengthOptions().first { it.bars == 8 }.refused)
+        // Where nothing holds it back, the design's reach is the only limit.
+        val free = MixEditor(base, AutoSpec.fallback(base), null)
+        assertNull(free.lengthOptions().first { it.bars == 16 }.refused)
+        assertEquals(Limit.AReach(PairFacts.REACH_A_MS), free.anchorMoved(free.spec, Side.A, 80_000.0, byBeats = false).second)
     }
 
     @Test
