@@ -690,6 +690,16 @@ class MixEditor(
         /** Hows with no place of their own: Keep lasts the change, From the start is B's first frame. */
         val FIXED_PLACE = setOf(How.KEEP, How.FROM_START)
 
+        /**
+         * What the page opens on for [stored], the change the store holds for the pair: itself, but
+         * a plain change whose place this page cannot reach is opened plain at Auto's place. Plain
+         * change for these two from a pill, with nothing saved before, keeps a stand-in at each
+         * song's first second: opened as it was, the page showed the change behind A's wall, its
+         * preview played silence, and a preset tapped there saved a change that could never play.
+         */
+        fun openable(stored: TransitionSpec?, auto: TransitionSpec, facts: PairFacts): TransitionSpec? =
+            stored?.let { s -> if (s.plain && !AutoSpec.fits(s, facts)) auto.copy(plain = true, savedAt = s.savedAt) else s }
+
         /** A plain anchor where nothing better is known. */
         fun anchor(song: SongFacts, atMs: Double, bpm: Double?): Anchor = Anchor(
             song = song.id,
