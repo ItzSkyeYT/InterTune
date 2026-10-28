@@ -334,7 +334,7 @@ object AutoPlanner {
         /** The incoming song's first bar line, its bar 1, and how far after its first sound. */
         val bBar1: Int? = b.line?.let { l ->
             var k = l.downbeatAtOrAfter(l.kNear(b.firstSoundMs) - 1)
-            while (l.msOf(k) < b.firstSoundMs - 30) k += l.beatsPerBar
+            while (l.msOf(k) < b.firstSoundMs - B_BAR1_SLACK_MS) k += l.beatsPerBar
             k
         }
 
@@ -528,7 +528,7 @@ object AutoPlanner {
                     else -> AutoMoves.fade(length.toDouble(), beatB)
                 }
                 val anchorA = Anchor(c.input.aId, aLocal.msOf(kS), aLocal.bpm, CHANGE_BEATS)
-                val anchorB = Anchor(c.input.bId, bStartMs, bLocal.bpm, CHANGE_BEATS)
+                val anchorB = Anchor(c.input.bId, atOrAfterBStart(bStartMs), bLocal.bpm, CHANGE_BEATS)
                 val why = "%d bars on the %s, in at %s, A %.2f to B %.2f BPM (A at %.4f)%s%s%s".format(
                     length, phraseWords(level, phrases.heard), clock(sMs), aLocal.bpm, bLocal.bpm, speed,
                     keyWords(c), if (move != Preset.FADE) ", ${moveWhy(move)}" else "",
@@ -664,7 +664,7 @@ object AutoPlanner {
             lb != null && lb.barsTrusted && c.bBar1 != null && lb.msOf(c.bBar1) - b.firstSoundMs <= FIRST_DOWNBEAT_MS -> lb.msOf(c.bBar1) to "its first downbeat"
             lb != null && lb.beatsTrusted -> {
                 var k = lb.kNear(b.firstSoundMs)
-                while (lb.msOf(k) < b.firstSoundMs - 30) k++
+                while (lb.msOf(k) < b.firstSoundMs - B_BAR1_SLACK_MS) k++
                 if (lb.msOf(k) - b.firstSoundMs <= FIRST_DOWNBEAT_MS) lb.msOf(k) to "its first beat" else b.firstSoundMs to "its first sound"
             }
             else -> b.firstSoundMs to "its first sound"
@@ -718,7 +718,7 @@ object AutoPlanner {
             val echoScore = base + (if (loudBefore) 0.15 else -0.2) + varietyPenalty(c, Preset.ECHO_OUT)
             val cutScore = base + (if (loudBefore && bLoud) 0.1 else -0.15) + varietyPenalty(c, Preset.CUT)
             val anchorA = Anchor(c.input.aId, h, la?.bpm ?: TransitionSpec.NOMINAL_BPM, CHANGE_BEATS)
-            val anchorB = Anchor(c.input.bId, bAtMs, bBpm, bBeats)
+            val anchorB = Anchor(c.input.bId, atOrAfterBStart(bAtMs), bBpm, bBeats)
             val tempo = if (la != null && lb != null) "A %.2f, B %.2f BPM".format(la.bpm, lb.bpm) else "no tempo on one side"
             val where = if (line.level > 0) "the " + phraseWords(line.level, a.phrases?.heard == true) else "a beat"
             for ((move, score) in listOf(Preset.ECHO_OUT to echoScore, Preset.CUT to cutScore)) {
@@ -810,3 +810,15 @@ object AutoPlanner {
         return "%d:%02d.%02d".format(hundredths / 6000, hundredths / 100 % 60, hundredths % 100)
     }
 }
+
+
+/**
+ * B's anchor, never before its first frame. Bar 1 may sit up to 30 ms before B's first sound
+ * ([Context.bBar1]), so for a song whose first downbeat is its first frame the line puts it a few
+ * ms before 0, which a spec refuses: every candidate on that line was refused and the pair stayed
+ * plain. Within that slack it is taken as the first frame, as the engine's own specs are.
+ */
+internal fun atOrAfterBStart(ms: Double): Double = if (ms < 0.0 && ms >= -B_BAR1_SLACK_MS - 1e-6) 0.0 else ms
+
+/** How far before B's first sound its bar 1 may sit and still be its first bar line. */
+internal const val B_BAR1_SLACK_MS = 30.0

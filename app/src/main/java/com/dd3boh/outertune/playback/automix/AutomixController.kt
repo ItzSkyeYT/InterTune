@@ -148,9 +148,11 @@ class AutomixController(
     /**
      * Mix: what the change after the song playing has come to so far, for the queue's line (a
      * reason it stays plain, or the style its plan took), or null while nothing is decided and
-     * whenever AutoMix is off. Main thread.
+     * whenever AutoMix is off. Main thread. Compared by what it says, so a refusal said again at
+     * every look (twice a second for the last 15 s of a song) is not a new value: each one used to
+     * rewrite heard.json and plan every pair of an open playlist page again.
      */
-    class Decided(val pair: SongPair, val choice: AutoChoice)
+    data class Decided(val pair: SongPair, val choice: AutoChoice)
 
     private val _decided = MutableStateFlow<Decided?>(null)
     val decided: StateFlow<Decided?> = _decided.asStateFlow()
@@ -495,11 +497,8 @@ class AutomixController(
         }
     }
 
-    /** How much of the next song's opening to copy: what Auto can reach, or what the saved change needs of it, a minute at most. */
-    private fun copySecondsFor(saved: TransitionSpec?): Double {
-        val need = saved?.takeIf { !it.plain }?.let { (it.b.atMs + it.lengthMs) / 1000.0 + COPY_MARGIN_S } ?: 0.0
-        return need.coerceAtLeast(AutomixSchedule.HEAD_SECONDS + COPY_MARGIN_S).coerceAtMost(COPY_MAX_S)
-    }
+    /** How much of the next song's opening to copy; see [AutomixSchedule.copySecondsFor]. */
+    private fun copySecondsFor(saved: TransitionSpec?): Double = AutomixSchedule.copySecondsFor(saved)
 
     /** Takes the pair's saved change: the end is held early enough for it, if it can be. */
     private fun savedFor(t: Transition, saved: TransitionSpec) {
@@ -1044,9 +1043,6 @@ class AutomixController(
         const val KEPT_GUIDE_S = 4.5
         const val LOCK_FAILED_KEPT = 256
 
-        /** The opening is copied this much past what a change needs of it, and a minute at most. */
-        const val COPY_MARGIN_S = 2.0
-        const val COPY_MAX_S = 60.0
 
         /**
          * Auto's changes on bands rendered and judged at most per change on the phone: each costs a

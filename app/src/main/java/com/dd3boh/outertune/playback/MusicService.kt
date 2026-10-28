@@ -2147,7 +2147,7 @@ class MusicService : MediaLibraryService(),
             // after each point where it suspends.
             if (destroyed) return@launch
             Log.d(TAG, "playQueue: Resolving additional queue data...")
-            try {
+            val started = try {
                 queueStart.run(
                     queue = queue,
                     playWhenReady = playWhenReady,
@@ -2163,10 +2163,14 @@ class MusicService : MediaLibraryService(),
                 reportException(e)
                 Toast.makeText(this@MusicService, ErrorText.withoutAddresses("plr: ${e.message}"), Toast.LENGTH_LONG)
                     .show()
+                false
             }
             // The steps stop where they are when the service is torn down under them.
             if (destroyed) return@launch
-            if (Unreleased.AUTOMIX_EDITOR) linkMixQueue((queue as? ListQueue)?.mixPlaylistId)
+            // Only a queue this tap started is linked to its Mix playlist, or unlinked. A start
+            // dropped for a newer tap, or whose answer failed, left the queue that plays as it was,
+            // and linking that one to nothing turned Mix off for a Mix playlist that went on playing.
+            if (Unreleased.AUTOMIX_EDITOR && started) linkMixQueue((queue as? ListQueue)?.mixPlaylistId)
 
             Log.d(TAG, "playQueue: Queue additional data resolution complete")
         }

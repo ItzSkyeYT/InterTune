@@ -33,6 +33,7 @@ import org.junit.Test
 import kotlin.math.abs
 import kotlin.math.log10
 import kotlin.math.max
+import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
 /**
@@ -289,5 +290,18 @@ class LaneMixerTest {
         val matched = fade.copy(a = fade.a.copy(bpm = 123.0), beatMatch = true)
         assertEquals(null, why(matched, facts(a, longB)))
         assertTrue(why(matched, facts(a, longB, aBar1 = 1.0))!!.startsWith("A's tempo would have to start moving"))
+    }
+
+    @Test
+    fun `an echo repeats on the beat of the song it leaves`() {
+        val a = Synth.song(SynthSpec(bpm = 90.0, bars = 24, seed = 31)).samples
+        val b = Synth.song(SynthSpec(bpm = 128.0, bars = 24, seed = 32)).samples
+        val echoOut = every(Side.A, Move(4.0, 2.0, How.ECHO)) + every(Side.B, Move(0.0, 4.0, How.FADE))
+        // A keeps its own speed at 90 BPM: three quarters of its beat, 0.5 s, not of B's 128 (0.35 s).
+        val own = planned(spec(echoOut, aBpm = 90.0, bBpm = 128.0), facts(a, b))
+        assertEquals((0.75 * 60.0 / 90.0 * rate).roundToInt(), own.echoFrames)
+        // Matched to B, A plays at B's tempo through the change, and so does its echo.
+        val matched = planned(spec(echoOut, aBpm = 126.0, bBpm = 128.0, beatMatch = true), facts(a, b))
+        assertEquals((0.75 * 60.0 / 128.0 * rate).roundToInt(), matched.echoFrames)
     }
 }

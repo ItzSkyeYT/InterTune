@@ -113,6 +113,8 @@ internal class QueueStart(private val service: Target) {
 
     /**
      * @param origin A PlayOrigin code.
+     * @return whether this queue was started: false for a start dropped for a newer one or for a
+     * service torn down, so the caller leaves alone the queue that plays.
      * @throws Exception whatever the queue's answer failed with. The caller reports it.
      */
     suspend fun run(
@@ -125,7 +127,7 @@ internal class QueueStart(private val service: Target) {
         origin: Int,
         originSlot: Int,
         runId: Long,
-    ) {
+    ): Boolean {
         val number = ++lastStart
         var queueTitle = title
         var q: MultiQueueObject? = null
@@ -136,9 +138,9 @@ internal class QueueStart(private val service: Target) {
         service.boardReady()
         // The board can wait for another caller's load or for a pending queue save, and the
         // service can be torn down meanwhile.
-        if (service.destroyed) return
+        if (service.destroyed) return false
         // Or something else was asked for meanwhile, and this one's song is never loaded.
-        if (number != lastStart) return
+        if (number != lastStart) return false
         if (preloadItem != null) {
             // The temporary title is this tap's alone, so a queue still under it goes first. It is
             // an earlier tap's: one whose answer failed, which leaves its song there alone, or
@@ -170,22 +172,22 @@ internal class QueueStart(private val service: Target) {
         } catch (e: Exception) {
             // An answer that failed for something no longer wanted is not the listener's to hear
             // about: what they asked for after it reports for itself.
-            if (number != lastStart) return
+            if (number != lastStart) return false
             throw e
         }
         // The same after the network wait. Nothing below suspends but the filling of a radio of
         // one, which checks both again, and onDestroy runs on the same main thread, so it cannot
         // slip in between.
-        if (service.destroyed) return
+        if (service.destroyed) return false
         // Nor can another tap. One made during the wait has the player now, or will have it when
         // its own answer comes, and this answer is dropped whole: it is not loaded, and it leaves
         // no queue of its own on the board.
         if (number != lastStart) {
             Log.d(TAG, "playQueue: Queue initial status dropped, another queue was asked for since")
-            return
+            return false
         }
         val initialStatus = if (isRadio && preloadItem != null && answer.items.size == 1) {
-            filled(answer, preloadItem) { !service.destroyed && number == lastStart } ?: return
+            filled(answer, preloadItem) { !service.destroyed && number == lastStart } ?: return false
         } else {
             answer
         }
@@ -228,6 +230,7 @@ internal class QueueStart(private val service: Target) {
         // player is prepared already, and a song that failed to load meanwhile gets its second try
         // here. What it does not do then is play a song paused since the tap: see the class note.
         service.start(if (preloadItem != null) playWhenReady && service.wantsToPlay else playWhenReady)
+        return true
     }
 
     /**

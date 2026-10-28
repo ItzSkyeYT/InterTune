@@ -232,6 +232,21 @@ fun MixEditorScreen(navController: NavController) {
         lifecycle.addObserver(observer)
         onDispose { lifecycle.removeObserver(observer) }
     }
+    // Headphones unplugged or gone: the preview stops, as the music would, instead of carrying on
+    // from the loudspeaker. Its own track has no noisy handling of its own, and the player it
+    // paused hears nothing.
+    DisposableEffect(context) {
+        val noisy = object : android.content.BroadcastReceiver() {
+            override fun onReceive(c: android.content.Context, intent: android.content.Intent) {
+                if (intent.action == android.media.AudioManager.ACTION_AUDIO_BECOMING_NOISY) vm.preview?.stop()
+            }
+        }
+        androidx.core.content.ContextCompat.registerReceiver(
+            context, noisy, android.content.IntentFilter(android.media.AudioManager.ACTION_AUDIO_BECOMING_NOISY),
+            androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
+        onDispose { runCatching { context.unregisterReceiver(noisy) } }
+    }
     // The preview starts on opening Advanced, from 2 bars before the change. Simple is a sheet
     // over what is playing: it waits for its play button.
     var started by rememberSaveable { mutableStateOf(false) }
@@ -743,7 +758,9 @@ private fun Lowers(
         checked = spec.beatMatched && editor.beatMatchPossible,
         enabled = ready && allowed,
     ) { on -> vm.edit { setBeatMatch(on) } }
-    SwitchRow(
+    // Offered once playback plays it (M10): until then a change saved with it is refused at the
+    // change and Auto plays. A change that already has it keeps the switch, to turn it off.
+    if (INTRO_TWICE_PLAYS || spec.introTwice > 0) SwitchRow(
         title = stringResource(R.string.mix_edit_intro_twice),
         line = if (spec.introTwice > 0) stringResource(R.string.mix_edit_intro_twice_line, words.owner(words.bTitle), words.bars(spec.introTwice), words.aTitle) else null,
         checked = spec.introTwice > 0,
@@ -898,3 +915,6 @@ internal fun FailedState(p: MixEditorViewModel.Phase.Failed, aTitle: String, bTi
         }
     }
 }
+
+/** Whether playback plays a change that plays the next song's intro twice; SpecPlan refuses one until M10. */
+private const val INTRO_TWICE_PLAYS = false

@@ -163,7 +163,10 @@ object SpecPlan {
         // A: from where its first lane moves, or its tempo does, to where its last lane is gone.
         val aFirstU = aLanes.minOf { firstMoveU(spec, it) }
         val echoing = aLanes.filter { id -> spec.curves[id] == null && id !in spec.muted && spec.moves[id]?.how == How.ECHO }.toSet()
-        val echoFrames = max(1, (Shapes.ECHO_BEATS * beatFrames).roundToInt())
+        // An echo repeats on the beat of the song it leaves: B's once A plays at B's tempo, A's own
+        // where A keeps its speed (a hand-over between far tempos), as the renders it was tuned on.
+        val echoBeatFrames = if (spec.beatMatched) beatFrames else aBeatFrames
+        val echoFrames = max(1, (Shapes.ECHO_BEATS * echoBeatFrames).roundToInt())
         val cutFrames = ceil(Shapes.CUT_MS / 1000.0 * rate).toLong()
         val dryGone = ceil(out(aLanes.maxOf { spec.goneAt(it) })).toLong() + cutFrames
         val aGone = if (echoing.isEmpty()) dryGone else {

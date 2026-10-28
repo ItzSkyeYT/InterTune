@@ -141,7 +141,7 @@ class MixHeldBackTest {
             val body = service.substringAfter(fn).trimStart().lines().take(3).joinToString("\n")
             assertTrue("$fn: $body", "if (!Unreleased.AUTOMIX_EDITOR) return" in body)
         }
-        assertTrue("if (Unreleased.AUTOMIX_EDITOR) linkMixQueue((queue as? ListQueue)?.mixPlaylistId)" in lines("playback/MusicService.kt"))
+        assertTrue("if (Unreleased.AUTOMIX_EDITOR && started) linkMixQueue((queue as? ListQueue)?.mixPlaylistId)" in lines("playback/MusicService.kt"))
         // The playlist names itself on the queue only with the flag.
         val playlist = code(source("ui/screens/playlist/LocalPlaylistScreen.kt"))
         assertEquals(3, Regex("""mixPlaylistId = .*takeIf \{ Unreleased\.AUTOMIX_EDITOR \}""").findAll(playlist).count())
