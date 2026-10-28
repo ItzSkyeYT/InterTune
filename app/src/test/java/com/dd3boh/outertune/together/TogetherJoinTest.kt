@@ -87,6 +87,31 @@ class TogetherJoinTest {
     }
 
     @Test
+    fun `a guest behind the leader past what has come in plays on until it has, then jumps into it`() {
+        // Ready 3.5 s behind after a slow fetch, 1 s come in: a jump would ask for the song again.
+        assertFalse(Follow.jumpNow(targetMs = 83_500, localMs = 80_000, bufferedMs = 81_000))
+        // What has come in now reaches past the leader's spot: the jump costs nothing.
+        assertTrue(Follow.jumpNow(targetMs = 85_000, localMs = 81_500, bufferedMs = 85_000 + Follow.LANDING_MS))
+        // Not quite: the landing would be on the edge of what has come in.
+        assertFalse(Follow.jumpNow(targetMs = 85_000, localMs = 81_500, bufferedMs = 85_200))
+    }
+
+    @Test
+    fun `a leader far ahead, or behind, is jumped to at once`() {
+        // The leader seeked a minute on: waiting for that much to come in would take too long.
+        assertTrue(Follow.jumpNow(targetMs = 140_000, localMs = 80_000, bufferedMs = 90_000))
+        assertTrue(Follow.jumpNow(targetMs = 80_000 + Follow.WAIT_FOR_DATA_MS + 1, localMs = 79_000, bufferedMs = 80_000))
+        // Ahead of the leader: back to it, as ever.
+        assertTrue(Follow.jumpNow(targetMs = 78_000, localMs = 80_000, bufferedMs = 81_000))
+    }
+
+    @Test
+    fun `the session asks before every jump of the following`() {
+        val follow = session.substringAfter("private fun follow()").substringBefore("\n    }\n")
+        assertTrue(follow.contains("is Follow.Seek -> if (Follow.jumpNow(decision.positionMs, local, player.bufferedPosition))"))
+    }
+
+    @Test
     fun `the leader answers a newcomer with where it is and its queue at once`() {
         val newcomer = session.substringAfter("if (from !in heard && leading) {").substringBefore("}")
         assertTrue(newcomer.contains("sendState()"))

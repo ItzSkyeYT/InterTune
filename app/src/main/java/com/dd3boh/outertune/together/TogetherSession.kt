@@ -713,12 +713,29 @@ class TogetherSession(
             return
         }
         when (val decision = lock.decide(target, local, state.speed)) {
-            is Follow.Seek -> seek(player, decision.positionMs)
-            is Follow.Nudge -> speed(player, decision.speed)
-            is Follow.Steady -> speed(player, decision.speed)
+            is Follow.Seek -> if (Follow.jumpNow(decision.positionMs, local, player.bufferedPosition)) {
+                waitingForData = false
+                seek(player, decision.positionMs)
+            } else {
+                // Behind, and the leader's spot not come in yet: playing on while it does.
+                if (!waitingForData) Log.i(TAG, "${(target - local) / 1000} s behind the leader: playing on until the song has come in that far")
+                waitingForData = true
+                speed(player, state.speed)
+            }
+            is Follow.Nudge -> {
+                waitingForData = false
+                speed(player, decision.speed)
+            }
+            is Follow.Steady -> {
+                waitingForData = false
+                speed(player, decision.speed)
+            }
         }
         _status.value = _status.value.copy(driftMs = target - local, locked = lock.locked)
     }
+
+    /** Behind the leader past what has come in, playing on until it has: see Follow.jumpNow. */
+    private var waitingForData = false
 
     /** The leader plays [state]'s song and this phone does not, yet. */
     private fun toLeadersSong(player: Player, state: TogetherMessage.State, now: Long) {

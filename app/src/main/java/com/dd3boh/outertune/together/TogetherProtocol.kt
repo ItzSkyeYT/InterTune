@@ -232,6 +232,24 @@ sealed interface Follow {
             else -> targetMs
         }
 
+        /**
+         * Whether a guest too far from the host to nudge, playing at [localMs] with the song come
+         * in up to [bufferedMs], jumps to the host's spot [targetMs] now: back, or into what has
+         * come in, at once; past it, only once that is more than [WAIT_FOR_DATA_MS] away. A jump
+         * past what has come in asks for the song again from there, and on a slow line it landed
+         * as far behind as that took and jumped again, for good: a guest on a 32 KB/s line was
+         * never in step in 75 s, silent most of it (28 Oct 2026). Until then it plays on, behind,
+         * while what has come in catches up with the host.
+         */
+        fun jumpNow(targetMs: Long, localMs: Long, bufferedMs: Long): Boolean =
+            targetMs < localMs || targetMs + LANDING_MS <= bufferedMs || targetMs - bufferedMs > WAIT_FOR_DATA_MS
+
+        /** Room to play on after a jump into what has come in, so that it does not land on its edge. */
+        const val LANDING_MS = 500L
+
+        /** How far past what has come in a guest still waits for it, rather than asking for the song there. */
+        const val WAIT_FOR_DATA_MS = 10_000L
+
         /** What to do, playing at [localMs] while the host is at [targetMs], nudging by [maxNudge] at most. */
         fun decide(targetMs: Long, localMs: Long, hostSpeed: Double, maxNudge: Double = MAX_NUDGE): Follow {
             val drift = targetMs - localMs
