@@ -35,7 +35,7 @@ class AutomixBandsHeldBackTest {
     @Test
     fun `without bands the controller reads, copies and plans as before`() {
         assertTrue("private val lanes: Boolean = false," in controller)
-        assertTrue("val saved = if (lanes) withContext(Dispatchers.IO) { runCatching { savedChange(aId, b.id) }.getOrNull() } else null" in controller)
+        assertTrue("val saved = if (lanes && !shuffled) withContext(Dispatchers.IO) { runCatching { savedChange(aId, b.id) }.getOrNull() } else null" in controller)
         assertTrue("val copySeconds = if (lanes) copySecondsFor(saved) else 0.0" in controller)
         assertTrue("if (!lanes) heads[b.id]?.let {" in controller)
         assertTrue("val onBands = if (lanes && c.soundBeforeMix) {" in controller)
