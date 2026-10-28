@@ -393,11 +393,17 @@ class TogetherSession(
                     )
                 }
             }
-            is TogetherMessage.Queue -> if (!leading && from == leaderKey) {
-                roomQueue = message
-                if (!ownWay) {
-                    takeRepeat(message.repeat)
-                    matchQueue()
+            is TogetherMessage.Queue -> if (!leading) {
+                // Before the owner's word on who leads, whoever sends the playback does, its queue
+                // as much as where it is: a newcomer is sent both at once, the queue often first,
+                // and it was thrown away, so the guest waited for it to come again.
+                if (leaderKey == null) lead(from)
+                if (from == leaderKey) {
+                    roomQueue = message
+                    if (!ownWay) {
+                        takeRepeat(message.repeat)
+                        matchQueue()
+                    }
                 }
             }
             is TogetherMessage.Propose -> if (leading && message.songs.isNotEmpty()) {
@@ -719,7 +725,9 @@ class TogetherSession(
             mine(SONG_SWITCH_MS)
             // Straight to the leader's spot: from 0:00 the song was fetched twice, its start and
             // then the leader's spot, which on a slow line took seconds (his ask of 26 Oct 2026).
-            arriving = true
+            // Not arriving: the spot is asked for already, and a second jump while it loads
+            // would only throw that load away.
+            arriving = false
             player.seekTo(index, (Follow.target(state, gap.hostNow(now)) + delayMs).coerceAtLeast(0))
             return
         }
@@ -837,11 +845,10 @@ class TogetherSession(
             return
         }
         val target = Follow.target(state, gap.hostNow(now)) + delayMs
-        val length = player.duration
-        if (target - player.currentPosition <= Follow.DRIFT_MS || (length != C.TIME_UNSET && target >= length)) return
+        val spot = Follow.arrival(target, player.currentPosition, player.duration.takeIf { it != C.TIME_UNSET }) ?: return
         arriving = false
-        Log.i(TAG, "Off to the leader's spot while the song loads, ${target / 1000} s in")
-        seek(player, target)
+        Log.i(TAG, "Off to the leader's spot while the song loads, ${spot / 1000} s in")
+        seek(player, spot)
     }
 
     private fun seek(player: Player, positionMs: Long) {

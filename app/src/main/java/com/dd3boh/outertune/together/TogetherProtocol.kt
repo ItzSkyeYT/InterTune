@@ -205,6 +205,17 @@ sealed interface Follow {
         fun target(state: TogetherMessage.State, hostNowMs: Long): Long =
             if (state.playing) state.positionMs + ((hostNowMs - state.atMs) * state.speed).toLong() else state.positionMs
 
+        /**
+         * Where a guest whose song is still loading at [positionMs] goes, or null to let it load
+         * there: the host's spot [targetMs] when that is more than [DRIFT_MS] on, unless it lies at
+         * or past the song's end [durationMs] (null while not known), where the host is moving on.
+         */
+        fun arrival(targetMs: Long, positionMs: Long, durationMs: Long?): Long? = when {
+            targetMs - positionMs <= DRIFT_MS -> null
+            durationMs != null && targetMs >= durationMs -> null
+            else -> targetMs
+        }
+
         /** What to do, playing at [localMs] while the host is at [targetMs], nudging by [maxNudge] at most. */
         fun decide(targetMs: Long, localMs: Long, hostSpeed: Double, maxNudge: Double = MAX_NUDGE): Follow {
             val drift = targetMs - localMs
