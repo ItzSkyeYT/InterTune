@@ -17,6 +17,7 @@ import com.dd3boh.outertune.mix.edit.aGoneAt
 import com.dd3boh.outertune.mix.edit.laneAt
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -361,5 +362,19 @@ class AutoPlannerTest {
     fun noKeyReadingNoKeyRule() {
         val p = pick(input(Ends.tail(128.0), Ends.head(124.0)))
         assertNull(p.keyDistance)
+    }
+
+    @Test
+    fun aSongWhoseFirstDownbeatIsItsFirstFrameIsMixedOnIt() {
+        // Its fitted line puts that downbeat 4 ms before its first frame, inside the 30 ms bar 1 may sit before the first sound.
+        val b = Ends.head(128.0, firstSoundMs = 0.0, firstDownbeatMs = -4.0)
+        val p = pick(input(Ends.tail(128.0), b))
+        assertFalse(p.why, p.isPlain)
+        assertTrue("${p.b.atMs}", p.b.atMs >= 0.0)
+        val spec = p.spec()
+        assertTrue(spec.problems().toString(), spec.isValid)
+        assertEquals(0.0, atOrAfterBStart(-4.0), 0.0)
+        assertEquals(-40.0, atOrAfterBStart(-40.0), 0.0)
+        assertEquals(12.0, atOrAfterBStart(12.0), 0.0)
     }
 }
