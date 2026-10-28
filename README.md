@@ -176,17 +176,14 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 </details>
 
 <details>
-<summary><b>Then: 0.13</b> · 0 of 18 done, 7 to test</summary>
+<summary><b>Then: 0.13</b> · 0 of 15 done, 5 to test</summary>
 
 `[ ]` Listen together: one person plays, friends follow the same song in real time *(in progress)*\
 `[ ]` Your year in InterTune, a recap *(in progress)*\
 `[~]` What's playing works offline and names the song once you're back online ([#48](https://github.com/ItzSkyeYT/InterTune/issues/48))\
-`[~]` What's playing can name a song playing in another app on your phone, like Reels or TikTok\
-`[ ]` With shuffle on, picking a song from a playlist keeps the shuffle going\
 `[ ]` Report a problem without a GitHub account, and follow it on GitHub from a link *(in progress)*\
 `[ ]` Find songs you saved twice, in Liked or your library ([#47](https://github.com/ItzSkyeYT/InterTune/issues/47))\
 `[ ]` Premium accounts get the 256 kbps stream\
-`[~]` A sheet that shows everything that changes the sound on its way to your ears\
 `[~]` Spatial audio for surround recordings, and Strength, Room and Ambience controls\
 `[~]` Choose which lyrics sources are used, and in what order\
 `[~]` Similar artists in the Favourite artists mix\
