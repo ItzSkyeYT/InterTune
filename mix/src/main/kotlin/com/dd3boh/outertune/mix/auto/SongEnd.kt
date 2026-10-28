@@ -178,8 +178,11 @@ class SongEnd(
         val fixed = line.with(fix)
         return SongEnd(
             kind, songMs, fromMs, toMs, sampleRate, channels, firstSoundMs, trueEndMs, outroStartMs, introEndMs, fadeMs, medianDb,
-            // A moved one moves every phrase line with it; a halved or doubled tempo leaves them unknown.
-            levelDb, lowDb, stepMs, fixed.bpm, steadyTempo, fixed, if (fixed.beatsPerBar == line.beatsPerBar) phrases?.shifted(fix.downbeatShift) else null,
+            // A moved one moves every phrase line with it. A halved or doubled tempo keeps the same
+            // grid beats, only grouped in longer or shorter bars, so the phrase lines, counted in the
+            // grid's beats as the planner counts a change, still hold; only a tempo tapped far from
+            // what was found moves the grid itself, and leaves them unknown.
+            levelDb, lowDb, stepMs, fixed.bpm, steadyTempo, fixed, if (abs(fixed.beatMs - line.beatMs) < 1e-9) phrases?.shifted(fix.downbeatShift) else null,
             key, density, trustNote + "; fixed by hand",
             localLine?.let { local -> { a: Int, b: Int -> local(a, b)?.with(fix) } },
         )

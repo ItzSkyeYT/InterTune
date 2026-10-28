@@ -365,6 +365,19 @@ class AutoPlannerTest {
     }
 
     @Test
+    fun aHalvedOrDoubledTempoKeepsThePhraseLinesAndAFarOneLosesThem() {
+        val a = Ends.tail(128.0)
+        assertNotNull(a.phrases)
+        // Half: the same grid beats, eight to a bar; the phrase lines are where they were.
+        val half = a.with(BeatFix(bpm = 64.0))
+        assertEquals(8, half.line!!.beatsPerBar)
+        assertNotNull(half.phrases)
+        assertNotNull(a.with(BeatFix(bpm = 256.0)).phrases)
+        // A tempo tapped far from the one found moves the grid, and the lines with it.
+        assertNull(a.with(BeatFix(bpm = 100.0)).phrases)
+    }
+
+    @Test
     fun aSongWhoseFirstDownbeatIsItsFirstFrameIsMixedOnIt() {
         // Its fitted line puts that downbeat 4 ms before its first frame, inside the 30 ms bar 1 may sit before the first sound.
         val b = Ends.head(128.0, firstSoundMs = 0.0, firstDownbeatMs = -4.0)
