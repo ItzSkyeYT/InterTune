@@ -73,6 +73,31 @@ class LibrarySqlTest {
     }
 
     @Test
+    fun `an album of files on the phone goes disc by disc, then by track, songs with no number last`() {
+        album("LAlocal", "Local album", local = true)
+        // Stored in the order the scan met the files, which follows the folder's listing.
+        val files = listOf(
+            Triple("LSb", "Bonus b", Pair(null, null)),
+            Triple("LS2-1", "Second disc opener", Pair(1, 2)),
+            Triple("LS10", "Ten", Pair(10, null)),
+            Triple("LSa", "Bonus a", Pair(0, 1)),
+            Triple("LS2", "Two", Pair(2, 1)),
+            Triple("LS1", "One", Pair(1, 0)),
+        )
+        files.forEachIndexed { index, (id, title, numbers) ->
+            exec(
+                "INSERT INTO song(id, title, duration, liked, isLocal, trackNumber, discNumber) " +
+                        "VALUES ('$id', '$title', 200, 0, 1, ${numbers.first}, ${numbers.second})"
+            )
+            exec("INSERT INTO song_album_map(songId, albumId, `index`) VALUES ('$id', 'LAlocal', $index)")
+        }
+        assertEquals(
+            listOf("LS1", "LS2", "LS10", "LS2-1", "LSa", "LSb"),
+            ids(LibrarySql.ALBUM_SONGS.replace(":albumId", "'LAlocal'")),
+        )
+    }
+
+    @Test
     fun `an album's tile reads the ids of its songs that can be downloaded, the files on the phone left out`() {
         album("MPREb_album", "Album", local = false)
         for ((id, index) in listOf("t1" to 0, "t2" to 1, "t3" to 2)) {
