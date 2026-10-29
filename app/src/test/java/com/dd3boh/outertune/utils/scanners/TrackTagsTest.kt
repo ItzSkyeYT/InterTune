@@ -49,6 +49,17 @@ class TrackTagsTest {
     }
 
     @Test
+    fun `the FFmpeg scanner reads the value after the tag's name, as FFmpeg names it`() {
+        // MP3 and M4A: FFmpeg's own names. The scanner gave parseInt the whole line.
+        assertEquals(Pair(4, 1), TrackTags.fromFfmpegTags(listOf("encoder: Lavf", "track: 4/12", "disc: 1/2")))
+        // Vorbis comments keep theirs.
+        assertEquals(Pair(7, 2), TrackTags.fromFfmpegTags(listOf("TRACKNUMBER: 07", "DISCNUMBER: 2")))
+        // A total alone is no number, and the first value with one counts.
+        assertEquals(Pair(null, null), TrackTags.fromFfmpegTags(listOf("TRACKTOTAL: 12", "DISCTOTAL: 2")))
+        assertEquals(Pair(3, null), TrackTags.fromFfmpegTags(listOf("track: ", "TRACKNUMBER: 3")))
+    }
+
+    @Test
     fun `MediaStore's text columns win, padded or with a count`() {
         assertEquals(Pair(3, 2), TrackTags.fromMediaStore("3/12", "2/2", 2003))
         // getInt read "08" as octal and gave 0.
