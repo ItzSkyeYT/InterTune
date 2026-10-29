@@ -11,7 +11,9 @@ import com.dd3boh.outertune.db.LocalFolderDates
 import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.db.entities.SongEntity
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 
@@ -153,5 +155,14 @@ class FolderOrderTest {
             listOf("Single", "2 Bee", "1 Ay", "1 Opener two", "2 Second", "1 First"),
             played(FolderSongSortType.TRACK_NUMBER, true),
         )
+    }
+
+    @Test
+    fun `the Folders tab lists its folders and plays a folder in this order`() {
+        fun source(path: String) = File("src/main/java/com/dd3boh/outertune/$path").readText()
+        val screen = source("ui/screens/library/FolderScreen.kt")
+        assertTrue(screen.contains("addAll(FolderOrder.sorted(folders, sortType, sortDescending, dates))"))
+        assertTrue(screen.contains("items = shownFolders,"))
+        assertTrue(source("ui/menu/FolderMenu.kt").contains("FolderOrder.playOrder(dir, dbSongs, sortType, sortDescending, dates)"))
     }
 }

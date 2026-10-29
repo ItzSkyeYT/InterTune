@@ -13,6 +13,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 /**
  * The one-time pass that gives local songs scanned before the fix for issue #39 their track and
@@ -165,6 +166,14 @@ class TrackTagRereadTest {
         val files = mapOf("/m/same.mp3" to Pair(5, null), "/m/zero.mp3" to Pair(null, null))
         assertEquals(0, pass(library, Marks()) { files[it] })
         assertEquals(emptyList<String>(), library.saved)
+    }
+
+    @Test
+    fun `a folder open on screen reads its songs again when the pass gives new numbers`() {
+        val pass = File("src/main/java/com/dd3boh/outertune/utils/scanners/TrackTagReread.kt").readText()
+        assertTrue(Regex("""if \(renumbered > 0\) \{[^}]*changed\.update""").containsMatchIn(pass))
+        val folders = File("src/main/java/com/dd3boh/outertune/viewmodels/LibraryViewModels.kt").readText()
+        assertTrue(Regex("""TrackTagReread\.changes\.drop\(1\)\.collect \{[^}]*getLocalSongs\(\)""").containsMatchIn(folders))
     }
 
     private class Killed : RuntimeException()

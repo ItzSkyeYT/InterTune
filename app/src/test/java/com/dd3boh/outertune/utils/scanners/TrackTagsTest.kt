@@ -7,8 +7,11 @@
 package com.dd3boh.outertune.utils.scanners
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 class TrackTagsTest {
 
@@ -57,6 +60,14 @@ class TrackTagsTest {
         // A total alone is no number, and the first value with one counts.
         assertEquals(Pair(null, null), TrackTags.fromFfmpegTags(listOf("TRACKTOTAL: 12", "DISCTOTAL: 2")))
         assertEquals(Pair(3, null), TrackTags.fromFfmpegTags(listOf("track: ", "TRACKNUMBER: 3")))
+    }
+
+    @Test
+    fun `the FFmpeg scanner reads its numbers through here`() {
+        // It is built into the full version only, so no build of ours compiles it.
+        val scanner = File("src/main/java/com/dd3boh/outertune/utils/scanners/FFmpegScanner.kt").readText()
+        assertTrue("TrackTags.fromFfmpegTags(data.extrasRaw.toList())" in scanner)
+        assertFalse("parseInt(it)" in scanner)
     }
 
     @Test
