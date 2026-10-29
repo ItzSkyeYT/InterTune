@@ -51,6 +51,20 @@ object LocalSql {
         UPDATE song SET trackNumber = COALESCE(:track, trackNumber), discNumber = COALESCE(:disc, discNumber)
         WHERE id = :id
     """
+
+    /**
+     * Every folder under :filter that holds local songs of the library, with the newest date
+     * added, file date, release date and release year among its songs, for the Folders tab's date
+     * sorts (FolderOrder.newestDates). rtrim takes the file's name off its path, as the folder
+     * list's own query does, and leaves the folder with its last slash.
+     */
+    const val LOCAL_FOLDER_DATES = """
+        SELECT rtrim(localPath, replace(localPath, '/', '')) AS dir,
+            max(inLibrary) AS added, max(dateModified) AS modified, max(`date`) AS released, max(`year`) AS `year`
+        FROM song
+        WHERE isLocal = 1 AND inLibrary IS NOT NULL AND localPath LIKE :filter || '%'
+        GROUP BY dir
+    """
 }
 
 /**
@@ -62,4 +76,16 @@ data class LocalSongFile(
     val localPath: String,
     val trackNumber: Int? = null,
     val discNumber: Int? = null,
+)
+
+/**
+ * A folder that holds local songs, with the newest dates among them in epoch milliseconds, as
+ * LOCAL_FOLDER_DATES gives them. [dir] ends with a slash.
+ */
+data class LocalFolderDates(
+    val dir: String,
+    val added: Long?,
+    val modified: Long?,
+    val released: Long?,
+    val year: Int?,
 )

@@ -12,6 +12,7 @@ import com.dd3boh.outertune.constants.SongSortType
 import com.dd3boh.outertune.db.DownloadSql
 import com.dd3boh.outertune.db.FavouritesSql
 import com.dd3boh.outertune.db.LibrarySql
+import com.dd3boh.outertune.db.LocalFolderDates
 import com.dd3boh.outertune.db.LocalSongFile
 import com.dd3boh.outertune.db.LocalSql
 import com.dd3boh.outertune.db.entities.PlayCountEntity
@@ -275,6 +276,12 @@ interface SongsDao {
     /** See LocalSql.SET_TRACK_TAGS. */
     @Query(LocalSql.SET_TRACK_TAGS)
     fun setTrackTags(id: String, track: Int?, disc: Int?)
+
+    /** The folders under [dir] that hold local songs, with their newest dates: see LocalSql.LOCAL_FOLDER_DATES. */
+    fun localFolderDates(dir: String): List<LocalFolderDates> = _localFolderDates(fixFilePath(dir))
+
+    @Query(LocalSql.LOCAL_FOLDER_DATES)
+    fun _localFolderDates(filter: String): List<LocalFolderDates>
 
     /**
      * Local songs sharing a file, for the scan's duplicate sweep, which deletes all but one. Local
