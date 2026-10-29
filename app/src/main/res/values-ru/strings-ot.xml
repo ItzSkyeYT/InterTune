@@ -1783,7 +1783,6 @@
     <string name="system_search_description">Песни, исполнители, альбомы и плейлисты в вашей библиотеке, а потом в YouTube Музыке.</string>
     <string name="sleep_schedule_start">Начать в</string>
     <string name="sleep_schedule_length">Длительность таймера</string>
-    <string name="update_wait_android_update"></string>
     <string name="battery_use">Использование батареи</string>
     <string name="battery_use_entry">Сколько действий выполняет приложение, пока вы слушаете музыку, чтобы продлить время работы батареи.</string>
     <string name="battery_use_full">Полный</string>
