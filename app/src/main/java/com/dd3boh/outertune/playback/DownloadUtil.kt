@@ -797,6 +797,15 @@ class DownloadUtil @Inject constructor(
      * player's small first cover (ART_PREVIEW_PX). The player's sharp cover depends on the screen;
      * offline it falls back to the small one under it.
      */
+    /** Every download's covers kept as files, for the downloads made before they were (0.12.6). A kept one costs nothing. */
+    private suspend fun keepMissingCovers() = withContext(Dispatchers.IO) {
+        for (id in downloads.value.keys) {
+            val url = runCatching { database.song(id).first()?.thumbnailUrl }.getOrNull()
+            if (url.isNullOrBlank() || !url.startsWith("http")) continue
+            for (model in listOf(url, url.resize(ART_PREVIEW_PX, ART_PREVIEW_PX))) DownloadCovers.save(context.filesDir, model)
+        }
+    }
+
     private fun keepCoverForOffline(id: String) {
         CoroutineScope(Dispatchers.IO).launch {
             val url = runCatching { database.song(id).first()?.thumbnailUrl }.getOrNull()
@@ -1062,6 +1071,9 @@ class DownloadUtil @Inject constructor(
         // TODO: make sure db is update when download is queued
         CoroutineScope(dlCoroutine).launch {
             rescanDownloads()
+            // Downloads made before their covers were kept as files get theirs now, one at a time;
+            // with no network nothing comes and the next start tries again (DownloadCovers).
+            keepMissingCovers()
         }
         // The phone's battery saver can turn Battery use's Saver on and off at any time
         // (PhoneBatterySaver), and Saver downloads on Wi-Fi only: the manager is told at once.
