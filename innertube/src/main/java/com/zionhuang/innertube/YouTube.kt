@@ -128,6 +128,14 @@ object YouTube {
         if (!accountWritesAllowed()) throw AccountWriteRefused()
     }
 
+    /**
+     * The Most replayed heat map of [videoId], as YouTube's answer in JSON for the caller to read:
+     * one masked WEB `next`, asked as a visitor (InnerTube.heatMap).
+     */
+    suspend fun heatMap(videoId: String): Result<String> = runCatchingCancellable {
+        innerTube.heatMap(videoId).bodyAsText()
+    }
+
     suspend fun searchSuggestions(query: String): Result<SearchSuggestions> = runCatching {
         val response = innerTube.getSearchSuggestions(WEB_REMIX, query).body<GetSearchSuggestionsResponse>()
         SearchSuggestions(
