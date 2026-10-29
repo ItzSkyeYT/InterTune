@@ -15,23 +15,25 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * The one-time pass that gives local songs scanned before the fix for issue #39 their track
- * numbers. The library, the files and the marks kept across launches are stand-ins here.
+ * The one-time pass that gives local songs scanned before the fix for issue #39 their track and
+ * disc numbers. The library, the files and the marks kept across launches are stand-ins here.
  */
 class TrackTagRereadTest {
 
-    /** A song row: no track number is what the pass looks for. */
+    /** A song row: no track number or no disc number is what the pass looks for (SONGS_TO_REREAD). */
     private class Row(val id: String, val path: String, var track: Int?, var disc: Int? = null)
 
     private class Library(list: List<Row>) {
         val rows = list.associateBy { it.id }
+        val saved = mutableListOf<String>()
         fun page(after: String, limit: Int) = rows.values
-            .filter { (it.track ?: 0) <= 0 && it.id > after }
+            .filter { ((it.track ?: 0) <= 0 || (it.disc ?: 0) <= 0) && it.id > after }
             .sortedBy { it.id }
             .take(limit)
-            .map { LocalSongFile(it.id, it.path) }
+            .map { LocalSongFile(it.id, it.path, it.track, it.disc) }
 
         fun save(id: String, track: Int?, disc: Int?) {
+            saved += id
             val row = rows.getValue(id)
             row.track = track ?: row.track
             row.disc = disc ?: row.disc
@@ -61,7 +63,7 @@ class TrackTagRereadTest {
             Row("LSb", "/m/b.m4a", null),
             Row("LSc", "/m/c.mp3", null),
             Row("LSd", "/m/d.flac", 0),
-            Row("LSkept", "/m/kept.mp3", 5),
+            Row("LSkept", "/m/kept.mp3", 5, disc = 1),
         )
     )
 
@@ -120,7 +122,7 @@ class TrackTagRereadTest {
         assertEquals(0, pass(library, marks, canRead = false) { error("nothing may be read") })
         assertFalse(marks.done)
 
-        val nothingToDo = Library(listOf(Row("LSkept", "/m/kept.mp3", 5)))
+        val nothingToDo = Library(listOf(Row("LSkept", "/m/kept.mp3", 5, disc = 1)))
         pass(nothingToDo, marks, canRead = false) { error("nothing may be read") }
         assertTrue(marks.done)
     }
@@ -142,6 +144,27 @@ class TrackTagRereadTest {
         val numbered = pass(library, Marks()) { path -> Pair(path.substringAfter("/m/").substringBefore('.').toInt(), null) }
         assertEquals(rows.size, numbered)
         assertTrue(library.rows.values.all { it.track != null })
+    }
+
+    @Test
+    fun `a song that has its track number and no disc gets the disc its file gives`() {
+        // Read before 0.12.5: the track tag "4" gave 4, the disc tag "2/2" gave nothing. The pass
+        // of 0.12.5 passed over such songs, and an album's two discs stayed mixed together.
+        val library = Library(listOf(Row("LSdisc2", "/m/2-04.mp3", 4), Row("LSdisc1", "/m/1-04.mp3", 4)))
+        val files = mapOf("/m/2-04.mp3" to Pair(4, 2), "/m/1-04.mp3" to Pair(4, 1))
+        assertEquals(2, pass(library, Marks()) { files[it] })
+        assertEquals(2, library.rows.getValue("LSdisc2").disc)
+        assertEquals(1, library.rows.getValue("LSdisc1").disc)
+        assertEquals(4, library.rows.getValue("LSdisc2").track)
+    }
+
+    @Test
+    fun `a song whose file gives nothing new is not written to`() {
+        // Most songs with no disc number have no disc tag: the library is not rewritten for them.
+        val library = Library(listOf(Row("LSsame", "/m/same.mp3", 5), Row("LSzero", "/m/zero.mp3", 0, disc = 0)))
+        val files = mapOf("/m/same.mp3" to Pair(5, null), "/m/zero.mp3" to Pair(null, null))
+        assertEquals(0, pass(library, Marks()) { files[it] })
+        assertEquals(emptyList<String>(), library.saved)
     }
 
     private class Killed : RuntimeException()

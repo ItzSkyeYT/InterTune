@@ -57,6 +57,7 @@ import com.dd3boh.outertune.utils.SyncUtils
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.reportException
 import com.dd3boh.outertune.utils.scanners.LocalMediaScanner.Companion.refreshLocal
+import com.dd3boh.outertune.utils.scanners.TrackTagReread
 import com.zionhuang.innertube.YouTube
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -67,6 +68,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
@@ -132,6 +134,19 @@ class LibraryFoldersViewModel @Inject constructor(
 
     var uiInit = false
     var lastLocalScan = 0L
+
+    init {
+        // Numbers the one-time tag pass gives while this folder is open (TrackTagReread). Without
+        // this the folder kept the old order until it was left and opened again.
+        viewModelScope.launch(Dispatchers.IO) {
+            TrackTagReread.changes.drop(1).collect {
+                if (uiInit) {
+                    getLocalSongs()
+                    getSongCount()
+                }
+            }
+        }
+    }
 
     /**
      * Trigger a scan of local directory

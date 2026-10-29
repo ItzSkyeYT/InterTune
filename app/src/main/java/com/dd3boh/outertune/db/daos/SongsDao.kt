@@ -268,9 +268,9 @@ interface SongsDao {
     @Query("SELECT count(*) FROM song WHERE isLocal = 1 and inLibrary IS NOT NULL AND localpath LIKE :path || '%'")
     fun localSongCountInPath(path: String): Flow<Int>
 
-    /** See LocalSql.SONGS_WITHOUT_TRACK_NUMBER and TrackTagReread. */
-    @Query(LocalSql.SONGS_WITHOUT_TRACK_NUMBER)
-    fun localSongsWithoutTrackNumber(afterId: String, limit: Int): List<LocalSongFile>
+    /** See LocalSql.SONGS_TO_REREAD and TrackTagReread. */
+    @Query(LocalSql.SONGS_TO_REREAD)
+    fun localSongsToReread(afterId: String, limit: Int): List<LocalSongFile>
 
     /** See LocalSql.SET_TRACK_TAGS. */
     @Query(LocalSql.SET_TRACK_TAGS)

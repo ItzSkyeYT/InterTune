@@ -812,7 +812,7 @@ class MainActivity : ComponentActivity() {
                         this@MainActivity, database, downloads, coroutineScope, playerConnection,
                         snackbarHostState
                     )
-                    // Once, and quietly: the track numbers of local songs scanned before 0.12.5.
+                    // Once, and quietly: the track and disc numbers of local songs scanned before 0.12.5.
                     TrackTagReread.runOnce(this@MainActivity, database)
                 }
             }

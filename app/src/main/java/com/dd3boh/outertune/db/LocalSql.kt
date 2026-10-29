@@ -28,13 +28,19 @@ object LocalSql {
     """
 
     /**
-     * Local songs in the library with no track number, a page at a time in id order, for
-     * TrackTagReread. 0 is no number: older MediaStore scans stored it for a missing tag.
+     * Local songs in the library with no track number or no disc number, a page at a time in id
+     * order, for TrackTagReread, with the numbers stored for them. 0 is no number: older MediaStore
+     * scans stored it for a missing tag.
+     *
+     * The disc counts too: before 0.12.5 a disc tag written "1/2" was read as no number, like the
+     * track tag "4/12", and the songs whose track tag was a plain "4" kept their number but lost
+     * their disc. The pass in 0.12.5 looked only for songs with no track number and passed over
+     * them, so the two discs of an album still came out mixed, track 1, track 1, track 2...
      */
-    const val SONGS_WITHOUT_TRACK_NUMBER = """
-        SELECT id, localPath FROM song
+    const val SONGS_TO_REREAD = """
+        SELECT id, localPath, trackNumber, discNumber FROM song
         WHERE isLocal = 1 AND inLibrary IS NOT NULL AND localPath IS NOT NULL
-            AND (trackNumber IS NULL OR trackNumber <= 0)
+            AND (trackNumber IS NULL OR trackNumber <= 0 OR discNumber IS NULL OR discNumber <= 0)
             AND id > :afterId
         ORDER BY id
         LIMIT :limit
@@ -47,5 +53,13 @@ object LocalSql {
     """
 }
 
-/** A local song's id and file, as SONGS_WITHOUT_TRACK_NUMBER gives them. */
-data class LocalSongFile(val id: String, val localPath: String)
+/**
+ * A local song's id and file, and the numbers stored for it, as SONGS_TO_REREAD gives them. 0 or
+ * null is no number.
+ */
+data class LocalSongFile(
+    val id: String,
+    val localPath: String,
+    val trackNumber: Int? = null,
+    val discNumber: Int? = null,
+)
