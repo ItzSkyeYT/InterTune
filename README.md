@@ -164,7 +164,7 @@ Every change in detail, and why this fork exists: [docs/FEATURES.md](https://git
 What's being worked on, roughly in order. `[x]` is done, `[~]` is built and being tested, `[ ]` is still to do. Nothing here has a date, and plans can change. Ideas are welcome in #feature-requests on [Discord](https://discord.gg/68jmqhMjXk) or as a [GitHub issue](https://github.com/ItzSkyeYT/InterTune/issues/new/choose).
 
 <details>
-<summary><b>Next: 0.12.6 (fixes)</b> · 4 of 7 done, 3 to test</summary>
+<summary><b>Next: 0.12.6 (fixes)</b> · 4 of 9 done, 5 to test</summary>
 
 `[x]` Slim navbar icons centred again ([#54](https://github.com/ItzSkyeYT/InterTune/issues/54))\
 `[~]` A crash on some artist pages fixed ([#53](https://github.com/ItzSkyeYT/InterTune/issues/53))\
@@ -172,6 +172,8 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[~]` Saved albums keep YouTube Music's order\
 `[x]` Songs play again on Low quality\
 `[x]` High and Highest quality prefer Opus over a slightly larger AAC stream ([#57](https://github.com/ItzSkyeYT/InterTune/issues/57))\
+`[~]` Local songs sort by track number disc by disc, and folders follow the sort ([#39](https://github.com/ItzSkyeYT/InterTune/issues/39))\
+`[~]` Tapping a song no longer shows "plr: null" ([#28](https://github.com/ItzSkyeYT/InterTune/issues/28))\
 `[~]` InterTune in Polish
 
 </details>
