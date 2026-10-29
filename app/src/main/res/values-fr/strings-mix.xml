@@ -112,6 +112,7 @@
     <string name="mix_line_blend">Les deux morceaux se fondent, les basses s\'échangent à mi-chemin.</string>
     <string name="mix_line_echo_out">La dernière phrase de %1$s part en écho pendant que %2$s arrive.</string>
     <string name="mix_line_cut">Une coupe nette sur la mesure.</string>
+    <string name="mix_line_cut_timed">Une coupe nette.</string>
     <string name="mix_line_plain">Transition simple : %1$s jusqu\'à sa fin, puis %2$s.</string>
     <string name="mix_edit_two_basslines">Deux lignes de basse pendant %1$s.</string>
     <string name="mix_edit_needs_parts">Nécessite le mixeur à télécharger</string>
@@ -347,8 +348,10 @@
     <string name="mix_simple_crossfade_line">L\'un baisse pendant que l\'autre monte</string>
     <string name="mix_simple_cut">Coupe</string>
     <string name="mix_simple_cut_line">De l\'un à l\'autre d\'un coup, sur une mesure</string>
+    <string name="mix_simple_cut_line_timed">De l\'un à l\'autre d\'un coup</string>
     <string name="mix_simple_bass_swap">Échange des basses</string>
     <string name="mix_simple_bass_swap_line">Les basses changent de place sur un temps, jamais deux à la fois</string>
+    <string name="mix_simple_bass_swap_line_timed">Les basses changent de place d\'un coup, jamais deux à la fois</string>
     <string name="mix_simple_lows_first">Graves d\'abord</string>
     <string name="mix_simple_lows_first_line">La basse de %1$s part avant le reste</string>
     <string name="mix_simple_low_pass_in">Passe-bas en entrée</string>

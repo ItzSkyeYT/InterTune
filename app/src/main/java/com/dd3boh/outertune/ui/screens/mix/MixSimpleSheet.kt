@@ -654,6 +654,8 @@ private fun Rows(
     val a = words.aTitle
     val b = words.bTitle
     val none = res.getString(R.string.mix_simple_none)
+    // Timed in seconds: no bar line or beat to name.
+    val timed = spec.bars == 0
 
     @Composable
     fun Card(tag: String, name: Int, accent: Color, options: List<Option>, selected: Int?, onPick: (Int) -> Unit) {
@@ -676,7 +678,7 @@ private fun Rows(
             listOf(
                 Option(res.getString(R.string.mix_simple_overlap), res.getString(R.string.mix_simple_overlap_line, a)),
                 Option(res.getString(R.string.mix_simple_crossfade), res.getString(R.string.mix_simple_crossfade_line)),
-                Option(res.getString(R.string.mix_simple_cut), res.getString(R.string.mix_simple_cut_line)),
+                Option(res.getString(R.string.mix_simple_cut), res.getString(TimedLines.cut(timed))),
             ),
             read.volume?.ordinal,
         ) { i -> onRow { it.withVolume(VolumeRow.entries[i]) } }
@@ -684,7 +686,7 @@ private fun Rows(
             "E", R.string.mix_simple_eq, look.eq,
             listOf(
                 Option(none, null),
-                Option(res.getString(R.string.mix_simple_bass_swap), res.getString(R.string.mix_simple_bass_swap_line)),
+                Option(res.getString(R.string.mix_simple_bass_swap), res.getString(TimedLines.bassSwap(timed))),
                 Option(res.getString(R.string.mix_simple_lows_first), res.getString(R.string.mix_simple_lows_first_line, words.owner(a))),
             ),
             read.eq?.ordinal,

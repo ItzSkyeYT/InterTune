@@ -153,7 +153,7 @@ class EditorWords(private val res: Resources, val aTitle: String, val bTitle: St
         Preset.RISE -> res.getString(R.string.mix_line_rise, bTitle, aTitle)
         Preset.BLEND -> res.getString(R.string.mix_line_blend)
         Preset.ECHO_OUT -> res.getString(R.string.mix_line_echo_out, owner(aTitle), bTitle)
-        Preset.CUT -> res.getString(R.string.mix_line_cut)
+        Preset.CUT -> res.getString(TimedLines.cutPreset(s.bars == 0))
     }
 
     /** What happens at a moment: "After Hours' hats come in", "Lows swap". */
@@ -265,4 +265,15 @@ class EditorWords(private val res: Resources, val aTitle: String, val bTitle: St
             else -> res.getString(R.string.mix_edit_bm_off, String.format(locale, "%.2f", s.b.barMs / 1000 * abs(1 - ratio) * s.lengthBars), length(s))
         }
     }
+}
+
+/**
+ * The lines that speak of bars and beats, said without them for a change timed in seconds
+ * ([TransitionSpec.bars] 0): without a steady beat in both songs there is no bar to cut on, and
+ * the basses swap at a moment, not on a beat.
+ */
+internal object TimedLines {
+    fun cutPreset(timed: Boolean) = if (timed) R.string.mix_line_cut_timed else R.string.mix_line_cut
+    fun cut(timed: Boolean) = if (timed) R.string.mix_simple_cut_line_timed else R.string.mix_simple_cut_line
+    fun bassSwap(timed: Boolean) = if (timed) R.string.mix_simple_bass_swap_line_timed else R.string.mix_simple_bass_swap_line
 }

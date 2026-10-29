@@ -119,6 +119,7 @@
     <string name="mix_line_blend">Both songs blend evenly, the basses swap halfway.</string>
     <string name="mix_line_echo_out">%1$s last line echoes away while %2$s comes in.</string>
     <string name="mix_line_cut">A hard cut on the bar.</string>
+    <string name="mix_line_cut_timed">A hard cut.</string>
     <string name="mix_line_plain">Plays as a plain change: %1$s to its end, then %2$s.</string>
     <string name="mix_edit_two_basslines">Two basslines for %1$s.</string>
     <string name="mix_edit_needs_parts">Needs the mixer download</string>
@@ -362,8 +363,10 @@
     <string name="mix_simple_crossfade_line">One fades out as the other fades in</string>
     <string name="mix_simple_cut">Cut</string>
     <string name="mix_simple_cut_line">Straight from one to the other on a bar line</string>
+    <string name="mix_simple_cut_line_timed">Straight from one to the other</string>
     <string name="mix_simple_bass_swap">Bass swap</string>
     <string name="mix_simple_bass_swap_line">The basses trade places on one beat, never two at once</string>
+    <string name="mix_simple_bass_swap_line_timed">The basses trade places at one moment, never two at once</string>
     <string name="mix_simple_lows_first">Lows out first</string>
     <string name="mix_simple_lows_first_line">%1$s bass leaves before the rest</string>
     <string name="mix_simple_low_pass_in">Low pass filter in</string>
