@@ -185,6 +185,7 @@ import com.dd3boh.outertune.extensions.findNextMediaItemById
 import com.dd3boh.outertune.extensions.isUserLoggedIn
 import com.dd3boh.outertune.extensions.joinWithin
 import com.dd3boh.outertune.extensions.metadata
+import com.dd3boh.outertune.extensions.toMediaItem
 import com.dd3boh.outertune.extensions.setOffloadEnabled
 import com.dd3boh.outertune.lyrics.LyricsHelper
 import com.dd3boh.outertune.models.ContentFilter
@@ -1855,47 +1856,7 @@ class MusicService : MediaLibraryService(),
                 formatAndLocal to normalizeAudio
             }.collectLatest(scope) { (formatAndLocal, normalizeAudio) ->
                 val (format, isLocal) = formatAndLocal
-                // Reject impossible values rather than trusting the column. The observed range over
-                // 3178 real rows is -16.5 to +12.6, so this only ever catches corruption.
-                val loudnessDb = format?.loudnessDb
-                    ?.takeIf { it.isFinite() && it in -60.0..40.0 }
-                    ?.toFloat()
-
-                normalizeFactor.value = when {
-                    // Off is the only case allowed to leave the signal at unity.
-                    !normalizeAudio -> 1f
-
-                    // A local file has no YouTube loudness and never will. The repair scan excludes
-                    // local rows deliberately, and nothing else writes the column for them, so
-                    // falling through to the presumed value would attenuate every local file by
-                    // 13 dB permanently with no way to undo it from inside the app. Levelling local
-                    // files properly needs ReplayGain or R128 tags read at scan time, which does
-                    // not exist yet, so until then they are left alone.
-                    isLocal -> 1f
-
-                    // loudnessDb is how far above YouTube's -14 LKFS target this track sits.
-                    // Everything above the reference is pulled down to it; everything below is left
-                    // alone, because setVolume cannot exceed 1 and so cannot boost.
-                    //
-                    // The reference is set low on purpose. Normalising to YouTube's own target left
-                    // nearly half the library untouched and still varying; going lower trades
-                    // absolute loudness, which the device volume can recover, for consistency,
-                    // which it cannot.
-                    loudnessDb != null ->
-                        min(10f.pow(-(loudnessDb - NORMALIZATION_REFERENCE_DB) / 20), 1f)
-
-                    // Loudness unknown. This used to be 1f, meaning no attenuation, which is the
-                    // LOUDEST possible answer to "I do not know". Since every track that does have
-                    // a value is pulled down 6 to 10 dB, an unknown one stood out by up to 16 dB.
-                    // That is the entire "some songs are much louder" complaint.
-                    //
-                    // Assume it is loud instead. Being wrong quietly is recoverable with the volume
-                    // rocker; being wrong loudly is not.
-                    else -> min(
-                        10f.pow(-(UNKNOWN_LOUDNESS_DB - NORMALIZATION_REFERENCE_DB) / 20),
-                        1f
-                    )
-                }
+                normalizeFactor.value = levelOf(normalizeAudio, isLocal, format?.loudnessDb)
             }
 
 
@@ -2468,6 +2429,75 @@ class MusicService : MediaLibraryService(),
         queueBoard.getCurrentQueue()?.let { noteByHand(it, items) }
         queueBoard.enqueueEnd(items.mapNotNull { it.metadata })
     }
+
+    /**
+     * The InterTune Recap's last song, slid into the queue as the song playing now (RecapSound): it
+     * plays on from [positionMs], where the Recap had it, in front of the song that was current, and
+     * when it ends the queue carries on, that song from where it was ([resumeAfterSlideIn]). Put in
+     * as by the listener's hand, and the song it goes in front of is set aside, not skipped. With no
+     * queue at all, a queue of its own. Main thread.
+     */
+    fun slideIn(songId: String, positionMs: Long) {
+        scope.launch {
+            if (destroyed) return@launch
+            val song = withContext(Dispatchers.IO) { database.song(songId).first() }?.toMediaMetadata() ?: return@launch
+            if (!qbInit.value) initQueue(onlyIfNeeded = true)
+            if (destroyed) return@launch
+            val q = queueBoard.getCurrentQueue()?.takeIf { it.getSize() > 0 }
+            if (q == null) {
+                val own = queueBoard.addQueue(song.title, listOf(song), replace = true, origin = PlayOrigin.UNKNOWN) ?: return@launch
+                own.setCurrentQueuePos(0)
+                own.lastSongPos = positionMs
+                userChoicePending = true
+                queueBoard.setCurrQueue(own, shouldResume = true)
+                activePlayer.prepare()
+                activePlayer.playWhenReady = true
+                Log.i(TAG, "Recap: $songId slid in at $positionMs ms, a queue of its own")
+                return@launch
+            }
+            // After a restart the player holds nothing until play: the saved queue goes in first,
+            // at the song it stopped on, which is the one the Recap's song goes in front of.
+            if (activePlayer.currentMediaItem == null) queueBoard.setCurrQueue(q)
+            val at = activePlayer.currentMediaItemIndex
+            val current = activePlayer.currentMediaItem
+            val currentAt = activePlayer.currentPosition
+            if (current?.mediaId == songId) {
+                // The song playing already: it plays on from where the Recap had it.
+                quietSeek = !isCasting
+                activePlayer.seekTo(positionMs)
+            } else {
+                noteByHand(q, listOf(song.toMediaItem()))
+                queueBoard.addSongsToQueue(q, at, listOf(song))
+                userChoicePending = true
+                activePlayer.seekTo(at, positionMs)
+                if (current != null) resumeAfterSlideIn = current.mediaId to currentAt
+            }
+            activePlayer.prepare()
+            activePlayer.playWhenReady = true
+            Log.i(TAG, "Recap: $songId slid in at $positionMs ms, in front of ${current?.mediaId} at $currentAt ms")
+        }
+    }
+
+    /**
+     * The volume the app plays [songId] at, before any fade: the player's own volume and the song's
+     * levelling, as the song playing gets them. For the Recap's players, so that its songs are
+     * neither louder nor quieter than the app plays them, and the last one does not jump when it
+     * goes on in the queue.
+     */
+    suspend fun volumeFor(songId: String, isLocal: Boolean): Float {
+        val loudness = withContext(Dispatchers.IO) { runCatching { database.format(songId).first()?.loudnessDb }.getOrNull() }
+        val level = levelOf(dataStore.get(AudioNormalizationKey, true), isLocal, loudness)
+        return min(level * BatteryUse.volume(playerVolume.value, batteryMode), 1f)
+    }
+
+    /**
+     * The song the Recap's last song went in front of, and where it was: when that song ends and
+     * this one comes next, it carries on from there (slideIn). Cleared at the next change of song.
+     */
+    private var resumeAfterSlideIn: Pair<String, Long>? = null
+
+    /** The next seek is the app's own, putting a song back where it was: no seek of the listener's is noted for it. */
+    private var quietSeek = false
 
     /**
      * [items] go into [q] by the listener's hand, not the radio's: the adaptive queue leaves them
@@ -4524,6 +4554,16 @@ class MusicService : MediaLibraryService(),
 
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
         super.onMediaItemTransition(mediaItem, reason)
+        // The song the Recap's last song went in front of, come round by itself after it: from
+        // where it was, before its listen opens, so that the listen carries on the one before.
+        resumeAfterSlideIn?.let { (id, at) ->
+            resumeAfterSlideIn = null
+            if (reason == MEDIA_ITEM_TRANSITION_REASON_AUTO && mediaItem?.mediaId == id && at > 0 && !isCasting) {
+                Log.i(TAG, "Recap: $id carries on from $at ms, after the song slid in front of it")
+                quietSeek = true
+                activePlayer.seekTo(activePlayer.currentMediaItemIndex, at)
+            }
+        }
         songChanges.value += 1
         // How playback has gone so far, at every song, so that a report of a run that ended
         // carries it too. Where the sound goes by kind only, never a device's name: see PlayHealth.
@@ -5097,6 +5137,11 @@ class MusicService : MediaLibraryService(),
             it.lastCheckpointPositionMs = newPosition.positionMs
         }
         val delta = newPosition.positionMs - oldPosition.positionMs
+        // The app putting a song back where it was (slideIn), not the listener seeking in it.
+        if (quietSeek) {
+            quietSeek = false
+            return
+        }
         if (kotlin.math.abs(delta) < 3_000) return
         noteSignal(id, if (delta < 0) SignalKind.SEEK_BACK else SignalKind.SEEK_FORWARD, newPosition.positionMs, delta / 1000f)
     }
@@ -5627,6 +5672,54 @@ class MusicService : MediaLibraryService(),
          * almost nothing reaches this branch. See the loudness repair scan in settings.
          */
         const val UNKNOWN_LOUDNESS_DB = 10f
+
+        /**
+         * How far the app's levelling turns a song down, as a linear factor (normalizeFactor): for
+         * the song playing, and for anything else that plays one of the listener's songs beside the
+         * player, as the Recap does, so that it sounds at the level the song always has.
+         */
+        fun levelOf(normalizeAudio: Boolean, isLocal: Boolean, storedLoudnessDb: Double?): Float {
+            // Reject impossible values rather than trusting the column. The observed range over
+            // 3178 real rows is -16.5 to +12.6, so this only ever catches corruption.
+            val loudnessDb = storedLoudnessDb
+                ?.takeIf { it.isFinite() && it in -60.0..40.0 }
+                ?.toFloat()
+            return when {
+                // Off is the only case allowed to leave the signal at unity.
+                !normalizeAudio -> 1f
+
+                // A local file has no YouTube loudness and never will. The repair scan excludes
+                // local rows deliberately, and nothing else writes the column for them, so
+                // falling through to the presumed value would attenuate every local file by
+                // 13 dB permanently with no way to undo it from inside the app. Levelling local
+                // files properly needs ReplayGain or R128 tags read at scan time, which does
+                // not exist yet, so until then they are left alone.
+                isLocal -> 1f
+
+                // loudnessDb is how far above YouTube's -14 LKFS target this track sits.
+                // Everything above the reference is pulled down to it; everything below is left
+                // alone, because setVolume cannot exceed 1 and so cannot boost.
+                //
+                // The reference is set low on purpose. Normalising to YouTube's own target left
+                // nearly half the library untouched and still varying; going lower trades
+                // absolute loudness, which the device volume can recover, for consistency,
+                // which it cannot.
+                loudnessDb != null ->
+                    min(10f.pow(-(loudnessDb - NORMALIZATION_REFERENCE_DB) / 20), 1f)
+
+                // Loudness unknown. This used to be 1f, meaning no attenuation, which is the
+                // LOUDEST possible answer to "I do not know". Since every track that does have
+                // a value is pulled down 6 to 10 dB, an unknown one stood out by up to 16 dB.
+                // That is the entire "some songs are much louder" complaint.
+                //
+                // Assume it is loud instead. Being wrong quietly is recoverable with the volume
+                // rocker; being wrong loudly is not.
+                else -> min(
+                    10f.pow(-(UNKNOWN_LOUDNESS_DB - NORMALIZATION_REFERENCE_DB) / 20),
+                    1f
+                )
+            }
+        }
 
         const val ROOT = "root"
         const val SONG = "song"

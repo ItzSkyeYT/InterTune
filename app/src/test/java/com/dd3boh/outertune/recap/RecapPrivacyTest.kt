@@ -15,7 +15,8 @@ import java.io.File
 /**
  * "Worked out on this phone. Nothing was uploaded." The start screen says so, and these hold it
  * to that, read from the source as ReleasedFlagsTest reads the flags: the Recap's code talks to
- * nothing on the network, its one count goes through PollChecker as a banner's does
+ * nothing on the network but its sound, which asks YouTube for each song as playing it would and
+ * for its heat map as a visitor, its one count goes through PollChecker as a banner's does
  * (RecapCountTest), and its tools for testing stay in debug builds.
  */
 class RecapPrivacyTest {
@@ -31,13 +32,27 @@ class RecapPrivacyTest {
         .filter { it.extension == "kt" }
 
     @Test
-    fun `nothing of the Recap talks to the network, the sample of a debug build aside`() {
+    fun `nothing of the Recap talks to the network, the sample of a debug build and the heat maps aside`() {
         assertTrue("the Recap's files were not found", recapFiles.size >= 10)
         val network = listOf("okhttp3", "HttpURLConnection", "java.net.URL", "YouTube.", "Umami", "PollChecker", "Firebase")
         for (file in recapFiles.filter { it.name != "RecapSample.kt" }) {
-            val text = code(file)
+            // The sound's one request, a song's heat map: below.
+            val text = code(file).let { if (file.name == "RecapPlayer.kt") it.replace("YouTube.heatMap(", "") else it }
             for (word in network) assertFalse("${file.name} uses $word", word in text)
         }
+    }
+
+    @Test
+    fun `the sound asks for one heat map a song, never for a local file, and as a visitor`() {
+        val player = code(File(sources, "recap/RecapPlayer.kt"))
+        assertEquals(1, Regex("""YouTube\.heatMap\(""").findAll(player).count())
+        // Asked only for the songs that are not files on the phone, once each.
+        assertTrue("pages.mapNotNull { it.song }.filterNot { it.local }.map { it.id }.distinct()" in player)
+        // And not while YouTube is refusing the app.
+        assertTrue("if (Throttle.isBlocked) return null" in player)
+        // Without the account: RecapHeatTest reads the request.
+        val tube = code(File("../innertube/src/main/java/com/zionhuang/innertube/InnerTube.kt"))
+        assertTrue("ytClient(YouTubeClient.WEB, setLogin = false)" in tube)
     }
 
     @Test

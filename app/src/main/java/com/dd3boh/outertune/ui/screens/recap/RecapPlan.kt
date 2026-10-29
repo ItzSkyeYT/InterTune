@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.ui.screens.recap
 
+import com.dd3boh.outertune.recap.RecapPage
 import com.dd3boh.outertune.recap.RecapPiece
 import com.dd3boh.outertune.recap.RecapShown
 import com.dd3boh.outertune.recap.RecapSongShown
@@ -61,3 +62,11 @@ fun planSlides(shown: RecapShown): List<Slide> {
         add(Slide(SlideKind.THANKS, 0, songAt = { shown.song(r.firstSong.songId) }, coverAt = { null }))
     }
 }
+
+/** The story's pages as its sound goes through them (RecapSound): each slide, each of the countdown's steps. */
+fun storyPages(slides: List<Slide>): List<RecapPage> =
+    slides.flatMap { slide -> (0 until slide.steps).map { step -> RecapPage(slide.song(step), slide.piece(step)) } }
+
+/** Which of [storyPages] the story's place is: slide [at] (1 for the first), step [step] of it. */
+fun pageOf(slides: List<Slide>, at: Int, step: Int): Int =
+    slides.take((at - 1).coerceAtLeast(0)).sumOf { it.steps } + step

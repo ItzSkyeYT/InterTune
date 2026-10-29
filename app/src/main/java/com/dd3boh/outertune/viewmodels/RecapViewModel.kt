@@ -6,17 +6,22 @@
 
 package com.dd3boh.outertune.viewmodels
 
+import android.content.Context
 import android.os.SystemClock
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dd3boh.outertune.db.MusicDatabase
+import com.dd3boh.outertune.playback.MusicService
+import com.dd3boh.outertune.recap.RecapPlayer
 import com.dd3boh.outertune.recap.RecapReader
 import com.dd3boh.outertune.recap.RecapShown
+import com.dd3boh.outertune.recap.RecapSound
 import com.dd3boh.outertune.recognition.RecognitionHistory
 import com.dd3boh.outertune.utils.PollChecker
 import com.dd3boh.outertune.utils.reportException
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,10 +42,11 @@ sealed interface RecapState {
 
 /**
  * The Recap's numbers, worked out afresh each time it is opened, since the year goes on until
- * the 31st, and its count. See RecapReader and Recaps.
+ * the 31st, its count, and its sound. See RecapReader and Recaps.
  */
 @HiltViewModel
 class RecapViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val database: MusicDatabase,
     private val history: RecognitionHistory,
     private val pollChecker: PollChecker,
@@ -82,6 +88,30 @@ class RecapViewModel @Inject constructor(
     /** The story was opened: counted once per install and year, a bare number (PollChecker.recapOpened). */
     fun opened(year: Int) {
         viewModelScope.launch { pollChecker.recapOpened(year) }
+    }
+
+    /**
+     * The sound of the Recap open now (RecapSound), kept here so that the window drawn again after
+     * a change of settings carries on with it; silent without the app's player to play it with.
+     */
+    private var sound: RecapPlayer? = null
+
+    fun sound(service: MusicService?): RecapSound {
+        sound?.let { return it }
+        if (service == null) return RecapSound.Silent
+        return RecapPlayer(context, service, viewModelScope).also { sound = it }
+    }
+
+    /** The Recap was closed: its sound decides what becomes of the listener's music (RecapSound.close). */
+    fun closeSound() {
+        sound?.close()
+        sound = null
+    }
+
+    /** The window went for good with the Recap open: its players let go, the listener's music left as it is. */
+    override fun onCleared() {
+        sound?.release()
+        sound = null
     }
 
     private companion object {

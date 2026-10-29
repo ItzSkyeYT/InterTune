@@ -127,8 +127,9 @@ internal val RecapNight = RecapInk.Red
  * growing over the last, eight cut-paper shapes that stay on screen and change from slide to slide,
  * covers stuck on like stickers. A tap on the right goes on and on the left goes back, a press held
  * keeps everything where it is, and each slide moves on by itself when its time is up; the bars at
- * the top say how far the story has got. The pill at the foot names the slide's song (RecapSound:
- * nothing plays in phase 1). The thank-you page stays until it is left.
+ * the top say how far the story has got. The pill at the foot names the slide's song, which plays
+ * under it and on until the next slide's takes over ([sound], RecapSound). The thank-you page stays
+ * until it is left.
  *
  * What a slide holds is in RecapSlides; how things move, in RecapMotion; the shapes and the sheets
  * in RecapStage. [onOpened] is told once the story is opened from the start screen: that is the
@@ -144,6 +145,7 @@ internal fun RecapStory(
     val context = LocalContext.current
     val recap = shown.recap
     val slides = remember(shown) { planSlides(shown) }
+    val pages = remember(slides) { storyPages(slides) }
     val words = remember(recap.year, context) { RecapWords(context, recap.year) }
     val covers = remember { RecapCovers(context.applicationContext) }
     val still = remember { RecapMotion.still() }
@@ -195,6 +197,8 @@ internal fun RecapStory(
     fun openStory() {
         if (stage.current.at != 0 || stage.opening) return
         opened()
+        // The listener's music pauses, and the first song is made ready while the story opens.
+        sound.open(pages)
         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
         stage.open()
     }
@@ -236,12 +240,18 @@ internal fun RecapStory(
         if (page.at == 0) return@LaunchedEffect
         val slide = slides[page.at - 1]
         haptic.performHapticFeedback(if (slide.kind == SlideKind.NUMBER_ONE) HapticFeedbackType.LongPress else HapticFeedbackType.TextHandleMove)
-        val song = slide.song(page.step)
-        val piece = slide.piece(page.step)
-        if (song != null && piece != null) sound.play(song.id, piece)
+        // Opened already, unless the window was drawn again past its start screen.
+        sound.open(pages)
+        sound.show(pageOf(slides, page.at, page.step))
     }
+    // Nothing plays while the story waits, nor away from the app. The speaker button mutes it.
     LaunchedEffect(held, stopped, away) { if (held || stopped || away) sound.pause() else sound.resume() }
-    DisposableEffect(sound) { onDispose { sound.stop() } }
+    LaunchedEffect(muted) { sound.mute(muted) }
+    // Headphones out, or another app's sound for good: the story pauses with its sound.
+    DisposableEffect(sound) {
+        sound.onInterrupted = { stopped = true }
+        onDispose { sound.onInterrupted = null }
+    }
 
     // The bars of the phone follow the paper: dark icons on a light one, light on a dark one.
     val view = LocalView.current
@@ -652,7 +662,7 @@ private fun SongPill(song: RecapSongShown?, night: Boolean, still: Boolean, mute
         }
         Spacer(Modifier.width(10.dp))
         SoundBars(song, muted, still)
-        // Phase 1 is silent (RecapSound): the button only shows the choice there will be.
+        // Mutes the story's sound and lets it play on unheard (RecapSound.mute).
         Box(Modifier.size(40.dp).clip(CircleShape).clickable(onClick = onMute), contentAlignment = Alignment.Center) {
             Icon(
                 if (muted) Icons.AutoMirrored.Rounded.VolumeOff else Icons.AutoMirrored.Rounded.VolumeUp,

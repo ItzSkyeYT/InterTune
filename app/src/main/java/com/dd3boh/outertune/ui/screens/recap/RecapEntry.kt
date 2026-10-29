@@ -30,6 +30,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
@@ -51,6 +52,7 @@ import androidx.core.view.WindowCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.LocalDatabase
+import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.RecapPopUpShownKey
 import com.dd3boh.outertune.constants.RecapRevealedEarlyKey
@@ -58,6 +60,7 @@ import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.recap.RecapCalendar
 import com.dd3boh.outertune.recap.RecapDoor
 import com.dd3boh.outertune.recap.RecapReader
+import com.dd3boh.outertune.recap.RecapSound
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.viewmodels.RecapState
 import com.dd3boh.outertune.viewmodels.RecapViewModel
@@ -125,11 +128,17 @@ fun rememberRecapOnShow(): Int? {
 /**
  * The Recap in a window of its own over the whole screen, edge to edge: the story's dark runs
  * under the status bar and the navigation bar, whose icons are drawn light on it. Back closes it.
+ * However it is closed, its sound is told first (RecapSound.close): the listener's music carries
+ * on, or the last song goes on in their queue.
  */
 @Composable
-fun RecapDialog(year: Int, onClose: () -> Unit) {
+fun RecapDialog(year: Int, onClose: () -> Unit, viewModel: RecapViewModel = hiltViewModel()) {
+    val service = LocalPlayerConnection.current?.service
+    val sound = remember(viewModel, service) { viewModel.sound(service) }
+    val closed by rememberUpdatedState(onClose)
+    val close = remember(viewModel) { { viewModel.closeSound(); closed() } }
     Dialog(
-        onDismissRequest = onClose,
+        onDismissRequest = close,
         properties = DialogProperties(
             usePlatformDefaultWidth = false,
             dismissOnClickOutside = false,
@@ -147,13 +156,13 @@ fun RecapDialog(year: Int, onClose: () -> Unit) {
             }
             onDispose { }
         }
-        RecapHost(year, onClose)
+        RecapHost(year, close, viewModel, sound)
     }
 }
 
 /** The year's Recap worked out afresh (the year goes on until the 31st), then told. */
 @Composable
-private fun RecapHost(year: Int, onClose: () -> Unit, viewModel: RecapViewModel = hiltViewModel()) {
+private fun RecapHost(year: Int, onClose: () -> Unit, viewModel: RecapViewModel, sound: RecapSound) {
     LaunchedEffect(year) { viewModel.load(year) }
     val state by viewModel.state.collectAsState()
     // The story draws its own paper; behind the working screen, the start screen's red.
@@ -161,7 +170,7 @@ private fun RecapHost(year: Int, onClose: () -> Unit, viewModel: RecapViewModel 
         when (val s = state) {
             RecapState.Working -> Working()
             RecapState.Nothing -> NothingYet(year, onClose)
-            is RecapState.Ready -> RecapStory(s.shown, onOpened = { viewModel.opened(year) }, onClose = onClose)
+            is RecapState.Ready -> RecapStory(s.shown, onOpened = { viewModel.opened(year) }, onClose = onClose, sound = sound)
         }
     }
 }

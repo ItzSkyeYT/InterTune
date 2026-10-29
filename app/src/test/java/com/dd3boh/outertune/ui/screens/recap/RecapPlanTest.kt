@@ -98,6 +98,23 @@ class RecapPlanTest {
     }
 
     @Test
+    fun `the sound goes through the story page by page, the countdown's steps each a page`() {
+        val slides = plan(recap())
+        val pages = storyPages(slides)
+        assertEquals(
+            listOf("first", "long", "evening", "streaky", "one", "found", "five", "four", "three", "two", "one", "one", "first"),
+            pages.map { it.song?.id },
+        )
+        assertEquals(RecapPiece(66_666L, 9_000L), pages.first().piece)
+        // Slide 7, the countdown, begins on page 6; its last step is page 9; number one is page 10.
+        assertEquals(0, pageOf(slides, 1, 0))
+        assertEquals(6, pageOf(slides, 7, 0))
+        assertEquals(9, pageOf(slides, 7, 3))
+        assertEquals(10, pageOf(slides, 8, 0))
+        assertEquals(pages.lastIndex, pageOf(slides, slides.size, 0))
+    }
+
+    @Test
     fun `the piece under a slide is a third of the way in, as long as the slide`() {
         val since = plan(recap()).first()
         assertEquals(RecapPiece(66_666L, 9_000L), since.piece(0))

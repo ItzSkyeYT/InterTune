@@ -524,11 +524,12 @@ object Unreleased {
      * one that opens it at once and one that makes today the reveal day, and a made-up year to
      * write from adb (RecapSample).
      *
-     * Phase 1, for the December release: the numbers, the slides, the share cards and the way in.
-     * Silent: nothing plays under the slides yet (RecapSound). Its texts are held back from
-     * translators for now, and the thank-you page holds placeholder words. When it ships:
-     * set this to true, or delete it with the checks that read it, in RecapEntry (twice),
-     * SettingsScreen, SettingsTwoPane, DeveloperFrag and RecapSample.
+     * For the December release: the numbers, the slides, the share cards and the way in, and the
+     * sound under the slides (RecapSound): each slide's song from its Most replayed peak, the
+     * listener's music paused while it plays, the last song slid into their queue at the end. Its
+     * texts are held back from translators for now. When it ships: set this to true, or delete it
+     * with the checks that read it, in RecapEntry (twice), SettingsScreen, SettingsTwoPane,
+     * DeveloperFrag and RecapSample.
      */
     val RECAP = BuildConfig.DEBUG
 

@@ -18,8 +18,11 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
 
-/** A song as the Recap shows it. [cover] is what the image loader is handed; [durationS] is -1 when unknown. */
-data class RecapSongShown(val id: String, val title: String, val artists: String, val cover: Any?, val durationS: Int)
+/**
+ * A song as the Recap shows it. [cover] is what the image loader is handed; [durationS] is -1 when
+ * unknown; [local] for a file on the phone, which has no heat map to start it from (RecapHeat).
+ */
+data class RecapSongShown(val id: String, val title: String, val artists: String, val cover: Any?, val durationS: Int, val local: Boolean = false)
 
 data class RecapArtistShown(val id: String, val name: String, val picture: String?)
 
@@ -119,6 +122,7 @@ object RecapReader {
         artists = song.artists.joinToString(", ") { it.name },
         cover = if (song.song.isLocal) song.song.getThumbnailModel(COVER_PX, COVER_PX) else song.song.thumbnailUrl?.resize(COVER_PX, COVER_PX),
         durationS = song.song.duration,
+        local = song.song.isLocal,
     )
 
     private fun shown(artist: ArtistEntity) = RecapArtistShown(artist.id, artist.name, artist.thumbnailUrl?.resize(FACE_PX, FACE_PX))
