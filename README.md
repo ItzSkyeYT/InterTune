@@ -164,29 +164,27 @@ Every change in detail, and why this fork exists: [docs/FEATURES.md](https://git
 What's being worked on, roughly in order. `[x]` is done, `[~]` is built and being tested, `[ ]` is still to do. Nothing here has a date, and plans can change. Ideas are welcome in #feature-requests on [Discord](https://discord.gg/68jmqhMjXk) or as a [GitHub issue](https://github.com/ItzSkyeYT/InterTune/issues/new/choose).
 
 <details>
-<summary><b>Next: 0.12.6 (fixes)</b> · 3 of 6 done, 3 to test</summary>
+<summary><b>Next: 0.12.6 (fixes)</b> · 3 of 7 done, 3 to test</summary>
 
 `[x]` Slim navbar icons centred again ([#54](https://github.com/ItzSkyeYT/InterTune/issues/54))\
-`[x]` A crash on some artist pages fixed ([#53](https://github.com/ItzSkyeYT/InterTune/issues/53))\
-`[~]` Covers of downloaded songs show without a connection\
+`[~]` A crash on some artist pages fixed ([#53](https://github.com/ItzSkyeYT/InterTune/issues/53))\
+`[ ]` Covers of downloaded songs show without a connection *(in progress)*\
 `[~]` Saved albums keep YouTube Music's order\
-`[~]` High and Highest quality prefer Opus over a slightly larger AAC stream ([#57](https://github.com/ItzSkyeYT/InterTune/issues/57))\
-`[x]` InterTune in Polish
+`[x]` Songs play again on Low quality\
+`[x]` High and Highest quality prefer Opus over a slightly larger AAC stream ([#57](https://github.com/ItzSkyeYT/InterTune/issues/57))\
+`[~]` InterTune in Polish
 
 </details>
 
 <details>
-<summary><b>Then: 0.13</b> · 0 of 18 done, 6 to test</summary>
+<summary><b>Then: 0.13</b> · 0 of 15 done, 5 to test</summary>
 
 `[ ]` Listen together: one person plays, friends follow the same song in real time *(in progress)*\
 `[ ]` Your year in InterTune, a recap *(in progress)*\
-`[ ]` What's playing works offline and names the song once you're back online ([#48](https://github.com/ItzSkyeYT/InterTune/issues/48)) *(in progress)*\
-`[~]` What's playing can name a song playing in another app on your phone, like Reels or TikTok\
-`[ ]` With shuffle on, picking a song from a playlist keeps the shuffle going\
+`[~]` What's playing works offline and names the song once you're back online ([#48](https://github.com/ItzSkyeYT/InterTune/issues/48))\
 `[ ]` Report a problem without a GitHub account, and follow it on GitHub from a link *(in progress)*\
 `[ ]` Find songs you saved twice, in Liked or your library ([#47](https://github.com/ItzSkyeYT/InterTune/issues/47))\
 `[ ]` Premium accounts get the 256 kbps stream\
-`[~]` A sheet that shows everything that changes the sound on its way to your ears\
 `[~]` Spatial audio for surround recordings, and Strength, Room and Ambience controls\
 `[~]` Choose which lyrics sources are used, and in what order\
 `[~]` Similar artists in the Favourite artists mix\

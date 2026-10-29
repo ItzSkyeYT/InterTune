@@ -1592,7 +1592,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recommendations_origin_discover">discover</string>
     <string name="audio_quality_max">Highest available</string>
     <string name="audio_quality_now">Playing now at</string>
-    <string name="audio_quality_no_lossless">No lossless is offered here, so this takes the largest stream available.</string>
+    <string name="audio_quality_no_lossless">No lossless is offered here, so this takes the best stream available.</string>
     <string name="audio_quality_now_nothing">Not known yet</string>
     <string name="widget_label">Now playing</string>
     <string name="widget_description">What is playing, its controls, and Quick picks.</string>

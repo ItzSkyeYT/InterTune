@@ -1267,7 +1267,7 @@
     <string name="recommendations_origin_discover">Découvrir du nouveau</string>
     <string name="audio_quality_max">La meilleure disponible</string>
     <string name="audio_quality_now">Qualité de lecture actuelle</string>
-    <string name="audio_quality_no_lossless">Aucun flux sans perte n\'est proposé ici, donc ceci prend le plus gros flux disponible.</string>
+    <string name="audio_quality_no_lossless">Aucun flux sans perte n\'est proposé ici, donc ceci prend le meilleur flux disponible.</string>
     <string name="audio_quality_now_nothing">Pas encore connue</string>
     <!-- The home screen widget and its settings. -->
     <string name="widget_label">En cours de lecture</string>
