@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The gate of a tester build in French: see values/strings-tester.xml. -->
+<resources>
+    <string name="tester_lock_title">Version de test</string>
+    <string name="tester_lock_text">Cette version est réservée aux testeurs d\'InterTune. Saisissez le code que le bot vous a donné avec le téléchargement.</string>
+    <string name="tester_lock_field">Code de testeur</string>
+    <string name="tester_lock_open">Ouvrir</string>
+    <string name="tester_lock_unknown">Ce code ne fonctionne pas. Vérifiez-le, ou redemandez-le au bot dans #testers.</string>
+    <string name="tester_lock_revoked">Ce code ne fonctionne plus, car le rôle Tester vous a été retiré. Vous pouvez vous réinscrire dans Salons et rôles sur Discord.</string>
+    <string name="tester_lock_not_checked">Le code n\'a pas pu être vérifié. Connectez-vous à Internet et réessayez.</string>
+    <string name="tester_lock_help">Pas de code ? Utilisez /code dans #testers sur Discord.</string>
+</resources>

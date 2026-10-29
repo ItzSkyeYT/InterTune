@@ -160,6 +160,22 @@ android {
             // build from the next: tools/preview/publish-preview.sh passes -PpreviewVersion=<stamp>.
             // Without the property nothing changes.
             (project.findProperty("previewVersion") as String?)?.let { versionNameSuffix = "-preview.$it" }
+
+            // The tester lock: a preview published for testers opens only with a tester's own code
+            // (src/preview, testerlock). publish-preview.sh passes -Pintertune.testerLock=true; without
+            // it, as in a preview built for a phone of our own, there is no lock. No other build type
+            // reads the property, and none of them has the gate's code. The door is what says yes or
+            // no to a code; -Pintertune.testerDoor points an emulator at a stand-in.
+            val testerLock = project.findProperty("intertune.testerLock") == "true"
+            val testerDoor = (project.findProperty("intertune.testerDoor") as String?)
+                ?: "https://intertune-testbuild.intertune.workers.dev"
+            // Read when the app runs, never copied into the classes that use them: a build that changed
+            // only these would otherwise keep the old values in whatever Kotlin did not compile again.
+            buildConfigField("boolean", "TESTER_LOCK", "Boolean.parseBoolean(\"$testerLock\")")
+            buildConfigField("String", "TESTER_DOOR", "String.valueOf(\"$testerDoor\")")
+            // The same two in the manifest, where publish-preview.sh reads them before it publishes.
+            manifestPlaceholders["testerLock"] = testerLock.toString()
+            manifestPlaceholders["testerDoor"] = testerDoor
         }
 
         // userdebug is release builds without minify
@@ -173,11 +189,20 @@ android {
         }
     }
 
-    // userdebug is release without minify: to a car it says what release says (src/release).
+    // userdebug is release without minify: to a car it says what release says (src/release), and it
+    // has release's no tester lock.
     sourceSets {
         getByName("userdebug") {
             manifest.srcFile("src/release/AndroidManifest.xml")
             res.srcDir("src/release/res")
+            java.srcDir("src/release/java")
+        }
+        // The tester lock's rules and its door client are plain Kotlin, in src/preview/jvm. The preview
+        // build has them in the app; the other build types' unit tests compile them beside the tests.
+        // So the debug unit tests, which the full check runs, test them, and no other build has them.
+        getByName("preview") { java.srcDir("src/preview/jvm") }
+        for (tests in listOf("testDebug", "testRelease", "testUserdebug")) {
+            getByName(tests) { java.srcDir("src/preview/jvm") }
         }
     }
 

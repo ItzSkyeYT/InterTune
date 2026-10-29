@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Preview only. See res/xml/network_security_config.xml for why. -->
+    <application
+        android:networkSecurityConfig="@xml/network_security_config"
+        tools:replace="android:networkSecurityConfig">
+
+        <!-- Whether this build has the tester lock on, and the door it asks (build.gradle.kts, testerlock).
+             publish-preview.sh reads both before a build goes to testers. -->
+        <meta-data
+            android:name="intertune.testerLock"
+            android:value="${testerLock}" />
+        <meta-data
+            android:name="intertune.testerDoor"
+            android:value="${testerDoor}" />
+    </application>
+</manifest>
