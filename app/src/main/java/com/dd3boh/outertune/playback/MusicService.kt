@@ -3478,8 +3478,9 @@ class MusicService : MediaLibraryService(),
     private fun automixConditions() = AutomixController.Conditions(
         casting = isCasting,
         sleepTimer = sleepTimer.isActive,
-        // The setting, not whether it runs: the sink was built with the short buffer for it.
-        headTracking = headTrackingWanted || lowLatencyAudio,
+        // The setting, not whether it runs: with it on, the output can be set up with the short
+        // buffer for any song (OutputBufferSize), and a blend's drain does not count on that.
+        headTracking = headTrackingWanted,
         upmix = spatialUpmixProcessor.enabled,
         ambience = binauralProcessor.enabled && binauralProcessor.ambience > 0f,
         ffmpeg = ENABLE_FFMETADATAEX && audioDecoder != DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF,
