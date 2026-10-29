@@ -1,9 +1,7 @@
 package com.dd3boh.outertune.playback
 
-import coil3.imageLoader
-import coil3.request.CachePolicy
-import coil3.request.ImageRequest
 import com.dd3boh.outertune.ui.player.ART_PREVIEW_PX
+import com.dd3boh.outertune.utils.DownloadCovers
 import com.dd3boh.outertune.ui.utils.resize
 import android.content.Context
 import android.net.ConnectivityManager
@@ -722,6 +720,11 @@ class DownloadUtil @Inject constructor(
      * media3 ignores a song it has no download for.
      */
     fun removeDownload(id: String) {
+        CoroutineScope(Dispatchers.IO).launch {
+            runCatching { database.song(id).first()?.thumbnailUrl }.getOrNull()?.takeIf { it.startsWith("http") }?.let { url ->
+                for (model in listOf(url, url.resize(ART_PREVIEW_PX, ART_PREVIEW_PX))) DownloadCovers.remove(context.filesDir, model)
+            }
+        }
         deleteSong(id)
         DownloadService.sendRemoveDownload(context, ExoDownloadService::class.java, id, false)
     }
@@ -788,8 +791,8 @@ class DownloadUtil @Inject constructor(
     }
 
     /**
-     * A downloaded song's cover, fetched now into the image cache, so it shows with no network even
-     * if the song never played online (dvd, 27 Oct 2026: covers came only from playing). Two
+     * A downloaded song's cover, kept now as a file in the app's own storage (DownloadCovers), so it shows
+     * with no network even if the song never played online and after Android empties the image cache (dvd, 27 Oct 2026: covers came only from playing). Two
      * addresses, the ones that are the same on every phone: the plain one lists ask for, and the
      * player's small first cover (ART_PREVIEW_PX). The player's sharp cover depends on the screen;
      * offline it falls back to the small one under it.
@@ -799,9 +802,7 @@ class DownloadUtil @Inject constructor(
             val url = runCatching { database.song(id).first()?.thumbnailUrl }.getOrNull()
             if (url.isNullOrBlank() || !url.startsWith("http")) return@launch
             for (model in listOf(url, url.resize(ART_PREVIEW_PX, ART_PREVIEW_PX))) {
-                context.imageLoader.enqueue(
-                    ImageRequest.Builder(context).data(model).memoryCachePolicy(CachePolicy.DISABLED).build()
-                )
+                DownloadCovers.save(context.filesDir, model)
             }
         }
     }

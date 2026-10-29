@@ -37,6 +37,6 @@ class DownloadKeepsCoverTest {
         assertTrue(util.contains("finishedSinceMove += download.request.id\n                        keepCoverForOffline(download.request.id)"))
         val keep = util.substringAfter("private fun keepCoverForOffline(").substringBefore("\n    }\n")
         assertTrue(keep.contains("listOf(url, url.resize(ART_PREVIEW_PX, ART_PREVIEW_PX))"))
-        assertTrue(keep.contains("context.imageLoader.enqueue("))
+        assertTrue(keep.contains("DownloadCovers.save(context.filesDir, model)"))
     }
 }
