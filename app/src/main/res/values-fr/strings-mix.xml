@@ -295,8 +295,8 @@
     <string name="mix_pill_yours">Votre enchaînement : %1$s</string>
     <string name="mix_pill_described">Enchaînement de %1$s vers %2$s : %3$s</string>
     <string name="mix_pair">%1$s vers %2$s</string>
-    <string name="mix_edit_transition">Modifier l\'enchaînement</string>
-    <string name="mix_edit_last_transition">Modifier le dernier enchaînement</string>
+    <string name="mix_edit_transition">Modifier la transition</string>
+    <string name="mix_edit_last_transition">Modifier la dernière transition</string>
     <string name="mix_back_to_auto">Revenir à Auto</string>
     <string name="mix_plain_for_these">Sans mix pour ces deux titres</string>
     <string name="mix_menu_on">Mix : activé</string>

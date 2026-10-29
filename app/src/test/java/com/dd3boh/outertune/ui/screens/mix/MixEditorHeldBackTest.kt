@@ -60,6 +60,17 @@ class MixEditorHeldBackTest {
     }
 
     @Test
+    fun `the menu entry says what the sheet it opens is called, in English and in French`() {
+        // French said "Modifier l'enchaînement" in the menu and "Modifier la transition" on the sheet it opened.
+        val res = File("src/main/res")
+        for (path in listOf("values/strings-mix.xml", "values-fr/strings-mix.xml")) {
+            val file = File(res, path).readText()
+            fun text(name: String) = Regex("""<string name="$name">(.*?)</string>""").find(file)?.groupValues?.get(1)
+            assertTrue("$path: ${text("mix_edit_transition")} opens ${text("mix_edit_title")}", text("mix_edit_transition") == text("mix_edit_title"))
+        }
+    }
+
+    @Test
     fun `none of its words are in the files translators see yet`() {
         val res = File("src/main/res")
         for (path in listOf("values/strings-ot.xml", "values-fr/strings-ot.xml")) {
