@@ -2485,7 +2485,7 @@ class MusicService : MediaLibraryService(),
      * goes on in the queue.
      */
     suspend fun volumeFor(songId: String, isLocal: Boolean): Float {
-        val loudness = withContext(Dispatchers.IO) { runCatching { database.format(songId).first()?.loudnessDb }.getOrNull() }
+        val loudness = withContext(Dispatchers.IO) { database.readOrNull { formatRow(songId) }?.loudnessDb }
         val level = levelOf(dataStore.get(AudioNormalizationKey, true), isLocal, loudness)
         return min(level * BatteryUse.volume(playerVolume.value, batteryMode), 1f)
     }

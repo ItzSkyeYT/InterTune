@@ -59,7 +59,8 @@ class RecapSoundRulesTest {
         // Headphones taken out stop it, as they stop the app's player.
         assertTrue(".setHandleAudioBecomingNoisy(true)" in player)
         // Each song at the app's own level: the levelling the song playing gets, one rule for both.
-        assertEquals(2, Regex("""service\.volumeFor\(song\.id, song\.local\)""").findAll(player).count())
+        assertTrue("volumes[song.id] ?: service.volumeFor(song.id, song.local)" in player)
+        assertEquals(2, Regex("""val volume = volumeOf\(song\)""").findAll(player).count())
         val service = code("playback/MusicService.kt")
         assertTrue("normalizeFactor.value = levelOf(normalizeAudio, isLocal, format?.loudnessDb)" in service)
         assertTrue("val level = levelOf(dataStore.get(AudioNormalizationKey, true), isLocal, loudness)" in service)

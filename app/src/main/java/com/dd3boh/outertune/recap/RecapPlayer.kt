@@ -76,8 +76,9 @@ class RecapPlayer(
     private val holding = HashMap<ExoPlayer, Pair<String, Long>>()
     private val failed = HashSet<ExoPlayer>()
 
-    /** Each player's song at the volume the app plays it at (MusicService.volumeFor). */
+    /** Each player's song at the volume the app plays it at (MusicService.volumeFor), and those volumes by song. */
     private val gain = HashMap<ExoPlayer, Float>()
+    private val volumes = HashMap<String, Float>()
 
     private val heat = HashMap<String, Deferred<List<HeatMarker>?>>()
     private var asking: Job? = null
@@ -108,7 +109,10 @@ class RecapPlayer(
         // for its own at once (startOf).
         val ids = pages.mapNotNull { it.song }.filterNot { it.local }.map { it.id }.distinct()
         for (id in ids) heat[id] = scope.async(Dispatchers.IO, start = CoroutineStart.LAZY) { heatMap(id) }
-        asking = scope.launch { for (id in ids) heat[id]?.await() }
+        asking = scope.launch {
+            for (id in ids) heat[id]?.await()
+            for (song in pages.mapNotNull { it.song }.distinctBy { it.id }) volumeOf(song)
+        }
         // The first song made ready while the story opens, where it starts without a heat map: its
         // stream is found meanwhile, and the heat map's start, when it comes in time, is a seek away.
         readying = scope.launch { makeReady(-1, waitMs = 0L) }
@@ -172,6 +176,7 @@ class RecapPlayer(
         holding.clear()
         failed.clear()
         gain.clear()
+        volumes.clear()
         focus?.let { AudioManagerCompat.abandonAudioFocusRequest(audio, it) }
         focus = null
     }
@@ -209,7 +214,7 @@ class RecapPlayer(
         takingOver?.cancel()
         takingOver = scope.launch {
             val (from, how) = startOf(song, piece, waitMs = HEAT_WAIT_MS)
-            val volume = service.volumeFor(song.id, song.local)
+            val volume = volumeOf(song)
             val next = spare ?: return@launch
             val old = active
             if (holding[next] != song.id to from) load(next, song.id, from)
@@ -240,19 +245,29 @@ class RecapPlayer(
         val song = pages[index].song ?: return
         val piece = pages[index].piece ?: RecapPiece.of(song.durationS, 0)
         val (from, _) = startOf(song, piece, waitMs = waitMs)
-        val volume = service.volumeFor(song.id, song.local)
+        val volume = volumeOf(song)
         val p = spare ?: return
         if (holding[p] != song.id to from) load(p, song.id, from)
         gain[p] = volume
     }
 
     private fun load(p: ExoPlayer, songId: String, fromMs: Long) {
-        failed.remove(p)
         p.playWhenReady = false
-        p.setMediaItem(MediaItem.Builder().setMediaId(songId).setUri(songId).setCustomCacheKey(songId).build(), fromMs)
-        p.prepare()
+        if (holding[p]?.first == songId && p !in failed && p.playbackState != Player.STATE_IDLE) {
+            // The same song made ready from another start, the first one while its heat map was
+            // on its way: only the start moves, and the stream found for it is kept.
+            p.seekTo(fromMs)
+        } else {
+            failed.remove(p)
+            p.setMediaItem(MediaItem.Builder().setMediaId(songId).setUri(songId).setCustomCacheKey(songId).build(), fromMs)
+            p.prepare()
+        }
         holding[p] = songId to fromMs
     }
+
+    /** The volume the app plays [song] at, asked once. */
+    private suspend fun volumeOf(song: RecapSongShown): Float =
+        volumes[song.id] ?: service.volumeFor(song.id, song.local).also { volumes[song.id] = it }
 
     /** Where [song] starts, and what said so, waiting up to [waitMs] for its heat map. */
     private suspend fun startOf(song: RecapSongShown, piece: RecapPiece, waitMs: Long): Pair<Long, String> {
