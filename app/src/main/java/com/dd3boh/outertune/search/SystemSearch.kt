@@ -34,7 +34,7 @@ object SystemSearch {
     const val ALBUMS = 2
     const val PLAYLISTS = 2
 
-    /** The scheme of the one link of the app's own: a playlist of the library, which has no YouTube page. */
+    /** The app's own scheme: a playlist of the library, which has no YouTube page, and a song to play now (songLink). */
     const val APP_SCHEME = "intertune"
 
     /** One result as the phone shows it, under [kind] and [id] as AutoArt draws its cover. */
@@ -49,7 +49,8 @@ object SystemSearch {
         return (fromPath ?: selectionArgs?.firstOrNull()).orEmpty().trim()
     }
 
-    fun songLink(id: String) = "https://music.youtube.com/watch?v=$id"
+    /** A tapped song plays, where a song link from elsewhere only opens it (YouTubeLink.Video.playNow). */
+    fun songLink(id: String) = "$APP_SCHEME://play?v=$id"
     fun artistLink(id: String) = "https://music.youtube.com/channel/$id"
     fun albumLink(id: String) = "https://music.youtube.com/browse/$id"
     fun playlistLink(id: String) = "$APP_SCHEME://playlist/$id"

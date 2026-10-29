@@ -84,7 +84,7 @@ class LyricsTimingTest {
         val view = File("src/main/java/com/dd3boh/outertune/ui/component/Lyrics.kt").readText()
         // The loop is keyed on the lyrics alone, so it reads the move through an updated state.
         assertTrue(view.contains("val shiftNow by rememberUpdatedState(shiftMs)"))
-        assertTrue("the highlight", view.contains("LyricsTiming.lyricsPosition(sliderPosition ?: playerConnection.player.currentPosition, shiftNow)"))
+        assertTrue("the highlight", view.contains("LyricsTiming.lyricsPosition(sliderPosition ?: clock.at(drawnAt), shiftNow)"))
         assertTrue("a tap on a line", view.contains("seekTo(LyricsTiming.songPosition(item.start.toLong(), shiftNow))"))
         assertTrue("the video of picked lines", view.contains("LyricsTiming.songPosition(it.start.toLong(), shiftNow)"))
         assertFalse("no read of the position against the lines left unmoved",

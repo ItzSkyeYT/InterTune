@@ -9,12 +9,10 @@
 
 package com.dd3boh.outertune.ui.player
 
-import android.annotation.SuppressLint
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -76,6 +74,7 @@ import com.dd3boh.outertune.ui.utils.keyboardClickable
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import com.dd3boh.outertune.ui.utils.rememberGlassSpec
+import com.dd3boh.outertune.ui.utils.stillGlass
 import com.dd3boh.outertune.utils.rememberPreference
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
@@ -83,9 +82,14 @@ import com.dd3boh.outertune.ui.utils.LocalLandscape
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 
+/**
+ * [position] is asked where the song is each time the progress line is drawn. Handed in as a
+ * number, it had the whole bar composed again at every tick of the player's clock, twice a second
+ * on every screen, for a line two pixels high that is drawn without composing anything.
+ */
 @Composable
 fun MiniPlayer(
-    position: Long,
+    position: () -> Long,
     duration: Long,
     modifier: Modifier = Modifier,
     /** Opens the player from the keys: the centre key on the title. Touch opens it from the sheet around this. */
@@ -125,8 +129,9 @@ fun MiniPlayer(
                 if (glassOn) {
                     Modifier
                         .padding(horizontal = 8.dp, vertical = 2.dp)
-                        .drawBackdrop(
-                            backdrop = glass!!.backdrop,
+                        // Still on Saver: the same panel, a frosted pane, nothing behind it read (GlassSpec.still).
+                        .then(if (glass!!.still) Modifier.stillGlass { glassShape }.background(glass.stillFill(), glassShape) else Modifier.drawBackdrop(
+                            backdrop = glass.backdrop,
                             shape = { glassShape },
                             effects = {
                                 vibrancy()
@@ -140,14 +145,14 @@ fun MiniPlayer(
                                     chromaticAberration = true
                                 )
                             }
-                        )
+                        ))
                         .background(glassTint, glassShape)
                 } else Modifier
             )
     ) {
         PlaybackOrder {
             LinearProgressIndicator(
-                progress = { (position.toFloat() / duration).coerceIn(0f, 1f) },
+                progress = { (position().toFloat() / duration).coerceIn(0f, 1f) },
                 drawStopIndicator = { },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -243,7 +248,6 @@ fun MiniPlayer(
     }
 }
 
-@SuppressLint("UnusedBoxWithConstraintsScope")
 @Composable
 fun MiniMediaInfo(
     mediaMetadata: MediaMetadata,
@@ -261,7 +265,9 @@ fun MiniMediaInfo(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
     ) {
-        BoxWithConstraints(
+        // A plain Box: the size of the cover is known (px, above), and nothing in it asks for
+        // its constraints.
+        Box(
             modifier = Modifier
                 .padding(6.dp)
                 .size(48.dp)

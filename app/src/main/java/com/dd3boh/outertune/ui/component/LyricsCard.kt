@@ -86,7 +86,9 @@ import coil3.imageLoader
 import coil3.request.ImageRequest
 import coil3.request.allowHardware
 import coil3.toBitmap
+import com.dd3boh.outertune.LocalBatteryMode
 import com.dd3boh.outertune.LocalPlayerConnection
+import com.dd3boh.outertune.playback.BatteryUse
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.DEFAULT_PLAYER_BACKGROUND
 import com.dd3boh.outertune.constants.LivingColours
@@ -334,7 +336,9 @@ fun LyricsCardDialog(lines: List<String>, song: MediaMetadata, video: LyricsVide
     val livingStrength by rememberPreference(LivingStrengthKey, LivingField.DEFAULT_STRENGTH)
     val livingSmoothing by rememberPreference(LivingSmoothingKey, LivingField.DEFAULT_SMOOTHING)
     val livingColours by rememberEnumPreference(LivingColoursKey, LivingColours.MAIN)
-    val living = background == PlayerBackgroundStyle.LIVING && Unreleased.LIVING_BACKGROUND
+    // As the player has it: Blur in its place while Battery use is on Saver.
+    val living = BatteryUse.playerBackground(background, LocalBatteryMode.current, DEFAULT_PLAYER_BACKGROUND) == PlayerBackgroundStyle.LIVING &&
+        Unreleased.LIVING_BACKGROUND
     var cover by remember(song.id) { mutableStateOf<Bitmap?>(null) }
     var livingFrom by remember(song.id, livingColours) { mutableStateOf<Pair<IntArray?, IntArray?>?>(null) }
 

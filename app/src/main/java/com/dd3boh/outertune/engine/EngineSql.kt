@@ -178,6 +178,38 @@ object EngineSql {
     /** The listens started after :since, in the engine's shape: what Playing now counts before following the session. */
     const val LISTENS_SINCE = "SELECT $LISTEN_COLUMNS FROM listen WHERE startedAt > :since"
 
+    /*
+     * What the adaptive queue's taste reads of the log, a little at a time (ListenLog): every row
+     * in id order the first time, and after that only the rows added since (ids only grow: the
+     * table is AUTOINCREMENT) and the rows that were still open, in one statement, with
+     * [LISTEN_MARK] to tell whether any of the others changed or went. ListenLogTest runs these
+     * over the exported schema.
+     */
+    const val LISTENS_IN_ORDER = "SELECT $LISTEN_COLUMNS FROM listen ORDER BY id"
+    const val LISTENS_NEW_OR_OPEN = "SELECT $LISTEN_COLUMNS FROM listen WHERE id > :after OR id IN (:open) ORDER BY id"
+
+    /**
+     * A summary of the rows with an id up to :upTo, those in :except left out, that changes when
+     * any of them changes or is gone: their count and two sums over every column of
+     * [LISTEN_COLUMNS] but the song, which no write changes, each reduced first so that no sum can
+     * overflow, the second weighing each row by its id. ListenLog.markOf works out the very same
+     * numbers from rows in memory, and the two are compared at each read.
+     */
+    const val LISTEN_MARK = """
+        SELECT COUNT(*) AS count,
+            COALESCE(SUM((id % 1000003) * 31 + (startedAt % 999961) + (endedAt % 1000033) * 3 + (playedMs % 999983) * 5
+                + (durationMs % 999979) * 7 + endReason * 104729 + origin * 7919 + autoplayDepth * 7907
+                + (sessionId % 99929) * 11 + (tzOffsetMin % 9973) * 13 + learn * 104723 + (runId % 99991) * 17
+                + (queueId % 99989) * 19 + (COALESCE(impressionId, 0) % 99971) * 23 + contextChip * 104717
+                + (COALESCE(continuesListenId, 0) % 99961) * 29), 0) AS sumA,
+            COALESCE(SUM(((id % 65521) + 1) * ((startedAt % 65519) + (endedAt % 65497) * 2 + (playedMs % 65479) * 3
+                + (durationMs % 65449) * 5 + endReason * 7 + origin * 11 + (autoplayDepth % 65437) * 13
+                + (sessionId % 65423) * 17 + (tzOffsetMin % 65413) * 19 + learn * 23 + (runId % 65393) * 29
+                + (queueId % 65381) * 31 + (COALESCE(impressionId, 0) % 65371) * 37 + contextChip * 41
+                + (COALESCE(continuesListenId, 0) % 65357) * 43)), 0) AS sumB
+        FROM listen WHERE id <= :upTo AND id NOT IN (:except)
+    """
+
     /**
      * When the latest listen started, still-open ones included; null with none. A play that failed
      * is left out, as the engine's input leaves it out (EngineListens.forBuild), so the two can be

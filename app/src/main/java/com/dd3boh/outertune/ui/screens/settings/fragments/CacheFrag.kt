@@ -24,10 +24,14 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import coil3.annotation.ExperimentalCoilApi
 import coil3.imageLoader
+import com.dd3boh.outertune.LocalBatteryMode
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.MaxImageCacheSizeKey
 import com.dd3boh.outertune.constants.MaxSongCacheSizeKey
+import com.dd3boh.outertune.playback.BatteryUse
+import com.dd3boh.outertune.ui.screens.settings.MeaningLine
+import com.dd3boh.outertune.utils.rememberNullablePreference
 import com.dd3boh.outertune.extensions.tryOrNull
 import com.dd3boh.outertune.ui.component.ListPreference
 import com.dd3boh.outertune.ui.component.PreferenceEntry
@@ -40,6 +44,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.settings.settingRow
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 
 @Composable
@@ -47,7 +52,13 @@ fun ColumnScope.SongCacheFrag() {
     val coroutineScope = rememberCoroutineScope()
     val playerCache = LocalPlayerConnection.current?.service?.playerCache ?: return
 
-    val (maxSongCacheSize, onMaxSongCacheSizeChange) = rememberPreference(key = MaxSongCacheSizeKey, defaultValue = 0)
+    val (_, onMaxSongCacheSizeChange) = rememberPreference(key = MaxSongCacheSizeKey, defaultValue = 0)
+    // The size picked by hand, or Battery use's on Saver where none ever was (BatteryUse.songCacheMb),
+    // as the app builds the cache when it starts. Picking any size here is a size picked by hand.
+    val storedSongCacheSize by rememberNullablePreference(MaxSongCacheSizeKey)
+    val batteryMode = LocalBatteryMode.current
+    val maxSongCacheSize = BatteryUse.songCacheMb(storedSongCacheSize, batteryMode)
+    val setBySaver = storedSongCacheSize == null && maxSongCacheSize != 0
 
     var playerCacheSize by remember {
         mutableLongStateOf(tryOrNull { playerCache.cacheSpace } ?: 0)
@@ -92,8 +103,11 @@ fun ColumnScope.SongCacheFrag() {
     }
 
     ListPreference(
-        modifier = Modifier.tourTarget(Tour.SETTING_SONG_CACHE),
+        modifier = Modifier.tourTarget(Tour.SETTING_SONG_CACHE).settingRow(R.string.song_cache_max_size),
         title = { Text(stringResource(R.string.song_cache_max_size)) },
+        content = if (setBySaver) {
+            @Composable { MeaningLine(stringResource(R.string.battery_saver_holds_note)) }
+        } else null,
         selectedValue = maxSongCacheSize,
         values = listOf(0, 128, 256, 512, 1024, 2048, 4096, 8192, -1),
         valueText = {
@@ -108,6 +122,7 @@ fun ColumnScope.SongCacheFrag() {
     InfoLabel(stringResource(R.string.restart_to_apply_changes))
 
     PreferenceEntry(
+        modifier = Modifier.settingRow(R.string.clear_song_cache),
         title = { Text(stringResource(R.string.clear_song_cache)) },
         onClick = {
             showClearConfirmDialog = true
@@ -210,6 +225,7 @@ fun ColumnScope.ImageCacheFrag() {
     }
 
     ListPreference(
+        modifier = Modifier.settingRow(R.string.image_cache_max_size),
         title = { Text(stringResource(R.string.image_cache_max_size)) },
         selectedValue = maxImageCacheSize,
         values = listOf(0, 128, 256, 512, 1024, 2048, 4096, 8192),
@@ -224,6 +240,7 @@ fun ColumnScope.ImageCacheFrag() {
     InfoLabel(stringResource(R.string.restart_to_apply_changes))
 
     PreferenceEntry(
+        modifier = Modifier.settingRow(R.string.clear_image_cache),
         title = { Text(stringResource(R.string.clear_image_cache)) },
         onClick = {
             showClearConfirmDialog = true

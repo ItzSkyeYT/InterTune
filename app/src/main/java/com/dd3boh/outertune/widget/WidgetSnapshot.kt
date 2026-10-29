@@ -44,6 +44,15 @@ data class WidgetSnapshot(
     /** What was played last, newest first, kept by the widget itself as songs come and go. */
     val recent: List<WidgetSong> = emptyList(),
     val updatedAt: Long = 0L,
+    /**
+     * Whether [nowPlaying] is liked, which fills the widget's heart. Its song's own: see likedFor and
+     * withLike, and WidgetStore.followLikes, which keeps it on the like as stored.
+     */
+    val isLiked: Boolean = false,
+    /** Whether the queue is shuffled, which lights the shuffle button. */
+    val isShuffled: Boolean = false,
+    /** The next songs of the queue after [nowPlaying], for a tablet's Up next. Empty with nothing playing. */
+    val upNext: List<WidgetSong> = emptyList(),
 ) {
     /** The list this widget was set to show. */
     fun list(which: WidgetList): List<WidgetSong> = when (which) {
@@ -61,8 +70,23 @@ data class WidgetSnapshot(
     }
 
     /** Every song the snapshot names, for the artwork it needs. */
-    fun songs(): List<WidgetSong> = listOfNotNull(nowPlaying) + picks + forgotten + keepListening + recent
+    fun songs(): List<WidgetSong> = listOfNotNull(nowPlaying) + picks + forgotten + keepListening + recent + upNext
 }
+
+/**
+ * The heart to draw when [songId] is written as what is playing: the one already drawn when it is
+ * the same song, since that is the like as stored (WidgetStore.followLikes keeps it so), and
+ * [guess] for a song that was not playing, until the stored like of that one is in.
+ */
+internal fun likedFor(old: WidgetSnapshot, songId: String, guess: Boolean): Boolean =
+    if (old.nowPlaying?.id == songId) old.isLiked else guess
+
+/**
+ * This snapshot with [liked] as the heart of [songId], or null when there is nothing to write: the
+ * widget shows another song by now, or already shows that like.
+ */
+internal fun WidgetSnapshot.withLike(songId: String, liked: Boolean): WidgetSnapshot? =
+    if (nowPlaying?.id != songId || isLiked == liked) null else copy(isLiked = liked)
 
 object WidgetCodec {
     private const val VERSION = "1"
@@ -70,12 +94,18 @@ object WidgetCodec {
 
     fun encode(snapshot: WidgetSnapshot): String = buildString {
         append(VERSION).append('\n')
-        append("at").append(TAB).append(snapshot.updatedAt).append(TAB).append(if (snapshot.isPlaying) 1 else 0).append('\n')
+        // The heart is a fourth field on this line and shuffle a fifth: a version that knew fewer
+        // reads the line as before.
+        append("at").append(TAB).append(snapshot.updatedAt).append(TAB).append(if (snapshot.isPlaying) 1 else 0)
+            .append(TAB).append(if (snapshot.isLiked) 1 else 0)
+            .append(TAB).append(if (snapshot.isShuffled) 1 else 0).append('\n')
         snapshot.nowPlaying?.let { append(line("now", it)) }
         snapshot.picks.forEach { append(line("pick", it)) }
         snapshot.forgotten.forEach { append(line("forgotten", it)) }
         snapshot.keepListening.forEach { append(line("keep", it)) }
         snapshot.recent.forEach { append(line("recent", it)) }
+        // A kind of line an older version does not know, and skips.
+        snapshot.upNext.forEach { append(line("next", it)) }
     }
 
     fun decode(text: String?): WidgetSnapshot {
@@ -84,24 +114,44 @@ object WidgetCodec {
         if (lines.firstOrNull()?.trim() != VERSION) return WidgetSnapshot()
         var now: WidgetSong? = null
         var playing = false
+        var liked = false
+        var shuffled = false
         var at = 0L
         val picks = ArrayList<WidgetSong>()
         val forgotten = ArrayList<WidgetSong>()
         val keep = ArrayList<WidgetSong>()
         val recent = ArrayList<WidgetSong>()
+        val next = ArrayList<WidgetSong>()
         for (line in lines.drop(1)) {
             val f = line.split(TAB)
             when (f.getOrNull(0)) {
-                "at" -> { at = f.getOrNull(1)?.toLongOrNull() ?: 0L; playing = f.getOrNull(2) == "1" }
+                "at" -> {
+                    at = f.getOrNull(1)?.toLongOrNull() ?: 0L
+                    playing = f.getOrNull(2) == "1"
+                    liked = f.getOrNull(3) == "1"
+                    shuffled = f.getOrNull(4) == "1"
+                }
                 "now" -> now = song(f)
                 "pick" -> song(f)?.let { picks += it }
                 "forgotten" -> song(f)?.let { forgotten += it }
                 "keep" -> song(f)?.let { keep += it }
                 "recent" -> song(f)?.let { recent += it }
+                "next" -> song(f)?.let { next += it }
                 // An unknown kind is a file written by a later version: skipped, not fatal.
             }
         }
-        return WidgetSnapshot(now, playing, picks, forgotten, keep, recent, at)
+        return WidgetSnapshot(
+            nowPlaying = now,
+            isPlaying = playing,
+            picks = picks,
+            forgotten = forgotten,
+            keepListening = keep,
+            recent = recent,
+            updatedAt = at,
+            isLiked = liked && now != null,
+            isShuffled = shuffled,
+            upNext = if (now != null) next else emptyList(),
+        )
     }
 
     private fun line(kind: String, s: WidgetSong): String =

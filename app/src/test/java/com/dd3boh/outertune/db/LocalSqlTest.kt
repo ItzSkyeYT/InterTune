@@ -53,6 +53,56 @@ class LocalSqlTest {
         assertEquals(setOf("LSone", "LStwo"), duplicates().toSet())
     }
 
+    /** A song row for TrackTagReread's queries: in the library unless [inLibrary] is false. */
+    private fun row(id: String, isLocal: Boolean = true, track: Int?, disc: Int? = null, inLibrary: Boolean = true, path: String? = "/m/$id.mp3") =
+        db.createStatement().use {
+            it.execute(
+                "INSERT INTO song(id, title, duration, liked, isLocal, localPath, inLibrary, trackNumber, discNumber) " +
+                        "VALUES ('$id', '$id', 200, 0, ${if (isLocal) 1 else 0}, ${path?.let { p -> "'$p'" } ?: "NULL"}, " +
+                        "${if (inLibrary) 1761200000000 else "NULL"}, ${track ?: "NULL"}, ${disc ?: "NULL"})"
+            )
+        }
+
+    private fun withoutTrackNumber(after: String, limit: Int): List<String> =
+        db.prepareStatement(LocalSql.SONGS_WITHOUT_TRACK_NUMBER).use { st ->
+            st.setString(1, after)
+            st.setInt(2, limit)
+            st.executeQuery().use { rs -> buildList { while (rs.next()) add(rs.getString("id") + " " + rs.getString("localPath")) } }
+        }
+
+    @Test
+    fun `the track tag pass finds local songs in the library with no track number, a page at a time`() {
+        row("LSnone", track = null)
+        row("LSzero", track = 0)
+        row("LSnumbered", track = 3)
+        row("LSdisabled", track = null, inLibrary = false)
+        row("LSnofile", track = null, path = null)
+        row("dQw4w9WgXcQ", isLocal = false, track = null)
+        assertEquals(listOf("LSnone /m/LSnone.mp3", "LSzero /m/LSzero.mp3"), withoutTrackNumber("", 50))
+        assertEquals(listOf("LSnone /m/LSnone.mp3"), withoutTrackNumber("", 1))
+        assertEquals(listOf("LSzero /m/LSzero.mp3"), withoutTrackNumber("LSnone", 50))
+    }
+
+    @Test
+    fun `the track tag pass keeps a stored number the file does not give`() {
+        row("LSa", track = null, disc = 2)
+        row("LSb", track = 0, disc = null)
+        fun set(id: String, track: Int?, disc: Int?) = db.prepareStatement(LocalSql.SET_TRACK_TAGS).use { st ->
+            if (track == null) st.setNull(1, java.sql.Types.INTEGER) else st.setInt(1, track)
+            if (disc == null) st.setNull(2, java.sql.Types.INTEGER) else st.setInt(2, disc)
+            st.setString(3, id)
+            st.executeUpdate()
+        }
+        set("LSa", 4, null)
+        set("LSb", 7, 1)
+        val stored = db.createStatement().use { st ->
+            st.executeQuery("SELECT id, trackNumber, discNumber FROM song ORDER BY id").use { rs ->
+                buildList { while (rs.next()) add("${rs.getString(1)} ${rs.getInt(2)} ${rs.getObject(3)}") }
+            }
+        }
+        assertEquals(listOf("LSa 4 2", "LSb 7 1"), stored)
+    }
+
     @Test
     fun `songs with no file are never duplicates`() {
         song("a", isLocal = false, path = null)

@@ -142,9 +142,26 @@ interface ListenDao {
     @Query(EngineSql.LISTENS)
     fun engineListens(): List<com.dd3boh.outertune.engine.ListenRow>
 
+    /** The adaptive queue's taste reads the log through these, a little at a time: see ListenLog. */
+    @Query(EngineSql.LISTENS_IN_ORDER)
+    fun engineListensInOrder(): List<com.dd3boh.outertune.engine.ListenRow>
+
+    @Query(EngineSql.LISTENS_NEW_OR_OPEN)
+    fun engineListensNewOrOpen(after: Long, open: Collection<Long>): List<com.dd3boh.outertune.engine.ListenRow>
+
+    @Query(EngineSql.LISTEN_MARK)
+    fun engineListenMark(upTo: Long, except: Collection<Long>): com.dd3boh.outertune.engine.ListenLog.Mark
+
     /** The listens started after [since], in the engine's shape, for Playing now's rebuild on return to Home. */
     @Query(EngineSql.LISTENS_SINCE)
     fun listensSince(since: Long): List<com.dd3boh.outertune.engine.ListenRow>
+
+    /**
+     * How many listens started after [since], failed plays left out: what Battery use on Balanced
+     * counts before Home's engine rows are built again (BatteryUse.rowStands).
+     */
+    @Query("SELECT COUNT(*) FROM listen WHERE startedAt > :since AND endReason != 5")
+    fun listenCountSince(since: Long): Int
 
     /** When the latest listen started, open ones included and failed plays left out; null with none. */
     @Query(EngineSql.LATEST_LISTEN_START)

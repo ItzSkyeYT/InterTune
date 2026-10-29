@@ -52,8 +52,8 @@ android {
         applicationId = "dev.skye.intertune"
         minSdk = 24
         targetSdk = 36
-        versionCode = 96
-        versionName = "0.12.1"
+        versionCode = 97
+        versionName = "0.12.5"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // Obfuscated, not encrypted, and the difference matters. Anything the app can read, so
@@ -330,7 +330,6 @@ dependencies {
     // ui
     implementation(libs.coil)
     implementation(libs.coil.network.okhttp)
-    implementation(libs.lazycolumnscrollbar)
     implementation(libs.shimmer)
     implementation(libs.glance)
     implementation(libs.glance.material3)

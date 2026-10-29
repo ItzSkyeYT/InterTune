@@ -72,6 +72,21 @@ class LibrarySqlTest {
         assertEquals(listOf("t1", "t2", "t3", "t4"), ids(LibrarySql.ALBUM_SONGS.replace(":albumId", "'MPREb_album'")))
     }
 
+    @Test
+    fun `an album's tile reads the ids of its songs that can be downloaded, the files on the phone left out`() {
+        album("MPREb_album", "Album", local = false)
+        for ((id, index) in listOf("t1" to 0, "t2" to 1, "t3" to 2)) {
+            song(id)
+            exec("INSERT INTO song_album_map(songId, albumId, `index`) VALUES ('$id', 'MPREb_album', $index)")
+        }
+        exec("UPDATE song SET isLocal = 1 WHERE id = 't2'")
+        album("other", "Other", local = false)
+        song("elsewhere")
+        exec("INSERT INTO song_album_map(songId, albumId, `index`) VALUES ('elsewhere', 'other', 0)")
+        // The same songs as ALBUM_SONGS with those on the phone taken out, as the tile did.
+        assertEquals(setOf("t1", "t3"), ids(LibrarySql.ALBUM_SONGS_TO_DOWNLOAD.replace(":albumId", "'MPREb_album'")).toSet())
+    }
+
     /** Room's named parameters, filled in for JDBC. */
     private fun search(sql: String, query: String) = sql.replace(":query", "'$query'").replace(":previewSize", "100")
 

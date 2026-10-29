@@ -731,6 +731,7 @@ fun LocalPlaylistScreen(
                                         startIndex = index,
                                         playlistId =  playlistWithSongs.first?.playlist?.browseId,
                                         mixPlaylistId = playlistWithSongs.first?.id?.takeIf { Unreleased.AUTOMIX_EDITOR },
+                                        songPicked = true,
                                     ),
                                     origin = PlayOrigin.PLAYLIST,
                                 )

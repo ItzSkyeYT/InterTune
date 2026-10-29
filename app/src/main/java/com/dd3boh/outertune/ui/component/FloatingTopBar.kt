@@ -60,6 +60,8 @@ import com.dd3boh.outertune.ui.component.button.backButtonSurface
 import com.dd3boh.outertune.ui.utils.backToMain
 import com.dd3boh.outertune.ui.utils.GlassSpec
 import com.dd3boh.outertune.ui.utils.rememberGlassSpec
+import com.dd3boh.outertune.ui.utils.LocalGlassStill
+import com.dd3boh.outertune.ui.utils.STILL_ALPHA
 import com.dd3boh.outertune.ui.utils.shrinkToFit
 
 /**
@@ -321,7 +323,8 @@ fun TopBarActions(content: @Composable RowScope.() -> Unit) {
 fun topBarSurfaceColor(): Color {
     val scheme = MaterialTheme.colorScheme
     val base = if (scheme.surface.luminance() < 0.5f) scheme.surfaceContainerHigh else scheme.surfaceContainerHighest
-    return if (rememberGlassSpec() != null) base.copy(alpha = 0.94f) else base
+    // Saver's still glass draws every bar in place, as opaque as its other still panes (STILL_ALPHA).
+    return if (rememberGlassSpec() != null) base.copy(alpha = if (LocalGlassStill.current) STILL_ALPHA else 0.94f) else base
 }
 
 /** A fade from the page colour behind the status bar to nothing at the bar's bottom edge. */

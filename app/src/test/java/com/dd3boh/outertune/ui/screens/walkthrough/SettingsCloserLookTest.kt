@@ -172,8 +172,6 @@ class SettingsCloserLookTest {
         for (name in texts) {
             val line = strings.firstOrNull { "name=\"$name\"" in it }
             assertNotNull("$name is not in strings-ot.xml", line)
-            // Links you share waits for its page (Unreleased.SHARE_PAGE), and its words wait with it.
-            if (name.startsWith("new_share_links")) continue
             assertFalse("$name is held back from translators", "translatable=\"false\"" in line!!)
             assertTrue("$name has no French", "name=\"$name\"" in french)
             assertFalse("$name has an exclamation mark", '!' in line.substringAfter('>'))

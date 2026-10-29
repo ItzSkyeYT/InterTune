@@ -11,6 +11,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.HttpDataSource
+import com.dd3boh.outertune.sabr.SabrFile
 import com.metrolist.innertubex.sabr.findSabrProtocolException
 import java.io.IOException
 import java.io.InterruptedIOException
@@ -36,7 +37,9 @@ import javax.net.ssl.SSLException
  *   and the start stays.
  * - No network, a timeout: as media3's HTTP source puts OkHttp's own.
  * - A gap, a short stream, any other failed read: a failed read, which media3 opens again at the
- *   same byte, and the start stays.
+ *   same byte, and the start stays. So too a start whose first segment InnerTubeX finds does not
+ *   cover the time asked: that time is ours, not YouTube's word, and as a refusal it gave VISIONOS a
+ *   strike that benched its good addresses for half an hour (seen on 21 Oct 2026).
  * - An interruption, a seek or a stop: as it is.
  */
 @OptIn(UnstableApi::class)
@@ -52,7 +55,7 @@ object SabrFailures {
     fun asPlayerSees(e: IOException, spec: DataSpec, type: Int, forget: () -> Unit): IOException {
         // A timeout is an InterruptedIOException too, and the network's, not an interruption.
         if (e is InterruptedIOException && e !is SocketTimeoutException) return e
-        e.findSabrProtocolException()?.let { refusal ->
+        e.findSabrProtocolException()?.takeUnless { it.message?.contains(SabrFile.UNCOVERED_START) == true }?.let { refusal ->
             val status = refusal.httpStatusCode
             if (status != null && isTheServers(status)) return refused(status, refusal.kind.name, e, spec)
             forget()

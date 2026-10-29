@@ -49,6 +49,7 @@ import com.dd3boh.outertune.utils.rememberPreference
 import com.zionhuang.innertube.utils.parseCookieString
 import com.dd3boh.outertune.ui.screens.settings.SettingJumps
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.settings.settingRow
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 
 @Composable
@@ -81,7 +82,7 @@ fun ColumnScope.ListenHistoryFrag() {
     }
 
     SwitchPreference(
-        modifier = Modifier.tourTarget(Tour.SETTING_PAUSE_HISTORY),
+        modifier = Modifier.tourTarget(Tour.SETTING_PAUSE_HISTORY).settingRow(R.string.pause_listen_history),
         title = { Text(stringResource(R.string.pause_listen_history)) },
         description = stringResource(R.string.pause_listen_history_description),
         icon = { Icon(Icons.Rounded.History, null) },
@@ -89,7 +90,7 @@ fun ColumnScope.ListenHistoryFrag() {
         onCheckedChange = onPauseListenHistoryChange
     )
     SwitchPreference(
-        modifier = Modifier.tourTarget(Tour.SETTING_PAUSE_REMOTE_HISTORY),
+        modifier = Modifier.tourTarget(Tour.SETTING_PAUSE_REMOTE_HISTORY).settingRow(R.string.pause_remote_listen_history),
         title = { Text(stringResource(R.string.pause_remote_listen_history)) },
         description = stringResource(R.string.pause_remote_listen_history_description),
         icon = { Icon(Icons.Rounded.History, null) },
@@ -101,13 +102,14 @@ fun ColumnScope.ListenHistoryFrag() {
     // play before the song counts, which is a rule about what goes into your history, not about
     // how the player behaves.
     PreferenceEntry(
+        modifier = Modifier.settingRow(R.string.min_playback_duration),
         title = { Text(stringResource(R.string.min_playback_duration)) },
         description = stringResource(R.string.min_playback_duration_short),
         icon = { Icon(Icons.Rounded.Sync, null) },
         onClick = { showMinPlaybackDur = true }
     )
     PreferenceEntry(
-        modifier = Modifier.tourTarget(SettingJumps.CLEAR_LISTEN_HISTORY),
+        modifier = Modifier.tourTarget(SettingJumps.CLEAR_LISTEN_HISTORY).settingRow(R.string.clear_listen_history),
         title = { Text(stringResource(R.string.clear_listen_history)) },
         description = stringResource(R.string.clear_listen_history_description),
         icon = { Icon(Icons.Rounded.ClearAll, null) },
@@ -185,6 +187,7 @@ fun ColumnScope.SearchHistoryFrag() {
     }
 
     SwitchPreference(
+        modifier = Modifier.settingRow(R.string.pause_search_history),
         title = { Text(stringResource(R.string.pause_search_history)) },
         description = stringResource(R.string.pause_search_history_description),
         icon = { Icon(Icons.AutoMirrored.Rounded.ManageSearch, null) },
@@ -192,6 +195,7 @@ fun ColumnScope.SearchHistoryFrag() {
         onCheckedChange = onPauseSearchHistoryChange
     )
     PreferenceEntry(
+        modifier = Modifier.settingRow(R.string.clear_search_history),
         title = { Text(stringResource(R.string.clear_search_history)) },
         description = stringResource(R.string.clear_search_history_description),
         icon = { Icon(Icons.Rounded.ClearAll, null) },
@@ -251,7 +255,7 @@ fun ColumnScope.QuickPicksSourceFrag() {
 
     val quickPicksTitle = stringResource(R.string.quick_picks_source)
     EnumListPreference(
-        modifier = Modifier.tourTarget(Tour.SETTING_QUICK_PICKS_SOURCE),
+        modifier = Modifier.tourTarget(Tour.SETTING_QUICK_PICKS_SOURCE).settingRow(R.string.quick_picks_source),
         title = { Text(quickPicksTitle) },
         icon = { Icon(Icons.Rounded.AutoAwesome, null) },
         trailingContent = {
@@ -290,6 +294,7 @@ fun ColumnScope.ContentFiltersFrag() {
     // you want: pointed at the first alone, the bubble sat over the other.
     Column(Modifier.fillMaxWidth().tourTarget(Tour.SETTING_CONTENT_FILTERS)) {
         SwitchPreference(
+            modifier = Modifier.settingRow(R.string.hide_explicit),
             title = { Text(stringResource(R.string.hide_explicit)) },
             description = stringResource(R.string.hide_explicit_description),
             icon = { Icon(Icons.Rounded.Explicit, null) },
@@ -297,6 +302,7 @@ fun ColumnScope.ContentFiltersFrag() {
             onCheckedChange = onHideExplicitChange,
         )
         SwitchPreference(
+            modifier = Modifier.settingRow(R.string.hide_video_songs),
             title = { Text(stringResource(R.string.hide_video_songs)) },
             description = stringResource(R.string.hide_video_songs_description),
             icon = { Icon(Icons.Rounded.OndemandVideo, null) },

@@ -118,7 +118,18 @@ class SabrFileTest {
         opened.clear()
         val position = init.size + segments.take(25).sumOf { it.size }.toLong() + 100
         assertContentEquals(file.copyOfRange(position.toInt(), file.size), sabr.readAllFrom(position))
-        assertEquals(listOf(25 * segmentMs), opened)
+        // A little into it, past the cut of its start (SabrFileAacTest).
+        assertEquals(listOf(25 * segmentMs + SabrFile.INSIDE_MS), opened)
+    }
+
+    @Test
+    fun `a read from where a segment seen ends starts the next one, a little into it`() {
+        val sabr = SabrFile(server(), contentLength = file.size.toLong(), durationMs = durationMs)
+        sabr.readAllFrom(0)
+        opened.clear()
+        val position = init.size + segments.take(12).sumOf { it.size }.toLong()
+        assertContentEquals(file.copyOfRange(position.toInt(), file.size), sabr.readAllFrom(position))
+        assertEquals(listOf(12 * segmentMs + SabrFile.INSIDE_MS), opened)
     }
 
     @Test

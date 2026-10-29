@@ -14,6 +14,8 @@ class ListQueue(
      * playlist's switch decides whether the queue mixes. Not [playlistId], which marks a radio.
      */
     val mixPlaylistId: String? = null,
+    /** The song at [startIndex] was picked out of the list: see [Queue.songPicked]. */
+    override val songPicked: Boolean = false,
 ) : Queue {
     override val preloadItem: MediaMetadata? = null
     override suspend fun getInitialStatus() = Queue.Status(title, items, startIndex, position)

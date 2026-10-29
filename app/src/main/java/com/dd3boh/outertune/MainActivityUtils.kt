@@ -48,6 +48,8 @@ import com.dd3boh.outertune.utils.scanners.LocalMediaScanner
 import com.dd3boh.outertune.utils.scanners.LocalMediaScanner.Companion.destroyScanner
 import com.dd3boh.outertune.utils.scanners.LocalMediaScanner.Companion.scannerState
 import com.dd3boh.outertune.utils.scanners.ScannerAbortException
+import com.dd3boh.outertune.ui.menu.MenuState
+import com.dd3boh.outertune.ui.menu.YouTubeSongMenu
 import com.zionhuang.innertube.YouTube
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -67,7 +69,9 @@ fun youtubeNavigator(
     coroutineScope: CoroutineScope,
     playerConnection: PlayerConnection?,
     snackbarHostState: SnackbarHostState,
-    uri: Uri
+    uri: Uri,
+    /** Where a song with no album opens: its menu. Without one, such a song plays as before. */
+    menuState: MenuState? = null,
 ): Boolean {
     // Only a YouTube address, and true only when something was opened: see YouTubeLink.parse.
     when (val link = YouTubeLink.parse(uri.toString()) ?: return false) {
@@ -101,6 +105,15 @@ fun youtubeNavigator(
                             withDismissAction = true,
                             duration = SnackbarDuration.Long
                         )
+                    }
+                } else if (!link.playNow && s.album != null) {
+                    // A song link opens the song in its album, brought into view and lit, and the
+                    // listener chooses: play it, queue it, add it to a playlist (his ask, 21 Oct 2026).
+                    navController.navigate("album/${s.album!!.id}?song=${s.id}")
+                } else if (!link.playNow && menuState != null) {
+                    // A song with no album, a video for one: its menu, with the same choices.
+                    menuState.show {
+                        YouTubeSongMenu(song = s, navController = navController, onDismiss = menuState::dismiss)
                     }
                 } else {
                     playerConnection?.playQueue(

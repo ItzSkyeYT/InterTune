@@ -22,6 +22,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.firstOrNull
@@ -138,6 +139,15 @@ class MicrophoneListener @Inject constructor(
 
     @SuppressLint("MissingPermission")
     private fun open(minBuffer: Int): AudioRecord? {
+        // The phone's own sound, when the listen was asked for it (PhoneAudio). Not the microphone
+        // instead when that fails: somebody who asked for the song in their video, with the room
+        // full of something else, would be told about the room.
+        PhoneAudio.projection.value?.let { projection ->
+            if (PhoneAudio.supported) {
+                return PhoneAudio.recorder(context, projection, SIGNATURE_SAMPLE_RATE_HZ, minBuffer * 4)
+                    ?.also { Log.i(TAG, "Listening to this phone's own sound") }
+            }
+        }
         for (source in SOURCES) {
             val recorder = runCatching {
                 AudioRecord(
@@ -175,17 +185,20 @@ class MicrophoneListener @Inject constructor(
     @SuppressLint("MissingPermission")
     fun stream(
         seconds: Int = DEFAULT_SECONDS,
+        // Every window, none dropped while the collector is busy: for a listen that keeps all it
+        // hears, short and bounded (ClipListen), where a gap would hide the clip's repeat.
+        everyWindow: Boolean = false,
         onProgress: (level: Float) -> Unit = {},
     ): Flow<Window> = flow {
         val room = withContext(Dispatchers.IO) { debugRoom() }
-        if (room == null) return@flow emitAll(listen(seconds, onProgress))
+        if (room == null) return@flow emitAll(listen(seconds, everyWindow, onProgress))
         // Read on the IO thread, ahead of the collector, as the microphone is, and the end thrown
         // here, on the collector's side, once it has handled the last window. Thrown where the
         // recording is read, it cancelled the collector at once, and the window being identified
         // went with it: the last one, whenever the recording ran out less than an identify after it.
         // Fresh windows here too, as on the microphone, and inside the emitAll rather than on the
         // outer flow, which would drop the last window when the end is thrown.
-        emitAll(replay(room, seconds, onProgress = onProgress).freshWindows().flowOn(Dispatchers.IO))
+        emitAll(replay(room, seconds, onProgress = onProgress).windows(everyWindow).flowOn(Dispatchers.IO))
         // Played to its end. A stop is a cancellation, which threw on the way here or throws now.
         currentCoroutineContext().ensureActive()
         throw RecordingEnded()
@@ -194,7 +207,7 @@ class MicrophoneListener @Inject constructor(
     /** The microphone's side of [stream]: the recorder opened once, windows cut from it until stopped. */
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     @SuppressLint("MissingPermission")
-    private fun listen(seconds: Int, onProgress: (level: Float) -> Unit): Flow<Window> = flow {
+    private fun listen(seconds: Int, everyWindow: Boolean, onProgress: (level: Float) -> Unit): Flow<Window> = flow {
         val minBuffer = AudioRecord.getMinBufferSize(
             SIGNATURE_SAMPLE_RATE_HZ,
             AudioFormat.CHANNEL_IN_MONO,
@@ -238,7 +251,7 @@ class MicrophoneListener @Inject constructor(
             recorder.release()
             Log.i(TAG, "Microphone stream closed")
         }
-    }.freshWindows().flowOn(Dispatchers.IO)
+    }.windows(everyWindow).flowOn(Dispatchers.IO)
 
     /**
      * Debug builds only: a recording standing in for the room, so Keep listening can be run end to
@@ -333,3 +346,9 @@ class MicrophoneListener @Inject constructor(
  * the time it was heard.
  */
 internal fun <T> Flow<T>.freshWindows(): Flow<T> = conflate()
+
+/** [freshWindows], or every window kept for a collector that wants them all: see [MicrophoneListener.stream]. */
+private fun <T> Flow<T>.windows(every: Boolean): Flow<T> = if (every) buffer(EVERY_WINDOW_HELD) else freshWindows()
+
+/** Windows held for a slow collector that wants them all: a minute of one-second windows. */
+private const val EVERY_WINDOW_HELD = 64

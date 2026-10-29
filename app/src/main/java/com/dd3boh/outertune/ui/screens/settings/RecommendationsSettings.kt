@@ -128,7 +128,7 @@ fun RecommendationsSettings(
     ) {
         PreferenceGroupTitle(title = stringResource(R.string.recommendations_home_title))
         ExplainedSwitchPreference(
-            modifier = Modifier.tourTarget(SettingJumps.TIDY_HOME_ROWS),
+            modifier = Modifier.tourTarget(SettingJumps.TIDY_HOME_ROWS).settingRow(R.string.tidy_home_rows),
             title = stringResource(R.string.tidy_home_rows),
             explanation = stringResource(R.string.tidy_home_rows_info),
             description = stringResource(R.string.tidy_home_rows_description),
@@ -136,7 +136,7 @@ fun RecommendationsSettings(
             onCheckedChange = onTidyHomeRowsChange,
         )
         ExplainedSwitchPreference(
-            modifier = Modifier.tourTarget(SettingJumps.RANK_WITH_LISTENING),
+            modifier = Modifier.tourTarget(SettingJumps.RANK_WITH_LISTENING).settingRow(R.string.rank_with_listening),
             title = stringResource(R.string.rank_with_listening),
             explanation = stringResource(R.string.rank_with_listening_info),
             description = stringResource(R.string.rank_with_listening_description),
@@ -146,6 +146,7 @@ fun RecommendationsSettings(
         // Built by the engine, so held back with it.
         if (Unreleased.ENGINE) {
             ExplainedSwitchPreference(
+                modifier = Modifier.settingRow(R.string.discover_something_new),
                 title = stringResource(R.string.discover_something_new),
                 explanation = stringResource(R.string.discover_row_info),
                 description = stringResource(R.string.discover_row_description),
@@ -183,7 +184,7 @@ fun RecommendationsSettings(
             }
             Column(Modifier.onGloballyPositioned { rowFoot.floatValue = it.positionInWindow().y + it.size.height }) {
                 EnumListPreference(
-                    modifier = Modifier.tourTarget(Tour.SETTING_QUICK_PICKS_LEAN),
+                    modifier = Modifier.tourTarget(Tour.SETTING_QUICK_PICKS_LEAN).settingRow(R.string.quick_picks_lean),
                     title = { Text(leanTitle) },
                     icon = null,
                     trailingContent = { ExplainButton(leanTitle, leanInfo) },
@@ -194,6 +195,7 @@ fun RecommendationsSettings(
                     onValueSelected = { onLeanNameChange(LeanChoice.stored(it)) },
                 )
                 ExplainedSwitchPreference(
+                    modifier = Modifier.settingRow(R.string.show_reasons),
                     title = stringResource(R.string.show_reasons),
                     explanation = stringResource(R.string.show_reasons_info),
                     description = stringResource(R.string.show_reasons_description),
@@ -202,7 +204,7 @@ fun RecommendationsSettings(
                 )
                 // No "i" on the two sliders: the line under each counts the cards as it is dragged.
                 PreferenceEntry(
-                    modifier = Modifier.tourTarget(Tour.SETTING_ADVENTUROUSNESS),
+                    modifier = Modifier.tourTarget(Tour.SETTING_ADVENTUROUSNESS).settingRow(R.string.adventurousness),
                     title = { Text(stringResource(R.string.adventurousness)) },
                     // While Never heard leads the row the slider no longer sets this count, and the line says what does.
                     description = stringResource(
@@ -218,7 +220,7 @@ fun RecommendationsSettings(
                     modifier = Modifier.padding(horizontal = 16.dp),
                 )
                 PreferenceEntry(
-                    modifier = Modifier.tourTarget(SettingJumps.FAMILIARITY),
+                    modifier = Modifier.tourTarget(SettingJumps.FAMILIARITY).settingRow(R.string.familiarity),
                     title = { Text(stringResource(R.string.familiarity)) },
                     description = stringResource(R.string.familiarity_description, LeanChoice.againCards(lean, adventurousness / 100.0, familiarity / 100.0, chip, newSongsOnly)),
                     onClick = null,
@@ -230,6 +232,7 @@ fun RecommendationsSettings(
                     modifier = Modifier.padding(horizontal = 16.dp),
                 )
                 ExplainedSwitchPreference(
+                    modifier = Modifier.settingRow(R.string.new_songs_only),
                     title = stringResource(R.string.new_songs_only),
                     explanation = stringResource(R.string.new_songs_only_info),
                     description = stringResource(R.string.new_songs_only_description),
@@ -244,7 +247,7 @@ fun RecommendationsSettings(
                 val similarTitle = stringResource(R.string.similar_source)
                 val similarInfo = stringResource(R.string.similar_source_info)
                 EnumListPreference(
-                    modifier = Modifier.tourTarget(SettingJumps.SIMILAR_SOURCE),
+                    modifier = Modifier.tourTarget(SettingJumps.SIMILAR_SOURCE).settingRow(R.string.similar_source),
                     title = { Text(similarTitle) },
                     icon = null,
                     trailingContent = { ExplainButton(similarTitle, similarInfo) },
@@ -284,7 +287,7 @@ fun RecommendationsSettings(
             // What it learns from, and what it is told to leave out.
             PreferenceGroupTitle(title = stringResource(R.string.recommendations_learning_title))
             ExplainedSwitchPreference(
-                modifier = Modifier.tourTarget(Tour.SETTING_LEARN_FROM_LISTENING),
+                modifier = Modifier.tourTarget(Tour.SETTING_LEARN_FROM_LISTENING).settingRow(R.string.learn_from_listening),
                 title = stringResource(R.string.learn_from_listening),
                 explanation = stringResource(R.string.learn_from_listening_info),
                 description = stringResource(R.string.learn_from_listening_description),
@@ -292,6 +295,7 @@ fun RecommendationsSettings(
                 onCheckedChange = onLearnFromListeningChange,
             )
             ExplainedSwitchPreference(
+                modifier = Modifier.settingRow(R.string.rest_songs_i_skip),
                 title = stringResource(R.string.rest_songs_i_skip),
                 explanation = stringResource(R.string.rest_songs_i_skip_info),
                 description = stringResource(R.string.rest_songs_i_skip_description),
@@ -301,6 +305,7 @@ fun RecommendationsSettings(
             // Only means anything while rests are written, so it is only shown then.
             if (restSongsISkip) {
                 SwitchPreference(
+                    modifier = Modifier.settingRow(R.string.rests_everywhere),
                     title = { Text(stringResource(R.string.rests_everywhere)) },
                     description = stringResource(R.string.rests_everywhere_description),
                     checked = restsEverywhere,
@@ -308,7 +313,7 @@ fun RecommendationsSettings(
                 )
             }
             ExplainedPreference(
-                modifier = Modifier.tourTarget(Tour.SETTING_EXCLUSIONS),
+                modifier = Modifier.tourTarget(Tour.SETTING_EXCLUSIONS).settingRow(R.string.exclusions),
                 title = stringResource(R.string.exclusions),
                 explanation = stringResource(R.string.exclusions_info),
                 description = stringResource(R.string.exclusions_count, activeExclusions),
@@ -320,6 +325,7 @@ fun RecommendationsSettings(
         // The two pages behind this one: the numbers, and the buttons that change what it keeps.
         ElevatedCard(modifier = Modifier.fillMaxWidth()) {
             ExplainedPreference(
+                modifier = Modifier.settingRow(R.string.recommendations_doing_title),
                 title = stringResource(R.string.recommendations_doing_title),
                 explanation = stringResource(R.string.recommendations_doing_info),
                 description = stringResource(R.string.recommendations_doing_description),
@@ -328,6 +334,7 @@ fun RecommendationsSettings(
             )
             if (Unreleased.ENGINE) {
                 PreferenceEntry(
+                    modifier = Modifier.settingRow(R.string.recommendations_data_title),
                     title = { Text(stringResource(R.string.recommendations_data_title)) },
                     description = stringResource(R.string.recommendations_data_description),
                     icon = { Icon(Icons.Rounded.ManageHistory, null) },

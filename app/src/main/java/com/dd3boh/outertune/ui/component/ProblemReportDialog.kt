@@ -10,6 +10,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.os.SystemClock
 import android.os.Build
 import android.text.format.DateUtils
 import android.widget.Toast
@@ -50,18 +51,25 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
+import com.dd3boh.outertune.utils.BuiltInKeys
 import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.Links
 import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.playback.PlayHealth
 import com.dd3boh.outertune.playback.StopReasons
+import com.dd3boh.outertune.utils.PhoneState
 import com.dd3boh.outertune.utils.ProblemLog
 import com.dd3boh.outertune.utils.RunLogs
+import com.dd3boh.outertune.utils.installedFrom
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /** GitHub turns down a very long address, and what led up to the fault is what the form is for. */
 private const val FORM_LOG_LIMIT = 5000
+
+/** The whole link to the bug form at most. Asked on 26 Oct 2026: GitHub opens the form for a link of 6,900 characters and answers 7,100 with "Something went wrong". */
+private const val FORM_LINK_LIMIT = 6000
 
 /** Logs listed before "Show older": this run's and the three before it. */
 private const val FIRST_SHOWN = 4
@@ -69,12 +77,22 @@ private const val FIRST_SHOWN = 4
 /**
  * One log to choose from: this run's, read from the phone's log as the page opens, or an earlier
  * run's, read from its file ([RunLogs]). Only this run's carries the stops nobody asked for: they
- * are dated, and they outlive the run they ended.
+ * are dated, and they outlive the run they ended. Where the app came from is asked once for all
+ * of them: Android keeps only the latest install's.
  */
-private class LogChoice(val run: RunLogs.Run?, val excerpt: ProblemLog.Excerpt, val stops: List<String>) {
+private class LogChoice(
+    val run: RunLogs.Run?,
+    val excerpt: ProblemLog.Excerpt,
+    val stops: List<String>,
+    val installedFrom: String,
+    val phoneNow: String,
+    val playback: String? = null,
+) {
     val version: String get() = run?.versionName ?: BuildConfig.VERSION_NAME
     val build: String get() = run?.build ?: ProblemLog.build()
-    fun report(): String = ProblemLog.report(excerpt, build = build, stops = stops, started = run?.started)
+    fun report(): String = ProblemLog.report(
+        excerpt, build = build, installedFrom = installedFrom, phoneNow = phoneNow, playback = playback, stops = stops, started = run?.started,
+    )
 }
 
 /**
@@ -95,9 +113,14 @@ fun ProblemReportDialog(onDismiss: () -> Unit) {
         choices = withContext(Dispatchers.IO) {
             // This run's file when one is kept: the phone's log may have turned over since the start.
             val lines = (if (Unreleased.PREVIOUS_LOGS) RunLogs.now() else null) ?: ProblemLog.read()
-            val now = LogChoice(null, ProblemLog.excerpt(lines), StopReasons.read(context))
+            val installedFrom = context.installedFrom()
+            // The connection and the battery as they are now, asked once: an earlier run's own are in its lines.
+            val phoneNow = PhoneState.read(context).describe()
+            // How playback has gone since the app started: this run's only, see PlayHealth.
+            val playback = PlayHealth.thisRun.describe(SystemClock.elapsedRealtime())
+            val now = LogChoice(null, ProblemLog.excerpt(lines), StopReasons.read(context), installedFrom, phoneNow, playback)
             val earlier = if (Unreleased.PREVIOUS_LOGS) {
-                RunLogs.earlier(context).map { LogChoice(it, ProblemLog.excerpt(RunLogs.read(it)), emptyList()) }
+                RunLogs.earlier(context).map { LogChoice(it, ProblemLog.excerpt(RunLogs.read(it)), emptyList(), installedFrom, phoneNow) }
             } else emptyList()
             listOf(now) + earlier
         }
@@ -140,15 +163,21 @@ fun ProblemReportDialog(onDismiss: () -> Unit) {
             }
         },
         confirmButton = {
-            TextButton(
+            // A fork's reports are its own: no form on InterTune's tracker (FORKS.md). Copy stays.
+            if (BuiltInKeys.official) TextButton(
                 enabled = text != null,
                 onClick = {
                     // The form's own boxes, by their ids in .github/ISSUE_TEMPLATE/bug_report.yml.
-                    val uri = "${Links.ISSUES}/new".toUri().buildUpon()
+                    val form = "${Links.ISSUES}/new".toUri().buildUpon()
                         .appendQueryParameter("template", "bug_report.yml")
                         .appendQueryParameter("build", choice?.build ?: ProblemLog.build())
                         .appendQueryParameter("device", ProblemLog.device())
-                        .appendQueryParameter("logs", ProblemLog.fitted(text.orEmpty(), FORM_LOG_LIMIT))
+                        .build()
+                    // The log as much as the link holds: past about 7,000 characters GitHub says
+                    // "Something went wrong" instead of opening the form.
+                    val room = FORM_LINK_LIMIT - form.toString().length - "&logs=".length
+                    val uri = form.buildUpon()
+                        .appendQueryParameter("logs", ProblemLog.fittedForLink(text.orEmpty(), room, FORM_LOG_LIMIT))
                         .build()
                     runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
                     onDismiss()

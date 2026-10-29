@@ -19,6 +19,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.ui.component.ExplainDialog
+import com.dd3boh.outertune.ui.screens.settings.settingRow
+import androidx.compose.ui.Modifier
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 
 /**
@@ -32,6 +34,7 @@ fun ColumnScope.AndroidAutoFrag() {
     var open by rememberSaveable { mutableStateOf(false) }
 
     PreferenceEntry(
+        modifier = Modifier.settingRow(R.string.android_auto),
         title = { Text(stringResource(R.string.android_auto)) },
         description = stringResource(R.string.android_auto_missing),
         icon = { Icon(Icons.Rounded.DirectionsCar, null) },

@@ -98,6 +98,8 @@ class UpdateChecker @Inject constructor(
             _available.value = fake
             return@withContext fake
         }
+        // A fork never asks InterTune's releases: they are not its updates (FORKS.md).
+        if (!BuiltInKeys.official) return@withContext null
         val store = context.dataStore
         if (!force && !store.get(UpdateCheckEnabledKey, false)) return@withContext null
         // Offline means the check could not be made, not that there is no update: show an update

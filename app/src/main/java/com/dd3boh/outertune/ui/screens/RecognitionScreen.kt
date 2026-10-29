@@ -15,6 +15,7 @@ import com.dd3boh.outertune.ui.component.FloatingTopBar
 import com.dd3boh.outertune.ui.component.TopBarActions
 
 import android.Manifest
+import android.os.Build
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -142,6 +143,14 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.dd3boh.outertune.utils.LocaleDateFormat
 import java.util.Locale
+import android.app.Activity
+import android.media.projection.MediaProjectionManager
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material.icons.rounded.Mic
+import androidx.compose.material.icons.rounded.PhoneAndroid
+import com.dd3boh.outertune.recognition.PhoneAudio
 
 /**
  * Naming what is playing, as a screen rather than a sheet.
@@ -216,12 +225,48 @@ fun RecognitionScreen(
     var addAllToPlaylist by remember { mutableStateOf(false) }
     var pendingContinuous by remember { mutableStateOf(false) }
 
+    // What is listened to: the room through the microphone, or the phone's own sound (PhoneAudio):
+    // the song in a video or another app. The second needs Android's "Start recording or casting?"
+    // before every listen, which the projection launcher asks.
+    var fromPhone by rememberSaveable { mutableStateOf(false) }
+    val projectionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val data = result.data
+        if (result.resultCode == Activity.RESULT_OK && data != null) {
+            viewModel.setContinuous(pendingContinuous)
+            viewModel.startOnPhone(null, result.resultCode, data)
+        }
+    }
+    fun askForPhoneSound() {
+        val projections = context.getSystemService(MediaProjectionManager::class.java) ?: return
+        projectionLauncher.launch(PhoneAudio.consentIntent(projections))
+    }
+    // A listen of the phone's sound sends somebody to the video's app, and from there the listening
+    // and the song found are notifications: asked for first, the listen going ahead either way.
+    val notificationLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { askForPhoneSound() }
+    fun listenToPhone() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            askForPhoneSound()
+        }
+    }
+
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (granted) {
-            viewModel.setContinuous(pendingContinuous)
-            viewModel.start(null)
+            if (fromPhone && PhoneAudio.supported) {
+                listenToPhone()
+            } else {
+                viewModel.setContinuous(pendingContinuous)
+                viewModel.start(null)
+            }
         }
     }
 
@@ -265,7 +310,7 @@ fun RecognitionScreen(
         // the room and our playback never reaches it, so interrupting somebody mid-song buys
         // nothing. On the phone's own speaker they share the same air, and leaving it running
         // would name the song already playing every single time.
-        if (pauseOnSpeaker && playerConnection?.player?.isPlaying == true &&
+        if (pauseOnSpeaker && !fromPhone && playerConnection?.player?.isPlaying == true &&
             !AudioRoute.playbackIsPrivate(context)
         ) {
             playerConnection.player.pause()
@@ -277,7 +322,9 @@ fun RecognitionScreen(
         ) {
             // The mode goes with the switch, set once the playlist's run has stopped. Set first,
             // it was that run's mode that changed.
-            if (instead) {
+            if (fromPhone && PhoneAudio.supported && !instead) {
+                listenToPhone()
+            } else if (instead) {
                 viewModel.listenInstead(null, keepGoing)
             } else {
                 viewModel.setContinuous(keepGoing)
@@ -388,6 +435,41 @@ fun RecognitionScreen(
                 onClick = { if (listening) viewModel.stop() else listen(keepListeningDefault) },
                 message = shazamWaitMessage(retryAt?.takeIf { listening && continuous }),
             )
+        }
+
+        // Around you or on this phone: not over another run, and not while listening, since a run
+        // keeps the source it started with.
+        if (PhoneAudio.supported && run !is SheetRun.Other) item(key = "source") {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 16.dp),
+            ) {
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                    SegmentedButton(
+                        selected = !fromPhone,
+                        onClick = { fromPhone = false },
+                        enabled = !listening,
+                        shape = SegmentedButtonDefaults.itemShape(0, 2),
+                        icon = { Icon(Icons.Rounded.Mic, contentDescription = null) },
+                    ) { Text(stringResource(R.string.recognition_source_room)) }
+                    SegmentedButton(
+                        selected = fromPhone,
+                        onClick = { fromPhone = true },
+                        enabled = !listening,
+                        shape = SegmentedButtonDefaults.itemShape(1, 2),
+                        icon = { Icon(Icons.Rounded.PhoneAndroid, contentDescription = null) },
+                    ) { Text(stringResource(R.string.recognition_source_phone)) }
+                }
+                if (fromPhone) {
+                    Text(
+                        text = stringResource(R.string.recognition_phone_note),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+            }
         }
 
         // Not over another run: the engine reads the mode on every window, so either card changed
@@ -502,7 +584,8 @@ fun RecognitionScreen(
                     // Shazam client. It stays in the logs. RecognitionSheet already picked
                     // between these two and this screen should not read differently.
                     text = stringResource(
-                        if (failed.heardNothing) R.string.recognition_heard_nothing
+                        if (failed.heardNothing && failed.fromPhone) R.string.recognition_phone_heard_nothing
+                        else if (failed.heardNothing) R.string.recognition_heard_nothing
                         else R.string.recognition_failed
                     ),
                     style = MaterialTheme.typography.bodyMedium,

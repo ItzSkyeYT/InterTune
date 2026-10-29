@@ -3,6 +3,8 @@ package com.dd3boh.outertune.ui.screens
 import com.dd3boh.outertune.ui.component.ScreenBackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -122,6 +124,7 @@ import com.dd3boh.outertune.ui.utils.HeaderBesideList
 import com.dd3boh.outertune.ui.utils.paneInsets
 import com.dd3boh.outertune.ui.utils.paneTop
 import com.dd3boh.outertune.ui.utils.rememberHeaderBeside
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -147,6 +150,20 @@ fun AlbumScreen(
     val otherVersions by viewModel.otherVersions.collectAsState()
     val state = rememberLazyListState()
     val isLoading by viewModel.isLoading.collectAsState()
+
+    // The song a link opened the album on (youtubeNavigator): brought into view once, under the
+    // header and a third of the way down, and lit for a moment, so it is clear which one it was.
+    var shownDone by rememberSaveable { mutableStateOf(false) }
+    val shownLight = remember { Animatable(0f) }
+    LaunchedEffect(albumWithSongs?.songs?.size) {
+        val index = albumWithSongs?.songs?.indexOfFirst { it.id == viewModel.shownSong } ?: -1
+        if (shownDone || index < 0) return@LaunchedEffect
+        shownDone = true
+        state.animateScrollToItem(index + 1, -state.layoutInfo.viewportSize.height / 3)
+        shownLight.snapTo(1f)
+        delay(1200)
+        shownLight.animateTo(0f, tween(900))
+    }
 
     // multiselect
     var inSelectMode by rememberSaveable { mutableStateOf(false) }
@@ -442,7 +459,8 @@ fun AlbumScreen(
                     snackbarHostState = snackbarHostState,
 
                     isActive = song.id == mediaMetadata?.id,
-                    isPlaying = isPlaying,
+                    // Only the playing row hears of play and pause (LibrarySongsScreen's rows too).
+                    isPlaying = song.id == mediaMetadata?.id && isPlaying,
                     inSelectMode = inSelectMode,
                     isSelected = selection.contains(song.id),
                     onSelectedChange = {
@@ -462,7 +480,8 @@ fun AlbumScreen(
                                 title = albumWithSongsLocal.album.title,
                                 items = albumWithSongsLocal.songs.map { it.toMediaMetadata() },
                                 startIndex = index,
-                                playlistId = albumWithSongsLocal.album.playlistId
+                                playlistId = albumWithSongsLocal.album.playlistId,
+                                songPicked = true,
                             ),
                             origin = PlayOrigin.ALBUM,
                         )
@@ -470,6 +489,10 @@ fun AlbumScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .animateItem()
+                        .then(
+                            if (song.id == viewModel.shownSong) Modifier.background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f * shownLight.value))
+                            else Modifier
+                        )
                 )
             }
 

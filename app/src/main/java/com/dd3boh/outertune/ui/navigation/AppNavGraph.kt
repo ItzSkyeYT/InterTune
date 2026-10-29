@@ -82,6 +82,7 @@ import com.dd3boh.outertune.ui.screens.settings.RecommendationsDoingSettings
 import com.dd3boh.outertune.ui.screens.settings.RecommendationsSettings
 import com.dd3boh.outertune.ui.screens.settings.SettingsScreen
 import com.dd3boh.outertune.ui.screens.settings.BackupSettings
+import com.dd3boh.outertune.ui.screens.settings.BatterySettings
 import com.dd3boh.outertune.ui.screens.settings.StorageSettings
 import com.dd3boh.outertune.ui.screens.settings.UpdateSettings
 import com.dd3boh.outertune.ui.screens.walkthrough.SETTINGS_CLOSER_LOOK
@@ -208,10 +209,16 @@ fun NavGraphBuilder.appDestinations(
             OnlineSearchResult(navController)
         }
         screen(
-            route = "album/{albumId}",
+            // song: the one a link opened the album on, brought into view and lit (youtubeNavigator).
+            route = "album/{albumId}?song={song}",
             arguments = listOf(
                 navArgument("albumId") {
                     type = NavType.StringType
+                },
+                navArgument("song") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
                 },
             )
         ) {
@@ -423,6 +430,11 @@ fun NavGraphBuilder.appDestinations(
         }
         screen("settings/storage") {
             StorageSettings(navController, scrollBehavior)
+        }
+        if (Unreleased.BATTERY_MODES) {
+            screen("settings/battery") {
+                BatterySettings(navController, scrollBehavior)
+            }
         }
         screen("settings/backup") {
             BackupSettings(navController, scrollBehavior)

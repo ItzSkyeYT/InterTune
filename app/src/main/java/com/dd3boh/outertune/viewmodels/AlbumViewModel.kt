@@ -24,6 +24,9 @@ class AlbumViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
     val albumId = savedStateHandle.get<String>("albumId")!!
+
+    /** The song a link opened the album on: brought into view and lit once (AlbumScreen). */
+    val shownSong: String? = savedStateHandle.get<String>("song")
     /**
      * The album with its songs in the album's order. The relation in AlbumWithSongs goes through
      * a view sorted by position, but SQLite folds the view into the join and keeps no order, so

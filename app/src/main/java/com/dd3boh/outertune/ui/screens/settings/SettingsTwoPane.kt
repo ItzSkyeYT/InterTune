@@ -14,13 +14,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.relocation.BringIntoViewRequester
@@ -34,6 +37,7 @@ import androidx.compose.material.icons.automirrored.rounded.LibraryBooks
 import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Backup
+import androidx.compose.material.icons.rounded.Battery5Bar
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Lyrics
@@ -69,6 +73,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -100,7 +105,7 @@ internal data class SettingsCategory(val route: String, @StringRes val title: In
  * The screens of settings in the list's four groups, the ones the cards of the upright list are:
  * your music, how the app presents it, what it keeps on the device, the app itself.
  */
-internal fun settingsGroups(engine: Boolean = Unreleased.ENGINE): List<List<SettingsCategory>> = listOf(
+internal fun settingsGroups(engine: Boolean = Unreleased.ENGINE, battery: Boolean = Unreleased.BATTERY_MODES): List<List<SettingsCategory>> = listOf(
     listOf(
         SettingsCategory("settings/account_sync", R.string.grp_account_sync, Icons.Rounded.AccountCircle),
         SettingsCategory("settings/library", R.string.grp_library_and_content, Icons.AutoMirrored.Rounded.LibraryBooks),
@@ -112,8 +117,9 @@ internal fun settingsGroups(engine: Boolean = Unreleased.ENGINE): List<List<Sett
         SettingsCategory("settings/recognition", R.string.recognise_settings, Icons.Rounded.GraphicEq),
         SettingsCategory("settings/library/lyrics", R.string.lyrics_settings_title, Icons.Rounded.Lyrics),
     ),
-    listOf(
+    listOfNotNull(
         SettingsCategory("settings/storage", R.string.grp_storage_and_downloads, Icons.Rounded.Storage),
+        SettingsCategory(Tour.ROUTE_BATTERY, R.string.battery_use, Icons.Rounded.Battery5Bar).takeIf { battery },
         SettingsCategory("settings/backup", R.string.backup_restore, Icons.Rounded.Backup),
         SettingsCategory("settings/privacy", R.string.grp_privacy_and_history, Icons.Rounded.Shield),
     ),
@@ -217,6 +223,8 @@ fun SettingsTwoPane(
     navController: NavController,
     scrollBehavior: TopAppBarScrollBehavior,
     tourRunning: Boolean = false,
+    query: String = "",
+    onQueryChange: (String) -> Unit = {},
 ) {
     val groups = settingsGroups()
     val listed = remember(groups) { groups.flatten().map { it.route } }
@@ -246,6 +254,11 @@ fun SettingsTwoPane(
     val pendingUpdate by LocalUpdateChecker.current.available.collectAsState()
     val updateBadgeLabel = stringResource(R.string.update_available_title)
     val groupTargets = listOf(Tour.SETTINGS_YOU, Tour.SETTINGS_LOOK_AND_SOUND, Tour.SETTINGS_KEPT, Tour.SETTINGS_REST)
+    // While something is typed in the search, its results are the list, and the one opened on the
+    // right is filled as the entry of the list it stands for would be.
+    val searching = Unreleased.SETTINGS_SEARCH && query.isNotBlank()
+    var picked by rememberSaveable { mutableStateOf<String?>(null) }
+    val focus = LocalFocusManager.current
 
     Row(
         modifier = Modifier
@@ -261,15 +274,27 @@ fun SettingsTwoPane(
         ) {
         // Under the top bar. On a phone on its side the mini player stands under the other half
         // and the list runs down to the gesture bar; in a tall window, a tablet's, the mini player
-        // is the width of the window and the list keeps clear of it too.
+        // is the width of the window and the list keeps clear of it too. Search results keep
+        // clear of the keyboard, so that the last of them can be scrolled above it.
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .windowInsetsPadding(if (LocalLandscape.current.active) headerPaneInsets() else paneInsets())
+                .windowInsetsPadding((if (LocalLandscape.current.active) headerPaneInsets() else paneInsets()).union(WindowInsets.ime))
                 .padding(start = 12.dp, end = 4.dp, bottom = 12.dp),
         ) {
-            groups.forEachIndexed { at, group ->
+            if (Unreleased.SETTINGS_SEARCH) {
+                SettingsSearchField(query, onQueryChange, Modifier.padding(bottom = 12.dp).tourTarget(Tour.SETTINGS_SEARCH_FIELD))
+            }
+            if (searching) {
+                val search = rememberSettingsSearch()
+                val hits = remember(search, query) { search.search(query) }
+                SettingsSearchPaneResults(hits, query, picked, onPick = { hit ->
+                    picked = hit.key
+                    focus.clearFocus()
+                    openHit(hit) { route -> settingsOpened(open, route, listed, further)?.let { show(it) } }
+                })
+            } else groups.forEachIndexed { at, group ->
                 if (at > 0) Spacer(Modifier.height(10.dp))
                 Column(
                     verticalArrangement = Arrangement.spacedBy(2.dp),
@@ -284,6 +309,7 @@ fun SettingsTwoPane(
                                 Tour.ROUTE_LOOK_AND_FEEL -> Modifier.tourTarget(Tour.ROW_LOOK_AND_FEEL)
                                 "settings/player" -> Modifier.tourTarget(Tour.ROW_PLAYER)
                                 Tour.ROUTE_LIBRARY -> Modifier.tourTarget(Tour.ROW_LIBRARY)
+                                Tour.ROUTE_BATTERY -> Modifier.tourTarget(Tour.ROW_BATTERY)
                                 Tour.ROUTE_BACKUP -> Modifier.tourTarget(Tour.ROW_BACKUP)
                                 Tour.ROUTE_ABOUT -> Modifier.tourTarget(Tour.ROW_ABOUT)
                                 else -> Modifier
@@ -390,6 +416,7 @@ private fun SettingsPane(route: String, navController: NavController, scrollBeha
         "settings/recognition" -> RecognitionSettings(navController, scrollBehavior)
         "settings/library/lyrics" -> LyricsSettings(navController, scrollBehavior)
         "settings/storage" -> StorageSettings(navController, scrollBehavior)
+        Tour.ROUTE_BATTERY -> BatterySettings(navController, scrollBehavior)
         "settings/backup" -> BackupSettings(navController, scrollBehavior)
         "settings/privacy" -> PrivacySettings(navController, scrollBehavior)
         "settings/updates" -> UpdateSettings(navController, scrollBehavior)

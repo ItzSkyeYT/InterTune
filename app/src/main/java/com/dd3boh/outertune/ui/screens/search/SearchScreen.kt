@@ -56,6 +56,7 @@ import androidx.core.net.toUri
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.dd3boh.outertune.LocalDatabase
+import com.dd3boh.outertune.LocalMenuState
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
@@ -104,6 +105,7 @@ fun SearchBarContainer(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val database = LocalDatabase.current
+    val menuState = LocalMenuState.current
     val focusManager = LocalFocusManager.current
     val playerConnection = LocalPlayerConnection.current
 
@@ -146,7 +148,8 @@ fun SearchBarContainer(
                         coroutineScope,
                         playerConnection,
                         snackbarHostState,
-                        it.toUri()
+                        it.toUri(),
+                        menuState,
                     )
                 ) {
                     // don't do anything
@@ -330,7 +333,8 @@ fun SearchBarContainer(
                                     coroutineScope,
                                     playerConnection,
                                     snackbarHostState,
-                                    it.toUri()
+                                    it.toUri(),
+                                    menuState,
                                 )
                             ) {
                                 return@OnlineSearchScreen

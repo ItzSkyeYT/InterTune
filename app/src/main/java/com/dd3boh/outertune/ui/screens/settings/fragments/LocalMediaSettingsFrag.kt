@@ -113,6 +113,7 @@ import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.settings.settingRow
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 
 
@@ -176,7 +177,7 @@ fun ColumnScope.LocalScannerFrag() {
     // accent colour: Scan cannot do anything before this has been done.
     val chosenFolders = remember(scanPaths) { uriListFromString(scanPaths) }
     PreferenceEntry(
-        modifier = Modifier.tourTarget(Tour.SETTING_SCAN_PATHS),
+        modifier = Modifier.tourTarget(Tour.SETTING_SCAN_PATHS).settingRow(R.string.scan_paths_title),
         title = { Text(stringResource(R.string.scan_paths_title)) },
         description = if (chosenFolders.isEmpty()) stringResource(R.string.scan_paths_none)
         else chosenFolders.joinToString(", ") { folderName(context, it) },
@@ -752,7 +753,7 @@ fun ColumnScope.LocalScannerExtraFrag() {
 
     // scanner sensitivity
     EnumListPreference(
-        modifier = Modifier.tourTarget(Tour.SETTING_SCANNER_SENSITIVITY),
+        modifier = Modifier.tourTarget(Tour.SETTING_SCANNER_SENSITIVITY).settingRow(R.string.scanner_sensitivity_title),
         title = { Text(stringResource(R.string.scanner_sensitivity_title)) },
         icon = { Icon(Icons.Rounded.Tune, null) },
         selectedValue = scannerSensitivity,
@@ -768,6 +769,7 @@ fun ColumnScope.LocalScannerExtraFrag() {
     )
     // strict file ext
     SwitchPreference(
+        modifier = Modifier.settingRow(R.string.scanner_strict_file_name_title),
         title = { Text(stringResource(R.string.scanner_strict_file_name_title)) },
         description = stringResource(R.string.scanner_strict_file_name_description),
         icon = { Icon(Icons.Rounded.TextFields, null) },
@@ -777,6 +779,7 @@ fun ColumnScope.LocalScannerExtraFrag() {
     )
     // compare file path only
     SwitchPreference(
+        modifier = Modifier.settingRow(R.string.scanner_strict_file_paths_title),
         title = { Text(stringResource(R.string.scanner_strict_file_paths_title)) },
         description = stringResource(R.string.scanner_strict_file_paths_description),
         icon = { Icon(Icons.Rounded.MoreHoriz, null) },
@@ -785,6 +788,7 @@ fun ColumnScope.LocalScannerExtraFrag() {
     )
     // scanner type
     EnumListPreference(
+        modifier = Modifier.settingRow(R.string.scanner_type_title),
         title = { Text(stringResource(R.string.scanner_type_title)) },
         icon = { Icon(Icons.Rounded.Speed, null) },
         selectedValue = scannerImpl,
