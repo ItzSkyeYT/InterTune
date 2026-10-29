@@ -25,7 +25,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -34,6 +34,7 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -100,6 +101,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalResources
@@ -147,6 +149,17 @@ import kotlin.math.pow
 
 /** The lengths the Simple sheet's pill offers, in bars; 32 is shown too, never possible (DESIGN.md 3.8). */
 private val SIMPLE_BARS = listOf(4, 8, 16)
+
+/** How many lines the line under the waveforms may take before it is cut. */
+internal const val WHERE_LINES = 3
+
+/**
+ * The sheet's height in px out of [maxPx]: 92% upright and 94% on its side, the player showing
+ * above it, and never so tall that its top reaches into the last [clearOfBarPx] (the status bar
+ * and a little room), where the clock and the battery were drawn over its corners on its side.
+ */
+internal fun sheetHeight(maxPx: Int, landscape: Boolean, clearOfBarPx: Int): Int =
+    minOf((maxPx * if (landscape) 0.94f else 0.92f).toInt(), maxPx - clearOfBarPx).coerceAtLeast(0)
 
 /**
  * Edit transition, Simple (DESIGN.md, "Two levels"): a sheet over the player with both songs'
@@ -232,7 +245,15 @@ fun MixSimpleSheet(
         val editor = vm.editor
         val spec = ui?.spec
         val ready = phase is MixEditorViewModel.Phase.Ready && editor != null && spec != null
-        Box(Modifier.fillMaxHeight(if (landscape) 0.94f else 0.92f)) {
+        // Its top stays clear of the status bar: on its side 94% of the height ran under the clock.
+        val clearOfBar = with(LocalDensity.current) { (WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 8.dp).roundToPx() }
+        Box(
+            Modifier.layout { measurable, constraints ->
+                val h = if (constraints.hasBoundedHeight) sheetHeight(constraints.maxHeight, landscape, clearOfBar).coerceAtLeast(constraints.minHeight) else constraints.minHeight
+                val placeable = measurable.measure(constraints.copy(minHeight = h, maxHeight = h))
+                layout(placeable.width, placeable.height) { placeable.place(0, 0) }
+            },
+        ) {
             Column {
                 Header(
                     landscape = landscape,
@@ -474,7 +495,8 @@ private fun WhereLine(
         text,
         style = MaterialTheme.typography.bodySmall,
         color = if (said != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-        maxLines = 2,
+        // Three lines: a long title in French at a large font cut "ne s'entendent pas" at two.
+        maxLines = WHERE_LINES,
         overflow = TextOverflow.Ellipsis,
         modifier = modifier.semantics { liveRegion = LiveRegionMode.Polite },
     )
