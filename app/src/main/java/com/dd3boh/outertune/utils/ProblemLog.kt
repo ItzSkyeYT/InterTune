@@ -214,6 +214,38 @@ object ProblemLog {
         return if (linkLength(cut) <= budget) cut else ""
     }
 
+    /**
+     * The start of [text] that takes [budget] characters at most once escaped for a link, cut at the
+     * end of a line. For a crash, whose first lines (the error and where it was thrown) are the ones
+     * that matter, where [fittedForLink] keeps the end of a log. A first line longer than the budget
+     * is cut where the budget runs out.
+     */
+    fun startForLink(text: String, budget: Int): String {
+        if (budget <= 0) return ""
+        if (linkLength(text) <= budget) return text
+        val out = StringBuilder()
+        var used = 0
+        for (line in text.lineSequence()) {
+            val piece = if (out.isEmpty()) line else "\n$line"
+            val cost = linkLength(piece)
+            if (used + cost > budget) break
+            out.append(piece)
+            used += cost
+        }
+        if (out.isEmpty()) {
+            var i = 0
+            while (i < text.length) {
+                val next = i + Character.charCount(text.codePointAt(i))
+                val cost = linkLength(text.substring(i, next))
+                if (used + cost > budget) break
+                out.append(text, i, next)
+                used += cost
+                i = next
+            }
+        }
+        return out.toString()
+    }
+
     fun build(): String = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}, ${BuildConfig.FLAVOR} ${BuildConfig.BUILD_TYPE})"
 
     fun device(): String = "${Build.MANUFACTURER} ${Build.MODEL}, Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"

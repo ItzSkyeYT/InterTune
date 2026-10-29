@@ -45,13 +45,19 @@ import androidx.core.net.toUri
 import com.dd3boh.outertune.utils.BuiltInKeys
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.Links
+import com.dd3boh.outertune.constants.ReportWayKey
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.utils.CrashLog
 import com.dd3boh.outertune.utils.ProblemLog
 import com.dd3boh.outertune.utils.ReportRelay
+import com.dd3boh.outertune.utils.ReportWay
+import com.dd3boh.outertune.utils.rememberEnumPreference
 import kotlinx.coroutines.launch
 
-/** GitHub rejects very long issue URLs, so the body carries the top of the trace, which is the part that matters. */
+/**
+ * The trace's characters looked at for the issue's link, at most. The link itself is cut to FORM_LINK_LIMIT
+ * once escaped (GitHub's sign-in page drops a longer one), keeping the top of the trace, the part that matters.
+ */
 private const val ISSUE_BODY_LIMIT = 6000
 
 /**
@@ -66,6 +72,9 @@ fun CrashReportDialog() {
     val context = LocalContext.current
     var report by remember { mutableStateOf(CrashLog.read(context)) }
     val relay = Unreleased.REPORT_RELAY && BuiltInKeys.official
+    // Anonymous, or with the person's GitHub account, as in Report a problem (ReportWayKey).
+    var way by rememberEnumPreference(ReportWayKey, ReportWay.ANONYMOUS)
+    val withGitHub = relay && way == ReportWay.GITHUB
     var what by rememberSaveable { mutableStateOf("") }
     var contact by rememberSaveable { mutableStateOf("") }
     var sending by remember { mutableStateOf(false) }
@@ -84,9 +93,14 @@ fun CrashReportDialog() {
     // The exception line, the first one after the device header, makes the title.
     val cause = text.substringAfter("\n\n").lineSequence().firstOrNull().orEmpty().take(120)
     val openGitHub = {
-        val uri = "${Links.ISSUES}/new".toUri().buildUpon()
+        val base = "${Links.ISSUES}/new".toUri().buildUpon()
             .appendQueryParameter("title", "Crash: $cause")
-            .appendQueryParameter("body", "```\n${text.take(ISSUE_BODY_LIMIT)}\n```")
+            .build()
+        // What they typed, then the trace from its top, as much as the link holds for someone signed out.
+        val said = if (relay && what.isNotBlank()) what.trim().take(FORM_WHAT_LIMIT) + "\n\n" else ""
+        val room = FORM_LINK_LIMIT - base.toString().length - "&body=".length - ProblemLog.linkLength("$said```\n\n```")
+        val uri = base.buildUpon()
+            .appendQueryParameter("body", "$said```\n${ProblemLog.startForLink(text.take(ISSUE_BODY_LIMIT), room)}\n```")
             .build()
         runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
         forget()
@@ -100,6 +114,8 @@ fun CrashReportDialog() {
                 Text(stringResource(R.string.crash_report_text))
                 if (relay) {
                     Spacer(Modifier.height(12.dp))
+                    ReportWayChoice(way, onPick = { way = it })
+                    Spacer(Modifier.height(12.dp))
                     OutlinedTextField(
                         value = what,
                         onValueChange = { what = it.take(2000) },
@@ -108,18 +124,21 @@ fun CrashReportDialog() {
                         maxLines = 5,
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    Spacer(Modifier.height(8.dp))
-                    val failed = outcome is ReportRelay.Outcome.Failed
-                    OutlinedTextField(
-                        value = contact,
-                        onValueChange = { contact = it.take(200) },
-                        label = { Text(stringResource(R.string.problem_report_contact)) },
-                        placeholder = { Text(stringResource(R.string.problem_report_contact_hint)) },
-                        supportingText = { Text(stringResource(if (failed) R.string.problem_report_send_failed else R.string.problem_report_contact_note)) },
-                        isError = failed,
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                    // GitHub knows who files there: the way to reach someone is for anonymous reports only.
+                    if (!withGitHub) {
+                        Spacer(Modifier.height(8.dp))
+                        val failed = outcome is ReportRelay.Outcome.Failed
+                        OutlinedTextField(
+                            value = contact,
+                            onValueChange = { contact = it.take(200) },
+                            label = { Text(stringResource(R.string.problem_report_contact)) },
+                            placeholder = { Text(stringResource(R.string.problem_report_contact_hint)) },
+                            supportingText = { Text(stringResource(if (failed) R.string.problem_report_send_failed else R.string.problem_report_contact_note)) },
+                            isError = failed,
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
                 }
                 Spacer(Modifier.height(12.dp))
                 Text(
@@ -134,7 +153,8 @@ fun CrashReportDialog() {
             }
         },
         confirmButton = {
-            if (relay) Button(
+            if (withGitHub) Button(onClick = openGitHub) { Text(stringResource(R.string.crash_report_github)) }
+            else if (relay) Button(
                 enabled = !sending,
                 onClick = {
                     sending = true
@@ -161,7 +181,6 @@ fun CrashReportDialog() {
         },
         dismissButton = {
             Row {
-                if (relay) TextButton(onClick = openGitHub) { Text(stringResource(R.string.crash_report_github)) }
                 TextButton(
                     onClick = {
                         context.getSystemService(ClipboardManager::class.java)

@@ -396,6 +396,14 @@ val SwipeToDismissPlayerKey = booleanPreferencesKey("swipeToDismissPlayer")
 val ShareLinkKindKey = stringPreferencesKey("shareLinkKind")
 
 /**
+ * How Report a problem and the crash page send a report: a ReportWay. Unset, it reads as
+ * ReportWay.ANONYMOUS; the way last picked is kept for the next report (his rule of 28 Oct 2026:
+ * anonymous for people who would rather not sign in, the account way kept once someone picks it,
+ * and anonymous still one tap away).
+ */
+val ReportWayKey = stringPreferencesKey("reportWay")
+
+/**
  * Whether the transport controls sit inside one shared panel, or stand on their own.
  *
  * Only visible when liquid glass is on, since that panel is the glass slab. Default true keeps the

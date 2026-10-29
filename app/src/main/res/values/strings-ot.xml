@@ -1997,6 +1997,11 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="problem_report_copy_link">Copy link</string>
     <string name="problem_report_held">Sent. It goes on GitHub once someone has looked at it.</string>
     <string name="problem_report_send_failed">Couldn\'t send it. Try again, or copy it and post it in #bug-reports.</string>
+    <!-- The two ways a report goes, picked at the top of Report a problem and the crash page; the pick is kept. For translators only after his yes. -->
+    <string name="report_way_anonymous">Anonymous</string>
+    <string name="report_way_github">GitHub account</string>
+    <string name="report_way_anonymous_note">No account needed. You get a link to follow it.</string>
+    <string name="report_way_github_note">Opens the form on GitHub, where you sign in and get the replies.</string>
     <string name="problem_report_now">Now</string>
     <string name="problem_report_went_wrong">%1$s · went wrong at %2$s</string>
     <string name="problem_report_no_fault">%1$s · no fault noted</string>

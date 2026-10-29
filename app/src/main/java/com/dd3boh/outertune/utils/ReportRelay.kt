@@ -35,6 +35,13 @@ import kotlin.coroutines.cancellation.CancellationException
  * tools/site/netlify/functions/report.mjs in the InterTune project; a report that looks like spam is
  * held there for a look, and a draft of the site files nothing and answers with issue 0.
  */
+/**
+ * The two ways a report goes from the app: [ANONYMOUS] through intertune.app ([ReportRelay]), no account
+ * needed, or [GITHUB] through GitHub's own form, signed in with the person's account, where they get the
+ * replies. Kept in ReportWayKey.
+ */
+enum class ReportWay { ANONYMOUS, GITHUB }
+
 object ReportRelay {
     const val URL = "https://intertune.app/api/report"
     private const val MOST_TITLE = 120

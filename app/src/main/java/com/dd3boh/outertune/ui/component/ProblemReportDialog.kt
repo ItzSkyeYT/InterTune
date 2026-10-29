@@ -39,9 +39,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.rememberCoroutineScope
 import com.dd3boh.outertune.utils.ReportRelay
+import com.dd3boh.outertune.utils.ReportWay
+import com.dd3boh.outertune.utils.rememberEnumPreference
 import kotlinx.coroutines.launch
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -66,6 +71,7 @@ import com.dd3boh.outertune.utils.BuiltInKeys
 import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.Links
+import com.dd3boh.outertune.constants.ReportWayKey
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.playback.PlayHealth
 import com.dd3boh.outertune.playback.StopReasons
@@ -85,7 +91,10 @@ private const val FORM_LOG_LIMIT = 5000
  * gets "Whoops, something went wrong!" from the sign-in page; from about 5,500 GitHub drops the link and the form
  * comes up empty after signing in. 6,000, right for someone signed in (26 Oct), failed in both ways.
  */
-private const val FORM_LINK_LIMIT = 4500
+internal const val FORM_LINK_LIMIT = 4500
+
+/** What happened, as typed, in the form's link at most: the rest of the link is the log's. */
+internal const val FORM_WHAT_LIMIT = 1000
 
 /** Logs listed before "Show older": this run's and the three before it. */
 private const val FIRST_SHOWN = 4
@@ -149,6 +158,9 @@ fun ProblemReportDialog(onDismiss: () -> Unit) {
     // Send to InterTune (Unreleased.REPORT_RELAY): the report goes to intertune.app, which files the issue
     // and gives back its link (ReportRelay). A fork keeps Copy only (FORKS.md).
     val relay = Unreleased.REPORT_RELAY && BuiltInKeys.official
+    // Anonymous, or with the person's GitHub account: the way picked last time comes up first (ReportWayKey).
+    var way by rememberEnumPreference(ReportWayKey, ReportWay.ANONYMOUS)
+    val withGitHub = relay && way == ReportWay.GITHUB
     var what by rememberSaveable { mutableStateOf("") }
     var contact by rememberSaveable { mutableStateOf("") }
     var sending by remember { mutableStateOf(false) }
@@ -166,6 +178,8 @@ fun ProblemReportDialog(onDismiss: () -> Unit) {
             .appendQueryParameter("template", "bug_report.yml")
             .appendQueryParameter("build", choice?.build ?: ProblemLog.build())
             .appendQueryParameter("device", ProblemLog.device())
+            // What they typed above, into the form's own box for it (id what-happens).
+            .apply { if (relay && what.isNotBlank()) appendQueryParameter("what-happens", what.trim().take(FORM_WHAT_LIMIT)) }
             .build()
         // The log as much as the link holds: see FORM_LINK_LIMIT.
         val room = FORM_LINK_LIMIT - form.toString().length - "&logs=".length
@@ -199,6 +213,8 @@ fun ProblemReportDialog(onDismiss: () -> Unit) {
                 }
                 if (relay && text != null) {
                     Spacer(Modifier.height(12.dp))
+                    ReportWayChoice(way, onPick = { way = it })
+                    Spacer(Modifier.height(12.dp))
                     OutlinedTextField(
                         value = what,
                         onValueChange = { what = it.take(2000) },
@@ -207,18 +223,21 @@ fun ProblemReportDialog(onDismiss: () -> Unit) {
                         maxLines = 5,
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    Spacer(Modifier.height(8.dp))
-                    val failed = outcome is ReportRelay.Outcome.Failed
-                    OutlinedTextField(
-                        value = contact,
-                        onValueChange = { contact = it.take(200) },
-                        label = { Text(stringResource(R.string.problem_report_contact)) },
-                        placeholder = { Text(stringResource(R.string.problem_report_contact_hint)) },
-                        supportingText = { Text(stringResource(if (failed) R.string.problem_report_send_failed else R.string.problem_report_contact_note)) },
-                        isError = failed,
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                    // GitHub knows who files there: the way to reach someone is for anonymous reports only.
+                    if (!withGitHub) {
+                        Spacer(Modifier.height(8.dp))
+                        val failed = outcome is ReportRelay.Outcome.Failed
+                        OutlinedTextField(
+                            value = contact,
+                            onValueChange = { contact = it.take(200) },
+                            label = { Text(stringResource(R.string.problem_report_contact)) },
+                            placeholder = { Text(stringResource(R.string.problem_report_contact_hint)) },
+                            supportingText = { Text(stringResource(if (failed) R.string.problem_report_send_failed else R.string.problem_report_contact_note)) },
+                            isError = failed,
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
                 }
                 if (text != null && found?.lines?.isNotEmpty() == true) {
                     Spacer(Modifier.height(12.dp))
@@ -232,7 +251,10 @@ fun ProblemReportDialog(onDismiss: () -> Unit) {
             }
         },
         confirmButton = {
-            if (relay) Button(
+            if (withGitHub) Button(enabled = text != null, onClick = openForm) {
+                Text(stringResource(R.string.problem_report_form))
+            }
+            else if (relay) Button(
                 enabled = text != null && !sending,
                 onClick = {
                     sending = true
@@ -261,9 +283,6 @@ fun ProblemReportDialog(onDismiss: () -> Unit) {
         },
         dismissButton = {
             Row {
-                if (relay) TextButton(enabled = text != null, onClick = openForm) {
-                    Text(stringResource(R.string.problem_report_form))
-                }
                 TextButton(
                     enabled = text != null,
                     onClick = {
@@ -279,6 +298,36 @@ fun ProblemReportDialog(onDismiss: () -> Unit) {
             }
         },
     )
+}
+
+/**
+ * Anonymous or with GitHub, for Report a problem and the crash page: two segments, and under them one
+ * line on what the picked way means. The pick is kept by the caller (ReportWayKey).
+ */
+@Composable
+internal fun ReportWayChoice(way: ReportWay, onPick: (ReportWay) -> Unit) {
+    Column {
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            ReportWay.entries.forEachIndexed { i, option ->
+                SegmentedButton(
+                    selected = way == option,
+                    onClick = { onPick(option) },
+                    shape = SegmentedButtonDefaults.itemShape(i, ReportWay.entries.size),
+                ) {
+                    Text(
+                        stringResource(if (option == ReportWay.ANONYMOUS) R.string.report_way_anonymous else R.string.report_way_github),
+                        maxLines = 1,
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            stringResource(if (way == ReportWay.ANONYMOUS) R.string.report_way_anonymous_note else R.string.report_way_github_note),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
 }
 
 /** After Send to InterTune: the issue's number and its link, which anyone can follow without an account. */
