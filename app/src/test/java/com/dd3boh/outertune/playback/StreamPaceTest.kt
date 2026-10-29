@@ -141,4 +141,12 @@ class StreamPaceTest {
         // as it is (SabrOrHttp), and the guard never meters a sabr: read.
         assertTrue("the guard no longer wraps the stream fetch", Regex("""PaceGuardDataSource\.Factory\((\s*//[^\n]*)*\s*(SabrOrHttp\.Factory\(\s*)?OkHttpDataSource\.Factory\(""").containsMatchIn(body))
     }
+
+    @Test
+    fun `a slow window keeps its pace for the log, what it came in at beside what the song needs`() {
+        val meter = StreamPace.Meter(needBytesPerSecond = 6_300.0)
+        // 6,000 bytes over 2 s of waiting: 3,000 a second, under half what the song needs.
+        assertTrue(meter.slow(6_000, 2_000_000_000L))
+        assertEquals(3_000.0, meter.lastPace, 0.5)
+    }
 }

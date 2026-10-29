@@ -17,11 +17,11 @@
 [![licence](https://img.shields.io/badge/licence-GPL--3.0-ed5564?labelColor=1b1f24)](https://github.com/ItzSkyeYT/InterTune/tree/visionos-fix/LICENSE)
 [![keep android open](https://img.shields.io/badge/keep%20android-open-c62828?labelColor=1b1f24)](https://keepandroidopen.org/)
 
-[Website](https://intertune.app) · [Download](#download) · [Features](#features) · [Good to know](#good-to-know) · [Wiki](https://github.com/ItzSkyeYT/InterTune/wiki) · [Discord](https://discord.gg/68jmqhMjXk) · [Donors](#donors)
+[Website](https://intertune.app) · [Download](#download) · [Features](#features) · [Good to know](#good-to-know) · [Roadmap](#roadmap) · [Wiki](https://github.com/ItzSkyeYT/InterTune/wiki) · [Discord](https://discord.gg/68jmqhMjXk) · [Donors](#donors)
 
 </div>
 
-> **Warning:** the "InterTune" apps on Google Play and on APK sites are not this one: they are other companies' apps, with ads. Get InterTune only from this page, Obtainium or F-Droid.
+> **Warning:** the "InterTune" apps on Google Play and on other APK sites are not this one: they are other companies' apps, with ads. Get InterTune only from this page, Obtainium, F-Droid, Orion Store or OpenAPK.
 
 ## Download
 
@@ -31,6 +31,7 @@
 [<img src="https://raw.githubusercontent.com/ItzSkyeYT/InterTune/visionos-fix/assets/badge_obtainium.png" alt="Get it on Obtainium" height="60">](https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22dev.skye.intertune%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FItzSkyeYT%2FInterTune%22%2C%22author%22%3A%22ItzSkyeYT%22%2C%22name%22%3A%22InterTune%22%2C%22additionalSettings%22%3A%22%7B%5C%22apkFilterRegEx%5C%22%3A%20%5C%22core-release%5C%22%7D%22%7D)<br>
 [<img src="https://raw.githubusercontent.com/ItzSkyeYT/InterTune/visionos-fix/assets/badge_fdroid.svg" alt="Get it on F-Droid" height="60">](https://f-droid.org/packages/dev.skye.intertune/)
 [<img src="https://raw.githubusercontent.com/RookieEnough/Orion-Store/refs/heads/main/assets/orion-badge.png" alt="Get it on Orion Store" height="60">](https://rookieenough.github.io/Orion-Data/redirect.html?id=intertune)
+[<img src="https://raw.githubusercontent.com/ItzSkyeYT/InterTune/visionos-fix/assets/badge_openapk.png" alt="Get it on OpenAPK" height="60">](https://www.openapk.net/intertune/dev.skye.intertune/)
 
 Android 7.0 or later. Once installed, InterTune finds new versions by itself if you let it.
 
@@ -158,13 +159,60 @@ Every change in detail, and why this fork exists: [docs/FEATURES.md](https://git
 - **InterTune stands with [Keep Android Open](https://keepandroidopen.org/).** It will not join Google's developer registration, which would tie every Android app to an ID handed to Google.
 - If InterTune is useful to you, a star on this page helps other people find the real one.
 
+## Roadmap
+
+What's being worked on, roughly in order. `[x]` is done, `[~]` is built and being tested, `[ ]` is still to do. Nothing here has a date, and plans can change. Ideas are welcome in #feature-requests on [Discord](https://discord.gg/68jmqhMjXk) or as a [GitHub issue](https://github.com/ItzSkyeYT/InterTune/issues/new/choose).
+
+<details>
+<summary><b>Next: 0.12.6 (fixes)</b> · 4 of 9 done, 5 to test</summary>
+
+`[x]` Slim navbar icons centred again ([#54](https://github.com/ItzSkyeYT/InterTune/issues/54))\
+`[~]` A crash on some artist pages fixed ([#53](https://github.com/ItzSkyeYT/InterTune/issues/53))\
+`[x]` Covers of downloaded songs show without a connection\
+`[~]` Saved albums keep YouTube Music's order\
+`[x]` Songs play again on Low quality\
+`[x]` High and Highest quality prefer Opus over a slightly larger AAC stream ([#57](https://github.com/ItzSkyeYT/InterTune/issues/57))\
+`[~]` Local songs sort by track number disc by disc, and folders follow the sort ([#39](https://github.com/ItzSkyeYT/InterTune/issues/39))\
+`[~]` Tapping a song no longer shows "plr: null" ([#28](https://github.com/ItzSkyeYT/InterTune/issues/28))\
+`[~]` InterTune in Polish
+
+</details>
+
+<details>
+<summary><b>Then: 0.13</b> · 0 of 15 done, 5 to test</summary>
+
+`[ ]` Listen together: one person plays, friends follow the same song in real time *(in progress)*\
+`[ ]` Your year in InterTune, a recap *(in progress)*\
+`[~]` What's playing works offline and names the song once you're back online ([#48](https://github.com/ItzSkyeYT/InterTune/issues/48))\
+`[ ]` Report a problem without a GitHub account, and follow it on GitHub from a link *(in progress)*\
+`[ ]` Find songs you saved twice, in Liked or your library ([#47](https://github.com/ItzSkyeYT/InterTune/issues/47))\
+`[ ]` Premium accounts get the 256 kbps stream\
+`[~]` Spatial audio for surround recordings, and Strength, Room and Ambience controls\
+`[~]` Choose which lyrics sources are used, and in what order\
+`[~]` Similar artists in the Favourite artists mix\
+`[ ]` Downloads in their own quality, with tags and a cover so other players can use them\
+`[ ]` Choose what's in the three-dot menus\
+`[ ]` Tablets: settings in two panes, and the player as a side pane *(in progress)*\
+`[ ]` A look made for foldable and flip phones *(in progress)*\
+`[ ]` Match your library from another service by logging in to it\
+`[~]` A filter for AI-made songs, if the poll in #general says yes
+
+</details>
+
+<details>
+<summary><b>Later</b></summary>
+
+`[ ]` Mix: songs in a playlist blend into each other like a DJ set, with an editor to shape each change *(in progress)*
+
+</details>
+
 ## Translations
 
-InterTune is translated on [Weblate](https://hosted.weblate.org/engage/intertune/). It is complete in French, German, Spanish, Brazilian Portuguese, Indonesian, Hindi, Italian and Russian; every other language needs a hand.
+InterTune is translated on [Weblate](https://hosted.weblate.org/engage/intertune/). The chart below shows how far each language is, and every one of them can use a hand.
 
 <a href="https://hosted.weblate.org/engage/intertune/"><img src="https://hosted.weblate.org/widget/intertune/strings/horizontal-auto.svg" alt="Translation status"></a>
 
-The oldest strings, the ones InnerTune started with, are not on Weblate: if one of those is wrong in your language, [say so here](https://github.com/ItzSkyeYT/InterTune/issues/new?template=translation_report.yml).
+Spotted a wrong translation? Fix it on Weblate, or [say so here](https://github.com/ItzSkyeYT/InterTune/issues/new?template=translation_report.yml).
 
 ## Building
 
@@ -217,6 +265,7 @@ InterTune stands on a lot of other people's work.
 | [OuterTune](https://github.com/OuterTune/OuterTune) | [Michael Zh](https://github.com/mikooomich) · [Davide Garberi](https://github.com/DD3Boh) | The fork InterTune is built on, where the heavy lifting is |
 | [AsterTune](https://github.com/yuuichi-s/AsterTune) | [yuuichi-s](https://github.com/yuuichi-s) | The same `VISIONOS` fix, found on its own; several fixes here were rewritten from it |
 | [Metrolist](https://github.com/MetrolistGroup/Metrolist) | [MetrolistGroup](https://github.com/MetrolistGroup) | A lot of inspiration, this README included |
+| [Essentials](https://github.com/sameerasw/essentials) · [sameerasw.com](https://sameerasw.com) | [Sameera Wijerathna](https://github.com/sameerasw) | The design language the app and its site learn from |
 
 #### Libraries and data
 
@@ -239,6 +288,8 @@ InterTune stands on a lot of other people's work.
 ## Licence
 
 GPL-3.0-only. See [LICENSE](https://github.com/ItzSkyeYT/InterTune/tree/visionos-fix/LICENSE).
+
+Forking InterTune? Read the [fork rules](FORKS.md) first: they apply before you share a single build.
 
 <details>
 <summary>Why "only"</summary>

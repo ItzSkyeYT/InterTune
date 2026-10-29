@@ -68,6 +68,10 @@ interface SongsDao {
     @Query("SELECT * FROM song WHERE id = :songId")
     fun songRow(songId: String?): SongEntity?
 
+    /** Whether a song is liked, as it changes, and nothing else of the row: for the widget's heart. Null when it is not stored. */
+    @Query("SELECT liked FROM song WHERE id = :songId")
+    fun songLiked(songId: String): Flow<Boolean?>
+
     /** The names of a song's artists in the order the song lists them, read once like [songRow]. */
     @Query(
         "SELECT artist.name FROM song_artist_map JOIN artist ON artist.id = song_artist_map.artistId " +

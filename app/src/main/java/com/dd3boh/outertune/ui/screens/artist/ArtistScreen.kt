@@ -344,7 +344,7 @@ fun ArtistScreen(
                         val thumbnailSize = (ListThumbnailSize.value * density.density).roundToInt()
                         itemsIndexed(
                             items = librarySongs,
-                            key = { _, item -> item.hashCode() }
+                            key = { _, item -> "song:${item.id}" }
                         ) { index, song ->
                             SongListItem(
                                 song = song,

@@ -34,6 +34,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
+import com.dd3boh.outertune.utils.BuiltInKeys
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.Links
 import com.dd3boh.outertune.utils.CrashLog
@@ -74,7 +75,8 @@ fun CrashReportDialog() {
             }
         },
         confirmButton = {
-            TextButton(
+            // A fork's crashes are its own: no form on InterTune's tracker (FORKS.md).
+            if (BuiltInKeys.official) TextButton(
                 onClick = {
                     // The exception line, the first one after the device header, makes the title.
                     val cause = text.substringAfter("\n\n").lineSequence().firstOrNull().orEmpty().take(120)

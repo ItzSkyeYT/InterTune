@@ -459,7 +459,8 @@ fun AlbumScreen(
                     snackbarHostState = snackbarHostState,
 
                     isActive = song.id == mediaMetadata?.id,
-                    isPlaying = isPlaying,
+                    // Only the playing row hears of play and pause (LibrarySongsScreen's rows too).
+                    isPlaying = song.id == mediaMetadata?.id && isPlaying,
                     inSelectMode = inSelectMode,
                     isSelected = selection.contains(song.id),
                     onSelectedChange = {

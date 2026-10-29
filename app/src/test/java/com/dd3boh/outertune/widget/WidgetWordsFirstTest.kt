@@ -33,12 +33,15 @@ class WidgetWordsFirstTest {
         .substringAfter("suspend fun setList(")
         .substringBefore("private suspend fun rowPicturesFor(")
 
+    /** A write of the words, its arguments on one line or several. */
+    private val writes = Regex("""\bwrite\(\s*context\b""")
+
     /** What runs under the lock: up to the first brace that closes at the lock's own depth. */
     private val locked = setNowPlaying.substringAfter("mutex.withLock {").substringBefore("\n        }\n")
 
     @Test
     fun `the words are written under the lock, and nothing is downloaded there`() {
-        assertTrue("write(context" in locked)
+        assertTrue(locked, writes.containsMatchIn(locked))
         for (download in listOf("artFor(", "artInSizes(", "picturesFor(", "imageLoader")) {
             assertFalse("$download under the lock holds up the title and the play button", download in locked)
         }
@@ -56,7 +59,7 @@ class WidgetWordsFirstTest {
     fun `a row of Home is written without waiting for its pictures either`() {
         // the same lock: a download under it here holds up the next song's title just the same
         val rows = setList.substringAfter("mutex.withLock {").substringBefore("\n        }\n")
-        assertTrue("write(context" in rows)
+        assertTrue(rows, writes.containsMatchIn(rows))
         for (download in listOf("artFor(", "artInSizes(", "rowPicturesFor(", "imageLoader")) {
             assertFalse("$download under the lock holds up the title and the play button", download in rows)
         }
@@ -66,7 +69,7 @@ class WidgetWordsFirstTest {
     @Test
     fun `a widget that has just appeared is drawn before its pictures are fetched`() {
         val filling = hydrate.substringAfter("mutex.withLock {").substringBefore("\n        }\n")
-        assertTrue("write(context" in filling)
+        assertTrue(filling, writes.containsMatchIn(filling))
         for (download in listOf("artFor(", "artInSizes(", "imageLoader")) {
             assertFalse("$download under the lock holds up the title and the play button", download in filling)
         }
@@ -75,5 +78,25 @@ class WidgetWordsFirstTest {
         val fromLibrary = hydrate.substringAfter("private suspend fun fromLibrary(")
         assertFalse("artFor(" in fromLibrary)
         assertFalse("imageLoader" in fromLibrary)
+    }
+
+    @Test
+    fun `a new widget draws the cover of what is playing before it fetches a single row's`() {
+        // On a phone that never had a widget, every list's covers are missing: a few dozen downloads,
+        // and the one picture anybody was waiting for used to come after the last of them.
+        val afterCover = hydrate.substringAfter("artInSizes(")
+        val draws = afterCover.indexOf("updateAll(context)")
+        assertTrue(draws in 0 until afterCover.indexOf("artFor("))
+        // and the rows are drawn as each list's covers come in, not once at the very end
+        val rows = afterCover.substringAfter("for (batch in batches)").substringBefore("private suspend fun shownLists(")
+        assertTrue(rows, "updateAll(context)" in rows)
+    }
+
+    @Test
+    fun `the lists the widgets show get their covers first, and every list gets them`() {
+        val order = rowOrder(listOf(WidgetList.RECENT, WidgetList.KEEP_LISTENING))
+        assertTrue(order.take(2) == listOf(WidgetList.RECENT, WidgetList.KEEP_LISTENING))
+        assertTrue(order.size == WidgetList.entries.size && order.toSet() == WidgetList.entries.toSet())
+        assertTrue(rowOrder(emptyList()) == WidgetList.entries)
     }
 }

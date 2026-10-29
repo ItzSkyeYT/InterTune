@@ -63,6 +63,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
+import java.io.File
 import java.net.Proxy
 import kotlin.random.Random
 
@@ -103,6 +104,14 @@ object YouTube {
         set(value) {
             innerTube.useLoginForBrowse = value
         }
+
+    /**
+     * Where NewPipe's client keeps what YouTube lets it keep, YouTube's player script above all:
+     * a folder in the app's cache. Read once, when NewPipe is first used, so it is set before the
+     * first song. Null keeps nothing.
+     */
+    @Volatile
+    var newPipeCacheDir: File? = null
 
     /**
      * Asked before every request that changes the signed-in account: likes, saved albums and

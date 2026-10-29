@@ -32,7 +32,7 @@ object CrashLog {
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             // Nothing in here may throw: this runs while the process is already going down.
-            runCatching { file(appContext).writeText(report(thread, throwable)) }
+            runCatching { file(appContext).writeText(report(appContext, thread, throwable)) }
             // And in this run's log, for Report a problem's list of runs. See RunLogs.
             runCatching { RunLogs.crashed(thread, ErrorText.of(throwable)) }
             previous?.uncaughtException(thread, throwable)
@@ -60,9 +60,10 @@ object CrashLog {
 
     private fun file(context: Context) = File(context.filesDir, FILE_NAME)
 
-    private fun report(thread: Thread, throwable: Throwable): String = buildString {
+    private fun report(context: Context, thread: Thread, throwable: Throwable): String = buildString {
         appendLine("InterTune ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}, ${BuildConfig.FLAVOR} ${BuildConfig.BUILD_TYPE})")
         appendLine("Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}), ${Build.MANUFACTURER} ${Build.MODEL}")
+        appendLine("Installed from: ${context.installedFrom()}")
         appendLine("ABIs: ${Build.SUPPORTED_ABIS.joinToString()}")
         appendLine("Time: ${SimpleDateFormat("yyyy-MM-dd HH:mm:ss Z", Locale.US).format(Date())}")
         appendLine("Thread: ${thread.name}")

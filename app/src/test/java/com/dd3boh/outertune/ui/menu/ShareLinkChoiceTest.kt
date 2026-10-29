@@ -68,4 +68,16 @@ class ShareLinkChoiceTest {
         // "Ask each time" would promise a question at every share, and the question comes once.
         assertTrue(kotlin.none { "R.string.share_link_ask)" in it.readText() })
     }
+
+    @Test
+    fun `its words and its card's are open to translators, with their French`() {
+        val english = File("src/main/res/values/strings-ot.xml").readLines()
+        val french = File("src/main/res/values-fr/strings-ot.xml").readText()
+        val names = listOf("share_link_choice_kept", "share_link_not_chosen") + listOf("title", "body", "way", "here").map { "new_share_links_$it" }
+        for (name in names) {
+            val line = english.single { "name=\"$name\"" in it }
+            assertFalse("$name is held back from translators", "translatable=\"false\"" in line)
+            assertTrue("$name has no French", "<string name=\"$name\">" in french)
+        }
+    }
 }

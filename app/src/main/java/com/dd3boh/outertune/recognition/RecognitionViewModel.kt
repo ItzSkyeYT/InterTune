@@ -163,6 +163,34 @@ class RecognitionViewModel @Inject constructor(
     }
 
     /**
+     * As [start], listening to the phone's own sound instead of the microphone (PhoneAudio):
+     * [resultCode] and [data] are Android's answer to "Start recording or casting?". The service
+     * takes the projection, and the engine starts once it is held; when Android gives none, the
+     * listen does not start and the service goes.
+     */
+    fun startOnPhone(playlist: Playlist?, resultCode: Int, data: android.content.Intent) {
+        if (!PhoneAudio.supported) return
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED
+        ) return
+        PhoneAudio.awaitingStart = true
+        RecognitionService.startOnPhone(context, resultCode, data)
+        viewModelScope.launch {
+            val projection = kotlinx.coroutines.withTimeoutOrNull(PROJECTION_WAIT_MS) {
+                PhoneAudio.projection.first { it != null }
+            }
+            if (projection == null) {
+                Log.w("RecognitionViewModel", "No projection from Android: the listen of the phone's sound does not start")
+                PhoneAudio.awaitingStart = false
+                RecognitionService.stop(context)
+                return@launch
+            }
+            engine.start(playlist, continuous.value)
+            PhoneAudio.awaitingStart = false
+        }
+    }
+
+    /**
      * What the playlist sheet opened on [playlist], or the What's playing? screen given null, finds
      * the engine doing: see [SheetRun].
      *
@@ -287,3 +315,6 @@ sealed interface SheetRun {
         }
     }
 }
+
+/** How long a listen of the phone's own sound waits for Android to hand over the projection. */
+private const val PROJECTION_WAIT_MS = 5_000L

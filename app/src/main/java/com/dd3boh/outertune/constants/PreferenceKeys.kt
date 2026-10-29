@@ -79,6 +79,19 @@ val AudioQualityKey = stringPreferencesKey("audioQuality")
 val AudioOffloadKey = booleanPreferencesKey("enableOffload")
 
 /**
+ * Battery use, a BatteryMode by name. Never written but by its own row, and never written for
+ * anybody who has not picked one: absent, it reads as Balanced (BatteryUse.DEFAULT), so an update
+ * is on Balanced without anything stored.
+ */
+val BatteryModeKey = stringPreferencesKey("batteryMode")
+
+/**
+ * Whether Battery use runs as Saver while the phone's own battery saver is on (PhoneBatterySaver).
+ * Never written but by its own switch: absent, it reads as on (BatteryUse.FOLLOW_PHONE_DEFAULT).
+ */
+val FollowPhoneSaverKey = booleanPreferencesKey("batteryFollowPhoneSaver")
+
+/**
  * Whether InterTune gives up audio focus, so another app's sound can play at the same time.
  *
  * Off by default, and it has to stay that way. Audio focus is also what pauses the music for a
@@ -179,6 +192,8 @@ val LyricTrimKey = booleanPreferencesKey("lyricTrim")
  * that a backup carries them.
  */
 val LyricsTimingKey = stringPreferencesKey("lyricsTiming")
+/** True once the moves in [LyricsTimingKey] were made 100 ms later for the lyrics clock put right (LyricsTimingOnTime). */
+val LyricsTimingOnTimeKey = booleanPreferencesKey("lyricsTimingOnTime")
 val LyricSourcePrefKey = booleanPreferencesKey("preferLocalLyrics")
 val LyricFontSizeKey = intPreferencesKey("lyricFontSize")
 val LyricClickable = booleanPreferencesKey("lyricClickable")
@@ -201,6 +216,13 @@ val DownloadExtraPathKey = stringPreferencesKey("dlExtraPath") // previously "do
 val DownloadPathKey = stringPreferencesKey("dlPath") // previously "downloadPath"
 val DownloadOnWifiOnlyKey = booleanPreferencesKey("downloadOnWifiOnly")
 val MaxImageCacheSizeKey = intPreferencesKey("maxImageCacheSize")
+
+/**
+ * The song cache's size in MB: 0 is off, -1 has no limit. A new install starts with 256 written in
+ * (NewInstallSongCache). An older install that never picked a size has none, which every reader
+ * takes as 0, off, as it always did there, but while Battery use is on Saver, which keeps 512 MB
+ * then (BatteryUse.songCacheMb, never written here).
+ */
 val MaxSongCacheSizeKey = intPreferencesKey("maxSongCacheSize")
 
 /**
@@ -383,6 +405,9 @@ val GroupedPlayerControlsKey = booleanPreferencesKey("groupedPlayerControls")
 
 /** Which set of buttons the player shows. See [PlayerButtonsStyle]. */
 val PlayerButtonsStyleKey = stringPreferencesKey("playerButtonsStyle")
+
+/** The buttons the player keeps outside its menu, per place, as [com.dd3boh.outertune.ui.player.PlayerPins] writes them; today's until chosen. */
+val PlayerPinsKey = stringPreferencesKey("playerPins")
 
 /**
  * Whether the player opens the queue from a button beside its other buttons, rather than from the
@@ -580,6 +605,9 @@ val RecognisePauseOnSpeakerKey = booleanPreferencesKey("recognisePauseOnSpeaker"
 
 /** Seconds of audio taken per identification attempt. MicrophoneListener.DEFAULT_SECONDS. */
 val RecogniseListenSecondsKey = intPreferencesKey("recogniseListenSeconds")
+
+/** Song on this phone's tile has said once why Android asks to record the screen (PhoneListenActivity). */
+val PhoneAudioExplainedKey = booleanPreferencesKey("phoneAudioExplained")
 
 /** Add confident matches to the playlist without being asked. Continuous runs only. */
 val RecogniseAutoAddKey = booleanPreferencesKey("recogniseAutoAdd")

@@ -288,6 +288,9 @@ object Unreleased {
      * has (playback/sabr/SabrOver), and "Take every direct address for refused", which has the
      * walk end on SABR's rung ([SABR_RUNG]). SABR itself is the way YouTube's own apps stream,
      * built from InnerTubeX (the sabr module, see experiments/features/sabr/PLAN.md).
+     *
+     * Stays held back in 0.12.5: SABR itself reaches everyone through [SABR_RUNG] and [SABR_AHEAD],
+     * and a switch of these restored from a debug build's backup would have no row in a release.
      */
     val SABR = BuildConfig.DEBUG
 
@@ -316,8 +319,10 @@ object Unreleased {
      * JVM tests (SabrFileAheadTest, SabrAheadTest) and the read-only emulator only (23 Oct 2026,
      * experiments/features/sabr/prefetch). To ship: set this to true, or delete it with the checks
      * that read it, in SabrOver and MusicService.
+     *
+     * On in every build from 0.12.5, picked on 26 Oct 2026.
      */
-    val SABR_AHEAD = BuildConfig.DEBUG
+    val SABR_AHEAD = true
 
     /**
      * YouTube Music's web client as one of the stream chain's own, written after VISIONOS
@@ -537,8 +542,10 @@ object Unreleased {
      * a restart forgets which songs they were (they stay in the saved queue). Seen on the emulator
      * only. To drop it: this flag, PlayNextWaiting, its two reads in MusicService (enqueueNext and
      * the queue start's Target) and QueueBoard.putInAfterStart and takeOut.
+     *
+     * On in every build from 0.12.5, picked on 26 Oct 2026.
      */
-    val PLAY_NEXT_STAYS = BuildConfig.DEBUG
+    val PLAY_NEXT_STAYS = true
 
     /**
      * A search field at the top of Settings (SettingsSearch.kt): what is typed finds settings on
@@ -551,6 +558,26 @@ object Unreleased {
      * held from translators, their French already beside them in values-fr. Without it Settings
      * is the list it was. When it is agreed: set this to true, or delete it with the checks that
      * read it, in SettingsScreen and SettingsTwoPane, and make its texts translatable.
+     *
+     * On in every build from 0.12.5, picked on 26 Oct 2026.
      */
-    val SETTINGS_SEARCH = BuildConfig.DEBUG
+    val SETTINGS_SEARCH = true
+
+    /**
+     * Battery use (BatteryUse), one row under Audio quality with three choices: Full, Balanced and
+     * Saver. Asked for on 23 Oct 2026 ("Different battery usage preferences"), his answers on 24
+     * Oct: Balanced is everyone's default, Saver turns the sound effects off and streams at Low
+     * quality on mobile data. Balanced syncs the library every two hours instead of every half
+     * hour, reads the radios' taste every half hour instead of every five minutes and steps the
+     * playing bars thirty times a second; Saver goes further and plays through the phone's
+     * low-power audio path.
+     *
+     * Without it the row is not there and every build runs as Full, the app as it was. Its texts
+     * (battery_use*, battery_saver_*) are held from translators, their French beside them in
+     * values-fr. When it is agreed: set this to true, make its texts translatable, and give it a
+     * card among the new things of the release it ships in.
+     *
+     * On in every build from 0.12.5, picked on 26 Oct 2026.
+     */
+    val BATTERY_MODES = true
 }

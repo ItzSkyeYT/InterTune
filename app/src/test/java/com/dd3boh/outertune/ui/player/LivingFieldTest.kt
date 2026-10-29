@@ -1729,7 +1729,7 @@ class LivingFieldTest {
     @Test
     fun `under the open queue the background asks for no frames and goes on listening`() {
         val source = java.io.File("src/main/java/com/dd3boh/outertune/ui/player/LivingBackground.kt").readText()
-        val frames = source.substringAfter("LaunchedEffect(onScreen, covered, playing, covers, coverThere, motion, lifecycleOwner) {").substringBefore("repeatOnLifecycle")
+        val frames = source.substringAfter("LaunchedEffect(onScreen, covered, playing, covers, coverThere, motion, lifecycleOwner, still) {").substringBefore("repeatOnLifecycle")
         assertTrue("it leaves before a frame is asked for", frames.contains("if (!onScreen || covered) {") && frames.contains("return@LaunchedEffect"))
         val watching = source.substringAfter("LaunchedEffect(tap, onScreen, still, lifecycleOwner) {").substringBefore("repeatOnLifecycle")
         assertFalse("the watcher does not go with it, or a look at the queue would start the song's shape over", watching.contains("covered"))

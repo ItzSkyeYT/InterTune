@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.dd3boh.outertune.utils.BuiltInKeys
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.ShareLinkKindKey
 import com.dd3boh.outertune.constants.Unreleased
@@ -69,7 +70,7 @@ fun rememberShareLink(): (link: ShareLink, done: () -> Unit) -> Unit {
     }
 
     return { link, done ->
-        when (val action = ShareLinks.decide(link, if (Unreleased.SHARE_PAGE) chosen else ShareLinkKind.YOUTUBE_MUSIC)) {
+        when (val action = ShareLinks.decide(link, if (Unreleased.SHARE_PAGE && BuiltInKeys.official) chosen else ShareLinkKind.YOUTUBE_MUSIC)) {
             is ShareAction.Send -> {
                 done()
                 context.shareText(action.text)

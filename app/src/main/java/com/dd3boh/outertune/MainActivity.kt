@@ -9,6 +9,7 @@
 
 package com.dd3boh.outertune
 
+import com.dd3boh.outertune.utils.BuiltInKeys
 import com.dd3boh.outertune.recognition.RecognitionShortcut
 import com.dd3boh.outertune.ui.navigation.appDestinations
 import android.annotation.SuppressLint
@@ -75,6 +76,7 @@ import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.datastore.preferences.core.edit
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.UpdateCheckEnabledKey
 import com.dd3boh.outertune.constants.UsageCountEnabledKey
 import com.dd3boh.outertune.utils.dataStore
@@ -181,6 +183,7 @@ import com.dd3boh.outertune.constants.hasChips
 import com.dd3boh.outertune.constants.orOffered
 import com.dd3boh.outertune.constants.SlimNavBarKey
 import com.dd3boh.outertune.db.MusicDatabase
+import com.dd3boh.outertune.playback.BatteryUse
 import com.dd3boh.outertune.playback.DownloadUtil
 import com.dd3boh.outertune.playback.DownloadsShortcut
 import com.dd3boh.outertune.playback.MediaControllerViewModel
@@ -213,6 +216,7 @@ import com.dd3boh.outertune.ui.screens.recap.RecapEntry
 import com.dd3boh.outertune.recap.RecapSample
 import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeShow
 import com.dd3boh.outertune.ui.screens.walkthrough.newThingsFor
+import com.dd3boh.outertune.ui.screens.walkthrough.owedThingsFor
 import com.dd3boh.outertune.ui.screens.walkthrough.welcomeCardFor
 import com.dd3boh.outertune.widget.MusicWidgetReceiver
 import com.dd3boh.outertune.widget.RecognitionWidgetReceiver
@@ -278,8 +282,14 @@ import javax.inject.Inject
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.NavigationBarDefaults
 import com.dd3boh.outertune.constants.PlayerGlassIntensityKey
+import com.dd3boh.outertune.constants.BatteryModeKey
+import com.dd3boh.outertune.constants.FollowPhoneSaverKey
+import com.dd3boh.outertune.playback.PhoneBatterySaver
 import com.dd3boh.outertune.constants.PlayerLiquidGlassKey
 import com.dd3boh.outertune.ui.utils.LocalAppBackdrop
+import com.dd3boh.outertune.ui.utils.ScreenRate
+import com.dd3boh.outertune.ui.utils.LocalGlassStill
+import com.dd3boh.outertune.ui.utils.stillGlass
 import com.dd3boh.outertune.ui.utils.LocalAppBackdropAvailable
 import com.dd3boh.outertune.ui.utils.Landscape
 import com.dd3boh.outertune.ui.utils.LocalLandscape
@@ -446,29 +456,40 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var database: MusicDatabase
 
+    // The rest are each built the first time something asks for it. Injected as themselves, they
+    // were all built before setContent, the song caches with them, whether a screen needed them
+    // or not. The providers in setContent hand them on the same way (providesComputed).
     @Inject
-    lateinit var downloadUtil: DownloadUtil
+    lateinit var lazyDownloadUtil: dagger.Lazy<DownloadUtil>
+    val downloadUtil: DownloadUtil get() = lazyDownloadUtil.get()
 
     @Inject
-    lateinit var syncUtils: SyncUtils
+    lateinit var lazySyncUtils: dagger.Lazy<SyncUtils>
+    val syncUtils: SyncUtils get() = lazySyncUtils.get()
 
     @Inject
-    lateinit var scrobbler: Scrobbler
+    lateinit var lazyScrobbler: dagger.Lazy<Scrobbler>
+    val scrobbler: Scrobbler get() = lazyScrobbler.get()
 
     @Inject
-    lateinit var loudnessRepair: LoudnessRepair
+    lateinit var lazyLoudnessRepair: dagger.Lazy<LoudnessRepair>
+    val loudnessRepair: LoudnessRepair get() = lazyLoudnessRepair.get()
 
     @Inject
-    lateinit var updateChecker: UpdateChecker
+    lateinit var lazyUpdateChecker: dagger.Lazy<UpdateChecker>
+    val updateChecker: UpdateChecker get() = lazyUpdateChecker.get()
 
     @Inject
-    lateinit var updateInstaller: UpdateInstaller
+    lateinit var lazyUpdateInstaller: dagger.Lazy<UpdateInstaller>
+    val updateInstaller: UpdateInstaller get() = lazyUpdateInstaller.get()
 
     @Inject
-    lateinit var pollChecker: PollChecker
+    lateinit var lazyPollChecker: dagger.Lazy<PollChecker>
+    val pollChecker: PollChecker get() = lazyPollChecker.get()
 
     @Inject
-    lateinit var activeCount: ActiveCount
+    lateinit var lazyActiveCount: dagger.Lazy<ActiveCount>
+    val activeCount: ActiveCount get() = lazyActiveCount.get()
 
     lateinit var activityLauncher: ActivityLauncherHelper
     private var recapSample: BroadcastReceiver? = null
@@ -589,6 +610,18 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // The phone's battery saver can turn Battery use's Saver on (PhoneBatterySaver). Its broadcast
+    // can be missed while the app is in the background, so it is read again whenever the app is seen.
+    override fun onStart() {
+        super.onStart()
+        PhoneBatterySaver.read(this)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        PhoneBatterySaver.read(this)
+    }
+
     override fun onDestroy() {
         Log.i(MAIN_TAG, "onDestroy() called. isFinishing = $isFinishing")
         try {
@@ -654,11 +687,25 @@ class MainActivity : ComponentActivity() {
             val enableDynamicTheme by rememberPreference(DynamicThemeKey, defaultValue = true)
             val darkTheme by rememberEnumPreference(DarkModeKey, defaultValue = DarkMode.AUTO)
             val highContrastCompat by rememberPreference(HighContrastKey, defaultValue = false)
-            val pureBlack by rememberPreference(PureBlackKey, defaultValue = false)
+            val chosenPureBlack by rememberPreference(PureBlackKey, defaultValue = false)
             val isSystemInDarkTheme = isSystemInDarkTheme()
-            val useDarkTheme = remember(darkTheme, isSystemInDarkTheme) {
-                if (darkTheme == DarkMode.AUTO) isSystemInDarkTheme else darkTheme == DarkMode.ON
+            // Battery use in force, read here once for the whole app (LocalBatteryMode): the mode
+            // picked, and Saver while the phone's battery saver is on and the switch under it lets
+            // it in. The theme, the glass, the frame rate, the playing bars, the player's background
+            // and the rows of Settings that Saver holds all follow it.
+            val chosenBatteryMode by rememberEnumPreference(BatteryModeKey, defaultValue = BatteryUse.DEFAULT)
+            val followPhoneSaver by rememberPreference(FollowPhoneSaverKey, defaultValue = BatteryUse.FOLLOW_PHONE_DEFAULT)
+            val phoneSaverOn by PhoneBatterySaver.on.collectAsState()
+            val batteryMode = BatteryUse.inForce(chosenBatteryMode, followPhoneSaver, phoneSaverOn)
+            // Saver is dark with pure black, as Android's own battery saver is, whatever was picked;
+            // nothing is written, so leaving Saver gives the theme back (BatteryUse.darkTheme).
+            val useDarkTheme = remember(darkTheme, isSystemInDarkTheme, batteryMode) {
+                BatteryUse.darkTheme(if (darkTheme == DarkMode.AUTO) isSystemInDarkTheme else darkTheme == DarkMode.ON, batteryMode)
             }
+            val pureBlack = BatteryUse.pureBlack(chosenPureBlack, batteryMode)
+            // Saver holds the window to a slower frame rate (ScreenRate), undone at once when the mode changes.
+            val lowFrameRate = BatteryUse.lowFrameRate(batteryMode)
+            LaunchedEffect(lowFrameRate) { ScreenRate.apply(this@MainActivity, lowFrameRate) }
 
             val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
             // The window, measured once for everything that is laid out differently when a phone
@@ -763,10 +810,14 @@ class MainActivity : ComponentActivity() {
                 // there prompting forever if the process happened to survive.
                 updateInstaller.onInstalled = { coroutineScope.launch { updateChecker.clearFound() } }
 
-                // local media & download folders auto scan
+                // local media & download folders auto scan. The downloads are had here, on the
+                // main thread, so that when nothing has built them yet they are built there, as
+                // they always were: building them sets up their download manager, which is used
+                // from the main thread only.
+                val downloads = downloadUtil
                 coroutineScope.launch(lmScannerCoroutine) {
                     scanInit(
-                        this@MainActivity, database, downloadUtil, coroutineScope, playerConnection,
+                        this@MainActivity, database, downloads, coroutineScope, playerConnection,
                         snackbarHostState
                     )
                     // Once, and quietly: the track numbers of local songs scanned before 0.12.5.
@@ -1067,6 +1118,9 @@ class MainActivity : ComponentActivity() {
                 val backdropAvailable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                         (!useNavRail || landscape.active)
                 val navGlass = liquidGlass && backdropAvailable
+                // Saver keeps the glass where it is and draws it still: no layer is recorded for it
+                // and no panel blurs or bends one (BatteryUse.glassStill, LocalGlassStill).
+                val glassStill = BatteryUse.glassStill(batteryMode)
                 val appBackdrop = rememberLayerBackdrop()
 
                 val navController = rememberNavController()
@@ -1299,21 +1353,27 @@ class MainActivity : ComponentActivity() {
                         LocalPlayerConnection provides playerConnection,
                         LocalPlayerAwareWindowInsets provides playerAwareWindowInsets,
                         LocalPlayerSheet provides playerBottomSheetState,
-                        LocalDownloadUtil provides downloadUtil,
+                        // Computed: each is built when a screen first asks for it (see the
+                        // fields). The lambdas keep their identity across recompositions, the
+                        // Compose compiler remembers them, which a static local needs: one
+                        // handed a new value recomposes everything under it.
+                        LocalDownloadUtil providesComputed { downloadUtil },
                         LocalShimmerTheme provides ShimmerTheme,
-                        LocalSyncUtils provides syncUtils,
-                        LocalScrobbler provides scrobbler,
-                        LocalLoudnessRepair provides loudnessRepair,
-                        LocalUpdateChecker provides updateChecker,
-                        LocalUpdateInstaller provides updateInstaller,
-                        LocalPollChecker provides pollChecker,
-                        LocalActiveCount provides activeCount,
+                        LocalSyncUtils providesComputed { syncUtils },
+                        LocalScrobbler providesComputed { scrobbler },
+                        LocalLoudnessRepair providesComputed { loudnessRepair },
+                        LocalUpdateChecker providesComputed { updateChecker },
+                        LocalUpdateInstaller providesComputed { updateInstaller },
+                        LocalPollChecker providesComputed { pollChecker },
+                        LocalActiveCount providesComputed { activeCount },
                         LocalNetworkConnected provides isNetworkConnected,
                         LocalSnackbarHostState provides snackbarHostState,
                         LocalAppBackdrop provides (if (navGlass) appBackdrop else null),
                         LocalAppBackdropAvailable provides backdropAvailable,
                         LocalLandscape provides landscape,
                         LocalGlassIntensity provides glassIntensity,
+                        LocalBatteryMode provides batteryMode,
+                        LocalGlassStill provides glassStill,
                         dpadBringIntoView(),
                     ) {
                         /**
@@ -1437,7 +1497,8 @@ class MainActivity : ComponentActivity() {
                         // Not of what has been looked at either: this holds the tour's new stops back
                         // until the build is marked as seen, and the last tick comes a moment before
                         // that mark.
-                        val welcomeOwed = welcomeCardFor(walkthroughSeen, install = install) != null
+                        // What is new in InterTune is not a fork's to tell (FORKS.md).
+                        val welcomeOwed = welcomeCardFor(walkthroughSeen, install = install, enabled = Unreleased.WELCOME_BACK && BuiltInKeys.official) != null
                         // The card as Home is to show it at this moment. A tour on its way from
                         // the page counts as one that is up: the card would otherwise show for
                         // the moment between the page closing and the first bubble.
@@ -1445,6 +1506,7 @@ class MainActivity : ComponentActivity() {
                             welcomeCardFor(
                                 walkthroughSeen,
                                 install = install,
+                                enabled = Unreleased.WELCOME_BACK && BuiltInKeys.official,
                                 setupDone = oobeStatus >= OOBE_VERSION,
                                 questionsOpen = catchUpOpen,
                                 tourUp = tourState.running || tourFromWelcome,
@@ -1474,8 +1536,9 @@ class MainActivity : ComponentActivity() {
                         // Every new thing looked at, and the page and its tours closed: the card's
                         // work is done. The build is marked as seen, as the cross does, and the
                         // ticks are let go. Not while the page is open, whose list would empty
-                        // under the finger, nor during a tour from it.
-                        val owedThings = remember(walkthroughSeen, quickPicksSource) { newThingsFor(walkthroughSeen, install = install) }
+                        // under the finger, nor during a tour from it. A thing with no button is
+                        // not waited for: nothing ever ticks it (owedThingsFor).
+                        val owedThings = remember(walkthroughSeen, quickPicksSource) { owedThingsFor(walkthroughSeen, install = install) }
                         LaunchedEffect(owedThings, welcomeLookedAt, welcomeOpen, tourState.running, tourFromWelcome) {
                             if (owedThings.isNotEmpty() && owedThings.all { it.id in welcomeLookedAt } &&
                                 !welcomeOpen && !tourState.running && !tourFromWelcome
@@ -1882,7 +1945,9 @@ class MainActivity : ComponentActivity() {
                                                         end = 12.dp,
                                                         bottom = (bottomInset - 4.dp).coerceAtLeast(6.dp)
                                                     )
-                                                    .drawBackdrop(
+                                                    // Still on Saver: the same dock, a frosted pane
+                                                    // with nothing recorded behind it (GlassSpec.still).
+                                                    .then(if (dockGlass?.still == true) Modifier.stillGlass { dockShape }.background(dockGlass.stillFill(), dockShape) else Modifier.drawBackdrop(
                                                         backdrop = appBackdrop,
                                                         shape = { dockShape },
                                                         effects = {
@@ -1894,7 +1959,7 @@ class MainActivity : ComponentActivity() {
                                                                 depthEffect = true
                                                             )
                                                         }
-                                                    )
+                                                    ))
                                                     // Tint goes here, not in onDrawSurface: that
                                                     // callback runs on the node's own unclipped
                                                     // canvas, so it would paint a square patch.
@@ -2108,7 +2173,8 @@ class MainActivity : ComponentActivity() {
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .then(
-                                        if (navGlass) {
+                                        // Not recorded while the glass is still (Saver): no panel reads it then.
+                                        if (navGlass && !glassStill) {
                                             Modifier
                                                 .layerBackdrop(appBackdrop)
                                                 .background(MaterialTheme.colorScheme.surface)
@@ -2123,7 +2189,7 @@ class MainActivity : ComponentActivity() {
                                 Box(
                                     Modifier
                                         .fillMaxSize()
-                                        .then(if (navGlass) Modifier.layerBackdrop(navHostBackdrop).graphicsLayer() else Modifier)
+                                        .then(if (navGlass && !glassStill) Modifier.layerBackdrop(navHostBackdrop).graphicsLayer() else Modifier)
                                 ) {
                                     // Under the open player the pages cannot be seen, and what
                                     // only moves for the eye holds still (PlayingIndicator).
@@ -2135,7 +2201,7 @@ class MainActivity : ComponentActivity() {
                                 // Only this search bar gets the glass. The "search" destination composes another
                                 // one inside the nav host, and that one would be reading a layer it is part of.
                                 CompositionLocalProvider(
-                                    LocalSearchBarGlass provides if (navGlass) GlassSpec(navHostBackdrop, glassIntensity.coerceIn(0f, 1f)) else null
+                                    LocalSearchBarGlass provides if (navGlass) GlassSpec(navHostBackdrop, glassIntensity.coerceIn(0f, 1f), still = glassStill) else null
                                 ) {
                                     SearchBarContainer(navController, scrollBehavior, searchActive) { searchActive = it }
                                 }
@@ -2406,3 +2472,10 @@ val LocalPollChecker = staticCompositionLocalOf<PollChecker> { error("No PollChe
 val LocalActiveCount = staticCompositionLocalOf<ActiveCount> { error("No ActiveCount provided") }
 val LocalNetworkConnected = staticCompositionLocalOf<Boolean> { error("No Network Status provided") }
 val LocalSnackbarHostState = staticCompositionLocalOf<SnackbarHostState> { error("No SnackbarHostState provided") }
+
+/**
+ * Battery use in force (BatteryUse), for what is drawn: the playing bars, the player's background
+ * and the rows of Settings that Saver holds. Outside the activity's content, as a build without the
+ * choice runs, and otherwise the default.
+ */
+val LocalBatteryMode = compositionLocalOf { BatteryUse.modeOf(null, null, phoneSaver = false) }

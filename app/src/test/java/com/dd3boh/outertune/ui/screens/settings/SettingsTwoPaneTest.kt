@@ -15,9 +15,9 @@ import org.junit.Test
 class SettingsTwoPaneTest {
 
     @Test
-    fun `the list has the four groups of the upright cards, fourteen screens in all`() {
-        val groups = settingsGroups(engine = true)
-        assertEquals(listOf(3, 4, 3, 4), groups.map { it.size })
+    fun `the list has the four groups of the upright cards, fifteen screens in all`() {
+        val groups = settingsGroups(engine = true, battery = true)
+        assertEquals(listOf(3, 4, 4, 4), groups.map { it.size })
         assertEquals("settings/account_sync", groups.first().first().route)
         assertEquals("settings/about", groups.last().last().route)
     }
@@ -27,6 +27,14 @@ class SettingsTwoPaneTest {
         val routes = settingsGroups(engine = true).flatten().map { it.route }
         assertEquals(routes.size, routes.toSet().size)
         assertTrue(routes.all { it.startsWith("settings/") })
+    }
+
+    @Test
+    fun `without Battery use its screen is not offered, and nothing else goes`() {
+        val with = settingsGroups(engine = true, battery = true).flatten().map { it.route }
+        val without = settingsGroups(engine = true, battery = false).flatten().map { it.route }
+        assertEquals("settings/battery", with[with.indexOf("settings/storage") + 1])
+        assertEquals(with - "settings/battery", without)
     }
 
     @Test

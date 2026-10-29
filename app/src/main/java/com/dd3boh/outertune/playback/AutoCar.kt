@@ -369,7 +369,7 @@ internal class AutoTabsScreen(carContext: CarContext, private val session: AutoC
         val inside = if (now == SETTINGS) {
             val list = ListTemplate.Builder()
             corner(session).forEach(list::addAction)
-            settings?.let { list.setSingleList(settingsLines(carContext, it, screenManager)) } ?: list.setLoading(true)
+            settings?.let { now -> settingsSections(carContext, now, screenManager).forEach { list.addSectionedList(it) } } ?: list.setLoading(true)
             list.build()
         } else {
             sectioned(session, known.firstOrNull { it.mediaId == now }, lists[now], header = null)

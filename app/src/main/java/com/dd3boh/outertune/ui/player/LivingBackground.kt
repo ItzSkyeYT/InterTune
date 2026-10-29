@@ -50,7 +50,10 @@ import coil3.imageLoader
 import coil3.request.ImageRequest
 import coil3.request.allowHardware
 import coil3.toBitmap
+import com.dd3boh.outertune.LocalBatteryMode
+import com.dd3boh.outertune.constants.BatteryMode
 import com.dd3boh.outertune.constants.LivingColours
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.extensions.isPowerSaver
 import com.dd3boh.outertune.playback.LevelTap
 import com.dd3boh.outertune.playback.MusicLevels
@@ -168,8 +171,8 @@ private fun LivingPicture(
     motion.coverThere = coverThere
     motion.separate = ribbons
 
-    // Battery saver, or animations turned off: nothing moves, and nothing is measured for it.
-    val still = context.wantsStillness()
+    // Saver, or animations turned off: nothing moves, and nothing is measured for it.
+    val still = wantsStillness(context, LocalBatteryMode.current)
 
     // Read by the drawing alone, so a new frame redraws the canvas and recomposes nothing.
     var frame by remember { mutableLongStateOf(0L) }
@@ -201,7 +204,7 @@ private fun LivingPicture(
 
     // coverThere is a key because the aura comes and goes with the cover, and has to be seen to
     // do it even while nothing else moves.
-    LaunchedEffect(onScreen, covered, playing, covers, coverThere, motion, lifecycleOwner) {
+    LaunchedEffect(onScreen, covered, playing, covers, coverThere, motion, lifecycleOwner, still) {
         // Covered, it is as good as off screen: nobody sees it move, and every frame of it would
         // still have the window drawn again over it.
         if (!onScreen || covered) {
@@ -415,6 +418,16 @@ private fun Modifier.drawnSmall(stretched: MutableState<Offset>, alpha: Float): 
     }
 }
 
-/** Battery saver, or animations turned off in the system's accessibility or developer settings. */
-private fun Context.wantsStillness(): Boolean =
-    isPowerSaver() || Settings.Global.getFloat(contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+/**
+ * Battery use on Saver, which counts the phone's battery saver as the switch under it says, or
+ * animations turned off in the system; before Battery use, the phone's battery saver itself. The
+ * phone's saver was read here directly in every build, so the picture stood still with nothing
+ * anywhere to say why, and against the switch that tells the app to leave the phone's saver aside
+ * (#49, 27 Oct 2026). Saver says so under the background row; animations off, under the sample.
+ */
+private fun wantsStillness(context: Context, mode: BatteryMode): Boolean =
+    mode == BatteryMode.SAVER || (!Unreleased.BATTERY_MODES && context.isPowerSaver()) || context.animationsOff()
+
+/** Animations turned off in the system's accessibility or developer settings: Living blur stands still. */
+fun Context.animationsOff(): Boolean =
+    Settings.Global.getFloat(contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f

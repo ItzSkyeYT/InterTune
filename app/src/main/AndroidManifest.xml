@@ -32,6 +32,9 @@
     -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <!-- Song recognition of the phone's own sound: the projection it needs is held by a service of
+         that type (recognition/PhoneAudio). Nothing is projected without the user's yes each time. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
@@ -322,7 +325,33 @@
         <service
             android:name=".recognition.RecognitionService"
             android:exported="false"
-            android:foregroundServiceType="microphone" />
+            android:foregroundServiceType="microphone|mediaProjection" />
+
+        <!--
+          Song on this phone: a Quick Settings tile that names the song in what is playing on the
+          phone without leaving it (recognition/PhoneSongTileService). Its tap shows only Android's
+          question to record, over the video, through an activity with nothing on it.
+        -->
+        <service
+            android:name=".recognition.PhoneSongTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_recognise_phone"
+            android:label="@string/recognition_phone_tile"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.quicksettings.TOGGLEABLE_TILE"
+                android:value="false" />
+        </service>
+        <activity
+            android:name=".recognition.PhoneListenActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="false"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <!--
           The tile in Quick Settings and the button on the home screen open the recognition screen
@@ -334,6 +363,23 @@
             android:name=".recognition.RecognitionTileService"
             android:exported="true"
             android:icon="@drawable/ic_recognise"
+            android:label="@string/recognition_room_tile"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.quicksettings.TOGGLEABLE_TILE"
+                android:value="false" />
+        </service>
+        <!--
+          The third tile, "What's playing?", asks which of the two in a small question over the
+          panel and starts the one tapped (recognition/RecognitionChoiceTileService).
+        -->
+        <service
+            android:name=".recognition.RecognitionChoiceTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_recognise_ask"
             android:label="@string/recognise"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>

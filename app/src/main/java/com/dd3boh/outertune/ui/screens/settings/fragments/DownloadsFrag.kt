@@ -46,8 +46,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
+import com.dd3boh.outertune.LocalBatteryMode
 import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalPlayerConnection
+import com.dd3boh.outertune.playback.BatteryUse
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.DownloadExtraPathKey
 import com.dd3boh.outertune.constants.DownloadPathKey
@@ -147,19 +149,25 @@ fun ColumnScope.DownloadsFrag() {
         }
     }
 
+    // On while Battery use is on Saver, which never writes the switch: it is greyed and on, and has
+    // what was set back when the mode changes.
+    val batteryMode = LocalBatteryMode.current
+    val heldOn = !downloadOnWifiOnly && BatteryUse.downloadsOnWifiOnly(false, batteryMode)
     SwitchPreference(
         modifier = Modifier.settingRow(R.string.download_on_wifi_only_title),
         title = { Text(stringResource(R.string.download_on_wifi_only_title)) },
         description = stringResource(R.string.download_on_wifi_only_description),
         icon = { Icon(Icons.Rounded.Wifi, null) },
-        checked = downloadOnWifiOnly,
+        checked = BatteryUse.downloadsOnWifiOnly(downloadOnWifiOnly, batteryMode),
+        isEnabled = !heldOn,
         onCheckedChange = {
             onDownloadOnWifiOnlyChange(it)
             // Push it to the running service too, so queued and in-flight downloads follow the new
             // rule rather than waiting for the next app start.
-            downloadUtil.setDownloadRequirements(it)
+            downloadUtil.setDownloadRequirements(BatteryUse.downloadsOnWifiOnly(it, batteryMode))
         }
     )
+    if (heldOn) SaverHoldsLabel()
 
     EnumListPreference(
         modifier = Modifier.tourTarget(Tour.SETTING_LIKED_AUTODOWNLOAD).settingRow(R.string.like_autodownload),

@@ -164,6 +164,7 @@ import com.dd3boh.outertune.ui.screens.settings.fragments.ThemeAppFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.ThemePlayerFrag
 import com.dd3boh.outertune.ui.utils.GlassSpec
 import com.dd3boh.outertune.ui.utils.LocalAppBackdrop
+import com.dd3boh.outertune.ui.utils.LocalGlassStill
 import com.dd3boh.outertune.ui.utils.rememberGlassSpec
 import com.dd3boh.outertune.ui.utils.rememberHeaderBeside
 import com.dd3boh.outertune.utils.dlCoroutine
@@ -313,7 +314,7 @@ fun SetupWizard(
         val canGoBack = oobeStatus > 0 && !finishing
         // The intensity is the one the slider on the look page writes, so the buttons change while
         // it is being dragged, not once the page is left.
-        val glass = rememberGlassSpec()?.let { GlassSpec(pageBackdrop, it.intensity) }
+        val glass = rememberGlassSpec()?.copy(backdrop = pageBackdrop)
 
         // Back, progress, forward: one row, one centre line, the two buttons the same shape at
         // either end of the content column rather than at the screen's edges.
@@ -471,7 +472,8 @@ fun SetupWizard(
                 // The page in a layer of its own under the recorder, as a destination's screen is,
                 // so a change inside it re-records that layer once rather than running the
                 // recorder's passes over the whole page.
-                .then(if (glassOn) Modifier.layerBackdrop(pageBackdrop).graphicsLayer() else Modifier)
+                // Not while the glass is still (Battery use on Saver), when the buttons do not read it.
+                .then(if (glassOn && !LocalGlassStill.current) Modifier.layerBackdrop(pageBackdrop).graphicsLayer() else Modifier)
         ) {
             // Keyed on the step. One shared ScrollState only clamps to the new step's maximum
             // rather than resetting, so advancing from a scrolled page landed you part way down a

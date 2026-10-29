@@ -134,13 +134,13 @@ class RunLogsTest {
     @Test
     fun `an earlier run's report says which run it is, and keeps saying so when cut to fit`() {
         val lines = (1..300).map { ProblemLog.Line("11:0${it % 10}:00.000", 'I', "MusicService", "line $it of a long run") }
-        val report = ProblemLog.report(ProblemLog.Excerpt(lines, null), build = "0.11.6 (94, core debug)", device = "samsung SM-S938B", started = at("2026-10-19 15:12:45"))
-        assertTrue(report.lines()[2], report.lines()[2] == "From the run that began 2026-10-19 15:12")
+        val report = ProblemLog.report(ProblemLog.Excerpt(lines, null), build = "0.11.6 (94, core debug)", device = "samsung SM-S938B", installedFrom = "F-Droid", started = at("2026-10-19 15:12:45"))
+        assertTrue(report.lines()[3], report.lines()[3] == "From the run that began 2026-10-19 15:12")
         val fitted = ProblemLog.fitted(report, 2000)
-        assertEquals(report.lines().take(4), fitted.lines().take(4))
+        assertEquals(report.lines().take(5), fitted.lines().take(5))
         assertTrue(fitted.length <= 2000)
         // This run's report reads as before.
-        assertFalse("From the run" in ProblemLog.report(ProblemLog.Excerpt(lines.take(3), null), build = "0.12 (95, core debug)", device = "x"))
+        assertFalse("From the run" in ProblemLog.report(ProblemLog.Excerpt(lines.take(3), null), build = "0.12 (95, core debug)", device = "x", installedFrom = "F-Droid"))
     }
 
     @Test

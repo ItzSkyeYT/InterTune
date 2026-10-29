@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
     <string name="home">Главная</string>
-    <string name="songs">Композиции</string>
+    <string name="songs">Песни</string>
     <string name="artists">Исполнители</string>
     <string name="albums">Альбомы</string>
     <string name="playlists">Плейлисты</string>
@@ -297,4 +297,11 @@
     <string name="use_login_for_browse">Авторизуйтесь для просмотра контента</string>
     <string name="use_login_for_browse_desc">Это влияет на отображение контента и, в частности, открывает доступ к премиум-альбомам при входе с премиум-учётной записью</string>
     <string name="action_login">Войти</string>
+    <string name="favorite_artists">Избранные исполнители</string>
+    <string name="crash_report_github">Отчёт на GitHub</string>
+    <string name="crash_report_copy">Скопировать</string>
+    <string name="crash_report_copied">Текст ошибки скопирован</string>
+    <string name="crash_report_title">В прошлый раз произошел сбой в работе InterTune</string>
+    <string name="crash_report_text">Извините. Ошибка, указанная ниже, осталась на этом телефоне, и ничего никуда не было отправлено. Если вы отправите отчёт об этой ошибке, это поможет исправить её на вашем устройстве.</string>
+    <string name="crash_report_dismiss">Отклонить</string>
 </resources>

@@ -107,6 +107,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.ui.draw.clip
 import com.dd3boh.outertune.ui.utils.LocalLandscape
+import com.dd3boh.outertune.ui.utils.LocalGlassStill
 import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
@@ -209,6 +210,8 @@ fun OutputButton(
     if (!Unreleased.CASTING) return
     val playerConnection = LocalPlayerConnection.current ?: return
     val session = playerConnection.service.castSession ?: return
+    // Battery use on Saver: frosted still, with nothing behind it blurred (LocalGlassStill).
+    val still = LocalGlassStill.current
     val state by session.state.collectAsState()
     val showPicker by session.pickerOpen.collectAsState()
     val casting = state as? CastSession.State.Casting
@@ -225,7 +228,7 @@ fun OutputButton(
             contentColor = MaterialTheme.colorScheme.onPrimary,
             modifier = modifier
                 .requiredHeight(44.dp)
-                .frosted(backdrop, glassIntensity, CircleShape, MaterialTheme.colorScheme.primary.copy(alpha = lerp(0.95f, 0.8f, glassIntensity.coerceIn(0f, 1f)))),
+                .frosted(backdrop, glassIntensity, CircleShape, MaterialTheme.colorScheme.primary.copy(alpha = lerp(0.95f, 0.8f, glassIntensity.coerceIn(0f, 1f))), still),
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -245,7 +248,7 @@ fun OutputButton(
             modifier = modifier
                 .fillMaxWidth()
                 .requiredHeight(56.dp)
-                .frosted(backdrop, glassIntensity, RoundedCornerShape(20.dp), MaterialTheme.colorScheme.primary.copy(alpha = lerp(0.95f, 0.8f, glassIntensity.coerceIn(0f, 1f)))),
+                .frosted(backdrop, glassIntensity, RoundedCornerShape(20.dp), MaterialTheme.colorScheme.primary.copy(alpha = lerp(0.95f, 0.8f, glassIntensity.coerceIn(0f, 1f))), still),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 16.dp)) {
                 Icon(iconOf(casting.device), contentDescription = null)
@@ -273,7 +276,7 @@ fun OutputButton(
             contentColor = tint,
             modifier = modifier
                 .requiredHeight(44.dp)
-                .frosted(backdrop, glassIntensity, CircleShape, tint.copy(alpha = 0.16f)),
+                .frosted(backdrop, glassIntensity, CircleShape, tint.copy(alpha = 0.16f), still),
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -320,8 +323,11 @@ fun OutputButton(
  * blur and vibrancy of [backdrop] under the control's [fill], and no lens, highlight or shadow, whose
  * bright rim made small controls read as empty outlines. Nothing without a backdrop.
  */
-private fun Modifier.frosted(backdrop: LayerBackdrop?, glassIntensity: Float, shape: Shape, fill: Color): Modifier =
-    if (backdrop == null) this else this
+private fun Modifier.frosted(backdrop: LayerBackdrop?, glassIntensity: Float, shape: Shape, fill: Color, still: Boolean): Modifier =
+    if (backdrop == null) this
+    // Still on Saver (LocalGlassStill): the fill alone, nothing behind it blurred.
+    else if (still) this.clip(shape).background(fill, shape)
+    else this
         .clip(shape)
         .drawBackdrop(
             backdrop = backdrop,

@@ -13,6 +13,8 @@ import com.dd3boh.outertune.constants.AudioQuality
 import com.dd3boh.outertune.constants.AudioQualityKey
 import com.dd3boh.outertune.constants.AutoLoadMoreKey
 import com.dd3boh.outertune.constants.SkipSilenceKey
+import com.dd3boh.outertune.constants.AdaptiveQueueMode
+import com.dd3boh.outertune.constants.AdaptiveQueueModeKey
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -52,6 +54,19 @@ class AutoSettingsTest {
     @Test
     fun `the car offers every quality the phone does, in the phone's order`() {
         assertEquals(AudioQuality.entries.toList(), AutoSettings.QUALITIES)
+    }
+
+    @Test
+    fun `the radios switch reads the phone's mode, on for both of its on values`() {
+        assertEquals(false, AutoSettings.of(preferencesOf(AdaptiveQueueModeKey to AdaptiveQueueMode.OFF.name)).radios)
+        assertEquals(true, AutoSettings.of(preferencesOf(AdaptiveQueueModeKey to AdaptiveQueueMode.ALWAYS.name)).radios)
+        assertEquals(true, AutoSettings.of(preferencesOf()).radios)
+    }
+
+    @Test
+    fun `every setting is under one heading, Sound before Playback`() {
+        assertEquals(listOf(AutoSettings.Section.SOUND, AutoSettings.Section.PLAYBACK), AutoSettings.Section.entries.toList())
+        assertEquals(AutoSettings.Line.entries.toList(), AutoSettings.Section.entries.flatMap { it.lines })
     }
 
     @Test

@@ -88,10 +88,11 @@ class QueueRowsTest {
         assertTrue("key = { _, item -> QueueRows.key(item) }" in queue)
         assertTrue("key = QueueRows.key(window)" in queue)
         assertEquals(2, Regex("""mutableSongs\.indexOfFirst \{ QueueRows\.key\(it\) == (from|to)\.key \}""").findAll(queue).count())
-        val scrolls = Regex("""lazySongsListState\.scrollToItem\((currentWindowIndex|it\.getQueuePosShuffled\(\))\)""").findAll(queue).toList()
-        // In the effect that fills the list, both behind the check of what the list was last put there for;
-        // the third is the saved queues' panel opening, which is somebody asking for it.
-        assertEquals(3, scrolls.size)
+        // In the effect that fills the list, both behind the check of what the list was last put there
+        // for, and only once its rows are laid out (26 Oct: before then the scroll went to the top).
+        assertEquals(2, Regex("""lazySongsListState\.scrollToWhenLaidOut\((currentWindowIndex|at)\)""").findAll(queue).count())
+        // The saved queues' panel opening, which is somebody asking for it, scrolls at once.
+        assertEquals(1, Regex("""lazySongsListState\.scrollToItem\(currentWindowIndex\)""").findAll(queue).count())
         assertEquals(2, Regex("""scrolledFor != showing""").findAll(queue).count())
         assertEquals(2, Regex("""scrolledFor = showing""").findAll(queue).count())
     }

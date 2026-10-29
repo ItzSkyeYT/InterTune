@@ -49,6 +49,13 @@ object LibrarySql {
         ORDER BY song_album_map.`index`
     """
 
+    /** The ids of [ALBUM_SONGS] that are not files on the phone: what can be downloaded of the album. */
+    const val ALBUM_SONGS_TO_DOWNLOAD = """
+        SELECT song.id FROM song
+            JOIN song_album_map ON song.id = song_album_map.songId
+        WHERE song_album_map.albumId = :albumId AND NOT song.isLocal
+    """
+
     /*
      * Search library, below: what Library shows under each chip, found by name. All three used to
      * ask for a song in the library as well, so a saved album or artist with none, a synced

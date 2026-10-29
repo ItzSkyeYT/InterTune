@@ -61,6 +61,11 @@ class QueueBoard(
         if (!queues.isEmpty()) {
             masterQueues.addAll(queues.subList((queues.size - maxQueues).coerceAtLeast(0), queues.size))
         }
+        // One queue per id: two boards built at the same moment on this same shared list could each
+        // clear it and add the saved queues, leaving every queue in twice, and the list of queues then
+        // crashed on the repeated id (#46).
+        val seen = HashSet<Long>()
+        masterQueues.retainAll { seen.add(it.id) }
         // Must be computed AFTER masterQueues is filled. As a property initializer this ran first,
         // reading the size before this block cleared and refilled the SAME list instance, because
         // MusicService threads the previous board's list back in. On a cold start that previous

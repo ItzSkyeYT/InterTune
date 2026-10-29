@@ -80,6 +80,8 @@ import com.dd3boh.outertune.ui.component.EnumListPreference
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.ui.component.floatingGlass
+import com.dd3boh.outertune.ui.utils.LocalGlassStill
+import com.dd3boh.outertune.ui.dialog.InfoLabel
 import com.dd3boh.outertune.ui.component.topBarSurfaceColor
 import com.dd3boh.outertune.ui.utils.GlassSpec
 import com.dd3boh.outertune.ui.utils.LocalAppBackdrop
@@ -89,6 +91,11 @@ import com.dd3boh.outertune.utils.rememberPreference
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.dd3boh.outertune.ui.screens.settings.settingRow
+import com.dd3boh.outertune.ui.screens.settings.MeaningLine
+import com.dd3boh.outertune.LocalBatteryMode
+import androidx.compose.ui.platform.LocalContext
+import com.dd3boh.outertune.ui.player.animationsOff
+import com.dd3boh.outertune.playback.BatteryUse
 import kotlin.math.roundToInt
 
 @Composable
@@ -127,11 +134,15 @@ fun ColumnScope.ThemeAppFrag() {
             onCheckedChange = onHccChange
         )
     }
+    // Battery use on Saver shows the dark theme in pure black, as Android's own battery saver does
+    // (BatteryUse.darkTheme): both rows are greyed and show it, and keep what was set for after.
+    val held = saverHolds()
     EnumListPreference(
         modifier = Modifier.tourTarget(Tour.SETTING_DARK_THEME).settingRow(R.string.dark_theme),
         title = { Text(stringResource(R.string.dark_theme)) },
         icon = { Icon(Icons.Rounded.DarkMode, null) },
-        selectedValue = darkMode,
+        selectedValue = if (held) DarkMode.ON else darkMode,
+        isEnabled = !held,
         onValueSelected = onDarkModeChange,
         valueText = {
             when (it) {
@@ -141,14 +152,17 @@ fun ColumnScope.ThemeAppFrag() {
             }
         }
     )
+    if (held) SaverHoldsLabel()
     SwitchPreference(
         modifier = Modifier.settingRow(R.string.pure_black),
         title = { Text(stringResource(R.string.pure_black)) },
         description = stringResource(R.string.pure_black_description),
         icon = { Icon(Icons.Rounded.Contrast, null) },
-        checked = pureBlack,
+        checked = BatteryUse.pureBlack(pureBlack, LocalBatteryMode.current),
+        isEnabled = !held,
         onCheckedChange = onPureBlackChange
     )
+    if (held) SaverHoldsLabel()
 }
 
 
@@ -178,10 +192,21 @@ fun ColumnScope.ThemePlayerFrag() {
         defaultValue = true
     )
 
+    // Battery use on Saver draws the default background in place of Living blur, and the choice
+    // stays as it is: the line under the row says so.
+    val drawn = BatteryUse.playerBackground(playerBackground, LocalBatteryMode.current, DEFAULT_PLAYER_BACKGROUND)
+    val drawnName = when (drawn) {
+        PlayerBackgroundStyle.GRADIENT -> stringResource(R.string.player_background_gradient)
+        else -> stringResource(R.string.player_background_blur)
+    }
+
     EnumListPreference(
         modifier = Modifier.tourTarget(Tour.SETTING_PLAYER_BACKGROUND).settingRow(R.string.player_background_style),
         title = { Text(stringResource(R.string.player_background_style)) },
         icon = { Icon(Icons.Rounded.BlurOn, null) },
+        content = if (drawn != playerBackground) {
+            @Composable { MeaningLine(stringResource(R.string.battery_saver_background_note, drawnName)) }
+        } else null,
         selectedValue = playerBackground,
         onValueSelected = onPlayerBackgroundChange,
         valueText = {
@@ -217,6 +242,13 @@ fun ColumnScope.ThemePlayerFrag() {
                 colours = livingColours,
                 modifier = Modifier.padding(start = 16.dp, top = 4.dp, end = 16.dp, bottom = 8.dp)
             )
+            // With animations off in the system it stands still, here and in the player: said, so
+            // that the sliders are not taken for broken (#49).
+            if (LocalContext.current.animationsOff()) {
+                Box(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) {
+                    MeaningLine(stringResource(R.string.living_blur_still_animations))
+                }
+            }
             EnumListPreference(
                 modifier = Modifier.settingRow(R.string.player_living_colours),
                 title = { Text(stringResource(R.string.player_living_colours)) },
@@ -301,6 +333,8 @@ fun ColumnScope.ThemePlayerFrag() {
         checked = liquidGlass,
         onCheckedChange = onChromaticShockChange
     )
+    // Battery use on Saver keeps the glass where it is and draws it still (BatteryUse.glassStill).
+    if (liquidGlass && BatteryUse.glassStill(LocalBatteryMode.current)) InfoLabel(stringResource(R.string.battery_saver_glass_note))
 
     // Always drawn, dimmed when glass is off, rather than hidden. It only does anything with glass
     // on (Player.kt gates on `liquidGlass && groupedControls`), but hiding it outright meant the
@@ -408,7 +442,8 @@ private fun GlassSample(intensity: Float, grouped: Boolean, modifier: Modifier =
     // The app's own test for glass, so the sample is flat wherever the floating controls are.
     val glassOn = LocalAppBackdrop.current != null
     val backdrop = rememberLayerBackdrop()
-    val glass = if (glassOn) GlassSpec(backdrop, intensity.coerceIn(0f, 1f)) else null
+    // Still while Battery use is on Saver, as the app draws it then (LocalGlassStill).
+    val glass = if (glassOn) GlassSpec(backdrop, intensity.coerceIn(0f, 1f), still = LocalGlassStill.current) else null
     val flat = topBarSurfaceColor()
 
     Box(
@@ -421,7 +456,7 @@ private fun GlassSample(intensity: Float, grouped: Boolean, modifier: Modifier =
         Canvas(
             Modifier
                 .matchParentSize()
-                .then(if (glass != null) Modifier.layerBackdrop(backdrop) else Modifier)
+                .then(if (glass != null && !glass.still) Modifier.layerBackdrop(backdrop) else Modifier)
         ) {
             // The theme's own colours, so it matches whatever the app is wearing.
             drawRect(

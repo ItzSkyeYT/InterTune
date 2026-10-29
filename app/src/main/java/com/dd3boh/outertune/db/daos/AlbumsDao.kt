@@ -100,6 +100,14 @@ interface AlbumsDao : ArtistsDao {
     @Query(LibrarySql.ALBUM_SONGS)
     fun albumSongs(albumId: String): Flow<List<Song>>
 
+    /**
+     * The ids of the album's songs that can be downloaded, those that are not files on the phone:
+     * what an album's tile draws its download mark from. One light read, where the tile read the
+     * songs whole (albumSongs) for it.
+     */
+    @Query(LibrarySql.ALBUM_SONGS_TO_DOWNLOAD)
+    fun albumSongsToDownload(albumId: String): Flow<List<String>>
+
     @Transaction
     @Query("""
         SELECT album.*, count(song.dateDownload) downloadCount

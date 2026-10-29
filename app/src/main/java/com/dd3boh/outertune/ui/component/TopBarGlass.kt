@@ -40,6 +40,8 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.dp
 import com.dd3boh.outertune.ui.utils.GlassSpec
 import com.dd3boh.outertune.ui.utils.LocalAppBackdrop
+import com.dd3boh.outertune.ui.utils.LocalGlassStill
+import com.dd3boh.outertune.ui.utils.stillGlass
 import com.kyant.backdrop.backdrops.LayerBackdrop
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
@@ -112,7 +114,9 @@ val LocalSearchBarGlass = staticCompositionLocalOf<GlassSpec?> { null }
 fun TopBarGlassDestination(floating: Boolean, content: @Composable () -> Unit) {
     // Only whether glass is on. The intensity is the bar's business: asking for it here cost every
     // tab a blocking preference read on each visit.
-    val hosting = floating && LocalAppBackdrop.current != null
+    // Not while the glass is still (Battery use on Saver): the bars then draw themselves in place,
+    // the same shapes in the same places, and nothing records the screen (LocalGlassStill).
+    val hosting = floating && LocalAppBackdrop.current != null && !LocalGlassStill.current
     // Recorded over the page colour, as the app backdrop is: the screen is transparent between
     // rows, and a blur there would bleed into nothing. The colour is read inside the draw, so a new
     // album colour re-records the layer. Keying the draw on it replaced the backdrop and the host
@@ -217,6 +221,8 @@ fun Modifier.floatingGlass(glass: GlassSpec, shape: Shape, tint: Color = glass.t
     // each time. Not a fix: the node already re-reads its provider whenever its size changes.
     val currentShape = rememberUpdatedState(shape)
     val shapeProvider = remember { { currentShape.value } }
+    // Still on Saver: the same shape, rim and shadow, a frosted pane, nothing behind it read (GlassSpec.still).
+    if (glass.still) return this.stillGlass(shapeProvider).background(glass.stillFill(), shape).background(tint, shape)
     return this
         .drawBackdrop(
             backdrop = glass.backdrop,

@@ -60,7 +60,6 @@ import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.constants.PlayerHorizontalPadding
 import com.dd3boh.outertune.constants.ShowLyricsKey
 import com.dd3boh.outertune.constants.ThumbnailCornerRadius
-import com.dd3boh.outertune.extensions.tabMode
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.ui.component.Lyrics
 import com.dd3boh.outertune.ui.utils.artSizeBucket
@@ -139,13 +138,14 @@ fun Thumbnail(
             // parent.
             val isLandscape =
                 LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+            val tabMode = rememberTabMode()
             Column(
                 verticalArrangement = Arrangement.Center,
                 // Start-aligned in phone landscape, where the artwork shares the width with the
                 // controls and hugging the outer edge is right. A tablet gives it a whole pane, so
                 // there it centres like portrait does.
                 horizontalAlignment =
-                    if (isLandscape && !context.tabMode()) Alignment.Start
+                    if (isLandscape && !tabMode) Alignment.Start
                     else Alignment.CenterHorizontally,
                 modifier = Modifier
                     .fillMaxSize()

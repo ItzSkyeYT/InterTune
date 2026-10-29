@@ -131,7 +131,10 @@ fun SongListItem(
                     Icon.Library()
                 }
                 if (showDownloadIcon && !song.song.isLocal) {
-                    val download by LocalDownloadUtil.current.getDownload(song.id).collectAsState(initial = null)
+                    // Kept for the row, as in MediaMetadataListItem: with a new flow each time the
+                    // row was composed, its watch on the download started over every time.
+                    val downloadUtil = LocalDownloadUtil.current
+                    val download by remember(song.id) { downloadUtil.getDownload(song.id) }.collectAsState(initial = null)
                     Icon.Download(download)
                 }
             },
@@ -357,7 +360,8 @@ fun SongGridItem(
             )
         }
         if (showDownloadIcon) {
-            val download by LocalDownloadUtil.current.getDownload(song.id).collectAsState(initial = null)
+            val downloadUtil = LocalDownloadUtil.current
+            val download by remember(song.id) { downloadUtil.getDownload(song.id) }.collectAsState(initial = null)
             Icon.Download(download)
         }
     },

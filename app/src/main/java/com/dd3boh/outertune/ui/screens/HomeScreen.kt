@@ -181,6 +181,7 @@ import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeBanner
 import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeCard
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
+import androidx.compose.foundation.lazy.itemsIndexed
 
 internal enum class QuickPicksLabelKind { NONE, TRY_BOTH, LIBRARY, YOUTUBE, LEAN }
 
@@ -606,7 +607,7 @@ fun HomeScreen(
             state = lazylistState,
             contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues()
         ) {
-            item {
+            item(key = "tiles", contentType = "tiles") {
                 Row(
                     modifier = Modifier
                         .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Horizontal))
@@ -664,7 +665,7 @@ fun HomeScreen(
                 }
             }
 
-            item {
+            item(key = "chips", contentType = "chips") {
                 ChipsRow(
                     chips = homePage?.chips?.mapNotNull { it to it.title } ?: emptyList(),
                     currentValue = selectedChip,
@@ -744,7 +745,7 @@ fun HomeScreen(
             if (quickPicksSource == QuickPicksSource.OFF) {
                 // Nothing: the listener turned the row off.
             } else if (quickPicksLoading && ytPicks == null) {
-                item {
+                item(key = "quick_picks_title", contentType = HOME_TITLE) {
                     NavigationTitle(
                         title = stringResource(R.string.quick_picks),
                         modifier = Modifier.animateItem()
@@ -760,7 +761,7 @@ fun HomeScreen(
                         )
                     }
                 }
-                item {
+                item(key = "quick_picks_loading", contentType = "quick_picks_loading") {
                     LazyHorizontalGrid(
                         rows = GridCells.Fixed(4),
                         userScrollEnabled = false,
@@ -785,7 +786,7 @@ fun HomeScreen(
                 // all that differs is where its songs come from. Dropping the whole block when the
                 // chosen source has nothing to show made the row look like it had been taken away,
                 // when the truth is just that it has not been filled yet.
-                item {
+                item(key = "quick_picks_title", contentType = HOME_TITLE) {
                     NavigationTitle(
                         title = stringResource(R.string.quick_picks),
                         onClick = if ((quickPicksSource == QuickPicksSource.ENGINE || quickPicksSource == QuickPicksSource.COMPARE) && engineFallback == 0) ({ showWhyThese = true }) else null,
@@ -809,7 +810,7 @@ fun HomeScreen(
                     }
                 }
                 if (ytPicks != null || localPicks.isNotEmpty()) {
-                    item(key = "quick_picks_grid") {
+                    item(key = "quick_picks_grid", contentType = HOME_SONG_GRID) {
                         LazyHorizontalGrid(
                             state = quickPicksLazyGridState,
                             rows = GridCells.Fixed(4),
@@ -905,7 +906,7 @@ fun HomeScreen(
                     // Nothing to show yet. On Your library that means nothing has been played for
                     // the recommendations to be built from, which is what this string has said
                     // since upstream wrote it, in 43 languages, without ever being rendered.
-                    item {
+                    item(key = "quick_picks_empty", contentType = "quick_picks_empty") {
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
@@ -926,14 +927,14 @@ fun HomeScreen(
             }
 
             discover?.takeIf { it.isNotEmpty() }?.let { discover ->
-                item(key = "discover_title") {
+                item(key = "discover_title", contentType = HOME_TITLE) {
                     NavigationTitle(
                         title = stringResource(R.string.discover_something_new),
                         modifier = Modifier.animateItem()
                     )
                 }
 
-                item(key = "discover_grid") {
+                item(key = "discover_grid", contentType = HOME_SONG_GRID) {
                     val rows = min(4, discover.size)
                     LazyHorizontalGrid(
                         state = discoverLazyGridState,
@@ -985,14 +986,14 @@ fun HomeScreen(
             }
 
             forgottenFavorites?.takeIf { it.isNotEmpty() }?.let { forgottenFavorites ->
-                item {
+                item(key = "forgotten_title", contentType = HOME_TITLE) {
                     NavigationTitle(
                         title = stringResource(R.string.forgotten_favorites),
                         modifier = Modifier.animateItem()
                     )
                 }
 
-                item {
+                item(key = "forgotten_grid", contentType = HOME_SONG_GRID) {
                     val queueTitle = stringResource(R.string.forgotten_favorites)
                     // take min in case list size is less than 4
                     val rows = min(4, forgottenFavorites.size)
@@ -1043,14 +1044,14 @@ fun HomeScreen(
             }
 
             keepListening?.takeIf { it.isNotEmpty() }?.let { keepListening ->
-                item {
+                item(key = "keep_title", contentType = HOME_TITLE) {
                     NavigationTitle(
                         title = stringResource(R.string.keep_listening),
                         modifier = Modifier.animateItem()
                     )
                 }
 
-                item {
+                item(key = "keep_grid", contentType = "keep_grid") {
                     val rows = if (keepListening.size > 6) 2 else 1
                     LazyHorizontalGrid(
                         state = rememberLazyGridState(),
@@ -1063,7 +1064,7 @@ fun HomeScreen(
                             }) * rows)
                             .animateItem()
                     ) {
-                        items(keepListening) {
+                        items(keepListening, key = { localKey(it) }, contentType = { localKind(it) }) {
                             localGridItem(it, stringResource(R.string.keep_listening))
                         }
                     }
@@ -1071,7 +1072,7 @@ fun HomeScreen(
             }
 
             accountPlaylists?.takeIf { it.isNotEmpty() }?.let { accountPlaylists ->
-                item {
+                item(key = "account_title", contentType = HOME_TITLE) {
                     NavigationTitle(
                         title = stringResource(R.string.your_youtube_playlists),
                         onClick = {
@@ -1081,7 +1082,7 @@ fun HomeScreen(
                     )
                 }
 
-                item {
+                item(key = "account_row", contentType = HOME_ROW) {
                     LazyRow(
                         contentPadding = WindowInsets.systemBars
                             .only(WindowInsetsSides.Horizontal)
@@ -1098,8 +1099,8 @@ fun HomeScreen(
                 }
             }
 
-            similarRecommendations?.forEach {
-                item {
+            similarRecommendations?.forEachIndexed { index, it ->
+                item(key = "similar_title:$index", contentType = HOME_TITLE) {
                     NavigationTitle(
                         label = stringResource(R.string.similar_to),
                         title = it.title.title,
@@ -1130,22 +1131,23 @@ fun HomeScreen(
                     )
                 }
 
-                item {
+                item(key = "similar_row:$index", contentType = HOME_ROW) {
                     LazyRow(
                         contentPadding = WindowInsets.systemBars
                             .only(WindowInsetsSides.Horizontal)
                             .asPaddingValues(),
                         modifier = Modifier.animateItem()
                     ) {
-                        items(it.items) { item ->
+                        // By place as well as by id: a shelf may hold the same item twice.
+                        itemsIndexed(it.items, key = { i, item -> "$i:${item.id}" }, contentType = { _, item -> ytKind(item) }) { _, item ->
                             ytGridItem(item)
                         }
                     }
                 }
             }
 
-            homePage?.sections?.forEach {
-                item {
+            homePage?.sections?.forEachIndexed { index, it ->
+                item(key = "home_title:$index", contentType = HOME_TITLE) {
                     NavigationTitle(
                         title = it.title,
                         label = it.label,
@@ -1176,14 +1178,15 @@ fun HomeScreen(
                     )
                 }
 
-                item {
+                item(key = "home_row:$index", contentType = HOME_ROW) {
                     LazyRow(
                         contentPadding = WindowInsets.systemBars
                             .only(WindowInsetsSides.Horizontal)
                             .asPaddingValues(),
                         modifier = Modifier.animateItem()
                     ) {
-                        items(it.items) { item ->
+                        // By place as well as by id: a shelf may hold the same item twice.
+                        itemsIndexed(it.items, key = { i, item -> "$i:${item.id}" }, contentType = { _, item -> ytKind(item) }) { _, item ->
                             ytGridItem(item)
                         }
                     }
@@ -1191,7 +1194,7 @@ fun HomeScreen(
             }
 
             if (homePage?.continuation != null && homePage?.sections?.isNotEmpty() == true) {
-                item {
+                item(key = "home_more", contentType = HOME_SHIMMER) {
                     ShimmerHost(
                         modifier = Modifier.animateItem()
                     ) {
@@ -1211,7 +1214,7 @@ fun HomeScreen(
             }
 
             explorePage?.moodAndGenres?.let { moodAndGenres ->
-                item {
+                item(key = "moods_title", contentType = HOME_TITLE) {
                     NavigationTitle(
                         title = stringResource(R.string.mood_and_genres),
                         onClick = {
@@ -1220,7 +1223,7 @@ fun HomeScreen(
                         modifier = Modifier.animateItem()
                     )
                 }
-                item {
+                item(key = "moods_grid", contentType = "moods_grid") {
                     LazyHorizontalGrid(
                         rows = GridCells.Fixed(4),
                         contentPadding = PaddingValues(6.dp),
@@ -1228,7 +1231,7 @@ fun HomeScreen(
                             .height((MoodAndGenresButtonHeight + 12.dp) * 4 + 12.dp)
                             .animateItem()
                     ) {
-                        items(moodAndGenres) {
+                        itemsIndexed(moodAndGenres, key = { i, it -> "$i:${it.title}" }, contentType = { _, _ -> "mood" }) { _, it ->
                             MoodAndGenresButton(
                                 title = it.title,
                                 onClick = {
@@ -1244,7 +1247,7 @@ fun HomeScreen(
             }
 
             if (isLoading) {
-                item {
+                item(key = "loading", contentType = HOME_SHIMMER) {
                     ShimmerHost(
                         modifier = Modifier.animateItem()
                     ) {
@@ -1538,4 +1541,28 @@ private fun ContextChipRow(viewModel: HomeViewModel, modifier: Modifier = Modifi
             )
         }
     }
+}
+
+// What Home's rows are, so that a row going off screen is reused for one of its kind as the page
+// scrolls, and not composed into something else.
+private const val HOME_TITLE = "title"
+private const val HOME_ROW = "row"
+private const val HOME_SONG_GRID = "song_grid"
+private const val HOME_SHIMMER = "shimmer"
+
+/** A library item's key in a row of Home: what it is and its id, so that a song and an album can never be taken for one. */
+private fun localKey(item: LocalItem): String = "${localKind(item)}:${item.id}"
+
+private fun localKind(item: LocalItem): String = when (item) {
+    is Song -> "song"
+    is Album -> "album"
+    is Artist -> "artist"
+    is Playlist -> "playlist"
+}
+
+private fun ytKind(item: YTItem): String = when (item) {
+    is SongItem -> "song"
+    is AlbumItem -> "album"
+    is ArtistItem -> "artist"
+    is PlaylistItem -> "playlist"
 }
