@@ -46,9 +46,10 @@ import kotlinx.coroutines.withTimeoutOrNull
  * The Recap's sound (RecapSound), on two players of its own, never the app's: one plays the page's
  * song while the other gets the next song ready at its start point, so that a song takes over the
  * moment its page comes up. They read a song the way the app's player does, from its download, the
- * cache or the stream (MusicService.songSource), and sound as the app's playback does: on the media
- * stream, so that the media volume sets them and a phone whose media is silent stays silent, and
- * each song at the level the app plays it at (MusicService.volumeFor), its levelling included.
+ * cache or the stream, with the player's own resolver (MusicService.recapSource), and sound as the
+ * app's playback does: on the media stream, so that the media volume sets them and a phone whose
+ * media is silent stays silent, and each song at the level the app plays it at
+ * (MusicService.volumeFor), its levelling included.
  *
  * The listener's own music is paused and carried on through MusicService's player, and the last
  * song slid into their queue there (MusicService.slideIn). Audio focus is asked once for the whole
@@ -101,7 +102,7 @@ class RecapPlayer(
         val theirs = theirs()
         Log.i(TAG, "open: ${pages.size} pages, the listener's music ${theirs.name.lowercase()}")
         run(plan.open(theirs, pages.size))
-        val source = service.songSource()
+        val source = service.recapSource()
         active = player(source)
         spare = player(source)
         takeFocus()

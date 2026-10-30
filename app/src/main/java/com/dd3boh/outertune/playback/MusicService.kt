@@ -2835,13 +2835,23 @@ class MusicService : MediaLibraryService(),
     fun songSource(): DataSource.Factory = createDataSourceFactory(forPlayer = false)
 
     /**
+     * The InterTune Recap's players (RecapPlayer): as [songSource], their reads and resolves kept
+     * apart from the player's stall watch, but with the player's own resolver, so that the stream a
+     * song was found on is known to the player too. The Recap's last song then goes on in the queue
+     * without being looked up again: with a resolver of their own the player asked YouTube afresh,
+     * and the song came in 1.6 and 5.0 s after Done on the emulator (29 and 30 Oct 2026).
+     */
+    fun recapSource(): DataSource.Factory = createDataSourceFactory(forPlayer = false, playersResolver = true)
+
+    /**
      * [forPlayer] false for a lyrics clip: its reads go through calls of their own, which the
      * stall watch never cuts, and its resolves are not taken for the player's, which pause the
      * watch. Shared, a clip's reads were cancelled by a stall of the song, and a clip resolving
-     * the current song held the watch off.
+     * the current song held the watch off. [playersResolver] gives it the player's resolver all
+     * the same, and with it the streams the player knows and those it finds (recapSource).
      */
-    private fun createDataSourceFactory(forPlayer: Boolean = true): DataSource.Factory {
-        val resolver = if (forPlayer) playerResolver else SongResolver(streamAddresses)
+    private fun createDataSourceFactory(forPlayer: Boolean = true, playersResolver: Boolean = forPlayer): DataSource.Factory {
+        val resolver = if (playersResolver) playerResolver else SongResolver(streamAddresses)
         val calls = if (forPlayer) playerCalls else StreamFamily.Calls(playerStreamClient)
         return ResolvingDataSource.Factory(createCacheDataSource(calls)) { dataSpec ->
             val mediaId = dataSpec.key ?: error("No media id")

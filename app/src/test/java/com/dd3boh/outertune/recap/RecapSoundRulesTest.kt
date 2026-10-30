@@ -67,6 +67,18 @@ class RecapSoundRulesTest {
     }
 
     @Test
+    fun `it finds songs with the player's own resolver, kept apart from the player's stall watch`() {
+        // The stream a Recap song was found on is the player's too: the last song goes on in the
+        // queue at Done without being looked up again.
+        assertTrue("val source = service.recapSource()" in player)
+        val service = code("playback/MusicService.kt")
+        assertTrue("fun recapSource(): DataSource.Factory = createDataSourceFactory(forPlayer = false, playersResolver = true)" in service)
+        assertTrue("val resolver = if (playersResolver) playerResolver else SongResolver(streamAddresses)" in service)
+        // The stall watch still hears only of the player's own reads.
+        assertTrue("if (forPlayer) resolvingSongs.merge(mediaId, 1, Int::plus)" in service)
+    }
+
+    @Test
     fun `every way out of the Recap tells its sound first`() {
         val entry = code("ui/screens/recap/RecapEntry.kt")
         // Back, the cross, Done: all are the dialog's close, which closes the sound before the window.
