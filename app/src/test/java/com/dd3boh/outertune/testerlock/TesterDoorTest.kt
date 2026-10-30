@@ -24,11 +24,12 @@ import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
 /**
- * The door's contract as the app reads it: the request, the three answers, and everything else
- * taken as a door that could not check, which lets a tester in.
+ * The door's contract as the app reads it: the request, the answers, and everything else taken as a
+ * door that could not check, which lets a tester in.
  */
 class TesterDoorTest {
 
+    private val install = "0123456789abcdef0123456789abcdef"
     private val loopback = InetAddress.getLoopbackAddress()
     private val sockets = mutableListOf<ServerSocket>()
 
@@ -100,18 +101,19 @@ class TesterDoorTest {
     }
 
     @Test
-    fun `a code goes to the door with the build and nothing else`() {
+    fun `a code goes to the door with the build and the install number, and nothing else`() {
         val standIn = StandIn(200, """{"ok":true}""")
-        val answer = TesterDoor(standIn.door).ask("ABCD1234WXYZ", "0.12.5-preview.20261029.1900", 97)
+        val answer = TesterDoor(standIn.door).ask("ABCD1234WXYZ", "0.12.5-preview.20261029.1900", 97, install)
         assertEquals(DoorAnswer.OPEN, answer)
         assertEquals("POST", standIn.method)
         assertEquals("/open", standIn.path)
         assertTrue(standIn.contentType.orEmpty(), standIn.contentType.orEmpty().startsWith("application/json"))
         val sent = Json.parseToJsonElement(standIn.sent!!).jsonObject
-        assertEquals("no device id, no account", setOf("code", "build", "vc"), sent.keys)
+        assertEquals("no hardware id, no account: the number the install made for itself", setOf("code", "build", "vc", "install"), sent.keys)
         assertEquals("ABCD1234WXYZ", sent.getValue("code").jsonPrimitive.content)
         assertEquals("0.12.5-preview.20261029.1900", sent.getValue("build").jsonPrimitive.content)
         assertEquals(97, sent.getValue("vc").jsonPrimitive.int)
+        assertEquals(install, sent.getValue("install").jsonPrimitive.content)
         // Nothing in the headers that names the phone: a User-Agent of the door's own, and only
         // what HTTP itself needs beside it.
         assertEquals("InterTune tester check", standIn.headers["user-agent"])
@@ -120,23 +122,50 @@ class TesterDoorTest {
     }
 
     @Test
+    fun `every check sends the same install number, the one it is given`() {
+        for (made in listOf(install, "ffffffffffffffffffffffffffffffff")) {
+            val standIn = StandIn(200, """{"ok":true}""")
+            TesterDoor(standIn.door).ask("ABCD1234WXYZ", "b", 1, made)
+            assertEquals(made, Json.parseToJsonElement(standIn.sent!!).jsonObject.getValue("install").jsonPrimitive.content)
+        }
+    }
+
+    @Test
     fun `a door given with a slash at its end is asked at the same place`() {
         val standIn = StandIn(200, """{"ok":true}""")
-        assertEquals(DoorAnswer.OPEN, TesterDoor(standIn.door + "/").ask("ABCD1234WXYZ", "b", 1))
+        assertEquals(DoorAnswer.OPEN, TesterDoor(standIn.door + "/").ask("ABCD1234WXYZ", "b", 1, install))
         assertEquals("/open", standIn.path)
     }
 
     @Test
-    fun `the three answers of the contract`() {
+    fun `the answers of the contract`() {
         val cases = listOf(
             Triple(200, """{"ok":true}""", DoorAnswer.OPEN),
+            Triple(200, """{"ok":true,"claimed":true}""", DoorAnswer.CLAIMED),
             Triple(403, """{"ok":false,"why":"unknown"}""", DoorAnswer.UNKNOWN),
             Triple(403, """{"ok":false,"why":"revoked"}""", DoorAnswer.REVOKED),
+            Triple(403, """{"ok":false,"why":"in_use"}""", DoorAnswer.IN_USE),
+            Triple(403, """{"ok":false,"why":"outdated"}""", DoorAnswer.OUTDATED),
         )
         for ((status, body, answer) in cases) {
             assertEquals("$status $body", answer, TesterDoor.answerOf(status, body))
-            assertEquals("$status $body over the network", answer, TesterDoor(StandIn(status, body).door).ask("ABCD1234WXYZ", "b", 1))
+            assertEquals("$status $body over the network", answer, TesterDoor(StandIn(status, body).door).ask("ABCD1234WXYZ", "b", 1, install))
         }
+    }
+
+    @Test
+    fun `only a json true says the code was just given to this install`() {
+        // The plain yes, as every door before this one answered it, stays the plain yes.
+        for (body in listOf(
+            """{"ok":true}""", """{"ok":true,"claimed":false}""", """{"ok":true,"claimed":"true"}""",
+            """{"ok":true,"claimed":1}""", """{"ok":true,"claimed":null}""", """{"ok":true,"claimed":[true]}""",
+        )) {
+            assertEquals(body, DoorAnswer.OPEN, TesterDoor.answerOf(200, body))
+        }
+        // And a claim is a claim of a yes: a no that carries the flag is still a no, or nothing understood.
+        assertEquals(DoorAnswer.UNKNOWN, TesterDoor.answerOf(403, """{"ok":false,"why":"unknown","claimed":true}"""))
+        assertEquals(DoorAnswer.COULD_NOT_CHECK, TesterDoor.answerOf(200, """{"ok":false,"claimed":true}"""))
+        assertEquals(DoorAnswer.COULD_NOT_CHECK, TesterDoor.answerOf(403, """{"ok":true,"claimed":true}"""))
     }
 
     @Test
@@ -159,6 +188,17 @@ class TesterDoorTest {
             200 to "[true]",
             403 to """{"ok":false,"why":"expired"}""",
             403 to """{"ok":true,"why":"unknown"}""",
+            // The new refusals are 403s of the same shape and nothing else: in another shape they are not understood.
+            200 to """{"ok":false,"why":"in_use"}""",
+            200 to """{"ok":false,"why":"outdated"}""",
+            400 to """{"ok":false,"why":"outdated"}""",
+            401 to """{"ok":false,"why":"in_use"}""",
+            403 to """{"ok":true,"why":"outdated"}""",
+            403 to """{"ok":true,"why":"in_use"}""",
+            403 to """{"ok":false,"why":"In_Use"}""",
+            403 to """{"ok":false,"why":"in use"}""",
+            403 to """{"ok":false,"why":"OUTDATED"}""",
+            403 to """{"ok":false,"why":true}""",
             403 to "Forbidden",
             400 to """{"ok":false,"why":"unknown"}""",
             401 to """{"ok":false,"why":"revoked"}""",
@@ -170,29 +210,29 @@ class TesterDoorTest {
         // Other fields beside the contract's are no reason to refuse an answer.
         assertEquals(DoorAnswer.OPEN, TesterDoor.answerOf(200, """{"ok":true,"note":"hi"}"""))
         for ((status, body) in listOf(503 to "", 400 to """{"ok":false,"why":"bad"}""", 405 to "")) {
-            assertEquals("$status over the network", DoorAnswer.COULD_NOT_CHECK, TesterDoor(StandIn(status, body).door).ask("ABCD1234WXYZ", "b", 1))
+            assertEquals("$status over the network", DoorAnswer.COULD_NOT_CHECK, TesterDoor(StandIn(status, body).door).ask("ABCD1234WXYZ", "b", 1, install))
         }
     }
 
     @Test
     fun `no door to reach is a door that could not check`() {
         val closed = ServerSocket(0, 1, loopback).use { it.localPort }
-        assertEquals(DoorAnswer.COULD_NOT_CHECK, TesterDoor("http://${loopback.hostAddress}:$closed").ask("ABCD1234WXYZ", "b", 1))
-        assertEquals(DoorAnswer.COULD_NOT_CHECK, TesterDoor("not a door").ask("ABCD1234WXYZ", "b", 1))
+        assertEquals(DoorAnswer.COULD_NOT_CHECK, TesterDoor("http://${loopback.hostAddress}:$closed").ask("ABCD1234WXYZ", "b", 1, install))
+        assertEquals(DoorAnswer.COULD_NOT_CHECK, TesterDoor("not a door").ask("ABCD1234WXYZ", "b", 1, install))
     }
 
     @Test
     fun `a door that is too slow is a door that could not check`() {
         val slow = StandIn(200, """{"ok":true}""", delayMillis = 1500)
         val impatient = OkHttpClient.Builder().callTimeout(300, TimeUnit.MILLISECONDS).build()
-        assertEquals(DoorAnswer.COULD_NOT_CHECK, TesterDoor(slow.door, impatient).ask("ABCD1234WXYZ", "b", 1))
+        assertEquals(DoorAnswer.COULD_NOT_CHECK, TesterDoor(slow.door, impatient).ask("ABCD1234WXYZ", "b", 1, install))
     }
 
     @Test
     fun `a redirect is not an answer`() {
         val elsewhere = StandIn(200, """{"ok":true}""")
         val moved = StandIn(302, "", location = elsewhere.door + "/open")
-        assertEquals(DoorAnswer.COULD_NOT_CHECK, TesterDoor(moved.door).ask("ABCD1234WXYZ", "b", 1))
+        assertEquals(DoorAnswer.COULD_NOT_CHECK, TesterDoor(moved.door).ask("ABCD1234WXYZ", "b", 1, install))
         assertEquals("the other address was never asked", null, elsewhere.method)
     }
 

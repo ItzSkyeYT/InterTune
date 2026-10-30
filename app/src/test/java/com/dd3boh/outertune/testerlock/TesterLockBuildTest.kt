@@ -71,7 +71,8 @@ class TesterLockBuildTest {
     fun `main, release and debug hold none of the gate's code or words`() {
         val gate = listOf(
             "TesterGate", "TesterLockSession", "TesterLockStore", "TesterDoor", "TesterLockRules", "TesterCode",
-            "TesterMemory", "DoorAnswer", "GateMessage", "tester_lock_", "intertune-testbuild", "TESTER_LOCK", "TESTER_DOOR",
+            "TesterInstall", "TesterGateScreen", "TesterMemory", "DoorAnswer", "GateMessage", "tester_lock_",
+            "intertune-testbuild", "TESTER_LOCK", "TESTER_DOOR",
         )
         for (sourceSet in listOf("main", "release", "debug")) {
             val found = files(sourceSet).flatMap { file -> gate.filter { it in file.readText() }.map { "${file.path}: $it" } }
@@ -139,11 +140,33 @@ class TesterLockBuildTest {
         assertTrue("const val USER_AGENT = \"InterTune tester check\"" in door)
         // Every header the request is given, which is that one.
         assertEquals(listOf("User-Agent"), Regex("\\.(?:header|addHeader)\\(\"([^\"]+)\"").findAll(door).map { it.groupValues[1] }.toList())
-        // The body: the code, the build's name and its version number.
-        assertEquals(listOf("code", "build", "vc"), Regex("put\\(\"(\\w+)\"").findAll(door).map { it.groupValues[1] }.toList())
+        // The body: the code, the build's name, its version number and the random number this install made for itself.
+        assertEquals(
+            listOf("code", "build", "vc", "install"),
+            Regex("put\\(\"(\\w+)\"").findAll(door).map { it.groupValues[1] }.toList(),
+        )
         // And the app makes its door with that client, never one of its own.
         val app = File("src/preview/java").walkTopDown().filter { it.extension == "kt" }.joinToString("\n") { it.readText() }
         assertEquals(listOf("TesterDoor(BuildConfig.TESTER_DOOR)"), Regex("TesterDoor\\([^)]*\\)").findAll(app).map { it.value }.toList())
+    }
+
+    @Test
+    fun `the install number is random and nothing else, never read from the phone`() {
+        val install = File("src/preview/jvm/com/dd3boh/outertune/testerlock/TesterInstall.kt").readText()
+        assertTrue("from the system's secure generator" in install || "SecureRandom" in install)
+        assertTrue("import java.security.SecureRandom" in install)
+        // No id of the hardware, the account or the advertising profile, and no ordinary random generator.
+        for (read in listOf(
+            "Settings.Secure", "ANDROID_ID", "Build.", "TelephonyManager", "getSerial", "WifiManager", "MacAddress", "getMacAddress",
+            "AdvertisingId", "InstanceId", "FirebaseInstallations", "AccountManager", "import java.util.Random", "kotlin.random",
+            "nameUUIDFromBytes", "Context", "android.",
+        )) {
+            assertFalse(read, read in install)
+        }
+        // Kept with the rest of the lock's memory in its own file, and sent in the one request and nowhere else.
+        val app = File("src/preview/java").walkTopDown().filter { it.extension == "kt" }.joinToString("\n") { it.readText() }
+        assertEquals(1, Regex("TesterInstall\\.make\\(").findAll(app).count())
+        assertTrue("install = prefs.getString(INSTALL, null)" in app)
     }
 
     @Test

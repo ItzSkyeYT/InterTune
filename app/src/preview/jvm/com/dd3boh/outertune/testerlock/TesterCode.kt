@@ -49,6 +49,28 @@ object TesterCode {
     /** Where the field draws its dashes in a code of [length] symbols: after every fourth one. */
     fun dashesBefore(length: Int): List<Int> = (4 until length step 4).toList()
 
+    /** The longest paste that goes in the field: what the door reads as a typed code at most, and nothing more. */
+    const val MOST_PASTED = 64
+
+    /**
+     * What a paste puts in the field, the way it was copied. A clipboard that holds the code alone, in any
+     * form it is typed in, goes in as it is, and the field then draws it as it draws typing. One that holds
+     * the bot's whole message ("Your tester code: `XXXX-XXXX-XXXX`. It opens ..."), which is what copying
+     * the message on Discord gives, goes in as the code in it, shown in its groups. Anything else goes in
+     * as it is, cut to [MOST_PASTED], and the gate says it is no code.
+     */
+    fun fromPasted(pasted: String): String {
+        val whole = pasted.trim()
+        if (isWellFormed(normalise(whole))) return whole
+        for (found in GROUPED.findAll(whole)) {
+            if (isWellFormed(normalise(found.value))) return found.value
+        }
+        return whole.take(MOST_PASTED)
+    }
+
+    /** Three groups of four joined by the dash a chat shows, not standing inside a longer word. */
+    private val GROUPED = Regex("(?<![0-9A-Za-z])[0-9A-Za-z]{4}[$DASHES][0-9A-Za-z]{4}[$DASHES][0-9A-Za-z]{4}(?![0-9A-Za-z])")
+
     /** The hyphen, and the look-alikes a copy from a chat can bring. */
     private const val DASHES = "-\u2010\u2011\u2012\u2013\u2014\u2212"
 }

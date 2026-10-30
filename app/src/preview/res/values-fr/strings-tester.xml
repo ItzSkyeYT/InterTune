@@ -7,6 +7,12 @@
     <string name="tester_lock_open">Ouvrir</string>
     <string name="tester_lock_unknown">Ce code ne fonctionne pas. Vérifiez-le, ou redemandez-le au bot dans #testers.</string>
     <string name="tester_lock_revoked">Ce code ne fonctionne plus, car le rôle Tester vous a été retiré. Vous pouvez vous réinscrire dans Salons et rôles sur Discord.</string>
+    <string name="tester_lock_in_use">Ce code est déjà utilisé sur un autre appareil. Pour le transférer ici, utilisez /code dans #testers sur Discord.</string>
+    <string name="tester_lock_outdated">Cette version de test n\'est plus à jour. Téléchargez la plus récente dans #testers sur Discord.</string>
     <string name="tester_lock_not_checked">Le code n\'a pas pu être vérifié. Connectez-vous à Internet et réessayez.</string>
     <string name="tester_lock_help">Pas de code ? Utilisez /code dans #testers sur Discord.</string>
+    <string name="tester_lock_paste">Coller</string>
+    <string name="tester_lock_open_testers">Ouvrir #testers</string>
+    <string name="tester_lock_code_fine">Votre code est bon : seule la version doit être mise à jour.</string>
+    <string name="tester_lock_other_code">Utiliser un autre code</string>
 </resources>

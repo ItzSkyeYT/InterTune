@@ -98,4 +98,45 @@ class TesterCodeTest {
         assertEquals(emptyList<Int>(), TesterCode.dashesBefore(4))
         assertEquals(listOf(4), TesterCode.dashesBefore(5))
     }
+
+    @Test
+    fun `a paste of the code alone goes in as it was copied, for the field to draw`() {
+        for (copied in listOf(
+            "7K3M-9QXR-2HTV", "7k3m-9qxr-2htv", "7K3M9QXR2HTV", "7K3M 9QXR 2HTV", "7k3m\u20119qxr\u20132htv",
+            // O, I and L for 0, 1 and 1: a code read off a screen.
+            "OIBQ-DQ4P-8B94",
+        )) {
+            assertEquals(copied, TesterCode.fromPasted(copied))
+            assertTrue(copied, TesterCode.isWellFormed(TesterCode.normalise(TesterCode.fromPasted(copied))))
+        }
+        assertEquals("01BQDQ4P8B94", TesterCode.normalise(TesterCode.fromPasted("OIBQ-DQ4P-8B94")))
+        // What is around it on the clipboard, a line break or spaces, is not part of it.
+        assertEquals("7K3M-9QXR-2HTV", TesterCode.fromPasted("  7K3M-9QXR-2HTV\n"))
+    }
+
+    @Test
+    fun `a paste of the bot's whole message goes in as the code in it`() {
+        val message = "Your tester code: `7K3M-9QXR-2HTV`. It opens test builds on one device. The build asks for it the first " +
+            "time it opens and checks it again every few days, sending only the code, a random number the app makes for " +
+            "itself, the build's name and its version number."
+        assertEquals("7K3M-9QXR-2HTV", TesterCode.fromPasted(message))
+        // Wherever it stands, in whatever dash a chat draws, and the first one when there are two.
+        assertEquals("7K3M\u20139QXR\u20132HTV", TesterCode.fromPasted("code: 7K3M\u20139QXR\u20132HTV (not 4WPN-8DZB-6CJF)"))
+        assertEquals("7K3M-9QXR-2HTV", TesterCode.fromPasted("(7K3M-9QXR-2HTV)"))
+        assertEquals("7K3M-9QXR-2HTV", TesterCode.fromPasted("ABCD-EFGH-JKLMN wrong, 7K3M-9QXR-2HTV right"))
+        // Not inside a longer word, and only a code's own symbols: nothing else is picked out.
+        assertEquals("x7K3M-9QXR-2HTVx", TesterCode.fromPasted("x7K3M-9QXR-2HTVx"))
+        assertEquals("UUUU-UUUU-UUUU", TesterCode.fromPasted("UUUU-UUUU-UUUU"))
+    }
+
+    @Test
+    fun `anything else goes in as it is, cut to what a field takes, for the gate to say it is no code`() {
+        assertEquals("hello world", TesterCode.fromPasted("hello world"))
+        assertEquals("", TesterCode.fromPasted(""))
+        assertEquals("", TesterCode.fromPasted(" \n\t "))
+        val long = "x".repeat(500)
+        assertEquals(TesterCode.MOST_PASTED, TesterCode.fromPasted(long).length)
+        assertFalse(TesterCode.isWellFormed(TesterCode.normalise(TesterCode.fromPasted(long))))
+        assertEquals(64, TesterCode.MOST_PASTED)
+    }
 }
