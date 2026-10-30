@@ -16,7 +16,7 @@ import org.junit.Test
  * The tester lock, launch after launch, against a door that answers what it is told to.
  *
  * A locked build asks for the code the first time it opens, and for each new build a code kept from an
- * earlier build is checked with no typing. A yes stands for three days, then the kept code is checked
+ * earlier build is checked with no typing. A yes stands for a day, then the kept code is checked
  * again, quietly, with the app open and the check behind it; a yes that gave this install the code is
  * looked at again after ten minutes. An outage of ours opens the app and is tried again at each launch,
  * for seven days from the first failed try on that build. A good code the door refuses a build with, as
@@ -84,36 +84,59 @@ class TesterLockRulesTest {
     }
 
     @Test
-    fun `a good code opens the build, and nothing more is sent for it within three days`() {
+    fun `a good code opens the build, and nothing more is sent for it within a day`() {
         val phone = Phone()
         assertFalse(phone.launch(first))
         assertTrue(phone.type(first, code, DoorAnswer.OPEN))
         assertEquals(opened(first, start), phone.memory)
-        // Offline or not, any number of launches: the door's yes stands for three days.
-        for (later in listOf(1L, day, 2 * day + 23 * 60 * minute, 3 * day - 1, 3 * day)) {
+        // Offline or not, any number of launches: the door's yes stands for a day.
+        for (later in listOf(1L, 12 * 60 * minute, day - 1, day)) {
             phone.now = start + later
             assertEquals(AtLaunch.Open, phone.decision(first))
             assertTrue(phone.launch(first, answer = DoorAnswer.COULD_NOT_CHECK))
         }
-        assertEquals("exactly three days is not yet more than three days", listOf(first to code), phone.asked)
+        assertEquals("exactly a day is not yet more than a day", listOf(first to code), phone.asked)
         assertEquals("and nothing in the memory moved", opened(first, start), phone.memory)
     }
 
     @Test
-    fun `after three days the kept code is checked again with no typing, and the app opens at once`() {
+    fun `after a day the kept code is checked again with no typing, and the app opens at once`() {
         val phone = Phone(opened(first, start))
-        phone.now = start + 3 * day + 1
+        phone.now = start + day + 1
         assertEquals(AtLaunch.OpenAndCheck(code), phone.decision(first))
         assertTrue("open at once, the check behind it", phone.launch(first, answer = DoorAnswer.OPEN))
         assertEquals(listOf(first to code), phone.asked)
         assertEquals("the new yes is the one that counts now", opened(first, phone.now), phone.memory)
-        // And then three more days of nothing, and then again.
-        phone.now += 3 * day
+        // And then a day of nothing, and then again.
+        phone.now += day
         assertTrue(phone.launch(first, answer = DoorAnswer.COULD_NOT_CHECK))
         assertEquals(1, phone.asked.size)
         phone.now += 1
         assertTrue(phone.launch(first, answer = DoorAnswer.OPEN))
         assertEquals(2, phone.asked.size)
+    }
+
+    @Test
+    fun `a phone used every day is checked about once a day, and one launched oftener is not asked twice in a day`() {
+        // A launch every 25 hours: each is past the day, so each is a quiet check, and the app opens at once.
+        val daily = Phone(opened(first, start))
+        repeat(5) {
+            daily.now += 25 * 60 * minute
+            assertEquals(AtLaunch.OpenAndCheck(code), daily.decision(first))
+            assertTrue(daily.launch(first, answer = DoorAnswer.OPEN))
+        }
+        assertEquals(5, daily.asked.size)
+        // A launch every ten hours, six of them: the third and the sixth are the checks, none is a second one in a day.
+        val often = Phone(opened(first, start))
+        val checked = mutableListOf<Long>()
+        repeat(6) {
+            often.now += 10 * 60 * minute
+            val before = often.asked.size
+            assertTrue(often.launch(first, answer = DoorAnswer.OPEN))
+            if (often.asked.size > before) checked += often.now
+        }
+        assertEquals(listOf(start + 30 * 60 * minute, start + 60 * 60 * minute), checked)
+        assertTrue("more than a day apart", checked[1] - checked[0] > day)
     }
 
     @Test
@@ -226,7 +249,7 @@ class TesterLockRulesTest {
     fun `a quiet re-check that finds the code in use elsewhere puts the gate in front`() {
         // This install had the code, the tester moved it to another phone, and this one finds out.
         val phone = Phone(opened(first, start))
-        phone.now = start + 3 * day + 1
+        phone.now = start + day + 1
         assertFalse(phone.launch(first, answer = DoorAnswer.IN_USE))
         assertEquals(GateMessage.IN_USE, phone.gateMessage)
         assertEquals(TesterMemory(code = code, install = install, refusedBuild = first), phone.memory)
@@ -252,7 +275,7 @@ class TesterLockRulesTest {
     }
 
     @Test
-    fun `a yes that gave this install the code is looked at again in ten minutes, a plain yes in three days`() {
+    fun `a yes that gave this install the code is looked at again in ten minutes, a plain yes in a day`() {
         val claimed = Phone()
         assertTrue(claimed.type(first, code, DoorAnswer.CLAIMED))
         assertEquals(opened(first, start, claimed = true), claimed.memory)
@@ -266,11 +289,13 @@ class TesterLockRulesTest {
         for (phone in listOf(claimed, plain)) phone.now = start + 10 * minute + 1
         assertEquals("after a claim, the next launch checks", AtLaunch.OpenAndCheck(code), claimed.decision(first))
         assertEquals("after a plain yes, it does not", AtLaunch.Open, plain.decision(first))
-        for (phone in listOf(claimed, plain)) phone.now = start + day
+        for (phone in listOf(claimed, plain)) phone.now = start + 12 * 60 * minute
         assertEquals(AtLaunch.OpenAndCheck(code), claimed.decision(first))
         assertEquals(AtLaunch.Open, plain.decision(first))
-        for (phone in listOf(claimed, plain)) phone.now = start + 3 * day + 1
-        assertEquals("three days, then it does", AtLaunch.OpenAndCheck(code), plain.decision(first))
+        for (phone in listOf(claimed, plain)) phone.now = start + day
+        assertEquals("exactly a day is not yet more than a day", AtLaunch.Open, plain.decision(first))
+        for (phone in listOf(claimed, plain)) phone.now = start + day + 1
+        assertEquals("a day, then it does", AtLaunch.OpenAndCheck(code), plain.decision(first))
     }
 
     @Test
@@ -280,8 +305,8 @@ class TesterLockRulesTest {
         phone.now = start + 11 * minute
         assertTrue("open at once, the check behind it", phone.launch(first, answer = DoorAnswer.OPEN))
         assertEquals(opened(first, phone.now, claimed = false), phone.memory)
-        // From here on it is three days.
-        phone.now += 3 * day
+        // From here on it is a day.
+        phone.now += day
         assertEquals(AtLaunch.Open, phone.decision(first))
         phone.now += 1
         assertEquals(AtLaunch.OpenAndCheck(code), phone.decision(first))
@@ -476,8 +501,8 @@ class TesterLockRulesTest {
     }
 
     @Test
-    fun `the days are three, ten minutes and seven`() {
-        assertEquals(3 * day, TesterLockRules.RECHECK_MILLIS)
+    fun `the days are one, ten minutes and seven`() {
+        assertEquals(day, TesterLockRules.RECHECK_MILLIS)
         assertEquals(10 * minute, TesterLockRules.CLAIM_RECHECK_MILLIS)
         assertEquals(7 * day, TesterLockRules.GRACE_MILLIS)
     }

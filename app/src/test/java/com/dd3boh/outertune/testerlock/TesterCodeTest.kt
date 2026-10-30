@@ -117,7 +117,7 @@ class TesterCodeTest {
     @Test
     fun `a paste of the bot's whole message goes in as the code in it`() {
         val message = "Your tester code: `7K3M-9QXR-2HTV`. It opens test builds on one device. The build asks for it the first " +
-            "time it opens and checks it again every few days, sending only the code, a random number the app makes for " +
+            "time it opens and checks it again about once a day, sending only the code, a random number the app makes for " +
             "itself, the build's name and its version number."
         assertEquals("7K3M-9QXR-2HTV", TesterCode.fromPasted(message))
         // Wherever it stands, in whatever dash a chat draws, and the first one when there are two.

@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit
 
 /** What the door said of a code. */
 enum class DoorAnswer {
-    /** A tester's code: this build opens, and is not asked about again for a few days. */
+    /** A tester's code: this build opens, and is not asked about again for a day. */
     OPEN,
 
     /**

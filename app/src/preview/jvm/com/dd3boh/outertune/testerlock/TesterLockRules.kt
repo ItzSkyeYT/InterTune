@@ -63,7 +63,7 @@ data class AfterCheck(val memory: TesterMemory, val opens: Boolean, val message:
  *
  * A locked build asks for the tester's code the first time it opens, and once for each new build,
  * where a code kept from an earlier build is checked with no typing. The door decides; the app only
- * keeps the answer. A yes stands for a few days: after that the kept code is checked again, quietly,
+ * keeps the answer. A yes stands for a day: after that the kept code is checked again, quietly,
  * with the app open and the check behind it, and a refusal then puts the gate in front. When the door
  * cannot be reached the app opens anyway and tries again at the next launch, for seven days from the
  * first failed try on that build: a tester is never locked out by an outage of ours, while a phone kept
@@ -73,7 +73,7 @@ object TesterLockRules {
     const val GRACE_MILLIS = 7L * 24 * 60 * 60 * 1000
 
     /** The door's yes for a build stands for this long. After it, the next launch checks the code again, quietly. */
-    const val RECHECK_MILLIS = 3L * 24 * 60 * 60 * 1000
+    const val RECHECK_MILLIS = 1L * 24 * 60 * 60 * 1000
 
     /**
      * After a yes that gave this install the code, the next check comes this soon instead: the door's
@@ -152,7 +152,7 @@ object TesterLockRules {
     )
 
     /**
-     * The door's last yes for this build is more than its days old, or was never written down (a memory
+     * The door's last yes for this build is more than a day old, or was never written down (a memory
      * saved before the check came again has no time: due at once). A clock put back past the yes counts as
      * due too: a quiet check never locks anyone, and a yes written down with the right time ends it.
      */
