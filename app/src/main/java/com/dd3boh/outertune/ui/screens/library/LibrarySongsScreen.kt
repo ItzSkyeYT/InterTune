@@ -70,7 +70,13 @@ import com.dd3boh.outertune.constants.SongSortDescendingKey
 import com.dd3boh.outertune.constants.SongSortType
 import com.dd3boh.outertune.constants.SongSortTypeKey
 import com.dd3boh.outertune.constants.SwipeToQueueKey
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.db.entities.Song
+import com.dd3boh.outertune.savedtwice.SavedTwicePlace
+import com.dd3boh.outertune.savedtwice.libraryCopies
+import com.dd3boh.outertune.savedtwice.likedCopies
+import com.dd3boh.outertune.ui.screens.SavedTwiceButton
+import com.dd3boh.outertune.ui.screens.rememberSavedTwiceCount
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.ui.component.ChipsRow
@@ -148,6 +154,24 @@ fun LibrarySongsScreen(
         }
     }
 
+    // Songs in the list more than once, for the button beside the count (issue #47): Liked and
+    // Library only, which each have a way to take a song out. Downloaded has none.
+    val savedTwicePlace = when (filter) {
+        SongFilter.LIKED -> SavedTwicePlace.Liked
+        SongFilter.LIBRARY -> SavedTwicePlace.Library
+        SongFilter.DOWNLOADED -> null
+    }.takeIf { Unreleased.SAVED_TWICE }
+    val savedTwice = if (Unreleased.SAVED_TWICE) {
+        rememberSavedTwiceCount(savedTwicePlace, songs) {
+            val list = songs.orEmpty()
+            when (savedTwicePlace) {
+                SavedTwicePlace.Liked -> likedCopies(list)
+                SavedTwicePlace.Library -> libraryCopies(list)
+                else -> emptyList()
+            }
+        }
+    } else 0
+
     LaunchedEffect(Unit) {
         when (filter) {
             SongFilter.LIKED -> viewModel.syncLikedSongs()
@@ -210,6 +234,10 @@ fun LibrarySongsScreen(
                         color = MaterialTheme.colorScheme.secondary,
                         maxLines = 1
                     )
+                    if (savedTwice > 0 && savedTwicePlace != null) {
+                        Spacer(Modifier.width(12.dp))
+                        SavedTwiceButton(savedTwice, onClick = { navController.navigate(savedTwicePlace.route) })
+                    }
                     Spacer(Modifier.width(4.dp))
                     ActionDropdown(
                         actions = listOf(

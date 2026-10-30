@@ -27,7 +27,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.ui.component.TopBarGlassDestination
+import com.dd3boh.outertune.savedtwice.SavedTwicePlace
 import com.dd3boh.outertune.ui.screens.AccountScreen
+import com.dd3boh.outertune.ui.screens.SavedTwiceScreen
 import com.dd3boh.outertune.ui.screens.AlbumScreen
 import com.dd3boh.outertune.ui.screens.BrowseScreen
 import com.dd3boh.outertune.ui.screens.HistoryScreen
@@ -297,6 +299,22 @@ fun NavGraphBuilder.appDestinations(
             )
         ) {
             AutoPlaylistScreen(navController, scrollBehavior)
+        }
+        if (Unreleased.SAVED_TWICE) {
+            screen(
+                route = "${SavedTwicePlace.ROUTE}/{place}?playlist={playlist}",
+                arguments = listOf(
+                    navArgument("place") {
+                        type = NavType.StringType
+                    },
+                    navArgument("playlist") {
+                        type = NavType.StringType
+                        nullable = true
+                    },
+                )
+            ) {
+                SavedTwiceScreen(navController, appScope)
+            }
         }
         screen(
             route = "youtube_browse/{browseId}?params={params}",

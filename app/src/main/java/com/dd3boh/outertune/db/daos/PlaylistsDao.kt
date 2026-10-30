@@ -260,6 +260,20 @@ interface PlaylistsDao {
             }
     }
 
+    /**
+     * Takes one row out of its playlist, found by its id where it is now rather than at the
+     * position it was drawn with: moved to the end, so the positions after it close up, and then
+     * deleted. The row as it was, or null when it has gone already, and then nothing moves. Remove
+     * from playlist in the song menu goes through here, and so does Saved twice.
+     */
+    @Transaction
+    fun removeFromPlaylist(mapId: Int): PlaylistSongMap? {
+        val map = playlistSongMapById(mapId) ?: return null
+        move(map.playlistId, map.position, Int.MAX_VALUE)
+        delete(map.copy(position = Int.MAX_VALUE))
+        return map
+    }
+
     @Delete
     fun delete(playlistSongMap: PlaylistSongMap)
     // endregion

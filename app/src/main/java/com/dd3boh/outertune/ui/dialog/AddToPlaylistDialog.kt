@@ -315,9 +315,9 @@ fun AddToPlaylistDialog(
  * Mirrors an add to a YouTube playlist. On a scope of its own, because the dialog's goes when the
  * dialog closes, which is straight after the add, and a push cut short leaves the songs local only,
  * where the next sync takes them out again. The duplicates prompt's two add buttons used to push
- * nothing at all.
+ * nothing at all. Saved twice's Undo puts songs back into a playlist through here too.
  */
-private fun pushToYouTube(playlist: Playlist, songIds: List<String>) {
+fun pushToYouTube(playlist: Playlist, songIds: List<String>) {
     if (playlist.playlist.isLocal) return
     val browseId = playlist.playlist.browseId ?: return
     CoroutineScope(Dispatchers.IO).launch {

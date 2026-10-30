@@ -2092,4 +2092,66 @@
     <string name="player_pins_under_controls">Sous les commandes</string>
     <string name="player_pin_lyrics">Paroles</string>
     <string name="player_pins_reset">Réinitialiser</string>
+    <!-- Saved twice (issue #47, Unreleased.SAVED_TWICE): held back from translators until his yes on the words. -->
+    <string name="saved_twice">En double</string>
+    <plurals name="saved_twice_button">
+        <item quantity="one">%1$d titre en double</item>
+        <item quantity="many">%1$d titres en double</item>
+        <item quantity="other">%1$d titres en double</item>
+    </plurals>
+    <plurals name="saved_twice_intro_liked">
+        <item quantity="one">%1$d titre est en double dans vos titres aimés. Choisissez celui à garder.</item>
+        <item quantity="many">%1$d titres sont en double dans vos titres aimés. Choisissez celui à garder.</item>
+        <item quantity="other">%1$d titres sont en double dans vos titres aimés. Choisissez celui à garder.</item>
+    </plurals>
+    <plurals name="saved_twice_intro_library">
+        <item quantity="one">%1$d titre est en double dans votre bibliothèque. Choisissez celui à garder.</item>
+        <item quantity="many">%1$d titres sont en double dans votre bibliothèque. Choisissez celui à garder.</item>
+        <item quantity="other">%1$d titres sont en double dans votre bibliothèque. Choisissez celui à garder.</item>
+    </plurals>
+    <plurals name="saved_twice_intro_playlist">
+        <item quantity="one">%1$d titre est en double dans « %2$s ». Choisissez celui à garder.</item>
+        <item quantity="many">%1$d titres sont en double dans « %2$s ». Choisissez celui à garder.</item>
+        <item quantity="other">%1$d titres sont en double dans « %2$s ». Choisissez celui à garder.</item>
+    </plurals>
+    <string name="saved_twice_keep">Garder</string>
+    <string name="saved_twice_out_liked">Retirer des titres aimés</string>
+    <string name="saved_twice_out_library">Retirer de votre bibliothèque</string>
+    <string name="saved_twice_out_playlist">Retirer de « %1$s »</string>
+    <plurals name="saved_twice_take_liked">
+        <item quantity="one">Retirer %1$d doublon des titres aimés</item>
+        <item quantity="many">Retirer %1$d doublons des titres aimés</item>
+        <item quantity="other">Retirer %1$d doublons des titres aimés</item>
+    </plurals>
+    <plurals name="saved_twice_take_library">
+        <item quantity="one">Retirer %1$d doublon de votre bibliothèque</item>
+        <item quantity="many">Retirer %1$d doublons de votre bibliothèque</item>
+        <item quantity="other">Retirer %1$d doublons de votre bibliothèque</item>
+    </plurals>
+    <plurals name="saved_twice_take_playlist">
+        <item quantity="one">Retirer %1$d doublon de « %2$s »</item>
+        <item quantity="many">Retirer %1$d doublons de « %2$s »</item>
+        <item quantity="other">Retirer %1$d doublons de « %2$s »</item>
+    </plurals>
+    <string name="saved_twice_note">Rien n\'est supprimé de votre téléphone, et Annuler les remet en place.</string>
+    <plurals name="saved_twice_done_liked">
+        <item quantity="one">%1$d doublon retiré des titres aimés</item>
+        <item quantity="many">%1$d doublons retirés des titres aimés</item>
+        <item quantity="other">%1$d doublons retirés des titres aimés</item>
+    </plurals>
+    <plurals name="saved_twice_done_library">
+        <item quantity="one">%1$d doublon retiré de votre bibliothèque</item>
+        <item quantity="many">%1$d doublons retirés de votre bibliothèque</item>
+        <item quantity="other">%1$d doublons retirés de votre bibliothèque</item>
+    </plurals>
+    <plurals name="saved_twice_done_playlist">
+        <item quantity="one">%1$d doublon retiré de « %2$s »</item>
+        <item quantity="many">%1$d doublons retirés de « %2$s »</item>
+        <item quantity="other">%1$d doublons retirés de « %2$s »</item>
+    </plurals>
+    <string name="saved_twice_song">Titre</string>
+    <string name="saved_twice_music_video">Clip</string>
+    <string name="saved_twice_file">Fichier</string>
+    <string name="saved_twice_single">%1$s (single)</string>
+    <string name="saved_twice_none">Rien n\'est en double ici.</string>
 </resources>

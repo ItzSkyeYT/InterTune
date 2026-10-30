@@ -161,6 +161,11 @@ import com.dd3boh.outertune.ui.utils.LocalLandscape
 import com.dd3boh.outertune.ui.utils.paneInsets
 import com.dd3boh.outertune.ui.utils.rememberHeaderBeside
 import com.dd3boh.outertune.ui.utils.rememberHeaderPaneWidth
+import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.savedtwice.SavedTwicePlace
+import com.dd3boh.outertune.savedtwice.playlistCopies
+import com.dd3boh.outertune.ui.screens.SavedTwiceButton
+import com.dd3boh.outertune.ui.screens.rememberSavedTwiceCount
 
 @OptIn(ExperimentalMaterial3Api::class, FlowPreview::class)
 @Composable
@@ -254,6 +259,15 @@ fun LocalPlaylistScreen(
 
     val editable: Boolean =
         playlistWithSongs.first?.playlist?.isLocal == true || (playlistWithSongs.first?.playlist?.isEditable == true && syncMode == SyncMode.RW)
+
+    // Songs in the playlist more than once, for the button beside Play and Shuffle (issue #47).
+    // Only where the playlist can be changed: a copy cannot be taken out of one that cannot.
+    val savedTwice = if (Unreleased.SAVED_TWICE) {
+        rememberSavedTwiceCount(editable, playlistWithSongs.second) {
+            if (editable) playlistCopies(playlistWithSongs.second) else emptyList()
+        }
+    } else 0
+    val onSavedTwice = { navController.navigate(SavedTwicePlace.Playlist(viewModel.playlistId).route) }
 
     // Rebuilt from the playlist whenever it changes, during a search as well. A search used to be
     // filtered only when its text changed, so its rows kept the positions they were drawn with: a
@@ -616,6 +630,8 @@ fun LocalPlaylistScreen(
                                 onShowEditDialog = { showEditDialog = true },
                                 onShowRemoveDownloadDialog = { showRemoveDownloadDialog = true },
                                 snackbarHostState = snackbarHostState,
+                                savedTwice = savedTwice,
+                                onSavedTwice = onSavedTwice,
                                 modifier = Modifier // .animateItem()
                             )
                         }
@@ -732,6 +748,8 @@ fun LocalPlaylistScreen(
                             onShowEditDialog = { showEditDialog = true },
                             onShowRemoveDownloadDialog = { showRemoveDownloadDialog = true },
                             snackbarHostState = snackbarHostState,
+                            savedTwice = savedTwice,
+                            onSavedTwice = onSavedTwice,
                             modifier = Modifier,
                         )
                     }
@@ -866,6 +884,9 @@ fun LocalPlaylistHeader(
     onShowRemoveDownloadDialog: () -> Unit,
     snackbarHostState: SnackbarHostState,
     modifier: Modifier,
+    /** Songs in the playlist more than once: the Saved twice button shows while above nought. */
+    savedTwice: Int = 0,
+    onSavedTwice: () -> Unit = {},
 ) {
     Log.v("LocalPlaylistScreen", "P_H_RC-1")
     val playerConnection = LocalPlayerConnection.current ?: return
@@ -1047,7 +1068,10 @@ fun LocalPlaylistHeader(
             }
         }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Button(
                 onClick = {
                     playerConnection.playQueue(
@@ -1091,6 +1115,10 @@ fun LocalPlaylistHeader(
                 )
                 Spacer(Modifier.size(ButtonDefaults.IconSpacing))
                 Text(stringResource(R.string.shuffle))
+            }
+
+            if (savedTwice > 0) {
+                SavedTwiceButton(savedTwice, onClick = onSavedTwice)
             }
         }
     }

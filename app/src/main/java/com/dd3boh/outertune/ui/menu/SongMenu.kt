@@ -76,6 +76,7 @@ import com.dd3boh.outertune.ui.dialog.ArtistDialog
 import com.dd3boh.outertune.ui.dialog.DetailsDialog
 import com.dd3boh.outertune.ui.dialog.TextFieldDialog
 import com.dd3boh.outertune.utils.ShareLinks
+import com.dd3boh.outertune.utils.removeFromYouTubePlaylist
 import com.dd3boh.outertune.utils.joinByBullet
 import com.dd3boh.outertune.utils.makeTimeString
 import com.dd3boh.outertune.utils.rememberEnumPreference
@@ -257,20 +258,12 @@ fun SongMenu(
                     // before an earlier removal closed up the positions behind it, and moving by
                     // one of those sent a song the search was not even showing to the bottom and
                     // left a gap. A row that has already gone is left alone rather than moving
-                    // whatever took its place.
-                    val map = playlistSongMapById(playlistSong.map.id) ?: return@transaction
-                    move(map.playlistId, map.position, Int.MAX_VALUE)
-                    delete(map.copy(position = Int.MAX_VALUE))
+                    // whatever took its place. Saved twice takes its copies out the same way.
+                    removeFromPlaylist(playlistSong.map.id)
                 }
 
                 coroutineScope.launch {
-                    playlist?.playlist?.browseId?.let { playlistId ->
-                        if (playlistSong.map.setVideoId != null) {
-                            YouTube.removeFromPlaylist(
-                                playlistId, playlistSong.map.songId, playlistSong.map.setVideoId
-                            )
-                        }
-                    }
+                    removeFromYouTubePlaylist(playlist?.playlist?.browseId, playlistSong.map)
                 }
 
                 onDismiss()

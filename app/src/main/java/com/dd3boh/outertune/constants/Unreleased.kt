@@ -563,4 +563,18 @@ object Unreleased {
      * On in every build from 0.12.5, picked on 26 Oct 2026.
      */
     val BATTERY_MODES = true
+
+    /**
+     * Saved twice (issue #47, for 0.13): a round button with a count beside Play and Shuffle in
+     * Liked songs, in the library's songs list and in a playlist the app lets you change, shown
+     * only when a song is in there more than once; it opens a screen that lists each song's copies
+     * with one picked to keep, and takes the others out the way the heart, Remove from library and
+     * Remove from playlist do, with Undo after (SavedTwice, SavedTwiceShelf, SavedTwiceScreen).
+     * The look is the mockup he approved on 29 Oct 2026.
+     *
+     * Without it there is no button and nothing is counted. Its texts (saved_twice*) are held from
+     * translators, their French beside them in values-fr. When it is agreed: set this to true and
+     * make its texts translatable.
+     */
+    val SAVED_TWICE = BuildConfig.DEBUG
 }

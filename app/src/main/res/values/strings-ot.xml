@@ -2267,4 +2267,64 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="player_pins_under_controls">Under the controls</string>
     <string name="player_pin_lyrics">Lyrics</string>
     <string name="player_pins_reset">Reset to default</string>
+    <!-- Saved twice (issue #47, Unreleased.SAVED_TWICE): held back from translators until his yes on the words, their French beside them in values-fr. The place in each is the list the screen was opened from. -->
+    <string name="saved_twice" translatable="false">Saved twice</string>
+    <!-- For a screen reader: the round button beside Play and Shuffle, and the number on it. -->
+    <plurals name="saved_twice_button" translatable="false">
+        <item quantity="one">%1$d song saved twice</item>
+        <item quantity="other">%1$d songs saved twice</item>
+    </plurals>
+    <plurals name="saved_twice_intro_liked" translatable="false">
+        <item quantity="one">%1$d song is in Liked more than once. Pick the one to keep.</item>
+        <item quantity="other">%1$d songs are in Liked more than once. Pick the one to keep.</item>
+    </plurals>
+    <plurals name="saved_twice_intro_library" translatable="false">
+        <item quantity="one">%1$d song is in your library more than once. Pick the one to keep.</item>
+        <item quantity="other">%1$d songs are in your library more than once. Pick the one to keep.</item>
+    </plurals>
+    <!-- %2$s is the playlist's name. -->
+    <plurals name="saved_twice_intro_playlist" translatable="false">
+        <item quantity="one">%1$d song is in %2$s more than once. Pick the one to keep.</item>
+        <item quantity="other">%1$d songs are in %2$s more than once. Pick the one to keep.</item>
+    </plurals>
+    <!-- Under the copy that stays. -->
+    <string name="saved_twice_keep" translatable="false">Keep</string>
+    <!-- Under each copy that goes. %1$s is the playlist's name. -->
+    <string name="saved_twice_out_liked" translatable="false">Take out of Liked</string>
+    <string name="saved_twice_out_library" translatable="false">Take out of your library</string>
+    <string name="saved_twice_out_playlist" translatable="false">Take out of %1$s</string>
+    <!-- The button at the bottom. %2$s is the playlist's name. -->
+    <plurals name="saved_twice_take_liked" translatable="false">
+        <item quantity="one">Take %1$d copy out of Liked</item>
+        <item quantity="other">Take %1$d copies out of Liked</item>
+    </plurals>
+    <plurals name="saved_twice_take_library" translatable="false">
+        <item quantity="one">Take %1$d copy out of your library</item>
+        <item quantity="other">Take %1$d copies out of your library</item>
+    </plurals>
+    <plurals name="saved_twice_take_playlist" translatable="false">
+        <item quantity="one">Take %1$d copy out of %2$s</item>
+        <item quantity="other">Take %1$d copies out of %2$s</item>
+    </plurals>
+    <string name="saved_twice_note" translatable="false">Nothing is deleted from your phone, and Undo brings them back.</string>
+    <!-- Said once the button is tapped, with Undo beside it. %2$s is the playlist's name. -->
+    <plurals name="saved_twice_done_liked" translatable="false">
+        <item quantity="one">%1$d copy taken out of Liked</item>
+        <item quantity="other">%1$d copies taken out of Liked</item>
+    </plurals>
+    <plurals name="saved_twice_done_library" translatable="false">
+        <item quantity="one">%1$d copy taken out of your library</item>
+        <item quantity="other">%1$d copies taken out of your library</item>
+    </plurals>
+    <plurals name="saved_twice_done_playlist" translatable="false">
+        <item quantity="one">%1$d copy taken out of %2$s</item>
+        <item quantity="other">%1$d copies taken out of %2$s</item>
+    </plurals>
+    <!-- What a copy is, first on its line: "Song · Riot! · 3:31", "Music video · 3:42", a file on the phone. -->
+    <string name="saved_twice_song" translatable="false">Song</string>
+    <string name="saved_twice_music_video" translatable="false">Music video</string>
+    <string name="saved_twice_file" translatable="false">File</string>
+    <!-- An album that is the song's single: "Houdini (single)". -->
+    <string name="saved_twice_single" translatable="false">%1$s (single)</string>
+    <string name="saved_twice_none" translatable="false">Nothing in here is saved twice.</string>
 </resources>
