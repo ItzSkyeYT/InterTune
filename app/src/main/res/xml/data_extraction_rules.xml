@@ -11,6 +11,11 @@
 
    The app's own logs, one file per run for Report a problem (logs, RunLogs), belong to this phone
    and stay out of both: up to some megabytes, and of no use on another phone.
+
+   The tester lock of a preview published for testers keeps the tester's code and the random install
+   number the app made for itself in tester_lock.xml. The door holds a code for one install, so an app
+   that is restored or transferred must make its own number and take the code again with /code on
+   Discord: the file stays out of the cloud backup and out of a transfer alike.
 -->
 <data-extraction-rules>
     <cloud-backup>
@@ -38,6 +43,9 @@
         <exclude
             domain="database"
             path="exoplayer_internal.db" />
+        <exclude
+            domain="sharedpref"
+            path="tester_lock.xml" />
     </cloud-backup>
     <device-transfer>
         <exclude
@@ -52,5 +60,8 @@
         <exclude
             domain="database"
             path="exoplayer_internal.db" />
+        <exclude
+            domain="sharedpref"
+            path="tester_lock.xml" />
     </device-transfer>
 </data-extraction-rules>

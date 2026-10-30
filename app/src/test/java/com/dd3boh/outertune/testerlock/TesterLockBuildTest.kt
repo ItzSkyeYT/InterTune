@@ -170,6 +170,22 @@ class TesterLockBuildTest {
     }
 
     @Test
+    fun `the lock's file stays out of Android's backup and out of a transfer, so a restored app makes its own install number`() {
+        // The file the store writes, by the name it gives its preferences.
+        val store = File("src/preview/java/com/dd3boh/outertune/testerlock/TesterLock.kt").readText()
+        val name = Regex("getSharedPreferences\\(\"(\\w+)\", Context\\.MODE_PRIVATE\\)").find(store)!!.groupValues[1]
+        assertEquals("tester_lock", name)
+        val kept = Regex("""<exclude\s+domain="sharedpref"\s+path="$name\.xml"\s*/>""")
+        val rules = File("src/main/res/xml/data_extraction_rules.xml").readText()
+        assertTrue("cloud backup", kept.containsMatchIn(rules.substringAfter("<cloud-backup>").substringBefore("</cloud-backup>")))
+        assertTrue("transfer", kept.containsMatchIn(rules.substringAfter("<device-transfer>").substringBefore("</device-transfer>")))
+        assertTrue("Android 11 and earlier", kept.containsMatchIn(File("src/main/res/xml/backup_rules.xml").readText()))
+        // The one place the lock's file is named in main: nothing else of it is there.
+        val mentions = files("main").filter { "tester_lock" in it.readText() }.map { it.name }.sorted()
+        assertEquals(listOf("backup_rules.xml", "data_extraction_rules.xml"), mentions)
+    }
+
+    @Test
     fun `the preview's manifest carries the two marks publish-preview reads`() {
         val manifest = File("src/preview/AndroidManifest.xml").readText()
         assertTrue("android:name=\"intertune.testerLock\"\n            android:value=\"\${testerLock}\"" in manifest)
