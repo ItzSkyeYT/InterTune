@@ -44,6 +44,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
@@ -70,6 +71,7 @@ import com.dd3boh.outertune.constants.PureBlackKey
 import com.dd3boh.outertune.ui.theme.OuterTuneTheme
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
+import kotlinx.coroutines.flow.drop
 
 /**
  * The gate a locked tester build opens on, in place of the whole app until a code passes: the
@@ -80,7 +82,7 @@ import com.dd3boh.outertune.utils.rememberPreference
  * app is set.
  */
 @Composable
-internal fun TesterGate(activity: ComponentActivity, state: GateState, onOpen: (String) -> Unit) {
+internal fun TesterGate(activity: ComponentActivity, state: GateState, onOpen: (String) -> Unit, onEdited: () -> Unit) {
     val darkMode by rememberEnumPreference(DarkModeKey, defaultValue = DarkMode.AUTO)
     val pureBlack by rememberPreference(PureBlackKey, defaultValue = false)
     val systemDark = isSystemInDarkTheme()
@@ -92,13 +94,18 @@ internal fun TesterGate(activity: ComponentActivity, state: GateState, onOpen: (
         }
     }
     OuterTuneTheme(context = activity, darkTheme = dark, pureBlack = pureBlack, highContrastCompat = false) {
-        GatePage(state, onOpen)
+        GatePage(state, onOpen, onEdited)
     }
 }
 
 @Composable
-private fun GatePage(state: GateState, onOpen: (String) -> Unit) {
+private fun GatePage(state: GateState, onOpen: (String) -> Unit, onEdited: () -> Unit) {
     val field = rememberTextFieldState(state.prefill)
+    // The answer under the field is about the code it was given: it goes as soon as that code is
+    // changed, not at the next Open.
+    LaunchedEffect(field) {
+        snapshotFlow { field.text.toString() }.drop(1).collect { onEdited() }
+    }
     // A phone on its side: what the build is goes beside the field, so the field is not under the
     // fold. Told from the window, which the keyboard does not make shorter.
     val window = LocalWindowInfo.current.containerSize
@@ -201,7 +208,9 @@ private fun CodeForm(state: GateState, field: TextFieldState, onOpen: (String) -
         keyboardOptions = KeyboardOptions(
             capitalization = KeyboardCapitalization.Characters,
             autoCorrectEnabled = false,
-            keyboardType = KeyboardType.Ascii,
+            // A password field to the keyboard, so it offers no words of its own for a code. The code
+            // stays in sight: only a transformation hides text in Compose, and CodeAsSent shows it.
+            keyboardType = KeyboardType.Password,
             imeAction = ImeAction.Go,
         ),
         onKeyboardAction = { open() },

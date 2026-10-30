@@ -40,7 +40,7 @@ object TesterLock {
         // Each time the activity is made is a launch: the rules decide at once, before the first frame.
         val session = remember(activity) { TesterLockSession.of(activity.applicationContext).also { it.launch() } }
         val gate = session.gate.collectAsState().value ?: return false
-        TesterGate(activity, gate, onOpen = session::open)
+        TesterGate(activity, gate, onOpen = session::open, onEdited = session::edited)
         return true
     }
 }
@@ -83,6 +83,13 @@ internal class TesterLockSession private constructor(
                 check(launch.code)
             }
         }
+    }
+
+    /** The code in the field was changed: the answer to the one before is no longer about it. */
+    fun edited() {
+        val gate = shown.value ?: return
+        if (gate.busy || gate.message == null) return
+        shown.value = gate.copy(message = null)
     }
 
     /** The Open button, with what is in the field. */
