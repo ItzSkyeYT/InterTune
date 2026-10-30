@@ -213,7 +213,7 @@
     <string name="privacy">Confidentialité</string>
     <string name="pause_listen_history">Suspendre l’historique d’écoute</string>
     <string name="clear_listen_history">Effacer l’historique d’écoute</string>
-    <string name="clear_listen_history_confirm">Voulez-vous vraiment effacer tout l’historique d’écoute ?</string>
+    <string name="clear_listen_history_confirm">Effacer toutes les données enregistrées concernant vos parties ? Cette opération efface également le journal à partir duquel la fonction « Sélection Rapide » apprend, tout ce qu\'elle a appris jusqu\'à présent, ainsi que l\'historique des cartes qu\'elle vous a présentées.</string>
     <string name="pause_search_history">Suspendre l\'historique de recherche</string>
     <string name="clear_search_history">Effacer l\'historique de recherche</string>
     <string name="clear_search_history_confirm">Voulez-vous vraiment effacer tout l’historique des recherches ?</string>
@@ -289,7 +289,6 @@
     <string name="use_login_for_browse">Utiliser le compte connecté pour parcourir le contenu</string>
     <string name="use_login_for_browse_desc">Ceci peut influencer le contenu que vous voyez et affiche par exemple les albums Premium si vous êtes connecté avec un compte Premium</string>
     <string name="action_login">Se connecter</string>
-
     <!-- Crash report, shown on the launch after a crash (CrashLog) -->
     <string name="crash_report_title">InterTune a planté la dernière fois</string>
     <string name="crash_report_text">Désolé pour ça. L\'erreur ci-dessous est restée sur ce téléphone et rien n\'a été envoyé nulle part. La signaler aide à la corriger sur votre appareil.</string>
