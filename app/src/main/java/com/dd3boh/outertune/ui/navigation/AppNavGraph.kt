@@ -59,6 +59,7 @@ import com.dd3boh.outertune.ui.screens.playlist.LocalPlaylistScreen
 import com.dd3boh.outertune.ui.screens.playlist.OnlinePlaylistScreen
 import com.dd3boh.outertune.ui.screens.search.OnlineSearchResult
 import com.dd3boh.outertune.ui.screens.search.SearchBarContainer
+import com.dd3boh.outertune.ui.screens.search.SearchFilters
 import com.dd3boh.outertune.ui.screens.settings.AboutScreen
 import com.dd3boh.outertune.ui.screens.settings.AccountSyncSettings
 import com.dd3boh.outertune.ui.screens.settings.AdvancedSettings
@@ -186,7 +187,9 @@ fun NavGraphBuilder.appDestinations(
             SearchBarContainer(navController, scrollBehavior, searchActive()) { onSearchActiveChange(it) }
         }
         screen(
-            route = "search/{query}",
+            // filter: the chip the page starts on, by name (SearchFilters), for a search edited on
+            // a page of results; none for All.
+            route = SearchFilters.ROUTE,
             floating = false,
             arguments = listOf(
                 // nullable because androidx.navigation reserves the
@@ -199,7 +202,12 @@ fun NavGraphBuilder.appDestinations(
                 navArgument("query") {
                     type = NavType.StringType
                     nullable = true
-                }
+                },
+                navArgument("filter") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
             )
         ) {
             OnlineSearchResult(navController)
