@@ -40,6 +40,9 @@ object Recaps {
     /** Songs after the top ones whose covers the opening screen may show. */
     const val ALSO_PLAYED = 25
 
+    /** The songs of the year's playlist (Save as a playlist): the most played, at most this many. */
+    const val PLAYLIST = 50
+
     /** A song played this often was kept: an Auto find that stuck, the song heard longest. */
     const val KEPT_PLAYS = 3
 
@@ -141,6 +144,7 @@ object Recaps {
             auto = autoFinds(rows, songPlays, songTime, heardBefore, input, sinceDay),
             recognition = recognitions(rows, input, firstDayOfYear, lastDay),
             rooms = rooms(input, firstDayOfYear, lastDay),
+            ranking = ranked.take(PLAYLIST),
         )
     }
 

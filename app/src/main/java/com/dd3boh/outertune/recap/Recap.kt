@@ -83,6 +83,13 @@ data class Recap(
     val auto: AutoFinds?,
     val recognition: Recognitions?,
     val rooms: Rooms?,
+    /**
+     * The year's songs in one order, the most played first and by the rule of the tops: at most
+     * [Recaps.PLAYLIST] of them, the first [Recaps.TOP] being [topSongs] and the next ones
+     * [alsoPlayed]. What the year card's Save as a playlist makes its playlist of. Empty only in a
+     * Recap built by hand.
+     */
+    val ranking: List<String> = emptyList(),
 ) {
     /** How many days the Recap covers. */
     val days: Int get() = (lastDay - sinceDay + 1).toInt()

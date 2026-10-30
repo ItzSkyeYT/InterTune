@@ -200,6 +200,35 @@ class RecapsTest {
     }
 
     @Test
+    fun `the ranking is the tops and the rest in one order, the most played first`() {
+        val r = recap(aChart())
+        assertEquals(listOf("loc", "a1", "a2", "b1", "c1", "g1", "d1", "e1", "f1"), r.ranking)
+        // Its first five are the tops and the songs after them are the ones the opening screen shows.
+        assertEquals(r.topSongs.map { it.songId }, r.ranking.take(Recaps.TOP))
+        assertEquals(r.alsoPlayed, r.ranking.drop(Recaps.TOP).take(Recaps.ALSO_PLAYED))
+    }
+
+    @Test
+    fun `sixty songs give a ranking of fifty, the most played of them`() {
+        // s1 once, s2 twice, and so on up to s60 sixty times, each run on a day of its own.
+        val listens = (1..60).flatMap { n -> run("s$n", at(day(3, 1), 8) + n * 400 * minute, n) }
+        val r = recap(listens)
+        assertEquals(50, Recaps.PLAYLIST)
+        assertEquals((60 downTo 11).map { "s$it" }, r.ranking)
+        assertEquals(r.songs, 60)
+    }
+
+    @Test
+    fun `a song only skipped, or heard before the year, is not in the ranking`() {
+        val listens = variety(10, at(day(9, 1), 9), "kept") +
+            skip("skipped", at(day(9, 2), 9)) +
+            listen("last year", at(day(12, 31, 2025), 20))
+        val r = recap(listens)
+        assertEquals(10, r.ranking.size)
+        assertTrue("skipped" !in r.ranking && "last year" !in r.ranking)
+    }
+
+    @Test
     fun `top artists count every credit, YouTube artists only, as the Stats page's row does`() {
         val r = recap(aChart())
         // a2 is a play for both of its artists; the local artist's seven plays are left out.
