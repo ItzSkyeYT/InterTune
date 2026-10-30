@@ -425,7 +425,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="update_awaiting_confirmation">Ready. Android will ask you to confirm the install.</string>
     <string name="update_needs_permission">Android needs your permission for InterTune to install apps. Tap to open that setting, then come back and try again.</string>
     <string name="update_install_failed">Could not install: %1$s. You can still download it yourself from the release page.</string>
-    <string name="update_blocked_samsung">The install did not go through. Samsung\'s Auto Blocker probably stopped it: turn it off for a moment, install, then turn it back on if you like.</string>
+    <string name="update_blocked_samsung">The install did not go through: Samsung\'s Auto Blocker probably stopped it. Turn it off, then come back here and the install starts again by itself. You can turn Auto Blocker back on right after.</string>
+    <string name="auto_blocker_note">Updated. If you turned Auto Blocker off for this, you can turn it back on now.</string>
     <string name="update_blocked">The install did not go through. Try again, or download the update from the release page.</string>
     <string name="update_open_auto_blocker">Open Auto Blocker</string>
     <string name="update_try_again">Try again</string>

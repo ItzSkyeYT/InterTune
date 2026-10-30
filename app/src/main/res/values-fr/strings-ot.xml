@@ -387,7 +387,8 @@
     <string name="update_awaiting_confirmation">Prête. Android va vous demander de confirmer l\'installation.</string>
     <string name="update_needs_permission">Android a besoin de votre autorisation pour qu\'InterTune installe des applications. Touchez pour ouvrir ce paramètre, puis revenez et réessayez.</string>
     <string name="update_install_failed">Installation impossible : %1$s. Vous pouvez toujours la télécharger vous-même depuis la page de la version.</string>
-    <string name="update_blocked_samsung">L\'installation n\'a pas abouti. Le Bloqueur automatique de Samsung l\'a sans doute empêchée : désactivez-le le temps d\'installer, puis réactivez-le si vous voulez.</string>
+    <string name="update_blocked_samsung">L\'installation n\'a pas abouti : le Bloqueur automatique de Samsung l\'a sans doute empêchée. Désactivez-le, puis revenez ici et l\'installation recommence toute seule. Vous pouvez réactiver le Bloqueur automatique juste après.</string>
+    <string name="auto_blocker_note">Mise à jour terminée. Si vous avez désactivé le Bloqueur automatique pour cela, vous pouvez le réactiver maintenant.</string>
     <string name="update_blocked">L\'installation n\'a pas abouti. Réessayez, ou téléchargez la mise à jour depuis la page de la version.</string>
     <string name="update_open_auto_blocker">Ouvrir le Bloqueur automatique</string>
     <string name="update_try_again">Réessayer</string>

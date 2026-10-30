@@ -265,6 +265,11 @@ import com.dd3boh.outertune.utils.PollChecker
 import com.dd3boh.outertune.utils.UpdateChecker
 import com.dd3boh.outertune.utils.UpdateInstaller
 import com.dd3boh.outertune.utils.AutoBlocker
+import com.dd3boh.outertune.utils.AutoBlockerReturn
+import com.dd3boh.outertune.utils.ReturnVerdict
+import com.dd3boh.outertune.utils.reminderOwed
+import com.dd3boh.outertune.constants.AutoBlockerBlockedByKey
+import com.dd3boh.outertune.constants.AutoBlockerReturnAtKey
 import com.dd3boh.outertune.ui.component.updateTrouble
 import com.dd3boh.outertune.utils.coilCoroutine
 import com.dd3boh.outertune.utils.lmScannerCoroutine
@@ -619,6 +624,35 @@ class MainActivity : ComponentActivity() {
         PhoneBatterySaver.read(this)
     }
 
+    // The person has left: coming back is what a tap on Open Auto Blocker waits for.
+    override fun onStop() {
+        AutoBlockerReturn.left()
+        super.onStop()
+    }
+
+    /**
+     * InterTune is in front again. If the person tapped Open Auto Blocker and has been away since,
+     * within half an hour, the install they were blocked on starts again by itself, so Android's
+     * prompt comes at once (AutoBlockerReturn). The tap is forgotten as it is used: if Auto Blocker
+     * stops the install once more, the message is back and the next tap asks again.
+     *
+     * Called at every resume, so a resume with nothing asked for costs one look. The release is
+     * the one the checks found, or else the one they stored: the app may have been ended in
+     * Settings, and the checks are opt in. Android's own screen for "install unknown apps" is not
+     * opened by itself; the offer says what is missing, as it always did.
+     */
+    private suspend fun installAgainAfterAutoBlocker() {
+        val store = dataStore
+        if (store.current[AutoBlockerReturnAtKey] == null) return
+        val found = updateChecker.found()
+        val verdict = AutoBlockerReturn.take(store, System.currentTimeMillis(), AutoBlockerReturn.away)
+        Log.i(MAIN_TAG, "Back from Auto Blocker's page: $verdict")
+        if (verdict != ReturnVerdict.INSTALL_AGAIN || found == null) return
+        if (installSource() == InstallSource.F_DROID || !updateInstaller.canRequestInstall()) return
+        updateInstaller.acknowledge()
+        updateInstaller.installOrDownload(found.downloadUrl, found.sizeBytes)
+    }
+
     override fun onDestroy() {
         Log.i(MAIN_TAG, "onDestroy() called. isFinishing = $isFinishing")
         try {
@@ -642,6 +676,9 @@ class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Debug builds only: a file that makes this phone count as a Samsung, so Auto Blocker's
+        // message and way out can be seen on an emulator. Nothing in a release.
+        AutoBlocker.pretendFrom(this)
         // Not again after a rotation or a restored process: the shortcut was tapped once. Nor when
         // the task is reopened from recents, which starts it again with the shortcut's intent and
         // replayed the liked songs over whatever was playing (Android 11 and older, where Back
@@ -922,6 +959,7 @@ class MainActivity : ComponentActivity() {
                             frontSince = SystemClock.elapsedRealtime()
                             waitPutAway = false
                             updateInstaller.onShown()
+                            coroutineScope.launch { installAgainAfterAutoBlocker() }
                         } else if (event == Lifecycle.Event.ON_PAUSE) {
                             updateInstaller.onHidden()
                         }
@@ -1042,7 +1080,8 @@ class MainActivity : ComponentActivity() {
                             onPutAway = { waitPutAway = true },
                             onOpenAutoBlocker = {
                                 updateInstaller.acknowledge()
-                                AutoBlocker.open(this@MainActivity)
+                                // The install starts again by itself when they are back.
+                                AutoBlocker.openForUpdate(this@MainActivity)
                             },
                             onTryAgain = {
                                 updateInstaller.acknowledge()
@@ -1755,6 +1794,37 @@ class MainActivity : ComponentActivity() {
                             AccountNoticeDialog(onDone = { setAccountNoticeSeen(true) })
                         }
 
+                        /*
+                         * A word for somebody whose update Auto Blocker stopped and who has now
+                         * updated (AutoBlockerReturn): the build that saw it stop an install noted
+                         * its own version, and this one is newer, so Auto Blocker can go back on.
+                         * Shown as a card at the top of Home, where the app's other words after an
+                         * update are, and not over whatever the person is doing.
+                         *
+                         * Latched up once it is owed, and the note on the phone is forgotten when
+                         * Home first draws the card: said once. It stays up until Open Auto
+                         * Blocker or Done, and a rotation does not lose it. Only where Auto Blocker
+                         * exists: a backup restored on another phone brings the note along.
+                         */
+                        val blockedBy by rememberNullablePreference(AutoBlockerBlockedByKey)
+                        var autoBlockerNoteUp by rememberSaveable { mutableStateOf(false) }
+                        LaunchedEffect(blockedBy) {
+                            if (reminderOwed(blockedBy, BuildConfig.VERSION_CODE) && AutoBlocker.likely()) {
+                                autoBlockerNoteUp = true
+                            }
+                        }
+                        // Remembered, as the welcome card's are: the graph of destinations is built
+                        // again whenever what it is given changes.
+                        val autoBlockerNoteShown = remember { { AutoBlockerReturn.clearNote(applicationContext) } }
+                        val autoBlockerNoteOpen = remember {
+                            {
+                                autoBlockerNoteUp = false
+                                AutoBlocker.open(this@MainActivity)
+                                Unit
+                            }
+                        }
+                        val autoBlockerNoteDone = remember { { autoBlockerNoteUp = false } }
+
                         // Behind the expanded player or the walkthrough, the screen is still composed, and
                         // the arrow keys would wander into controls nobody can see.
                         val screenCovered by remember(playerBottomSheetState, tourState) {
@@ -1874,6 +1944,10 @@ class MainActivity : ComponentActivity() {
                                         welcomeCard = { welcomeCard },
                                         onWelcomeSee = seeWelcome,
                                         onWelcomeDismiss = dismissWelcome,
+                                        autoBlockerNote = { autoBlockerNoteUp },
+                                        onAutoBlockerNoteShown = autoBlockerNoteShown,
+                                        onAutoBlockerNoteOpen = autoBlockerNoteOpen,
+                                        onAutoBlockerNoteDone = autoBlockerNoteDone,
                                         appScope = coroutineScope,
                                     )
                                 }

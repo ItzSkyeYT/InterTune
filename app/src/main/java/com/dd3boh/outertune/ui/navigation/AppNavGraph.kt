@@ -114,6 +114,11 @@ fun NavGraphBuilder.appDestinations(
     welcomeCard: () -> WelcomeCard?,
     onWelcomeSee: () -> Unit,
     onWelcomeDismiss: () -> Unit,
+    /** Whether Home shows the word about Auto Blocker (HomeScreen), and what its buttons do. */
+    autoBlockerNote: () -> Boolean,
+    onAutoBlockerNoteShown: () -> Unit,
+    onAutoBlockerNoteOpen: () -> Unit,
+    onAutoBlockerNoteDone: () -> Unit,
     /** Outlives every destination, for work a destination starts and then pops itself before. */
     appScope: CoroutineScope,
 ) {
@@ -123,6 +128,10 @@ fun NavGraphBuilder.appDestinations(
                 welcomeCard = welcomeCard(),
                 onWelcomeSee = onWelcomeSee,
                 onWelcomeDismiss = onWelcomeDismiss,
+                autoBlockerNote = autoBlockerNote(),
+                onAutoBlockerNoteShown = onAutoBlockerNoteShown,
+                onAutoBlockerNoteOpen = onAutoBlockerNoteOpen,
+                onAutoBlockerNoteDone = onAutoBlockerNoteDone,
             )
         }
         screen(Screens.Songs.route, floating = false) {

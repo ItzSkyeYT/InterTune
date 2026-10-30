@@ -548,6 +548,21 @@ val UpdateSnoozeUntilKey = longPreferencesKey("updateSnoozeUntil")
 /** The version code the background check last notified about, so it says so once, not every run. */
 val LastNotifiedUpdateCodeKey = intPreferencesKey("lastNotifiedUpdateCode")
 
+/**
+ * Epoch millis of the tap on Open Auto Blocker that the install is to start again after: it starts
+ * when the person is next back in InterTune, within half an hour, and this is cleared as it does.
+ * Unset when nothing is owed. In the settings and not in memory, since the app can be ended while
+ * the person is in Settings. See AutoBlockerReturn.
+ */
+val AutoBlockerReturnAtKey = longPreferencesKey("autoBlockerReturnAt")
+
+/**
+ * The version code of the build that last saw Auto Blocker stop an install. The build that
+ * replaces it says once that Auto Blocker can go back on, and clears this as it does. Unset when
+ * there is nothing to say. See AutoBlockerReturn.
+ */
+val AutoBlockerBlockedByKey = intPreferencesKey("autoBlockerBlockedBy")
+
 /** The poll id the background check last notified about, for the same reason. */
 val LastNotifiedPollIdKey = stringPreferencesKey("lastNotifiedPollId")
 

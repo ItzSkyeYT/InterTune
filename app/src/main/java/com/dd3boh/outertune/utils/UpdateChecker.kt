@@ -178,6 +178,13 @@ class UpdateChecker @Inject constructor(
     }
 
     /**
+     * The release found before: the one in hand, or else the one a check stored on the disk. For an
+     * install that was left waiting while the app was away, whose process may have been ended since:
+     * a check may not have answered yet, and never does while the checks are off.
+     */
+    suspend fun found(): Update? = _available.value ?: restoreFromDisk()
+
+    /**
      * The last found release, read back from disk.
      *
      * Re-checked against the installed version and the dismissed one, so an update that was found,
