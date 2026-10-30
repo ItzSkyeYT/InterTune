@@ -20,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Build
 import androidx.compose.ui.window.DialogProperties
@@ -333,7 +334,7 @@ private fun TroubleButtons(
     ) {
         Text(stringResource(if (autoBlocker) R.string.update_open_auto_blocker else R.string.update_try_again))
     }
-    if (shortWindow(LocalConfiguration.current.screenHeightDp)) {
+    if (shortWindow(windowHeightDp())) {
         FlowRow(horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
             TroubleSecondary(false, autoBlocker, releaseUrl, onTryAgain, onRemindLater, onSkip)
         }
@@ -388,10 +389,18 @@ private fun TroubleSecondary(
 
 /**
  * A window too short for the dialog's stacked buttons: under 480 dp, which is where Android's own
- * size classes call the height compact. The app's window and not the dialog's, so the
- * configuration is asked and not the size of what is drawn.
+ * size classes call the height compact.
  */
 internal fun shortWindow(screenHeightDp: Int): Boolean = screenHeightDp < 480
+
+/**
+ * The height of the app's window, from the configuration, as TimeOfDayDialog asks it inside its
+ * dialog. Lint prefers LocalWindowInfo, which belongs to the window the composition is in, and a
+ * dialog is a window of its own.
+ */
+@SuppressLint("ConfigurationScreenWidthHeight")
+@Composable
+private fun windowHeightDp(): Int = LocalConfiguration.current.screenHeightDp
 
 /** Why an install did not or will not go through, as far as the app can tell. */
 enum class UpdateTrouble(val stringRes: Int) {

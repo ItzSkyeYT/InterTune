@@ -30,7 +30,9 @@ class UpdateShortWindowTest {
 
         val prompt = File("src/main/java/com/dd3boh/outertune/ui/component/UpdatePrompt.kt").readText()
         val buttons = prompt.substringAfter("private fun TroubleButtons(").substringBefore("private fun TroubleSecondary(")
-        assertTrue(buttons.contains("shortWindow(LocalConfiguration.current.screenHeightDp)"))
+        assertTrue(buttons.contains("shortWindow(windowHeightDp())"))
+        // Asked of the configuration, as the other dialog that decides by the height does (TimeOfDayDialog).
+        assertTrue(prompt.contains("private fun windowHeightDp(): Int = LocalConfiguration.current.screenHeightDp"))
         assertTrue(buttons.contains("FlowRow("))
         // The one that matters is the same wherever it is, and full width.
         assertEquals(1, Regex("""\bButton\(""").findAll(buttons).count())
