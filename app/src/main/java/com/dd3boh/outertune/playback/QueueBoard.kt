@@ -253,6 +253,16 @@ class QueueBoard(
 
                 saveQueueSongs(match)
                 return match
+            } else if (match.playlistId != null) {
+                // A radio stays a radio. Picked in Add to queue, it used to get the songs at the end
+                // of everything it held and lose its continuation, so it stopped topping itself up
+                // and keeping up to date, and became a list named after it with a "+". The songs go
+                // where the swipe's add to the end puts them now: after the listener's own songs
+                // ahead and before the radio's (MusicService.addToQueue).
+                if (QUEUE_DEBUG)
+                    Log.d(TAG, "Adding to queue: into a radio")
+                player.addToQueue(match, mediaList.filterNotNull())
+                return match
             } else if (match.title.endsWith("+\u200B") || anyExts != null) { // this queue is an already an extension queue
                 if (QUEUE_DEBUG)
                     Log.d(TAG, "Adding to queue: extension queue additive")

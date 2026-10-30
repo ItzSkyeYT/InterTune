@@ -651,6 +651,9 @@ fun BoxScope.QueueContent(
     // the one playing, going back to the first song folded away every song played since, and they
     // seemed to vanish. See AdaptiveQueue.settledThrough.
     val reachedInQueue by playerConnection.service.reachedInQueue.collectAsState()
+    // The songs the listener put in or moved by hand: shown with the songs ahead, not folded away
+    // with the radio's (AdaptiveQueue.shownInSheet).
+    val byHandInQueue by playerConnection.service.byHandInQueue.collectAsState()
     // What the adaptive queue last changed, said under the songs on show, and the songs it put in
     // that have not played, marked in their rows. Only for the live queue of a radio.
     val adaptivePicks by playerConnection.service.adaptivePicks.collectAsState()
@@ -676,9 +679,10 @@ fun BoxScope.QueueContent(
     val visibleSongs: List<MediaMetadata> =
         if (!foldTail) songs
         else {
+            val playing = detachedQueue?.getQueuePosShuffled() ?: currentWindowIndex
             val settled = detachedQueue?.let { AdaptiveQueue.settledThrough(it.getQueuePosShuffled(), songs, { it.id }, reachedInQueue) }
                 ?: AdaptiveQueue.settledThrough(currentWindowIndex, songs, { it.id }, reachedInQueue)
-            songs.take((settled + 1 + ADAPTIVE_VISIBLE_AHEAD).coerceIn(0, songs.size))
+            songs.take(AdaptiveQueue.shownInSheet(settled, playing, songs, { it.id }, byHandInQueue, ADAPTIVE_VISIBLE_AHEAD))
         }
     val hiddenTailCount = if (isSearching) 0 else songs.size - visibleSongs.size
 

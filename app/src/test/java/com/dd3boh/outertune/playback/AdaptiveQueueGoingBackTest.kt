@@ -125,7 +125,7 @@ class AdaptiveQueueGoingBackTest {
         assertTrue(
             "the queue sheet must show everything up to the furthest song reached",
             "AdaptiveQueue.settledThrough(currentWindowIndex, songs, { it.id }, reachedInQueue)" in sheet &&
-                "songs.take((settled + 1 + ADAPTIVE_VISIBLE_AHEAD)" in sheet,
+                "songs.take(AdaptiveQueue.shownInSheet(settled, " in sheet,
         )
     }
 }
