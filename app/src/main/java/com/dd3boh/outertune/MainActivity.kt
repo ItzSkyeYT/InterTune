@@ -189,6 +189,7 @@ import com.dd3boh.outertune.playback.MediaControllerViewModel
 import com.dd3boh.outertune.playback.MusicService
 import com.dd3boh.outertune.playback.PlayerConnection
 import com.dd3boh.outertune.search.SystemSearch
+import com.dd3boh.outertune.utils.YouTubeLink
 import com.dd3boh.outertune.utils.urlEncode
 import com.dd3boh.outertune.ui.component.LocalHiddenByPlayer
 import com.dd3boh.outertune.ui.component.LocalPlayerSheet
@@ -1222,25 +1223,34 @@ class MainActivity : ComponentActivity() {
                         searchFromShortcut = false
                     }
 
+                    // A page opened from outside the app goes in front of whatever was left open: the
+                    // player, on its queue or not, and the search overlay are put away first, as a
+                    // tab's tap puts them away, or the page opens behind them. A song found on the
+                    // phone opened its results under the queue he had left open (his note of 30 Oct
+                    // 2026), and the recognition tile listened under it.
+                    fun putAwayForPage() {
+                        if (playerBottomSheetState.isExpanded) playerBottomSheetState.collapseSoft()
+                        searchActive = false
+                    }
+
                     // The recognition tile and widget: the recognition screen, listening, over
                     // whatever is open, once the first destination is there and setup is done.
                     LaunchedEffect(pendingRecognition.asked, oobeStatus) {
                         if (!pendingRecognition.asked || oobeStatus < OOBE_VERSION) return@LaunchedEffect
                         snapshotFlow { navBackStackEntry }.first { it != null }
                         pendingRecognition.asked = false
+                        putAwayForPage()
                         navController.navigate(RecognitionShortcut.ROUTE)
                     }
 
                     // A tap on a download notification: Downloaded songs, over whatever is open,
-                    // once the first destination is there and setup is done. The player and the
-                    // search overlay are put away first, as a tab's tap puts them away, or the page
-                    // would open behind them; and it is not opened a second time over itself.
+                    // once the first destination is there and setup is done. Put in front like any
+                    // page from outside, and not opened a second time over itself.
                     LaunchedEffect(pendingDownloads.asked, oobeStatus) {
                         if (!pendingDownloads.asked || oobeStatus < OOBE_VERSION) return@LaunchedEffect
                         snapshotFlow { navBackStackEntry }.first { it != null }
                         pendingDownloads.asked = false
-                        if (playerBottomSheetState.isExpanded) playerBottomSheetState.collapseSoft()
-                        searchActive = false
+                        putAwayForPage()
                         val entry = navController.currentBackStackEntry
                         val there = entry?.destination?.route == "auto_playlist/{playlistId}" &&
                                 entry?.arguments?.getString("playlistId") == DownloadsShortcut.PLAYLIST
@@ -1322,6 +1332,7 @@ class MainActivity : ComponentActivity() {
                         if (oobeStatus < OOBE_VERSION) return@LaunchedEffect
                         snapshotFlow { navBackStackEntry }.first { it != null }
                         if (pendingLaunchLink != null) pendingLaunchLink = null else pendingLink.link = null
+                        if (linkOpensPage(link)) putAwayForPage()
                         // A playlist of the library, tapped in the phone's own search (SystemSearch),
                         // has no YouTube page: it opens here.
                         val libraryPlaylist = SystemSearch.playlistOf(link)
@@ -1329,7 +1340,8 @@ class MainActivity : ComponentActivity() {
                         if (libraryPlaylist != null) {
                             navController.navigate("local_playlist/$libraryPlaylist")
                         } else if (searchWords != null) {
-                            // Words handed over by the phone's search: InterTune's own search for them.
+                            // Words handed over by the phone's search, or by the song found on this
+                            // phone's notification: InterTune's own search for them.
                             navController.navigate("search/${searchWords.urlEncode()}")
                         } else {
                             youtubeNavigator(
@@ -2403,6 +2415,21 @@ internal fun libraryShortcut(action: String?, navigationItems: List<Screens>): L
  */
 internal fun launchLink(action: String?, data: String?, text: String?, fromRecents: Boolean): String? =
     if (fromRecents || action == WidgetCommands.ACTION_PLAY_SONG) null else data ?: text
+
+/**
+ * Whether a link handed to the app opens something the player, left open, would hide: a page of
+ * results (the song found on this phone's notification, the phone's own search), a library
+ * playlist, a YouTube page, or a song's album or menu. Only a song to play at once is left to the
+ * player, which shows it whether it is open or not.
+ */
+internal fun linkOpensPage(link: String): Boolean {
+    if (SystemSearch.playlistOf(link) != null || SystemSearch.searchOf(link) != null) return true
+    return when (val parsed = YouTubeLink.parse(link)) {
+        null -> false
+        is YouTubeLink.Video -> !parsed.playNow
+        else -> true
+    }
+}
 
 /**
  * What to open for an intent handed to onNewIntent: taken the way [launchLink] takes it, with no

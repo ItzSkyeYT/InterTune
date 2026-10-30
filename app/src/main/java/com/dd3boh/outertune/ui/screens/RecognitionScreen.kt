@@ -119,6 +119,7 @@ import com.dd3boh.outertune.recognition.RecognitionEngine
 import com.dd3boh.outertune.recognition.RecognitionViewModel
 import com.dd3boh.outertune.recognition.SheetRun
 import com.dd3boh.outertune.ui.component.AnimatedDots
+import com.dd3boh.outertune.ui.component.LocalPlayerSheet
 import com.dd3boh.outertune.ui.component.Elsewhere
 import com.dd3boh.outertune.ui.component.SwipeToQueueBox
 import com.dd3boh.outertune.ui.component.rememberRecognitionPhrase
@@ -151,6 +152,19 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.PhoneAndroid
 import com.dd3boh.outertune.recognition.PhoneAudio
+
+/**
+ * Whether the song [now] says was found takes the screen from the player, open over it on its queue
+ * or not: a song the screen's own Listen once has just found, which is what somebody is waiting
+ * for. Not the answer that was on show when the screen came up ([onShow], the same object), not
+ * another run's, and never in Keep listening, which goes on finding songs while the player is used.
+ */
+internal fun answerTakesTheScreen(
+    now: RecognitionEngine.State,
+    onShow: RecognitionEngine.State.Found?,
+    own: Boolean,
+    continuous: Boolean,
+): Boolean = now is RecognitionEngine.State.Found && now !== onShow && own && !continuous
 
 /**
  * Naming what is playing, as a screen rather than a sheet.
@@ -295,6 +309,18 @@ fun RecognitionScreen(
             if (now && !was && !AudioRoute.playbackIsPrivate(context)) viewModel.stop()
             was = now
         }
+    }
+
+    // The song the screen's Listen once found comes in front of the player, open over the screen on
+    // its queue or not (his note of 30 Oct 2026). Only as it comes in: the answer the screen came up
+    // with, after a rotation or coming back to it, leaves the player where it is.
+    val playerSheet = LocalPlayerSheet.current
+    var answerOnShow by remember { mutableStateOf(state as? RecognitionEngine.State.Found) }
+    LaunchedEffect(state) {
+        if (playerSheet != null && playerSheet.isExpanded && answerTakesTheScreen(state, answerOnShow, own, continuous)) {
+            playerSheet.collapseSoft()
+        }
+        (state as? RecognitionEngine.State.Found)?.let { answerOnShow = it }
     }
 
     // Instead is from a playlist's run, which is stopped for the screen's own. Only from its own
