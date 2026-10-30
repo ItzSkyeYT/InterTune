@@ -133,6 +133,7 @@ import androidx.media3.common.Player.REPEAT_MODE_ALL
 import androidx.media3.common.Player.REPEAT_MODE_OFF
 import androidx.media3.common.Player.REPEAT_MODE_ONE
 import androidx.media3.common.Player.STATE_ENDED
+import androidx.media3.common.Timeline
 import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalMenuState
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
@@ -470,6 +471,8 @@ fun BoxScope.QueueContent(
      * SONG LIST
      */
     val mutableSongs = remember { mutableStateListOf<MediaMetadata>() }
+    // Which of the player's lists mutableSongs was last filled from, by the effect that fills it.
+    var songsFrom by remember { mutableStateOf<List<Timeline.Window>?>(null) }
     // Which queue the list was last put at its playing song for. Null until this opening's first.
     var scrolledFor by remember { mutableStateOf<String?>(null) }
     val lazySongsListState = rememberLazyListState()
@@ -648,6 +651,9 @@ fun BoxScope.QueueContent(
     // the one playing, going back to the first song folded away every song played since, and they
     // seemed to vanish. See AdaptiveQueue.settledThrough.
     val reachedInQueue by playerConnection.service.reachedInQueue.collectAsState()
+    // The songs the listener put in or moved by hand: shown with the songs ahead, not folded away
+    // with the radio's (AdaptiveQueue.shownInSheet).
+    val byHandInQueue by playerConnection.service.byHandInQueue.collectAsState()
     // What the adaptive queue last changed, said under the songs on show, and the songs it put in
     // that have not played, marked in their rows. Only for the live queue of a radio.
     val adaptivePicks by playerConnection.service.adaptivePicks.collectAsState()
@@ -659,14 +665,26 @@ fun BoxScope.QueueContent(
     // at from the list of queues still shows all of it.
     val previewOfPlaying = detachedQueue != null && detachedQueue?.id == qb.getCurrentQueue()?.id
     val foldTail = adaptiveTailActive && !isSearching && (detachedQueue == null || previewOfPlaying)
+    // The songs the list shows. mutableSongs is filled from the player's list by the effect below,
+    // which runs only once the frame the player's list changed in has been drawn. In that frame the
+    // song playing, what the queue has reached and so the fold were new already, and the songs
+    // were not. Back in the app after the phone was locked with the queue open, the far end had
+    // been changed meanwhile, and that frame put the new fold over the old songs: songs the queue
+    // no longer held showed for a moment, then the right ones (his note of 30 Oct 2026). Until the
+    // effect has caught up, the list shows the player's own songs, worked out in the same frame as
+    // the fold. A drag (the player's list unchanged while a row moves) and a swipe (the row taken
+    // out before the player says so) still show mutableSongs, as before.
+    val playerSongs = remember(queueWindows) { QueueRows.of(queueWindows.mapNotNull { it.mediaItem.metadata }) }
+    val songs = QueueRows.onShow(mutableSongs, playerSongs, caughtUp = songsFrom === queueWindows, preview = detachedQueue != null || fallBackQueue != null)
     val visibleSongs: List<MediaMetadata> =
-        if (!foldTail) mutableSongs
+        if (!foldTail) songs
         else {
-            val settled = detachedQueue?.let { AdaptiveQueue.settledThrough(it.getQueuePosShuffled(), mutableSongs, { it.id }, reachedInQueue) }
-                ?: AdaptiveQueue.settledThrough(currentWindowIndex, mutableSongs, { it.id }, reachedInQueue)
-            mutableSongs.take((settled + 1 + ADAPTIVE_VISIBLE_AHEAD).coerceIn(0, mutableSongs.size))
+            val playing = detachedQueue?.getQueuePosShuffled() ?: currentWindowIndex
+            val settled = detachedQueue?.let { AdaptiveQueue.settledThrough(it.getQueuePosShuffled(), songs, { it.id }, reachedInQueue) }
+                ?: AdaptiveQueue.settledThrough(currentWindowIndex, songs, { it.id }, reachedInQueue)
+            songs.take(AdaptiveQueue.shownInSheet(settled, playing, songs, { it.id }, byHandInQueue, ADAPTIVE_VISIBLE_AHEAD))
         }
-    val hiddenTailCount = if (isSearching) 0 else mutableSongs.size - visibleSongs.size
+    val hiddenTailCount = if (isSearching) 0 else songs.size - visibleSongs.size
 
     // Refreshed while searching as well, and only the scroll waits for the search to close. It
     // used to stop here during a search, so Start radio from a result replaced the queue while the
@@ -705,7 +723,7 @@ fun BoxScope.QueueContent(
         // Each row under a name of its own that it keeps: see QueueRows. A list that comes back
         // the same, as it does when only a song's length was learned, is left alone, and so is a
         // selection made in it.
-        val shown = QueueRows.of(queueWindows.mapNotNull { it.mediaItem.metadata })
+        val shown = playerSongs
         if (!QueueRows.same(shown, mutableSongs)) {
             mutableSongs.apply {
                 clear()
@@ -714,6 +732,7 @@ fun BoxScope.QueueContent(
             // A selection is of the list as it was: cleared with it, as it always was.
             selectedItems.clear()
         }
+        songsFrom = queueWindows
 
         val showing = "playing " + qb.getCurrentQueue()?.id
         // Not before the song playing is in the list: queueWindows can still be empty on the
@@ -1037,7 +1056,7 @@ fun BoxScope.QueueContent(
             contentPadding = contentPadding,
             modifier = if (songsScroll != null) Modifier.nestedScroll(songsScroll) else Modifier
         ) {
-            if ((if (isSearching) filteredSongs else mutableSongs).isEmpty()) {
+            if ((if (isSearching) filteredSongs else songs).isEmpty()) {
                 item {
                     EmptyPlaceholder(
                         icon = Icons.Rounded.MusicNote,

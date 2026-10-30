@@ -41,4 +41,14 @@ internal object QueueRows {
     /** Whether [shown] is what the list [has] already: the same rows in the same order. */
     fun same(shown: List<MediaMetadata>, has: List<MediaMetadata>): Boolean =
         shown.size == has.size && shown.indices.all { shown[it] == has[it] }
+
+    /**
+     * The songs the queue's list shows: [kept], the sheet's own copy, where a drag moves a row and a
+     * swipe takes one out before the player has, once it has been filled from the player's list
+     * that is current ([caughtUp]); until then [player], the player's songs as rows, worked out in
+     * the same frame as the song playing and the fold. A [preview] of a queue the player does not
+     * hold is the sheet's own copy whatever the player's list is.
+     */
+    fun onShow(kept: List<MediaMetadata>, player: List<MediaMetadata>, caughtUp: Boolean, preview: Boolean): List<MediaMetadata> =
+        if (preview || caughtUp) kept else player
 }
