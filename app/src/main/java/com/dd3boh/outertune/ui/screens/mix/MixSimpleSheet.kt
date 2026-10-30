@@ -75,10 +75,12 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -102,6 +104,8 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalResources
@@ -160,6 +164,18 @@ internal const val WHERE_LINES = 3
  */
 internal fun sheetHeight(maxPx: Int, landscape: Boolean, clearOfBarPx: Int): Int =
     minOf((maxPx * if (landscape) 0.94f else 0.92f).toInt(), maxPx - clearOfBarPx).coerceAtLeast(0)
+
+/**
+ * Where to scroll the presets row so the chip from [left] to [right] (px in the row's content)
+ * shows whole with [margin] beside it, in a [viewport] scrolled to [scroll]; null when it shows
+ * already, so a chip in view never moves the row.
+ */
+internal fun chipScrollTarget(left: Int, right: Int, scroll: Int, viewport: Int, margin: Int): Int? = when {
+    viewport <= 0 -> null
+    left - margin < scroll -> (left - margin).coerceAtLeast(0)
+    right + margin > scroll + viewport -> right + margin - viewport
+    else -> null
+}
 
 /**
  * Edit transition, Simple (DESIGN.md, "Two levels"): a sheet over the player with both songs'
@@ -614,6 +630,17 @@ private fun ColumnScope.Choices(
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp),
     )
+    // The lit chip is kept in view: a row's choice that matches a preset further along the row
+    // (Overlap with Bass swap is Fade) lit it out of sight, its line under a row of unlit chips.
+    val chipsScroll = rememberScrollState()
+    val chipEdges = remember { mutableStateMapOf<Preset, IntRange>() }
+    val chipPadDp = 16.dp
+    val chipPad = with(LocalDensity.current) { chipPadDp.roundToPx() }
+    val litEdges = ui.lit?.let { chipEdges[it] }
+    LaunchedEffect(ui.lit, litEdges) {
+        val edges = litEdges ?: return@LaunchedEffect
+        chipScrollTarget(edges.first, edges.last, chipsScroll.value, chipsScroll.viewportSize, chipPad)?.let { chipsScroll.animateScrollTo(it) }
+    }
     val chips: @Composable () -> Unit = {
         for (p in EditorPresets.ORDER) {
             val lit = ui.lit == p
@@ -628,10 +655,16 @@ private fun ColumnScope.Choices(
                     lit -> { { Icon(Icons.Rounded.Check, null, Modifier.size(FilterChipDefaults.IconSize)) } }
                     else -> null
                 },
+                // Where the chip is in the scrolled row: the row's own padding, then its place in it.
+                modifier = Modifier.onPlaced { c ->
+                    val left = chipPad + c.positionInParent().x.toInt()
+                    val edges = left..(left + c.size.width)
+                    if (chipEdges[p] != edges) chipEdges[p] = edges
+                },
             )
         }
     }
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp)) { chips() }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(chipsScroll).padding(horizontal = chipPadDp)) { chips() }
     // Auto names what it picked when that is a preset, as the mock has it.
     val autoPick = remember(editor.auto) {
         EditorPresets.ORDER.firstOrNull { p ->
