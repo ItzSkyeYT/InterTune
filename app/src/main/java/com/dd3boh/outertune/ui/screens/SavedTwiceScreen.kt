@@ -54,7 +54,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -94,20 +94,19 @@ fun SavedTwiceButton(count: Int, onClick: () -> Unit, modifier: Modifier = Modif
     val said = pluralStringResource(R.plurals.saved_twice_button, count, count)
     BadgedBox(
         badge = {
+            // The number is in the button's own words for a screen reader, so not said twice.
             Badge(
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.clearAndSetSemantics {},
             ) { Text(count.toString()) }
         },
-        // One thing to a screen reader: the button, saying how many.
-        modifier = modifier.clearAndSetSemantics {
-            contentDescription = said
-            role = Role.Button
-        },
+        modifier = modifier,
     ) {
         OutlinedIconButton(
             onClick = onClick,
             border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary),
+            modifier = Modifier.semantics { contentDescription = said },
         ) {
             Icon(Icons.Rounded.ContentCopy, contentDescription = null, modifier = Modifier.size(20.dp))
         }
@@ -154,7 +153,10 @@ private fun copyLine(res: Resources, copy: SavedTwice.Copy): String {
         if (SavedTwice.isSingle(copy)) res.getString(R.string.saved_twice_single, it) else it
     }
     val length = if (copy.duration > 0) makeTimeString(copy.duration * 1000L) else null
-    return listOfNotNull(kind, album, length).joinToString(" · ")
+    val line = listOfNotNull(kind, album).joinToString(" · ")
+    // The length keeps to the word before it, so a long album breaks its own name over two lines
+    // rather than leaving the length alone on the second.
+    return if (length == null) line else "$line\u00A0·\u00A0$length"
 }
 
 /**
