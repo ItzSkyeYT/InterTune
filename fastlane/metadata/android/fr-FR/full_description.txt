@@ -1,42 +1,42 @@
-<p><i>InterTune</i> est un fork d'<a href="https://github.com/OuterTune/OuterTune">OuterTune</a>, lui-même un fork d'<a href="https://github.com/z-huang/InnerTune">InnerTune</a>. C'est à la fois un lecteur de musique locale et un client YouTube Music.</p>
-
-<p><br><b>Fonctionnalités :</b></p>
+<p><i>InterTune</i> est un fork d'<a href="[https://github.com/OuterTune/OuterTune](https://github.com/OuterTune/OuterTune)">OuterTune</a>, lui-même dérivé d'<a href="[https://github.com/z-huang/InnerTune](https://github.com/z-huang/InnerTune)">InnerTune</a>. C'est à la fois un lecteur multimédia local et un client YouTube Music.</p>
+<p>
+<b>Fonctionnalités :</b></p>
 <ul>
-<li>Client YouTube Music : téléchargement pour l'écoute hors ligne, lecture en arrière-plan, sans publicité, synchronisation du compte</li>
-<li>Lecture des fichiers audio locaux (MP3, OGG, FLAC, etc.)</li>
-<li>Son propre lecteur de tags : les tags séparés par une barre oblique inverse s'affichent bien</li>
-<li>Fichiers locaux et titres YouTube Music dans la même file d'attente</li>
-<li>Diffusion vers Chromecast, FCast ou une télé DLNA</li>
-<li>Un onglet Hors ligne qui liste les titres en cache, pour voir ce qui se lira sans connexion</li>
-<li>Un écran de bibliothèque unifié</li>
-<li>Plusieurs files d'attente</li>
-<li>Paroles synchronisées, y compris mot à mot et karaoké (LRC, TTML)</li>
-<li>Une ligne en lettres latines sous les paroles en japonais (romaji, kanji conservés), coréen, chinois, russe, etc., dès Android 10</li>
-<li>Égaliseur à dix bandes, avec la courbe mesurée de votre casque (AutoEq)</li>
-<li>Normalisation du volume, réglage du tempo et de la hauteur, autres effets audio</li>
-<li>Choisissez d'où vient la Sélection Rapide : YouTube Music, Votre bibliothèque, ou Meilleures recommandations, qui la construit sur votre téléphone d'après votre façon d'écouter</li>
-<li>Quel est ce titre ? reconnaît le titre qui passe autour de vous, grâce à Shazam, et peut remplir une playlist avec ce qu'il entend</li>
-<li>Un widget d'écran d'accueil qui s'adapte à sa taille</li>
-<li>Audio spatial sur tous les casques, avec suivi de la tête sur ceux qui le permettent</li>
-<li>Compatible Android Auto</li>
+<li>Client YouTube Music avec téléchargement de morceaux pour lecture hors ligne, lecture en arrière-plan, absence de publicités et synchronisation du compte</li>
+<li>Lecture de fichiers audio locaux (MP3, OGG, FLAC, etc.)</li>
+<li>Extracteur de balises personnalisé (au lieu de MediaStore) pour un affichage correct des balises séparées par une barre oblique inverse</li>
+<li>Lecture de fichiers locaux et de titres YouTube Music dans la même file d'attente</li>
+<li>Diffusion sur Chromecast, récepteur FCast ou téléviseur DLNA</li>
+<li>Onglet Hors ligne listant les morceaux déjà mis en cache pour une consultation sans connexion</li>
+<li>Conception intégrée de l'écran de la bibliothèque</li>
+<li>Files d'attente multiples</li>
+<li>Paroles synchronisées, y compris mot à mot et style karaoké (LRC, TTML)</li>
+<li>Ligne en caractères latins sous les écritures japonaises (romaji, kanji conservés), coréennes, chinoises, russes et autres (à partir d'Android 10)</li>
+<li>Égaliseur à dix bandes : profils prédéfinis ou mesures adaptées à votre casque (AutoEq)</li>
+<li>Normalisation audio, réglage du tempo et de la tonalité, ainsi que d'autres effets audio</li>
+<li>Choix de la source des Sélections rapides : YouTube Music, Votre bibliothèque ou Meilleures recommandations (générées sur l'appareil selon vos écoutes)</li>
+<li>« Qu'est-ce qui joue ? » identifie la musique environnante via Shazam et peut créer une playlist avec les titres détectés</li>
+<li>Widget d'écran d'accueil s'adaptant à sa taille</li>
+<li>Audio spatial sur tout casque, avec suivi des mouvements de tête sur les modèles compatibles</li>
+<li>Compatibilité Android Auto</li>
 </ul>
-
-<p><br><b>Ce à quoi l'appli se connecte :</b></p>
+<p>
+<b>Connexions et services :</b></p>
 <ul>
-<li>YouTube Music, pour tout ce que vous cherchez, écoutez, téléchargez ou synchronisez. Se connecter à un compte est facultatif.</li>
-<li>LRCLIB et KuGou, pour trouver les paroles du titre en cours. Chacun peut être désactivé.</li>
-<li>AutoEq, sur GitHub, seulement quand vous cherchez votre casque dans l'égaliseur.</li>
-<li>Shazam, seulement pendant qu'il écoute. Une empreinte sonore est envoyée, avec l'heure et votre fuseau horaire, jamais l'enregistrement. La pochette d'un titre trouvé vient de l'adresse que donne Shazam.</li>
-<li>Last.fm, seulement si vous l'activez. Pour trouver des titres similaires, il reçoit le titre et l'artiste de vos écoutes, et une fois ceux des titres aimés ou écoutés le mois dernier, sans compte. Avec un compte Last.fm connecté, vos écoutes y sont aussi enregistrées, avec l'album, la durée et l'heure de début. La connexion se fait sur la page de Last.fm.</li>
-<li>GitHub, seulement si vous activez la vérification des mises à jour ou la lancez vous-même. L'appli peut alors télécharger une nouvelle version et la confier à l'installateur d'Android, qui demande toujours votre accord. Une copie installée depuis F-Droid passe par F-Droid pour se mettre à jour.</li>
-<li>Questions et nouvelles, seulement si vous les activez. Elles sont lues depuis un gist GitHub, et leurs images sont chargées depuis l'adresse indiquée. Une ouverture ou une réponse est comptée sur Umami Cloud, sans compte ni identifiant d'appareil.</li>
-<li>Le comptage anonyme, seulement si vous l'activez. Une fois par jour au plus, il indique à Umami Cloud que l'appli est utilisée : un nom aléatoire qui change chaque mois, si elle vient de F-Droid, et les versions de l'appli et d'Android.</li>
+<li>YouTube Music, pour les recherches, lectures, téléchargements et synchronisations (connexion facultative).</li>
+<li>LRCLIB et KuGou, pour récupérer les paroles des morceaux en cours de lecture (désactivables individuellement).</li>
+<li>Mesures AutoEq sur GitHub, uniquement lors de la recherche de votre casque dans l'égaliseur.</li>
+<li>Shazam, uniquement pendant l'écoute. Seule une empreinte audio, l'heure et le fuseau horaire sont transmis (jamais l'enregistrement). La pochette est chargée depuis l'adresse fournie par Shazam.</li>
+<li>Last.fm, uniquement en cas d'activation. Pour trouver des titres similaires, le titre et l'artiste des morceaux lus sont transmis, ainsi qu'une fois ceux des morceaux aimés ou écoutés le mois dernier, sans compte requis. Si vous connectez un compte Last.fm, les écoutes y sont également enregistrées (album, durée et heure de début) via la page d'authentification officielle de Last.fm.</li>
+<li>GitHub, uniquement si la vérification des mises à jour est activée ou demandée manuellement. L'application peut télécharger une nouvelle version et la transmettre à l'installateur Android (qui demande toujours confirmation). Les installations provenant d'F-Droid utilisent le système de mise à jour d'F-Droid.</li>
+<li>Sondages et annonces, uniquement en cas d'activation. Ils sont chargés depuis un Gist GitHub et les images associées proviennent de l'adresse indiquée. L'ouverture ou la réponse est comptabilisée sur Umami Cloud, sans compte ni identifiant d'appareil.</li>
+<li>Statistiques d'utilisation, uniquement en cas d'activation. Au maximum une fois par jour, l'application transmet à Umami Cloud un nom aléatoire renouvelé chaque mois, l'origine de l'installation (F-Droid ou non) ainsi que les versions de l'application et d'Android.</li>
 </ul>
-
-<p><br><b>À savoir :</b></p>
+<p>
+<b>Remarques :</b></p>
 <ul>
-<li>Android 7.0 ou plus récent.</li>
-<li>Quelque chose ne marche pas ? Signalez-le depuis l'appli (Paramètres, À propos, Soumettre un rapport de bogue) ou sur <a href="https://github.com/ItzSkyeYT/InterTune/issues">GitHub</a>.</li>
+<li>Android 7.0 ou version ultérieure requis.</li>
+<li>Un problème ? Veuillez le signaler depuis l'application (Paramètres, À propos, Envoyer un rapport de bogue) ou sur <a href="[https://github.com/ItzSkyeYT/InterTune/issues](https://github.com/ItzSkyeYT/InterTune/issues)">GitHub</a>.</li>
 </ul>
-
-<p><br>InterTune n'est ni affiliée à Google ou YouTube, ni sponsorisée ou approuvée par eux.</p>
+<p>
+InterTune n'est ni affilié, ni sponsorisé, ni approuvé par Google ou YouTube.</p>
