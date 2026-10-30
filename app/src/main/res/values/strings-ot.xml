@@ -1949,6 +1949,11 @@ while also allowing users to translate our app as well. New, specific strings to
     <!-- Links you share from 0.12.5: the line under the question the first share asks (%1$s is the Settings screen, Library and content), and the row's value before anything is picked. -->
     <string name="share_link_choice_kept">Your pick is kept for later shares. You can change it any time in Settings, under %1$s.</string>
     <string name="share_link_not_chosen">Not chosen yet</string>
+    <!-- Open links in InterTune (OpenLinks): %1$s is the build's own name, InterTune, InterTune Preview or InterTune Debug. -->
+    <string name="open_links_title">Open links in %1$s</string>
+    <string name="open_links_description">YouTube Music and intertune.app links open in this app. Turn it off to let another app, like InterTune Preview, open them.</string>
+    <string name="open_links_android_off">Android\'s own link setting is off for this app, so no link opens here.</string>
+    <string name="open_links_android_settings">Android\'s link settings</string>
     <string name="favourites_strict" translatable="false">Favourites only</string>
     <string name="favourites_strict_on" translatable="false">Turn off to let similar artists join in.</string>
     <string name="favourites_strict_off" translatable="false">Similar artists join in, one song in four at most.</string>
@@ -2175,6 +2180,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="search_words_ytm_sync">YouTube Music, playlists, likes, library</string>
     <string name="search_words_sync_now">sync now, refresh</string>
     <string name="search_words_share_links">share, link, song link</string>
+    <string name="search_words_open_links">supported links, open by default, default app, YouTube, YouTube Music, Preview</string>
     <string name="search_words_explicit">explicit, parental, children, swear words</string>
     <string name="search_words_language">language, locale</string>
     <string name="search_words_country">country, region</string>
