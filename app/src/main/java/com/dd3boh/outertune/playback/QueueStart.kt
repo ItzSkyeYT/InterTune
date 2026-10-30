@@ -144,6 +144,11 @@ internal class QueueStart(private val service: Target) {
 
     /**
      * @param origin A PlayOrigin code.
+     * @param beforeStart runs right before each time the player is told to start this queue (once
+     * for a list; for a queue that starts early on its first song, then again for the whole queue),
+     * and never for a start dropped or failed before that. Mix links the current queue to its
+     * playlist there, so its stage is in the chain for the queue's first song: linked after the
+     * start, the first song played without it and its change into the second always stayed plain.
      * @return whether this queue was started: false for a start dropped for a newer one or for a
      * service torn down, so the caller leaves alone the queue that plays.
      * @throws Exception whatever the queue's answer failed with. The caller reports it.
@@ -158,6 +163,7 @@ internal class QueueStart(private val service: Target) {
         origin: Int,
         originSlot: Int,
         runId: Long,
+        beforeStart: () -> Unit = {},
     ): Boolean {
         val number = ++lastStart
         var queueTitle = title
@@ -198,6 +204,7 @@ internal class QueueStart(private val service: Target) {
             // Started now, while the rest is asked for. Only here, with a song of this queue in
             // the player: a queue that names none leaves the player holding the queue before it,
             // and starting that would play the old song.
+            beforeStart()
             service.start(playWhenReady)
         }
 
@@ -271,6 +278,7 @@ internal class QueueStart(private val service: Target) {
         // For a queue that had no song to start with, this is its start. After an early start the
         // player is prepared already, and a song that failed to load meanwhile gets its second try
         // here. What it does not do then is play a song paused since the tap: see the class note.
+        beforeStart()
         service.start(if (preloadItem != null) playWhenReady && service.wantsToPlay else playWhenReady)
         return true
     }

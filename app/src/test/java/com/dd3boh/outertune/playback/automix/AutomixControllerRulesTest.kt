@@ -96,10 +96,10 @@ class AutomixControllerRulesTest {
     }
 
     @Test
-    fun `only a queue a tap started is linked to its Mix playlist`() {
+    fun `only a queue a tap starts is linked to its Mix playlist, before its first song starts`() {
+        // QueueStart calls beforeStart only for the start that goes ahead (QueueStartTest).
         val play = service.substringAfter("fun playQueue(").substringBefore("private val queueStart = QueueStart(")
-        assertTrue(play, "val started = try {" in play)
-        assertTrue(play, "if (Unreleased.AUTOMIX_EDITOR && started) linkMixQueue((queue as? ListQueue)?.mixPlaylistId)" in play)
+        assertTrue(play, "beforeStart = { if (Unreleased.AUTOMIX_EDITOR) linkMixQueue((queue as? ListQueue)?.mixPlaylistId) }," in play)
         assertTrue(Regex("""linkMixQueue\(""").findAll(service).count() == 2)
     }
 

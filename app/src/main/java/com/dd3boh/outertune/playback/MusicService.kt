@@ -2370,7 +2370,7 @@ class MusicService : MediaLibraryService(),
             // after each point where it suspends.
             if (destroyed) return@launch
             Log.d(TAG, "playQueue: Resolving additional queue data...")
-            val started = try {
+            try {
                 queueStart.run(
                     queue = queue,
                     playWhenReady = playWhenReady,
@@ -2381,19 +2381,20 @@ class MusicService : MediaLibraryService(),
                     origin = playOrigin.code,
                     originSlot = originSlot,
                     runId = runId,
+                    // Only a queue this tap starts is linked to its Mix playlist, or unlinked, and
+                    // before its first song starts, so Mix's stage is in the chain for that song.
+                    // Linked after the start, the first song played without it and its change into
+                    // the second stayed plain; a start dropped for a newer tap, or whose answer
+                    // failed, never gets here and leaves the queue that plays as it was.
+                    beforeStart = { if (Unreleased.AUTOMIX_EDITOR) linkMixQueue((queue as? ListQueue)?.mixPlaylistId) },
                 )
             } catch (e: Exception) {
                 reportException(e)
                 Toast.makeText(this@MusicService, ErrorText.withoutAddresses("plr: ${e.message}"), Toast.LENGTH_LONG)
                     .show()
-                false
             }
             // The steps stop where they are when the service is torn down under them.
             if (destroyed) return@launch
-            // Only a queue this tap started is linked to its Mix playlist, or unlinked. A start
-            // dropped for a newer tap, or whose answer failed, left the queue that plays as it was,
-            // and linking that one to nothing turned Mix off for a Mix playlist that went on playing.
-            if (Unreleased.AUTOMIX_EDITOR && started) linkMixQueue((queue as? ListQueue)?.mixPlaylistId)
 
             Log.d(TAG, "playQueue: Queue additional data resolution complete")
         }
