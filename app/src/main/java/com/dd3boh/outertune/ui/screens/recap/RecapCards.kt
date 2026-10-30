@@ -15,6 +15,7 @@ import android.graphics.Canvas
 import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Shader
 import android.text.Layout
@@ -33,6 +34,7 @@ import androidx.core.graphics.createBitmap
 import androidx.core.graphics.withRotation
 import androidx.core.graphics.withTranslation
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.recap.RecapPlaylist
 import com.dd3boh.outertune.recap.RecapShown
 import com.dd3boh.outertune.utils.shareSheet
 import kotlinx.coroutines.Dispatchers
@@ -56,6 +58,12 @@ object RecapCards {
 
     /** How long a card stays in the cache: the app it went to may still be reading it. */
     private const val KEPT_MS = 60L * 60 * 1000
+
+    /** The playlist's cover is square and as wide as a card, so that the paper is the same size on it. */
+    const val COVER_PX = 1080
+
+    /** Where the covers are kept, under the app's files. */
+    private const val COVER_FOLDER = "recap"
 
     /** The year card's three numbers: their size, the paper round them, the squares' height and tilts. */
     private const val NUMBER_PX = 104f
@@ -295,6 +303,80 @@ object RecapCards {
         val since = if (recap.firstYear) context.getString(R.string.recap_card_since, words.day(recap.sinceDay)) else recap.year.toString()
         foot(canvas, context.getString(R.string.recap_card_site), since)
         return card
+    }
+
+    /**
+     * The year's own cover for its playlist (RecapPlaylist), square, from the year card's art: its
+     * blue paper and cut-paper shapes with the year big on a lemon strip, as the first slide has it,
+     * crooked, with its hard shadow, and the app's mark under it. Nothing of the listener's: no song,
+     * no number. Drawn at the card's size, so that paper and grain are what they are on the card.
+     */
+    fun cover(context: Context, year: Int): Bitmap {
+        val card = createBitmap(COVER_PX, COVER_PX)
+        val canvas = Canvas(card)
+        paper(canvas, RecapInk.Blue)
+        shape(canvas, Paper.BURST, 950f, 120f, 620f, 0f, listOf(RecapInk.Lemon, RecapInk.Orange))
+        shape(canvas, Paper.BLOB2, 70f, 990f, 540f, 30f, listOf(RecapInk.Pink))
+        shape(canvas, Paper.CIRCLE, 990f, 930f, 290f, 0f, listOf(RecapInk.Mint))
+        shape(canvas, Paper.TRI, 140f, 150f, 200f, -18f, listOf(RecapInk.Sky))
+        // The year: as large as lets its strip stand 900 px across.
+        val paint = text(100f, RecapInk.Ink, 900, display = true)
+        val unit = paint.measureText(year.toString()) / 100f
+        val size = (900f / (unit + 0.26f)).coerceAtMost(560f)
+        paint.textSize = size
+        val bounds = Rect()
+        paint.getTextBounds(year.toString(), 0, year.toString().length, bounds)
+        val padX = size * 0.13f
+        val padY = size * 0.12f
+        val width = paint.measureText(year.toString()) + 2 * padX
+        val height = bounds.height() + 2 * padY
+        val cx = COVER_PX / 2f
+        val cy = 520f
+        val strip = RectF(cx - width / 2, cy - height / 2, cx + width / 2, cy + height / 2)
+        val radius = size * 0.11f
+        canvas.withRotation(-3f, cx, cy) {
+            // Its shadow, hard, a little to the lower right as the slide's strip has it.
+            drawRoundRect(RectF(strip).apply { offset(size * 0.065f, size * 0.087f) }, radius, radius, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = RecapInk.Ink.copy(alpha = 0.28f).int() })
+            drawRoundRect(strip, radius, radius, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = RecapInk.Lemon.int() })
+            drawRoundRect(strip, radius, radius, Paint(Paint.ANTI_ALIAS_FLAG).apply { shader = PaperGrain.shader(2.2f) })
+            drawText(year.toString(), strip.left + padX - bounds.left, cy + bounds.height() / 2f - bounds.bottom, paint)
+        }
+        // The mark, as the cards have it, under the strip.
+        val icon = 132f
+        val mx = cx
+        val my = 930f
+        canvas.drawCircle(mx, my, icon / 2, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = RecapRed.int()
+            setShadowLayer(24f, 0f, 14f, RecapInk.Shade.copy(alpha = 0.3f).int())
+        })
+        ContextCompat.getDrawable(context, R.drawable.launcher_foreground)?.mutate()?.let {
+            it.setBounds((mx - icon / 2).toInt(), (my - icon / 2).toInt(), (mx + icon / 2).toInt(), (my + icon / 2).toInt())
+            it.draw(canvas)
+        }
+        return card
+    }
+
+    /**
+     * Draws the year's cover and keeps it in the app's own files, which the system never empties
+     * (the cache, where the cards to share go, it may), as one file for each year. Its address, to
+     * put in the playlist as its picture, or null where it could not be drawn or written: the
+     * playlist is saved all the same and shows its first song's.
+     */
+    fun saveCover(context: Context, year: Int): String? {
+        return runCatching {
+            val folder = File(context.filesDir, COVER_FOLDER).apply { mkdirs() }
+            val file = File(folder, RecapPlaylist.coverName(year))
+            val part = File(folder, file.name + ".part")
+            val bitmap = cover(context, year)
+            try {
+                part.outputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, 92, it) }
+            } finally {
+                bitmap.recycle()
+            }
+            // Whole or not there: the playlist never points at half a picture.
+            check(part.renameTo(file)) { "the cover could not be put in place" }
+            android.net.Uri.fromFile(file).toString()
+        }.onFailure { Log.w(TAG, "Could not make the playlist's cover", it) }.getOrNull()
     }
 
     /**

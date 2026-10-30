@@ -84,7 +84,8 @@ class RecapSoundRulesTest {
         // Back, the cross, Done: all are the dialog's close, which closes the sound before the window.
         assertTrue("val close = remember(viewModel) { { viewModel.closeSound(); closed() } }" in entry)
         assertTrue("onDismissRequest = close," in entry)
-        assertTrue("RecapHost(year, close, viewModel, sound)" in entry)
+        // And the one more way out, the year card's Open on a saved playlist: it closes first, so the sound is told, then opens it.
+        assertTrue("RecapHost(year, close, viewModel, sound, onOpenPlaylist = { id -> close(); opening(id) })" in entry)
         val model = code("viewmodels/RecapViewModel.kt")
         assertTrue("sound?.close()" in model)
         // The window gone for good with the Recap open: the players let go, the listener's music left alone.

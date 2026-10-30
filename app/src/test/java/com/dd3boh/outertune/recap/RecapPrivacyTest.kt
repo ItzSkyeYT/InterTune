@@ -17,7 +17,9 @@ import java.io.File
  * to that, read from the source as ReleasedFlagsTest reads the flags: the Recap's code talks to
  * nothing on the network but its sound, which asks YouTube for each song as playing it would and
  * for its heat map as a visitor, its one count goes through PollChecker as a banner's does
- * (RecapCountTest), and its tools for testing stay in debug builds.
+ * (RecapCountTest), the year card's second button, which on the listener's own ask puts the
+ * playlist on their YouTube Music account (RecapPlaylistTest), and its tools for testing stay in
+ * debug builds.
  */
 class RecapPrivacyTest {
     private val sources = File("src/main/java/com/dd3boh/outertune")
@@ -32,12 +34,18 @@ class RecapPrivacyTest {
         .filter { it.extension == "kt" }
 
     @Test
-    fun `nothing of the Recap talks to the network, the sample of a debug build and the heat maps aside`() {
+    fun `nothing of the Recap talks to the network, the sample of a debug build, the heat maps and the playlist's copy aside`() {
         assertTrue("the Recap's files were not found", recapFiles.size >= 10)
         val network = listOf("okhttp3", "HttpURLConnection", "java.net.URL", "YouTube.", "Umami", "PollChecker", "Firebase")
         for (file in recapFiles.filter { it.name != "RecapSample.kt" }) {
-            // The sound's one request, a song's heat map: below.
-            val text = code(file).let { if (file.name == "RecapPlayer.kt") it.replace("YouTube.heatMap(", "") else it }
+            // The sound's one request, a song's heat map: below. The playlist's copy on YouTube Music, on the listener's second tap: RecapPlaylistTest.
+            val text = code(file).let {
+                when (file.name) {
+                    "RecapPlayer.kt" -> it.replace("YouTube.heatMap(", "")
+                    "RecapPlaylist.kt" -> it.replace("YouTube.createPlaylist(", "").replace("YouTube.addToPlaylist(", "").replace("YouTube.deletePlaylist(", "")
+                    else -> it
+                }
+            }
             for (word in network) assertFalse("${file.name} uses $word", word in text)
         }
     }

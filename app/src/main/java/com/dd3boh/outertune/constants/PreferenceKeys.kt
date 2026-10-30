@@ -649,6 +649,13 @@ val RecapPopUpShownKey = intPreferencesKey("recapPopUpShown")
  */
 val RecapRevealedEarlyKey = booleanPreferencesKey("recapRevealedEarly")
 
+/**
+ * The years whose Recap playlist has been put on YouTube Music from this phone, on the listener's
+ * second tap (RecapPlaylist), so that the year card does not offer it a second time and make a
+ * second playlist in the account. Years, written as text.
+ */
+val RecapPlaylistOnYouTubeMusicKey = stringSetPreferencesKey("recapPlaylistOnYouTubeMusic")
+
 /** Epoch millis of the last poll fetch, for the rate limit floor. */
 val LastPollFetchKey = longPreferencesKey("lastPollFetch")
 

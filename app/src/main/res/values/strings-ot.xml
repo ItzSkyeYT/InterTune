@@ -2429,4 +2429,16 @@ while also allowing users to translate our app as well. New, specific strings to
     <!-- The pause button in the Recap's top bar: what TalkBack says it does. -->
     <string name="recap_pause" translatable="false">Pause</string>
     <string name="recap_play" translatable="false">Play</string>
+    <!-- Save as a playlist, under the year's card. The name is the playlist's: the Recap's year goes in at %1$s. -->
+    <string name="recap_playlist_name" translatable="false">Your %1$s on InterTune</string>
+    <string name="recap_playlist_save" translatable="false">Save as a playlist</string>
+    <string name="recap_playlist_saved" translatable="false">Saved</string>
+    <string name="recap_playlist_open" translatable="false">Open</string>
+    <string name="recap_playlist_open_described" translatable="false">Open the playlist</string>
+    <string name="recap_playlist_failed" translatable="false">Could not save the playlist.</string>
+    <!-- The second, separate choice, only where the account may be changed. -->
+    <string name="recap_playlist_copy" translatable="false">Also add to YouTube Music</string>
+    <string name="recap_playlist_copying" translatable="false">Adding to YouTube Music: %1$s of %2$s</string>
+    <string name="recap_playlist_copied" translatable="false">On YouTube Music</string>
+    <string name="recap_playlist_copied_some" translatable="false">On YouTube Music: %1$s of %2$s songs</string>
 </resources>

@@ -56,6 +56,26 @@ class RecapFitTest {
         }
     }
 
+    @Test
+    fun `the year's card is drawn as large as its buttons leave room for, and all of it fits`() {
+        // Rooms between the bars and the song: a 360 x 640 phone zoomed to 600, a 393 x 851 one, a tall one.
+        val rooms = listOf(312.dp to 600.dp, 345.dp to 640.dp, 364.dp to 697.dp, 400.dp to 850.dp)
+        for ((width, height) in rooms) for (copy in listOf(false, true)) {
+            val card = RecapFit.cardWidth(width, height, copy)
+            val used = RecapFit.CARD_TOP + card * (16f / 9f) + RecapFit.SHARE_GAP + RecapFit.PILL + RecapFit.SAVE_GAP + RecapFit.PILL +
+                if (copy) RecapFit.COPY_GAP + RecapFit.COPY else 0.dp
+            assertTrue("$width x $height, second choice $copy: $used of $height", used <= height)
+            assertTrue("the card is drawn at $card", card >= 200.dp)
+        }
+        // With room to spare it is 300 dp across, as it always was; short of it, smaller by what the buttons take.
+        assertEquals(300.dp, RecapFit.cardWidth(364.dp, 700.dp, false))
+        assertEquals(300.dp, RecapFit.cardWidth(400.dp, 850.dp, true))
+        assertEquals((640f - 138f) * 9f / 16f, RecapFit.cardWidth(345.dp, 640.dp, false).value, 1e-3f)
+        assertEquals((640f - 178f) * 9f / 16f, RecapFit.cardWidth(345.dp, 640.dp, true).value, 1e-3f)
+        // And never wider than the room.
+        assertEquals(250.dp, RecapFit.cardWidth(250.dp, 850.dp, false))
+    }
+
     private fun top(id: String, plays: Int) = TopSong(id, plays, plays * 180_000L, 100, 0, 3, 120, 2, 2, 120, mapOf(7 to plays))
 
     @Test

@@ -110,6 +110,7 @@ import com.dd3boh.outertune.recap.RecapReader
 import com.dd3boh.outertune.recap.RecapShown
 import com.dd3boh.outertune.recap.RecapSongShown
 import com.dd3boh.outertune.recap.RecapSound
+import com.dd3boh.outertune.viewmodels.RecapViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -133,13 +134,17 @@ internal val RecapNight = RecapInk.Red
  *
  * What a slide holds is in RecapSlides; how things move, in RecapMotion; the shapes and the sheets
  * in RecapStage. [onOpened] is told once the story is opened from the start screen: that is the
- * Recap looked at, which is what is counted (RecapViewModel.opened).
+ * Recap looked at, which is what is counted (RecapViewModel.opened). The year card's Save as a
+ * playlist is [viewModel]'s to do (RecapPlaylistButtons), and [onOpenPlaylist] opens what it saved,
+ * the Recap closed first.
  */
 @Composable
 internal fun RecapStory(
     shown: RecapShown,
     onOpened: () -> Unit,
     onClose: () -> Unit,
+    viewModel: RecapViewModel,
+    onOpenPlaylist: (String) -> Unit,
     sound: RecapSound = RecapSound.Silent,
 ) {
     val context = LocalContext.current
@@ -177,6 +182,8 @@ internal fun RecapStory(
     var away by remember { mutableStateOf(false) }
     var sharing by remember { mutableStateOf(false) }
     var muted by rememberSaveable { mutableStateOf(false) }
+    // The year card's Save as a playlist, and the second choice that follows it where the account may be changed.
+    val playlist = rememberPlaylistFlow(shown, stringResource(R.string.recap_playlist_name, recap.year.toString()), viewModel)
     val page = stage.current
 
     fun next() {
@@ -219,7 +226,7 @@ internal fun RecapStory(
 
     // The story's clock, once a frame: by frames and not by an animation, so that with
     // animations switched off the story still keeps its time. A held story holds everything.
-    val paused by rememberUpdatedState(held || stopped || away || sharing)
+    val paused by rememberUpdatedState(held || stopped || away || sharing || playlist.busy)
     LaunchedEffect(stage) {
         var last = withFrameNanos { it }
         while (true) {
@@ -302,7 +309,7 @@ internal fun RecapStory(
             SlideKind.ONLY_HERE -> OnlySlide(s)
             SlideKind.COUNTDOWN -> CountdownSlide(s, p.step)
             SlideKind.NUMBER_ONE -> NumberOneSlide(s, sharing) { share(top = true) }
-            SlideKind.CARD -> CardSlide(s, yearCard, sharing) { share(top = false) }
+            SlideKind.CARD -> CardSlide(s, yearCard, sharing, { share(top = false) }, playlist, onOpenPlaylist)
             SlideKind.THANKS -> ThanksSlide(s, onAgain = { stopped = false; stage.go(1, 0, How.ON) }, onDone = { close() })
         }
     }

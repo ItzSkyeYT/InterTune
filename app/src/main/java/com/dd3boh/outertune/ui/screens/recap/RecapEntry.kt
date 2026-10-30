@@ -80,7 +80,7 @@ import java.time.LocalDate
  * of a debug build.
  */
 @Composable
-fun RecapEntry(setupDone: Boolean, quiet: Boolean) {
+fun RecapEntry(setupDone: Boolean, quiet: Boolean, onOpenPlaylist: (String) -> Unit) {
     if (!Unreleased.RECAP) return
     val database = LocalDatabase.current
     val (shownYear, setShownYear) = rememberPreference(RecapPopUpShownKey, defaultValue = 0)
@@ -106,7 +106,7 @@ fun RecapEntry(setupDone: Boolean, quiet: Boolean) {
         RecapDoor.opened()
     }
 
-    open?.let { year -> RecapDialog(year, onClose = { open = null }) }
+    open?.let { year -> RecapDialog(year, onClose = { open = null }, onOpenPlaylist = onOpenPlaylist) }
 }
 
 /**
@@ -129,13 +129,15 @@ fun rememberRecapOnShow(): Int? {
  * The Recap in a window of its own over the whole screen, edge to edge: the story's dark runs
  * under the status bar and the navigation bar, whose icons are drawn light on it. Back closes it.
  * However it is closed, its sound is told first (RecapSound.close): the listener's music carries
- * on, or the last song goes on in their queue.
+ * on, or the last song goes on in their queue. [onOpenPlaylist] is asked to open the playlist
+ * the year card saved, after the Recap has closed (that is a close like any other).
  */
 @Composable
-fun RecapDialog(year: Int, onClose: () -> Unit, viewModel: RecapViewModel = hiltViewModel()) {
+fun RecapDialog(year: Int, onClose: () -> Unit, onOpenPlaylist: (String) -> Unit, viewModel: RecapViewModel = hiltViewModel()) {
     val service = LocalPlayerConnection.current?.service
     val sound = remember(viewModel, service) { viewModel.sound(service) }
     val closed by rememberUpdatedState(onClose)
+    val opening by rememberUpdatedState(onOpenPlaylist)
     val close = remember(viewModel) { { viewModel.closeSound(); closed() } }
     Dialog(
         onDismissRequest = close,
@@ -156,13 +158,13 @@ fun RecapDialog(year: Int, onClose: () -> Unit, viewModel: RecapViewModel = hilt
             }
             onDispose { }
         }
-        RecapHost(year, close, viewModel, sound)
+        RecapHost(year, close, viewModel, sound, onOpenPlaylist = { id -> close(); opening(id) })
     }
 }
 
 /** The year's Recap worked out afresh (the year goes on until the 31st), then told. */
 @Composable
-private fun RecapHost(year: Int, onClose: () -> Unit, viewModel: RecapViewModel, sound: RecapSound) {
+private fun RecapHost(year: Int, onClose: () -> Unit, viewModel: RecapViewModel, sound: RecapSound, onOpenPlaylist: (String) -> Unit) {
     LaunchedEffect(year) { viewModel.load(year) }
     val state by viewModel.state.collectAsState()
     // The story draws its own paper; behind the working screen, the start screen's red.
@@ -170,7 +172,7 @@ private fun RecapHost(year: Int, onClose: () -> Unit, viewModel: RecapViewModel,
         when (val s = state) {
             RecapState.Working -> Working()
             RecapState.Nothing -> NothingYet(year, onClose)
-            is RecapState.Ready -> RecapStory(s.shown, onOpened = { viewModel.opened(year) }, onClose = onClose, sound = sound)
+            is RecapState.Ready -> RecapStory(s.shown, onOpened = { viewModel.opened(year) }, onClose = onClose, viewModel = viewModel, onOpenPlaylist = onOpenPlaylist, sound = sound)
         }
     }
 }

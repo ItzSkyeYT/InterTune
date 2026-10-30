@@ -225,6 +225,14 @@ interface PlaylistsDao {
     @Query("UPDATE playlist SET isLocal = 1 WHERE id = :playlistId")
     fun playlistDesync(playlistId: String)
 
+    /**
+     * Gives a playlist the picture at [cover] as its own, if it has none: one it has, a followed
+     * playlist's from YouTube or a cover somebody gave it, is never replaced. The column was always
+     * there (a local playlist's is empty, and the app shows its first song's).
+     */
+    @Query("UPDATE playlist SET thumbnailUrl = :cover WHERE id = :playlistId AND thumbnailUrl IS NULL")
+    fun setCoverIfNone(playlistId: String, cover: String)
+
     @Transaction
     @Query(PlaylistSql.MOVE)
     fun move(playlistId: String, fromPosition: Int, toPosition: Int)

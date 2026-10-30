@@ -1753,6 +1753,8 @@ class MainActivity : ComponentActivity() {
                             setupDone = oobeStatus >= OOBE_VERSION,
                             quiet = catchUpOpen || welcomeOpen || tourState.running || tourFromWelcome || updatePromptVisible ||
                                 accountNoticeOwed(setupDone = oobeStatus >= OOBE_VERSION, signedIn = signedIn, seen = accountNoticeSeen),
+                            // The playlist the year card saved, opened as a playlist of the library is (Playlist.navigationRoute).
+                            onOpenPlaylist = { id -> navController.navigate("local_playlist/$id") },
                         )
 
                         // Behind the expanded player or the walkthrough, the screen is still composed, and

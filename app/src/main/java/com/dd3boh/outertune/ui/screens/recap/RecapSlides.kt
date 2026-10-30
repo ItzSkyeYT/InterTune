@@ -73,6 +73,7 @@ import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
@@ -174,6 +175,29 @@ internal object RecapFit {
 
     /** Never drawn smaller than this. */
     const val LEAST = 0.7f
+
+    /**
+     * What stands under the year's card, top to bottom: its gap, Share this, Save as a playlist,
+     * and, where the second choice (the copy on YouTube Music) may appear, its line. Their heights
+     * and gaps, kept here so that the card is drawn as large as what is under it leaves room for.
+     */
+    val PILL = 46.dp
+    val CARD_TOP = 2.dp
+    val SHARE_GAP = 18.dp
+    val SAVE_GAP = 8.dp
+    val COPY_GAP = 6.dp
+    val COPY = 34.dp
+
+    /** Air kept under the lowest of them, as there was under Share this alone. */
+    val CARD_AIR = 18.dp
+
+    /** What the year's card leaves under itself for its buttons: [copy] when the copy on YouTube Music may be offered. */
+    fun belowCard(copy: Boolean): Dp =
+        CARD_TOP + SHARE_GAP + PILL + SAVE_GAP + PILL + CARD_AIR + if (copy) COPY_GAP + COPY else 0.dp
+
+    /** The year's card: 300 dp across at most, in the 9 to 16 of the picture shared, with its buttons beneath it in what room there is. */
+    fun cardWidth(roomWidth: Dp, roomHeight: Dp, copy: Boolean): Dp =
+        minOf(300.dp, roomWidth, (roomHeight - belowCard(copy)) * (9f / 16f))
 
     /** How much smaller to draw what needs [need] of height in a space of [width] by [height]: 1 where it fits. */
     fun zoom(width: Dp, height: Dp, need: Dp, fontScale: Float): Float {
@@ -441,13 +465,17 @@ internal fun PaperNote(s: SlideScope, at: Float, turn: Float, modifier: Modifier
 /** The button that shares a card: in the slide's accent, popping on at [at]. */
 @Composable
 internal fun ShareButton(s: SlideScope, busy: Boolean, at: Float, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val c = s.paper
+    RecapPill(Icons.Rounded.Share, stringResource(R.string.recap_share), s.paper, busy, onClick, modifier.enter(s, Entrance.POP, at))
+}
+
+/** A pill in the slide's accent with an icon and a word: the look of the buttons under the year's card. */
+@Composable
+internal fun RecapPill(icon: ImageVector, text: String, c: SlidePaper, busy: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier = modifier
-            .enter(s, Entrance.POP, at)
-            .height(46.dp)
+            .height(RecapFit.PILL)
             .shadow(8.dp, RoundedCornerShape(23.dp))
             .clip(RoundedCornerShape(23.dp))
             .background(c.accent)
@@ -455,8 +483,8 @@ internal fun ShareButton(s: SlideScope, busy: Boolean, at: Float, onClick: () ->
             .padding(start = 16.dp, end = 20.dp)
             .graphicsLayer { alpha = if (busy) 0.6f else 1f },
     ) {
-        Icon(Icons.Rounded.Share, null, tint = c.onAccent, modifier = Modifier.size(20.dp))
-        Text(stringResource(R.string.recap_share), style = RecapType.button, color = c.onAccent, maxLines = 1, softWrap = false)
+        Icon(icon, null, tint = c.onAccent, modifier = Modifier.size(20.dp))
+        Text(text, style = RecapType.button, color = c.onAccent, maxLines = 1, softWrap = false)
     }
 }
 
@@ -1253,12 +1281,12 @@ internal fun NumberOneSlide(s: SlideScope, sharing: Boolean, onShare: () -> Unit
 // ---- 9: the year on one card
 
 @Composable
-internal fun CardSlide(s: SlideScope, card: Bitmap?, sharing: Boolean, onShare: () -> Unit) {
+internal fun CardSlide(s: SlideScope, card: Bitmap?, sharing: Boolean, onShare: () -> Unit, playlist: PlaylistFlow, onOpenPlaylist: (String) -> Unit) {
     SlideColumn { room ->
-        val width = minOf(300.dp, room.width, (room.height - 84.dp) * (9f / 16f))
+        val width = RecapFit.cardWidth(room.width, room.height, playlist.copyMayBeOffered)
         Box(
             Modifier
-                .padding(top = 2.dp)
+                .padding(top = RecapFit.CARD_TOP)
                 .align(Alignment.CenterHorizontally)
                 .enter(s, Entrance.DROP, 0.8f, -2f)
                 .width(width)
@@ -1271,7 +1299,9 @@ internal fun CardSlide(s: SlideScope, card: Bitmap?, sharing: Boolean, onShare: 
         ) {
             card?.let { Image(it.asImageBitmap(), stringResource(R.string.recap_card_described), Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }
         }
-        ShareButton(s, sharing, at = 3f, onClick = onShare, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 18.dp))
+        ShareButton(s, sharing, at = 3f, onClick = onShare, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = RecapFit.SHARE_GAP))
+        // Save as a playlist goes under Share this, which stays directly under the card.
+        PlaylistRows(s, playlist, onOpenPlaylist)
     }
 }
 
