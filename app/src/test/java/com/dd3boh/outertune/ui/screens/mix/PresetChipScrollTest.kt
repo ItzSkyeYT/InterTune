@@ -45,11 +45,19 @@ class PresetChipScrollTest {
     }
 
     @Test
-    fun `the sheet scrolls the row to the lit chip whenever it changes`() {
+    fun `both levels scroll their row to the lit chip whenever it changes`() {
         val sheet = File("src/main/java/com/dd3boh/outertune/ui/screens/mix/MixSimpleSheet.kt").readText()
-        val choices = sheet.substringAfter("private fun ColumnScope.Choices(").substringBefore("\n}\n")
-        assertTrue(choices, "LaunchedEffect(ui.lit, litEdges)" in choices)
-        assertTrue("chipScrollTarget(edges.first, edges.last, chipsScroll.value, chipsScroll.viewportSize, chipPad)" in choices)
-        assertTrue("horizontalScroll(chipsScroll)" in choices)
+        val remembered = sheet.substringAfter("internal fun rememberPresetRow(").substringBefore("\n}\n")
+        assertTrue(remembered, "LaunchedEffect(lit, litEdges)" in remembered)
+        assertTrue(remembered, "chipScrollTarget(edges.first, edges.last, scroll.value, scroll.viewportSize, padPx)" in remembered)
+        // Simple (Choices) and Advanced (Lowers): the row's scroll is the helper's, every chip reports its place.
+        val simple = sheet.substringAfter("private fun ColumnScope.Choices(").substringBefore("\n}\n")
+        val page = File("src/main/java/com/dd3boh/outertune/ui/screens/mix/MixEditorScreen.kt").readText()
+        val advanced = page.substringAfter("private fun Lowers(").substringBefore("\n}\n")
+        for ((name, level) in listOf("Simple" to simple, "Advanced" to advanced)) {
+            assertTrue(name, "rememberPresetRow(ui.lit," in level)
+            assertTrue(name, "horizontalScroll(presetRow.scroll)" in level)
+            assertTrue(name, "modifier = presetRow.chip(p)," in level)
+        }
     }
 }

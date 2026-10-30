@@ -716,6 +716,8 @@ private fun Lowers(
     onPreset: (Preset) -> Unit,
 ) {
     Text(stringResource(R.string.mix_edit_presets), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 6.dp))
+    // The lit chip is kept in view, as on Simple (PresetRow).
+    val presetRow = rememberPresetRow(ui.lit, 12.dp)
     val chips: @Composable () -> Unit = {
         for (p in EditorPresets.ORDER) {
             val lit = ui.lit == p
@@ -727,13 +729,14 @@ private fun Lowers(
                 onClick = { onPreset(p) },
                 label = { Text(words.presetName(p), maxLines = 1) },
                 leadingIcon = if (lit) { { Icon(Icons.Rounded.Check, null, Modifier.size(FilterChipDefaults.IconSize)) } } else null,
+                modifier = presetRow.chip(p),
             )
         }
     }
     if (wrap) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(horizontal = 12.dp)) { chips() }
     } else {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp)) { chips() }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(presetRow.scroll).padding(horizontal = 12.dp)) { chips() }
     }
     Text(
         words.presetLine(ui.lit, spec, editor.auto.plain),

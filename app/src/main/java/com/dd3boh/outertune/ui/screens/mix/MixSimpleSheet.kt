@@ -12,6 +12,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -175,6 +176,36 @@ internal fun chipScrollTarget(left: Int, right: Int, scroll: Int, viewport: Int,
     left - margin < scroll -> (left - margin).coerceAtLeast(0)
     right + margin > scroll + viewport -> right + margin - viewport
     else -> null
+}
+
+/**
+ * A presets row that keeps its lit chip in view, on either level of the editor: a row's choice that
+ * matches a preset further along the row (Overlap with Bass swap is Fade) lit it out of sight, its
+ * line under a row of unlit chips. [scroll] goes to the row's horizontalScroll, [chip] on each chip;
+ * [pad] is the row's own padding at its start, inside the scroll.
+ */
+@Stable
+internal class PresetRow(val scroll: ScrollState, private val padPx: Int) {
+    val edges = mutableStateMapOf<Preset, IntRange>()
+
+    fun chip(p: Preset): Modifier = Modifier.onPlaced { c ->
+        val left = padPx + c.positionInParent().x.toInt()
+        val placed = left..(left + c.size.width)
+        if (edges[p] != placed) edges[p] = placed
+    }
+}
+
+@Composable
+internal fun rememberPresetRow(lit: Preset?, pad: Dp): PresetRow {
+    val padPx = with(LocalDensity.current) { pad.roundToPx() }
+    val scroll = rememberScrollState()
+    val row = remember(scroll, padPx) { PresetRow(scroll, padPx) }
+    val litEdges = lit?.let { row.edges[it] }
+    LaunchedEffect(lit, litEdges) {
+        val edges = litEdges ?: return@LaunchedEffect
+        chipScrollTarget(edges.first, edges.last, scroll.value, scroll.viewportSize, padPx)?.let { scroll.animateScrollTo(it) }
+    }
+    return row
 }
 
 /**
@@ -630,17 +661,8 @@ private fun ColumnScope.Choices(
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp),
     )
-    // The lit chip is kept in view: a row's choice that matches a preset further along the row
-    // (Overlap with Bass swap is Fade) lit it out of sight, its line under a row of unlit chips.
-    val chipsScroll = rememberScrollState()
-    val chipEdges = remember { mutableStateMapOf<Preset, IntRange>() }
-    val chipPadDp = 16.dp
-    val chipPad = with(LocalDensity.current) { chipPadDp.roundToPx() }
-    val litEdges = ui.lit?.let { chipEdges[it] }
-    LaunchedEffect(ui.lit, litEdges) {
-        val edges = litEdges ?: return@LaunchedEffect
-        chipScrollTarget(edges.first, edges.last, chipsScroll.value, chipsScroll.viewportSize, chipPad)?.let { chipsScroll.animateScrollTo(it) }
-    }
+    // The lit chip is kept in view (PresetRow).
+    val presetRow = rememberPresetRow(ui.lit, 16.dp)
     val chips: @Composable () -> Unit = {
         for (p in EditorPresets.ORDER) {
             val lit = ui.lit == p
@@ -655,16 +677,11 @@ private fun ColumnScope.Choices(
                     lit -> { { Icon(Icons.Rounded.Check, null, Modifier.size(FilterChipDefaults.IconSize)) } }
                     else -> null
                 },
-                // Where the chip is in the scrolled row: the row's own padding, then its place in it.
-                modifier = Modifier.onPlaced { c ->
-                    val left = chipPad + c.positionInParent().x.toInt()
-                    val edges = left..(left + c.size.width)
-                    if (chipEdges[p] != edges) chipEdges[p] = edges
-                },
+                modifier = presetRow.chip(p),
             )
         }
     }
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(chipsScroll).padding(horizontal = chipPadDp)) { chips() }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(presetRow.scroll).padding(horizontal = 16.dp)) { chips() }
     // Auto names what it picked when that is a preset, as the mock has it.
     val autoPick = remember(editor.auto) {
         EditorPresets.ORDER.firstOrNull { p ->
