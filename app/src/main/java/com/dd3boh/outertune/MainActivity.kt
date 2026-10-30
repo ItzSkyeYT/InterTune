@@ -631,6 +631,7 @@ class MainActivity : ComponentActivity() {
             nm.cancel(MusicService.NOTIFICATION_ID)
         }
         lifecycle.removeObserver(controllerViewModel)
+        playerConnection?.dispose()
         playerConnection = null
 
         super.onDestroy()
@@ -658,6 +659,9 @@ class MainActivity : ComponentActivity() {
         }
         lifecycle.addObserver(controllerViewModel)
         controllerViewModel.addControllerCallback(lifecycle) { controller, _ ->
+            // A controller comes again with every unlock: the connection made for the last one stops
+            // listening first, or each lock and unlock left one more listener rebuilding the queue.
+            playerConnection?.dispose()
             playerConnection = PlayerConnection(controllerViewModel, database)
         }
         // A play-from-search request, once: not after a rotation or a restored process, and not
