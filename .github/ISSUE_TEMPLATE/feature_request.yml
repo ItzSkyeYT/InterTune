@@ -1,20 +1,11 @@
 name: Feature request
-description: Suggest a change to InterTune
+description: Suggest something new for InterTune
 labels: ["enhancement"]
 body:
   - type: markdown
     attributes:
       value: |
-        Worth knowing first, because it decides most of these. InterTune is deliberately a minimal
-        diff against upstream `v0.10.1`, not a rebase onto anything newer — 0.10.1's UI and
-        behaviour are the reason the fork exists. Portrait is deliberately untouched. There is no
-        translation project for this fork.
-
-        So app-wide features, redesigns and version bumps are almost certainly a no. Small fixes and
-        refinements to what this fork already changed — the landscape player, liquid glass, artwork
-        loading, playback — are the ones with a real chance. Glass itself is deliberately kept off
-        song rows, grids, artwork, the lyrics body and the tablet nav rail; that is a decision, not
-        an oversight. Asking is free either way.
+        Ideas are welcome, and reasonable ones that make the app better get built. Before you write one up, check the [Roadmap](https://github.com/ItzSkyeYT/InterTune#roadmap): it lists what is already planned or being built.
 
   - type: textarea
     id: what
@@ -31,10 +22,7 @@ body:
     id: why
     attributes:
       label: What you are trying to do
-      description: |
-        The problem underneath the request, which matters more than the request itself — there is
-        often a smaller change that solves the same problem, and that is impossible to spot when
-        only the proposed solution is on the page.
+      description: The problem underneath the request. There is often a smaller change that solves the same problem, and it is much easier to find when the problem is written down too.
       placeholder: |
         I build queues by hand while walking, and right now I have to leave the player, find the
         song again in the library, then come back.
@@ -44,17 +32,16 @@ body:
   - type: dropdown
     id: upstream-parity
     attributes:
-      label: Does upstream OuterTune already do this?
+      label: Does OuterTune already do this?
       description: |
-        This fork sits on 0.10.1 and does not follow upstream forward. If a
-        [newer upstream release](https://github.com/OuterTune/OuterTune/releases) already has it,
-        this becomes porting a known change rather than writing something new, which is a far
-        easier ask — a link in the last box below helps a lot. And if 0.10.1 itself does it and
-        InterTune does not, that is a regression I broke and I want to know.
+        InterTune started from OuterTune 0.10.1 and does not follow its newer releases. If a
+        [newer OuterTune release](https://github.com/OuterTune/OuterTune/releases) already has it,
+        a link in the last box helps a lot, since porting a known change is far easier. And if
+        0.10.1 does it and InterTune does not, that is something I broke, and I want to know.
       options:
         - "No, or not that I know of"
-        - "Yes — a newer upstream release has it"
-        - "Yes — upstream 0.10.1 has it and InterTune does not"
+        - "Yes, a newer OuterTune release has it"
+        - "Yes, OuterTune 0.10.1 has it and InterTune does not"
         - "Not sure"
     validations:
       required: true
@@ -70,5 +57,7 @@ body:
     attributes:
       label: Before you submit
       options:
+        - label: I have read the [Roadmap](https://github.com/ItzSkyeYT/InterTune#roadmap) of planned features, and this is not on it
+          required: true
         - label: I looked through the [existing issues](https://github.com/ItzSkyeYT/InterTune/issues?q=is%3Aissue) and this has not been asked for
           required: true
