@@ -37,6 +37,7 @@ class AddToPlaylistInsertsFirstTest {
     /** Songs that may never have been written: each call has to write them itself, before it returns. */
     private val writesFirst = mapOf(
         "ui/menu/PlayerMenu.kt" to 1,
+        "ui/player/PinActions.kt" to 1,
         "ui/menu/YouTubeSongMenu.kt" to 1,
         "ui/menu/YouTubePlaylistMenu.kt" to 1,
         "ui/menu/QueueMenu.kt" to 1,

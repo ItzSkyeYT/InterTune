@@ -208,7 +208,8 @@ internal fun rememberPinActions(
                 navController = navController,
                 songIds = listOf(mediaMetadata.id),
                 onPreAdd = { playlist ->
-                    database.transaction { insert(mediaMetadata) }
+                    // Written before this returns, as the player's menu does: the add needs the row (#62).
+                    database.transactionNow { insert(mediaMetadata) }
                     ActivityLog.note(context, database, mediaMetadata.id, SignalKind.ADD_TO_PLAYLIST)
                     playlist.playlist.browseId?.let { YouTube.addToPlaylist(it, mediaMetadata.id) }
                     listOf(mediaMetadata.id)

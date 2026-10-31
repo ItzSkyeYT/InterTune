@@ -16,7 +16,8 @@ class TogetherLinkTest {
     @Test
     fun `intertune together links reach MainActivity, which asks before joining`() {
         val manifest = File("src/main/AndroidManifest.xml").readText()
-        assertTrue("<data android:scheme=\"intertune\" android:host=\"together\" />" in manifest)
+        // The app's own scheme on MainActivity takes intertune://together/<code> with every other link of its own.
+        assertTrue("<data android:scheme=\"intertune\" />" in manifest)
         val main = File("src/main/java/com/dd3boh/outertune/MainActivity.kt").readText()
         assertTrue("TogetherInviteDialog(code, playerConnection," in main)
         assertTrue("link.startsWith(\"intertune://together/\", ignoreCase = true)" in main)
