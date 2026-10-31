@@ -194,6 +194,7 @@ import com.dd3boh.outertune.ui.dialog.TogetherProposalDialog
 import com.dd3boh.outertune.ui.dialog.togetherAvailable
 import com.dd3boh.outertune.together.RoomCode
 import com.dd3boh.outertune.utils.YouTubeLink
+import com.dd3boh.outertune.testerlock.TesterLock
 import com.dd3boh.outertune.utils.urlEncode
 import com.dd3boh.outertune.ui.component.LocalHiddenByPlayer
 import com.dd3boh.outertune.ui.component.LocalPlayerSheet
@@ -717,6 +718,9 @@ class MainActivity : ComponentActivity() {
         activityLauncher = ActivityLauncherHelper(this)
 
         setContent {
+            // A tester build opens on the tester's code (src/preview, testerlock), and nothing of the
+            // app is drawn or started before the code passes. No other build has a lock: there it is false.
+            if (TesterLock.holds(this@MainActivity)) return@setContent
             Log.v(MAIN_TAG, "RC-1")
             val coroutineScope = rememberCoroutineScope()
             val haptic = LocalHapticFeedback.current

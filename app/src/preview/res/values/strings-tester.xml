@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The gate of a tester build (testerlock, src/preview only): no release has these. Kept out of
+    strings-ot.xml, so they never go to Weblate; the French is beside them in values-fr.
+-->
+<resources>
+    <string name="tester_lock_title">Tester build</string>
+    <string name="tester_lock_text">This build is for InterTune\'s testers. Enter the code the bot gave you with the download.</string>
+    <string name="tester_lock_field">Tester code</string>
+    <string name="tester_lock_open">Open</string>
+    <string name="tester_lock_unknown">That code doesn\'t work. Check it, or get it again from the bot in #testers.</string>
+    <string name="tester_lock_revoked">This code stopped working because the Tester role was taken off. You can sign up again in Channels &amp; Roles on Discord.</string>
+    <string name="tester_lock_in_use">This code is already in use on another device. To move it here, use /code in #testers on Discord.</string>
+    <string name="tester_lock_outdated">This test build is out of date. Download the newest one in #testers on Discord.</string>
+    <string name="tester_lock_not_checked">The code could not be checked. Connect to the internet and try again.</string>
+    <string name="tester_lock_help">No code? Use /code in #testers on Discord.</string>
+    <string name="tester_lock_paste">Paste</string>
+    <string name="tester_lock_open_testers">Open #testers</string>
+    <string name="tester_lock_code_fine">Your code is fine: only the build needs updating.</string>
+    <string name="tester_lock_other_code">Use another code</string>
+</resources>
