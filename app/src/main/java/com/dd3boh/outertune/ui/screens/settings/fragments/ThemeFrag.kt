@@ -93,6 +93,8 @@ import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.dd3boh.outertune.ui.screens.settings.settingRow
 import com.dd3boh.outertune.ui.screens.settings.MeaningLine
 import com.dd3boh.outertune.LocalBatteryMode
+import androidx.compose.ui.platform.LocalContext
+import com.dd3boh.outertune.ui.player.animationsOff
 import com.dd3boh.outertune.playback.BatteryUse
 import kotlin.math.roundToInt
 
@@ -240,6 +242,13 @@ fun ColumnScope.ThemePlayerFrag() {
                 colours = livingColours,
                 modifier = Modifier.padding(start = 16.dp, top = 4.dp, end = 16.dp, bottom = 8.dp)
             )
+            // With animations off in the system it stands still, here and in the player: said, so
+            // that the sliders are not taken for broken (#49).
+            if (LocalContext.current.animationsOff()) {
+                Box(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) {
+                    MeaningLine(stringResource(R.string.living_blur_still_animations))
+                }
+            }
             EnumListPreference(
                 modifier = Modifier.settingRow(R.string.player_living_colours),
                 title = { Text(stringResource(R.string.player_living_colours)) },

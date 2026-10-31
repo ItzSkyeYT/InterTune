@@ -1,0 +1,11 @@
+Version 0.12.5
+
+- The widget in three styles, with a like heart.
+- Pick which buttons stay on the player.
+- Search in Settings, typos and all.
+- Battery use: Full, Balanced or Saver.
+- Signal path: where the song comes from and what changes its sound.
+- Song on this phone names what plays in other apps.
+- Synced lyrics on time, with a timing for each song.
+
+Full changelog: https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.12.5

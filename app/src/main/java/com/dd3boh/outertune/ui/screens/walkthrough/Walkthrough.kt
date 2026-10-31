@@ -27,6 +27,9 @@ import androidx.compose.material.icons.rounded.LibraryAdd
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.Recommend
 import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.Battery5Bar
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.SurroundSound
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Widgets
@@ -305,6 +308,7 @@ enum class NewThingAction {
  * @param release the version it came with, as people know it. The page groups by it.
  * @param stops where it lives, as the way there: for a setting, the row to open in Settings and
  *   then the setting itself, because half of explaining a setting is showing which menu it is in.
+ *   What is on the list of Settings itself, its search or a row of its own, is the one stop there.
  *   Each of those bubbles says what the setting does, in a sentence, unless what it points at
  *   already says so on screen: the row in Settings lists other things than this one, and most
  *   settings are a name and a value with no description under them. A bubble that only says
@@ -342,6 +346,54 @@ val RECOGNITION_ICON get() = Icons.Rounded.GraphicEq
 
 /** Newest first: what somebody sees at the top is what they have never seen before. */
 val NEW_THINGS = listOf(
+    // 0.12.5's own. The widget is added from its card, as 0.11's was: its styles are picked in
+    // the question it asks when it is dropped. The other three are shown where they are. The
+    // search and Battery use are on the list of settings itself, so each is one stop there.
+    NewThing(
+        id = "widget_styles",
+        release = "0.12.5",
+        sinceVersionCode = V0_12_5,
+        title = R.string.new_widget_styles_title,
+        body = R.string.new_widget_styles_body,
+        icon = Icons.Rounded.Widgets,
+        action = NewThingAction.ADD_WIDGET,
+    ),
+    NewThing(
+        id = "player_pins",
+        release = "0.12.5",
+        sinceVersionCode = V0_12_5,
+        title = R.string.new_player_pins_title,
+        body = R.string.new_player_pins_body,
+        icon = Icons.Rounded.PushPin,
+        stops = listOf(
+            TourStop("player_pins_row", Tour.ROW_LOOK_AND_FEEL, Tour.ROUTE_SETTINGS, R.string.look_and_feel, R.string.new_player_pins_way, V0_12_5),
+            TourStop("player_pins_setting", Tour.SETTING_PLAYER_PINS, Tour.ROUTE_LOOK_AND_FEEL, R.string.player_pins, R.string.new_player_pins_here, V0_12_5),
+        ),
+    ),
+    NewThing(
+        id = "settings_search",
+        release = "0.12.5",
+        sinceVersionCode = V0_12_5,
+        title = R.string.new_settings_search_title,
+        body = R.string.new_settings_search_body,
+        icon = Icons.Rounded.Search,
+        stops = listOf(
+            TourStop("settings_search_field", Tour.SETTINGS_SEARCH_FIELD, Tour.ROUTE_SETTINGS, R.string.search_settings, R.string.new_settings_search_here, V0_12_5),
+        ),
+        there = { Unreleased.SETTINGS_SEARCH },
+    ),
+    NewThing(
+        id = "battery_use",
+        release = "0.12.5",
+        sinceVersionCode = V0_12_5,
+        title = R.string.battery_use,
+        body = R.string.new_battery_use_body,
+        icon = Icons.Rounded.Battery5Bar,
+        stops = listOf(
+            TourStop("battery_use_row", Tour.ROW_BATTERY, Tour.ROUTE_SETTINGS, R.string.battery_use, R.string.new_battery_use_here, V0_12_5),
+        ),
+        there = { Unreleased.BATTERY_MODES },
+    ),
     NewThing(
         id = "share_links",
         release = "0.12.5",
@@ -555,6 +607,19 @@ fun newThingsFor(
 }
 
 /**
+ * What of [newThingsFor] there is to look at: the cards with a button. A card with no button is
+ * read on the page and has nothing more to give, and nothing ever ticks it. So the card on Home
+ * does not count it, and the build is marked as seen without it once the rest have been looked
+ * at. Waited for as well, as it was, it kept the build from ever being marked as seen wherever
+ * one was listed (casting, for whoever came to 0.12 from before it).
+ */
+fun owedThingsFor(
+    seenVersionCode: Int,
+    buildVersionCode: Int = BuildConfig.VERSION_CODE,
+    install: Install = Install(),
+): List<NewThing> = newThingsFor(seenVersionCode, buildVersionCode, install = install).filter { it.action != NewThingAction.NONE }
+
+/**
  * The release a build numbered [versionCode] belongs to, as people know it ("0.11"), or null for
  * a build from before any release the list of new things knows.
  *
@@ -600,10 +665,8 @@ fun welcomeCardFor(
     lookedAt: Set<String> = emptySet(),
 ): WelcomeCard? {
     if (!enabled || !setupDone || questionsOpen || tourUp || pageOpen) return null
-    // A card with no button is read on the page and has nothing more to give, so it never keeps
-    // the card on Home waiting for a look that cannot come.
-    val things = newThingsFor(seenVersionCode, buildVersionCode, install = install)
-        .filter { it.action != NewThingAction.NONE && it.id !in lookedAt }
+    // A card with no button never keeps the card on Home waiting for a look that cannot come.
+    val things = owedThingsFor(seenVersionCode, buildVersionCode, install).filter { it.id !in lookedAt }
     if (things.isEmpty()) return null
     return WelcomeCard(count = things.size, since = releaseAt(seenVersionCode))
 }

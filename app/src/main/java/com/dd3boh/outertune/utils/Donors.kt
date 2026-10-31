@@ -64,6 +64,8 @@ object Donors {
 
     /** Asks the README again; on any failure the last list stands. */
     suspend fun refresh(context: Context): List<String> = withContext(Dispatchers.IO) {
+        // InterTune's donors, not a fork's (FORKS.md).
+        if (!BuiltInKeys.official) return@withContext emptyList()
         val last = cached(context)
         if (!context.isInternetConnected()) return@withContext last
         val readme = runCatching {

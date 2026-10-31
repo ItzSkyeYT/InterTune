@@ -279,4 +279,5 @@ fun Thumbnail(
  * size one) and still carry the colours and rough shapes, which is all it has to do for the moment
  * before the sharp version lands on top of it.
  */
-private const val ART_PREVIEW_PX = 128
+/** The small cover drawn first under the sharp one; a download keeps it for offline (DownloadUtil). */
+const val ART_PREVIEW_PX = 128

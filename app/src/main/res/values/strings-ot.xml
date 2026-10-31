@@ -425,7 +425,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="update_awaiting_confirmation">Ready. Android will ask you to confirm the install.</string>
     <string name="update_needs_permission">Android needs your permission for InterTune to install apps. Tap to open that setting, then come back and try again.</string>
     <string name="update_install_failed">Could not install: %1$s. You can still download it yourself from the release page.</string>
-    <string name="update_blocked_samsung">The install did not go through. Samsung\'s Auto Blocker probably stopped it: turn it off for a moment, install, then turn it back on if you like.</string>
+    <string name="update_blocked_samsung">The install did not go through: Samsung\'s Auto Blocker probably stopped it. Turn it off, then come back here and the install starts again by itself. You can turn Auto Blocker back on right after.</string>
+    <string name="auto_blocker_note">Updated. If you turned Auto Blocker off for this, you can turn it back on now.</string>
     <string name="update_blocked">The install did not go through. Try again, or download the update from the release page.</string>
     <string name="update_open_auto_blocker">Open Auto Blocker</string>
     <string name="update_try_again">Try again</string>
@@ -483,6 +484,7 @@ while also allowing users to translate our app as well. New, specific strings to
 
 <!-- Scanner settings -->
     <string name="auto_scanner_title">Scan automatically</string>
+    <!-- Translators: rescans the songs on the device and the download folders when the app opens; there are no folders with these names. -->
     <string name="auto_scanner_description">Periodically refresh local media songs and custom downloads folders when opening the app</string>
     <string name="auto_scanner_tooltip">For local media, automatic scanning does not reload the metadata of existing songs. Use the manual scanner with the rescan checkbox selected if you also wish to refresh metadata.</string>
 
@@ -920,6 +922,21 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="new_share_links_body">Share can send a page where whoever opens it picks their own music app. Your next share asks which link to send, and the shares after it use your pick.</string>
     <string name="new_share_links_way">What Share sends is set in here: the YouTube Music link, or a page for any music app.</string>
     <string name="new_share_links_here">What Share sends for a song or an album: the YouTube Music link, or a page where whoever opens it picks their own app. Until you pick one, your next share asks.</string>
+    <!-- What's new in 0.12.5 (his yes of 27 Oct 2026). -->
+    <string name="new_widget_styles_title">The widget in three styles</string>
+    <string name="new_widget_styles_body">Cover, Full cover or Shelf, picked in the widget\'s settings and laid out for every size. A heart likes the song playing.</string>
+    <string name="new_player_pins_title">Your player buttons</string>
+    <string name="new_player_pins_body">Pick which of share, lyrics, the sleep timer and like stay on the player, in Settings &gt; Look and feel &gt; Pinned buttons.</string>
+    <string name="new_settings_search_title">Search in Settings</string>
+    <string name="new_settings_search_body">Type at the top of Settings to find any setting, typos and all, and land right on it.</string>
+    <string name="new_battery_use_body">Full, Balanced or Saver, in Settings &gt; Battery use. Saver comes on with the phone\'s battery saver unless you turn that off.</string>
+    <!-- The bubbles of their Show me tours: held from translators until the words are agreed, their French beside them in values-fr. -->
+    <string name="new_player_pins_way">The buttons that stay on the player are picked in here.</string>
+    <string name="new_player_pins_here">Tap a button to pin it to the player, and tap it again to put it back in the menu.</string>
+    <string name="new_settings_search_here">Type what you want to change, typos and all, and tap a result to land right on it.</string>
+    <string name="new_battery_use_here">Pick Full, Balanced or Saver in here, and Saver comes on with the phone\'s battery saver.</string>
+    <!-- About in a fork's build, in place of InterTune's name and logo (FORKS.md, his yes of 27 Oct 2026). -->
+    <string name="unofficial_build">Unofficial build. This app is based on InterTune but is not InterTune, and InterTune\'s maker does not support it.</string>
     <string name="new_import_body">Bring your playlists from Spotify, Apple Music, Deezer and others. Each song is looked up on YouTube Music.</string>
     <string name="new_import_way">Import from another app is in here. It brings your playlists over from Spotify, Apple Music and others.</string>
     <string name="new_import_here">Pick the app your playlists are in and follow its three steps.</string>
@@ -1373,10 +1390,12 @@ while also allowing users to translate our app as well. New, specific strings to
     </plurals>
     <string name="recommendations_held_nothing">%1$s: nothing to compare yet, since you chose no song yourself in %2$s</string>
     <string name="recommendations_after_refresh">the day after its refresh</string>
+    <!-- Translators: a fragment that follows "in" in recommendations_held_songs; a refresh of a Home row, not an app update. -->
     <plurals name="recommendations_after_refreshes">
         <item quantity="one">the day after its %1$d refresh</item>
         <item quantity="other">the day after each of its %1$d refreshes</item>
     </plurals>
+    <!-- Translators: a fragment that follows "in" in recommendations_held_nothing; a refresh of a Home row, not an app update. -->
     <plurals name="recommendations_after_any_refresh">
         <item quantity="one">the day after its %1$d refresh</item>
         <item quantity="other">the day after any of its %1$d refreshes</item>
@@ -1579,7 +1598,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recommendations_origin_discover">discover</string>
     <string name="audio_quality_max">Highest available</string>
     <string name="audio_quality_now">Playing now at</string>
-    <string name="audio_quality_no_lossless">No lossless is offered here, so this takes the largest stream available.</string>
+    <string name="audio_quality_no_lossless">No lossless is offered here, so this takes the best stream available.</string>
     <string name="audio_quality_now_nothing">Not known yet</string>
     <string name="widget_label">Now playing</string>
     <string name="widget_description">What is playing, its controls, and Quick picks.</string>
@@ -1620,15 +1639,15 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="widget_show_artist">Artist names</string>
     <string name="widget_show_heading">The list\'s heading</string>
     <string name="widget_rounded_corners">Rounded corners</string>
-    <!-- The widget's like button (issue #45): held from translators until the words are agreed, its French beside it in values-fr. -->
+    <!-- The widget's like button (issue #45). -->
     <string name="widget_show_like">Like button, where there is room</string>
-    <!-- The widget's styles (25 Oct 2026): held from translators until the words are agreed, their French beside them in values-fr. -->
-    <string name="widget_config_style" translatable="false">Style</string>
-    <string name="widget_style_cover" translatable="false">Cover</string>
-    <string name="widget_style_full_cover" translatable="false">Full cover</string>
-    <string name="widget_style_shelf" translatable="false">Shelf</string>
+    <!-- The widget's styles (25 Oct 2026). -->
+    <string name="widget_config_style">Style</string>
+    <string name="widget_style_cover">Cover</string>
+    <string name="widget_style_full_cover">Full cover</string>
+    <string name="widget_style_shelf">Shelf</string>
     <!-- Over the next songs of the queue, on a widget as wide as a tablet's. -->
-    <string name="widget_up_next" translatable="false">Up next</string>
+    <string name="widget_up_next">Up next</string>
 
 <!-- Recommendations: the little "i" beside an item, and what it opens -->
     <string name="tidy_home_rows_info">No Home row shows a song an earlier row already has, and versions of one song (live, remastered, video) count as the same. Nothing fills a gap, so a row can come up short. Off, your exclusions only filter the \"Best recommendations\" row.</string>
@@ -2049,6 +2068,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="equalizer_preset_bass">More bass</string>
     <string name="equalizer_preset_treble">More treble</string>
     <string name="equalizer_preset_vocals">Vocals</string>
+    <!-- Translators: the name of a bass and treble curve (as on a hi-fi), not the volume; keep it as audio people say it. -->
     <string name="equalizer_preset_loudness">Loudness</string>
     <string name="equalizer_preset_small_speakers">Small speakers</string>
 
@@ -2095,34 +2115,6 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="new_auto_new_songs" translatable="false">New songs (test)</string>
     <string name="new_auto_new_songs_description" translatable="false">Learned from what you play: %1$d of 20 cards are new now. Left for fewer, right for more.</string>
     <string name="familiar_first_description" translatable="false">Quick picks leads with songs you have heard well, recent plays counting most, the rest of the row as usual. Overrides the lean chosen in Recommendations.</string>
-    <!-- Signal path (SignalPathDialog): what changes the sound between YouTube and the ear. -->
-    <string name="signal_path">Signal path</string>
-    <string name="signal_path_sub">From YouTube to your ears, right now</string>
-    <string name="signal_source_stream">From YouTube</string>
-    <string name="signal_source_local">From this phone</string>
-    <string name="signal_format">%1$s, %2$d kbps</string>
-    <string name="signal_text">%1$s</string>
-    <string name="signal_unknown">Not known yet</string>
-    <string name="signal_off">Off</string>
-    <string name="signal_on">On</string>
-    <string name="signal_not_needed">Not needed for this song</string>
-    <string name="signal_turned_down">Turned down %1$s dB to match your other songs</string>
-    <string name="signal_headphones">Headphones: places the sound around you</string>
-    <string name="signal_surround">Surround: made into 5.1 for the phone\'s own spatial audio</string>
-    <string name="signal_speed_pitch">Speed and pitch</string>
-    <string name="signal_normal">Normal</string>
-    <string name="signal_speed_value">Speed %1$s×, pitch %2$s×</string>
-    <string name="signal_skipping">Silent parts of songs are skipped</string>
-    <string name="signal_plays_on">Plays on</string>
-    <string name="signal_output_rate">%1$s, %2$s kHz</string>
-    <string name="signal_phone_speaker">Phone speaker</string>
-    <string name="signal_wired">Wired headphones</string>
-    <string name="signal_other_output">Another device</string>
-    <string name="signal_volume">Phone volume</string>
-    <string name="signal_percent">%1$d%%</string>
-    <string name="signal_legend_untouched">Untouched</string>
-    <string name="signal_legend_changed">Changed by a setting you chose</string>
-    <string name="signal_legend_where">Where it plays</string>
     <!-- Listen together (TogetherDialog), step 1, debug and Preview builds. -->
     <string name="together_title">Listen together</string>
     <string name="together_intro">Start a room and share its code, or type the code of a friend\'s room. Everyone hears what the host plays, each phone playing it from YouTube.</string>
@@ -2207,12 +2199,6 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="support_thanks">Thanks to those who already gave:</string>
     <string name="support_discord">Open Discord</string>
     <!-- Pinned buttons on the player (0.13, issue #27): held from translators until he says yes to the words. -->
-    <string name="player_pins" translatable="false">Pinned buttons</string>
-    <string name="player_pins_description" translatable="false">What stays on the player. Everything else is in its menu.</string>
-    <string name="player_pins_by_title" translatable="false">By the title</string>
-    <string name="player_pins_under_controls" translatable="false">Under the controls</string>
-    <string name="player_pin_lyrics" translatable="false">Lyrics</string>
-    <string name="player_pins_reset" translatable="false">Reset to default</string>
     <string name="player_pins_add" translatable="false">Add</string>
     <string name="player_pins_take_off" translatable="false">Take off %1$s</string>
     <plurals name="list_queued_here">
@@ -2266,6 +2252,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="battery_saver_holds_note">Set by \"Battery use\" while it is on \"Saver\".</string>
     <string name="battery_saver_quality_note">Low on mobile data while \"Battery use\" is on \"Saver\".</string>
     <string name="battery_saver_background_note">%1$s while \"Battery use\" is on \"Saver\".</string>
+    <string name="living_blur_still_animations">Stands still while animations are off in Android\'s settings.</string>
     <string name="battery_saver_glass_note">Without its blur while \"Battery use\" is on \"Saver\".</string>
     <string name="battery_follow_phone">Follow the phone\'s battery saver</string>
     <string name="battery_follow_phone_description">\"Saver\" while it is on.</string>
@@ -2341,5 +2328,38 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="search_words_contact">contact, email</string>
     <string name="search_words_developer">developer, debug</string>
     <!-- Signal path (SignalPathDialog): what changes the sound between YouTube and the ear. -->
-    <!-- Pinned buttons on the player (0.13, issue #27): held from translators until he says yes to the words. -->
+    <string name="signal_path">Signal path</string>
+    <string name="signal_path_sub">From YouTube to your ears, right now</string>
+    <string name="signal_source_stream">From YouTube</string>
+    <string name="signal_source_local">From this phone</string>
+    <string name="signal_format">%1$s, %2$d kbps</string>
+    <string name="signal_text">%1$s</string>
+    <string name="signal_unknown">Not known yet</string>
+    <string name="signal_off">Off</string>
+    <string name="signal_on">On</string>
+    <string name="signal_not_needed">Not needed for this song</string>
+    <string name="signal_turned_down">Turned down %1$s dB to match your other songs</string>
+    <string name="signal_headphones">Headphones: places the sound around you</string>
+    <string name="signal_surround">Surround: made into 5.1 for the phone\'s own spatial audio</string>
+    <string name="signal_speed_pitch">Speed and pitch</string>
+    <string name="signal_normal">Normal</string>
+    <string name="signal_speed_value">Speed %1$s×, pitch %2$s×</string>
+    <string name="signal_skipping">Silent parts of songs are skipped</string>
+    <string name="signal_plays_on">Plays on</string>
+    <string name="signal_output_rate">%1$s, %2$s kHz</string>
+    <string name="signal_phone_speaker">Phone speaker</string>
+    <string name="signal_wired">Wired headphones</string>
+    <string name="signal_other_output">Another device</string>
+    <string name="signal_volume">Phone volume</string>
+    <string name="signal_percent">%1$d%%</string>
+    <string name="signal_legend_untouched">Untouched</string>
+    <string name="signal_legend_changed">Changed by a setting you chose</string>
+    <string name="signal_legend_where">Where it plays</string>
+    <!-- Pinned buttons on the player (issue #27). -->
+    <string name="player_pins">Pinned buttons</string>
+    <string name="player_pins_description">What stays on the player. Everything else is in its menu.</string>
+    <string name="player_pins_by_title">By the title</string>
+    <string name="player_pins_under_controls">Under the controls</string>
+    <string name="player_pin_lyrics">Lyrics</string>
+    <string name="player_pins_reset">Reset to default</string>
 </resources>

@@ -24,6 +24,7 @@ import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import coil3.disk.DiskCache
+import com.dd3boh.outertune.utils.DownloadCovers
 import coil3.disk.directory
 import coil3.memory.MemoryCache
 import coil3.request.CachePolicy
@@ -250,6 +251,8 @@ class App : Application(), SingletonImageLoader.Factory {
                 .components {
                     add(CoilBitmapLoader.Factory(this@App))
                     add(LocalArtworkPathKeyer())
+                // A downloaded song's kept cover, served from the app's own storage: see DownloadCovers.
+                add(DownloadCovers.Interceptor(filesDir))
                 }
                 .crossfade(true)
                 .allowHardware(false)
@@ -266,6 +269,8 @@ class App : Application(), SingletonImageLoader.Factory {
             .components {
                 add(CoilBitmapLoader.Factory(this@App))
                 add(LocalArtworkPathKeyer())
+                // A downloaded song's kept cover, served from the app's own storage: see DownloadCovers.
+                add(DownloadCovers.Interceptor(filesDir))
             }
             .crossfade(true)
             // Hardware bitmaps left ON deliberately. This used to be allowHardware(false) globally,

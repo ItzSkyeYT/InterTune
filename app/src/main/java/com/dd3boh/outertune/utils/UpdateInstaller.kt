@@ -548,7 +548,7 @@ class UpdateInstaller @Inject constructor(
         }.onFailure { Log.w(TAG, "The install prompt would not open", it) }.isSuccess
         if (!shown) {
             abandon()
-            _state.value = State.Blocked
+            blocked()
             return
         }
         // From here an app back in front without an answer is an app whose window waits.
@@ -649,7 +649,7 @@ class UpdateInstaller @Inject constructor(
 
                 PackageInstaller.STATUS_FAILURE_BLOCKED -> {
                     ended()
-                    _state.value = State.Blocked
+                    blocked()
                 }
 
                 else -> {
@@ -677,7 +677,18 @@ class UpdateInstaller @Inject constructor(
      */
     private fun aborted(message: String?) {
         Log.i(TAG, "Install aborted: $message")
-        _state.value = if (abortedMeansBlocked(message)) State.Blocked else State.Idle
+        if (abortedMeansBlocked(message)) blocked() else _state.value = State.Idle
+    }
+
+    /**
+     * The phone refused the install. On a Samsung that is Auto Blocker as far as anyone can tell,
+     * and this build notes it, so that the build which replaces it can say that Auto Blocker may go
+     * back on (AutoBlockerReturn). Noted here and not where the message is shown, so it is kept
+     * whether or not the app is in front when Android answers.
+     */
+    private fun blocked() {
+        _state.value = State.Blocked
+        if (AutoBlocker.likely()) AutoBlockerReturn.noteBlock(context, BuildConfig.VERSION_CODE)
     }
 
     /**

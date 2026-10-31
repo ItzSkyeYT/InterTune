@@ -30,6 +30,7 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.dd3boh.outertune.utils.BuiltInKeys
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.Links
 import com.dd3boh.outertune.utils.Donors
@@ -80,7 +81,8 @@ fun SupportDialog(onDismiss: () -> Unit) {
             }
         },
         confirmButton = {
-            TextButton(onClick = {
+            // InterTune's server, not a fork's (FORKS.md).
+            if (BuiltInKeys.official) TextButton(onClick = {
                 uriHandler.openUri(Links.DISCORD)
                 onDismiss()
             }) { Text(stringResource(R.string.support_discord)) }

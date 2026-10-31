@@ -34,6 +34,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -55,6 +56,8 @@ import androidx.compose.ui.util.fastAny
 import androidx.core.net.toUri
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import com.dd3boh.outertune.viewmodels.OnlineSearchViewModel
 import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.LocalMenuState
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
@@ -124,6 +127,12 @@ fun SearchBarContainer(
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
 
+    // The filter of the page of results the bar is over, read from the page's own model, which its
+    // chips show: a search edited there starts on it too (SearchFilters). Null over anything else.
+    val resultsFilter = navBackStackEntry
+        ?.takeIf { it.destination.route == SearchFilters.ROUTE }
+        ?.let { entry -> hiltViewModel<OnlineSearchViewModel>(entry).filter.collectAsState().value }
+
     // searchActive is hoisted to MainActivity so the navigation bar can close this overlay; see
     // the note at its declaration there.
     val onSearchActiveChange: (Boolean) -> Unit = { newActive ->
@@ -154,7 +163,7 @@ fun SearchBarContainer(
                 ) {
                     // don't do anything
                 } else {
-                    navController.navigate("search/${it.urlEncode()}")
+                    navController.navigate("search/${it.urlEncode()}" + SearchFilters.routeSuffix(resultsFilter))
                     if (context.dataStore[PauseSearchHistoryKey] != true) {
                         database.query {
                             insert(SearchHistory(query = it))
@@ -178,7 +187,7 @@ fun SearchBarContainer(
         // A results page shows its own query in the bar. Searching from a tab clears the bar on
         // the way (closing the overlay there does), and going back to earlier results left the
         // later query in it. As OnlineSearchViewModel, a null argument is the word "null".
-        if (navBackStackEntry?.destination?.route == "search/{query}") {
+        if (navBackStackEntry?.destination?.route == SearchFilters.ROUTE) {
             val searchQuery = navBackStackEntry?.arguments?.getString("query") ?: "null"
             if (query.text != searchQuery) {
                 onQueryChange(TextFieldValue(searchQuery, TextRange(searchQuery.length)))
@@ -339,7 +348,7 @@ fun SearchBarContainer(
                             ) {
                                 return@OnlineSearchScreen
                             } else {
-                                navController.navigate("search/${it.urlEncode()}")
+                                navController.navigate("search/${it.urlEncode()}" + SearchFilters.routeSuffix(resultsFilter))
                                 if (context.dataStore[PauseSearchHistoryKey] != true) {
                                     database.query {
                                         insert(SearchHistory(query = it))

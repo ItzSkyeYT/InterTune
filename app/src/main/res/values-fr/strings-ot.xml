@@ -41,7 +41,7 @@
     <string name="ytm_sync">Synchronisation automatique avec votre compte YouTube Music</string>
     <string name="wifi_only">Wi-Fi uniquement</string>
     <string name="grp_audio">Audio</string>
-    <string name="auto_scanner_description">Actualiser périodiquement les titres locaux et les dossiers de téléchargement personnalisés lors de l\'ouverture de l\'application.</string>
+    <string name="auto_scanner_description">Actualiser périodiquement les titres locaux et les dossiers de téléchargement personnalisés à l\'ouverture de l\'application</string>
     <string name="scan_paths_title">Configurer les emplacements d’analyse…</string>
     <string name="scan_paths_tooltip">Tous les sous-répertoires seront également affectés</string>
     <string name="scan_paths_add_folder">Ajouter un nouveau dossier</string>
@@ -57,7 +57,7 @@
     <string name="scanner_type_title">Extracteur de métadonnées</string>
     <string name="scanner_variant_rescan">Réanalyser l\'intégralité de la bibliothèque et recharger les métadonnées de tous les titres</string>
     <string name="scanner_online_artist_linking">Essayer de lier les artistes des fichiers locaux avec ceux de YouTube Music</string>
-    <string name="import_failed_songs">Impossible d\'importer :</string>
+    <string name="import_failed_songs">Impossible d\'importer</string>
     <string name="dev_settings_title">Activer les paramètres du développeur</string>
     <string name="oobe_welcome_message">Bienvenue sur InterTune</string>
     <string name="oobe_complete">InterTune est configuré et prêt à l\'emploi. Explorez votre musique, découvrez de nouveaux morceaux et profitez pleinement de l\'expérience !</string>
@@ -157,7 +157,7 @@
     <string name="sync_conflict_add_only">Conservez tout le contenu local, ajoutez du nouveau contenu distant</string>
     <string name="sync_mode_rw">Lecture / Écriture (permet également de modifier le contenu distant)</string>
     <string name="grp_sync">Synchroniser</string>
-    <string name="playlist_missing_note">Il manque des playlists ? Cliquez ici pour activer la synchronisation en lecture-écriture dans les paramètres.</string>
+    <string name="playlist_missing_note">Il manque des playlists ? Cliquez ici pour activer le mode de synchronisation en lecture-écriture dans les paramètres</string>
     <string name="checking_for_update">Vérification des mises à jour</string>
     <string name="no_updates_available">Aucune mise à jour disponible</string>
     <string name="update_check_failed">Impossible de vérifier les mises à jour</string>
@@ -219,7 +219,7 @@
     <string name="dl_size_used_main">Externe : %s utilisés</string>
     <string name="dl_size_used_extra">Importations supplémentaires : %s utilisés</string>
     <string name="dl_storage_tooltip">Les téléchargements internes sont dans le stockage privé de l\'application. Les téléchargements externes vont dans un dossier que vous choisissez ; prenez-en un vide, car InterTune peut y modifier ou supprimer des fichiers. Les dossiers d\'importation supplémentaires sont seulement lus, jamais modifiés.</string>
-    <string name="scanner_sensitivity_L0">Prendre le premier résultat fourni par YouTube lorsque la recherche sur YouTube est activée ; sinon, rechercher une correspondance avec le titre.</string>
+    <string name="scanner_sensitivity_L0">Prendre le premier résultat fourni par YouTube lorsque la recherche sur YouTube est activée ; sinon, rechercher une correspondance avec le titre</string>
     <string name="app_info_title">Informations sur l\'application</string>
     <string name="device_info_title">Informations sur l\'appareil</string>
     <string name="help_bug_report_action">Soumettre un rapport de bogue (via GitHub)</string>
@@ -387,7 +387,8 @@
     <string name="update_awaiting_confirmation">Prête. Android va vous demander de confirmer l\'installation.</string>
     <string name="update_needs_permission">Android a besoin de votre autorisation pour qu\'InterTune installe des applications. Touchez pour ouvrir ce paramètre, puis revenez et réessayez.</string>
     <string name="update_install_failed">Installation impossible : %1$s. Vous pouvez toujours la télécharger vous-même depuis la page de la version.</string>
-    <string name="update_blocked_samsung">L\'installation n\'a pas abouti. Le Bloqueur automatique de Samsung l\'a sans doute empêchée : désactivez-le le temps d\'installer, puis réactivez-le si vous voulez.</string>
+    <string name="update_blocked_samsung">L\'installation n\'a pas abouti : le Bloqueur automatique de Samsung l\'a sans doute empêchée. Désactivez-le, puis revenez ici et l\'installation recommence toute seule. Vous pouvez réactiver le Bloqueur automatique juste après.</string>
+    <string name="auto_blocker_note">Mise à jour terminée. Si vous avez désactivé le Bloqueur automatique pour cela, vous pouvez le réactiver maintenant.</string>
     <string name="update_blocked">L\'installation n\'a pas abouti. Réessayez, ou téléchargez la mise à jour depuis la page de la version.</string>
     <string name="update_open_auto_blocker">Ouvrir le Bloqueur automatique</string>
     <string name="update_try_again">Réessayer</string>
@@ -836,9 +837,9 @@
     <string name="auto_backup_keep_delete">Supprimer</string>
     <string name="auto_backup_keep_unknown_title">Réduire le nombre de sauvegardes à garder ?</string>
     <plurals name="auto_backup_keep_unknown_text">
-        <item quantity="one">Le dossier des sauvegardes n\'a pas pu être lu ; la prochaine sauvegarde supprimera donc les plus anciennes jusqu\'à ce qu\'il n\'en reste plus que %1$d.</item>
-        <item quantity="many">Le dossier des sauvegardes n\'a pas pu être lu ; la prochaine sauvegarde supprimera donc les plus anciennes jusqu\'à ce qu\'il n\'en reste plus que %1$d.</item>
-        <item quantity="other">Le dossier des sauvegardes n\'a pas pu être lu ; la prochaine sauvegarde supprimera donc les plus anciennes jusqu\'à ce qu\'il n\'en reste plus que %1$d.</item>
+        <item quantity="one">Le dossier des sauvegardes n\'a pas pu être lu ; la prochaine sauvegarde supprimera donc les plus anciennes jusqu\'à ce qu\'il n\'en reste plus que %1$d.</item>
+        <item quantity="many">Le dossier des sauvegardes n\'a pas pu être lu ; la prochaine sauvegarde supprimera donc les plus anciennes jusqu\'à ce qu\'il n\'en reste plus que %1$d.</item>
+        <item quantity="other">Le dossier des sauvegardes n\'a pas pu être lu ; la prochaine sauvegarde supprimera donc les plus anciennes jusqu\'à ce qu\'il n\'en reste plus que %1$d.</item>
     </plurals>
     <string name="auto_backup_keep_lower">Réduire</string>
     <string name="auto_backup_now">Sauvegarder maintenant</string>
@@ -1053,9 +1054,9 @@
         <item quantity="other">la journée suivant chacune de ses %1$d actualisations</item>
     </plurals>
     <plurals name="recommendations_after_any_refresh">
-        <item quantity="one">la journée suivant chacune de ses %1$d actualisations</item>
-        <item quantity="many">la journée suivant chacune de ses %1$d actualisations</item>
-        <item quantity="other">la journée suivant chacune de ses %1$d actualisations</item>
+        <item quantity="one">la journée suivant l\'une de ses %1$d actualisations</item>
+        <item quantity="many">la journée suivant l\'une de ses %1$d actualisations</item>
+        <item quantity="other">la journée suivant l\'une de ses %1$d actualisations</item>
     </plurals>
     <plurals name="recommendations_refreshes">
         <item quantity="one">%1$d actualisation</item>
@@ -1271,7 +1272,7 @@
     <string name="recommendations_origin_discover">Découvrir du nouveau</string>
     <string name="audio_quality_max">La meilleure disponible</string>
     <string name="audio_quality_now">Qualité de lecture actuelle</string>
-    <string name="audio_quality_no_lossless">Aucun flux sans perte n\'est proposé ici, donc ceci prend le plus gros flux disponible.</string>
+    <string name="audio_quality_no_lossless">Aucun flux sans perte n\'est proposé ici, donc ceci prend le meilleur flux disponible.</string>
     <string name="audio_quality_now_nothing">Pas encore connue</string>
     <!-- The home screen widget and its settings. -->
     <string name="widget_label">En cours de lecture</string>
@@ -1313,9 +1314,9 @@
     <string name="widget_show_artist">Les noms des artistes</string>
     <string name="widget_show_heading">Le titre de la liste</string>
     <string name="widget_rounded_corners">Coins arrondis</string>
-    <!-- The widget's like button: held from translators in values until the words are agreed. -->
+    <!-- The widget's like button (issue #45). -->
     <string name="widget_show_like">Bouton J\'aime, s\'il y a la place</string>
-    <!-- The widget's styles: held from translators in values until the words are agreed. -->
+    <!-- The widget's styles (25 Oct 2026). -->
     <string name="widget_config_style">Style</string>
     <string name="widget_style_cover">Pochette</string>
     <string name="widget_style_full_cover">Pochette entière</string>
@@ -1790,6 +1791,20 @@
     <string name="new_share_links_body">Partager peut envoyer une page où la personne qui l\'ouvre choisit son appli de musique. Au prochain partage, vous choisissez quel lien envoyer, et les partages suivants gardent ce choix.</string>
     <string name="new_share_links_way">Ce qu\'envoie Partager se règle ici : le lien YouTube Music, ou une page pour toutes les applis de musique.</string>
     <string name="new_share_links_here">Ce qu\'envoie Partager pour un titre ou un album : le lien YouTube Music, ou une page où la personne qui l\'ouvre choisit son appli. Tant que vous n\'avez pas choisi, le prochain partage vous le demande.</string>
+    <!-- What's new in 0.12.5 (his yes of 27 Oct 2026). -->
+    <string name="new_widget_styles_title">Le widget en trois styles</string>
+    <string name="new_widget_styles_body">Pochette, Pochette entière ou Étagère, à choisir dans les réglages du widget, pour toutes les tailles. Un cœur aime le titre en cours.</string>
+    <string name="new_player_pins_title">Vos boutons sur le lecteur</string>
+    <string name="new_player_pins_body">Choisissez lesquels entre partager, paroles, minuterie de sommeil et J\'aime restent sur le lecteur, dans Paramètres &gt; Apparence &gt; Boutons épinglés.</string>
+    <string name="new_settings_search_title">Recherche dans les paramètres</string>
+    <string name="new_settings_search_body">Tapez en haut des paramètres pour trouver n\'importe quel réglage, même avec des fautes, et y arriver directement.</string>
+    <string name="new_battery_use_body">Complète, Équilibrée ou Économie, dans Paramètres &gt; Utilisation de la batterie. Économie s\'active avec l\'économiseur de batterie du téléphone, sauf si vous le désactivez.</string>
+    <string name="new_player_pins_way">Les boutons qui restent sur le lecteur se choisissent ici.</string>
+    <string name="new_player_pins_here">Touchez un bouton pour l\'épingler sur le lecteur, et touchez-le à nouveau pour le remettre dans le menu.</string>
+    <string name="new_settings_search_here">Tapez ce que vous voulez changer, même avec des fautes, et touchez un résultat pour y arriver directement.</string>
+    <string name="new_battery_use_here">Choisissez ici Complète, Équilibrée ou Économie, et Économie s\'active avec l\'économiseur de batterie du téléphone.</string>
+    <!-- About in a fork's build, in place of InterTune's name and logo (FORKS.md, his yes of 27 Oct 2026). -->
+    <string name="unofficial_build">Version non officielle. Cette appli est basée sur InterTune mais n\'est pas InterTune, et son créateur ne la prend pas en charge.</string>
     <plurals name="welcome_card_since">
         <item quantity="one">%1$d nouveauté depuis la %2$s</item>
         <item quantity="many">%1$d nouveautés depuis la %2$s</item>
@@ -1884,34 +1899,6 @@
         <item quantity="other">Une image prend %1$d lignes au plus, une vidéo une minute de la chanson</item>
     </plurals>
     <string name="queue_from_search">« %1$s »</string>
-    <!-- Signal path (SignalPathDialog): what changes the sound between YouTube and the ear. -->
-    <string name="signal_path">Chemin du son</string>
-    <string name="signal_path_sub">De YouTube à vos oreilles, en ce moment</string>
-    <string name="signal_source_stream">Depuis YouTube</string>
-    <string name="signal_source_local">Depuis ce téléphone</string>
-    <string name="signal_format">%1$s, %2$d kb/s</string>
-    <string name="signal_text">%1$s</string>
-    <string name="signal_unknown">Pas encore connu</string>
-    <string name="signal_off">Désactivé</string>
-    <string name="signal_on">Activé</string>
-    <string name="signal_not_needed">Inutile pour ce titre</string>
-    <string name="signal_turned_down">Baissé de %1$s dB pour s\'accorder à vos autres titres</string>
-    <string name="signal_headphones">Casque : place le son autour de vous</string>
-    <string name="signal_surround">Surround : passé en 5.1 pour l\'audio spatial du téléphone</string>
-    <string name="signal_speed_pitch">Vitesse et hauteur</string>
-    <string name="signal_normal">Normales</string>
-    <string name="signal_speed_value">Vitesse %1$s×, hauteur %2$s×</string>
-    <string name="signal_skipping">Les passages silencieux des titres sont sautés</string>
-    <string name="signal_plays_on">Joue sur</string>
-    <string name="signal_output_rate">%1$s, %2$s kHz</string>
-    <string name="signal_phone_speaker">Haut-parleur du téléphone</string>
-    <string name="signal_wired">Écouteurs filaires</string>
-    <string name="signal_other_output">Un autre appareil</string>
-    <string name="signal_volume">Volume du téléphone</string>
-    <string name="signal_percent">%1$d %%</string>
-    <string name="signal_legend_untouched">Intact</string>
-    <string name="signal_legend_changed">Modifié par un réglage que vous avez choisi</string>
-    <string name="signal_legend_where">Où il joue</string>
     <!-- Listen together (TogetherDialog), step 1, debug and Preview builds. -->
     <string name="together_title">Écouter ensemble</string>
     <string name="together_intro">Créez un salon et partagez son code, ou tapez celui du salon d\'un ami. Tout le monde entend ce que joue l\'hôte, chaque téléphone le jouant depuis YouTube.</string>
@@ -2068,6 +2055,7 @@
     <string name="battery_saver_holds_note">Réglé par « Utilisation de la batterie » tant qu\'elle est sur « Économie ».</string>
     <string name="battery_saver_quality_note">Faible sur les données mobiles tant que « Utilisation de la batterie » est sur « Économie ».</string>
     <string name="battery_saver_background_note">%1$s tant que « Utilisation de la batterie » est sur « Économie ».</string>
+    <string name="living_blur_still_animations">Reste immobile tant que les animations sont désactivées dans les réglages d\'Android.</string>
     <string name="battery_saver_glass_note">Sans flou tant que « Utilisation de la batterie » est sur « Économie ».</string>
     <string name="battery_follow_phone">Suivre l\'économiseur de batterie du téléphone</string>
     <string name="battery_follow_phone_description">« Économie » tant qu\'il est activé.</string>
@@ -2153,8 +2141,35 @@
     <string name="auto_level_line">Un volume égal d\'un titre à l\'autre</string>
     <string name="auto_silence_line">Coupe les silences au début et à la fin</string>
     <string name="auto_more_line">La file d\'attente ne s\'arrête jamais</string>
-    <string name="auto_radios_line">Suit vos passages et vos J\'aime</string>
+    <string name="auto_radios_line">Suit ce que vous passez et aimez</string>
     <!-- Signal path (SignalPathDialog): what changes the sound between YouTube and the ear. -->
+    <string name="signal_path">Chemin du son</string>
+    <string name="signal_path_sub">De YouTube à vos oreilles, en ce moment</string>
+    <string name="signal_source_stream">Depuis YouTube</string>
+    <string name="signal_source_local">Depuis ce téléphone</string>
+    <string name="signal_format">%1$s, %2$d kb/s</string>
+    <string name="signal_text">%1$s</string>
+    <string name="signal_unknown">Pas encore connu</string>
+    <string name="signal_off">Désactivé</string>
+    <string name="signal_on">Activé</string>
+    <string name="signal_not_needed">Inutile pour ce titre</string>
+    <string name="signal_turned_down">Baissé de %1$s dB pour s\'accorder à vos autres titres</string>
+    <string name="signal_headphones">Casque : place le son autour de vous</string>
+    <string name="signal_surround">Surround : passé en 5.1 pour l\'audio spatial du téléphone</string>
+    <string name="signal_speed_pitch">Vitesse et hauteur</string>
+    <string name="signal_normal">Normales</string>
+    <string name="signal_speed_value">Vitesse %1$s×, hauteur %2$s×</string>
+    <string name="signal_skipping">Les passages silencieux des titres sont sautés</string>
+    <string name="signal_plays_on">Joue sur</string>
+    <string name="signal_output_rate">%1$s, %2$s kHz</string>
+    <string name="signal_phone_speaker">Haut-parleur du téléphone</string>
+    <string name="signal_wired">Casque filaire</string>
+    <string name="signal_other_output">Un autre appareil</string>
+    <string name="signal_volume">Volume du téléphone</string>
+    <string name="signal_percent">%1$d %%</string>
+    <string name="signal_legend_untouched">Intact</string>
+    <string name="signal_legend_changed">Modifié par un réglage que vous avez choisi</string>
+    <string name="signal_legend_where">Où il joue</string>
     <!-- The player's pinned buttons (PlayerButtonsFrag, PlayerPins). -->
     <string name="player_pins">Boutons épinglés</string>
     <string name="player_pins_description">Ce qui reste sur le lecteur. Tout le reste est dans son menu.</string>

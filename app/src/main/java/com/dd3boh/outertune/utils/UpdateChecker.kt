@@ -98,6 +98,8 @@ class UpdateChecker @Inject constructor(
             _available.value = fake
             return@withContext fake
         }
+        // A fork never asks InterTune's releases: they are not its updates (FORKS.md).
+        if (!BuiltInKeys.official) return@withContext null
         val store = context.dataStore
         if (!force && !store.get(UpdateCheckEnabledKey, false)) return@withContext null
         // Offline means the check could not be made, not that there is no update: show an update
@@ -174,6 +176,13 @@ class UpdateChecker @Inject constructor(
         _available.value = update
         update
     }
+
+    /**
+     * The release found before: the one in hand, or else the one a check stored on the disk. For an
+     * install that was left waiting while the app was away, whose process may have been ended since:
+     * a check may not have answered yet, and never does while the checks are off.
+     */
+    suspend fun found(): Update? = _available.value ?: restoreFromDisk()
 
     /**
      * The last found release, read back from disk.

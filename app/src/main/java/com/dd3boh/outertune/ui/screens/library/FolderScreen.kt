@@ -93,6 +93,7 @@ import com.dd3boh.outertune.constants.LocalLibraryEnableKey
 import com.dd3boh.outertune.constants.SwipeToQueueKey
 import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.models.DirectoryTree
+import com.dd3boh.outertune.models.FolderOrder
 import com.dd3boh.outertune.models.FolderSongOrder
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.ListQueue
@@ -198,6 +199,10 @@ fun FolderScreen(
     val mutableSongs = remember {
         mutableStateListOf<Song>()
     }
+    // The folders listed, in the order of the sort (FolderOrder).
+    val shownFolders = remember {
+        mutableStateListOf<DirectoryTree>()
+    }
 
     // search
     var isSearching by rememberSaveable { mutableStateOf(false) }
@@ -237,24 +242,22 @@ fun FolderScreen(
         ScreenBackHandler(onBack = { isSearching = false })
     }
 
-    LaunchedEffect(sortType, sortDescending, currDir) {
+    LaunchedEffect(sortType, sortDescending, currDir, flatSubfolders) {
         // sort songs (FolderSongOrder, which is tested)
         val tempList = FolderSongOrder.sorted(currDir.files, sortType, sortDescending)
-        // sort folders
-        val newSubdirs: ArrayList<DirectoryTree> = ArrayList()
-        newSubdirs.addAll(currDir.subdirs.sortedBy { it.currentDir.lowercase() }) // only sort by name
-
-        if (sortDescending) {
-            newSubdirs.reverse()
-            currDir.subdirs.apply {
-                clear()
-                addAll(newSubdirs)
-            }
-        }
-
         mutableSongs.apply {
             clear()
             mutableSongs.addAll(tempList.distinctBy { it.id })
+        }
+
+        // and folders by the same sort where it means something for a folder: by name, or for a
+        // date sort by the newest date of their songs, the arrow honoured (FolderOrder, tested).
+        // They were only ever sorted by name, the top level alone and with the arrow down.
+        val folders = if (flatSubfolders) currDir.getFlattenedSubdirs() else currDir.subdirs.toList()
+        val dates = if (FolderOrder.byDate(sortType)) viewModel.folderDates(sortType) else emptyMap()
+        shownFolders.apply {
+            clear()
+            addAll(FolderOrder.sorted(folders, sortType, sortDescending, dates))
         }
     }
 
@@ -446,7 +449,7 @@ fun FolderScreen(
 
                 // all subdirectories listed here
                 itemsIndexed(
-                    items = if (flatSubfolders) currDir.getFlattenedSubdirs() else currDir.subdirs,
+                    items = shownFolders,
                     key = { _, item -> item.uid },
                     contentType = { _, _ -> CONTENT_TYPE_FOLDER }
                 ) { index, folder ->

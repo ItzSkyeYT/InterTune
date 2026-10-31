@@ -55,7 +55,7 @@ class StableRowsTest {
         assertTrue("found ${rows.size}", rows.size >= 20)
         // Only the banners stand without a kind, each one of a kind of its own.
         val noKind = rows.filter { it.groupValues[2].isEmpty() }.map { it.groupValues[1] }
-        assertEquals(setOf("throttle_banner", "welcome_card", "announcement_banner", "poll_banner", "context_chips"), noKind.toSet())
+        assertEquals(setOf("throttle_banner", "welcome_card", "auto_blocker_note", "announcement_banner", "poll_banner", "context_chips"), noKind.toSet())
         for (inner in listOf("items(keepListening, key = ", "itemsIndexed(it.items, key = ", "itemsIndexed(moodAndGenres, key = ")) {
             assertTrue(inner, list.contains(inner))
         }

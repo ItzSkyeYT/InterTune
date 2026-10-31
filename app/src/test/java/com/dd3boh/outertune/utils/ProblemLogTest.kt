@@ -226,7 +226,14 @@ class ProblemLogTest {
     fun `the form's link is built with the log fitted to what is left of it`() {
         val dialog = java.io.File("src/main/java/com/dd3boh/outertune/ui/component/ProblemReportDialog.kt").readText()
         assertTrue("ProblemLog.fittedForLink(text.orEmpty(), room, FORM_LOG_LIMIT)" in dialog)
-        assertTrue("private const val FORM_LINK_LIMIT = 6000" in dialog)
+    }
+
+    @Test
+    fun `the form's link still opens for someone signed out of GitHub`() {
+        // GitHub's sign-in page escapes the link again: 4,851 opened on 27 Oct 2026, 5,081 did not.
+        val dialog = java.io.File("src/main/java/com/dd3boh/outertune/ui/component/ProblemReportDialog.kt").readText()
+        val limit = Regex("""private const val FORM_LINK_LIMIT = (\d+)""").find(dialog)!!.groupValues[1].toInt()
+        assertTrue("$limit", limit <= 4800)
     }
 
     @Test

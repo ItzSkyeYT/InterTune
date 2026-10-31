@@ -9,6 +9,7 @@
 
 package com.dd3boh.outertune
 
+import com.dd3boh.outertune.utils.BuiltInKeys
 import com.dd3boh.outertune.recognition.RecognitionShortcut
 import com.dd3boh.outertune.ui.navigation.appDestinations
 import android.annotation.SuppressLint
@@ -74,6 +75,7 @@ import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.datastore.preferences.core.edit
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.UpdateCheckEnabledKey
 import com.dd3boh.outertune.constants.UsageCountEnabledKey
 import com.dd3boh.outertune.utils.dataStore
@@ -191,6 +193,7 @@ import com.dd3boh.outertune.ui.dialog.TogetherInviteDialog
 import com.dd3boh.outertune.ui.dialog.TogetherProposalDialog
 import com.dd3boh.outertune.ui.dialog.togetherAvailable
 import com.dd3boh.outertune.together.RoomCode
+import com.dd3boh.outertune.utils.YouTubeLink
 import com.dd3boh.outertune.utils.urlEncode
 import com.dd3boh.outertune.ui.component.LocalHiddenByPlayer
 import com.dd3boh.outertune.ui.component.LocalPlayerSheet
@@ -215,6 +218,7 @@ import com.dd3boh.outertune.ui.screens.walkthrough.TourTargets
 import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeBack
 import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeShow
 import com.dd3boh.outertune.ui.screens.walkthrough.newThingsFor
+import com.dd3boh.outertune.ui.screens.walkthrough.owedThingsFor
 import com.dd3boh.outertune.ui.screens.walkthrough.welcomeCardFor
 import com.dd3boh.outertune.widget.MusicWidgetReceiver
 import com.dd3boh.outertune.widget.RecognitionWidgetReceiver
@@ -265,6 +269,11 @@ import com.dd3boh.outertune.utils.PollChecker
 import com.dd3boh.outertune.utils.UpdateChecker
 import com.dd3boh.outertune.utils.UpdateInstaller
 import com.dd3boh.outertune.utils.AutoBlocker
+import com.dd3boh.outertune.utils.AutoBlockerReturn
+import com.dd3boh.outertune.utils.ReturnVerdict
+import com.dd3boh.outertune.utils.reminderOwed
+import com.dd3boh.outertune.constants.AutoBlockerBlockedByKey
+import com.dd3boh.outertune.constants.AutoBlockerReturnAtKey
 import com.dd3boh.outertune.ui.component.updateTrouble
 import com.dd3boh.outertune.utils.coilCoroutine
 import com.dd3boh.outertune.utils.lmScannerCoroutine
@@ -619,6 +628,35 @@ class MainActivity : ComponentActivity() {
         PhoneBatterySaver.read(this)
     }
 
+    // The person has left: coming back is what a tap on Open Auto Blocker waits for.
+    override fun onStop() {
+        AutoBlockerReturn.left()
+        super.onStop()
+    }
+
+    /**
+     * InterTune is in front again. If the person tapped Open Auto Blocker and has been away since,
+     * within half an hour, the install they were blocked on starts again by itself, so Android's
+     * prompt comes at once (AutoBlockerReturn). The tap is forgotten as it is used: if Auto Blocker
+     * stops the install once more, the message is back and the next tap asks again.
+     *
+     * Called at every resume, so a resume with nothing asked for costs one look. The release is
+     * the one the checks found, or else the one they stored: the app may have been ended in
+     * Settings, and the checks are opt in. Android's own screen for "install unknown apps" is not
+     * opened by itself; the offer says what is missing, as it always did.
+     */
+    private suspend fun installAgainAfterAutoBlocker() {
+        val store = dataStore
+        if (store.current[AutoBlockerReturnAtKey] == null) return
+        val found = updateChecker.found()
+        val verdict = AutoBlockerReturn.take(store, System.currentTimeMillis(), AutoBlockerReturn.away)
+        Log.i(MAIN_TAG, "Back from Auto Blocker's page: $verdict")
+        if (verdict != ReturnVerdict.INSTALL_AGAIN || found == null) return
+        if (installSource() == InstallSource.F_DROID || !updateInstaller.canRequestInstall()) return
+        updateInstaller.acknowledge()
+        updateInstaller.installOrDownload(found.downloadUrl, found.sizeBytes)
+    }
+
     override fun onDestroy() {
         Log.i(MAIN_TAG, "onDestroy() called. isFinishing = $isFinishing")
         try {
@@ -632,6 +670,7 @@ class MainActivity : ComponentActivity() {
             nm.cancel(MusicService.NOTIFICATION_ID)
         }
         lifecycle.removeObserver(controllerViewModel)
+        playerConnection?.dispose()
         playerConnection = null
 
         super.onDestroy()
@@ -641,6 +680,9 @@ class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Debug builds only: a file that makes this phone count as a Samsung, so Auto Blocker's
+        // message and way out can be seen on an emulator. Nothing in a release.
+        AutoBlocker.pretendFrom(this)
         // Not again after a rotation or a restored process: the shortcut was tapped once. Nor when
         // the task is reopened from recents, which starts it again with the shortcut's intent and
         // replayed the liked songs over whatever was playing (Android 11 and older, where Back
@@ -659,6 +701,9 @@ class MainActivity : ComponentActivity() {
         }
         lifecycle.addObserver(controllerViewModel)
         controllerViewModel.addControllerCallback(lifecycle) { controller, _ ->
+            // A controller comes again with every unlock: the connection made for the last one stops
+            // listening first, or each lock and unlock left one more listener rebuilding the queue.
+            playerConnection?.dispose()
             playerConnection = PlayerConnection(controllerViewModel, database)
         }
         // A play-from-search request, once: not after a rotation or a restored process, and not
@@ -813,7 +858,7 @@ class MainActivity : ComponentActivity() {
                         this@MainActivity, database, downloads, coroutineScope, playerConnection,
                         snackbarHostState
                     )
-                    // Once, and quietly: the track numbers of local songs scanned before 0.12.5.
+                    // Once, and quietly: the track and disc numbers of local songs scanned before 0.12.5.
                     TrackTagReread.runOnce(this@MainActivity, database)
                 }
             }
@@ -918,6 +963,7 @@ class MainActivity : ComponentActivity() {
                             frontSince = SystemClock.elapsedRealtime()
                             waitPutAway = false
                             updateInstaller.onShown()
+                            coroutineScope.launch { installAgainAfterAutoBlocker() }
                         } else if (event == Lifecycle.Event.ON_PAUSE) {
                             updateInstaller.onHidden()
                         }
@@ -1038,7 +1084,8 @@ class MainActivity : ComponentActivity() {
                             onPutAway = { waitPutAway = true },
                             onOpenAutoBlocker = {
                                 updateInstaller.acknowledge()
-                                AutoBlocker.open(this@MainActivity)
+                                // The install starts again by itself when they are back.
+                                AutoBlocker.openForUpdate(this@MainActivity)
                             },
                             onTryAgain = {
                                 updateInstaller.acknowledge()
@@ -1223,25 +1270,34 @@ class MainActivity : ComponentActivity() {
                         searchFromShortcut = false
                     }
 
+                    // A page opened from outside the app goes in front of whatever was left open: the
+                    // player, on its queue or not, and the search overlay are put away first, as a
+                    // tab's tap puts them away, or the page opens behind them. A song found on the
+                    // phone opened its results under the queue he had left open (his note of 30 Oct
+                    // 2026), and the recognition tile listened under it.
+                    fun putAwayForPage() {
+                        if (playerBottomSheetState.isExpanded) playerBottomSheetState.collapseSoft()
+                        searchActive = false
+                    }
+
                     // The recognition tile and widget: the recognition screen, listening, over
                     // whatever is open, once the first destination is there and setup is done.
                     LaunchedEffect(pendingRecognition.asked, oobeStatus) {
                         if (!pendingRecognition.asked || oobeStatus < OOBE_VERSION) return@LaunchedEffect
                         snapshotFlow { navBackStackEntry }.first { it != null }
                         pendingRecognition.asked = false
+                        putAwayForPage()
                         navController.navigate(RecognitionShortcut.ROUTE)
                     }
 
                     // A tap on a download notification: Downloaded songs, over whatever is open,
-                    // once the first destination is there and setup is done. The player and the
-                    // search overlay are put away first, as a tab's tap puts them away, or the page
-                    // would open behind them; and it is not opened a second time over itself.
+                    // once the first destination is there and setup is done. Put in front like any
+                    // page from outside, and not opened a second time over itself.
                     LaunchedEffect(pendingDownloads.asked, oobeStatus) {
                         if (!pendingDownloads.asked || oobeStatus < OOBE_VERSION) return@LaunchedEffect
                         snapshotFlow { navBackStackEntry }.first { it != null }
                         pendingDownloads.asked = false
-                        if (playerBottomSheetState.isExpanded) playerBottomSheetState.collapseSoft()
-                        searchActive = false
+                        putAwayForPage()
                         val entry = navController.currentBackStackEntry
                         val there = entry?.destination?.route == "auto_playlist/{playlistId}" &&
                                 entry?.arguments?.getString("playlistId") == DownloadsShortcut.PLAYLIST
@@ -1328,6 +1384,7 @@ class MainActivity : ComponentActivity() {
                         if (oobeStatus < OOBE_VERSION) return@LaunchedEffect
                         snapshotFlow { navBackStackEntry }.first { it != null }
                         if (pendingLaunchLink != null) pendingLaunchLink = null else pendingLink.link = null
+                        if (linkOpensPage(link)) putAwayForPage()
                         // A playlist of the library, tapped in the phone's own search (SystemSearch),
                         // has no YouTube page: it opens here.
                         val libraryPlaylist = SystemSearch.playlistOf(link)
@@ -1338,7 +1395,8 @@ class MainActivity : ComponentActivity() {
                         } else if (libraryPlaylist != null) {
                             navController.navigate("local_playlist/$libraryPlaylist")
                         } else if (searchWords != null) {
-                            // Words handed over by the phone's search: InterTune's own search for them.
+                            // Words handed over by the phone's search, or by the song found on this
+                            // phone's notification: InterTune's own search for them.
                             navController.navigate("search/${searchWords.urlEncode()}")
                         } else {
                             youtubeNavigator(
@@ -1498,7 +1556,8 @@ class MainActivity : ComponentActivity() {
                         // Not of what has been looked at either: this holds the tour's new stops back
                         // until the build is marked as seen, and the last tick comes a moment before
                         // that mark.
-                        val welcomeOwed = welcomeCardFor(walkthroughSeen, install = install) != null
+                        // What is new in InterTune is not a fork's to tell (FORKS.md).
+                        val welcomeOwed = welcomeCardFor(walkthroughSeen, install = install, enabled = Unreleased.WELCOME_BACK && BuiltInKeys.official) != null
                         // The card as Home is to show it at this moment. A tour on its way from
                         // the page counts as one that is up: the card would otherwise show for
                         // the moment between the page closing and the first bubble.
@@ -1506,6 +1565,7 @@ class MainActivity : ComponentActivity() {
                             welcomeCardFor(
                                 walkthroughSeen,
                                 install = install,
+                                enabled = Unreleased.WELCOME_BACK && BuiltInKeys.official,
                                 setupDone = oobeStatus >= OOBE_VERSION,
                                 questionsOpen = catchUpOpen,
                                 tourUp = tourState.running || tourFromWelcome,
@@ -1535,8 +1595,9 @@ class MainActivity : ComponentActivity() {
                         // Every new thing looked at, and the page and its tours closed: the card's
                         // work is done. The build is marked as seen, as the cross does, and the
                         // ticks are let go. Not while the page is open, whose list would empty
-                        // under the finger, nor during a tour from it.
-                        val owedThings = remember(walkthroughSeen, quickPicksSource) { newThingsFor(walkthroughSeen, install = install) }
+                        // under the finger, nor during a tour from it. A thing with no button is
+                        // not waited for: nothing ever ticks it (owedThingsFor).
+                        val owedThings = remember(walkthroughSeen, quickPicksSource) { owedThingsFor(walkthroughSeen, install = install) }
                         LaunchedEffect(owedThings, welcomeLookedAt, welcomeOpen, tourState.running, tourFromWelcome) {
                             if (owedThings.isNotEmpty() && owedThings.all { it.id in welcomeLookedAt } &&
                                 !welcomeOpen && !tourState.running && !tourFromWelcome
@@ -1745,6 +1806,37 @@ class MainActivity : ComponentActivity() {
                             AccountNoticeDialog(onDone = { setAccountNoticeSeen(true) })
                         }
 
+                        /*
+                         * A word for somebody whose update Auto Blocker stopped and who has now
+                         * updated (AutoBlockerReturn): the build that saw it stop an install noted
+                         * its own version, and this one is newer, so Auto Blocker can go back on.
+                         * Shown as a card at the top of Home, where the app's other words after an
+                         * update are, and not over whatever the person is doing.
+                         *
+                         * Latched up once it is owed, and the note on the phone is forgotten when
+                         * Home first draws the card: said once. It stays up until Open Auto
+                         * Blocker or Done, and a rotation does not lose it. Only where Auto Blocker
+                         * exists: a backup restored on another phone brings the note along.
+                         */
+                        val blockedBy by rememberNullablePreference(AutoBlockerBlockedByKey)
+                        var autoBlockerNoteUp by rememberSaveable { mutableStateOf(false) }
+                        LaunchedEffect(blockedBy) {
+                            if (reminderOwed(blockedBy, BuildConfig.VERSION_CODE) && AutoBlocker.likely()) {
+                                autoBlockerNoteUp = true
+                            }
+                        }
+                        // Remembered, as the welcome card's are: the graph of destinations is built
+                        // again whenever what it is given changes.
+                        val autoBlockerNoteShown = remember { { AutoBlockerReturn.clearNote(applicationContext) } }
+                        val autoBlockerNoteOpen = remember {
+                            {
+                                autoBlockerNoteUp = false
+                                AutoBlocker.open(this@MainActivity)
+                                Unit
+                            }
+                        }
+                        val autoBlockerNoteDone = remember { { autoBlockerNoteUp = false } }
+
                         // Behind the expanded player or the walkthrough, the screen is still composed, and
                         // the arrow keys would wander into controls nobody can see.
                         val screenCovered by remember(playerBottomSheetState, tourState) {
@@ -1864,6 +1956,10 @@ class MainActivity : ComponentActivity() {
                                         welcomeCard = { welcomeCard },
                                         onWelcomeSee = seeWelcome,
                                         onWelcomeDismiss = dismissWelcome,
+                                        autoBlockerNote = { autoBlockerNoteUp },
+                                        onAutoBlockerNoteShown = autoBlockerNoteShown,
+                                        onAutoBlockerNoteOpen = autoBlockerNoteOpen,
+                                        onAutoBlockerNoteDone = autoBlockerNoteDone,
                                         appScope = coroutineScope,
                                     )
                                 }
@@ -1991,9 +2087,9 @@ class MainActivity : ComponentActivity() {
                                                     contentDescription = null
                                                 )
                                             },
-                                            label = {
-                                                if (!slimNav) TabLabel(stringResource(screen.titleId), tabNames)
-                                            },
+                                            // No label at all when slim: an empty one still kept its room and
+                                            // lifted the icon off the bar's middle (dvd, 27 Oct 2026).
+                                            label = if (slimNav) null else ({ TabLabel(stringResource(screen.titleId), tabNames) }),
                                             onClick = {
                                                 if (playerBottomSheetState.isExpanded) {
                                                     playerBottomSheetState.collapseSoft()
@@ -2095,9 +2191,9 @@ class MainActivity : ComponentActivity() {
                                                     contentDescription = null
                                                 )
                                             },
-                                            label = {
-                                                if (!slimNav) TabLabel(stringResource(screen.titleId), tabNames)
-                                            },
+                                            // No label at all when slim: an empty one still kept its room and
+                                            // lifted the icon off the bar's middle (dvd, 27 Oct 2026).
+                                            label = if (slimNav) null else ({ TabLabel(stringResource(screen.titleId), tabNames) }),
                                             onClick = {
                                                 if (playerBottomSheetState.isExpanded) {
                                                     playerBottomSheetState.collapseSoft()
@@ -2409,6 +2505,21 @@ internal fun libraryShortcut(action: String?, navigationItems: List<Screens>): L
  */
 internal fun launchLink(action: String?, data: String?, text: String?, fromRecents: Boolean): String? =
     if (fromRecents || action == WidgetCommands.ACTION_PLAY_SONG) null else data ?: text
+
+/**
+ * Whether a link handed to the app opens something the player, left open, would hide: a page of
+ * results (the song found on this phone's notification, the phone's own search), a library
+ * playlist, a YouTube page, or a song's album or menu. Only a song to play at once is left to the
+ * player, which shows it whether it is open or not.
+ */
+internal fun linkOpensPage(link: String): Boolean {
+    if (SystemSearch.playlistOf(link) != null || SystemSearch.searchOf(link) != null) return true
+    return when (val parsed = YouTubeLink.parse(link)) {
+        null -> false
+        is YouTubeLink.Video -> !parsed.playNow
+        else -> true
+    }
+}
 
 /**
  * What to open for an intent handed to onNewIntent: taken the way [launchLink] takes it, with no

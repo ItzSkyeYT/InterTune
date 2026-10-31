@@ -82,11 +82,13 @@ class ReleasedFlagsTest {
     fun `0_12_5's picks are in every build, read where they were written`() {
         assertEquals(setOf("playback/MusicService.kt", "playback/sabr/SabrOver.kt"), readers("SABR_AHEAD"))
         assertEquals(setOf("playback/MusicService.kt"), readers("PLAY_NEXT_STAYS"))
-        assertEquals(setOf("ui/screens/settings/SettingsScreen.kt", "ui/screens/settings/SettingsTwoPane.kt"), readers("SETTINGS_SEARCH"))
+        assertEquals(setOf("ui/screens/settings/SettingsScreen.kt", "ui/screens/settings/SettingsTwoPane.kt", "ui/screens/walkthrough/Walkthrough.kt"), readers("SETTINGS_SEARCH"))
         assertEquals(
             setOf(
                 "playback/BatteryUse.kt", "ui/navigation/AppNavGraph.kt", "ui/screens/settings/SettingsIndex.kt",
                 "ui/screens/settings/SettingsScreen.kt", "ui/screens/settings/SettingsTwoPane.kt", "ui/screens/walkthrough/Walkthrough.kt",
+                // Without Battery use, the phone's battery saver stills Living blur itself (#49).
+                "ui/player/LivingBackground.kt",
             ),
             readers("BATTERY_MODES"),
         )
@@ -181,7 +183,7 @@ class ReleasedFlagsTest {
     @Test
     fun `the welcome back page and the closer look at Settings are in every build`() {
         assertEquals(
-            setOf("ui/navigation/AppNavGraph.kt", "ui/screens/settings/AboutScreen.kt", "ui/screens/walkthrough/Walkthrough.kt"),
+            setOf("MainActivity.kt", "ui/navigation/AppNavGraph.kt", "ui/screens/settings/AboutScreen.kt", "ui/screens/walkthrough/Walkthrough.kt"),
             readers("WELCOME_BACK"),
         )
         assertWritten("ui/navigation/AppNavGraph.kt", "if (Unreleased.WELCOME_BACK) {")
@@ -269,7 +271,7 @@ class ReleasedFlagsTest {
         )
         assertWritten("ui/screens/settings/LibrarySettings.kt", "if (Unreleased.SHARE_PAGE) ShareLinksFrag()")
         // What Share sends is what the setting says, in a release as well.
-        assertWritten("ui/menu/ShareLinkMenu.kt", "when (val action = ShareLinks.decide(link, if (Unreleased.SHARE_PAGE) chosen else ShareLinkKind.YOUTUBE_MUSIC)) {")
+        assertWritten("ui/menu/ShareLinkMenu.kt", "when (val action = ShareLinks.decide(link, if (Unreleased.SHARE_PAGE && BuiltInKeys.official) chosen else ShareLinkKind.YOUTUBE_MUSIC)) {")
         assertWritten("ui/screens/walkthrough/Walkthrough.kt", "there = { Unreleased.SHARE_PAGE },")
     }
 }

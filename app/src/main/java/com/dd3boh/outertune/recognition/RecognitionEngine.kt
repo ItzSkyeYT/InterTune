@@ -133,6 +133,12 @@ class RecognitionEngine @Inject constructor(
             val track: Recognised,
             val candidates: List<SongItem>,
             val certain: Boolean,
+            /**
+             * The words that found the song on YouTube Music: Shazam's whole name, or the song's
+             * own without its version when only those found it (songItselfQuery). The found
+             * notification's search goes by them, so that it shows the song.
+             */
+            val searchWords: String = track.searchQuery,
         ) : State
         /** Heard once, listening again to be sure and to measure the playback rate. */
         data class Confirming(val track: Recognised) : State
@@ -835,7 +841,25 @@ class RecognitionEngine @Inject constructor(
                 // playing after stop had taken it down, and stayed, with no length to run out.
                 currentCoroutineContext().ensureActive()
                 val items = found.getOrNull()?.items
-                val candidates = items?.filterIsInstance<SongItem>()?.take(4).orEmpty()
+                val firstFound = items?.filterIsInstance<SongItem>()?.take(4).orEmpty()
+                // Listen once, which somebody is waiting on: a version YouTube Music does not list
+                // as a song brought back other people's covers and uploads, the song itself not
+                // among them, and that is all the screen offered. His reel of 30 Oct 2026, a flip of
+                // Lush Life heard as "Lush Life (Riot Remix)": an orchestra's cover, a slowed upload,
+                // a mashup and a workout mix, Zara Larsson's own tenth. The song is asked for once
+                // more without its version, and goes in front (songItselfQuery). Not in Keep
+                // listening, which would search twice for every window of such a song.
+                var foundBy = query
+                val candidates = if (keepGoing || firstFound.any { corresponds(outcome.track, it) }) firstFound
+                else songItselfQuery(outcome.track)?.let { bare ->
+                    val again = YouTube.search(bare, YouTube.SearchFilter.FILTER_SONG)
+                    currentCoroutineContext().ensureActive()
+                    withSongItself(outcome.track, firstFound, again.getOrNull()?.items?.filterIsInstance<SongItem>().orEmpty())
+                        ?.also {
+                            foundBy = bare
+                            Log.i(TAG, "Nothing found for '$query' was the song itself; '$bare' found '${it.first().title}'")
+                        }
+                } ?: firstFound
                 // An empty list here was one line in the log and three different bugs underneath
                 // it. A probe sends this exact query under this exact filter, in this locale, and
                 // gets the right track back first, so the one explanation now ruled out is that
@@ -1133,7 +1157,7 @@ class RecognitionEngine @Inject constructor(
                 // listing this one there put the upload they turned down in the screen's list, and
                 // Save as playlist saved it. [add] records whatever they do pick.
                 if (certain && playlist == null) record(best)
-                _state.value = State.Found(outcome.track, candidates, certain)
+                _state.value = State.Found(outcome.track, candidates, certain, foundBy)
             }
         }
     }

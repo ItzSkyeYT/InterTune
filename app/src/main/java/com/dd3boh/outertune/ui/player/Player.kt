@@ -1056,6 +1056,7 @@ fun BottomSheetPlayer(
             val shareCircle: @Composable () -> Unit = {
                 PlayerCircleButton(
                     painter = rememberVectorPainter(Icons.Rounded.Share),
+                    nudge = SHARE_NUDGE,
                     contentDescription = stringResource(R.string.share),
                     container = MaterialTheme.colorScheme.primary,
                     content = MaterialTheme.colorScheme.onPrimary,
@@ -1154,6 +1155,7 @@ fun BottomSheetPlayer(
                 when (pin) {
                     PlayerPin.SHARE -> PlayerActionSegment(
                         painter = rememberVectorPainter(Icons.Rounded.Share),
+                        nudge = SHARE_NUDGE,
                         contentDescription = stringResource(R.string.share),
                         shape = shape,
                         container = MaterialTheme.colorScheme.secondaryContainer,
@@ -1330,6 +1332,7 @@ fun BottomSheetPlayer(
                             )
                             PlayerPin.SHARE -> PlayerActionSegment(
                                 painter = rememberVectorPainter(Icons.Rounded.Share),
+                                nudge = SHARE_NUDGE,
                                 contentDescription = stringResource(R.string.share),
                                 shape = shape,
                                 container = inactive,
@@ -2444,6 +2447,12 @@ internal fun rememberTabMode(): Boolean {
 }
 
 /** The classic player button: a 36dp circle, sitting a little low to line up with the title. */
+/**
+ * Share's glyph is centred by its box, but two of its three dots are on the right, so in a round
+ * button it looks pushed right: on the S25U on 27 Oct 2026 its ink sat 1.6 dp right of the middle.
+ */
+private val SHARE_NUDGE = (-1).dp
+
 @Composable
 private fun PlayerCircleButton(
     painter: Painter,
@@ -2451,6 +2460,7 @@ private fun PlayerCircleButton(
     container: Color,
     content: Color,
     onClick: () -> Unit,
+    nudge: Dp = 0.dp,
 ) {
     Box(
         contentAlignment = Alignment.Center,
@@ -2465,7 +2475,7 @@ private fun PlayerCircleButton(
             painter = painter,
             contentDescription = contentDescription,
             tint = content,
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.offset(x = nudge).size(24.dp)
         )
     }
 }
@@ -2485,6 +2495,8 @@ private fun PlayerActionSegment(
     glassIntensity: Float = 1f,
     /** Whether [container] is a real fill (on, or a primary action) rather than the idle wash. */
     filled: Boolean = true,
+    /** Moves the icon sideways, for a glyph whose weight is off its middle ([SHARE_NUDGE]). */
+    nudge: Dp = 0.dp,
 ) {
     Row(
         horizontalArrangement = Arrangement.Center,
@@ -2524,7 +2536,7 @@ private fun PlayerActionSegment(
             painter = painter,
             contentDescription = contentDescription,
             tint = content,
-            modifier = Modifier.size(22.dp)
+            modifier = Modifier.offset(x = nudge).size(22.dp)
         )
         if (label != null) {
             Spacer(Modifier.width(6.dp))

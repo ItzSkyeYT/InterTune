@@ -228,9 +228,9 @@ class WidgetStyleTest {
 
     /** The words of the styles wait for his yes (25 Oct 2026): held from translators, with their French beside them. */
     @Test
-    fun `the styles' words are held from translators, with their French beside them, short and without a long dash`() {
+    fun `the styles' words are open to translators since his yes of 27 Oct, with their French beside them, short and without a long dash`() {
         for (name in held) {
-            assertTrue("$name is open to translators before his yes", "translatable=\"false\"" in line("values", name))
+            assertFalse("$name is held from translators", "translatable=\"false\"" in line("values", name))
             val french = Regex(""">([^<]+)</string>""").find(line("values-fr", name))?.groupValues?.get(1)
             assertTrue("$name has no French", !french.isNullOrBlank())
             for (folder in listOf("values", "values-fr")) {
