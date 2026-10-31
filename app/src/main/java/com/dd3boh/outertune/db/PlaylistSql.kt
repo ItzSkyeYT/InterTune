@@ -17,6 +17,19 @@ object PlaylistSql {
     const val EXISTS = "SELECT EXISTS(SELECT 1 FROM playlist WHERE id = :playlistId)"
 
     /**
+     * Which of some song ids are rows in the song table. Add to playlist asks this before it
+     * writes, because a map row's foreign key on the song refuses an id that is not one, and
+     * OR IGNORE does not cover a foreign key (#62).
+     */
+    const val PRESENT_SONGS = "SELECT id FROM song WHERE id IN (:songIds)"
+
+    /**
+     * Where the next song of a playlist goes: one past the last position. COALESCE because MAX over
+     * no rows is null, and an empty playlist has to start at 0.
+     */
+    const val NEXT_POSITION = "SELECT COALESCE(MAX(position), -1) + 1 FROM playlist_song_map WHERE playlistId = :playlistId"
+
+    /**
      * Puts the song at one position at another and shifts the songs between them by one to close
      * up. It matches on the position alone, so a caller holding a position that is out of date
      * moves whichever song holds it now.

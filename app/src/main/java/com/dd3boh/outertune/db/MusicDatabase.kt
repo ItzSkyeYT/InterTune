@@ -83,6 +83,11 @@ class MusicDatabase(
      */
     fun <T : Any> readOrNull(block: MusicDatabase.() -> T?): T? = boundedRead.orNull { block(this) }
 
+    /**
+     * Queues [block] as one transaction on Room's executor and returns at once, before it has run.
+     * A caller whose next step needs what it writes uses [transactionNow]: Add to playlist went on
+     * to a write of its own while the insert of its song still waited in this queue (#62).
+     */
     fun transaction(block: MusicDatabase.() -> Unit) = with(delegate) {
         transactionExecutor.execute {
             runInTransaction {

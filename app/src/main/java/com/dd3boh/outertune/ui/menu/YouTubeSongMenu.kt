@@ -276,7 +276,9 @@ fun YouTubeSongMenu(
             navController = navController,
             songIds = null,
             onPreAdd = { playlist ->
-                database.transaction {
+                // Written before this returns: the add that follows needs the row, and transaction
+                // only queues the write, which behind a sync's backlog the add overtook (#62).
+                database.transactionNow {
                     insert(song.toMediaMetadata())
                 }
                 ActivityLog.note(context, database, song.id, SignalKind.ADD_TO_PLAYLIST)

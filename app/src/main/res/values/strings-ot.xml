@@ -212,6 +212,10 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="track_number">Track number</string>
     <string name="play_count">Play count</string>
     <string name="playlist_add_local_to_synced_note">Adding files from this phone to a playlist synced with YouTube Music is not supported.</string>
+    <plurals name="playlist_add_skipped">
+        <item quantity="one">%1$d song could not be added to the playlist.</item>
+        <item quantity="other">%1$d songs could not be added to the playlist.</item>
+    </plurals>
     <string name="playlist_missing_note">Playlists missing? Click here to enable sync read-write mode in settings</string>
     <string name="toggle_lyrics">Toggle lyrics</string>
 
