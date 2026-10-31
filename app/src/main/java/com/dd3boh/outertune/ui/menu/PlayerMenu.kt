@@ -465,7 +465,8 @@ fun PlayerMenu(
             navController = navController,
             songIds = listOf(mediaMetadata.id),
             onPreAdd = { playlist ->
-                database.transaction {
+                // Written before this returns, as YouTubeSongMenu does: the add needs the row (#62).
+                database.transactionNow {
                     insert(mediaMetadata)
                 }
                 ActivityLog.note(context, database, mediaMetadata.id, SignalKind.ADD_TO_PLAYLIST)

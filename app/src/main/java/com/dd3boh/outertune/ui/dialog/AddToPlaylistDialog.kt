@@ -66,8 +66,15 @@ fun AddToPlaylistDialog(
     allowSyncing: Boolean = true,
     initialTextFieldValue: String? = null,
     songIds: List<String>?, // song ids to insert.
+    /**
+     * Runs on the IO dispatcher once a playlist is picked, before the songs are written. Whatever
+     * it has to do for the songs to exist, their rows in the song table, must be committed when it
+     * returns: write with transactionNow, not with transaction or query, which only queue the
+     * write and let the add overtake it (#62). When [songIds] is null the ids it returns are the
+     * songs.
+     */
     onPreAdd: (suspend (Playlist) -> List<String>)? = null,
-    /** Called once songs have actually gone into the playlist, and not when the person cancels. */
+    /** Called once songs have actually gone into the playlist, and not when the person cancels or none could be added. */
     onAdded: ((Playlist) -> Unit)? = null,
     onDismiss: () -> Unit,
 ) {
