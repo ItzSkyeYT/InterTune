@@ -15,8 +15,8 @@ import kotlin.math.min
  *
  * One window is a guess. His reel of an organ playing a dance tune was named by its first twelve
  * seconds as "Sunshine" by Dance Nation, and asked again every twelve seconds of its 160 it was
- * named as fourteen different songs, none of them the same one twice in the same place: Shazam
- * matches whatever has the same few notes. A song that is really playing is named by window after
+ * named as eleven different songs in twelve answers, none of them the same one twice in the same
+ * place: Shazam matches whatever has the same few notes. A song that is really playing is named by window after
  * window, at the place in the song that the time between the windows says, so that is what counts.
  *
  * - A song is told by Shazam's key, or by title and first artist when it has several entries.
@@ -28,9 +28,10 @@ import kotlin.math.min
  * - How clean a match is says much: real recordings come back at a skew of 0.0001 to 0.0003 (85% of
  *   1,382 windows replayed in September and October), a wrong song at 0.003 or more. See [Quality].
  *
- * The answer is a song two windows [agreed] on, or one a convincing match names that most of the
- * windows so far back up ([settled]), or, when the listen is over, either of those ([last]). A
- * song named once by a match that is not convincing is not an answer.
+ * The answer is a song two windows [agreed] on, or one a convincing match names that the windows so
+ * far back up (every one of two, half of three or more: [settled]), or, when the listen is over,
+ * either of those or a song named by one convincing match at all ([last]). A song named by matches
+ * that are not convincing, and agree on nothing, is not an answer.
  */
 internal class ClipEvidence {
 

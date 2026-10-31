@@ -15,7 +15,7 @@ import org.junit.Test
 
 /**
  * One window is a guess; a song is what the windows of a listen agree on (his reel of an organ
- * playing a dance tune, 31 Oct 2026: fourteen songs named, none twice in the same place). The skews
+ * playing a dance tune, 31 Oct 2026: eleven songs in twelve answers, none twice in the same place). The skews
  * and offsets below are the ones Shazam gave for that reel and for the songs that were really playing
  * in the earlier replays (experiments/features/recognition-reels/probe, experiments/recognition).
  */
