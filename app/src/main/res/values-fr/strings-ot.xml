@@ -1588,6 +1588,10 @@
     <string name="share_link_page_description">La personne choisit son appli : Spotify, Apple Music, Deezer et d\'autres</string>
     <string name="share_link_choice_kept">Votre choix est gardé pour les prochains partages. Vous pouvez le changer à tout moment dans Paramètres, sous %1$s.</string>
     <string name="share_link_not_chosen">Pas encore choisi</string>
+    <string name="open_links_title">Ouvrir les liens dans %1$s</string>
+    <string name="open_links_description">Les liens YouTube Music et intertune.app s\'ouvrent dans cette appli. Désactivez pour laisser une autre appli, comme InterTune Preview, les ouvrir.</string>
+    <string name="open_links_android_off">Le réglage des liens d\'Android est désactivé pour cette appli : aucun lien ne s\'y ouvre.</string>
+    <string name="open_links_android_settings">Réglages des liens d\'Android</string>
     <string name="stats_nothing_played">Rien n\'a été joué sur cette période.</string>
     <string name="sort_order_ascending">Ordre croissant</string>
     <string name="sort_order_descending">Ordre décroissant</string>
@@ -1993,6 +1997,7 @@
     <string name="search_words_ytm_sync">YouTube Music, playlists, j\'aime, bibliothèque</string>
     <string name="search_words_sync_now">synchroniser maintenant, actualiser</string>
     <string name="search_words_share_links">partager, lien</string>
+    <string name="search_words_open_links">liens pris en charge, ouvrir par défaut, application par défaut, YouTube</string>
     <string name="search_words_explicit">explicite, contrôle parental, enfants, grossièretés</string>
     <string name="search_words_language">langue</string>
     <string name="search_words_country">pays, région</string>

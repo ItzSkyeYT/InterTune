@@ -36,6 +36,7 @@ import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
 import com.dd3boh.outertune.ui.component.SettingsClickToReveal
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.ui.screens.settings.fragments.LocalizationFrag
+import com.dd3boh.outertune.ui.screens.settings.fragments.OpenLinksFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.QuickPicksSourceFrag
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.ui.screens.settings.fragments.ShareLinksFrag
@@ -76,6 +77,9 @@ fun LibrarySettings(
             QuickPicksSourceFrag()
             // What Share sends for a song or an album: content going out, not how the app looks.
             if (Unreleased.SHARE_PAGE) ShareLinksFrag()
+            // The links that come in, beside the ones that go out: what this install does with a
+            // YouTube Music or intertune.app link tapped elsewhere.
+            OpenLinksFrag()
             ContentFiltersFrag()
         }
         Spacer(modifier = Modifier.height(16.dp))

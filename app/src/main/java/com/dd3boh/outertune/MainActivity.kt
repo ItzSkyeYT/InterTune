@@ -2518,8 +2518,8 @@ internal fun newIntentLink(action: String?, data: String?, text: String?): Strin
 
 /**
  * The words of a play-from-search intent, empty when it names nothing ("play some music"), or
- * null when the intent is not one. One that carries data came in through a YouTube link filter,
- * which names the action as well, and is left to the link handling.
+ * null when the intent is not one. One that carries data is no request for words, and is left to
+ * the link handling (the YouTube link filters used to name the action as well).
  */
 internal fun searchToPlay(action: String?, hasData: Boolean, query: String?): String? =
     if (action == MediaStore.INTENT_ACTION_MEDIA_PLAY_FROM_SEARCH && !hasData) query?.trim().orEmpty() else null
