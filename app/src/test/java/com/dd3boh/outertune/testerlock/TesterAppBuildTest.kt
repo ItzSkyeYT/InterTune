@@ -104,7 +104,7 @@ class TesterAppBuildTest {
 
     /** Every resource a res folder defines, by its folder's qualifier, its type and its name. */
     private fun resources(root: File): List<String> = root.walkTopDown().filter { it.isFile }.flatMap { file ->
-        val folder = file.parentFile.name
+        val folder = file.parentFile?.name.orEmpty()
         if (folder.startsWith("values")) {
             Regex("<(string|color|dimen|bool|integer|string-array|integer-array|array|plurals|style)\\s+[^>]*?name=\"([^\"]+)\"")
                 .findAll(file.readText()).map { "$folder/${it.groupValues[1]}/${it.groupValues[2]}" }
