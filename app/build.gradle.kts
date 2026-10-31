@@ -375,6 +375,43 @@ android {
     }
 }
 
+/**
+ * What to try, for the Testers page of a build for testers (src/preview, testerlock): -PtesterTry=<a text file> copies that file
+ * into the build as an asset, tester_try.txt, and the page shows its lines. Without the property the build has no such asset and
+ * the page shows nothing of the kind. Only the preview and the beta type (the Tester app) have the page, so only they are given it.
+ * publish-preview.sh passes the notes for testers it is given, the file that starts with "What to try first:".
+ */
+abstract class CopyTesterTry : DefaultTask() {
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val source: RegularFileProperty
+
+    @get:OutputDirectory
+    abstract val assets: DirectoryProperty
+
+    @TaskAction
+    fun copy() {
+        val dir = assets.get().asFile
+        dir.deleteRecursively()
+        dir.mkdirs()
+        source.get().asFile.copyTo(File(dir, "tester_try.txt"), overwrite = true)
+    }
+}
+
+androidComponents {
+    onVariants { variant ->
+        val path = (project.findProperty("testerTry") as String?)?.takeIf { it.isNotBlank() } ?: return@onVariants
+        if (variant.buildType != "preview" && variant.buildType != "beta") return@onVariants
+        val file = File(path).let { if (it.isAbsolute) it else rootProject.file(path) }
+        // A path that is not a file is a mistake worth stopping for: a build for testers must not go out without the list it was meant to carry.
+        if (!file.isFile) throw GradleException("-PtesterTry=$path is not a file")
+        val copy = tasks.register<CopyTesterTry>("copyTesterTry${variant.name.replaceFirstChar { it.uppercase() }}") {
+            source.set(file)
+        }
+        variant.sources.assets?.addGeneratedSourceDirectory(copy, CopyTesterTry::assets)
+    }
+}
+
 ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
 }

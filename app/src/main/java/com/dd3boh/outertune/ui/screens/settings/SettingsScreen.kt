@@ -65,6 +65,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalUpdateChecker
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.testerlock.TesterLock
 import com.dd3boh.outertune.constants.TopBarInsets
 import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
@@ -116,6 +117,14 @@ fun SettingsScreen(
     // once"; this says "there is one now, and here it is", which is what the row needs to show.
     val pendingUpdate by LocalUpdateChecker.current.available.collectAsState()
     val updateBadgeLabel = stringResource(R.string.update_available_title)
+
+    // The Testers page of a build for testers has its card above the four, and no other build has one (TesterLock.testers).
+    val testers: @Composable () -> Unit = {
+        TesterLock.testers?.let { page ->
+            page.ListCard(navController)
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+    }
 
     // The four cards, each a thing of its own so that they can be stacked or set two by two.
     val you: @Composable () -> Unit = {
@@ -297,6 +306,7 @@ fun SettingsScreen(
         } else if (twoByTwo) {
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Column(Modifier.weight(1f)) {
+                    testers()
                     you()
                     Spacer(modifier = Modifier.height(16.dp))
                     kept()
@@ -308,6 +318,7 @@ fun SettingsScreen(
                 }
             }
         } else {
+            testers()
             you()
             Spacer(modifier = Modifier.height(16.dp))
 

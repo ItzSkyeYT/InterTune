@@ -29,6 +29,40 @@ object TesterCode {
 
     fun isWellFormed(code: String): Boolean = code.length == LENGTH && code.all { it in ALPHABET }
 
+    /**
+     * The tester's number: the first two symbols of a code, five bits each, 0 to 1023. The bot puts it there (testercodes.py reads
+     * it the same way) and a report carries it, so that staff can tell whose it is. The code itself opens builds and goes into no
+     * report, no log and no message, and this is all that is taken from it. Null for anything that is not shaped like a code.
+     */
+    fun numberOf(code: String): Int? {
+        val symbols = normalise(code)
+        if (!isWellFormed(symbols)) return null
+        return ALPHABET.indexOf(symbols[0]) * ALPHABET.length + ALPHABET.indexOf(symbols[1])
+    }
+
+    /** How many symbols of a code the Testers page shows: the last ones, so that a tester can tell which code is kept. */
+    const val SHOWN = 4
+
+    /** What stands for a symbol that is not shown. */
+    const val HIDDEN = '\u2022'
+
+    /**
+     * The code as the Testers page draws it, XXXX-XXXX-XXXX with every symbol hidden but the last [SHOWN]. Anything that is not
+     * shaped like a code is hidden whole, so that nothing of it is ever guessed at: of what comes out, no more than [SHOWN] symbols
+     * are the code's own.
+     */
+    fun masked(code: String): String {
+        val symbols = normalise(code)
+        val shownFrom = if (isWellFormed(symbols)) symbols.length - SHOWN else symbols.length
+        return symbols.mapIndexed { at, symbol -> if (at >= shownFrom) symbol else HIDDEN }.joinToString("").let { shown(it) }
+    }
+
+    /** The last [SHOWN] symbols of a code, for a screen reader to say in place of the dots; nothing for what is not a code. */
+    fun lastSymbols(code: String): String {
+        val symbols = normalise(code)
+        return if (isWellFormed(symbols)) symbols.takeLast(SHOWN) else ""
+    }
+
     /** XXXX-XXXX-XXXX, or as much of it as there is. */
     fun shown(code: String): String = code.chunked(4).joinToString("-")
 

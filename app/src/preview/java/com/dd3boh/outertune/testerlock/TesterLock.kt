@@ -16,6 +16,7 @@ import androidx.core.content.edit
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.dd3boh.outertune.BuildConfig
+import com.dd3boh.outertune.ui.screens.settings.ExtraSettingsPage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -53,6 +54,21 @@ object TesterLock {
         TesterGate(activity, gate, onOpen = session::open, onEdited = session::edited, onAnotherCode = session::useAnotherCode)
         return true
     }
+
+    /**
+     * The Testers page of Settings (TestersPage.kt), where the lock is on: its entry at the top of the list, its screen, and
+     * what a search finds on it. A Preview made without the lock has none, as a debug build and a release have none.
+     */
+    internal val testers: ExtraSettingsPage? = if (BuildConfig.TESTER_LOCK) TestersPage else null
+
+    /**
+     * The tester's number for a report, from the code this device keeps, and never the code: a report can end up on GitHub, and a
+     * code opens builds. Null where the lock is off and when no code is kept.
+     */
+    fun testerNumber(context: Context): Int? {
+        if (!BuildConfig.TESTER_LOCK) return null
+        return TesterLockStore(context.applicationContext).load().code?.let { TesterCode.numberOf(it) }
+    }
 }
 
 /** The gate as it is drawn: the code to start the field with, the message under it, and a check under way. */
@@ -77,6 +93,15 @@ internal class TesterLockSession private constructor(
 
     /** The gate, or null while the app is open. */
     val gate: StateFlow<GateState?> = shown
+
+    private val remembered = MutableStateFlow(store.load())
+    private val working = MutableStateFlow(false)
+
+    /** What the lock remembers after its latest check, for the Testers page. */
+    val memory: StateFlow<TesterMemory> = remembered
+
+    /** Whether a check is under way, a launch's or a tester's own, for the Testers page. */
+    val busy: StateFlow<Boolean> = working
 
     fun launch() {
         // A check under way decides for itself.
@@ -127,6 +152,16 @@ internal class TesterLockSession private constructor(
         shown.value = gate.copy(message = null)
     }
 
+    /**
+     * "Check now" on the Testers page: the check a launch makes, for the code kept and with the app open as it is. A yes is
+     * kept and shown there; a no puts the gate in front, as it does at any other time.
+     */
+    fun checkNow() {
+        if (shown.value != null || checking?.isActive == true) return
+        val code = store.load().code ?: return
+        check(code)
+    }
+
     /** The Open button, with what is in the field. */
     fun open(typed: String) {
         val gate = shown.value ?: return
@@ -142,6 +177,7 @@ internal class TesterLockSession private constructor(
     }
 
     private fun check(code: String) {
+        working.value = true
         checking = scope.launch {
             // The install number is made and written down before the door is first asked: the door holds
             // the code for it, so the phone must never lose a number the door has been given.
@@ -151,11 +187,12 @@ internal class TesterLockSession private constructor(
             val answer = door.ask(code, build, BuildConfig.VERSION_CODE, kept.install.orEmpty())
             val after = TesterLockRules.afterCheck(build, kept, code, answer, System.currentTimeMillis())
             store.save(after.memory)
+            remembered.value = after.memory
             // A good code the door refused this build with is shown in the field: it is the build or the device, not the code.
             val keepsCode = after.message == GateMessage.OUTDATED || after.message == GateMessage.IN_USE
             shown.value = if (after.opens) null
             else (shown.value ?: GateState(prefill = if (keepsCode) code else "")).copy(message = after.message, busy = false)
-        }
+        }.also { it.invokeOnCompletion { working.value = false } }
     }
 
     companion object {

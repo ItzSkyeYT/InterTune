@@ -58,6 +58,7 @@ import com.dd3boh.outertune.constants.Links
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.playback.PlayHealth
 import com.dd3boh.outertune.playback.StopReasons
+import com.dd3boh.outertune.testerlock.TesterLock
 import com.dd3boh.outertune.utils.PhoneState
 import com.dd3boh.outertune.utils.ProblemLog
 import com.dd3boh.outertune.utils.RunLogs
@@ -92,11 +93,14 @@ private class LogChoice(
     val installedFrom: String,
     val phoneNow: String,
     val playback: String? = null,
+    /** A build for testers names the tester who sends the report: their number, never their code. Null in every other build. */
+    val testerNumber: Int? = null,
 ) {
     val version: String get() = run?.versionName ?: BuildConfig.VERSION_NAME
     val build: String get() = run?.build ?: ProblemLog.build()
     fun report(): String = ProblemLog.report(
         excerpt, build = build, installedFrom = installedFrom, phoneNow = phoneNow, playback = playback, stops = stops, started = run?.started,
+        testerNumber = testerNumber,
     )
 }
 
@@ -123,9 +127,11 @@ fun ProblemReportDialog(onDismiss: () -> Unit) {
             val phoneNow = PhoneState.read(context).describe()
             // How playback has gone since the app started: this run's only, see PlayHealth.
             val playback = PlayHealth.thisRun.describe(SystemClock.elapsedRealtime())
-            val now = LogChoice(null, ProblemLog.excerpt(lines), StopReasons.read(context), installedFrom, phoneNow, playback)
+            // Whoever sends a report from a build for testers: their number, for every run listed, since it is the sender's.
+            val tester = TesterLock.testerNumber(context)
+            val now = LogChoice(null, ProblemLog.excerpt(lines), StopReasons.read(context), installedFrom, phoneNow, playback, tester)
             val earlier = if (Unreleased.PREVIOUS_LOGS) {
-                RunLogs.earlier(context).map { LogChoice(it, ProblemLog.excerpt(RunLogs.read(it)), emptyList(), installedFrom, phoneNow) }
+                RunLogs.earlier(context).map { LogChoice(it, ProblemLog.excerpt(RunLogs.read(it)), emptyList(), installedFrom, phoneNow, testerNumber = tester) }
             } else emptyList()
             listOf(now) + earlier
         }

@@ -15,4 +15,36 @@
     <string name="tester_lock_open_testers">Ouvrir #testers</string>
     <string name="tester_lock_code_fine">Votre code est bon : seule la version doit être mise à jour.</string>
     <string name="tester_lock_other_code">Utiliser un autre code</string>
+
+    <!-- The Testers page of Settings in French: see values/strings-tester.xml. -->
+    <string name="testers_page_title">Testeurs</string>
+    <string name="testers_page_entry">Cette version, quoi essayer, et votre code de testeur.</string>
+    <string name="testers_page_build">Cette version</string>
+    <string name="testers_page_version">Version</string>
+    <string name="testers_page_built">Date de compilation</string>
+    <string name="testers_page_status">État</string>
+    <string name="testers_page_status_opens">Elle s\'ouvre avec votre code.</string>
+    <string name="testers_page_status_outdated">Elle n\'est plus à jour. Téléchargez la plus récente dans #testers.</string>
+    <string name="testers_page_status_not_reached">Elle n\'a pas pu être vérifiée. Nouvel essai à la prochaine ouverture de l\'application.</string>
+    <string name="testers_page_status_not_yet">Pas encore vérifiée.</string>
+    <string name="testers_page_try">Quoi essayer</string>
+    <string name="testers_page_switches">Réglages de test</string>
+    <string name="testers_page_report_description">Le signalement indique cette version et votre numéro de testeur, jamais votre code.</string>
+    <string name="testers_page_code">Votre code de testeur</string>
+    <string name="testers_page_code_used">Utilisé sur cet appareil</string>
+    <string name="testers_page_code_ends">Code se terminant par %1$s</string>
+    <string name="testers_page_no_code">Aucun code sur cet appareil</string>
+    <string name="testers_page_last_check">Dernière vérification</string>
+    <string name="testers_page_never">Pas encore</string>
+    <string name="testers_page_next_check">Prochaine vérification</string>
+    <string name="testers_page_next_after">À la première ouverture de l\'application après %1$s.</string>
+    <string name="testers_page_next_now">À la prochaine ouverture de l\'application.</string>
+    <string name="testers_page_check_now">Vérifier maintenant</string>
+    <string name="testers_page_checking">Vérification de votre code</string>
+    <string name="testers_page_channel">#testers</string>
+    <string name="testers_page_channel_description">Où sont publiées les nouvelles versions et où les testeurs discutent.</string>
+    <string name="testers_page_rules">Règles</string>
+    <string name="testers_page_rules_text">Essayez les versions et signalez ce qui plante. Gardez les versions et les codes pour vous.</string>
+    <string name="testers_page_give_back">Rendre ma place</string>
+    <string name="testers_page_give_back_text">Retirez-vous le rôle Tester dans Salons et rôles sur Discord. Votre place passe à la prochaine personne en attente.</string>
 </resources>
