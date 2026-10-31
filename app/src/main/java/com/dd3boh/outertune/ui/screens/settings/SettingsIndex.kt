@@ -19,6 +19,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.ENABLE_FFMETADATAEX
 import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.testerlock.TesterLock
 import com.dd3boh.outertune.ui.dialog.togetherAvailable
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.TourTargets
@@ -610,6 +611,7 @@ internal class SettingsSearchIndex(
     companion object {
         /** In the app's language now, under [appName] where a title names the app. */
         fun of(text: (Int) -> String, engine: Boolean = Unreleased.ENGINE, appName: String = "InterTune") =
-            SettingsSearchIndex(SETTINGS_INDEX, settingsGroups(engine).flatten(), text, appName)
+            // A build for testers adds the Testers page's rows to the written list (TesterLock.testers); the others add none.
+            SettingsSearchIndex(SETTINGS_INDEX + TesterLock.testers?.entries.orEmpty(), settingsGroups(engine).flatten(), text, appName)
     }
 }

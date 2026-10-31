@@ -88,6 +88,7 @@ import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.LocalUpdateChecker
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.testerlock.TesterLock
 import com.dd3boh.outertune.ui.component.FloatingTopBar
 import com.dd3boh.outertune.ui.component.LocalTopBarBack
 import com.dd3boh.outertune.ui.component.LocalTopBarGlassHost
@@ -105,13 +106,15 @@ internal data class SettingsCategory(val route: String, @StringRes val title: In
 
 /**
  * The screens of settings in the list's four groups, the ones the cards of the upright list are:
- * your music, how the app presents it, what it keeps on the device, the app itself.
+ * your music, how the app presents it, what it keeps on the device, the app itself. A build for testers has a group
+ * of its own before them, the Testers page alone ([testers], which every other build answers with none).
  */
 internal fun settingsGroups(
     engine: Boolean = Unreleased.ENGINE,
     together: Boolean = togetherAvailable,
     battery: Boolean = Unreleased.BATTERY_MODES,
-): List<List<SettingsCategory>> = listOf(
+    testers: SettingsCategory? = TesterLock.testers?.category,
+): List<List<SettingsCategory>> = listOfNotNull(testers?.let { listOf(it) }) + listOf(
     listOf(
         SettingsCategory("settings/account_sync", R.string.grp_account_sync, Icons.Rounded.AccountCircle),
         SettingsCategory("settings/library", R.string.grp_library_and_content, Icons.AutoMirrored.Rounded.LibraryBooks),
@@ -261,7 +264,8 @@ fun SettingsTwoPane(
     ScreenBackHandler(enabled = open.size > 1, onBack = up)
     val pendingUpdate by LocalUpdateChecker.current.available.collectAsState()
     val updateBadgeLabel = stringResource(R.string.update_available_title)
-    val groupTargets = listOf(Tour.SETTINGS_YOU, Tour.SETTINGS_LOOK_AND_SOUND, Tour.SETTINGS_KEPT, Tour.SETTINGS_REST)
+    // The tour points at the four groups of every build; the Testers page's group, first where there is one, is not the tour's.
+    val groupTargets = List(groups.size - 4) { null } + listOf(Tour.SETTINGS_YOU, Tour.SETTINGS_LOOK_AND_SOUND, Tour.SETTINGS_KEPT, Tour.SETTINGS_REST)
     // While something is typed in the search, its results are the list, and the one opened on the
     // right is filled as the entry of the list it stands for would be.
     val searching = Unreleased.SETTINGS_SEARCH && query.isNotBlank()
@@ -306,7 +310,7 @@ fun SettingsTwoPane(
                 if (at > 0) Spacer(Modifier.height(10.dp))
                 Column(
                     verticalArrangement = Arrangement.spacedBy(2.dp),
-                    modifier = Modifier.tourTarget(groupTargets[at]),
+                    modifier = groupTargets[at]?.let { Modifier.tourTarget(it) } ?: Modifier,
                 ) {
                     for (category in group) {
                         SettingsCategoryRow(
@@ -439,5 +443,7 @@ private fun SettingsPane(route: String, navController: NavController, scrollBeha
         "settings/recommendations/developer" -> EngineDeveloperSettings(navController, scrollBehavior)
         "settings/about/attribution" -> AttributionScreen(navController, scrollBehavior)
         "settings/about/oss_licenses" -> LibrariesScreen(navController, scrollBehavior)
+        // The Testers page, where the build has one: asked of the build, as the list is.
+        else -> TesterLock.testers?.takeIf { it.category.route == route }?.Screen(navController, scrollBehavior)
     }
 }

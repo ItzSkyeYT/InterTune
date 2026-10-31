@@ -106,6 +106,16 @@ object TesterLockRules {
         }
     }
 
+    /**
+     * The time after which a launch asks the door again by itself, for what the lock remembers of [build]: the door's last yes and
+     * what that yes stands for, a day, or ten minutes after a claim. Null when there is no yes on file for the build, and the next
+     * launch asks. The Testers page says it; [atLaunch] decides, and a test holds the two together.
+     */
+    fun nextCheckAt(build: String, memory: TesterMemory): Long? {
+        if (memory.openedBuild != build || memory.openedAt <= 0L) return null
+        return memory.openedAt + if (memory.claimed) CLAIM_RECHECK_MILLIS else RECHECK_MILLIS
+    }
+
     /** What the door's [answer] about [code] means for [build], asked at [now]. */
     fun afterCheck(build: String, memory: TesterMemory, code: String, answer: DoorAnswer, now: Long): AfterCheck =
         when (answer) {

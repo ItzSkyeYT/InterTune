@@ -26,6 +26,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.testerlock.TesterLock
 import com.dd3boh.outertune.ui.component.TopBarGlassDestination
 import com.dd3boh.outertune.ui.screens.AccountScreen
 import com.dd3boh.outertune.ui.screens.AlbumScreen
@@ -482,6 +483,12 @@ fun NavGraphBuilder.appDestinations(
         }
         screen("settings/about/oss_licenses") {
             LibrariesScreen(navController, scrollBehavior)
+        }
+        // The Testers page of a build for testers; no other build has one (TesterLock.testers).
+        TesterLock.testers?.let { testers ->
+            screen(testers.category.route) {
+                testers.Screen(navController, scrollBehavior)
+            }
         }
         screen("lastfm_login") {
             LastFmLoginScreen(navController)

@@ -84,6 +84,7 @@ import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.ui.screens.OptInCatchUp
 import com.dd3boh.outertune.ui.screens.settings.SETTINGS_TAG
+import com.dd3boh.outertune.ui.screens.settings.settingRow
 import com.dd3boh.outertune.utils.FaultInjection
 import com.dd3boh.outertune.utils.Throttle
 import com.dd3boh.outertune.utils.dataStore
@@ -156,8 +157,6 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
     )
     val (audioOffload, onAudioOffloadChange) = rememberPreference(key = AudioOffloadKey, defaultValue = false)
     val (webClientFirst, onWebClientFirstChange) = rememberPreference(key = WebClientFirstKey, defaultValue = false)
-    val (familiarFirst, onFamiliarFirstChange) = rememberPreference(key = FamiliarFirstKey, defaultValue = false)
-    val (familiarMix, onFamiliarMixChange) = rememberPreference(key = FamiliarMixKey, defaultValue = false)
     val (sabrOnly, onSabrOnlyChange) = rememberPreference(key = SabrOnlyKey, defaultValue = false)
     val (everyDirectRefused, onEveryDirectRefusedChange) = rememberPreference(key = EveryDirectRefusedKey, defaultValue = false)
     val (visionosRefused, onVisionosRefusedChange) = rememberPreference(key = VisionosRefusedKey, defaultValue = false)
@@ -231,22 +230,8 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
                 },
             )
         }
-        if (BuildConfig.DEBUG) {
-            SwitchPreference(
-                title = { Text(stringResource(R.string.familiar_first)) },
-                description = stringResource(R.string.familiar_first_description),
-                icon = { Icon(Icons.Rounded.Science, null) },
-                checked = familiarFirst,
-                onCheckedChange = onFamiliarFirstChange,
-            )
-            SwitchPreference(
-                title = { Text(stringResource(R.string.familiar_mix)) },
-                description = stringResource(R.string.familiar_mix_description),
-                icon = { Icon(Icons.Rounded.Science, null) },
-                checked = familiarMix,
-                onCheckedChange = onFamiliarMixChange,
-                isEnabled = familiarFirst,
-            )
+        if (familiarFirstOffered) {
+            FamiliarFirstRows()
         }
         if (Unreleased.WEB_CLIENT_FIRST) {
             SwitchPreference(
@@ -722,6 +707,40 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
             )
         }
     
+}
+
+/**
+ * Whether this build has the two "Familiar first" test switches: the debug and the preview builds, which are debug builds.
+ * A release ignores the keys and has no row to turn them off (HomeViewModel reads them under the same test).
+ */
+internal val familiarFirstOffered: Boolean get() = BuildConfig.DEBUG
+
+/**
+ * The two "Familiar first" test switches, the new Auto under test: Familiar first, and, under it, learning the mix.
+ * They are in the developer block and, in a build for testers, on the Testers page of Settings too, where a tester does
+ * not have to switch developer settings on to find them. One piece of code, so that the two places cannot differ.
+ */
+@Composable
+internal fun FamiliarFirstRows() {
+    val (familiarFirst, onFamiliarFirstChange) = rememberPreference(key = FamiliarFirstKey, defaultValue = false)
+    val (familiarMix, onFamiliarMixChange) = rememberPreference(key = FamiliarMixKey, defaultValue = false)
+    SwitchPreference(
+        modifier = Modifier.settingRow(R.string.familiar_first),
+        title = { Text(stringResource(R.string.familiar_first)) },
+        description = stringResource(R.string.familiar_first_description),
+        icon = { Icon(Icons.Rounded.Science, null) },
+        checked = familiarFirst,
+        onCheckedChange = onFamiliarFirstChange,
+    )
+    SwitchPreference(
+        modifier = Modifier.settingRow(R.string.familiar_mix),
+        title = { Text(stringResource(R.string.familiar_mix)) },
+        description = stringResource(R.string.familiar_mix_description),
+        icon = { Icon(Icons.Rounded.Science, null) },
+        checked = familiarMix,
+        onCheckedChange = onFamiliarMixChange,
+        isEnabled = familiarFirst,
+    )
 }
 
 /**

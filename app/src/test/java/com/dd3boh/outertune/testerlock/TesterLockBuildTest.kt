@@ -117,8 +117,19 @@ class TesterLockBuildTest {
             assertEquals(sourceSet, listOf("TesterLock.kt"), dir.list()?.sorted())
             val standIn = File(dir, "TesterLock.kt").readText()
             assertTrue(sourceSet, "fun holds(activity: ComponentActivity): Boolean = false" in standIn)
+            // Two more questions that every build is asked and these answer with none (TestersPageBuildTest): the Testers page of
+            // Settings, and the tester's number for a report.
+            assertTrue(sourceSet, "internal val testers: ExtraSettingsPage? = null" in standIn)
+            assertTrue(sourceSet, "fun testerNumber(context: Context): Int? = null" in standIn)
             val imports = Regex("^import (.+)$", RegexOption.MULTILINE).findAll(standIn).map { it.groupValues[1] }.toSet()
-            assertEquals(sourceSet, setOf("androidx.activity.ComponentActivity", "androidx.compose.runtime.Composable"), imports)
+            assertEquals(
+                sourceSet,
+                setOf(
+                    "android.content.Context", "androidx.activity.ComponentActivity", "androidx.compose.runtime.Composable",
+                    "com.dd3boh.outertune.ui.screens.settings.ExtraSettingsPage",
+                ),
+                imports,
+            )
         }
         // Any other build type the project grows would have no answer to compile against. The beta type has none
         // because it takes the preview's gate itself (src/preview/java, see sourceSets).
@@ -133,8 +144,9 @@ class TesterLockBuildTest {
         val content = activity.substringAfter("        setContent {\n")
         val firstStatement = content.lines().map { it.trim() }.first { it.isNotEmpty() && !it.startsWith("//") }
         assertEquals("if (TesterLock.holds(this@MainActivity)) return@setContent", firstStatement)
-        // The one mention of the lock in main.
-        val mentions = files("main").filter { "TesterLock" in it.readText() }.map { it.name }
+        // The gate is MainActivity's alone. The other mentions of the lock in main are the two answers every build gives, the Testers
+        // page of Settings and the tester's number for a report: TestersPageBuildTest names them.
+        val mentions = files("main").filter { "TesterLock.holds" in it.readText() }.map { it.name }
         assertEquals(listOf("MainActivity.kt"), mentions)
     }
 

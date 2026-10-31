@@ -139,7 +139,7 @@ object ProblemLog {
         .replace(PICKED, "$1…")
 
     /**
-     * What is copied: the build, the phone and where the app came from ([installedFrom]), then
+     * What is copied: the build, the phone and where the app came from ([installedFrom]), the tester's number where there is one, then
      * the lines, then the last times the music stopped with nobody asking
      * ([com.dd3boh.outertune.playback.StopReasons]). Those come last because [fitted] keeps the
      * end, and they outlive the process the lines above belong to.
@@ -155,10 +155,16 @@ object ProblemLog {
         phoneNow: String? = null,
         /** How playback has gone this run, for this run's report only (PlayHealth); an earlier run's is in its lines. */
         playback: String? = null,
+        /**
+         * Who sent it, when it comes from a build for testers: the tester's number, which names them to the staff and opens
+         * nothing. Never their code, which opens builds, and a report can end up public.
+         */
+        testerNumber: Int? = null,
     ): String = buildString {
         appendLine("InterTune $build")
         appendLine(device)
         appendLine("Installed from: $installedFrom")
+        testerNumber?.let { appendLine("Tester number: $it") }
         phoneNow?.let { appendLine("Phone now: $it") }
         playback?.let { appendLine("Playback this run: $it") }
         // A run before this one: which, since its lines carry the time of day and not the date.
