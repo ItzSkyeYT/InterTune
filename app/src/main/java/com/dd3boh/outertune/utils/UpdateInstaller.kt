@@ -515,6 +515,12 @@ class UpdateInstaller @Inject constructor(
                 // Before the commit, so not one of Android's answers about it is missed.
                 watch(id)
                 _state.value = State.AwaitingConfirmation()
+                // The version going in, for the line every report has: some phones name their own
+                // installer for this install (installedFrom).
+                runCatching {
+                    @Suppress("DEPRECATION")
+                    context.packageManager.getPackageArchiveInfo(apk.path, 0)?.let { PackageInfoCompat.getLongVersionCode(it) }
+                }.getOrNull()?.let { UpdaterNote.note(context, it) }
                 session.commit(pending.intentSender)
                 Log.i(TAG, "Session $id handed to Android")
             }
@@ -654,6 +660,7 @@ class UpdateInstaller @Inject constructor(
 
                 else -> {
                     ended()
+                    UpdaterNote.forget(context)
                     val msg = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
                     Log.w(TAG, "Install failed, status $status: $msg")
                     _state.value = State.Failed(msg ?: "status $status")
@@ -677,6 +684,7 @@ class UpdateInstaller @Inject constructor(
      */
     private fun aborted(message: String?) {
         Log.i(TAG, "Install aborted: $message")
+        UpdaterNote.forget(context)
         if (abortedMeansBlocked(message)) blocked() else _state.value = State.Idle
     }
 
