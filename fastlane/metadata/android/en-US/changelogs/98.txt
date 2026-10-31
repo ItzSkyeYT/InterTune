@@ -1,0 +1,12 @@
+Version 0.12.6
+
+- Songs play again on Low quality.
+- High picks Opus when it sounds as good.
+- Downloads keep their covers with no network.
+- Local albums play disc by disc, track by track.
+- Fewer crashes: artist pages and Add to playlist.
+- Queue and search fixes, and What's playing finds the original of a remix.
+- A switch to let another InterTune app open links.
+- InterTune is fully in Polish.
+
+Full changelog: https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.12.6
