@@ -3531,7 +3531,7 @@ class MusicService : MediaLibraryService(),
                                     // spatial stages is ever on. The equalizer comes straight after the
                                     // gain, so spatial audio is handed the curve the listener chose.
                                     arrayOf(gainProcessor, equalizerProcessor, binauralProcessor, spatialUpmixProcessor),
-                                    SilenceSkippingAudioProcessor(),
+                                    quietSilenceSkipper(),
                                     SonicAudioProcessor()
                                 )
                             )
@@ -3570,7 +3570,7 @@ class MusicService : MediaLibraryService(),
                                     // spatial stages is ever on. The equalizer comes straight after the
                                     // gain, so spatial audio is handed the curve the listener chose.
                                     arrayOf(gainProcessor, equalizerProcessor, binauralProcessor, spatialUpmixProcessor),
-                                    SilenceSkippingAudioProcessor(),
+                                    quietSilenceSkipper(),
                                     SonicAudioProcessor()
                                 )
                             )
@@ -5736,6 +5736,24 @@ class MusicService : MediaLibraryService(),
     }
 
     companion object {
+        /**
+         * Skip silence that only skips silence. media3's defaults count anything under level 1024 (about
+         * -30 dBFS) for 100 ms as silence and play it faster, so the quiet start of a piano piece or a fade
+         * sped up: on the Pixel 5, Clair de Lune moved 41.7 s in 40.1 s with it on, 40.0 s with it off (31 Oct
+         * 2026, a poll answer said "the music player speeds up the song"). Under level 256 (about -42 dBFS)
+         * for half a second is a gap, not quiet music. The rest are media3's defaults.
+         */
+        const val SKIP_SILENCE_THRESHOLD: Short = 256
+        const val SKIP_SILENCE_MINIMUM_US = 500_000L
+
+        fun quietSilenceSkipper() = SilenceSkippingAudioProcessor(
+            SKIP_SILENCE_MINIMUM_US,
+            SilenceSkippingAudioProcessor.DEFAULT_SILENCE_RETENTION_RATIO,
+            SilenceSkippingAudioProcessor.DEFAULT_MAX_SILENCE_TO_KEEP_DURATION_US,
+            SilenceSkippingAudioProcessor.DEFAULT_MIN_VOLUME_TO_KEEP_PERCENTAGE,
+            SKIP_SILENCE_THRESHOLD,
+        )
+
         /** How long after the stall watch gave a song up the player's own error on it is taken for the same fault. */
         private const val STALL_ECHO_MS = 60_000L
 
