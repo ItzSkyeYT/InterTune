@@ -609,32 +609,63 @@ class RecognitionEngine @Inject constructor(
     }
 
     /**
-     * Listen once to the phone's own sound ([ClipListen]): one recording, a short video heard
-     * through to where it starts over, and Shazam asked about as much of it as one question holds.
-     * Every second of it is kept, none dropped while Shazam answers, so a repeat is still found.
+     * Listen once to the phone's own sound: a short video heard through, and Shazam asked about
+     * windows of it until they agree on one song, or until the clip is over and the best supported
+     * song is the answer ([ClipSession]). Every second of it is kept, none dropped while Shazam
+     * answers, so a repeat is still found.
+     *
+     * The first guess is not the answer (his reel of an organ playing a dance tune, 31 Oct 2026,
+     * was named "Sunshine" by its first twelve seconds, and halted on): a song is what two windows
+     * of different sound put in the same place, or what a clean match names that most of the
+     * windows back up.
      */
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
     private suspend fun listenToClip() {
         windowMs = ClipListen.MOST_ASKED_SECONDS * 1000L
         pendingLifetimeMs = PENDING_LIFETIME_WINDOWS * windowMs
-        val clip = ClipListen()
-        microphone.stream(seconds = 1, everyWindow = true, onProgress = ::showLevel).collect { piece ->
-            val question = clip.add(piece.samples)
-            if (question != null) {
-                Log.i(TAG, "Asking about ${"%.1f".format(question.seconds)} s of the phone's sound: ${question.why}, closest repeat ${clip.closestRepeat}")
-                val endedAtMs = piece.startedAtMs + 1000L
-                identify(MicrophoneListener.Window(question.samples, endedAtMs - (question.seconds * 1000).toLong()))
-                if (_state.value is State.Found) return@collect halt()
+        val session = ClipSession(ask = ::askAboutClip, log = { Log.i(TAG, it) })
+        try {
+            microphone.stream(seconds = 1, everyWindow = true, onProgress = ::showLevel).collect { piece ->
+                session.hear(piece.samples, piece.startedAtMs)?.let { return@collect concludeClip(it) }
             }
-            if (clip.over) {
-                Log.i(TAG, "The phone's sound heard as long as it will be: loop=${clip.loopSeconds}, closest repeat ${clip.closestRepeat}")
-                // Nothing ever sounded, so no question was asked to say so.
-                if (!clip.heardAnything) _state.value = State.Failed("silence", heardNothing = true, fromPhone = true)
-                return@collect halt()
-            }
-            // Still listening: a question that named nothing is not the answer yet.
-            if (question != null) _state.update { if (it is State.Failed || it == State.NoMatch) State.Listening(0f, false) else it }
+        } catch (t: MicrophoneListener.RecordingEnded) {
+            // Debug builds only: the recording standing in for the video has run out, which ends the
+            // clip as silence after it would. What was heard is the answer.
+            currentCoroutineContext().ensureActive()
+            concludeClip(session.end("the recording ended"))
         }
+    }
+
+    /** One window put to Shazam, from the clip's listen, as [identify] puts a window of the microphone's. */
+    private suspend fun askAboutClip(samples: ShortArray): RecognitionOutcome {
+        _state.value = State.Listening(0f, identifying = true)
+        try {
+            return shazam.identify(samples)
+        } finally {
+            if (job === currentCoroutineContext()[Job]) _state.update {
+                if (it is State.Listening && it.identifying) it.copy(identifying = false) else it
+            }
+        }
+    }
+
+    /** What the clip's listen ended with: the song, resolved on YouTube and shown, or why there is none. */
+    private suspend fun concludeClip(verdict: ClipSession.Verdict) {
+        when (verdict) {
+            is ClipSession.Verdict.Answer -> {
+                Log.i(TAG, "The phone's sound is '${verdict.track.title}': ${verdict.why}")
+                respondTo(RecognitionOutcome.Match(verdict.track), keepGoing = false, heardAtMs = verdict.heardAtMs)
+            }
+            is ClipSession.Verdict.NoSong -> {
+                Log.i(TAG, "No song in the phone's sound: ${verdict.why}")
+                _state.value = when {
+                    // Nothing ever sounded, so no question was asked to say so.
+                    verdict.silent -> State.Failed("silence", heardNothing = true, fromPhone = true)
+                    verdict.refused != null -> State.Failed(verdict.refused, heardNothing = false, fromPhone = true)
+                    else -> State.NoMatch
+                }
+            }
+        }
+        halt()
     }
 
     private suspend fun identify(window: MicrophoneListener.Window) {
