@@ -1,0 +1,9 @@
+Version 0.10.9
+=== Correct. ===
+• J'aime : plus de retraits intempestifs si la liste est vide ou partielle (délai de 3 jours). Téléchargements : décompte précis.
+• Lecture : passage auto au suivant en cas d'erreur, mention explicite des restrictions d'âge, boutons corrigés sur Samsung, expiration des requêtes bloquées.
+• Sélections rapides : fin des extraits de 30 s, limitation à 2 chansons par artiste et meilleur filtrage radio.
+• Interface : indicateur de chargement optimisé, clavier persistant lors de la saisie, barre de navigation adaptative et boutons tactiles agrandis.
+• Sauvegardes : fréquences étendues (toutes les 6 h, mois, an) et exécution en arrière-plan avec indicateur.
+• Qualité audio : actualisation auto du cache en cas de hausse de qualité.
+Journal complet : https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.10.9
