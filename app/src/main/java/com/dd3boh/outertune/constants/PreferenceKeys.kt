@@ -350,8 +350,11 @@ val ExcludedScanPathsKey = stringPreferencesKey("exclScanPaths") // previously "
 val LastLocalScanKey = longPreferencesKey("lastLocalScan")
 /** Whether the automatic scan has asked for the storage permission yet. It asks once; see scanInit. */
 val LocalMediaPermissionAskedKey = booleanPreferencesKey("localMediaPermissionAsked")
-/** Set once TrackTagReread has read the track tags of the local songs that had no number (issue #39). */
-val TrackTagsRereadKey = booleanPreferencesKey("trackTagsReread")
+/**
+ * Set once TrackTagReread has read the tags of the local songs that had no track or no disc number
+ * (issue #39). "trackTagsReread" was the pass of 0.12.5, which looked at the track numbers only.
+ */
+val TrackTagsRereadKey = booleanPreferencesKey("trackTagsRereadDiscs")
 
 /**
  * Experimental settings
@@ -544,6 +547,21 @@ val UpdateSnoozeUntilKey = longPreferencesKey("updateSnoozeUntil")
 
 /** The version code the background check last notified about, so it says so once, not every run. */
 val LastNotifiedUpdateCodeKey = intPreferencesKey("lastNotifiedUpdateCode")
+
+/**
+ * Epoch millis of the tap on Open Auto Blocker that the install is to start again after: it starts
+ * when the person is next back in InterTune, within half an hour, and this is cleared as it does.
+ * Unset when nothing is owed. In the settings and not in memory, since the app can be ended while
+ * the person is in Settings. See AutoBlockerReturn.
+ */
+val AutoBlockerReturnAtKey = longPreferencesKey("autoBlockerReturnAt")
+
+/**
+ * The version code of the build that last saw Auto Blocker stop an install. The build that
+ * replaces it says once that Auto Blocker can go back on, and clears this as it does. Unset when
+ * there is nothing to say. See AutoBlockerReturn.
+ */
+val AutoBlockerBlockedByKey = intPreferencesKey("autoBlockerBlockedBy")
 
 /** The poll id the background check last notified about, for the same reason. */
 val LastNotifiedPollIdKey = stringPreferencesKey("lastNotifiedPollId")

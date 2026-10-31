@@ -59,6 +59,7 @@ import com.dd3boh.outertune.ui.screens.playlist.LocalPlaylistScreen
 import com.dd3boh.outertune.ui.screens.playlist.OnlinePlaylistScreen
 import com.dd3boh.outertune.ui.screens.search.OnlineSearchResult
 import com.dd3boh.outertune.ui.screens.search.SearchBarContainer
+import com.dd3boh.outertune.ui.screens.search.SearchFilters
 import com.dd3boh.outertune.ui.screens.settings.AboutScreen
 import com.dd3boh.outertune.ui.screens.settings.AccountSyncSettings
 import com.dd3boh.outertune.ui.screens.settings.AdvancedSettings
@@ -113,6 +114,11 @@ fun NavGraphBuilder.appDestinations(
     welcomeCard: () -> WelcomeCard?,
     onWelcomeSee: () -> Unit,
     onWelcomeDismiss: () -> Unit,
+    /** Whether Home shows the word about Auto Blocker (HomeScreen), and what its buttons do. */
+    autoBlockerNote: () -> Boolean,
+    onAutoBlockerNoteShown: () -> Unit,
+    onAutoBlockerNoteOpen: () -> Unit,
+    onAutoBlockerNoteDone: () -> Unit,
     /** Outlives every destination, for work a destination starts and then pops itself before. */
     appScope: CoroutineScope,
 ) {
@@ -122,6 +128,10 @@ fun NavGraphBuilder.appDestinations(
                 welcomeCard = welcomeCard(),
                 onWelcomeSee = onWelcomeSee,
                 onWelcomeDismiss = onWelcomeDismiss,
+                autoBlockerNote = autoBlockerNote(),
+                onAutoBlockerNoteShown = onAutoBlockerNoteShown,
+                onAutoBlockerNoteOpen = onAutoBlockerNoteOpen,
+                onAutoBlockerNoteDone = onAutoBlockerNoteDone,
             )
         }
         screen(Screens.Songs.route, floating = false) {
@@ -186,7 +196,9 @@ fun NavGraphBuilder.appDestinations(
             SearchBarContainer(navController, scrollBehavior, searchActive()) { onSearchActiveChange(it) }
         }
         screen(
-            route = "search/{query}",
+            // filter: the chip the page starts on, by name (SearchFilters), for a search edited on
+            // a page of results; none for All.
+            route = SearchFilters.ROUTE,
             floating = false,
             arguments = listOf(
                 // nullable because androidx.navigation reserves the
@@ -199,7 +211,12 @@ fun NavGraphBuilder.appDestinations(
                 navArgument("query") {
                     type = NavType.StringType
                     nullable = true
-                }
+                },
+                navArgument("filter") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
             )
         ) {
             OnlineSearchResult(navController)

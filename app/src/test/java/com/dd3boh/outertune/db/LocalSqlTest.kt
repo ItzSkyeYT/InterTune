@@ -63,24 +63,79 @@ class LocalSqlTest {
             )
         }
 
-    private fun withoutTrackNumber(after: String, limit: Int): List<String> =
-        db.prepareStatement(LocalSql.SONGS_WITHOUT_TRACK_NUMBER).use { st ->
+    private fun toReread(after: String, limit: Int): List<String> =
+        db.prepareStatement(LocalSql.SONGS_TO_REREAD).use { st ->
             st.setString(1, after)
             st.setInt(2, limit)
-            st.executeQuery().use { rs -> buildList { while (rs.next()) add(rs.getString("id") + " " + rs.getString("localPath")) } }
+            st.executeQuery().use { rs ->
+                buildList {
+                    while (rs.next()) add("${rs.getString("id")} ${rs.getString("localPath")} ${rs.getObject("trackNumber")} ${rs.getObject("discNumber")}")
+                }
+            }
         }
 
     @Test
     fun `the track tag pass finds local songs in the library with no track number, a page at a time`() {
-        row("LSnone", track = null)
-        row("LSzero", track = 0)
-        row("LSnumbered", track = 3)
+        row("LSnone", track = null, disc = 1)
+        row("LSzero", track = 0, disc = 1)
+        row("LSnumbered", track = 3, disc = 1)
         row("LSdisabled", track = null, inLibrary = false)
         row("LSnofile", track = null, path = null)
         row("dQw4w9WgXcQ", isLocal = false, track = null)
-        assertEquals(listOf("LSnone /m/LSnone.mp3", "LSzero /m/LSzero.mp3"), withoutTrackNumber("", 50))
-        assertEquals(listOf("LSnone /m/LSnone.mp3"), withoutTrackNumber("", 1))
-        assertEquals(listOf("LSzero /m/LSzero.mp3"), withoutTrackNumber("LSnone", 50))
+        assertEquals(listOf("LSnone /m/LSnone.mp3 null 1", "LSzero /m/LSzero.mp3 0 1"), toReread("", 50))
+        assertEquals(listOf("LSnone /m/LSnone.mp3 null 1"), toReread("", 1))
+        assertEquals(listOf("LSzero /m/LSzero.mp3 0 1"), toReread("LSnone", 50))
+    }
+
+    @Test
+    fun `the track tag pass also finds the songs that have their track number and no disc`() {
+        // Before 0.12.5 a track tag "4" was read and a disc tag "2/2" was not: the pass of 0.12.5
+        // looked at track numbers only and passed these over.
+        row("LSnodisc", track = 4, disc = null)
+        row("LSzerodisc", track = 4, disc = 0)
+        row("LScomplete", track = 4, disc = 2)
+        assertEquals(listOf("LSnodisc /m/LSnodisc.mp3 4 null", "LSzerodisc /m/LSzerodisc.mp3 4 0"), toReread("", 50))
+    }
+
+    private fun folderDates(filter: String): List<String> =
+        db.prepareStatement(LocalSql.LOCAL_FOLDER_DATES.replace(":filter", "?")).use { st ->
+            st.setString(1, filter)
+            st.executeQuery().use { rs ->
+                buildList {
+                    while (rs.next()) {
+                        add(listOf("dir", "added", "modified", "released", "year").joinToString(" ") { "${rs.getObject(it)}" })
+                    }
+                }.sorted()
+            }
+        }
+
+    private fun dated(id: String, path: String, added: Long?, modified: Long? = null, released: Long? = null, year: Int? = null, isLocal: Boolean = true) =
+        db.createStatement().use {
+            it.execute(
+                "INSERT INTO song(id, title, duration, liked, isLocal, localPath, inLibrary, dateModified, date, year) " +
+                        "VALUES ('$id', '$id', 200, 0, ${if (isLocal) 1 else 0}, '$path', ${added ?: "NULL"}, ${modified ?: "NULL"}, " +
+                        "${released ?: "NULL"}, ${year ?: "NULL"})"
+            )
+        }
+
+    @Test
+    fun `each folder under the one open gives the newest dates of its songs`() {
+        dated("LSa1", "/m/Music/A/1.mp3", added = 100, modified = 10, released = 1000, year = 1999)
+        dated("LSa2", "/m/Music/A/2.mp3", added = 300, modified = 5, released = null, year = 2001)
+        dated("LSb1", "/m/Music/B/CD 1/1.flac", added = 200)
+        dated("LSloose", "/m/Music/loose.mp3", added = 50)
+        // Not in the library, not local, or not under the folder: none of them counts.
+        dated("LSgone", "/m/Music/A/gone.mp3", added = null)
+        dated("dQw4w9WgXcQ", "/m/Music/A/video.mka", added = 900, isLocal = false)
+        dated("LSelsewhere", "/m/Other/A/1.mp3", added = 900)
+        assertEquals(
+            listOf(
+                "/m/Music/ 50 null null null",
+                "/m/Music/A/ 300 10 1000 2001",
+                "/m/Music/B/CD 1/ 200 null null null",
+            ),
+            folderDates("/m/Music/"),
+        )
     }
 
     @Test

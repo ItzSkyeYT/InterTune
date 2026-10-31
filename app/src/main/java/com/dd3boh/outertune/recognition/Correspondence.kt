@@ -61,6 +61,31 @@ internal fun corresponds(
             title.startsWithWord(candidateTitle)
 }
 
+/**
+ * What to search for to find the song itself, when the search for Shazam's whole name found only
+ * other people's uploads: the name without its version, which YouTube Music may not list as a song,
+ * and the artist. "Lush Life (Riot Remix)" by Zara Larsson is "Lush Life Zara Larsson". Null when
+ * the name has no version to leave out, so a second search would only ask the first again, or when
+ * there is no artist, without which nothing found can be told to be the song ([corresponds]).
+ */
+internal fun songItselfQuery(track: Recognised): String? {
+    val artist = track.artist?.trim().orEmpty()
+    val bare = MixSearch.bareTitle(track.title)
+    if (artist.isEmpty() || bare.isEmpty() || bare == track.title.trim()) return null
+    return "$bare $artist"
+}
+
+/**
+ * The candidates once the song itself has been searched for ([songItselfQuery]): whatever in
+ * [second] is the song by its artist ([corresponds]), in front of what the first search found,
+ * [first], at most [most] in all. Null when [second] holds nothing that is the song: [first] stands.
+ */
+internal fun withSongItself(track: Recognised, first: List<SongItem>, second: List<SongItem>, most: Int = 4): List<SongItem>? {
+    val itself = second.filter { corresponds(track, it) }
+    if (itself.isEmpty()) return null
+    return (itself + first).distinctBy { it.id }.take(most)
+}
+
 private val DJ_MIX = Regex(
     "contin[ui]+ous mix|non-?stop mix|\\bmixed by|megamix|\\bhit ?mix\\b|\\bdj mix\\b|year ?mix",
     RegexOption.IGNORE_CASE,

@@ -41,12 +41,23 @@ object LibrarySql {
      * whatever order SQLite found the rows, and writing an album's page stores the songs new to
      * the database before the ones it already had, so the album menu's Play next, Add to queue and
      * Add to playlist, Android Auto and I'm feeling lucky could all start part way through.
+     *
+     * The songs of an album of files on the phone go disc by disc, then by track, with the songs
+     * that have no track number last, by title, as the Folders tab sorts them (FolderSongOrder).
+     * Their place in song_album_map is only the order the scan met the files in, which follows
+     * the folder's listing, so a local album's page came out shuffled (issue #39). A YouTube
+     * album's songs are not files and keep the order of its page.
      */
     const val ALBUM_SONGS = """
         SELECT song.* FROM song
             JOIN song_album_map ON song.id = song_album_map.songId
         WHERE song_album_map.albumId = :albumId
-        ORDER BY song_album_map.`index`
+        ORDER BY
+            CASE WHEN song.isLocal AND coalesce(song.trackNumber, 0) <= 0 THEN 1 ELSE 0 END,
+            CASE WHEN song.isLocal AND song.trackNumber > 0 THEN max(coalesce(song.discNumber, 1), 1) ELSE 0 END,
+            CASE WHEN song.isLocal AND song.trackNumber > 0 THEN song.trackNumber ELSE 0 END,
+            CASE WHEN song.isLocal THEN lower(song.title) ELSE '' END,
+            song_album_map.`index`
     """
 
     /** The ids of [ALBUM_SONGS] that are not files on the phone: what can be downloaded of the album. */

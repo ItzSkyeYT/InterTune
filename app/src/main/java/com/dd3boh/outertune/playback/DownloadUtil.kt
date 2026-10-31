@@ -1,5 +1,8 @@
 package com.dd3boh.outertune.playback
 
+import com.dd3boh.outertune.ui.player.ART_PREVIEW_PX
+import com.dd3boh.outertune.utils.DownloadCovers
+import com.dd3boh.outertune.ui.utils.resize
 import android.content.Context
 import android.net.ConnectivityManager
 import android.util.Log
@@ -717,6 +720,11 @@ class DownloadUtil @Inject constructor(
      * media3 ignores a song it has no download for.
      */
     fun removeDownload(id: String) {
+        CoroutineScope(Dispatchers.IO).launch {
+            runCatching { database.song(id).first()?.thumbnailUrl }.getOrNull()?.takeIf { it.startsWith("http") }?.let { url ->
+                for (model in listOf(url, url.resize(ART_PREVIEW_PX, ART_PREVIEW_PX))) DownloadCovers.remove(context.filesDir, model)
+            }
+        }
         deleteSong(id)
         DownloadService.sendRemoveDownload(context, ExoDownloadService::class.java, id, false)
     }
@@ -780,6 +788,32 @@ class DownloadUtil @Inject constructor(
             output.close()
         }
         return null
+    }
+
+    /**
+     * A downloaded song's cover, kept now as a file in the app's own storage (DownloadCovers), so it shows
+     * with no network even if the song never played online and after Android empties the image cache (dvd, 27 Oct 2026: covers came only from playing). Two
+     * addresses, the ones that are the same on every phone: the plain one lists ask for, and the
+     * player's small first cover (ART_PREVIEW_PX). The player's sharp cover depends on the screen;
+     * offline it falls back to the small one under it.
+     */
+    /** Every download's covers kept as files, for the downloads made before they were (0.12.6). A kept one costs nothing. */
+    private suspend fun keepMissingCovers() = withContext(Dispatchers.IO) {
+        for (id in downloads.value.keys) {
+            val url = runCatching { database.song(id).first()?.thumbnailUrl }.getOrNull()
+            if (url.isNullOrBlank() || !url.startsWith("http")) continue
+            for (model in listOf(url, url.resize(ART_PREVIEW_PX, ART_PREVIEW_PX))) DownloadCovers.save(context.filesDir, model)
+        }
+    }
+
+    private fun keepCoverForOffline(id: String) {
+        CoroutineScope(Dispatchers.IO).launch {
+            val url = runCatching { database.song(id).first()?.thumbnailUrl }.getOrNull()
+            if (url.isNullOrBlank() || !url.startsWith("http")) return@launch
+            for (model in listOf(url, url.resize(ART_PREVIEW_PX, ART_PREVIEW_PX))) {
+                DownloadCovers.save(context.filesDir, model)
+            }
+        }
     }
 
     /**
@@ -1037,6 +1071,9 @@ class DownloadUtil @Inject constructor(
         // TODO: make sure db is update when download is queued
         CoroutineScope(dlCoroutine).launch {
             rescanDownloads()
+            // Downloads made before their covers were kept as files get theirs now, one at a time;
+            // with no network nothing comes and the next start tries again (DownloadCovers).
+            keepMissingCovers()
         }
         // The phone's battery saver can turn Battery use's Saver on and off at any time
         // (PhoneBatterySaver), and Saver downloads on Wi-Fi only: the manager is told at once.
@@ -1071,7 +1108,10 @@ class DownloadUtil @Inject constructor(
                     download: Download,
                     finalException: Exception?
                 ) {
-                    if (download.state == Download.STATE_COMPLETED) finishedSinceMove += download.request.id
+                    if (download.state == Download.STATE_COMPLETED) {
+                        finishedSinceMove += download.request.id
+                        keepCoverForOffline(download.request.id)
+                    }
                     // The map's removal below is all it ever shows of a failure, which looks the
                     // same as a song media3 has not been handed yet. The catch up needs the
                     // difference, so the ending is recorded for it here.

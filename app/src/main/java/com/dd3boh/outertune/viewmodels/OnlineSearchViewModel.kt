@@ -9,6 +9,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dd3boh.outertune.models.ItemsPage
+import com.dd3boh.outertune.ui.screens.search.SearchFilters
 import com.dd3boh.outertune.utils.reportException
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.pages.SearchSummaryPage
@@ -26,7 +27,9 @@ class OnlineSearchViewModel @Inject constructor(
     // null here can only mean the user searched for the word "null". Without this the nullable
     // nav arg just moves upstream #1190's crash from a verification failure to an NPE.
     val query = savedStateHandle.get<String>("query") ?: "null"
-    val filter = MutableStateFlow<YouTube.SearchFilter?>(null)
+
+    /** The chip on, null for All: the one the route names, for a search edited on another page of results. */
+    val filter = MutableStateFlow(SearchFilters.of(savedStateHandle.get<String>("filter")))
     var summaryPage by mutableStateOf<SearchSummaryPage?>(null)
     val viewStateMap = mutableStateMapOf<String, ItemsPage?>()
 

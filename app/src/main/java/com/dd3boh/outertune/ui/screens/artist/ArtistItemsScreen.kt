@@ -169,7 +169,8 @@ fun ArtistItemsScreen(
         ) {
             itemsIndexed(
                 items = itemsPage?.items?.filterIsInstance<SongItem>().orEmpty(),
-                key = { _, item -> item.hashCode() }
+                // YouTube can list a song twice; its place keeps the key unique, and a tap plays the place tapped (#53).
+                key = { index, item -> "${item.id}#$index" }
             ) { index, song ->
                 val onCheckedChange: (Boolean) -> Unit = {
                     haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
@@ -270,7 +271,8 @@ fun ArtistItemsScreen(
         ) {
             itemsIndexed(
                 items = itemsPage?.items.orEmpty(),
-                key = { _, item -> item.hashCode() }
+                // YouTube can list a song twice; its place keeps the key unique, and a tap plays the place tapped (#53).
+                key = { index, item -> "${item.id}#$index" }
             ) { index, item ->
                 itemsPage?.items?.map {it.id}
                 YouTubeGridItem(

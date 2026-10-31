@@ -124,6 +124,11 @@
     </plurals>
     <string name="swipe2Queue">Glisser pour mettre en file d’attente</string>
     <string name="playlist_add_local_to_synced_note">L\'ajout de fichiers de ce téléphone à une playlist synchronisée avec YouTube Music n\'est pas pris en charge.</string>
+    <plurals name="playlist_add_skipped">
+        <item quantity="one">%1$d titre n\'a pas pu être ajouté à la playlist.</item>
+        <item quantity="many">%1$d titres n\'ont pas pu être ajoutés à la playlist.</item>
+        <item quantity="other">%1$d titres n\'ont pas pu être ajoutés à la playlist.</item>
+    </plurals>
     <string name="grp_lyrics_format">Formatage</string>
     <string name="tab_arrangement_disable_tip">--- Faites glisser ci-dessous pour désactiver ---</string>
     <string name="scanner_progress_syncing">Synchronisation…</string>
@@ -387,7 +392,8 @@
     <string name="update_awaiting_confirmation">Prête. Android va vous demander de confirmer l\'installation.</string>
     <string name="update_needs_permission">Android a besoin de votre autorisation pour qu\'InterTune installe des applications. Touchez pour ouvrir ce paramètre, puis revenez et réessayez.</string>
     <string name="update_install_failed">Installation impossible : %1$s. Vous pouvez toujours la télécharger vous-même depuis la page de la version.</string>
-    <string name="update_blocked_samsung">L\'installation n\'a pas abouti. Le Bloqueur automatique de Samsung l\'a sans doute empêchée : désactivez-le le temps d\'installer, puis réactivez-le si vous voulez.</string>
+    <string name="update_blocked_samsung">L\'installation n\'a pas abouti : le Bloqueur automatique de Samsung l\'a sans doute empêchée. Désactivez-le, puis revenez ici et l\'installation recommence toute seule. Vous pouvez réactiver le Bloqueur automatique juste après.</string>
+    <string name="auto_blocker_note">Mise à jour terminée. Si vous avez désactivé le Bloqueur automatique pour cela, vous pouvez le réactiver maintenant.</string>
     <string name="update_blocked">L\'installation n\'a pas abouti. Réessayez, ou téléchargez la mise à jour depuis la page de la version.</string>
     <string name="update_open_auto_blocker">Ouvrir le Bloqueur automatique</string>
     <string name="update_try_again">Réessayer</string>
@@ -1582,6 +1588,10 @@
     <string name="share_link_page_description">La personne choisit son appli : Spotify, Apple Music, Deezer et d\'autres</string>
     <string name="share_link_choice_kept">Votre choix est gardé pour les prochains partages. Vous pouvez le changer à tout moment dans Paramètres, sous %1$s.</string>
     <string name="share_link_not_chosen">Pas encore choisi</string>
+    <string name="open_links_title">Ouvrir les liens dans %1$s</string>
+    <string name="open_links_description">Les liens YouTube Music et intertune.app s\'ouvrent dans cette appli. Désactivez pour laisser une autre appli, comme InterTune Preview, les ouvrir.</string>
+    <string name="open_links_android_off">Le réglage des liens d\'Android est désactivé pour cette appli : aucun lien ne s\'y ouvre.</string>
+    <string name="open_links_android_settings">Réglages des liens d\'Android</string>
     <string name="stats_nothing_played">Rien n\'a été joué sur cette période.</string>
     <string name="sort_order_ascending">Ordre croissant</string>
     <string name="sort_order_descending">Ordre décroissant</string>
@@ -1987,6 +1997,7 @@
     <string name="search_words_ytm_sync">YouTube Music, playlists, j\'aime, bibliothèque</string>
     <string name="search_words_sync_now">synchroniser maintenant, actualiser</string>
     <string name="search_words_share_links">partager, lien</string>
+    <string name="search_words_open_links">liens pris en charge, ouvrir par défaut, application par défaut, YouTube</string>
     <string name="search_words_explicit">explicite, contrôle parental, enfants, grossièretés</string>
     <string name="search_words_language">langue</string>
     <string name="search_words_country">pays, région</string>

@@ -97,7 +97,14 @@
             <!-- The app's own links, which the share page (intertune.app/s/) opens it with where a
                  browser keeps YouTube's addresses to itself: Brave refuses a page's link to one
                  while "Open YouTube links in Brave" is on (brave-browser#46614). YouTubeLink reads
-                 them as the same pages. -->
+                 them as the same pages.
+
+                 Stays here whatever "Open links in InterTune" says (the links on OpenLinksActivity
+                 below follow it). The phone's own search hands the app intertune://play?v=... and
+                 intertune://playlist/..., the rows SystemSearchProvider serves, and it is the
+                 phone's search that builds that intent, so nothing here says it names this
+                 activity. And the app's own scheme is no web address: with two apps that take it,
+                 Android asks which one. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
 
@@ -107,6 +114,58 @@
                 <data android:scheme="intertune" />
             </intent-filter>
 
+            <!-- Play from search: "play X" from a voice assistant, a car or an automation app, with
+                 the words in SearchManager.QUERY and no data. On the activity itself and not on
+                 OpenLinksActivity, so that "Open links in InterTune" never switches it off. The YouTube link
+                 filters used to name this action as well, but they also want a link, so a plain
+                 request never matched them; they no longer do. MainActivity hands the words to the
+                 media session. -->
+            <intent-filter>
+                <action android:name="android.media.action.MEDIA_PLAY_FROM_SEARCH" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+
+            <!-- Share filter -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+        </activity>
+
+        <!--
+          The links the app opens for others: the share page's, YouTube's and YouTube Music's. They sit
+          on a small activity of their own, OpenLinksActivity, that hands the link to MainActivity and
+          is gone, so that the app can switch them off by itself (OpenLinks, the switch "Open links in
+          InterTune" in Settings), which the filters of MainActivity cannot be. The release app, a
+          Preview and a Debug build all declare these links and Android gives each link to one of them,
+          with no way to choose from inside the app; with this activity off, the others get them.
+
+          Why not an alias of MainActivity: the record of an activity that a link started under an alias
+          is named after the alias, and Android finishes the activities of a component that is disabled,
+          so turning the switch off from inside an app a link had started closed the app. Here nothing
+          that runs is ever named after the component the switch turns off.
+
+          Enabled here, so a build nobody has asked takes the links as it always did. What is not a
+          link to open stays on MainActivity itself: the launcher, the phone's search, play from
+          search, Share and the app's own scheme. The activity's name is in OpenLinks.COMPONENT, and
+          OpenLinksTest holds the two together.
+        -->
+        <activity
+            android:name=".OpenLinksActivity"
+            android:enabled="true"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.NoDisplay">
             <!-- The share page's links (intertune.app/s/#v=...), tapped in a chat or any other app, open
                  here straight away once Android has checked intertune.app/.well-known/assetlinks.json,
                  which names the app (verified domain by domain from Android 12). Without the app they
@@ -128,7 +187,6 @@
             <!-- Youtube filter -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
-                <action android:name="android.media.action.MEDIA_PLAY_FROM_SEARCH" />
                 <action android:name="android.nfc.action.NDEF_DISCOVERED" />
 
                 <category android:name="android.intent.category.DEFAULT" />
@@ -154,7 +212,6 @@
 
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
-                <action android:name="android.media.action.MEDIA_PLAY_FROM_SEARCH" />
                 <action android:name="android.nfc.action.NDEF_DISCOVERED" />
 
                 <category android:name="android.intent.category.DEFAULT" />
@@ -167,7 +224,6 @@
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
-                <action android:name="android.media.action.MEDIA_PLAY_FROM_SEARCH" />
                 <action android:name="android.nfc.action.NDEF_DISCOVERED" />
 
                 <category android:name="android.intent.category.DEFAULT" />
@@ -176,29 +232,6 @@
                 <data android:scheme="vnd.youtube" />
                 <data android:scheme="vnd.youtube.launch" />
             </intent-filter>
-
-            <!-- Play from search: "play X" from a voice assistant, a car or an automation app, with
-                 the words in SearchManager.QUERY and no data. The YouTube filters above name this
-                 action too, but they also want a link, so a plain request never matched them.
-                 MainActivity hands the words to the media session. -->
-            <intent-filter>
-                <action android:name="android.media.action.MEDIA_PLAY_FROM_SEARCH" />
-
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-
-            <!-- Share filter -->
-            <intent-filter>
-                <action android:name="android.intent.action.SEND" />
-
-                <category android:name="android.intent.category.DEFAULT" />
-
-                <data android:mimeType="text/plain" />
-            </intent-filter>
-
-            <meta-data
-                android:name="android.app.shortcuts"
-                android:resource="@xml/shortcuts" />
         </activity>
 
         <!-- The phone's own search asks this for suggestions from the library, readable only by a
@@ -278,9 +311,12 @@
           The home screen widget. Its updates come from the app itself as things happen, never on
           a timer, so nothing here wakes for a widget with nothing new to show.
         -->
-        <!-- What a widget holds, asked when it is dropped and answerable again from the launcher. -->
+        <!-- What a widget holds, asked when it is dropped and answerable again from the launcher. In a task
+             of its own: the launcher opens it with CLEAR_TASK, which in the app's task closed the app's
+             own screen behind it (seen 27 Oct 2026). -->
         <activity
             android:name=".widget.WidgetConfigActivity"
+            android:taskAffinity=""
             android:enabled="true"
             android:excludeFromRecents="true"
             android:exported="true"

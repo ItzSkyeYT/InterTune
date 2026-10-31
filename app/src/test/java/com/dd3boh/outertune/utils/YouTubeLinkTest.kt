@@ -212,7 +212,8 @@ class YouTubeLinkTest {
         }
         assertEquals("one filter for the site", 1, filters.size)
         val filter = filters.single()
-        assertEquals(".MainActivity", (filter.parentNode as Element).getAttribute("android:name"))
+        // On the activity "Open links in InterTune" turns on and off, with the YouTube links (OpenLinksTest).
+        assertEquals(".OpenLinksActivity", (filter.parentNode as Element).getAttribute("android:name"))
         fun all(tag: String, attribute: String) =
             filter.getElementsByTagName(tag).elements().map { it.getAttribute("android:$attribute") }.filter { it.isNotEmpty() }.toSet()
         // Checked by Android against intertune.app/.well-known/assetlinks.json: once it passes, a tap opens the app straight away.

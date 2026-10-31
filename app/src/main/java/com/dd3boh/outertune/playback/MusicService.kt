@@ -737,6 +737,13 @@ class MusicService : MediaLibraryService(),
      */
     val reachedInQueue = MutableStateFlow<Set<String>>(emptySet())
 
+    /**
+     * The songs the listener put into the current queue's run by hand (Play next, Add to queue) or
+     * moved there, for the queue view: in a radio they play before the radio's own (AddToQueue),
+     * and they are shown with the songs ahead rather than folded away with the radio's.
+     */
+    val byHandInQueue = MutableStateFlow<Set<String>>(emptySet())
+
     /** Whether the song that just started was reached by going back. Set in noteTransition. */
     private var transitionWentBack = false
 
@@ -2430,7 +2437,7 @@ class MusicService : MediaLibraryService(),
                     // The player's index means nothing while it holds nothing, which it does after
                     // a restart until play is pressed. See MultiQueueObject.playNextIndex.
                     val playerIndex = activePlayer.currentMediaItemIndex.takeIf { activePlayer.currentMediaItem != null }
-                    noteByHand(q, items)
+                    noteByHand(q, items.map { it.mediaId })
                     val songs = items.mapNotNull { it.metadata }
                     // Held to the queue's length here as insertAtPlayIndex holds it, so the place
                     // noted below is the one the songs went to.
@@ -2465,17 +2472,38 @@ class MusicService : MediaLibraryService(),
             }
             return
         }
-        queueBoard.getCurrentQueue()?.let { noteByHand(it, items) }
-        queueBoard.enqueueEnd(items.mapNotNull { it.metadata })
+        queueBoard.getCurrentQueue()?.let { addToQueue(it, items.mapNotNull { item -> item.metadata }) }
     }
 
     /**
-     * [items] go into [q] by the listener's hand, not the radio's: the adaptive queue leaves them
-     * where they are put. Before play after a restart that is the saved queue's run, which this
+     * [songs] added to [q] with Add to queue, by the listener's hand: at the end of a list somebody
+     * chose, and in a radio after the listener's own songs that follow the song playing and before
+     * the radio's own, which carries on after them (AddToQueue). From the swipe on a song, and from
+     * a menu's Add to queue with [q] picked (QueueBoard.addQueue), which used to end the radio.
+     * Main thread.
+     */
+    fun addToQueue(q: MultiQueueObject, songs: List<MediaMetadata>) {
+        if (songs.isEmpty()) return
+        val radio = q.playlistId != null
+        // The player's place while it holds this queue; before play after a restart, or for a
+        // queue not playing, the queue's own, as Play next goes by (MultiQueueObject.playNextIndex).
+        val playing = if (queueBoard.getCurrentQueue() === q && activePlayer.currentMediaItem != null) activePlayer.currentMediaItemIndex
+            else q.getQueuePosShuffled()
+        // Found before the songs are noted as his: a song of the radio's that is also being added
+        // would otherwise count as his, and the place would move past it.
+        val byHand = if (radio) heard.byHandIn(q.id, q.runId) else emptySet()
+        val at = AddToQueue.place(q.getCurrentQueueShuffled().map { it.id }, playing, radio, byHand)
+        noteByHand(q, songs.map { it.id })
+        queueBoard.addSongsToQueue(q, at, songs)
+    }
+
+    /**
+     * The songs [ids] go into [q] by the listener's hand, not the radio's: the adaptive queue leaves
+     * them where they are put. Before play after a restart that is the saved queue's run, which this
      * brings back first if the last process saved it. Main thread.
      */
-    private fun noteByHand(q: MultiQueueObject, items: List<MediaItem>) {
-        heard.putInByHand(q.id, q.runId, items.map { it.mediaId }, radio = q.playlistId != null)
+    private fun noteByHand(q: MultiQueueObject, ids: List<String>) {
+        heard.putInByHand(q.id, q.runId, ids, radio = q.playlistId != null)
         heard.takeRestored()?.let { Log.d(TAG, AdaptivePass.restoredLine(it)) }
         adaptiveChanged()
     }
@@ -3425,6 +3453,7 @@ class MusicService : MediaLibraryService(),
      */
     private fun adaptiveChanged() {
         reachedInQueue.value = heard.reached.toSet()
+        byHandInQueue.value = heard.byHand.toSet()
         publishAdaptive()
         if (!persistentQueue) return
         adaptiveMemoryWrite?.cancel()

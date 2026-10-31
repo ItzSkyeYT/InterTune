@@ -12,7 +12,6 @@ import android.os.ParcelFileDescriptor
 import android.util.Log
 import com.dd3boh.outertune.constants.DEBUG_SAVE_OUTPUT
 import com.dd3boh.outertune.constants.EXTRACTOR_DEBUG
-import com.dd3boh.outertune.constants.SCANNER_DEBUG
 import com.dd3boh.outertune.db.entities.AlbumEntity
 import com.dd3boh.outertune.db.entities.ArtistEntity
 import com.dd3boh.outertune.db.entities.FormatEntity
@@ -78,8 +77,8 @@ class FFmpegScanner() : MetadataScanner {
             val rawArtists: String? = data.artist
             var albumName: String? = data.album
             val genres: String? = data.genre
-            var trackNumber: Int? = null
-            var discNumber: Int? = null
+            // "track: 4/12" in MP3 and M4A files, "TRACKNUMBER: 4" in Vorbis comments (TrackTags).
+            val (trackNumber, discNumber) = TrackTags.fromFfmpegTags(data.extrasRaw.toList())
             var rawDate: String? = null
             val codec: String? = data.codec
             val type: String? = data.codecType?.lowercase()
@@ -139,24 +138,8 @@ class FFmpegScanner() : MetadataScanner {
                         }
                     }
 
-                    "TRACKNUMBER" -> {
-                        try {
-                            trackNumber = parseInt(it)
-                        } catch (e: Exception) {
-                            if (SCANNER_DEBUG) {
-                                e.printStackTrace()
-                            }
-                        }
-                    }
-                    "DISCNUMBER" -> {
-                        try {
-                            discNumber = parseInt(it)
-                        } catch (e: Exception) {
-                            if (SCANNER_DEBUG) {
-                                e.printStackTrace()
-                            }
-                        }
-                    }
+                    // Read above.
+                    "TRACKNUMBER", "DISCNUMBER", "track", "disc" -> Unit
 
                     else -> {
                         extraData += "$tag: $it\n"

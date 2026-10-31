@@ -189,7 +189,9 @@ class BackgroundCheckWorker(
         private const val WORK_NAME = "background_checks"
         /** Read by MainActivity to open the question rather than merely the app. */
         const val EXTRA_OPEN_POLL = "com.dd3boh.outertune.OPEN_POLL"
-        private const val UPDATE_NOTIFICATION_ID = 4244
+        // 4244 was also What's playing's result (RecognitionService), so a found song took the place of
+        // an update waiting to be installed, and the other way round. NotificationIdsTest keeps them apart.
+        private const val UPDATE_NOTIFICATION_ID = 4247
         private const val POLL_NOTIFICATION_ID = 4245
 
         /** What the setting offers. 0 is off, and is the default. */

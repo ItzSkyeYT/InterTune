@@ -349,7 +349,6 @@ class ErrorTextTest {
         // These play and read what is on the phone. No connection is made, so no address is named.
         val onThePhone = setOf(
             "playback/LevelTap.kt",
-            "utils/scanners/FFmpegScanner.kt",
             "utils/scanners/LocalMediaScanner.kt",
             "utils/scanners/TagLibScanner.kt",
         )
