@@ -91,10 +91,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.onEach
 import okhttp3.OkHttpClient
-import java.io.ByteArrayOutputStream
-import java.io.File
-import java.io.FileInputStream
 import java.io.IOException
+import java.io.InputStream
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
@@ -767,27 +765,19 @@ class DownloadUtil @Inject constructor(
     }
 
     /**
-     * Retrieve song from cache, and delete it from cache afterwards
+     * A song as media3 cached it, read from its files as one stream (cachedPieces), never whole into
+     * memory (#67). Null when the cache holds none of it, or its first file cannot be opened. The
+     * caller closes it.
      */
-    fun getFromCache(cache: SimpleCache, mediaId: String): ByteArray? {
-        val spans: Set<CacheSpan> = cache.getCachedSpans(mediaId)
-        if (spans.isEmpty()) return null
-
-        val output = ByteArrayOutputStream()
-        try {
-            for (span in spans) {
-                val file: File? = span.file
-                FileInputStream(file).use { fis ->
-                    fis.copyTo(output)
-                }
-            }
-            return output.toByteArray()
+    fun openFromCache(cache: SimpleCache, mediaId: String): InputStream? {
+        val files = cache.getCachedSpans(mediaId).mapNotNull { span: CacheSpan -> span.file }
+        if (files.isEmpty()) return null
+        return try {
+            cachedPieces(files)
         } catch (e: IOException) {
             reportException(e)
-        } finally {
-            output.close()
+            null
         }
-        return null
     }
 
     /**
@@ -844,26 +834,28 @@ class DownloadUtil @Inject constructor(
                         }
                     }
                 }
-                val songFromCache = getFromCache(downloadCache, s.key)
-                if (songFromCache != null) {
-                    // The file is written, and checked, before anything of the old copy goes. The
-                    // cache used to be emptied first and a failed write swallowed, so a folder
-                    // that refused the file cost the song outright.
+                // Copied from the cache's files as the new file is written: read whole into memory
+                // first, a long mix ran the app out of memory (#67).
+                val fromCache = openFromCache(downloadCache, s.key) ?: return@forEach
+                // The file is written, and checked, before anything of the old copy goes. The
+                // cache used to be emptied first and a failed write swallowed, so a folder that
+                // refused the file cost the song outright.
+                val saved = fromCache.use { stream ->
                     val displayName = database.song(s.key).first()?.title ?: ""
-                    val saved = localMgr.getFilePathIfExists(s.key) ?: runCatching {
-                        localMgr.saveFile(s.key, songFromCache.inputStream(), displayName)
+                    localMgr.getFilePathIfExists(s.key) ?: runCatching {
+                        localMgr.saveFile(s.key, stream, displayName)
                     }.onFailure { reportException(it) }.getOrNull()
-                    if (saved == null) {
-                        Log.w(TAG, "Could not migrate ${s.key}, its download stays in the app")
-                        return@forEach
-                    }
-                    // The index entry goes as well. Left behind it still said completed, and each
-                    // later scan registered the song as downloaded again, even once its file in the
-                    // folder had been deleted.
-                    runCatching { migratedIndex.removeDownload(s.key) }
-                        .onFailure { Log.w(TAG, "Could not drop the index entry of ${s.key}", it) }
-                    downloadCache.removeResource(s.key)
                 }
+                if (saved == null) {
+                    Log.w(TAG, "Could not migrate ${s.key}, its download stays in the app")
+                    return@forEach
+                }
+                // The index entry goes as well. Left behind it still said completed, and each
+                // later scan registered the song as downloaded again, even once its file in the
+                // folder had been deleted.
+                runCatching { migratedIndex.removeDownload(s.key) }
+                    .onFailure { Log.w(TAG, "Could not drop the index entry of ${s.key}", it) }
+                downloadCache.removeResource(s.key)
             }
             // The scan is what registers the copied files, so the songs play from them. Called
             // through scanDownloads() it returned at once, since this had already set the flag it
