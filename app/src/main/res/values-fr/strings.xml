@@ -213,7 +213,7 @@
     <string name="privacy">Confidentialité</string>
     <string name="pause_listen_history">Suspendre l’historique d’écoute</string>
     <string name="clear_listen_history">Effacer l’historique d’écoute</string>
-    <string name="clear_listen_history_confirm">Effacer toutes les données enregistrées concernant vos parties ? Cette opération efface également le journal à partir duquel la fonction « Sélection Rapide » apprend, tout ce qu\'elle a appris jusqu\'à présent, ainsi que l\'historique des cartes qu\'elle vous a présentées.</string>
+    <string name="clear_listen_history_confirm">Effacer tout ce qui a été enregistré sur ce que vous avez écouté ? Cette opération efface également le journal à partir duquel la Sélection Rapide apprend, tout ce qu\'elle a appris jusqu\'à présent, ainsi que l\'historique des cartes qu\'elle vous a présentées.</string>
     <string name="pause_search_history">Suspendre l\'historique de recherche</string>
     <string name="clear_search_history">Effacer l\'historique de recherche</string>
     <string name="clear_search_history_confirm">Voulez-vous vraiment effacer tout l’historique des recherches ?</string>

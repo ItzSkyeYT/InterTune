@@ -1,4 +1,4 @@
-<p><i>InterTune</i> est un fork d'<a href="[https://github.com/OuterTune/OuterTune](https://github.com/OuterTune/OuterTune)">OuterTune</a>, lui-même dérivé d'<a href="[https://github.com/z-huang/InnerTune](https://github.com/z-huang/InnerTune)">InnerTune</a>. C'est à la fois un lecteur multimédia local et un client YouTube Music.</p>
+<p><i>InterTune</i> est un fork d'<a href="https://github.com/OuterTune/OuterTune">OuterTune</a>, lui-même dérivé d'<a href="https://github.com/z-huang/InnerTune">InnerTune</a>. C'est à la fois un lecteur multimédia local et un client YouTube Music.</p>
 <p>
 <b>Fonctionnalités :</b></p>
 <ul>
@@ -8,14 +8,14 @@
 <li>Lecture de fichiers locaux et de titres YouTube Music dans la même file d'attente</li>
 <li>Diffusion sur Chromecast, récepteur FCast ou téléviseur DLNA</li>
 <li>Onglet Hors ligne listant les morceaux déjà mis en cache pour une consultation sans connexion</li>
-<li>Conception intégrée de l'écran de la bibliothèque</li>
+<li>Un écran de bibliothèque unifié</li>
 <li>Files d'attente multiples</li>
 <li>Paroles synchronisées, y compris mot à mot et style karaoké (LRC, TTML)</li>
 <li>Ligne en caractères latins sous les écritures japonaises (romaji, kanji conservés), coréennes, chinoises, russes et autres (à partir d'Android 10)</li>
 <li>Égaliseur à dix bandes : profils prédéfinis ou mesures adaptées à votre casque (AutoEq)</li>
 <li>Normalisation audio, réglage du tempo et de la tonalité, ainsi que d'autres effets audio</li>
-<li>Choix de la source des Sélections rapides : YouTube Music, Votre bibliothèque ou Meilleures recommandations (générées sur l'appareil selon vos écoutes)</li>
-<li>« Qu'est-ce qui joue ? » identifie la musique environnante via Shazam et peut créer une playlist avec les titres détectés</li>
+<li>Choix de la source de la Sélection Rapide : YouTube Music, Votre bibliothèque ou Meilleures recommandations (générées sur l'appareil selon vos écoutes)</li>
+<li>« Quel est ce titre ? » identifie la musique environnante via Shazam et peut créer une playlist avec les titres détectés</li>
 <li>Widget d'écran d'accueil s'adaptant à sa taille</li>
 <li>Audio spatial sur tout casque, avec suivi des mouvements de tête sur les modèles compatibles</li>
 <li>Compatibilité Android Auto</li>
@@ -36,7 +36,7 @@
 <b>Remarques :</b></p>
 <ul>
 <li>Android 7.0 ou version ultérieure requis.</li>
-<li>Un problème ? Veuillez le signaler depuis l'application (Paramètres, À propos, Envoyer un rapport de bogue) ou sur <a href="[https://github.com/ItzSkyeYT/InterTune/issues](https://github.com/ItzSkyeYT/InterTune/issues)">GitHub</a>.</li>
+<li>Un problème ? Veuillez le signaler depuis l'application (Paramètres, À propos, Envoyer un rapport de bogue) ou sur <a href="https://github.com/ItzSkyeYT/InterTune/issues">GitHub</a>.</li>
 </ul>
 <p>
 InterTune n'est ni affilié, ni sponsorisé, ni approuvé par Google ou YouTube.</p>
