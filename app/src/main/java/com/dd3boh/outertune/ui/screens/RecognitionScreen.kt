@@ -374,6 +374,9 @@ fun RecognitionScreen(
         AddToPlaylistDialog(
             navController = navController,
             songIds = listOf(song.id),
+            // A candidate is a search result, in the song table only if it was played or heard
+            // before, and the playlist's map needs it there (#62).
+            onPreAdd = { viewModel.prepareSong(song) },
             onDismiss = { addToPlaylistFor = null },
         )
     }

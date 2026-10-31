@@ -339,7 +339,8 @@ fun YouTubePlaylistMenu(
                     }.map {
                         it.toMediaMetadata()
                     }
-                database.transaction {
+                // Written before this returns: the add that follows needs every row (#62).
+                database.transactionNow {
                     allSongs.forEach(::insert)
                 }
 

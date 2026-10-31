@@ -6,7 +6,10 @@
 
 package com.dd3boh.outertune.utils
 
+import coil3.request.ErrorResult
 import coil3.request.ImageResult
+import com.dd3boh.outertune.ui.player.ART_PREVIEW_PX
+import com.dd3boh.outertune.ui.utils.resize
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
@@ -73,6 +76,18 @@ object DownloadCovers {
         kept -= target.name
     }
 
+    /**
+     * The kept cover to show for [url] when it cannot be fetched: its own file, or the same cover's
+     * small one (ART_PREVIEW_PX) when [url] asks for another size. Places sized by the screen, like
+     * the mini player (48 dp, about 132 px on a Pixel 5), ask for an address no download keeps, and
+     * offline they stayed empty (31 Oct 2026). Null when nothing of it is kept.
+     */
+    fun keptStandIn(base: File, url: String): File? {
+        if (isKept(base, url)) return fileFor(base, url)
+        val small = url.resize(ART_PREVIEW_PX, ART_PREVIEW_PX)
+        return if (small != url && isKept(base, small)) fileFor(base, small) else null
+    }
+
     private fun download(url: String): ByteArray? =
         client.newCall(Request.Builder().url(url).build()).execute().use { if (it.isSuccessful) it.body?.bytes() else null }
 
@@ -83,7 +98,14 @@ object DownloadCovers {
             if (data is String && data.startsWith("http") && isKept(base, data)) {
                 return chain.withRequest(chain.request.newBuilder().data(fileFor(base, data)).build()).proceed()
             }
-            return chain.proceed()
+            val result = chain.proceed()
+            // Another size of a kept cover: the network first, so online it stays sharp; when that
+            // fails (offline), the small kept one rather than nothing.
+            if (result is ErrorResult && data is String && data.startsWith("http")) {
+                val standIn = keptStandIn(base, data) ?: return result
+                return chain.withRequest(chain.request.newBuilder().data(standIn).build()).proceed()
+            }
+            return result
         }
     }
 }

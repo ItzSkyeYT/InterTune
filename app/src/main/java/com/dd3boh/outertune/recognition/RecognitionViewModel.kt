@@ -134,6 +134,16 @@ class RecognitionViewModel @Inject constructor(
             ids
         }
 
+    /**
+     * For the picker on one candidate: puts [song] in the song table, which the playlist's foreign
+     * key needs and a search result has never been in, and hands back its id for the picker to add.
+     * Written before it returns, so the add that follows finds the row (#62).
+     */
+    suspend fun prepareSong(song: SongItem): List<String> = withContext(Dispatchers.IO) {
+        database.transactionNow { insert(song.toMediaMetadata()) }
+        listOf(song.id)
+    }
+
     private var pickerWrote: List<String> = emptyList()
 
     /** Sends every song recognised from now on into [playlist] too. Once the picker has added. */

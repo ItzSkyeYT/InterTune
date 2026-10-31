@@ -30,6 +30,30 @@ class DownloadCoversTest {
     }
 
     @Test
+    fun `another size of a kept cover falls back to its small kept file, and nothing else does`() {
+        val plain = "https://lh3.googleusercontent.com/standin=w544-h544-l90-rj"
+        val small = "https://lh3.googleusercontent.com/standin=w128-h128-l90-rj"
+        assertTrue(DownloadCovers.save(base, plain) { byteArrayOf(1) })
+        assertTrue(DownloadCovers.save(base, small) { byteArrayOf(2) })
+        // The mini player on a Pixel 5 asks for 132 px: not kept as such, served by the small one.
+        val mini = "https://lh3.googleusercontent.com/standin=w132-h132-l90-rj"
+        assertFalse(DownloadCovers.isKept(base, mini))
+        assertEquals(DownloadCovers.fileFor(base, small), DownloadCovers.keptStandIn(base, mini))
+        assertEquals(DownloadCovers.fileFor(base, plain), DownloadCovers.keptStandIn(base, plain))
+        assertEquals(null, DownloadCovers.keptStandIn(base, "https://lh3.googleusercontent.com/other=w132-h132-l90-rj"))
+        assertEquals(null, DownloadCovers.keptStandIn(base, "https://i.ytimg.com/vi/none/hqdefault.jpg"))
+    }
+
+    @Test
+    fun `the stand in is used only when the network fails, so online covers stay sharp`() {
+        val source = File("src/main/java/com/dd3boh/outertune/utils/DownloadCovers.kt").readText()
+        val proceed = source.indexOf("val result = chain.proceed()")
+        val standIn = source.indexOf("keptStandIn(base, data)")
+        assertTrue(proceed in 0 until standIn)
+        assertTrue(source.contains("result is ErrorResult"))
+    }
+
+    @Test
     fun `a failed fetch keeps nothing and leaves no half file`() {
         val url = "https://i.ytimg.com/vi/failed/hqdefault.jpg"
         assertFalse(DownloadCovers.save(base, url) { null })

@@ -3,7 +3,7 @@ package com.dd3boh.outertune.ui.dialog
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Edit
@@ -69,12 +69,12 @@ fun AddToQueueDialog(
             )
         }
 
-        var index = queues.size
-        // add queue
-        items(queues) { queue ->
+        // add queue. The newest queue is listed first with the highest number; the number comes from
+        // the item's place, since the list may draw its items again at any time.
+        itemsIndexed(queues) { i, queue ->
             QueueListItem(
                 queue = queue,
-                number = index--,
+                number = queues.size - i,
                 modifier = Modifier.clickable {
                     onAdd(queue.title)
                     onDismiss()
