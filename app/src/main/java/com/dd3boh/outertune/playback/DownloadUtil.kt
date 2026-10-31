@@ -362,12 +362,14 @@ class DownloadUtil @Inject constructor(
      * lost by toggling this mid-download.
      */
     fun setDownloadRequirements(wifiOnly: Boolean) {
-        DownloadService.sendSetRequirements(
-            context,
-            ExoDownloadService::class.java,
-            downloadRequirements(wifiOnly),
-            false
-        )
+        sends.attempt("setting the requirements") {
+            DownloadService.sendSetRequirements(
+                context,
+                ExoDownloadService::class.java,
+                downloadRequirements(wifiOnly),
+                false
+            )
+        }
     }
 
     /**
@@ -601,9 +603,11 @@ class DownloadUtil @Inject constructor(
                 // media3 carried on with all of them, while songs that had failed at some
                 // unrelated earlier point did match and were removed.
                 LikedCatchUp.toRemoveOnStop(batch, map, ends).forEach { id ->
-                    DownloadService.sendRemoveDownload(
-                        context, ExoDownloadService::class.java, id, false
-                    )
+                    sends.attempt("removing $id") {
+                        DownloadService.sendRemoveDownload(
+                            context, ExoDownloadService::class.java, id, false
+                        )
+                    }
                 }
             }.onFailure { Log.w(TAG, "Could not clear queued downloads on cancel", it) }
             // The counts at the moment of the stop, taken here rather than from the last progress
@@ -676,21 +680,18 @@ class DownloadUtil @Inject constructor(
             .setCustomCacheKey(id)
             .setData(title.toByteArray())
             .build()
-        return try {
+        // foreground = false is a bare startService. Every UI caller is in the foreground, but
+        // liking is reachable from the media notification and the widget with no Activity alive,
+        // which Android rejects. Losing one auto-download is not worth killing the process, and
+        // the backfill picks it up. The false is what tells the catch up that the request never
+        // got through.
+        return sends.attempt("adding $id") {
             DownloadService.sendAddDownload(
                 context,
                 ExoDownloadService::class.java,
                 downloadRequest,
                 false
             )
-            true
-        } catch (e: IllegalStateException) {
-            // foreground = false is a bare startService. Every UI caller is in the foreground, but
-            // liking is reachable from the media notification with no Activity alive, which Android
-            // rejects. Losing one auto-download is not worth killing the process, and the backfill
-            // picks it up.
-            Log.w(TAG, "Could not enqueue download for $id from the background", e)
-            false
         }
     }
 
@@ -700,10 +701,19 @@ class DownloadUtil @Inject constructor(
      * Songs in a download folder are left alone.
      */
     fun removeAllInternalDownloads() {
-        DownloadService.sendRemoveAllDownloads(context, ExoDownloadService::class.java, false)
+        sends.attempt("removing all downloads") {
+            DownloadService.sendRemoveAllDownloads(context, ExoDownloadService::class.java, false)
+        }
     }
 
-    fun resumeDownloadsOnStart() {
+    /**
+     * Starts the download service so that it resumes the downloads media3 holds paused. Sent from
+     * the automatic scan, a worker coroutine that can still be running after the person has left,
+     * and Android refuses to start a service for an app in the background. The refusal is logged,
+     * and the resume is sent again when the app is next in front: [resumeOwed], MainActivity.onResume
+     * (issue #65, where it closed the app during an update).
+     */
+    fun resumeDownloadsOnStart() = sends.resume {
         DownloadService.sendResumeDownloads(
             context,
             ExoDownloadService::class.java,
@@ -726,7 +736,9 @@ class DownloadUtil @Inject constructor(
             }
         }
         deleteSong(id)
-        DownloadService.sendRemoveDownload(context, ExoDownloadService::class.java, id, false)
+        sends.attempt("removing $id") {
+            DownloadService.sendRemoveDownload(context, ExoDownloadService::class.java, id, false)
+        }
     }
 
 // Deletes from custom dl
@@ -1063,6 +1075,16 @@ class DownloadUtil @Inject constructor(
 
         /** Minimum gap between the player requests downloads make. See the gate in the resolver. */
         private const val RESOLVE_GAP_MS = 700L
+
+        /** Every message to the download service goes out through this: see DownloadServiceSends. */
+        private val sends = DownloadServiceSends { Log.w("DownloadUtil", it) }
+
+        /**
+         * A resume of the downloads that Android refused is still owed. Asked of the class rather
+         * than the instance, so that MainActivity can ask at every launch without building the
+         * downloads (StartupSingletonsTest); when the answer is yes the instance is there already.
+         */
+        val resumeOwed: Boolean get() = sends.resumeOwed
     }
 
 
