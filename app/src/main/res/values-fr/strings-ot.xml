@@ -124,6 +124,11 @@
     </plurals>
     <string name="swipe2Queue">Glisser pour mettre en file d’attente</string>
     <string name="playlist_add_local_to_synced_note">L\'ajout de fichiers de ce téléphone à une playlist synchronisée avec YouTube Music n\'est pas pris en charge.</string>
+    <plurals name="playlist_add_skipped">
+        <item quantity="one">%1$d titre n\'a pas pu être ajouté à la playlist.</item>
+        <item quantity="many">%1$d titres n\'ont pas pu être ajoutés à la playlist.</item>
+        <item quantity="other">%1$d titres n\'ont pas pu être ajoutés à la playlist.</item>
+    </plurals>
     <string name="grp_lyrics_format">Formatage</string>
     <string name="tab_arrangement_disable_tip">--- Faites glisser ci-dessous pour désactiver ---</string>
     <string name="scanner_progress_syncing">Synchronisation…</string>

@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.db.daos
 
+import android.util.Log
 import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Insert
@@ -13,6 +14,7 @@ import androidx.sqlite.db.SupportSQLiteQuery
 import com.dd3boh.outertune.constants.PlaylistFilter
 import com.dd3boh.outertune.constants.PlaylistSortType
 import com.dd3boh.outertune.db.LibrarySql
+import com.dd3boh.outertune.db.PlaylistAdd
 import com.dd3boh.outertune.db.PlaylistSql
 import com.dd3boh.outertune.db.entities.Playlist
 import com.dd3boh.outertune.db.entities.PlaylistEntity
@@ -24,6 +26,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
+private const val TAG = "PlaylistsDao"
 
 /*
  * Logic related to playlists entities and their mapping
@@ -189,22 +192,46 @@ interface PlaylistsDao {
         ))
     }
 
+    /**
+     * Puts [songIds] at the end of [playlist], in the order given, and returns the ids that went in.
+     *
+     * Only ones that are rows in the song table, and only if the playlist is a row: the map's
+     * foreign keys refuse anything else, OR IGNORE does not cover them, and the exception ended the
+     * app (#62). It is looked at in this transaction, so nothing can delete a song or the playlist
+     * between the look and the write. A caller finds out what was left out by comparing sizes, and
+     * the log gets the number, never the ids. See [PlaylistAdd].
+     */
     @Transaction
-    fun addSongToPlaylist(playlist: Playlist, songIds: List<String>) {
+    fun addSongToPlaylist(playlist: Playlist, songIds: List<String>): List<String> {
+        if (songIds.isEmpty()) return emptyList()
+        val exists = playlistExists(playlist.id)
+        val inTable = if (exists) chunkSongIds(songIds.distinct()).flatMapTo(HashSet<String>()) { songIdsInTable(it) } else emptySet()
         // From the table, inside the transaction, not from the Playlist handed in: that is a
         // snapshot, and anything written since (a recognised song going into a followed playlist
         // while the duplicates prompt was open) would share a position with these.
-        var position = nextPlaylistPosition(playlist.id)
-        songIds.forEach { id ->
+        val plan = PlaylistAdd.plan(songIds, exists, inTable, if (exists) nextPlaylistPosition(playlist.id) else 0)
+        plan.rows.forEach { row ->
             insert(
                 PlaylistSongMap(
-                    songId = id,
+                    songId = row.songId,
                     playlistId = playlist.id,
-                    position = position++
+                    position = row.position
                 )
             )
         }
+        if (plan.skipped > 0) {
+            Log.w(
+                TAG,
+                "Left ${plan.skipped} of ${songIds.size} songs out of a playlist: " +
+                        if (exists) "they are not in the song table" else "the playlist is gone"
+            )
+        }
+        return plan.rows.map { it.songId }
     }
+
+    /** Of [songIds], the ones that are rows in the song table now. At most 900 at a time, see [chunkSongIds]. */
+    @Query(PlaylistSql.PRESENT_SONGS)
+    fun songIdsInTable(songIds: List<String>): List<String>
 
     /**
      * Where the next song goes, read from the table rather than from a caller's idea of the count.
@@ -218,7 +245,7 @@ interface PlaylistsDao {
      *
      * COALESCE because MAX over no rows is null, and an empty playlist has to start at 0.
      */
-    @Query("SELECT COALESCE(MAX(position), -1) + 1 FROM playlist_song_map WHERE playlistId = :playlistId")
+    @Query(PlaylistSql.NEXT_POSITION)
     fun nextPlaylistPosition(playlistId: String): Int
 
     @Transaction
