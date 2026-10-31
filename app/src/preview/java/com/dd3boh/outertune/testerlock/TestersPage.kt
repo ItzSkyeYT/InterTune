@@ -19,6 +19,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ExitToApp
+import androidx.compose.material.icons.automirrored.rounded.Rule
 import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Event
@@ -26,11 +28,9 @@ import androidx.compose.material.icons.rounded.Forum
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.Rule
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Science
 import androidx.compose.material.icons.rounded.WarningAmber
-import androidx.compose.material.icons.automirrored.rounded.ExitToApp
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -246,7 +246,7 @@ private fun Testers(navController: NavController) {
             PreferenceEntry(
                 title = { Text(stringResource(R.string.testers_page_rules)) },
                 description = stringResource(R.string.testers_page_rules_text),
-                icon = { Icon(Icons.Rounded.Rule, null) },
+                icon = { Icon(Icons.AutoMirrored.Rounded.Rule, null) },
                 onClick = null,
             )
             PreferenceEntry(
