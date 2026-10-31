@@ -622,6 +622,10 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         PhoneBatterySaver.read(this)
+        // A resume of the downloads that Android refused while the app was in the background (the
+        // scan ends with one) goes out now that it is in front. The class is asked, not the
+        // injected instance, which would be built at every launch (DownloadServiceSends).
+        if (DownloadUtil.resumeOwed) downloadUtil.resumeDownloadsOnStart()
     }
 
     // The person has left: coming back is what a tap on Open Auto Blocker waits for.
