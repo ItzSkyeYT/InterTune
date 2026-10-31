@@ -10,7 +10,8 @@ import androidx.activity.ComponentActivity
 import androidx.compose.runtime.Composable
 
 /**
- * A debug build has no tester lock: only a preview published for testers has one (src/preview).
+ * A debug build has no tester lock: only the Preview built with the lock on and the Tester build, the app
+ * testers are given, have one (src/preview, which the tester type takes too).
  * MainActivity asks every build the same question, and here nothing ever holds the app.
  */
 object TesterLock {

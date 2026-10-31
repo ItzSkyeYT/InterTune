@@ -25,12 +25,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 /**
- * The tester lock: a preview published for testers opens only with a tester's own code.
+ * The tester lock: a build for testers opens only with a tester's own code.
  *
- * Only in the preview build type (src/preview), and on only when the build was made with
- * -Pintertune.testerLock=true, which publish-preview.sh passes: previews built for our own phones,
- * debug builds and every release have no lock. The other build types have a stand-in of their own that never holds.
- * The rules are in [TesterLockRules], the door in [TesterDoor].
+ * Only in the Tester build type, which has it always (it is the app testers are given, InterTune Tester), and in the
+ * Preview build type, which has it on only when the build was made with -Pintertune.testerLock=true: a Preview built
+ * for our own phones, debug builds and every release have no lock. This folder is the Preview's and the tester
+ * type takes it as it is (build.gradle.kts, sourceSets). The other build types have a stand-in of their own that
+ * never holds. The rules are in [TesterLockRules], the door in [TesterDoor].
  */
 object TesterLock {
     /**

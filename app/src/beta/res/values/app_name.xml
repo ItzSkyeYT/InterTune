@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The same in every language: nothing in main sets app_name for a locale, and a test holds it so. -->
+    <string name="app_name">InterTune Tester</string>
+</resources>

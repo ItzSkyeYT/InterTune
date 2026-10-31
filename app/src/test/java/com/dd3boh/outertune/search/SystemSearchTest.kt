@@ -118,12 +118,15 @@ class SystemSearchTest {
         assertTrue("the searchable", "@xml/system_searchable" in main)
         assertTrue("the provider is guarded", "android:readPermission=\"android.permission.GLOBAL_SEARCH\"" in main)
         assertTrue("the provider is named by the build's id", "android:authorities=\"\${applicationId}.systemsearch\"" in main)
-        for (build in listOf("debug", "preview")) {
+        for (build in listOf("debug", "preview", "beta")) {
             val manifest = File(src, "$build/AndroidManifest.xml").takeIf { it.isFile }?.readText().orEmpty()
             assertFalse("$build no longer declares its own", "SystemSearchProvider" in manifest)
         }
-        // Each build's searchable asks its own provider: the release's id, and the two that add to it.
-        for ((build, id) in listOf("main" to "dev.skye.intertune", "debug" to "dev.skye.intertune.debug", "preview" to "dev.skye.intertune.preview")) {
+        // Each build's searchable asks its own provider: the release's id, and the three that add to it.
+        for ((build, id) in listOf(
+            "main" to "dev.skye.intertune", "debug" to "dev.skye.intertune.debug",
+            "preview" to "dev.skye.intertune.preview", "beta" to "dev.skye.intertune.tester",
+        )) {
             val authority = File(src, "$build/res/values/system_search.xml").readText()
             assertTrue("$build's searchable asks its own provider", ">$id.systemsearch<" in authority)
         }

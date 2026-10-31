@@ -34,13 +34,21 @@ class LauncherShortcutsTest {
             .associate { it.name to File(it, "res/xml/shortcuts.xml") }
             .filterValues { it.exists() }
         // Fewer would mean this is not looking where it thinks it is.
-        assertTrue(files.keys.toString(), files.keys.containsAll(listOf("main", "debug", "preview")))
+        assertTrue(files.keys.toString(), files.keys.containsAll(listOf("main", "debug", "preview", "beta")))
+        val packages = mapOf(
+            "main" to "dev.skye.intertune", "debug" to "dev.skye.intertune.debug",
+            "preview" to "dev.skye.intertune.preview", "beta" to "dev.skye.intertune.tester",
+        )
 
         for ((sourceSet, file) in files) {
             val actions = Regex("android:action=\"([^\"]+)\"").findAll(file.readText())
                 .map { it.groupValues[1] }.toList()
             assertEquals(sourceSet, handled.size, actions.size)
             assertEquals(sourceSet, handled, actions.toSet())
+            // Each shortcut opens the app it is in, not the release's or the Preview's: the one that installs under a
+            // package of its own names that package in every shortcut.
+            val targets = Regex("android:targetPackage=\"([^\"]+)\"").findAll(file.readText()).map { it.groupValues[1] }.toList()
+            assertEquals(sourceSet, List(handled.size) { packages.getValue(sourceSet) }, targets)
         }
     }
 }

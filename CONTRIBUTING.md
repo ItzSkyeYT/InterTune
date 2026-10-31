@@ -29,9 +29,10 @@ The app runs on Android 7.0 and newer.
 |---|---|---|
 | `debug` | `dev.skye.intertune.debug` | Everyday work, with the features that are still in progress switched on |
 | `preview` | `dev.skye.intertune.preview` | The same, installed beside a debug build, to try something on a fresh profile |
+| `beta` | `dev.skye.intertune.tester` | The preview for invited testers (InterTune Tester), under a name and icon of its own, beside the preview: it opens only with a tester's code |
 | `release` | `dev.skye.intertune` | Releases: shrunk, and signed only where the signing key is |
 
-Debug and preview builds install next to the released app, so they never touch the library in it.
+Debug, preview and beta builds install next to the released app, so they never touch the library in it.
 
 <br/><br/>
 

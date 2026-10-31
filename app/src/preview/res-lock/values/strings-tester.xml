@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    The gate of a tester build (testerlock, src/preview only): no release has these. Kept out of
+    The gate of a tester build (testerlock): the Preview and the Tester build have these, no release does.
+    They live in res-lock because both build types take the folder (app/build.gradle.kts). Kept out of
     strings-ot.xml, so they never go to Weblate; the French is beside them in values-fr.
 -->
 <resources>

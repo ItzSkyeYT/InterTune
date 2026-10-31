@@ -175,8 +175,8 @@ class TesterGateTest {
     fun `the new words are as they were given, in English and French, with no dash standing in for a comma`() {
         fun strings(path: String) = Regex("<string name=\"(tester_lock_\\w+)\">(.*?)</string>").findAll(File(path).readText())
             .associate { it.groupValues[1] to it.groupValues[2] }
-        val en = strings("src/preview/res/values/strings-tester.xml")
-        val fr = strings("src/preview/res/values-fr/strings-tester.xml")
+        val en = strings("src/preview/res-lock/values/strings-tester.xml")
+        val fr = strings("src/preview/res-lock/values-fr/strings-tester.xml")
         val given = mapOf(
             "tester_lock_paste" to ("Paste" to "Coller"),
             "tester_lock_open_testers" to ("Open #testers" to "Ouvrir #testers"),

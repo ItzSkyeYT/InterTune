@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Preview builds only, as the debug build's. Lets a preview talk to a server on the development
-  machine over plain http: a stand-in for the testers' door (testerlock), reached as 10.0.2.2 from
-  the emulator or through `adb reverse`, so the tester lock can be tried end to end before the door
-  itself changes. Nowhere else: everything else keeps Android's default, no cleartext.
+  Preview and Tester builds only, as the debug build's (the folder is res-lock, which both take). Lets one
+  talk to a server on the development machine over plain http: a stand-in for the testers' door
+  (testerlock), reached as 10.0.2.2 from the emulator or through `adb reverse`, so the tester lock can
+  be tried end to end before the door itself changes. Nowhere else: everything else keeps Android's
+  default, no cleartext.
 
   This file does not exist in the release source set, so a release build keeps Android's default.
 -->

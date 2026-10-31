@@ -1,5 +1,6 @@
 @file:Suppress("UnstableApiUsage")
 
+import com.android.build.api.dsl.ApplicationBuildType
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import java.io.FileInputStream
@@ -43,6 +44,25 @@ if (localPropertiesFile.exists()) {
 }
 fun service(key: String): String =
     servicesProperties.getProperty(key)?.takeIf { it.isNotBlank() } ?: localProperties.getProperty(key, "")
+
+/**
+ * The tester lock's values in a build type that can have it (src/preview, testerlock): whether it is on, and the
+ * door it asks. The preview and the beta type (the Tester app) both call it, so there is one place that says what
+ * the app reads and what publish-preview.sh reads, and one address for the door. The door is the testers' real one
+ * unless -Pintertune.testerDoor points an emulator at a stand-in.
+ *
+ * Read when the app runs, never copied into the classes that use them: a build that changed only these would
+ * otherwise keep the old values in whatever Kotlin did not compile again. The same two are in the manifest,
+ * where publish-preview.sh reads them before it publishes.
+ */
+fun ApplicationBuildType.testerLock(on: Boolean) {
+    val door = (project.findProperty("intertune.testerDoor") as String?)
+        ?: "https://intertune-testbuild.intertune.workers.dev"
+    buildConfigField("boolean", "TESTER_LOCK", "Boolean.parseBoolean(\"$on\")")
+    buildConfigField("String", "TESTER_DOOR", "String.valueOf(\"$door\")")
+    manifestPlaceholders["testerLock"] = on.toString()
+    manifestPlaceholders["testerDoor"] = door
+}
 
 android {
     namespace = "com.dd3boh.outertune"
@@ -161,21 +181,28 @@ android {
             // Without the property nothing changes.
             (project.findProperty("previewVersion") as String?)?.let { versionNameSuffix = "-preview.$it" }
 
-            // The tester lock: a preview published for testers opens only with a tester's own code
-            // (src/preview, testerlock). publish-preview.sh passes -Pintertune.testerLock=true; without
-            // it, as in a preview built for a phone of our own, there is no lock. No other build type
-            // reads the property, and none of them has the gate's code. The door is what says yes or
-            // no to a code; -Pintertune.testerDoor points an emulator at a stand-in.
-            val testerLock = project.findProperty("intertune.testerLock") == "true"
-            val testerDoor = (project.findProperty("intertune.testerDoor") as String?)
-                ?: "https://intertune-testbuild.intertune.workers.dev"
-            // Read when the app runs, never copied into the classes that use them: a build that changed
-            // only these would otherwise keep the old values in whatever Kotlin did not compile again.
-            buildConfigField("boolean", "TESTER_LOCK", "Boolean.parseBoolean(\"$testerLock\")")
-            buildConfigField("String", "TESTER_DOOR", "String.valueOf(\"$testerDoor\")")
-            // The same two in the manifest, where publish-preview.sh reads them before it publishes.
-            manifestPlaceholders["testerLock"] = testerLock.toString()
-            manifestPlaceholders["testerDoor"] = testerDoor
+            // The tester lock: a build for testers opens only with a tester's own code (src/preview,
+            // testerlock). The Preview is our own, on our own phones, and has the lock only when
+            // -Pintertune.testerLock=true is passed; without it there is none. No other build type reads
+            // the property, and none of them has the gate's code. The beta type below has the lock always.
+            testerLock(on = project.findProperty("intertune.testerLock") == "true")
+        }
+
+        // The testers' own app, InterTune Tester (dev.skye.intertune.tester): the Preview under a package, a name
+        // and an icon of its own (the Preview's tape with a T badge on it), so that a build for testers never
+        // installs over the Preview that is on our own phones. Its code, its words and its manifest are the
+        // Preview's, taken from src/preview (see sourceSets); its name and icon are in src/beta. The lock is
+        // always on and has no property to turn it off. publish-preview.sh builds this type. It keeps the
+        // Preview's version name, <version>-preview.<stamp>, which the bot and the door read as an opaque tag
+        // (experiments/features/tester-app/STATE.md).
+        // The type is called beta and not tester because the Android Gradle plugin refuses a build type whose
+        // name starts with "test": "BuildType names cannot start with 'test'".
+        create("beta") {
+            initWith(getByName("preview"))
+            applicationIdSuffix = ".tester"
+            matchingFallbacks += listOf("preview", "debug")
+            versionNameSuffix = getByName("preview").versionNameSuffix
+            testerLock(on = true)
         }
 
         // userdebug is release builds without minify
@@ -200,7 +227,23 @@ android {
         // The tester lock's rules and its door client are plain Kotlin, in src/preview/jvm. The preview
         // build has them in the app; the other build types' unit tests compile them beside the tests.
         // So the debug unit tests, which the full check runs, test them, and no other build has them.
-        getByName("preview") { java.srcDir("src/preview/jvm") }
+        // Its words and the network rules its manifest names are in src/preview/res-lock, which the
+        // preview and the beta type both take (a folder of its own, since a source set may not hold two
+        // copies of a resource and the Tester app has its own name and icon in src/beta/res).
+        getByName("preview") {
+            java.srcDir("src/preview/jvm")
+            res.srcDir("src/preview/res-lock")
+        }
+        // The beta type (the Tester app) is the preview's code, words, manifest and assets under its own name and
+        // icon: the lock's gate and its rules, the folder of words, and the manifest that carries the two marks
+        // publish-preview.sh reads. Nothing is copied, so the Tester app cannot drift from the Preview's lock.
+        getByName("beta") {
+            java.srcDir("src/preview/java")
+            java.srcDir("src/preview/jvm")
+            res.srcDir("src/preview/res-lock")
+            assets.srcDir("src/preview/assets")
+            manifest.srcFile("src/preview/AndroidManifest.xml")
+        }
         for (tests in listOf("testDebug", "testRelease", "testUserdebug")) {
             getByName(tests) { java.srcDir("src/preview/jvm") }
         }
