@@ -407,8 +407,10 @@ private fun LiveWidget(settings: WidgetSettings, size: IntSize) {
         // A slider dragged end to end asks for a drawing at every step; only the last is wanted.
         delay(60)
         // Never reached by a drawing that a newer change has cancelled: the preview keeps what it
-        // shows until the newer drawing is there.
-        views = drawnIfStillWanted { renderWidget(context, settings, size.width, size.height) }
+        // shows until the newer drawing is there. Drawn from what the widget shows now, handed over
+        // as it is: a drawing of its own that follows the store's flow, off the main thread where
+        // a Shelf's pictures are drawn, came back once and then never again.
+        views = drawnIfStillWanted { renderWidget(context, settings, size.width, size.height, WidgetStore.load(context)) }
     }
     BoxWithConstraints(
         modifier = Modifier.fillMaxWidth().heightIn(max = PreviewMaxHeight),
