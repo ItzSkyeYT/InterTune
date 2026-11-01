@@ -44,7 +44,10 @@ class LyricsSourcesTest {
         val helper = File("src/main/java/com/dd3boh/outertune/lyrics/LyricsHelper.kt").readText()
         assertTrue("LyricsSources.order(context.dataStore.get(LyricsSourceOrderKey, \"\"))" in helper)
         assertTrue("LyricsLookup.firstFound(lyricsProviders(), query" in helper)
-        assertTrue("lyricsProviders().forEach { provider ->" in helper)
+        // The search asks them side by side, and its list keeps them in the set order.
+        assertTrue("val providers = lyricsProviders()\n        val found" in helper)
+        assertTrue("LyricsResult(provider.name, lyrics, rank = providers.indexOf(provider))" in helper)
+        assertTrue("(it + result).sortedBy { r -> r.rank }" in File("src/main/java/com/dd3boh/outertune/viewmodels/LyricsMenuViewModel.kt").readText())
         assertFalse("no fixed list left", "listOf(YouTubeSubtitleLyricsProvider, LrcLibLyricsProvider" in helper)
     }
 }

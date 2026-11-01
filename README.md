@@ -7,6 +7,8 @@
 
 # InterTune
 
+<sub>InnerTune ∩ OuterTune</sub>
+
 ### YouTube Music and your own music, in one Android app
 
 [![release](https://img.shields.io/github/v/release/ItzSkyeYT/InterTune?label=release&color=ed5564&labelColor=1b1f24)](https://github.com/ItzSkyeYT/InterTune/releases/latest)
@@ -20,6 +22,8 @@
 [Website](https://intertune.app) · [Download](#download) · [Features](#features) · [Good to know](#good-to-know) · [Roadmap](#roadmap) · [Wiki](https://github.com/ItzSkyeYT/InterTune/wiki) · [Discord](https://discord.gg/68jmqhMjXk) · [Donors](#donors)
 
 </div>
+
+InterTune is a free, open-source YouTube Music client for Android, forked from [OuterTune](https://github.com/OuterTune/OuterTune) (which came from [InnerTune](https://github.com/z-huang/InnerTune)). It plays YouTube Music and the music on your phone in one queue, works out recommendations on the phone from what you skip and like, casts to Chromecast, FCast and DLNA, shows synced lyrics, recognises songs and works in Android Auto. No ads, no tracking, no account needed.
 
 > **Warning:** the "InterTune" apps on Google Play and on other APK sites are not this one: they are other companies' apps, with ads. Get InterTune only from this page, Obtainium, F-Droid, Orion Store or OpenAPK.
 
@@ -249,7 +253,7 @@ InterTune stands on a lot of other people's work.
 |---|---|---|
 | [InnerTune](https://github.com/z-huang/InnerTune) | [Zion Huang](https://github.com/z-huang) | The app it all started from |
 | [OuterTune](https://github.com/OuterTune/OuterTune) | [Michael Zh](https://github.com/mikooomich) · [Davide Garberi](https://github.com/DD3Boh) | The fork InterTune is built on, where the heavy lifting is |
-| [AsterTune](https://github.com/yuuichi-s/AsterTune) | [yuuichi-s](https://github.com/yuuichi-s) | The same `VISIONOS` fix, found on its own; several fixes here were rewritten from it |
+| [AsterTune](https://github.com/yuuichi-s/AsterTune) | [yuuichi-s](https://github.com/yuuichi-s) | The same `VISIONOS` fix, found on its own; how a signed-in play reaches the right channel's YouTube history follows its request (6ea96c90), and the po token page works the way its does |
 | [Metrolist](https://github.com/MetrolistGroup/Metrolist) | [MetrolistGroup](https://github.com/MetrolistGroup) | A lot of inspiration, this README included |
 | [Essentials](https://github.com/sameerasw/essentials) · [sameerasw.com](https://sameerasw.com) | [Sameera Wijerathna](https://github.com/sameerasw) | The design language the app and its site learn from |
 
