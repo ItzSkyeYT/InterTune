@@ -26,13 +26,10 @@ import androidx.core.content.FileProvider
 class SharedFileProvider : FileProvider() {
 
     override fun getStreamTypes(uri: Uri, mimeTypeFilter: String): Array<String>? {
-        if (SharedStill.wanted(getType(uri), mimeTypeFilter)) {
-            still(uri)?.let {
-                it.close()
-                return arrayOf(SharedStill.TYPE)
-            }
-        }
-        return super.getStreamTypes(uri, mimeTypeFilter)
+        // The share sheet looks for a picture among these to show one; a reader that takes the first
+        // gets the video. The still is only offered where it is there.
+        val hasStill = still(uri)?.let { it.close(); true } ?: false
+        return SharedStill.streamTypes(getType(uri), mimeTypeFilter, hasStill) ?: super.getStreamTypes(uri, mimeTypeFilter)
     }
 
     override fun openTypedAssetFile(uri: Uri, mimeTypeFilter: String, opts: Bundle?): AssetFileDescriptor? {
@@ -62,6 +59,21 @@ internal object SharedStill {
      */
     fun wanted(type: String?, filter: String): Boolean =
         type != null && type.startsWith("video/") && matches(TYPE, filter) && !matches(type, filter)
+
+    /**
+     * What a video of [type] can be read as, for a reader asking with [filter]: the video itself first,
+     * then its picture when [hasStill]. Android's share sheet shows a picture of what is sent only when
+     * an image type is among them (asked for any type); a reader that takes the first gets the video.
+     * Null for anything that is not a video: the provider's own answer stands.
+     */
+    fun streamTypes(type: String?, filter: String, hasStill: Boolean): Array<String>? {
+        if (type == null || !type.startsWith("video/")) return null
+        val types = buildList {
+            if (matches(type, filter)) add(type)
+            if (hasStill && matches(TYPE, filter)) add(TYPE)
+        }
+        return types.takeIf { it.isNotEmpty() }?.toTypedArray()
+    }
 
     /** Whether the concrete type [type] fits [filter] (any type, all of a kind, or one exact type), as ClipDescription.compareMimeTypes has it. */
     fun matches(type: String, filter: String): Boolean {

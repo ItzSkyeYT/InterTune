@@ -6,7 +6,9 @@
 
 package com.dd3boh.outertune.utils
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -50,9 +52,20 @@ class SharedStillTest {
     }
 
     @Test
-    fun `both ways the provider hands a file out ask the same question`() {
+    fun `asked what a video can be, it says the video first and then its picture, which the share sheet shows`() {
+        assertEquals(listOf("video/mp4", "image/jpeg"), SharedStill.streamTypes("video/mp4", "*/*", hasStill = true)?.toList())
+        assertEquals(listOf("image/jpeg"), SharedStill.streamTypes("video/mp4", "image/*", hasStill = true)?.toList())
+        assertEquals(listOf("video/mp4"), SharedStill.streamTypes("video/mp4", "video/*", hasStill = true)?.toList())
+        assertEquals("no picture beside it", listOf("video/mp4"), SharedStill.streamTypes("video/mp4", "*/*", hasStill = false)?.toList())
+        assertNull("not a video: the provider's own answer", SharedStill.streamTypes("image/png", "*/*", hasStill = true))
+        assertNull(SharedStill.streamTypes("video/mp4", "audio/*", hasStill = true))
+    }
+
+    @Test
+    fun `the provider asks these questions, and no longer the old one a reader of any type passed`() {
         val provider = File("src/main/java/com/dd3boh/outertune/utils/SharedFileProvider.kt").readText()
-        assertTrue(Regex("SharedStill\\.wanted\\(getType\\(uri\\), mimeTypeFilter\\)").findAll(provider).count() == 2)
-        assertFalse("the old test, which a */* reader passed", provider.contains("ClipDescription.compareMimeTypes(STILL_TYPE, mimeTypeFilter)"))
+        assertTrue(provider.contains("if (SharedStill.wanted(getType(uri), mimeTypeFilter))"))
+        assertTrue(provider.contains("SharedStill.streamTypes(getType(uri), mimeTypeFilter, hasStill)"))
+        assertFalse(provider.contains("ClipDescription.compareMimeTypes(STILL_TYPE, mimeTypeFilter)"))
     }
 }
