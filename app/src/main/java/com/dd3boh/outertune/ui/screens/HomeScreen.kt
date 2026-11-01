@@ -133,6 +133,7 @@ import com.dd3boh.outertune.ui.component.AnnouncementBanner
 import com.dd3boh.outertune.ui.component.AnnouncementDialog
 import com.dd3boh.outertune.ui.component.AutoBlockerNote
 import com.dd3boh.outertune.ui.component.PollBanner
+import com.dd3boh.outertune.ui.component.RegionNoteIfClosed
 import com.dd3boh.outertune.ui.component.ThrottleBanner
 import com.dd3boh.outertune.ui.component.PollDialog
 import com.dd3boh.outertune.ui.component.ChipsRow
@@ -691,6 +692,12 @@ fun HomeScreen(
             // away when the back-off expires.
             item(key = "throttle_banner") {
                 ThrottleBanner(modifier = Modifier.animateItem())
+            }
+
+            // Where YouTube Music has no free plan, why Home and Search have no songs, albums or
+            // mixes (#68). Shown only while YouTube sees the connection there, until Done.
+            item(key = "region_note") {
+                RegionNoteIfClosed(navController, modifier = Modifier.animateItem())
             }
 
             // What is new since an update, for somebody back after one. First of the three that

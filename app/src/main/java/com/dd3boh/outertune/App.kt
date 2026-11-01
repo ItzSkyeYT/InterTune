@@ -70,6 +70,7 @@ import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.utils.mayPushToYouTube
 import com.dd3boh.outertune.utils.reportException
+import com.dd3boh.outertune.utils.YouTubeRegion
 import com.dd3boh.outertune.utils.StreamOrder
 import com.dd3boh.outertune.utils.RemoteRoutes
 import com.dd3boh.outertune.constants.CachedPollsJsonKey
@@ -196,6 +197,9 @@ class App : Application(), SingletonImageLoader.Factory {
                         }
                 }
         }
+        // Where YouTube sees this connection, asked only on a phone that points to a country where
+        // YouTube Music has no free plan (#68): see YouTubeRegion.
+        GlobalScope.launch(Dispatchers.IO) { YouTubeRegion.refresh(this@App) }
         // What the switches under Library and content hide, read once here so that a queue started
         // straight away already follows them, then followed. See ContentFilter.
         ContentFilter.current = ContentFilter.of(dataStore.current)
