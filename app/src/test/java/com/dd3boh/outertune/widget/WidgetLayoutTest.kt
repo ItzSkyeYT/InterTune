@@ -253,14 +253,17 @@ class WidgetLayoutTest {
             add(WidgetSettings(style = WidgetStyle.SHELF, content = WidgetContent.LIST, maxRows = 1))
             add(WidgetSettings(style = WidgetStyle.SHELF, maxRows = 2))
         }
+        // As far as a tablet's home screen goes: the widget's own largest size is 960 by 600 dp, but a
+        // launcher that does not hold to it, and a foldable's inside, can give a good deal more.
         val sizes = buildList {
             for (w in 40..600 step 6) for (h in 40..600 step 6) add(w to h)
-            for (w in 606..960 step 18) for (h in 40..600 step 14) add(w to h)
+            for (w in 606..1100 step 22) for (h in 40..800 step 14) add(w to h)
+            for (w in 40..600 step 14) for (h in 606..1100 step 22) add(w to h)
         }
         var checked = 0
         var liked = 0
         val shapes = HashMap<Pair<WidgetStyle, WidgetShape>, Int>()
-        for (settings in variants) for (fontScale in listOf(1f, 1.3f)) for (available in listOf(0, 2, 6)) {
+        for (settings in variants) for (fontScale in listOf(1f, 1.3f)) for (available in listOf(0, 2, 6, WidgetLayout.MAX_PICKS)) {
             // Up next only counts for Cover and Full cover, and the list only for Shelf.
             val queues = if (settings.style == WidgetStyle.SHELF) listOf(0) else listOf(0, 1, 4)
             if (settings.style != WidgetStyle.SHELF && available != 6) continue
