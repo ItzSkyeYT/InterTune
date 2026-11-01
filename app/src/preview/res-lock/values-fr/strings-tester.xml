@@ -45,6 +45,7 @@
     <string name="testers_page_channel_description">Où sont publiées les nouvelles versions et où les testeurs discutent.</string>
     <string name="testers_page_rules">Règles</string>
     <string name="testers_page_rules_text">Essayez les versions et signalez ce qui plante. Gardez les versions et les codes pour vous.</string>
+    <string name="testers_rules_full">• Essayez chaque nouvelle version et signalez ce qui plante : Signaler un problème, sur cette page.\n\n• Gardez les versions et votre code pour vous. Un code marche sur un seul téléphone ; le bouton sous /code dans #testers le déplace.\n\n• Une version ne s\'ouvre plus un jour après la sortie d\'une plus récente : prenez la nouvelle dès qu\'elle est publiée.\n\n• Restez longtemps sans essayer de version et le bot vous le rappelle une fois ; ensuite la place va à quelqu\'un qui attend.</string>
     <string name="testers_page_give_back">Rendre ma place</string>
     <string name="testers_page_give_back_text">Retirez-vous le rôle Tester dans Salons et rôles sur Discord. Votre place passe à la prochaine personne en attente.</string>
 </resources>

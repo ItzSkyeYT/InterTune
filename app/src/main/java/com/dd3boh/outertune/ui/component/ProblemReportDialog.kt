@@ -86,6 +86,10 @@ private const val FIRST_SHOWN = 4
  * are dated, and they outlive the run they ended. Where the app came from is asked once for all
  * of them: Android keeps only the latest install's.
  */
+/** The forms in .github/ISSUE_TEMPLATE the report opens: everyone's, and the testers' own. */
+private const val BUG_FORM = "bug_report.yml"
+private const val TESTER_FORM = "tester_report.yml"
+
 private class LogChoice(
     val run: RunLogs.Run?,
     val excerpt: ProblemLog.Excerpt,
@@ -178,10 +182,13 @@ fun ProblemReportDialog(onDismiss: () -> Unit) {
             if (BuiltInKeys.official) TextButton(
                 enabled = text != null,
                 onClick = {
-                    // The form's own boxes, by their ids in .github/ISSUE_TEMPLATE/bug_report.yml.
+                    // The form's own boxes, by their ids in .github/ISSUE_TEMPLATE: a tester's report goes to
+                    // the testers' short form with their number in it, every other one to the bug form.
+                    val tester = choice?.testerNumber
                     val form = "${Links.ISSUES}/new".toUri().buildUpon()
-                        .appendQueryParameter("template", "bug_report.yml")
+                        .appendQueryParameter("template", if (tester != null) TESTER_FORM else BUG_FORM)
                         .appendQueryParameter("build", choice?.build ?: ProblemLog.build())
+                        .apply { if (tester != null) appendQueryParameter("tester", tester.toString()) }
                         .appendQueryParameter("device", ProblemLog.device())
                         .build()
                     // The log as much as the link holds: past about 7,000 characters GitHub says

@@ -42,7 +42,7 @@ enum class DoorAnswer {
 
     /**
      * A tester's code, but this is not the newest test build, and the newest has been out for more
-     * than three days. The code is good: it is kept for the newest build to check with no typing.
+     * than a day. The code is good: it is kept for the newest build to check with no typing.
      */
     OUTDATED,
 

@@ -53,6 +53,7 @@
     <string name="testers_page_channel_description">Where new builds are posted and testers talk.</string>
     <string name="testers_page_rules">Rules</string>
     <string name="testers_page_rules_text">Try the builds and report what breaks. Keep builds and codes to yourself.</string>
+    <string name="testers_rules_full">• Try each new build and report what breaks: Report a problem, on this page.\n\n• Keep builds and your code to yourself. A code works on one phone; the button under /code in #testers moves it.\n\n• A build stops opening a day after a newer one is out, so take the new one when it is posted.\n\n• Go a while without trying a build and the bot reminds you once; after that the spot goes to someone waiting.</string>
     <string name="testers_page_give_back">Give my spot back</string>
     <string name="testers_page_give_back_text">Take the Tester role off in Channels &amp; Roles on Discord. Your spot goes to the next person waiting.</string>
 </resources>

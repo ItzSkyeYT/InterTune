@@ -6,6 +6,8 @@
 
 package com.dd3boh.outertune.testerlock
 
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -123,6 +125,14 @@ private fun Testers(navController: NavController) {
     val checking by session.busy.collectAsState()
     var reporting by rememberSaveable { mutableStateOf(false) }
     if (reporting) ProblemReportDialog(onDismiss = { reporting = false })
+    // The rules in full: the row itself has room for one line, and a tap on it did nothing.
+    var rules by rememberSaveable { mutableStateOf(false) }
+    if (rules) AlertDialog(
+        onDismissRequest = { rules = false },
+        title = { Text(stringResource(R.string.testers_page_rules)) },
+        text = { Text(stringResource(R.string.testers_rules_full)) },
+        confirmButton = { TextButton(onClick = { rules = false }) { Text(stringResource(R.string.action_done)) } },
+    )
 
     // The clock is read when the page is drawn and when the lock's memory changes: a check just made moves both times.
     val screen = remember(memory) { TestersPageScreen.of(BuildConfig.VERSION_NAME, memory, System.currentTimeMillis()) }
@@ -247,7 +257,7 @@ private fun Testers(navController: NavController) {
                 title = { Text(stringResource(R.string.testers_page_rules)) },
                 description = stringResource(R.string.testers_page_rules_text),
                 icon = { Icon(Icons.AutoMirrored.Rounded.Rule, null) },
-                onClick = null,
+                onClick = { rules = true },
             )
             PreferenceEntry(
                 modifier = Modifier.settingRow(R.string.testers_page_give_back),
