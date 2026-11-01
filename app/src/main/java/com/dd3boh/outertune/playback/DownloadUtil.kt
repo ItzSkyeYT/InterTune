@@ -128,13 +128,16 @@ class DownloadUtil @Inject constructor(
             .setUpstreamDataSourceFactory(
                 // A sabr: address to the SABR reader, any other over the family the address was
                 // issued to, and a web client's with its page's headers, as its check was made:
-                // see StreamFamily.Calls.
+                // see StreamFamily.Calls. Read in ranges of a megabyte: YouTube serves one request
+                // for a whole stream at about twice real time, ranges at full speed (PiecewiseDataSource).
                 SabrOrHttp.Factory(
-                    OkHttpDataSource.Factory(
-                        StreamFamily.Calls(
-                            OkHttpClient.Builder()
-                                .proxy(YouTube.proxy)
-                                .build()
+                    PiecewiseDataSource.Factory(
+                        OkHttpDataSource.Factory(
+                            StreamFamily.Calls(
+                                OkHttpClient.Builder()
+                                    .proxy(YouTube.proxy)
+                                    .build()
+                            )
                         )
                     )
                 )
