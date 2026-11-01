@@ -2108,4 +2108,13 @@
     <string name="region_note_proxy">Réglages du proxy</string>
     <string name="proxy_restart_title">Redémarrer pour utiliser le nouveau proxy</string>
     <string name="proxy_restart_description">InterTune prend le proxy au démarrage. Touchez pour le redémarrer maintenant ; la musique s\'arrête.</string>
+    <!-- Pochette de la playlist (PlaylistCovers, PlaylistCoverSheet, Unreleased.PLAYLIST_COVER): held from translators in values until the words are agreed. -->
+    <string name="playlist_cover_change">Changer la pochette</string>
+    <string name="playlist_cover_title">Pochette de la playlist</string>
+    <string name="playlist_cover_note">La pochette au-dessus change à chaque choix.</string>
+    <string name="playlist_cover_automatic">Automatique</string>
+    <string name="playlist_cover_automatic_note">La pochette du premier titre</string>
+    <string name="playlist_cover_photo">Une photo</string>
+    <string name="playlist_cover_photo_note">Depuis votre téléphone</string>
+    <string name="playlist_cover_songs">Un titre de cette playlist</string>
 </resources>

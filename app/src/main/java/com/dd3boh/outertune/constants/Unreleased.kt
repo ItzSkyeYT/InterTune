@@ -563,4 +563,24 @@ object Unreleased {
      * On in every build from 0.12.5, picked on 26 Oct 2026.
      */
     val BATTERY_MODES = true
+
+    /**
+     * Change a playlist's cover (PlaylistCovers, PlaylistCoverSheet), asked for in #general on 31 Oct
+     * 2026: a playlist of one's own wears its first song's picture, often a frame from a music video,
+     * and now the listener picks it. Edit playlist shows the cover with "Change cover" under it, a
+     * tap on the cover in the playlist's header opens the same sheet, and the sheet offers Automatic
+     * (the first song's cover, as it was), a photo from the phone (Android's photo picker, which asks
+     * for no permission) or the cover of one of the playlist's songs. A pick applies at once.
+     *
+     * The choice is kept in the playlist's own picture field, so it shows wherever a playlist is
+     * drawn, and a photo is copied into the app's own storage at 1024 px at most, so it stays when
+     * the photo is deleted from the phone. Local playlists only: a playlist from YouTube keeps
+     * YouTube's picture, which its sync writes into the same field.
+     *
+     * Its texts (playlist_cover_*) are held from translators, their French beside them in
+     * values-fr. Seen on an emulator only. Without it Edit playlist keeps its pencil and the
+     * header's cover is a picture and nothing more. When it is agreed: set this to true, make its
+     * texts translatable.
+     */
+    val PLAYLIST_COVER = BuildConfig.DEBUG
 }

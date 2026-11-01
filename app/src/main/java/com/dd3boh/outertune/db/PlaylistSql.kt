@@ -48,6 +48,14 @@ object PlaylistSql {
     const val MAP_BY_ID = "SELECT * FROM playlist_song_map WHERE id = :id"
 
     /**
+     * Sets a playlist's cover, or clears it with null. Only for a playlist with no YouTube playlist
+     * behind it: one with a browseId keeps YouTube's picture, which its sync writes into this same
+     * column, so no screen's mistake can take it. Writes this one column and no other, so a copy of
+     * the row from before (a rename from a list's menu) cannot put an old cover back.
+     */
+    const val SET_COVER = "UPDATE playlist SET thumbnailUrl = :thumbnailUrl WHERE id = :playlistId AND browseId IS NULL"
+
+    /**
      * The playlists a song sits in, for offering to take it back out again. Local playlists and
      * synced playlists the app can actually edit only, since a followed playlist would offer a
      * remove that YouTube refused and the next sync undid. PlayerMenu also leaves out synced ones
