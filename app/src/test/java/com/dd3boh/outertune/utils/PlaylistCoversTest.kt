@@ -16,7 +16,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.util.zip.ZipInputStream
+import java.util.zip.ZipOutputStream
 import kotlin.math.abs
 
 /**
@@ -181,6 +185,64 @@ class PlaylistCoversTest {
         File(base, "playlist-covers/LPb-2.jpg").writeBytes(byteArrayOf(2))
         File(base, "playlist-covers/LPb-3.jpg.part").writeBytes(byteArrayOf(3))
         assertEquals(listOf("LPa-1.jpg", "LPb-2.jpg"), PlaylistCovers.files(base).map { it.name })
+    }
+
+    // ---- in a backup ----
+
+    private fun zipOf(base: File): ByteArray = ByteArrayOutputStream().also { out -> ZipOutputStream(out).use { PlaylistCovers.addTo(it, base) } }.toByteArray()
+
+    private fun stageAll(zip: ByteArray, staging: File): List<String> {
+        val staged = mutableListOf<String>()
+        ZipInputStream(ByteArrayInputStream(zip)).use { input ->
+            var entry = input.nextEntry
+            while (entry != null) {
+                if (PlaylistCovers.stage(staging, entry.name, input)) staged += entry.name
+                entry = input.nextEntry
+            }
+        }
+        return staged
+    }
+
+    @Test
+    fun `photos go into a backup and come back from it`() {
+        val phone = folder.newFolder("phone")
+        PlaylistCovers.keep(phone, "LPa", 1L) { it.write(byteArrayOf(1, 2, 3)); true }
+        PlaylistCovers.keep(phone, "LPb", 2L) { it.write(byteArrayOf(4, 5)); true }
+        File(phone, "playlist-covers/LPb-3.jpg.part").writeBytes(byteArrayOf(7))
+        val zip = zipOf(phone)
+
+        val other = folder.newFolder("other")
+        PlaylistCovers.keep(other, "LPold", 3L) { it.write(byteArrayOf(9)); true }
+        val staging = File(folder.root, "staging")
+        assertEquals(listOf("playlist-covers/LPa-1.jpg", "playlist-covers/LPb-2.jpg"), stageAll(zip, staging))
+        PlaylistCovers.place(staging, other)
+
+        // The restored database names these and no others.
+        assertEquals(listOf("LPa-1.jpg", "LPb-2.jpg"), PlaylistCovers.files(other).map { it.name })
+        assertTrue(File(other, "playlist-covers/LPa-1.jpg").readBytes().contentEquals(byteArrayOf(1, 2, 3)))
+        assertTrue(File(other, "playlist-covers/LPb-2.jpg").readBytes().contentEquals(byteArrayOf(4, 5)))
+        assertFalse(staging.exists())
+    }
+
+    @Test
+    fun `a library with no photos adds nothing to a backup, and a backup with none changes nothing`() {
+        assertEquals(0, zipOf(folder.newFolder("empty")).let { ZipInputStream(ByteArrayInputStream(it)).use { zin -> generateSequence { zin.nextEntry }.count() } })
+        val other = folder.newFolder("other")
+        PlaylistCovers.keep(other, "LPmine", 4L) { it.write(byteArrayOf(1)); true }
+        PlaylistCovers.place(File(folder.root, "nothing-staged"), other)
+        assertEquals(listOf("LPmine-4.jpg"), PlaylistCovers.files(other).map { it.name })
+    }
+
+    @Test
+    fun `only a plain jpg in the folder is a photo of a backup`() {
+        assertEquals("LPa-1.jpg", PlaylistCovers.backedUpName("playlist-covers/LPa-1.jpg"))
+        for (entry in listOf("playlist-covers/../evil.jpg", "../evil.jpg", "playlist-covers/sub/a.jpg", "playlist-covers/a.txt", "playlist-covers/", "song.db", "settings.preferences_pb", "/playlist-covers/a.jpg")) {
+            assertNull(entry, PlaylistCovers.backedUpName(entry))
+        }
+        val staging = File(folder.root, "staging")
+        assertFalse(PlaylistCovers.stage(staging, "playlist-covers/../evil.jpg", ByteArrayInputStream(byteArrayOf(1))))
+        assertFalse(File(folder.root, "evil.jpg").exists())
+        assertEquals(emptyList<String>(), staging.list().orEmpty().toList())
     }
 
     // ---- what is drawn ----

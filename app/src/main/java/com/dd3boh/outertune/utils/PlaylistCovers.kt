@@ -15,7 +15,10 @@ import android.net.Uri
 import android.util.Log
 import com.dd3boh.outertune.constants.Unreleased
 import java.io.File
+import java.io.InputStream
 import java.io.OutputStream
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 import kotlin.math.max
 
 /**
@@ -138,6 +141,54 @@ object PlaylistCovers {
      */
     fun forget(base: File, playlistId: String, except: String? = null) {
         dir(base).listFiles { file -> file.name.startsWith("$playlistId-") && file.name != except }?.forEach { it.delete() }
+    }
+
+    // ---- in a backup ----
+
+    /** The name a kept photo has in a backup's zip: its folder and its name, as it is stored. */
+    fun entryName(fileName: String) = stored(fileName)
+
+    /** The name of the photo a zip [entry] holds, or null when it is not one: a plain name in the folder, ending in .jpg, and nothing else. */
+    fun backedUpName(entry: String): String? {
+        val name = entry.removePrefix("$DIR/")
+        return if (name != entry && Regex("""[A-Za-z0-9_.-]+\.jpg""").matches(name)) name else null
+    }
+
+    /** Puts every photo in [zip], each as an entry of its own. One that cannot be read is left out of the backup, and the backup is not left out. */
+    fun addTo(zip: ZipOutputStream, base: File) {
+        for (file in files(base)) {
+            val bytes = runCatching { file.readBytes() }.getOrNull() ?: continue
+            zip.putNextEntry(ZipEntry(entryName(file.name)))
+            zip.write(bytes)
+            zip.closeEntry()
+        }
+    }
+
+    /**
+     * Reads the photo that the zip [entry] holds into the folder [staging], where it waits until the
+     * database it goes with is known good. False for an entry that is not a photo or could not be read.
+     */
+    fun stage(staging: File, entry: String, input: InputStream): Boolean {
+        val name = backedUpName(entry) ?: return false
+        staging.mkdirs()
+        return runCatching { File(staging, name).outputStream().use { input.copyTo(it) }; true }.getOrDefault(false)
+    }
+
+    /**
+     * Puts the photos waiting in [staging] in the folder of [base], in place of the ones there: the
+     * database that was restored names these and none other. Nothing staged, nothing changed, so a
+     * backup made before covers, or without any, leaves the folder as it is. A photo that cannot
+     * be copied is left out, and the playlist that names it is drawn with the first song's cover.
+     */
+    fun place(staging: File, base: File) {
+        val staged = staging.listFiles { file -> file.isFile }.orEmpty()
+        if (staged.isNotEmpty()) {
+            val dir = dir(base)
+            dir.mkdirs()
+            dir.listFiles()?.forEach { it.delete() }
+            for (file in staged) runCatching { file.copyTo(File(dir, file.name), overwrite = true) }
+        }
+        staging.deleteRecursively()
     }
 
     // ---- what is drawn ----
