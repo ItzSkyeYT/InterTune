@@ -7,6 +7,7 @@ import com.dd3boh.outertune.utils.get
 import com.zionhuang.kugou.KuGou
 import com.zionhuang.kugou.models.SearchLyricsResponse
 import com.zionhuang.kugou.models.SearchSongResponse
+import kotlinx.coroutines.CancellationException
 
 object KuGouLyricsProvider : LyricsProvider {
     override val name = "Kugou"
@@ -68,7 +69,20 @@ object KuGouLyricsProvider : LyricsProvider {
         throw IllegalStateException("No lyrics candidate")
     }
 
-    override suspend fun getAllLyrics(id: String, title: String, artist: String, duration: Int, callback: (String) -> Unit) {
-        KuGou.getAllPossibleLyricsOptions(title, artist, duration, callback)
+    /** The lyrics search: each spelling of the artists in turn ([LyricsQuery.searchArtists]) until one finds something. */
+    override suspend fun getAllLyrics(query: LyricsQuery, callback: (String) -> Unit) {
+        var failure: Exception? = null
+        for (artist in query.searchArtists) {
+            var found = false
+            try {
+                KuGou.getAllPossibleLyricsOptions(query.searchTitle, artist, query.duration) { found = true; callback(it) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                failure = e
+            }
+            if (found) return
+        }
+        failure?.let { throw it }
     }
 }

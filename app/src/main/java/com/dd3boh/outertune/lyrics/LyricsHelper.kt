@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.lyrics
 
+import java.util.Collections
 import android.content.Context
 import android.util.Log
 import android.util.LruCache
@@ -214,6 +215,13 @@ class LyricsHelper @Inject constructor(
         return null
     }
 
+    /**
+     * Everything the providers offer for the lyrics search's title and artists, each as it arrives,
+     * for the listener to choose from: every provider asked on its own ([LyricsLookup.all]), the typed
+     * artists split, and the song's real length waited for as the automatic lookup does. Only what was
+     * found is kept for the same search again: an empty answer, often one provider failing, was kept
+     * as well, so asking again changed nothing until the app was restarted.
+     */
     suspend fun getAllLyrics(
         mediaId: String,
         songTitle: String,
@@ -228,17 +236,26 @@ class LyricsHelper @Inject constructor(
             }
             return
         }
-        val allResult = mutableListOf<LyricsResult>()
-        lyricsProviders().forEach { provider ->
-            if (provider.isEnabled(context)) {
-                provider.getAllLyrics(mediaId, songTitle, songArtists, duration) { lyrics ->
-                    val result = LyricsResult(provider.name, lyrics)
-                    allResult += result
-                    callback(result)
-                }
-            }
+        val query = LyricsQuery.typed(
+            id = mediaId,
+            title = songTitle,
+            artists = songArtists,
+            album = null,
+            duration = LyricsLookup.awaitLength(duration, database.song(mediaId).map { it?.song?.duration ?: -1 }, DURATION_WAIT_MS),
+        )
+        val providers = lyricsProviders()
+        val found = Collections.synchronizedList(mutableListOf<LyricsResult>())
+        LyricsLookup.all(
+            providers,
+            query,
+            onFailure = { provider, e -> Log.w(TAG, "Lyrics search: ${provider.name} failed: ${e.message}") },
+        ) { provider, lyrics ->
+            // The sources answer side by side; the list keeps them in the order set under Lyrics sources.
+            val result = LyricsResult(provider.name, lyrics, rank = providers.indexOf(provider))
+            found += result
+            callback(result)
         }
-        cache.put(cacheKey, allResult)
+        if (found.isNotEmpty()) cache.put(cacheKey, found.sortedBy { it.rank })
     }
 
     /** Lyrics as kept, read whatever their form. See [readKeptLyrics]. */
@@ -257,4 +274,6 @@ class LyricsHelper @Inject constructor(
 data class LyricsResult(
     val providerName: String,
     val lyrics: String,
+    /** The source's place under Lyrics sources: the search's list is kept in that order. */
+    val rank: Int = 0,
 )
