@@ -6,9 +6,9 @@
 
 package com.dd3boh.outertune.ui.component
 
-import com.dd3boh.outertune.ui.screens.settings.Jump
+import com.dd3boh.outertune.ui.screens.settings.SETTINGS_INDEX
 import com.dd3boh.outertune.ui.screens.settings.SettingJump
-import com.dd3boh.outertune.ui.screens.settings.settingMark
+import com.dd3boh.outertune.ui.screens.settings.jump
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -132,8 +132,11 @@ fun RegionNote(
     }
 }
 
-/** The app's proxy switch, opened and flashed, as an explanation's link to a setting is. */
-fun openProxySetting() = SettingJump.go(Jump(settingMark(R.string.enable_proxy), "settings/privacy"))
+/**
+ * The app's proxy switch, opened and lit as an explanation's link to a setting is: through its
+ * entry in the index, so the Advanced fold it is in opens on the way.
+ */
+fun openProxySetting() = SettingJump.go(SETTINGS_INDEX.first { it.title == R.string.enable_proxy }.jump())
 
 /**
  * [RegionNote] on Home and above search results, while YouTube sees the connection in a country

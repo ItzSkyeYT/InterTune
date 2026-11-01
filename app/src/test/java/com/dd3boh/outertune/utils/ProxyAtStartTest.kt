@@ -37,6 +37,6 @@ class ProxyAtStartTest {
         val noted = app.indexOf("ProxyAtStart.setting = ProxyAtStart.of(")
         assertTrue("noted before the proxy is taken", noted > 0 && noted < app.indexOf("if (dataStore[ProxyEnabledKey] == true)"))
         assertTrue(File(src, "ui/screens/settings/PrivacySettings.kt").readText().contains("ProxyAtStart.restart(context)"))
-        assertTrue(File(src, "ui/component/RegionNote.kt").readText().contains("settingMark(R.string.enable_proxy)"))
+        assertTrue(File(src, "ui/component/RegionNote.kt").readText().contains("R.string.enable_proxy }.jump()"))
     }
 }

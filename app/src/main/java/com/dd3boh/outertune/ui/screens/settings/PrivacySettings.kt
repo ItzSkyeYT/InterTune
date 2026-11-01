@@ -166,6 +166,7 @@ fun PrivacySettings(
                 }.collectAsState(initial = ProxyAtStart.setting)
                 AnimatedVisibility(ProxyAtStart.setting != null && proxyNow != ProxyAtStart.setting) {
                     PreferenceEntry(
+                        modifier = Modifier.settingRow(R.string.proxy_restart_title),
                         title = { Text(stringResource(R.string.proxy_restart_title)) },
                         description = stringResource(R.string.proxy_restart_description),
                         icon = { Icon(Icons.Rounded.RestartAlt, null) },

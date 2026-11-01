@@ -559,7 +559,7 @@
     <string name="sync_progress_nothing">Rien à synchroniser. Vérifiez que la synchronisation est activée pour au moins un type de contenu.</string>
     <string name="playlist_sync_failed">Impossible de synchroniser cette playlist. Elle a été laissée telle quelle.</string>
     <!-- Settings -->
-    <string name="proxy_examples">Le format est hôte:port, par exemple 127.0.0.1:8118. Tor via Orbot donne 127.0.0.1:8118 pour HTTP ou 127.0.0.1:9050 pour SOCKS. Évitez les listes de proxys publics : celui qui en gère un voit tout ce que vous récupérez.</string>
+    <string name="proxy_examples">Le format est hôte:port, par exemple 127.0.0.1:8118. Tor via Orbot donne 127.0.0.1:8118 pour HTTP ou 127.0.0.1:9050 pour SOCKS, mais YouTube retient souvent les résultats de recherche et les mix via Tor. Évitez les listes de proxys publics : celui qui en gère un voit tout ce que vous récupérez.</string>
     <!-- About settings -->
     <string name="help_discord">Discussion de la communauté (via Discord)</string>
     <string name="help_translate">Aider à traduire InterTune (via Weblate)</string>
