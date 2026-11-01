@@ -52,6 +52,10 @@ val YtmSyncContentKey = stringPreferencesKey("ytmSyncContent")
 val YtmSyncModeKey = stringPreferencesKey("ytmSyncMode")
 val YtmSyncConflictKey = stringPreferencesKey("ytmSyncConflict")
 val LikedAutoDownloadKey = stringPreferencesKey("likedAutoDownloadKey")
+/** Whether taking back a like removes the download that LikedAutoDownloadKey made for the song (issue #64): LikedDownloads. */
+val LikedDownloadSyncKey = booleanPreferencesKey("likedDownloadSync")
+/** The songs LikedAutoDownloadKey downloaded itself, by id, so that an unlike removes those and never one downloaded by hand. */
+val LikedAutoDownloadedKey = stringSetPreferencesKey("likedAutoDownloaded")
 val ContentLanguageKey = stringPreferencesKey("contentLanguage")
 val ContentCountryKey = stringPreferencesKey("contentCountry")
 /** The country the note about YouTube Music with no free plan was sent away for: YouTubeRegion. */

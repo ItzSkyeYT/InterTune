@@ -2284,4 +2284,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="region_note_proxy">Proxy settings</string>
     <string name="proxy_restart_title">Restart to use the new proxy</string>
     <string name="proxy_restart_description">InterTune takes the proxy when it starts. Tap to restart it now; the music stops.</string>
+    <!-- Liked songs kept in sync with their downloads (issue #64, Unreleased.LIKED_SYNC): held from translators until he says. -->
+    <string name="liked_download_sync" translatable="false">Remove the download with the like</string>
+    <string name="liked_download_sync_description" translatable="false">Only songs this setting downloaded. A song you downloaded yourself stays.</string>
 </resources>
