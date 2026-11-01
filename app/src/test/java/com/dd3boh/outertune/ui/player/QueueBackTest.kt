@@ -6,7 +6,6 @@
 
 package com.dd3boh.outertune.ui.player
 
-import com.dd3boh.outertune.constants.QueueBackClosesPlayerDefault
 import com.dd3boh.outertune.ui.component.collapsedAnchor
 import com.dd3boh.outertune.ui.component.dismissedAnchor
 import com.dd3boh.outertune.ui.component.expandedAnchor
@@ -17,9 +16,9 @@ import org.junit.Test
 import java.io.File
 
 /**
- * Back from the queue (issue #30). With "Back from the queue closes the player" on, which it is
- * unless turned off (since 1 Nov 2026), it closes the whole player and leaves the queue open in it,
- * and where the queue was left outlives the app. Off, Back from the queue goes to the song view.
+ * Back from the queue (issue #30). With "Back from the queue closes the player" off, which it is
+ * unless turned on, Back from the queue goes to the song view as it always has. On, it closes the
+ * whole player and leaves the queue open in it, and where the queue was left outlives the app.
  */
 class QueueBackTest {
 
@@ -89,19 +88,13 @@ class QueueBackTest {
     private fun filesNaming(name: String): Set<String> =
         main.walkTopDown().filter { it.extension == "kt" && name in it.readText() }.map { it.name }.toSet()
 
-    /**
-     * On unless it is turned off, since 1 Nov 2026: a poll answer on 0.12.5 asked for Back "to return
-     * to main screen and not just glitch back into player", and Back with the queue open was the one
-     * way it landed in the player. Someone who turned it off keeps it off.
-     */
     @Test
-    fun `the switch is on unless it is turned off, and both readers take the one default`() {
+    fun `the switch is off unless it is turned on`() {
         assertEquals(setOf("PreferenceKeys.kt", "Player.kt", "PlayerButtonsFrag.kt"), filesNaming("QueueBackClosesPlayerKey"))
-        assertTrue(QueueBackClosesPlayerDefault)
         val read = Regex("""rememberPreference\(\s*QueueBackClosesPlayerKey\s*,\s*defaultValue\s*=\s*(\w+)\s*\)""")
         for (path in listOf("ui/player/Player.kt", "ui/screens/settings/fragments/PlayerButtonsFrag.kt")) {
             val defaults = read.findAll(source(path)).map { it.groupValues[1] }.toList()
-            assertEquals("$path reads the switch once, with the one default", listOf("QueueBackClosesPlayerDefault"), defaults)
+            assertEquals("$path reads the switch once, off unless set", listOf("false"), defaults)
         }
     }
 
