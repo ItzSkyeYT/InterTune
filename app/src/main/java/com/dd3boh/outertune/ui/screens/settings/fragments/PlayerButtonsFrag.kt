@@ -59,7 +59,6 @@ import com.dd3boh.outertune.R
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import com.dd3boh.outertune.constants.PlayerButtonsStyle
 import com.dd3boh.outertune.constants.PlayerButtonsStyleKey
-import com.dd3boh.outertune.constants.QueueBackClosesPlayerDefault
 import com.dd3boh.outertune.constants.PlayerPinsKey
 import com.dd3boh.outertune.ui.player.PinPlace
 import com.dd3boh.outertune.ui.player.PlayerPin
@@ -262,7 +261,7 @@ fun ColumnScope.PlayerButtonsFrag() {
     // Off keeps Back from the queue going to the song first, as it always has. On, Back from the
     // queue closes the whole player and leaves the queue open in it, so the player opens on the
     // queue next time, after a restart too (issue #30).
-    val (backClosesPlayer, onBackClosesPlayerChange) = rememberPreference(QueueBackClosesPlayerKey, defaultValue = QueueBackClosesPlayerDefault)
+    val (backClosesPlayer, onBackClosesPlayerChange) = rememberPreference(QueueBackClosesPlayerKey, defaultValue = false)
     SwitchPreference(
         modifier = Modifier.settingRow(R.string.queue_back_closes_player),
         title = { Text(stringResource(R.string.queue_back_closes_player)) },

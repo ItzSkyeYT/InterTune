@@ -31,7 +31,6 @@ import com.dd3boh.outertune.constants.PlayerButtonsStyle
 import com.dd3boh.outertune.constants.PlayerButtonsStyleKey
 import com.dd3boh.outertune.constants.PlayerPinsKey
 import com.dd3boh.outertune.constants.QueueButtonKey
-import com.dd3boh.outertune.constants.QueueBackClosesPlayerDefault
 import com.dd3boh.outertune.constants.QueueBackClosesPlayerKey
 import com.dd3boh.outertune.constants.QueueLeftOpenKey
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
@@ -404,7 +403,7 @@ fun BottomSheetPlayer(
     val pins = remember(pinsRaw) { PlayerPins.read(pinsRaw) }
     val queueAsButton by rememberPreference(QueueButtonKey, defaultValue = false)
     // Back from the queue closes the whole player, and the player opens where it was left (#30).
-    val queueBackClosesPlayer by rememberPreference(QueueBackClosesPlayerKey, defaultValue = QueueBackClosesPlayerDefault)
+    val queueBackClosesPlayer by rememberPreference(QueueBackClosesPlayerKey, defaultValue = false)
     var queueLeftOpen by rememberPreference(QueueLeftOpenKey, defaultValue = false)
 
     // Read again on a new song as well as on a new state, since the loop below only reads while the

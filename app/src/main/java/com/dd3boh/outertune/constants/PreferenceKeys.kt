@@ -446,17 +446,11 @@ val QueueButtonKey = booleanPreferencesKey("queueButton")
 
 /**
  * Whether Back from the queue closes the whole player in one step, as two swipes down would, and
- * leaves the queue open in it, so that the player opens on the queue next time (issue #30). A swipe
- * down on the queue or a tap on its bar still goes to the song. Read with [QueueBackClosesPlayerDefault].
+ * leaves the queue open in it, so that the player opens on the queue next time (issue #30). Off by
+ * default: Back from the queue goes to the song first, as it always has, and a swipe down on the
+ * queue or a tap on its bar still does with it on.
  */
 val QueueBackClosesPlayerKey = booleanPreferencesKey("queueBackClosesPlayer")
-
-/**
- * On unless turned off, since 1 Nov 2026. It was off, and Back with the queue open landed in the
- * player: a poll answer on 0.12.5 asked for Back to "return to main screen and not just glitch back
- * into player". Someone who turned the switch off keeps it off; a stored value always wins.
- */
-const val QueueBackClosesPlayerDefault = true
 
 /**
  * Whether the queue was left open in the player, so that the player opens on it again after a
