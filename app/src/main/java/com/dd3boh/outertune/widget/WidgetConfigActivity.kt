@@ -8,6 +8,8 @@ package com.dd3boh.outertune.widget
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.app.WallpaperColors
+import android.app.WallpaperManager
 import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.Intent
@@ -16,7 +18,6 @@ import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.MotionEvent
-import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.RemoteViews
 import androidx.activity.ComponentActivity
@@ -30,6 +31,11 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -77,7 +83,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.graphics.drawable.toDrawable
+import androidx.core.view.WindowCompat
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.appwidget.state.updateAppWidgetState
@@ -119,8 +125,12 @@ class WidgetConfigActivity : ComponentActivity() {
             return
         }
 
-        val onWallpaper = Unreleased.WIDGET_ON_WALLPAPER
-        if (onWallpaper) showWallpaperBehind()
+        // Where the preview sits on the real wallpaper the window is a full one, which the system
+        // draws the wallpaper under and the home screen not at all (Theme.InterTune.WidgetConfig.Wallpaper).
+        // A build whose theme is still the dialog keeps the patch of colour: through a see-through
+        // dialog, the home screen's own widgets and icons show behind the preview.
+        val onWallpaper = Unreleased.WIDGET_ON_WALLPAPER && !themeFloats()
+        if (onWallpaper) barsFollowWallpaper()
 
         setContent {
             val context = LocalContext.current
@@ -143,23 +153,49 @@ class WidgetConfigActivity : ComponentActivity() {
                     // it opens on what the widget is already set to.
                     var initial by remember { mutableStateOf<WidgetSettings?>(null) }
                     LaunchedEffect(Unit) { initial = current() }
-                    initial?.let { Config(it, widgetSize(), onWallpaper, onDone = ::save) }
+                    initial?.let { settings ->
+                        if (onWallpaper) {
+                            // A full window: the settings sit in the middle, clear of the system bars,
+                            // with the wallpaper around them, as the dialog had.
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .windowInsetsPadding(WindowInsets.safeDrawing)
+                                    .padding(horizontal = 16.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Box(modifier = Modifier.widthIn(max = 560.dp)) {
+                                    Config(settings, widgetSize(), onWallpaper = true, onDone = ::save)
+                                }
+                            }
+                        } else {
+                            Config(settings, widgetSize(), onWallpaper = false, onDone = ::save)
+                        }
+                    }
                 }
             }
         }
     }
 
+    /** Whether this screen's theme is the dialog. Read from the theme: the window knows only once its decor is made. */
+    private fun themeFloats(): Boolean {
+        val attrs = theme.obtainStyledAttributes(intArrayOf(android.R.attr.windowIsFloating))
+        return try { attrs.getBoolean(0, false) } finally { attrs.recycle() }
+    }
+
     /**
-     * The home screen's own wallpaper behind this window, with nothing of the window's over it, so
-     * a widget set to be see-through is judged against what it will sit on. The system draws the
-     * wallpaper there: nothing is read from it, so no permission is asked, which reading it
-     * through WallpaperManager would need. The dialog's panel and the dimming behind it both go,
-     * or the preview would sit on a darkened wallpaper.
+     * The status and navigation bars' icons dark on a light wallpaper and light on a dark one, as a
+     * launcher has them, from the hint the system gives about the wallpaper. The system draws the
+     * wallpaper itself and nothing is read from the picture, so no permission is asked.
      */
-    private fun showWallpaperBehind() {
-        window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER)
-        window.setBackgroundDrawable(android.graphics.Color.TRANSPARENT.toDrawable())
-        window.setDimAmount(0f)
+    private fun barsFollowWallpaper() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+        val hints = WallpaperManager.getInstance(this).getWallpaperColors(WallpaperManager.FLAG_SYSTEM)?.colorHints ?: return
+        val lightWallpaper = hints and WallpaperColors.HINT_SUPPORTS_DARK_TEXT != 0
+        WindowCompat.getInsetsController(window, window.decorView).run {
+            isAppearanceLightStatusBars = lightWallpaper
+            isAppearanceLightNavigationBars = lightWallpaper
+        }
     }
 
     /**
