@@ -7,6 +7,8 @@
 
 # InterTune
 
+<sub>InnerTune ∩ OuterTune</sub>
+
 ### YouTube Music and your own music, in one Android app
 
 [![release](https://img.shields.io/github/v/release/ItzSkyeYT/InterTune?label=release&color=ed5564&labelColor=1b1f24)](https://github.com/ItzSkyeYT/InterTune/releases/latest)
