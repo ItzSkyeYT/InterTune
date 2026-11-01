@@ -23,6 +23,8 @@
 
 </div>
 
+InterTune is a free, open-source YouTube Music client for Android, forked from [OuterTune](https://github.com/OuterTune/OuterTune) (which came from [InnerTune](https://github.com/z-huang/InnerTune)). It plays YouTube Music and the music on your phone in one queue, works out recommendations on the phone from what you skip and like, casts to Chromecast, FCast and DLNA, shows synced lyrics, recognises songs and works in Android Auto. No ads, no tracking, no account needed.
+
 > **Warning:** the "InterTune" apps on Google Play and on other APK sites are not this one: they are other companies' apps, with ads. Get InterTune only from this page, Obtainium, F-Droid, Orion Store or OpenAPK.
 
 ## Download
