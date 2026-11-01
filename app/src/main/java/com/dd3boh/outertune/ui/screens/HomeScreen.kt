@@ -697,7 +697,7 @@ fun HomeScreen(
             // Where YouTube Music has no free plan, why Home and Search have no songs, albums or
             // mixes (#68). Shown only while YouTube sees the connection there, until Done.
             item(key = "region_note") {
-                RegionNoteIfClosed(navController, modifier = Modifier.animateItem())
+                RegionNoteIfClosed(modifier = Modifier.animateItem())
             }
 
             // What is new since an update, for somebody back after one. First of the three that

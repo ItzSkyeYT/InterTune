@@ -6,6 +6,9 @@
 
 package com.dd3boh.outertune.ui.component
 
+import com.dd3boh.outertune.ui.screens.settings.Jump
+import com.dd3boh.outertune.ui.screens.settings.SettingJump
+import com.dd3boh.outertune.ui.screens.settings.settingMark
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -36,7 +39,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavController
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.RegionNoteDoneKey
 import com.dd3boh.outertune.utils.YouTubeRegion
@@ -45,7 +47,7 @@ import com.dd3boh.outertune.utils.rememberPreference
 /**
  * Why songs, albums and mixes are missing where YouTube Music has no free plan (#68): YouTube
  * shows them only to Premium members there, by the connection, so the way back is Premium or a
- * connection through another country. Proxy settings opens the page with the app's own proxy.
+ * connection through another country. Proxy settings opens the app's own proxy switch.
  *
  * The shape and colour of [AutoBlockerNote], since it is the same kind of thing: a word from the
  * app itself, with its buttons under the words so they wrap in a large font or a long language.
@@ -130,6 +132,9 @@ fun RegionNote(
     }
 }
 
+/** The app's proxy switch, opened and flashed, as an explanation's link to a setting is. */
+fun openProxySetting() = SettingJump.go(Jump(settingMark(R.string.enable_proxy), "settings/privacy"))
+
 /**
  * [RegionNote] on Home and above search results, while YouTube sees the connection in a country
  * with no free plan and until Done is tapped there. Done is kept with the country it was tapped
@@ -137,14 +142,13 @@ fun RegionNote(
  */
 @Composable
 fun RegionNoteIfClosed(
-    navController: NavController,
     modifier: Modifier = Modifier,
 ) {
     val seen by YouTubeRegion.seen.collectAsState()
     var done by rememberPreference(RegionNoteDoneKey, defaultValue = "")
     if (!YouTubeRegion.closed(seen) || done == seen) return
     RegionNote(
-        onProxy = { navController.navigate("settings/privacy") },
+        onProxy = ::openProxySetting,
         onDone = { done = seen.orEmpty() },
         modifier = modifier,
     )

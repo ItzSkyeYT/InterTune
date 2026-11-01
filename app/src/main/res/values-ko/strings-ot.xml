@@ -361,4 +361,7 @@
     <string name="region_note_title">한국의 YouTube Music</string>
     <string name="region_note_body">한국에는 YouTube Music 무료 요금제가 없어서 YouTube가 노래, 앨범, 믹스를 Premium 회원에게만 보여 줍니다. 검색하면 동영상은 계속 나옵니다. Premium 계정이나 한국 밖의 VPN 또는 프록시를 쓰면 나머지도 다시 보입니다.</string>
     <string name="region_note_proxy">프록시 설정</string>
+    <string name="proxy_restart_title">새 프록시를 쓰려면 다시 시작하세요</string>
+    <string name="proxy_restart_description">InterTune은 시작할 때 프록시를 읽습니다. 눌러서 지금 다시 시작하세요. 음악은 멈춥니다.</string>
+    <string name="proxy_examples">형식은 host:port입니다. 예: 127.0.0.1:8118. Orbot으로 Tor를 쓰면 HTTP는 127.0.0.1:8118, SOCKS는 127.0.0.1:9050입니다. 공개 프록시 목록은 피하세요. 프록시를 운영하는 사람은 가져오는 모든 것을 볼 수 있습니다.</string>
 </resources>

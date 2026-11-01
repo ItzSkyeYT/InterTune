@@ -228,13 +228,17 @@ fun OnlineSearchResult(
     ) {
         // Why the results hold videos but no songs where YouTube Music has no free plan (#68).
         item(key = "region_note") {
-            RegionNoteIfClosed(navController, modifier = Modifier.animateItem())
+            RegionNoteIfClosed(modifier = Modifier.animateItem())
         }
 
         if (searchFilter == null) {
             searchSummary?.summaries?.forEach { summary ->
-                item {
-                    NavigationTitle(summary.title)
+                // YouTube's top result often comes with no heading, and an empty title left a band
+                // of nothing above it.
+                if (summary.title.isNotBlank()) {
+                    item {
+                        NavigationTitle(summary.title)
+                    }
                 }
 
                 itemsInColumns(

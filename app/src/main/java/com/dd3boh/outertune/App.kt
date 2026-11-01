@@ -9,6 +9,7 @@
 
 package com.dd3boh.outertune
 
+import com.dd3boh.outertune.utils.ProxyAtStart
 import com.dd3boh.outertune.models.ContentFilter
 import com.dd3boh.outertune.utils.BuiltInKeys
 import android.webkit.CookieManager
@@ -140,6 +141,9 @@ class App : Application(), SingletonImageLoader.Factory {
             KuGou.useTraditionalChinese = true
         }
 
+        // The proxy every client takes once, here: the settings page offers a restart while the one
+        // set there differs (#68). See ProxyAtStart.
+        ProxyAtStart.setting = ProxyAtStart.of(dataStore[ProxyEnabledKey], dataStore[ProxyTypeKey], dataStore[ProxyUrlKey])
         if (dataStore[ProxyEnabledKey] == true) {
             try {
                 YouTube.proxy = Proxy(

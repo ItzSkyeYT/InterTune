@@ -99,6 +99,7 @@ import com.dd3boh.outertune.ui.component.FontSizeRange
 import com.dd3boh.outertune.ui.component.LazyColumnScrollbar
 import com.dd3boh.outertune.ui.component.LoadFailed
 import com.dd3boh.outertune.ui.component.RegionNote
+import com.dd3boh.outertune.ui.component.openProxySetting
 import com.dd3boh.outertune.utils.YouTubeRegion
 import com.dd3boh.outertune.ui.component.NavigationTitle
 import com.dd3boh.outertune.ui.component.SelectHeader
@@ -583,7 +584,7 @@ fun AlbumScreen(
                 Column {
                     val seen by YouTubeRegion.seen.collectAsState()
                     if (YouTubeRegion.closed(seen)) {
-                        RegionNote(onProxy = { navController.navigate("settings/privacy") }, onDone = null)
+                        RegionNote(onProxy = ::openProxySetting, onDone = null)
                     }
                     LoadFailed(onRetry = viewModel::retry)
                 }
