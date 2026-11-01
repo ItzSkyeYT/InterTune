@@ -35,8 +35,9 @@ class LyricsMenuViewModel @Inject constructor(
             try {
                 withTimeoutOrNull(LYRIC_FETCH_TIMEOUT) {
                     lyricsHelper.getAllLyrics(mediaId, title, artist, duration) { result ->
+                        // In the order set under Lyrics sources, whichever answers first.
                         results.update {
-                            it + result
+                            (it + result).sortedBy { r -> r.rank }
                         }
                     }
                 }

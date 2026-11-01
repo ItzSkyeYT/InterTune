@@ -17,11 +17,12 @@ interface LyricsProvider {
     suspend fun getLyrics(query: LyricsQuery): Result<String>
 
     /**
-     * Everything this provider offers for a title and artist typed into the lyrics search, for the
+     * Everything this provider offers for a title and artists typed into the lyrics search, for the
      * listener to choose from. Nothing is filtered by name here, since the listener is the judge.
+     * A failure may be thrown: [LyricsLookup.all] keeps it to this provider.
      */
-    suspend fun getAllLyrics(id: String, title: String, artist: String, duration: Int, callback: (String) -> Unit) {
-        getLyrics(LyricsQuery(id = id, title = title, artists = listOf(artist), duration = duration)).onSuccess(callback)
+    suspend fun getAllLyrics(query: LyricsQuery, callback: (String) -> Unit) {
+        getLyrics(query).onSuccess(callback)
     }
 }
 
@@ -56,4 +57,26 @@ data class LyricsQuery(
         get() = listOfNotNull(artist, artists.firstOrNull()).filter { it.isNotBlank() }.distinct().ifEmpty { listOf("") }
 
     val knowsDuration: Boolean get() = duration > 0
+
+    /**
+     * The artist strings the lyrics search tries, in order: all of them together, then each alone.
+     * LRCLIB answered 503 for "Get Lucky" by "Pharrell Williams, Daft Punk, Nile Rodgers" and twenty
+     * timed versions for "Daft Punk" (1 Nov 2026). Nothing typed: the title alone.
+     */
+    val searchArtists: List<String>
+        get() = (listOf(artist) + artists).map { it.trim() }.filter { it.isNotEmpty() }.distinct().ifEmpty { listOf("") }
+
+    companion object {
+        /**
+         * The query for what was typed into the lyrics search. The artists are split where the app
+         * joins them (", "), so a name such as "Simon & Garfunkel" stays whole.
+         */
+        fun typed(id: String, title: String, artists: String, album: String?, duration: Int) = LyricsQuery(
+            id = id,
+            title = title.trim(),
+            artists = artists.split(',').map { it.trim() }.filter { it.isNotEmpty() },
+            album = album,
+            duration = duration,
+        )
+    }
 }
