@@ -97,6 +97,7 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
     SettingEntry(Tour.ROUTE_LIBRARY, R.string.open_links_title, R.string.open_links_description, words = listOf(R.string.search_words_open_links)),
     SettingEntry(Tour.ROUTE_LIBRARY, R.string.hide_explicit, R.string.hide_explicit_description, words = listOf(R.string.search_words_explicit)),
     SettingEntry(Tour.ROUTE_LIBRARY, R.string.hide_video_songs, R.string.hide_video_songs_description),
+    SettingEntry(Tour.ROUTE_LIBRARY, R.string.blocked_artists, words = listOf(R.string.search_words_blocked_artists), there = Unreleased.ARTIST_BLOCK),
     SettingEntry(Tour.ROUTE_LIBRARY, R.string.content_language, words = listOf(R.string.search_words_language)),
     SettingEntry(Tour.ROUTE_LIBRARY, R.string.content_country, words = listOf(R.string.search_words_country)),
     SettingEntry(Tour.ROUTE_LIBRARY, R.string.show_liked_and_downloaded_playlist, R.string.show_liked_and_downloaded_playlist_description, fold = R.string.advanced),

@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.viewmodels
 
+import com.dd3boh.outertune.models.withoutBlocked
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dd3boh.outertune.db.MusicDatabase
@@ -54,7 +55,7 @@ class LocalSearchViewModel @Inject constructor(
                 LocalFilter.ALBUM -> database.searchAlbums(query)
                 LocalFilter.ARTIST -> database.searchArtists(query)
                 LocalFilter.PLAYLIST -> database.searchPlaylists(query)
-            }.map { list ->
+            }.withoutBlocked().map { list ->
                 LocalSearchResult(
                     query = query,
                     filter = filter,

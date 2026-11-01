@@ -64,6 +64,7 @@ import com.dd3boh.outertune.ui.menu.YouTubeAlbumMenu
 import com.dd3boh.outertune.ui.menu.YouTubeArtistMenu
 import com.dd3boh.outertune.ui.menu.YouTubePlaylistMenu
 import com.dd3boh.outertune.ui.menu.YouTubeSongMenu
+import com.dd3boh.outertune.ui.menu.BlockedNote
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.viewmodels.OnlineSearchViewModel
 import com.dd3boh.outertune.ui.component.LoadFailed
@@ -104,6 +105,8 @@ fun OnlineSearchResult(
 
     val searchFilter by viewModel.filter.collectAsState()
     val searchSummary = viewModel.summaryPage
+    // A search for a blocked artist's name: one quiet line and Unblock, no results (ArtistBlock).
+    val blockedNamed = viewModel.blockedNamed
     val itemsPage by remember(searchFilter) {
         derivedStateOf {
             searchFilter?.value?.let {
@@ -231,7 +234,11 @@ fun OnlineSearchResult(
             RegionNoteIfClosed(modifier = Modifier.animateItem())
         }
 
-        if (searchFilter == null) {
+        if (blockedNamed != null) {
+            item(key = "blocked") {
+                BlockedNote(artist = blockedNamed, modifier = Modifier.animateItem())
+            }
+        } else if (searchFilter == null) {
             searchSummary?.summaries?.forEach { summary ->
                 // YouTube's top result often comes with no heading, and an empty title left a band
                 // of nothing above it.
@@ -289,7 +296,7 @@ fun OnlineSearchResult(
             }
         }
 
-        if (searchFilter == null && searchSummary == null || searchFilter != null && itemsPage == null) {
+        if (blockedNamed == null && (searchFilter == null && searchSummary == null || searchFilter != null && itemsPage == null)) {
             item {
                 if (viewModel.failed[searchFilter?.value ?: OnlineSearchViewModel.SUMMARY] == true) {
                     LoadFailed(onRetry = viewModel::retry)

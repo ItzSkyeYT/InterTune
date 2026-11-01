@@ -9,6 +9,8 @@
 
 package com.dd3boh.outertune.playback
 
+import kotlinx.coroutines.flow.drop
+import com.dd3boh.outertune.models.blockedArtists
 import com.dd3boh.outertune.constants.ContextChipKey
 import com.dd3boh.outertune.db.entities.RecommendationExclusion
 import com.dd3boh.outertune.constants.RestSongsISkipKey
@@ -1118,6 +1120,12 @@ class MusicService : MediaLibraryService(),
                 StopReasons.keep(this@MusicService, StopReasons.NOT_IN_FOREGROUND)
             }
         })
+        // An artist blocked while their song is the one playing: it is passed over at once.
+        if (Unreleased.ARTIST_BLOCK) scope.launch {
+            blockedArtists.drop(1).collect {
+                runCatching { passOverBlocked() }.onFailure { Log.w(TAG, "Could not pass over a blocked song", it) }
+            }
+        }
         screenOffRegistered = runCatching {
             androidx.core.content.ContextCompat.registerReceiver(
                 this, screenOff, android.content.IntentFilter(Intent.ACTION_SCREEN_OFF),
@@ -2467,7 +2475,7 @@ class MusicService : MediaLibraryService(),
             // the other switches lose nothing here.
             if (ContentFilter.current.explicit) return emptyList()
             return withContext(Dispatchers.IO) {
-                runCatching { database.youtubeRelatedSongs(seed.id).map { it.toMediaMetadata() } }
+                runCatching { ContentFilter.current.blocked.library(database.youtubeRelatedSongs(seed.id)).map { it.toMediaMetadata() } }
                     .onFailure { Log.w(TAG, "Could not read the songs related to a radio's song", it) }
                     .getOrDefault(emptyList())
             }
@@ -3696,6 +3704,23 @@ class MusicService : MediaLibraryService(),
     /** Set by skipOnError just before it moves on, read and cleared by the transition that follows. */
     @Volatile private var skippingOnError = false
 
+    /** The same, set by passOverBlocked: moving past a blocked artist's song says nothing about it either. */
+    @Volatile private var skippingBlocked = false
+
+    /**
+     * The music was stopped by passOverBlocked on a blocked artist's song with nothing after it to
+     * go on to. A queue that then grows, a radio filling up behind the song it started from, plays
+     * on from the first song that is not blocked. Main thread.
+     */
+    private var stoppedOnBlocked = false
+
+    /**
+     * The blocked song the music last stopped on and when, elapsed time: the same stop made again
+     * straight after, while its queue is still loading or as its start asks to play, says nothing
+     * a second time. Three lines in a row were seen on the emulator for one link (1 Nov 2026).
+     */
+    private var lastBlockedStop: Pair<String, Long>? = null
+
     /**
      * Drops songs further down the queue that no longer suit what is being played.
      *
@@ -3998,7 +4023,7 @@ class MusicService : MediaLibraryService(),
         relatedCache[seed]?.let { return it.takeIf { !explicitHidden || it.page } }
         if (explicitHidden) return null
         val songs = try {
-            database.youtubeRelatedSongs(seed).map { it.toMediaMetadata() }
+            ContentFilter.current.blocked.library(database.youtubeRelatedSongs(seed)).map { it.toMediaMetadata() }
         } catch (e: Exception) {
             Log.w(TAG, "Adaptive queue: could not read a song's related list", e)
             return null
@@ -4339,6 +4364,67 @@ class MusicService : MediaLibraryService(),
         Toast.makeText(this@MusicService, getString(R.string.err_stop_on_error), Toast.LENGTH_LONG).show()
     }
 
+    /**
+     * The song playing, if it is a blocked artist's (ArtistBlock), is passed over to the nearest
+     * one that is not, as BlockedSkip finds it, and a line says why. With nothing left that is not
+     * blocked, the music stops at its start, unheard, and says so unless [quiet]. Main thread.
+     */
+    private fun passOverBlocked(back: Boolean = false, quiet: Boolean = false) {
+        val block = ContentFilter.current.blocked
+        if (block.isEmpty) return
+        val playing = activePlayer.currentMediaItem?.metadata ?: return
+        if (!block.hides(playing)) {
+            stoppedOnBlocked = false
+            return
+        }
+        val timeline = activePlayer.currentTimeline
+        if (timeline.isEmpty) return
+        val shuffle = activePlayer.shuffleModeEnabled
+        // Repeat one would only come back to it.
+        val repeat = if (activePlayer.repeatMode == REPEAT_MODE_ALL) REPEAT_MODE_ALL else REPEAT_MODE_OFF
+        val from = activePlayer.currentMediaItemIndex
+        val target = BlockedSkip.target(
+            from = from,
+            count = timeline.windowCount,
+            forward = { timeline.getNextWindowIndex(it, repeat, shuffle) },
+            backward = { timeline.getPreviousWindowIndex(it, repeat, shuffle) },
+            blocked = { activePlayer.getMediaItemAt(it).metadata?.let(block::hides) == true },
+            back = back,
+        )
+        if (target == null) {
+            Log.d(TAG, "Blocked artists: nothing but their songs from ${playing.id}, stopped")
+            val wasPlaying = activePlayer.playWhenReady
+            activePlayer.pause()
+            activePlayer.seekTo(from, 0)
+            stoppedOnBlocked = stoppedOnBlocked || wasPlaying
+            val now = SystemClock.elapsedRealtime()
+            val again = lastBlockedStop?.let { (id, at) -> id == playing.id && now - at < BLOCKED_STOP_QUIET_MS } == true
+            lastBlockedStop = playing.id to now
+            // Not while a radio's own songs are still on their way behind it: they come next.
+            if (!quiet && !again && queueBoard.getCurrentQueue()?.title != QueueStart.PRELOAD_TITLE) {
+                Toast.makeText(this, getString(R.string.blocked_songs_left), Toast.LENGTH_LONG).show()
+            }
+            return
+        }
+        val who = playing.artists.firstOrNull { block.blocks(it.id, it.name) }?.name ?: playing.artists.firstOrNull()?.name.orEmpty()
+        Log.d(TAG, "Blocked artists: passed over ${playing.id}")
+        val resume = stoppedOnBlocked
+        stoppedOnBlocked = false
+        skippingBlocked = true
+        activePlayer.seekTo(target, C.TIME_UNSET)
+        if (resume) activePlayer.play()
+        Toast.makeText(this, getString(R.string.blocked_song_skipped, who), Toast.LENGTH_SHORT).show()
+    }
+
+    override fun onTimelineChanged(timeline: Timeline, reason: Int) {
+        super.onTimelineChanged(timeline, reason)
+        // Songs come in behind a blocked one the music stopped on: see stoppedOnBlocked. Said
+        // nothing of when they are blocked as well: the stop was said already.
+        if (Unreleased.ARTIST_BLOCK && stoppedOnBlocked) {
+            scope.launch { runCatching { passOverBlocked(quiet = true) }.onFailure { Log.w(TAG, "Could not pass over a blocked song", it) } }
+        }
+    }
+
     /** The music stops on the current song's error, and which song that is: see [stoppedOn]. */
     private fun stopsOnError() {
         stoppedByError = true
@@ -4595,6 +4681,11 @@ class MusicService : MediaLibraryService(),
 
     override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
         super.onPlayWhenReadyChanged(playWhenReady, reason)
+        // Play on a blocked artist's song the music stopped on, everything after it blocked as
+        // well: it is not played either (passOverBlocked), and it stops again.
+        if (Unreleased.ARTIST_BLOCK && playWhenReady && !ContentFilter.current.blocked.isEmpty) {
+            scope.launch { runCatching { passOverBlocked() }.onFailure { Log.w(TAG, "Could not pass over a blocked song", it) } }
+        }
         // A pause nobody asked for says what did it, for Report a problem. A pause asked for (a
         // tap, a button, the sleep timer) is USER_REQUEST and writes nothing.
         if (!playWhenReady) {
@@ -4746,8 +4837,9 @@ class MusicService : MediaLibraryService(),
         // move made by skip on error, which seeks to the next song just as next does: a run of
         // failing streams used to turn down every artist it reached. Not a tap on another song
         // either, nor anything while casting, where the phone does not know where the receiver was.
-        val fromError = skippingOnError
+        val fromError = skippingOnError || skippingBlocked
         skippingOnError = false
+        skippingBlocked = false
         transitionFromError = fromError
         // A choice whose queue was loaded under the song playing made no transition of its own
         // (carriedOnInto): this one only moves on from that song, and its leave is read by its reason.
@@ -4924,6 +5016,19 @@ class MusicService : MediaLibraryService(),
                 delay(200)
                 queueBoard.shuffleCurrent()
                 queueBoard.setCurrQueue()
+            }
+        }
+
+        // A blocked artist's song that still became current, from a playlist made before or a
+        // shared link, is passed over (ArtistBlock), once this transition has been seen through
+        // like any other. Back for one reached by going back, so the previous button still works.
+        if (Unreleased.ARTIST_BLOCK && mediaItem != null && !ContentFilter.current.blocked.isEmpty) {
+            val id = mediaItem.mediaId
+            val back = !isCasting && transitionWentBack
+            scope.launch {
+                if (activePlayer.currentMediaItem?.mediaId == id) {
+                    runCatching { passOverBlocked(back) }.onFailure { Log.w(TAG, "Could not pass over $id", it) }
+                }
             }
         }
 
@@ -5753,6 +5858,9 @@ class MusicService : MediaLibraryService(),
             SilenceSkippingAudioProcessor.DEFAULT_MIN_VOLUME_TO_KEEP_PERCENTAGE,
             SKIP_SILENCE_THRESHOLD,
         )
+
+        /** How long after the music stopped on a blocked song the same stop goes unsaid (lastBlockedStop). */
+        private const val BLOCKED_STOP_QUIET_MS = 5_000L
 
         /** How long after the stall watch gave a song up the player's own error on it is taken for the same fault. */
         private const val STALL_ECHO_MS = 60_000L

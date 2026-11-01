@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.viewmodels
 
+import com.dd3boh.outertune.models.withoutBlocked
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -68,7 +69,7 @@ class StatsViewModel @Inject constructor(
 
     val mostPlayedSongs = statPeriod.flatMapLatest { period ->
         database.mostPlayedSongs(period.toTimeMillis())
-    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    }.withoutBlocked().stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     // Counted from the play events over the period itself, as the songs above and the albums
     // below are, and not from the monthly play counts, which could only start at the first of a
@@ -79,12 +80,12 @@ class StatsViewModel @Inject constructor(
     // leave the row short, or empty, while more played YouTube artists sit outside that top 6.
     val mostPlayedArtists = statPeriod.flatMapLatest { period ->
         database.mostPlayedArtistsSince(period.toTimeMillis())
-    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    }.withoutBlocked().stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
 
     val mostPlayedAlbums = statPeriod.flatMapLatest { period ->
         database.mostPlayedAlbums(period.toTimeMillis())
-    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    }.withoutBlocked().stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     // Touched only from the collector below, which runs on the main thread.
     private val insightsCache = HashMap<StatPeriod, PeriodInsights>()

@@ -9,6 +9,7 @@
 
 package com.dd3boh.outertune.ui.navigation
 
+import com.dd3boh.outertune.ui.screens.settings.BlockedArtistsSettings
 import com.dd3boh.outertune.recognition.RecognitionShortcut
 import android.provider.Settings
 import androidx.compose.animation.AnimatedContentScope
@@ -416,6 +417,11 @@ fun NavGraphBuilder.appDestinations(
         }
         screen("settings/library/lyrics") {
             LyricsSettings(navController, scrollBehavior)
+        }
+        if (Unreleased.ARTIST_BLOCK) {
+            screen("settings/library/blocked_artists") {
+                BlockedArtistsSettings(navController, scrollBehavior)
+            }
         }
         screen("settings/account_sync") {
             AccountSyncSettings(navController, scrollBehavior)
