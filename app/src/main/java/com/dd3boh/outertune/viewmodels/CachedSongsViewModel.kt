@@ -6,6 +6,9 @@
 
 package com.dd3boh.outertune.viewmodels
 
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.SharingStarted
+import com.dd3boh.outertune.models.withoutBlocked
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.datasource.cache.CacheSpan
@@ -34,7 +37,9 @@ class CachedSongsViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val _songs = MutableStateFlow<List<Song>>(emptyList())
-    val songs = _songs.asStateFlow()
+
+    /** Without a blocked artist's songs (ArtistBlock). */
+    val songs = _songs.withoutBlocked().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     private val _loading = MutableStateFlow(true)
     val loading = _loading.asStateFlow()

@@ -437,8 +437,17 @@ fun LocalPlaylistScreen(
                 } else {
                     emptyList()
                 }
-                database.transaction {
-                    move(viewModel.playlistId, from, to)
+                // With a blocked artist's rows left out (ArtistBlock), a place on screen is not
+                // a position in the playlist: the dragged row goes beside the row it now follows.
+                val positions = if (from == to) {
+                    null
+                } else if (viewModel.hidesRows.value) {
+                    moveAround(mutableSongs.map { it.map.position }, to)
+                } else {
+                    from to to
+                }
+                if (positions != null) database.transaction {
+                    move(viewModel.playlistId, positions.first, positions.second)
                 }
                 if (youTubeMoves.isNotEmpty()) {
                     viewModel.viewModelScope.launch(Dispatchers.IO) {
@@ -1126,6 +1135,26 @@ fun playlistSearchResults(songs: List<PlaylistSong>, query: String): List<Playli
  * is then put back in front of it. A song with no set-video id, such as one added here and not yet
  * synced back, cannot be named to YouTube, so then nothing is sent at all.
  */
+/**
+ * The positions a drag moves a row between when a blocked artist's rows are left out of the list
+ * on screen (ArtistBlock), so that a place on screen is not a position in the playlist.
+ *
+ * [positions] are the rows' positions, in the order on screen after the drag, the dragged row now
+ * at [to]. It goes just after the row now before it, or, at the top, just before the one after it,
+ * and the rows left out keep their places among the others. Null when nothing moves.
+ */
+fun moveAround(positions: List<Int>, to: Int): Pair<Int, Int>? {
+    if (to !in positions.indices || positions.size < 2) return null
+    val moved = positions[to]
+    val target = if (to > 0) {
+        val before = positions[to - 1]
+        if (before > moved) before else before + 1
+    } else {
+        positions[1]
+    }
+    return if (target == moved) null else moved to target
+}
+
 fun youTubeMovesAfterDrag(setVideoIds: List<String?>, from: Int, to: Int): List<Pair<String, String>> {
     if (from == to || from !in setVideoIds.indices || to !in setVideoIds.indices) return emptyList()
     val moved = setVideoIds[to] ?: return emptyList()

@@ -2284,4 +2284,24 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="region_note_proxy">Proxy settings</string>
     <string name="proxy_restart_title">Restart to use the new proxy</string>
     <string name="proxy_restart_description">InterTune takes the proxy when it starts. Tap to restart it now; the music stops.</string>
+    <!-- Block artist (ArtistBlock, Unreleased.ARTIST_BLOCK): the last item of the song menus, the first button of an artist page's pill, Settings > Library and content > Blocked artists, and the line a search for a blocked artist shows. Held from translators until the words are agreed, their French beside them in values-fr. %1$s is the artist's name. -->
+    <string name="menu_block_artist" translatable="false">Block artist</string>
+    <string name="block_artist_which" translatable="false">Block which artist?</string>
+    <string name="block_artist_title" translatable="false">Block %1$s?</string>
+    <string name="block_artist_body" translatable="false">Their songs, albums and face disappear from InterTune: search, Home, radios, your library and playlists. Their songs are skipped. Unblock any time in Settings &gt; Library and content &gt; Blocked artists.</string>
+    <string name="block_artist_confirm" translatable="false">Block</string>
+    <string name="unblock" translatable="false">Unblock</string>
+    <string name="blocked_artists" translatable="false">Blocked artists</string>
+    <string name="blocked_artists_none" translatable="false">None</string>
+    <string name="blocked_artists_intro" translatable="false">Blocked artists are gone from search, Home, radios, your library and playlists, and their songs are skipped.</string>
+    <string name="blocked_artists_add" translatable="false">Add an artist</string>
+    <string name="blocked_artists_not_found" translatable="false">No artist found.</string>
+    <string name="blocked_today" translatable="false">Blocked today</string>
+    <string name="blocked_on" translatable="false">Blocked %1$s</string>
+    <string name="unblocked" translatable="false">%1$s unblocked</string>
+    <string name="blocked_search_note" translatable="false">%1$s is blocked, so nothing of theirs shows.</string>
+    <string name="blocked_song_skipped" translatable="false">%1$s is blocked, so their song was skipped.</string>
+    <string name="blocked_songs_left" translatable="false">The songs left are all by blocked artists, so the music stopped.</string>
+    <!-- The settings search's words for Blocked artists: open to translators, as every search word is (SettingsSearchTest). -->
+    <string name="search_words_blocked_artists">ban, hide, mute, blocklist</string>
 </resources>

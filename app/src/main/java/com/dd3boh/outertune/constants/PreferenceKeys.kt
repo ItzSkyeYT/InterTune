@@ -34,6 +34,8 @@ val ShowLikedAndDownloadedPlaylist = booleanPreferencesKey("showLikedAndDownload
 /** What Home, search, artist pages and radio leave out (ContentFilter). Both off by default. */
 val HideExplicitKey = booleanPreferencesKey("hideExplicit")
 val HideVideoSongsKey = booleanPreferencesKey("hideVideoSongs")
+/** The artists the listener blocked, as ArtistBlock.encode writes them (Unreleased.ARTIST_BLOCK). None by default. */
+val BlockedArtistsKey = stringPreferencesKey("blockedArtists")
 val SwipeToQueueKey = booleanPreferencesKey("swipeToQueue")
 val FlatSubfoldersKey = booleanPreferencesKey("flatSubfolders")
 val TabletUiKey = booleanPreferencesKey("tabletUi")

@@ -1,5 +1,7 @@
 package com.dd3boh.outertune.viewmodels
 
+import kotlinx.coroutines.flow.combine
+import com.dd3boh.outertune.models.blockedArtists
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -70,7 +72,13 @@ class OnlinePlaylistViewModel @Inject constructor(
     private val playlistId = savedStateHandle.get<String>("playlistId")!!
 
     val playlist = MutableStateFlow<PlaylistItem?>(null)
-    val playlistSongs = MutableStateFlow<List<SongItem>>(emptyList())
+
+    /** The playlist's songs as YouTube sends them. */
+    private val songsAsSent = MutableStateFlow<List<SongItem>>(emptyList())
+
+    /** Its songs without a blocked artist's (ArtistBlock), followed. */
+    val playlistSongs = combine(songsAsSent, blockedArtists) { songs, block -> block.apply(songs) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     var continuation: String? = null
     val dbPlaylist = database.playlistByBrowseId(playlistId)
         .stateIn(viewModelScope, SharingStarted.Lazily, null)
@@ -89,7 +97,7 @@ class OnlinePlaylistViewModel @Inject constructor(
             YouTube.playlist(playlistId)
                 .onSuccess { playlistPage ->
                     playlist.value = playlistPage.playlist
-                    playlistSongs.value = playlistPage.songs
+                    songsAsSent.value = playlistPage.songs
                     continuation = playlistPage.songsContinuation
                 }.onFailure {
                     reportException(it)
@@ -108,7 +116,7 @@ class OnlinePlaylistViewModel @Inject constructor(
                 // through the header's button (see its comment in OnlinePlaylistScreen); a scroll
                 // reaching the bottom should not do that fetch on its own.
                 continuation = followContinuations(token, ::fetchContinuation, maxPages = 1) { songs ->
-                    playlistSongs.value = playlistSongs.value + songs
+                    songsAsSent.value = songsAsSent.value + songs
                 }
             } finally {
                 isLoading.value = false
@@ -122,7 +130,7 @@ class OnlinePlaylistViewModel @Inject constructor(
             isLoading.value = true
             try {
                 continuation = followContinuations(continuation, ::fetchContinuation) { songs ->
-                    playlistSongs.value = playlistSongs.value + songs
+                    songsAsSent.value = songsAsSent.value + songs
                 }
             } finally {
                 isLoading.value = false

@@ -7,8 +7,10 @@
 package com.dd3boh.outertune.models
 
 import androidx.datastore.preferences.core.Preferences
+import com.dd3boh.outertune.constants.BlockedArtistsKey
 import com.dd3boh.outertune.constants.HideExplicitKey
 import com.dd3boh.outertune.constants.HideVideoSongsKey
+import com.dd3boh.outertune.constants.Unreleased
 import com.zionhuang.innertube.models.AlbumItem
 import com.zionhuang.innertube.models.SongItem
 import com.zionhuang.innertube.models.YTItem
@@ -28,16 +30,21 @@ import kotlinx.coroutines.flow.StateFlow
  * autoplay adds to the queue. It does not apply to what the listener opened by name, an album or a
  * playlist, nor to the library and the rows built from it: a stored song does not keep YouTube's
  * marks, so there is nothing to tell an explicit one by.
+ *
+ * The blocked artists ([blocked], Unreleased.ARTIST_BLOCK) are hidden here too, with whatever
+ * they are on. Unlike the switches they also leave the library and the listener's playlists,
+ * and their songs are never played (ArtistBlock).
  */
 data class ContentFilter(
     val explicit: Boolean = false,
     val videoSongs: Boolean = false,
+    val blocked: ArtistBlock = ArtistBlock.NONE,
 ) {
     val isOff: Boolean
-        get() = !explicit && !videoSongs
+        get() = !explicit && !videoSongs && blocked.isEmpty
 
-    /** Whether [item] is one the switches keep out. A song of unknown kind is kept. */
-    fun hides(item: YTItem): Boolean = when (item) {
+    /** Whether [item] is one the switches or a block keep out. A song of unknown kind is kept. */
+    fun hides(item: YTItem): Boolean = blocked.hides(item) || when (item) {
         is SongItem -> (explicit && item.explicit) || (videoSongs && item.isVideoSong)
         is AlbumItem -> explicit && item.explicit
         else -> false
@@ -76,6 +83,9 @@ data class ContentFilter(
         fun of(preferences: Preferences) = ContentFilter(
             explicit = preferences[HideExplicitKey] ?: false,
             videoSongs = preferences[HideVideoSongsKey] ?: false,
+            // Not in a build without the feature, even from a restored backup: it would hide
+            // artists with no page to bring them back from.
+            blocked = if (Unreleased.ARTIST_BLOCK) ArtistBlock.read(preferences[BlockedArtistsKey]) else ArtistBlock.NONE,
         )
 
         private val state = MutableStateFlow(ContentFilter())

@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.ui.screens.library
 
+import com.dd3boh.outertune.ui.menu.rememberArtistBlock
 import com.dd3boh.outertune.ui.component.ScreenBackHandler
 import com.dd3boh.outertune.ui.component.FloatingTopBar
 import com.dd3boh.outertune.ui.component.TopBarPill
@@ -242,9 +243,11 @@ fun FolderScreen(
         ScreenBackHandler(onBack = { isSearching = false })
     }
 
-    LaunchedEffect(sortType, sortDescending, currDir, flatSubfolders) {
+    // A blocked artist's files are left out (ArtistBlock).
+    val block = rememberArtistBlock()
+    LaunchedEffect(sortType, sortDescending, currDir, flatSubfolders, block) {
         // sort songs (FolderSongOrder, which is tested)
-        val tempList = FolderSongOrder.sorted(currDir.files, sortType, sortDescending)
+        val tempList = FolderSongOrder.sorted(block.library(currDir.files), sortType, sortDescending)
         mutableSongs.apply {
             clear()
             mutableSongs.addAll(tempList.distinctBy { it.id })

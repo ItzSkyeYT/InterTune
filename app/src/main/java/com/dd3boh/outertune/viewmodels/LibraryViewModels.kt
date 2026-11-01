@@ -51,8 +51,10 @@ import com.dd3boh.outertune.db.entities.Artist
 import com.dd3boh.outertune.db.entities.Playlist
 import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.extensions.toEnum
+import com.dd3boh.outertune.models.ContentFilter
 import com.dd3boh.outertune.models.DirectoryTree
 import com.dd3boh.outertune.models.FolderOrder
+import com.dd3boh.outertune.models.withoutBlocked
 import com.dd3boh.outertune.ui.utils.STORAGE_ROOT
 import com.dd3boh.outertune.ui.utils.cacheDirectoryTree
 import com.dd3boh.outertune.ui.utils.getDirectoryTree
@@ -118,7 +120,10 @@ class LibrarySongsViewModel @Inject constructor(
                     SongFilter.LIKED -> database.likedSongs(sortType, descending)
                     SongFilter.DOWNLOADED -> database.downloadSongs(sortType, descending)
                 }
-            }.stateIn(viewModelScope, SharingStarted.Lazily, null)
+            }
+            // Nor a blocked artist's songs, downloads and local files included (ArtistBlock).
+            .withoutBlocked()
+            .stateIn(viewModelScope, SharingStarted.Lazily, null)
     }
 }
 
@@ -191,7 +196,7 @@ class LibraryFoldersViewModel @Inject constructor(
     fun searchInDir(query: String, dir: String = path) {
         if (query.isNotBlank()) {
             viewModelScope.launch(Dispatchers.IO) {
-                val dbSongs = database.searchSongsAllLocalInDir(dir, query).first()
+                val dbSongs = ContentFilter.current.blocked.library(database.searchSongsAllLocalInDir(dir, query).first())
                 filteredSongs.clear()
                 filteredSongs.addAll(dbSongs)
             }
@@ -219,6 +224,7 @@ class LibraryArtistsViewModel @Inject constructor(
         .flatMapLatest { (filter, sortType, descending) ->
             database.artists(filter, sortType, descending)
         }
+        .withoutBlocked()
         .stateIn(viewModelScope, SharingStarted.Lazily, null)
 
     fun syncArtists(bypassCd: Boolean = false) {
@@ -286,6 +292,7 @@ class LibraryAlbumsViewModel @Inject constructor(
         .flatMapLatest { (filter, sortType, descending) ->
             database.albums(filter, sortType, descending)
         }
+        .withoutBlocked()
         .stateIn(viewModelScope, SharingStarted.Lazily, null)
 
     fun syncAlbums(bypassCd: Boolean = false) {
@@ -363,8 +370,8 @@ class LibraryViewModel @Inject constructor(
     val isSyncingRemoteArtists = syncUtils.isSyncingRemoteArtists
     val isSyncingRemotePlaylists = syncUtils.isSyncingRemotePlaylists
 
-    var artists = database.artistsBookmarkedAsc().stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
-    var albums = database.albumsLikedAsc().stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    var artists = database.artistsBookmarkedAsc().withoutBlocked().stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    var albums = database.albumsLikedAsc().withoutBlocked().stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
     var playlists = database.playlistInLibraryAsc().stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     val allItems = context.dataStore.data
@@ -423,6 +430,7 @@ class ArtistSongsViewModel @Inject constructor(
         .flatMapLatest { (sortType, descending) ->
             database.artistSongs(artistId, sortType, descending)
         }
+        .withoutBlocked()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 }
 

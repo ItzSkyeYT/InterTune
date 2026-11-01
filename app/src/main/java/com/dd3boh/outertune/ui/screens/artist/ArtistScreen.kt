@@ -1,5 +1,11 @@
 package com.dd3boh.outertune.ui.screens.artist
 
+import com.dd3boh.outertune.ui.menu.rememberArtistBlock
+import com.dd3boh.outertune.ui.menu.BlockedNote
+import com.dd3boh.outertune.ui.menu.BlockArtistIcon
+import com.dd3boh.outertune.ui.menu.BlockArtistConfirm
+import com.dd3boh.outertune.models.BlockedArtist
+import com.dd3boh.outertune.constants.Unreleased
 import android.content.Intent
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
@@ -167,6 +173,17 @@ fun ArtistScreen(
     val lazyListState = rememberLazyListState()
     val snackbarHostState = LocalSnackbarHostState.current
     var showLocal by rememberSaveable { mutableStateOf(false) }
+
+    // A blocked artist's page, opened from an old link or a shared one, is blank but for one line
+    // and Unblock (ArtistBlock).
+    val block = rememberArtistBlock()
+    val shownName = artistPage?.artist?.title ?: libraryArtist?.artist?.name
+    val blockedHere = if (Unreleased.ARTIST_BLOCK) block.entry(viewModel.artistId, shownName) else null
+    if (blockedHere != null) {
+        BlockedArtistPage(blockedHere, navController)
+        return
+    }
+    var askingToBlock by rememberSaveable { mutableStateOf(false) }
 
     val transparentAppBar by remember {
         derivedStateOf {
@@ -637,6 +654,12 @@ fun ArtistScreen(
             navController = navController,
             actions = {
                 TopBarActions {
+                    // First, so that the heart and share stay where they were.
+                    if (Unreleased.ARTIST_BLOCK && shownName != null) {
+                        IconButton(onClick = { askingToBlock = true }) {
+                            Icon(BlockArtistIcon, contentDescription = stringResource(R.string.menu_block_artist))
+                        }
+                    }
                     IconButton(
                         onClick = {
                             database.transaction {
@@ -697,4 +720,30 @@ fun ArtistScreen(
             )
         }
     }
+
+    if (askingToBlock && shownName != null) {
+        BlockArtistConfirm(
+            artist = BlockedArtist(
+                id = viewModel.artistId,
+                name = shownName,
+                thumbnail = artistPage?.artist?.thumbnail ?: libraryArtist?.artist?.thumbnailUrl,
+            ),
+            onDismiss = { askingToBlock = false },
+            // The page turns blank by itself, the block being followed above.
+            onBlocked = { askingToBlock = false },
+        )
+    }
+}
+
+/** The page of a blocked artist: under the bar with its back button, one quiet line and Unblock. */
+@Composable
+private fun BlockedArtistPage(artist: BlockedArtist, navController: NavController) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        // The page's top inset is below the bar already.
+        BlockedNote(
+            artist = artist,
+            modifier = Modifier.windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top)),
+        )
+    }
+    FloatingTopBar(title = null, navController = navController)
 }
