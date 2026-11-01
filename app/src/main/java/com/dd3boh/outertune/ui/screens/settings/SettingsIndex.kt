@@ -249,6 +249,7 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
     SettingEntry(Tour.ROUTE_PRIVACY, R.string.enable_proxy, R.string.enable_proxy_description, fold = R.string.advanced, words = listOf(R.string.search_words_proxy)),
     SettingEntry(Tour.ROUTE_PRIVACY, R.string.proxy_type, fold = R.string.advanced, under = R.string.enable_proxy),
     SettingEntry(Tour.ROUTE_PRIVACY, R.string.proxy_url, fold = R.string.advanced, under = R.string.enable_proxy),
+    SettingEntry(Tour.ROUTE_PRIVACY, R.string.proxy_restart_title, R.string.proxy_restart_description, fold = R.string.advanced, under = R.string.enable_proxy),
 
     // Updates
     SettingEntry(Tour.ROUTE_UPDATES, R.string.update_check, words = listOf(R.string.search_words_updates)),

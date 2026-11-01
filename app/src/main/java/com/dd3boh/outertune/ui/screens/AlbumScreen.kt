@@ -97,6 +97,10 @@ import com.dd3boh.outertune.ui.component.FloatingFooter
 import com.dd3boh.outertune.ui.component.FloatingTopBar
 import com.dd3boh.outertune.ui.component.FontSizeRange
 import com.dd3boh.outertune.ui.component.LazyColumnScrollbar
+import com.dd3boh.outertune.ui.component.LoadFailed
+import com.dd3boh.outertune.ui.component.RegionNote
+import com.dd3boh.outertune.ui.component.openProxySetting
+import com.dd3boh.outertune.utils.YouTubeRegion
 import com.dd3boh.outertune.ui.component.NavigationTitle
 import com.dd3boh.outertune.ui.component.SelectHeader
 import com.dd3boh.outertune.ui.component.button.IconButton
@@ -570,6 +574,19 @@ fun AlbumScreen(
                     repeat(6) {
                         ListItemPlaceHolder()
                     }
+                }
+            }
+        } else if (albumWithSongsLocal?.album?.isLocal != true) {
+            // Not loading and no songs: YouTube refused the album or sent none. This was an empty
+            // page, and in South Korea every album was one, since YouTube keeps albums there for
+            // Premium members (#68).
+            item(key = "not_loaded") {
+                Column {
+                    val seen by YouTubeRegion.seen.collectAsState()
+                    if (YouTubeRegion.closed(seen)) {
+                        RegionNote(onProxy = ::openProxySetting, onDone = null)
+                    }
+                    LoadFailed(onRetry = viewModel::retry)
                 }
             }
         }

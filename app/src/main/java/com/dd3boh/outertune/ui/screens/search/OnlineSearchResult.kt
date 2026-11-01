@@ -52,6 +52,8 @@ import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import com.dd3boh.outertune.ui.component.ChipsRow
 import com.dd3boh.outertune.ui.component.EmptyPlaceholder
 import com.dd3boh.outertune.ui.component.LazyColumnScrollbar
+import com.dd3boh.outertune.ui.component.RegionNoteIfClosed
+import com.dd3boh.outertune.utils.YouTubeRegion
 import com.dd3boh.outertune.ui.component.NavigationTitle
 import com.dd3boh.outertune.ui.component.SwipeToQueueBox
 import com.dd3boh.outertune.ui.component.button.IconButton
@@ -213,16 +215,30 @@ fun OnlineSearchResult(
 
     // Two rows abreast when the phone is on its side, one otherwise (Landscape.kt).
     val columns = rememberListColumns()
+    // A fresh look at where YouTube sees the connection, for the note below: a VPN turned on or
+    // off since the app started changes the answer (#68). At most every two minutes, and only
+    // on a phone that points to a country with no free plan.
+    val regionContext = LocalContext.current
+    LaunchedEffect(Unit) { YouTubeRegion.refresh(regionContext) }
     LazyColumn(
         state = lazyListState,
         contentPadding = LocalPlayerAwareWindowInsets.current
             .add(WindowInsets(top = SearchFilterHeight))
             .asPaddingValues()
     ) {
+        // Why the results hold videos but no songs where YouTube Music has no free plan (#68).
+        item(key = "region_note") {
+            RegionNoteIfClosed(modifier = Modifier.animateItem())
+        }
+
         if (searchFilter == null) {
             searchSummary?.summaries?.forEach { summary ->
-                item {
-                    NavigationTitle(summary.title)
+                // YouTube's top result often comes with no heading, and an empty title left a band
+                // of nothing above it.
+                if (summary.title.isNotBlank()) {
+                    item {
+                        NavigationTitle(summary.title)
+                    }
                 }
 
                 itemsInColumns(

@@ -241,7 +241,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="grp_lyrics_parser">Parser</string>
     <string name="grp_lyrics_source">Lyric sources</string>
     <string name="grp_manual_scanner">Manual scanner</string>
-    <string name="proxy_examples">Format is host:port, for example 127.0.0.1:8118. Tor through Orbot gives 127.0.0.1:8118 for HTTP or 127.0.0.1:9050 for SOCKS. Avoid public proxy lists: whoever runs one sees everything you fetch.</string>
+    <string name="proxy_examples">Format is host:port, for example 127.0.0.1:8118. Tor through Orbot gives 127.0.0.1:8118 for HTTP or 127.0.0.1:9050 for SOCKS, but YouTube often holds back search results and mixes over Tor. Avoid public proxy lists: whoever runs one sees everything you fetch.</string>
     <string name="grp_sync">Sync</string>
 
 <!-- About settings -->
@@ -2372,4 +2372,10 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="player_pins_under_controls">Under the controls</string>
     <string name="player_pin_lyrics">Lyrics</string>
     <string name="player_pins_reset">Reset to default</string>
+    <!-- #68: where YouTube Music has no free plan (South Korea), on Home, above search results and on an album that did not load. -->
+    <string name="region_note_title">YouTube Music in South Korea</string>
+    <string name="region_note_body">YouTube Music has no free plan in South Korea, so YouTube shows songs, albums and mixes there only to Premium members. Search still finds videos. A Premium account, or a VPN or proxy outside Korea, brings the rest back.</string>
+    <string name="region_note_proxy">Proxy settings</string>
+    <string name="proxy_restart_title">Restart to use the new proxy</string>
+    <string name="proxy_restart_description">InterTune takes the proxy when it starts. Tap to restart it now; the music stops.</string>
 </resources>

@@ -9,6 +9,7 @@
 
 package com.dd3boh.outertune
 
+import com.dd3boh.outertune.utils.ProxyAtStart
 import com.dd3boh.outertune.models.ContentFilter
 import com.dd3boh.outertune.utils.BuiltInKeys
 import android.webkit.CookieManager
@@ -70,6 +71,7 @@ import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.utils.mayPushToYouTube
 import com.dd3boh.outertune.utils.reportException
+import com.dd3boh.outertune.utils.YouTubeRegion
 import com.dd3boh.outertune.utils.StreamOrder
 import com.dd3boh.outertune.utils.RemoteRoutes
 import com.dd3boh.outertune.constants.CachedPollsJsonKey
@@ -139,6 +141,9 @@ class App : Application(), SingletonImageLoader.Factory {
             KuGou.useTraditionalChinese = true
         }
 
+        // The proxy every client takes once, here: the settings page offers a restart while the one
+        // set there differs (#68). See ProxyAtStart.
+        ProxyAtStart.setting = ProxyAtStart.of(dataStore[ProxyEnabledKey], dataStore[ProxyTypeKey], dataStore[ProxyUrlKey])
         if (dataStore[ProxyEnabledKey] == true) {
             try {
                 YouTube.proxy = Proxy(
@@ -196,6 +201,9 @@ class App : Application(), SingletonImageLoader.Factory {
                         }
                 }
         }
+        // Where YouTube sees this connection, asked only on a phone that points to a country where
+        // YouTube Music has no free plan (#68): see YouTubeRegion.
+        GlobalScope.launch(Dispatchers.IO) { YouTubeRegion.refresh(this@App) }
         // What the switches under Library and content hide, read once here so that a queue started
         // straight away already follows them, then followed. See ContentFilter.
         ContentFilter.current = ContentFilter.of(dataStore.current)

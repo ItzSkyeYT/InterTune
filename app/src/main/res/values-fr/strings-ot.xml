@@ -559,7 +559,7 @@
     <string name="sync_progress_nothing">Rien à synchroniser. Vérifiez que la synchronisation est activée pour au moins un type de contenu.</string>
     <string name="playlist_sync_failed">Impossible de synchroniser cette playlist. Elle a été laissée telle quelle.</string>
     <!-- Settings -->
-    <string name="proxy_examples">Le format est hôte:port, par exemple 127.0.0.1:8118. Tor via Orbot donne 127.0.0.1:8118 pour HTTP ou 127.0.0.1:9050 pour SOCKS. Évitez les listes de proxys publics : celui qui en gère un voit tout ce que vous récupérez.</string>
+    <string name="proxy_examples">Le format est hôte:port, par exemple 127.0.0.1:8118. Tor via Orbot donne 127.0.0.1:8118 pour HTTP ou 127.0.0.1:9050 pour SOCKS, mais YouTube retient souvent les résultats de recherche et les mix via Tor. Évitez les listes de proxys publics : celui qui en gère un voit tout ce que vous récupérez.</string>
     <!-- About settings -->
     <string name="help_discord">Discussion de la communauté (via Discord)</string>
     <string name="help_translate">Aider à traduire InterTune (via Weblate)</string>
@@ -2187,4 +2187,9 @@
     <string name="player_pins_under_controls">Sous les commandes</string>
     <string name="player_pin_lyrics">Paroles</string>
     <string name="player_pins_reset">Réinitialiser</string>
+    <string name="region_note_title">YouTube Music en Corée du Sud</string>
+    <string name="region_note_body">YouTube Music n\'a pas d\'offre gratuite en Corée du Sud : là-bas, YouTube ne montre les titres, les albums et les mix qu\'aux abonnés Premium. La recherche trouve toujours les vidéos. Un compte Premium, ou un VPN ou un proxy hors de Corée, fait revenir le reste.</string>
+    <string name="region_note_proxy">Réglages du proxy</string>
+    <string name="proxy_restart_title">Redémarrer pour utiliser le nouveau proxy</string>
+    <string name="proxy_restart_description">InterTune prend le proxy au démarrage. Touchez pour le redémarrer maintenant ; la musique s\'arrête.</string>
 </resources>
