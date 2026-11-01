@@ -1647,6 +1647,11 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="widget_style_shelf">Shelf</string>
     <!-- Over the next songs of the queue, on a widget as wide as a tablet's. -->
     <string name="widget_up_next">Up next</string>
+    <!-- A Shelf's three looks (1 Nov 2026). -->
+    <string name="widget_config_look">Look</string>
+    <string name="widget_look_big_cover">Big cover</string>
+    <string name="widget_look_crate">Crate</string>
+    <string name="widget_look_records">Records</string>
 
 <!-- Recommendations: the little "i" beside an item, and what it opens -->
     <string name="tidy_home_rows_info">No Home row shows a song an earlier row already has, and versions of one song (live, remastered, video) count as the same. Nothing fills a gap, so a row can come up short. Off, your exclusions only filter the \"Best recommendations\" row.</string>

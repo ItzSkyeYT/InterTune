@@ -37,15 +37,18 @@ class WidgetOneUiSizesTest {
     private val shelf = WidgetSettings(style = WidgetStyle.SHELF)
 
     /**
-     * Since the styles (25 Oct 2026) the list is a Shelf's covers, in full rows only. Five by three
-     * is square enough to take the four by four's shape: its buttons on a line of their own and
-     * three bigger covers rather than four. From five by four up there is room for all six.
+     * Since the looks (1 Nov 2026) a Shelf is a big cover with a mosaic, a crate or records. At
+     * every One UI size from five by two to five by six, upright and on its side, each look is
+     * drawn with the list in it, at least four of its songs, and never a seventh.
      */
     @Test
-    fun `a Shelf shows four covers at five by two and all six from five by four up`() {
-        assertEquals(listOf(4, 3, 6, 6, 6), portrait.map { (w, h) -> plan(w, h, shelf).shown })
-        assertEquals(listOf(6, 6, 5, 6, 6), landscape.map { (w, h) -> plan(w, h, shelf).shown })
-        (portrait + landscape).forEach { (w, h) -> assertEquals("$w x $h", WidgetShape.SHELF, plan(w, h, shelf).shape) }
+    fun `a Shelf shows the list in its look at every One UI size from five by two up`() {
+        for (look in ShelfLook.entries) for ((w, h) in portrait + landscape) {
+            val p = plan(w, h, shelf.copy(look = look))
+            assertTrue("$look $w x $h: ${p.shape}", p.look != null)
+            assertTrue("$look $w x $h: ${p.shown}", p.shown in 4..6)
+            assertTrue("$look $w x $h", p.play && p.skips)
+        }
     }
 
     @Test
@@ -60,14 +63,14 @@ class WidgetOneUiSizesTest {
     }
 
     @Test
-    fun `every setting of what a Shelf holds and how many rows gets the covers that fit, in full rows`() {
+    fun `every setting of what a Shelf holds and how many rows gets covers, in no more rows than asked`() {
         val problems = mutableListOf<String>()
-        for ((w, h) in portrait + landscape) for (content in listOf(WidgetContent.BOTH, WidgetContent.LIST)) for (maxRows in 0..WidgetLayout.MAX_PICKS) {
-            val p = plan(w, h, shelf.copy(content = content, maxRows = maxRows))
-            val at = "$w x $h, $content, rows set to $maxRows"
-            if (maxRows > 0 && p.shelfRows > maxRows) problems += "$at: ${p.shelfRows} rows, over the ceiling"
-            if (p.shown > WidgetLayout.MAX_PICKS || p.shown > p.columns * p.shelfRows) problems += "$at: ${p.shown} covers"
-            if (p.shelfRows > 1 && p.columns * p.shelfRows > WidgetLayout.MAX_PICKS) problems += "$at: a row not full"
+        for (look in ShelfLook.entries) for ((w, h) in portrait + landscape) for (content in listOf(WidgetContent.BOTH, WidgetContent.LIST)) for (maxRows in 0..WidgetLayout.MAX_PICKS) {
+            val p = plan(w, h, shelf.copy(look = look, content = content, maxRows = maxRows))
+            val at = "$look $w x $h, $content, rows set to $maxRows"
+            val rows = p.look?.rows.orEmpty()
+            if (maxRows > 0 && rows.size > maxRows) problems += "$at: ${rows.size} rows, over the ceiling"
+            if (p.shown > WidgetLayout.PHONE_PICKS) problems += "$at: ${p.shown} covers"
             if (p.shown == 0) problems += "$at: no covers"
         }
         assertEquals(problems.joinToString("\n"), emptyList<String>(), problems)

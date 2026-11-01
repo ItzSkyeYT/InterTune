@@ -70,6 +70,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -228,12 +229,19 @@ private fun Config(initial: WidgetSettings, size: IntSize?, onWallpaper: Boolean
             Section(stringResource(R.string.widget_config_style))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
                 for (style in WidgetStyle.entries) {
-                    StyleChoice(style, s.style == style, Modifier.weight(1f)) { s = s.copy(style = style) }
+                    StyleChoice(style, s.style == style, s.look, Modifier.weight(1f)) { s = s.copy(style = style) }
                 }
             }
 
-            // Cover and Full cover are what is playing; a Shelf holds a list too, or a list alone.
+            // Cover and Full cover are what is playing; a Shelf holds a list too, or a list alone, in one of its looks.
             if (s.style == WidgetStyle.SHELF) {
+                Section(stringResource(R.string.widget_config_look))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                    for (look in ShelfLook.entries) {
+                        LookChoice(look, s.look == look, Modifier.weight(1f)) { s = s.copy(look = look) }
+                    }
+                }
+
                 Section(stringResource(R.string.widget_config_shows))
                 Choice(stringResource(R.string.widget_content_both), s.contentShown == WidgetContent.BOTH) { s = s.copy(content = WidgetContent.BOTH) }
                 Choice(stringResource(R.string.widget_content_list), s.contentShown == WidgetContent.LIST) { s = s.copy(content = WidgetContent.LIST) }
@@ -244,20 +252,23 @@ private fun Config(initial: WidgetSettings, size: IntSize?, onWallpaper: Boolean
                 Choice(stringResource(R.string.keep_listening), s.list == WidgetList.KEEP_LISTENING) { s = s.copy(list = WidgetList.KEEP_LISTENING) }
                 Choice(stringResource(R.string.widget_list_recent), s.list == WidgetList.RECENT) { s = s.copy(list = WidgetList.RECENT) }
 
-                Section(stringResource(R.string.widget_config_rows))
-                // Wraps: on a narrow dialog, in a plain Row, the chips past 3 were once squashed out
-                // of reach. Rows of covers, so no more than a shelf ever has: a ceiling of four set
-                // when they were rows of songs is the shelf's three.
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    Chip(stringResource(R.string.widget_rows_auto), s.maxRows == 0) { s = s.copy(maxRows = 0) }
-                    for (n in 1..WidgetLayout.MAX_SHELF_ROWS) {
-                        Chip(n.toString(), s.maxRows.coerceAtMost(WidgetLayout.MAX_SHELF_ROWS) == n) { s = s.copy(maxRows = n) }
+                // The crate's rows and the records': Big cover lays its mosaic out round its cover itself.
+                if (s.look != ShelfLook.BIG_COVER) {
+                    Section(stringResource(R.string.widget_config_rows))
+                    // Wraps: on a narrow dialog, in a plain Row, the chips past 3 were once squashed out
+                    // of reach. Rows of covers, so no more than a look ever has: a ceiling of four set
+                    // when they were rows of songs is the look's three.
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        Chip(stringResource(R.string.widget_rows_auto), s.maxRows == 0) { s = s.copy(maxRows = 0) }
+                        for (n in 1..WidgetLayout.MAX_SHELF_ROWS) {
+                            Chip(n.toString(), s.maxRows.coerceAtMost(WidgetLayout.MAX_SHELF_ROWS) == n) { s = s.copy(maxRows = n) }
+                        }
                     }
                 }
             }
 
             // Full cover is drawn on its cover, so it has no background to pick. The others start on
-            // their own (the song's colours, or the launcher's for a Shelf) until one is picked.
+            // their own (the song's colours, and for a Shelf its cover blurred) until one is picked.
             if (s.style != WidgetStyle.FULL_COVER) {
                 val shown = s.backgroundShown
                 Section(stringResource(R.string.widget_config_background))
@@ -479,9 +490,39 @@ private fun Chip(label: String, selected: Boolean, onSelect: () -> Unit) {
     FilterChip(selected = selected, onClick = onSelect, label = { Text(label) })
 }
 
-/** One style to pick: a small picture of it over its name, the card the button, outlined when chosen. */
+/** One style to pick: a small picture of it over its name, the card the button, outlined when chosen. The Shelf's picture is of its look. */
 @Composable
-private fun StyleChoice(style: WidgetStyle, selected: Boolean, modifier: Modifier, onSelect: () -> Unit) {
+private fun StyleChoice(style: WidgetStyle, selected: Boolean, look: ShelfLook, modifier: Modifier, onSelect: () -> Unit) {
+    PictureCard(
+        stringResource(
+            when (style) {
+                WidgetStyle.COVER -> R.string.widget_style_cover
+                WidgetStyle.FULL_COVER -> R.string.widget_style_full_cover
+                WidgetStyle.SHELF -> R.string.widget_style_shelf
+            }
+        ),
+        selected, modifier, onSelect,
+    ) { StylePicture(style, look, it) }
+}
+
+/** One of a Shelf's looks to pick, the same kind of card as a style. */
+@Composable
+private fun LookChoice(look: ShelfLook, selected: Boolean, modifier: Modifier, onSelect: () -> Unit) {
+    PictureCard(
+        stringResource(
+            when (look) {
+                ShelfLook.BIG_COVER -> R.string.widget_look_big_cover
+                ShelfLook.CRATE -> R.string.widget_look_crate
+                ShelfLook.RECORDS -> R.string.widget_look_records
+            }
+        ),
+        selected, modifier, onSelect,
+    ) { LookPicture(look, it) }
+}
+
+/** A small picture over its name, the card the button, outlined when chosen. */
+@Composable
+private fun PictureCard(name: String, selected: Boolean, modifier: Modifier, onSelect: () -> Unit, picture: @Composable (Modifier) -> Unit) {
     val colors = MaterialTheme.colorScheme
     val shape = RoundedCornerShape(16.dp)
     Column(
@@ -493,15 +534,9 @@ private fun StyleChoice(style: WidgetStyle, selected: Boolean, modifier: Modifie
             .padding(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        StylePicture(style, Modifier.fillMaxWidth().aspectRatio(1.5f))
+        picture(Modifier.fillMaxWidth().aspectRatio(1.5f))
         Text(
-            stringResource(
-                when (style) {
-                    WidgetStyle.COVER -> R.string.widget_style_cover
-                    WidgetStyle.FULL_COVER -> R.string.widget_style_full_cover
-                    WidgetStyle.SHELF -> R.string.widget_style_shelf
-                }
-            ),
+            name,
             style = MaterialTheme.typography.labelLarge,
             color = if (selected) colors.primary else colors.onSurface,
             textAlign = TextAlign.Center,
@@ -514,10 +549,14 @@ private fun StyleChoice(style: WidgetStyle, selected: Boolean, modifier: Modifie
 /**
  * A style in miniature, drawn from the approved mockup's colours rather than anybody's music: the
  * deep plum and the cover beside its words for Cover, the cover filling it with its pane of glass
- * for Full cover, the line of song over a row of covers for Shelf.
+ * for Full cover, and for Shelf the look it has.
  */
 @Composable
-private fun StylePicture(style: WidgetStyle, modifier: Modifier) {
+private fun StylePicture(style: WidgetStyle, look: ShelfLook, modifier: Modifier) {
+    if (style == WidgetStyle.SHELF) {
+        LookPicture(look, modifier)
+        return
+    }
     Canvas(modifier = modifier) {
         val w = size.width
         val h = size.height
@@ -559,21 +598,97 @@ private fun StylePicture(style: WidgetStyle, modifier: Modifier) {
                 drawRoundRect(Color.White.copy(alpha = 0.4f), Offset(left, top), Size(pillW, pillH), CornerRadius(pillH / 2), style = Stroke(1.dp.toPx()))
                 for (i in 0..2) drawCircle(Color.White, pillH * (if (i == 1) 0.26f else 0.17f), Offset(left + pillW * (0.25f + 0.25f * i), top + pillH / 2))
             }
-            WidgetStyle.SHELF -> {
-                drawRoundRect(Color(0xFF1F2330), cornerRadius = corner)
-                val pad = h * 0.1f
+            WidgetStyle.SHELF -> Unit
+        }
+    }
+}
+
+/** The mockups' covers, as colours: none of them anybody's music. */
+private val LookCovers = listOf(
+    Color(0xFF7B3FA0) to Color(0xFFF4A261),
+    Color(0xFF0F6E56) to Color(0xFF5DCAA5),
+    Color(0xFFD85A30) to Color(0xFFF0997B),
+    Color(0xFF185FA5) to Color(0xFF85B7EB),
+    Color(0xFF854F0B) to Color(0xFFEF9F27),
+    Color(0xFF72243E) to Color(0xFFD4537E),
+    Color(0xFF2C2C2A) to Color(0xFF888780),
+)
+
+/**
+ * A Shelf's look in miniature, from the mockups (experiments/features/shelf-redo): on the playing
+ * cover blurred, Big cover's big cover with its pill and the mosaic beside it, the crate's line over
+ * its leaning covers, and the sleeve with its record out over a row of records.
+ */
+@Composable
+private fun LookPicture(look: ShelfLook, modifier: Modifier) {
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+        val corner = CornerRadius(w * 0.1f)
+        drawRoundRect(Brush.linearGradient(listOf(Color(0xFF3B2140), Color(0xFF1A1C2C)), Offset.Zero, Offset(w, h)), cornerRadius = corner)
+        val word = Color.White.copy(alpha = 0.92f)
+        val soft = Color.White.copy(alpha = 0.55f)
+        fun cover(i: Int, x: Float, y: Float, side: Float, radius: Float = side * 0.16f) {
+            val (a, b) = LookCovers[i % LookCovers.size]
+            drawRoundRect(Brush.linearGradient(listOf(a, b), Offset(x, y), Offset(x + side, y + side)), Offset(x, y), Size(side, side), CornerRadius(radius))
+        }
+        fun bar(x: Float, y: Float, length: Float, colour: Color, thick: Float = h * 0.06f) =
+            drawRoundRect(colour, Offset(x, y), Size(length, thick), CornerRadius(thick / 2))
+        fun pill(x: Float, y: Float, pw: Float, ph: Float) {
+            drawRoundRect(Color.White.copy(alpha = 0.2f), Offset(x, y), Size(pw, ph), CornerRadius(ph / 2))
+            drawRoundRect(Color.White.copy(alpha = 0.38f), Offset(x, y), Size(pw, ph), CornerRadius(ph / 2), style = Stroke(1.dp.toPx()))
+            for (k in 0..2) drawCircle(Color.White, ph * (if (k == 1) 0.34f else 0.13f), Offset(x + pw * (0.22f + 0.28f * k), y + ph / 2))
+        }
+        fun record(i: Int, cx: Float, cy: Float, r: Float) {
+            drawCircle(Color(0xFF101012), r, Offset(cx, cy))
+            for (k in 1..3) drawCircle(Color(0xFF2A2A30), r * (0.62f + 0.12f * k), Offset(cx, cy), style = Stroke(0.6.dp.toPx()))
+            val (a, b) = LookCovers[i % LookCovers.size]
+            drawCircle(Brush.linearGradient(listOf(a, b), Offset(cx - r, cy - r), Offset(cx + r, cy + r)), r * 0.52f, Offset(cx, cy))
+            drawCircle(Color(0xFF101012), r * 0.06f, Offset(cx, cy))
+        }
+        val pad = h * 0.1f
+        when (look) {
+            ShelfLook.BIG_COVER -> {
+                val side = h - 2 * pad
+                cover(0, pad, pad, side, side * 0.12f)
+                drawRoundRect(
+                    Brush.verticalGradient(listOf(Color(0xB8000000), Color(0x00000000)), startY = pad, endY = pad + side * 0.45f),
+                    Offset(pad, pad), Size(side, side * 0.45f), CornerRadius(side * 0.12f),
+                )
+                bar(pad + side * 0.1f, pad + side * 0.1f, side * 0.6f, word)
+                bar(pad + side * 0.1f, pad + side * 0.22f, side * 0.32f, soft, h * 0.045f)
+                pill(pad + side * 0.1f, pad + side * 0.7f, side * 0.8f, side * 0.2f)
+                val gap = h * 0.04f
+                val cell = (side - 2 * gap) / 3
+                val x0 = pad + side + gap * 1.5f
+                for (k in 0 until 6) cover(k + 1, x0 + (k % 2) * (cell + gap), pad + (k / 2) * (cell + gap), cell)
+            }
+            ShelfLook.CRATE -> {
                 val small = h * 0.26f
-                drawRoundRect(cover, Offset(pad, pad), Size(small, small), CornerRadius(small * 0.2f))
-                bar(pad * 2 + small, pad + small * 0.12f, w * 0.38f, word)
-                bar(pad * 2 + small, pad + small * 0.58f, w * 0.24f, soft, h * 0.055f)
-                val shelf = listOf(Color(0xFF0F6E56) to Color(0xFF5DCAA5), Color(0xFFD85A30) to Color(0xFFF0997B), Color(0xFF185FA5) to Color(0xFF85B7EB), Color(0xFF854F0B) to Color(0xFFEF9F27))
-                val gap = w * 0.035f
-                val tile = (w - 2 * pad - 3 * gap) / 4
-                val y = h - pad - tile
-                for ((i, pair) in shelf.withIndex()) {
-                    val x = pad + i * (tile + gap)
-                    drawRoundRect(Brush.linearGradient(listOf(pair.first, pair.second), Offset(x, y), Offset(x + tile, y + tile)), Offset(x, y), Size(tile, tile), CornerRadius(tile * 0.2f))
+                cover(0, pad, pad, small)
+                bar(pad + small + pad * 0.8f, pad + small * 0.1f, w * 0.34f, word)
+                bar(pad + small + pad * 0.8f, pad + small * 0.55f, w * 0.18f, soft, h * 0.045f)
+                pill(w - pad - w * 0.3f, pad + small * 0.42f, w * 0.3f, small * 0.62f)
+                val tile = h * 0.42f
+                val step = (w - 2 * pad - tile) / 5
+                val angles = listOf(-7f, 4f, -3f, 6f, -5f, 3f)
+                for (k in 0 until 6) {
+                    val x = pad + k * step
+                    val y = h - pad - tile - (if (k % 2 == 1) 0f else h * 0.02f)
+                    rotate(angles[k], Offset(x + tile / 2, y + tile / 2)) { cover(k + 1, x, y, tile) }
                 }
+            }
+            ShelfLook.RECORDS -> {
+                val sleeve = h * 0.48f
+                record(0, pad + sleeve * 0.95f, pad + sleeve / 2, sleeve * 0.47f)
+                cover(0, pad, pad, sleeve, sleeve * 0.08f)
+                val x = pad + sleeve * 1.45f + pad * 0.6f
+                bar(x, pad + sleeve * 0.1f, w - x - pad, word)
+                bar(x, pad + sleeve * 0.3f, (w - x - pad) * 0.5f, soft, h * 0.045f)
+                pill(x, pad + sleeve * 0.55f, w - x - pad, sleeve * 0.36f)
+                val r = h * 0.15f
+                val step = (w - 2 * pad - 2 * r) / 5
+                for (k in 0 until 6) record(k + 1, pad + r + k * step, h - pad - r, r)
             }
         }
     }

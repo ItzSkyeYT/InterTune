@@ -107,11 +107,14 @@ enum class WidgetStyle {
     /** The cover fills the widget, the words over it and the buttons in one pane of glass. */
     FULL_COVER,
 
-    /** What is playing on top, and the list as covers to tap under it. */
+    /** What is playing and the list's covers to tap, or the list alone, in one of three looks: see [ShelfLook]. */
     SHELF;
 
-    /** What this style is drawn on when no background was picked: the song's colours, or for Shelf the launcher's. */
-    val ownBackground: WidgetBackground get() = if (this == SHELF) WidgetBackground.SYSTEM else WidgetBackground.ARTWORK
+    /**
+     * What this style is drawn on when no background was picked: the song's colours. For a Shelf
+     * that is its cover itself, blurred and darkened, as all three of its looks were drawn.
+     */
+    val ownBackground: WidgetBackground get() = WidgetBackground.ARTWORK
 
     companion object {
         fun of(name: String?): WidgetStyle? = entries.firstOrNull { it.name == name }
@@ -128,8 +131,10 @@ data class WidgetSettings(
     val style: WidgetStyle = WidgetStyle.COVER,
     /** What a Shelf holds: what is playing and the list, or the list alone. The other styles are what is playing. */
     val content: WidgetContent = WidgetContent.BOTH,
+    /** How a Shelf looks: Big cover unless another was picked, which is also what a Shelf from before the looks is. */
+    val look: ShelfLook = ShelfLook.BIG_COVER,
     val list: WidgetList = WidgetList.QUICK_PICKS,
-    /** 0 means as many rows of covers as fit; anything else is a ceiling the listener set. */
+    /** 0 means as many rows of covers as fit; anything else is a ceiling the listener set (the crate's rows and the records'). */
     val maxRows: Int = 0,
     /** Null until one is picked, and then the style's own: see [backgroundShown]. */
     val background: WidgetBackground? = null,
@@ -161,7 +166,7 @@ data class WidgetSettings(
 
 /** What one widget draws at one size. */
 enum class WidgetShape {
-    /** Only the list's heading, which opens the app: a list too short for a row of its covers. */
+    /** Only the list's heading, which opens the app: a list alone with no room for its look. */
     NONE,
 
     /** Narrower than a title: the cover with play on its corner, or under it when the widget is tall. Full cover: a glass circle on it. */
@@ -182,11 +187,14 @@ enum class WidgetShape {
     /** Full cover, wide and not tall: the song at the top, the glass bar at the bottom. */
     BANNER,
 
-    /** Shelf: what is playing on top, the list as covers under it. */
-    SHELF,
+    /** Shelf, Big cover: the cover of what is playing big, the list as a mosaic of covers beside it; with a list alone, its first song big. */
+    BIG_COVER,
 
-    /** Shelf holding a list alone: its heading and its covers. */
-    GRID,
+    /** Shelf, Crate: what is playing in a line on top, the list's covers leaning in a crate under it; with a list alone, its heading and the crate. */
+    CRATE,
+
+    /** Shelf, Records: the sleeve with its record sliding out, the list as records under it; with a list alone, its heading and the records. */
+    RECORDS,
 
     /** A tablet's width (Cover and Full cover): what is playing, and Up next beside it. */
     PANES,
@@ -236,29 +244,19 @@ data class WidgetPlan(
     val slots: Int = 0,
     /** TILE: play under the cover rather than on its corner. */
     val below: Boolean = false,
-    /** Full cover's glass. */
+    /** Full cover's glass, and the pill of buttons of a Shelf's look. */
     val glass: GlassPane? = null,
-    /** Shelf: the line of what is playing on top, and whether the buttons are at its end or on a line under it. */
-    val headerHeight: Int = 0,
-    val headerCover: Int = 0,
-    val buttonsInline: Boolean = false,
-    /** The list's heading, 0 for none. */
+    /** Up next's heading, 0 for none. */
     val headingHeight: Int = 0,
-    /** Shelf: covers [tile] dp square, [columns] across, [shelfRows] down, with their names under them or not. */
-    val tile: Int = 0,
-    val columns: Int = 0,
-    val shelfRows: Int = 0,
-    val captions: Boolean = false,
-    val shelfGap: Int = 0,
-    /** How many covers the shelf shows: never more than the list holds. */
+    /** How many of the list's songs a Shelf shows: never more than the list holds. */
     val shown: Int = 0,
     /** PANES: Up next's pane, as wide as this, its rows and their height. */
     val paneW: Int = 0,
     val upNext: Int = 0,
     val upNextRow: Int = 0,
-) {
-    val heading: Boolean get() = headingHeight > 0
-}
+    /** A Shelf's look: where it puts its covers, its words and its pill. */
+    val look: LookPlan? = null,
+)
 
 object WidgetLayout {
     /** Narrower than this and there is no room for words beside a picture. */
@@ -319,25 +317,14 @@ object WidgetLayout {
      * A tablet's size (or a foldable's inside): one side longer than [BIG_LONG_DP] and the other at
      * least [BIG_SHORT_DP]. A phone's home screen has no widget that big, and a widget that is
      * keeps to its shape no longer, since what fills a phone's four by four leaves most of this
-     * empty: the shelf grows its covers and their number, and Up next gives way to a cover that
-     * can fill the height.
+     * empty: a Shelf's look grows its covers and their number, and Up next gives way to a cover
+     * that can fill the height.
      */
     const val BIG_LONG_DP = 650
     const val BIG_SHORT_DP = 420
 
-    /** A tablet's shelf of covers: the most they grow to (they are drawn from small files), the least, and the most across. */
-    const val BIG_TILE_MAX_DP = 144
-    const val BIG_TILE_MIN_DP = 72
-    const val BIG_MAX_COLUMNS = 8
-
     /** On a tablet Cover's column of words and buttons beside its cover is never wider than this. */
     const val BIG_COLUMN_MAX_DP = 400
-
-    /** Between a tablet's covers. */
-    const val BIG_SHELF_GAP_DP = 10
-
-    /** A tablet's block of covers is chosen to take as much of the room as it can, but never to leave more than half of it either way. */
-    const val BIG_MIN_FILL_PERCENT = 50
 
     /** Under this share of the height a tablet's Cover is too small for Up next to go beside it, and it is drawn without. */
     const val PANES_COVER_MIN_PERCENT = 60
@@ -348,16 +335,8 @@ object WidgetLayout {
     /** The most Up next shows: the next four of the queue. */
     const val MAX_UP_NEXT = 4
 
-    /** The size a shelf's covers are made close to, the most they grow to, and the least they shrink to. */
-    const val SHELF_PREF_DP = 80
-    const val SHELF_MAX_DP = 120
-    const val SHELF_MIN_DP = 36
-
-    /** A shelf's covers have the song's name under them from this size. */
-    const val CAPTION_MIN_DP = 48
-
-    /** At most this many rows of covers: past that it is a list, not a shelf. */
-    const val MAX_SHELF_ROWS = 3
+    /** At most this many rows in a Shelf's crate or of its records: the ceiling the settings offer. */
+    const val MAX_SHELF_ROWS = WidgetLooks.MAX_LOOK_ROWS
 
     /** A row of Up next, and its cover. */
     const val UP_NEXT_ROW_DP = 52
@@ -407,11 +386,11 @@ object WidgetLayout {
     /** Every shape but the heart, which [withLike] adds where it fits. */
     private fun shape(w: Int, h: Int, s: WidgetSettings, available: Int, scale: Float, upNext: Int): WidgetPlan {
         if (s.contentShown == WidgetContent.LIST) {
-            return grid(w, h, s, available, scale) ?: WidgetPlan(s.style, WidgetShape.NONE, padH = 12, padV = 10)
+            return WidgetLooks.plan(w, h, s, available, scale) ?: WidgetPlan(s.style, WidgetShape.NONE, padH = 12, padV = 10)
         }
         if (w < TINY_WIDTH_DP) return tile(w, h, s)
         if (h < LINE_HEIGHT_DP) return line(w, h, s, scale)
-        if (s.style == WidgetStyle.SHELF) return shelf(w, h, s, available, scale) ?: line(w, h, s, scale)
+        if (s.style == WidgetStyle.SHELF) return WidgetLooks.plan(w, h, s, available, scale) ?: line(w, h, s, scale)
         if (w >= PANES_WIDTH_DP && h >= PANES_HEIGHT_DP && upNext > 0) panes(w, h, s, scale, upNext)?.let { return it }
         if (s.style == WidgetStyle.FULL_COVER) {
             // Wide: the song at the top and the bar at the bottom, darkened from the start; otherwise
@@ -705,8 +684,12 @@ object WidgetLayout {
         return if (circle <= room) Triple(circle, circle, false) else null
     }
 
-    /** Inside a glass bar at its ends: less on a small widget, where every dp of the bar counts. */
-    fun glassPadH(p: WidgetPlan): Int = if (p.shape == WidgetShape.POSTER && p.coverW < 200) 8 else GLASS_PAD_H_DP
+    /** Inside a glass bar at its ends: less on a small widget, where every dp of the bar counts, and the pill's own in a Shelf's look. */
+    fun glassPadH(p: WidgetPlan): Int = when {
+        p.look != null -> if (p.button > WidgetLooks.PILL_BUTTON_DP) WidgetLooks.BIG_PILL_PAD_H_DP else WidgetLooks.PILL_PAD_H_DP
+        p.shape == WidgetShape.POSTER && p.coverW < 200 -> 8
+        else -> GLASS_PAD_H_DP
+    }
 
     /** Full cover: the cover is the widget, darkened towards the bottom, the song over it and the glass bar under the song. */
     private fun poster(w: Int, h: Int, s: WidgetSettings, scale: Float): WidgetPlan? {
@@ -785,307 +768,6 @@ object WidgetLayout {
         )
     }
 
-    /** A shelf of covers: how many across and down, and how big. */
-    internal data class ShelfGrid(val columns: Int, val rows: Int, val tile: Int, val captions: Boolean, val gap: Int) {
-        fun height(caption: Int): Int = rows * (tile + if (captions) caption else 0) + (rows - 1) * gap
-        val width: Int get() = columns * tile + (columns - 1) * gap
-    }
-
-    /** The height of a cover's name under it in a shelf. */
-    fun captionHeight(scale: Float): Int = line(12, scale) + 3
-
-    /**
-     * Covers to fill [room] by [height], the way the approved mockups lay them out:
-     *
-     * - About [SHELF_PREF_DP] across, as many as the width holds (four on a phone's four cells,
-     *   six on a tablet), in full rows only: six songs over four columns are one row of four, never
-     *   four and two.
-     * - The song's name under each cover of a grid of rows, the covers a little smaller for them,
-     *   and under a single row where they fit as it is (the four by three; not the four by two).
-     * - A narrow widget with room for a second row under the first has two rows of smaller covers
-     *   (the two by three); a wide one has one row of three bigger covers instead of four (the four
-     *   by four), and two rows of them where the height holds both, so a One UI five by four shows
-     *   all six songs.
-     * - A short strip has covers as tall as it, and more of them across (the two by two).
-     *
-     * Null when not even a row of small covers fits.
-     */
-    internal fun shelfGrid(room: Int, height: Int, available: Int, maxRows: Int, caption: Int, gap: Int): ShelfGrid? {
-        if (available <= 0 || height < SHELF_MIN_DP || room < SHELF_MIN_DP) return null
-        val n0 = ((room + gap).toFloat() / (SHELF_PREF_DP + gap)).roundToInt().coerceIn(2, 6)
-        val ceiling = if (maxRows > 0) minOf(maxRows, MAX_SHELF_ROWS) else MAX_SHELF_ROWS
-        fun rowsFor(n: Int) = minOf(ceiling, maxOf(1, available / n))
-        fun across(n: Int) = (room - (n - 1) * gap) / n
-        // A short strip: covers as tall as it, and as many as fill the width.
-        if (height < minOf(across(n0), SHELF_MAX_DP)) {
-            val n = ((room + gap).toFloat() / (height + gap)).roundToInt().coerceIn(n0, 6)
-            val tile = minOf(height, across(n))
-            return if (tile >= SHELF_MIN_DP) ShelfGrid(n, 1, tile, false, gap) else null
-        }
-        // [n] columns of covers up to [side]: as many full rows as fit, and one more where the
-        // covers lose no more than a tenth for it.
-        fun fill(n: Int, side: Int, captions: Boolean): ShelfGrid? {
-            val cap = if (captions) caption else 0
-            var tile = minOf(side, across(n), SHELF_MAX_DP)
-            var rows = minOf((height + gap) / (tile + cap + gap), rowsFor(n))
-            if (rows == 0) {
-                tile = minOf(tile, height - cap)
-                rows = 1
-            }
-            if (rows < rowsFor(n)) {
-                val more = (height - rows * gap) / (rows + 1) - cap
-                if (more * 10 >= tile * 9) {
-                    rows++
-                    tile = more
-                }
-            }
-            return if (tile >= (if (captions) CAPTION_MIN_DP else SHELF_MIN_DP)) ShelfGrid(n, rows, tile, captions, gap) else null
-        }
-        // The names: under every cover of a grid of rows, the covers a little smaller for them; under
-        // a single row only where they fit as they are, which a short widget has no room for.
-        val bare = fill(n0, across(n0), captions = false) ?: return null
-        val first = when {
-            bare.rows >= 2 -> {
-                val tile = minOf(across(n0), SHELF_MAX_DP, (height - (bare.rows - 1) * gap) / bare.rows - caption)
-                if (tile >= CAPTION_MIN_DP) bare.copy(tile = tile, captions = true) else bare
-            }
-            height - bare.tile >= caption && bare.tile >= CAPTION_MIN_DP -> bare.copy(captions = true)
-            else -> bare
-        }
-        val cap = if (first.captions) caption else 0
-        val roomy = first.rows == 1 && (height - first.tile - cap) * 5 >= (first.tile + cap + gap) * 3
-        if (!roomy) return first
-        if (rowsFor(n0) >= 2) {
-            // Narrow: two rows of smaller covers fill the room better than one row of big ones.
-            val two = (height - gap - 2 * cap) / 2
-            return if (two * 4 >= first.tile * 3 && two >= (if (first.captions) CAPTION_MIN_DP else SHELF_MIN_DP)) first.copy(rows = 2, tile = two) else first
-        }
-        if (n0 in 3..4) {
-            // Wide, and six songs make no second full row of four: bigger covers, three across.
-            val bigger = fill(n0 - 1, SHELF_MAX_DP, captions = first.captions)
-            if (bigger != null && bigger.tile > first.tile) return bigger
-        }
-        return first
-    }
-
-    /** The list's heading over a shelf, with the room under it. */
-    fun headingHeight(scale: Float): Int = line(12, scale) + 6
-
-    /**
-     * A shelf of [room] by [height], with the list's heading over it where the shelf leaves room
-     * for it: the heading never costs a cover or shrinks one.
-     */
-    private fun shelfUnder(room: Int, height: Int, s: WidgetSettings, available: Int, scale: Float, gap: Int): Pair<ShelfGrid, Int>? {
-        val caption = captionHeight(scale)
-        val grid = shelfGrid(room, height, available, s.maxRows, caption, gap) ?: return null
-        val heading = headingHeight(scale)
-        return grid to if (s.showHeading && grid.height(caption) + heading <= height) heading else 0
-    }
-
-    /**
-     * A tablet's covers: of the grids of whole rows the songs make, the one whose block (what stands
-     * over the covers, then the covers) takes the most of the room, as long as neither its width nor
-     * its height is left under [BIG_MIN_FILL_PERCENT] of it, and otherwise the one that leaves the
-     * least of either empty. Covers grow to [BIG_TILE_MAX_DP], each with its name. [room] and
-     * [height] are what is left inside the widget's [pad] all round, [fixed] of the height taken by
-     * what stands over the covers, and [minWidth] the least the block may be across, for the line of
-     * what is playing that sits over it. Null when no grid of covers of at least [BIG_TILE_MIN_DP] fits.
-     */
-    internal fun bigShelfGrid(room: Int, height: Int, pad: Int, fixed: Int, available: Int, maxRows: Int, caption: Int, gap: Int, minWidth: Int): ShelfGrid? {
-        val ceiling = if (maxRows > 0) minOf(maxRows, MAX_SHELF_ROWS) else MAX_SHELF_ROWS
-        var best: ShelfGrid? = null
-        var bestFill = 0
-        var bestArea = 0
-        val enough = BIG_MIN_FILL_PERCENT * 10
-        for (columns in 2..minOf(BIG_MAX_COLUMNS, available)) for (rows in 1..minOf(ceiling, available / columns)) {
-            val tile = minOf(
-                (room - (columns - 1) * gap) / columns,
-                (height - fixed - (rows - 1) * gap) / rows - caption,
-                BIG_TILE_MAX_DP,
-            )
-            if (tile < BIG_TILE_MIN_DP) continue
-            val grid = ShelfGrid(columns, rows, tile, true, gap)
-            if (grid.width < minWidth) continue
-            val tall = fixed + grid.height(caption)
-            val fill = minOf(grid.width * 1000 / (room + 2 * pad), tall * 1000 / (height + 2 * pad))
-            val area = grid.width * tall
-            val better = when {
-                best == null -> true
-                fill >= enough && bestFill >= enough -> area > bestArea
-                else -> fill > bestFill || (fill == bestFill && area > bestArea)
-            }
-            if (better) {
-                best = grid
-                bestFill = fill
-                bestArea = area
-            }
-        }
-        return best
-    }
-
-    /**
-     * Shelf on a tablet: what is playing in a line a size up, its buttons at the end of it on a wide
-     * widget and on a line of their own under it on a tall one, and under that the grid of covers
-     * [bigShelfGrid] chose. The line and the covers are one block, as wide as the covers and in the
-     * middle of the widget, so a big widget has its content in the middle and not in its corner.
-     * Null when there are not two songs to make a grid of: the ordinary shelf is then drawn.
-     */
-    private fun bigShelf(w: Int, h: Int, s: WidgetSettings, available: Int, scale: Float): WidgetPlan? {
-        val pad = 14
-        val ownRow = h * 5 >= w * 4
-        val headerCover = if (ownRow) 72 else 64
-        val titleSp = 18
-        val artistSp = 13
-        val button = 44
-        val playSize = if (ownRow) 56 else 48
-        val t = line(titleSp, scale)
-        val a = line(artistSp, scale)
-        val play = s.buttons != WidgetButtons.NONE
-        val skipsWanted = s.buttons == WidgetButtons.ALL
-        val controlsH = if (play) maxOf(button, playSize) else 0
-        val header = if (ownRow) maxOf(headerCover, t) else maxOf(headerCover, controlsH)
-        // At a text size the line has no room for, the ordinary shelf is drawn.
-        if (t > header) return null
-        val top = if (ownRow) header + (if (play) SMALL_GAP_DP + controlsH else 0) + 8 else header + 10
-        val heading = if (s.showHeading) headingHeight(scale) else 0
-        // The least the block is across: the line's words keep their room beside the buttons, or a
-        // row of buttons its three places.
-        val minBlock = if (ownRow) {
-            spreadWidth(3, button, playSize)
-        } else {
-            headerCover + COVER_GAP_DP + rowWidth(false, skipsWanted, play, false, button, playSize, BUTTON_SPACING_DP) +
-                (if (play) SMALL_GAP_DP else 0) + WORDS_MIN_DP
-        }
-        val caption = captionHeight(scale)
-        val grid = bigShelfGrid(w - 2 * pad, h - 2 * pad, pad, top + heading, available, s.maxRows, caption, BIG_SHELF_GAP_DP, minBlock) ?: return null
-        val used = top + heading + grid.height(caption)
-        val row = if (ownRow) spread(grid.width, s, button, playSize, roomy = true) else null
-        return WidgetPlan(
-            s.style, WidgetShape.SHELF,
-            padH = (w - grid.width) / 2, padV = (h - used) / 2,
-            titleSp = titleSp, artistSp = artistSp, showArtist = s.showArtist && t + a <= header,
-            play = play, skips = row?.skips ?: skipsWanted, shuffle = row?.shuffle ?: false,
-            button = button, playSize = playSize, gap = row?.gap ?: BUTTON_SPACING_DP, slots = row?.slots ?: 0,
-            headerHeight = header, headerCover = headerCover, buttonsInline = !ownRow,
-            headingHeight = heading,
-            tile = grid.tile, columns = grid.columns, shelfRows = grid.rows, captions = true,
-            shelfGap = grid.gap, shown = grid.columns * grid.rows,
-        )
-    }
-
-    /**
-     * Shelf: what is playing in a line on top, its buttons at the end of that line on a wide widget
-     * and on a line of their own under it on a narrow or a tall one (the mockup's four by four), and
-     * the list as covers under that, each one tapped to play it. Null when not a row of covers fits:
-     * the widget is then the line of what is playing on its own.
-     */
-    private fun shelf(w: Int, h: Int, s: WidgetSettings, available: Int, scale: Float): WidgetPlan? {
-        if (isBig(w, h)) bigShelf(w, h, s, available, scale)?.let { return it }
-        val small = w < 200
-        val narrow = w < 300
-        val big = minOf(w, h) >= 300
-        val pad = when {
-            small -> 10
-            big -> 14
-            else -> 12
-        }
-        val iw = w - 2 * pad
-        val ih = h - 2 * pad
-        val ownRow = narrow || (h >= 300 && h * 5 >= w * 4)
-        val headerCover = when {
-            small -> 32
-            narrow -> 40
-            ownRow -> 56
-            else -> 48
-        }
-        val titleSp = when {
-            small -> 12
-            narrow -> 13
-            else -> 15
-        }
-        val artistSp = if (narrow) 11 else 12
-        val button = if (small) 36 else 40
-        val playSize = when {
-            small -> 32
-            ownRow && !narrow -> 48
-            else -> 36
-        }
-        val t = line(titleSp, scale)
-        val a = line(artistSp, scale)
-        val play = s.buttons != WidgetButtons.NONE
-        val gap = if (small) 6 else 8
-        val plan: WidgetPlan
-        val top: Int
-        if (!ownRow) {
-            val controls = rowWidth(false, s.buttons == WidgetButtons.ALL, play, false, button, playSize, BUTTON_SPACING_DP)
-            val skips = s.buttons == WidgetButtons.ALL &&
-                iw - headerCover - COVER_GAP_DP - controls - SMALL_GAP_DP >= WORDS_MIN_DP
-            val controlsH = if (play) maxOf(button, playSize) else 0
-            val header = maxOf(headerCover, controlsH)
-            val artist = s.showArtist && t + a <= header
-            if (t > header) return null
-            top = header + 10
-            plan = WidgetPlan(
-                s.style, WidgetShape.SHELF,
-                padH = pad, titleSp = titleSp, artistSp = artistSp, showArtist = artist,
-                play = play, skips = skips, button = button, playSize = playSize,
-                headerHeight = header, headerCover = headerCover, buttonsInline = true,
-            )
-        } else {
-            val header = maxOf(headerCover, t)
-            val artist = s.showArtist && t + a <= header
-            val row = spread(iw, s, button, playSize, roomy = !narrow)
-            val controlsH = if (play) maxOf(button, playSize) else 0
-            top = header + (if (play) SMALL_GAP_DP + controlsH else 0) + 8
-            plan = WidgetPlan(
-                s.style, WidgetShape.SHELF,
-                padH = pad, titleSp = titleSp, artistSp = artistSp, showArtist = artist,
-                play = play, skips = row.skips, shuffle = row.shuffle, button = button, playSize = playSize,
-                gap = row.gap, slots = row.slots, headerHeight = header, headerCover = headerCover,
-            )
-        }
-        val (grid, heading) = shelfUnder(iw, ih - top, s, available, scale, gap) ?: return null
-        val used = top + heading + grid.height(captionHeight(scale))
-        return plan.copy(
-            padV = (h - used) / 2,
-            headingHeight = heading,
-            tile = grid.tile, columns = grid.columns, shelfRows = grid.rows, captions = grid.captions,
-            shelfGap = grid.gap, shown = minOf(available, grid.columns * grid.rows),
-        )
-    }
-
-    /** A tablet's Shelf with a list alone: the heading and the grid of covers that fills the widget best, in its middle. */
-    private fun bigGrid(w: Int, h: Int, s: WidgetSettings, available: Int, scale: Float): WidgetPlan? {
-        val pad = 14
-        val heading = if (s.showHeading) headingHeight(scale) else 0
-        val caption = captionHeight(scale)
-        val grid = bigShelfGrid(w - 2 * pad, h - 2 * pad, pad, heading, available, s.maxRows, caption, BIG_SHELF_GAP_DP, minWidth = 0) ?: return null
-        val used = heading + grid.height(caption)
-        return WidgetPlan(
-            s.style, WidgetShape.GRID,
-            padH = (w - grid.width) / 2, padV = (h - used) / 2, titleLines = 0,
-            headingHeight = heading,
-            tile = grid.tile, columns = grid.columns, shelfRows = grid.rows, captions = true,
-            shelfGap = grid.gap, shown = grid.columns * grid.rows,
-        )
-    }
-
-    /** Shelf with a list alone: the list's heading and its covers. */
-    private fun grid(w: Int, h: Int, s: WidgetSettings, available: Int, scale: Float): WidgetPlan? {
-        if (isBig(w, h)) bigGrid(w, h, s, available, scale)?.let { return it }
-        val pad = if (w < 200) 10 else 12
-        val gap = if (w < 200) 6 else 8
-        val (grid, heading) = shelfUnder(w - 2 * pad, h - 2 * pad, s, available, scale, gap) ?: return null
-        val used = heading + grid.height(captionHeight(scale))
-        return WidgetPlan(
-            s.style, WidgetShape.GRID,
-            padH = pad, padV = (h - used) / 2, titleLines = 0,
-            headingHeight = heading,
-            tile = grid.tile, columns = grid.columns, shelfRows = grid.rows, captions = grid.captions,
-            shelfGap = grid.gap, shown = minOf(available, grid.columns * grid.rows),
-        )
-    }
-
     /** The height of a row of Up next: its cover, or its two lines of words with room round them. */
     fun upNextRowHeight(scale: Float): Int = maxOf(UP_NEXT_ROW_DP, line(13, scale) + line(12, scale) + 8)
 
@@ -1095,8 +777,8 @@ object WidgetLayout {
     /**
      * A tablet: what is playing on the left, in Cover's wide shape or over Full cover's cover with
      * the glass bar at the bottom, and Up next on the right, the next songs of the queue, each one
-     * tapped to play the queue on from it (the mockup approved for tablets). Shelf is not drawn this
-     * way: its tablet shape is not decided, and it stays its four by three, wider.
+     * tapped to play the queue on from it (the mockup approved for tablets). A Shelf is never drawn
+     * this way: its looks fill a tablet's widget with their own covers.
      */
     private fun panes(w: Int, h: Int, s: WidgetSettings, scale: Float, upNext: Int): WidgetPlan? {
         val pad = 14
@@ -1174,10 +856,6 @@ object WidgetLayout {
         return content - (if (p.coverW > 0) p.coverW + SIDE_GAP_DP else 0)
     }
 
-    /** Shelf's words in the line on top, beside the buttons when they are there. */
-    fun headerWords(p: WidgetPlan, w: Int): Int =
-        w - 2 * p.padH - p.headerCover - COVER_GAP_DP - (if (p.buttonsInline) rowWidth(p) + SMALL_GAP_DP else 0)
-
     /** Full cover's glass, a button wider for the heart: centred on a poster, from the start elsewhere, from the end on a line. */
     private fun glassWithHeart(p: WidgetPlan, w: Int): GlassPane? = p.glass?.let { g ->
         val grown = g.w + p.button + p.gap
@@ -1192,7 +870,8 @@ object WidgetLayout {
      * [plan] with the heart before previous, where it fits without moving or shrinking anything that
      * is there: in a line the words make room for it and keep [LIKE_WORDS_MIN_DP]; in Cover's
      * column it needs the column's room; in a spread row it has its own place (see [WidgetPlan.slots]);
-     * in glass the bar grows by a button and must still fit. Never where previous and next are not,
+     * in glass the bar grows by a button and must still fit, and a Shelf's pill grows into the room
+     * its look keeps for it (see [WidgetLooks.withLike]). Never where previous and next are not,
      * so never where play alone or no buttons were asked for.
      */
     private fun withLike(plan: WidgetPlan, w: Int, settings: WidgetSettings): WidgetPlan {
@@ -1207,9 +886,7 @@ object WidgetLayout {
                 } else if (lineWords(liked, w) >= LIKE_WORDS_MIN_DP) liked else plan
             WidgetShape.SIDE -> if (rowWidth(liked) <= columnWidth(liked, w)) liked else plan
             WidgetShape.TOP -> if (plan.slots == 5) liked else plan
-            WidgetShape.SHELF ->
-                if (plan.buttonsInline) (if (headerWords(liked, w) >= LIKE_WORDS_MIN_DP) liked else plan)
-                else if (plan.slots == 5) liked else plan
+            WidgetShape.BIG_COVER, WidgetShape.CRATE, WidgetShape.RECORDS -> WidgetLooks.withLike(plan)
             WidgetShape.POSTER, WidgetShape.BANNER -> {
                 val grown = glassWithHeart(plan, w) ?: return plan
                 if (grown.x >= plan.padH && grown.x + grown.w <= w - plan.padH) liked.copy(glass = grown) else plan
@@ -1219,7 +896,7 @@ object WidgetLayout {
                     val grown = glassWithHeart(plan, w) ?: return plan
                     if (grown.w <= w - 2 * plan.padH - PANE_GAP_DP - plan.paneW) liked.copy(glass = grown) else plan
                 } else if (rowWidth(liked) <= columnWidth(liked, w)) liked else plan
-            WidgetShape.TILE, WidgetShape.GRID, WidgetShape.NONE -> plan
+            WidgetShape.TILE, WidgetShape.NONE -> plan
         }
     }
 
@@ -1237,6 +914,7 @@ object WidgetLayout {
 object WidgetKeys {
     val STYLE = stringPreferencesKey("widget_style")
     val CONTENT = stringPreferencesKey("widget_content")
+    val LOOK = stringPreferencesKey("widget_look")
     val LIST = stringPreferencesKey("widget_list")
     val MAX_ROWS = intPreferencesKey("widget_max_rows")
     val BACKGROUND = stringPreferencesKey("widget_background")
@@ -1251,7 +929,8 @@ object WidgetKeys {
 
     /**
      * A widget set up before there were styles has no style: it is a Cover, unless it was a list,
-     * which stays a list as a Shelf of it. Its background was written whether or not it was ever
+     * which stays a list as a Shelf of it. A Shelf set up before there were looks has no look, and is
+     * a Big cover. Its background was written whether or not it was ever
      * picked, and "Follow the system" at full strength was the default: that is read as never
      * picked, so it takes the style's own colours like a new widget does. Any other background was
      * a choice, and stays.
@@ -1265,6 +944,7 @@ object WidgetKeys {
         return WidgetSettings(
             style = stored ?: if (content == WidgetContent.LIST) WidgetStyle.SHELF else WidgetStyle.COVER,
             content = content,
+            look = ShelfLook.of(prefs[LOOK]),
             list = WidgetList.of(prefs[LIST]),
             maxRows = (prefs[MAX_ROWS] ?: fallback.maxRows).coerceIn(0, WidgetLayout.MAX_PICKS),
             background = if (stored == null && background == WidgetBackground.SYSTEM && opacity == 100) null else background,
@@ -1282,6 +962,7 @@ object WidgetKeys {
     fun write(prefs: MutablePreferences, settings: WidgetSettings) {
         prefs[STYLE] = settings.style.name
         prefs[CONTENT] = settings.content.name
+        prefs[LOOK] = settings.look.name
         prefs[LIST] = settings.list.name
         prefs[MAX_ROWS] = settings.maxRows
         // Never picked is no key at all, so the style's own is what is read back.

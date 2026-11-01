@@ -78,33 +78,13 @@ internal object WidgetFill {
                 if (p.play) out += Box("buttons", p.padH, y + words + 6, w - 2 * p.padH, controlsH)
             }
             WidgetShape.POSTER, WidgetShape.BANNER -> out += Box("cover", 0, 0, w, h)
-            WidgetShape.SHELF -> {
-                var y = p.padV
-                out += Box("cover", p.padH, y + (p.headerHeight - p.headerCover) / 2, p.headerCover, p.headerCover)
-                val x = p.padH + p.headerCover + WidgetLayout.COVER_GAP_DP
-                val line = t + (if (p.showArtist) a else 0)
-                out += Box("words", x, y + (p.headerHeight - line) / 2, minOf(WidgetLayout.headerWords(p, w).coerceAtLeast(0), WORDS_DP), line)
-                if (p.buttonsInline && p.play) out += Box("buttons", w - p.padH - row, y + (p.headerHeight - controlsH) / 2, row, controlsH)
-                y += p.headerHeight
-                if (!p.buttonsInline && p.play) {
-                    y += WidgetLayout.SMALL_GAP_DP
-                    out += Box("buttons", p.padH, y, w - 2 * p.padH, controlsH)
-                    y += controlsH
-                }
-                y += if (p.buttonsInline) 10 else 8
-                if (p.heading) {
-                    out += Box("heading", p.padH, y, minOf(w - 2 * p.padH, WORDS_DP), p.headingHeight)
-                    y += p.headingHeight
-                }
-                covers(p, y, scale, out)
-            }
-            WidgetShape.GRID -> {
-                var y = p.padV
-                if (p.heading) {
-                    out += Box("heading", p.padH, y, minOf(w - 2 * p.padH, WORDS_DP), p.headingHeight)
-                    y += p.headingHeight
-                }
-                covers(p, y, scale, out)
+            WidgetShape.BIG_COVER, WidgetShape.CRATE, WidgetShape.RECORDS -> {
+                val look = p.look ?: return out
+                look.hero?.let { out += Box("cover", it.x, it.y, it.w + look.discOut, it.h) }
+                for ((name, line) in lookLines(p, scale)) out += Box(name, line.x, line.y, minOf(line.w, WORDS_DP), line.h)
+                p.glass?.let { out += Box("buttons", it.x, it.y, it.w, it.h) }
+                look.heading?.let { out += Box("heading", it.x, it.y, minOf(it.w, WORDS_DP), it.h) }
+                for (pick in look.picks) out += Box("covers", pick.x, pick.y, pick.w, pick.h)
             }
             WidgetShape.PANES -> {
                 val colH = if (p.coverW > 0) p.coverH else h - 2 * p.padV
@@ -129,14 +109,30 @@ internal object WidgetFill {
         return out
     }
 
-    private fun covers(p: WidgetPlan, top: Int, scale: Float, out: MutableList<Box>) {
-        val caption = if (p.captions) WidgetLayout.captionHeight(scale) else 0
-        var y = top
-        for (row in 0 until p.shelfRows) {
-            if (row > 0) y += p.shelfGap
-            val n = minOf(p.columns, p.shown - row * p.columns)
-            if (n > 0) out += Box("covers", p.padH, y, n * p.tile + (n - 1) * p.shelfGap, p.tile + caption)
-            y += p.tile + caption
+    /**
+     * A look's lines of words, each as wide as it may be drawn: the heading drawn over the title, the
+     * title's lines, and the artist, each stopping short of a pill at the end of its line.
+     */
+    fun lookLines(p: WidgetPlan, scale: Float): List<Pair<String, Spot>> {
+        val look = p.look ?: return emptyList()
+        val words = look.words ?: return emptyList()
+        val t = WidgetLayout.line(p.titleSp, scale)
+        val a = WidgetLayout.line(p.artistSp, scale)
+        var y = words.y
+        val out = ArrayList<Pair<String, Spot>>()
+        if (look.headingInWords > 0) {
+            out += "heading" to Spot(words.x, y, words.w, look.headingInWords)
+            y += look.headingInWords
         }
+        if (p.titleLines > 0) {
+            val title = Spot(words.x, y, words.w, p.titleLines * t)
+            out += "title" to title.copy(w = look.lineRoom(title, p.glass))
+            y += p.titleLines * t
+        }
+        if (p.showArtist) {
+            val artist = Spot(words.x, y, words.w, a)
+            out += "artist" to artist.copy(w = look.lineRoom(artist, p.glass))
+        }
+        return out
     }
 }

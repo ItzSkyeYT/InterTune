@@ -8,6 +8,7 @@ package com.dd3boh.outertune.widget
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -45,8 +46,9 @@ class WidgetTabletTest {
         var checked = 0
         for (style in WidgetStyle.entries) for (content in listOf(WidgetContent.BOTH, WidgetContent.LIST)) {
             if (content == WidgetContent.LIST && style != WidgetStyle.SHELF) continue
+            for (look in if (style == WidgetStyle.SHELF) ShelfLook.entries else listOf(ShelfLook.BIG_COVER))
             for (buttons in WidgetButtons.entries) for (size in WidgetTextSize.entries) for (showArtist in listOf(true, false)) {
-                val settings = WidgetSettings(style = style, content = content, buttons = buttons, textSize = size, showArtist = showArtist)
+                val settings = WidgetSettings(style = style, look = look, content = content, buttons = buttons, textSize = size, showArtist = showArtist)
                 for (fontScale in listOf(1f, 1.3f)) for (upNext in if (style == WidgetStyle.SHELF) listOf(0) else listOf(0, 4)) {
                     for (w in 420..1100 step 10) for (h in 420..1100 step 10) {
                         if (maxOf(w, h) <= 650 || maxOf(w, h) > 2 * minOf(w, h)) continue
@@ -55,7 +57,7 @@ class WidgetTabletTest {
                         val share = WidgetFill.share(p, w, h, size.scale * fontScale)
                         checked++
                         if (share.across < 0.5f || share.down < 0.5f) {
-                            problems += "$style $content, ${p.shape}, $buttons, $size, font $fontScale, $upNext next, ${w}x$h: " +
+                            problems += "$style $look $content, ${p.shape}, $buttons, $size, font $fontScale, $upNext next, ${w}x$h: " +
                                 "${(share.across * 100).toInt()}% across, ${(share.down * 100).toInt()}% down"
                         }
                     }
@@ -67,42 +69,38 @@ class WidgetTabletTest {
     }
 
     @Test
-    fun `a tablet's Shelf is a block of whole rows of covers in the middle of the widget, as many as the list has to fill it`() {
-        val wide = plan(900, 600, shelf)
-        assertEquals(WidgetShape.SHELF, wide.shape)
-        assertEquals(12, wide.shown)
-        assertEquals(6, wide.columns)
-        assertEquals(2, wide.shelfRows)
-        assertTrue(wide.captions && wide.heading)
-        assertTrue("the line of what is playing is beside its buttons", wide.buttonsInline && wide.like)
-        assertTrue("a size up from a phone's", wide.headerCover > 48 && wide.titleSp > 15 && wide.tile > WidgetLayout.SHELF_MAX_DP)
-        // In the middle: the block is as far from one side as from the other, and from the top as from the bottom.
-        val block = wide.columns * wide.tile + (wide.columns - 1) * wide.shelfGap
-        assertEquals(900.0, (2 * wide.padH + block).toDouble(), 1.0)
+    fun `a tablet's Shelf shows up to twelve songs in each look, in the middle of the widget`() {
+        for (look in ShelfLook.entries) {
+            val s = shelf.copy(look = look)
+            val wide = plan(900, 600, s)
+            assertTrue("$look: ${wide.shown}", wide.shown >= 10)
+            assertTrue("$look has its buttons and the heart", wide.play && wide.skips && wide.like)
+            val share = WidgetFill.share(wide, 900, 600, 1f)
+            assertTrue("$look fills the widget: $share", share.across >= 0.75f && share.down >= 0.6f)
+            // In the middle: as far from one side as from the other.
+            val boxes = WidgetFill.boxes(wide, 900, 600, 1f)
+            val left = boxes.minOf { it.x }
+            val right = 900 - boxes.maxOf { it.right }
+            assertTrue("$look: $left from the start, $right from the end", kotlin.math.abs(left - right) <= 24 || look != ShelfLook.BIG_COVER)
 
-        // Tall, the buttons have a line of their own and the covers are three rows of four.
-        val tall = plan(700, 800, shelf)
-        assertFalse(tall.buttonsInline)
-        assertEquals(4, tall.columns)
-        assertEquals(3, tall.shelfRows)
-        assertEquals(5, tall.slots)
+            // A list alone is the same kind of block.
+            val list = plan(900, 600, s.copy(content = WidgetContent.LIST))
+            assertTrue("$look: ${list.shown}", list.shown >= 10)
+            assertFalse(list.play)
 
-        // A list alone is its heading and the same kind of block.
-        val list = plan(900, 600, shelf.copy(content = WidgetContent.LIST))
-        assertEquals(WidgetShape.GRID, list.shape)
-        assertTrue(list.heading && list.captions)
-        assertEquals(12, plan(1000, 700, shelf.copy(content = WidgetContent.LIST)).shown)
-
-        // Only the songs there are, in whole rows, and no more rows than the widget was told.
-        assertEquals(5, plan(900, 600, shelf, available = 5).shown)
-        assertEquals(10, plan(700, 500, shelf, available = 11).shown)
-        assertEquals(1, plan(900, 600, shelf.copy(maxRows = 1)).shelfRows)
-        assertTrue(plan(900, 600, shelf.copy(maxRows = 2)).shelfRows <= 2)
-        // With a heading turned off there is none, and its room goes to the covers.
-        assertFalse(plan(900, 600, shelf.copy(showHeading = false)).heading)
-        // Too few songs for a grid of covers a tablet's size: the shelf is the ordinary one.
-        assertEquals(2, plan(900, 600, shelf, available = 2).shown)
-        assertEquals(0, plan(900, 600, shelf, available = 0).shown)
+            // Only the songs there are, and no more rows than the widget was told.
+            assertEquals("$look", 5, plan(900, 600, s, available = 5).shown)
+            assertEquals("$look", 2, plan(900, 600, s, available = 2).shown)
+            if (look != ShelfLook.BIG_COVER) {
+                assertEquals("$look", 1, plan(900, 600, s.copy(maxRows = 1)).look!!.rows.size)
+                assertTrue("$look", plan(900, 600, s.copy(maxRows = 2)).look!!.rows.size <= 2)
+                // The heading where it costs no song and shrinks none, and never once turned off.
+                val titled = plan(1000, 1000, s.copy(content = WidgetContent.LIST))
+                assertTrue("$look has its heading", titled.look!!.heading != null)
+                assertTrue(titled.look!!.picks.all { it.y >= titled.look!!.heading!!.bottom })
+                assertNull("$look without its heading", plan(1000, 1000, s.copy(content = WidgetContent.LIST, showHeading = false)).look!!.heading)
+            }
+        }
     }
 
     /** The lists keep up to twelve songs for a tablet to fill itself with. A phone's widget draws the six it was made for. */
@@ -112,13 +110,14 @@ class WidgetTabletTest {
             100 to 100, 150 to 150, 170 to 260, 400 to 188, 400 to 250, 400 to 340, 405 to 432, 405 to 648, 648 to 405,
             560 to 560, 600 to 600, 650 to 650, 640 to 300, 900 to 300, 1000 to 400, 1100 to 200, 300 to 1000,
         )
-        for (settings in listOf(cover, full, shelf, shelf.copy(content = WidgetContent.LIST))) for (upNext in listOf(0, 4)) {
+        val shelves = ShelfLook.entries.flatMap { listOf(shelf.copy(look = it), shelf.copy(look = it, content = WidgetContent.LIST)) }
+        for (settings in listOf(cover, full) + shelves) for (upNext in listOf(0, 4)) {
             for ((w, h) in sizes) {
                 assertEquals("$settings ${w}x$h", plan(w, h, settings, available = 6, upNext = upNext), plan(w, h, settings, available = 12, upNext = upNext))
             }
         }
         // The six a phone has, from a list that has more: never a seventh.
-        assertTrue(plan(405, 648, shelf).shown <= 6)
+        for (look in ShelfLook.entries) assertTrue(plan(405, 648, shelf.copy(look = look)).shown <= 6)
     }
 
     @Test
