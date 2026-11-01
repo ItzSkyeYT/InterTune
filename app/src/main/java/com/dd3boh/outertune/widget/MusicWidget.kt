@@ -221,6 +221,8 @@ private class Look(
     val w: Int,
     val h: Int,
     val rtl: Boolean,
+    /** The lists' first songs' big covers, where the phone has them: Big cover with a list alone draws that song big. */
+    val firsts: Map<String, Bitmap> = emptyMap(),
 ) {
     val song: WidgetSong? get() = snapshot.nowPlaying
 }
@@ -242,7 +244,7 @@ private fun Body(drawn: WidgetStore.Drawn) {
     val small = drawn.nowCover ?: drawn.art[snapshot.nowPlaying?.id]
     val cover = if (WidgetArt.wantsBig(plan)) drawn.big ?: small else small
     val rtl = context.resources.configuration.layoutDirection == View.LAYOUT_DIRECTION_RTL
-    val look = Look(plan, snapshot, paint, cover, drawn.art, w, h, rtl)
+    val look = Look(plan, snapshot, paint, cover, drawn.art, w, h, rtl, drawn.firsts)
 
     var frame = GlanceModifier.fillMaxSize().appWidgetBackground()
     // Full cover's face is its cover; with none to show, the cover's colour stands in. A Shelf's
@@ -555,7 +557,7 @@ private fun BigCoverLook(l: Look, frame: GlanceModifier, list: List<WidgetSong>,
     val alone = l.paint.settings.contentShown == WidgetContent.LIST
     val first = if (alone) list.firstOrNull() else null
     val song = first ?: l.song
-    val art = if (alone) first?.let { l.art[it.id] } else l.cover
+    val art = if (alone) first?.let { l.firsts[it.id] ?: l.art[it.id] } else l.cover
     val tap = first?.let { actionStartActivity(WidgetCommands.playIntent(context, it)) } ?: openApp()
     val onCover = l.paint.copy(text = OnCover, muted = OnCoverMuted)
     Box(modifier = frame) {
