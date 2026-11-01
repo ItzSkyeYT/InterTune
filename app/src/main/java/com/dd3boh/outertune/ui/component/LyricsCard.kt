@@ -362,7 +362,9 @@ fun LyricsCardDialog(lines: List<String>, song: MediaMetadata, video: LyricsVide
      */
     fun frames(clip: LyricsVideoPlan.Clip, heard: LyricsVideo.Heard?, from: Pair<IntArray?, IntArray?>? = livingFrom) = LyricsVideoFrames(
         context, clip, song.title, song.artists.joinToString { it.name }, cover,
-        living = if (living) LivingVideo(livingColours, from?.first, from?.second, livingStrength, livingSmoothing) { heard?.at(it) } else null,
+        living = if (living) {
+            LivingVideo(livingColours, from?.first, from?.second, livingStrength, livingSmoothing, heardBeforeMs = heard?.beforeMs ?: 0L) { heard?.at(it) }
+        } else null,
     )
 
     /**
