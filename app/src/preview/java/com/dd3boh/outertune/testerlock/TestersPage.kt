@@ -127,12 +127,7 @@ private fun Testers(navController: NavController) {
     if (reporting) ProblemReportDialog(onDismiss = { reporting = false })
     // The rules in full: the row itself has room for one line, and a tap on it did nothing.
     var rules by rememberSaveable { mutableStateOf(false) }
-    if (rules) AlertDialog(
-        onDismissRequest = { rules = false },
-        title = { Text(stringResource(R.string.testers_page_rules)) },
-        text = { Text(stringResource(R.string.testers_rules_full)) },
-        confirmButton = { TextButton(onClick = { rules = false }) { Text(stringResource(R.string.action_done)) } },
-    )
+    if (rules) TesterRulesDialog(onDismiss = { rules = false })
 
     // The clock is read when the page is drawn and when the lock's memory changes: a check just made moves both times.
     val screen = remember(memory) { TestersPageScreen.of(BuildConfig.VERSION_NAME, memory, System.currentTimeMillis()) }
@@ -314,4 +309,15 @@ private fun openTesters(context: Context) {
     } catch (e: ActivityNotFoundException) {
         // No app and no browser to show a link: nothing to open.
     }
+}
+
+/** The rules in full, from the Rules row: his note of 1 Nov 2026, the row opened nothing. */
+@Composable
+private fun TesterRulesDialog(onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.testers_page_rules)) },
+        text = { Text(stringResource(R.string.testers_rules_full)) },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_done)) } },
+    )
 }
