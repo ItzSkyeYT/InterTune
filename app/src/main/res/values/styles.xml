@@ -22,4 +22,20 @@
         <item name="android:windowMinWidthMinor">92%</item>
         <item name="android:windowMinWidthMajor">72%</item>
     </style>
+
+    <!--
+      The same screen where the widget's preview sits on the real wallpaper (Unreleased.WIDGET_ON_WALLPAPER;
+      app/build.gradle.kts gives each build type its theme). A see-through dialog let the home screen's own
+      widgets and icons show through behind the preview (his S25U, 1 Nov 2026). A full window that is not
+      see-through hides the launcher, and the system still draws the wallpaper under it, as it does for a
+      launcher, so only the wallpaper is behind the preview.
+    -->
+    <style name="Theme.InterTune.WidgetConfig.Wallpaper" parent="android:Theme.DeviceDefault.Wallpaper.NoTitleBar">
+        <item name="android:windowIsFloating">false</item>
+        <item name="android:windowIsTranslucent">false</item>
+        <item name="android:windowShowWallpaper">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
 </resources>

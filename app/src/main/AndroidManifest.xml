@@ -321,7 +321,7 @@
             android:excludeFromRecents="true"
             android:exported="true"
             android:label="@string/widget_label"
-            android:theme="@style/Theme.InterTune.WidgetConfig">
+            android:theme="${widgetConfigTheme}">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
             </intent-filter>
