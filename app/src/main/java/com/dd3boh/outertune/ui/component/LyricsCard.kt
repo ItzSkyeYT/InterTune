@@ -56,6 +56,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -70,6 +71,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -105,6 +107,8 @@ import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.dialog.DefaultDialog
 import com.dd3boh.outertune.ui.player.LivingField
+import com.dd3boh.outertune.ui.player.KeepScreenOnController
+import com.dd3boh.outertune.ui.player.KeepScreenOnReason
 import com.dd3boh.outertune.ui.theme.extractGradientColors
 import com.dd3boh.outertune.utils.coilCoroutine
 import com.dd3boh.outertune.utils.makeTimeString
@@ -330,6 +334,15 @@ fun LyricsCardDialog(lines: List<String>, song: MediaMetadata, video: LyricsVide
     var still by remember(video, song.id) { mutableStateOf<Bitmap?>(null) }
     var making by remember { mutableStateOf<Job?>(null) }
     var made by remember { mutableFloatStateOf(0f) }
+
+    // A video can take minutes to make, about as long as it lasts on a slower phone: the screen
+    // stays on until it is made, so the phone does not go to sleep in the middle of it. Through the
+    // shared holder, since the player's lyrics hold the screen on through the same flag.
+    val view = LocalView.current
+    DisposableEffect(view, making != null) {
+        KeepScreenOnController.set(view, KeepScreenOnReason.LYRICS_VIDEO, making != null)
+        onDispose { KeepScreenOnController.set(view, KeepScreenOnReason.LYRICS_VIDEO, false) }
+    }
 
     // Living blur behind the video where it is the player's background, as the player has it.
     val background by rememberEnumPreference(PlayerBackgroundStyleKey, DEFAULT_PLAYER_BACKGROUND)

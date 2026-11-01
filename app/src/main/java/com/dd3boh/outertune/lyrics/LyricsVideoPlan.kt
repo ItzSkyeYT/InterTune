@@ -10,14 +10,19 @@ import kotlin.math.max
 import kotlin.math.min
 
 /**
- * Lines of synced lyrics as a short video: the song plays from just before the first line to the
+ * Lines of synced lyrics as a video: the song plays from just before the first line to the
  * end of the last, the lines scroll by as they are sung, and sound and picture fade out quickly
  * after. This says which stretch of the song that is, which lines are in it, and where everything
  * stands at each moment; LyricsVideo makes the video. No Android in here, so it is tested.
  */
 object LyricsVideoPlan {
-    /** The most of a song a video takes: what a story or a status holds. */
-    const val LONGEST_MS = 60_000L
+    /**
+     * The most of a song a video takes: ten minutes, which is all of nearly any song. A story or a
+     * status holds a minute, but the picking bar says how long the video will be, so whoever picks
+     * the lines knows before it is made. The limit keeps lyrics with wrong times in them from
+     * asking for an hour of video.
+     */
+    const val LONGEST_MS = 10 * 60_000L
 
     /** It starts this long before the first line, so that the voice does not come in on the first frame. */
     const val LEAD_MS = 600L
@@ -55,8 +60,9 @@ object LyricsVideoPlan {
 
     /**
      * Bits a second for the picture and for the sound, kept low so a video is quick to send: a
-     * minute, the longest there is, comes to about 9 MB, under the 10 MB Discord takes without
-     * paying. Encoders held to a rate still overshoot it a little (1.31 Mbit/s for 1.2 asked).
+     * minute comes to about 9 MB, under the 10 MB Discord takes without paying, and each minute
+     * more adds as much again. Encoders held to a rate still overshoot it a little (1.31 Mbit/s
+     * for 1.2 asked).
      */
     const val PICTURE_BITRATE = 1_000_000
     const val SOUND_BITRATE = 128_000
