@@ -56,8 +56,12 @@ object WidgetPictures {
     /** How light the background may be at its lightest, so white words read on any cover. */
     const val BACKGROUND_MAX_LIGHT = 0.36f
 
-    /** Under Big cover's words: black this strong, then fading out over [FADE_DP], or less where the pill comes sooner. */
-    const val BAND_ALPHA = 0.72f
+    /**
+     * Under Big cover's words: black this strong, then fading out over [FADE_DP], or less where the
+     * pill comes sooner. Strong enough that a white letter of the cover's own under the title (the
+     * M83. of Midnight City's) is a dark grey shape and never a second title: 0.72 still let it read.
+     */
+    const val BAND_ALPHA = 0.85f
     const val FADE_DP = 28
 
     /** A cover's shadow: how dark, how soft, how far down. */

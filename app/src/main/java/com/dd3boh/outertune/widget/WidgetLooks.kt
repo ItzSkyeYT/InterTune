@@ -226,6 +226,9 @@ object WidgetLooks {
     /** Between the record out of its sleeve and the words beside it. */
     const val COLUMN_GAP_DP = 16
 
+    /** The most of their room the crate's or the records' rows leave empty one way, where they can help it. */
+    const val ROOM_LEFT_SHARE = 0.45f
+
     /** Rows of the crate or of records, at most, and what a row holds at most: its places to tap are a row of their own, and Glance keeps ten children at most. */
     const val MAX_LOOK_ROWS = 3
     const val MAX_PER_ROW = 8
@@ -577,16 +580,25 @@ object WidgetLooks {
         }
     }
 
-    private class Rows(val rows: Int, val size: Int, val shown: Int, val score: Float)
+    private class Rows(val rows: Int, val size: Int, val shown: Int, val score: Float, val lopsided: Float)
 
     /**
-     * The rows that fill [room] by [height] best with up to [songs] things: one row on a phone, two or
-     * three where a tall widget shows more that way, or as many but bigger. What the rows fill of the
-     * room, across and down together and more for filling it evenly, and [PICK_WEIGHT] for each song
-     * shown; rows that leave most of it empty one way only where nothing else fits.
+     * The rows that fill [room] by [height] best with up to [songs] things. First, rows that leave
+     * less of the room empty one way (no more than [ROOM_LEFT_SHARE] of it where they can). Then the
+     * crate keeps to one row, its look, and takes a second or a third only where the first leaves the
+     * room that empty; two short rows of three looked like two clumps where one row of six fills the
+     * width (seen on the emulator, 1 Nov 2026). Records take the rows that show the most, the
+     * biggest. Last, what the rows fill, more for filling it evenly, and [PICK_WEIGHT] a song.
      */
     private fun fitRows(kind: RowKind, room: Int, height: Int, songs: Int, maxRows: Int, max: Int): Rows? {
         var best: Rows? = null
+        fun better(a: Rows, b: Rows): Boolean = when {
+            a.lopsided != b.lopsided -> a.lopsided < b.lopsided
+            kind.crate && a.rows != b.rows -> a.rows < b.rows
+            !kind.crate && a.shown != b.shown -> a.shown > b.shown
+            !kind.crate && a.size != b.size -> a.size > b.size
+            else -> a.score > b.score
+        }
         val ceiling = if (maxRows > 0) minOf(maxRows, MAX_LOOK_ROWS) else MAX_LOOK_ROWS
         for (r in 1..ceiling) {
             val per = (height - (r - 1) * ROW_GAP_DP) / r
@@ -604,9 +616,10 @@ object WidgetLooks {
             // rows that leave most of the room empty one way lose to any that leave less of it.
             val down = tall.toFloat() / height
             val across = wide.toFloat() / room
-            val lopsided = 4f * maxOf(0f, 0.55f - minOf(down, across))
-            val score = down * across + 0.5f * minOf(down, across) + PICK_WEIGHT * shown + size / 2000f - lopsided
-            if (best == null || score > best.score) best = Rows(r, size, shown, score)
+            val lopsided = maxOf(0f, (1f - ROOM_LEFT_SHARE) - minOf(down, across))
+            val score = down * across + 0.5f * minOf(down, across) + PICK_WEIGHT * shown + size / 2000f
+            val rows = Rows(r, size, shown, score, lopsided)
+            if (best == null || better(rows, best)) best = rows
         }
         return best
     }

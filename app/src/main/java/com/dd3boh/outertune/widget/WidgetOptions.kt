@@ -265,6 +265,9 @@ object WidgetLayout {
     /** Shorter than this and the widget is one line: the song and its buttons side by side. */
     const val LINE_HEIGHT_DP = 100
 
+    /** A Shelf narrower than this and at least as tall as wide, whose look has no room, is a tile rather than a line. */
+    const val LOOK_TILE_BELOW_DP = 220
+
     /** Shorter than this, a line has small buttons: a single cell on most launchers. */
     const val SLIM_HEIGHT_DP = 64
 
@@ -390,7 +393,12 @@ object WidgetLayout {
         }
         if (w < TINY_WIDTH_DP) return tile(w, h, s)
         if (h < LINE_HEIGHT_DP) return line(w, h, s, scale)
-        if (s.style == WidgetStyle.SHELF) return WidgetLooks.plan(w, h, s, available, scale) ?: line(w, h, s, scale)
+        if (s.style == WidgetStyle.SHELF) {
+            // A look with no room: a narrow, tall widget is better as its cover with play than as a
+            // line with most of its height empty; anything else is the line.
+            return WidgetLooks.plan(w, h, s, available, scale)
+                ?: if (w < LOOK_TILE_BELOW_DP && h >= w) tile(w, h, s) else line(w, h, s, scale)
+        }
         if (w >= PANES_WIDTH_DP && h >= PANES_HEIGHT_DP && upNext > 0) panes(w, h, s, scale, upNext)?.let { return it }
         if (s.style == WidgetStyle.FULL_COVER) {
             // Wide: the song at the top and the bar at the bottom, darkened from the start; otherwise
