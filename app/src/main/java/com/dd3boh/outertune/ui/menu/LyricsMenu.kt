@@ -187,7 +187,9 @@ fun LyricsMenu(
         )
     }
 
-    if (showSearchDialog) {
+    // Out of sight while its results are up, so they do not sit on top of its fields (his screen,
+    // 1 Nov 2026); back from the results brings it back as it was typed, to search again.
+    if (showSearchDialog && !showSearchResultDialog) {
         DefaultDialog(
             scrollable = true,
             onDismiss = { showSearchDialog = false },
@@ -240,7 +242,9 @@ fun LyricsMenu(
                 value = titleField,
                 onValueChange = onTitleFieldChange,
                 singleLine = true,
-                label = { Text(stringResource(R.string.song_title)) }
+                label = { Text(stringResource(R.string.song_title)) },
+                // Both fields as wide as the dialog: a long title widened its own field only.
+                modifier = Modifier.fillMaxWidth()
             )
 
             Spacer(Modifier.height(12.dp))
@@ -249,7 +253,8 @@ fun LyricsMenu(
                 value = artistField,
                 onValueChange = onArtistFieldChange,
                 singleLine = true,
-                label = { Text(stringResource(R.string.song_artists)) }
+                label = { Text(stringResource(R.string.song_artists)) },
+                modifier = Modifier.fillMaxWidth()
             )
         }
     }
