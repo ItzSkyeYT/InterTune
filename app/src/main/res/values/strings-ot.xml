@@ -2280,7 +2280,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="player_pins_reset">Reset to default</string>
     <!-- #68: where YouTube Music has no free plan (South Korea), on Home, above search results and on an album that did not load. -->
     <string name="region_note_title">YouTube Music in South Korea</string>
-    <string name="region_note_body">YouTube Music has no free plan in South Korea, so YouTube shows songs, albums and mixes there only to Premium members. Search still finds videos. A Premium account, or a VPN or proxy outside Korea, brings the rest back.</string>
+    <string name="region_note_body">YouTube Music has no free plan in South Korea, so YouTube shows songs, albums and mixes there only to Premium members. Songs in your playlists still play, and search still finds videos. A Premium account, or a VPN or proxy outside Korea, brings the rest back.</string>
     <string name="region_note_proxy">Proxy settings</string>
     <string name="proxy_restart_title">Restart to use the new proxy</string>
     <string name="proxy_restart_description">InterTune takes the proxy when it starts. Tap to restart it now; the music stops.</string>

@@ -2104,7 +2104,7 @@
     <string name="player_pin_lyrics">Paroles</string>
     <string name="player_pins_reset">Réinitialiser</string>
     <string name="region_note_title">YouTube Music en Corée du Sud</string>
-    <string name="region_note_body">YouTube Music n\'a pas d\'offre gratuite en Corée du Sud : là-bas, YouTube ne montre les titres, les albums et les mix qu\'aux abonnés Premium. La recherche trouve toujours les vidéos. Un compte Premium, ou un VPN ou un proxy hors de Corée, fait revenir le reste.</string>
+    <string name="region_note_body">YouTube Music n\'a pas d\'offre gratuite en Corée du Sud : là-bas, YouTube ne montre les titres, les albums et les mix qu\'aux abonnés Premium. Les titres de vos playlists se lisent quand même, et la recherche trouve toujours les vidéos. Un compte Premium, ou un VPN ou un proxy hors de Corée, fait revenir le reste.</string>
     <string name="region_note_proxy">Réglages du proxy</string>
     <string name="proxy_restart_title">Redémarrer pour utiliser le nouveau proxy</string>
     <string name="proxy_restart_description">InterTune prend le proxy au démarrage. Touchez pour le redémarrer maintenant ; la musique s\'arrête.</string>
