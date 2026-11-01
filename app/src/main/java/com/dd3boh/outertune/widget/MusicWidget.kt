@@ -48,6 +48,7 @@ import androidx.glance.layout.Column
 import androidx.glance.layout.ContentScale
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
+import androidx.glance.layout.absolutePadding
 import androidx.glance.layout.fillMaxHeight
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
@@ -464,18 +465,34 @@ private fun Banner(l: Look, frame: GlanceModifier) {
 /** Behind a cover not fetched yet, in a look's pictures: a quiet light over whatever is under it. */
 private const val PICTURE_PLACEHOLDER = 0x1FFFFFFF
 
-/** [content] at [spot], from the widget's top start, as big as the spot: a look puts each thing where its plan says. */
+/**
+ * [content] at [spot] of a box [w] by [h] dp, from its top start: a look puts each thing where its
+ * plan says. The box is the whole of its parent, padded on all four sides down to the spot, and
+ * right to left the spot is mirrored here: where a thing lands depends on no gravity and on no
+ * reading of start and end, which a widget's views and Glance's padding were seen to take apart.
+ */
 @Composable
-private fun At(spot: Spot, modifier: GlanceModifier = GlanceModifier, content: @Composable () -> Unit) {
-    Box(modifier = GlanceModifier.padding(start = spot.x.dp, top = spot.y.dp)) {
-        Box(modifier = modifier.size(spot.w.dp, spot.h.dp)) { content() }
+private fun At(w: Int, h: Int, rtl: Boolean, spot: Spot, modifier: GlanceModifier = GlanceModifier, content: @Composable () -> Unit) {
+    val x = if (rtl) w - spot.x - spot.w else spot.x
+    Box(
+        modifier = GlanceModifier.fillMaxSize().absolutePadding(
+            left = x.coerceAtLeast(0).dp, top = spot.y.coerceAtLeast(0).dp,
+            right = (w - x - spot.w).coerceAtLeast(0).dp, bottom = (h - spot.y - spot.h).coerceAtLeast(0).dp,
+        ),
+    ) {
+        Box(modifier = modifier.fillMaxSize()) { content() }
     }
 }
 
+/** [At] in the widget itself. */
+@Composable
+private fun At(l: Look, spot: Spot, modifier: GlanceModifier = GlanceModifier, content: @Composable () -> Unit) =
+    At(l.w, l.h, l.rtl, spot, modifier, content)
+
 /** One of a look's pictures, drawn ahead of time (WidgetPictures), where its plan put it. */
 @Composable
-private fun Picture(bitmap: Bitmap?, spot: Spot, description: String?, modifier: GlanceModifier = GlanceModifier) {
-    At(spot, modifier) {
+private fun Picture(l: Look, bitmap: Bitmap?, spot: Spot, description: String?, modifier: GlanceModifier = GlanceModifier) {
+    At(l, spot, modifier) {
         if (bitmap != null) {
             Image(
                 provider = ImageProvider(bitmap),
@@ -490,7 +507,7 @@ private fun Picture(bitmap: Bitmap?, spot: Spot, description: String?, modifier:
 /** A look's pill of buttons: one pane of glass round them, as wide as they are, with play the filled one. */
 @Composable
 private fun Pill(l: Look, glass: GlassPane, face: ImageProvider, fill: ColorProvider, icon: ColorProvider, tint: ColorProvider) {
-    At(Spot(glass.x, glass.y, glass.w, glass.h)) {
+    At(l, Spot(glass.x, glass.y, glass.w, glass.h)) {
         Box(
             modifier = GlanceModifier.fillMaxSize().background(face, ContentScale.FillBounds),
             contentAlignment = Alignment.Center,
@@ -513,7 +530,7 @@ private fun LookWords(l: Look, look: LookPlan, at: Spot, song: WidgetSong?, pain
     val titleTop = at.y + look.headingInWords
     val titleW = look.lineRoom(Spot(at.x, titleTop, at.w, titleH), p.glass)
     val artistW = look.lineRoom(Spot(at.x, titleTop + titleH, at.w, WidgetLayout.line(p.artistSp, scale)), p.glass)
-    At(at) {
+    At(l, at) {
         Column(modifier = GlanceModifier.fillMaxSize()) {
             if (look.headingInWords > 0) {
                 Text(
@@ -565,7 +582,7 @@ private fun BigCoverLook(l: Look, frame: GlanceModifier, list: List<WidgetSong>,
             val d = WidgetPictures.density(look, density)
             // The band fades out before the pill, which is frosted from the cover as it is.
             val fade = p.glass?.let { minOf(WidgetPictures.FADE_DP, it.y - hero.y - look.band) } ?: WidgetPictures.FADE_DP
-            Picture(WidgetPictures.cover(context, art, pic, hero, look.heroRadius, look.band, fade, d, PICTURE_PLACEHOLDER), pic, song?.title, GlanceModifier.clickable(tap))
+            Picture(l, WidgetPictures.cover(context, art, pic, hero, look.heroRadius, look.band, fade, d, PICTURE_PLACEHOLDER), pic, song?.title, GlanceModifier.clickable(tap))
         }
         look.words?.let { LookWords(l, look, it, song, onCover, which) }
         p.glass?.let { g ->
@@ -574,19 +591,17 @@ private fun BigCoverLook(l: Look, frame: GlanceModifier, list: List<WidgetSong>,
             val face = if (pane != null) ImageProvider(pane) else ImageProvider(if (g.circle) R.drawable.widget_glass_plain_circle else R.drawable.widget_glass_plain)
             Pill(l, g, face, OnCover, ColorProvider(Color(WidgetColours.deep(l.song?.colour))), OnCover)
         }
-        // The mosaic, a row at a time: a Box keeps no more than ten children, and a row of them is one.
+        // The mosaic, a row at a time: a Box keeps no more than ten children, and a row of them is one,
+        // its covers placed in it as the widget's own things are.
         val offset = if (alone) 1 else 0
         for (row in look.picks.withIndex().groupBy { it.value.y }.values) {
             val start = row.first().value
-            At(Spot(start.x, start.y, row.last().value.right - start.x, start.h)) {
-                Row {
-                    var last: Spot? = null
+            val box = Spot(start.x, start.y, row.last().value.right - start.x, start.h)
+            At(l, box) {
+                Box(modifier = GlanceModifier.fillMaxSize()) {
                     for ((index, spot) in row) {
                         val pick = list.getOrNull(index + offset) ?: continue
-                        Gap(last?.let { spot.x - it.right } ?: 0) {
-                            MosaicCover(l, pick, spot, look.pickRadius, context)
-                        }
-                        last = spot
+                        At(box.w, box.h, l.rtl, spot.at(-box.x, -box.y)) { MosaicCover(l, pick, spot, look.pickRadius, context) }
                     }
                 }
             }
@@ -627,12 +642,12 @@ private fun RowsLook(l: Look, frame: GlanceModifier, list: List<WidgetSong>, whi
         if (hero != null && pic != null) {
             val bitmap = if (crate) WidgetPictures.cover(context, l.cover, pic, hero, look.heroRadius, 0, 0, d, PICTURE_PLACEHOLDER)
             else WidgetPictures.sleeve(context, l.cover, pic, hero, look.heroRadius, d, l.rtl, PICTURE_PLACEHOLDER)
-            Picture(bitmap, pic, l.song?.title, GlanceModifier.clickable(openApp()))
+            Picture(l, bitmap, pic, l.song?.title, GlanceModifier.clickable(openApp()))
         }
         look.words?.let { LookWords(l, look, it, l.song, l.paint, which) }
         // On the background: its glass is a drawable, a pill or, round play alone, a circle (their corners are round to the end).
         p.glass?.let { g -> Pill(l, g, ImageProvider(l.paint.glass), l.paint.playFill, l.paint.playIcon, l.paint.text) }
-        look.heading?.let { at -> At(at) { Heading(which, l.paint, at.h) } }
+        look.heading?.let { at -> At(l, at) { Heading(which, l.paint, at.h) } }
         val taps = look.taps()
         var first = 0
         for ((r, picture) in look.rowPictures.withIndex()) {
@@ -645,18 +660,19 @@ private fun RowsLook(l: Look, frame: GlanceModifier, list: List<WidgetSong>, whi
             val top = row.minOf { it.y }
             val bottom = row.maxOf { it.bottom }
             val from = first
-            At(picture) {
+            At(l, picture) {
                 Box(modifier = GlanceModifier.fillMaxSize()) {
                     if (bitmap != null) {
                         Image(provider = ImageProvider(bitmap), contentDescription = null, contentScale = ContentScale.FillBounds, modifier = GlanceModifier.fillMaxSize())
                     }
-                    // Where each song can be tapped, in a row of their own: one place each, side by side.
-                    Row(modifier = GlanceModifier.padding(start = (row.first().x - picture.x).dp, top = (top - picture.y).dp)) {
-                        for ((j, spot) in row.withIndex()) {
-                            val song = list.getOrNull(from + j) ?: continue
+                    // Where each song can be tapped: the part of its cover that shows, placed in the
+                    // picture as the picture's covers are, mirrored with them right to left.
+                    for ((j, spot) in row.withIndex()) {
+                        val song = list.getOrNull(from + j) ?: continue
+                        At(picture.w, picture.h, l.rtl, Spot(spot.x - picture.x, top - picture.y, spot.w, bottom - top)) {
                             Box(
                                 modifier = GlanceModifier
-                                    .size(spot.w.dp, (bottom - top).dp)
+                                    .fillMaxSize()
                                     .clickable(actionStartActivity(WidgetCommands.playIntent(context, song)))
                                     .semantics { contentDescription = song.title },
                             ) {}
