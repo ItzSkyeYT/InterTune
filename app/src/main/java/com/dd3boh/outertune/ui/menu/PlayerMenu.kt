@@ -2,6 +2,7 @@ package com.dd3boh.outertune.ui.menu
 
 import com.dd3boh.outertune.ui.component.rememberSleepTimerState
 import com.dd3boh.outertune.ui.component.SleepTimerDialog
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.constants.SignalKind
 import com.dd3boh.outertune.utils.ActivityLog
@@ -383,13 +384,21 @@ fun PlayerMenu(
             icon = Icons.Rounded.Equalizer,
             title = R.string.equalizer
         ) {
-            val intent = Intent(AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL).apply {
-                putExtra(AudioEffect.EXTRA_AUDIO_SESSION, playerConnection.service.exoPlayer.audioSessionId)
-                putExtra(AudioEffect.EXTRA_PACKAGE_NAME, context.packageName)
-                putExtra(AudioEffect.EXTRA_CONTENT_TYPE, AudioEffect.CONTENT_TYPE_MUSIC)
-            }
-            if (intent.resolveActivity(context.packageManager) != null) {
-                activityResultLauncher.launch(intent)
+            // The app's own equalizer, in every build since 0.12. The phone's panel, which this opened
+            // before, is not there on most phones (a Pixel has none), so the button did nothing at all
+            // ("equalizer doesn't work", an answer in the 0.13 poll, 31 Oct 2026).
+            if (Unreleased.EQUALIZER) {
+                navController.navigate("settings/player/equalizer")
+                playerBottomSheetState.collapseSoft()
+            } else {
+                val intent = Intent(AudioEffect.ACTION_DISPLAY_AUDIO_EFFECT_CONTROL_PANEL).apply {
+                    putExtra(AudioEffect.EXTRA_AUDIO_SESSION, playerConnection.service.exoPlayer.audioSessionId)
+                    putExtra(AudioEffect.EXTRA_PACKAGE_NAME, context.packageName)
+                    putExtra(AudioEffect.EXTRA_CONTENT_TYPE, AudioEffect.CONTENT_TYPE_MUSIC)
+                }
+                if (intent.resolveActivity(context.packageManager) != null) {
+                    activityResultLauncher.launch(intent)
+                }
             }
             onDismiss()
         }
