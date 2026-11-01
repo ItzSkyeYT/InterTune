@@ -45,7 +45,9 @@
             android:textColor="#B8FFFFFF"
             android:textSize="13sp" />
 
-        <Space
+        <!-- A FrameLayout, not a Space: launchers may draw only RemoteViews' own views here, and
+             a Space made One UI's widget picker show "Couldn't add widget." (1 Nov 2026). -->
+        <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1" />
