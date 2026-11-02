@@ -35,7 +35,8 @@ class WidgetLayoutTest {
         assertEquals(WidgetStyle.COVER, WidgetSettings().style)
         assertNull("never picked", WidgetSettings().background)
         assertEquals(WidgetBackground.ARTWORK, WidgetSettings().backgroundShown)
-        assertEquals(WidgetBackground.SYSTEM, shelf.backgroundShown)
+        // A Shelf's own is its cover, blurred: the looks were drawn on it.
+        assertEquals(WidgetBackground.ARTWORK, shelf.backgroundShown)
         // A background picked is the one drawn, in either style that has one.
         assertEquals(WidgetBackground.DARK, shelf.copy(background = WidgetBackground.DARK).backgroundShown)
     }
@@ -86,7 +87,7 @@ class WidgetLayoutTest {
     }
 
     @Test
-    fun `two by two is the cover over its title in Cover, the cover with a glass bar in Full cover, and three covers in Shelf`() {
+    fun `two by two is the cover over its title in Cover, and the cover with a glass bar in Full cover`() {
         val a = plan(150, 150, cover)
         assertEquals(WidgetShape.TOP, a.shape)
         assertEquals(130, a.coverW)
@@ -101,31 +102,19 @@ class WidgetLayoutTest {
         assertTrue(b.skips)
         assertFalse(b.like)
         assertEquals("centred", (150 - b.glass!!.w) / 2, b.glass!!.x)
-
-        val c = plan(150, 150, shelf)
-        assertEquals(WidgetShape.SHELF, c.shape)
-        assertFalse(c.buttonsInline)
-        assertEquals(3, c.columns)
-        assertEquals(1, c.shelfRows)
-        assertFalse(c.captions || c.heading)
     }
 
     @Test
-    fun `two by three is a square cover over the song, a poster, and two rows of two covers with their names`() {
+    fun `two by three is a square cover over the song, and a poster`() {
         val a = plan(170, 260, cover)
         assertEquals(WidgetShape.TOP, a.shape)
         assertEquals(a.coverW, a.coverH)
         assertTrue(a.showArtist)
         assertEquals(WidgetShape.POSTER, plan(170, 260, full).shape)
-        val c = plan(170, 260, shelf)
-        assertEquals(2, c.columns)
-        assertEquals(2, c.shelfRows)
-        assertTrue(c.captions)
-        assertEquals(4, c.shown)
     }
 
     @Test
-    fun `four by two is the cover beside the song, a banner with its bar at the start, and a row of four covers`() {
+    fun `four by two is the cover beside the song, and a banner with its bar at the start`() {
         val a = plan(400, 188, cover)
         assertEquals(WidgetShape.SIDE, a.shape)
         assertEquals(164, a.coverW)
@@ -136,30 +125,20 @@ class WidgetLayoutTest {
         assertEquals(WidgetShape.BANNER, b.shape)
         assertEquals(b.padH, b.glass!!.x)
         assertTrue(b.like && b.showArtist)
-
-        val c = plan(400, 188, shelf)
-        assertEquals(WidgetShape.SHELF, c.shape)
-        assertTrue(c.buttonsInline && c.like)
-        assertEquals(4, c.columns)
-        assertEquals(4, c.shown)
-        assertFalse("no room for the heading at four by two", c.heading)
         // The Pixel's flat four by two is a line in Cover, as it was: beside, the artist would not fit.
         assertEquals(WidgetShape.LINE, plan(407, 107, cover).shape)
         assertEquals(WidgetShape.LINE, plan(407, 107, full).shape)
     }
 
     @Test
-    fun `four by three keeps the cover beside the song, a poster, and four covers under the heading`() {
+    fun `four by three keeps the cover beside the song, and a poster`() {
         assertEquals(WidgetShape.SIDE, plan(400, 250, cover).shape)
         assertTrue(plan(400, 250, cover).like)
         assertEquals(WidgetShape.POSTER, plan(400, 250, full).shape)
-        val c = plan(400, 250, shelf)
-        assertTrue(c.buttonsInline && c.heading && c.captions)
-        assertEquals(4, c.columns)
     }
 
     @Test
-    fun `four by four has shuffle in Cover and Shelf, the buttons in their own line, and three big covers on the shelf`() {
+    fun `four by four has shuffle in Cover, the buttons in their own line`() {
         for (h in listOf(340, 400)) {
             val a = plan(400, h, cover)
             assertEquals(WidgetShape.TOP, a.shape)
@@ -169,15 +148,11 @@ class WidgetLayoutTest {
             assertEquals(WidgetShape.POSTER, b.shape)
             assertTrue(b.like)
             assertFalse("Full cover's bar has the heart, previous, play and next", b.shuffle)
-            val c = plan(400, h, shelf)
-            assertFalse(c.buttonsInline)
-            assertTrue(c.like && c.shuffle && c.heading && c.captions)
-            assertEquals(3, c.columns)
         }
     }
 
     @Test
-    fun `a tablet puts Up next beside Cover and Full cover, and keeps Shelf's four by three shape with more covers`() {
+    fun `a tablet puts Up next beside Cover and Full cover, and never beside a Shelf`() {
         for ((w, h) in listOf(640 to 300, 800 to 400)) {
             val a = plan(w, h, cover, upNext = 4)
             assertEquals(WidgetShape.PANES, a.shape)
@@ -187,10 +162,7 @@ class WidgetLayoutTest {
             assertEquals(WidgetShape.PANES, b.shape)
             assertEquals(4, b.upNext)
             assertEquals(b.padH, b.glass!!.x)
-            val c = plan(w, h, shelf, upNext = 4)
-            assertEquals(WidgetShape.SHELF, c.shape)
-            assertTrue(c.buttonsInline)
-            assertEquals(6, c.columns)
+            assertEquals(WidgetShape.BIG_COVER, plan(w, h, shelf, upNext = 4).shape)
         }
         assertTrue("shuffle where the cover keeps its height with it", plan(800, 400, cover, upNext = 4).shuffle)
         // Fewer in the queue, fewer rows; nothing after this song, or nothing playing, no pane.
@@ -201,13 +173,16 @@ class WidgetLayoutTest {
     }
 
     @Test
-    fun `a Shelf holding a list alone is its heading and covers`() {
+    fun `a Shelf holding a list alone is drawn in its look, or is its heading where there is nothing to draw`() {
         val list = shelf.copy(content = WidgetContent.LIST)
-        val grid = plan(400, 188, list)
-        assertEquals(WidgetShape.GRID, grid.shape)
-        assertTrue(grid.heading)
-        assertEquals(0, plan(400, 188, list, available = 0).shown)
-        assertEquals(WidgetShape.NONE, plan(400, 188, list, available = 0).shape)
+        for ((look, shape) in listOf(ShelfLook.BIG_COVER to WidgetShape.BIG_COVER, ShelfLook.CRATE to WidgetShape.CRATE, ShelfLook.RECORDS to WidgetShape.RECORDS)) {
+            val p = plan(400, 250, list.copy(look = look))
+            assertEquals(shape, p.shape)
+            assertFalse("no buttons on a list alone", p.play)
+            assertTrue("$look: ${p.shown}", p.shown in 5..6)
+            assertEquals(0, plan(400, 188, list.copy(look = look), available = 0).shown)
+            assertEquals(WidgetShape.NONE, plan(400, 188, list.copy(look = look), available = 0).shape)
+        }
         // Cover and Full cover are what is playing, whatever a Shelf was set to hold.
         assertEquals(WidgetShape.SIDE, plan(400, 188, list.copy(style = WidgetStyle.COVER)).shape)
     }
@@ -222,13 +197,16 @@ class WidgetLayoutTest {
     }
 
     @Test
-    fun `the shelf shows full rows of covers, never more than the list holds or the ceiling allows`() {
-        for (available in 0..WidgetLayout.MAX_PICKS) for (maxRows in 0..WidgetLayout.MAX_PICKS) {
-            val p = plan(170, 500, shelf.copy(maxRows = maxRows), available = available)
-            if (p.shape != WidgetShape.SHELF) continue
-            assertTrue(p.shown <= available)
-            if (maxRows > 0) assertTrue(p.shelfRows <= maxRows)
-            if (p.shelfRows > 1) assertTrue("rows are full", p.shelfRows * p.columns <= available)
+    fun `a look shows no more songs than the list holds, and the crate and the records no more rows than the ceiling`() {
+        for (look in ShelfLook.entries) for (content in listOf(WidgetContent.BOTH, WidgetContent.LIST)) {
+            for (available in 0..WidgetLayout.MAX_PICKS) for (maxRows in 0..WidgetLayout.MAX_PICKS) for ((w, h) in listOf(170 to 500, 400 to 400, 324 to 432, 900 to 600)) {
+                val p = plan(w, h, shelf.copy(look = look, content = content, maxRows = maxRows), available = available)
+                val l = p.look ?: continue
+                assertTrue(p.shown <= available)
+                if (maxRows > 0) assertTrue(l.rows.size <= maxRows)
+                assertTrue("no empty row", l.rows.all { it > 0 })
+                assertEquals(l.picks.size, l.rows.sum().takeIf { l.rows.isNotEmpty() } ?: l.picks.size)
+            }
         }
     }
 
@@ -240,27 +218,34 @@ class WidgetLayoutTest {
     @Test
     fun `nothing is ever cut off, at any size, in any style`() {
         val variants = buildList {
-            for (style in WidgetStyle.entries) for (buttons in WidgetButtons.entries) for (size in WidgetTextSize.entries) {
-                add(WidgetSettings(style = style, buttons = buttons, textSize = size))
+            // A Shelf in each of its looks; the other styles have none.
+            fun looks(style: WidgetStyle) = if (style == WidgetStyle.SHELF) ShelfLook.entries else listOf(ShelfLook.BIG_COVER)
+            for (style in WidgetStyle.entries) for (look in looks(style)) for (buttons in WidgetButtons.entries) for (size in WidgetTextSize.entries) {
+                add(WidgetSettings(style = style, look = look, buttons = buttons, textSize = size))
             }
-            for (style in WidgetStyle.entries) {
-                add(WidgetSettings(style = style, showArtist = false, showHeading = false))
-                add(WidgetSettings(style = style, showLike = false))
+            for (style in WidgetStyle.entries) for (look in looks(style)) {
+                add(WidgetSettings(style = style, look = look, showArtist = false, showHeading = false))
+                add(WidgetSettings(style = style, look = look, showLike = false))
             }
             add(WidgetSettings(style = WidgetStyle.COVER, showArtwork = false))
             add(WidgetSettings(style = WidgetStyle.COVER, showArtwork = false, buttons = WidgetButtons.PLAY_ONLY))
-            for (size in WidgetTextSize.entries) add(WidgetSettings(style = WidgetStyle.SHELF, content = WidgetContent.LIST, textSize = size))
-            add(WidgetSettings(style = WidgetStyle.SHELF, content = WidgetContent.LIST, maxRows = 1))
-            add(WidgetSettings(style = WidgetStyle.SHELF, maxRows = 2))
+            for (look in ShelfLook.entries) {
+                for (size in WidgetTextSize.entries) add(WidgetSettings(style = WidgetStyle.SHELF, look = look, content = WidgetContent.LIST, textSize = size))
+                add(WidgetSettings(style = WidgetStyle.SHELF, look = look, content = WidgetContent.LIST, maxRows = 1, showHeading = false))
+                add(WidgetSettings(style = WidgetStyle.SHELF, look = look, maxRows = 2))
+            }
         }
+        // As far as a tablet's home screen goes: the widget's own largest size is 960 by 600 dp, but a
+        // launcher that does not hold to it, and a foldable's inside, can give a good deal more.
         val sizes = buildList {
             for (w in 40..600 step 6) for (h in 40..600 step 6) add(w to h)
-            for (w in 606..960 step 18) for (h in 40..600 step 14) add(w to h)
+            for (w in 606..1100 step 22) for (h in 40..800 step 14) add(w to h)
+            for (w in 40..600 step 14) for (h in 606..1100 step 22) add(w to h)
         }
         var checked = 0
         var liked = 0
         val shapes = HashMap<Pair<WidgetStyle, WidgetShape>, Int>()
-        for (settings in variants) for (fontScale in listOf(1f, 1.3f)) for (available in listOf(0, 2, 6)) {
+        for (settings in variants) for (fontScale in listOf(1f, 1.3f)) for (available in listOf(0, 2, 6, WidgetLayout.MAX_PICKS)) {
             // Up next only counts for Cover and Full cover, and the list only for Shelf.
             val queues = if (settings.style == WidgetStyle.SHELF) listOf(0) else listOf(0, 1, 4)
             if (settings.style != WidgetStyle.SHELF && available != 6) continue
@@ -289,7 +274,7 @@ class WidgetLayoutTest {
                     }
                 }
                 checkFits(p, w, h, settings, fontScale, available, ::ok)
-                ok(WidgetArt.bytes(p, 2.75f) <= WidgetArt.BUDGET_BYTES, "too many bitmap bytes for the launcher")
+                ok(WidgetArt.bytes(p, 2.75f) <= (if (p.look != null) WidgetArt.LOOK_BUDGET_BYTES else WidgetArt.BUDGET_BYTES), "too many bitmap bytes for the launcher")
             }
         }
         assertTrue(checked > 1_000_000)
@@ -298,7 +283,7 @@ class WidgetLayoutTest {
         val expected = mapOf(
             WidgetStyle.COVER to setOf(WidgetShape.TILE, WidgetShape.LINE, WidgetShape.SIDE, WidgetShape.TOP, WidgetShape.PANES),
             WidgetStyle.FULL_COVER to setOf(WidgetShape.TILE, WidgetShape.LINE, WidgetShape.POSTER, WidgetShape.BANNER, WidgetShape.PANES),
-            WidgetStyle.SHELF to setOf(WidgetShape.TILE, WidgetShape.LINE, WidgetShape.SHELF, WidgetShape.GRID, WidgetShape.NONE),
+            WidgetStyle.SHELF to setOf(WidgetShape.TILE, WidgetShape.LINE, WidgetShape.BIG_COVER, WidgetShape.CRATE, WidgetShape.RECORDS, WidgetShape.NONE),
         )
         for ((style, wanted) in expected) {
             val seen = shapes.keys.filter { it.first == style }.map { it.second }.toSet()
@@ -317,7 +302,7 @@ class WidgetLayoutTest {
         ok(!p.shuffle || p.skips, "shuffle without previous and next")
         p.glass?.let { g ->
             ok(g.x >= 0 && g.y >= 0 && g.x + g.w <= w && g.y + g.h <= h, "the glass out of the widget")
-            ok(s.style == WidgetStyle.FULL_COVER, "glass outside Full cover")
+            ok(s.style == WidgetStyle.FULL_COVER || p.look != null, "glass outside Full cover and the looks' pills")
             if (!g.circle) ok(WidgetLayout.rowWidth(p) + 2 * WidgetLayout.glassPadH(p) <= g.w, "the buttons wider than their glass")
             ok(g.h >= p.button, "the buttons taller than their glass")
             val (pw, ph) = WidgetGlass.pixels(g.w, g.h, 2.75f)
@@ -368,29 +353,7 @@ class WidgetLayoutTest {
                 val bar = p.glass?.h?.plus(if (p.titleLines > 0) 8 else 0) ?: 0
                 ok(2 * p.padV + words + bar <= h, "the words and the glass too tall")
             }
-            WidgetShape.SHELF, WidgetShape.GRID -> {
-                val caption = WidgetLayout.captionHeight(scale)
-                val grid = p.shelfRows * (p.tile + if (p.captions) caption else 0) + (p.shelfRows - 1) * p.shelfGap
-                val gridW = p.columns * p.tile + (p.columns - 1) * p.shelfGap
-                ok(gridW + 2 * p.padH <= w, "the shelf too wide")
-                ok(p.tile >= WidgetLayout.SHELF_MIN_DP, "covers too small")
-                ok(p.shown in 1..available && p.shown <= p.columns * p.shelfRows, "covers the list does not have")
-                ok(p.shelfRows <= WidgetLayout.MAX_SHELF_ROWS, "too many rows")
-                if (p.shape == WidgetShape.SHELF) {
-                    val top = p.headerHeight + (if (p.buttonsInline) 10 else (if (p.play) 6 + controlsH else 0) + 8)
-                    ok(2 * p.padV + top + p.headingHeight + grid <= h, "the shelf too tall")
-                    ok(t + (if (p.showArtist) a else 0) <= p.headerHeight, "the shelf's line of song")
-                    ok(p.headerCover <= p.headerHeight, "the shelf's cover")
-                    if (p.buttonsInline) {
-                        ok(WidgetLayout.headerWords(p, w) >= WidgetLayout.WORDS_MIN_DP, "the shelf's words squeezed")
-                        ok(controlsH <= p.headerHeight, "the shelf's buttons")
-                    } else {
-                        ok(WidgetLayout.spreadMin(p) <= w - 2 * p.padH, "the shelf's buttons too wide")
-                    }
-                } else {
-                    ok(2 * p.padV + p.headingHeight + grid <= h, "the list too tall")
-                }
-            }
+            WidgetShape.BIG_COVER, WidgetShape.CRATE, WidgetShape.RECORDS -> checkLook(p, w, h, s, scale, available, ok)
             WidgetShape.PANES -> {
                 ok(s.style != WidgetStyle.SHELF, "a Shelf in two panes")
                 ok(p.upNext in 1..WidgetLayout.MAX_UP_NEXT, "Up next's rows")
@@ -408,6 +371,81 @@ class WidgetLayoutTest {
                     p.glass?.let { ok(it.x + it.w <= w - p.padH - WidgetLayout.PANE_GAP_DP - p.paneW, "the glass under Up next") }
                 }
             }
+        }
+    }
+
+    /**
+     * A look at one size: everything it draws inside the widget, its words fitting their box at the
+     * text's size and never squeezed, its buttons 40 dp to tap in one pane of glass as wide as they
+     * are, every song tapped somewhere 40 dp across, and nothing lying over what it must not: the
+     * words, the pill, the heading and the list's covers each keep their own place.
+     */
+    private fun checkLook(p: WidgetPlan, w: Int, h: Int, s: WidgetSettings, scale: Float, available: Int, ok: (Boolean, String) -> Unit) {
+        val look = p.look
+        ok(look != null, "a look without its plan")
+        look ?: return
+        val widget = Spot(0, 0, w, h)
+        val list = s.contentShown == WidgetContent.LIST
+        val pill = p.glass?.let { Spot(it.x, it.y, it.w, it.h) }
+        val lines = WidgetFill.lookLines(p, scale).map { it.second }
+        val things = listOfNotNull(look.hero, look.heroPicture, pill, look.heading, look.pillRoom, look.words) + lines + look.picks + look.rowPictures
+        ok(things.all { widget.contains(it) }, "something out of the widget")
+        ok(p.shown in 0..available && p.shown == look.picks.size + (if (list && p.shape == WidgetShape.BIG_COVER) 1 else 0), "songs the list does not have")
+        ok(lines.all { it.w >= WidgetLooks.WORDS_MIN_DP }, "the words squeezed")
+        look.words?.let { words ->
+            ok(lines.sumOf { it.h } <= words.h && lines.all { words.contains(Spot(it.x, it.y, minOf(it.w, words.w), it.h)) }, "the words taller than their room")
+        }
+        ok(look.taps().all { it.w >= WidgetLooks.MIN_STEP_DP && it.h >= WidgetLooks.MIN_STEP_DP }, "a song too small to tap")
+        ok(look.rows.size <= WidgetLooks.MAX_LOOK_ROWS && look.rows.all { it in 1..WidgetLooks.MAX_PER_ROW }, "rows")
+        if (p.play) {
+            ok(pill != null, "buttons without their pill")
+            pill ?: return
+            ok(p.button >= 40 && p.playSize >= 40, "a button under 40 dp")
+            ok(if (pill.w == pill.h && p.glass!!.circle) p.playSize + 2 * WidgetLooks.PILL_PAD_V_DP == pill.h
+            else WidgetLayout.rowWidth(p) + 2 * WidgetLayout.glassPadH(p) == pill.w, "the pill not as wide as its buttons")
+            ok(pill.h == maxOf(p.button, p.playSize) + 2 * WidgetLooks.PILL_PAD_V_DP, "the pill's height")
+            ok(look.pillRoom?.contains(pill) == true, "the pill out of its room")
+            ok(lines.none { it.overlaps(pill) }, "the words under the pill")
+            ok(look.picks.none { it.overlaps(pill) }, "a song under the pill")
+        } else {
+            ok(pill == null && !p.skips && !p.like, "a pill with no buttons")
+        }
+        look.heading?.let { heading ->
+            ok(lines.none { it.overlaps(heading) } && look.picks.none { it.overlaps(heading) } && (pill == null || !pill.overlaps(heading)), "the heading under something")
+        }
+        when (p.shape) {
+            WidgetShape.BIG_COVER -> {
+                val hero = look.hero
+                ok(hero != null && hero.w == hero.h, "Big cover's cover")
+                hero ?: return
+                ok(look.picks.none { it.overlaps(hero) }, "a song over the big cover")
+                ok(look.picks.indices.all { i -> look.picks.indices.none { j -> j > i && look.picks[i].overlaps(look.picks[j]) } }, "two covers of the mosaic over each other")
+                ok(look.picks.all { it.w >= WidgetLooks.MIN_CELL_DP && it.w == it.h }, "a cover of the mosaic")
+                look.words?.let { ok(hero.contains(it), "the words off the big cover") }
+                pill?.let { ok(hero.contains(it), "the pill off the big cover") }
+                // The band under the words reaches past them, and never down to the pill.
+                look.words?.let { ok(look.band >= it.bottom - hero.y, "the words below their band") }
+                pill?.let { ok(hero.y + look.band <= it.y, "the band down to the pill") }
+                ok(hero.w <= WidgetLooks.MAX_HERO_DP, "a big cover bigger than its file")
+            }
+            WidgetShape.CRATE, WidgetShape.RECORDS -> {
+                ok(look.rows.isNotEmpty() && look.rows.size == look.rowPictures.size, "rows without their pictures")
+                var at = 0
+                for ((r, count) in look.rows.withIndex()) {
+                    val picture = look.rowPictures[r]
+                    ok(look.picks.subList(at, at + count).all { picture.contains(it.grown(if (p.shape == WidgetShape.CRATE) WidgetLooks.lean(it.w) else 0)) }, "a song out of its row's picture")
+                    at += count
+                }
+                val head = listOfNotNull(look.hero?.let { Spot(it.x, it.y, it.w + look.discOut, it.h) }, pill) + lines
+                ok(head.none { a -> look.picks.any { it.grown(if (p.shape == WidgetShape.CRATE) WidgetLooks.lean(it.w) else 0).overlaps(a) } }, "what is playing over the list")
+                if (!list) ok(look.hero != null && look.heroPicture != null, "what is playing without its cover")
+                look.hero?.let { hero -> ok(look.heroPicture!!.contains(Spot(hero.x, hero.y, hero.w + look.discOut, hero.h)), "the cover out of its picture") }
+                if (p.shape == WidgetShape.RECORDS) ok(look.picks.all { it.w >= WidgetLooks.DISC_MIN_DP }, "a record too small")
+                else ok(look.picks.all { it.w >= WidgetLooks.TILE_MIN_DP }, "a cover of the crate too small")
+                look.hero?.let { hero -> ok(lines.none { it.overlaps(Spot(hero.x, hero.y, hero.w + look.discOut, hero.h)) }, "the words over the cover") }
+                if (s.maxRows > 0) ok(look.rows.size <= s.maxRows, "more rows than the ceiling")
+            }
+            else -> ok(false, "not a look's shape")
         }
     }
 
@@ -433,6 +471,7 @@ class WidgetLayoutTest {
         val wanted = WidgetSettings(
             style = WidgetStyle.SHELF,
             content = WidgetContent.LIST,
+            look = ShelfLook.RECORDS,
             list = WidgetList.RECENT,
             maxRows = 2,
             background = WidgetBackground.LIGHT,
@@ -454,6 +493,10 @@ class WidgetLayoutTest {
         for (style in WidgetStyle.entries) {
             WidgetKeys.write(prefs, WidgetSettings(style = style))
             assertEquals(style, WidgetKeys.read(prefs).style)
+        }
+        for (look in ShelfLook.entries) {
+            WidgetKeys.write(prefs, WidgetSettings(style = WidgetStyle.SHELF, look = look))
+            assertEquals(look, WidgetKeys.read(prefs).look)
         }
         assertEquals(WidgetSettings(), WidgetKeys.read(androidx.datastore.preferences.core.emptyPreferences()))
     }
@@ -478,7 +521,8 @@ class WidgetLayoutTest {
         val list = WidgetKeys.read(old(WidgetContent.LIST, WidgetBackground.SYSTEM))
         assertEquals(WidgetStyle.SHELF, list.style)
         assertEquals(WidgetContent.LIST, list.contentShown)
-        assertEquals(WidgetBackground.SYSTEM, list.backgroundShown)
+        assertEquals(ShelfLook.BIG_COVER, list.look)
+        assertEquals("the Shelf's own, its cover blurred", WidgetBackground.ARTWORK, list.backgroundShown)
         assertEquals(WidgetBackground.DARK, WidgetKeys.read(old(WidgetContent.BOTH, WidgetBackground.DARK)).background)
         assertEquals(WidgetBackground.SYSTEM, WidgetKeys.read(old(WidgetContent.BOTH, WidgetBackground.SYSTEM, opacity = 60)).background)
         // Once saved with a style, Follow the system is a choice like any other.

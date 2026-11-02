@@ -42,8 +42,10 @@ sealed interface ShareAction {
 /**
  * Builds the links and nothing more: InterTune contacts nobody to share. The page finds the song
  * on the other services itself, in the browser of whoever opens the link, from what the link
- * carries after the #: the id, the name, the artists and the length. Browsers do not send that
- * part to the page's host.
+ * carries after the #: the name, the artists and the length, which browsers do not send to the
+ * page's host. A song's id is in the path (intertune.app/s/v/<id>) since the version after 0.12.6,
+ * so that a chat app's preview can name the song and show its cover: the site then learns which
+ * song was shared, nothing more (his yes, 1 Nov 2026).
  */
 object ShareLinks {
     /** Where the share page lives: on the site since 20 Oct 2026, offered in every build from 0.12.5 (Unreleased.SHARE_PAGE). */
@@ -76,7 +78,7 @@ object ShareLinks {
     fun song(id: String, title: String, artists: List<String>, seconds: Int, albumTrack: Boolean): ShareLink {
         val (name, by) = named(title, artists)
         val page = if (!videoId.matches(id) || name.isEmpty()) null else buildString {
-            append(PAGE).append("#v=").append(id).append("&t=").append(enc(name))
+            append(PAGE).append("v/").append(id).append("#t=").append(enc(name))
             if (by.isNotEmpty()) append("&a=").append(enc(by))
             if (seconds > 0) append("&d=").append(seconds)
             if (albumTrack) append("&k=t")

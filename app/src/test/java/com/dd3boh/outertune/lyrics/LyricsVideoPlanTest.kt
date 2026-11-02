@@ -63,14 +63,26 @@ class LyricsVideoPlanTest {
     }
 
     @Test
-    fun `a video takes a minute of the song at most`() {
-        val long = List(30) { Timed("Line $it", 5_000L + it * 2_500L, 5_000L + it * 2_500L + 2_499) }
-        assertTrue(LyricsVideoPlan.fits(long, listOf(0, 21)))
-        val clip = LyricsVideoPlan.clip(long, (0..21).toList())!!
-        assertTrue(clip.durationMs <= LyricsVideoPlan.LONGEST_MS)
-        assertEquals("more than five lines", 22, clip.lines.size)
-        assertFalse(LyricsVideoPlan.fits(long, listOf(0, 29)))
-        assertNull(LyricsVideoPlan.clip(long, listOf(0, 29)))
+    fun `a video takes more than a minute of the song, up to ten minutes`() {
+        // a line every two and a half seconds, for twelve and a half minutes
+        val long = List(300) { Timed("Line $it", 5_000L + it * 2_500L, 5_000L + it * 2_500L + 2_499) }
+        val clip = LyricsVideoPlan.clip(long, (0..35).toList())!!
+        assertTrue("a minute and a half: ${clip.durationMs}", clip.durationMs in 90_000..95_000)
+        assertEquals("more than five lines", 36, clip.lines.size)
+        assertEquals(10 * 60_000L, LyricsVideoPlan.LONGEST_MS)
+        assertTrue(LyricsVideoPlan.fits(long, listOf(0, 230)))
+        assertTrue(LyricsVideoPlan.clip(long, listOf(0, 230))!!.durationMs <= LyricsVideoPlan.LONGEST_MS)
+        assertFalse(LyricsVideoPlan.fits(long, listOf(0, 299)))
+        assertNull(LyricsVideoPlan.clip(long, listOf(0, 299)))
+    }
+
+    @Test
+    fun `all of a song's lines make one video, which ends with the song`() {
+        val lines = List(80) { Timed("Line $it", 8_000L + it * 2_900L, 8_000L + it * 2_900L + 2_800) }
+        val whole = LyricsVideoPlan.clip(lines, lines.indices.toList(), songMs = 240_000)!!
+        assertEquals(80, whole.lines.size)
+        assertEquals(7_400L, whole.startMs)
+        assertEquals(240_000L, whole.endMs)
     }
 
     @Test
@@ -151,7 +163,8 @@ class LyricsVideoPlanTest {
 
     @Test
     fun `a video is small enough to send, a minute under 10 MB`() {
-        assertTrue(LyricsVideoPlan.bytes(LyricsVideoPlan.LONGEST_MS) < 10_000_000)
+        assertTrue(LyricsVideoPlan.bytes(60_000) < 10_000_000)
+        assertTrue("the longest under 100 MB", LyricsVideoPlan.bytes(LyricsVideoPlan.LONGEST_MS) < 100_000_000)
         assertTrue("half a minute under 5 MB", LyricsVideoPlan.bytes(30_000) < 5_000_000)
         assertEquals("the card's shape, smaller", 1080f / 1920f, LyricsVideoPlan.OUT_WIDTH.toFloat() / LyricsVideoPlan.OUT_HEIGHT, 0.0001f)
     }
@@ -160,6 +173,7 @@ class LyricsVideoPlanTest {
     fun `thirty frames a second`() {
         assertEquals(30, LyricsVideoPlan.frames(1_000))
         assertEquals(31, LyricsVideoPlan.frames(1_001))
-        assertEquals(1_800, LyricsVideoPlan.frames(LyricsVideoPlan.LONGEST_MS))
+        assertEquals(1_800, LyricsVideoPlan.frames(60_000))
+        assertEquals(18_000, LyricsVideoPlan.frames(LyricsVideoPlan.LONGEST_MS))
     }
 }

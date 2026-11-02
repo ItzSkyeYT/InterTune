@@ -56,6 +56,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -70,6 +71,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -97,6 +99,8 @@ import com.dd3boh.outertune.constants.LivingSmoothingKey
 import com.dd3boh.outertune.constants.LivingStrengthKey
 import com.dd3boh.outertune.constants.PlayerBackgroundStyle
 import com.dd3boh.outertune.constants.PlayerBackgroundStyleKey
+import com.dd3boh.outertune.constants.PlayerGlassIntensityKey
+import com.dd3boh.outertune.constants.PlayerLiquidGlassKey
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.lyrics.LyricsShare
 import com.dd3boh.outertune.lyrics.LyricsVideo
@@ -105,6 +109,8 @@ import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.dialog.DefaultDialog
 import com.dd3boh.outertune.ui.player.LivingField
+import com.dd3boh.outertune.ui.player.KeepScreenOnController
+import com.dd3boh.outertune.ui.player.KeepScreenOnReason
 import com.dd3boh.outertune.ui.theme.extractGradientColors
 import com.dd3boh.outertune.utils.coilCoroutine
 import com.dd3boh.outertune.utils.makeTimeString
@@ -331,11 +337,23 @@ fun LyricsCardDialog(lines: List<String>, song: MediaMetadata, video: LyricsVide
     var making by remember { mutableStateOf<Job?>(null) }
     var made by remember { mutableFloatStateOf(0f) }
 
+    // A video can take minutes to make, about as long as it lasts on a slower phone: the screen
+    // stays on until it is made, so the phone does not go to sleep in the middle of it. Through the
+    // shared holder, since the player's lyrics hold the screen on through the same flag.
+    val view = LocalView.current
+    DisposableEffect(view, making != null) {
+        KeepScreenOnController.set(view, KeepScreenOnReason.LYRICS_VIDEO, making != null)
+        onDispose { KeepScreenOnController.set(view, KeepScreenOnReason.LYRICS_VIDEO, false) }
+    }
+
     // Living blur behind the video where it is the player's background, as the player has it.
     val background by rememberEnumPreference(PlayerBackgroundStyleKey, DEFAULT_PLAYER_BACKGROUND)
     val livingStrength by rememberPreference(LivingStrengthKey, LivingField.DEFAULT_STRENGTH)
     val livingSmoothing by rememberPreference(LivingSmoothingKey, LivingField.DEFAULT_SMOOTHING)
     val livingColours by rememberEnumPreference(LivingColoursKey, LivingColours.MAIN)
+    // as dark as it is behind the player's lyrics, Liquid glass and all
+    val liquidGlass by rememberPreference(PlayerLiquidGlassKey, defaultValue = false)
+    val glassIntensity by rememberPreference(PlayerGlassIntensityKey, defaultValue = 1f)
     // As the player has it: Blur in its place while Battery use is on Saver.
     val living = BatteryUse.playerBackground(background, LocalBatteryMode.current, DEFAULT_PLAYER_BACKGROUND) == PlayerBackgroundStyle.LIVING &&
         Unreleased.LIVING_BACKGROUND
@@ -349,7 +367,12 @@ fun LyricsCardDialog(lines: List<String>, song: MediaMetadata, video: LyricsVide
      */
     fun frames(clip: LyricsVideoPlan.Clip, heard: LyricsVideo.Heard?, from: Pair<IntArray?, IntArray?>? = livingFrom) = LyricsVideoFrames(
         context, clip, song.title, song.artists.joinToString { it.name }, cover,
-        living = if (living) LivingVideo(livingColours, from?.first, from?.second, livingStrength, livingSmoothing) { heard?.at(it) } else null,
+        living = if (living) {
+            LivingVideo(
+                livingColours, from?.first, from?.second, livingStrength, livingSmoothing, heardBeforeMs = heard?.beforeMs ?: 0L,
+                shows = LyricsVideoPlan.livingShows(if (liquidGlass) glassIntensity else 0f),
+            ) { heard?.at(it) }
+        } else null,
     )
 
     /**

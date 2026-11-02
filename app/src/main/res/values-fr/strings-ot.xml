@@ -1323,6 +1323,11 @@
     <string name="widget_style_full_cover">Pochette entière</string>
     <string name="widget_style_shelf">Étagère</string>
     <string name="widget_up_next">À suivre</string>
+    <!-- A Shelf's three looks (1 Nov 2026). -->
+    <string name="widget_config_look">Apparence</string>
+    <string name="widget_look_big_cover">Grande pochette</string>
+    <string name="widget_look_crate">Bac à disques</string>
+    <string name="widget_look_records">Vinyles</string>
     <!-- Recommendations: the little "i" beside an item, and what it opens -->
     <string name="tidy_home_rows_info">Aucune rangée de l\'accueil ne montre un titre déjà présent dans une rangée précédente, et les versions d\'un même titre (live, remasterisé, vidéo) comptent pour une. Rien ne comble les trous, donc une rangée peut être plus courte. Désactivé, vos exclusions ne filtrent plus que la rangée « Meilleures recommandations ».</string>
     <string name="rank_with_listening_info">Remet la « Sélection Rapide » dans un ordre qui vous convient : les titres que vous écoutez souvent, écoutés récemment ou aimés passent plutôt devant. Rien n\'est ajouté ni retiré. La rangée est laissée telle quelle quand « Meilleures recommandations » ou « Essayer les deux » la remplit.</string>
@@ -1902,6 +1907,11 @@
         <item quantity="one">Une image prend %1$d ligne, une vidéo une minute de la chanson</item>
         <item quantity="many">Une image prend %1$d lignes au plus, une vidéo une minute de la chanson</item>
         <item quantity="other">Une image prend %1$d lignes au plus, une vidéo une minute de la chanson</item>
+    </plurals>
+    <plurals name="lyrics_pick_most_video_minutes">
+        <item quantity="one">Une image prend %1$d ligne, une vidéo %2$d minutes de la chanson</item>
+        <item quantity="many">Une image prend %1$d lignes au plus, une vidéo %2$d minutes de la chanson</item>
+        <item quantity="other">Une image prend %1$d lignes au plus, une vidéo %2$d minutes de la chanson</item>
     </plurals>
     <string name="queue_from_search">« %1$s »</string>
     <!-- The phone's own search and the equalizer, in every build from 0.12. -->
