@@ -233,6 +233,8 @@ fun MixSimpleSheet(
     onAdvanced: () -> Unit,
     onClose: () -> Unit,
     onSave: () -> Unit,
+    /** Fix the beat of a song: the page opens its sheet over this one. */
+    onFix: (Side) -> Unit = {},
 ) {
     val phase by vm.phase.collectAsState()
     val ui by vm.ui.collectAsState()
@@ -320,7 +322,7 @@ fun MixSimpleSheet(
                 }
                 @Composable
                 fun SongsPart(waveHeight: Dp) {
-                    SongLine(songA, words.aTitle, spec?.a?.bpm, editor?.facts?.a?.grid != null, vm.pair?.a?.key, words, look.dark)
+                    SongLine(songA, words.aTitle, spec?.let { editor?.shownBpm(Side.A, it) }, vm.pair?.a?.key, words, look.dark, spec?.let { editor?.beatNote(Side.A, it) }) { onFix(Side.A) }
                     when (val p = phase) {
                         is MixEditorViewModel.Phase.Failed -> FailedState(p, words.aTitle, words.bTitle, if (p.side == Side.A) songA else songB, vm)
                         else -> if (ready) {
@@ -338,7 +340,7 @@ fun MixSimpleSheet(
                         WhereLine(editor, spec, words, phase, playing, playU, said, Modifier.weight(1f))
                         PlayButton(playing, ready, onPlay)
                     }
-                    SongLine(songB, words.bTitle, spec?.b?.bpm, editor?.facts?.b?.grid != null, vm.pair?.b?.key, words, look.dark)
+                    SongLine(songB, words.bTitle, spec?.let { editor?.shownBpm(Side.B, it) }, vm.pair?.b?.key, words, look.dark, spec?.let { editor?.beatNote(Side.B, it) }) { onFix(Side.B) }
                 }
                 @Composable
                 fun ColumnScope.ChoicesPart() {
@@ -445,11 +447,21 @@ internal fun LevelSwitch(simple: Boolean, onSimple: () -> Unit, onAdvanced: () -
 
 /** A song: cover, title and artists, its tempo, and its key where the key finder is sure of it. */
 @Composable
-private fun SongLine(song: Song?, title: String, bpm: Double?, sure: Boolean, key: KeyEstimate?, words: EditorWords, dark: Boolean) {
+private fun SongLine(
+    song: Song?,
+    title: String,
+    bpm: Double?,
+    key: KeyEstimate?,
+    words: EditorWords,
+    dark: Boolean,
+    note: MixEditor.BeatNote? = null,
+    onFix: () -> Unit = {},
+) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        // A tap on the song fixes its beat: tap its tempo, halve or double it, move its 1, nudge it.
+        modifier = Modifier.fillMaxWidth().clickable(onClickLabel = words.fixBeatOf(title), onClick = onFix).padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
         AsyncImage(
             model = song?.thumbnailUrl,
@@ -458,13 +470,16 @@ private fun SongLine(song: Song?, title: String, bpm: Double?, sure: Boolean, ke
         )
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            // Where the beat is not sure, the line under the title says so in place of the artists.
             val artists = song?.artists?.joinToString(", ") { it.name }.orEmpty()
-            if (artists.isNotEmpty()) {
+            if (note != null) {
+                Text(words.beatNote(note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            } else if (artists.isNotEmpty()) {
                 Text(artists, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
         Text(
-            if (bpm != null && sure) words.bpm(bpm) else stringResource(R.string.mix_edit_bpm_unknown),
+            if (bpm != null) words.bpm(bpm) else stringResource(R.string.mix_edit_bpm_unknown),
             style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
@@ -888,10 +903,13 @@ private class WaveFrame(val editor: MixEditor, val spec: TransitionSpec, val wid
 }
 
 /**
- * Both songs' waveforms with the change as a window over them: dragged sideways, it moves where
- * the change falls in A, a bar at a time on A's downbeats, as A's lane moves in Advanced. Over it,
- * each row's mark: the songs' levels (Volume), where the basslines go (EQ), the filters' washes and
- * the echo. A drag is one undo step; the playhead runs over it while the preview plays.
+ * Both songs' waveforms with the change as a window over them: dragged sideways on A's lane, it
+ * moves where the change falls in A; dragged on B's lane, it moves which part of B comes in on bar
+ * 1, B still playing from its first frame, its opening silent under A until it comes in. Either
+ * lands on every beat, a bar line holding the finger within a third of a beat, as A's and B's lanes
+ * move in Advanced. Over it, each row's mark: the songs' levels (Volume), where the basslines go
+ * (EQ), the filters' washes and the echo. A drag is one undo step; the playhead runs over it while
+ * the preview plays.
  */
 @Composable
 private fun Waves(
@@ -947,11 +965,14 @@ private fun Waves(
                     var dx = 0f
                     var last = 0.0
                     var limit: Limit? = null
+                    var side = Side.A
                     detectHorizontalDragGestures(
-                        onDragStart = {
+                        onDragStart = { at ->
                             before = editor.spec
                             dx = 0f
-                            last = editor.spec.a.atMs
+                            // Below the middle of the gap between the lanes is B's.
+                            side = if (at.y > (now.value.aBottom + now.value.bTop) / 2) Side.B else Side.A
+                            last = if (side == Side.A) editor.spec.a.atMs else editor.spec.b.atMs
                             limit = null
                             dragging = true
                         },
@@ -973,12 +994,19 @@ private fun Waves(
                             val from = before ?: return@detectHorizontalDragGestures
                             change.consume()
                             dx += amount
-                            // Right brings a later moment of A to bar 1: the window moves with the finger.
-                            val (next, why) = editor.anchorMoved(from, Side.A, -dx * now.value.msPerPx, byBeats = false)
+                            // On A's lane, right brings a later moment of A to bar 1: the window moves
+                            // with the finger. On B's lane B's waveform follows the finger, so right
+                            // brings an earlier moment of B to bar 1. B's lane is drawn at A's scale.
+                            val (next, why) = if (side == Side.A) {
+                                editor.anchorMoved(from, Side.A, -dx * now.value.msPerPx, MixEditor.Snap.BEATS_STICKY_BARS)
+                            } else {
+                                editor.anchorMoved(from, Side.B, dx * now.value.msPerPx * from.b.barMs / editor.perA(from), MixEditor.Snap.BEATS_STICKY_BARS)
+                            }
                             limit = why
-                            if (next.a.atMs != last) {
+                            val at = if (side == Side.A) next.a.atMs else next.b.atMs
+                            if (at != last) {
                                 haptic.performHapticFeedback(HapticFeedbackType.SegmentTick)
-                                last = next.a.atMs
+                                last = at
                             }
                             editor.live(next)
                             vm.publish()

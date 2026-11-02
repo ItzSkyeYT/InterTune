@@ -153,7 +153,6 @@
     <string name="mix_fix_title">Corriger le tempo : %1$s</string>
     <string name="mix_fix_sure">%1$s BPM · sûr</string>
     <string name="mix_fix_changed">%1$s BPM · modifié par vous</string>
-    <string name="mix_fix_none">Aucun rythme régulier trouvé dans ce passage de %1$s : il se compte en secondes.</string>
     <string name="mix_fix_half">Moitié</string>
     <string name="mix_fix_double">Double</string>
     <string name="mix_fix_tap">Taper</string>
@@ -164,12 +163,17 @@
     <string name="mix_fix_earlier">Un temps plus tôt</string>
     <string name="mix_fix_later">Un temps plus tard</string>
     <string name="mix_fix_nudge">Décaler :</string>
-    <string name="mix_fix_minus">-10 ms</string>
-    <string name="mix_fix_plus">+10 ms</string>
+    <string name="mix_fix_minus">-5 ms</string>
+    <string name="mix_fix_plus">+5 ms</string>
     <string name="mix_fix_ms">%1$s ms</string>
     <string name="mix_fix_click">Écouter avec un clic</string>
     <string name="mix_fix_click_stop">Arrêter le clic</string>
     <string name="mix_fix_reset">Réinitialiser</string>
+    <string name="mix_fix_none_set">Aucun rythme régulier trouvé dans %1$s. Tapez son tempo ou saisissez-le, puis placez son 1.</string>
+    <string name="mix_fix_bars_guessed">%1$s BPM · mesure 1 devinée</string>
+    <string name="mix_fix_type">BPM</string>
+    <string name="mix_beat_note_none">Aucun rythme trouvé : touchez pour le régler</string>
+    <string name="mix_beat_note_bar_one">Mesure 1 devinée : touchez pour vérifier</string>
     <string name="mix_fix_kept">La correction est gardée pour ce morceau, Auto s\'en sert aussi.</string>
 
     <string name="mix_moments_title">Moments</string>
@@ -324,7 +328,7 @@
     <string name="mix_simple_hear">Écouter la transition</string>
     <string name="mix_simple_starts">Commence à %1$s dans %2$s</string>
     <string name="mix_simple_starts_lost">Commence à %1$s dans %2$s · ses %3$s de fin ne s\'entendent pas</string>
-    <string name="mix_simple_window">La transition, à %1$s dans %2$s. Faites-la glisser pour la déplacer d\'une mesure.</string>
+    <string name="mix_simple_window">La transition, à %1$s dans %2$s. Faites-la glisser, ou la forme d\'onde du morceau suivant, pour la déplacer d\'un temps.</string>
     <string name="mix_simple_key">Tonalité %1$s</string>
     <string name="mix_simple_auto_picked">Auto a choisi %1$s. %2$s</string>
     <string name="mix_simple_line_custom">Votre propre mélange des réglages ci-dessous.</string>

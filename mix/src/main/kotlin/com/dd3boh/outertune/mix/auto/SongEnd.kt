@@ -145,6 +145,8 @@ class SongEnd(
      * null where too few were heard there or they wander. Only a region analysed here has one.
      */
     private val localLine: ((Int, Int) -> BeatLine?)? = null,
+    /** The same end with its beats laid again at a tempo set by hand; null where it cannot be. */
+    private val atTempo: ((Double) -> SongEnd?)? = null,
 ) {
     val seconds: Double get() = (toMs - fromMs) / 1000.0
 
@@ -172,9 +174,24 @@ class SongEnd(
     /** The beats from [fromK] to [toK] on a line fitted through them alone, or the region's line where none can be fitted. */
     fun lineFor(fromK: Int, toK: Int): BeatLine? = localLine?.invoke(fromK, toK) ?: line
 
-    /** The same end with the listener's fix to its beat applied. */
+    /**
+     * The same end with the listener's fix to its beat applied. A tempo set by hand that is not the
+     * line's own, halved or doubled, or a tempo set where no beat was trusted, lays the beats again
+     * at it on this end's own music ([RegionAnalysis.atTempo]), the listener's beats from then on.
+     * A bar 1 set by hand ([BeatFix.oneMs]) puts the one there, wherever the grid is laid.
+     */
     fun with(fix: BeatFix?): SongEnd {
-        if (fix == null || fix.isNone || line == null) return this
+        if (fix == null || fix.isNone) return this
+        val hand = fix.bpm
+        val found = line
+        if (hand != null && (found == null || !found.beatsTrusted || octaveOf(hand, found.bpm) == null)) {
+            // Without the music to lay them on (an end kept from before, read without its audio),
+            // a far tempo still means the grid found is wrong: below, its beats are not trusted.
+            atTempo?.invoke(hand)?.let { return it.withHandBars(fix) }
+        }
+        if (found == null) return this
+        if (fix.oneMs != null) return withHandBars(fix)
+        val line = found
         val fixed = line.with(fix)
         return SongEnd(
             kind, songMs, fromMs, toMs, sampleRate, channels, firstSoundMs, trueEndMs, outroStartMs, introEndMs, fadeMs, medianDb,
@@ -185,6 +202,30 @@ class SongEnd(
             levelDb, lowDb, stepMs, fixed.bpm, steadyTempo, fixed, if (abs(fixed.beatMs - line.beatMs) < 1e-9) phrases?.shifted(fix.downbeatShift) else null,
             key, density, trustNote + "; fixed by hand",
             localLine?.let { local -> { a: Int, b: Int -> local(a, b)?.with(fix) } },
+            atTempo,
+        )
+    }
+
+    /**
+     * This end with the listener's beat and bars: halved or doubled as they said, moved by their
+     * nudge, the one where they set it (or moved from the analysis's by whole beats), trusted.
+     */
+    private fun withHandBars(fix: BeatFix): SongEnd {
+        val base = line ?: return this
+        var l = base.with(fix.copy(downbeatShift = 0, nudgeMs = 0, oneMs = null).takeIf { it.bpm != null && octaveOf(it.bpm, base.bpm) != null } ?: BeatFix.NONE)
+        l = BeatLine(l.t0Ms + fix.nudgeMs, l.beatMs, l.firstK, l.lastK, l.beatsPerBar, l.phase, beatsTrusted = true, barsTrusted = l.barsTrusted)
+        val one = fix.oneMs
+        val phase = if (one != null) Math.floorMod(l.kNear(one + fix.nudgeMs) + fix.downbeatShift, l.beatsPerBar) else Math.floorMod(l.phase + fix.downbeatShift, l.beatsPerBar)
+        val moved = Math.floorMod(phase - l.phase, l.beatsPerBar)
+        val bars = l.barsTrusted || one != null || fix.downbeatShift != 0
+        val fixed = BeatLine(l.t0Ms, l.beatMs, l.firstK, l.lastK, l.beatsPerBar, phase, beatsTrusted = true, barsTrusted = bars)
+        val sameBeats = abs(fixed.beatMs - base.beatMs) < 1e-9
+        return SongEnd(
+            kind, songMs, fromMs, toMs, sampleRate, channels, firstSoundMs, trueEndMs, outroStartMs, introEndMs, fadeMs, medianDb,
+            levelDb, lowDb, stepMs, fixed.bpm, true, fixed, if (sameBeats) phrases?.shifted(moved) else null,
+            key, density, trustNote + "; beat set by hand",
+            localLine?.let { local -> { a: Int, b: Int -> local(a, b)?.let { BeatLine(it.t0Ms + fix.nudgeMs, it.beatMs, it.firstK, it.lastK, fixed.beatsPerBar, phase, true, bars) } } },
+            atTempo,
         )
     }
 
@@ -251,7 +292,7 @@ class SongEnd(
                     phase = bars?.phase ?: 0,
                     beatsTrusted = region.beatsConfident,
                     barsTrusted = region.barsConfident || firstBeatIsOne,
-                    barsFromFirstBeat = firstBeatIsOne,
+                    barsFromFirstBeat = firstBeatIsOne || bars?.fromFirstSound == true,
                 )
             } else null
             val phrases = if (line != null && bars != null && g != null) PhraseFinder.find(spectrum, region, line) else null
@@ -286,8 +327,13 @@ class SongEnd(
                 density = region.onsetDensity(env.firstSound, env.trueEnd),
                 trustNote = region.describe() + (if (firstBeatIsOne) "; bars from its first beat" else firstBeatNote),
                 localLine = local,
+                atTempo = { bpm -> region.atTempo(bpm)?.let { of(it, fromMs, songMs, firstBeatBars) } },
             )
         }
+
+        /** The fold, among half, the same and double, that takes [hand] to within 2% of [found], or null. */
+        fun octaveOf(hand: Double, found: Double): Double? =
+            doubleArrayOf(0.5, 1.0, 2.0).firstOrNull { abs(hand / found - it) <= 0.02 * it }
 
         /** How near a grid beat an opening's first sound must land for that beat to be taken for its one. */
         const val FIRST_BEAT_MS = 60.0

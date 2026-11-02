@@ -28,6 +28,11 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
@@ -241,6 +246,15 @@ fun LengthSheet(vm: MixEditorViewModel, editor: MixEditor, words: EditorWords, o
     }
 }
 
+/**
+ * One tap of the nudge: 5 ms, half the 10 ms it was, since beats 10 ms apart already sound tight
+ * and a song a few ms off its grid needs a finer step to be put right (mix-better, 2 Nov 2026).
+ */
+internal const val NUDGE_STEP_MS = 5
+
+/** The tempos a typed one may be. */
+private val TYPED_BPM = 40.0..250.0
+
 /** Fix the beat of one song: half, double, tapped, where the 1 is, a nudge; kept for the song. */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -258,30 +272,50 @@ fun FixSheet(
     val haptic = LocalHapticFeedback.current
     val anchor = if (side == Side.A) spec.a else spec.b
     val facts = if (side == Side.A) editor.facts.a else editor.facts.b
-    val base = facts.grid
     val fix = anchor.fix
+    // The beats as the page has them: the analysis's, or the ones laid at a tempo set here.
+    val current = if (side == Side.A) editor.gridA(spec) else editor.gridB(spec)
+    val base = facts.grid ?: current
     ModalBottomSheet(onDismissRequest = { onClick(false); onDone() }, sheetState = state) {
         Column(Modifier.verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 16.dp)) {
             Text(stringResource(R.string.mix_fix_title, facts.title), style = MaterialTheme.typography.headlineSmall, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 24.dp))
-            if (base == null) {
-                Text(stringResource(R.string.mix_fix_none, facts.title), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(24.dp))
-                return@Column
-            }
-            val bpm = (if (side == Side.A) editor.gridA(spec) else editor.gridB(spec))?.bpm ?: base.bpm
+            fun set(next: BeatFix) = vm.edit { setFix(side, next) }
+            var tapping by remember { mutableStateOf(base == null) }
+            // Nothing found and nothing set yet: the tempo is the listener's to give, by tapping or typing it.
+            val bpm = current?.bpm
             Text(
-                stringResource(if (fix.isNone) R.string.mix_fix_sure else R.string.mix_fix_changed, words.number(bpm)),
+                when {
+                    bpm == null -> stringResource(R.string.mix_fix_none_set, facts.title)
+                    !fix.isNone -> stringResource(R.string.mix_fix_changed, words.number(com.dd3boh.outertune.mix.Tempo.felt(bpm).takeIf { fix.bpm == null } ?: bpm))
+                    facts.barsSure -> stringResource(R.string.mix_fix_sure, words.number(com.dd3boh.outertune.mix.Tempo.felt(bpm)))
+                    else -> stringResource(R.string.mix_fix_bars_guessed, words.number(com.dd3boh.outertune.mix.Tempo.felt(bpm)))
+                },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
             )
-            fun set(next: BeatFix) = vm.edit { setFix(side, next) }
-            var tapping by remember { mutableStateOf(false) }
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(horizontal = 24.dp, vertical = 6.dp)) {
-                val half = fix.bpm != null && abs(fix.bpm!! - base.bpm / 2) < 0.05
-                val double = fix.bpm != null && abs(fix.bpm!! - base.bpm * 2) < 0.05
-                FilterChip(selected = half, onClick = { set(fix.copy(bpm = if (half) null else base.bpm / 2)) }, label = { Text(stringResource(R.string.mix_fix_half)) })
-                FilterChip(selected = double, onClick = { set(fix.copy(bpm = if (double) null else base.bpm * 2)) }, label = { Text(stringResource(R.string.mix_fix_double)) })
-                FilterChip(selected = tapping || (fix.bpm != null && !half && !double), onClick = { tapping = true }, label = { Text(stringResource(R.string.mix_fix_tap)) })
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), itemVerticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 24.dp, vertical = 6.dp)) {
+                if (base != null) {
+                    val found = facts.grid?.bpm ?: base.bpm
+                    val half = fix.bpm != null && abs(fix.bpm!! - found / 2) < 0.05
+                    val double = fix.bpm != null && abs(fix.bpm!! - found * 2) < 0.05
+                    FilterChip(selected = half, onClick = { set(fix.copy(bpm = if (half) null else found / 2)) }, label = { Text(stringResource(R.string.mix_fix_half)) })
+                    FilterChip(selected = double, onClick = { set(fix.copy(bpm = if (double) null else found * 2)) }, label = { Text(stringResource(R.string.mix_fix_double)) })
+                }
+                FilterChip(selected = tapping, onClick = { tapping = true }, label = { Text(stringResource(R.string.mix_fix_tap)) })
+                // Typed: the tempo as a number, for a song whose tempo is known.
+                var typed by remember(bpm) { mutableStateOf(bpm?.let { words.number(com.dd3boh.outertune.mix.Tempo.felt(it).takeIf { fix.bpm == null } ?: it) } ?: "") }
+                OutlinedTextField(
+                    value = typed,
+                    onValueChange = { v -> typed = v.filter { it.isDigit() || it == '.' || it == ',' }.take(6) },
+                    singleLine = true,
+                    label = { Text(stringResource(R.string.mix_fix_type)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = {
+                        typed.replace(',', '.').toDoubleOrNull()?.takeIf { it in TYPED_BPM }?.let { set(fix.copy(bpm = it)) }
+                    }),
+                    modifier = Modifier.widthIn(max = 120.dp),
+                )
             }
             if (tapping) {
                 val taps = remember { mutableStateListOf<Long>() }
@@ -334,6 +368,10 @@ fun FixSheet(
                     tapping = false
                 }
             }
+            if (current == null) {
+                Text(stringResource(R.string.mix_fix_kept), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+                return@Column
+            }
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp)) {
                 Text(stringResource(R.string.mix_fix_the_one), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.widthIn(min = 56.dp))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), itemVerticalAlignment = Alignment.CenterVertically) {
@@ -345,8 +383,8 @@ fun FixSheet(
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp)) {
                 Text(stringResource(R.string.mix_fix_nudge), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.widthIn(min = 56.dp))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), itemVerticalAlignment = Alignment.CenterVertically) {
-                    FilterChip(selected = false, onClick = { set(fix.copy(nudgeMs = fix.nudgeMs - 10)) }, label = { Text(stringResource(R.string.mix_fix_minus)) })
-                    FilterChip(selected = false, onClick = { set(fix.copy(nudgeMs = fix.nudgeMs + 10)) }, label = { Text(stringResource(R.string.mix_fix_plus)) })
+                    FilterChip(selected = false, onClick = { set(fix.copy(nudgeMs = fix.nudgeMs - NUDGE_STEP_MS)) }, label = { Text(stringResource(R.string.mix_fix_minus)) })
+                    FilterChip(selected = false, onClick = { set(fix.copy(nudgeMs = fix.nudgeMs + NUDGE_STEP_MS)) }, label = { Text(stringResource(R.string.mix_fix_plus)) })
                     Text(stringResource(R.string.mix_fix_ms, (if (fix.nudgeMs > 0) "+" else "") + fix.nudgeMs), style = MaterialTheme.typography.bodyMedium)
                 }
             }

@@ -9,6 +9,7 @@ package com.dd3boh.outertune.mix.engine
 import com.dd3boh.outertune.mix.MixPlan
 import com.dd3boh.outertune.mix.RegionAnalysis
 import com.dd3boh.outertune.mix.Style
+import com.dd3boh.outertune.mix.auto.SongEnd
 import com.dd3boh.outertune.mix.edit.Anchor
 import com.dd3boh.outertune.mix.edit.How
 import com.dd3boh.outertune.mix.edit.LaneSet
@@ -137,11 +138,17 @@ object Placing {
      */
     fun facts(
         spec: TransitionSpec, sampleRate: Int, channels: Int,
-        aStartMs: Double, aFrames: Long, tail: RegionAnalysis?,
+        aStartMs: Double, aFrames: Long, tail0: RegionAnalysis?,
         bFrames: Long,
         earliest: Long,
     ): Result<ChangeFacts> {
         val near = (spec.a.atMs - aStartMs) * sampleRate / 1000.0
+        // A tempo set by hand that the held end's own analysis did not find: its beats laid again at it.
+        val hand = spec.a.fix.bpm
+        val tail = tail0?.let { t ->
+            val found = t.bpm
+            if (hand != null && (!t.beatsConfident || found == null || SongEnd.octaveOf(hand, found) == null)) t.atTempo(hand) ?: t else t
+        }
         val aBar1 = if (spec.bars == 0) near else {
             if (tail == null || !tail.beatsConfident) return Result.failure(IllegalStateException("the end of A has no beat to find its anchor on"))
             val at = tail.beatFrame(tail.beatNear(near))

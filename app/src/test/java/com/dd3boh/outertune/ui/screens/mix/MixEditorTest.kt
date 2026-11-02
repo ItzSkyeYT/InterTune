@@ -212,6 +212,11 @@ class MixEditorTest {
         assertTrue(gridA.isDownbeat(gridA.beatNear(moved.a.atMs)))
         val (beat, _) = e.anchorMoved(from, Side.A, 1.3 * from.a.barMs / 4, byBeats = true)
         assertEquals(from.a.atMs - bar / 4, beat.a.atMs, 1e-6)
+        // The Simple sheet's drag: every beat, a bar line holding the finger within a third of a beat.
+        val (held, _) = e.anchorMoved(from, Side.A, 1.1 * e.perA(from), MixEditor.Snap.BEATS_STICKY_BARS)
+        assertEquals(from.a.atMs - bar, held.a.atMs, 1e-6)
+        val (free, _) = e.anchorMoved(from, Side.A, 1.25 * e.perA(from), MixEditor.Snap.BEATS_STICKY_BARS)
+        assertEquals(from.a.atMs - bar * 1.25, free.a.atMs, 1e-6)
     }
 
     @Test
@@ -229,11 +234,45 @@ class MixEditorTest {
     }
 
     @Test
-    fun `B always starts at its first second`() {
+    fun `B moves under bar 1 too, always playing from its first frame`() {
         val e = editor()
-        val (same, limit) = e.anchorMoved(e.spec, Side.B, 5_000.0, byBeats = false)
-        assertEquals(Limit.BFirstSecond, limit)
-        assertEquals(e.spec, same)
+        val from = e.spec
+        val barB = from.b.barMs
+        // A finger two bars to the left brings B's music two bars on to bar 1; B still starts at its first frame.
+        val (later, limit) = e.anchorMoved(from, Side.B, -2.1 * barB, byBeats = false)
+        assertNull(limit)
+        assertEquals(from.b.atMs + 2 * barB, later.b.atMs, 1e-6)
+        assertEquals(0.0, later.bStartMs, 0.0)
+        assertTrue(later.isValid)
+        // B's first frame now falls that much further before bar 1, and the change starts there.
+        assertTrue(SpecPlan.firstChangeMs(Presets.onBands(later)) <= later.aMsAt(-later.b.atMs / barB) + 1e-6)
+        // Never before B's first frame.
+        val (same, first) = e.anchorMoved(from, Side.B, 5_000.0, byBeats = false)
+        assertEquals(Limit.BFirstSecond, first)
+        assertEquals(from.b.atMs, same.b.atMs, 1e-6)
+        // By beats, and by beats with bar lines holding the finger near them.
+        val (beat, _) = e.anchorMoved(from, Side.B, -1.2 * barB / 4, byBeats = true)
+        assertEquals(from.b.atMs + barB / 4, beat.b.atMs, 1e-6)
+        val (held, _) = e.anchorMoved(from, Side.B, -barB * 1.08, MixEditor.Snap.BEATS_STICKY_BARS)
+        assertEquals(from.b.atMs + barB, held.b.atMs, 1e-6)
+        val (free, _) = e.anchorMoved(from, Side.B, -barB * 1.2, MixEditor.Snap.BEATS_STICKY_BARS)
+        assertEquals(from.b.atMs + barB * 1.25, free.b.atMs, 1e-6)
+    }
+
+    @Test
+    fun `B moves only as far as playback holds A's end before its first frame, and says why`() {
+        val base = facts()
+        val f = PairFacts(base.a, base.b, playReachMs = PairFacts.PLAY_REACH_MS)
+        val e = MixEditor(f, AutoSpec.fallback(f), null)
+        val (moved, limit) = e.anchorMoved(e.spec, Side.B, -40_000.0, byBeats = false)
+        assertEquals(Limit.APlays(PairFacts.PLAY_REACH_MS), limit)
+        val left = f.a.durationMs - SpecPlan.firstChangeMs(Presets.onBands(moved))
+        assertTrue("$left", left <= PairFacts.PLAY_REACH_MS + 0.5)
+        assertTrue("B moved on: ${moved.b.atMs}", moved.b.atMs > e.spec.b.atMs)
+        // What was read of B ends the other way: its 60 s window holds the change and two bars more.
+        val (far, end) = e.anchorMoved(e.spec, Side.B, -70_000.0, byBeats = false)
+        assertTrue("$end", end is Limit.APlays || end is Limit.BReach)
+        assertTrue(far.b.atMs + (far.lengthBars + 2) * far.b.barMs <= 60_000.0 + 0.5)
     }
 
     @Test

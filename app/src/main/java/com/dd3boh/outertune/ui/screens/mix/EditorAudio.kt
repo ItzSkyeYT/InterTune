@@ -129,13 +129,17 @@ class PairLoader(
         val bAnalysis = analyse(bWindow, RegionKind.HEAD)
         val aGrid = aAnalysis?.let { gridOf(it, aWindow.info.startMs) }
         val bGrid = bAnalysis?.let { gridOf(it, bWindow.info.startMs) }
+        val aGates = aAnalysis?.gates
+        val bGates = bAnalysis?.gates
         val aFacts = SongFacts(
             id = a.id, title = a.title, durationMs = aWindow.info.durationMs,
             windowStartMs = aWindow.info.startMs, windowEndMs = aWindow.info.endMs,
             grid = aGrid, fix = a.fix,
             focusMs = max(aWindow.info.startMs, aWindow.info.durationMs - FOCUS_BEFORE_END_MS),
             source = sourceOf(aWindow.info), analysis = ANALYSIS_VERSION,
-            refit = { base, fix, focus -> aAnalysis?.let { refit(it, aWindow.info.startMs, base, fix, focus) } ?: applyFix(base, fix, focus) },
+            refit = { base, fix, focus -> aAnalysis?.let { refit(it, aWindow.info.startMs, base, fix, focus) } ?: base?.let { applyFix(it, fix, focus) } },
+            beatConfidence = if (aGrid != null) aGates?.beatConfidence ?: 0.0 else 0.0,
+            barConfidence = if (aGrid != null) aGates?.barConfidence ?: 0.0 else 0.0,
         )
         val bFirstSound = bAnalysis?.let { it.envelope.firstSound * 1000.0 / it.sampleRate } ?: 0.0
         val bFacts = SongFacts(
@@ -144,7 +148,9 @@ class PairLoader(
             grid = bGrid, firstSoundMs = bFirstSound, fix = b.fix,
             focusMs = bFirstSound,
             source = sourceOf(bWindow.info), analysis = ANALYSIS_VERSION,
-            refit = { base, fix, focus -> bAnalysis?.let { refit(it, bWindow.info.startMs, base, fix, focus) } ?: applyFix(base, fix, focus) },
+            refit = { base, fix, focus -> bAnalysis?.let { refit(it, bWindow.info.startMs, base, fix, focus) } ?: base?.let { applyFix(it, fix, focus) } },
+            beatConfidence = if (bGrid != null) bGates?.beatConfidence ?: 0.0 else 0.0,
+            barConfidence = if (bGrid != null) bGates?.barConfidence ?: 0.0 else 0.0,
         )
         val facts = PairFacts(
             a = aFacts, b = bFacts,
@@ -262,17 +268,21 @@ class PairLoader(
 
         private fun sourceOf(info: WindowInfo) = "editor:${info.sampleRate}:${info.channels}"
 
-        /** The analysis's beat line, in ms of the song, where its bars were trusted. */
+        /**
+         * The analysis's beat line, in ms of the song, wherever its beats were trusted: with its bars
+         * where they were found, sure or a guess ([SongFacts.barsSure] says which), so the listener
+         * can match the beats and put bar 1 right by hand where the analysis could not.
+         */
         fun gridOf(r: RegionAnalysis, windowStartMs: Double): SongGrid? {
-            if (!r.barsConfident) return null
-            val downbeats = r.downbeats ?: return null
+            if (!r.beatsConfident) return null
             val period = r.periodFrames ?: return null
             val rate = r.sampleRate.toDouble()
+            val downbeats = r.downbeats
             return SongGrid(
                 t0Ms = windowStartMs + r.beatFrame(0) / rate * 1000.0,
                 periodMs = period / rate * 1000.0,
-                phase = downbeats.phase,
-                beatsPerBar = downbeats.beatsPerBar,
+                phase = downbeats?.phase ?: 0,
+                beatsPerBar = downbeats?.beatsPerBar ?: com.dd3boh.outertune.mix.Downbeats.BEATS_PER_BAR,
             )
         }
 
@@ -281,7 +291,15 @@ class PairLoader(
          * 8 s of [focusMs], so its beats land on what is heard there, and its 1 is the beat nearest
          * the downbeat the analysis had there. Then the 1 and the nudge, as [applyFix].
          */
-        fun refit(r: RegionAnalysis, windowStartMs: Double, base: SongGrid, fix: BeatFix, focusMs: Double): SongGrid {
+        fun refit(r: RegionAnalysis, windowStartMs: Double, base: SongGrid?, fix: BeatFix, focusMs: Double): SongGrid? {
+            // No beat found, or a tempo far from the one found: the beats laid again at the listener's
+            // tempo over the whole window, as the phone lays them on its own copy (SongEnd.with).
+            val hand = fix.bpm
+            if (hand != null && (base == null || com.dd3boh.outertune.mix.auto.SongEnd.octaveOf(hand, base.bpm) == null)) {
+                val again = r.atTempo(hand)?.let { gridOf(it, windowStartMs) } ?: return base?.let { applyFix(it, fix, focusMs) }
+                return withOne(again.copy(t0Ms = again.t0Ms + fix.nudgeMs), fix)
+            }
+            if (base == null) return null
             val bpm = fix.bpm ?: return applyFix(base, fix, focusMs)
             val grid = r.grid ?: return applyFix(base, fix, focusMs)
             val rate = r.sampleRate.toDouble()
@@ -299,7 +317,7 @@ class PairLoader(
             val pivot = base.beatMs(base.downbeatNear(focusMs))
             val k = ((pivot - t0) / periodMs).roundToInt()
             val fitted = SongGrid(t0 + k * periodMs, periodMs, phase = 0, beatsPerBar = base.beatsPerBar)
-            return fitted.copy(t0Ms = fitted.t0Ms + fix.nudgeMs, phase = fix.downbeatShift)
+            return withOne(fitted.copy(t0Ms = fitted.t0Ms + fix.nudgeMs), fix)
         }
     }
 }

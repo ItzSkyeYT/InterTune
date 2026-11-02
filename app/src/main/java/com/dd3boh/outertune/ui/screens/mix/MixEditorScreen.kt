@@ -365,7 +365,7 @@ fun MixEditorScreen(navController: NavController) {
                     modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.errorContainer).padding(horizontal = 16.dp, vertical = 7.dp),
                 )
             }
-            SongRow(songA, aTitle, spec?.let { words.clock(it.a.atMs) }, spec?.a?.bpm, vm.editor?.facts?.a?.grid != null, spec?.a?.fix?.isNone == false, words, landscape) { fixOpen = Side.A }
+            SongRow(songA, aTitle, spec?.let { words.clock(it.a.atMs) }, spec?.let { vm.editor?.shownBpm(Side.A, it) }, spec?.a?.fix?.isNone == false, words, landscape, spec?.let { vm.editor?.beatNote(Side.A, it) }) { fixOpen = Side.A }
             when (val p = phase) {
                 is MixEditorViewModel.Phase.Failed -> FailedState(p, aTitle, bTitle, if (p.side == Side.A) songA else songB, vm)
                 else -> {
@@ -378,7 +378,7 @@ fun MixEditorScreen(navController: NavController) {
                     }
                 }
             }
-            SongRow(songB, bTitle, spec?.let { words.clock(it.b.atMs) }, spec?.b?.bpm, vm.editor?.facts?.b?.grid != null, spec?.b?.fix?.isNone == false, words, landscape) { fixOpen = Side.B }
+            SongRow(songB, bTitle, spec?.let { words.clock(it.b.atMs) }, spec?.let { vm.editor?.shownBpm(Side.B, it) }, spec?.b?.fix?.isNone == false, words, landscape, spec?.let { vm.editor?.beatNote(Side.B, it) }) { fixOpen = Side.B }
             BarRow(spec, words, lanesView, canvas.adjust, { lengthOpen = true }, { lanesView = it }) { leaveAdjust(vm, canvas) }
             NowLine(vm, editor, spec, words, phase, playing, { playU }, said) { if (phase is MixEditorViewModel.Phase.Ready) momentsOpen = true }
         }
@@ -505,6 +505,7 @@ fun MixEditorScreen(navController: NavController) {
             },
             onClose = ::close,
             onSave = { save(vm, context, haptic, navController) },
+            onFix = { fixOpen = it },
         )
     }
 
@@ -561,10 +562,10 @@ private fun SongRow(
     title: String,
     at: String?,
     bpm: Double?,
-    sure: Boolean,
     fixed: Boolean,
     words: EditorWords,
     oneLine: Boolean,
+    note: MixEditor.BeatNote?,
     onBpm: () -> Unit,
 ) {
     Row(
@@ -580,12 +581,14 @@ private fun SongRow(
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (!oneLine) {
+                // Where the beat is not sure, the line under the title says so in place of the artists.
                 val artists = song?.artists?.joinToString(", ") { it.name }.orEmpty()
-                if (artists.isNotEmpty()) Text(artists, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (note != null) Text(words.beatNote(note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                else if (artists.isNotEmpty()) Text(artists, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
         val pillColor = if (fixed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
-        val label = if (bpm != null && sure) words.bpm(bpm) else stringResource(R.string.mix_edit_bpm_unknown)
+        val label = if (bpm != null) words.bpm(bpm) else stringResource(R.string.mix_edit_bpm_unknown)
         val fixOf = stringResource(R.string.mix_edit_fix_beat_of, title)
         Box(
             contentAlignment = Alignment.Center,

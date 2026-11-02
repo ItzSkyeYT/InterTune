@@ -145,6 +145,7 @@ object TransitionJson {
         put("downbeatShift", fix.downbeatShift)
         put("nudgeMs", fix.nudgeMs)
         put("source", fix.source)
+        fix.oneMs?.let { put("oneMs", it) }
     }
 
     internal fun fix(tree: JsonElement?): BeatFix? {
@@ -158,6 +159,7 @@ object TransitionJson {
             downbeatShift = o.int("downbeatShift") ?: 0,
             nudgeMs = o.int("nudgeMs") ?: 0,
             source = o.string("source") ?: "",
+            oneMs = o.double("oneMs")?.takeIf { it.isFinite() && it >= 0 },
         )
     }
 

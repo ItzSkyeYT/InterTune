@@ -152,8 +152,15 @@ data class BeatFix(
     val nudgeMs: Int = 0,
     /** The copy the fix was made on, as in [Anchor.source]: a fix made on another encode is checked again. */
     val source: String = "",
+    /**
+     * A bar 1 the listener heard and set, in ms of the song's own clock, where the change was made:
+     * the 1 the bars are counted from wherever the song's grid is laid, the phone's own analysis of
+     * another stretch of the song included, so Auto puts the 1 where the listener did. [downbeatShift]
+     * then counts from it. Null where the bars are the analysis's.
+     */
+    val oneMs: Double? = null,
 ) {
-    val isNone: Boolean get() = bpm == null && downbeatShift == 0 && nudgeMs == 0
+    val isNone: Boolean get() = bpm == null && downbeatShift == 0 && nudgeMs == 0 && oneMs == null
 
     companion object {
         val NONE = BeatFix()

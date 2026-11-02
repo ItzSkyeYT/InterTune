@@ -439,14 +439,18 @@ class MixEditor(
 
     /**
      * The spec with [side]'s song moved under bar 1 by a finger's [deltaMs] of that song (right is
-     * positive: an earlier moment comes to bar 1), snapped to its downbeats, or its beats when
-     * [byBeats], and kept inside what may be heard. Starts from [from], the spec the drag began on.
+     * positive: an earlier moment comes to bar 1), snapped as [snap] says, and kept inside what may
+     * be heard. Starts from [from], the spec the drag began on.
+     *
+     * Either song can be moved. B always plays from its first frame: a bar 1 later in B starts B
+     * that much earlier under A, its opening silent until its lanes come in, so how far B can move
+     * is how much of A's end playback holds before the change ([PairFacts.playReachMs]).
      */
-    fun anchorMoved(from: TransitionSpec, side: Side, deltaMs: Double, byBeats: Boolean): Pair<TransitionSpec, Limit?> {
-        if (side == Side.B) {
-            if (!facts.laterStartAllowed) return from to (if (abs(deltaMs) > from.b.barMs / 2) Limit.BFirstSecond else null)
-            return bMoved(from, deltaMs, byBeats)
-        }
+    fun anchorMoved(from: TransitionSpec, side: Side, deltaMs: Double, byBeats: Boolean): Pair<TransitionSpec, Limit?> =
+        anchorMoved(from, side, deltaMs, if (byBeats) Snap.BEATS else Snap.BARS)
+
+    fun anchorMoved(from: TransitionSpec, side: Side, deltaMs: Double, snap: Snap): Pair<TransitionSpec, Limit?> {
+        if (side == Side.B) return bMoved(from, deltaMs, snap)
         val per = perA(from)
         val reachEarliest = facts.aReachStartMs - fitStart(from) * per
         // Bar 1 as early as playback can hold the change's first frame, which moves with it.
@@ -456,11 +460,8 @@ class MixEditor(
         val latest = facts.a.durationMs - from.aGoneAt() * per
         val wanted = from.a.atMs - deltaMs
         val grid = gridA(from)
-        val snapped = when {
-            grid != null -> grid.beatMs(if (byBeats) grid.beatNear(wanted) else grid.downbeatNear(wanted))
-            else -> (wanted / HALF_SECOND_MS).roundToInt() * HALF_SECOND_MS
-        }
-        val stepMs = grid?.let { if (byBeats) it.periodMs else it.barMs } ?: HALF_SECOND_MS
+        val snapped = snapped(grid, wanted, snap)
+        val stepMs = grid?.let { if (snap == Snap.BARS) it.barMs else it.periodMs } ?: HALF_SECOND_MS
         var at = snapped
         var limit: Limit? = null
         if (at < earliest - 0.5) {
@@ -474,15 +475,51 @@ class MixEditor(
         return from.copy(a = from.a.copy(atMs = max(0.0, at))) to limit
     }
 
-    private fun bMoved(from: TransitionSpec, deltaMs: Double, byBeats: Boolean): Pair<TransitionSpec, Limit?> {
+    /** How a dragged anchor lands: on bar lines, on beats, or on beats with bar lines sticky. */
+    enum class Snap { BARS, BEATS, BEATS_STICKY_BARS }
+
+    /** [wanted] snapped to [grid] as [snap] says; to half seconds without a grid. */
+    private fun snapped(grid: SongGrid?, wanted: Double, snap: Snap): Double {
+        if (grid == null) return (wanted / HALF_SECOND_MS).roundToInt() * HALF_SECOND_MS
+        val bar = grid.beatMs(grid.downbeatNear(wanted))
+        return when (snap) {
+            Snap.BARS -> bar
+            Snap.BEATS -> grid.beatMs(grid.beatNear(wanted))
+            // A bar line holds a finger within a third of a beat; past that, every beat.
+            Snap.BEATS_STICKY_BARS -> if (abs(bar - wanted) < grid.periodMs / 3) bar else grid.beatMs(grid.beatNear(wanted))
+        }
+    }
+
+    /**
+     * B moved under bar 1, B playing from its first frame as always: its bar 1 anywhere from its
+     * first second to where what was read of it ends, as long as its first frame, now further
+     * before bar 1, still falls in what playback holds of A's end.
+     */
+    private fun bMoved(from: TransitionSpec, deltaMs: Double, snap: Snap): Pair<TransitionSpec, Limit?> {
         val grid = gridB(from)
-        val wanted = from.b.atMs - deltaMs
-        val at = grid?.let { it.beatMs(if (byBeats) it.beatNear(wanted) else it.downbeatNear(wanted)) } ?: wanted
-        val first = grid?.let { g -> generateSequence(g.downbeatNear(facts.b.firstSoundMs)) { it + g.beatsPerBar }.map(g::beatMs).first { it >= 0 } } ?: 0.0
-        if (at < first) return from.copy(b = from.b.copy(atMs = first), bStartMs = 0.0) to Limit.BFirstSecond
-        val bEndU = from.lengthBars + 2
-        if (at + bEndU * from.b.barMs > facts.bReachEndMs) return from to Limit.BReach(facts.bReachEndMs)
-        return from.copy(b = from.b.copy(atMs = at), bStartMs = if (at > first) max(0.0, at - 2 * from.b.barMs) else 0.0) to null
+        val stepMs = grid?.let { if (snap == Snap.BARS) it.barMs else it.periodMs } ?: HALF_SECOND_MS
+        var at = snapped(grid, from.b.atMs - deltaMs, snap)
+        var limit: Limit? = null
+        // Never before B's first frame.
+        while (at < -0.5) {
+            at += stepMs
+            limit = Limit.BFirstSecond
+        }
+        // What was read of B holds the change and the bars after it.
+        val need = (from.lengthBars + 2) * from.b.barMs
+        if (at + need > facts.bReachEndMs + 0.5) {
+            limit = Limit.BReach(facts.bReachEndMs)
+            while (at + need > facts.bReachEndMs + 0.5 && at - stepMs >= -0.5) at -= stepMs
+        }
+        var next = from.copy(b = from.b.copy(atMs = max(0.0, at)), bStartMs = 0.0)
+        // B's first frame, further before bar 1, inside what playback holds of A's end.
+        if (!next.plain) {
+            while (playLimitOf(next) != null && next.b.atMs - stepMs >= -0.5) {
+                next = next.copy(b = next.b.copy(atMs = max(0.0, next.b.atMs - stepMs)))
+                limit = Limit.APlays(facts.playReachMs)
+            }
+        }
+        return next to limit
     }
 
     // ---- handles ----
@@ -650,12 +687,42 @@ class MixEditor(
      */
     fun setFix(side: Side, fix: BeatFix): Boolean {
         val songFacts = if (side == Side.A) facts.a else facts.b
-        val grid = songFacts.gridFor(fix) ?: return false
         val anchor = if (side == Side.A) spec.a else spec.b
+        // The 1 is kept where the listener heard it, in the song's own clock, so the phone and Auto
+        // count the bars from there on whatever stretch of the song they analyse: the downbeat of
+        // the grid before the 1 is moved that is nearest where the change sits.
+        val anchored = if (fix.isNone || fix.oneMs != null) fix else {
+            val reference = songFacts.gridFor(fix.copy(downbeatShift = 0)) ?: return false
+            fix.copy(oneMs = max(0.0, reference.beatMs(reference.downbeatNear(anchor.atMs))))
+        }
+        val grid = songFacts.gridFor(anchored) ?: return false
         val at = grid.beatMs(grid.downbeatNear(anchor.atMs))
-        val fixed = anchor.copy(atMs = max(0.0, at), bpm = grid.bpm, fix = fix.copy(source = songFacts.source))
+        val fixed = anchor.copy(atMs = max(0.0, at), bpm = grid.bpm, fix = anchored.copy(source = songFacts.source))
         return apply(if (side == Side.A) spec.copy(a = fixed) else spec.copy(b = fixed))
     }
+
+    /**
+     * The tempo the page shows for [side]'s song: its grid's, the listener's fix on it, in the
+     * octave a listener would say ([com.dd3boh.outertune.mix.Tempo.felt]) unless they set it
+     * themselves; null where no beat was found and none was set.
+     */
+    fun shownBpm(side: Side, s: TransitionSpec = spec): Double? {
+        val anchor = if (side == Side.A) s.a else s.b
+        val grid = (if (side == Side.A) gridA(s) else gridB(s)) ?: return null
+        return if (anchor.fix.bpm != null) grid.bpm else com.dd3boh.outertune.mix.Tempo.felt(grid.bpm)
+    }
+
+    /** What the page says of [side]'s beat, where it is not sure: none found, or bar 1 a guess. */
+    fun beatNote(side: Side, s: TransitionSpec = spec): BeatNote? {
+        val songFacts = if (side == Side.A) facts.a else facts.b
+        val anchor = if (side == Side.A) s.a else s.b
+        if (!anchor.fix.isNone) return null
+        if (songFacts.grid == null) return BeatNote.NO_BEAT
+        if (!songFacts.barsSure) return BeatNote.BAR_ONE_GUESSED
+        return null
+    }
+
+    enum class BeatNote { NO_BEAT, BAR_ONE_GUESSED }
 
     /** The fixes Save keeps for the songs: each song's, where it differs from what was kept. */
     fun fixesChanged(): Map<String, BeatFix> = buildMap {

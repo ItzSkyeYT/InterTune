@@ -62,7 +62,13 @@ fun applyFix(base: SongGrid, fix: BeatFix, focusMs: Double): SongGrid {
         val pivot = base.beatMs(base.downbeatNear(focusMs))
         grid = SongGrid(pivot, 60_000.0 / bpm, phase = 0, beatsPerBar = base.beatsPerBar)
     }
-    return grid.copy(t0Ms = grid.t0Ms + fix.nudgeMs, phase = grid.phase + fix.downbeatShift)
+    return withOne(grid.copy(t0Ms = grid.t0Ms + fix.nudgeMs), fix)
+}
+
+/** [grid] with its 1 where [fix] says: on the beat of its bar 1 set by hand, or the analysis's moved by whole beats. */
+fun withOne(grid: SongGrid, fix: BeatFix): SongGrid {
+    val one = fix.oneMs ?: return grid.copy(phase = grid.phase + fix.downbeatShift)
+    return grid.copy(phase = Math.floorMod(grid.beatNear(one + fix.nudgeMs) + fix.downbeatShift, grid.beatsPerBar))
 }
 
 /** What the editor knows of one song of the pair. Every time is in ms of the song's own clock. */
@@ -73,7 +79,7 @@ class SongFacts(
     /** What of the song was read for the editor. */
     val windowStartMs: Double,
     val windowEndMs: Double,
-    /** Its beats as the analysis found them, with no fix; null where its bars could not be trusted. */
+    /** Its beats as the analysis found them, with no fix; null where no steady beat was found. */
     val grid: SongGrid?,
     /** Where its music starts, for the song coming in. */
     val firstSoundMs: Double = 0.0,
@@ -84,18 +90,31 @@ class SongFacts(
     /** The copy the grid was read from, and the analysis version, for the anchors (Anchor.source). */
     val source: String = "",
     val analysis: Int = 0,
-    /** Lays a fix on the grid; the audio side fits it on the song's onsets. */
-    private val refit: (SongGrid, BeatFix, Double) -> SongGrid = ::applyFix,
+    /**
+     * Lays a fix on the grid; the audio side fits it on the song's onsets, and lays the beats again
+     * at a tempo set by hand where none was found (a null grid). Null where it cannot.
+     */
+    private val refit: (SongGrid?, BeatFix, Double) -> SongGrid? = { base, fix, focus -> base?.let { applyFix(it, fix, focus) } },
+    /** How sure the analysis is of its beats and of its bar 1, 0 to 1; [com.dd3boh.outertune.mix.Gates.SURE] is sure. */
+    val beatConfidence: Double = if (grid != null) 1.0 else 0.0,
+    val barConfidence: Double = if (grid != null) 1.0 else 0.0,
 ) {
-    private val fitted = HashMap<BeatFix, SongGrid>()
+    private val fitted = HashMap<BeatFix, SongGrid?>()
 
-    /** The grid with [fix] on it, or null where there is no trusted grid. Fitted once per fix: the canvas asks on every frame. */
+    /**
+     * The grid with [fix] on it: the analysis's beats moved by the fix, or the beats laid at a tempo
+     * the listener set where no beat was found; null where there is neither. Fitted once per fix:
+     * the canvas asks on every frame.
+     */
     fun gridFor(fix: BeatFix): SongGrid? {
-        val base = grid ?: return null
-        if (fix.isNone) return base
+        if (fix.isNone) return grid
+        if (grid == null && fix.bpm == null) return null
         val key = fix.copy(source = "")
-        return synchronized(fitted) { fitted.getOrPut(key) { refit(base, key, focusMs) } }
+        return synchronized(fitted) { fitted.getOrPut(key) { refit(grid, key, focusMs) } }
     }
+
+    /** Whether its bars are the analysis's guess, for the line that says so. */
+    val barsSure: Boolean get() = barConfidence >= com.dd3boh.outertune.mix.Gates.SURE
 }
 
 /**

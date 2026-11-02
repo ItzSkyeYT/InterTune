@@ -165,7 +165,6 @@
     <string name="mix_fix_title">Fix the beat: %1$s</string>
     <string name="mix_fix_sure">%1$s BPM · sure</string>
     <string name="mix_fix_changed">%1$s BPM · changed by you</string>
-    <string name="mix_fix_none">No steady beat was found in this part of %1$s, so it is timed in seconds.</string>
     <string name="mix_fix_half">Half</string>
     <string name="mix_fix_double">Double</string>
     <string name="mix_fix_tap">Tap</string>
@@ -176,12 +175,17 @@
     <string name="mix_fix_earlier">A beat earlier</string>
     <string name="mix_fix_later">A beat later</string>
     <string name="mix_fix_nudge">Nudge:</string>
-    <string name="mix_fix_minus">-10 ms</string>
-    <string name="mix_fix_plus">+10 ms</string>
+    <string name="mix_fix_minus">-5 ms</string>
+    <string name="mix_fix_plus">+5 ms</string>
     <string name="mix_fix_ms">%1$s ms</string>
     <string name="mix_fix_click">Listen with a click</string>
     <string name="mix_fix_click_stop">Stop the click</string>
     <string name="mix_fix_reset">Reset</string>
+    <string name="mix_fix_none_set">No steady beat was found in %1$s. Tap its tempo or type it, then put its 1 right.</string>
+    <string name="mix_fix_bars_guessed">%1$s BPM · bar 1 is a guess</string>
+    <string name="mix_fix_type">BPM</string>
+    <string name="mix_beat_note_none">No steady beat found: tap to set it</string>
+    <string name="mix_beat_note_bar_one">Bar 1 is a guess: tap to check it</string>
     <string name="mix_fix_kept">A fix is kept for this song, so Auto uses it too.</string>
 
     <!-- moments sheet -->
@@ -339,7 +343,7 @@
     <string name="mix_simple_hear">Hear the change</string>
     <string name="mix_simple_starts">Starts at %1$s in %2$s</string>
     <string name="mix_simple_starts_lost">Starts at %1$s in %2$s · its last %3$s not heard</string>
-    <string name="mix_simple_window">The change, at %1$s in %2$s. Drag it to move it a bar at a time.</string>
+    <string name="mix_simple_window">The change, at %1$s in %2$s. Drag it, or the next song\'s waveform, to move it a beat at a time.</string>
     <string name="mix_simple_key">Key %1$s</string>
     <string name="mix_simple_auto_picked">Auto picked %1$s. %2$s</string>
     <string name="mix_simple_line_custom">Your own mix of the rows below.</string>

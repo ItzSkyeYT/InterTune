@@ -234,14 +234,17 @@ object SpecPlan {
 
     /**
      * Where in A, in ms of its own clock, the first frame [spec] touches comes: its first move, or
-     * the tempo ramp before bar 1, or the next song coming in, less the headroom's room. The end
-     * has to be held from before it.
+     * the tempo ramp before bar 1, or the next song's first frame, heard or not, less the
+     * headroom's room. The end has to be held from before it. B always plays from its first frame,
+     * so a bar 1 later in B (an intro left out under A) starts B that much earlier under A, where
+     * the song changes, and the plan starts there too ([plan]'s mixFrom).
      */
     fun firstChangeMs(spec: TransitionSpec): Double {
         val aLanes = spec.lanes.lanes.map { LaneId(Side.A, it) }
         val bLanes = spec.lanes.lanes.map { LaneId(Side.B, it) }
         val aFirst = aLanes.minOf { firstMoveU(spec, it) }
-        val bFirst = bLanes.minOf { firstHeardU(spec, it) ?: (-spec.b.atMs / spec.b.barMs) }
+        val bStartU = (spec.bStartMs - spec.b.atMs) / spec.b.barMs
+        val bFirst = minOf(bStartU, bLanes.minOf { firstHeardU(spec, it) ?: bStartU })
         var ms = spec.aMsAt(minOf(aFirst, bFirst))
         if (spec.beatMatched) {
             val beats = if (abs(spec.tempoRatio() - 1) > LONG_RAMP_ABOVE) LONG_RAMP_BEATS else RAMP_BEATS

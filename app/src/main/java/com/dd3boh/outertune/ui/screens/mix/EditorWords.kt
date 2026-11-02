@@ -67,6 +67,17 @@ class EditorWords(private val res: Resources, val aTitle: String, val bTitle: St
 
     fun bpm(bpm: Double): String = res.getString(R.string.mix_edit_bpm, number(bpm))
 
+    /** The line that says a song's beat is not sure: none found, or bar 1 a guess. */
+    fun beatNote(note: MixEditor.BeatNote): String = res.getString(
+        when (note) {
+            MixEditor.BeatNote.NO_BEAT -> R.string.mix_beat_note_none
+            MixEditor.BeatNote.BAR_ONE_GUESSED -> R.string.mix_beat_note_bar_one
+        },
+    )
+
+    /** "Fix the beat of After Hours", for a screen reader on a song's row. */
+    fun fixBeatOf(title: String): String = res.getString(R.string.mix_edit_fix_beat_of, title)
+
     /** "4:41", from ms. */
     fun clock(ms: Double): String {
         val s = floor(maxOf(0.0, ms) / 1000).toInt()
