@@ -56,6 +56,25 @@ class ReportTrailTest {
     }
 
     @Test
+    fun `the same screen again is not a step`() {
+        // Turning the phone makes the activity anew and the screen is reported again: nothing was opened.
+        val t = trail()
+        t.screen("settings/about")
+        now += 20_000
+        t.screen("settings/about")
+        now += 5_000
+        t.songStarted(Player.MEDIA_ITEM_TRANSITION_REASON_AUTO, false, false, false)
+        t.screen("settings/about")
+        now += 5_000
+        t.screen("home")
+        t.screen("settings/about")
+        assertEquals(
+            listOf("opened settings/about", "song started (the last one ended)", "opened home", "opened settings/about"),
+            t.steps().map { it.text },
+        )
+    }
+
+    @Test
     fun `steps older than the keeping time go`() {
         val t = trail(keepMs = 60_000)
         t.screen("settings/player")

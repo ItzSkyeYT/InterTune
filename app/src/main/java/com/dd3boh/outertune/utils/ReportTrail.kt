@@ -51,9 +51,13 @@ class ReportTrail(
     var lastScreen: String? = null
         private set
 
-    /** A screen opened, by its route's pattern: "album/{albumId}?song={song}" is "album". */
+    /**
+     * A screen opened, by its route's pattern: "album/{albumId}?song={song}" is "album". The screen the
+     * person is already on is no step: turning the phone makes the activity anew and reports it again.
+     */
     fun screen(route: String?) {
         screenName(route)?.let {
+            if (it == lastScreen) return
             if (enabled) lastScreen = it
             add("opened $it", weight = SCREEN)
         }
