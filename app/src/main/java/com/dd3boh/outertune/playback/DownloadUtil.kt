@@ -54,6 +54,10 @@ import com.dd3boh.outertune.playback.DownloadUtil.Companion.STATE_DOWNLOADING
 import com.dd3boh.outertune.playback.DownloadUtil.Companion.STATE_INVALID
 import com.dd3boh.outertune.playback.downloadManager.DownloadDirectoryManagerOt
 import com.dd3boh.outertune.playback.downloadManager.DownloadManagerOt
+import com.dd3boh.outertune.playback.downloadManager.SongFileCover
+import com.dd3boh.outertune.playback.downloadManager.SongFiles
+import com.dd3boh.outertune.playback.downloadManager.SongTags
+import com.dd3boh.outertune.playback.downloadManager.knownPaths
 import com.dd3boh.outertune.utils.StreamFamily
 import com.dd3boh.outertune.utils.YTPlayerUtils
 import com.dd3boh.outertune.utils.codecsOrEmpty
@@ -895,9 +899,13 @@ class DownloadUtil @Inject constructor(
                 // refused the file cost the song outright.
                 val saved = fromCache.use { stream ->
                     val displayName = database.song(s.key).first()?.title ?: ""
-                    localMgr.getFilePathIfExists(s.key) ?: runCatching {
-                        localMgr.saveFile(s.key, stream, displayName)
-                    }.onFailure { reportException(it) }.getOrNull()
+                    localMgr.getFilePathIfExists(s.key)
+                        // A file other players open, with the song's tags and cover inside; the
+                        // stream as it is when the song cannot be one (saveSongFile).
+                        ?: (if (Unreleased.DOWNLOAD_FILES) saveSongFile(s.key) else null)
+                        ?: runCatching {
+                            localMgr.saveFile(s.key, stream, displayName)
+                        }.onFailure { reportException(it) }.getOrNull()
                 }
                 if (saved == null) {
                     Log.w(TAG, "Could not migrate ${s.key}, its download stays in the app")
@@ -921,6 +929,39 @@ class DownloadUtil @Inject constructor(
         }
     }
 
+
+    /**
+     * The song media3 cached as [id] saved into the download folder as a song file other players
+     * open (Unreleased.DOWNLOAD_FILES, SongFiles): Opus as .opus, AAC as .m4a, the same packets, its
+     * title, artists, album, year, track and cover inside, named "Artist - Title". Null when it
+     * cannot be one, and then nothing was written.
+     */
+    private suspend fun saveSongFile(id: String): android.net.Uri? = withContext(Dispatchers.IO) {
+        runCatching {
+            val files = downloadCache.getCachedSpans(id).mapNotNull { span: CacheSpan -> span.file }
+            val song = database.song(id).first()
+            if (files.isEmpty() || song == null) return@runCatching null
+            SongFiles.save(files, songTags(song)) { name, write -> localMgr.saveSongFile(id, name, write) }
+        }.onFailure { Log.w(TAG, "Could not save $id as a song file, it is saved as the stream", it) }.getOrNull()
+    }
+
+    /** What a song file says of [song]: see SongTags. The track number only from an album page seen. */
+    private fun songTags(song: Song): SongTags {
+        val album = song.album
+        val track = song.song.trackNumber?.takeIf { it > 0 }
+            ?: album?.takeIf { it.playlistId != null }
+                ?.let { runCatching { database.albumIndexOf(song.id, it.id) }.getOrNull() }
+                ?.let { it + 1 }
+        return SongTags(
+            videoId = song.id,
+            title = song.song.title,
+            artists = song.artists.map { it.name },
+            album = album?.title ?: song.song.albumName,
+            year = song.song.year ?: album?.year,
+            track = track,
+            cover = SongFileCover.of(song.song.thumbnailUrl, context.filesDir),
+        )
+    }
 
     fun cd() {
         localMgr.doInit(
@@ -1032,7 +1073,9 @@ class DownloadUtil @Inject constructor(
 //            val scanner = LocalMediaScanner.getScanner(context, ScannerImpl.TAGLIB, SCANNER_OWNER_DL)
         // Read before clearing anything, so a folder that could not be listed is known before the
         // decision below is made, instead of after.
-        val availableFiles = localMgr.getAvailableFiles(false)
+        // Song files are known by the file the database has for each song (knownPaths), their
+        // names holding no id; read before anything is cleared below.
+        val availableFiles = localMgr.getAvailableFiles(false, knownPaths(database.downloadedOrQueuedSongs().first()))
         val unlistedRoots = unlistedDownloadRoots()
         if (unlistedRoots.isEmpty()) {
             database.removeAllDownloadedSongs()

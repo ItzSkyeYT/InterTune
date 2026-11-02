@@ -465,9 +465,11 @@ fun ColumnScope.DownloadsFrag() {
                 FolderNesting.isSameOrInside(tempFilePath.toString(), it.toString())
             }
 
-            // The one warning that a download folder should be empty, where the folder is chosen.
+            // The one warning that a download folder should be empty, where the folder is chosen,
+            // and with DOWNLOAD_FILES what the songs in it are saved as.
             Text(
-                text = stringResource(R.string.dl_main_path_description),
+                text = stringResource(R.string.dl_main_path_description) +
+                    if (Unreleased.DOWNLOAD_FILES) " " + stringResource(R.string.dl_song_files_note) else "",
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(horizontal = 4.dp)
             )

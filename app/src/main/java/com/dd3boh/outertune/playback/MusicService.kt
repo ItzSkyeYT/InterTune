@@ -2859,7 +2859,9 @@ class MusicService : MediaLibraryService(),
                             // built, so turning it off stops them at once. The size is as AppModule
                             // builds the cache with it: Battery use on Saver keeps 512 MB where no
                             // size was ever picked (BatteryUse.songCacheMb).
+                            // Nor a song file in a download folder, read past the cache (downloadedKey).
                             val write = BatteryUse.songCacheMb(dataStore[MaxSongCacheSizeKey], batteryMode) != 0 &&
+                                dataSpec.key?.startsWith(SONG_FILE_KEY) != true &&
                                 queueBoard.getCurrentQueue()?.findSong(dataSpec.key ?: "")?.isLocal != true
                             Log.d(TAG, "SONG CACHE: $write")
                             write
@@ -2898,7 +2900,8 @@ class MusicService : MediaLibraryService(),
             if (forPlayer) streamedSongs[mediaId] = resolved is ResolvedSong.KnownStream || resolved is ResolvedSong.NewStream
             when (resolved) {
                 is ResolvedSong.LocalFile -> dataSpec.withUri(resolved.file.toUri())
-                is ResolvedSong.Downloaded -> dataSpec.withUri(resolved.file.uri)
+                is ResolvedSong.Downloaded -> dataSpec.buildUpon().setUri(resolved.file.uri)
+                    .setKey(downloadedKey(mediaId, resolved.file.name)).build()
                 ResolvedSong.Cached -> dataSpec
                 is ResolvedSong.KnownStream -> dataSpec.withUri(resolved.url.toUri())
                 // Asked for whole, from where the player is to the song's end, as an address already

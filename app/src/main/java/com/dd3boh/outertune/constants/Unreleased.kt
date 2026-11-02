@@ -681,4 +681,24 @@ object Unreleased {
      * name to ReleasedFlagsTest, and make its text translatable.
      */
     val REPORT_FILE = BuildConfig.DEBUG
+
+    /**
+     * Downloads other apps can use (third in the 0.13 poll, the loudest topic on Discord): a song
+     * downloaded into a folder set under Storage and downloads is saved as a file every player and
+     * car opens, "Artist - Title.opus" for YouTube's Opus and "Artist - Title.m4a" for its AAC, the
+     * same audio rewrapped and never encoded again (SongFiles, OggOpusWriter, M4aWriter), with the
+     * title, artists, album, year, track number when known and the cover inside (SongTags). The
+     * song's link is in the file's comment, which is how the app knows the file again (SongFileIds),
+     * along with the path the database keeps. A stream that cannot be rewrapped is saved as before.
+     * Seen on an emulator only: Opus and AAC from YouTube, packet for packet the cached stream.
+     *
+     * Without it a download is saved as the raw stream, "Title [id].mka", as before. In every build,
+     * so files saved with it on keep working after an update without it: a song file is known by
+     * its path in the database, and played past the song cache (downloadedKey). Reading a file's
+     * tags to know it is with this on only. Old .mka downloads stay as they are and still play. Its
+     * text (dl_song_files_note, under the folder's warning) is held from translators, its French
+     * beside it in values-fr. When it is agreed: set this to true, add its name to
+     * ReleasedFlagsTest, make its texts translatable.
+     */
+    val DOWNLOAD_FILES = BuildConfig.DEBUG
 }
