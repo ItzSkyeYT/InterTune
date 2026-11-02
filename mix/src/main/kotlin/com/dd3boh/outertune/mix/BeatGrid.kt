@@ -205,6 +205,60 @@ class BeatGrid(
         }
 
         /**
+         * The beats of [onset] between [from] and [to] on a line given from elsewhere, t0 + k
+         * [period] (the song read whole, [SongGrid]), judged as [track] judges its own line: the
+         * stretch where it keeps landing on strong onsets, the share it hits there, how far those
+         * onsets sit off it. The line itself is kept as it is. With no onset heard on it, the whole
+         * region is its stretch and nothing was hit. Null with fewer than four beats in the region.
+         */
+        fun onLine(onset: FloatArray, frameRate: Double, t0: Double, period: Double, from: Int = 0, to: Int = onset.size): BeatGrid? {
+            val lo = from.coerceIn(0, onset.size)
+            val hi = to.coerceIn(lo, onset.size)
+            if (period <= 0) return null
+            val first = floor((lo - t0) / period).toInt() + 1
+            val last = floor((hi - 1 - t0) / period).toInt()
+            if (last - first < 3) return null
+            val hitRadius = HIT_MS / 1000.0 * frameRate
+            val strong = strongPeaks(onset, lo, hi)
+            val hits = BooleanArray(last - first + 1)
+            val heard = DoubleArray(last - first + 1)
+            for (k in first..last) {
+                val h = nearestStrong(strong, t0 + k * period, hitRadius)
+                if (h != null) {
+                    hits[k - first] = true
+                    heard[k - first] = h
+                }
+            }
+            val stretch = bestStretch(hits)
+            val (s0, s1) = stretch ?: (0 to hits.size - 1)
+            val ks = ArrayList<Int>()
+            val ts = ArrayList<Double>()
+            for (i in s0..s1) if (hits[i]) {
+                ks += first + i
+                ts += heard[i]
+            }
+            var squares = 0.0
+            for (j in ks.indices) {
+                val r = ts[j] - (t0 + ks[j] * period)
+                squares += r * r
+            }
+            return BeatGrid(
+                t0 = t0,
+                period = period,
+                firstBeat = first + s0,
+                lastBeat = first + s1,
+                hitShare = if (stretch == null) 0.0 else ks.size.toDouble() / (s1 - s0 + 1),
+                jitterMs = if (ks.isEmpty()) Double.POSITIVE_INFINITY else sqrt(squares / ks.size) / frameRate * 1000.0,
+                steadiness = steadiness(ks, ts, frameRate),
+                drift = drift(ks, ts),
+                beats = ts.toDoubleArray(),
+                frameRate = frameRate,
+                heardK = ks.toIntArray(),
+                heardT = ts.toDoubleArray(),
+            )
+        }
+
+        /**
          * Ellis (2007): the best chain of beats, each scoring its onset strength and paying for
          * any gap that is not one period, α ln²(gap / period). Onsets are smoothed by a Gaussian
          * of a 32nd of the period first, as librosa does, so the chain is pulled towards an onset

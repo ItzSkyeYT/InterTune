@@ -32,6 +32,8 @@ class Gates(
     val barsFromFirstSound: Boolean = false,
     /** The listener set this tempo by hand ([RegionAnalysis.atTempo]): the tempo and the beats are theirs to trust. */
     val byHand: Boolean = false,
+    /** The tempo is the whole song's ([RegionAnalysis.onSong]), and so are the tempo's gate values. */
+    val fromSong: Boolean = false,
 ) {
     val tempo: Boolean get() = byHand || tempoZ >= MIN_Z && rivalRatio <= MAX_RIVAL && steadiness <= MAX_SPREAD && drift <= MAX_DRIFT
 
