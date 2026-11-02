@@ -1,0 +1,13 @@
+Version 0.12.6
+
+- Utwory ponownie odtwarzają się w niskiej jakości (Low).
+- Wysoka jakość wybiera format Opus, jeśli brzmi tak samo dobrze.
+- Pobrane pliki zachowują swoje okładki w trybie offline.
+- Lokalne albumy są odtwarzane płyta po płycie, utwór po utworze.
+- Mniej awarii: poprawiono ekrany wykonawców oraz dodawanie do playlisty.
+- Poprawki kolejki i wyszukiwania; funkcja „Co jest odtwarzane?” znajduje oryginał remiksu.
+- Przełącznik pozwalający innej wersji aplikacji InterTune otwierać linki.
+- InterTune jest w pełni po polsku.
+
+Pełna lista zmian:
+https://github.com

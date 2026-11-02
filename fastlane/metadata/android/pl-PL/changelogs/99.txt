@@ -1,0 +1,15 @@
+Version 0.12.7
+
+- Pobieranie kończy się w kilka sekund.
+- Wideo z tekstami piosenek do 10 minut; funkcja żywego rozmycia podąża za muzyką.
+- Widżet Półka jest dostępny w trzech wyglądach.
+- Udostępnione utwory wyświetlają swoją kartę na czatach.
+
+- Mniej awarii: podczas uruchamiania aplikacji oraz przenoszenia dużych plików pobierania.
+- Funkcja pomijania ciszy utrzymuje cichą muzykę w jej normalnym tempie.
+- Korektor dźwięku w menu odtwarzacza działa poprawnie.
+- Wyszukiwanie tekstów piosenek znajduje więcej wyników.
+- Informacja dotycząca Korei Południowej.
+
+Pełna lista zmian:
+https://github.com
