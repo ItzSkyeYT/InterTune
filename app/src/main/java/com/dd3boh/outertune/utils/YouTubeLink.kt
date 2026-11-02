@@ -85,12 +85,14 @@ sealed interface YouTubeLink {
         }
 
         /**
-         * The share page's link (ShareLinks.song and .album make them, intertune.app/s/#v=...): what
-         * it opens is after the #, in the page's own keys, v= a song and l= a list, an album's for
+         * The share page's link (ShareLinks.song and .album make them): a song's id in the path since
+         * the version after 0.12.6 (intertune.app/s/v/<id>#t=...), before that after the #
+         * (intertune.app/s/#v=...), in the page's own keys, v= a song and l= a list, an album's for
          * one. The name, the artists, the length and the kind beside them (t=, a=, d=, k=) are for
          * the page to show. With both, it is the song, as on the page.
          */
         private fun sharePage(path: List<String>, fragment: String?): YouTubeLink? {
+            if (path.size == 3 && path[0] == "s" && path[1] == "v") return path[2].takeIf { it.matches(PAGE_SONG) }?.let { Video(it, null) }
             if (path != listOf("s")) return null
             // Split before anything is decoded: a name can hold an & or an = of its own.
             val keys = pairs(fragment)

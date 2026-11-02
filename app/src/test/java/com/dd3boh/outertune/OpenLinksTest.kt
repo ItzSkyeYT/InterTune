@@ -116,7 +116,7 @@ class OpenLinksTest {
     // What sits on it
 
     @Test
-    fun `the share page's two paths, verified, as they were`() {
+    fun `the share page's two paths and its songs' own pages, verified`() {
         val page = onLinks.single { "intertune.app" in it.all("host") }
         assertTrue("autoVerify", page.autoVerify)
         assertEquals(setOf(view), page.actions)
@@ -124,7 +124,9 @@ class OpenLinksTest {
         assertEquals(setOf("https"), page.all("scheme"))
         assertEquals(setOf("intertune.app"), page.all("host"))
         assertEquals(setOf("/s", "/s/"), page.all("path"))
-        for (attribute in listOf("pathPrefix", "pathPattern", "pathAdvancedPattern", "pathSuffix")) assertTrue(attribute, page.all(attribute).isEmpty())
+        // A song's page, /s/v/<id> (the version after 0.12.6): that prefix and no wider, so /sitemap.xml stays the browser's.
+        assertEquals(setOf("/s/v/"), page.all("pathPrefix"))
+        for (attribute in listOf("pathPattern", "pathAdvancedPattern", "pathSuffix")) assertTrue(attribute, page.all(attribute).isEmpty())
     }
 
     @Test

@@ -138,6 +138,17 @@ class YouTubeLinkTest {
     }
 
     @Test
+    fun `a song's own share page, its id in the path, opens the song`() {
+        assertEquals(bohemian, YouTubeLink.parse("https://intertune.app/s/v/BSTsnWoslP4#t=Bohemian%20Rhapsody&a=Queen&d=354&k=t"))
+        assertEquals(bohemian, YouTubeLink.parse("https://www.intertune.app/s/v/BSTsnWoslP4"))
+        assertEquals(bohemian, YouTubeLink.parse("https://intertune.app/s/v/BSTsnWoslP4/"))
+        assertEquals(false, (YouTubeLink.parse("https://intertune.app/s/v/BSTsnWoslP4#t=x") as Video).playNow)
+        assertNull(YouTubeLink.parse("https://intertune.app/s/v/BSTsnWosl"))
+        assertNull(YouTubeLink.parse("https://intertune.app/s/v/"))
+        assertNull(YouTubeLink.parse("https://intertune.app/s/card/BSTsnWoslP4.jpg"))
+    }
+
+    @Test
     fun `the share page's album link opens the album`() {
         assertEquals(
             fiveMoreHours,
@@ -230,13 +241,13 @@ class YouTubeLinkTest {
         val paths = all("data", "path")
         val prefixes = all("data", "pathPrefix")
         fun claimed(path: String) = path in paths || prefixes.any { path.startsWith(it) }
-        for (path in listOf("/s", "/s/")) assertTrue(path, claimed(path))
-        for (path in listOf("/", "/wiki/", "/wiki/faq/", "/sitemap.xml", "/settings", "/s/icons/spotify.svg", "/404.html", "/releases/")) {
+        for (path in listOf("/s", "/s/", "/s/v/BSTsnWoslP4")) assertTrue(path, claimed(path))
+        // the preview's picture of a song stays the browser's (and the chat app's)
+        for (path in listOf("/", "/wiki/", "/wiki/faq/", "/sitemap.xml", "/settings", "/s/icons/spotify.svg", "/404.html", "/releases/", "/s/card/BSTsnWoslP4.jpg")) {
             assertFalse(path, claimed(path))
         }
-        // And every page it takes, the app opens.
-        for (path in paths + prefixes) {
-            assertNotNull(path, YouTubeLink.parse("https://intertune.app$path#v=BSTsnWoslP4"))
-        }
+        // And every page it takes, the app opens: the page with the song after the #, a song's own page by its id.
+        for (path in paths) assertNotNull(path, YouTubeLink.parse("https://intertune.app$path#v=BSTsnWoslP4"))
+        for (prefix in prefixes) assertNotNull(prefix, YouTubeLink.parse("https://intertune.app${prefix}BSTsnWoslP4"))
     }
 }
