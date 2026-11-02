@@ -2197,4 +2197,10 @@
     <string name="crash_newer_update">Mettre à jour</string>
     <string name="problem_report_share_file">Partager en fichier</string>
     <string name="dl_song_files_note">Chaque titre y est enregistré en Opus ou en M4A, avec son nom, son artiste et sa pochette, pour que d\'autres applis et les voitures puissent le lire.</string>
+    <string name="new_shelf_looks_title">L\'Étagère en trois looks</string>
+    <string name="new_shelf_looks_body">Grande pochette, Bac à disques ou Vinyles, à choisir sous Look dans les réglages du widget.</string>
+    <string name="new_lyrics_video_long_title">Des vidéos de paroles jusqu\'à dix minutes</string>
+    <string name="new_lyrics_video_long_body">Appuyez longuement sur une ligne des paroles pour partager une vidéo qui prend jusqu\'à dix minutes du titre. Avec le Flou vivant, son fond bouge avec la musique.</string>
+    <string name="new_share_cards_title">Les titres partagés montrent leur pochette</string>
+    <string name="new_share_cards_body">Un titre partagé en page InterTune affiche son nom et sa pochette dans les applis de discussion.</string>
 </resources>
