@@ -1903,6 +1903,11 @@
         <item quantity="many">Une image prend %1$d lignes au plus, une vidéo une minute de la chanson</item>
         <item quantity="other">Une image prend %1$d lignes au plus, une vidéo une minute de la chanson</item>
     </plurals>
+    <plurals name="lyrics_pick_most_video_minutes">
+        <item quantity="one">Une image prend %1$d ligne, une vidéo %2$d minutes de la chanson</item>
+        <item quantity="many">Une image prend %1$d lignes au plus, une vidéo %2$d minutes de la chanson</item>
+        <item quantity="other">Une image prend %1$d lignes au plus, une vidéo %2$d minutes de la chanson</item>
+    </plurals>
     <string name="queue_from_search">« %1$s »</string>
     <!-- The phone's own search and the equalizer, in every build from 0.12. -->
     <string name="system_search_description">Les titres, artistes, albums et playlists de votre bibliothèque, puis sur YouTube Music.</string>
