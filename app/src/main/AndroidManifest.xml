@@ -174,7 +174,8 @@
                  which names the app (verified domain by domain from Android 12). Without the app they
                  stay the page. What to open is after the #, which a filter cannot see: YouTubeLink
                  reads it. The page's two paths only, so the rest of the site stays in the browser: a
-                 pathPrefix of "/s" would take /sitemap.xml too. -->
+                 pathPrefix of "/s" would take /sitemap.xml too. A song's page has its id in the path
+                 since the version after 0.12.6 (/s/v/<id>), so that chat apps can preview the song. -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
 
@@ -185,6 +186,7 @@
                 <data android:host="intertune.app" />
                 <data android:path="/s" />
                 <data android:path="/s/" />
+                <data android:pathPrefix="/s/v/" />
             </intent-filter>
 
             <!-- Youtube filter -->

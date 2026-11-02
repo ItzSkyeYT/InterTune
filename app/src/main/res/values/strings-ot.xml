@@ -2121,6 +2121,11 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="one">A picture takes %1$d line, a video a minute of the song</item>
         <item quantity="other">A picture takes up to %1$d lines, a video a minute of the song</item>
     </plurals>
+    <!-- Held back from translators until the next push of texts, which also drops lyrics_pick_most_video above (a video takes ten minutes now). %1$d is the most lines a picture takes, %2$d the most minutes of the song a video takes. -->
+    <plurals name="lyrics_pick_most_video_minutes" translatable="false">
+        <item quantity="one">A picture takes %1$d line, a video %2$d minutes of the song</item>
+        <item quantity="other">A picture takes up to %1$d lines, a video %2$d minutes of the song</item>
+    </plurals>
     <string name="queue_from_search">“%1$s”</string>
     <!-- Familiar first, a test of Quick picks in debug builds: not for translators -->
     <string name="familiar_first" translatable="false">Familiar first (test)</string>

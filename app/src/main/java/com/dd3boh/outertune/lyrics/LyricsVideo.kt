@@ -13,6 +13,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.media.MediaCodec
 import android.media.MediaCodecInfo
+import android.media.MediaCodecList
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMuxer
@@ -63,6 +64,7 @@ import kotlin.coroutines.resumeWithException
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
+import kotlin.math.roundToLong
 
 /**
  * Makes a lyrics video ([LyricsVideoPlan]) on the phone, with Media3's Transformer, in three steps:
@@ -80,20 +82,31 @@ object LyricsVideo {
     private const val TAG = "LyricsVideo"
 
 
-    /** The levels are measured from this long before the stretch, so that Living blur starts out knowing the song's shape, as it does in the player. */
-    private const val HEARD_BEFORE_MS = 8_000L
+    /**
+     * The levels are measured from this long before the stretch, so that Living blur starts out
+     * knowing the song's shape, as it does in the player, which has been listening since it was
+     * opened: how loud the song gets is a matter of most of a minute, a build-up of several seconds.
+     */
+    private const val HEARD_BEFORE_MS = 30_000L
 
     /** How much of the whole each step is, for the progress shown. */
     private const val SOUND_SHARE = 0.12f
     private const val JOIN_SHARE = 0.03f
 
-    /** The levels measured from the stretch's sound, one set of [MusicLevels.VALUES] every [MusicLevels.FRAME_SECONDS], from its start. */
-    class Heard(private val sets: List<FloatArray>) {
-        /** What is heard at [ms] into the video, or null past what was measured. */
+    /**
+     * The levels measured from the song, one set of [MusicLevels.VALUES] every
+     * [MusicLevels.FRAME_SECONDS], from [beforeMs] before the video's start: the stretch's sound
+     * and what was heard of the song before it.
+     */
+    class Heard(private val sets: List<FloatArray>, val beforeMs: Long = 0) {
+        /**
+         * What is heard at [ms] into the video, before its start too, as far back as it was
+         * measured: null before that, and the last set measured after the end.
+         */
         fun at(ms: Long): FloatArray? {
             if (sets.isEmpty()) return null
-            val index = (ms / (MusicLevels.FRAME_SECONDS * 1000)).toInt()
-            return sets[index.coerceIn(0, sets.lastIndex)]
+            val index = Math.floorDiv(ms + beforeMs, (MusicLevels.FRAME_SECONDS * 1000).roundToLong())
+            return if (index < 0) null else sets[min(index, sets.lastIndex.toLong()).toInt()]
         }
     }
 
@@ -208,7 +221,13 @@ object LyricsVideo {
             )
             setAudioMimeType(MimeTypes.AUDIO_AAC)
         }
-        return Heard(cut.heard())
+        val sets = cut.heard()
+        // What Living blur moves with. With nothing heard it drifts on its own, and every video
+        // did until 2 Nov 2026: the levels were thrown away at Transformer's last flush.
+        Log.i(TAG, "Heard ${sets.size} sets of levels (%.1f s, %.1f s of them before the stretch), the bass at most %.2f".format(
+            sets.size * MusicLevels.FRAME_SECONDS, (clip.startMs - heardFrom) / 1000f, sets.maxOfOrNull { it[MusicLevels.BASS] } ?: 0f,
+        ))
+        return Heard(sets, beforeMs = clip.startMs - heardFrom)
     }
 
     /**
@@ -216,14 +235,24 @@ object LyricsVideo {
      * after the [skipMs] of song before it that are only measured. Measures all of it for Living
      * blur ([LevelAnalyser], as the player's own tap does).
      */
-    private class SoundCut(private val skipMs: Long, private val durationMs: Long) : BaseAudioProcessor() {
+    internal class SoundCut(private val skipMs: Long, private val durationMs: Long) : BaseAudioProcessor() {
         private val sets = ArrayList<FloatArray>()
         private var analyser: LevelAnalyser? = null
         private var seen = 0L
         private var skip = 0L
 
-        /** The levels from the stretch's start. Asked once the export is over. */
-        fun heard(): List<FloatArray> = synchronized(sets) { sets.toList() }
+        /**
+         * The levels as they were when the sound ended. Transformer flushes its processors once
+         * more after that, on its way out, and a flush starts the measuring over.
+         */
+        private var ended: List<FloatArray>? = null
+
+        /** The levels of all that was heard, from the first sample. Asked once the export is over. */
+        fun heard(): List<FloatArray> = synchronized(sets) { ended ?: sets.toList() }
+
+        override fun onQueueEndOfStream() {
+            synchronized(sets) { ended = sets.toList() }
+        }
 
         override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
             if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT && inputAudioFormat.encoding != C.ENCODING_PCM_FLOAT) {
@@ -234,12 +263,14 @@ object LyricsVideo {
 
         override fun onFlush() {
             val rate = inputAudioFormat.sampleRate
+            synchronized(sets) {
+                // what was heard before a flush is kept, should the end of the sound not have said so
+                if (seen > 0 && ended == null) ended = sets.toList()
+                sets.clear()
+            }
             seen = 0L
             skip = skipMs * rate / 1000
-            synchronized(sets) { sets.clear() }
-            analyser = LevelAnalyser(rate) { endsAt, levels ->
-                if (endsAt > skip) synchronized(sets) { sets += levels.copyOf() }
-            }
+            analyser = LevelAnalyser(rate) { _, levels -> synchronized(sets) { sets += levels.copyOf() } }
         }
 
         override fun queueInput(inputBuffer: ByteBuffer) {
@@ -327,9 +358,10 @@ object LyricsVideo {
                         VideoEncoderSettings.Builder()
                             .setBitrate(LyricsVideoPlan.PICTURE_BITRATE)
                             // Held to it, so the size is known before it is made: left to vary, the
-                            // emulator's encoder took 2 Mbit/s for 1.2 asked. One that cannot hold
-                            // a rate falls back to its own way.
-                            .setBitrateMode(MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR)
+                            // emulator's encoder took 2 Mbit/s for 1.2 asked. Only where an encoder
+                            // can hold a rate: asked of a phone with none, Transformer found no
+                            // encoder at all and no video was made (the Android 7 emulator, 2 Nov 2026).
+                            .apply { if (constantRate) setBitrateMode(MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR) }
                             .build()
                     )
                     .build()
@@ -477,6 +509,17 @@ object LyricsVideo {
                 }
             }
         }
+    }
+
+    /** Whether one of the phone's H.264 encoders can hold a constant rate. */
+    private val constantRate: Boolean by lazy {
+        runCatching {
+            MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos.any { info ->
+                info.isEncoder && info.supportedTypes.any { it.equals(MimeTypes.VIDEO_H264, ignoreCase = true) } &&
+                    info.getCapabilitiesForType(MimeTypes.VIDEO_H264).encoderCapabilities
+                        ?.isBitrateModeSupported(MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR) == true
+            }
+        }.getOrDefault(false)
     }
 
     private const val FOLDER = "lyrics-videos"
