@@ -121,7 +121,9 @@ class SyncLockTest {
         assertFalse(session.contains("YouTubeQueue"))
         assertTrue(session.contains("matchQueue()"))
         // Nor do its own top-ups and drops change the leader's queue on it.
-        assertTrue(service.contains("together.value?.following != true &&\n            mediaItem != null"))
+        // The guard sits among the auto load more conditions, beside the end of an album's (EndlessQueue).
+        val autoLoad = service.substringAfter("if (autoLoadMore &&").substringBefore(") {")
+        assertTrue(autoLoad.contains("together.value?.following != true &&"))
         val replan = service.substringAfter("private fun replanQueueTail(").substringBefore("\n    }\n")
         assertTrue(replan.contains("if (together.value?.following == true) return"))
     }

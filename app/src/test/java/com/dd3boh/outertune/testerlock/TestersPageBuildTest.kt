@@ -148,8 +148,9 @@ class TestersPageBuildTest {
         assertEquals(listOf("TesterLock.testerNumber(context)"), Regex("TesterLock\\.\\w+\\([^)]*\\)").findAll(dialog).map { it.value }.toList())
         assertTrue("testerNumber = testerNumber," in dialog)
         // Every run listed carries it, an earlier run's too: it is the sender's.
-        assertTrue("LogChoice(null, ProblemLog.excerpt(lines), StopReasons.read(context), installedFrom, phoneNow, playback, tester)" in dialog)
-        assertTrue("installedFrom, phoneNow, testerNumber = tester)" in dialog)
+        // This run's, beside the settings and steps (Unreleased.REPORT_PLUS), and every earlier run's.
+        assertTrue("testerNumber = tester, settings = extrasNow?.settings.orEmpty(), trail = extrasNow?.steps," in dialog)
+        assertTrue("installedFrom, phoneNow, testerNumber = tester, settings = extras?.settings.orEmpty())" in dialog)
         // The number is what the lock hands out: from the code kept, through the one function that reads a number from it.
         assertTrue("TesterLockStore(context.applicationContext).load().code?.let { TesterCode.numberOf(it) }" in lock)
     }
