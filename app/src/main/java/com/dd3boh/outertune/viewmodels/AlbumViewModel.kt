@@ -5,12 +5,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dd3boh.outertune.db.AlbumRows
 import com.dd3boh.outertune.db.MusicDatabase
+import com.dd3boh.outertune.utils.AlbumAnswerPretend
 import com.dd3boh.outertune.utils.WhyStopped
 import com.dd3boh.outertune.utils.YouTubeTrouble
 import com.dd3boh.outertune.utils.reportException
 import com.dd3boh.outertune.utils.albumWithOrderedSongs
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.AlbumItem
+import com.zionhuang.innertube.pages.AlbumPage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -72,7 +74,9 @@ class AlbumViewModel @Inject constructor(
                 isLoading.value = false
                 return@launch
             }
-            YouTube.album(albumId).onSuccess {
+            // A debug build can be told to answer as YouTube does for an album it has nothing under.
+            val answer = AlbumAnswerPretend.failureFor(albumId)?.let { Result.failure<AlbumPage>(it) } ?: YouTube.album(albumId)
+            answer.onSuccess {
                 failedKind.value = null
                 YouTubeTrouble.answered(asAccount = YouTube.useLoginForBrowse)
                 // Set before the wait below, so the other versions are ready when the songs appear.

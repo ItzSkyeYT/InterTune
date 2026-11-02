@@ -265,6 +265,7 @@ import com.dd3boh.outertune.utils.PollChecker
 import com.dd3boh.outertune.utils.UpdateChecker
 import com.dd3boh.outertune.utils.UpdateInstaller
 import com.dd3boh.outertune.utils.AutoBlocker
+import com.dd3boh.outertune.utils.AlbumAnswerPretend
 import com.dd3boh.outertune.utils.YouTubeRegion
 import com.dd3boh.outertune.utils.AutoBlockerReturn
 import com.dd3boh.outertune.utils.ReturnVerdict
@@ -687,6 +688,8 @@ class MainActivity : ComponentActivity() {
         // Debug builds only, the same way: a file that makes YouTube count as seeing this connection
         // in another country, so the note for Korea (#68) can be seen from anywhere.
         YouTubeRegion.pretendFrom(this)
+        // And a file that makes album pages fail as YouTube's NOT_FOUND does, to see what they do then.
+        AlbumAnswerPretend.pretendFrom(this)
         // Not again after a rotation or a restored process: the shortcut was tapped once. Nor when
         // the task is reopened from recents, which starts it again with the shortcut's intent and
         // replayed the liked songs over whatever was playing (Android 11 and older, where Back
