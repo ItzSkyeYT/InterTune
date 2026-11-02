@@ -886,9 +886,15 @@ class SyncUtils @Inject constructor(
             listOf(libraryId to 0, uploadsId to 1).map { (browseId, tab) ->
                 async {
                     YouTube.library(browseId, tab).fold(
-                        onSuccess = { it.walkItems() },
+                        onSuccess = {
+                            YouTubeTrouble.answered(asAccount = true)
+                            it.walkItems()
+                        },
                         onFailure = {
                             Log.w(TAG, "Could not read $browseId: ${it.message?.let(ErrorText::withoutAddresses)}")
+                            // Asked as the account: a sign-in YouTube no longer accepts shows here
+                            // first, at Home's start, and Home says so (WhyStopped).
+                            YouTubeTrouble.failed(it)
                             Walked(emptyList<YTItem>(), complete = false)
                         }
                     )

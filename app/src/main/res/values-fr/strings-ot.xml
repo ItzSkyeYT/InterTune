@@ -2118,4 +2118,9 @@
     <string name="region_note_proxy">Réglages du proxy</string>
     <string name="proxy_restart_title">Redémarrer pour utiliser le nouveau proxy</string>
     <string name="proxy_restart_description">InterTune prend le proxy au démarrage. Touchez pour le redémarrer maintenant ; la musique s\'arrête.</string>
+    <string name="why_stopped_sign_in_title">Votre connexion YouTube a expiré</string>
+    <string name="why_stopped_sign_in_body">YouTube n\'accepte plus la connexion que garde InterTune, donc la recherche, les radios et les mix ne se chargent pas. Reconnectez-vous pour les retrouver.</string>
+    <string name="why_stopped_sign_in_again">Se reconnecter</string>
+    <string name="why_stopped_unreachable_title">Impossible de joindre YouTube</string>
+    <string name="why_stopped_unreachable_body">Cette connexion n\'arrive pas jusqu\'à YouTube. Si vous utilisez un VPN, vérifiez que son split tunneling inclut InterTune, ou essayez un autre réseau.</string>
 </resources>

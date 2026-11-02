@@ -10,6 +10,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dd3boh.outertune.models.ItemsPage
 import com.dd3boh.outertune.ui.screens.search.SearchFilters
+import com.dd3boh.outertune.utils.WhyStopped
+import com.dd3boh.outertune.utils.YouTubeTrouble
 import com.dd3boh.outertune.utils.reportException
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.pages.SearchSummaryPage
@@ -39,6 +41,9 @@ class OnlineSearchViewModel @Inject constructor(
      */
     val failed = mutableStateMapOf<String, Boolean>()
 
+    /** What each of those failures came to, for the page to say why (WhyStopped). */
+    val failedKind = mutableStateMapOf<String, WhyStopped.Kind>()
+
     init {
         viewModelScope.launch {
             filter.collect { filter -> load(filter) }
@@ -51,10 +56,13 @@ class OnlineSearchViewModel @Inject constructor(
                 failed.remove(SUMMARY)
                 YouTube.searchSummary(query)
                     .onSuccess {
+                        YouTubeTrouble.answered(asAccount = YouTube.useLoginForBrowse)
                         summaryPage = ContentFilter.current.search(it)
                     }
                     .onFailure {
                         reportException(it)
+                        YouTubeTrouble.failed(it)
+                        failedKind[SUMMARY] = WhyStopped.kindOf(it)
                         failed[SUMMARY] = true
                     }
             }
@@ -63,10 +71,13 @@ class OnlineSearchViewModel @Inject constructor(
                 failed.remove(filter.value)
                 YouTube.search(query, filter)
                     .onSuccess { result ->
+                        YouTubeTrouble.answered(asAccount = YouTube.useLoginForBrowse)
                         viewStateMap[filter.value] = ItemsPage(ContentFilter.current.apply(result.items.distinctBy { it.id }), result.continuation)
                     }
                     .onFailure {
                         reportException(it)
+                        YouTubeTrouble.failed(it)
+                        failedKind[filter.value] = WhyStopped.kindOf(it)
                         failed[filter.value] = true
                     }
             }

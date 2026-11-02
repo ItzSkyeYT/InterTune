@@ -2294,4 +2294,10 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="region_note_proxy">Proxy settings</string>
     <string name="proxy_restart_title">Restart to use the new proxy</string>
     <string name="proxy_restart_description">InterTune takes the proxy when it starts. Tap to restart it now; the music stops.</string>
+    <!-- Why search, radios, mixes or Home stopped loading (WhyStopped): on Home, on a search, album or playlist page that failed, and under a radio that did not start. Held from translators until his yes. -->
+    <string name="why_stopped_sign_in_title" translatable="false">Your YouTube sign-in expired</string>
+    <string name="why_stopped_sign_in_body" translatable="false">YouTube no longer accepts the sign-in InterTune keeps, so search, radios and mixes don\'t load. Sign in again to bring them back.</string>
+    <string name="why_stopped_sign_in_again" translatable="false">Sign in again</string>
+    <string name="why_stopped_unreachable_title" translatable="false">YouTube can\'t be reached</string>
+    <string name="why_stopped_unreachable_body" translatable="false">This connection isn\'t getting through to YouTube. If you use a VPN, make sure its split tunnelling includes InterTune, or try another network.</string>
 </resources>

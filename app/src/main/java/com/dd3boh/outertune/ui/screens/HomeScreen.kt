@@ -134,6 +134,7 @@ import com.dd3boh.outertune.ui.component.AnnouncementDialog
 import com.dd3boh.outertune.ui.component.AutoBlockerNote
 import com.dd3boh.outertune.ui.component.PollBanner
 import com.dd3boh.outertune.ui.component.RegionNoteIfClosed
+import com.dd3boh.outertune.ui.component.WhyStoppedNoteIfAny
 import com.dd3boh.outertune.ui.component.ThrottleBanner
 import com.dd3boh.outertune.ui.component.PollDialog
 import com.dd3boh.outertune.ui.component.ChipsRow
@@ -698,6 +699,18 @@ fun HomeScreen(
             // mixes (#68). Shown only while YouTube sees the connection there, until Done.
             item(key = "region_note") {
                 RegionNoteIfClosed(modifier = Modifier.animateItem())
+            }
+
+            // Why search, radios or Home's songs from YouTube stopped loading, where that is clear:
+            // a sign-in YouTube no longer accepts, or a connection that does not reach it. Shown
+            // from the last such failure anywhere in the app (YouTubeTrouble) until something says
+            // otherwise. Signing in again reloads this page by itself.
+            item(key = "why_stopped") {
+                WhyStoppedNoteIfAny(
+                    onSignIn = { navController.navigate("login") },
+                    onRetry = { viewModel.refresh(force = true) },
+                    modifier = Modifier.animateItem(),
+                )
             }
 
             // What is new since an update, for somebody back after one. First of the three that

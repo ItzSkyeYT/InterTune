@@ -72,6 +72,7 @@ import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.utils.mayPushToYouTube
 import com.dd3boh.outertune.utils.reportException
 import com.dd3boh.outertune.utils.YouTubeRegion
+import com.dd3boh.outertune.utils.YouTubeTrouble
 import com.dd3boh.outertune.utils.StreamOrder
 import com.dd3boh.outertune.utils.RemoteRoutes
 import com.dd3boh.outertune.constants.CachedPollsJsonKey
@@ -239,6 +240,8 @@ class App : Application(), SingletonImageLoader.Factory {
                 .map { it[InnerTubeCookieKey] }
                 .distinctUntilChanged()
                 .collect { cookie ->
+                    // Signed in again, or out: a refusal of the old sign-in no longer holds (WhyStopped).
+                    YouTubeTrouble.signInChanged()
                     try {
                         YouTube.cookie = cookie
                     } catch (e: Exception) {

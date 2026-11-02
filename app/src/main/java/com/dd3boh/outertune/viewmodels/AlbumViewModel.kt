@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dd3boh.outertune.db.AlbumRows
 import com.dd3boh.outertune.db.MusicDatabase
+import com.dd3boh.outertune.utils.WhyStopped
+import com.dd3boh.outertune.utils.YouTubeTrouble
 import com.dd3boh.outertune.utils.reportException
 import com.dd3boh.outertune.utils.albumWithOrderedSongs
 import com.zionhuang.innertube.YouTube
@@ -38,6 +40,9 @@ class AlbumViewModel @Inject constructor(
 
     val isLoading = MutableStateFlow(true)
 
+    /** What the last load's failure came to, for the page to say why (WhyStopped); null when it did not fail. */
+    val failedKind = MutableStateFlow<WhyStopped.Kind?>(null)
+
     init {
         load()
     }
@@ -68,6 +73,8 @@ class AlbumViewModel @Inject constructor(
                 return@launch
             }
             YouTube.album(albumId).onSuccess {
+                failedKind.value = null
+                YouTubeTrouble.answered(asAccount = YouTube.useLoginForBrowse)
                 // Set before the wait below, so the other versions are ready when the songs appear.
                 otherVersions.value = it.otherVersions
                 val mapped = database.albumWithSongs(albumId).first()?.songs.orEmpty().map { song -> song.id }
@@ -97,6 +104,8 @@ class AlbumViewModel @Inject constructor(
                 }
             }.onFailure {
                 reportException(it)
+                YouTubeTrouble.failed(it)
+                failedKind.value = WhyStopped.kindOf(it)
                 if (it.message?.contains("NOT_FOUND") == true) {
                     // This album no longer exists in YouTube Music
                     database.query {

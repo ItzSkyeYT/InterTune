@@ -230,6 +230,9 @@ import com.dd3boh.outertune.utils.enumPreference
 import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.utils.playerCoroutine
 import com.dd3boh.outertune.utils.coilCoroutine
+import com.dd3boh.outertune.utils.WhyStopped
+import com.dd3boh.outertune.utils.YouTubeRegion
+import com.dd3boh.outertune.utils.YouTubeTrouble
 import com.dd3boh.outertune.utils.reportException
 import com.google.common.util.concurrent.MoreExecutors
 import com.dd3boh.outertune.viewmodels.ExclusionsViewModel
@@ -2275,6 +2278,8 @@ class MusicService : MediaLibraryService(),
         val runId = System.currentTimeMillis()
 
         queuePlaylistId = queue.playlistId
+        // Whatever the last start left unsaid is for that start alone.
+        radioStopped.value = null
         // do not use scope.launch ... it breaks randomly... why is this bug back???
         CoroutineScope(Dispatchers.Main).launch {
             // This coroutine is not a child of anything onDestroy cancels, so it checks
@@ -2297,8 +2302,23 @@ class MusicService : MediaLibraryService(),
                 )
             } catch (e: Exception) {
                 reportException(e)
-                Toast.makeText(this@MusicService, ErrorText.withoutAddresses("plr: ${e.message}"), Toast.LENGTH_LONG)
-                    .show()
+                val why = stoppedWhy(e)
+                if (why == null) {
+                    Toast.makeText(this@MusicService, ErrorText.withoutAddresses("plr: ${e.message}"), Toast.LENGTH_LONG)
+                        .show()
+                } else {
+                    // Plain words instead of the exception (the pale vow's "plr: Client
+                    // request(POST https://music.youtube.com/youtubei/v1..."), and the queue sheet
+                    // says the rest under the song left alone, with the button that fixes it.
+                    Toast.makeText(this@MusicService, getString(why.title), Toast.LENGTH_LONG).show()
+                    radioStopped.value = queueBoard.getCurrentQueue()
+                        ?.takeIf { queue.preloadItem != null && it.title == QueueStart.PRELOAD_TITLE }
+                        ?.let { alone ->
+                            RadioStopped(alone.id, why.kind) {
+                                playQueue(queue, playWhenReady, shouldResume, replace, isRadio, title, origin, originSlot)
+                            }
+                        }
+                }
             }
             // The steps stop where they are when the service is torn down under them.
             if (destroyed) return@launch
@@ -3699,6 +3719,38 @@ class MusicService : MediaLibraryService(),
 
     /** What the queue sheet says about the last change, null for nothing. */
     val adaptiveNote = MutableStateFlow<AdaptiveNote.Note?>(null)
+
+    /**
+     * The start of a radio or a mix that failed for a clear reason (WhyStopped), for the queue
+     * sheet to say why under the song it left alone in [QueueStart.PRELOAD_TITLE]'s queue. Null
+     * when the last start went through, failed for no clear reason, or left no queue of its own.
+     */
+    val radioStopped = MutableStateFlow<RadioStopped?>(null)
+
+    /** [queueId] is that queue's; [retry] starts the same queue again, as it was asked for. */
+    class RadioStopped(val queueId: Long, val kind: WhyStopped.Kind, val retry: () -> Unit)
+
+    private class StoppedWhy(val kind: WhyStopped.Kind, val title: Int)
+
+    /**
+     * Why a queue's start failed with [failure], when that is clear, with the words for the toast;
+     * reported for Home's note (YouTubeTrouble) either way.
+     */
+    private fun stoppedWhy(failure: Throwable): StoppedWhy? {
+        YouTubeTrouble.failed(failure)
+        val kind = WhyStopped.kindOf(failure)
+        val cause = WhyStopped.cause(
+            kind,
+            signedIn = WhyStopped.signedIn(YouTube.cookie),
+            online = isNetworkConnected.value,
+            regionClosed = YouTubeRegion.closed(YouTubeRegion.seen.value),
+        ) ?: return null
+        return StoppedWhy(kind, when (cause) {
+            WhyStopped.Cause.SIGN_IN -> R.string.why_stopped_sign_in_title
+            WhyStopped.Cause.UNREACHABLE -> R.string.why_stopped_unreachable_title
+            WhyStopped.Cause.REGION -> R.string.region_note_title
+        })
+    }
 
     /**
      * Asks for a pass a second from now. A newer ask before it is done takes its place, with both

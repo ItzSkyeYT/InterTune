@@ -170,6 +170,8 @@ import com.dd3boh.outertune.playback.AdaptiveNote
 import com.dd3boh.outertune.playback.AdaptiveQueue
 import androidx.compose.material.icons.rounded.AutoAwesome
 import com.dd3boh.outertune.ui.component.LazyColumnScrollbar
+import com.dd3boh.outertune.ui.component.FailedNote
+import com.dd3boh.outertune.playback.QueueStart
 import com.dd3boh.outertune.ui.component.SelectHeader
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.component.button.ResizableIconButton
@@ -659,6 +661,9 @@ fun BoxScope.QueueContent(
     val adaptivePicks by playerConnection.service.adaptivePicks.collectAsState()
     val adaptiveNote by playerConnection.service.adaptiveNote.collectAsState()
     val adaptiveSaying = adaptiveTailActive && !isSearching && detachedQueue == null
+    // Why the radio or mix this queue was to become did not start, said under the song it left
+    // alone: Val's queue of one ("Radiotemp", 1/1, Discord, 1 Nov 2026) said nothing at all.
+    val radioStopped by playerConnection.service.radioStopped.collectAsState()
     // The preview the sheet shows while the player holds nothing yet (after an update or a
     // restart, until something plays) is of the queue that is playing: its far end is folded
     // away like the live queue's, from the song it is at, not shown in full. Another queue looked
@@ -961,7 +966,7 @@ fun BoxScope.QueueContent(
                                     )
                                 }
                                 Text(
-                                    text = "${index + 1}. ${mq.title}",
+                                    text = "${index + 1}. ${QueueStart.shownTitle(mq.title) { mq.getCurrentQueueShuffled().firstOrNull()?.title }}",
                                     maxLines = 1,
                                     overflow = TextOverflow.MiddleEllipsis,
                                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 0.dp)
@@ -1255,6 +1260,22 @@ fun BoxScope.QueueContent(
             // picks after your skip". It used to be a row of its own above the songs, which said
             // "Tuned to this session" over playlists and albums too, put the list's scroll one row
             // above the song playing, and was off screen whenever the sheet opened at that song.
+            val stopped = radioStopped?.takeIf { !isSearching && detachedQueue == null && it.queueId == qb.getCurrentQueue()?.id }
+            if (stopped != null) {
+                item(key = "radio-stopped", contentType = "radio-stopped") {
+                    FailedNote(
+                        kind = stopped.kind,
+                        onSignIn = {
+                            navController.navigate("login")
+                            queueState?.collapseSoft()
+                            playerState.collapseSoft()
+                        },
+                        onRetry = stopped.retry,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+            }
+
             val note = adaptiveNote.takeIf { adaptiveSaying }
             if (hiddenTailCount > 0 || note != null) {
                 item(key = "adaptive-tail", contentType = "adaptive-tail") {
@@ -1437,7 +1458,9 @@ fun BoxScope.QueueContent(
                             }
                     ) {
                         Text(
-                            text = detachedQueue?.title ?: mutableQueues.getOrNull(playingQueue)?.title ?: "",
+                            text = (detachedQueue ?: mutableQueues.getOrNull(playingQueue))
+                                ?.let { shown -> QueueStart.shownTitle(shown.title) { shown.getCurrentQueueShuffled().firstOrNull()?.title } }
+                                ?: "",
                             style = MaterialTheme.typography.titleMedium,
                             maxLines = if (compact) 1 else Int.MAX_VALUE,
                             overflow = TextOverflow.Ellipsis,
@@ -1451,7 +1474,8 @@ fun BoxScope.QueueContent(
                             icon = Icons.AutoMirrored.Rounded.PlaylistAdd,
                             enabled = mutableSongs.isNotEmpty(),
                             onClick = {
-                                val title = detachedQueue?.title ?: mutableQueues.getOrNull(playingQueue)?.title
+                                val title = (detachedQueue ?: mutableQueues.getOrNull(playingQueue))
+                                    ?.let { shown -> QueueStart.shownTitle(shown.title) { shown.getCurrentQueueShuffled().firstOrNull()?.title } }
                                 coroutineScope.launch(Dispatchers.IO) {
                                     val names = database.playlists(PlaylistFilter.LIBRARY, PlaylistSortType.NAME, true)
                                         .first().map { it.playlist.name }

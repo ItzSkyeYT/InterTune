@@ -97,10 +97,9 @@ import com.dd3boh.outertune.ui.component.FloatingFooter
 import com.dd3boh.outertune.ui.component.FloatingTopBar
 import com.dd3boh.outertune.ui.component.FontSizeRange
 import com.dd3boh.outertune.ui.component.LazyColumnScrollbar
-import com.dd3boh.outertune.ui.component.LoadFailed
-import com.dd3boh.outertune.ui.component.RegionNote
-import com.dd3boh.outertune.ui.component.openProxySetting
-import com.dd3boh.outertune.utils.YouTubeRegion
+import com.dd3boh.outertune.ui.component.FailedNote
+import com.dd3boh.outertune.ui.component.RetryWhenSignInChanges
+import com.dd3boh.outertune.utils.WhyStopped
 import com.dd3boh.outertune.ui.component.NavigationTitle
 import com.dd3boh.outertune.ui.component.SelectHeader
 import com.dd3boh.outertune.ui.component.button.IconButton
@@ -154,6 +153,9 @@ fun AlbumScreen(
     val otherVersions by viewModel.otherVersions.collectAsState()
     val state = rememberLazyListState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val failedKind by viewModel.failedKind.collectAsState()
+    // Signed in again from the note: the album the old sign-in failed is asked again.
+    RetryWhenSignInChanges(failed = failedKind != null, retry = viewModel::retry)
 
     // The song a link opened the album on (youtubeNavigator): brought into view once, under the
     // header and a third of the way down, and lit for a moment, so it is clear which one it was.
@@ -581,13 +583,15 @@ fun AlbumScreen(
             // page, and in South Korea every album was one, since YouTube keeps albums there for
             // Premium members (#68).
             item(key = "not_loaded") {
-                Column {
-                    val seen by YouTubeRegion.seen.collectAsState()
-                    if (YouTubeRegion.closed(seen)) {
-                        RegionNote(onProxy = ::openProxySetting, onDone = null)
-                    }
-                    LoadFailed(onRetry = viewModel::retry)
-                }
+                // And why, when it is clear: a sign-in YouTube no longer accepts, a connection that
+                // does not reach it, or the closed country (WhyStopped). Retry either way. An album
+                // that came back with no songs failed for no clear reason, which in a closed country
+                // is the country's, as before.
+                FailedNote(
+                    kind = failedKind ?: WhyStopped.Kind.OTHER,
+                    onSignIn = { navController.navigate("login") },
+                    onRetry = viewModel::retry,
+                )
             }
         }
     }

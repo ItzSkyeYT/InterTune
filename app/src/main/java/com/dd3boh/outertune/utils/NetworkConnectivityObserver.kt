@@ -68,6 +68,7 @@ class NetworkConnectivityObserver(
             // immediately re-trips; under-clearing costs the user their music.
             Throttle.onNetworkChanged()
             NetworkPace.forget()
+            YouTubeTrouble.networkChanged()
             runCatching { onNetworkChanged() }
         }
     }
