@@ -490,11 +490,13 @@ private fun Listening(
         verticalAlignment = Alignment.Bottom,
         modifier = Modifier.padding(top = 4.dp)
     ) {
+        // Weighted without filling, as the screen's: the dots keep their room beside a long line.
         Text(
             text = phrase,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
+            modifier = Modifier.weight(1f, fill = false),
         )
         AnimatedDots(color = MaterialTheme.colorScheme.onSurfaceVariant)
     }

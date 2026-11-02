@@ -904,10 +904,13 @@ private fun ListenButton(
                 horizontalArrangement = Arrangement.Center,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
             ) {
+                // Weighted without filling: a line that fills the row, as a message does in French or
+                // at a larger text size, left the dots no room and drew one of them above the text.
                 Text(
                     text = message ?: phrase,
                     style = MaterialTheme.typography.titleMedium,
                     textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f, fill = false),
                 )
                 AnimatedDots(style = MaterialTheme.typography.titleMedium)
             }
