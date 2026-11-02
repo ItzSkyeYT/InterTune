@@ -28,10 +28,52 @@ class Gates(
     val jitterMs: Double,
     val activeBeats: Int,
     val downbeatMargin: Double,
+    /** The bars were taken from an opening's first sound on a beat ([RegionAnalysis.firstSoundIsOne]). */
+    val barsFromFirstSound: Boolean = false,
+    /** The listener set this tempo by hand ([RegionAnalysis.atTempo]): the tempo and the beats are theirs to trust. */
+    val byHand: Boolean = false,
 ) {
-    val tempo: Boolean get() = tempoZ >= MIN_Z && rivalRatio <= MAX_RIVAL && steadiness <= MAX_SPREAD && drift <= MAX_DRIFT
+    val tempo: Boolean get() = byHand || tempoZ >= MIN_Z && rivalRatio <= MAX_RIVAL && steadiness <= MAX_SPREAD && drift <= MAX_DRIFT
 
-    val beats: Boolean get() = tempo && hitShare >= MIN_HITS && jitterMs <= MAX_JITTER_MS && activeBeats >= MIN_BEATS
+    /**
+     * How sure the beats are, 0 to 1, for the editor to say when it is not: each of the beat
+     * gates read as a score that is 0.5 exactly at its limit, 1 at twice as clear and 0 at twice
+     * as far off, and the lowest of them taken. So [beats] is exactly a confidence of [SURE] or
+     * more. Held against the Harmonix annotations (mix-better, 2 Nov 2026, 89 windows of 23
+     * songs): 92% of the windows at [SURE] or more had their beats right (tempo within 1%, 90% of
+     * the beats within 25 ms), and 88% of the windows whose beats were right got there.
+     */
+    val beatConfidence: Double
+        get() {
+            if (byHand) return 1.0
+            val scores = doubleArrayOf(
+                higher(tempoZ, MIN_Z),
+                lower(rivalRatio, MAX_RIVAL),
+                lower(steadiness, MAX_SPREAD),
+                lower(drift, MAX_DRIFT),
+                // A share cannot pass 1: 0.5 at its limit, 1 when every beat lands, 0 as far under the limit.
+                if (!hitShare.isFinite()) 0.0 else (0.5 + 0.5 * (hitShare - MIN_HITS) / (1.0 - MIN_HITS)).coerceIn(0.0, 1.0),
+                lower(jitterMs, MAX_JITTER_MS),
+                higher(activeBeats.toDouble(), MIN_BEATS.toDouble()),
+            )
+            return scores.min()
+        }
+
+    /**
+     * How sure bar 1 is, 0 to 1: a bar taken from an opening's first sound on a beat is
+     * [FIRST_SOUND_BARS] (12 of 13 right on the annotations); otherwise the downbeat margin read
+     * as the beat gates are, 0.5 at [MIN_MARGIN], and never surer than the beats. [SURE] or more is
+     * [downbeats]. On the annotations the bars at [SURE] or more were right in about two windows
+     * of three, however wide the margin: bar 1 is the guess the editor says it is.
+     */
+    val barConfidence: Double
+        get() {
+            val beatsSure = beatConfidence
+            if (barsFromFirstSound) return minOf(beatsSure.coerceAtLeast(SURE), FIRST_SOUND_BARS)
+            return minOf(beatsSure, higher(downbeatMargin, MIN_MARGIN))
+        }
+
+    val beats: Boolean get() = byHand || tempo && hitShare >= MIN_HITS && jitterMs <= MAX_JITTER_MS && activeBeats >= MIN_BEATS
 
     val downbeats: Boolean get() = beats && downbeatMargin >= MIN_MARGIN
 
@@ -56,6 +98,20 @@ class Gates(
         const val MAX_JITTER_MS = 15.0
         const val MIN_BEATS = 16
         const val MIN_MARGIN = 1.5
+
+        /** A confidence of this or more is what the gates call sure. */
+        const val SURE = 0.5
+
+        /** The bar confidence of an opening that starts on a beat. */
+        const val FIRST_SOUND_BARS = 0.9
+
+        /** 0.5 at [limit] for a value that is better high: 1 at twice it, 0 at none. */
+        private fun higher(value: Double, limit: Double): Double =
+            if (!value.isFinite()) 0.0 else (0.5 * value / limit).coerceIn(0.0, 1.0)
+
+        /** 0.5 at [limit] for a value that is better low: 1 at none, 0 at twice it. */
+        private fun lower(value: Double, limit: Double): Double =
+            if (!value.isFinite()) 0.0 else (1.0 - 0.5 * value / limit).coerceIn(0.0, 1.0)
 
         /** Nothing was found, so nothing passes. */
         val NONE = Gates(0.0, 1.0, Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY, 0.0, Double.POSITIVE_INFINITY, 0, 0.0)

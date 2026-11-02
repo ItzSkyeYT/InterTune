@@ -59,6 +59,23 @@ object Tempo {
         return b
     }
 
+    /**
+     * [bpm] as a listener would say it: doubled or halved into [FELT_LOW, 2 FELT_LOW). The grid
+     * runs folded into 85 to 170, where two songs are compared, and a hip-hop song at 70 shows as
+     * 140 there. Held against the Harmonix annotations and his songs (mix-better, 2 Nov 2026, 280
+     * windows): this octave is the annotated one in 224 (80%), the grid's own in 188 (67%). Songs
+     * above 140 or under 70 still show halved or doubled, and a tap or Half and Double put them right.
+     */
+    fun felt(bpm: Double): Double {
+        if (!(bpm > 0) || !bpm.isFinite()) return bpm
+        var b = bpm
+        while (b < FELT_LOW) b *= 2
+        while (b >= 2 * FELT_LOW) b /= 2
+        return b
+    }
+
+    const val FELT_LOW = 70.0
+
     /** The beat period in spectral frames for [bpm]. */
     fun periodFor(bpm: Double, frameRate: Double): Double = 60.0 * frameRate / bpm
 

@@ -6,6 +6,10 @@
 
 package com.dd3boh.outertune.mix
 
+import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.min
+
 /** Which end of a song a region is. */
 enum class RegionKind {
     /** The opening of the song coming in, read ahead of time. */
@@ -141,6 +145,43 @@ class RegionAnalysis(
         analysisMillis = analysisMillis, guideFrom = guideFrom, hopPeakAbove120 = hopPeakAbove120, hopPeakAbove400 = hopPeakAbove400,
     )
 
+    /**
+     * The same region with its beats laid at [bpm], a tempo the listener set by hand (tapped, typed,
+     * halved or doubled where nothing was found): the beats are found again near that tempo on this
+     * region's own onsets, so a tap a little off lands on the music, and they are trusted because
+     * the listener said so. The bars are the downbeat finder's on the new beats, for the fix that
+     * comes with the tempo to move. Null where the region has no sound to lay a beat on.
+     */
+    fun atTempo(bpm: Double): RegionAnalysis? {
+        if (!(bpm.isFinite() && bpm in 20.0..400.0) || guideFrom != 0) return null
+        val spectrum = Spectrum.of(guide, sampleRate.toDouble() / decimation, decimation)
+        val frameRate = spectrum.frameRate
+        val from = spectrum.sampleToFrame(envelope.firstSound.toDouble()).toInt().coerceIn(0, spectrum.frames)
+        val to = spectrum.sampleToFrame(envelope.trueEnd.toDouble()).toInt().coerceIn(from, spectrum.frames)
+        val period = Tempo.periodFor(bpm, frameRate)
+        if (to - from < 4 * period) return null
+        // Found again only where the music has a beat there to find; a pad keeps the listener's tempo as it is.
+        val tracked = BeatGrid.track(spectrum.onset, frameRate, period, from, to)?.takeIf {
+            abs(it.period / period - 1) <= HAND_TEMPO_REACH && it.hitShare >= Gates.MIN_HITS && it.jitterMs <= Gates.MAX_JITTER_MS && it.activeBeats >= Gates.MIN_BEATS
+        }
+        val grid = tracked ?: run {
+            // Nothing steady near that tempo: the listener's own, on the phase its pulses land best.
+            val (phase, _) = Tempo.bestPhase(spectrum.onset, from, to, period)
+            val start = from + phase
+            val t0 = start - kotlin.math.floor(start / period) * period
+            val k0 = kotlin.math.ceil((from - t0) / period).toInt()
+            val k1 = kotlin.math.floor((to - 1 - t0) / period).toInt()
+            BeatGrid(t0, period, k0, k1, 1.0, 0.0, 0.0, 0.0, DoubleArray(0), frameRate)
+        }
+        val downbeats = Downbeats.find(spectrum, grid)
+        val g = rhythm.gates
+        val gates = Gates(
+            g.tempoZ, g.rivalRatio, grid.steadiness, grid.drift, grid.hitShare, grid.jitterMs, grid.activeBeats,
+            downbeats?.margin ?: 0.0, byHand = true,
+        )
+        return copy(rhythm = Rhythm(rhythm.tempo, grid, downbeats, gates))
+    }
+
     /** A line for the logs and the trial's summary. */
     fun describe(): String {
         val g = gates
@@ -155,6 +196,49 @@ class RegionAnalysis(
     }
 
     companion object {
+        /** How near a beat an opening's first sound must land for that beat to be taken for its one. */
+        const val FIRST_SOUND_ON_BEAT_MS = 60.0
+
+        /** How far from a tempo set by hand the beats found again may run: a tap is good to about this. */
+        const val HAND_TEMPO_REACH = 0.03
+
+        /** The onset strength, in deviations over the local floor, a first sound must be struck with. */
+        private const val FIRST_SOUND_ONSET = 2f
+
+        /** The margin a bar line taken from the first sound is given: as sure as the gate asks, no surer. */
+        private const val FIRST_SOUND_MARGIN = Gates.MIN_MARGIN
+
+        /**
+         * An opening's bars from its first sound: where the song starts on a beat of its trusted
+         * grid, that beat is bar 1, whatever the downbeat finder says. Songs start on their one:
+         * held against the Harmonix annotations (mix-better, 2 Nov 2026), the beat an opening's first
+         * sound lands on was the one in 12 of 13 songs that start on a beat, where the finder's
+         * phase was right in 6 of 22 openings. A first sound off the beats (a pickup, a beatless
+         * intro) leaves the finder's answer as it is.
+         */
+        internal fun firstSoundIsOne(rhythm: Rhythm, envelope: Envelope, front: FrontEndResult, onset: FloatArray): Rhythm {
+            val grid = rhythm.grid ?: return rhythm
+            if (!rhythm.gates.beats) return rhythm
+            val factor = front.factor
+            fun frameOf(k: Int) = (grid.frameOf(k) * Spectrum.HOP + Spectrum.ONSET_LAG) * factor
+            val first = envelope.firstSound.toDouble()
+            val k = grid.indexNear((first / factor - Spectrum.ONSET_LAG) / Spectrum.HOP)
+            if (abs(frameOf(k) - first) * 1000.0 / front.sampleRate > FIRST_SOUND_ON_BEAT_MS) return rhythm
+            // And it must be struck there: a sound already going, or one fading in, is no bar line.
+            if ((Peaks.nearest(onset, grid.frameOf(k), 2)?.value ?: 0f) < FIRST_SOUND_ONSET) return rhythm
+            // The grid must hold from there: a first sound before the trusted beats begin is an intro.
+            if (k < grid.firstBeat - 1 || k > grid.firstBeat + 1) return rhythm
+            val bars = rhythm.downbeats
+            val beatsPerBar = bars?.beatsPerBar ?: Downbeats.BEATS_PER_BAR
+            val phase = Math.floorMod(k, beatsPerBar)
+            val agrees = bars != null && bars.isDownbeat(k)
+            val margin = if (agrees) max(bars!!.margin, FIRST_SOUND_MARGIN) else FIRST_SOUND_MARGIN
+            val downbeats = Downbeats(phase, margin, bars?.scores ?: DoubleArray(Downbeats.BEATS_PER_BAR), beatsPerBar, bars?.halfMargin ?: 0.0, fromFirstSound = true)
+            val g = rhythm.gates
+            val gates = Gates(g.tempoZ, g.rivalRatio, g.steadiness, g.drift, g.hitShare, g.jitterMs, g.activeBeats, margin, barsFromFirstSound = true)
+            return Rhythm(rhythm.tempo, grid, downbeats, gates)
+        }
+
         /** The opening of the song coming in. */
         fun analyseHead(front: FrontEndResult): RegionAnalysis = analyse(front, RegionKind.HEAD)
 
@@ -171,7 +255,7 @@ class RegionAnalysis(
             // Rhythm only where there is sound, so leading or trailing silence does not thin it.
             val from = spectrum.sampleToFrame(rough.firstSound.toDouble()).toInt().coerceIn(0, spectrum.frames)
             val to = spectrum.sampleToFrame(rough.trueEnd.toDouble()).toInt().coerceIn(from, spectrum.frames)
-            val rhythm = Rhythm.analyse(spectrum, from, to)
+            val rhythm = Rhythm.analyse(spectrum, from, to).let { if (kind == RegionKind.HEAD) firstSoundIsOne(it, rough, front, spectrum.onset) else it }
             val bar = rhythm.bpm?.let { 240.0 / it } ?: 2.0
             val envelope = if (rhythm.bpm != null) Envelope.of(front, bar) else rough
             val phrases = if (rhythm.grid != null && rhythm.downbeats != null) Phrases.find(spectrum, rhythm.grid, rhythm.downbeats, envelope) else null
