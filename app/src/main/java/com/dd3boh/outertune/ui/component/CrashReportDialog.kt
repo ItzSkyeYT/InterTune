@@ -22,6 +22,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Update
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -44,14 +46,25 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import com.dd3boh.outertune.utils.BuiltInKeys
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.constants.Links
+import com.dd3boh.outertune.constants.DismissedUpdateCodeKey
+import com.dd3boh.outertune.constants.LastVersionCodeKey
+import com.dd3boh.outertune.constants.LastVersionKey
 import com.dd3boh.outertune.constants.ReportWayKey
 import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.ui.screens.settings.SETTINGS_INDEX
+import com.dd3boh.outertune.ui.screens.settings.SettingJump
+import com.dd3boh.outertune.ui.screens.settings.jump
 import com.dd3boh.outertune.utils.CrashLog
+import com.dd3boh.outertune.utils.InstallSource
 import com.dd3boh.outertune.utils.ProblemLog
 import com.dd3boh.outertune.utils.ReportRelay
 import com.dd3boh.outertune.utils.ReportTrail
 import com.dd3boh.outertune.utils.ReportWay
+import com.dd3boh.outertune.utils.fdroidPageUrl
+import com.dd3boh.outertune.utils.installSource
+import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import kotlinx.coroutines.launch
 
@@ -76,6 +89,13 @@ fun CrashReportDialog() {
     // Anonymous, or with the person's GitHub account, as in Report a problem (ReportWayKey).
     var way by rememberEnumPreference(ReportWayKey, ReportWay.ANONYMOUS)
     val withGitHub = relay && way == ReportWay.GITHUB
+    // A newer version the update check already found (it is opt in, and nothing is asked from here):
+    // the crash may be fixed there, so the page says so first.
+    val foundCode by rememberPreference(LastVersionCodeKey, -1)
+    val foundName by rememberPreference(LastVersionKey, "")
+    val skippedCode by rememberPreference(DismissedUpdateCodeKey, -1)
+    val newer = crashNewerVersion(foundCode, foundName, BuildConfig.VERSION_CODE, skippedCode)
+    val fromFdroid = remember { context.installSource() == InstallSource.F_DROID }
     var what by rememberSaveable { mutableStateOf("") }
     var contact by rememberSaveable { mutableStateOf("") }
     var sending by remember { mutableStateOf(false) }
@@ -113,6 +133,29 @@ fun CrashReportDialog() {
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Text(stringResource(R.string.crash_report_text))
+                if (newer != null) {
+                    NoteCard(
+                        icon = Icons.Rounded.Update,
+                        title = stringResource(R.string.crash_newer_title, newer),
+                        body = stringResource(R.string.crash_newer_body),
+                        margin = 0.dp,
+                    ) {
+                        NoteButton(stringResource(if (fromFdroid) R.string.update_prompt_fdroid else R.string.crash_newer_update)) {
+                            if (fromFdroid) {
+                                runCatching {
+                                    context.startActivity(
+                                        Intent(Intent.ACTION_VIEW, fdroidPageUrl(context.packageName).toUri())
+                                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    )
+                                }
+                            } else {
+                                SettingJump.go(SETTINGS_INDEX.first { it.title == R.string.check_for_update }.jump())
+                            }
+                            // Update first, report if it comes back: this crash is not offered again.
+                            forget()
+                        }
+                    }
+                }
                 // The steps and settings are in the text below, so they are shown before anything is sent.
                 if (ReportTrail.HEADER_START in text) {
                     Spacer(Modifier.height(8.dp))
@@ -203,3 +246,12 @@ fun CrashReportDialog() {
         },
     )
 }
+
+/**
+ * The newer version to name on the crash page: the one the update check stored, when it is newer than
+ * the one running. Null when the check never ran (it is opt in), found nothing newer, or kept no name,
+ * and for the version the person skipped: the Updates page no longer offers it ("No updates
+ * available"), so the note would send them nowhere.
+ */
+internal fun crashNewerVersion(foundCode: Int, foundName: String, running: Int, skipped: Int = -1): String? =
+    foundName.takeIf { foundCode > running && foundCode != skipped && it.isNotBlank() }
