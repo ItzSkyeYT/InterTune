@@ -261,9 +261,11 @@ suspend fun scanInit(
                         try {
                             scanner.localToRemoteArtist(database)
                         } catch (e: ScannerAbortException) {
+                            // The scan itself finished: what stopped is the linking after it, as the
+                            // settings say it. This said "Scanner failed", after "refresh complete!".
                             coroutineScope.launch {
                                 snackbarHostState.showSnackbar(
-                                    message = "${context.getString(R.string.scanner_scan_fail)}: ${e.message}",
+                                    message = "${context.getString(R.string.scanner_ytm_link_fail)}: ${e.message}",
                                     withDismissAction = true,
                                     duration = SnackbarDuration.Long
                                 )
