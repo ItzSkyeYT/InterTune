@@ -32,8 +32,24 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import android.util.Log
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.runtime.rememberCoroutineScope
+import com.dd3boh.outertune.utils.ReportRelay
+import com.dd3boh.outertune.utils.ReportWay
+import com.dd3boh.outertune.utils.rememberEnumPreference
+import kotlinx.coroutines.launch
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -58,6 +74,7 @@ import com.dd3boh.outertune.utils.BuiltInKeys
 import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.Links
+import com.dd3boh.outertune.constants.ReportWayKey
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.playback.PlayHealth
 import com.dd3boh.outertune.playback.StopReasons
@@ -81,7 +98,10 @@ private const val FORM_LOG_LIMIT = 5000
  * gets "Whoops, something went wrong!" from the sign-in page; from about 5,500 GitHub drops the link and the form
  * comes up empty after signing in. 6,000, right for someone signed in (26 Oct), failed in both ways.
  */
-private const val FORM_LINK_LIMIT = 4500
+internal const val FORM_LINK_LIMIT = 4500
+
+/** What happened, as typed, in the form's link at most: the rest of the link is the log's. */
+internal const val FORM_WHAT_LIMIT = 1000
 
 /** Logs listed before "Show older": this run's and the three before it. */
 private const val FIRST_SHOWN = 4
@@ -162,6 +182,41 @@ fun ProblemReportDialog(onDismiss: () -> Unit) {
     val found = choice?.excerpt
     val text = remember(choice) { choice?.report() }
 
+    // Send to InterTune (Unreleased.REPORT_RELAY): the report goes to intertune.app, which files the issue
+    // and gives back its link (ReportRelay). A fork keeps Copy only (FORKS.md).
+    val relay = Unreleased.REPORT_RELAY && BuiltInKeys.official
+    // Anonymous, or with the person's GitHub account: the way picked last time comes up first (ReportWayKey).
+    var way by rememberEnumPreference(ReportWayKey, ReportWay.ANONYMOUS)
+    val withGitHub = relay && way == ReportWay.GITHUB
+    var what by rememberSaveable { mutableStateOf("") }
+    var contact by rememberSaveable { mutableStateOf("") }
+    var sending by remember { mutableStateOf(false) }
+    var outcome by remember { mutableStateOf<ReportRelay.Outcome?>(null) }
+    val scope = rememberCoroutineScope()
+    when (val done = outcome) {
+        is ReportRelay.Outcome.Sent -> return SentDialog(done, onDismiss)
+        ReportRelay.Outcome.Held -> return HeldDialog(onDismiss)
+        else -> Unit
+    }
+
+    val openForm: () -> Unit = {
+        // The form's own boxes, by their ids in .github/ISSUE_TEMPLATE/bug_report.yml.
+        val form = "${Links.ISSUES}/new".toUri().buildUpon()
+            .appendQueryParameter("template", "bug_report.yml")
+            .appendQueryParameter("build", choice?.build ?: ProblemLog.build())
+            .appendQueryParameter("device", ProblemLog.device())
+            // What they typed above, into the form's own box for it (id what-happens).
+            .apply { if (relay && what.isNotBlank()) appendQueryParameter("what-happens", what.trim().take(FORM_WHAT_LIMIT)) }
+            .build()
+        // The log as much as the link holds: see FORM_LINK_LIMIT.
+        val room = FORM_LINK_LIMIT - form.toString().length - "&logs=".length
+        val uri = form.buildUpon()
+            .appendQueryParameter("logs", ProblemLog.fittedForLink(text.orEmpty(), room, FORM_LOG_LIMIT))
+            .build()
+        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        onDismiss()
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.problem_report_title)) },
@@ -188,6 +243,34 @@ fun ProblemReportDialog(onDismiss: () -> Unit) {
                     Spacer(Modifier.height(12.dp))
                     LogList(all, picked, showAll, onPick = { picked = it }, onShowAll = { showAll = true })
                 }
+                if (relay && text != null) {
+                    Spacer(Modifier.height(12.dp))
+                    ReportWayChoice(way, onPick = { way = it })
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = what,
+                        onValueChange = { what = it.take(2000) },
+                        label = { Text(stringResource(R.string.problem_report_what)) },
+                        minLines = 2,
+                        maxLines = 5,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    // GitHub knows who files there: the way to reach someone is for anonymous reports only.
+                    if (!withGitHub) {
+                        Spacer(Modifier.height(8.dp))
+                        val failed = outcome is ReportRelay.Outcome.Failed
+                        OutlinedTextField(
+                            value = contact,
+                            onValueChange = { contact = it.take(200) },
+                            label = { Text(stringResource(R.string.problem_report_contact)) },
+                            placeholder = { Text(stringResource(R.string.problem_report_contact_hint)) },
+                            supportingText = { Text(stringResource(if (failed) R.string.problem_report_send_failed else R.string.problem_report_contact_note)) },
+                            isError = failed,
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
                 if (text != null && (found?.lines?.isNotEmpty() == true || choice?.hasExtras == true)) {
                     Spacer(Modifier.height(12.dp))
                     Text(
@@ -200,26 +283,35 @@ fun ProblemReportDialog(onDismiss: () -> Unit) {
             }
         },
         confirmButton = {
-            // A fork's reports are its own: no form on InterTune's tracker (FORKS.md). Copy stays.
-            if (BuiltInKeys.official) TextButton(
-                enabled = text != null,
+            if (withGitHub) Button(enabled = text != null, onClick = openForm) {
+                Text(stringResource(R.string.problem_report_form))
+            }
+            else if (relay) Button(
+                enabled = text != null && !sending,
                 onClick = {
-                    // The form's own boxes, by their ids in .github/ISSUE_TEMPLATE/bug_report.yml.
-                    val form = "${Links.ISSUES}/new".toUri().buildUpon()
-                        .appendQueryParameter("template", "bug_report.yml")
-                        .appendQueryParameter("build", choice?.build ?: ProblemLog.build())
-                        .appendQueryParameter("device", ProblemLog.device())
-                        .build()
-                    // The log as much as the link holds: past about 7,000 characters GitHub says
-                    // "Something went wrong" instead of opening the form.
-                    val room = FORM_LINK_LIMIT - form.toString().length - "&logs=".length
-                    val uri = form.buildUpon()
-                        .appendQueryParameter("logs", ProblemLog.fittedForLink(text.orEmpty(), room, FORM_LOG_LIMIT))
-                        .build()
-                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-                    onDismiss()
-                }
-            ) { Text(stringResource(R.string.problem_report_form)) }
+                    sending = true
+                    scope.launch {
+                        val result = ReportRelay.send(
+                            build = choice?.build ?: ProblemLog.build(),
+                            device = ProblemLog.device(),
+                            report = text.orEmpty(),
+                            title = ReportRelay.title(found) ?: what.lineSequence().firstOrNull()?.trim(),
+                            contact = contact,
+                            what = what,
+                        )
+                        if (result is ReportRelay.Outcome.Failed) Log.w("ProblemReport", "Not sent: ${result.why}")
+                        outcome = result
+                        sending = false
+                    }
+                },
+            ) {
+                if (sending) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                else Text(stringResource(R.string.problem_report_send))
+            }
+            // A fork's reports are its own: no form on InterTune's tracker (FORKS.md). Copy stays.
+            else if (BuiltInKeys.official) TextButton(enabled = text != null, onClick = openForm) {
+                Text(stringResource(R.string.problem_report_form))
+            }
         },
         dismissButton = {
             Row {
@@ -234,9 +326,83 @@ fun ProblemReportDialog(onDismiss: () -> Unit) {
                         }
                     }
                 ) { Text(stringResource(R.string.problem_report_copy)) }
-                TextButton(onClick = onDismiss) { Text(stringResource(R.string.problem_report_close)) }
+                if (!relay) TextButton(onClick = onDismiss) { Text(stringResource(R.string.problem_report_close)) }
             }
         },
+    )
+}
+
+/**
+ * Anonymous or with GitHub, for Report a problem and the crash page: two segments, and under them one
+ * line on what the picked way means. The pick is kept by the caller (ReportWayKey).
+ */
+@Composable
+internal fun ReportWayChoice(way: ReportWay, onPick: (ReportWay) -> Unit) {
+    Column {
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            ReportWay.entries.forEachIndexed { i, option ->
+                SegmentedButton(
+                    selected = way == option,
+                    onClick = { onPick(option) },
+                    shape = SegmentedButtonDefaults.itemShape(i, ReportWay.entries.size),
+                ) {
+                    Text(
+                        stringResource(if (option == ReportWay.ANONYMOUS) R.string.report_way_anonymous else R.string.report_way_github),
+                        maxLines = 1,
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            stringResource(if (way == ReportWay.ANONYMOUS) R.string.report_way_anonymous_note else R.string.report_way_github_note),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** After Send to InterTune: the issue's number and its link, which anyone can follow without an account. */
+@Composable
+internal fun SentDialog(sent: ReportRelay.Outcome.Sent, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Rounded.CheckCircle, contentDescription = null) },
+        title = { Text(stringResource(R.string.problem_report_sent, sent.number)) },
+        text = {
+            Column {
+                Text(stringResource(R.string.problem_report_sent_body))
+                Spacer(Modifier.height(12.dp))
+                Text(sent.url.removePrefix("https://"), style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, sent.url.toUri()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                onDismiss()
+            }) { Text(stringResource(R.string.problem_report_open_issue, sent.number)) }
+        },
+        dismissButton = {
+            TextButton(onClick = {
+                context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText("InterTune report", sent.url))
+                // Android 13 and later show their own confirmation for every copy.
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                    Toast.makeText(context, R.string.problem_report_copied, Toast.LENGTH_SHORT).show()
+                }
+            }) { Text(stringResource(R.string.problem_report_copy_link)) }
+        },
+    )
+}
+
+/** After Send to InterTune, when the site keeps the report for a look before it goes on GitHub. */
+@Composable
+internal fun HeldDialog(onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.problem_report_title)) },
+        text = { Text(stringResource(R.string.problem_report_held)) },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.problem_report_close)) } },
     )
 }
 
