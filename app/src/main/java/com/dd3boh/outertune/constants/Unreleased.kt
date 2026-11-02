@@ -563,4 +563,20 @@ object Unreleased {
      * On in every build from 0.12.5, picked on 26 Oct 2026.
      */
     val BATTERY_MODES = true
+
+    /**
+     * An album carries on after its last song when Auto load more songs is on, as YouTube Music
+     * does: five songs from the end the radio of the last song that has a YouTube id is asked for
+     * and joins the queue (EndlessQueue, MusicService.onMediaItemTransition). The queue is a radio
+     * from then on, so the radio's own top-up keeps it going, and the album's songs stay as they
+     * were chosen. Until now only a radio or a mix went on, and an album stopped at its end. A
+     * listener asked on 2 Nov 2026 how to turn that on.
+     *
+     * Albums and radios only, by his word of 2 Nov 2026: a playlist, the liked songs, a search, the
+     * history, files on the phone and a queue made by hand end where they end. Not with repeat on,
+     * offline, or for an album of files on the phone, which have no radio. Without it an album
+     * stops at its end, as before. When it is agreed: set this to true, or delete it with the one
+     * check that reads it, in MusicService.onMediaItemTransition.
+     */
+    val ENDLESS_QUEUE = BuildConfig.DEBUG
 }

@@ -2029,6 +2029,13 @@ class MusicService : MediaLibraryService(),
     /** What the last radio hop was seeded from, so two hops running never use the same song. */
     @Volatile private var lastRadioSeed: String? = null
 
+    /**
+     * The last radio asked for at the end of an album (EndlessQueue): which run of which queue,
+     * and the song it was asked from. Kept from the moment it is asked, answered or not, so an
+     * album is asked once for each end it has. Main thread.
+     */
+    private var endRadioAsked: EndlessQueue.Asked? = null
+
     /** How far back to look for a finished song when seeding the next radio hop. */
     private val radioAnchorLookback = 10
 
@@ -4734,17 +4741,43 @@ class MusicService : MediaLibraryService(),
         // Auto load more songs
         val q = queueBoard.getCurrentQueue()
         val songCount = q?.getSize() ?: -1
-        val playlistId = q?.playlistId
+        // An album, which has no radio of its own, that is near its end asks for the radio of its
+        // last song that has a YouTube id, once for each end it has (EndlessQueue). That song is
+        // the seed this transition asks from, as a radio's own is. Every other list ends where it
+        // ends: the queue says it is an album by its origin, which the album page gives it.
+        val endRun = q?.let { AdaptiveQueue.runKey(it.id, it.runId) }
+        val endSeed = if (Unreleased.ENDLESS_QUEUE && q != null && endRun != null && mediaItem != null &&
+            q.playlistId == null &&
+            activePlayer.mediaItemCount - activePlayer.currentMediaItemIndex <= EndlessQueue.NEAR_END
+        ) {
+            EndlessQueue.seed(
+                origin = q.origin,
+                queue = q.getCurrentQueueShuffled(),
+                playing = activePlayer.currentMediaItemIndex,
+                playingId = mediaItem.mediaId,
+                inPlayer = activePlayer.mediaItemCount,
+                run = endRun,
+                hasNextPage = false,
+                autoLoadMore = autoLoadMore,
+                repeatOff = activePlayer.repeatMode == REPEAT_MODE_OFF,
+                online = isNetworkConnected.value && !Throttle.isBlocked,
+                asked = endRadioAsked,
+            )
+        } else null
+        val endRadio = endSeed != null
+        val playlistId = q?.playlistId ?: endSeed
         // Not on a transition to no song at all. That is the player being emptied, by a swipe of
         // the mini player or a queue with nothing left in it, and an empty player reads as having
         // no songs left, so every swipe during a radio asked for another page.
         if (autoLoadMore &&
+            q != null &&
             mediaItem != null &&
             reason != Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT &&
             activePlayer.mediaItemCount - activePlayer.currentMediaItemIndex <= 5 &&
-            playlistId != null // aka "hasNext"
+            playlistId != null // aka "hasNext", or the end of an album
         ) {
-            Log.d(TAG, "onMediaItemTransition: Triggering queue auto load more")
+            Log.d(TAG, "onMediaItemTransition: Triggering queue auto load more" + if (endRadio) " (the end of an album, a radio from $endSeed)" else "")
+            if (endRun != null && endSeed != null) endRadioAsked = EndlessQueue.Asked(endRun, endSeed)
             scope.launch(SilentHandler) {
                 val endpoint = playlistId // playlistId.substringBefore("\n")
                 val continuation = null // playlistId.substringAfter("\n")
@@ -4758,10 +4791,16 @@ class MusicService : MediaLibraryService(),
                 // which then played again. A cleared player is ended, not idle, so the state check
                 // let it through. Checked before the seed below moves on, since a page that is left
                 // out should not move the queue's next page on either.
+                //
+                // An album's first radio goes only into the album it was asked for as it was asked:
+                // still no radio of its own, the same songs and the same run. One that was
+                // refilled, made a radio, given a song by hand or played again meanwhile is not
+                // the end that was asked about, and the radio is not wanted at the end of it.
                 val wanted = activePlayer.playbackState != STATE_IDLE &&
-                    songCount > 1 && // initial radio loading is handled by playQueue()
+                    (songCount > 1 || endRadio) && // initial radio loading is handled by playQueue()
                     activePlayer.mediaItemCount > 0 && qbInit.value &&
-                    queueBoard.getCurrentQueue()?.id == q.id
+                    queueBoard.getCurrentQueue()?.id == q.id &&
+                    (!endRadio || (q.playlistId == null && q.getSize() == songCount && AdaptiveQueue.runKey(q.id, q.runId) == endRun))
                 if (!wanted) return@launch
                 // Seed the next page from something the listener actually finished.
                 //
@@ -4795,8 +4834,18 @@ class MusicService : MediaLibraryService(),
                     AdaptivePass.pageKeeps(fresh, view.turnedDown, view.positiveArtists, tasteCache?.second)
                 }
                 if (joining.size < fresh.size) Log.d(TAG, "Adaptive queue: the radio's next page left out ${fresh.size - joining.size} songs")
-                q.playlistId = RadioPage.nextSeed(anchor, joining, songs, asked = playlistId)
-                    .also { lastRadioSeed = it }
+                val next = RadioPage.nextSeed(anchor, joining, songs, asked = playlistId)
+                // The first radio of an album makes it a radio only when it brings something: an
+                // album it cannot extend stays what it was, and is not asked again from the same
+                // song. A radio's own page moves the seed on whether it brought anything or not.
+                if (!endRadio || joining.isNotEmpty()) q.playlistId = next.also { lastRadioSeed = it }
+                if (endRadio) {
+                    Log.d(TAG, "onMediaItemTransition: The end of an album, ${joining.size} of ${mediaItems.size} songs from the radio of $playlistId join")
+                    // The songs the album held are the listener's own choice, which the radio now
+                    // after them does not change: no pass takes one out, and Add to queue goes
+                    // after them (AdaptiveQueue.Heard.putInByHand).
+                    if (joining.isNotEmpty()) noteByHand(q, songs.map { it.id })
+                }
                 if (joining.isNotEmpty()) queueBoard.enqueueEnd(joining)
             }
         }
