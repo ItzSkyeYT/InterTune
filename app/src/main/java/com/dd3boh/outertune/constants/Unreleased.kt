@@ -579,4 +579,33 @@ object Unreleased {
      * check that reads it, in MusicService.onMediaItemTransition.
      */
     val ENDLESS_QUEUE = BuildConfig.DEBUG
+
+    /**
+     * Report a problem and the crash page say more (ReportSettings, ReportTrail, ReportExtras): the settings
+     * that bear on what went wrong, mostly those changed from their default, and a short trail of what was
+     * done in the last few minutes (screens opened, settings changed, songs started, skipped or sought,
+     * playback errors, the network lost and back, the app sent to the background). His idea of 2 Nov 2026,
+     * "to make logs better, shouldn't it show the concerned settings active, as well as the actions leading
+     * up to it?", with his guards: only the settings of the problem's area; no song title or id, search words,
+     * account name or email in the trail; and everything shown before it is sent.
+     *
+     * Without it the report is as it was, nothing is kept in memory, and the crash file is the same. Its text
+     * (the line under the report's first paragraph) is held from translators, its French beside it in
+     * values-fr. When it is agreed: set this to true, add its name to ReleasedFlagsTest, and make its text
+     * translatable.
+     */
+    val REPORT_PLUS = BuildConfig.DEBUG
+
+    /**
+     * Send to InterTune in Report a problem (his idea, mock and plan of 27 Oct 2026,
+     * experiments/features/report-relay/PLAN.md): the report goes to intertune.app, which files it
+     * as an issue on InterTune's GitHub and gives back its link, so nobody needs an account. A way to
+     * reach the sender is optional and stays on the site. Only InterTune's own builds send (ReportRelay).
+     *
+     * Without it Report a problem is as it was: Open the form, Copy and Close. Its texts
+     * (problem_report_send and the rest) are held from translators, their French beside them in
+     * values-fr. When it is agreed and the site files for real: set this to true and make its texts
+     * translatable.
+     */
+    val REPORT_RELAY = BuildConfig.DEBUG
 }

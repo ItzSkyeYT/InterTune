@@ -30,9 +30,17 @@ class NetworkConnectivityObserver(
     /** Guarded by itself: the callbacks arrive on a platform thread, the set is read from ours. */
     private val availableNetworks = mutableSetOf<Network>()
 
+    /** Whether the trail last heard that there was no network: only a return after that is "network back". */
+    @Volatile
+    private var toldOffline = false
+
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
             synchronized(availableNetworks) { availableNetworks.add(network) }
+            if (toldOffline) {
+                toldOffline = false
+                ReportTrail.thisRun.network(ReportTrail.Network.BACK)
+            }
             _networkStatus.trySend(true)
         }
 
@@ -45,6 +53,10 @@ class NetworkConnectivityObserver(
             val remaining = synchronized(availableNetworks) {
                 availableNetworks.remove(network)
                 availableNetworks.size
+            }
+            if (remaining == 0 && !toldOffline) {
+                toldOffline = true
+                ReportTrail.thisRun.network(ReportTrail.Network.LOST)
             }
             _networkStatus.trySend(remaining > 0)
         }
@@ -70,6 +82,7 @@ class NetworkConnectivityObserver(
             NetworkPace.forget()
             YouTubeTrouble.networkChanged()
             runCatching { onNetworkChanged() }
+            runCatching { ReportTrail.thisRun.networkChangedTo(PhoneState.networkKind(connectivityManager.getNetworkCapabilities(network))) }
         }
     }
 

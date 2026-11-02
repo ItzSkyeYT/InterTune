@@ -145,6 +145,7 @@ import androidx.compose.ui.util.fastForEach
 import androidx.core.net.toUri
 import androidx.core.view.WindowCompat
 import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.compose.NavHost
@@ -269,6 +270,7 @@ import com.dd3boh.outertune.utils.AutoBlocker
 import com.dd3boh.outertune.utils.AlbumAnswerPretend
 import com.dd3boh.outertune.utils.YouTubeRegion
 import com.dd3boh.outertune.utils.AutoBlockerReturn
+import com.dd3boh.outertune.utils.ReportTrail
 import com.dd3boh.outertune.utils.ReturnVerdict
 import com.dd3boh.outertune.utils.reminderOwed
 import com.dd3boh.outertune.constants.AutoBlockerBlockedByKey
@@ -1183,6 +1185,12 @@ class MainActivity : ComponentActivity() {
 
                 val navController = rememberNavController()
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
+                // The screens opened, for Report a problem's trail: by the route's pattern, never what fills it in.
+                DisposableEffect(navController) {
+                    val listener = NavController.OnDestinationChangedListener { _, destination, _ -> ReportTrail.thisRun.screen(destination.route) }
+                    navController.addOnDestinationChangedListener(listener)
+                    onDispose { navController.removeOnDestinationChangedListener(listener) }
+                }
 
                 /**
                  * Hoisted out of [SearchBarContainer] so the navigation bar can close the search

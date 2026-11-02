@@ -29,6 +29,9 @@ import java.util.Locale
  * there is whatever was written as information, a warning or an error.
  */
 object ProblemLog {
+    /** The line that stands before the fault's first line in a report. */
+    const val FAULT_MARK = ">>> here"
+
     /** Lines kept before the fault's first line, and after it: a trace with its causes is two dozen. */
     const val BEFORE = 40
     const val AFTER = 24
@@ -139,10 +142,12 @@ object ProblemLog {
         .replace(PICKED, "$1…")
 
     /**
-     * What is copied: the build, the phone and where the app came from ([installedFrom]), then
-     * the lines, then the last times the music stopped with nobody asking
+     * What is copied: the build, the phone and where the app came from ([installedFrom]), the
+     * [settings] that bear on the problem, then the [trail] of what was done before it, then the
+     * lines, then the last times the music stopped with nobody asking
      * ([com.dd3boh.outertune.playback.StopReasons]). Those come last because [fitted] keeps the
-     * end, and they outlive the process the lines above belong to.
+     * end, and they outlive the process the lines above belong to. The settings and the steps are
+     * [ReportExtras]; without them the report is as it was.
      */
     fun report(
         excerpt: Excerpt,
@@ -155,18 +160,29 @@ object ProblemLog {
         phoneNow: String? = null,
         /** How playback has gone this run, for this run's report only (PlayHealth); an earlier run's is in its lines. */
         playback: String? = null,
+        /** The settings that matter for what went wrong ([ReportSettings.lines]), changed from the default first. */
+        settings: List<String> = emptyList(),
+        /** The steps before the problem ([ReportTrail.View.text]): this run's only, they are not kept past it. */
+        trail: String? = null,
     ): String = buildString {
         appendLine("InterTune $build")
         appendLine(device)
         appendLine("Installed from: $installedFrom")
         phoneNow?.let { appendLine("Phone now: $it") }
         playback?.let { appendLine("Playback this run: $it") }
+        settings.forEach { appendLine(it) }
         // A run before this one: which, since its lines carry the time of day and not the date.
         started?.let { appendLine("From the run that began ${SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.ROOT).format(it)}") }
+        // With the steps, they stand between the heading block and the log, in a block of their own.
+        if (trail != null) {
+            appendLine()
+            appendLine(trail)
+            appendLine()
+        }
         appendLine(if (excerpt.faultAt == null) "Nothing that looks like a fault. The last lines:" else "The last fault and what led up to it:")
         appendLine()
         excerpt.lines.forEachIndexed { i, line ->
-            if (i == excerpt.faultAt) appendLine(">>> here")
+            if (i == excerpt.faultAt) appendLine(FAULT_MARK)
             appendLine(scrub(line.toString()))
         }
         if (stops.isNotEmpty()) {
@@ -179,13 +195,104 @@ object ProblemLog {
     /**
      * [report] in no more than [limit] characters: its heading, the lines above the first empty
      * one, then as much of the end as fits, from the start of a line. The end is where the fault is.
+     * A report with the steps before the problem keeps them too, within a share of the room.
      */
     fun fitted(report: String, limit: Int): String {
         if (report.length <= limit) return report
+        val blocks = report.split("\n\n")
+        val at = blocks.indexOfFirst { it.startsWith(ReportTrail.HEADER_START) }
+        // With the steps before the problem in it, they keep a share of the room: see fittedWithSteps.
+        if (at >= 1) return fittedWithSteps(blocks, at, limit)
+        return fittedLog(report, limit)
+    }
+
+    /** The heading block, a note, and as much of the end as fits from the start of a line. */
+    private fun fittedLog(report: String, limit: Int): String {
         val heading = report.lineSequence().takeWhile { it.isNotEmpty() }.count()
         val head = report.lineSequence().take(heading).joinToString("\n") + "\n(the earlier lines are left out)\n"
         val tail = report.takeLast((limit - head.length).coerceAtLeast(0))
         return head + tail.substringAfter('\n', tail)
+    }
+
+    /** The share of the room, after the heading block, that the steps may take. */
+    private const val STEPS_SHARE_PERCENT = 40
+
+    /**
+     * A report with the steps before the problem in it, in [limit] characters: the heading block with the
+     * settings stays, the steps keep up to [STEPS_SHARE_PERCENT] of what is left (the lines nearest the
+     * problem), and the log takes the rest as [fittedLog] does. Without the steps the form's link had no
+     * room for anything but the log; with them, a report that fits only as a link still says what was done.
+     */
+    private fun fittedWithSteps(blocks: List<String>, at: Int, limit: Int): String {
+        val head = blocks[0]
+        val room = limit - head.length - 2
+        if (room <= 0) return head
+        val steps = fittedSteps(blocks[at], room * STEPS_SHARE_PERCENT / 100)
+        val rest = (blocks.subList(1, at) + blocks.subList(at + 1, blocks.size)).joinToString("\n\n")
+        val restRoom = room - (steps?.let { it.length + 2 } ?: 0)
+        val log = if (rest.length <= restRoom) rest else if (restRoom > 0) fittedAroundFault(rest, restRoom) else ""
+        return listOfNotNull(head, steps, log.takeIf { it.isNotEmpty() }).joinToString("\n\n")
+    }
+
+    /** Lines of the log kept after the fault's marker at least, when the room allows: its own line and the first that follow it. */
+    private const val AFTER_FAULT = 5
+
+    /**
+     * The log part of a report, [rest] (its heading, the log's lines and the stops after them), in [room]
+     * characters, kept around the fault and not at the end: the fault's line and the first that follow, then what
+     * led up to it, the newest first, then more of what follows with what room is left. The end of the log is not
+     * where the fault is, since up to [AFTER] lines follow it, and with the steps and the settings in the form's
+     * link there is room for few lines. The stops, which outlive the process, stay when they take a third of the
+     * room or less. With no marker (nothing looked like a fault) the end, as [fittedLog] has it.
+     */
+    private fun fittedAroundFault(rest: String, room: Int): String {
+        if (rest.length <= room) return rest
+        val blocks = rest.split("\n\n")
+        val at = blocks.indexOfFirst { block -> block.lineSequence().any { it == FAULT_MARK } }
+        if (at < 1) return fittedLog(rest, room)
+        val heading = blocks[0]
+        val lines = blocks[at].lines()
+        val stops = blocks.drop(at + 1).joinToString("\n\n")
+        val stopsRoom = if (stops.isNotEmpty() && stops.length + 2 <= room / 3) stops.length + 2 else 0
+        // The heading and its line break, the stops, and room for the two notes of what is left out.
+        val budget = room - heading.length - 1 - stopsRoom - 2 * (LATER_LEFT_OUT.length + 1)
+        val m = lines.indexOf(FAULT_MARK)
+        fun size(from: Int, to: Int) = (from..to).sumOf { lines[it].length + 1 }
+        var lo = m
+        // The marker and the fault's line stay whatever the room; the lines after them while they fit.
+        val fault = minOf(m + 1, lines.lastIndex)
+        var hi = minOf(m + 1 + AFTER_FAULT, lines.lastIndex)
+        while (hi > fault && size(lo, hi) > budget) hi--
+        while (lo > 0 && size(lo - 1, hi) <= budget) lo--
+        while (hi < lines.lastIndex && size(lo, hi + 1) <= budget) hi++
+        val out = StringBuilder(heading)
+        if (lo > 0) out.append('\n').append(EARLIER_LEFT_OUT)
+        out.append('\n').append(lines.subList(lo, hi + 1).joinToString("\n"))
+        if (hi < lines.lastIndex) out.append('\n').append(LATER_LEFT_OUT)
+        if (stopsRoom > 0) out.append("\n\n").append(stops)
+        return out.toString()
+    }
+
+    private const val EARLIER_LEFT_OUT = "(the earlier lines are left out)"
+    private const val LATER_LEFT_OUT = "(the later lines are left out)"
+
+    /**
+     * The steps block in [room] characters: its header, and the lines nearest the marker, the farthest
+     * dropped first. Null when the header and one line do not fit.
+     */
+    internal fun fittedSteps(block: String, room: Int): String? {
+        if (block.length <= room) return block
+        val lines = block.lines()
+        val header = lines.first()
+        val body = lines.drop(1).toMutableList()
+        val marker = body.indexOfFirst { it.endsWith(">>> here") || it.endsWith(">>> now") }.takeIf { it >= 0 } ?: (body.size - 1)
+        var anchor = marker
+        fun size() = header.length + body.sumOf { it.length + 1 }
+        while (body.size > 1 && size() > room) {
+            // The farthest from the marker goes; on a tie, the earlier one.
+            if (anchor >= body.size - 1 - anchor) { body.removeAt(0); anchor-- } else body.removeAt(body.size - 1)
+        }
+        return if (body.isNotEmpty() && size() <= room) header + "\n" + body.joinToString("\n") else null
     }
 
     /**
@@ -212,6 +319,38 @@ object ProblemLog {
             cut = fitted(report, limit)
         }
         return if (linkLength(cut) <= budget) cut else ""
+    }
+
+    /**
+     * The start of [text] that takes [budget] characters at most once escaped for a link, cut at the
+     * end of a line. For a crash, whose first lines (the error and where it was thrown) are the ones
+     * that matter, where [fittedForLink] keeps the end of a log. A first line longer than the budget
+     * is cut where the budget runs out.
+     */
+    fun startForLink(text: String, budget: Int): String {
+        if (budget <= 0) return ""
+        if (linkLength(text) <= budget) return text
+        val out = StringBuilder()
+        var used = 0
+        for (line in text.lineSequence()) {
+            val piece = if (out.isEmpty()) line else "\n$line"
+            val cost = linkLength(piece)
+            if (used + cost > budget) break
+            out.append(piece)
+            used += cost
+        }
+        if (out.isEmpty()) {
+            var i = 0
+            while (i < text.length) {
+                val next = i + Character.charCount(text.codePointAt(i))
+                val cost = linkLength(text.substring(i, next))
+                if (used + cost > budget) break
+                out.append(text, i, next)
+                used += cost
+                i = next
+            }
+        }
+        return out.toString()
     }
 
     fun build(): String = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}, ${BuildConfig.FLAVOR} ${BuildConfig.BUILD_TYPE})"
