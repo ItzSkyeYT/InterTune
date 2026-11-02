@@ -2379,4 +2379,6 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="crash_newer_update" translatable="false">Update</string>
     <!-- Share as a file under a report (ReportFile, Unreleased.REPORT_FILE): held from translators until his go. -->
     <string name="problem_report_share_file" translatable="false">Share as a file</string>
+    <!-- Downloads saved as song files (SongFiles, Unreleased.DOWNLOAD_FILES), after the folder's warning: held from translators until his go. -->
+    <string name="dl_song_files_note" translatable="false">Songs are saved as Opus or M4A files with their title, artist and cover, so other apps and cars can play them.</string>
 </resources>
