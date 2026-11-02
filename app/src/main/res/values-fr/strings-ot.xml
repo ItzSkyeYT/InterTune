@@ -2161,4 +2161,7 @@
         <item quantity="other">%1$d titres entendus hors ligne ont été trouvés</item>
     </plurals>
     <string name="recognise_later_none">Aucun titre trouvé pour ce qui a été entendu hors ligne</string>
+    <!-- Liked songs kept in sync with their downloads (issue #64, Unreleased.LIKED_SYNC): held from translators until he says. -->
+    <string name="liked_download_sync">Supprimer le téléchargement avec le j’aime</string>
+    <string name="liked_download_sync_description">Seulement les titres que ce réglage a téléchargés. Un titre téléchargé par vous reste.</string>
 </resources>

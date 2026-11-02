@@ -2341,4 +2341,7 @@ while also allowing users to translate our app as well. New, specific strings to
         <item quantity="other">Found %1$d songs you heard offline</item>
     </plurals>
     <string name="recognise_later_none" translatable="false">Nothing found for what you heard offline</string>
+    <!-- Liked songs kept in sync with their downloads (issue #64, Unreleased.LIKED_SYNC): held from translators until he says. -->
+    <string name="liked_download_sync" translatable="false">Remove the download with the like</string>
+    <string name="liked_download_sync_description" translatable="false">Only songs this setting downloaded. A song you downloaded yourself stays.</string>
 </resources>

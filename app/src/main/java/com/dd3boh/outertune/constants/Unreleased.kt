@@ -624,4 +624,12 @@ object Unreleased {
      * RecognitionHistoryScreen.
      */
     val RECOGNISE_OFFLINE = BuildConfig.DEBUG
+
+    /**
+     * Liked songs kept in sync with their downloads (issue #64, on the 0.13 roadmap): under "Liked
+     * songs can download themselves", a switch that makes taking back a like remove the download the
+     * setting made for that song, and never one downloaded by hand (LikedDownloads). Its words are held
+     * from translators until he says.
+     */
+    val LIKED_SYNC = BuildConfig.DEBUG
 }
