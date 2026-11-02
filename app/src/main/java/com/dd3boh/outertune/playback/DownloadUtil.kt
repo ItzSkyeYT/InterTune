@@ -32,6 +32,7 @@ import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.AudioQuality
 import com.dd3boh.outertune.constants.AudioQualityKey
+import com.dd3boh.outertune.utils.ReportTrail
 import com.dd3boh.outertune.constants.DownloadExtraPathKey
 import kotlinx.coroutines.flow.drop
 import com.dd3boh.outertune.constants.DownloadOnWifiOnlyKey
@@ -1129,6 +1130,8 @@ class DownloadUtil @Inject constructor(
                         finishedSinceMove += download.request.id
                         keepCoverForOffline(download.request.id)
                     }
+                    // For Report a problem's trail: that one failed, never which.
+                    if (download.state == Download.STATE_FAILED) ReportTrail.thisRun.downloadFailed()
                     // The map's removal below is all it ever shows of a failure, which looks the
                     // same as a song media3 has not been handed yet. The catch up needs the
                     // difference, so the ending is recorded for it here.

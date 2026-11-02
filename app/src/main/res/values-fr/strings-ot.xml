@@ -1673,6 +1673,8 @@
     <string name="problem_report_none_then">Aucune erreur n\'a été notée cette fois-là. Voici ses dernières lignes.</string>
     <string name="problem_report_nothing_then">Rien n\'a été écrit cette fois-là.</string>
     <string name="problem_report_older">Voir les plus anciens</string>
+    <string name="problem_report_extras">Le rapport contient aussi les réglages qui comptent ici et les étapes juste avant. Elles ne nomment aucun morceau, aucune recherche ni personne.</string>
+    <string name="problem_report_extras_settings">Le rapport contient aussi les réglages qui comptent ici, tels qu\'ils sont maintenant.</string>
     <string name="welcome_back_title">Content de vous revoir</string>
     <string name="welcome_back_body">Voici les nouveautés depuis votre dernière visite.</string>
     <string name="welcome_back_everything">Ce qui a été ajouté récemment, et où le trouver.</string>

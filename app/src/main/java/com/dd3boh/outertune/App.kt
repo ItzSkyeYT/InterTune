@@ -65,6 +65,7 @@ import com.dd3boh.outertune.playback.StandInMemory
 import com.dd3boh.outertune.utils.CoilBitmapLoader
 import com.dd3boh.outertune.utils.CrashLog
 import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.utils.ReportFeed
 import com.dd3boh.outertune.utils.RunLogs
 import com.dd3boh.outertune.utils.LocalArtworkPathKeyer
 import com.dd3boh.outertune.utils.dataStore
@@ -105,6 +106,8 @@ class App : Application(), SingletonImageLoader.Factory {
         PlayerLogger.install()
         // This run's own lines, kept for Report a problem after the phone's log has moved on. See RunLogs.
         if (Unreleased.PREVIOUS_LOGS) GlobalScope.launch(Dispatchers.IO) { RunLogs.start(this@App) }
+        // What Report a problem tells of the last few minutes: the app in front or not, the settings changed.
+        ReportFeed.start(this)
         // Before anything can read a built-in key: until it has run they all read as empty.
         BuiltInKeys.verify(this)
         // Before anything reads Battery use: the phone's battery saver can turn Saver on (PhoneBatterySaver).

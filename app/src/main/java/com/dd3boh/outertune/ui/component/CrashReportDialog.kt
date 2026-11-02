@@ -38,6 +38,7 @@ import com.dd3boh.outertune.utils.BuiltInKeys
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.Links
 import com.dd3boh.outertune.utils.CrashLog
+import com.dd3boh.outertune.utils.ReportTrail
 
 /** GitHub rejects very long issue URLs, so the body carries the top of the trace, which is the part that matters. */
 private const val ISSUE_BODY_LIMIT = 6000
@@ -62,6 +63,11 @@ fun CrashReportDialog() {
         text = {
             Column {
                 Text(stringResource(R.string.crash_report_text))
+                // The steps and settings are in the text below, so they are shown before anything is sent.
+                if (ReportTrail.HEADER_START in text) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(stringResource(R.string.problem_report_extras))
+                }
                 Spacer(Modifier.height(12.dp))
                 Text(
                     text = text,

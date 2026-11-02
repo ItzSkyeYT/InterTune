@@ -8,8 +8,11 @@ package com.dd3boh.outertune.ui.component
 
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import android.os.SystemClock
 import android.os.Build
 import android.text.format.DateUtils
@@ -60,7 +63,11 @@ import com.dd3boh.outertune.playback.PlayHealth
 import com.dd3boh.outertune.playback.StopReasons
 import com.dd3boh.outertune.utils.PhoneState
 import com.dd3boh.outertune.utils.ProblemLog
+import com.dd3boh.outertune.utils.ReportExtras
+import com.dd3boh.outertune.utils.ReportSettings
+import com.dd3boh.outertune.utils.ReportTrail
 import com.dd3boh.outertune.utils.RunLogs
+import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.installedFrom
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -92,11 +99,16 @@ private class LogChoice(
     val installedFrom: String,
     val phoneNow: String,
     val playback: String? = null,
+    /** The settings that bear on the problem and the steps before it ([ReportExtras]): empty and null without Unreleased.REPORT_PLUS. */
+    val settings: List<String> = emptyList(),
+    val trail: String? = null,
 ) {
     val version: String get() = run?.versionName ?: BuildConfig.VERSION_NAME
     val build: String get() = run?.build ?: ProblemLog.build()
+    val hasExtras: Boolean get() = settings.isNotEmpty() || trail != null
     fun report(): String = ProblemLog.report(
         excerpt, build = build, installedFrom = installedFrom, phoneNow = phoneNow, playback = playback, stops = stops, started = run?.started,
+        settings = settings, trail = trail,
     )
 }
 
@@ -123,9 +135,24 @@ fun ProblemReportDialog(onDismiss: () -> Unit) {
             val phoneNow = PhoneState.read(context).describe()
             // How playback has gone since the app started: this run's only, see PlayHealth.
             val playback = PlayHealth.thisRun.describe(SystemClock.elapsedRealtime())
-            val now = LogChoice(null, ProblemLog.excerpt(lines), StopReasons.read(context), installedFrom, phoneNow, playback)
+            // The settings that bear on the problem and the steps before it: this run's steps only, an earlier run's are gone.
+            val plus = Unreleased.REPORT_PLUS
+            val prefs = context.dataStore.current
+            val at = System.currentTimeMillis()
+            val facts = { area: ReportSettings.Area -> reportFacts(context, area) }
+            val excerptNow = ProblemLog.excerpt(lines)
+            val extrasNow = if (plus) ReportExtras.forLog(lines, excerptNow, prefs, ReportTrail.thisRun, at, facts) else null
+            val now = LogChoice(
+                null, excerptNow, StopReasons.read(context), installedFrom, phoneNow, playback,
+                settings = extrasNow?.settings.orEmpty(), trail = extrasNow?.steps,
+            )
             val earlier = if (Unreleased.PREVIOUS_LOGS) {
-                RunLogs.earlier(context).map { LogChoice(it, ProblemLog.excerpt(RunLogs.read(it)), emptyList(), installedFrom, phoneNow) }
+                RunLogs.earlier(context).map {
+                    val run = RunLogs.read(it)
+                    val excerpt = ProblemLog.excerpt(run)
+                    val extras = if (plus) ReportExtras.forLog(run, excerpt, prefs, null, at, facts) else null
+                    LogChoice(it, excerpt, emptyList(), installedFrom, phoneNow, settings = extras?.settings.orEmpty())
+                }
             } else emptyList()
             listOf(now) + earlier
         }
@@ -152,11 +179,16 @@ fun ProblemReportDialog(onDismiss: () -> Unit) {
                         }
                     )
                 )
+                if (choice?.hasExtras == true) {
+                    Spacer(Modifier.height(8.dp))
+                    // The steps are this run's; a run before it, or a quiet one, has its settings only.
+                    Text(stringResource(if (choice.trail != null) R.string.problem_report_extras else R.string.problem_report_extras_settings))
+                }
                 if (all != null && all.size > 1) {
                     Spacer(Modifier.height(12.dp))
                     LogList(all, picked, showAll, onPick = { picked = it }, onShowAll = { showAll = true })
                 }
-                if (text != null && found?.lines?.isNotEmpty() == true) {
+                if (text != null && (found?.lines?.isNotEmpty() == true || choice?.hasExtras == true)) {
                     Spacer(Modifier.height(12.dp))
                     Text(
                         text = text,
@@ -244,6 +276,13 @@ private fun LogList(choices: List<LogChoice>, picked: Int, showAll: Boolean, onP
         }
     }
 }
+
+/** What is not a setting but bears on an area, to sit beside its settings: whether the microphone is allowed, for recognition. */
+private fun reportFacts(context: Context, area: ReportSettings.Area): List<String> =
+    if (area == ReportSettings.Area.RECOGNITION) {
+        val allowed = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        listOf(if (allowed) "microphone allowed" else "microphone not allowed")
+    } else emptyList()
 
 /** Which of [count] logs are listed: all of them, or the first [FIRST_SHOWN] and the picked one. */
 internal fun shownLogs(count: Int, picked: Int, showAll: Boolean): List<Int> =

@@ -563,4 +563,20 @@ object Unreleased {
      * On in every build from 0.12.5, picked on 26 Oct 2026.
      */
     val BATTERY_MODES = true
+
+    /**
+     * Report a problem and the crash page say more (ReportSettings, ReportTrail, ReportExtras): the settings
+     * that bear on what went wrong, mostly those changed from their default, and a short trail of what was
+     * done in the last few minutes (screens opened, settings changed, songs started, skipped or sought,
+     * playback errors, the network lost and back, the app sent to the background). His idea of 2 Nov 2026,
+     * "to make logs better, shouldn't it show the concerned settings active, as well as the actions leading
+     * up to it?", with his guards: only the settings of the problem's area; no song title or id, search words,
+     * account name or email in the trail; and everything shown before it is sent.
+     *
+     * Without it the report is as it was, nothing is kept in memory, and the crash file is the same. Its text
+     * (the line under the report's first paragraph) is held from translators, its French beside it in
+     * values-fr. When it is agreed: set this to true, add its name to ReleasedFlagsTest, and make its text
+     * translatable.
+     */
+    val REPORT_PLUS = BuildConfig.DEBUG
 }

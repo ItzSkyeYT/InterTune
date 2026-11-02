@@ -217,6 +217,7 @@ import com.dd3boh.outertune.utils.codecsOrEmpty
 import com.dd3boh.outertune.utils.contentLengthOrZero
 import com.dd3boh.outertune.utils.SongVersions
 import com.dd3boh.outertune.utils.RemoteRoutes
+import com.dd3boh.outertune.utils.ReportTrail
 import com.dd3boh.outertune.utils.Warmup
 import com.zionhuang.innertube.NewPipeUtils
 import com.dd3boh.outertune.utils.RouteTimes
@@ -4196,6 +4197,8 @@ class MusicService : MediaLibraryService(),
 
     override fun onPlayerError(error: PlaybackException) {
         super.onPlayerError(error)
+        // For Report a problem's trail: the code's name and the HTTP status, nothing of the song or the address.
+        ReportTrail.thisRun.playbackError(error.errorCodeName, Recovery.status(error))
         // However this play is left from here (skip on error seeking past it, the listener moving
         // on, the service going), it ended in this error, unless it plays again first. The play is
         // the one of the item the error names, the current one when it names none. Before
@@ -4356,6 +4359,7 @@ class MusicService : MediaLibraryService(),
     private fun noteGivenUp(id: String, tries: Int, reason: String) {
         val line = StepLog.gaveUp(id, tries, reason)
         Log.e(TAG, line)
+        ReportTrail.thisRun.gaveUp(tries)
         StopReasons.keep(this, line)
     }
 
@@ -4366,7 +4370,7 @@ class MusicService : MediaLibraryService(),
     private fun updateStallWatch(player: Player) {
         val wanted = player.playbackState == Player.STATE_BUFFERING && player.playWhenReady && !isCasting
         // The same wait, counted and timed for Report a problem: see PlayHealth.
-        PlayHealth.thisRun.waiting(wanted, SystemClock.elapsedRealtime())
+        PlayHealth.thisRun.waiting(wanted, SystemClock.elapsedRealtime())?.let { ReportTrail.thisRun.waited(it) }
         if (wanted && !stallWatching) {
             stallWatching = true
             // A silence from before a pause or a quiet retry is not this one's.
@@ -4440,6 +4444,7 @@ class MusicService : MediaLibraryService(),
 
     override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
         super.onPlayWhenReadyChanged(playWhenReady, reason)
+        if (playWhenReady) ReportTrail.thisRun.resumed() else ReportTrail.thisRun.paused(StopReasons.paused(reason))
         // A pause nobody asked for says what did it, for Report a problem. A pause asked for (a
         // tap, a button, the sleep timer) is USER_REQUEST and writes nothing.
         if (!playWhenReady) {
@@ -4598,6 +4603,8 @@ class MusicService : MediaLibraryService(),
         // (carriedOnInto): this one only moves on from that song, and its leave is read by its reason.
         val chosen = transitionChosen && !choiceCarriedOn
         choiceCarriedOn = false
+        // For Report a problem's trail: how it came to be playing, never which song.
+        if (mediaItem != null) ReportTrail.thisRun.songStarted(reason, chosen, transitionWentBack, fromError, isCasting)
         var leftAs: AdaptiveQueue.Leave? = null
         heard.playing?.takeIf { it.id != mediaItem?.mediaId }?.let { left ->
             val leftAt = lastKnownPosition[left.id]
@@ -5118,6 +5125,7 @@ class MusicService : MediaLibraryService(),
         }
         if (reason != Player.DISCONTINUITY_REASON_SEEK) return
         val id = newPosition.mediaItem?.mediaId ?: return
+        ReportTrail.thisRun.seeked(newPosition.positionMs)
         // Credit what was played since the last checkpoint, up to where the seek left from, then
         // measure from where it landed. The jump is not played time. A play not yet started
         // credits nothing; openListen sets its reference point.
