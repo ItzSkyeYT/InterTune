@@ -2128,4 +2128,7 @@
     <string name="lyrics_refetch_failed">Paroles non récupérées. Vérifiez la connexion.</string>
     <string name="lyrics_refetch_none">Pas d\'autres paroles trouvées, celles-ci restent donc.</string>
     <string name="play_search_failed">La recherche n\'a pas abouti, rien n\'a été lancé.</string>
+    <string name="proxy_address_format">Saisissez l\'adresse au format hôte:port, par exemple 127.0.0.1:8118.</string>
+    <string name="proxy_address_missing">Aucun proxy n\'est utilisé tant qu\'aucune adresse n\'est réglée ici.</string>
+    <string name="proxy_not_used_at_start">Aucun proxy n\'est utilisé : son adresse est illisible.</string>
 </resources>

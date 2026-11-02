@@ -13,6 +13,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import com.dd3boh.outertune.ui.component.PreferenceEntry
+import com.dd3boh.outertune.utils.ProxyAddress
 import com.dd3boh.outertune.utils.ProxyAtStart
 import com.dd3boh.outertune.utils.dataStore
 import kotlinx.coroutines.flow.map
@@ -72,7 +73,8 @@ fun PrivacySettings(
 ) {
     val (proxyEnabled, onProxyEnabledChange) = rememberPreference(key = ProxyEnabledKey, defaultValue = false)
     val (proxyType, onProxyTypeChange) = rememberEnumPreference(key = ProxyTypeKey, defaultValue = Proxy.Type.HTTP)
-    val (proxyUrl, onProxyUrlChange) = rememberPreference(key = ProxyUrlKey, defaultValue = "host:port")
+    // Nothing until an address is typed: "host:port" was shown as if it were one.
+    val (proxyUrl, onProxyUrlChange) = rememberPreference(key = ProxyUrlKey, defaultValue = "")
 
     ColumnWithContentPadding(
         modifier = Modifier.fillMaxHeight(),
@@ -146,12 +148,23 @@ fun PrivacySettings(
                             valueText = { it.name },
                             onValueSelected = onProxyTypeChange
                         )
+                        // Only an address the start can use is taken (ProxyAddress), and the dialog
+                        // says why OK stays grey. The field took anything, and an address the start
+                        // could not read left the app without the proxy.
+                        val addressFormat = stringResource(R.string.proxy_address_format)
                         EditTextPreference(
                             modifier = Modifier.settingRow(R.string.proxy_url),
                             title = { Text(stringResource(R.string.proxy_url)) },
                             value = proxyUrl,
-                            onValueChange = onProxyUrlChange
+                            onValueChange = onProxyUrlChange,
+                            isInputValid = { ProxyAddress.parse(it) != null },
+                            inputHint = { typed -> addressFormat.takeIf { ProxyAddress.parse(typed) == null } },
                         )
+                        // On with no address it can use, none typed included: what was a toast at
+                        // the next start, said here.
+                        if (ProxyAddress.parse(proxyUrl) == null) {
+                            InfoLabel(stringResource(R.string.proxy_address_missing), isError = true)
+                        }
                         // Nobody who needs this has a proxy address to hand, and a field reading
                         // "host:port" tells them nothing about where one comes from.
                         InfoLabel(stringResource(R.string.proxy_examples))
