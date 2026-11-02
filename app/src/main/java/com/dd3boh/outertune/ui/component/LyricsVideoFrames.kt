@@ -174,7 +174,9 @@ class LyricsVideoFrames(
  * [patches] and [mains] are the cover's colours as the player takes them (LivingField.patches,
  * LivingField.mainColours), [colours] says which the setting asks for, and [strength] and
  * [smoothing] are the two settings. [heardBeforeMs] is how much of the song before the video was
- * measured: [heard] answers for that stretch too, with times before 0.
+ * measured: [heard] answers for that stretch too, with times before 0. [shows] is how much of it
+ * shows behind the lyrics in the player ([LyricsVideoPlan.livingShows]), at the top; the foot is
+ * a little darker, where the lines to come are.
  */
 class LivingVideo(
     colours: LivingColours,
@@ -183,6 +185,7 @@ class LivingVideo(
     strength: Float,
     smoothing: Float,
     heardBeforeMs: Long = 0,
+    shows: Float = LyricsVideoPlan.livingShows(0f),
     private val heard: (ms: Long) -> FloatArray?,
 ) {
     private val ribbons = colours == LivingColours.MAIN && mains != null
@@ -218,7 +221,9 @@ class LivingVideo(
     private val shade = Paint().apply {
         shader = LinearGradient(
             0f, 0f, 0f, small.height.toFloat(),
-            Color.argb(SHADE_TOP, 0, 0, 0), Color.argb(SHADE_FOOT, 0, 0, 0), Shader.TileMode.CLAMP,
+            Color.argb(((1f - shows) * 255).roundToInt(), 0, 0, 0),
+            Color.argb(((1f - shows * FOOT_SHOWS) * 255).roundToInt(), 0, 0, 0),
+            Shader.TileMode.CLAMP,
         )
     }
     private val sound = LivingMotion.Heard { nanos -> heard((nanos - CLOCK) / 1_000_000 + aheadMs) }
@@ -250,10 +255,8 @@ class LivingVideo(
         const val WARM_MOST_NANOS = 20_000_000_000L
         const val FRAME_NANOS = 1_000_000_000L / LyricsVideoPlan.FRAMES_A_SECOND
 
-        // The player's dark theme lays black at 40% over it; a little more towards the foot,
-        // where the lines to come are.
-        const val SHADE_TOP = 102
-        const val SHADE_FOOT = 128
+        /** How much of what shows at the top still shows at the foot, behind the lines to come. */
+        const val FOOT_SHOWS = 0.83f
     }
 }
 

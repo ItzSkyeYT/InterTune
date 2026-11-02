@@ -99,6 +99,8 @@ import com.dd3boh.outertune.constants.LivingSmoothingKey
 import com.dd3boh.outertune.constants.LivingStrengthKey
 import com.dd3boh.outertune.constants.PlayerBackgroundStyle
 import com.dd3boh.outertune.constants.PlayerBackgroundStyleKey
+import com.dd3boh.outertune.constants.PlayerGlassIntensityKey
+import com.dd3boh.outertune.constants.PlayerLiquidGlassKey
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.lyrics.LyricsShare
 import com.dd3boh.outertune.lyrics.LyricsVideo
@@ -349,6 +351,9 @@ fun LyricsCardDialog(lines: List<String>, song: MediaMetadata, video: LyricsVide
     val livingStrength by rememberPreference(LivingStrengthKey, LivingField.DEFAULT_STRENGTH)
     val livingSmoothing by rememberPreference(LivingSmoothingKey, LivingField.DEFAULT_SMOOTHING)
     val livingColours by rememberEnumPreference(LivingColoursKey, LivingColours.MAIN)
+    // as dark as it is behind the player's lyrics, Liquid glass and all
+    val liquidGlass by rememberPreference(PlayerLiquidGlassKey, defaultValue = false)
+    val glassIntensity by rememberPreference(PlayerGlassIntensityKey, defaultValue = 1f)
     // As the player has it: Blur in its place while Battery use is on Saver.
     val living = BatteryUse.playerBackground(background, LocalBatteryMode.current, DEFAULT_PLAYER_BACKGROUND) == PlayerBackgroundStyle.LIVING &&
         Unreleased.LIVING_BACKGROUND
@@ -363,7 +368,10 @@ fun LyricsCardDialog(lines: List<String>, song: MediaMetadata, video: LyricsVide
     fun frames(clip: LyricsVideoPlan.Clip, heard: LyricsVideo.Heard?, from: Pair<IntArray?, IntArray?>? = livingFrom) = LyricsVideoFrames(
         context, clip, song.title, song.artists.joinToString { it.name }, cover,
         living = if (living) {
-            LivingVideo(livingColours, from?.first, from?.second, livingStrength, livingSmoothing, heardBeforeMs = heard?.beforeMs ?: 0L) { heard?.at(it) }
+            LivingVideo(
+                livingColours, from?.first, from?.second, livingStrength, livingSmoothing, heardBeforeMs = heard?.beforeMs ?: 0L,
+                shows = LyricsVideoPlan.livingShows(if (liquidGlass) glassIntensity else 0f),
+            ) { heard?.at(it) }
         } else null,
     )
 

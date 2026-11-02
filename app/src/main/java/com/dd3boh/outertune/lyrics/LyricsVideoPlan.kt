@@ -173,6 +173,26 @@ object LyricsVideoPlan {
      */
     fun picture(ms: Long, durationMs: Long): Float = fadingOut(ms.toDouble(), durationMs)
 
+    /**
+     * How much of Living blur shows behind the lyrics in the player, 0 to 1, as it is drawn there
+     * in the dark theme (the video's lines are white, so it is always the dark theme's): the field
+     * at [ARTWORK] of its strength, black at [OVERLAY] over it, and black at [LYRICS_SCRIM] more
+     * while the lyrics are up. Liquid glass, at [glass] (0 off, up to 1), halves the field and
+     * takes the overlay away. The video is shaded to show exactly as much (Player.kt draws these;
+     * LyricsVideoShadeTest checks the numbers are still the player's).
+     */
+    fun livingShows(glass: Float): Float {
+        val t = glass.coerceIn(0f, 1f)
+        val artwork = ARTWORK + (ARTWORK_UNDER_GLASS - ARTWORK) * t
+        val overlay = OVERLAY * (1f - t)
+        return artwork * (1f - overlay) * (1f - LYRICS_SCRIM)
+    }
+
+    const val ARTWORK = 1f
+    const val ARTWORK_UNDER_GLASS = 0.5f
+    const val OVERLAY = 0.4f
+    const val LYRICS_SCRIM = 0.3f
+
     /** How many frames a video [durationMs] long has. */
     fun frames(durationMs: Long): Int = ((durationMs * FRAMES_A_SECOND + 999) / 1000).toInt()
 
