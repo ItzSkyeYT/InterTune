@@ -13,6 +13,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.media.MediaCodec
 import android.media.MediaCodecInfo
+import android.media.MediaCodecList
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMuxer
@@ -357,9 +358,10 @@ object LyricsVideo {
                         VideoEncoderSettings.Builder()
                             .setBitrate(LyricsVideoPlan.PICTURE_BITRATE)
                             // Held to it, so the size is known before it is made: left to vary, the
-                            // emulator's encoder took 2 Mbit/s for 1.2 asked. One that cannot hold
-                            // a rate falls back to its own way.
-                            .setBitrateMode(MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR)
+                            // emulator's encoder took 2 Mbit/s for 1.2 asked. Only where an encoder
+                            // can hold a rate: asked of a phone with none, Transformer found no
+                            // encoder at all and no video was made (the Android 7 emulator, 2 Nov 2026).
+                            .apply { if (constantRate) setBitrateMode(MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR) }
                             .build()
                     )
                     .build()
@@ -507,6 +509,17 @@ object LyricsVideo {
                 }
             }
         }
+    }
+
+    /** Whether one of the phone's H.264 encoders can hold a constant rate. */
+    private val constantRate: Boolean by lazy {
+        runCatching {
+            MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos.any { info ->
+                info.isEncoder && info.supportedTypes.any { it.equals(MimeTypes.VIDEO_H264, ignoreCase = true) } &&
+                    info.getCapabilitiesForType(MimeTypes.VIDEO_H264).encoderCapabilities
+                        ?.isBitrateModeSupported(MediaCodecInfo.EncoderCapabilities.BITRATE_MODE_CBR) == true
+            }
+        }.getOrDefault(false)
     }
 
     private const val FOLDER = "lyrics-videos"
