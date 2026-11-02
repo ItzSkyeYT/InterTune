@@ -1,13 +1,13 @@
 Version 0.12.7
 
-- Téléchargements en quelques secondes.
-- Paroles en vidéo jusqu'à 10 min, Living blur suit la musique.
-- Le widget Étagère a trois looks.
-- Les titres partagés s'affichent en discussion.
-- Moins de plantages : démarrage, téléchargements.
-- Sauter les silences respecte la musique calme.
-- L'égaliseur du lecteur fonctionne.
-- Rechercher les paroles en trouve plus.
-- Un message pour la Corée du Sud.
+- Les téléchargements s'effectuent en quelques secondes.
+- Vidéos avec paroles d'une durée maximale de 10 minutes ; l'effet « Living blur » suit le rythme de la musique.
+- Le widget « Shelf » est disponible en trois styles.
+- Les chansons partagées s'affichent sous forme de carte dans les discussions.
+- Moins de plantages : au démarrage, lors du transfert de longs téléchargements.
+- La fonction « Skip silence » conserve la vitesse de lecture des passages silencieux.
+- L'égaliseur du menu du lecteur fonctionne.
+- La recherche de paroles donne plus de résultats.
+- Une remarque concernant la Corée du Sud.
 
-Full changelog: https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.12.7
+Journal complet des modifications : https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.12.7
