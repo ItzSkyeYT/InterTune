@@ -68,8 +68,13 @@ import kotlinx.coroutines.withContext
 /** GitHub turns down a very long address, and what led up to the fault is what the form is for. */
 private const val FORM_LOG_LIMIT = 5000
 
-/** The whole link to the bug form at most. Asked on 26 Oct 2026: GitHub opens the form for a link of 6,900 characters and answers 7,100 with "Something went wrong". */
-private const val FORM_LINK_LIMIT = 6000
+/**
+ * The whole link to the bug form at most. Signed out of GitHub, the form sends you to its sign-in page with the
+ * whole link escaped once more inside it. Measured on 27 Oct 2026: a link of 4,851 characters still opens; 5,081
+ * gets "Whoops, something went wrong!" from the sign-in page; from about 5,500 GitHub drops the link and the form
+ * comes up empty after signing in. 6,000, right for someone signed in (26 Oct), failed in both ways.
+ */
+private const val FORM_LINK_LIMIT = 4500
 
 /** Logs listed before "Show older": this run's and the three before it. */
 private const val FIRST_SHOWN = 4

@@ -7,6 +7,8 @@
 
 # InterTune
 
+<sub>InnerTune ∩ OuterTune</sub>
+
 ### YouTube Music and your own music, in one Android app
 
 [![release](https://img.shields.io/github/v/release/ItzSkyeYT/InterTune?label=release&color=ed5564&labelColor=1b1f24)](https://github.com/ItzSkyeYT/InterTune/releases/latest)
@@ -17,9 +19,11 @@
 [![licence](https://img.shields.io/badge/licence-GPL--3.0-ed5564?labelColor=1b1f24)](https://github.com/ItzSkyeYT/InterTune/tree/visionos-fix/LICENSE)
 [![keep android open](https://img.shields.io/badge/keep%20android-open-c62828?labelColor=1b1f24)](https://keepandroidopen.org/)
 
-[Website](https://intertune.app) · [Download](#download) · [Features](#features) · [Good to know](#good-to-know) · [Wiki](https://github.com/ItzSkyeYT/InterTune/wiki) · [Discord](https://discord.gg/68jmqhMjXk) · [Donors](#donors)
+[Website](https://intertune.app) · [Download](#download) · [Features](#features) · [Good to know](#good-to-know) · [Roadmap](#roadmap) · [Wiki](https://github.com/ItzSkyeYT/InterTune/wiki) · [Discord](https://discord.gg/68jmqhMjXk) · [Donors](#donors)
 
 </div>
+
+InterTune is a free, open-source YouTube Music client for Android, forked from [OuterTune](https://github.com/OuterTune/OuterTune) (which came from [InnerTune](https://github.com/z-huang/InnerTune)). It plays YouTube Music and the music on your phone in one queue, works out recommendations on the phone from what you skip and like, casts to Chromecast, FCast and DLNA, shows synced lyrics, recognises songs and works in Android Auto. No ads, no tracking, no account needed.
 
 > **Warning:** the "InterTune" apps on Google Play and on other APK sites are not this one: they are other companies' apps, with ads. Get InterTune only from this page, Obtainium, F-Droid, Orion Store or OpenAPK.
 
@@ -159,13 +163,46 @@ Every change in detail, and why this fork exists: [docs/FEATURES.md](https://git
 - **InterTune stands with [Keep Android Open](https://keepandroidopen.org/).** It will not join Google's developer registration, which would tie every Android app to an ID handed to Google.
 - If InterTune is useful to you, a star on this page helps other people find the real one.
 
+## Roadmap
+
+What's being worked on, roughly in order. `[x]` is done, `[~]` is built and being tested, `[ ]` is still to do. Nothing here has a date, and plans can change. Ideas are welcome in #feature-requests on [Discord](https://discord.gg/68jmqhMjXk) or as a [GitHub issue](https://github.com/ItzSkyeYT/InterTune/issues/new/choose).
+
+<details>
+<summary><b>Next: 0.13</b> · 0 of 16 done, 5 to test</summary>
+
+`[ ]` Listen together: one person plays, friends follow the same song in real time *(in progress)*\
+`[ ]` Your year in InterTune, a recap *(in progress)*\
+`[~]` What's playing works offline and names the song once you're back online ([#48](https://github.com/ItzSkyeYT/InterTune/issues/48))\
+`[ ]` Report a problem without a GitHub account, and follow it on GitHub from a link *(in progress)*\
+`[ ]` Find songs you saved twice, in Liked or your library ([#47](https://github.com/ItzSkyeYT/InterTune/issues/47))\
+`[ ]` Premium accounts get the 256 kbps stream\
+`[~]` Spatial audio for surround recordings, and Strength, Room and Ambience controls\
+`[~]` Choose which lyrics sources are used, and in what order\
+`[~]` Similar artists in the Favourite artists mix\
+`[ ]` Downloads in their own quality, with tags and a cover so other players can use them\
+`[ ]` Liked songs kept in sync with your downloads: unliking removes a download the app made itself ([#64](https://github.com/ItzSkyeYT/InterTune/issues/64))\
+`[ ]` Choose what's in the three-dot menus\
+`[ ]` Tablets: settings in two panes, and the player as a side pane *(in progress)*\
+`[ ]` A look made for foldable and flip phones *(in progress)*\
+`[ ]` Match your library from another service by logging in to it\
+`[~]` A filter for AI-made songs, if the poll in #general says yes
+
+</details>
+
+<details>
+<summary><b>Later</b></summary>
+
+`[ ]` Mix: songs in a playlist blend into each other like a DJ set, with an editor to shape each change *(in progress)*
+
+</details>
+
 ## Translations
 
-InterTune is translated on [Weblate](https://hosted.weblate.org/engage/intertune/). It is complete in French, German, Spanish, Brazilian Portuguese, Indonesian, Hindi, Italian and Russian; every other language needs a hand.
+InterTune is translated on [Weblate](https://hosted.weblate.org/engage/intertune/). The chart below shows how far each language is, and every one of them can use a hand.
 
 <a href="https://hosted.weblate.org/engage/intertune/"><img src="https://hosted.weblate.org/widget/intertune/strings/horizontal-auto.svg" alt="Translation status"></a>
 
-The oldest strings, the ones InnerTune started with, are not on Weblate: if one of those is wrong in your language, [say so here](https://github.com/ItzSkyeYT/InterTune/issues/new?template=translation_report.yml).
+Spotted a wrong translation? Fix it on Weblate, or [say so here](https://github.com/ItzSkyeYT/InterTune/issues/new?template=translation_report.yml).
 
 ## Building
 
@@ -216,7 +253,7 @@ InterTune stands on a lot of other people's work.
 |---|---|---|
 | [InnerTune](https://github.com/z-huang/InnerTune) | [Zion Huang](https://github.com/z-huang) | The app it all started from |
 | [OuterTune](https://github.com/OuterTune/OuterTune) | [Michael Zh](https://github.com/mikooomich) · [Davide Garberi](https://github.com/DD3Boh) | The fork InterTune is built on, where the heavy lifting is |
-| [AsterTune](https://github.com/yuuichi-s/AsterTune) | [yuuichi-s](https://github.com/yuuichi-s) | The same `VISIONOS` fix, found on its own; several fixes here were rewritten from it |
+| [AsterTune](https://github.com/yuuichi-s/AsterTune) | [yuuichi-s](https://github.com/yuuichi-s) | The same `VISIONOS` fix, found on its own; how a signed-in play reaches the right channel's YouTube history follows its request (6ea96c90), and the po token page works the way its does |
 | [Metrolist](https://github.com/MetrolistGroup/Metrolist) | [MetrolistGroup](https://github.com/MetrolistGroup) | A lot of inspiration, this README included |
 | [Essentials](https://github.com/sameerasw/essentials) · [sameerasw.com](https://sameerasw.com) | [Sameera Wijerathna](https://github.com/sameerasw) | The design language the app and its site learn from |
 

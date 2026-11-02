@@ -1,5 +1,8 @@
 package com.dd3boh.outertune.playback
 
+import com.dd3boh.outertune.ui.player.ART_PREVIEW_PX
+import com.dd3boh.outertune.utils.DownloadCovers
+import com.dd3boh.outertune.ui.utils.resize
 import android.content.Context
 import android.net.ConnectivityManager
 import android.util.Log
@@ -88,10 +91,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.onEach
 import okhttp3.OkHttpClient
-import java.io.ByteArrayOutputStream
-import java.io.File
-import java.io.FileInputStream
 import java.io.IOException
+import java.io.InputStream
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
@@ -127,13 +128,16 @@ class DownloadUtil @Inject constructor(
             .setUpstreamDataSourceFactory(
                 // A sabr: address to the SABR reader, any other over the family the address was
                 // issued to, and a web client's with its page's headers, as its check was made:
-                // see StreamFamily.Calls.
+                // see StreamFamily.Calls. Read in ranges of a megabyte: YouTube serves one request
+                // for a whole stream at about twice real time, ranges at full speed (PiecewiseDataSource).
                 SabrOrHttp.Factory(
-                    OkHttpDataSource.Factory(
-                        StreamFamily.Calls(
-                            OkHttpClient.Builder()
-                                .proxy(YouTube.proxy)
-                                .build()
+                    PiecewiseDataSource.Factory(
+                        OkHttpDataSource.Factory(
+                            StreamFamily.Calls(
+                                OkHttpClient.Builder()
+                                    .proxy(YouTube.proxy)
+                                    .build()
+                            )
                         )
                     )
                 )
@@ -359,12 +363,14 @@ class DownloadUtil @Inject constructor(
      * lost by toggling this mid-download.
      */
     fun setDownloadRequirements(wifiOnly: Boolean) {
-        DownloadService.sendSetRequirements(
-            context,
-            ExoDownloadService::class.java,
-            downloadRequirements(wifiOnly),
-            false
-        )
+        sends.attempt("setting the requirements") {
+            DownloadService.sendSetRequirements(
+                context,
+                ExoDownloadService::class.java,
+                downloadRequirements(wifiOnly),
+                false
+            )
+        }
     }
 
     /**
@@ -598,9 +604,11 @@ class DownloadUtil @Inject constructor(
                 // media3 carried on with all of them, while songs that had failed at some
                 // unrelated earlier point did match and were removed.
                 LikedCatchUp.toRemoveOnStop(batch, map, ends).forEach { id ->
-                    DownloadService.sendRemoveDownload(
-                        context, ExoDownloadService::class.java, id, false
-                    )
+                    sends.attempt("removing $id") {
+                        DownloadService.sendRemoveDownload(
+                            context, ExoDownloadService::class.java, id, false
+                        )
+                    }
                 }
             }.onFailure { Log.w(TAG, "Could not clear queued downloads on cancel", it) }
             // The counts at the moment of the stop, taken here rather than from the last progress
@@ -673,21 +681,18 @@ class DownloadUtil @Inject constructor(
             .setCustomCacheKey(id)
             .setData(title.toByteArray())
             .build()
-        return try {
+        // foreground = false is a bare startService. Every UI caller is in the foreground, but
+        // liking is reachable from the media notification and the widget with no Activity alive,
+        // which Android rejects. Losing one auto-download is not worth killing the process, and
+        // the backfill picks it up. The false is what tells the catch up that the request never
+        // got through.
+        return sends.attempt("adding $id") {
             DownloadService.sendAddDownload(
                 context,
                 ExoDownloadService::class.java,
                 downloadRequest,
                 false
             )
-            true
-        } catch (e: IllegalStateException) {
-            // foreground = false is a bare startService. Every UI caller is in the foreground, but
-            // liking is reachable from the media notification with no Activity alive, which Android
-            // rejects. Losing one auto-download is not worth killing the process, and the backfill
-            // picks it up.
-            Log.w(TAG, "Could not enqueue download for $id from the background", e)
-            false
         }
     }
 
@@ -697,10 +702,19 @@ class DownloadUtil @Inject constructor(
      * Songs in a download folder are left alone.
      */
     fun removeAllInternalDownloads() {
-        DownloadService.sendRemoveAllDownloads(context, ExoDownloadService::class.java, false)
+        sends.attempt("removing all downloads") {
+            DownloadService.sendRemoveAllDownloads(context, ExoDownloadService::class.java, false)
+        }
     }
 
-    fun resumeDownloadsOnStart() {
+    /**
+     * Starts the download service so that it resumes the downloads media3 holds paused. Sent from
+     * the automatic scan, a worker coroutine that can still be running after the person has left,
+     * and Android refuses to start a service for an app in the background. The refusal is logged,
+     * and the resume is sent again when the app is next in front: [resumeOwed], MainActivity.onResume
+     * (issue #65, where it closed the app during an update).
+     */
+    fun resumeDownloadsOnStart() = sends.resume {
         DownloadService.sendResumeDownloads(
             context,
             ExoDownloadService::class.java,
@@ -717,8 +731,15 @@ class DownloadUtil @Inject constructor(
      * media3 ignores a song it has no download for.
      */
     fun removeDownload(id: String) {
+        CoroutineScope(Dispatchers.IO).launch {
+            runCatching { database.song(id).first()?.thumbnailUrl }.getOrNull()?.takeIf { it.startsWith("http") }?.let { url ->
+                for (model in listOf(url, url.resize(ART_PREVIEW_PX, ART_PREVIEW_PX))) DownloadCovers.remove(context.filesDir, model)
+            }
+        }
         deleteSong(id)
-        DownloadService.sendRemoveDownload(context, ExoDownloadService::class.java, id, false)
+        sends.attempt("removing $id") {
+            DownloadService.sendRemoveDownload(context, ExoDownloadService::class.java, id, false)
+        }
     }
 
 // Deletes from custom dl
@@ -759,27 +780,45 @@ class DownloadUtil @Inject constructor(
     }
 
     /**
-     * Retrieve song from cache, and delete it from cache afterwards
+     * A song as media3 cached it, read from its files as one stream (cachedPieces), never whole into
+     * memory (#67). Null when the cache holds none of it, or its first file cannot be opened. The
+     * caller closes it.
      */
-    fun getFromCache(cache: SimpleCache, mediaId: String): ByteArray? {
-        val spans: Set<CacheSpan> = cache.getCachedSpans(mediaId)
-        if (spans.isEmpty()) return null
-
-        val output = ByteArrayOutputStream()
-        try {
-            for (span in spans) {
-                val file: File? = span.file
-                FileInputStream(file).use { fis ->
-                    fis.copyTo(output)
-                }
-            }
-            return output.toByteArray()
+    fun openFromCache(cache: SimpleCache, mediaId: String): InputStream? {
+        val files = cache.getCachedSpans(mediaId).mapNotNull { span: CacheSpan -> span.file }
+        if (files.isEmpty()) return null
+        return try {
+            cachedPieces(files)
         } catch (e: IOException) {
             reportException(e)
-        } finally {
-            output.close()
+            null
         }
-        return null
+    }
+
+    /**
+     * A downloaded song's cover, kept now as a file in the app's own storage (DownloadCovers), so it shows
+     * with no network even if the song never played online and after Android empties the image cache (dvd, 27 Oct 2026: covers came only from playing). Two
+     * addresses, the ones that are the same on every phone: the plain one lists ask for, and the
+     * player's small first cover (ART_PREVIEW_PX). The player's sharp cover depends on the screen;
+     * offline it falls back to the small one under it.
+     */
+    /** Every download's covers kept as files, for the downloads made before they were (0.12.6). A kept one costs nothing. */
+    private suspend fun keepMissingCovers() = withContext(Dispatchers.IO) {
+        for (id in downloads.value.keys) {
+            val url = runCatching { database.song(id).first()?.thumbnailUrl }.getOrNull()
+            if (url.isNullOrBlank() || !url.startsWith("http")) continue
+            for (model in listOf(url, url.resize(ART_PREVIEW_PX, ART_PREVIEW_PX))) DownloadCovers.save(context.filesDir, model)
+        }
+    }
+
+    private fun keepCoverForOffline(id: String) {
+        CoroutineScope(Dispatchers.IO).launch {
+            val url = runCatching { database.song(id).first()?.thumbnailUrl }.getOrNull()
+            if (url.isNullOrBlank() || !url.startsWith("http")) return@launch
+            for (model in listOf(url, url.resize(ART_PREVIEW_PX, ART_PREVIEW_PX))) {
+                DownloadCovers.save(context.filesDir, model)
+            }
+        }
     }
 
     /**
@@ -810,26 +849,28 @@ class DownloadUtil @Inject constructor(
                         }
                     }
                 }
-                val songFromCache = getFromCache(downloadCache, s.key)
-                if (songFromCache != null) {
-                    // The file is written, and checked, before anything of the old copy goes. The
-                    // cache used to be emptied first and a failed write swallowed, so a folder
-                    // that refused the file cost the song outright.
+                // Copied from the cache's files as the new file is written: read whole into memory
+                // first, a long mix ran the app out of memory (#67).
+                val fromCache = openFromCache(downloadCache, s.key) ?: return@forEach
+                // The file is written, and checked, before anything of the old copy goes. The
+                // cache used to be emptied first and a failed write swallowed, so a folder that
+                // refused the file cost the song outright.
+                val saved = fromCache.use { stream ->
                     val displayName = database.song(s.key).first()?.title ?: ""
-                    val saved = localMgr.getFilePathIfExists(s.key) ?: runCatching {
-                        localMgr.saveFile(s.key, songFromCache.inputStream(), displayName)
+                    localMgr.getFilePathIfExists(s.key) ?: runCatching {
+                        localMgr.saveFile(s.key, stream, displayName)
                     }.onFailure { reportException(it) }.getOrNull()
-                    if (saved == null) {
-                        Log.w(TAG, "Could not migrate ${s.key}, its download stays in the app")
-                        return@forEach
-                    }
-                    // The index entry goes as well. Left behind it still said completed, and each
-                    // later scan registered the song as downloaded again, even once its file in the
-                    // folder had been deleted.
-                    runCatching { migratedIndex.removeDownload(s.key) }
-                        .onFailure { Log.w(TAG, "Could not drop the index entry of ${s.key}", it) }
-                    downloadCache.removeResource(s.key)
                 }
+                if (saved == null) {
+                    Log.w(TAG, "Could not migrate ${s.key}, its download stays in the app")
+                    return@forEach
+                }
+                // The index entry goes as well. Left behind it still said completed, and each
+                // later scan registered the song as downloaded again, even once its file in the
+                // folder had been deleted.
+                runCatching { migratedIndex.removeDownload(s.key) }
+                    .onFailure { Log.w(TAG, "Could not drop the index entry of ${s.key}", it) }
+                downloadCache.removeResource(s.key)
             }
             // The scan is what registers the copied files, so the songs play from them. Called
             // through scanDownloads() it returned at once, since this had already set the flag it
@@ -1029,6 +1070,16 @@ class DownloadUtil @Inject constructor(
 
         /** Minimum gap between the player requests downloads make. See the gate in the resolver. */
         private const val RESOLVE_GAP_MS = 700L
+
+        /** Every message to the download service goes out through this: see DownloadServiceSends. */
+        private val sends = DownloadServiceSends { Log.w("DownloadUtil", it) }
+
+        /**
+         * A resume of the downloads that Android refused is still owed. Asked of the class rather
+         * than the instance, so that MainActivity can ask at every launch without building the
+         * downloads (StartupSingletonsTest); when the answer is yes the instance is there already.
+         */
+        val resumeOwed: Boolean get() = sends.resumeOwed
     }
 
 
@@ -1037,6 +1088,9 @@ class DownloadUtil @Inject constructor(
         // TODO: make sure db is update when download is queued
         CoroutineScope(dlCoroutine).launch {
             rescanDownloads()
+            // Downloads made before their covers were kept as files get theirs now, one at a time;
+            // with no network nothing comes and the next start tries again (DownloadCovers).
+            keepMissingCovers()
         }
         // The phone's battery saver can turn Battery use's Saver on and off at any time
         // (PhoneBatterySaver), and Saver downloads on Wi-Fi only: the manager is told at once.
@@ -1071,7 +1125,10 @@ class DownloadUtil @Inject constructor(
                     download: Download,
                     finalException: Exception?
                 ) {
-                    if (download.state == Download.STATE_COMPLETED) finishedSinceMove += download.request.id
+                    if (download.state == Download.STATE_COMPLETED) {
+                        finishedSinceMove += download.request.id
+                        keepCoverForOffline(download.request.id)
+                    }
                     // The map's removal below is all it ever shows of a failure, which looks the
                     // same as a song media3 has not been handed yet. The catch up needs the
                     // difference, so the ending is recorded for it here.

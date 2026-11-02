@@ -20,7 +20,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class AlbumViewModel @Inject constructor(
-    database: MusicDatabase,
+    private val database: MusicDatabase,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
     val albumId = savedStateHandle.get<String>("albumId")!!
@@ -39,6 +39,15 @@ class AlbumViewModel @Inject constructor(
     val isLoading = MutableStateFlow(true)
 
     init {
+        load()
+    }
+
+    /** Asks again after a load that failed or came back with no songs: the page's Retry. */
+    fun retry() {
+        if (!isLoading.value) load()
+    }
+
+    private fun load() {
         viewModelScope.launch {
             isLoading.value = true
             val album = database.album(albumId).first()

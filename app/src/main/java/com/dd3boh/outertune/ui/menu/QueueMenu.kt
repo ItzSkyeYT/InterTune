@@ -18,6 +18,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.PlayOrigin
@@ -34,6 +35,7 @@ fun QueueMenu(
     onDismiss: () -> Unit,
 ) {
     val playerConnection = LocalPlayerConnection.current ?: return
+    val database = LocalDatabase.current
 
     if (mq == null) {
         onDismiss()
@@ -101,9 +103,19 @@ fun QueueMenu(
      * ---------------------------
      */
     if (showChoosePlaylistDialog) {
+        // A queue holds songs that were only ever listed here, a radio's upcoming ones or a
+        // search's, and the song table may not have them: a saved queue has them, one that was
+        // not (Persistent queue off) or that changed a moment ago does not, and the playlist's
+        // map needs them there (#62). Copied here, on the main thread, because the queue is a
+        // list the player changes and the write below walks it on another.
+        val queued = songs.toList()
         AddToPlaylistDialog(
             navController = navController,
-            songIds = songs.map { it.id },
+            songIds = queued.map { it.id },
+            onPreAdd = {
+                database.transactionNow { queued.forEach { insert(it) } }
+                queued.map { it.id }
+            },
             onDismiss = {
                 showChoosePlaylistDialog = false
             }

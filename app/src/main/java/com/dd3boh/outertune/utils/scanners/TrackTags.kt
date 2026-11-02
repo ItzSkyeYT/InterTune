@@ -30,6 +30,19 @@ object TrackTags {
     )
 
     /**
+     * Track and disc from the tags ffMetadataEx lists, "key: value" each, as (track, disc): the
+     * first of each that has a number. FFmpeg calls them "track" and "disc" in MP3 and M4A files,
+     * and keeps a Vorbis comment's own names, TRACKNUMBER and DISCNUMBER. FFmpegScanner handed the
+     * whole line, key and all, to parseInt, and never found a number.
+     */
+    fun fromFfmpegTags(tags: List<String>): Pair<Int?, Int?> {
+        fun first(vararg keys: String) = tags.firstNotNullOfOrNull { tag ->
+            if (tag.substringBefore(':').trim().lowercase() in keys) number(tag.substringAfter(':')) else null
+        }
+        return Pair(first("track", "tracknumber"), first("disc", "discnumber"))
+    }
+
+    /**
      * Track and disc from MediaStore's columns, as (track, disc).
      *
      * CD_TRACK_NUMBER and DISC_NUMBER (Android 11 on) hold the tags' text. Read with getInt, the

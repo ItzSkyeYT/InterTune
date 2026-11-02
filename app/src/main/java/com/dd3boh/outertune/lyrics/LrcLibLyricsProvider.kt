@@ -70,13 +70,25 @@ object LrcLibLyricsProvider : LyricsProvider {
         null
     }
 
-    override suspend fun getAllLyrics(
-        id: String,
-        title: String,
-        artist: String,
-        duration: Int,
-        callback: (String) -> Unit,
-    ) {
-        LrcLib.getAllLyrics(title, artist, duration, null, callback)
+    /**
+     * The lyrics search: LRCLIB's search for the title with each spelling of the artists in turn
+     * ([LyricsQuery.searchArtists]), then the title alone, until one gives timed lyrics. A request that
+     * fails is the next spelling's turn, not the end: LRCLIB answered 503 at once for "Daft Punk,
+     * Pharrell Williams" and 200 for "Pharrell Williams, Daft Punk" (1 Nov 2026).
+     */
+    override suspend fun getAllLyrics(query: LyricsQuery, callback: (String) -> Unit) {
+        var failure: Exception? = null
+        for (artist in query.searchArtists + "") {
+            var found = false
+            try {
+                LrcLib.getAllLyrics(query.searchTitle, artist, query.duration) { found = true; callback(it) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                failure = e
+            }
+            if (found) return
+        }
+        failure?.let { throw it }
     }
 }

@@ -7,6 +7,15 @@
  */
 package com.dd3boh.outertune.ui.screens.settings
 
+import androidx.compose.material.icons.rounded.RestartAlt
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
+import com.dd3boh.outertune.ui.component.PreferenceEntry
+import com.dd3boh.outertune.utils.ProxyAtStart
+import com.dd3boh.outertune.utils.dataStore
+import kotlinx.coroutines.flow.map
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -147,6 +156,22 @@ fun PrivacySettings(
                         // "host:port" tells them nothing about where one comes from.
                         InfoLabel(stringResource(R.string.proxy_examples))
                     }
+                }
+
+                // The proxy is taken when the app starts, so a change here waits for a restart.
+                // Nothing said so, and a proxy typed in looked like it did nothing (#68).
+                val context = LocalContext.current
+                val proxyNow by remember(context) {
+                    context.dataStore.data.map { ProxyAtStart.of(it[ProxyEnabledKey], it[ProxyTypeKey], it[ProxyUrlKey]) }
+                }.collectAsState(initial = ProxyAtStart.setting)
+                AnimatedVisibility(ProxyAtStart.setting != null && proxyNow != ProxyAtStart.setting) {
+                    PreferenceEntry(
+                        modifier = Modifier.settingRow(R.string.proxy_restart_title),
+                        title = { Text(stringResource(R.string.proxy_restart_title)) },
+                        description = stringResource(R.string.proxy_restart_description),
+                        icon = { Icon(Icons.Rounded.RestartAlt, null) },
+                        onClick = { ProxyAtStart.restart(context) },
+                    )
                 }
             }
         }

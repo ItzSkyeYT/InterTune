@@ -48,6 +48,7 @@ import com.dd3boh.outertune.utils.scanners.LocalMediaScanner
 import com.dd3boh.outertune.utils.scanners.LocalMediaScanner.Companion.destroyScanner
 import com.dd3boh.outertune.utils.scanners.LocalMediaScanner.Companion.scannerState
 import com.dd3boh.outertune.utils.scanners.ScannerAbortException
+import com.dd3boh.outertune.utils.scanners.uriListFromString
 import com.dd3boh.outertune.ui.menu.MenuState
 import com.dd3boh.outertune.ui.menu.YouTubeSongMenu
 import com.zionhuang.innertube.YouTube
@@ -239,8 +240,17 @@ suspend fun scanInit(
                 val scanner = LocalMediaScanner.getScanner(
                     context, scannerImpl, SCANNER_OWNER_LM
                 )
-                val uris = scanner.scanLocal(scanPaths, excludedScanPaths)
-                scanner.quickSync(database, uris, scannerSensitivity, strictExtensions, strictFilePaths)
+                if (scannerImpl == ScannerImpl.MEDIASTORE) {
+                    // As the Settings page's quick scan does: MediaStore has a sync of its own, and the
+                    // tag readers' quick sync refuses it, so a launch added no new songs (B4, 29 Oct 2026).
+                    scanner.fullMediaStoreSync(
+                        database, uriListFromString(scanPaths), uriListFromString(excludedScanPaths),
+                        scannerSensitivity, strictExtensions, strictFilePaths, false,
+                    )
+                } else {
+                    val uris = scanner.scanLocal(scanPaths, excludedScanPaths)
+                    scanner.quickSync(database, uris, scannerSensitivity, strictExtensions, strictFilePaths)
+                }
 
                 // start artist linking job
                 if (lookupYtmArtists && scannerState.value <= 0) {

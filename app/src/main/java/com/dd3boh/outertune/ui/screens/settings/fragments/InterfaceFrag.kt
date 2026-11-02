@@ -5,11 +5,14 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyColumn
@@ -17,6 +20,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.DragHandle
 import androidx.compose.material.icons.rounded.Language
@@ -29,7 +33,9 @@ import androidx.compose.material.icons.rounded.Tab
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -40,8 +46,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.ContentCountryKey
 import com.dd3boh.outertune.constants.ContentLanguageKey
@@ -70,6 +80,7 @@ import com.dd3boh.outertune.ui.screens.Screens
 import com.dd3boh.outertune.ui.screens.Screens.LibraryFilter
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
+import com.dd3boh.outertune.utils.OpenLinks
 import com.dd3boh.outertune.utils.ShareLinkKind
 import com.dd3boh.outertune.utils.ShareLinks
 import com.dd3boh.outertune.utils.rememberEnumPreference
@@ -526,4 +537,55 @@ fun ColumnScope.ShareLinksFrag() {
             }
         }
     )
+}
+
+/**
+ * "Open links in InterTune": whether this install takes the YouTube Music and intertune.app links
+ * tapped in other apps (OpenLinks). Off, they go to whatever else can open them, such as a Preview
+ * installed beside the release. The row reads the system's own state each time the screen is
+ * drawn or comes back to the front and writes it without restarting the app, so it holds no
+ * setting of ours that could say otherwise.
+ *
+ * Android has a switch of its own for this, "Open supported links" under Settings > Apps > this
+ * app > Open by default. It can only be read from here: when it is off no link opens in the app
+ * and the row says so, shown off and out of reach, with the way to Android's page just under it.
+ */
+@Composable
+fun ColumnScope.OpenLinksFrag() {
+    val context = LocalContext.current
+    var on by remember { mutableStateOf(OpenLinks.isOn(context)) }
+    var androidAllows by remember { mutableStateOf(OpenLinks.androidAllows(context)) }
+    // Back from Android's own page, its switch may have moved.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                on = OpenLinks.isOn(context)
+                androidAllows = OpenLinks.androidAllows(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    SwitchPreference(
+        modifier = Modifier.settingRow(R.string.open_links_title),
+        title = { Text(stringResource(R.string.open_links_title, stringResource(R.string.app_name))) },
+        description = stringResource(if (androidAllows) R.string.open_links_description else R.string.open_links_android_off),
+        icon = { Icon(Icons.AutoMirrored.Rounded.OpenInNew, null) },
+        isEnabled = androidAllows,
+        checked = OpenLinks.opens(on, androidAllows),
+        onCheckedChange = { on = OpenLinks.set(context, it) },
+    )
+    // Under the words, where the description starts: the row's icon and its gaps, less the button's own
+    // padding. Kept close to the row it belongs to: the row's own bottom padding already stands above it.
+    Row(Modifier.fillMaxWidth().padding(start = 48.dp, end = 16.dp)) {
+        TextButton(
+            onClick = { OpenLinks.openAndroidSettings(context) },
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+            modifier = Modifier.heightIn(min = 32.dp).offset(y = (-10).dp),
+        ) {
+            Text(stringResource(R.string.open_links_android_settings))
+        }
+    }
 }

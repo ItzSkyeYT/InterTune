@@ -169,7 +169,7 @@ class RecognitionService : Service() {
                     // leaves the status bar as the song arrives, and nothing is taken longer than
                     // the song needed.
                     PhoneAudio.release()
-                    if (headless || !appInFront()) notifyFound(state.track)
+                    if (headless || !appInFront()) notifyFound(state.track, state.searchWords)
                 }
             }
         }
@@ -317,9 +317,11 @@ class RecognitionService : Service() {
     /**
      * The song the tile's listen found: its name, its artist, Shazam's cover when it comes in
      * time, and a tap that opens InterTune's search for it, to play it or add it to a playlist.
+     * The search is for the words that found it ([words], RecognitionEngine.State.Found's
+     * searchWords): his reel heard as "Lush Life (Riot Remix)", a version YouTube Music lists no
+     * song of, opened on other people's uploads and covers, and Zara Larsson's own was not there.
      */
-    private fun notifyFound(track: Recognised) {
-        val words = listOfNotNull(track.title, track.artist).joinToString(" ")
+    private fun notifyFound(track: Recognised, words: String) {
         val open = PendingIntent.getActivity(
             this, 2,
             Intent(Intent.ACTION_VIEW, android.net.Uri.parse(SystemSearch.searchLink(words)), this, MainActivity::class.java)

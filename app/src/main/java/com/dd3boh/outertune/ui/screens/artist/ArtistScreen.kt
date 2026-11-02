@@ -344,7 +344,8 @@ fun ArtistScreen(
                         val thumbnailSize = (ListThumbnailSize.value * density.density).roundToInt()
                         itemsIndexed(
                             items = librarySongs,
-                            key = { _, item -> "song:${item.id}" }
+                            // A song listed twice keeps a key of its own: its place (#53).
+                            key = { index, item -> "song:${item.id}#$index" }
                         ) { index, song ->
                             SongListItem(
                                 song = song,
@@ -391,7 +392,7 @@ fun ArtistScreen(
                         item {
                             LazyRow {
                                 items(
-                                    items = libraryAlbums,
+                                    items = libraryAlbums.distinctBy { it.id },
                                     key = { it.id }
                                 ) { album ->
                                     AlbumGridItem(
@@ -450,7 +451,8 @@ fun ArtistScreen(
 
                     if (isSongsSection) {
                         items(
-                            items = section.items,
+                            // Played by finding the song in section.items, so a song YouTube lists twice is shown once (#53).
+                            items = section.items.distinctBy { it.id },
                             key = { it.id }
                         ) { song ->
                             SwipeToQueueBox(
@@ -518,7 +520,7 @@ fun ArtistScreen(
                         item {
                             LazyRow {
                                 items(
-                                    items = section.items,
+                                    items = section.items.distinctBy { it.id },
                                     key = { it.id }
                                 ) { item ->
                                     YouTubeGridItem(

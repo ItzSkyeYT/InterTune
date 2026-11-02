@@ -131,7 +131,9 @@ import com.dd3boh.outertune.playback.queues.YouTubeAlbumRadio
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import com.dd3boh.outertune.ui.component.AnnouncementBanner
 import com.dd3boh.outertune.ui.component.AnnouncementDialog
+import com.dd3boh.outertune.ui.component.AutoBlockerNote
 import com.dd3boh.outertune.ui.component.PollBanner
+import com.dd3boh.outertune.ui.component.RegionNoteIfClosed
 import com.dd3boh.outertune.ui.component.ThrottleBanner
 import com.dd3boh.outertune.ui.component.PollDialog
 import com.dd3boh.outertune.ui.component.ChipsRow
@@ -220,6 +222,14 @@ fun HomeScreen(
     welcomeCard: WelcomeCard? = null,
     onWelcomeSee: () -> Unit = {},
     onWelcomeDismiss: () -> Unit = {},
+    /**
+     * The word for somebody whose update Auto Blocker stopped, once it went through: whether the
+     * note is up, that it has been shown (the app forgets it then), and its two buttons.
+     */
+    autoBlockerNote: Boolean = false,
+    onAutoBlockerNoteShown: () -> Unit = {},
+    onAutoBlockerNoteOpen: () -> Unit = {},
+    onAutoBlockerNoteDone: () -> Unit = {},
 ) {
     val menuState = LocalMenuState.current
     val database = LocalDatabase.current
@@ -684,6 +694,12 @@ fun HomeScreen(
                 ThrottleBanner(modifier = Modifier.animateItem())
             }
 
+            // Where YouTube Music has no free plan, why Home and Search have no songs, albums or
+            // mixes (#68). Shown only while YouTube sees the connection there, until Done.
+            item(key = "region_note") {
+                RegionNoteIfClosed(modifier = Modifier.animateItem())
+            }
+
             // What is new since an update, for somebody back after one. First of the three that
             // can stand here, by the rule the announcement's comment gives below: one line from
             // the app itself costs the least attention of them.
@@ -693,6 +709,19 @@ fun HomeScreen(
                         card = card,
                         onSee = onWelcomeSee,
                         onDismiss = onWelcomeDismiss,
+                        modifier = Modifier.animateItem(),
+                    )
+                }
+            }
+
+            // A word from the app itself too, so beside the card above and ahead of the two below.
+            // Forgotten as it is first drawn: it is said once, and stays up until it is answered.
+            if (autoBlockerNote) {
+                item(key = "auto_blocker_note") {
+                    LaunchedEffect(Unit) { onAutoBlockerNoteShown() }
+                    AutoBlockerNote(
+                        onOpen = onAutoBlockerNoteOpen,
+                        onDone = onAutoBlockerNoteDone,
                         modifier = Modifier.animateItem(),
                     )
                 }

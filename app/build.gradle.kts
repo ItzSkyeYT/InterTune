@@ -52,8 +52,8 @@ android {
         applicationId = "dev.skye.intertune"
         minSdk = 24
         targetSdk = 36
-        versionCode = 97
-        versionName = "0.12.5"
+        versionCode = 98
+        versionName = "0.12.6"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // Obfuscated, not encrypted, and the difference matters. Anything the app can read, so
@@ -143,10 +143,14 @@ android {
             // The app's own screens in a car (AutoCarService, AutoSettingsService) exist only where
             // Unreleased.AUTO_REWORK is on: a car that finds them draws the app from them, held back or not.
             manifestPlaceholders["carScreens"] = "false"
+            // The widget's settings: a dialog. Where Unreleased.WIDGET_ON_WALLPAPER is on (every debuggable
+            // build), a full window over the wallpaper; a dialog there lets the home screen show through.
+            manifestPlaceholders["widgetConfigTheme"] = "@style/Theme.InterTune.WidgetConfig"
         }
         debug {
             applicationIdSuffix = ".debug"
             manifestPlaceholders["carScreens"] = "true"
+            manifestPlaceholders["widgetConfigTheme"] = "@style/Theme.InterTune.WidgetConfig.Wallpaper"
         }
 
         // A debug build that installs beside the release and the debug build, for trying a
