@@ -2164,4 +2164,13 @@
     <!-- Liked songs kept in sync with their downloads (issue #64, Unreleased.LIKED_SYNC): held from translators until he says. -->
     <string name="liked_download_sync">Supprimer le téléchargement avec le j’aime</string>
     <string name="liked_download_sync_description">Seulement les titres que ce réglage a téléchargés. Un titre téléchargé par vous reste.</string>
+    <!-- Pochette de la playlist (PlaylistCovers, PlaylistCoverSheet, Unreleased.PLAYLIST_COVER): held from translators in values until the words are agreed. -->
+    <string name="playlist_cover_change">Changer la pochette</string>
+    <string name="playlist_cover_title">Pochette de la playlist</string>
+    <string name="playlist_cover_note">La pochette au-dessus change à chaque choix.</string>
+    <string name="playlist_cover_automatic">Automatique</string>
+    <string name="playlist_cover_automatic_note">La pochette du premier titre</string>
+    <string name="playlist_cover_photo">Une photo</string>
+    <string name="playlist_cover_photo_note">Depuis votre téléphone</string>
+    <string name="playlist_cover_songs">Un titre de cette playlist</string>
 </resources>

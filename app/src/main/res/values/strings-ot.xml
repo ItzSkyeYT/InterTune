@@ -2344,4 +2344,13 @@ while also allowing users to translate our app as well. New, specific strings to
     <!-- Liked songs kept in sync with their downloads (issue #64, Unreleased.LIKED_SYNC): held from translators until he says. -->
     <string name="liked_download_sync" translatable="false">Remove the download with the like</string>
     <string name="liked_download_sync_description" translatable="false">Only songs this setting downloaded. A song you downloaded yourself stays.</string>
+    <!-- Playlist cover (PlaylistCovers, PlaylistCoverSheet, Unreleased.PLAYLIST_COVER): the choice in Edit playlist and in the sheet that opens from it and from the cover in a playlist's header. Held from translators until the words are agreed, their French beside them in values-fr. -->
+    <string name="playlist_cover_change" translatable="false">Change cover</string>
+    <string name="playlist_cover_title" translatable="false">Playlist cover</string>
+    <string name="playlist_cover_note" translatable="false">The cover above changes as you pick.</string>
+    <string name="playlist_cover_automatic" translatable="false">Automatic</string>
+    <string name="playlist_cover_automatic_note" translatable="false">The first song\'s cover</string>
+    <string name="playlist_cover_photo" translatable="false">A photo</string>
+    <string name="playlist_cover_photo_note" translatable="false">From your phone</string>
+    <string name="playlist_cover_songs" translatable="false">A song from this playlist</string>
 </resources>

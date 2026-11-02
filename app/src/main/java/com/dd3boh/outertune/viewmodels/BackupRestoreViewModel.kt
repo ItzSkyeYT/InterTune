@@ -16,6 +16,7 @@ import com.dd3boh.outertune.extensions.div
 import com.dd3boh.outertune.extensions.zipInputStream
 import com.dd3boh.outertune.playback.MusicService
 import com.dd3boh.outertune.utils.BackupWriter
+import com.dd3boh.outertune.utils.PlaylistCovers
 import com.dd3boh.outertune.utils.reportException
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -151,6 +152,10 @@ class BackupRestoreViewModel @Inject constructor(
         var settingsBytes: ByteArray? = null
         var databaseValidated = false
         val probeFile = context.getDatabasePath(InternalDatabase.TEST_DB_NAME)
+        // The photos a backup holds as playlist covers wait here, like the settings, until the
+        // database is known good: a refused backup changes nothing.
+        val stagedCovers = File(context.cacheDir, "playlist-covers-restore")
+        stagedCovers.deleteRecursively()
 
         context.applicationContext.contentResolver.openInputStream(uri)?.use {
             it.zipInputStream().use { inputStream ->
@@ -191,6 +196,8 @@ class BackupRestoreViewModel @Inject constructor(
                                 false
                             }
                         }
+
+                        else -> PlaylistCovers.stage(stagedCovers, entry.name, inputStream)
                     }
                     entry = inputStream.nextEntry
                 }
@@ -199,6 +206,7 @@ class BackupRestoreViewModel @Inject constructor(
 
         if (!databaseValidated) {
             Log.e(TAG, "Incompatible or missing database, aborting restore")
+            stagedCovers.deleteRecursively()
             return false
         }
 
@@ -228,6 +236,10 @@ class BackupRestoreViewModel @Inject constructor(
                 outputStream.write(bytes)
             }
         }
+
+        // Last, and apart from the rest: a photo that cannot be put in place costs its playlist a
+        // cover, which is drawn as the first song's, and never the restore.
+        runCatching { PlaylistCovers.place(stagedCovers, context.filesDir) }
 
         return true
     }
