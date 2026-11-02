@@ -232,6 +232,18 @@ class RecogniseLater internal constructor(private val file: File) {
         private fun ofTheMoment(reason: String): Boolean =
             reason == "network" || reason == "http 429" || reason.startsWith("http 5")
 
+        /**
+         * Whether Keep listening is keeping what it hears with no connection, once [outcome] has been
+         * dealt with ([kept]: it was kept for later): yes from the window that was, no once Shazam
+         * answers again, and as it was for silence or a refusal, which say nothing about the
+         * connection. What the screen and the notification say in place of "Shazam is not answering".
+         */
+        fun offlineAfter(was: Boolean, outcome: RecognitionOutcome, kept: Boolean): Boolean = when {
+            kept -> true
+            outcome !is RecognitionOutcome.Failed -> false
+            else -> was
+        }
+
         internal fun kept(list: List<KeptListen>, listen: KeptListen, now: Long): List<KeptListen> =
             fresh(list.filterNot { it.heardAt == listen.heardAt } + listen, now)
                 .sortedBy { it.heardAt }

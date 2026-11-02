@@ -202,6 +202,7 @@ fun RecognitionScreen(
     val following by viewModel.following.collectAsState()
     val mixChoices by viewModel.mixChoices.collectAsState()
     val retryAt by viewModel.retryAt.collectAsState()
+    val keepingOffline by viewModel.keepingOffline.collectAsState()
 
     // Whose run the engine is on, asked as the playlist sheet asks: see SheetRun. A playlist's run
     // left going, its sheet left by navigating away rather than closed, used to show here as the
@@ -462,7 +463,10 @@ fun RecognitionScreen(
                         state is RecognitionEngine.State.Found,
                 // The big button always stops a run, whichever mode it is in.
                 onClick = { if (listening) viewModel.stop() else listen(keepListeningDefault) },
-                message = shazamWaitMessage(retryAt?.takeIf { listening && continuous }),
+                // With no connection what it hears is kept for later (RecogniseLater): that is said in
+                // place of Shazam not answering, which is not what is wrong.
+                message = if (listening && continuous && keepingOffline) stringResource(R.string.recognise_later_keeping)
+                else shazamWaitMessage(retryAt?.takeIf { listening && continuous }),
             )
         }
 

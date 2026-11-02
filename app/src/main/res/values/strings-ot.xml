@@ -2286,6 +2286,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="proxy_restart_description">InterTune takes the proxy when it starts. Tap to restart it now; the music stops.</string>
     <!-- What's playing with no connection (issue #48, RecogniseLater, Unreleased.RECOGNISE_OFFLINE): a listen kept to be named once the phone is back online. Held back from translators until the words are agreed, the French beside them in values-fr. -->
     <string name="recognise_later_kept" translatable="false">No connection. It kept what it heard and will name the song once you are back online.</string>
+    <string name="recognise_later_keeping" translatable="false">No connection. Keeping what it hears for later</string>
     <string name="recognise_later_waiting" translatable="false">Waiting for a connection</string>
     <string name="recognise_later_channel" translatable="false">Songs heard offline</string>
     <plurals name="recognise_later_named" translatable="false">

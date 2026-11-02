@@ -141,6 +141,10 @@ class RecognitionService : Service() {
         scope.launch {
             engine.retryAt.drop(1).collect { if (engine.running.value) redraw() }
         }
+        // The same for no connection, with what it hears kept for later (RecogniseLater).
+        scope.launch {
+            engine.keepingOffline.drop(1).collect { if (engine.running.value) redraw() }
+        }
     }
 
     /**
@@ -265,8 +269,11 @@ class RecognitionService : Service() {
         }
 
         // Keep listening that Shazam has stopped answering says so, where it used to look exactly
-        // like a run listening to a quiet room. The same words as the screen's.
-        val waiting = engine.retryAt.value?.takeIf { engine.continuous.value }?.let { retryAt ->
+        // like a run listening to a quiet room. The same words as the screen's. With no connection
+        // it says what is kept instead (RecogniseLater), as the screen does.
+        val waiting = if (engine.keepingOffline.value && engine.continuous.value) {
+            getString(R.string.recognise_later_keeping)
+        } else engine.retryAt.value?.takeIf { engine.continuous.value }?.let { retryAt ->
             val seconds = ShazamBackoff.secondsLeft(retryAt, System.currentTimeMillis())
             if (seconds > 0) resources.getQuantityString(R.plurals.recognition_shazam_waiting, seconds, seconds)
             else getString(R.string.recognition_shazam_retrying)

@@ -272,6 +272,30 @@ class RecogniseLaterTest {
         assertEquals(listOf(now - 3_000, now - 1_000), store().due(now).map { it.heardAt })
     }
 
+    // ---- what Keep listening says while it keeps what it hears
+
+    private val noConnection = RecognitionOutcome.Failed("network")
+
+    @Test
+    fun `Keep listening says it is keeping what it hears from the window that was kept`() {
+        assertTrue(RecogniseLater.offlineAfter(was = false, outcome = noConnection, kept = true))
+        assertTrue(RecogniseLater.offlineAfter(was = true, outcome = noConnection, kept = true))
+    }
+
+    @Test
+    fun `it stops saying so once Shazam answers, with a song or without one`() {
+        assertFalse(RecogniseLater.offlineAfter(was = true, outcome = match("Song"), kept = false))
+        assertFalse(RecogniseLater.offlineAfter(was = true, outcome = RecognitionOutcome.NoMatch, kept = false))
+    }
+
+    @Test
+    fun `silence, a refusal or a window that could not be kept change nothing`() {
+        for (outcome in listOf(RecognitionOutcome.Failed("silence"), RecognitionOutcome.Failed("http 429"), noConnection)) {
+            assertTrue(outcome.toString(), RecogniseLater.offlineAfter(was = true, outcome = outcome, kept = false))
+            assertFalse(outcome.toString(), RecogniseLater.offlineAfter(was = false, outcome = outcome, kept = false))
+        }
+    }
+
     /**
      * Something with peaks in it to fingerprint: a tune of tones that changes every half second,
      * at the fingerprint's own rate.

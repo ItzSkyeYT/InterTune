@@ -187,6 +187,16 @@ class RecognitionEngine @Inject constructor(
     private val _retryAt = MutableStateFlow<Long?>(null)
     val retryAt = _retryAt.asStateFlow()
 
+    /**
+     * Keep listening with no connection: whether the last window it asked about found none and was
+     * kept for later ([RecogniseLater]), until Shazam answers again or the run ends. The screen and
+     * the notification say so in place of "Shazam is not answering", which is not what is wrong
+     * with no connection. Never true in Listen once, which says it as its answer ([State.Kept]),
+     * and never while [Unreleased.RECOGNISE_OFFLINE] is off.
+     */
+    private val _keepingOffline = MutableStateFlow(false)
+    val keepingOffline = _keepingOffline.asStateFlow()
+
     /** How long to leave Shazam alone after it stops answering. A new one for every run. */
     private var backoff = ShazamBackoff()
 
@@ -491,6 +501,7 @@ class RecognitionEngine @Inject constructor(
         // was waiting out. The cheapest way to find out whether Shazam is back is to ask it once.
         backoff = ShazamBackoff()
         _retryAt.value = null
+        _keepingOffline.value = false
         lastKnownEndMs = 0L
         _added.value = emptyList()
         _skipped.value = emptyList()
@@ -666,7 +677,9 @@ class RecognitionEngine @Inject constructor(
             }
             pace(outcome, endMs, keepGoing)
             unwatchAcrossGap(outcome, endMs)
-            respondTo(outcome, keepGoing, window.startedAtMs, kept = keepForLater(outcome, window, keepGoing))
+            val kept = keepForLater(outcome, window, keepGoing)
+            _keepingOffline.value = RecogniseLater.offlineAfter(_keepingOffline.value, outcome, kept && keepGoing)
+            respondTo(outcome, keepGoing, window.startedAtMs, kept = kept)
         } finally {
             // Back to plain listening once the answer has been dealt with, unless dealing with it
             // moved the state somewhere else. Nothing used to clear this. Every arm that returns
@@ -1894,6 +1907,7 @@ class RecognitionEngine @Inject constructor(
         pendingVariant = null
         publish(null)
         _retryAt.value = null
+        _keepingOffline.value = false
     }
 
     fun reset() {

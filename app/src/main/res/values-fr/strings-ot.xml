@@ -2110,6 +2110,7 @@
     <string name="proxy_restart_description">InterTune prend le proxy au démarrage. Touchez pour le redémarrer maintenant ; la musique s\'arrête.</string>
     <!-- What's playing with no connection (issue #48, RecogniseLater, Unreleased.RECOGNISE_OFFLINE): a listen kept to be named once the phone is back online. -->
     <string name="recognise_later_kept">Pas de connexion. Ce qui a été entendu est gardé, et le titre sera trouvé dès votre retour en ligne.</string>
+    <string name="recognise_later_keeping">Pas de connexion. Ce qui est entendu est gardé pour plus tard</string>
     <string name="recognise_later_waiting">En attente de connexion</string>
     <string name="recognise_later_channel">Titres entendus hors ligne</string>
     <plurals name="recognise_later_named">

@@ -60,6 +60,9 @@ class RecognitionViewModel @Inject constructor(
     /** When Keep listening next asks Shazam, while it waits out a run of failures. */
     val retryAt = engine.retryAt
 
+    /** Keep listening is keeping what it hears with no connection ([RecognitionEngine.keepingOffline]). */
+    val keepingOffline = engine.keepingOffline
+
     /** Everything ever heard, across restarts, newest first. */
     val heard = history.entries
 
