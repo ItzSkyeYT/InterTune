@@ -276,6 +276,15 @@ class MixEditorTest {
     }
 
     @Test
+    fun `a tapped tempo follows every tap from the second, over the gaps' median`() {
+        assertNull(tappedBpm(listOf(1_000L)))
+        assertEquals(120.0, tappedBpm(listOf(0L, 500L))!!, 0.0)
+        // One late tap does not pull the tempo: the median of the gaps holds it.
+        assertEquals(120.0, tappedBpm(listOf(0L, 500L, 1_000L, 1_640L, 2_140L, 2_640L))!!, 0.0)
+        assertEquals(98.0, tappedBpm((0 until 9).map { (it * 612.245).toLong() })!!, 0.1)
+    }
+
+    @Test
     fun `handles snap to beats, with bar lines sticky`() {
         val e = editor()
         assertEquals(3.0, e.snap(2.93), 1e-9)

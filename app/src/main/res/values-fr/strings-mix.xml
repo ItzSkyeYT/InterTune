@@ -156,8 +156,7 @@
     <string name="mix_fix_half">Moitié</string>
     <string name="mix_fix_double">Double</string>
     <string name="mix_fix_tap">Taper</string>
-    <string name="mix_fix_tap_pad">Tapez le rythme, 8 fois ou plus</string>
-    <string name="mix_fix_taps">Tapes : %1$d sur 8</string>
+    <string name="mix_fix_tap_done">OK</string>
     <string name="mix_fix_tapped">Tapes : %1$d · %2$s BPM</string>
     <string name="mix_fix_the_one">Le 1 :</string>
     <string name="mix_fix_earlier">Un temps plus tôt</string>
@@ -169,11 +168,10 @@
     <string name="mix_fix_click">Écouter avec un clic</string>
     <string name="mix_fix_click_stop">Arrêter le clic</string>
     <string name="mix_fix_reset">Réinitialiser</string>
-    <string name="mix_fix_none_set">Aucun rythme régulier trouvé dans %1$s. Tapez son tempo ou saisissez-le, puis placez son 1.</string>
-    <string name="mix_fix_bars_guessed">%1$s BPM · mesure 1 devinée</string>
+    <string name="mix_fix_bars_guessed">%1$s BPM · mesure 1 incertaine</string>
     <string name="mix_fix_type">BPM</string>
-    <string name="mix_beat_note_none">Aucun rythme trouvé : touchez pour le régler</string>
-    <string name="mix_beat_note_bar_one">Mesure 1 devinée : touchez pour vérifier</string>
+    <string name="mix_beat_note_none">Rythme incertain</string>
+    <string name="mix_beat_note_bar_one">Mesure 1 incertaine</string>
     <string name="mix_fix_kept">La correction est gardée pour ce morceau, Auto s\'en sert aussi.</string>
 
     <string name="mix_moments_title">Moments</string>

@@ -168,8 +168,7 @@
     <string name="mix_fix_half">Half</string>
     <string name="mix_fix_double">Double</string>
     <string name="mix_fix_tap">Tap</string>
-    <string name="mix_fix_tap_pad">Tap the beat, 8 times or more</string>
-    <string name="mix_fix_taps">Taps: %1$d of 8</string>
+    <string name="mix_fix_tap_done">Done</string>
     <string name="mix_fix_tapped">Taps: %1$d · %2$s BPM</string>
     <string name="mix_fix_the_one">The 1:</string>
     <string name="mix_fix_earlier">A beat earlier</string>
@@ -181,11 +180,10 @@
     <string name="mix_fix_click">Listen with a click</string>
     <string name="mix_fix_click_stop">Stop the click</string>
     <string name="mix_fix_reset">Reset</string>
-    <string name="mix_fix_none_set">No steady beat was found in %1$s. Tap its tempo or type it, then put its 1 right.</string>
-    <string name="mix_fix_bars_guessed">%1$s BPM · bar 1 is a guess</string>
+    <string name="mix_fix_bars_guessed">%1$s BPM · bar 1 unsure</string>
     <string name="mix_fix_type">BPM</string>
-    <string name="mix_beat_note_none">No steady beat found: tap to set it</string>
-    <string name="mix_beat_note_bar_one">Bar 1 is a guess: tap to check it</string>
+    <string name="mix_beat_note_none">Beat unsure</string>
+    <string name="mix_beat_note_bar_one">Bar 1 unsure</string>
     <string name="mix_fix_kept">A fix is kept for this song, so Auto uses it too.</string>
 
     <!-- moments sheet -->

@@ -470,13 +470,14 @@ private fun SongLine(
         )
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            // Where the beat is not sure, the line under the title says so in place of the artists.
             val artists = song?.artists?.joinToString(", ") { it.name }.orEmpty()
-            if (note != null) {
-                Text(words.beatNote(note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            } else if (artists.isNotEmpty()) {
+            if (artists.isNotEmpty()) {
                 Text(artists, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
+        }
+        // Where the beat is not sure, two words beside the tempo say so; the row's tap fixes it.
+        if (note != null) {
+            Text(words.beatNote(note), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, maxLines = 1)
         }
         Text(
             if (bpm != null) words.bpm(bpm) else stringResource(R.string.mix_edit_bpm_unknown),

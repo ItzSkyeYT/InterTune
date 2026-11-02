@@ -81,7 +81,6 @@ import com.dd3boh.outertune.mix.edit.Lane
 import com.dd3boh.outertune.mix.edit.LaneId
 import com.dd3boh.outertune.mix.edit.Side
 import com.dd3boh.outertune.mix.edit.TransitionSpec
-import kotlinx.coroutines.delay
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -255,6 +254,18 @@ internal const val NUDGE_STEP_MS = 5
 /** The tempos a typed one may be. */
 private val TYPED_BPM = 40.0..250.0
 
+/** Taps the tempo is worked out over, the newest, and how many it takes before it is used. */
+private const val TAPS_KEPT = 16
+private const val TAPS_TAKEN = 4
+
+/** The tempo of [taps] (ms), from the median of their gaps, to a tenth of a BPM; null under two taps. */
+internal fun tappedBpm(taps: List<Long>): Double? {
+    if (taps.size < 2) return null
+    val gaps = taps.zipWithNext { a, b -> b - a }.sorted()
+    val median = gaps[gaps.size / 2].coerceAtLeast(1)
+    return (600_000.0 / median).roundToInt() / 10.0
+}
+
 /** Fix the beat of one song: half, double, tapped, where the 1 is, a nudge; kept for the song. */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -276,16 +287,27 @@ fun FixSheet(
     // The beats as the page has them: the analysis's, or the ones laid at a tempo set here.
     val current = if (side == Side.A) editor.gridA(spec) else editor.gridB(spec)
     val base = facts.grid ?: current
-    ModalBottomSheet(onDismissRequest = { onClick(false); onDone() }, sheetState = state) {
+    val taps = remember { mutableStateListOf<Long>() }
+    ModalBottomSheet(onDismissRequest = {
+        // Closed while tapping: the tempo tapped is taken, as closing the pad takes it.
+        tappedBpm(taps)?.takeIf { taps.size >= TAPS_TAKEN }?.let { b -> vm.edit { setFix(side, fix.copy(bpm = b)) } }
+        onClick(false)
+        onDone()
+    }, sheetState = state) {
         Column(Modifier.verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 16.dp)) {
             Text(stringResource(R.string.mix_fix_title, facts.title), style = MaterialTheme.typography.headlineSmall, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 24.dp))
             fun set(next: BeatFix) = vm.edit { setFix(side, next) }
             var tapping by remember { mutableStateOf(base == null) }
+            fun takeTaps() {
+                tappedBpm(taps)?.takeIf { taps.size >= TAPS_TAKEN }?.let { set(fix.copy(bpm = it)) }
+                taps.clear()
+                tapping = false
+            }
             // Nothing found and nothing set yet: the tempo is the listener's to give, by tapping or typing it.
             val bpm = current?.bpm
             Text(
                 when {
-                    bpm == null -> stringResource(R.string.mix_fix_none_set, facts.title)
+                    bpm == null -> stringResource(R.string.mix_beat_note_none)
                     !fix.isNone -> stringResource(R.string.mix_fix_changed, words.number(com.dd3boh.outertune.mix.Tempo.felt(bpm).takeIf { fix.bpm == null } ?: bpm))
                     facts.barsSure -> stringResource(R.string.mix_fix_sure, words.number(com.dd3boh.outertune.mix.Tempo.felt(bpm)))
                     else -> stringResource(R.string.mix_fix_bars_guessed, words.number(com.dd3boh.outertune.mix.Tempo.felt(bpm)))
@@ -302,7 +324,7 @@ fun FixSheet(
                     FilterChip(selected = half, onClick = { set(fix.copy(bpm = if (half) null else found / 2)) }, label = { Text(stringResource(R.string.mix_fix_half)) })
                     FilterChip(selected = double, onClick = { set(fix.copy(bpm = if (double) null else found * 2)) }, label = { Text(stringResource(R.string.mix_fix_double)) })
                 }
-                FilterChip(selected = tapping, onClick = { tapping = true }, label = { Text(stringResource(R.string.mix_fix_tap)) })
+                FilterChip(selected = tapping, onClick = { if (tapping) takeTaps() else tapping = true }, label = { Text(stringResource(R.string.mix_fix_tap)) })
                 // Typed: the tempo as a number, for a song whose tempo is known.
                 var typed by remember(bpm) { mutableStateOf(bpm?.let { words.number(com.dd3boh.outertune.mix.Tempo.felt(it).takeIf { fix.bpm == null } ?: it) } ?: "") }
                 OutlinedTextField(
@@ -318,15 +340,13 @@ fun FixSheet(
                 )
             }
             if (tapping) {
-                val taps = remember { mutableStateListOf<Long>() }
-                var shown by remember { mutableStateOf<String?>(null) }
-                var tapped by remember { mutableStateOf<Double?>(null) }
-                val padText = shown ?: stringResource(R.string.mix_fix_tap_pad)
+                // A pad hit in time with the music: the tempo follows every tap, from the second one,
+                // over the last taps' gaps, and the pad stays until it is closed, which takes it.
                 var hit by remember { mutableIntStateOf(0) }
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
-                        .padding(horizontal = 24.dp, vertical = 6.dp)
+                        .padding(start = 24.dp, end = 24.dp, top = 6.dp)
                         .fillMaxWidth()
                         .height(120.dp)
                         .background(if (hit % 2 == 1) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh, RoundedCornerShape(16.dp))
@@ -339,39 +359,25 @@ fun FixSheet(
                                 if (last != null && now - last < 180) return@awaitEachGesture
                                 if (last != null && now - last > 2000) taps.clear()
                                 taps += now
+                                while (taps.size > TAPS_KEPT) taps.removeAt(0)
                                 hit++
                                 haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
-                                if (taps.size >= 8) {
-                                    val gaps = taps.zipWithNext { a, b -> b - a }.sorted()
-                                    val median = gaps[gaps.size / 2]
-                                    val b = (600_000.0 / median).roundToInt() / 10.0
-                                    tapped = b
-                                    shown = null
-                                } else {
-                                    shown = null
-                                }
                             }
                         },
                 ) {
-                    val text = when {
-                        tapped != null -> stringResource(R.string.mix_fix_tapped, taps.size, words.number(tapped!!))
-                        taps.isNotEmpty() -> stringResource(R.string.mix_fix_taps, taps.size)
-                        else -> padText
-                    }
-                    Text(text, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    val live = tappedBpm(taps)
+                    Text(
+                        if (live != null) stringResource(R.string.mix_fix_tapped, taps.size, words.number(live)) else stringResource(R.string.mix_fix_tap),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
-                // The tempo is taken once the taps have stopped for a moment.
-                LaunchedEffect(tapped, taps.size) {
-                    val b = tapped ?: return@LaunchedEffect
-                    delay(1_200)
-                    set(fix.copy(bpm = b))
-                    tapping = false
+                Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = { takeTaps() }) { Text(stringResource(R.string.mix_fix_tap_done)) }
                 }
             }
-            if (current == null) {
-                Text(stringResource(R.string.mix_fix_kept), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
-                return@Column
-            }
+            // The 1 and the nudge once there are beats to move.
+            if (current == null) return@Column
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp)) {
                 Text(stringResource(R.string.mix_fix_the_one), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.widthIn(min = 56.dp))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), itemVerticalAlignment = Alignment.CenterVertically) {
