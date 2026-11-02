@@ -80,6 +80,7 @@ import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.LocalDownloadUtil
 import com.dd3boh.outertune.LocalMenuState
+import com.dd3boh.outertune.LocalNetworkConnected
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.LocalSnackbarHostState
@@ -98,8 +99,10 @@ import com.dd3boh.outertune.ui.component.FloatingTopBar
 import com.dd3boh.outertune.ui.component.FontSizeRange
 import com.dd3boh.outertune.ui.component.LazyColumnScrollbar
 import com.dd3boh.outertune.ui.component.FailedNote
+import com.dd3boh.outertune.ui.component.KeptAlbumNote
 import com.dd3boh.outertune.ui.component.RetryWhenSignInChanges
 import com.dd3boh.outertune.utils.WhyStopped
+import com.dd3boh.outertune.viewmodels.keptAlbumNoteShown
 import com.dd3boh.outertune.ui.component.NavigationTitle
 import com.dd3boh.outertune.ui.component.SelectHeader
 import com.dd3boh.outertune.ui.component.button.IconButton
@@ -154,6 +157,7 @@ fun AlbumScreen(
     val state = rememberLazyListState()
     val isLoading by viewModel.isLoading.collectAsState()
     val failedKind by viewModel.failedKind.collectAsState()
+    val online = LocalNetworkConnected.current
     // Signed in again from the note: the album the old sign-in failed is asked again.
     RetryWhenSignInChanges(failed = failedKind != null, retry = viewModel::retry)
 
@@ -450,6 +454,19 @@ fun AlbumScreen(
                 }
             } else {
                 paneTop()
+            }
+
+            // YouTube did not send the album, and these are the songs the library had: it stays
+            // as it is (AlbumViewModel), and says so here, with why when that is clear, and Retry.
+            val kept = failedKind
+            if (kept != null && keptAlbumNoteShown(kept, isLoading, online)) {
+                item(key = "not_refreshed") {
+                    KeptAlbumNote(
+                        kind = kept,
+                        onSignIn = { navController.navigate("login") },
+                        onRetry = viewModel::retry,
+                    )
+                }
             }
 
             val thumbnailSize = (ListThumbnailSize.value * density.density).roundToInt()

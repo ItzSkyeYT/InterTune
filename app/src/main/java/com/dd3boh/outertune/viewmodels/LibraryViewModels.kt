@@ -309,12 +309,10 @@ class LibraryAlbumsViewModel @Inject constructor(
                                 update(album.album, albumPage)
                             }
                         }.onFailure {
+                            // Kept, whatever the failure said: a saved album arrives from the
+                            // account with no songs, so this deleted saved albums on a NOT_FOUND
+                            // that could have been passing. See AlbumViewModel.
                             reportException(it)
-                            if (it.message?.contains("NOT_FOUND") == true) {
-                                database.query {
-                                    delete(album.album)
-                                }
-                            }
                         }
                     }
             }

@@ -109,15 +109,24 @@ class AlbumViewModel @Inject constructor(
             }.onFailure {
                 reportException(it)
                 YouTubeTrouble.failed(it)
+                // The album stays as it is stored, whatever the failure said. NOT_FOUND in its
+                // words deleted it here, saved or not, and YouTube's answers cannot tell an album
+                // it removed from one it holds back for now. Asked on 2 Nov 2026: an album id that
+                // does not exist came back as an empty page with HTTP 200, as every album did in
+                // South Korea (#68); a sign-in that no longer works is a 401, a blocked connection
+                // no answer at all, and none of the ids asked was answered NOT_FOUND. The page says
+                // it did not load instead, with Retry (keptAlbumNoteShown).
                 failedKind.value = WhyStopped.kindOf(it)
-                if (it.message?.contains("NOT_FOUND") == true) {
-                    // This album no longer exists in YouTube Music
-                    database.query {
-                        album?.album?.let(::delete)
-                    }
-                }
             }
             isLoading.value = false
         }
     }
 }
+
+/**
+ * Whether the album page says over the songs it has that the album did not load: after a failure,
+ * once the load is over, and only with a network. Offline the stored songs are all there is to
+ * show, and a note on every downloaded album opened there would only be in the way.
+ */
+internal fun keptAlbumNoteShown(failedKind: WhyStopped.Kind?, isLoading: Boolean, online: Boolean): Boolean =
+    failedKind != null && !isLoading && online

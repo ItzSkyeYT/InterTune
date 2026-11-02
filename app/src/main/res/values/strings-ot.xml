@@ -2300,4 +2300,6 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="why_stopped_sign_in_again" translatable="false">Sign in again</string>
     <string name="why_stopped_unreachable_title" translatable="false">YouTube can\'t be reached</string>
     <string name="why_stopped_unreachable_body" translatable="false">This connection isn\'t getting through to YouTube. If you use a VPN, make sure its split tunnelling includes InterTune, or try another network.</string>
+    <string name="album_not_loaded_title" translatable="false">This album did not load</string>
+    <string name="album_not_loaded_body" translatable="false">YouTube did not send it, so only the songs InterTune already had are shown.</string>
 </resources>

@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.NoAccounts
 import androidx.compose.material3.ButtonDefaults
@@ -148,6 +149,40 @@ fun FailedNote(
         }
 
         null -> if (onRetry != null) LoadFailed(onRetry = onRetry, modifier = modifier)
+    }
+}
+
+/**
+ * Over the songs an album page already had, when asking YouTube for the album failed with [kind]:
+ * the note for the cause when it is clear, as [FailedNote] has it, and otherwise that the album did
+ * not load, with Retry. The album itself stays as it is stored, whatever the failure
+ * (AlbumViewModel).
+ */
+@Composable
+fun KeptAlbumNote(
+    kind: WhyStopped.Kind,
+    onSignIn: () -> Unit,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val seen by YouTubeRegion.seen.collectAsState()
+    val cause = WhyStopped.cause(
+        kind,
+        signedIn = rememberSignedIn(),
+        online = LocalNetworkConnected.current,
+        regionClosed = YouTubeRegion.closed(seen),
+    )
+    if (cause != null) {
+        WhyStoppedNote(cause, onSignIn, onRetry, modifier)
+    } else {
+        NoteCard(
+            icon = Icons.Rounded.Album,
+            title = stringResource(R.string.album_not_loaded_title),
+            body = stringResource(R.string.album_not_loaded_body),
+            modifier = modifier,
+        ) {
+            NoteButton(stringResource(R.string.retry), onRetry)
+        }
     }
 }
 

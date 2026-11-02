@@ -49,13 +49,6 @@ data class PeriodInsights(
 internal fun albumPageWanted(album: Album): Boolean =
     !album.album.isLocal && (album.album.songCount == 0 || album.artists.isEmpty())
 
-/**
- * Whether a most played album whose page YouTube no longer has is deleted: only one with no songs,
- * the only kind this fetched before. One with songs, as LgAlbumRepair made them, keeps them
- * together until someone opens it, and AlbumViewModel decides then.
- */
-internal fun albumDeletedWhenGone(album: Album): Boolean = album.album.songCount == 0
-
 // redoing this whole feature later, plz ignore the slop code
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
@@ -190,8 +183,9 @@ class StatsViewModel @Inject constructor(
         // either is fetched again when its period is picked again, and no more often. The page is
         // written over the row as it is when written, not as read before the fetch, as in
         // AlbumViewModel: update writes the whole row, so a heart tapped meanwhile would be undone,
-        // and there are many more of these fetches now. A page YouTube no longer has deletes only
-        // what it deleted before (see albumDeletedWhenGone).
+        // and there are many more of these fetches now. A page that fails deletes nothing: a
+        // saved album has no songs until its page is written, and YouTube's answers cannot tell
+        // an album it removed from one it holds back (see AlbumViewModel).
         viewModelScope.launch {
             statPeriod.collect { period ->
                 database.mostPlayedAlbums(period.toTimeMillis()).first().filter(::albumPageWanted).forEach { album ->
@@ -201,11 +195,6 @@ class StatsViewModel @Inject constructor(
                         }
                     }.onFailure {
                         reportException(it)
-                        if (it.message?.contains("NOT_FOUND") == true && albumDeletedWhenGone(album)) {
-                            database.query {
-                                delete(album.album)
-                            }
-                        }
                     }
                 }
             }

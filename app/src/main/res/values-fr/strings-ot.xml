@@ -2123,4 +2123,6 @@
     <string name="why_stopped_sign_in_again">Se reconnecter</string>
     <string name="why_stopped_unreachable_title">Impossible de joindre YouTube</string>
     <string name="why_stopped_unreachable_body">Cette connexion n\'arrive pas jusqu\'à YouTube. Si vous utilisez un VPN, vérifiez que son split tunneling inclut InterTune, ou essayez un autre réseau.</string>
+    <string name="album_not_loaded_title">Cet album ne s\'est pas chargé</string>
+    <string name="album_not_loaded_body">YouTube ne l\'a pas envoyé, donc seuls les titres qu\'InterTune avait déjà sont affichés.</string>
 </resources>
