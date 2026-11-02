@@ -114,9 +114,10 @@ object AutoOnBands {
     private fun render(spec: TransitionSpec, a: Song, b: Song, earliest: Long, attenuationA: Double, attenuationB: Double): Rendered {
         if (a.copy.sampleRate != b.copy.sampleRate || a.copy.channels != b.copy.channels) return Rendered.Refused("the two copies are in different formats")
         val rate = a.copy.sampleRate
-        // The stretch lands A's own beats as its analysis heard them, moved onto the copy's frames.
+        // The stretch lands A's own beats as its analysis heard them, moved onto the copy's frames;
+        // not where the listener set a tempo it did not find, whose beats are not those.
         val shift = (a.copy.startMs - a.analysisStartMs) * rate / 1000.0
-        val anchors = a.analysis.takeIf { it.beatsConfident && spec.beatMatched }?.beatFrames()
+        val anchors = a.analysis.takeIf { it.beatsConfident && spec.beatMatched && it.followsTempo(spec.a.bpm) }?.beatFrames()
             ?.let { frames -> if (shift == 0.0) frames else DoubleArray(frames.size) { frames[it] - shift } }
         val facts = ChangeFacts(
             sampleRate = rate,

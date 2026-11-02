@@ -65,7 +65,7 @@ object Preview {
         }
         val bands = Presets.onBands(spec)
         val rate = a.sampleRate
-        val anchors = aAnalysis?.takeIf { it.beatsConfident && bands.beatMatched }?.beatFrames()
+        val anchors = aAnalysis?.takeIf { it.beatsConfident && bands.beatMatched && it.followsTempo(bands.a.bpm) }?.beatFrames()
         val facts = ChangeFacts(
             sampleRate = rate,
             channels = a.channels,

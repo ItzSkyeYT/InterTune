@@ -132,6 +132,9 @@ class BeatByHandTest {
         val line = end.line!!
         // One beat after one of the finder's downbeats.
         val k = line.downbeatAtOrAfter(line.kNear(from + 10_000.0)) + 1
+        // Its own beats are the stretch's at its tempo, halved or doubled; not at a tempo set far from it.
+        assertTrue(tail.followsTempo(124.0) && tail.followsTempo(62.0) && tail.followsTempo(248.0))
+        assertFalse(tail.followsTempo(100.0))
         val moved = end.with(BeatFix(oneMs = line.msOf(k)))
         assertTrue(moved.line!!.isDownbeat(k))
         assertTrue(moved.line!!.barsTrusted)

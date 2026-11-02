@@ -182,6 +182,16 @@ class RegionAnalysis(
         return copy(rhythm = Rhythm(rhythm.tempo, grid, downbeats, gates))
     }
 
+    /**
+     * Whether this region's beats are the ones a change at [bpm] is laid on: its own tempo, halved
+     * or doubled. A tempo the listener set far from it lays other beats ([atTempo]), and the stretch
+     * must not pull the music onto these.
+     */
+    fun followsTempo(bpm: Double): Boolean {
+        val found = this.bpm ?: return false
+        return doubleArrayOf(0.5, 1.0, 2.0).any { abs(bpm / found - it) <= 0.02 * it }
+    }
+
     /** A line for the logs and the trial's summary. */
     fun describe(): String {
         val g = gates
