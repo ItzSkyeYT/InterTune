@@ -189,7 +189,7 @@
     <string name="grp_lyrics_parser">Analizator</string>
     <string name="grp_lyrics_source">Źródła tekstów</string>
     <string name="grp_manual_scanner">Skaner ręczny</string>
-    <string name="proxy_examples">Format to host:port, na przykład 127.0.0.1:8118. Tor przez Orbot daje 127.0.0.1:8118 dla HTTP lub 127.0.0.1:9050 dla SOCKS. Unikaj publicznych list proxy: ten, kto prowadzi taki serwer, widzi wszystko, co pobierasz.</string>
+    <string name="proxy_examples">Format to host:port, na przykład 127.0.0.1:8118. Tor przez Orbot daje 127.0.0.1:8118 dla HTTP lub 127.0.0.1:9050 dla SOCKS, ale YouTube często blokuje wyniki wyszukiwania i miksy przy połączeniu przez Tora. Unikaj publicznych list proxy: ten, kto prowadzi taki serwer, widzi wszystko, co pobierasz.</string>
     <string name="grp_sync">Synchronizacja</string>
     <string name="app_info_title">Informacje o aplikacji</string>
     <string name="check_for_update">Sprawdź, czy dostępna jest nowa aktualizacja</string>
@@ -362,7 +362,7 @@
     <string name="update_awaiting_confirmation">Gotowe. Android poprosi o potwierdzenie instalacji.</string>
     <string name="update_needs_permission">Android potrzebuje Twojej zgody, aby InterTune mógł instalować aplikacje. Dotknij, aby otworzyć to ustawienie, potem wróć i spróbuj ponownie.</string>
     <string name="update_install_failed">Nie udało się zainstalować: %1$s. Nadal możesz pobrać ją samodzielnie ze strony wydania.</string>
-    <string name="update_blocked_samsung">Instalacja się nie powiodła. Prawdopodobnie zablokował ją Auto Blocker od Samsunga: wyłącz go na chwilę, zainstaluj aplikację, a potem włącz z powrotem, jeśli chcesz.</string>
+    <string name="update_blocked_samsung">Instalacja nie powiodła się: prawdopodobnie została zatrzymana przez funkcję Auto Blocker od Samsunga. Wyłącz ją, a następnie wróć tutaj, a instalacja uruchomi się ponownie automatycznie. Możesz włączyć Auto Blocker z powrotem od razu po zakończeniu.</string>
     <string name="update_blocked">Instalacja się nie powiodła. Spróbuj ponownie albo pobierz aktualizację ze strony wydania.</string>
     <string name="update_open_auto_blocker">Otwórz Auto Blocker</string>
     <string name="update_try_again">Spróbuj ponownie</string>
@@ -1507,7 +1507,7 @@
     <string name="recommendations_origin_discover">odkrywanie</string>
     <string name="audio_quality_max">Najwyższa dostępna</string>
     <string name="audio_quality_now">Obecna jakość odtwarzania</string>
-    <string name="audio_quality_no_lossless">Jakość bezstratna nie jest tu dostępna, więc wybierany jest największy dostępny strumień.</string>
+    <string name="audio_quality_no_lossless">Jakość bezstratna nie jest tu dostępna, więc wybierany jest najlepszy dostępny strumień.</string>
     <string name="audio_quality_now_nothing">Jeszcze nieznana</string>
     <string name="widget_label">Teraz odtwarzane</string>
     <string name="widget_description">To, co gra, przyciski sterowania i Szybki wybór.</string>
@@ -2123,4 +2123,25 @@
     <string name="player_pins_under_controls">Pod przyciskami sterowania</string>
     <string name="player_pin_lyrics">Tekst</string>
     <string name="player_pins_reset">Przywróć domyślne</string>
+    <plurals name="playlist_add_skipped">
+        <item quantity="one">Nie udało się dodać %1$d utworu do playlisty.</item>
+        <item quantity="few">Nie udało się dodać %1$d utworów do playlisty.</item>
+        <item quantity="many">Nie udało się dodać %1$d utworów do playlisty.</item>
+        <item quantity="other">Nie udało się dodać %1$d utworów do playlisty.</item>
+    </plurals>
+    <string name="auto_blocker_note">Zaktualizowano. Jeśli automatyczne blokowanie zostało wyłączone dla tej aplikacji, można je teraz włączyć ponownie.</string>
+    <string name="widget_config_look">Styl</string>
+    <string name="widget_look_big_cover">Duża okładka</string>
+    <string name="widget_look_crate">Skrzynka</string>
+    <string name="widget_look_records">Płyty</string>
+    <string name="open_links_title">Otwieraj linki w %1$s</string>
+    <string name="open_links_description">Linki YouTube Music oraz intertune.app otwierają się w tej aplikacji. Wyłącz tę opcję, aby pozwolić na ich otwieranie innej aplikacji, takiej jak InterTune Preview.</string>
+    <string name="open_links_android_off">Ustawienie systemu Android dotyczące obsługi linków jest wyłączone dla tej aplikacji, więc żadne linki nie będą się tutaj otwierać.</string>
+    <string name="open_links_android_settings">Ustawienia linków systemu Android</string>
+    <string name="search_words_open_links">obsługiwane linki, otwieraj domyślnie, domyślna aplikacja, YouTube, YouTube Music, Preview</string>
+    <string name="region_note_title">YouTube Music w Korei Południowej</string>
+    <string name="region_note_body">YouTube Music nie oferuje darmowego planu w Korei Południowej, dlatego YouTube wyświetla tam utwory, albumy i miksy wyłącznie subskrybentom Premium. Utwory na Twoich playlistach nadal będą odtwarzane, a wyszukiwarka wciąż znajdzie filmy. Konto Premium lub połączenie przez VPN bądź proxy spoza Korei przywróci dostęp do pozostałych funkcji.</string>
+    <string name="region_note_proxy">Ustawienia serwera proxy</string>
+    <string name="proxy_restart_title">Uruchom ponownie, aby użyć nowego serwera proxy</string>
+    <string name="proxy_restart_description">InterTune zaczyna korzystać z serwera proxy po uruchomieniu. Stuknij, aby uruchomić ponownie teraz; odtwarzanie muzyki zostanie zatrzymane.</string>
 </resources>
