@@ -2508,11 +2508,12 @@ internal fun launchLink(action: String?, data: String?, text: String?, fromRecen
 /**
  * Whether a link handed to the app opens something the player, left open, would hide: a page of
  * results (the song found on this phone's notification, the phone's own search), a library
- * playlist, a YouTube page, or a song's album or menu. Only a song to play at once is left to the
- * player, which shows it whether it is open or not.
+ * playlist, What you have heard (the notification of songs named once the phone was back online),
+ * a YouTube page, or a song's album or menu. Only a song to play at once is left to the player,
+ * which shows it whether it is open or not.
  */
 internal fun linkOpensPage(link: String): Boolean {
-    if (SystemSearch.playlistOf(link) != null || SystemSearch.searchOf(link) != null) return true
+    if (SystemSearch.playlistOf(link) != null || SystemSearch.searchOf(link) != null || SystemSearch.isHeard(link)) return true
     return when (val parsed = YouTubeLink.parse(link)) {
         null -> false
         is YouTubeLink.Video -> !parsed.playNow
