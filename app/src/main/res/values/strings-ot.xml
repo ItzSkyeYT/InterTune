@@ -2377,4 +2377,6 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="crash_newer_title" translatable="false">InterTune %1$s is out</string>
     <string name="crash_newer_body" translatable="false">It may already fix this crash. Update first, then report it if it comes back.</string>
     <string name="crash_newer_update" translatable="false">Update</string>
+    <!-- Share as a file under a report (ReportFile, Unreleased.REPORT_FILE): held from translators until his go. -->
+    <string name="problem_report_share_file" translatable="false">Share as a file</string>
 </resources>

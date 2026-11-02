@@ -2195,4 +2195,5 @@
     <string name="crash_newer_title">InterTune %1$s est disponible</string>
     <string name="crash_newer_body">Cette version corrige peut-être déjà ce plantage. Mettez à jour d\'abord, puis signalez-le s\'il revient.</string>
     <string name="crash_newer_update">Mettre à jour</string>
+    <string name="problem_report_share_file">Partager en fichier</string>
 </resources>

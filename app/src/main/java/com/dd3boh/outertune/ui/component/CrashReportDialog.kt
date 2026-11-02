@@ -199,6 +199,7 @@ fun CrashReportDialog() {
                         .verticalScroll(rememberScrollState())
                         .horizontalScroll(rememberScrollState()),
                 )
+                if (Unreleased.REPORT_FILE) ShareReportFile(text)
             }
         },
         confirmButton = {
