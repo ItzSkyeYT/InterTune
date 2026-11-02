@@ -2373,4 +2373,6 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="blocked_songs_left" translatable="false">The songs left are all by blocked artists, so the music stopped.</string>
     <!-- The settings search's words for Blocked artists: open to translators, as every search word is (SettingsSearchTest). -->
     <string name="search_words_blocked_artists">ban, hide, mute, blocklist</string>
+    <!-- Share as a file under a report (ReportFile, Unreleased.REPORT_FILE): held from translators until his go. -->
+    <string name="problem_report_share_file" translatable="false">Share as a file</string>
 </resources>

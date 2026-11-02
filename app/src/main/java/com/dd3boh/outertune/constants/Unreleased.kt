@@ -669,4 +669,16 @@ object Unreleased {
      * any of it. When it is agreed: set this to true, make its texts translatable.
      */
     val ARTIST_BLOCK = BuildConfig.DEBUG
+
+    /**
+     * Share as a file under a report's text, in Report a problem and the crash page (ReportFile,
+     * ShareReportFile): the report as InterTune-report-<day>-<time>.txt to any app. Discord takes a
+     * file from anyone, where a message past 2,000 characters wants Nitro and a log pasted in pieces
+     * came out garbled; his yes of 2 Nov 2026, with the day and time in the name.
+     *
+     * Without it the report has Copy and its way to send, as before. Its text is held from
+     * translators, its French beside it in values-fr. When it is agreed: set this to true, add its
+     * name to ReleasedFlagsTest, and make its text translatable.
+     */
+    val REPORT_FILE = BuildConfig.DEBUG
 }

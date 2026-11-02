@@ -279,6 +279,7 @@ fun ProblemReportDialog(onDismiss: () -> Unit) {
                         fontFamily = FontFamily.Monospace,
                         modifier = Modifier.horizontalScroll(rememberScrollState()),
                     )
+                    if (Unreleased.REPORT_FILE) ShareReportFile(text)
                 }
             }
         },

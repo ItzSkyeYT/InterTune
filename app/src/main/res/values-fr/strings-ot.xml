@@ -2192,4 +2192,5 @@
     <string name="blocked_song_skipped">%1$s est bloqué, donc son titre a été passé.</string>
     <string name="blocked_songs_left">Les titres restants sont tous d\'artistes bloqués, donc la musique s\'est arrêtée.</string>
     <string name="search_words_blocked_artists">bannir, masquer, ignorer, liste noire</string>
+    <string name="problem_report_share_file">Partager en fichier</string>
 </resources>
