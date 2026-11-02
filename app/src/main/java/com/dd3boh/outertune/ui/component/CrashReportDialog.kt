@@ -48,6 +48,7 @@ import com.dd3boh.outertune.utils.BuiltInKeys
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.constants.Links
+import com.dd3boh.outertune.constants.DismissedUpdateCodeKey
 import com.dd3boh.outertune.constants.LastVersionCodeKey
 import com.dd3boh.outertune.constants.LastVersionKey
 import com.dd3boh.outertune.constants.ReportWayKey
@@ -92,7 +93,8 @@ fun CrashReportDialog() {
     // the crash may be fixed there, so the page says so first.
     val foundCode by rememberPreference(LastVersionCodeKey, -1)
     val foundName by rememberPreference(LastVersionKey, "")
-    val newer = crashNewerVersion(foundCode, foundName, BuildConfig.VERSION_CODE)
+    val skippedCode by rememberPreference(DismissedUpdateCodeKey, -1)
+    val newer = crashNewerVersion(foundCode, foundName, BuildConfig.VERSION_CODE, skippedCode)
     val fromFdroid = remember { context.installSource() == InstallSource.F_DROID }
     var what by rememberSaveable { mutableStateOf("") }
     var contact by rememberSaveable { mutableStateOf("") }
@@ -138,7 +140,7 @@ fun CrashReportDialog() {
                         body = stringResource(R.string.crash_newer_body),
                         margin = 0.dp,
                     ) {
-                        TextButton(onClick = {
+                        NoteButton(stringResource(if (fromFdroid) R.string.update_prompt_fdroid else R.string.crash_newer_update)) {
                             if (fromFdroid) {
                                 runCatching {
                                     context.startActivity(
@@ -151,8 +153,6 @@ fun CrashReportDialog() {
                             }
                             // Update first, report if it comes back: this crash is not offered again.
                             forget()
-                        }) {
-                            Text(stringResource(if (fromFdroid) R.string.update_prompt_fdroid else R.string.crash_newer_update))
                         }
                     }
                 }
@@ -249,7 +249,9 @@ fun CrashReportDialog() {
 
 /**
  * The newer version to name on the crash page: the one the update check stored, when it is newer than
- * the one running. Null when the check never ran (it is opt in), found nothing newer, or kept no name.
+ * the one running. Null when the check never ran (it is opt in), found nothing newer, or kept no name,
+ * and for the version the person skipped: the Updates page no longer offers it ("No updates
+ * available"), so the note would send them nowhere.
  */
-internal fun crashNewerVersion(foundCode: Int, foundName: String, running: Int): String? =
-    foundName.takeIf { foundCode > running && it.isNotBlank() }
+internal fun crashNewerVersion(foundCode: Int, foundName: String, running: Int, skipped: Int = -1): String? =
+    foundName.takeIf { foundCode > running && foundCode != skipped && it.isNotBlank() }

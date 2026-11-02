@@ -31,6 +31,9 @@ class CrashNewerTest {
         assertNull(crashNewerVersion(foundCode = 98, foundName = "0.12.6", running = 99))
         assertNull(crashNewerVersion(foundCode = -1, foundName = "", running = 99))
         assertNull("a code with no name is not shown half", crashNewerVersion(foundCode = 100, foundName = "", running = 99))
+        // Skipped: the Updates page says "No updates available" for it, so Update would lead nowhere.
+        assertNull(crashNewerVersion(foundCode = 100, foundName = "0.12.8", running = 99, skipped = 100))
+        assertEquals("one newer than the skipped one is named", "0.12.9", crashNewerVersion(101, "0.12.9", 99, skipped = 100))
     }
 
     @Test
@@ -38,6 +41,7 @@ class CrashNewerTest {
         val dialog = source("ui/component/CrashReportDialog.kt")
         assertTrue(dialog.contains("rememberPreference(LastVersionCodeKey, -1)"))
         assertTrue(dialog.contains("rememberPreference(LastVersionKey, \"\")"))
+        assertTrue(dialog.contains("rememberPreference(DismissedUpdateCodeKey, -1)"))
         assertTrue("no check from the crash page", !dialog.contains("UpdateChecker") && !dialog.contains(".check("))
     }
 
@@ -47,6 +51,8 @@ class CrashNewerTest {
         assertTrue(dialog.contains("fdroidPageUrl(context.packageName)"))
         assertTrue(dialog.contains("SETTINGS_INDEX.first { it.title == R.string.check_for_update }.jump"))
         assertTrue(dialog.contains("R.string.update_prompt_fdroid"))
+        // The notes' own button: a plain TextButton was pale blue on the lilac card.
+        assertTrue(dialog.contains("NoteButton(stringResource(if (fromFdroid)"))
     }
 
     @Test
