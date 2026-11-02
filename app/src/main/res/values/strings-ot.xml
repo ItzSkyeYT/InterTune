@@ -2329,4 +2329,14 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="proxy_address_missing" translatable="false">No proxy is used until an address is set here.</string>
     <string name="proxy_not_used_at_start" translatable="false">No proxy is in use: its address could not be read.</string>
     <string name="sync_progress_busy" translatable="false">A sync is already running. Its changes show up when it ends.</string>
+    <!-- What's playing with no connection (issue #48, RecogniseLater, Unreleased.RECOGNISE_OFFLINE): a listen kept to be named once the phone is back online. Held back from translators until the words are agreed, the French beside them in values-fr. -->
+    <string name="recognise_later_kept" translatable="false">No connection. It kept what it heard and will name the song once you are back online.</string>
+    <string name="recognise_later_keeping" translatable="false">No connection. Keeping what it hears for later</string>
+    <string name="recognise_later_waiting" translatable="false">Waiting for a connection</string>
+    <string name="recognise_later_channel" translatable="false">Songs heard offline</string>
+    <plurals name="recognise_later_named" translatable="false">
+        <item quantity="one">Found the song you heard offline</item>
+        <item quantity="other">Found %1$d songs you heard offline</item>
+    </plurals>
+    <string name="recognise_later_none" translatable="false">Nothing found for what you heard offline</string>
 </resources>

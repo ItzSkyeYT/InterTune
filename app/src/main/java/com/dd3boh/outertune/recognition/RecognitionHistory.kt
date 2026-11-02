@@ -99,11 +99,7 @@ class RecognitionHistory @Inject constructor(
 
     suspend fun add(entry: Heard) {
         context.dataStore.edit { prefs ->
-            val current = parse(prefs[RecognitionHistoryKey])
-            // Re-hearing the same song as it keeps playing should not fill the list with it. The
-            // most recent sighting wins, so the timestamp stays useful.
-            val deduped = current.filterNot { it.title == entry.title && it.artist == entry.artist }
-            prefs[RecognitionHistoryKey] = write((listOf(entry) + deduped).take(limit))
+            prefs[RecognitionHistoryKey] = write(merged(parse(prefs[RecognitionHistoryKey]), entry, limit))
         }
     }
 
@@ -148,5 +144,24 @@ class RecognitionHistory @Inject constructor(
             )
         }
         return array.toString()
+    }
+
+    companion object {
+        /**
+         * [entries], newest first, with [entry] in its place by when it was heard, and no more than
+         * [limit] of them.
+         *
+         * Re-hearing the same song as it keeps playing should not fill the list with it, so the
+         * most recent sighting wins and the time stays useful. Most recent by when it was heard,
+         * not by when it came in: a song named later, from a listen kept with no connection
+         * (RecogniseLater), goes where it was heard, and one heard again since then keeps that
+         * newer sighting. The same moment saved twice takes the second: the engine saves a song as
+         * Shazam names it, and again with the recording it chose once it is confirmed.
+         */
+        internal fun merged(entries: List<Heard>, entry: Heard, limit: Int): List<Heard> {
+            fun isSame(it: Heard) = it.title == entry.title && it.artist == entry.artist
+            if (entries.any { isSame(it) && it.at > entry.at }) return entries.take(limit)
+            return (entries.filterNot(::isSame) + entry).sortedByDescending { it.at }.take(limit)
+        }
     }
 }

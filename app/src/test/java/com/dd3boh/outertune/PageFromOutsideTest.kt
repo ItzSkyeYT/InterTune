@@ -36,6 +36,8 @@ class PageFromOutsideTest {
         assertTrue(linkOpensPage(SystemSearch.playlistLink("1a2b3c")))
         assertTrue(linkOpensPage(SystemSearch.artistLink("UCnUs-yi_YFKp8z3S-xL5kpQ")))
         assertTrue(linkOpensPage(SystemSearch.albumLink("MPREb_abcdefghijk")))
+        // The notification of songs named once the phone was back online (RecogniseLaterWorker).
+        assertTrue(linkOpensPage(SystemSearch.HEARD_LINK))
         assertTrue(linkOpensPage("https://music.youtube.com/playlist?list=PLabcdefghij"))
         // A song from a link opens its album, or its menu: a page of sorts over the player too.
         assertTrue(linkOpensPage("https://music.youtube.com/watch?v=abcdefghijk"))
