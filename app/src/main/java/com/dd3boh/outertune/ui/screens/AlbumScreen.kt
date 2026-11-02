@@ -1,5 +1,10 @@
 package com.dd3boh.outertune.ui.screens
 
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.WindowInsetsSides
+import com.dd3boh.outertune.ui.menu.rememberArtistBlock
+import com.dd3boh.outertune.ui.menu.BlockedNote
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.ui.component.ScreenBackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -152,7 +157,24 @@ fun AlbumScreen(
     val isPlaying by playerConnection.isPlaying.collectAsState()
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
 
-    val albumWithSongs by viewModel.albumWithSongs.collectAsState()
+    val albumAsStored by viewModel.albumWithSongs.collectAsState()
+    // Without a blocked artist's songs, a feature on someone else's album (ArtistBlock); an album
+    // of theirs, opened from a link, is blank but for one line and Unblock.
+    val block = rememberArtistBlock()
+    val albumWithSongs = remember(albumAsStored, block) {
+        albumAsStored?.let { if (block.isEmpty) it else it.copy(songs = block.library(it.songs)) }
+    }
+    val blockedHere = if (Unreleased.ARTIST_BLOCK) albumAsStored?.artists?.firstNotNullOfOrNull { block.entry(it.id, it.name) } else null
+    if (blockedHere != null) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            BlockedNote(
+                artist = blockedHere,
+                modifier = Modifier.windowInsetsPadding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top)),
+            )
+        }
+        FloatingTopBar(title = null, navController = navController)
+        return
+    }
     val otherVersions by viewModel.otherVersions.collectAsState()
     val state = rememberLazyListState()
     val isLoading by viewModel.isLoading.collectAsState()

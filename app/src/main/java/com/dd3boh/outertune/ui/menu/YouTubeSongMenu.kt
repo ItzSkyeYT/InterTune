@@ -4,6 +4,7 @@ import androidx.compose.material.icons.rounded.PersonOff
 import androidx.compose.material.icons.rounded.Snooze
 import androidx.compose.material.icons.rounded.Block
 import com.dd3boh.outertune.constants.SignalKind
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.utils.ActivityLog
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
@@ -100,6 +101,8 @@ fun YouTubeSongMenu(
     var showSelectArtistDialog by rememberSaveable {
         mutableStateOf(false)
     }
+    var showBlockArtist by rememberSaveable { mutableStateOf(false) }
+    val blockable = remember(song.id) { blockChoices(song.artists) }
 
 
     ListItem(
@@ -246,6 +249,10 @@ fun YouTubeSongMenu(
             ActivityLog.note(context, database, song.id, SignalKind.SHARE)
             shareLink(ShareLinks.song(song.id, song.title, song.artists.map { it.name }, song.duration ?: 0, song.album != null), onDismiss)
         }
+        // Last, so that nothing anyone knows the place of moves.
+        if (Unreleased.ARTIST_BLOCK && blockable.isNotEmpty()) {
+            GridMenuItem(icon = BlockArtistIcon, title = R.string.menu_block_artist) { showBlockArtist = true }
+        }
     }
 
     /**
@@ -300,6 +307,17 @@ fun YouTubeSongMenu(
             navController = navController,
             artists = artists,
             onDismiss = { showSelectArtistDialog = false }
+        )
+    }
+
+    if (showBlockArtist) {
+        BlockArtistFlow(
+            artists = blockable,
+            onClose = { showBlockArtist = false },
+            onBlocked = {
+                showBlockArtist = false
+                onDismiss()
+            },
         )
     }
 }

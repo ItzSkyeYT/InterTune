@@ -1,5 +1,7 @@
 package com.dd3boh.outertune.viewmodels
 
+import com.dd3boh.outertune.models.blockedArtists
+import com.dd3boh.outertune.models.withoutBlocked
 import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
@@ -53,7 +55,8 @@ class LocalPlaylistViewModel @Inject constructor(
     val youTubeMoveLock = Mutex()
     val playlistWithSongs = combine(
         database.playlist(playlistId),
-        database.playlistSongs(playlistId),
+        // Without the rows of a blocked artist's songs (ArtistBlock).
+        database.playlistSongs(playlistId).withoutBlocked(),
         context.dataStore.data
             .map {
                 it[PlaylistSongSortTypeKey].toEnum(PlaylistSongSortType.CUSTOM) to
@@ -74,6 +77,14 @@ class LocalPlaylistViewModel @Inject constructor(
 
         Pair(playlist, sortedSongs)
     }.stateIn(viewModelScope, SharingStarted.Lazily, Pair(null, emptyList()))
+
+    /**
+     * Whether a blocked artist's rows are left out of the list on screen, whose places then are
+     * not the rows' positions: a drag is turned into positions by the rows themselves (moveAround).
+     */
+    val hidesRows = combine(database.playlistSongs(playlistId), blockedArtists) { rows, block ->
+        !block.isEmpty && rows.any { block.hides(it.song) }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     /**
      * Finding songs to put in a playlist that has none.

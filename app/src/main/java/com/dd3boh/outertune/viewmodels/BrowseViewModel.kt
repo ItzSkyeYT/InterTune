@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.viewmodels
 
+import com.dd3boh.outertune.models.ContentFilter
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -29,7 +30,8 @@ class BrowseViewModel @Inject constructor(
 
                     // Flatten the nested structure to get all YTItems
                     val allItems = result.items.flatMap { it.items }
-                    items.value = allItems
+                    // Without a blocked artist's (ArtistBlock).
+                    items.value = ContentFilter.current.blocked.apply(allItems)
                 }.onFailure {
                     reportException(it)
                 }

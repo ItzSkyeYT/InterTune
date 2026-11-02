@@ -652,4 +652,21 @@ object Unreleased {
      * texts translatable.
      */
     val PLAYLIST_COVER = BuildConfig.DEBUG
+
+    /**
+     * Block artist (ArtistBlock), asked for by Dennis on Discord on 1 Nov 2026: an artist blocked
+     * is gone from InterTune, from what YouTube offers (Home, search, artist pages, radios) and
+     * from what the listener has (the library, playlists, downloads, local files), and a song of
+     * theirs that still comes up is skipped. "Block artist" is the last item of the song menus,
+     * an artist's page has it at the start of the pill of its heart and share, and Settings >
+     * Library and content > Blocked artists lists them, with Unblock and a field to add one by
+     * name. A search for a blocked artist's name shows one quiet line and Unblock. "Never this
+     * artist" stays as it was, for the recommendation rows only.
+     *
+     * Kept in one setting (BlockedArtistsKey), read only with this on, so a release that restores
+     * a backup from a debug build hides nothing. Its texts are held from translators, their
+     * French beside them in values-fr. Seen on an emulator only. Without it no menu or page has
+     * any of it. When it is agreed: set this to true, make its texts translatable.
+     */
+    val ARTIST_BLOCK = BuildConfig.DEBUG
 }

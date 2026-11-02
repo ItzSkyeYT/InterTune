@@ -990,7 +990,7 @@
     <string name="error_connection_turned_away">YouTube refuse cette connexion, donc chaque titre semble indisponible. Un VPN, ou un réseau d\'école ou de travail, peut en être la cause.</string>
     <string name="menu_not_this_song">Pas ce titre</string>
     <string name="menu_less_of_artist">Moins de cet artiste</string>
-    <string name="menu_never_artist">Jamais cet artiste</string>
+    <string name="menu_never_artist">Jamais cet artiste (recommandations)</string>
     <string name="why_these">Pourquoi ces titres ?</string>
     <string name="why_these_seeds">Construit autour de</string>
     <string name="why_these_not_this_one">Pas celui-ci</string>
@@ -2173,4 +2173,23 @@
     <string name="playlist_cover_photo">Une photo</string>
     <string name="playlist_cover_photo_note">Depuis votre téléphone</string>
     <string name="playlist_cover_songs">Un titre de cette playlist</string>
+    <!-- Bloquer l'artiste (ArtistBlock, Unreleased.ARTIST_BLOCK): held from translators in values until the words are agreed. -->
+    <string name="menu_block_artist">Bloquer l\'artiste</string>
+    <string name="block_artist_which">Bloquer quel artiste\u00A0?</string>
+    <string name="block_artist_title">Bloquer %1$s\u00A0?</string>
+    <string name="block_artist_body">Ses titres, ses albums et son visage disparaissent d\'InterTune\u00A0: recherche, Accueil, radios, votre bibliothèque et vos playlists. Ses titres sont passés. Débloquez à tout moment dans Paramètres &gt; Bibliothèque et Contenu &gt; Artistes bloqués.</string>
+    <string name="block_artist_confirm">Bloquer</string>
+    <string name="unblock">Débloquer</string>
+    <string name="blocked_artists">Artistes bloqués</string>
+    <string name="blocked_artists_none">Aucun</string>
+    <string name="blocked_artists_intro">Les artistes bloqués disparaissent de la recherche, de l\'Accueil, des radios, de votre bibliothèque et de vos playlists, et leurs titres sont passés.</string>
+    <string name="blocked_artists_add">Ajouter un artiste</string>
+    <string name="blocked_artists_not_found">Aucun artiste trouvé.</string>
+    <string name="blocked_today">Bloqué aujourd\'hui</string>
+    <string name="blocked_on">Bloqué le %1$s</string>
+    <string name="unblocked">%1$s débloqué</string>
+    <string name="blocked_search_note">%1$s est bloqué, donc rien de cet artiste ne s\'affiche.</string>
+    <string name="blocked_song_skipped">%1$s est bloqué, donc son titre a été passé.</string>
+    <string name="blocked_songs_left">Les titres restants sont tous d\'artistes bloqués, donc la musique s\'est arrêtée.</string>
+    <string name="search_words_blocked_artists">bannir, masquer, ignorer, liste noire</string>
 </resources>

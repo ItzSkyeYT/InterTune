@@ -878,8 +878,14 @@ class HomeViewModel @Inject constructor(
     private suspend fun tidyRowsNow() {
         val tidy = context.dataStore.get(TidyHomeRowsKey, true)
         // What the switches under Library and content hide, out of every row YouTube fills. The
-        // rows from the library cannot be filtered: stored songs do not keep YouTube's marks.
+        // rows from the library cannot be filtered by them: stored songs do not keep YouTube's
+        // marks. They keep their artists, so a blocked artist leaves those rows too (ArtistBlock).
         val hidden = ContentFilter.current
+        val block = hidden.blocked
+        val quickPicksPool = block.library(quickPicksPool)
+        val discoverPool = block.library(discoverPool)
+        val forgottenPool = block.library(forgottenPool)
+        val keepListeningPool = block.library(keepListeningPool)
         // The engine's row behind Quick picks, when it is the one showing (on its own or in Try
         // both), and its cards' lanes, for the lean's heading and what the pass keeps in place.
         val source = quickPicksSource()
@@ -892,7 +898,7 @@ class HomeViewModel @Inject constructor(
             if (discoverBuilding.get() == 0) discover.value = discoverPool.take(20).takeIf { discoverWanted() }
             forgottenFavorites.value = forgottenPool.take(20)
             keepListening.value = keepListeningPool
-            similarRecommendations.value = similarPool?.map { it.copy(items = hidden.apply(it.items)) }?.filter { it.items.isNotEmpty() }
+            similarRecommendations.value = similarPool?.filterNot { block.hides(it.title) }?.map { it.copy(items = hidden.apply(it.items)) }?.filter { it.items.isNotEmpty() }
             homePage.value = homePagePool?.let(hidden::home)
             // The widget's lists come from here whichever way the rows were settled; with the
             // tidy pass off they used to stay empty or frozen.
@@ -951,7 +957,8 @@ class HomeViewModel @Inject constructor(
         if (discoverBuilding.get() == 0) discover.value = if (discoverWanted()) songs(discoverPool, fresh = true, maxPerArtist = QUICK_PICKS_PER_ARTIST).take(20) else null
         forgottenFavorites.value = songs(forgottenPool).take(20)
         keepListening.value = local(keepListeningPool)
-        similarRecommendations.value = similarPool?.map { it.copy(items = yt(it.items)) }?.filter { it.items.isNotEmpty() }
+        // Nor a row "Similar to" a blocked artist, or a song of theirs, which would show their face.
+        similarRecommendations.value = similarPool?.filterNot { block.hides(it.title) }?.map { it.copy(items = yt(it.items)) }?.filter { it.items.isNotEmpty() }
         // The widget's other two lists are these same rows, filled here where they settle.
         fillWidget(WidgetList.FORGOTTEN_FAVOURITES, forgottenFavorites.value.orEmpty().map { it.toMediaMetadata() })
         fillWidget(WidgetList.KEEP_LISTENING, keepListening.value.orEmpty().filterIsInstance<Song>().map { it.toMediaMetadata() })
