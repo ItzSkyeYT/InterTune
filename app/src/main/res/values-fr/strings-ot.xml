@@ -2192,4 +2192,7 @@
     <string name="blocked_song_skipped">%1$s est bloqué, donc son titre a été passé.</string>
     <string name="blocked_songs_left">Les titres restants sont tous d\'artistes bloqués, donc la musique s\'est arrêtée.</string>
     <string name="search_words_blocked_artists">bannir, masquer, ignorer, liste noire</string>
+    <string name="crash_newer_title">InterTune %1$s est disponible</string>
+    <string name="crash_newer_body">Cette version corrige peut-être déjà ce plantage. Mettez à jour d\'abord, puis signalez-le s\'il revient.</string>
+    <string name="crash_newer_update">Mettre à jour</string>
 </resources>
