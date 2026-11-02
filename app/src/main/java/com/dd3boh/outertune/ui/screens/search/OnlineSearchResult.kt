@@ -67,7 +67,8 @@ import com.dd3boh.outertune.ui.menu.YouTubeSongMenu
 import com.dd3boh.outertune.ui.menu.BlockedNote
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.viewmodels.OnlineSearchViewModel
-import com.dd3boh.outertune.ui.component.LoadFailed
+import com.dd3boh.outertune.ui.component.FailedNote
+import com.dd3boh.outertune.ui.component.RetryWhenSignInChanges
 import com.zionhuang.innertube.YouTube.SearchFilter.Companion.FILTER_ALBUM
 import com.zionhuang.innertube.YouTube.SearchFilter.Companion.FILTER_ARTIST
 import com.zionhuang.innertube.YouTube.SearchFilter.Companion.FILTER_COMMUNITY_PLAYLIST
@@ -223,6 +224,8 @@ fun OnlineSearchResult(
     // on a phone that points to a country with no free plan.
     val regionContext = LocalContext.current
     LaunchedEffect(Unit) { YouTubeRegion.refresh(regionContext) }
+    // Signed in again from the note: the search the old sign-in failed is asked again.
+    RetryWhenSignInChanges(failed = viewModel.failed[searchFilter?.value ?: OnlineSearchViewModel.SUMMARY] == true, retry = viewModel::retry)
     LazyColumn(
         state = lazyListState,
         contentPadding = LocalPlayerAwareWindowInsets.current
@@ -298,8 +301,17 @@ fun OnlineSearchResult(
 
         if (blockedNamed == null && (searchFilter == null && searchSummary == null || searchFilter != null && itemsPage == null)) {
             item {
-                if (viewModel.failed[searchFilter?.value ?: OnlineSearchViewModel.SUMMARY] == true) {
-                    LoadFailed(onRetry = viewModel::retry)
+                val shown = searchFilter?.value ?: OnlineSearchViewModel.SUMMARY
+                if (viewModel.failed[shown] == true) {
+                    // Why, when it is clear: a sign-in YouTube no longer accepts, or a connection
+                    // that does not reach it. "Unknown error" and Retry otherwise, as before. A
+                    // closed country is said by the note above the results.
+                    FailedNote(
+                        kind = viewModel.failedKind[shown],
+                        onSignIn = { navController.navigate("login") },
+                        onRetry = viewModel::retry,
+                        region = false,
+                    )
                 } else {
                     ShimmerHost {
                         repeat(8) {

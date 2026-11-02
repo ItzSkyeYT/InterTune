@@ -232,8 +232,31 @@ class ProblemLogTest {
     fun `the form's link still opens for someone signed out of GitHub`() {
         // GitHub's sign-in page escapes the link again: 4,851 opened on 27 Oct 2026, 5,081 did not.
         val dialog = java.io.File("src/main/java/com/dd3boh/outertune/ui/component/ProblemReportDialog.kt").readText()
-        val limit = Regex("""private const val FORM_LINK_LIMIT = (\d+)""").find(dialog)!!.groupValues[1].toInt()
+        val limit = Regex("""(?:private|internal) const val FORM_LINK_LIMIT = (\d+)""").find(dialog)!!.groupValues[1].toInt()
         assertTrue("$limit", limit <= 4800)
+    }
+
+    @Test
+    fun `a crash for the issue's link keeps its top, cut at a line's end`() {
+        val trace = "InterTune 0.13 (98, core debug)\nGoogle Pixel 5, Android 14 (API 34)\n\n" +
+            "java.lang.IllegalStateException: invalid beforeContentPadding\n" +
+            (1..300).joinToString("\n") { "\tat androidx.compose.foundation.lazy.LazyListKt.LazyList(LazyList.kt:$it)" }
+        val cut = ProblemLog.startForLink(trace, 4000)
+        assertTrue(ProblemLog.linkLength(cut) <= 4000)
+        assertTrue("the error is kept", "IllegalStateException: invalid beforeContentPadding" in cut)
+        assertTrue("cut at a line's end", trace.startsWith(cut) && trace[cut.length] == '\n')
+        assertEquals("short enough, left as it is", "a\nb", ProblemLog.startForLink("a\nb", 100))
+        assertEquals("", ProblemLog.startForLink("abc", 0))
+        // One line longer than the room is cut inside it, never past it, a letter outside ASCII whole.
+        val long = "é".repeat(50)
+        assertEquals("é".repeat(16), ProblemLog.startForLink(long, 100))
+    }
+
+    @Test
+    fun `the crash page's link is cut for someone signed out too`() {
+        val crash = java.io.File("src/main/java/com/dd3boh/outertune/ui/component/CrashReportDialog.kt").readText()
+        assertTrue("FORM_LINK_LIMIT - base.toString().length" in crash)
+        assertTrue("ProblemLog.startForLink(text.take(ISSUE_BODY_LIMIT), room)" in crash)
     }
 
     @Test

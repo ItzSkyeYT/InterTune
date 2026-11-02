@@ -252,6 +252,13 @@ interface PlaylistsDao {
     @Query("UPDATE playlist SET isLocal = 1 WHERE id = :playlistId")
     fun playlistDesync(playlistId: String)
 
+    /**
+     * Sets the cover of a playlist of one's own, or clears it with null (see [PlaylistSql.SET_COVER]).
+     * Returns how many rows it wrote: 0 when the playlist is gone or has a YouTube playlist behind it.
+     */
+    @Query(PlaylistSql.SET_COVER)
+    fun setPlaylistCover(playlistId: String, thumbnailUrl: String?): Int
+
     @Transaction
     @Query(PlaylistSql.MOVE)
     fun move(playlistId: String, fromPosition: Int, toPosition: Int)

@@ -140,6 +140,7 @@ fun ColumnScope.SyncManualFrag() {
                         when (result) {
                             SyncResult.SYNCED -> R.string.sync_progress_success
                             SyncResult.FAILED -> R.string.sync_progress_failed
+                            SyncResult.BUSY -> R.string.sync_progress_busy
                             SyncResult.NOTHING -> R.string.sync_progress_nothing
                         }
                     ),

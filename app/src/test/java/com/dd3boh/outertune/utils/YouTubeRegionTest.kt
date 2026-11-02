@@ -71,8 +71,14 @@ class YouTubeRegionTest {
     fun `the note stands where the catalogue is missed, and an album that did not load is never an empty page`() {
         val src = File("src/main/java/com/dd3boh/outertune")
         val album = File(src, "ui/screens/AlbumScreen.kt").readText()
-        assertTrue("the album page answers a failed load", album.contains("LoadFailed(onRetry = viewModel::retry"))
-        assertTrue(album.contains("YouTubeRegion.closed("))
+        // Through FailedNote since the why-stopped notes (2 Nov 2026): the region's note over
+        // Retry for a closed country, Retry alone when no cause is clear.
+        assertTrue("the album page answers a failed load", album.contains("FailedNote(") && album.contains("onRetry = viewModel::retry"))
+        val failed = File(src, "ui/component/WhyStoppedNote.kt").readText().substringAfter("fun FailedNote(")
+        assertTrue(failed.contains("YouTubeRegion.closed("))
+        assertTrue("the proxy switch is the way back", failed.contains("onProxy: () -> Unit = ::openProxySetting"))
+        assertTrue(failed.contains("RegionNote(onProxy = onProxy, onDone = null"))
+        assertTrue(failed.contains("LoadFailed(onRetry = onRetry"))
         assertTrue(File(src, "viewmodels/AlbumViewModel.kt").readText().contains("fun retry()"))
         assertTrue(File(src, "ui/screens/HomeScreen.kt").readText().contains("RegionNoteIfClosed("))
         assertTrue(File(src, "ui/screens/search/OnlineSearchResult.kt").readText().contains("RegionNoteIfClosed("))

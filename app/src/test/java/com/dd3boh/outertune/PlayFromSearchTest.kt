@@ -102,6 +102,25 @@ class PlayFromSearchTest {
     }
 
     @Test
+    fun `a search that could not be made is not told as nothing found`() {
+        // The session's search failing, or the session gone, was told as nothing found (audit of
+        // 2 Nov 2026, 3.8). Only an answer with nothing in it is that now.
+        val source = File("src/main/java/com/dd3boh/outertune/MainActivity.kt").readText()
+        val play = source.substringAfter("private fun playFromSearch(").substringBefore("\n    }\n")
+        assertTrue(play, play.contains("R.string.play_search_failed"))
+        val caught = play.substringAfter("} catch (e: Exception) {").substringBefore("}")
+        assertTrue(caught, !caught.contains("no_results_found"))
+    }
+
+    @Test
+    fun `nothing found and no answer are told apart`() {
+        assertEquals(PlaySearch.PLAY, playSearchOutcome(3))
+        assertEquals(PlaySearch.NOTHING, playSearchOutcome(0))
+        // The session failed, answered with an error, or was gone.
+        assertEquals(PlaySearch.FAILED, playSearchOutcome(null))
+    }
+
+    @Test
     fun `the request is a search as the session takes one from Android Auto`() {
         // No id and no uri: MediaLibrarySessionCallback reads that as a search, and plays by the words.
         val request = searchPlayRequest("daft punk")

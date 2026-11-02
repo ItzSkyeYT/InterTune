@@ -80,6 +80,10 @@ interface SongsDao {
     )
     fun artistNamesOf(songId: String): List<String>
 
+    /** A song's place in an album, from 0, as the album's page listed it. Read once like [songRow]. */
+    @Query("SELECT `index` FROM song_album_map WHERE songId = :songId AND albumId = :albumId")
+    fun albumIndexOf(songId: String, albumId: String): Int?
+
     @Transaction
     @Query("SELECT * FROM song WHERE title LIKE '%' || :query || '%' AND (inLibrary IS NOT NULL OR dateDownload IS NOT NULL) LIMIT :previewSize")
     fun searchSongs(query: String, previewSize: Int = Int.MAX_VALUE): Flow<List<Song>>

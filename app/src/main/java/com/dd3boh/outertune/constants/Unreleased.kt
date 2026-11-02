@@ -590,6 +590,95 @@ object Unreleased {
     val BATTERY_MODES = true
 
     /**
+     * An album carries on after its last song when Auto load more songs is on, as YouTube Music
+     * does: five songs from the end the radio of the last song that has a YouTube id is asked for
+     * and joins the queue (EndlessQueue, MusicService.onMediaItemTransition). The queue is a radio
+     * from then on, so the radio's own top-up keeps it going, and the album's songs stay as they
+     * were chosen. Until now only a radio or a mix went on, and an album stopped at its end. A
+     * listener asked on 2 Nov 2026 how to turn that on.
+     *
+     * Albums and radios only, by his word of 2 Nov 2026: a playlist, the liked songs, a search, the
+     * history, files on the phone and a queue made by hand end where they end. Not with repeat on,
+     * offline, or for an album of files on the phone, which have no radio. Without it an album
+     * stops at its end, as before. When it is agreed: set this to true, or delete it with the one
+     * check that reads it, in MusicService.onMediaItemTransition.
+     */
+    val ENDLESS_QUEUE = BuildConfig.DEBUG
+
+    /**
+     * Report a problem and the crash page say more (ReportSettings, ReportTrail, ReportExtras): the settings
+     * that bear on what went wrong, mostly those changed from their default, and a short trail of what was
+     * done in the last few minutes (screens opened, settings changed, songs started, skipped or sought,
+     * playback errors, the network lost and back, the app sent to the background). His idea of 2 Nov 2026,
+     * "to make logs better, shouldn't it show the concerned settings active, as well as the actions leading
+     * up to it?", with his guards: only the settings of the problem's area; no song title or id, search words,
+     * account name or email in the trail; and everything shown before it is sent.
+     *
+     * Without it the report is as it was, nothing is kept in memory, and the crash file is the same. Its text
+     * (the line under the report's first paragraph) is held from translators, its French beside it in
+     * values-fr. When it is agreed: set this to true, add its name to ReleasedFlagsTest, and make its text
+     * translatable.
+     */
+    val REPORT_PLUS = BuildConfig.DEBUG
+
+    /**
+     * Send to InterTune in Report a problem (his idea, mock and plan of 27 Oct 2026,
+     * experiments/features/report-relay/PLAN.md): the report goes to intertune.app, which files it
+     * as an issue on InterTune's GitHub and gives back its link, so nobody needs an account. A way to
+     * reach the sender is optional and stays on the site. Only InterTune's own builds send (ReportRelay).
+     *
+     * Without it Report a problem is as it was: Open the form, Copy and Close. Its texts
+     * (problem_report_send and the rest) are held from translators, their French beside them in
+     * values-fr. When it is agreed and the site files for real: set this to true and make its texts
+     * translatable.
+     */
+    val REPORT_RELAY = BuildConfig.DEBUG
+
+    /**
+     * What's playing with no connection (issue #48, planned for 0.13 on 26 Oct 2026): a listen
+     * whose request finds no connection keeps the fingerprint the phone made of it, never the
+     * sound, and the song is named once the phone is back online (RecogniseLater,
+     * RecogniseLaterWorker), into What you have heard at the time it was heard, with one quiet
+     * notification. Listen once stops there and says so; Keep listening keeps one about every two
+     * minutes and goes on. What waits shows in What you have heard.
+     *
+     * A first cut, debug and preview builds only. Its texts (recognise_later_*) are held from
+     * translators until their words are agreed, the French beside them in values-fr. Without it a
+     * listen with no connection fails as before. To ship: set this to true, or delete it with the
+     * checks that read it, in RecognitionEngine.keepForLater, RecogniseLaterWorker and
+     * RecognitionHistoryScreen.
+     */
+    val RECOGNISE_OFFLINE = BuildConfig.DEBUG
+
+    /**
+     * Liked songs kept in sync with their downloads (issue #64, on the 0.13 roadmap): under "Liked
+     * songs can download themselves", a switch that makes taking back a like remove the download the
+     * setting made for that song, and never one downloaded by hand (LikedDownloads). Its words are held
+     * from translators until he says.
+     */
+    val LIKED_SYNC = BuildConfig.DEBUG
+
+    /**
+     * Change a playlist's cover (PlaylistCovers, PlaylistCoverSheet), asked for in #general on 31 Oct
+     * 2026: a playlist of one's own wears its first song's picture, often a frame from a music video,
+     * and now the listener picks it. Edit playlist shows the cover with "Change cover" under it, a
+     * tap on the cover in the playlist's header opens the same sheet, and the sheet offers Automatic
+     * (the first song's cover, as it was), a photo from the phone (Android's photo picker, which asks
+     * for no permission) or the cover of one of the playlist's songs. A pick applies at once.
+     *
+     * The choice is kept in the playlist's own picture field, so it shows wherever a playlist is
+     * drawn, and a photo is copied into the app's own storage at 1024 px at most, so it stays when
+     * the photo is deleted from the phone. Local playlists only: a playlist from YouTube keeps
+     * YouTube's picture, which its sync writes into the same field.
+     *
+     * Its texts (playlist_cover_*) are held from translators, their French beside them in
+     * values-fr. Seen on an emulator only. Without it Edit playlist keeps its pencil and the
+     * header's cover is a picture and nothing more. When it is agreed: set this to true, make its
+     * texts translatable.
+     */
+    val PLAYLIST_COVER = BuildConfig.DEBUG
+
+    /**
      * Block artist (ArtistBlock), asked for by Dennis on Discord on 1 Nov 2026: an artist blocked
      * is gone from InterTune, from what YouTube offers (Home, search, artist pages, radios) and
      * from what the listener has (the library, playlists, downloads, local files), and a song of
@@ -605,4 +694,36 @@ object Unreleased {
      * any of it. When it is agreed: set this to true, make its texts translatable.
      */
     val ARTIST_BLOCK = BuildConfig.DEBUG
+
+    /**
+     * Share as a file under a report's text, in Report a problem and the crash page (ReportFile,
+     * ShareReportFile): the report as InterTune-report-<day>-<time>.txt to any app. Discord takes a
+     * file from anyone, where a message past 2,000 characters wants Nitro and a log pasted in pieces
+     * came out garbled; his yes of 2 Nov 2026, with the day and time in the name.
+     *
+     * Without it the report has Copy and its way to send, as before. Its text is held from
+     * translators, its French beside it in values-fr. When it is agreed: set this to true, add its
+     * name to ReleasedFlagsTest, and make its text translatable.
+     */
+    val REPORT_FILE = BuildConfig.DEBUG
+
+    /**
+     * Downloads other apps can use (third in the 0.13 poll, the loudest topic on Discord): a song
+     * downloaded into a folder set under Storage and downloads is saved as a file every player and
+     * car opens, "Artist - Title.opus" for YouTube's Opus and "Artist - Title.m4a" for its AAC, the
+     * same audio rewrapped and never encoded again (SongFiles, OggOpusWriter, M4aWriter), with the
+     * title, artists, album, year, track number when known and the cover inside (SongTags). The
+     * song's link is in the file's comment, which is how the app knows the file again (SongFileIds),
+     * along with the path the database keeps. A stream that cannot be rewrapped is saved as before.
+     * Seen on an emulator only: Opus and AAC from YouTube, packet for packet the cached stream.
+     *
+     * Without it a download is saved as the raw stream, "Title [id].mka", as before. In every build,
+     * so files saved with it on keep working after an update without it: a song file is known by
+     * its path in the database, and played past the song cache (downloadedKey). Reading a file's
+     * tags to know it is with this on only. Old .mka downloads stay as they are and still play. Its
+     * text (dl_song_files_note, under the folder's warning) is held from translators, its French
+     * beside it in values-fr. When it is agreed: set this to true, add its name to
+     * ReleasedFlagsTest, make its texts translatable.
+     */
+    val DOWNLOAD_FILES = BuildConfig.DEBUG
 }

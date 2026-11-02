@@ -14,8 +14,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-import org.akanework.gramophone.logic.utils.SemanticLyrics
 import javax.inject.Inject
 
 @HiltViewModel
@@ -53,13 +53,17 @@ class LyricsMenuViewModel @Inject constructor(
         job = null
     }
 
-    fun refetchLyrics(mediaMetadata: MediaMetadata, onDone: (SemanticLyrics?) -> Unit) {
+    /**
+     * Refetch, with [onDone] told on the main thread what came back: what is stored stays until
+     * other lyrics arrive (LyricsHelper.refetch), and past the time limit it is a failure like any
+     * other, where it used to be told nothing at all.
+     */
+    fun refetchLyrics(mediaMetadata: MediaMetadata, onDone: (LyricsHelper.Refetched) -> Unit) {
         CoroutineScope(Dispatchers.IO).launch {
-            database.deleteLyricById(mediaMetadata.id)
-            withTimeoutOrNull(LYRIC_FETCH_TIMEOUT) {
-                val lyrics = lyricsHelper.getLyrics(mediaMetadata)
-                onDone(lyrics)
-            }
+            val result = withTimeoutOrNull(LYRIC_FETCH_TIMEOUT) {
+                lyricsHelper.refetch(mediaMetadata)
+            } ?: LyricsHelper.Refetched.Failed
+            withContext(Dispatchers.Main) { onDone(result) }
         }
     }
 }

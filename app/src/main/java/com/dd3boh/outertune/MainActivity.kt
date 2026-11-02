@@ -26,6 +26,7 @@ import android.provider.MediaStore
 import android.util.Log
 import android.widget.Toast
 import androidx.media3.common.MediaItem
+import androidx.media3.session.LibraryResult
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.guava.await
 import androidx.activity.ComponentActivity
@@ -144,6 +145,7 @@ import androidx.compose.ui.util.fastForEach
 import androidx.core.net.toUri
 import androidx.core.view.WindowCompat
 import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.compose.NavHost
@@ -270,8 +272,10 @@ import com.dd3boh.outertune.utils.PollChecker
 import com.dd3boh.outertune.utils.UpdateChecker
 import com.dd3boh.outertune.utils.UpdateInstaller
 import com.dd3boh.outertune.utils.AutoBlocker
+import com.dd3boh.outertune.utils.AlbumAnswerPretend
 import com.dd3boh.outertune.utils.YouTubeRegion
 import com.dd3boh.outertune.utils.AutoBlockerReturn
+import com.dd3boh.outertune.utils.ReportTrail
 import com.dd3boh.outertune.utils.ReturnVerdict
 import com.dd3boh.outertune.utils.reminderOwed
 import com.dd3boh.outertune.constants.AutoBlockerBlockedByKey
@@ -574,17 +578,27 @@ class MainActivity : ComponentActivity() {
             dispose()
             lifecycleScope.launch {
                 if (query.isNotEmpty()) {
+                    // How many the session found, or null when it could not be asked or answered
+                    // with an error: that was "No results found" too.
                     val found = try {
-                        browser.getSearchResult(query, 0, 1, null).await().value
+                        val result = browser.getSearchResult(query, 0, 1, null).await()
+                        if (result.resultCode == LibraryResult.RESULT_SUCCESS) result.value?.size ?: 0 else null
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
                         Log.w(MAIN_TAG, "Could not search for a play from search", e)
                         null
                     }
-                    if (found.isNullOrEmpty()) {
-                        Toast.makeText(this@MainActivity, R.string.no_results_found, Toast.LENGTH_SHORT).show()
-                        return@launch
+                    when (playSearchOutcome(found)) {
+                        PlaySearch.FAILED -> {
+                            Toast.makeText(this@MainActivity, R.string.play_search_failed, Toast.LENGTH_LONG).show()
+                            return@launch
+                        }
+                        PlaySearch.NOTHING -> {
+                            Toast.makeText(this@MainActivity, R.string.no_results_found, Toast.LENGTH_SHORT).show()
+                            return@launch
+                        }
+                        PlaySearch.PLAY -> Unit
                     }
                 }
                 browser.setMediaItems(listOf(searchPlayRequest(query)))
@@ -692,6 +706,8 @@ class MainActivity : ComponentActivity() {
         // Debug builds only, the same way: a file that makes YouTube count as seeing this connection
         // in another country, so the note for Korea (#68) can be seen from anywhere.
         YouTubeRegion.pretendFrom(this)
+        // And a file that makes album pages fail as YouTube's NOT_FOUND does, to see what they do then.
+        AlbumAnswerPretend.pretendFrom(this)
         // Not again after a rotation or a restored process: the shortcut was tapped once. Nor when
         // the task is reopened from recents, which starts it again with the shortcut's intent and
         // replayed the liked songs over whatever was playing (Android 11 and older, where Back
@@ -1177,6 +1193,12 @@ class MainActivity : ComponentActivity() {
 
                 val navController = rememberNavController()
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
+                // The screens opened, for Report a problem's trail: by the route's pattern, never what fills it in.
+                DisposableEffect(navController) {
+                    val listener = NavController.OnDestinationChangedListener { _, destination, _ -> ReportTrail.thisRun.screen(destination.route) }
+                    navController.addOnDestinationChangedListener(listener)
+                    onDispose { navController.removeOnDestinationChangedListener(listener) }
+                }
 
                 /**
                  * Hoisted out of [SearchBarContainer] so the navigation bar can close the search
@@ -1406,6 +1428,9 @@ class MainActivity : ComponentActivity() {
                             togetherInvite = invite
                         } else if (libraryPlaylist != null) {
                             navController.navigate("local_playlist/$libraryPlaylist")
+                        } else if (SystemSearch.isHeard(link)) {
+                            // Songs named once the phone was back online (RecogniseLaterWorker).
+                            navController.navigate("recognition/history")
                         } else if (searchWords != null) {
                             // Words handed over by the phone's search, or by the song found on this
                             // phone's notification: InterTune's own search for them.
@@ -2521,11 +2546,12 @@ internal fun launchLink(action: String?, data: String?, text: String?, fromRecen
 /**
  * Whether a link handed to the app opens something the player, left open, would hide: a page of
  * results (the song found on this phone's notification, the phone's own search), a library
- * playlist, a YouTube page, or a song's album or menu. Only a song to play at once is left to the
- * player, which shows it whether it is open or not.
+ * playlist, What you have heard (the notification of songs named once the phone was back online),
+ * a YouTube page, or a song's album or menu. Only a song to play at once is left to the player,
+ * which shows it whether it is open or not.
  */
 internal fun linkOpensPage(link: String): Boolean {
-    if (SystemSearch.playlistOf(link) != null || SystemSearch.searchOf(link) != null) return true
+    if (SystemSearch.playlistOf(link) != null || SystemSearch.searchOf(link) != null || SystemSearch.isHeard(link)) return true
     return when (val parsed = YouTubeLink.parse(link)) {
         null -> false
         is YouTubeLink.Video -> !parsed.playNow
@@ -2547,6 +2573,19 @@ internal fun newIntentLink(action: String?, data: String?, text: String?): Strin
  */
 internal fun searchToPlay(action: String?, hasData: Boolean, query: String?): String? =
     if (action == MediaStore.INTENT_ACTION_MEDIA_PLAY_FROM_SEARCH && !hasData) query?.trim().orEmpty() else null
+
+/** What a "play X" search came to: something to play, an answer with nothing in it, or no answer at all. */
+internal enum class PlaySearch { PLAY, NOTHING, FAILED }
+
+/**
+ * [found] songs, or null for a search the media session could not make (it failed, answered with
+ * an error, or was gone). Only an answer with nothing in it is "No results found".
+ */
+internal fun playSearchOutcome(found: Int?): PlaySearch = when {
+    found == null -> PlaySearch.FAILED
+    found == 0 -> PlaySearch.NOTHING
+    else -> PlaySearch.PLAY
+}
 
 /**
  * A search as the media session takes one: no id, and the words in the request metadata. This is

@@ -24,9 +24,15 @@ object ProxyAtStart {
     @Volatile
     var setting: String? = null
 
-    /** One string for a stored proxy setting: off is one value whatever the fields still hold. */
-    fun of(enabled: Boolean?, type: String?, url: String?): String =
-        if (enabled != true) "off" else "${type ?: "HTTP"} ${url.orEmpty().trim()}"
+    /**
+     * One string for a stored proxy setting: off is one value whatever the fields still hold, and
+     * so is an address the start cannot use (ProxyAddress), since the app then starts without a
+     * proxy: no restart is offered for one that would not be taken.
+     */
+    fun of(enabled: Boolean?, type: String?, url: String?): String {
+        val address = ProxyAddress.normalized(url)
+        return if (enabled != true || address == null) "off" else "${type ?: "HTTP"} $address"
+    }
 
     /**
      * Ends the app and opens it again, as a restored backup does (BackupRestoreViewModel): the

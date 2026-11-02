@@ -1670,6 +1670,21 @@
     <string name="problem_report_copy">Copier</string>
     <string name="problem_report_copied">Copié</string>
     <string name="problem_report_close">Fermer</string>
+    <string name="problem_report_send">Envoyer à InterTune</string>
+    <string name="problem_report_what">Que s\'est-il passé\u00A0? (facultatif)</string>
+    <string name="problem_report_contact">Comment vous joindre (facultatif)</string>
+    <string name="problem_report_contact_hint">Pseudo Discord ou e-mail</string>
+    <string name="problem_report_contact_note">Seule l\'équipe d\'InterTune le voit.</string>
+    <string name="problem_report_sent">Envoyé sous le n°\u00A0%1$d</string>
+    <string name="problem_report_sent_body">Tout le monde peut le suivre sur GitHub, sans compte.</string>
+    <string name="problem_report_open_issue">Ouvrir le n°\u00A0%1$d</string>
+    <string name="problem_report_copy_link">Copier le lien</string>
+    <string name="problem_report_held">Envoyé. Il paraîtra sur GitHub une fois relu.</string>
+    <string name="problem_report_send_failed">Envoi impossible. Réessayez, ou copiez-le et postez-le dans #bug-reports.</string>
+    <string name="report_way_anonymous">Anonyme</string>
+    <string name="report_way_github">Compte GitHub</string>
+    <string name="report_way_anonymous_note">Sans compte. Vous recevez un lien pour le suivre.</string>
+    <string name="report_way_github_note">Ouvre le formulaire sur GitHub, où vous vous connectez et recevez les réponses.</string>
     <string name="problem_report_now">Maintenant</string>
     <string name="problem_report_went_wrong">%1$s · erreur à %2$s</string>
     <string name="problem_report_no_fault">%1$s · aucune erreur notée</string>
@@ -1677,6 +1692,8 @@
     <string name="problem_report_none_then">Aucune erreur n\'a été notée cette fois-là. Voici ses dernières lignes.</string>
     <string name="problem_report_nothing_then">Rien n\'a été écrit cette fois-là.</string>
     <string name="problem_report_older">Voir les plus anciens</string>
+    <string name="problem_report_extras">Le rapport contient aussi les réglages qui comptent ici et les étapes juste avant. Elles ne nomment aucun morceau, aucune recherche ni personne.</string>
+    <string name="problem_report_extras_settings">Le rapport contient aussi les réglages qui comptent ici, tels qu\'ils sont maintenant.</string>
     <string name="welcome_back_title">Content de vous revoir</string>
     <string name="welcome_back_body">Voici les nouveautés depuis votre dernière visite.</string>
     <string name="welcome_back_everything">Ce qui a été ajouté récemment, et où le trouver.</string>
@@ -1902,6 +1919,7 @@
     <string name="lyrics_video_making">Création de la vidéo…</string>
     <string name="lyrics_video_failed">La vidéo n\'a pas pu être créée</string>
     <string name="lyrics_video_size">La vidéo fait %1$s</string>
+    <string name="lyrics_saved">Enregistré : %1$s</string>
     <plurals name="lyrics_picked_video">
         <item quantity="one">%1$d ligne, %2$s</item>
         <item quantity="many">%1$d lignes, %2$s</item>
@@ -2202,6 +2220,43 @@
     <string name="region_note_proxy">Réglages du proxy</string>
     <string name="proxy_restart_title">Redémarrer pour utiliser le nouveau proxy</string>
     <string name="proxy_restart_description">InterTune prend le proxy au démarrage. Touchez pour le redémarrer maintenant ; la musique s\'arrête.</string>
+    <string name="why_stopped_sign_in_title">Votre connexion YouTube a expiré</string>
+    <string name="why_stopped_sign_in_body">YouTube n\'accepte plus la connexion que garde InterTune, donc la recherche, les radios et les mix ne se chargent pas. Reconnectez-vous pour les retrouver.</string>
+    <string name="why_stopped_sign_in_again">Se reconnecter</string>
+    <string name="why_stopped_unreachable_title">Impossible de joindre YouTube</string>
+    <string name="why_stopped_unreachable_body">Cette connexion n\'arrive pas jusqu\'à YouTube. Si vous utilisez un VPN, vérifiez que son split tunneling inclut InterTune, ou essayez un autre réseau.</string>
+    <string name="album_not_loaded_title">Cet album ne s\'est pas chargé</string>
+    <string name="album_not_loaded_body">YouTube ne l\'a pas envoyé, donc seuls les titres qu\'InterTune avait déjà sont affichés.</string>
+    <string name="lyrics_refetch_failed">Paroles non récupérées. Vérifiez la connexion.</string>
+    <string name="lyrics_refetch_none">Pas d\'autres paroles trouvées, celles-ci restent donc.</string>
+    <string name="play_search_failed">La recherche n\'a pas abouti, rien n\'a été lancé.</string>
+    <string name="proxy_address_format">Saisissez l\'adresse au format hôte:port, par exemple 127.0.0.1:8118.</string>
+    <string name="proxy_address_missing">Aucun proxy n\'est utilisé tant qu\'aucune adresse n\'est réglée ici.</string>
+    <string name="proxy_not_used_at_start">Aucun proxy n\'est utilisé : son adresse est illisible.</string>
+    <string name="sync_progress_busy">Une synchronisation est déjà en cours. Ses changements apparaîtront à la fin.</string>
+    <!-- What's playing with no connection (issue #48, RecogniseLater, Unreleased.RECOGNISE_OFFLINE): a listen kept to be named once the phone is back online. -->
+    <string name="recognise_later_kept">Pas de connexion. Ce qui a été entendu est gardé, et le titre sera trouvé dès votre retour en ligne.</string>
+    <string name="recognise_later_keeping">Pas de connexion. Ce qui est entendu est gardé pour plus tard</string>
+    <string name="recognise_later_waiting">En attente de connexion</string>
+    <string name="recognise_later_channel">Titres entendus hors ligne</string>
+    <plurals name="recognise_later_named">
+        <item quantity="one">%1$d titre entendu hors ligne a été trouvé</item>
+        <item quantity="many">%1$d titres entendus hors ligne ont été trouvés</item>
+        <item quantity="other">%1$d titres entendus hors ligne ont été trouvés</item>
+    </plurals>
+    <string name="recognise_later_none">Aucun titre trouvé pour ce qui a été entendu hors ligne</string>
+    <!-- Liked songs kept in sync with their downloads (issue #64, Unreleased.LIKED_SYNC): held from translators until he says. -->
+    <string name="liked_download_sync">Supprimer le téléchargement avec le j’aime</string>
+    <string name="liked_download_sync_description">Seulement les titres que ce réglage a téléchargés. Un titre téléchargé par vous reste.</string>
+    <!-- Pochette de la playlist (PlaylistCovers, PlaylistCoverSheet, Unreleased.PLAYLIST_COVER): held from translators in values until the words are agreed. -->
+    <string name="playlist_cover_change">Changer la pochette</string>
+    <string name="playlist_cover_title">Pochette de la playlist</string>
+    <string name="playlist_cover_note">La pochette au-dessus change à chaque choix.</string>
+    <string name="playlist_cover_automatic">Automatique</string>
+    <string name="playlist_cover_automatic_note">La pochette du premier titre</string>
+    <string name="playlist_cover_photo">Une photo</string>
+    <string name="playlist_cover_photo_note">Depuis votre téléphone</string>
+    <string name="playlist_cover_songs">Un titre de cette playlist</string>
     <!-- Bloquer l'artiste (ArtistBlock, Unreleased.ARTIST_BLOCK): held from translators in values until the words are agreed. -->
     <string name="menu_block_artist">Bloquer l\'artiste</string>
     <string name="block_artist_which">Bloquer quel artiste\u00A0?</string>
@@ -2221,4 +2276,9 @@
     <string name="blocked_song_skipped">%1$s est bloqué, donc son titre a été passé.</string>
     <string name="blocked_songs_left">Les titres restants sont tous d\'artistes bloqués, donc la musique s\'est arrêtée.</string>
     <string name="search_words_blocked_artists">bannir, masquer, ignorer, liste noire</string>
+    <string name="crash_newer_title">InterTune %1$s est disponible</string>
+    <string name="crash_newer_body">Cette version corrige peut-être déjà ce plantage. Mettez à jour d\'abord, puis signalez-le s\'il revient.</string>
+    <string name="crash_newer_update">Mettre à jour</string>
+    <string name="problem_report_share_file">Partager en fichier</string>
+    <string name="dl_song_files_note">Chaque titre y est enregistré en Opus ou en M4A, avec son nom, son artiste et sa pochette, pour que d\'autres applis et les voitures puissent le lire.</string>
 </resources>

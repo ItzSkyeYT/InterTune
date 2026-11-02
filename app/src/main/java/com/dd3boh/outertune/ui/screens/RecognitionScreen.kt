@@ -202,6 +202,7 @@ fun RecognitionScreen(
     val following by viewModel.following.collectAsState()
     val mixChoices by viewModel.mixChoices.collectAsState()
     val retryAt by viewModel.retryAt.collectAsState()
+    val keepingOffline by viewModel.keepingOffline.collectAsState()
 
     // Whose run the engine is on, asked as the playlist sheet asks: see SheetRun. A playlist's run
     // left going, its sheet left by navigating away rather than closed, used to show here as the
@@ -462,7 +463,10 @@ fun RecognitionScreen(
                         state is RecognitionEngine.State.Found,
                 // The big button always stops a run, whichever mode it is in.
                 onClick = { if (listening) viewModel.stop() else listen(keepListeningDefault) },
-                message = shazamWaitMessage(retryAt?.takeIf { listening && continuous }),
+                // With no connection what it hears is kept for later (RecogniseLater): that is said in
+                // place of Shazam not answering, which is not what is wrong.
+                message = if (listening && continuous && keepingOffline) stringResource(R.string.recognise_later_keeping)
+                else shazamWaitMessage(retryAt?.takeIf { listening && continuous }),
             )
         }
 
@@ -619,6 +623,20 @@ fun RecognitionScreen(
                     ),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.error,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                )
+            }
+        }
+
+        // No connection: not a failure, so not in the error's colour. The song comes later, into
+        // What you have heard, where the listen waits meanwhile.
+        if (state == RecognitionEngine.State.Kept) {
+            item(key = "kept") {
+                Text(
+                    text = stringResource(R.string.recognise_later_kept),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth().padding(16.dp),
                 )
@@ -886,10 +904,13 @@ private fun ListenButton(
                 horizontalArrangement = Arrangement.Center,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
             ) {
+                // Weighted without filling: a line that fills the row, as a message does in French or
+                // at a larger text size, left the dots no room and drew one of them above the text.
                 Text(
                     text = message ?: phrase,
                     style = MaterialTheme.typography.titleMedium,
                     textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f, fill = false),
                 )
                 AnimatedDots(style = MaterialTheme.typography.titleMedium)
             }

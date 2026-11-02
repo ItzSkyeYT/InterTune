@@ -2005,6 +2005,23 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="problem_report_copy">Copy</string>
     <string name="problem_report_copied">Copied</string>
     <string name="problem_report_close">Close</string>
+    <!-- Send to InterTune (Unreleased.REPORT_RELAY): for translators only after his yes on the words (kept off visionos-fix until then). -->
+    <string name="problem_report_send">Send to InterTune</string>
+    <string name="problem_report_what">What happened? (optional)</string>
+    <string name="problem_report_contact">How to reach you (optional)</string>
+    <string name="problem_report_contact_hint">Discord name or email</string>
+    <string name="problem_report_contact_note">Only the InterTune team sees this.</string>
+    <string name="problem_report_sent">Sent as #%1$d</string>
+    <string name="problem_report_sent_body">Anyone can follow it on GitHub, no account needed.</string>
+    <string name="problem_report_open_issue">Open #%1$d</string>
+    <string name="problem_report_copy_link">Copy link</string>
+    <string name="problem_report_held">Sent. It goes on GitHub once someone has looked at it.</string>
+    <string name="problem_report_send_failed">Couldn\'t send it. Try again, or copy it and post it in #bug-reports.</string>
+    <!-- The two ways a report goes, picked at the top of Report a problem and the crash page; the pick is kept. For translators only after his yes. -->
+    <string name="report_way_anonymous">Anonymous</string>
+    <string name="report_way_github">GitHub account</string>
+    <string name="report_way_anonymous_note">No account needed. You get a link to follow it.</string>
+    <string name="report_way_github_note">Opens the form on GitHub, where you sign in and get the replies.</string>
     <string name="problem_report_now">Now</string>
     <string name="problem_report_went_wrong">%1$s · went wrong at %2$s</string>
     <string name="problem_report_no_fault">%1$s · no fault noted</string>
@@ -2012,6 +2029,9 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="problem_report_none_then">Nothing that looks like a fault was noted that time. These are its last lines.</string>
     <string name="problem_report_nothing_then">Nothing was written that time.</string>
     <string name="problem_report_older">Show older</string>
+    <!-- Unreleased.REPORT_PLUS: held from translators until his yes (translatable="false"), the French beside it in values-fr. -->
+    <string name="problem_report_extras" translatable="false">The report also has the settings that matter here and the steps taken just before. The steps name no song, search or person.</string>
+    <string name="problem_report_extras_settings" translatable="false">The report also has the settings that matter here, as they are now.</string>
     <!-- Casting, behind Unreleased.CASTING -->
     <string name="cast">Cast</string>
     <string name="cast_to">Cast to</string>
@@ -2113,6 +2133,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="lyrics_video_making">Making the video…</string>
     <string name="lyrics_video_failed">The video could not be made</string>
     <string name="lyrics_video_size">The video is %1$s</string>
+    <!-- Held back from translators until the next push of texts. %1$s is where the lyrics card or video went: Movies/InterTune, Pictures/InterTune, or the file's name where the system asked. -->
+    <string name="lyrics_saved" translatable="false">Saved: %1$s</string>
     <plurals name="lyrics_picked_video">
         <item quantity="one">%1$d line, %2$s</item>
         <item quantity="other">%1$d lines, %2$s</item>
@@ -2388,6 +2410,43 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="region_note_proxy">Proxy settings</string>
     <string name="proxy_restart_title">Restart to use the new proxy</string>
     <string name="proxy_restart_description">InterTune takes the proxy when it starts. Tap to restart it now; the music stops.</string>
+    <!-- Why search, radios, mixes or Home stopped loading (WhyStopped): on Home, on a search, album or playlist page that failed, and under a radio that did not start. Held from translators until his yes. -->
+    <string name="why_stopped_sign_in_title" translatable="false">Your YouTube sign-in expired</string>
+    <string name="why_stopped_sign_in_body" translatable="false">YouTube no longer accepts the sign-in InterTune keeps, so search, radios and mixes don\'t load. Sign in again to bring them back.</string>
+    <string name="why_stopped_sign_in_again" translatable="false">Sign in again</string>
+    <string name="why_stopped_unreachable_title" translatable="false">YouTube can\'t be reached</string>
+    <string name="why_stopped_unreachable_body" translatable="false">This connection isn\'t getting through to YouTube. If you use a VPN, make sure its split tunnelling includes InterTune, or try another network.</string>
+    <string name="album_not_loaded_title" translatable="false">This album did not load</string>
+    <string name="album_not_loaded_body" translatable="false">YouTube did not send it, so only the songs InterTune already had are shown.</string>
+    <string name="lyrics_refetch_failed" translatable="false">Lyrics could not be fetched. Check the connection.</string>
+    <string name="lyrics_refetch_none" translatable="false">No other lyrics were found, so these stay.</string>
+    <string name="play_search_failed" translatable="false">The search did not work, so nothing was played.</string>
+    <string name="proxy_address_format" translatable="false">Type the address as host:port, for example 127.0.0.1:8118.</string>
+    <string name="proxy_address_missing" translatable="false">No proxy is used until an address is set here.</string>
+    <string name="proxy_not_used_at_start" translatable="false">No proxy is in use: its address could not be read.</string>
+    <string name="sync_progress_busy" translatable="false">A sync is already running. Its changes show up when it ends.</string>
+    <!-- What's playing with no connection (issue #48, RecogniseLater, Unreleased.RECOGNISE_OFFLINE): a listen kept to be named once the phone is back online. Held back from translators until the words are agreed, the French beside them in values-fr. -->
+    <string name="recognise_later_kept" translatable="false">No connection. It kept what it heard and will name the song once you are back online.</string>
+    <string name="recognise_later_keeping" translatable="false">No connection. Keeping what it hears for later</string>
+    <string name="recognise_later_waiting" translatable="false">Waiting for a connection</string>
+    <string name="recognise_later_channel" translatable="false">Songs heard offline</string>
+    <plurals name="recognise_later_named" translatable="false">
+        <item quantity="one">Found the song you heard offline</item>
+        <item quantity="other">Found %1$d songs you heard offline</item>
+    </plurals>
+    <string name="recognise_later_none" translatable="false">Nothing found for what you heard offline</string>
+    <!-- Liked songs kept in sync with their downloads (issue #64, Unreleased.LIKED_SYNC): held from translators until he says. -->
+    <string name="liked_download_sync" translatable="false">Remove the download with the like</string>
+    <string name="liked_download_sync_description" translatable="false">Only songs this setting downloaded. A song you downloaded yourself stays.</string>
+    <!-- Playlist cover (PlaylistCovers, PlaylistCoverSheet, Unreleased.PLAYLIST_COVER): the choice in Edit playlist and in the sheet that opens from it and from the cover in a playlist's header. Held from translators until the words are agreed, their French beside them in values-fr. -->
+    <string name="playlist_cover_change" translatable="false">Change cover</string>
+    <string name="playlist_cover_title" translatable="false">Playlist cover</string>
+    <string name="playlist_cover_note" translatable="false">The cover above changes as you pick.</string>
+    <string name="playlist_cover_automatic" translatable="false">Automatic</string>
+    <string name="playlist_cover_automatic_note" translatable="false">The first song\'s cover</string>
+    <string name="playlist_cover_photo" translatable="false">A photo</string>
+    <string name="playlist_cover_photo_note" translatable="false">From your phone</string>
+    <string name="playlist_cover_songs" translatable="false">A song from this playlist</string>
     <!-- Block artist (ArtistBlock, Unreleased.ARTIST_BLOCK): the last item of the song menus, the first button of an artist page's pill, Settings > Library and content > Blocked artists, and the line a search for a blocked artist shows. Held from translators until the words are agreed, their French beside them in values-fr. %1$s is the artist's name. -->
     <string name="menu_block_artist" translatable="false">Block artist</string>
     <string name="block_artist_which" translatable="false">Block which artist?</string>
@@ -2408,4 +2467,12 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="blocked_songs_left" translatable="false">The songs left are all by blocked artists, so the music stopped.</string>
     <!-- The settings search's words for Blocked artists: open to translators, as every search word is (SettingsSearchTest). -->
     <string name="search_words_blocked_artists">ban, hide, mute, blocklist</string>
+    <!-- The crash page when the update check has already found a newer version (CrashReportDialog, the dead-ends audit 1.10): held from translators until his go. -->
+    <string name="crash_newer_title" translatable="false">InterTune %1$s is out</string>
+    <string name="crash_newer_body" translatable="false">It may already fix this crash. Update first, then report it if it comes back.</string>
+    <string name="crash_newer_update" translatable="false">Update</string>
+    <!-- Share as a file under a report (ReportFile, Unreleased.REPORT_FILE): held from translators until his go. -->
+    <string name="problem_report_share_file" translatable="false">Share as a file</string>
+    <!-- Downloads saved as song files (SongFiles, Unreleased.DOWNLOAD_FILES), after the folder's warning: held from translators until his go. -->
+    <string name="dl_song_files_note" translatable="false">Songs are saved as Opus or M4A files with their title, artist and cover, so other apps and cars can play them.</string>
 </resources>

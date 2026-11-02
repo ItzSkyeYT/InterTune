@@ -176,13 +176,20 @@ enum class SyncResult {
     /** A fetch failed or came back short, or the connection went. Nothing was removed on its account. */
     FAILED,
 
-    /** Nothing ran: every kind switched off, already running, cooling down, or signed out. */
+    /**
+     * Already being synced, by the sync at launch or a pull, so this one did not start. Sync now
+     * said "Nothing to sync" for it, as if every kind were switched off.
+     */
+    BUSY,
+
+    /** Nothing ran: every kind switched off, cooling down, or signed out. */
     NOTHING;
 
     companion object {
         fun combine(results: Collection<SyncResult>): SyncResult = when {
             FAILED in results -> FAILED
             SYNCED in results -> SYNCED
+            BUSY in results -> BUSY
             else -> NOTHING
         }
     }

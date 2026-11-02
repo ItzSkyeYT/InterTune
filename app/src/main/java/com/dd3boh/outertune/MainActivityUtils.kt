@@ -229,6 +229,9 @@ suspend fun scanInit(
 
 
     // local media scan
+    // A scan that fails says so, and only that: the end used to be announced after it all the same,
+    // "Scanner failed" and then "refresh complete!".
+    var scanFailed = false
     // Check if the permissions for local media access
     if (scannerState.value <= 0 && localLibEnable) {
         if (perms == PackageManager.PERMISSION_GRANTED) {
@@ -258,9 +261,11 @@ suspend fun scanInit(
                         try {
                             scanner.localToRemoteArtist(database)
                         } catch (e: ScannerAbortException) {
+                            // The scan itself finished: what stopped is the linking after it, as the
+                            // settings say it. This said "Scanner failed", after "refresh complete!".
                             coroutineScope.launch {
                                 snackbarHostState.showSnackbar(
-                                    message = "${context.getString(R.string.scanner_scan_fail)}: ${e.message}",
+                                    message = "${context.getString(R.string.scanner_ytm_link_fail)}: ${e.message}",
                                     withDismissAction = true,
                                     duration = SnackbarDuration.Long
                                 )
@@ -269,9 +274,10 @@ suspend fun scanInit(
                     }
                 }
             } catch (e: Exception) {
+                scanFailed = true
                 coroutineScope.launch {
                     snackbarHostState.showSnackbar(
-                        message = "${context.getString(R.string.scanner_scan_fail)}: ${e.message}",
+                        message = listOfNotNull(context.getString(R.string.scanner_scan_fail), e.message).joinToString(": "),
                         withDismissAction = true,
                         duration = SnackbarDuration.Short
                     )
@@ -306,7 +312,7 @@ suspend fun scanInit(
     }
 
     Log.i(MAIN_TAG, "Local media and downloads auto scan complete")
-    if (willScanLocalMedia) {
+    if (willScanLocalMedia && !scanFailed) {
         coroutineScope.launch {
             snackbarHostState.showSnackbar(
                 message = context.getString(R.string.scanner_auto_end),

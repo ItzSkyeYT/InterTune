@@ -68,19 +68,22 @@ data class PhoneState(
             else -> null
         }
 
+        /** "Wi-Fi", "mobile data", "Ethernet" and so on for a network's capabilities, or null with none. */
+        fun networkKind(caps: NetworkCapabilities?): String? = caps?.let {
+            when {
+                it.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "Wi-Fi"
+                it.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "mobile data"
+                it.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "Ethernet"
+                it.hasTransport(NetworkCapabilities.TRANSPORT_BLUETOOTH) -> "Bluetooth tethering"
+                else -> "another network"
+            }
+        }
+
         /** The phone as it is now. Never throws: what cannot be read is left out. */
         fun read(context: Context): PhoneState {
             val connectivity = context.getSystemService(ConnectivityManager::class.java)
             val caps = runCatching { connectivity?.getNetworkCapabilities(connectivity.activeNetwork) }.getOrNull()
-            val network = caps?.let {
-                when {
-                    it.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "Wi-Fi"
-                    it.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "mobile data"
-                    it.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "Ethernet"
-                    it.hasTransport(NetworkCapabilities.TRANSPORT_BLUETOOTH) -> "Bluetooth tethering"
-                    else -> "another network"
-                }
-            }
+            val network = networkKind(caps)
             val power = context.getSystemService(PowerManager::class.java)
             val activity = context.getSystemService(ActivityManager::class.java)
             return PhoneState(

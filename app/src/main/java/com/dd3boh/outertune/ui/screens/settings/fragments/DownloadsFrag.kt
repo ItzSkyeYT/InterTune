@@ -77,6 +77,9 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.rounded.Favorite
 import com.dd3boh.outertune.constants.LikedAutoDownloadKey
+import com.dd3boh.outertune.constants.LikedDownloadSyncKey
+import com.dd3boh.outertune.constants.Unreleased
+import androidx.compose.material.icons.rounded.HeartBroken
 import com.dd3boh.outertune.constants.LikedAutodownloadMode
 import com.dd3boh.outertune.playback.DownloadUtil
 import com.dd3boh.outertune.ui.component.EnumListPreference
@@ -191,6 +194,22 @@ fun ColumnScope.DownloadsFrag() {
             }
         },
     )
+
+    // Liked songs kept in sync with their downloads (issue #64): taking back a like removes what the
+    // setting downloaded, never a song downloaded by hand (LikedDownloads). Only while the setting is on.
+    if (Unreleased.LIKED_SYNC) {
+        val (likedSync, onLikedSyncChange) = rememberPreference(LikedDownloadSyncKey, false)
+        val on = likedAutodownload != LikedAutodownloadMode.OFF
+        SwitchPreference(
+            modifier = Modifier.settingRow(R.string.liked_download_sync),
+            title = { Text(stringResource(R.string.liked_download_sync)) },
+            description = stringResource(R.string.liked_download_sync_description),
+            icon = { Icon(Icons.Rounded.HeartBroken, null) },
+            checked = on && likedSync,
+            isEnabled = on,
+            onCheckedChange = onLikedSyncChange,
+        )
+    }
 
     val likedDownloadState by downloadUtil.likedDownloadState.collectAsState()
 
@@ -446,9 +465,11 @@ fun ColumnScope.DownloadsFrag() {
                 FolderNesting.isSameOrInside(tempFilePath.toString(), it.toString())
             }
 
-            // The one warning that a download folder should be empty, where the folder is chosen.
+            // The one warning that a download folder should be empty, where the folder is chosen,
+            // and with DOWNLOAD_FILES what the songs in it are saved as.
             Text(
-                text = stringResource(R.string.dl_main_path_description),
+                text = stringResource(R.string.dl_main_path_description) +
+                    if (Unreleased.DOWNLOAD_FILES) " " + stringResource(R.string.dl_song_files_note) else "",
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(horizontal = 4.dp)
             )

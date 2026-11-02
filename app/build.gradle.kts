@@ -495,6 +495,9 @@ dependencies {
     // The XML pull parser Android itself uses, so the lyrics TTML parser runs in plain JVM tests,
     // where android.util.Xml has no parser behind it. See TtmlInternalNamespaceTest.
     testImplementation(libs.kxml2)
+    // YouTube's answers turned into the exceptions the app's client throws, with no network. See
+    // WhyStoppedTest.
+    testImplementation(libs.ktor.client.mock)
 
     // modules
     implementation(project(":fingerprint"))

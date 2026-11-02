@@ -28,6 +28,15 @@ class ProxyAtStartTest {
         assertEquals("SOCKS 127.0.0.1:9050", ProxyAtStart.of(true, "SOCKS", " 127.0.0.1:9050 "))
         assertEquals("the page's default type", "HTTP 127.0.0.1:8118", ProxyAtStart.of(true, null, "127.0.0.1:8118"))
         assertNotEquals(ProxyAtStart.of(true, "HTTP", "10.0.0.2:1080"), ProxyAtStart.of(true, "SOCKS", "10.0.0.2:1080"))
+        // The same address, however it was typed, is the same proxy: no restart for a scheme typed in.
+        assertEquals(ProxyAtStart.of(true, "HTTP", "127.0.0.1:8118"), ProxyAtStart.of(true, "HTTP", "http://127.0.0.1:8118/"))
+    }
+
+    @Test
+    fun `on with no address the start can use is no proxy, so no restart is offered for it`() {
+        assertEquals("off", ProxyAtStart.of(true, "HTTP", null))
+        assertEquals("off", ProxyAtStart.of(true, "HTTP", ""))
+        assertEquals("off", ProxyAtStart.of(true, "SOCKS", "127.0.0.1"))
     }
 
     @Test

@@ -54,6 +54,10 @@ val YtmSyncContentKey = stringPreferencesKey("ytmSyncContent")
 val YtmSyncModeKey = stringPreferencesKey("ytmSyncMode")
 val YtmSyncConflictKey = stringPreferencesKey("ytmSyncConflict")
 val LikedAutoDownloadKey = stringPreferencesKey("likedAutoDownloadKey")
+/** Whether taking back a like removes the download that LikedAutoDownloadKey made for the song (issue #64): LikedDownloads. */
+val LikedDownloadSyncKey = booleanPreferencesKey("likedDownloadSync")
+/** The songs LikedAutoDownloadKey downloaded itself, by id, so that an unlike removes those and never one downloaded by hand. */
+val LikedAutoDownloadedKey = stringSetPreferencesKey("likedAutoDownloaded")
 val ContentLanguageKey = stringPreferencesKey("contentLanguage")
 val ContentCountryKey = stringPreferencesKey("contentCountry")
 /** The country the note about YouTube Music with no free plan was sent away for: YouTubeRegion. */
@@ -422,6 +426,14 @@ val SwipeToDismissPlayerKey = booleanPreferencesKey("swipeToDismissPlayer")
  * nothing chosen yet, and the first share asks; the pick made there or in Settings is kept here.
  */
 val ShareLinkKindKey = stringPreferencesKey("shareLinkKind")
+
+/**
+ * How Report a problem and the crash page send a report: a ReportWay. Unset, it reads as
+ * ReportWay.ANONYMOUS; the way last picked is kept for the next report (his rule of 28 Oct 2026:
+ * anonymous for people who would rather not sign in, the account way kept once someone picks it,
+ * and anonymous still one tap away).
+ */
+val ReportWayKey = stringPreferencesKey("reportWay")
 
 /**
  * Whether the transport controls sit inside one shared panel, or stand on their own.

@@ -9,6 +9,7 @@
 
 package com.dd3boh.outertune.ui.player
 
+import com.dd3boh.outertune.extensions.playSafe
 import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.constants.SignalKind
 import com.dd3boh.outertune.utils.ActivityLog
@@ -265,7 +266,9 @@ fun Thumbnail(
             error?.let { error ->
                 ThumbnailPlaybackError(
                     error = error,
-                    retry = playerConnection.player::prepare
+                    // Prepared and played: a stop on an error leaves the player paused, so prepare
+                    // alone would have loaded the song again and stayed silent.
+                    retry = playerConnection.player::playSafe
                 )
             }
         }

@@ -3,6 +3,7 @@ package com.dd3boh.outertune.viewmodels
 import com.dd3boh.outertune.models.blockedArtists
 import com.dd3boh.outertune.models.withoutBlocked
 import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -14,12 +15,14 @@ import com.dd3boh.outertune.extensions.reversed
 import com.dd3boh.outertune.extensions.toEnum
 import com.dd3boh.outertune.db.entities.Playlist
 import com.dd3boh.outertune.models.toMediaMetadata
+import com.dd3boh.outertune.utils.PlaylistCovers
 import com.dd3boh.outertune.utils.dataStore
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.SongItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,11 +36,12 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.io.File
 import javax.inject.Inject
 
 @HiltViewModel
 class LocalPlaylistViewModel @Inject constructor(
-    @ApplicationContext context: Context,
+    @ApplicationContext private val context: Context,
     private val database: MusicDatabase,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
@@ -136,6 +140,47 @@ class LocalPlaylistViewModel @Inject constructor(
                 runCatching { YouTube.addToPlaylist(browseId, song.id) }
             }
         }
+    }
+
+    /**
+     * One cover write at a time, so a photo still being read is not overtaken by a pick made after
+     * it: each is the file and the database row written together, in the order they were asked.
+     */
+    private val coverLock = Mutex()
+
+    /** The first song's cover again, as a playlist has until another is chosen. */
+    fun coverAutomatic() = setCover(null)
+
+    /** The cover of one of this playlist's songs, as that song has it (PlaylistCovers.coverOf). */
+    fun coverSong(cover: String) = setCover(cover)
+
+    /**
+     * A photo from the phone as the cover: read, brought down to 1024 px, kept as a file of the app's
+     * own and then written to the playlist. One that cannot be read leaves the cover as it was.
+     */
+    fun coverPhoto(uri: Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            coverLock.withLock {
+                val name = PlaylistCovers.importPhoto(context, playlistId, uri) ?: return@withLock
+                write(PlaylistCovers.stored(name), kept = name)
+            }
+        }
+    }
+
+    private fun setCover(cover: String?) {
+        viewModelScope.launch(Dispatchers.IO) { coverLock.withLock { write(cover, kept = null) } }
+    }
+
+    /**
+     * Writes the cover, then deletes the photos it replaced: in that order, so that a cut between
+     * them leaves a file nobody names and never a name with no file. When no row took the write (the
+     * playlist is gone, or has a YouTube playlist behind it) nothing that is named is deleted, and
+     * the photo just kept ([kept]) goes, for nobody names it.
+     */
+    private fun write(cover: String?, kept: String?) {
+        val written = database.transactionNow { setPlaylistCover(playlistId, cover) }
+        if (written > 0) PlaylistCovers.forget(context.filesDir, playlistId, except = kept)
+        else if (kept != null) File(PlaylistCovers.dir(context.filesDir), kept).delete()
     }
 
     init {

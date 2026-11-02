@@ -2,6 +2,8 @@ package com.dd3boh.outertune.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.dd3boh.outertune.utils.WhyStopped
+import com.dd3boh.outertune.utils.YouTubeTrouble
 import com.dd3boh.outertune.utils.reportException
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.AlbumItem
@@ -20,29 +22,46 @@ class AccountViewModel @Inject constructor() : ViewModel() {
     val artists = MutableStateFlow<List<ArtistItem>?>(null)
     val isLoading = MutableStateFlow(0)
 
+    /**
+     * What the first of the three requests that failed came to, null while none has. The page was
+     * empty when all three failed, as they do for a sign-in YouTube no longer accepts: it says why
+     * now (WhyStopped), with Retry.
+     */
+    val failedKind = MutableStateFlow<WhyStopped.Kind?>(null)
+
     init {
+        load()
+    }
+
+    /** Asks again once the three requests are done: the page's Retry. */
+    fun retry() {
+        if (isLoading.value >= 3) load()
+    }
+
+    private fun failed(failure: Throwable) {
+        reportException(failure)
+        YouTubeTrouble.failed(failure)
+        if (failedKind.value == null) failedKind.value = WhyStopped.kindOf(failure)
+        isLoading.value += 1
+    }
+
+    private fun load() {
+        isLoading.value = 0
+        failedKind.value = null
         viewModelScope.launch {
             YouTube.library("FEmusic_liked_playlists").completed().onSuccess {
+                YouTubeTrouble.answered(asAccount = true)
                 playlists.value = it.items.filterIsInstance<PlaylistItem>()
                 isLoading.value += 1
-            }.onFailure {
-                reportException(it)
-                isLoading.value += 1
-            }
+            }.onFailure(::failed)
             YouTube.library("FEmusic_liked_albums").completed().onSuccess {
                 albums.value = it.items.filterIsInstance<AlbumItem>()
                 isLoading.value += 1
-            }.onFailure {
-                reportException(it)
-                isLoading.value += 1
-            }
+            }.onFailure(::failed)
             YouTube.library("FEmusic_library_corpus_artists").completed().onSuccess {
                 artists.value = it.items.filterIsInstance<ArtistItem>()
                 isLoading.value += 1
-            }.onFailure {
-                reportException(it)
-                isLoading.value += 1
-            }
+            }.onFailure(::failed)
         }
     }
 }

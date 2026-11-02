@@ -75,6 +75,46 @@ class LyricsHelper @Inject constructor(
     suspend fun getLyrics(mediaMetadata: MediaMetadata): SemanticLyrics? =
         lookups.get(mediaMetadata.id) { resolveLyrics(mediaMetadata) }
 
+    /** What [refetch] came back with. */
+    sealed interface Refetched {
+        /** Lyrics to show: other ones, now stored in place of the old, or the song's own file. */
+        data class Found(val lyrics: SemanticLyrics) : Refetched
+
+        /** Every source answered and none had any: what was stored stays. */
+        data object NoneFound : Refetched
+
+        /** No source gave an answer (offline, every one failing, the time limit): what was stored stays. */
+        data object Failed : Refetched
+    }
+
+    /**
+     * The lyrics menu's Refetch: the song looked up as [getLyrics] looks up one with nothing
+     * stored, with what is stored left as it is until other lyrics come back. Refetch used to
+     * delete the stored lyrics first, those picked in Search included, so offline, or when no
+     * source had any, the song was left with none (audit of 2 Nov 2026).
+     */
+    suspend fun refetch(mediaMetadata: MediaMetadata): Refetched {
+        val trim = context.dataStore.get(LyricTrimKey, defaultValue = false)
+        val multiline = context.dataStore.get(MultilineLrcKey, defaultValue = true)
+        val prefLocal = context.dataStore.get(LyricSourcePrefKey, true)
+
+        val localLyrics = getLocalLyrics(mediaMetadata, LrcUtils.LrcParserOptions(trim, multiline, "Unable to parse lyrics"))
+        if (prefLocal && localLyrics != null) return Refetched.Found(localLyrics)
+
+        val remote = getRemoteLyrics(mediaMetadata)
+        val found = remote.lyrics?.let { parse(it, trim, multiline) }
+        if (remote.lyrics != null && found != null) {
+            // The write runs on Room's executor whether or not this lookup is still wanted.
+            currentCoroutineContext().ensureActive()
+            database.query {
+                upsert(LyricsEntity(id = mediaMetadata.id, lyrics = remote.lyrics))
+            }
+            return Refetched.Found(found)
+        }
+        if (localLyrics != null) return Refetched.Found(localLyrics)
+        return if (remote.answered) Refetched.NoneFound else Refetched.Failed
+    }
+
     private suspend fun resolveLyrics(mediaMetadata: MediaMetadata): SemanticLyrics? {
         val trim = context.dataStore.get(LyricTrimKey, defaultValue = false)
         val multiline = context.dataStore.get(MultilineLrcKey, defaultValue = true)

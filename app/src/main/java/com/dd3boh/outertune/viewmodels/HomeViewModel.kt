@@ -89,6 +89,7 @@ import com.dd3boh.outertune.utils.QuickPicksShelf
 import com.dd3boh.outertune.widget.WidgetList
 import com.dd3boh.outertune.widget.WidgetStore
 import com.dd3boh.outertune.utils.RecentlyShown
+import com.dd3boh.outertune.utils.YouTubeTrouble
 import com.dd3boh.outertune.utils.reportException
 import com.dd3boh.outertune.utils.syncCoroutine
 import com.zionhuang.innertube.YouTube
@@ -1267,11 +1268,15 @@ class HomeViewModel @Inject constructor(
         // value in place shows a signed-out user the last account's playlists.
         if (YouTube.cookie != null) {
             YouTube.library("FEmusic_liked_playlists").completed().onSuccess {
+                // Asked as the account always: the request that tells a sign-in still works.
+                YouTubeTrouble.answered(asAccount = true)
                 accountPlaylists.value = it.items.filterIsInstance<PlaylistItem>()
             }.onFailure {
                 // Left as it was. A transient failure blanking your playlists is worse than
                 // briefly showing the previous list, and this runs on every home load.
                 reportException(it)
+                // A sign-in YouTube no longer accepts shows here first: the note above (WhyStopped).
+                YouTubeTrouble.failed(it)
             }
         } else {
             accountPlaylists.value = null
@@ -1349,8 +1354,10 @@ class HomeViewModel @Inject constructor(
                         "${merged.sections.sumOf { it.items.size }} items, $batches continuations"
             )
             homePagePool = merged
+            YouTubeTrouble.answered(asAccount = YouTube.useLoginForBrowse)
         }.onFailure {
             reportException(it)
+            YouTubeTrouble.failed(it)
         }
         // The row is kept across loads now, so a shelf that has actually disappeared has to be
         // cleared here or last load's songs would sit there indefinitely.

@@ -283,6 +283,11 @@ fun TextFieldDialog(
     onDone: (String) -> Unit,
     onDismiss: () -> Unit,
     extraContent: (@Composable () -> Unit)? = null,
+    /**
+     * A line under the field for what is typed, such as why OK stays grey; null for none. Drawn as
+     * an error once something is typed, so an empty field starts with the hint and not a fault.
+     */
+    inputHint: ((String) -> String?)? = null,
 ) {
     val (textFieldValue, onTextFieldValueChange) = remember {
         mutableStateOf(initialTextFieldValue)
@@ -313,6 +318,7 @@ fun TextFieldDialog(
         }
     }
     val field: @Composable (Modifier, (@Composable () -> Unit)?) -> Unit = { fieldModifier, label ->
+        val hint = inputHint?.invoke(textFieldValue.text)
         TextField(
             value = textFieldValue,
             onValueChange = onTextFieldValueChange,
@@ -320,6 +326,8 @@ fun TextFieldDialog(
             placeholder = placeholder,
             singleLine = singleLine,
             maxLines = maxLines,
+            supportingText = if (hint != null) ({ Text(hint) }) else null,
+            isError = hint != null && textFieldValue.text.isNotEmpty(),
             colors = OutlinedTextFieldDefaults.colors(),
             keyboardOptions = KeyboardOptions(
                 imeAction = if (singleLine) ImeAction.Done else ImeAction.None,
