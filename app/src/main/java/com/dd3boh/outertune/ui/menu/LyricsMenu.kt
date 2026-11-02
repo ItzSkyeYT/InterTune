@@ -67,6 +67,8 @@ import com.dd3boh.outertune.constants.LyricTrimKey
 import com.dd3boh.outertune.constants.MultilineLrcKey
 import com.dd3boh.outertune.db.entities.LyricsEntity
 import com.dd3boh.outertune.extensions.isInternetConnected
+import com.dd3boh.outertune.db.entities.LyricsEntity.Companion.uninitializedLyric
+import com.dd3boh.outertune.lyrics.LyricsHelper
 import com.dd3boh.outertune.lyrics.LyricsShare
 import com.dd3boh.outertune.lyrics.lyricsPreview
 import com.dd3boh.outertune.lyrics.readKeptLyrics
@@ -481,9 +483,22 @@ fun LyricsMenu(
             // move made for the old lines played the new ones late. The same lyrics keep it.
             val before = dbLyric?.lyrics?.let { readKeptLyrics(it, lyricTrim, multilineLrc) }
             onDismiss()
-            viewModel.refetchLyrics(song) { fresh ->
-                onRefreshRequest(fresh)
-                if (fresh != null && fresh != before) onOtherLyrics(song.id)
+            viewModel.refetchLyrics(song) { result ->
+                when (result) {
+                    is LyricsHelper.Refetched.Found -> {
+                        onRefreshRequest(result.lyrics)
+                        if (result.lyrics != before) onOtherLyrics(song.id)
+                    }
+                    // What is on screen stays as it is, and the toast says why nothing changed.
+                    // The view was handed nothing here, which it draws as the loading placeholder,
+                    // and that stayed until the song changed.
+                    LyricsHelper.Refetched.NoneFound -> Toast.makeText(
+                        context,
+                        if (before != null && before != uninitializedLyric) R.string.lyrics_refetch_none else R.string.lyrics_not_found,
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                    LyricsHelper.Refetched.Failed -> Toast.makeText(context, R.string.lyrics_refetch_failed, Toast.LENGTH_LONG).show()
+                }
             }
         }
         GridMenuItem(

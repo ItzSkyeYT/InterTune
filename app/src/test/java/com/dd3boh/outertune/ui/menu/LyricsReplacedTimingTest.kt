@@ -24,7 +24,8 @@ class LyricsReplacedTimingTest {
     fun `refetched lyrics that differ from the ones there forget the move`() {
         val refetch = menu.substringAfter("title = R.string.refetch", missingDelimiterValue = "").substringBefore("GridMenuItem(")
         assertTrue("Refetch could not be found", refetch.isNotEmpty())
-        assertTrue(refetch, "if (fresh != null && fresh != before) onOtherLyrics(song.id)" in refetch)
+        // Only found lyrics come back from a refetch (RefetchKeepsLyricsTest), and only other ones forget it.
+        assertTrue(refetch, "if (result.lyrics != before) onOtherLyrics(song.id)" in refetch)
     }
 
     @Test
