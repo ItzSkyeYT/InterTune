@@ -17,6 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.RegionNoteDoneKey
 import com.dd3boh.outertune.utils.YouTubeRegion
@@ -37,12 +38,14 @@ fun RegionNote(
     onProxy: () -> Unit,
     onDone: (() -> Unit)?,
     modifier: Modifier = Modifier,
+    margin: Dp = NoteMargin,
 ) {
     NoteCard(
         icon = Icons.Rounded.Public,
         title = stringResource(R.string.region_note_title),
         body = stringResource(R.string.region_note_body),
         modifier = modifier,
+        margin = margin,
     ) {
         NoteButton(stringResource(R.string.region_note_proxy), onProxy)
         if (onDone != null) NoteButton(stringResource(R.string.action_done), onDone)

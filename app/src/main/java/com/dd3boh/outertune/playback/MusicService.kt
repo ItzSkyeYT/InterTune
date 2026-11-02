@@ -2315,7 +2315,16 @@ class MusicService : MediaLibraryService(),
                         ?.takeIf { queue.preloadItem != null && it.title == QueueStart.PRELOAD_TITLE }
                         ?.let { alone ->
                             RadioStopped(alone.id, why.kind) {
-                                playQueue(queue, playWhenReady, shouldResume, replace, isRadio, title, origin, originSlot)
+                                playQueue(
+                                    queue,
+                                    playWhenReady = playWhenReady,
+                                    shouldResume = shouldResume,
+                                    replace = replace,
+                                    isRadio = isRadio,
+                                    title = title,
+                                    origin = origin,
+                                    originSlot = originSlot,
+                                )
                             }
                         }
                 }

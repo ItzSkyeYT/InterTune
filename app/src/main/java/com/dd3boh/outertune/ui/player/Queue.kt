@@ -171,6 +171,7 @@ import com.dd3boh.outertune.playback.AdaptiveQueue
 import androidx.compose.material.icons.rounded.AutoAwesome
 import com.dd3boh.outertune.ui.component.LazyColumnScrollbar
 import com.dd3boh.outertune.ui.component.FailedNote
+import com.dd3boh.outertune.ui.component.openProxySetting
 import com.dd3boh.outertune.playback.QueueStart
 import com.dd3boh.outertune.ui.component.SelectHeader
 import com.dd3boh.outertune.ui.component.button.IconButton
@@ -1263,6 +1264,8 @@ fun BoxScope.QueueContent(
             val stopped = radioStopped?.takeIf { !isSearching && detachedQueue == null && it.queueId == qb.getCurrentQueue()?.id }
             if (stopped != null) {
                 item(key = "radio-stopped", contentType = "radio-stopped") {
+                    // Its buttons lead away from the player: the sheets go down on the way, or the
+                    // page opened under them unseen.
                     FailedNote(
                         kind = stopped.kind,
                         onSignIn = {
@@ -1271,7 +1274,12 @@ fun BoxScope.QueueContent(
                             playerState.collapseSoft()
                         },
                         onRetry = stopped.retry,
-                        modifier = Modifier.padding(top = 8.dp),
+                        onProxy = {
+                            openProxySetting()
+                            queueState?.collapseSoft()
+                            playerState.collapseSoft()
+                        },
+                        margin = 8.dp,
                     )
                 }
             }

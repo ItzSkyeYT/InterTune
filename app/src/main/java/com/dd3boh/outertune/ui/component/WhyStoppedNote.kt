@@ -39,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.dd3boh.outertune.LocalNetworkConnected
 import com.dd3boh.outertune.R
@@ -64,6 +65,8 @@ fun WhyStoppedNote(
     onSignIn: () -> Unit,
     onRetry: (() -> Unit)?,
     modifier: Modifier = Modifier,
+    onProxy: () -> Unit = ::openProxySetting,
+    margin: Dp = NoteMargin,
 ) {
     when (cause) {
         Cause.SIGN_IN -> NoteCard(
@@ -71,6 +74,7 @@ fun WhyStoppedNote(
             title = stringResource(R.string.why_stopped_sign_in_title),
             body = stringResource(R.string.why_stopped_sign_in_body),
             modifier = modifier,
+            margin = margin,
         ) {
             if (onRetry != null) NoteButton(stringResource(R.string.retry), onRetry)
             NoteButton(stringResource(R.string.why_stopped_sign_in_again), onSignIn)
@@ -81,12 +85,13 @@ fun WhyStoppedNote(
             title = stringResource(R.string.why_stopped_unreachable_title),
             body = stringResource(R.string.why_stopped_unreachable_body),
             modifier = modifier,
+            margin = margin,
         ) {
-            NoteButton(stringResource(R.string.region_note_proxy), ::openProxySetting)
+            NoteButton(stringResource(R.string.region_note_proxy), onProxy)
             if (onRetry != null) NoteButton(stringResource(R.string.retry), onRetry)
         }
 
-        Cause.REGION -> RegionNote(onProxy = ::openProxySetting, onDone = null, modifier = modifier)
+        Cause.REGION -> RegionNote(onProxy = onProxy, onDone = null, modifier = modifier, margin = margin)
     }
 }
 
@@ -125,6 +130,8 @@ fun FailedNote(
     onRetry: (() -> Unit)?,
     modifier: Modifier = Modifier,
     region: Boolean = true,
+    onProxy: () -> Unit = ::openProxySetting,
+    margin: Dp = NoteMargin,
 ) {
     val seen by YouTubeRegion.seen.collectAsState()
     val cause = WhyStopped.cause(
@@ -134,9 +141,9 @@ fun FailedNote(
         regionClosed = region && YouTubeRegion.closed(seen),
     )
     when (cause) {
-        Cause.SIGN_IN, Cause.UNREACHABLE -> WhyStoppedNote(cause, onSignIn, onRetry, modifier)
+        Cause.SIGN_IN, Cause.UNREACHABLE -> WhyStoppedNote(cause, onSignIn, onRetry, modifier, onProxy, margin)
         Cause.REGION -> Column(modifier) {
-            RegionNote(onProxy = ::openProxySetting, onDone = null)
+            RegionNote(onProxy = onProxy, onDone = null, margin = margin)
             if (onRetry != null) LoadFailed(onRetry = onRetry)
         }
 
@@ -174,6 +181,7 @@ internal fun NoteCard(
     title: String,
     body: String,
     modifier: Modifier = Modifier,
+    margin: Dp = NoteMargin,
     buttons: @Composable () -> Unit,
 ) {
     val onCard = MaterialTheme.colorScheme.onTertiaryContainer
@@ -184,7 +192,7 @@ internal fun NoteCard(
         shape = RoundedCornerShape(20.dp),
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .padding(horizontal = margin, vertical = 8.dp)
     ) {
         Row(
             modifier = Modifier
@@ -234,6 +242,9 @@ internal fun NoteCard(
         }
     }
 }
+
+/** The space either side of a note: Home's and the pages'. The queue's rows stand 8 dp in, and its note with them. */
+internal val NoteMargin = 12.dp
 
 @Composable
 internal fun NoteButton(text: String, onClick: () -> Unit) {

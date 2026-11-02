@@ -705,7 +705,7 @@ fun HomeScreen(
             // a sign-in YouTube no longer accepts, or a connection that does not reach it. Shown
             // from the last such failure anywhere in the app (YouTubeTrouble) until something says
             // otherwise. Signing in again reloads this page by itself.
-            item(key = "why_stopped") {
+            item(key = "why_stopped", contentType = "why_stopped") {
                 WhyStoppedNoteIfAny(
                     onSignIn = { navController.navigate("login") },
                     onRetry = { viewModel.refresh(force = true) },
