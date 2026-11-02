@@ -108,6 +108,7 @@ fun RecognitionSheet(
     val startedAt by viewModel.startedAt.collectAsState()
     val nowPlaying by viewModel.nowPlaying.collectAsState()
     val retryAt by viewModel.retryAt.collectAsState()
+    val keepingOffline by viewModel.keepingOffline.collectAsState()
 
     // Whose run the engine is on. Any run going used to be joined, whatever it was for, so the
     // What's playing? screen's showed here as this playlist's: see SheetRun. Asked again whenever a
@@ -237,9 +238,11 @@ fun RecognitionSheet(
                         level = s.level,
                         identifying = s.identifying,
                         elapsed = elapsed,
-                        // Shazam not answering, said in place of the jokes, which would otherwise
-                        // carry on as if all were well.
-                        message = shazamWaitMessage(retryAt?.takeIf { continuous }),
+                        // Shazam not answering, or no connection with what it hears kept for later
+                        // (RecogniseLater), said in place of the jokes, which would otherwise carry
+                        // on as if all were well.
+                        message = if (continuous && keepingOffline) stringResource(R.string.recognise_later_keeping)
+                        else shazamWaitMessage(retryAt?.takeIf { continuous }),
                     )
                     Spacer24()
                     OutlinedButton(onClick = { viewModel.stop(); onDismiss() }) {
