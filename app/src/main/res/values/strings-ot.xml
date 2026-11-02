@@ -2304,4 +2304,5 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="album_not_loaded_body" translatable="false">YouTube did not send it, so only the songs InterTune already had are shown.</string>
     <string name="lyrics_refetch_failed" translatable="false">Lyrics could not be fetched. Check the connection.</string>
     <string name="lyrics_refetch_none" translatable="false">No other lyrics were found, so these stay.</string>
+    <string name="play_search_failed" translatable="false">The search did not work, so nothing was played.</string>
 </resources>

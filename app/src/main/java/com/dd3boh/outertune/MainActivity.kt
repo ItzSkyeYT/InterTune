@@ -26,6 +26,7 @@ import android.provider.MediaStore
 import android.util.Log
 import android.widget.Toast
 import androidx.media3.common.MediaItem
+import androidx.media3.session.LibraryResult
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.guava.await
 import androidx.activity.ComponentActivity
@@ -570,17 +571,27 @@ class MainActivity : ComponentActivity() {
             dispose()
             lifecycleScope.launch {
                 if (query.isNotEmpty()) {
+                    // How many the session found, or null when it could not be asked or answered
+                    // with an error: that was "No results found" too.
                     val found = try {
-                        browser.getSearchResult(query, 0, 1, null).await().value
+                        val result = browser.getSearchResult(query, 0, 1, null).await()
+                        if (result.resultCode == LibraryResult.RESULT_SUCCESS) result.value?.size ?: 0 else null
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
                         Log.w(MAIN_TAG, "Could not search for a play from search", e)
                         null
                     }
-                    if (found.isNullOrEmpty()) {
-                        Toast.makeText(this@MainActivity, R.string.no_results_found, Toast.LENGTH_SHORT).show()
-                        return@launch
+                    when (playSearchOutcome(found)) {
+                        PlaySearch.FAILED -> {
+                            Toast.makeText(this@MainActivity, R.string.play_search_failed, Toast.LENGTH_LONG).show()
+                            return@launch
+                        }
+                        PlaySearch.NOTHING -> {
+                            Toast.makeText(this@MainActivity, R.string.no_results_found, Toast.LENGTH_SHORT).show()
+                            return@launch
+                        }
+                        PlaySearch.PLAY -> Unit
                     }
                 }
                 browser.setMediaItems(listOf(searchPlayRequest(query)))
@@ -2534,6 +2545,19 @@ internal fun newIntentLink(action: String?, data: String?, text: String?): Strin
  */
 internal fun searchToPlay(action: String?, hasData: Boolean, query: String?): String? =
     if (action == MediaStore.INTENT_ACTION_MEDIA_PLAY_FROM_SEARCH && !hasData) query?.trim().orEmpty() else null
+
+/** What a "play X" search came to: something to play, an answer with nothing in it, or no answer at all. */
+internal enum class PlaySearch { PLAY, NOTHING, FAILED }
+
+/**
+ * [found] songs, or null for a search the media session could not make (it failed, answered with
+ * an error, or was gone). Only an answer with nothing in it is "No results found".
+ */
+internal fun playSearchOutcome(found: Int?): PlaySearch = when {
+    found == null -> PlaySearch.FAILED
+    found == 0 -> PlaySearch.NOTHING
+    else -> PlaySearch.PLAY
+}
 
 /**
  * A search as the media session takes one: no id, and the words in the request metadata. This is
