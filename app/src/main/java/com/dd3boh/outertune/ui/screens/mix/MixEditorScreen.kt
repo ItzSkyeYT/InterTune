@@ -938,6 +938,5 @@ internal fun FailedState(p: MixEditorViewModel.Phase.Failed, aTitle: String, bTi
     }
 }
 
-/** Whether playback plays a change that plays the next song's intro twice; SpecPlan refuses one until M10. */
-/** How many times over the loop in front of B can be played, from the editor. */
+/** How many times over a loop can be played, from the editor. */
 private val LOOP_TIMES = listOf(1, 2, 4)
