@@ -544,7 +544,7 @@ class MixBetterTrial {
         val to = max(ceil(p.out(spec.lengthBars + 1.0)).toLong(), p.mixTo)
         val n = (to - from).toInt()
         val aSource = LaneMixer(p).outgoingSource(aPcm)
-        val bSource = p.loop?.let { com.dd3boh.outertune.mix.engine.LoopedSource(bPcm, 2, (bPcm.size / 2).toLong(), p.bStart, it) }
+        val bSource = p.loop?.let { com.dd3boh.outertune.mix.engine.LoopedSource(bPcm, 2, (bPcm.size / 2).toLong(), p.bStart, it, p.sampleRate) }
             ?: PcmSource(bPcm, 2, (bPcm.size / 2).toLong(), p.bStart)
         val aMono = ShortArray(n)
         val bMono = ShortArray(n)

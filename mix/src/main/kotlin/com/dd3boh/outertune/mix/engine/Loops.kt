@@ -27,13 +27,58 @@ object Loops {
     const val SEAM_MS = 5.0
 
     fun seamFrames(rate: Int): Int = max(1, (SEAM_MS * rate / 1000).roundToInt())
+
+    /** What a pass of a loop comes out of at each join. */
+    enum class Join {
+        /** What follows the looped bars in the song (its next bar line): the music going on. */
+        AFTER,
+
+        /** What leads into the looped bars in the song: as the song itself comes into them. */
+        BEFORE,
+
+        /** Nothing: the pass ends and the next begins each over half a join, where neither of the others is as loud as the loop's start. */
+        DIP,
+    }
+
+    /** How far, in level, the music a join comes out of may be from the loop's first frames: twice, or half. */
+    private const val LEVEL_REACH = 2.0
+
+    /**
+     * The join for a loop of [frames] frames from [src] in [music]: the side of the looped bars whose
+     * level nearest matches the loop's own first frames, within [LEVEL_REACH]; a dip where neither
+     * does. Starboy's first bar is quiet and its second starts loud: out of the second at each join,
+     * every pass would start with a burst of it.
+     */
+    fun joinFor(music: ShortArray, channels: Int, total: Long, src: Long, frames: Long, rate: Int): Join {
+        val w = max(1, rate / 100)
+        fun rms(from: Long): Double {
+            var sum = 0.0
+            var n = 0
+            for (f in from until from + w) {
+                if (f < 0 || f >= total) continue
+                for (c in 0 until channels) {
+                    val v = music[(f * channels).toInt() + c].toDouble()
+                    sum += v * v
+                }
+                n += channels
+            }
+            return if (n == 0) 0.0 else kotlin.math.sqrt(sum / n)
+        }
+        val start = rms(src)
+        val after = rms(src + frames)
+        val before = rms(src - w)
+        fun off(v: Double) = if (start <= 1.0 || v <= 1.0) (if (start <= 1.0 && v <= 1.0) 1.0 else Double.MAX_VALUE) else kotlin.math.abs(kotlin.math.ln(v / start))
+        val reach = kotlin.math.ln(LEVEL_REACH)
+        val best = listOf(Join.AFTER to off(after), Join.BEFORE to off(before)).filter { src - w >= 0 || it.first != Join.BEFORE }.minByOrNull { it.second }
+        return if (best != null && best.second <= reach) best.first else Join.DIP
+    }
 }
 
 /**
- * B's music by output frame with its loop in front: inside the loop its bars over and over;
- * after it, B's own frames, crossfaded in over a join's length out of what follows the looped bars,
- * as every pass starts; before it, B's own frames, silence outside its copy. The loop fades in over
- * a join's length where it starts, under the outgoing song.
+ * B's music by output frame with its loop in front: inside the loop its bars over and over, each
+ * join made as [Loops.joinFor] chose for these bars; after it B's own frames, which the last pass
+ * hands over to the same way; before it, B's own frames, silence outside its copy. The first pass
+ * fades in over a join's length, out of B's own frames where they have begun.
  */
 internal class LoopedSource(
     private val b: ShortArray,
@@ -41,38 +86,59 @@ internal class LoopedSource(
     private val frames: Long,
     private val bStart: Long,
     private val loop: PlannedLoop,
+    rate: Int,
 ) : FrameSource {
     private val own = DoubleArray(channels)
+    private val join = Loops.joinFor(b, channels, frames, loop.srcFrom, loop.frames, rate)
+    private val seam = loop.seam
+    private val end = loop.srcFrom + loop.frames
 
     override fun frame(t: Long, into: DoubleArray) {
-        val seam = loop.seam
-        val after = loop.srcFrom + loop.frames
-        if (t >= loop.outTo && t < loop.outTo + seam) {
-            // Into B's own bar 1, out of what follows the loop's last pass in B.
-            ownFrame(t, own)
-            val i = t - loop.outTo
-            val w = (i + 0.5) / seam
-            for (c in 0 until channels) into[c] = own[c] * w + sample(after + i, c) * (1 - w)
+        ownFrame(t, own)
+        if (t < loop.outFrom || t >= loop.outTo + seam) {
+            for (c in 0 until channels) into[c] = own[c]
             return
         }
-        if (t < loop.outFrom || t >= loop.outTo) {
-            ownFrame(t, into)
+        if (t >= loop.outTo) {
+            // Into B's own bar 1, after the last pass.
+            val i = t - loop.outTo
+            val w = (i + 0.5) / seam
+            for (c in 0 until channels) {
+                into[c] = when (join) {
+                    Loops.Join.AFTER -> own[c] * w + sample(end + i, c) * (1 - w)
+                    Loops.Join.BEFORE -> own[c]
+                    Loops.Join.DIP -> own[c] * w
+                }
+            }
             return
         }
         val step = t - loop.outFrom
         val k = step / loop.frames
         val m = step % loop.frames
-        if (m >= seam) {
-            for (c in 0 until channels) into[c] = sample(loop.srcFrom + m, c)
-            return
-        }
-        val w = (m + 0.5) / seam
-        // The first pass comes out of B's own frames where they have begun (a long intro before
-        // its bar 1), else out of nothing; every other comes out of B's next bar line.
-        if (k == 0L) ownFrame(t, own)
+        val last = k == (loop.times - 1).toLong()
         for (c in 0 until channels) {
-            val v = sample(loop.srcFrom + m, c)
-            into[c] = v * w + (if (k == 0L) own[c] else sample(after + m, c)) * (1 - w)
+            var v = sample(loop.srcFrom + m, c)
+            if (m < seam) {
+                // A pass begins: the first out of B's own frames, the others as the join says.
+                val w = (m + 0.5) / seam
+                v = when {
+                    k == 0L -> v * w + own[c] * (1 - w)
+                    join == Loops.Join.AFTER -> v * w + sample(end + m, c) * (1 - w)
+                    join == Loops.Join.DIP -> v * w
+                    else -> v
+                }
+            } else if (m >= loop.frames - seam) {
+                // A pass ends: into what leads into the bars (or into B's own lead-in to its bar 1
+                // after the last), or fading for a dip.
+                val i = m - (loop.frames - seam)
+                val w = (i + 0.5) / seam
+                v = when (join) {
+                    Loops.Join.BEFORE -> v * (1 - w) + (if (last) own[c] else sample(loop.srcFrom - seam + i, c)) * w
+                    Loops.Join.DIP -> v * (1 - w)
+                    Loops.Join.AFTER -> v
+                }
+            }
+            into[c] = v
         }
     }
 
@@ -98,23 +164,39 @@ class PlannedOutroLoop(val srcFrom: Long, val frames: Long, val times: Int, val 
     /** Where a frame of A's music is heard in A as looped. */
     fun virtual(frame: Double): Double = if (frame >= end) frame + shift else frame
 
-    /** A's music with the loop in it: the bars [times] more times, each pass crossfaded in over [seam] frames. */
-    fun extend(a: ShortArray, channels: Int, aFrames: Long): ShortArray {
+    /** A's music with the loop in it: the bars [times] more times, each join made as [Loops.joinFor] chose for them. */
+    fun extend(a: ShortArray, channels: Int, aFrames: Long, rate: Int): ShortArray {
         val n = aFrames.coerceAtMost((a.size / channels).toLong())
+        val join = Loops.joinFor(a, channels, n, srcFrom, frames, rate)
         val out = ShortArray(((n + shift) * channels).toInt())
         val endI = end.toInt()
         System.arraycopy(a, 0, out, 0, endI * channels)
+        fun at(f: Long, c: Int): Double = if (f in 0 until n) a[(f * channels).toInt() + c].toDouble() else 0.0
         for (k in 0 until times) {
-            val at = (end + k * frames).toInt()
+            val passAt = end + k * frames
             for (m in 0 until frames.toInt()) {
                 for (c in 0 until channels) {
-                    val v = a[(srcFrom.toInt() + m) * channels + c].toDouble()
-                    out[(at + m) * channels + c] = if (m < seam) {
-                        // Out of what follows the bars (A's own next bar line) into their first.
+                    var v = at(srcFrom + m, c)
+                    if (m < seam) {
                         val w = (m + 0.5) / seam
-                        val follow = if (endI + m < n) a[(endI + m) * channels + c].toDouble() else 0.0
-                        com.dd3boh.outertune.mix.toPcm16(v * w + follow * (1 - w))
-                    } else v.toInt().toShort()
+                        v = when (join) {
+                            Loops.Join.AFTER -> v * w + at(end + m, c) * (1 - w)
+                            Loops.Join.DIP -> v * w
+                            Loops.Join.BEFORE -> v
+                        }
+                    }
+                    out[((passAt + m) * channels).toInt() + c] = com.dd3boh.outertune.mix.toPcm16(v)
+                }
+            }
+            // The end of what comes before each pass (the bars as first played, or the pass before).
+            if (join != Loops.Join.AFTER) for (i in 0 until seam) {
+                val w = (i + 0.5) / seam
+                val f = passAt - seam + i
+                for (c in 0 until channels) {
+                    val v = out[(f * channels).toInt() + c].toDouble()
+                    out[(f * channels).toInt() + c] = com.dd3boh.outertune.mix.toPcm16(
+                        if (join == Loops.Join.BEFORE) v * (1 - w) + at(srcFrom - seam + i, c) * w else v * (1 - w),
+                    )
                 }
             }
         }

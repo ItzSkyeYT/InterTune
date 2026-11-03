@@ -67,7 +67,7 @@ class LoopsTest {
     fun `each pass is the same bars, and the joins do not click`() {
         val plan = planned(spec(IntroLoop(1, 2_000.0, 4)))
         val l = plan.loop!!
-        val src = LoopedSource(b, 2, (b.size / 2).toLong(), plan.bStart, l)
+        val src = LoopedSource(b, 2, (b.size / 2).toLong(), plan.bStart, l, rate)
         val x = DoubleArray(2)
         val y = DoubleArray(2)
         // Away from the joins, pass k plays the same frames as the first pass.
@@ -132,9 +132,9 @@ class LoopsTest {
         val plain = planned(spec(null))
         assertEquals(plain.bStart, plan.bStart)
         // A as heard, unstretched: the looped bar, twice more, joined as B's loop is, then A from 42 s.
-        val heard = o.extend(a, 2, (a.size / 2).toLong())
+        val heard = o.extend(a, 2, (a.size / 2).toLong(), rate)
         val end = o.end.toInt()
-        for (k in 0 until 2) for (m in (o.seam + 5) until o.frames.toInt() step 113) {
+        for (k in 0 until 2) for (m in (o.seam + 5) until (o.frames.toInt() - o.seam - 5) step 113) {
             assertEquals("pass ${k + 1}, frame $m", a[(o.srcFrom.toInt() + m) * 2], heard[(end + k * o.frames.toInt() + m) * 2])
         }
         for (m in 0 until rate step 97) assertEquals(a[(end + m) * 2], heard[(end + 2 * o.frames.toInt() + m) * 2])

@@ -206,7 +206,7 @@ class LaneMixer(private val plan: LanePlan) {
         val rate = plan.sampleRate
         val aSource = aSource(a)
         val bFrames0 = plan.facts.bFrames.coerceAtMost((b.size / channels).toLong())
-        val bSource = plan.loop?.let { LoopedSource(b, channels, bFrames0, plan.bStart, it) } ?: PcmSource(b, channels, bFrames0, plan.bStart)
+        val bSource = plan.loop?.let { LoopedSource(b, channels, bFrames0, plan.bStart, it, rate) } ?: PcmSource(b, channels, bFrames0, plan.bStart)
         val from = plan.mixFrom
         val to = plan.mixTo
         val aTo = min(plan.aGone, to)
@@ -313,7 +313,7 @@ class LaneMixer(private val plan: LanePlan) {
     private fun aSource(held: ShortArray): FrameSource {
         val channels = plan.channels
         // A as heard: with a loop of its bars, the music with the loop in it.
-        val a = plan.outro?.extend(held, channels, plan.facts.aFrames) ?: held
+        val a = plan.outro?.extend(held, channels, plan.facts.aFrames, plan.sampleRate) ?: held
         val frames = (plan.facts.aFrames + (plan.outro?.shift ?: 0L)).coerceAtMost((a.size / channels).toLong())
         if (plan.aMap.isIdentity) return PcmSource(a, channels, frames)
         // The stretch lands A's beats from its own guide, a decimated mono copy taken on the change's
