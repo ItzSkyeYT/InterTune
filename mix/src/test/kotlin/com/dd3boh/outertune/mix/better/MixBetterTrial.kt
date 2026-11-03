@@ -376,12 +376,7 @@ class MixBetterTrial {
             }
             // A's mids out and B's in on the middle bar line, as the basses swap: the voices meet
             // there and nowhere else.
-            val half = lock.lengthBars / 2
-            val midSwap = lock.copy(
-                moves = lock.moves + (LaneId(Side.A, Lane.MIDS) to com.dd3boh.outertune.mix.edit.Move(half, 0.0, com.dd3boh.outertune.mix.edit.How.CUT)) +
-                    (LaneId(Side.B, Lane.MIDS) to com.dd3boh.outertune.mix.edit.Move(half, 0.0, com.dd3boh.outertune.mix.edit.How.CUT)),
-                preset = Preset.CUSTOM,
-            )
+            val midSwap = lock.copy(moves = AutoMoves.fade(lock.bars.toDouble(), 0.25, oneVoice = true), preset = Preset.CUSTOM)
             when (val r = SpecPlan.plan(midSwap, editorFacts)) {
                 is SpecPlan.Result.Refused -> line.append("; mid swap refused: ${r.why}")
                 is SpecPlan.Result.Planned -> {

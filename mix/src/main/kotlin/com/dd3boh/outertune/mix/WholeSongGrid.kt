@@ -97,7 +97,7 @@ class WholeSongGrid(
 
     companion object {
         /** The form's version: a grid of another one is found again when its song next plays, unless locked. */
-        const val VERSION = 1
+        const val VERSION = 2
 
         /** How far off the beats heard at either end of the line a rounded tempo may put it: Mixxx's "inaudible". */
         const val FIT_MS = 25.0
@@ -120,6 +120,9 @@ class WholeSongGrid(
 
         /** The fewest beats a stretch needs to set or refine the tempo: Mixxx's kMinRegionBeatCount. */
         private const val MIN_RUN_BEATS = 16
+
+        /** A straight run this long (about a minute at 120 BPM) settles a close 3:2 rival. */
+        private const val LONG_RUN_BEATS = 128
 
         /** How far the line's tempo may be from the estimate the beats were placed at. */
         private const val ESTIMATE_REACH = 0.02
@@ -152,9 +155,13 @@ class WholeSongGrid(
             val grid = BeatGrid.onLine(spectrum.onset, frameRate, t0, period, from, to) ?: return null
             val downbeats = Downbeats.find(spectrum, grid)
             val near = abs(period / tempo.periodFrames - 1) <= ESTIMATE_REACH
+            // A 3:2 rival close to the winner (the triplet hats of trap, Starboy's and Am I
+            // Dreaming's) is no doubt about a song whose beats run straight at the winner's tempo
+            // for minutes: the rival's own beats would not line up for that long.
+            val settled = line.runBeats >= LONG_RUN_BEATS && tempo.z >= 2 * Gates.MIN_Z
             val gates = Gates(
-                if (near) tempo.z else 0.0, tempo.rivalRatio, grid.steadiness, grid.drift, grid.hitShare, grid.jitterMs, grid.activeBeats,
-                downbeats?.margin ?: 0.0,
+                if (near) tempo.z else 0.0, if (settled) minOf(tempo.rivalRatio, Gates.MAX_RIVAL) else tempo.rivalRatio,
+                grid.steadiness, grid.drift, grid.hitShare, grid.jitterMs, grid.activeBeats, downbeats?.margin ?: 0.0,
             )
             val rhythm = RegionAnalysis.firstSoundIsOne(Rhythm(tempo, grid, downbeats, gates), rough, front.factor, front.sampleRate, spectrum.onset)
             val g = rhythm.gates

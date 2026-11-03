@@ -40,12 +40,25 @@ object AutoMoves {
         this[LOWS_B] = Move(u - beat, beat, How.FADE)
     }
 
-    /** One smooth handover, one bassline at a time: hats first, the basses swap halfway, the outgoing song fades over the second half. */
-    fun fade(length: Double, beat: Double): Map<LaneId, Move> = buildMap {
+    /** "Swap at u" for the mids, where the voices live on bands: one voice at a time, meeting over the beat before [u]. */
+    private fun MutableMap<LaneId, Move>.swapMids(u: Double, beat: Double) {
+        this[MIDS_A] = Move(u - beat, beat, How.FADE)
+        this[MIDS_B] = Move(u - beat, beat, How.FADE)
+    }
+
+    /**
+     * One smooth handover, one bassline at a time: hats first, the basses swap halfway, the
+     * outgoing song fades over the second half. With [oneVoice] the mids swap with the basses
+     * instead of crossing over the whole change, so two voices never sing over each other for
+     * more than a beat (CONVENTIONS.md: no two singers at once).
+     */
+    fun fade(length: Double, beat: Double, oneVoice: Boolean = false): Map<LaneId, Move> = buildMap {
         put(HIGHS_B, Move(0.0, length / 4, How.THIN))
-        put(MIDS_B, Move(0.0, length / 2, How.FADE))
+        if (oneVoice) swapMids(length / 2, beat) else {
+            put(MIDS_B, Move(0.0, length / 2, How.FADE))
+            put(MIDS_A, Move(length / 2, length / 2, How.FADE))
+        }
         put(HIGHS_A, Move(length / 2, length / 2, How.FADE))
-        put(MIDS_A, Move(length / 2, length / 2, How.FADE))
         swapLows(length / 2, beat)
     }
 
