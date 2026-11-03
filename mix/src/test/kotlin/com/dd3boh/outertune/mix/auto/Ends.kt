@@ -47,6 +47,7 @@ object Ends {
         firstBeatOffsetMs: Double = 120.0,
         beatsPerBar: Int = 4,
         silenceAtEndMs: Double = 0.0,
+        voice: ((Double) -> Double)? = null,
     ): SongEnd {
         val from = songMs - regionMs
         val beatMs = 60_000.0 / bpm
@@ -71,6 +72,7 @@ object Ends {
             bpm = bpm, steadyTempo = beatsTrusted, line = line,
             phrases = if (barsTrusted || beatsTrusted) phrases(line, phraseOffsetBars, phraseBars, heard) else null,
             key = key, density = density, trustNote = "made by hand",
+            voice = voice?.let { f -> FloatArray(steps) { i -> f(from + i * STEP).toFloat() } },
         )
     }
 
@@ -94,6 +96,7 @@ object Ends {
         key: KeyEstimate? = null,
         beatsPerBar: Int = 4,
         steadyTempo: Boolean = beatsTrusted,
+        voice: ((Double) -> Double)? = null,
     ): SongEnd {
         val beatMs = 60_000.0 / bpm
         val line = BeatLine(firstDownbeatMs, beatMs, beatsFromBars * beatsPerBar, ((regionMs - firstDownbeatMs) / beatMs).toInt() - 1, beatsPerBar, 0, beatsTrusted, barsTrusted)
@@ -107,6 +110,7 @@ object Ends {
             introEndMs = introEndBars?.let { firstDownbeatMs + it * beatsPerBar * beatMs }, fadeMs = null, medianDb = -12.0,
             levelDb = level, lowDb = low, stepMs = STEP, bpm = bpm, steadyTempo = steadyTempo, line = line,
             phrases = phrases(line, 0, 8, true), key = key, density = density, trustNote = "made by hand",
+            voice = voice?.let { f -> FloatArray(steps) { i -> f(i * STEP).toFloat() } },
         )
     }
 

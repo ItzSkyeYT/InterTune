@@ -36,8 +36,11 @@ import kotlin.math.roundToInt
  */
 object SongEndJson {
 
-    /** The form's own version: an entry of another one is not read, and the song is analysed again when it plays. */
-    const val VERSION = 1
+    /**
+     * The form's own version: an entry of another one is not read, and the song is analysed again
+     * when it plays. 2 keeps where the song sings, which Auto needs to keep two voices apart.
+     */
+    const val VERSION = 2
 
     private val JSON = Json { prettyPrint = false }
 
@@ -93,6 +96,8 @@ object SongEndJson {
         }
         put("density", end.density)
         put("trustNote", end.trustNote)
+        // How likely it sings on each step, in hundredths.
+        end.voice?.let { v -> put("voice", buildJsonArray { for (x in v) add(JsonPrimitive((x * 100).roundToInt())) }) }
     })
 
     /** The end in [text], or null for anything of another version or not whole. */
@@ -154,6 +159,7 @@ object SongEndJson {
             key = key,
             density = d("density"),
             trustNote = o["trustNote"]?.jsonPrimitive?.content ?: "",
+            voice = (o["voice"] as? JsonArray)?.let { a -> FloatArray(a.size) { a[it].jsonPrimitive.int / 100f } },
         )
     }.getOrNull()
 

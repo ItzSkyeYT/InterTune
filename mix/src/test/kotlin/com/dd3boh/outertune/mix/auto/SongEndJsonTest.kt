@@ -55,12 +55,27 @@ class SongEndJsonTest {
         assertEquals(text, SongEndJson.encode(back))
         assertEquals(end.kind, back.kind)
         assertEquals(end.levelDb.size, back.levelDb.size)
+        // Where it sings comes back to the hundredth, step for step.
+        val voice = checkNotNull(end.voice)
+        assertEquals(end.levelDb.size, voice.size)
+        val kept = checkNotNull(back.voice)
+        for (i in voice.indices) assertEquals(voice[i].toDouble(), kept[i].toDouble(), 0.005 + 1e-6)
+    }
+
+    @Test
+    fun `where a song sings reads back with it`() {
+        val end = Ends.tail(120.0, voice = { ms -> if (ms % 4_000 < 2_000) 0.9 else 0.05 })
+        val back = SongEndJson.decode(SongEndJson.encode(end))!!
+        assertEquals(end.singing(end.fromMs, end.toMs)!!, back.singing(back.fromMs, back.toMs)!!, 0.01)
+        assertNull(SongEndJson.decode(SongEndJson.encode(Ends.tail(120.0)))!!.voice)
     }
 
     @Test
     fun `an entry of another version or broken is not read`() {
         val text = SongEndJson.encode(Ends.tail(120.0))
-        assertNull(SongEndJson.decode(text.replace("\"v\":1", "\"v\":2")))
+        // An entry from before the voice was kept is read again from the music, not used without it.
+        assertNull(SongEndJson.decode(text.replace("\"v\":${SongEndJson.VERSION}", "\"v\":1")))
+        assertNull(SongEndJson.decode(text.replace("\"v\":${SongEndJson.VERSION}", "\"v\":${SongEndJson.VERSION + 1}")))
         assertNull(SongEndJson.decode(text.take(text.length / 2)))
         assertNull(SongEndJson.decode("not json"))
     }

@@ -149,8 +149,47 @@ class SongEnd(
     private val atTempo: ((Double) -> SongEnd?)? = null,
     /** Its beats are its song's own, read from all of it (RegionAnalysis.onSong), not this end's alone. */
     val wholeSong: Boolean = false,
+    /**
+     * How likely the song sings on each step of [levelDb], 0 to 1 ([VoiceGuess], or a voice part
+     * split by a model); null where it was not looked for, and then Auto keeps no voice apart.
+     */
+    val voice: FloatArray? = null,
 ) {
     val seconds: Double get() = (toMs - fromMs) / 1000.0
+
+    /** How likely the song sings at [ms], 0 to 1; 0 outside what was read, null where its voice is not known. */
+    fun voiceAt(ms: Double): Double? {
+        val v = voice ?: return null
+        if (v.isEmpty() || ms < fromMs || ms >= toMs) return 0.0
+        return v[index(ms).toInt().coerceIn(0, v.size - 1)].toDouble()
+    }
+
+    /** The share of [from] to [to] the song sings, the mean of [voice] there; null where its voice is not known. */
+    fun singing(from: Double, to: Double): Double? {
+        val v = voice ?: return null
+        if (v.isEmpty() || to <= from) return 0.0
+        var sum = 0.0
+        var n = 0
+        var ms = from
+        while (ms < to) {
+            sum += voiceAt(ms)!!
+            n++
+            ms += stepMs
+        }
+        return sum / n
+    }
+
+    /** The most likely the song sings anywhere from [from] to [to]; null where its voice is not known. */
+    fun mostVoice(from: Double, to: Double): Double? {
+        if (voice == null) return null
+        var most = 0.0
+        var ms = from
+        while (ms < to) {
+            most = max(most, voiceAt(ms)!!)
+            ms += stepMs
+        }
+        return most
+    }
 
     /** The level at [ms], dBFS. */
     fun levelAt(ms: Double): Double = sample(levelDb, ms)
@@ -206,6 +245,7 @@ class SongEnd(
             localLine?.let { local -> { a: Int, b: Int -> local(a, b)?.with(fix) } },
             atTempo,
             wholeSong,
+            voice,
         )
     }
 
@@ -231,6 +271,7 @@ class SongEnd(
             atTempo,
             // A beat set by hand is the listener's, not the whole song's.
             false,
+            voice,
         )
     }
 
@@ -337,6 +378,7 @@ class SongEnd(
                 localLine = local,
                 atTempo = { bpm -> region.atTempo(bpm)?.let { of(it, fromMs, songMs, firstBeatBars) } },
                 wholeSong = region.gates.fromSong,
+                voice = VoiceGuess.of(spectrum, rate, steps, STEP_MS, region.guideFrom),
             )
         }
 
