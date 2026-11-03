@@ -16,6 +16,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSource
+import com.dd3boh.outertune.constants.MaxSongCacheSizeKey
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.mix.edit.BeatFix
@@ -26,6 +27,7 @@ import com.dd3boh.outertune.mix.edit.SongPair
 import com.dd3boh.outertune.mix.edit.TransitionSpec
 import com.dd3boh.outertune.mix.edit.toJson
 import com.dd3boh.outertune.mix.edit.transitionSpecOf
+import com.dd3boh.outertune.playback.BatteryUse
 import com.dd3boh.outertune.playback.automix.MixStores
 import com.dd3boh.outertune.playback.batteryModeNow
 import com.dd3boh.outertune.utils.get
@@ -136,9 +138,7 @@ class MixEditorViewModel @Inject constructor(
      */
     @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
     private fun wholeReader(source: DataSource.Factory): ((String, Double, () -> Boolean) -> WholeSongGrid?)? {
-        val cacheOn = com.dd3boh.outertune.playback.BatteryUse.songCacheMb(
-            context.dataStore[com.dd3boh.outertune.constants.MaxSongCacheSizeKey], context.batteryModeNow(),
-        ) != 0
+        val cacheOn = BatteryUse.songCacheMb(context.dataStore[MaxSongCacheSizeKey], context.batteryModeNow()) != 0
         if (!cacheOn) return null
         val decoder = com.dd3boh.outertune.playback.automix.HeadDecoder(source)
         return read@{ id, durationMs, cancelled ->
