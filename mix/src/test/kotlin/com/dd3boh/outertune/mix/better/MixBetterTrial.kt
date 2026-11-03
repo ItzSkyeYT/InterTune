@@ -363,6 +363,15 @@ class MixBetterTrial {
                         put("srcFrom", l.srcFrom); put("frames", l.frames); put("outFrom", l.outFrom); put("outTo", l.outTo); put("seam", l.seam)
                         put("bStart", r.plan.bStart); put("bBar1", r.plan.facts.bBar1); put("barFrames", r.plan.barFrames)
                         putJsonArray("joins") { l.joins().forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) } }
+                        // The looped bar's key against the outgoing song's over the change: a bar with
+                        // no sure key (drums alone) is always safe; one with a key should sit within a
+                        // step of A's on the Camelot wheel.
+                        val barKey = com.dd3boh.outertune.mix.Keys.of(bEditor.region, l.srcFrom, l.srcFrom + l.frames)
+                        val aFrom = (lock.a.atMs - aEditor.fromMs) * rate / 1000.0
+                        val aKey = com.dd3boh.outertune.mix.Keys.of(aEditor.region, aFrom.toLong().coerceAtLeast(0), aEditor.region.envelope.trueEnd)
+                        barKey?.let { put("loopKey", it.key.camelot); put("loopKeySure", it.sure); put("loopKeyCorrelation", it.correlation) }
+                        aKey?.let { put("aKey", it.key.camelot); put("aKeySure", it.sure) }
+                        if (barKey != null && aKey != null) put("camelotDistance", aKey.key.distanceTo(barKey.key))
                     }.toString()) }
                 }
             }
