@@ -328,14 +328,37 @@ class MixBetterTrial {
         val bSong = AutoOnBands.Song(b.id, bCopy, bHead.region, 0.0, b.songMs)
         val chosen = AutoOnBands.choose(aSong, bSong, earliest, maxProofs = PHONE_PROOFS)
         line.append(" auto ${chosen.pick.describe()}")
-        chosen.render?.let { write(dir, "auto-phone", it, aEnd.pcm, bCopy.pcm, aEnd.fromMs, chosen.pick.kind.name) }
+        // Every change rendered here whose voices are measured: its plan, and where its A and B music start in their songs.
+        val heard = LinkedHashMap<String, Heard>()
+        chosen.render?.let {
+            write(dir, "auto-phone", it, aEnd.pcm, bCopy.pcm, aEnd.fromMs, chosen.pick.kind.name)
+            heard["auto-phone"] = Heard(it.plan, aEnd.fromFrame, aEnd.pcm.size / 2, bCopy.pcm.size / 2)
+        }
 
         // 2. An 8-bar Fade with beat matching on, made in the editor and previewed there.
         val aEditor = analyse(a, "editorTail")
         val bEditor = analyse(b, "editorHead")
+        // MIX_BETTER_MEL=1: each end's log-mel frames as the analysis has them, for the voice guess
+        // to be fitted on beside the parts the stems split (tools/voice_fit.py).
+        if (env["MIX_BETTER_MEL"] == "1") {
+            melOf(dir.parentFile.parentFile, aEditor, "tail")
+            melOf(dir.parentFile.parentFile, bEditor, "head")
+        }
+        // And Auto as the editor's Auto makes it, on the editor's two windows.
+        val chosenE = AutoOnBands.choose(
+            AutoOnBands.Song(a.id, aEditor.copy, aEditor.region, aEditor.fromMs, a.songMs),
+            AutoOnBands.Song(b.id, bEditor.copy, bEditor.region, 0.0, b.songMs),
+            maxProofs = PHONE_PROOFS,
+        )
+        line.append("; auto in the editor ${chosenE.pick.describe()}")
+        chosenE.render?.let {
+            write(dir, "auto-editor", it, aEditor.pcm, bEditor.pcm, aEditor.fromMs, chosenE.pick.kind.name)
+            heard["auto-editor"] = Heard(it.plan, aEditor.fromFrame, aEditor.pcm.size / 2, bEditor.pcm.size / 2)
+        }
         val lock = forcedLock(aEditor, bEditor, a.songMs - PLAY_REACH_S * 1000)
         if (lock == null) {
             line.append("; no lock: ").append(lockWhy)
+            voices(dir, a, b, heard)
             return line.toString()
         }
         line.append("; lock ${lock.bars} bars A %.2f to B %.2f BPM at %.4f".format(lock.a.bpm, lock.b.bpm, lock.tempoRatio()))
@@ -350,6 +373,24 @@ class MixBetterTrial {
         }
         val plans = LinkedHashMap<String, com.dd3boh.outertune.mix.engine.LanePlan>()
         (SpecPlan.plan(lock, editorFacts) as? SpecPlan.Result.Planned)?.let { plans["lock-editor"] = it.plan }
+        // The same Fade kept to one voice at a time as Auto keeps its own (VoiceRule.mends, on the
+        // app's own guess of where each song sings), the cheapest mend that plays.
+        // Its B in where its beat starts, as Auto now has it (the same as [lock] for most songs).
+        val lockIn = forcedLock(aEditor, bEditor, a.songMs - PLAY_REACH_S * 1000, entry = true) ?: lock
+        val factsIn = if (lockIn === lock) editorFacts else ChangeFacts(
+            rate, 2, (lockIn.a.atMs - aEditor.fromMs) * rate / 1000.0, (aEditor.pcm.size / 2).toLong(),
+            lockIn.b.atMs * rate / 1000.0, (bEditor.pcm.size / 2).toLong(),
+            anchors = aEditor.region.takeIf { it.grid != null && lockIn.beatMatched }?.beatFrames(),
+        )
+        if (lockIn !== lock) line.append("; B in where its beat starts, at %.2f s".format(lockIn.b.atMs / 1000))
+        val mends = com.dd3boh.outertune.mix.auto.VoiceRule.mends(lockIn, aEditor.end, bEditor.end, loopBars = lockIn.bars / 2)
+        line.append("; one voice: ").append(mends.firstOrNull()?.what?.ifEmpty { "as it is" } ?: "no mend")
+        for (m in mends) {
+            val r = SpecPlan.plan(m.spec, factsIn) as? SpecPlan.Result.Planned ?: continue
+            plans["onevoice-editor"] = r.plan
+            write(dir, "onevoice-editor", LaneMixer(r.plan).render(aEditor.pcm, bEditor.pcm, 1.0, 1.0), aEditor.pcm, bEditor.pcm, aEditor.fromMs, m.what.ifEmpty { "as it is" })
+            break
+        }
         // The same change with B's bar 1 looped four times in front of it, and with A's mids gone
         // from bar 1 (the cheap stand-in for a vocal mute), for the loop and voice measures.
         if (env["MIX_BETTER_VARIANTS"] == "1") {
@@ -408,30 +449,9 @@ class MixBetterTrial {
                     write(dir, "midswap-editor", LaneMixer(r.plan).render(aEditor.pcm, bEditor.pcm, 1.0, 1.0), aEditor.pcm, bEditor.pcm, aEditor.fromMs, "the mids swapped on the middle bar line")
                 }
             }
-            // Each song's voice, and A without its voice, as the change shapes them: the parts the
-            // stems folder split (tools/stems_prep.py) through the very same plan, one side at a time.
-            val stemsDir = File(root, "stems")
-            val aVox = stemOf(stemsDir, a, "tail", "vocals", aEditor.pcm.size)
-            val bVox = stemOf(stemsDir, b, "head", "vocals", bEditor.pcm.size)
-            if (aVox != null && bVox != null) {
-                val aInst = ShortArray(aEditor.pcm.size) { (aEditor.pcm[it] - aVox[it]).coerceIn(-32768, 32767).toShort() }
-                val silentA = ShortArray(aEditor.pcm.size)
-                val silentB = ShortArray(bEditor.pcm.size)
-                for ((name, plan) in plans) {
-                    val from = max(0L, floor(plan.out(-1.0)).toLong()).coerceAtMost(plan.mixFrom)
-                    val to = max(ceil(plan.out(plan.spec.lengthBars + 1.0)).toLong(), plan.mixTo)
-                    fun heard(av: ShortArray, bv: ShortArray) = LaneMixer(plan).render(av, bv, 1.0, 1.0).mix(av, bv, from, to)
-                    wavMono(File(dir, "$name-avox.wav"), heard(aVox, silentB), plan.sampleRate)
-                    wavMono(File(dir, "$name-bvox.wav"), heard(silentA, bVox), plan.sampleRate)
-                    wavMono(File(dir, "$name-ainst.wav"), heard(aInst, silentB), plan.sampleRate)
-                    File(dir, "$name-vox.json").writeText(buildJsonObject {
-                        put("from", from); put("to", to); put("mixFrom", plan.mixFrom); put("mixTo", plan.mixTo); put("bStart", plan.bStart)
-                        put("bar1", plan.bar1); put("barFrames", plan.barFrames); put("rate", plan.sampleRate)
-                        plan.loop?.let { l -> put("loopFrom", l.outFrom); put("loopTo", l.outTo) }
-                    }.toString())
-                }
-            }
         }
+        for ((name, plan) in plans) heard[name] = Heard(plan, aEditor.fromFrame, aEditor.pcm.size / 2, bEditor.pcm.size / 2)
+        voices(dir, a, b, heard)
 
         // 3. The same change saved and played on the phone: the end held early enough for it, B's
         // copy as long as it needs, A's anchor found again on the held end's own analysis.
@@ -468,6 +488,66 @@ class MixBetterTrial {
 
     private var lockWhy = ""
 
+    /** [e]'s 40 log-mel bands per spectral frame, float32, and where frame 0 falls in the song, into OUT/mel/. */
+    private fun melOf(out: File, e: End, end: String) {
+        val dir = File(out, "mel").apply { mkdirs() }
+        // The app's own guess of where the end sings, step by step, for voice_fit.py to check against its own.
+        e.end.voice?.let { v ->
+            val vb = ByteBuffer.allocate(v.size * 4).order(ByteOrder.LITTLE_ENDIAN)
+            for (x in v) vb.putFloat(x)
+            File(dir, "${e.song.id}.$end.voice.f32").writeBytes(vb.array())
+        }
+        val f = File(dir, "${e.song.id}.$end.f32")
+        if (f.isFile) return
+        val r = e.region
+        val spectrum = com.dd3boh.outertune.mix.Spectrum.of(r.guide, r.sampleRate.toDouble() / r.decimation, r.decimation)
+        val bytes = ByteBuffer.allocate(spectrum.logMel.size * 4).order(ByteOrder.LITTLE_ENDIAN)
+        for (v in spectrum.logMel) bytes.putFloat(v)
+        f.writeBytes(bytes.array())
+        File(dir, "${e.song.id}.$end.json").writeText(buildJsonObject {
+            put("frames", spectrum.frames); put("bands", com.dd3boh.outertune.mix.Spectrum.BANDS)
+            // Each frame's window centre, in ms of the song.
+            put("ms0", e.fromMs + com.dd3boh.outertune.mix.Spectrum.WINDOW / 2.0 * r.decimation * 1000.0 / r.sampleRate)
+            put("msPerFrame", com.dd3boh.outertune.mix.Spectrum.HOP * r.decimation * 1000.0 / r.sampleRate)
+            put("fromMs", e.fromMs); put("rate", r.sampleRate)
+            putJsonArray("centres") { spectrum.bandCentres.forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) } }
+        }.toString())
+    }
+
+    /** A change whose voices are measured: its plan, where its A music starts in A (frames), and how many frames of A and of B it was rendered from. */
+    private class Heard(val plan: com.dd3boh.outertune.mix.engine.LanePlan, val aFrom: Long, val aFrames: Int, val bFrames: Int)
+
+    /**
+     * Each song's voice, and A without its voice, as each change shapes them: the parts the stems
+     * folder split (tools/stems_prep.py) through the very same plan, one side at a time, for
+     * tools/voices.py. Nothing where a song has no parts split.
+     */
+    private fun voices(dir: File, a: Song, b: Song, heard: Map<String, Heard>) {
+        val stemsDir = File(root, "stems")
+        val aStemFrom = max(0L, a.frames - (EDITOR_TAIL_S * a.rate).toLong())
+        for ((name, h) in heard) {
+            val plan = h.plan
+            val aVox = stemFrames(stemsDir, a, "tail", "vocals", h.aFrom - aStemFrom, h.aFrames) ?: continue
+            val bVox = stemFrames(stemsDir, b, "head", "vocals", 0, h.bFrames) ?: continue
+            val aPcm = a.tail(h.aFrom, h.aFrom + h.aFrames)
+            val aInst = ShortArray(aVox.size) { (aPcm[it] - aVox[it]).coerceIn(-32768, 32767).toShort() }
+            val silentA = ShortArray(aVox.size)
+            val silentB = ShortArray(bVox.size)
+            val from = max(0L, floor(plan.out(-1.0)).toLong()).coerceAtMost(plan.mixFrom)
+            val to = max(ceil(plan.out(plan.spec.lengthBars + 1.0)).toLong(), plan.mixTo)
+            fun heardOf(av: ShortArray, bv: ShortArray) = LaneMixer(plan).render(av, bv, 1.0, 1.0).mix(av, bv, from, to)
+            wavMono(File(dir, "$name-avox.wav"), heardOf(aVox, silentB), plan.sampleRate)
+            wavMono(File(dir, "$name-bvox.wav"), heardOf(silentA, bVox), plan.sampleRate)
+            wavMono(File(dir, "$name-ainst.wav"), heardOf(aInst, silentB), plan.sampleRate)
+            File(dir, "$name-vox.json").writeText(buildJsonObject {
+                put("from", from); put("to", to); put("mixFrom", plan.mixFrom); put("mixTo", plan.mixTo); put("bStart", plan.bStart)
+                put("bar1", plan.bar1); put("barFrames", plan.barFrames); put("rate", plan.sampleRate)
+                put("aFrom", h.aFrom); put("lengthBars", plan.spec.lengthBars); put("describe", plan.describe())
+                plan.loop?.let { l -> put("loopFrom", l.outFrom); put("loopTo", l.outTo) }
+            }.toString())
+        }
+    }
+
     /** The downbeat of [line] nearest [ms], or null. */
     private fun nearestDownbeat(line: BeatLine?, ms: Double): Double? {
         val l = line ?: return null
@@ -482,7 +562,7 @@ class MixBetterTrial {
      * before its true end and the change can still be played ([earliestMs]). 4 bars where the
      * tempos are 4 to 6% apart; null where they are further.
      */
-    private fun forcedLock(a: End, b: End, earliestMs: Double): TransitionSpec? {
+    private fun forcedLock(a: End, b: End, earliestMs: Double, entry: Boolean = false): TransitionSpec? {
         val la = a.end.line
         val lb = b.end.line
         if (la == null || lb == null) {
@@ -491,6 +571,8 @@ class MixBetterTrial {
         }
         var k1 = lb.downbeatAtOrAfter(lb.kNear(b.end.firstSoundMs) - 1)
         while (lb.msOf(k1) < b.end.firstSoundMs - 30.0) k1 += lb.beatsPerBar
+        // As Auto now brings a song in: where its beat starts, after a short opening without one.
+        if (entry) k1 = com.dd3boh.outertune.mix.auto.riserEnd(b.end, k1) ?: k1
         var best = lb.bpm / la.bpm
         var perB = 1.0
         for (m in doubleArrayOf(2.0, 0.5)) {
@@ -601,14 +683,25 @@ class MixBetterTrial {
 
     private fun clamp(v: Double): Short = v.roundToInt().coerceIn(-32768, 32767).toShort()
 
-    /** A part of [s]'s end as tools/stems_prep.py wrote it, as long as the window it was split from; null where there is none. */
-    private fun stemOf(dir: File, s: Song, end: String, part: String, samples: Int): ShortArray? {
+    /**
+     * [frames] stereo frames of a part of [s]'s end as tools/stems_prep.py wrote it, from frame
+     * [from] of the window it was split from (A's last 72 s, B's first 60 s), silence outside it;
+     * null where the part was not split.
+     */
+    private fun stemFrames(dir: File, s: Song, end: String, part: String, from: Long, frames: Int): ShortArray? {
         val f = File(dir, "${s.id}.$end.$part.s16")
         if (!f.isFile) return null
-        val bytes = f.readBytes()
-        val out = ShortArray(samples)
-        val n = minOf(samples, bytes.size / 2)
-        ByteBuffer.wrap(bytes, 0, n * 2).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(out, 0, n)
+        val total = f.length() / 4
+        val out = ShortArray(frames * 2)
+        val lo = max(0L, from)
+        val hi = min(total, from + frames)
+        if (hi <= lo) return out
+        val bytes = ByteArray(((hi - lo) * 4).toInt())
+        RandomAccessFile(f, "r").use {
+            it.seek(lo * 4)
+            it.readFully(bytes)
+        }
+        ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(out, ((lo - from) * 2).toInt(), ((hi - lo) * 2).toInt())
         return out
     }
 
