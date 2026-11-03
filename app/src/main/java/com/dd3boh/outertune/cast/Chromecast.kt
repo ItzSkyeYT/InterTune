@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.cast
 
+import com.dd3boh.outertune.constants.Unreleased
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -48,6 +49,16 @@ object Chromecast {
 
     /** Google's Default Media Receiver: plays a url with a title and a picture. */
     const val DEFAULT_MEDIA_RECEIVER = "CC1AD845"
+
+    /**
+     * InterTune's own receiver: the App ID the Cast console gave it on 3 Nov 2026 (unpublished, its page at
+     * https://cast-dev--intertune-app.netlify.app/cast/ while it is tried). Asked for only where Unreleased.OWN_CAST_RECEIVER is on.
+     */
+    val INTERTUNE_RECEIVER: String? = "0EF3B3F0"
+
+    /** The receivers a link opens, in order: InterTune's own first when the build asks for it, Google's last. */
+    fun receivers(own: String? = INTERTUNE_RECEIVER.takeIf { Unreleased.OWN_CAST_RECEIVER }): List<String> =
+        listOfNotNull(own, DEFAULT_MEDIA_RECEIVER).distinct()
 
     /** Who a sender is on the device's own connection, and who the device is on it. */
     const val PLATFORM_SENDER = "sender-0"

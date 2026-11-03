@@ -99,6 +99,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import kotlinx.coroutines.withContext
 
 /**
  * Which of VISIONOS's identities are taken for refused, to hear the clients behind them take over:
@@ -318,11 +319,14 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
                     val scanner = LocalMediaScanner.getScanner(context, ScannerImpl.TAGLIB, SCANNER_OWNER_LM)
                     Log.i(SETTINGS_TAG, "Force Migrating local artists to YTM (MANUAL TRIGGERED)")
                     scanner.localToRemoteArtist(database)
-                    Toast.makeText(
-                        context,
-                        context.getString(R.string.scanner_ytm_link_success),
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    // Back on the main thread: a toast made on the scanner's worker thread closes the app (#74).
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(
+                            context,
+                            context.getString(R.string.scanner_ytm_link_success),
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
                 }
             }
         )
