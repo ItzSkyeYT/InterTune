@@ -546,7 +546,7 @@ class AutomixController(
             val whole = read.whole
             val expected = minOf(durationMs.toDouble(), WholeSongGrid.MAX_SECONDS * 1000)
             if (whole == null || cancelled.get() || (durationMs > 0 && whole.seconds * 1000 < expected - WHOLE_SHORT_MS)) {
-                if (whole != null && !cancelled.get()) say("all of $songId came short, %.1f s of %.1f: not kept".format(whole.seconds, durationMs / 1000.0))
+                if (whole != null && !cancelled.get()) say("all of " + songId + " came short, %.1f s of %.1f: not kept".format(java.util.Locale.ROOT, whole.seconds, durationMs / 1000.0))
                 t.wholeRead = null
                 return@launch
             }
