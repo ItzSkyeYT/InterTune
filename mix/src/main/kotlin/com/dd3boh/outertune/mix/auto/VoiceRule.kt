@@ -209,18 +209,19 @@ object VoiceRule {
      * they never meet; else the outgoing voice out early ([cutEarly]), a loop of the next song's
      * bars with no voice in them taking [loopBars] bars of the change at most (0 for none; then
      * the outgoing voice out early as well where it is still singing), and the next song's mids in
-     * late ([inLate]). Empty where nothing keeps them apart.
+     * late ([inLate]). Without [canCut] the outgoing voice is never taken out early: an echo out
+     * whose echo is taken away is no echo out. Empty where nothing keeps them apart.
      */
-    fun mends(spec: TransitionSpec, a: SongEnd, b: SongEnd, loopBars: Int): List<Mend> {
+    fun mends(spec: TransitionSpec, a: SongEnd, b: SongEnd, loopBars: Int, canCut: Boolean = true): List<Mend> {
         val together = together(spec, a, b)
         if (together <= MAX_TOGETHER_S) return listOf(Mend(spec, 0.0, ""))
         val out = ArrayList<Mend>()
         val s = "%.1f".format(together)
-        cutEarly(spec, a, b)?.let { m ->
+        if (canCut) cutEarly(spec, a, b)?.let { m ->
             val at = cutLine(spec, b) ?: 0.0
             out += Mend(m, cutCost(spec, a, at), "this song's voice out on bar ${barName(at)}, before the next one sings ($s s of two voices)")
         }
-        if (loopBars > 0) bridge(spec, a, b, loopBars, s)?.let { out += it }
+        if (loopBars > 0) bridge(spec, a, b, loopBars, s, canCut)?.let { out += it }
         inLate(spec, a, b)?.let { m ->
             val at = m.moves[MIDS_B]?.u ?: 0.0
             out += Mend(m, IN_LATE_COST + 0.3 * (at / spec.lengthBars.coerceAtLeast(1.0)).coerceIn(0.0, 1.0),
@@ -242,7 +243,7 @@ object VoiceRule {
      * where it still sings when B's does. Not where B already has a loop or plays before bar 1 (a
      * pickup rising into it would land after the loop).
      */
-    private fun bridge(spec: TransitionSpec, a: SongEnd, b: SongEnd, maxBars: Int, together: String): Mend? {
+    private fun bridge(spec: TransitionSpec, a: SongEnd, b: SongEnd, maxBars: Int, together: String, canCut: Boolean): Mend? {
         if (spec.introLoop != null || spec.introTwice > 0) return null
         if (spec.moves.filterKeys { it.side == Side.B }.values.any { it.u < 0.0 }) return null
         val uB = firstHeardB(spec, b) ?: return null
@@ -253,6 +254,7 @@ object VoiceRule {
         var cost = LOOP_COST * (1.0 + loop.bars * loop.times / 4.0)
         var what = "${loop.bars} of the next song's bars without a voice looped ${times(loop.times)} in front of it, so its first line comes after this one's ($together s of two voices)"
         if (together(looped, a, b) > MAX_TOGETHER_S) {
+            if (!canCut) return null
             val at = cutLine(looped, b) ?: return null
             val cut = cutEarly(looped, a, b) ?: return null
             cost += 0.5 * cutCost(looped, a, at)

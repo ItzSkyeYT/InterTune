@@ -119,6 +119,17 @@ class VoiceRuleTest {
     }
 
     @Test
+    fun `an echo out keeps its echo or is not made`() {
+        val a = Ends.tail(128.0, voice = always)
+        val b = Ends.head(90.0, voice = always)
+        for (p in AutoPlanner.candidates(AutoInput(a, b, "a", "b"))) {
+            if (p.move != com.dd3boh.outertune.mix.edit.Preset.ECHO_OUT) continue
+            assertEquals(p.why, How.ECHO, p.moves[MIDS_A]!!.how)
+            assertTrue(p.why, VoiceRule.together(p.spec(), a, b) <= VoiceRule.MAX_TOGETHER_S)
+        }
+    }
+
+    @Test
     fun `where a voice is not known Auto changes nothing`() {
         val a = Ends.tail(124.0)
         val b = Ends.head(124.0, voice = always)

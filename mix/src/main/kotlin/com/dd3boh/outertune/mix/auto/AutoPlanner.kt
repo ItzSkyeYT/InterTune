@@ -858,7 +858,9 @@ object AutoPlanner {
             }
             // The cheapest mend only: they all share the change's place and tempo, so a proof that
             // refuses one for its beats would refuse the others, and each costs a render.
-            val m = VoiceRule.mends(spec, a, b, loopBars).firstOrNull()
+            // An echo out keeps its echo: where it would ring over the next song's first words, the
+            // loop or the next song's mids in late part them, or the cut on the same line is made.
+            val m = VoiceRule.mends(spec, a, b, loopBars, canCut = p.move != Preset.ECHO_OUT).firstOrNull()
             if (m == null) c.note("not ${p.pill}: two voices for %.1f s and no way to part them".format(VoiceRule.together(spec, a, b)))
             else out += if (m.spec === spec) p else p.mended(m.spec.moves, m.spec.introLoop, -m.cost, m.what)
         }
