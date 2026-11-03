@@ -354,6 +354,16 @@ class ChromecastLink(
     @Volatile
     private var lyrics: CastLyrics? = null
 
+    /** What the rest of our own receiver's screens were last told, sent again to a player opened after it. */
+    @Volatile
+    private var phoneName: String? = null
+
+    @Volatile
+    private var upNext: List<CastNext>? = null
+
+    @Volatile
+    private var room: CastRoom? = null
+
     override suspend fun showLyrics(lyrics: CastLyrics?) {
         this.lyrics = lyrics
         // Off the main thread, where the cast session calls from: Android refuses a socket write
@@ -361,19 +371,58 @@ class ChromecastLink(
         withContext(Dispatchers.IO) { tellLyrics() }
     }
 
+    override suspend fun hello(name: String) {
+        phoneName = name
+        // Off the main thread, like every send to our own receiver (see showLyrics).
+        withContext(Dispatchers.IO) { tellOurs("The phone's name", Chromecast.hello(name)) }
+    }
+
+    override suspend fun showQueue(next: List<CastNext>) {
+        upNext = next
+        // Off the main thread, like every send to our own receiver (see showLyrics).
+        withContext(Dispatchers.IO) { tellOurs("The queue", Chromecast.queue(next)) }
+    }
+
+    override suspend fun showRoom(room: CastRoom?) {
+        this.room = room
+        // Off the main thread, like every send to our own receiver (see showLyrics).
+        withContext(Dispatchers.IO) { tellOurs("The room", Chromecast.room(room)) }
+    }
+
+    override suspend fun sayBye(): Boolean {
+        // A link that is gone would be heard by nobody, and nobody should wait for it.
+        if (_status.value.link != LinkState.CONNECTED) return false
+        // Off the main thread, like every send to our own receiver (see showLyrics).
+        return withContext(Dispatchers.IO) { tellOurs("The goodbye", Chromecast.bye()) }
+    }
+
     /**
-     * Sends [lyrics] to the player when it is InterTune's own receiver; Google's has no screen for
-     * them. Writes to the socket: never on the main thread.
+     * Sends [payload] on our own namespace to the player when it is InterTune's own receiver, and
+     * says whether it went; Google's has no screen for any of it. Writes to the socket: never on
+     * the main thread. A failure is logged here, not thrown, so the cast goes on without the
+     * screen; [what] names the message for the log.
      */
-    private fun tellLyrics() {
+    private fun tellOurs(what: String, payload: String): Boolean {
         val now = synchronized(stateLock) { player }
         val player = now?.takeIf { it.connected && it.appId != null && it.appId != Chromecast.DEFAULT_MEDIA_RECEIVER }
         if (player == null) {
-            Log.d(TAG, "Lyrics not sent to ${device.name}: ${if (now == null) "no player yet" else "its player is ${now.appId}"}")
-            return
+            Log.d(TAG, "$what not sent to ${device.name}: ${if (now == null) "no player yet" else "its player is ${now.appId}"}")
+            return false
         }
-        runCatching { send(Outgoing(clientId, player.transportId, Chromecast.NS_INTERTUNE, Chromecast.lyrics(lyrics))) }
-            .onFailure { Log.w(TAG, "Lyrics not sent to ${device.name}", it) }
+        return runCatching { send(Outgoing(clientId, player.transportId, Chromecast.NS_INTERTUNE, payload)) }
+            .onFailure { Log.w(TAG, "$what not sent to ${device.name}", it) }
+            .isSuccess
+    }
+
+    private fun tellLyrics() {
+        tellOurs("Lyrics", Chromecast.lyrics(lyrics))
+    }
+
+    /** What our own receiver's screens were last told, said again to a player opened after it. */
+    private fun tellKept() {
+        phoneName?.let { tellOurs("The phone's name", Chromecast.hello(it)) }
+        upNext?.let { tellOurs("The queue", Chromecast.queue(it)) }
+        room?.let { tellOurs("The room", Chromecast.room(it)) }
     }
 
     override fun close() {
@@ -568,8 +617,9 @@ class ChromecastLink(
         }
         Log.i(TAG, "${if (running != null) "Joined" else "Launched"} the media player on ${device.name}")
         send(Outgoing(clientId, player.transportId, Chromecast.NS_CONNECTION, Chromecast.connect(userAgent)))
-        // A player opened again after a song's lyrics were sent has none of them yet.
+        // A player opened again after a song's lyrics were sent has none of them yet, nor the rest.
         if (lyrics != null) tellLyrics()
+        tellKept()
         return player
     }
 

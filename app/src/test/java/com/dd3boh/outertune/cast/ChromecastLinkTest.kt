@@ -484,6 +484,135 @@ class ChromecastLinkTest {
         assertTrue(body, "withContext(Dispatchers.IO)" in body)
     }
 
+    private val somePeople = CastRoom("Mel's room", 3, listOf("M", "A", "J"), "data:image/png;base64,AAAA")
+
+    @Test
+    fun `the phone's name goes to our own receiver on our own namespace`() {
+        val (receiver, link) = connected(receivers = listOf(ours, Chromecast.DEFAULT_MEDIA_RECEIVER))
+        receiver.next(Chromecast.NS_RECEIVER, "LAUNCH")
+        runBlocking { link.hello("Mel's Pixel") }
+        val sent = receiver.next(Chromecast.NS_INTERTUNE, "HELLO")
+        assertEquals("web-1", sent.message.destinationId)
+        assertEquals("Mel's Pixel", sent.body.getValue("name").jsonPrimitive.content)
+    }
+
+    @Test
+    fun `the songs coming next go to our own receiver, and none empties its shelf`() {
+        val (receiver, link) = connected(receivers = listOf(ours, Chromecast.DEFAULT_MEDIA_RECEIVER))
+        receiver.next(Chromecast.NS_RECEIVER, "LAUNCH")
+        runBlocking { link.showQueue(listOf(CastNext("One", "Band", "https://i.ytimg.com/vi/one/hq.jpg"), CastNext("Two"))) }
+        val sent = receiver.next(Chromecast.NS_INTERTUNE, "QUEUE")
+        assertEquals("web-1", sent.message.destinationId)
+        val next = sent.body.getValue("next").jsonArray
+        assertEquals(listOf("One", "Two"), next.map { it.jsonObject.getValue("title").jsonPrimitive.content })
+        runBlocking { link.showQueue(emptyList()) }
+        assertEquals(0, receiver.next(Chromecast.NS_INTERTUNE, "QUEUE").body.getValue("next").jsonArray.size)
+    }
+
+    @Test
+    fun `a room goes to our own receiver, and away again`() {
+        val (receiver, link) = connected(receivers = listOf(ours, Chromecast.DEFAULT_MEDIA_RECEIVER))
+        receiver.next(Chromecast.NS_RECEIVER, "LAUNCH")
+        runBlocking { link.showRoom(somePeople) }
+        val sent = receiver.next(Chromecast.NS_INTERTUNE, "ROOM")
+        assertEquals("web-1", sent.message.destinationId)
+        assertEquals("Mel's room", sent.body.getValue("name").jsonPrimitive.content)
+        assertEquals(3, sent.body.getValue("count").jsonPrimitive.int)
+        runBlocking { link.showRoom(null) }
+        assertNull(receiver.next(Chromecast.NS_INTERTUNE, "ROOM").body["name"])
+    }
+
+    @Test
+    fun `the goodbye goes to our own receiver, and says so to whoever waits for it`() {
+        val (receiver, link) = connected(receivers = listOf(ours, Chromecast.DEFAULT_MEDIA_RECEIVER))
+        receiver.next(Chromecast.NS_RECEIVER, "LAUNCH")
+        assertTrue(runBlocking { link.sayBye() })
+        assertEquals("web-1", receiver.next(Chromecast.NS_INTERTUNE, "BYE").message.destinationId)
+    }
+
+    @Test
+    fun `Google's receiver is sent none of the screens, and its goodbye is not waited for`() {
+        val (receiver, link) = connected()
+        runBlocking {
+            link.hello("Mel's Pixel")
+            link.showQueue(listOf(CastNext("One")))
+            link.showRoom(somePeople)
+        }
+        assertFalse(runBlocking { link.sayBye() })
+        Thread.sleep(300)
+        assertTrue(receiver.everything.none { it.message.namespace == Chromecast.NS_INTERTUNE })
+    }
+
+    @Test
+    fun `a link that is gone says no goodbye`() {
+        val (receiver, link) = connected(receivers = listOf(ours, Chromecast.DEFAULT_MEDIA_RECEIVER))
+        receiver.socket!!.close()
+        link.await { it.link == LinkState.LOST }
+        assertFalse(runBlocking { link.sayBye() })
+    }
+
+    @Test
+    fun `a player opened again is told what the screens were last told`() {
+        val (receiver, link) = connected(receivers = listOf(ours, Chromecast.DEFAULT_MEDIA_RECEIVER))
+        runBlocking {
+            link.hello("Mel's Pixel")
+            link.showQueue(listOf(CastNext("One", "Band")))
+            link.showRoom(somePeople)
+        }
+        assertEquals("web-1", receiver.next(Chromecast.NS_INTERTUNE, "HELLO").message.destinationId)
+        receiver.next(Chromecast.NS_INTERTUNE, "QUEUE")
+        receiver.next(Chromecast.NS_INTERTUNE, "ROOM")
+
+        // Another app takes the device over, and the next song opens our receiver again.
+        playing(receiver, link)
+        receiver.apps.removeAll { true }
+        receiver.apps += App("233637DE", "youtube-1", "web-77")
+        receiver.deviceStatus()
+        receiver.send("web-1", receiver.client, Chromecast.NS_CONNECTION, """{"type":"CLOSE"}""")
+        link.await { it.state == ReceiverState.IDLE }
+        runBlocking { link.load(song, 0, play = true) }
+
+        val hello = receiver.next(Chromecast.NS_INTERTUNE, "HELLO")
+        assertEquals("web-2", hello.message.destinationId)
+        assertEquals("Mel's Pixel", hello.body.getValue("name").jsonPrimitive.content)
+        assertEquals("One", receiver.next(Chromecast.NS_INTERTUNE, "QUEUE").body.getValue("next").jsonArray[0].jsonObject.getValue("title").jsonPrimitive.content)
+        assertEquals("Mel's room", receiver.next(Chromecast.NS_INTERTUNE, "ROOM").body.getValue("name").jsonPrimitive.content)
+    }
+
+    private val linkSource by lazy { java.io.File("src/main/java/com/dd3boh/outertune/cast/ChromecastLink.kt").readText() }
+
+    /** The text of the member that starts with [signature], to the closing brace on a line of its own at the class's indent. */
+    private fun memberBody(source: String, signature: String): String = source.substringAfter(signature, "").substringBefore("\n    }\n")
+
+    @Test
+    fun `the phone's name, the queue, the room and the goodbye are written off the main thread, like the lyrics`() {
+        // The lyrics never left because they were written on the main thread (3 Nov 2026). A JVM
+        // test has no main thread to catch that, so this reads the source: each send is inside
+        // withContext(Dispatchers.IO), and only then reaches the socket (tellOurs).
+        for (signature in listOf(
+            "override suspend fun hello(",
+            "override suspend fun showQueue(",
+            "override suspend fun showRoom(",
+            "override suspend fun sayBye(",
+        )) {
+            val body = memberBody(linkSource, signature)
+            assertTrue("$signature is not in the source", body.isNotEmpty())
+            val off = body.indexOf("withContext(Dispatchers.IO)")
+            assertTrue("$signature never leaves the main thread: $body", off >= 0)
+            assertTrue("$signature writes before it has left the main thread: $body", body.indexOf("tellOurs(") > off)
+        }
+    }
+
+    @Test
+    fun `every message to our own receiver goes through the one place that logs a failure`() {
+        // A refused write was swallowed, and nobody saw that the lyrics were never sent. So there is
+        // one writer to our namespace, and it logs what goes wrong.
+        assertEquals(1, Regex("""Outgoing\([^)]*NS_INTERTUNE""").findAll(linkSource).count())
+        val body = memberBody(linkSource, "private fun tellOurs(")
+        assertTrue(body, "onFailure" in body && "Log.w(TAG" in body)
+        assertTrue(memberBody(linkSource, "private fun tellLyrics(").contains("tellOurs("))
+    }
+
     @Test
     fun `a device that will not open the player is not a receiver`() {
         val receiver = FakeChromecast()

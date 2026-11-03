@@ -223,6 +223,59 @@ object Chromecast {
     const val LYRICS = "LYRICS"
     const val MAX_LYRICS_BYTES = 60_000
 
+    /** What the phone is called, for our own receiver's idle screen to say who is connected. */
+    fun hello(name: String): String = buildJsonObject {
+        put("type", HELLO)
+        put("name", name)
+    }.toString()
+
+    /**
+     * The songs that play after this one, for our own receiver's "Up next" shelf: the first
+     * [MAX_UP_NEXT] of [next], each with its words and cover where it has them. None empties the shelf.
+     */
+    fun queue(next: List<CastNext>): String = buildJsonObject {
+        put("type", QUEUE)
+        put("next", buildJsonArray {
+            next.take(MAX_UP_NEXT).forEach { song ->
+                add(buildJsonObject {
+                    put("title", song.title)
+                    song.artist?.takeIf { it.isNotBlank() }?.let { put("artist", it) }
+                    song.cover?.let { put("cover", it) }
+                })
+            }
+        })
+    }.toString()
+
+    /**
+     * A Listen together room for our own receiver's screen: its name, how many are in it, their
+     * first letters and the invite's QR code as a PNG data url (a code too big for one Cast
+     * message is left out, and the TV shows the room without it). A room with no name, or none,
+     * puts the screen away.
+     */
+    fun room(room: CastRoom?): String = buildJsonObject {
+        put("type", ROOM)
+        if (room != null && room.name.isNotBlank()) {
+            put("name", room.name)
+            put("count", room.count)
+            put("people", buildJsonArray { room.people.take(CastRoom.MAX_PEOPLE).forEach { add(it) } })
+            room.qr?.takeIf { it.length <= MAX_QR_CHARS }?.let { put("qr", it) }
+        }
+    }.toString()
+
+    /** The cast is over: our own receiver says so on the TV for a moment. */
+    fun bye(): String = typeOnly(BYE)
+
+    const val HELLO = "HELLO"
+    const val QUEUE = "QUEUE"
+    const val ROOM = "ROOM"
+    const val BYE = "BYE"
+
+    /** How many songs the "Up next" shelf holds. */
+    const val MAX_UP_NEXT = 3
+
+    /** The longest QR data url sent: a Cast message holds 64 KB at most, and the rest of it is words. */
+    const val MAX_QR_CHARS = 40_000
+
     /** PLAY, PAUSE or STOP for the media session [mediaSessionId]. */
     fun mediaCommand(type: String, requestId: Int, mediaSessionId: Long): String = buildJsonObject {
         put("type", type)

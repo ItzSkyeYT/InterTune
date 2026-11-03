@@ -60,6 +60,35 @@ data class CastLyrics(val mediaId: String, val lines: List<Line>, val shiftMs: L
     data class Line(val startMs: Long, val text: String)
 }
 
+/**
+ * One of the songs that play next, as a receiver with a screen for them lists it under "Up next":
+ * what to call it, who sings it, and a small cover (a web address, or none).
+ */
+data class CastNext(val title: String, val artist: String? = null, val cover: String? = null)
+
+/**
+ * A Listen together room, for a receiver with a screen for it (InterTune's own): its [name], how
+ * many are [count]ed in it, the first letters of some of their names ([people]), and the room's
+ * invite as a QR code, a PNG data url in [qr] (QrPng), for a phone beside the TV to scan.
+ */
+data class CastRoom(val name: String, val count: Int, val people: List<String> = emptyList(), val qr: String? = null) {
+    companion object {
+        /** How many people's first letters one message carries. */
+        const val MAX_PEOPLE = 6
+
+        /** The room of [name] with [members] in it, each by name: their count and first letters. */
+        fun of(name: String, members: List<String>, qr: String?): CastRoom =
+            CastRoom(name, members.size, members.take(MAX_PEOPLE).map(::initialOf), qr)
+
+        /** The first letter of [name], in capitals: a whole emoji when the name starts with one. */
+        fun initialOf(name: String): String {
+            val trimmed = name.trim()
+            if (trimmed.isEmpty()) return "?"
+            return String(Character.toChars(trimmed.codePointAt(0))).uppercase()
+        }
+    }
+}
+
 /** Whether the link to a receiver is up. */
 enum class LinkState {
     NEW,
@@ -195,6 +224,32 @@ interface ReceiverLink {
      * Chromecast receiver has a screen for them; every other link ignores this.
      */
     suspend fun showLyrics(lyrics: CastLyrics?) {}
+
+    /**
+     * Tells the receiver's screen what the phone is called, for its idle screen to say who is
+     * connected. Only InterTune's own Chromecast receiver has a screen for it; every other link
+     * ignores this.
+     */
+    suspend fun hello(name: String) {}
+
+    /**
+     * Shows the songs that play after the current one ([next], the first few) on the receiver's
+     * screen, or none. Only InterTune's own Chromecast receiver has a screen for them.
+     */
+    suspend fun showQueue(next: List<CastNext>) {}
+
+    /**
+     * Shows a Listen together [room] on the receiver's screen, or puts it away when null. Only
+     * InterTune's own Chromecast receiver has a screen for it.
+     */
+    suspend fun showRoom(room: CastRoom?) {}
+
+    /**
+     * Tells the receiver's screen the cast is over, for it to say so for a moment. True when it
+     * was told, so the caller gives the screen that moment before stopping (CastFarewell); false
+     * for every receiver with no screen of ours, and when the link is gone.
+     */
+    suspend fun sayBye(): Boolean = false
 
     /** Hangs up. Safe to call more than once, from any thread. */
     fun close()
