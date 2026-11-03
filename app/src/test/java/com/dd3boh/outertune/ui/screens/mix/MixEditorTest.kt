@@ -684,4 +684,28 @@ class MixEditorTest {
         assertFalse(e.spec.plain)
         assertEquals(EqRow.LOWS_OUT_FIRST, e.rows().eq)
     }
+
+    @Test
+    fun `a loop on either song is set, kept apart and taken away`() {
+        val e = editor()
+        assertTrue(e.setIntroLoop(2, 4))
+        assertEquals(com.dd3boh.outertune.mix.edit.IntroLoop(2, e.spec.b.atMs, 4), e.spec.introLoop)
+        // B's own bar 1 is heard after its loop: 8 bars on, where the canvas starts its waveform again.
+        assertEquals(8.0, e.spec.loopBars, 0.0)
+        assertEquals(e.bStartU(e.spec.copy(introLoop = null)) + 8.0, e.bStartU(), 1e-9)
+        // Inside the loop B plays its looped bars over and over.
+        assertEquals(e.spec.b.atMs + 0.5 * e.spec.b.barMs, e.spec.bMsAt(2.5), 1e-6)
+        assertTrue(e.setOutroLoop(1, 2))
+        assertEquals(com.dd3boh.outertune.mix.edit.OutroLoop(1, e.spec.a.atMs, 2), e.spec.outroLoop)
+        // A's end comes later by its passes, in bars of the change.
+        assertTrue(e.spec.outroLoopBars > 1.9)
+        assertFalse(e.setIntroLoop(3))
+        assertTrue(e.setIntroLoop(null))
+        assertNull(e.spec.introLoop)
+        assertNotNull(e.spec.outroLoop)
+        assertTrue(e.spec.isValid)
+        // Kept and read back as saved.
+        val back = com.dd3boh.outertune.mix.edit.TransitionJson.decode(com.dd3boh.outertune.mix.edit.TransitionJson.encode(e.spec))
+        assertEquals(e.spec.outroLoop, back?.outroLoop)
+    }
 }
