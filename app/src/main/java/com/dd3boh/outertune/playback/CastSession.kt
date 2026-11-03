@@ -30,7 +30,12 @@ import com.dd3boh.outertune.cast.ReceiverLink
 import com.dd3boh.outertune.cast.ReceiverStatus
 import com.dd3boh.outertune.cast.RecentReceivers
 import com.dd3boh.outertune.constants.CastRecentKey
+import com.dd3boh.outertune.constants.LyricsTimingKey
+import com.dd3boh.outertune.constants.ShowLyricsKey
 import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.lyrics.LyricsForCast
+import com.dd3boh.outertune.lyrics.LyricsLookup
+import com.dd3boh.outertune.lyrics.LyricsTiming
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.get
 import kotlinx.coroutines.CancellationException
@@ -43,6 +48,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
@@ -232,6 +241,25 @@ class CastSession(
             _state.value = State.Casting(link.device)
             rememberRecent(link.device)
             Log.i(TAG, "Casting to ${link.device.name}")
+            lyricsJob = scope.launch { followLyrics(link) }
+        }
+    }
+
+    private var lyricsJob: Job? = null
+
+    /**
+     * The playing song's lyrics on the TV while the player's lyrics are open (asked for on 3 Nov 2026):
+     * the lyrics button's setting, the song's synced lines and its timing shift, sent again
+     * whenever one of them changes. Only InterTune's own receiver shows them (ReceiverLink.showLyrics).
+     */
+    private suspend fun followLyrics(link: ReceiverLink) {
+        val open = service.dataStore.data.map { it[ShowLyricsKey] ?: false }.distinctUntilChanged()
+        val timing = service.dataStore.data.map { it[LyricsTimingKey] ?: "" }.distinctUntilChanged()
+        val lyrics = LyricsLookup.bySong(service.currentMediaMetadata) { song -> song.id to service.lyricsHelper.getLyrics(song) }
+        combine(open, lyrics, timing) { on, (id, lines), saved ->
+            if (on) LyricsForCast.of(id, lines, LyricsTiming.shiftOf(saved, id)) else null
+        }.distinctUntilChanged().collectLatest { shown ->
+            runCatching { link.showLyrics(shown) }.onFailure { Log.w(TAG, "The lyrics could not be sent", it) }
         }
     }
 
@@ -290,6 +318,8 @@ class CastSession(
         connecting = null
         keepAwake?.cancel()
         keepAwake = null
+        lyricsJob?.cancel()
+        lyricsJob = null
         val remote = remote
         val link = link
         val server = server

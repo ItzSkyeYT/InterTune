@@ -149,8 +149,11 @@ class ChromecastLink(
     @Volatile
     private var saidGoodbye = false
 
-    /** The media player songs go to: its session on the device, and the address of its connection. */
-    private class Player(val sessionId: String, val transportId: String, val launchedHere: Boolean) {
+    /**
+     * The media player songs go to: which receiver it is, its session on the device, and the
+     * address of its connection.
+     */
+    private class Player(val appId: String?, val sessionId: String, val transportId: String, val launchedHere: Boolean) {
         /** False once the device closed our virtual connection to it; it may still be running. */
         var connected = true
     }
@@ -347,6 +350,23 @@ class ChromecastLink(
         if (unmute) sendNow(toDevice(Chromecast.setVolume(requestIds.incrementAndGet(), muted = false)))
     }
 
+    /** The lyrics last asked for, sent again to a player opened after them. */
+    @Volatile
+    private var lyrics: CastLyrics? = null
+
+    override suspend fun showLyrics(lyrics: CastLyrics?) {
+        this.lyrics = lyrics
+        tellLyrics()
+    }
+
+    /** Sends [lyrics] to the player when it is InterTune's own receiver; Google's has no screen for them. */
+    private fun tellLyrics() {
+        val player = synchronized(stateLock) {
+            player?.takeIf { it.connected && it.appId != null && it.appId != Chromecast.DEFAULT_MEDIA_RECEIVER }
+        } ?: return
+        sendQuietly(listOf(Outgoing(clientId, player.transportId, Chromecast.NS_INTERTUNE, Chromecast.lyrics(lyrics))))
+    }
+
     override fun close() {
         val songStop: Outgoing?
         val unanswered: Loaded?
@@ -535,10 +555,12 @@ class ChromecastLink(
                 recent.retainAll { it === current }
                 newestSession = 0
             }
-            Player(app.sessionId!!, app.transportId!!, launchedHere).also { player = it }
+            Player(app.appId, app.sessionId!!, app.transportId!!, launchedHere).also { player = it }
         }
         Log.i(TAG, "${if (running != null) "Joined" else "Launched"} the media player on ${device.name}")
         send(Outgoing(clientId, player.transportId, Chromecast.NS_CONNECTION, Chromecast.connect(userAgent)))
+        // A player opened again after a song's lyrics were sent has none of them yet.
+        if (lyrics != null) tellLyrics()
         return player
     }
 

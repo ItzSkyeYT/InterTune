@@ -32,6 +32,40 @@ class ChromecastTest {
         assertEquals(listOf(Chromecast.DEFAULT_MEDIA_RECEIVER), Chromecast.receivers(own = Chromecast.DEFAULT_MEDIA_RECEIVER))
     }
 
+    @Test
+    fun `lyrics go to our receiver as start and text pairs, and none puts them away`() {
+        val lyrics = CastLyrics("vid1", listOf(CastLyrics.Line(1_200, "One"), CastLyrics.Line(3_400, "")), shiftMs = 300)
+        val shown = json(Chromecast.lyrics(lyrics))
+        assertEquals("LYRICS", shown.getValue("type").jsonPrimitive.content)
+        assertEquals("vid1", shown.getValue("mediaId").jsonPrimitive.content)
+        assertEquals(300L, shown.getValue("shiftMs").jsonPrimitive.long)
+        val lines = shown.getValue("lines").jsonArray
+        assertEquals(1_200L, lines[0].jsonArray[0].jsonPrimitive.long)
+        assertEquals("One", lines[0].jsonArray[1].jsonPrimitive.content)
+        assertEquals("", lines[1].jsonArray[1].jsonPrimitive.content)
+
+        val away = json(Chromecast.lyrics(null))
+        assertEquals("LYRICS", away.getValue("type").jsonPrimitive.content)
+        assertNull(away["mediaId"])
+    }
+
+    @Test
+    fun `lyrics too long for one Cast message lose lines from the end`() {
+        val long = CastLyrics("vid1", (0 until 4_000).map { CastLyrics.Line(it * 1_000L, "A line of lyrics, long enough to count, number $it") })
+        val text = Chromecast.lyrics(long)
+        assertTrue(text.toByteArray().size <= Chromecast.MAX_LYRICS_BYTES)
+        val lines = json(text).getValue("lines").jsonArray
+        assertTrue(lines.size in 500 until 4_000)
+        assertEquals(0L, lines.first().jsonArray[0].jsonPrimitive.long)
+    }
+
+    @Test
+    fun `a load says which song it is, for our receiver to match its lyrics to`() {
+        val item = CastItem(mediaId = "vid7", url = "http://192.168.1.2:47800/c/t/s/vid7.webm", mimeType = "audio/webm")
+        val load = json(Chromecast.load(1, "session", item, item.url, 0, autoplay = true))
+        assertEquals("vid7", load.getValue("media").jsonObject.getValue("customData").jsonObject.getValue("mediaId").jsonPrimitive.content)
+    }
+
     private fun JsonObject.text(key: String) = getValue(key).jsonPrimitive.content
 
     private val song = CastItem(

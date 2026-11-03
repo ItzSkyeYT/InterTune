@@ -51,6 +51,15 @@ data class CastItem(
     val artworkUrl: String? = null,
 )
 
+/**
+ * The playing song's synced lyrics, for a receiver with a screen for them: each line with its
+ * start in the song, moved by [shiftMs] as the phone's own lines are (LyricsTiming). A blank
+ * line is a pause in the singing.
+ */
+data class CastLyrics(val mediaId: String, val lines: List<Line>, val shiftMs: Long = 0) {
+    data class Line(val startMs: Long, val text: String)
+}
+
 /** Whether the link to a receiver is up. */
 enum class LinkState {
     NEW,
@@ -180,6 +189,12 @@ interface ReceiverLink {
 
     /** The receiver's volume, from 0 to 1. */
     suspend fun setVolume(level: Float)
+
+    /**
+     * Shows [lyrics] on the receiver's screen, or puts them away when null. Only InterTune's own
+     * Chromecast receiver has a screen for them; every other link ignores this.
+     */
+    suspend fun showLyrics(lyrics: CastLyrics?) {}
 
     /** Hangs up. Safe to call more than once, from any thread. */
     fun close()
