@@ -223,10 +223,10 @@ object SpecPlan {
         val planned = loopSpec?.let { l ->
             val from = facts.bBar1 + (l.fromMs - spec.b.atMs) * rate / 1000.0
             val seam = Loops.seamFrames(rate)
-            // A loop of B's very first bar joins into the silence before it, as the song itself starts.
+            // Each pass comes out of what follows the looped bars, so that has to be in the copy too.
             when {
                 from < -0.5 -> return Result.Refused("the loop starts before B's copy")
-                from + loopFrames > facts.bFrames -> return Result.Refused("the loop runs past B's copy")
+                from + loopFrames + seam > facts.bFrames -> return Result.Refused("the loop runs past B's copy")
             }
             PlannedLoop(from.roundToLong(), loopFrames, floor(bar1).toLong(), floor(bar1).toLong() + loopAhead, seam)
         }
