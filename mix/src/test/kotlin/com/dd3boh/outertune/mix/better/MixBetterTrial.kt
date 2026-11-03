@@ -110,6 +110,7 @@ class MixBetterTrial {
         val dir = env["MIX_BETTER_DIR"]?.takeIf { it.isNotBlank() }
         assumeTrue("set MIX_BETTER_DIR to run", dir != null)
         val root = File(dir!!)
+        this.root = root
         val label = env["MIX_BETTER_LABEL"]?.takeIf { it.isNotBlank() } ?: "run"
         val out = File(root, "out/$label").apply { mkdirs() }
         val decoded = File(root, "decoded")
@@ -189,6 +190,7 @@ class MixBetterTrial {
     }
 
     private var whole: String? = null
+    private var root: File = File(".")
     private val grids = HashMap<String, WholeSongGrid>()
 
     private fun onSong(s: Song, r: RegionAnalysis, offsetMs: Double, exact: Boolean): RegionAnalysis {
@@ -346,6 +348,8 @@ class MixBetterTrial {
             is SpecPlan.Result.Refused -> line.append("; editor refused: ${r.why}")
             is SpecPlan.Result.Planned -> write(dir, "lock-editor", LaneMixer(r.plan).render(aEditor.pcm, bEditor.pcm, 1.0, 1.0), aEditor.pcm, bEditor.pcm, aEditor.fromMs, "forced")
         }
+        val plans = LinkedHashMap<String, com.dd3boh.outertune.mix.engine.LanePlan>()
+        (SpecPlan.plan(lock, editorFacts) as? SpecPlan.Result.Planned)?.let { plans["lock-editor"] = it.plan }
         // The same change with B's bar 1 looped four times in front of it, and with A's mids gone
         // from bar 1 (the cheap stand-in for a vocal mute), for the loop and voice measures.
         if (env["MIX_BETTER_VARIANTS"] == "1") {
@@ -353,6 +357,7 @@ class MixBetterTrial {
             when (val r = SpecPlan.plan(looped, editorFacts)) {
                 is SpecPlan.Result.Refused -> line.append("; loop refused: ${r.why}")
                 is SpecPlan.Result.Planned -> {
+                    plans["loop-editor"] = r.plan
                     write(dir, "loop-editor", LaneMixer(r.plan).render(aEditor.pcm, bEditor.pcm, 1.0, 1.0), aEditor.pcm, bEditor.pcm, aEditor.fromMs, "B's bar 1 looped 4 times")
                     r.plan.loop?.let { l -> File(dir, "loop-editor-loop.json").writeText(buildJsonObject {
                         put("srcFrom", l.srcFrom); put("frames", l.frames); put("outFrom", l.outFrom); put("outTo", l.outTo); put("seam", l.seam)
@@ -364,7 +369,48 @@ class MixBetterTrial {
             val midsOut = lock.copy(muted = setOf(LaneId(Side.A, Lane.MIDS)))
             when (val r = SpecPlan.plan(midsOut, editorFacts)) {
                 is SpecPlan.Result.Refused -> line.append("; mids out refused: ${r.why}")
-                is SpecPlan.Result.Planned -> write(dir, "midsout-editor", LaneMixer(r.plan).render(aEditor.pcm, bEditor.pcm, 1.0, 1.0), aEditor.pcm, bEditor.pcm, aEditor.fromMs, "A's mids gone from bar 1")
+                is SpecPlan.Result.Planned -> {
+                    plans["midsout-editor"] = r.plan
+                    write(dir, "midsout-editor", LaneMixer(r.plan).render(aEditor.pcm, bEditor.pcm, 1.0, 1.0), aEditor.pcm, bEditor.pcm, aEditor.fromMs, "A's mids gone from bar 1")
+                }
+            }
+            // A's mids out and B's in on the middle bar line, as the basses swap: the voices meet
+            // there and nowhere else.
+            val half = lock.lengthBars / 2
+            val midSwap = lock.copy(
+                moves = lock.moves + (LaneId(Side.A, Lane.MIDS) to com.dd3boh.outertune.mix.edit.Move(half, 0.0, com.dd3boh.outertune.mix.edit.How.CUT)) +
+                    (LaneId(Side.B, Lane.MIDS) to com.dd3boh.outertune.mix.edit.Move(half, 0.0, com.dd3boh.outertune.mix.edit.How.CUT)),
+                preset = Preset.CUSTOM,
+            )
+            when (val r = SpecPlan.plan(midSwap, editorFacts)) {
+                is SpecPlan.Result.Refused -> line.append("; mid swap refused: ${r.why}")
+                is SpecPlan.Result.Planned -> {
+                    plans["midswap-editor"] = r.plan
+                    write(dir, "midswap-editor", LaneMixer(r.plan).render(aEditor.pcm, bEditor.pcm, 1.0, 1.0), aEditor.pcm, bEditor.pcm, aEditor.fromMs, "the mids swapped on the middle bar line")
+                }
+            }
+            // Each song's voice, and A without its voice, as the change shapes them: the parts the
+            // stems folder split (tools/stems_prep.py) through the very same plan, one side at a time.
+            val stemsDir = File(root, "stems")
+            val aVox = stemOf(stemsDir, a, "tail", "vocals", aEditor.pcm.size)
+            val bVox = stemOf(stemsDir, b, "head", "vocals", bEditor.pcm.size)
+            if (aVox != null && bVox != null) {
+                val aInst = ShortArray(aEditor.pcm.size) { (aEditor.pcm[it] - aVox[it]).coerceIn(-32768, 32767).toShort() }
+                val silentA = ShortArray(aEditor.pcm.size)
+                val silentB = ShortArray(bEditor.pcm.size)
+                for ((name, plan) in plans) {
+                    val from = max(0L, floor(plan.out(-1.0)).toLong()).coerceAtMost(plan.mixFrom)
+                    val to = max(ceil(plan.out(plan.spec.lengthBars + 1.0)).toLong(), plan.mixTo)
+                    fun heard(av: ShortArray, bv: ShortArray) = LaneMixer(plan).render(av, bv, 1.0, 1.0).mix(av, bv, from, to)
+                    wavMono(File(dir, "$name-avox.wav"), heard(aVox, silentB), plan.sampleRate)
+                    wavMono(File(dir, "$name-bvox.wav"), heard(silentA, bVox), plan.sampleRate)
+                    wavMono(File(dir, "$name-ainst.wav"), heard(aInst, silentB), plan.sampleRate)
+                    File(dir, "$name-vox.json").writeText(buildJsonObject {
+                        put("from", from); put("to", to); put("mixFrom", plan.mixFrom); put("mixTo", plan.mixTo); put("bStart", plan.bStart)
+                        put("bar1", plan.bar1); put("barFrames", plan.barFrames); put("rate", plan.sampleRate)
+                        plan.loop?.let { l -> put("loopFrom", l.outFrom); put("loopTo", l.outTo) }
+                    }.toString())
+                }
             }
         }
 
@@ -535,6 +581,23 @@ class MixBetterTrial {
     }
 
     private fun clamp(v: Double): Short = v.roundToInt().coerceIn(-32768, 32767).toShort()
+
+    /** A part of [s]'s end as tools/stems_prep.py wrote it, as long as the window it was split from; null where there is none. */
+    private fun stemOf(dir: File, s: Song, end: String, part: String, samples: Int): ShortArray? {
+        val f = File(dir, "${s.id}.$end.$part.s16")
+        if (!f.isFile) return null
+        val bytes = f.readBytes()
+        val out = ShortArray(samples)
+        val n = minOf(samples, bytes.size / 2)
+        ByteBuffer.wrap(bytes, 0, n * 2).order(ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(out, 0, n)
+        return out
+    }
+
+    /** Interleaved stereo [samples] written as one mono file, the two channels' mean. */
+    private fun wavMono(file: File, samples: ShortArray, rate: Int) {
+        val mono = ShortArray(samples.size / 2) { ((samples[2 * it] + samples[2 * it + 1]) / 2).toShort() }
+        wav(file, mono, rate, 1)
+    }
 
     private fun wav(file: File, samples: ShortArray, rate: Int, channels: Int) {
         val n = samples.size / channels
