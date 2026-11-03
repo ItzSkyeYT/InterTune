@@ -60,6 +60,73 @@ class ChromecastTest {
     }
 
     @Test
+    fun `the phone's name goes to our receiver as HELLO`() {
+        val hello = json(Chromecast.hello("Mel's Pixel"))
+        assertEquals("HELLO", hello.text("type"))
+        assertEquals("Mel's Pixel", hello.text("name"))
+    }
+
+    @Test
+    fun `the songs coming next go as QUEUE, three at most, each with the words and cover it has`() {
+        val next = listOf(
+            CastNext("One", "Band", "https://i.ytimg.com/vi/one/hq.jpg"),
+            CastNext("Two", null, null),
+            CastNext("Three", " ", "https://i.ytimg.com/vi/three/hq.jpg"),
+            CastNext("Four", "Band", null),
+        )
+        val queue = json(Chromecast.queue(next))
+        assertEquals("QUEUE", queue.text("type"))
+        val shown = queue.getValue("next").jsonArray.map { it.jsonObject }
+        assertEquals(listOf("One", "Two", "Three"), shown.map { it.text("title") })
+        assertEquals("Band", shown[0].text("artist"))
+        assertEquals("https://i.ytimg.com/vi/one/hq.jpg", shown[0].text("cover"))
+        assertNull(shown[1]["artist"])
+        assertNull(shown[1]["cover"])
+        assertNull("a blank artist is left out", shown[2]["artist"])
+    }
+
+    @Test
+    fun `an empty queue empties the shelf`() {
+        val queue = json(Chromecast.queue(emptyList()))
+        assertEquals("QUEUE", queue.text("type"))
+        assertEquals(0, queue.getValue("next").jsonArray.size)
+    }
+
+    @Test
+    fun `a room goes as ROOM with its name, count, first letters and QR code, and none puts it away`() {
+        val qr = "data:image/png;base64,iVBORw0KGgo="
+        val room = json(Chromecast.room(CastRoom("Mel's room", 3, listOf("M", "A", "J"), qr)))
+        assertEquals("ROOM", room.text("type"))
+        assertEquals("Mel's room", room.text("name"))
+        assertEquals(3, room.getValue("count").jsonPrimitive.int)
+        assertEquals(listOf("M", "A", "J"), room.getValue("people").jsonArray.map { it.jsonPrimitive.content })
+        assertEquals(qr, room.text("qr"))
+
+        val away = json(Chromecast.room(null))
+        assertEquals("ROOM", away.text("type"))
+        assertNull(away["name"])
+        // A room with no name is as good as none.
+        assertNull(json(Chromecast.room(CastRoom(" ", 2, listOf("M"))))["name"])
+    }
+
+    @Test
+    fun `a room keeps its count past the letters one message carries, and leaves out a QR code too big for it`() {
+        val many = CastRoom("Big", 12, ('A'..'L').map { it.toString() }, "data:image/png;base64," + "A".repeat(Chromecast.MAX_QR_CHARS))
+        val room = json(Chromecast.room(many))
+        assertEquals(12, room.getValue("count").jsonPrimitive.int)
+        assertEquals(CastRoom.MAX_PEOPLE, room.getValue("people").jsonArray.size)
+        assertNull(room["qr"])
+        assertTrue(Chromecast.room(many).toByteArray().size < 64 * 1024)
+    }
+
+    @Test
+    fun `the goodbye is a type and nothing else`() {
+        val bye = json(Chromecast.bye())
+        assertEquals("BYE", bye.text("type"))
+        assertEquals(1, bye.size)
+    }
+
+    @Test
     fun `a load says which song it is, for our receiver to match its lyrics to`() {
         val item = CastItem(mediaId = "vid7", url = "http://192.168.1.2:47800/c/t/s/vid7.webm", mimeType = "audio/webm")
         val load = json(Chromecast.load(1, "session", item, item.url, 0, autoplay = true))
