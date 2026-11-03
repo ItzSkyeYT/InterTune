@@ -259,6 +259,7 @@ class CastSession(
         combine(open, lyrics, timing) { on, (id, lines), saved ->
             if (on) LyricsForCast.of(id, lines, LyricsTiming.shiftOf(saved, id)) else null
         }.distinctUntilChanged().collectLatest { shown ->
+            Log.i(TAG, "Lyrics for ${link.device.name}: ${shown?.let { "${it.lines.size} lines of ${it.mediaId}" } ?: "none"}")
             runCatching { link.showLyrics(shown) }.onFailure { Log.w(TAG, "The lyrics could not be sent", it) }
         }
     }

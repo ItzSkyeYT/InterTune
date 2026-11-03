@@ -356,15 +356,24 @@ class ChromecastLink(
 
     override suspend fun showLyrics(lyrics: CastLyrics?) {
         this.lyrics = lyrics
-        tellLyrics()
+        // Off the main thread, where the cast session calls from: Android refuses a socket write
+        // there, and the refusal went unseen, so no lyrics ever left the phone (3 Nov 2026).
+        withContext(Dispatchers.IO) { tellLyrics() }
     }
 
-    /** Sends [lyrics] to the player when it is InterTune's own receiver; Google's has no screen for them. */
+    /**
+     * Sends [lyrics] to the player when it is InterTune's own receiver; Google's has no screen for
+     * them. Writes to the socket: never on the main thread.
+     */
     private fun tellLyrics() {
-        val player = synchronized(stateLock) {
-            player?.takeIf { it.connected && it.appId != null && it.appId != Chromecast.DEFAULT_MEDIA_RECEIVER }
-        } ?: return
-        sendQuietly(listOf(Outgoing(clientId, player.transportId, Chromecast.NS_INTERTUNE, Chromecast.lyrics(lyrics))))
+        val now = synchronized(stateLock) { player }
+        val player = now?.takeIf { it.connected && it.appId != null && it.appId != Chromecast.DEFAULT_MEDIA_RECEIVER }
+        if (player == null) {
+            Log.d(TAG, "Lyrics not sent to ${device.name}: ${if (now == null) "no player yet" else "its player is ${now.appId}"}")
+            return
+        }
+        runCatching { send(Outgoing(clientId, player.transportId, Chromecast.NS_INTERTUNE, Chromecast.lyrics(lyrics))) }
+            .onFailure { Log.w(TAG, "Lyrics not sent to ${device.name}", it) }
     }
 
     override fun close() {

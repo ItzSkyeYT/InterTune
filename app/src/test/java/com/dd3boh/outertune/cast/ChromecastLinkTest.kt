@@ -476,6 +476,15 @@ class ChromecastLinkTest {
     }
 
     @Test
+    fun `lyrics are written off the main thread, where the cast session calls from`() {
+        // On a phone a socket write on the main thread throws, and the lyrics never left (3 Nov 2026);
+        // a JVM test has no main thread to catch that, so this reads the source.
+        val source = java.io.File("src/main/java/com/dd3boh/outertune/cast/ChromecastLink.kt").readText()
+        val body = source.substringAfter("override suspend fun showLyrics(").substringBefore("\n    }\n")
+        assertTrue(body, "withContext(Dispatchers.IO)" in body)
+    }
+
+    @Test
     fun `a device that will not open the player is not a receiver`() {
         val receiver = FakeChromecast()
         receiver.refuseLaunch = "NOT_ALLOWED"
