@@ -215,6 +215,7 @@ import com.dd3boh.outertune.playback.queues.Queue
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import com.dd3boh.outertune.together.TogetherSession
 import com.dd3boh.outertune.together.RoomCode
+import com.dd3boh.outertune.together.RoomOnTv
 import com.dd3boh.outertune.utils.PhoneState
 import com.dd3boh.outertune.utils.SoundRoute
 import com.dd3boh.outertune.utils.SessionBitmapLoader
@@ -1124,6 +1125,10 @@ class MusicService : MediaLibraryService(),
                 StopReasons.keep(this@MusicService, StopReasons.NOT_IN_FOREGROUND)
             }
         })
+        // The listening room on InterTune's own TV receiver while casting: its name, who is in it and its QR code.
+        if (Unreleased.LISTEN_TOGETHER && Unreleased.CASTING) {
+            RoomOnTv.follow(scope, together) { owner -> if (owner == null) getString(R.string.together_tv_room_plain) else getString(R.string.together_tv_room, owner) }
+        }
         // An artist blocked while their song is the one playing: it is passed over at once.
         if (Unreleased.ARTIST_BLOCK) scope.launch {
             blockedArtists.drop(1).collect {
