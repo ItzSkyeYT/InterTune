@@ -382,7 +382,21 @@ class MixBetterTrial {
             lockIn.b.atMs * rate / 1000.0, (bEditor.pcm.size / 2).toLong(),
             anchors = aEditor.region.takeIf { it.grid != null && lockIn.beatMatched }?.beatFrames(),
         )
-        if (lockIn !== lock) line.append("; B in where its beat starts, at %.2f s".format(lockIn.b.atMs / 1000))
+        if (abs(lockIn.b.atMs - lock.b.atMs) > 1.0) line.append("; B in where its beat starts, at %.2f s".format(lockIn.b.atMs / 1000))
+        // The same with each song's voice from its part the stems split, where the phone's guess is
+        // not needed: what the rule does once a phone can split a voice out.
+        val aStems = stemVoice(a, "tail", aEditor.end)
+        val bStems = stemVoice(b, "head", bEditor.end)
+        if (aStems != null && bStems != null) {
+            val m = com.dd3boh.outertune.mix.auto.VoiceRule.mends(lockIn, aStems, bStems, loopBars = lockIn.bars / 2)
+                .firstOrNull { SpecPlan.plan(it.spec, factsIn) is SpecPlan.Result.Planned }
+            line.append("; one voice by the stems: ").append(m?.what?.ifEmpty { "as it is" } ?: "no mend")
+            if (m != null) {
+                val r = SpecPlan.plan(m.spec, factsIn) as SpecPlan.Result.Planned
+                plans["stemsvoice-editor"] = r.plan
+                write(dir, "stemsvoice-editor", LaneMixer(r.plan).render(aEditor.pcm, bEditor.pcm, 1.0, 1.0), aEditor.pcm, bEditor.pcm, aEditor.fromMs, m.what.ifEmpty { "as it is" })
+            }
+        }
         val mends = com.dd3boh.outertune.mix.auto.VoiceRule.mends(lockIn, aEditor.end, bEditor.end, loopBars = lockIn.bars / 2)
         line.append("; one voice: ").append(mends.firstOrNull()?.what?.ifEmpty { "as it is" } ?: "no mend")
         for (m in mends) {
@@ -430,6 +444,13 @@ class MixBetterTrial {
                         put("aBarOut", o.frames / r.plan.speed)
                     }.toString()) }
                 }
+            }
+            // The outgoing voice out the way Auto takes it out, its mids and highs gone over the beat
+            // before bar 1: for how much of A's voice, and of the rest of A, the dip takes.
+            val cut = com.dd3boh.outertune.mix.auto.VoiceRule.cutAt(lock, 0.0)
+            (SpecPlan.plan(cut, editorFacts) as? SpecPlan.Result.Planned)?.let { r ->
+                plans["cutbar1-editor"] = r.plan
+                write(dir, "cutbar1-editor", LaneMixer(r.plan).render(aEditor.pcm, bEditor.pcm, 1.0, 1.0), aEditor.pcm, bEditor.pcm, aEditor.fromMs, "A's mids and highs out on bar 1")
             }
             val midsOut = lock.copy(muted = setOf(LaneId(Side.A, Lane.MIDS)))
             when (val r = SpecPlan.plan(midsOut, editorFacts)) {
@@ -487,6 +508,93 @@ class MixBetterTrial {
     }
 
     private var lockWhy = ""
+
+    /**
+     * [end] with where it sings from its voice part (tools/stems_prep.py) in place of the guess: a
+     * step sings where the part, between 200 Hz and 5 kHz, is louder than -40 dBFS, as
+     * tools/voices.py counts a voice. Null where the part was not split.
+     */
+    private fun stemVoice(s: Song, which: String, end: SongEnd): SongEnd? {
+        val f = File(File(root, "stems"), "${s.id}.$which.vocals.s16")
+        if (!f.isFile) return null
+        val stemFromMs = if (which == "tail") max(0L, s.frames - (EDITOR_TAIL_S * s.rate).toLong()) * 1000.0 / s.rate else 0.0
+        val frames = (f.length() / 4).toInt()
+        val pcm = stemFrames(File(root, "stems"), s, which, "vocals", 0, frames) ?: return null
+        val mono = DoubleArray(frames) { (pcm[2 * it] + pcm[2 * it + 1]) / 2.0 / 32768.0 }
+        // The voice band, with one FFT over the whole part.
+        var n = 1
+        while (n < frames) n = n shl 1
+        val re = DoubleArray(n).also { System.arraycopy(mono, 0, it, 0, frames) }
+        val im = DoubleArray(n)
+        fft(re, im, false)
+        for (k in 0 until n) {
+            val hz = (if (k <= n / 2) k else n - k).toDouble() * s.rate / n
+            if (hz < 200.0 || hz > 5_000.0) {
+                re[k] = 0.0
+                im[k] = 0.0
+            }
+        }
+        fft(re, im, true)
+        val stepFrames = (end.stepMs / 1000.0 * s.rate).toInt()
+        val voice = FloatArray(end.levelDb.size) { i ->
+            val ms = end.fromMs + i * end.stepMs
+            val from = ((ms - stemFromMs) / 1000.0 * s.rate).toInt()
+            if (from < 0 || from + stepFrames > frames) 0f else {
+                var sum = 0.0
+                for (j in from until from + stepFrames) sum += re[j] * re[j]
+                if (10 * kotlin.math.log10(sum / stepFrames + 1e-12) > -40.0) 1f else 0f
+            }
+        }
+        return end.withVoice(voice)
+    }
+
+    /** An in-place radix-2 FFT of [re] and [im] (sizes a power of two), the inverse scaled by 1/n. */
+    private fun fft(re: DoubleArray, im: DoubleArray, inverse: Boolean) {
+        val n = re.size
+        var j = 0
+        for (i in 1 until n) {
+            var bit = n shr 1
+            while (j and bit != 0) {
+                j = j xor bit
+                bit = bit shr 1
+            }
+            j = j xor bit
+            if (i < j) {
+                var t = re[i]; re[i] = re[j]; re[j] = t
+                t = im[i]; im[i] = im[j]; im[j] = t
+            }
+        }
+        var len = 2
+        while (len <= n) {
+            val ang = 2 * Math.PI / len * (if (inverse) 1 else -1)
+            val wr = kotlin.math.cos(ang)
+            val wi = kotlin.math.sin(ang)
+            var i = 0
+            while (i < n) {
+                var cr = 1.0
+                var ci = 0.0
+                for (k in 0 until len / 2) {
+                    val ur = re[i + k]
+                    val ui = im[i + k]
+                    val vr = re[i + k + len / 2] * cr - im[i + k + len / 2] * ci
+                    val vi = re[i + k + len / 2] * ci + im[i + k + len / 2] * cr
+                    re[i + k] = ur + vr
+                    im[i + k] = ui + vi
+                    re[i + k + len / 2] = ur - vr
+                    im[i + k + len / 2] = ui - vi
+                    val ncr = cr * wr - ci * wi
+                    ci = cr * wi + ci * wr
+                    cr = ncr
+                }
+                i += len
+            }
+            len = len shl 1
+        }
+        if (inverse) for (i in 0 until n) {
+            re[i] /= n
+            im[i] /= n
+        }
+    }
 
     /** [e]'s 40 log-mel bands per spectral frame, float32, and where frame 0 falls in the song, into OUT/mel/. */
     private fun melOf(out: File, e: End, end: String) {

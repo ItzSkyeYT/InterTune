@@ -179,6 +179,12 @@ class SongEnd(
         return sum / n
     }
 
+    /** The same end with [voice] for where it sings: a voice part split by a model, in place of the guess. */
+    fun withVoice(voice: FloatArray?): SongEnd = SongEnd(
+        kind, songMs, fromMs, toMs, sampleRate, channels, firstSoundMs, trueEndMs, outroStartMs, introEndMs, fadeMs, medianDb,
+        levelDb, lowDb, stepMs, bpm, steadyTempo, line, phrases, key, density, trustNote, localLine, atTempo, wholeSong, voice,
+    )
+
     /** The most likely the song sings anywhere from [from] to [to]; null where its voice is not known. */
     fun mostVoice(from: Double, to: Double): Double? {
         if (voice == null) return null
