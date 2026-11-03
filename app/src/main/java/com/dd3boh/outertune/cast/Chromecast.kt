@@ -51,10 +51,10 @@ object Chromecast {
     const val DEFAULT_MEDIA_RECEIVER = "CC1AD845"
 
     /**
-     * InterTune's own receiver: the App ID of the page the Cast console opens for it, or null
-     * until the console gives one. Asked for only where Unreleased.OWN_CAST_RECEIVER is on.
+     * InterTune's own receiver: the App ID the Cast console gave it on 3 Nov 2026 (unpublished, its page at
+     * https://cast-dev--intertune-app.netlify.app/cast/ while it is tried). Asked for only where Unreleased.OWN_CAST_RECEIVER is on.
      */
-    val INTERTUNE_RECEIVER: String? = null
+    val INTERTUNE_RECEIVER: String? = "0EF3B3F0"
 
     /** The receivers a link opens, in order: InterTune's own first when the build asks for it, Google's last. */
     fun receivers(own: String? = INTERTUNE_RECEIVER.takeIf { Unreleased.OWN_CAST_RECEIVER }): List<String> =
