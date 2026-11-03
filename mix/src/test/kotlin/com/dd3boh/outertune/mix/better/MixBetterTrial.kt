@@ -366,6 +366,21 @@ class MixBetterTrial {
                     }.toString()) }
                 }
             }
+            // A's first 2 bars of the change played twice more before it goes on.
+            val outro = lock.copy(outroLoop = com.dd3boh.outertune.mix.edit.OutroLoop(2, lock.a.atMs, 2))
+            when (val r = SpecPlan.plan(outro, editorFacts)) {
+                is SpecPlan.Result.Refused -> line.append("; outgoing loop refused: ${r.why}")
+                is SpecPlan.Result.Planned -> {
+                    plans["outroloop-editor"] = r.plan
+                    write(dir, "outroloop-editor", LaneMixer(r.plan).render(aEditor.pcm, bEditor.pcm, 1.0, 1.0), aEditor.pcm, bEditor.pcm, aEditor.fromMs, "A's 2 bars from bar 1 twice more")
+                    r.plan.outro?.let { o -> File(dir, "outroloop-editor-loop.json").writeText(buildJsonObject {
+                        put("srcFrom", o.srcFrom); put("frames", o.frames); put("seam", o.seam); put("times", o.times)
+                        putJsonArray("joins") { for (k in 0 until o.times) add(kotlinx.serialization.json.JsonPrimitive(r.plan.aMap.outAt((o.end + k * o.frames).toDouble()))) }
+                        put("after", r.plan.aMap.outAt((o.end + o.times * o.frames).toDouble()))
+                        put("aBarOut", o.frames / r.plan.speed)
+                    }.toString()) }
+                }
+            }
             val midsOut = lock.copy(muted = setOf(LaneId(Side.A, Lane.MIDS)))
             when (val r = SpecPlan.plan(midsOut, editorFacts)) {
                 is SpecPlan.Result.Refused -> line.append("; mids out refused: ${r.why}")
