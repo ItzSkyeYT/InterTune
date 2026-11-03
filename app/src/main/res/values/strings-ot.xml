@@ -30,7 +30,7 @@ while also allowing users to translate our app as well. New, specific strings to
 <!-- Queue -->
     <string name="queues_title">Queues</string>
     <string name="create_queue">New queue</string>
-    <string name="song_added_to_queue">\"%s\" inserted into queue</string>
+    <string name="song_added_to_queue">\"%s\" plays next</string>
     <string name="song_added_to_queue_end">\"%s\" added to the end of queue</string>
     <string name="queues_empty">No queues</string>
     <string name="queue_default_name">Queue</string>

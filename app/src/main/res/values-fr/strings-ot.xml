@@ -4,7 +4,7 @@
     <string name="recent_activity">Activité récente</string>
     <string name="song_added_to_queue_end">\"%s\" ajouté à la fin de la file d\'attente</string>
     <string name="library">Bibliothèque</string>
-    <string name="song_added_to_queue">\"%s\" inséré dans la file d\'attente</string>
+    <string name="song_added_to_queue">\"%s\" sera lu ensuite</string>
     <string name="sort_by_date_released">Date de sortie</string>
     <string name="local_history">Locale</string>
     <string name="remote_history">Distant</string>

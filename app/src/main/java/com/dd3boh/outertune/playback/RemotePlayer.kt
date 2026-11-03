@@ -19,6 +19,7 @@ import com.dd3boh.outertune.cast.CastFormats
 import com.dd3boh.outertune.cast.CastItem
 import com.dd3boh.outertune.cast.CastServer
 import com.dd3boh.outertune.cast.FormatChoice
+import com.dd3boh.outertune.cast.FormatSupport
 import com.dd3boh.outertune.cast.LinkState
 import com.dd3boh.outertune.cast.ReceiverLink
 import com.dd3boh.outertune.cast.ReceiverState
@@ -313,7 +314,9 @@ class RemotePlayer(
             val asIs = server.prepare(mediaId)
             val choice = if (aac == true) FormatChoice.Aac else CastFormats.choose(link.caps.formats, asIs.mimeType, canFetchAac = !local, refused = refusedAsIs)
             if (choice is FormatChoice.Unplayable) {
-                failed(load.ticket, "${link.device.name} does not play ${choice.mimeType}")
+                // What it listed goes in the message, so a report says what this receiver does play.
+                val listed = (link.caps.formats as? FormatSupport.Listed)?.mimeTypes?.sorted()?.take(8)?.joinToString()
+                failed(load.ticket, "${link.device.name} does not play ${choice.mimeType}" + (listed?.let { " (it lists $it)" } ?: ""))
                 return
             }
             val offer = if (choice == FormatChoice.Aac) server.prepare(mediaId, aac = true) else asIs
