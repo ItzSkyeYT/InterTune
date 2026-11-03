@@ -2475,4 +2475,11 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="problem_report_share_file" translatable="false">Share as a file</string>
     <!-- Downloads saved as song files (SongFiles, Unreleased.DOWNLOAD_FILES), after the folder's warning: held from translators until his go. -->
     <string name="dl_song_files_note" translatable="false">Songs are saved as Opus or M4A files with their title, artist and cover, so other apps and cars can play them.</string>
+    <!-- What's new in 0.12.7, listed from 0.13 (his pick of 2 Nov 2026): held from translators until his go. -->
+    <string name="new_shelf_looks_title" translatable="false">The Shelf in three looks</string>
+    <string name="new_shelf_looks_body" translatable="false">Big cover, Crate or Records, picked under Look in the widget\'s settings.</string>
+    <string name="new_lyrics_video_long_title" translatable="false">Lyrics videos up to ten minutes</string>
+    <string name="new_lyrics_video_long_body" translatable="false">Long-press a line of the lyrics to share a video of up to ten minutes of the song. With Living blur on, its background moves with the music.</string>
+    <string name="new_share_cards_title" translatable="false">Shared songs show their cover</string>
+    <string name="new_share_cards_body" translatable="false">A song shared as InterTune\'s page shows its name and cover in chat apps.</string>
 </resources>
