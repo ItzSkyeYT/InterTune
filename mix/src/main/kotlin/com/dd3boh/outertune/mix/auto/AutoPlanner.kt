@@ -233,7 +233,11 @@ object AutoPlanner {
             var c = c0
             // A beat-locked change whose kicks sit apart by the same amount all through is lined
             // up again, as a DJ nudges the platter: the outgoing song's bar 1 moved by what was
-            // heard, and heard again.
+            // heard, and heard again. Not far where both songs' beats come from all of them: their
+            // grids hold to a few ms, and the kicks heard in a few bars can be pulled further by a
+            // bass note or a stretched attack (Let's Go nudged 64 ms off a grid 1.5 ms right).
+            val reach = if (input.a.wholeSong && input.b.wholeSong) WHOLE_SONG_NUDGE_MS else Double.MAX_VALUE
+            var nudged = 0.0
             for (nudge in 0..MAX_NUDGES) {
                 val p = proof.render(c) ?: return c.withWhy(refused)
                 proofs++
@@ -242,8 +246,10 @@ object AutoPlanner {
                 if (verdict.passes) return c.withWhy(refused)
                 val lock = verdict.lock
                 val onlyDrift = verdict.clipped <= limits.maxClipped && verdict.longestSilenceMs <= limits.maxSilenceMs && verdict.sagDb <= limits.maxSagDb
-                if (nudge < MAX_NUDGES && c.kind == AutoKind.BEAT_LOCKED && onlyDrift && lock != null && lock.spreadMs <= NUDGE_SPREAD_MS && abs(lock.lateMs) in 2.0..40.0) {
+                if (nudge < MAX_NUDGES && c.kind == AutoKind.BEAT_LOCKED && onlyDrift && lock != null && lock.spreadMs <= NUDGE_SPREAD_MS && abs(lock.lateMs) in 2.0..40.0 &&
+                    abs(nudged + lock.lateMs * c.speed) <= reach) {
                     refused += "${c.pill} beats %.1f ms %s, lined up again".format(abs(lock.lateMs), if (lock.lateMs > 0) "late" else "early")
+                    nudged += lock.lateMs * c.speed
                     c = c.nudged(lock.lateMs * c.speed)
                     continue
                 }
@@ -256,6 +262,9 @@ object AutoPlanner {
 
     /** How many times a change's kicks are lined up again before it is given up. */
     const val MAX_NUDGES = 2
+
+    /** How far in all a change between two songs on their whole-song grids may be lined up again. */
+    const val WHOLE_SONG_NUDGE_MS = 12.0
 
     /**
      * Kicks are lined up again only where they sit apart by much the same amount on every beat:

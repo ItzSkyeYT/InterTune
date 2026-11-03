@@ -147,6 +147,8 @@ class SongEnd(
     private val localLine: ((Int, Int) -> BeatLine?)? = null,
     /** The same end with its beats laid again at a tempo set by hand; null where it cannot be. */
     private val atTempo: ((Double) -> SongEnd?)? = null,
+    /** Its beats are its song's own, read from all of it (RegionAnalysis.onSong), not this end's alone. */
+    val wholeSong: Boolean = false,
 ) {
     val seconds: Double get() = (toMs - fromMs) / 1000.0
 
@@ -203,6 +205,7 @@ class SongEnd(
             key, density, trustNote + "; fixed by hand",
             localLine?.let { local -> { a: Int, b: Int -> local(a, b)?.with(fix) } },
             atTempo,
+            wholeSong,
         )
     }
 
@@ -226,6 +229,8 @@ class SongEnd(
             key, density, trustNote + "; beat set by hand",
             localLine?.let { local -> { a: Int, b: Int -> local(a, b)?.let { BeatLine(it.t0Ms + fix.nudgeMs, it.beatMs, it.firstK, it.lastK, fixed.beatsPerBar, phase, true, bars) } } },
             atTempo,
+            // A beat set by hand is the listener's, not the whole song's.
+            false,
         )
     }
 
@@ -296,7 +301,10 @@ class SongEnd(
                 )
             } else null
             val phrases = if (line != null && bars != null && g != null) PhraseFinder.find(spectrum, region, line) else null
-            val local: ((Int, Int) -> BeatLine?)? = if (g != null && line != null) { a: Int, b: Int ->
+            // A line fitted through a few bars alone where the region has no better one. One laid on
+            // its song's whole-song line has: the onsets of a few bars (hats, a syncopated stretch)
+            // pulled Auto's bar 1 25 ms off it (My Life Would Suck Without You, 3 Nov).
+            val local: ((Int, Int) -> BeatLine?)? = if (g != null && line != null && !region.gates.fromSong) { a: Int, b: Int ->
                 g.lineBetween(a, b)?.takeIf { it.jitterMs <= LOCAL_JITTER_MS && it.endsMs <= LOCAL_ENDS_MS }?.let { l ->
                     val r = region.withLine(l)
                     BeatLine(ms(r.beatFrame(0)), r.periodFrames!! * 1000.0 / rate, line.firstK, line.lastK, line.beatsPerBar, line.phase, line.beatsTrusted, line.barsTrusted)
@@ -328,6 +336,7 @@ class SongEnd(
                 trustNote = region.describe() + (if (firstBeatIsOne) "; bars from its first beat" else firstBeatNote),
                 localLine = local,
                 atTempo = { bpm -> region.atTempo(bpm)?.let { of(it, fromMs, songMs, firstBeatBars) } },
+                wholeSong = region.gates.fromSong,
             )
         }
 
