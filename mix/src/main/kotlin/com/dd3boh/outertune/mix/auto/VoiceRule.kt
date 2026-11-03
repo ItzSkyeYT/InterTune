@@ -31,8 +31,8 @@ import kotlin.math.min
  * [together] adds up where both are heard. A change that would lay two voices over each other is
  * mended as a DJ would mend it:
  *
- * - [cutEarly]: the outgoing song's mids (its voice) and highs leave on the bar line before the
- *   incoming song's first word;
+ * - [cutEarly]: the outgoing song's mids (its voice) and highs hand over to the incoming song's on
+ *   the bar line before its first word;
  * - a loop ([loopFor]): bars of the incoming song with no voice in them are looped in front of it, so
  *   its own first line comes later, once the outgoing one has finished (then cut early if not);
  * - [inLate]: the incoming song's mids come in only once the outgoing voice has gone, which loses
@@ -63,6 +63,7 @@ object VoiceRule {
     private val MIDS_A = LaneId(Side.A, Lane.MIDS)
     private val HIGHS_A = LaneId(Side.A, Lane.HIGHS)
     private val MIDS_B = LaneId(Side.B, Lane.MIDS)
+    private val HIGHS_B = LaneId(Side.B, Lane.HIGHS)
 
     /** How much of a voice a lane in state [s] lets through, 0 to 1: its gain, less what a filter takes of 300 Hz to 3 kHz. */
     fun voiceThrough(s: LaneState): Double {
@@ -148,16 +149,29 @@ object VoiceRule {
     }
 
     /**
-     * [spec] with A's mids (its voice) and highs gone by [at]: they leave over the beat before it,
-     * or keep their own move where that has them gone sooner.
+     * [spec] with A's mids (its voice) and highs handed over to B's on [at]: A's leave over the beat
+     * before it and B's are at full by then, coming in over the same beat or, where they were
+     * already on their way up, sooner on their own move; so taking the voice out leaves no hole
+     * where B is still coming up (Wake Me Up into After Hours fell 20 dB for four seconds when only
+     * A's left). On bar 1 itself both are cut on the line. A lane already gone by then, or B's
+     * already at full, keeps its own move.
      */
     fun cutAt(spec: TransitionSpec, at: Double): TransitionSpec {
         val beat = spec.beat
         val moves = spec.moves.toMutableMap()
+        val swap = if (at - beat >= 0.0) Move(at - beat, beat, How.FADE) else Move(at, 0.0, How.CUT)
         for (id in listOf(MIDS_A, HIGHS_A)) {
             val m = moves[id] ?: continue
             val gone = if (m.how == How.CUT || m.len <= 0.0) m.u else m.end
-            if (m.how == How.ECHO || gone > at) moves[id] = Move(at - beat, beat, How.FADE)
+            if (m.how == How.ECHO || gone > at) moves[id] = swap
+        }
+        for (id in listOf(MIDS_B, HIGHS_B)) {
+            val m = moves[id] ?: continue
+            if (m.how == How.FROM_START) continue
+            val full = if (m.how == How.CUT || m.len <= 0.0) m.u else m.end
+            if (full <= at) continue
+            // Already on its way up before the handover: it keeps its start and is at full by then.
+            moves[id] = if (m.how != How.CUT && m.len > 0.0 && m.u < swap.u) Move(m.u, at - m.u, m.how) else swap
         }
         return spec.copy(moves = moves)
     }

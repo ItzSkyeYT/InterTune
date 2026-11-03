@@ -99,12 +99,23 @@ class VoiceRuleTest {
         val spec = p.spec()
         assertTrue(VoiceRule.together(spec, a, b) <= VoiceRule.MAX_TOGETHER_S)
         if (p.kind == AutoKind.BEAT_LOCKED) {
-            // A's mids leave on a bar line, over the beat before it, by bar 3 of the change.
+            // A's mids leave on a bar line, over the beat before it, by bar 3 of the change, and B's
+            // take over on the same beat, so the mids are never empty in between.
             val m = checkNotNull(p.moves[MIDS_A])
             assertEquals(How.FADE, m.how)
             assertEquals(0.0, (m.end + 1e-9) % 1.0, 1e-6)
             assertTrue(m.end <= 2.0 + 1e-9)
-            assertEquals(0.0, spec.laneAt(MIDS_A, 2.0).gain, 1e-9)
+            assertEquals(0.0, spec.laneAt(MIDS_A, m.end).gain, 1e-9)
+            assertEquals(1.0, spec.laneAt(MIDS_B, m.end).gain, 1e-9)
+            // B's mids keep rising from bar 1 as the Fade has them, only sooner at full.
+            assertEquals(0.0, p.moves[MIDS_B]!!.u, 1e-9)
+            var u = m.u
+            while (u <= m.end) {
+                val a2 = spec.laneAt(MIDS_A, u).gain
+                val b2 = spec.laneAt(MIDS_B, u).gain
+                assertTrue("power at $u", a2 * a2 + b2 * b2 >= 0.98)
+                u += 1.0 / 64
+            }
         }
     }
 
