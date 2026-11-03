@@ -8,7 +8,7 @@ package com.dd3boh.outertune.mix.better
 
 import com.dd3boh.outertune.mix.FrontEnd
 import com.dd3boh.outertune.mix.RegionAnalysis
-import com.dd3boh.outertune.mix.SongGrid
+import com.dd3boh.outertune.mix.WholeSongGrid
 import com.dd3boh.outertune.mix.RegionKind
 import com.dd3boh.outertune.mix.auto.AutoMoves
 import com.dd3boh.outertune.mix.auto.BeatLine
@@ -125,11 +125,11 @@ class MixBetterTrial {
         whole = env["MIX_BETTER_WHOLE"]?.takeIf { it.isNotBlank() }
         if (whole != null) {
             val paths = File(root, "songs.tsv").readLines().drop(1).map { it.split('\t') }.associate { it[0] to it[1] }
-            val cache = File(root, "out/whole-grids-v${SongGrid.VERSION}").apply { mkdirs() }
+            val cache = File(root, "out/whole-grids-v${WholeSongGrid.VERSION}").apply { mkdirs() }
             for (s in songs.values) {
                 if (only != null && s.id !in only) continue
                 val f = File(cache, "${s.id}.json")
-                val g = if (f.isFile) SongGrid.decode(f.readText()) else wholeGrid(s, File(paths[s.id] ?: error("no path for ${s.id}")))?.also { f.writeText(SongGrid.encode(it)) }
+                val g = if (f.isFile) WholeSongGrid.decode(f.readText()) else wholeGrid(s, File(paths[s.id] ?: error("no path for ${s.id}")))?.also { f.writeText(WholeSongGrid.encode(it)) }
                 if (g != null) grids[s.id] = g
             }
         }
@@ -185,7 +185,7 @@ class MixBetterTrial {
     }
 
     private var whole: String? = null
-    private val grids = HashMap<String, SongGrid>()
+    private val grids = HashMap<String, WholeSongGrid>()
 
     private fun onSong(s: Song, r: RegionAnalysis, offsetMs: Double, exact: Boolean): RegionAnalysis {
         val mode = whole ?: return r
@@ -194,7 +194,7 @@ class MixBetterTrial {
     }
 
     /** The song decoded whole by ffmpeg, as prep.py decodes its ends, and read as the app reads a song whole. */
-    private fun wholeGrid(s: Song, path: File): SongGrid? {
+    private fun wholeGrid(s: Song, path: File): WholeSongGrid? {
         val p = ProcessBuilder("ffmpeg", "-nostdin", "-v", "error", "-i", path.path, "-f", "s16le", "-ac", "2", "-ar", s.rate.toString(), "-")
             .redirectError(ProcessBuilder.Redirect.INHERIT).start()
         val front = FrontEnd(s.rate, 2)
@@ -202,7 +202,7 @@ class MixBetterTrial {
         val shorts = ShortArray(buffer.size / 2)
         var carry = 0
         var frames = 0L
-        val most = (SongGrid.MAX_SECONDS * s.rate).toLong()
+        val most = (WholeSongGrid.MAX_SECONDS * s.rate).toLong()
         p.inputStream.use { input ->
             while (frames < most) {
                 val n = input.read(buffer, carry, buffer.size - carry)
@@ -218,29 +218,12 @@ class MixBetterTrial {
         }
         p.waitFor()
         val read = front.result()
-        if (env["MIX_BETTER_DEBUG"] == "1") {
-            val sp = com.dd3boh.outertune.mix.Spectrum.of(read)
-            val t = com.dd3boh.outertune.mix.Tempo.estimate(sp.onset, sp.frameRate, 0, sp.frames)!!
-            val placed = com.dd3boh.outertune.mix.BeatGrid.dynamicProgramme(sp.onset, 0, sp.frames, t.periodFrames)
-            println("debug ${s.id}: frames ${sp.frames}, period ${t.periodFrames}, placed ${placed.size} from ${placed.firstOrNull()} to ${placed.lastOrNull()}")
-            val env0 = com.dd3boh.outertune.mix.Envelope.of(read)
-            val lo = sp.sampleToFrame(env0.firstSound.toDouble()).toInt()
-            val hi = sp.sampleToFrame(env0.trueEnd.toDouble()).toInt()
-            val g0 = com.dd3boh.outertune.mix.BeatGrid.track(sp.onset, sp.frameRate, t.periodFrames, 0, sp.frames)
-            val g1 = com.dd3boh.outertune.mix.BeatGrid.track(sp.onset, sp.frameRate, t.periodFrames, lo, hi)
-            for (secs in intArrayOf(30, 60, 90, 120, 150, 170)) {
-                val g2 = com.dd3boh.outertune.mix.BeatGrid.track(sp.onset, sp.frameRate, t.periodFrames, lo, minOf(hi, (secs * sp.frameRate).toInt()))
-                val pl = com.dd3boh.outertune.mix.BeatGrid.dynamicProgramme(sp.onset, lo, minOf(hi, (secs * sp.frameRate).toInt()), t.periodFrames)
-                println("debug ${s.id}: first $secs s: placed ${pl.size}, " + (g2?.let { "%d..%d hits %.2f bpm %.3f".format(it.firstBeat, it.lastBeat, it.hitShare, it.bpm) } ?: "null"))
-            }
-            println("debug ${s.id}: envelope frames $lo to $hi; track whole ${g0?.let { "${it.firstBeat}..${it.lastBeat} hits ${it.hitShare}" }}; track envelope ${g1?.let { "${it.firstBeat}..${it.lastBeat} hits ${it.hitShare}" }}")
-        }
-        val g = SongGrid.analyse(read)
+        val g = WholeSongGrid.analyse(read)
         println("${s.id}: whole ${"%.1f".format(frames.toDouble() / s.rate)} s, " + (g?.describe() ?: "no grid: " + RegionAnalysis.analyse(read, RegionKind.HEAD).describe()))
         return g
     }
 
-    private fun describeWhole(s: Song, g: SongGrid): JsonObject = buildJsonObject {
+    private fun describeWhole(s: Song, g: WholeSongGrid): JsonObject = buildJsonObject {
         put("song", s.id)
         put("window", "whole")
         put("fromMs", 0.0)

@@ -31,6 +31,7 @@ import com.dd3boh.outertune.mix.RegionKind
 import com.dd3boh.outertune.mix.Style
 import com.dd3boh.outertune.mix.Headroom
 import com.dd3boh.outertune.mix.RenderedOutgoing
+import com.dd3boh.outertune.mix.WholeSongGrid
 import com.dd3boh.outertune.mix.auto.SongEnd
 import com.dd3boh.outertune.mix.edit.BeatFix
 import com.dd3boh.outertune.mix.edit.Preset
@@ -112,6 +113,14 @@ class AutomixController(
     private val beatFix: (songId: String) -> BeatFix? = { null },
     /** What was found of a song's end or opening, kept for the playlist's pills. Called on the worker. */
     private val analysed: (songId: String, end: SongEnd) -> Unit = { _, _ -> },
+    /** Each song's beats read from the whole song once, which its opening and end are laid on; null for none. Blocking, on IO. */
+    private val wholeSongs: WholeSongStore? = null,
+    /**
+     * Whether a song with no grid yet may be read whole: only with the player's cache on, where
+     * the next song's bytes read now are the ones it plays from, and the song playing is read from
+     * what was already fetched. With it off, a whole read would fetch the song twice.
+     */
+    private val readWhole: Boolean = false,
 ) : Player.Listener, AutomixAudioProcessor.Events {
 
     class Conditions(
@@ -238,6 +247,11 @@ class AutomixController(
 
         /** The change saved for this pair, read with the opening. */
         var saved: TransitionSpec? = null
+
+        /** Each song's beats as read from all of it (WholeSongGrid), where they were; the read under way for one that has none. */
+        var gridA: WholeSongGrid? = null
+        var gridB: WholeSongGrid? = null
+        var wholeRead: Job? = null
 
         /**
          * Whether the queue was shuffled as the opening was read: shuffled playback mixes by Auto
@@ -461,6 +475,9 @@ class AutomixController(
         val shuffled = t.shuffled
         t.reading = scope.launch {
             val saved = if (lanes && !shuffled) withContext(Dispatchers.IO) { runCatching { savedChange(aId, b.id) }.getOrNull() } else null
+            val (gridA, gridB) = wholeSongs?.let { store ->
+                withContext(Dispatchers.IO) { runCatching { store.get(aId) }.getOrNull() to runCatching { store.get(b.id) }.getOrNull() }
+            } ?: (null to null)
             val copySeconds = if (lanes) copySecondsFor(saved) else 0.0
             val result = runCatching {
                 withContext(Dispatchers.IO) { decoder.read(b.id, { cancelled.get() }, copySeconds) }
@@ -476,7 +493,8 @@ class AutomixController(
             }
             val work = work() ?: return@launch
             work.execute {
-                val analysis = runCatching { RegionAnalysis.analyseHead(read.front) }
+                // Read from the song's first frame as its whole was, so laid on its line exactly.
+                val analysis = runCatching { RegionAnalysis.analyseHead(read.front).let { h -> gridB?.let { h.onSong(it, 0.0, exact = true) } ?: h } }
                 main.post {
                     t.reading = null
                     val head = analysis.getOrElse { e ->
@@ -487,12 +505,85 @@ class AutomixController(
                     heads[b.id] = keptOpening(head)
                     if (cancelled.get()) return@post
                     t.head = head
+                    t.gridA = gridA
+                    t.gridB = gridB
                     t.copy = read.copy
                     t.copyFrames = read.copyFrames
                     say("opening of ${b.id}: ${describe(head)}, read in ${read.readMs} ms, analysed in ${head.analysisMillis.toLong()} ms")
                     if (saved != null) savedFor(t, saved)
+                    // A song with no grid yet is read whole now, the next one first: its opening is
+                    // what a change reads most of.
+                    when {
+                        gridB == null -> readWholeSong(t, b.id, b.durationMs, next = true)
+                        gridA == null -> readWholeSong(t, t.a.id, t.a.durationMs, next = false)
+                    }
                     tick()
                 }
+            }
+        }
+    }
+
+    /**
+     * Reads [songId] whole, once, and keeps its beats (WholeSongGrid), as Mixxx analyses a track
+     * when it is loaded: the next song's opening and the playing song's end are then laid at the
+     * tempo of all of it, not of the 30 or 40 s read. Through the player's own source, so with its
+     * cache on the next song's bytes are fetched once. A read cut short by the network is not kept.
+     */
+    private fun readWholeSong(t: Transition, songId: String, durationMs: Long, next: Boolean) {
+        val store = wholeSongs ?: return
+        if (!readWhole || t.wholeRead != null) return
+        val cancelled = t.cancelled
+        t.wholeRead = scope.launch {
+            val read = runCatching {
+                withContext(Dispatchers.IO) { decoder.read(songId, { cancelled.get() }, wholeSeconds = WholeSongGrid.MAX_SECONDS) }
+            }.getOrElse { e ->
+                if (!cancelled.get()) say("could not read all of $songId: " + ErrorText.withoutAddresses("${e.javaClass.simpleName}: ${e.message?.take(160)}"))
+                t.wholeRead = null
+                return@launch
+            }
+            val whole = read.whole
+            val expected = minOf(durationMs.toDouble(), WholeSongGrid.MAX_SECONDS * 1000)
+            if (whole == null || cancelled.get() || (durationMs > 0 && whole.seconds * 1000 < expected - WHOLE_SHORT_MS)) {
+                if (whole != null && !cancelled.get()) say("all of $songId came short, %.1f s of %.1f: not kept".format(whole.seconds, durationMs / 1000.0))
+                t.wholeRead = null
+                return@launch
+            }
+            val work = work() ?: run { t.wholeRead = null; return@launch }
+            work.execute {
+                val grid = runCatching { WholeSongGrid.analyse(whole) }.getOrNull()
+                if (grid != null) runCatching { store.put(songId, grid) }
+                main.post {
+                    t.wholeRead = null
+                    if (grid == null) {
+                        say("all of $songId read in ${read.readMs} ms: no beat found")
+                        return@post
+                    }
+                    say("all of $songId read in ${read.readMs} ms: ${grid.describe()}")
+                    if (next) {
+                        t.gridB = grid
+                        layHead(t, grid)
+                        if (t.gridA == null) readWholeSong(t, t.a.id, t.a.durationMs, next = false)
+                    } else {
+                        t.gridA = grid
+                    }
+                }
+            }
+        }
+    }
+
+    /** The next song's opening laid on its grid, read whole after it, while the end is not held yet. */
+    private fun layHead(t: Transition, grid: WholeSongGrid) {
+        val head = t.head ?: return
+        val b = t.b ?: return
+        if (t.holding || t.plan != null) return
+        val work = work() ?: return
+        work.execute {
+            val laid = runCatching { head.onSong(grid, 0.0, exact = true) }.getOrNull() ?: return@execute
+            main.post {
+                if (t.holding || t.plan != null || t.head !== head) return@post
+                t.head = laid
+                heads[b.id] = keptOpening(laid)
+                say("opening of ${b.id} laid on the whole song: ${describe(laid)}")
             }
         }
     }
@@ -702,6 +793,8 @@ class AutomixController(
     private fun plan(t: Transition, held: HeldTail, ring: ShortArray, frames: Long) {
         val head = t.head ?: return
         val work = work() ?: return
+        val gridA = t.gridA
+        val tailStartMs = t.tailStartMs.toDouble()
         val c = conditions()
         val levels = stage.levels
         val input = { readMark: Long, tail: RegionAnalysis ->
@@ -727,7 +820,9 @@ class AutomixController(
         work.execute {
             val started = SystemClock.elapsedRealtime()
             val outcome = runCatching {
+                // Its place in the song is known to a buffer or so: enough to count beats and bars, not to lay them.
                 val tail = RegionAnalysis.analyse(FrontEnd.of(ring, held.sampleRate, held.channels, 0, frames.toInt()), RegionKind.TAIL)
+                    .let { r -> gridA?.let { r.onSong(it, tailStartMs, exact = false) } ?: r }
                 val planInput = input(stage.readMark, tail)
                 val plan = Planner.plan(planInput)
                 val rendered = MixRender.renderOutgoing(plan, ring, tail.guide, tail.decimation, plan.anchors)
@@ -1042,6 +1137,9 @@ class AutomixController(
         const val HOLDING_LOOK_MS = 1_000L
         const val KEPT_GUIDE_S = 4.5
         const val LOCK_FAILED_KEPT = 256
+
+        /** How much shorter than the song a whole read may come before it counts as cut short. */
+        const val WHOLE_SHORT_MS = 5_000.0
 
 
         /**

@@ -165,14 +165,13 @@
     <string name="mix_fix_minus">-5 ms</string>
     <string name="mix_fix_plus">+5 ms</string>
     <string name="mix_fix_ms">%1$s ms</string>
-    <string name="mix_fix_click">Écouter avec un clic</string>
-    <string name="mix_fix_click_stop">Arrêter le clic</string>
+    <string name="mix_fix_click">Métronome</string>
+    <string name="mix_fix_lock">Verrouiller</string>
     <string name="mix_fix_reset">Réinitialiser</string>
     <string name="mix_fix_bars_guessed">%1$s BPM · mesure 1 incertaine</string>
     <string name="mix_fix_type">BPM</string>
     <string name="mix_beat_note_none">Rythme incertain</string>
     <string name="mix_beat_note_bar_one">Mesure 1 incertaine</string>
-    <string name="mix_fix_kept">La correction est gardée pour ce morceau, Auto s\'en sert aussi.</string>
 
     <string name="mix_moments_title">Moments</string>
     <string name="mix_moments_note">Touchez-en un pour l\'écouter.</string>

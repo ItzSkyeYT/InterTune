@@ -177,14 +177,13 @@
     <string name="mix_fix_minus">-5 ms</string>
     <string name="mix_fix_plus">+5 ms</string>
     <string name="mix_fix_ms">%1$s ms</string>
-    <string name="mix_fix_click">Listen with a click</string>
-    <string name="mix_fix_click_stop">Stop the click</string>
+    <string name="mix_fix_click">Metronome</string>
+    <string name="mix_fix_lock">Lock</string>
     <string name="mix_fix_reset">Reset</string>
     <string name="mix_fix_bars_guessed">%1$s BPM · bar 1 unsure</string>
     <string name="mix_fix_type">BPM</string>
     <string name="mix_beat_note_none">Beat unsure</string>
     <string name="mix_beat_note_bar_one">Bar 1 unsure</string>
-    <string name="mix_fix_kept">A fix is kept for this song, so Auto uses it too.</string>
 
     <!-- moments sheet -->
     <string name="mix_moments_title">Moments</string>

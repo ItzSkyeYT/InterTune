@@ -33,7 +33,7 @@ import kotlin.math.roundToInt
  * trimmed), beat k at [t0Ms] + k [beatMs]; the tempo is the line's, folded into the analysis's own
  * octave (85 to 170) like every window's.
  */
-class SongGrid(
+class WholeSongGrid(
     val bpm: Double,
     val t0Ms: Double,
     /** The beats the line was fitted through: where it is heard to hold. */
@@ -75,9 +75,15 @@ class SongGrid(
     fun isDownbeat(k: Int): Boolean = barPhase >= 0 && Math.floorMod(k - barPhase, beatsPerBar) == 0
 
     /** The same grid set by the listener: their tempo and bar 1, and locked against any analysis. */
-    fun lockedAt(bpm: Double, t0Ms: Double, barPhase: Int = this.barPhase): SongGrid = SongGrid(
+    fun lockedAt(bpm: Double, t0Ms: Double, barPhase: Int = this.barPhase): WholeSongGrid = WholeSongGrid(
         bpm, t0Ms, firstBeat, lastBeat, false, barPhase, beatsPerBar, true, true, barPhase >= 0, 1.0, if (barPhase >= 0) 1.0 else 0.0,
         tempoZ, rivalRatio, steadiness, drift, hitShare, jitterMs, songMs, analysisMs, runBeats, onLine, locked = true,
+    )
+
+    /** The same grid, locked against any analysis or not. */
+    fun withLock(locked: Boolean): WholeSongGrid = WholeSongGrid(
+        bpm, t0Ms, firstBeat, lastBeat, rounded, barPhase, beatsPerBar, tempoSure, beatsSure, barsSure, beatConfidence, barConfidence,
+        tempoZ, rivalRatio, steadiness, drift, hitShare, jitterMs, songMs, analysisMs, runBeats, onLine, locked, version,
     )
 
     fun describe(): String =
@@ -122,7 +128,7 @@ class SongGrid(
          * same line, the tempo rounded within what those stretches allow, and the line laid through
          * the beats that sit on it. Null where no straight stretch is found.
          */
-        fun analyse(front: FrontEndResult): SongGrid? {
+        fun analyse(front: FrontEndResult): WholeSongGrid? {
             val started = System.nanoTime()
             val spectrum = Spectrum.of(front)
             val rough = Envelope.of(front)
@@ -151,7 +157,7 @@ class SongGrid(
             val g = rhythm.gates
             val bars = rhythm.downbeats
             val toMs = { frame: Double -> (frame * Spectrum.HOP + Spectrum.ONSET_LAG) * front.factor * 1000.0 / front.sampleRate }
-            return SongGrid(
+            return WholeSongGrid(
                 bpm = 60.0 * frameRate / period,
                 t0Ms = toMs(t0),
                 firstBeat = grid.firstBeat,
@@ -324,7 +330,7 @@ class SongGrid(
 
         private val JSON = Json { prettyPrint = false }
 
-        fun encode(g: SongGrid): String = JSON.encodeToString(JsonElement.serializer(), buildJsonObject {
+        fun encode(g: WholeSongGrid): String = JSON.encodeToString(JsonElement.serializer(), buildJsonObject {
             put("v", g.version)
             put("bpm", g.bpm)
             put("t0Ms", g.t0Ms)
@@ -352,14 +358,14 @@ class SongGrid(
         })
 
         /** A grid kept before, or null for one of another version that was not set by hand, or for anything unreadable. */
-        fun decode(text: String): SongGrid? = runCatching {
+        fun decode(text: String): WholeSongGrid? = runCatching {
             val o = Json.parseToJsonElement(text).jsonObject
             fun d(k: String) = o[k]!!.jsonPrimitive.double
             fun i(k: String) = o[k]!!.jsonPrimitive.int
             fun b(k: String) = o[k]!!.jsonPrimitive.boolean
             val locked = b("locked")
             if (i("v") != VERSION && !locked) return null
-            SongGrid(
+            WholeSongGrid(
                 d("bpm"), d("t0Ms"), i("firstBeat"), i("lastBeat"), b("rounded"), i("barPhase"), i("beatsPerBar"),
                 b("tempoSure"), b("beatsSure"), b("barsSure"), d("beatConfidence"), d("barConfidence"),
                 d("tempoZ"), d("rivalRatio"), d("steadiness"), d("drift"), d("hitShare"), d("jitterMs"), d("songMs"),

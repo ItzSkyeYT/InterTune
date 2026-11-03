@@ -1208,6 +1208,9 @@ class MusicService : MediaLibraryService(),
                             beatFix = { id -> if (Unreleased.AUTOMIX_EDITOR) MixStores.beatFixes(this@MusicService).get(id) else null },
                             // Each song's end and opening as Auto found them, so the playlist's pills can name Auto's change.
                             analysed = { id, end -> if (Unreleased.AUTOMIX_EDITOR) MixStores.analysed(this@MusicService, id, end) },
+                            // Each song's beats from all of it, read once; only with the player's cache on, as it is sized at start.
+                            wholeSongs = if (Unreleased.AUTOMIX_EDITOR) MixStores.wholeSongs(this@MusicService) else null,
+                            readWhole = BatteryUse.songCacheMb(dataStore[MaxSongCacheSizeKey], batteryMode) != 0,
                         ).also { addListener(it) }
                     }
                 }

@@ -42,11 +42,18 @@ import kotlin.math.roundToInt
 @UnstableApi
 class HeadDecoder(private val source: DataSource.Factory) {
 
-    /** The opening's analysis input, and its full-rate copy, interleaved 16 bit, where one was asked for. */
-    class Head(val front: FrontEndResult, val readMs: Long, val copy: ShortArray? = null, val copyFrames: Int = 0)
+    /**
+     * The opening's analysis input, and its full-rate copy, interleaved 16 bit, where one was asked
+     * for; and the whole song's analysis input, where the whole song was asked for.
+     */
+    class Head(val front: FrontEndResult, val readMs: Long, val copy: ShortArray? = null, val copyFrames: Int = 0, val whole: FrontEndResult? = null)
 
-    /** Reads the opening of [mediaId], and keeps [copySeconds] of it at the full rate when that is above 0. */
-    fun read(mediaId: String, cancelled: () -> Boolean, copySeconds: Double = 0.0): Head {
+    /**
+     * Reads the opening of [mediaId], and keeps [copySeconds] of it at the full rate when that is
+     * above 0. With [wholeSeconds] above 0 it reads on to the end of the song, or that far, for the
+     * song's beats to be found once from all of it (WholeSongGrid).
+     */
+    fun read(mediaId: String, cancelled: () -> Boolean, copySeconds: Double = 0.0, wholeSeconds: Double = 0.0): Head {
         val started = SystemClock.elapsedRealtime()
         val extractor = MediaExtractorCompat(DefaultExtractorsFactory(), KeyedSource(source, mediaId))
         var codec: MediaCodec? = null
@@ -75,11 +82,13 @@ class HeadDecoder(private val source: DataSource.Factory) {
             var channels = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
             var float = false
             var front: FrontEnd? = null
-            val seconds = maxOf(AutomixSchedule.HEAD_SECONDS, copySeconds)
+            var whole: FrontEnd? = null
+            val seconds = maxOf(AutomixSchedule.HEAD_SECONDS, copySeconds, wholeSeconds)
             var analysed = (AutomixSchedule.HEAD_SECONDS * rate).toLong()
             var wanted = (seconds * rate).toLong()
             var taken = 0L
             var copy: ShortArray? = null
+            var copied = 0L
             var shorts = ShortArray(0)
             val info = MediaCodec.BufferInfo()
             var inputDone = false
@@ -144,9 +153,16 @@ class HeadDecoder(private val source: DataSource.Factory) {
                                 val f = front ?: FrontEnd(rate, channels, filteredPeaks = true).also { front = it }
                                 val toAnalyse = minOf(n.toLong(), analysed - taken).toInt()
                                 if (toAnalyse > 0) f.push(shorts, skip, toAnalyse)
+                                if (wholeSeconds > 0) (whole ?: FrontEnd(rate, channels).also { whole = it }).push(shorts, skip, n)
                                 if (copySeconds > 0) {
-                                    val c = copy ?: ShortArray((wanted * channels).toInt()).also { copy = it }
-                                    System.arraycopy(shorts, skip * channels, c, (taken * channels).toInt(), n * channels)
+                                    // As much as was asked for, however much further the read goes.
+                                    val copyWanted = (maxOf(AutomixSchedule.HEAD_SECONDS, copySeconds) * rate).toLong()
+                                    val m = minOf(n.toLong(), copyWanted - taken).toInt()
+                                    if (m > 0) {
+                                        val c = copy ?: ShortArray((copyWanted * channels).toInt()).also { copy = it }
+                                        System.arraycopy(shorts, skip * channels, c, (taken * channels).toInt(), m * channels)
+                                        copied = taken + m
+                                    }
                                 }
                                 taken += n
                             }
@@ -159,7 +175,7 @@ class HeadDecoder(private val source: DataSource.Factory) {
             // The extractor takes a failed read for the end of the song and says so only in its own
             // log, so an opening cut short by the network would pass for a short song.
             if (result.seconds < MIN_SECONDS) throw IOException("the opening came short, %.1f s".format(result.seconds))
-            return Head(result, SystemClock.elapsedRealtime() - started, copy, if (copy != null) taken.toInt() else 0)
+            return Head(result, SystemClock.elapsedRealtime() - started, copy, if (copy != null) copied.toInt() else 0, whole?.result())
         } finally {
             runCatching { codec?.stop() }
             runCatching { codec?.release() }

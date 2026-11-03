@@ -183,7 +183,7 @@ class RegionAnalysis(
     }
 
     /**
-     * This window with its beats at its song's own tempo, read from the whole song ([SongGrid]):
+     * This window with its beats at its song's own tempo, read from the whole song ([WholeSongGrid]):
      * the line keeps the song's slope exactly, and its phase is found on this window's own onsets,
      * so a window of 30 s no longer has to find a tempo of its own. [offsetMs] is where the
      * window's first frame falls in the song; [exact] says it is known to the frame (an opening read
@@ -195,13 +195,13 @@ class RegionAnalysis(
      * This window as it is where the song's tempo is not sure, or where its own sure beats run at
      * another tempo (an intro or a section with a tempo of its own).
      */
-    fun onSong(song: SongGrid, offsetMs: Double, exact: Boolean, songLine: Boolean = true, songBars: Boolean = true): RegionAnalysis {
+    fun onSong(song: WholeSongGrid, offsetMs: Double, exact: Boolean, songLine: Boolean = true, songBars: Boolean = true): RegionAnalysis {
         if (!song.tempoSure || guideFrom != 0) return this
         val own = grid
-        if (own != null && gates.beats && !SongGrid.sameTempo(own.bpm, song.bpm)) return this
+        if (own != null && gates.beats && !WholeSongGrid.sameTempo(own.bpm, song.bpm)) return this
         // A song whose one line does not hold from end to end (live drums, a tempo that moves)
         // lends its tempo only: a window that found it keeps its own line.
-        if (!song.beatsSure && own != null && SongGrid.sameTempo(own.bpm, song.bpm)) return this
+        if (!song.beatsSure && own != null && WholeSongGrid.sameTempo(own.bpm, song.bpm)) return this
         val spectrum = Spectrum.of(guide, sampleRate.toDouble() / decimation, decimation)
         val frameRate = spectrum.frameRate
         val from = spectrum.sampleToFrame(envelope.firstSound.toDouble()).toInt().coerceIn(0, spectrum.frames)
@@ -211,7 +211,7 @@ class RegionAnalysis(
         // The song's line in this window's frames, and the song's beat number of this window's beat 0.
         val raw = spectrum.sampleToFrame((song.t0Ms - offsetMs) * sampleRate / 1000.0)
         val mapped = raw - kotlin.math.floor(raw / period) * period
-        val tracked = BeatGrid.track(spectrum.onset, frameRate, period, from, to)?.takeIf { abs(it.period / period - 1) <= SongGrid.TEMPO_REACH }
+        val tracked = BeatGrid.track(spectrum.onset, frameRate, period, from, to)?.takeIf { abs(it.period / period - 1) <= WholeSongGrid.TEMPO_REACH }
         if (!song.beatsSure) {
             // One that did not find it is found again near it, on its own line and its own bars.
             val line = tracked ?: return this

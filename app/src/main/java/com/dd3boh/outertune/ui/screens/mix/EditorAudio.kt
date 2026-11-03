@@ -17,6 +17,7 @@ import com.dd3boh.outertune.mix.RegionAnalysis
 import com.dd3boh.outertune.mix.RegionKind
 import com.dd3boh.outertune.mix.Spectrum
 import com.dd3boh.outertune.mix.Tempo
+import com.dd3boh.outertune.mix.WholeSongGrid
 import com.dd3boh.outertune.mix.edit.BeatFix
 import com.dd3boh.outertune.mix.edit.Lane
 import com.dd3boh.outertune.mix.edit.Side
@@ -94,6 +95,8 @@ class PairLoader(
     private val cache: EditorCache,
     /** Where what was found of each song's end and opening is kept, for the playlist's pills. */
     private val kept: ((String, SongEnd) -> Unit)? = null,
+    /** Each song's beats read from the whole song once, which its end and opening are laid on (WholeSongStore). */
+    private val grids: ((String) -> WholeSongGrid?)? = null,
 ) {
 
     enum class Stage { READING_A, READING_B, ANALYSING }
@@ -125,8 +128,10 @@ class PairLoader(
         }
         cache.prune()
         stage(Stage.ANALYSING)
-        val aAnalysis = analyse(aWindow, RegionKind.TAIL)
-        val bAnalysis = analyse(bWindow, RegionKind.HEAD)
+        // Each at its song's own tempo where the song was read whole: the opening from the song's
+        // first frame, exactly; the end from where the decoder says it starts.
+        val aAnalysis = analyse(aWindow, RegionKind.TAIL)?.let { r -> wholeOf(a.id)?.let { r.onSong(it, aWindow.info.startMs, exact = false) } ?: r }
+        val bAnalysis = analyse(bWindow, RegionKind.HEAD)?.let { r -> wholeOf(b.id)?.let { r.onSong(it, bWindow.info.startMs, exact = bWindow.info.startMs == 0.0) } ?: r }
         val aGrid = aAnalysis?.let { gridOf(it, aWindow.info.startMs) }
         val bGrid = bAnalysis?.let { gridOf(it, bWindow.info.startMs) }
         val aGates = aAnalysis?.gates
@@ -190,6 +195,8 @@ class PairLoader(
             facts, auto ?: AutoSpec.fallback(facts), aCopy, bCopy, autoWhy,
         )
     }
+
+    private fun wholeOf(id: String): WholeSongGrid? = grids?.let { runCatching { it(id) }.getOrNull() }
 
     /** A window read whole into the heap, the form the engine renders from. */
     private fun copyOf(window: PcmWindow): Copy {

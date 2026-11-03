@@ -134,6 +134,14 @@ object MixStores {
         if (analysis(context).put(songId, end)) _changes.value += 1
     }
 
+    @Volatile
+    private var wholeSongs: WholeSongStore? = null
+
+    /** Each song's beats read from the whole song once, locked or not. In the app's files: a locked grid must stay. */
+    fun wholeSongs(context: Context): WholeSongStore = wholeSongs ?: synchronized(this) {
+        wholeSongs ?: WholeSongStore(File(context.applicationContext.filesDir, "mix/grids")).also { wholeSongs = it }
+    }
+
     private class WatchedTransitionStore(
         private val inner: TransitionStore,
         private val changed: () -> Unit,

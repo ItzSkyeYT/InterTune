@@ -206,7 +206,7 @@ class BeatGrid(
 
         /**
          * The beats of [onset] between [from] and [to] on a line given from elsewhere, t0 + k
-         * [period] (the song read whole, [SongGrid]), judged as [track] judges its own line: the
+         * [period] (the song read whole, [WholeSongGrid]), judged as [track] judges its own line: the
          * stretch where it keeps landing on strong onsets, the share it hits there, how far those
          * onsets sit off it. The line itself is kept as it is. With no onset heard on it, the whole
          * region is its stretch and nothing was hit. Null with fewer than four beats in the region.

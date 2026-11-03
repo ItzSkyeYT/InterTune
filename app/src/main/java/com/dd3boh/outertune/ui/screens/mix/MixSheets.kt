@@ -37,6 +37,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -394,12 +396,23 @@ fun FixSheet(
                     Text(stringResource(R.string.mix_fix_ms, (if (fix.nudgeMs > 0) "+" else "") + fix.nudgeMs), style = MaterialTheme.typography.bodyMedium)
                 }
             }
+            // The song's grid from all of it, once it was read whole: Lock keeps any analysis off it.
+            var locked by remember(facts.id) { mutableStateOf<Boolean?>(null) }
+            LaunchedEffect(facts.id) { locked = vm.wholeLocked(facts.id) }
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 4.dp)) {
-                FilterChip(selected = clicking, onClick = { onClick(!clicking) }, label = { Text(stringResource(if (clicking) R.string.mix_fix_click_stop else R.string.mix_fix_click)) })
-                Spacer(Modifier.weight(1f))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), itemVerticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                    FilterChip(selected = clicking, onClick = { onClick(!clicking) }, label = { Text(stringResource(R.string.mix_fix_click)) })
+                    locked?.let { on ->
+                        FilterChip(
+                            selected = on,
+                            onClick = { vm.lockWhole(facts.id, !on) { now -> locked = now } },
+                            label = { Text(stringResource(R.string.mix_fix_lock)) },
+                            leadingIcon = { Icon(if (on) Icons.Rounded.Lock else Icons.Rounded.LockOpen, contentDescription = null, modifier = Modifier.size(FilterChipDefaults.IconSize)) },
+                        )
+                    }
+                }
                 TextButton(onClick = { set(BeatFix.NONE) }, enabled = !fix.isNone) { Text(stringResource(R.string.mix_fix_reset)) }
             }
-            Text(stringResource(R.string.mix_fix_kept), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
         }
     }
 }

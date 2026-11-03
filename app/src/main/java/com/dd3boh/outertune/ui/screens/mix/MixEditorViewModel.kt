@@ -126,6 +126,21 @@ class MixEditorViewModel @Inject constructor(
 
     fun retry() = load()
 
+    /** Whether [songId]'s grid read from the whole song is locked; null where the song was never read whole. */
+    suspend fun wholeLocked(songId: String): Boolean? = withContext(Dispatchers.IO) {
+        runCatching { MixStores.wholeSongs(context).get(songId)?.locked }.getOrNull()
+    }
+
+    /** Locks or unlocks [songId]'s whole-song grid against any analysis; [done] is told what it is now, on the main thread. */
+    fun lockWhole(songId: String, locked: Boolean, done: (Boolean?) -> Unit) {
+        viewModelScope.launch {
+            val now = withContext(Dispatchers.IO) {
+                runCatching { if (MixStores.wholeSongs(context).lock(songId, locked)) locked else MixStores.wholeSongs(context).get(songId)?.locked }.getOrNull()
+            }
+            done(now)
+        }
+    }
+
     private fun load() {
         val source = source ?: return
         job?.cancel()
@@ -147,7 +162,7 @@ class MixEditorViewModel @Inject constructor(
                 val levelB = withContext(Dispatchers.IO) { runCatching { levelOf(toId) }.getOrDefault(1.0) }
                 val volume = runCatching { volumeOf() }.getOrDefault(1f)
                 val loaded = withContext(Dispatchers.IO) {
-                    PairLoader(source, EditorCache(context.cacheDir)) { id, end -> MixStores.analysed(context, id, end) }.load(
+                    PairLoader(source, EditorCache(context.cacheDir), { id, end -> MixStores.analysed(context, id, end) }, { id -> MixStores.wholeSongs(context).get(id) }).load(
                         inputA, inputB, levelA, levelB,
                         stage = { phase.value = Phase.Loading(it) },
                         cancelled = { cancelled.get() },
