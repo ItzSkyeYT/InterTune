@@ -25,6 +25,13 @@ import org.junit.Test
 class ChromecastTest {
     private fun json(text: String): JsonObject = Json.parseToJsonElement(text).jsonObject
 
+    @Test
+    fun `our own receiver comes first when the build asks for one, Google's always last`() {
+        assertEquals(listOf(Chromecast.DEFAULT_MEDIA_RECEIVER), Chromecast.receivers(own = null))
+        assertEquals(listOf("1A2B3C4D", Chromecast.DEFAULT_MEDIA_RECEIVER), Chromecast.receivers(own = "1A2B3C4D"))
+        assertEquals(listOf(Chromecast.DEFAULT_MEDIA_RECEIVER), Chromecast.receivers(own = Chromecast.DEFAULT_MEDIA_RECEIVER))
+    }
+
     private fun JsonObject.text(key: String) = getValue(key).jsonPrimitive.content
 
     private val song = CastItem(

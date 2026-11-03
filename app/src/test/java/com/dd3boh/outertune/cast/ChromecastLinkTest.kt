@@ -63,6 +63,7 @@ class ChromecastLinkTest {
     private val quiet = ChromecastLink.Timing(
         answerTimeoutMs = 2_000,
         launchTimeoutMs = 2_000,
+        ownLaunchTimeoutMs = 500,
         pingEveryMs = 600_000,
         deadAfterMs = 600_000,
         statusEveryMs = 600_000,
@@ -106,6 +107,14 @@ class ChromecastLinkTest {
 
         @Volatile
         var refuseLaunch: String? = null
+
+        /** Apps this device answers LAUNCH_ERROR NOT_FOUND for, as one not registered for an unpublished app. */
+        @Volatile
+        var refuseApps: Set<String> = emptySet()
+
+        /** Apps whose LAUNCH this device never answers, as one whose page does not load. */
+        @Volatile
+        var ignoreApps: Set<String> = emptySet()
 
         /** Opens the player when asked to, or leaves LAUNCH unanswered, as a device that is stuck. */
         @Volatile
@@ -178,13 +187,14 @@ class ChromecastLinkTest {
                 Chromecast.NS_RECEIVER -> when (sent.type) {
                     "GET_STATUS" -> deviceStatus(sent.requestId)
                     "LAUNCH" -> {
-                        val refusal = refuseLaunch
+                        val appId = sent.body["appId"]?.jsonPrimitive?.content ?: Chromecast.DEFAULT_MEDIA_RECEIVER
+                        val refusal = refuseLaunch ?: "NOT_FOUND".takeIf { appId in refuseApps }
                         if (refusal != null) {
                             send(Chromecast.PLATFORM_RECEIVER, message.sourceId, Chromecast.NS_RECEIVER, """{"type":"LAUNCH_ERROR","requestId":${sent.requestId},"reason":"$refusal"}""")
-                        } else if (answerLaunches) {
+                        } else if (answerLaunches && appId !in ignoreApps) {
                             launches++
                             apps.removeAll { true }
-                            apps += App(Chromecast.DEFAULT_MEDIA_RECEIVER, "session-$launches", "web-$launches")
+                            apps += App(appId, "session-$launches", "web-$launches")
                             sessions = 0
                             deviceStatus(sent.requestId)
                         }
@@ -287,18 +297,35 @@ class ChromecastLinkTest {
         }
     }
 
-    private fun link(receiver: FakeChromecast, timing: ChromecastLink.Timing = quiet): ChromecastLink =
-        ChromecastLink(receiver.device, scope, secure = { socket, _, _ -> socket }, timing = timing).also { links += it }
+    /** Google's receiver alone, as builds without InterTune's own: the tests' fixed choice, whatever the build's. */
+    private val googles = listOf(Chromecast.DEFAULT_MEDIA_RECEIVER)
+
+    /** A stand-in for InterTune's own App ID, which the Cast console gives. */
+    private val ours = "1A2B3C4D"
+
+    private fun link(
+        receiver: FakeChromecast,
+        timing: ChromecastLink.Timing = quiet,
+        receivers: List<String> = googles,
+        refusals: ChromecastLink.Refusals = ChromecastLink.Refusals(),
+    ): ChromecastLink =
+        ChromecastLink(receiver.device, scope, secure = { socket, _, _ -> socket }, timing = timing, receivers = receivers, refusals = refusals)
+            .also { links += it }
 
     private fun connected(
         apps: List<App> = listOf(App("E8C28D3C", "backdrop", "web-0", idleScreen = true)),
         timing: ChromecastLink.Timing = quiet,
+        receivers: List<String> = googles,
+        refusals: ChromecastLink.Refusals = ChromecastLink.Refusals(),
+        setUp: FakeChromecast.() -> Unit = {},
     ): Pair<FakeChromecast, ChromecastLink> {
-        val receiver = FakeChromecast(apps)
-        val link = link(receiver, timing)
+        val receiver = FakeChromecast(apps).apply(setUp)
+        val link = link(receiver, timing, receivers, refusals)
         runBlocking { link.connect() }
         return receiver to link
     }
+
+    private val Sent.appId: String get() = body.getValue("appId").jsonPrimitive.content
 
     private fun ChromecastLink.await(timeoutMs: Long = 5_000, predicate: (ReceiverStatus) -> Boolean): ReceiverStatus =
         runBlocking { withTimeout(timeoutMs) { status.first(predicate) } }
@@ -364,6 +391,67 @@ class ChromecastLinkTest {
         val load = receiver.next(Chromecast.NS_MEDIA, "LOAD")
         assertEquals("web-9", load.message.destinationId)
         assertEquals("session-9", load.body.getValue("sessionId").jsonPrimitive.content)
+    }
+
+    // InterTune's own receiver, and Google's when a device will not open ours
+
+    @Test
+    fun `our own receiver is opened first when the build has one`() {
+        val (receiver, link) = connected(receivers = listOf(ours, Chromecast.DEFAULT_MEDIA_RECEIVER))
+        assertEquals(ours, receiver.next(Chromecast.NS_RECEIVER, "LAUNCH").appId)
+        assertEquals("web-1", receiver.next(Chromecast.NS_CONNECTION, "CONNECT").message.destinationId)
+        assertEquals(1, receiver.everything.count { it.type == "LAUNCH" })
+        assertEquals(LinkState.CONNECTED, link.status.value.link)
+    }
+
+    @Test
+    fun `a device that refuses our own receiver opens Google's at once, and is not asked for ours again`() {
+        val refusals = ChromecastLink.Refusals()
+        val (receiver, link) = connected(receivers = listOf(ours, Chromecast.DEFAULT_MEDIA_RECEIVER), refusals = refusals) {
+            refuseApps = setOf(ours)
+        }
+        assertEquals(ours, receiver.next(Chromecast.NS_RECEIVER, "LAUNCH").appId)
+        assertEquals(Chromecast.DEFAULT_MEDIA_RECEIVER, receiver.next(Chromecast.NS_RECEIVER, "LAUNCH").appId)
+        assertEquals("web-1", receiver.next(Chromecast.NS_CONNECTION, "CONNECT").message.destinationId)
+        assertEquals(LinkState.CONNECTED, link.status.value.link)
+        assertTrue(refusals.refuses(receiver.device.id, ours))
+
+        val (again, _) = connected(receivers = listOf(ours, Chromecast.DEFAULT_MEDIA_RECEIVER), refusals = refusals)
+        assertEquals(Chromecast.DEFAULT_MEDIA_RECEIVER, again.next(Chromecast.NS_RECEIVER, "LAUNCH").appId)
+        assertTrue(again.everything.none { it.type == "LAUNCH" && it.appId == ours })
+    }
+
+    @Test
+    fun `a device that leaves our own receiver unopened opens Google's after the shorter wait`() {
+        val started = System.nanoTime()
+        val (receiver, link) = connected(receivers = listOf(ours, Chromecast.DEFAULT_MEDIA_RECEIVER)) { ignoreApps = setOf(ours) }
+        val tookMs = (System.nanoTime() - started) / 1_000_000
+        assertEquals(listOf(ours, Chromecast.DEFAULT_MEDIA_RECEIVER), receiver.everything.filter { it.type == "LAUNCH" }.map { it.appId })
+        assertEquals(LinkState.CONNECTED, link.status.value.link)
+        assertTrue("took $tookMs ms", tookMs in quiet.ownLaunchTimeoutMs until quiet.launchTimeoutMs)
+    }
+
+    @Test
+    fun `a device already running our own receiver is joined, not launched again`() {
+        val (receiver, _) = connected(
+            apps = listOf(App(ours, "session-7", "web-7")),
+            receivers = listOf(ours, Chromecast.DEFAULT_MEDIA_RECEIVER),
+        )
+        assertEquals(Chromecast.PLATFORM_RECEIVER, receiver.next(Chromecast.NS_CONNECTION, "CONNECT").message.destinationId)
+        assertEquals("web-7", receiver.next(Chromecast.NS_CONNECTION, "CONNECT").message.destinationId)
+        assertTrue(receiver.everything.none { it.type == "LAUNCH" })
+    }
+
+    @Test
+    fun `a refusal is forgotten after a while, so a device registered since is asked again`() {
+        var now = 0L
+        val refusals = ChromecastLink.Refusals(now = { now }, forgetAfterMs = 1_000)
+        refusals.refused("tv", ours)
+        assertTrue(refusals.refuses("tv", ours))
+        assertFalse(refusals.refuses("other tv", ours))
+        assertFalse(refusals.refuses("tv", Chromecast.DEFAULT_MEDIA_RECEIVER))
+        now = 1_000
+        assertFalse(refusals.refuses("tv", ours))
     }
 
     @Test
