@@ -84,3 +84,42 @@ internal class LoopedSource(
     private fun sample(frame: Long, c: Int): Double =
         if (frame in 0 until frames) b[(frame * channels).toInt() + c].toDouble() else 0.0
 }
+
+/**
+ * A loop of A's bars as a change plays it: [frames] frames of A's music from [srcFrom], played
+ * [times] more times right after the first, each pass joined as B's loop is, out of what follows the
+ * looped bars into their first; then A goes on from the end of the bars. A's frames after them come
+ * [times] x [frames] later.
+ */
+class PlannedOutroLoop(val srcFrom: Long, val frames: Long, val times: Int, val seam: Int) {
+    val end: Long get() = srcFrom + frames
+    val shift: Long get() = frames * times
+
+    /** Where a frame of A's music is heard in A as looped. */
+    fun virtual(frame: Double): Double = if (frame >= end) frame + shift else frame
+
+    /** A's music with the loop in it: the bars [times] more times, each pass crossfaded in over [seam] frames. */
+    fun extend(a: ShortArray, channels: Int, aFrames: Long): ShortArray {
+        val n = aFrames.coerceAtMost((a.size / channels).toLong())
+        val out = ShortArray(((n + shift) * channels).toInt())
+        val endI = end.toInt()
+        System.arraycopy(a, 0, out, 0, endI * channels)
+        for (k in 0 until times) {
+            val at = (end + k * frames).toInt()
+            for (m in 0 until frames.toInt()) {
+                for (c in 0 until channels) {
+                    val v = a[(srcFrom.toInt() + m) * channels + c].toDouble()
+                    out[(at + m) * channels + c] = if (m < seam) {
+                        // Out of what follows the bars (A's own next bar line) into their first.
+                        val w = (m + 0.5) / seam
+                        val follow = if (endI + m < n) a[(endI + m) * channels + c].toDouble() else 0.0
+                        com.dd3boh.outertune.mix.toPcm16(v * w + follow * (1 - w))
+                    } else v.toInt().toShort()
+                }
+            }
+        }
+        val rest = (n - end).toInt()
+        if (rest > 0) System.arraycopy(a, endI * channels, out, ((end + shift) * channels).toInt(), rest * channels)
+        return out
+    }
+}

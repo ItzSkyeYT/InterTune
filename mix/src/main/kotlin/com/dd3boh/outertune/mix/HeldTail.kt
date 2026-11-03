@@ -676,7 +676,7 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
      * the stretch begins for one with it, the stretcher copying the end there.
      */
     private fun inStep(p: MixPlan, o: Long): Boolean =
-        p.aMap.isIdentity || o + BACK_FRAMES + Wsola.FRAME <= p.aMap.rampStart
+        o + BACK_FRAMES + Wsola.FRAME <= p.alignedUntil && (p.aMap.isIdentity || o + BACK_FRAMES + Wsola.FRAME <= p.aMap.rampStart)
 
     private fun release() {
         ring = null

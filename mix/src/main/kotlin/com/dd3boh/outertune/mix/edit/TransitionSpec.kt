@@ -231,6 +231,13 @@ data class IntroLoop(val bars: Int, val fromMs: Double, val times: Int = 1) {
 }
 
 /**
+ * A loop of the outgoing song's own bars: [bars] bars of A from its downbeat at [atMs] (A's own
+ * clock), played [times] more times before A goes on from the end of them, each pass joined as
+ * B's loop is. What A plays after the loop comes [times] x [bars] of its bars later.
+ */
+data class OutroLoop(val bars: Int, val atMs: Double, val times: Int = 1)
+
+/**
  * One change from a song into the next, as the editor makes it and as it is saved: everything
  * else (the engine's lane plan, the canvas, the preview, the pill) is worked out from this.
  *
@@ -270,6 +277,13 @@ data class TransitionSpec(
      * from its own bar 1. Null for none.
      */
     val introLoop: IntroLoop? = null,
+    /**
+     * A loop of the outgoing song's own bars, as a DJ app's loop on the outgoing deck: [OutroLoop.bars]
+     * bars of A from its downbeat at [OutroLoop.atMs], [OutroLoop.times] more passes, then A goes on
+     * from the end of those bars. Everything of A after them comes that much later, so a change can
+     * run on past the end of the song as it was held. Null for none.
+     */
+    val outroLoop: OutroLoop? = null,
     /** Where B starts playing, in ms of its own clock: 0, its first frame, unless a later start is allowed. */
     val bStartMs: Double = 0.0,
     /** When it was saved, in ms since the epoch; 0 for a spec not saved. */
@@ -312,6 +326,17 @@ data class TransitionSpec(
     /** Whether A is stretched to B's beat in this change. */
     val beatMatched: Boolean get() = beatMatch && beatMatchAllowed()
 
+    /** How many of the change's bars A's loop adds to A: its bars, times over, at A's speed through the change; 0 without one. */
+    val outroLoopBars: Double get() = outroLoop?.let { it.bars * it.times * a.barMs / (if (beatMatched) b.barMs * tempoRatio() else b.barMs) } ?: 0.0
+
+    /** Where A's loop passes sit in the change, in its bars: from the end of the looped bars, as long as the passes. */
+    fun outroLoopU(): ClosedFloatingPointRange<Double>? {
+        val l = outroLoop ?: return null
+        val perA = if (beatMatched) b.barMs * tempoRatio() else b.barMs
+        val from = (l.atMs + l.bars * a.barMs - a.atMs) / perA
+        return from..(from + outroLoopBars)
+    }
+
     /** How many bars of the change B's loop in front of it takes: its bars, times over; 0 without one. */
     val loopBars: Double get() = introLoop?.let { (it.bars * it.times).toDouble() } ?: introTwice.toDouble()
 
@@ -335,6 +360,20 @@ data class TransitionSpec(
      * bars (folded) for each bar of B; otherwise it plays at its own speed and its bars drift.
      */
     fun aMsAt(u: Double): Double = a.atMs + u * (if (beatMatched) b.barMs * tempoRatio() else b.barMs)
+
+    /**
+     * Where bar position [u] falls in what is heard of A, in ms of its own clock: as [aMsAt], but
+     * inside A's loop the bar of the loop playing there, and after it, A that many bars later.
+     */
+    fun aHeardMsAt(u: Double): Double {
+        val ms = aMsAt(u)
+        val l = outroLoop ?: return ms
+        val loopMs = l.bars * a.barMs
+        val end = l.atMs + loopMs
+        if (ms < end) return ms
+        val passes = l.times * loopMs
+        return if (ms < end + passes) l.atMs + (ms - end) % loopMs else ms - passes
+    }
 
     /** Whatever breaks the rules of a spec, in a line each; empty for a spec that may be saved and played. */
     fun problems(): List<String> = buildList {
@@ -379,6 +418,11 @@ data class TransitionSpec(
             if (l.times !in 1..IntroLoop.MAX_TIMES) add("a loop played ${l.times} times")
             if (!l.fromMs.isFinite() || l.fromMs < 0) add("a loop from ${l.fromMs} ms")
             if (introTwice > 0) add("a loop and the intro twice at once")
+        }
+        outroLoop?.let { l ->
+            if (l.bars !in IntroLoop.BARS) add("an outgoing loop of ${l.bars} bars")
+            if (l.times !in 1..IntroLoop.MAX_TIMES) add("an outgoing loop played ${l.times} more times")
+            if (!l.atMs.isFinite() || l.atMs < 0) add("an outgoing loop from ${l.atMs} ms")
         }
         if (!bStartMs.isFinite() || bStartMs < 0) add("B starts at $bStartMs ms")
     }

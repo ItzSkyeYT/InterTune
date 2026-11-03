@@ -526,7 +526,7 @@ class MixBetterTrial {
         val bMono = ShortArray(n)
         val fa = DoubleArray(2)
         val fb = DoubleArray(2)
-        val aEnd = p.aMap.outAt((aPcm.size / 2).toDouble())
+        val aEnd = p.aMap.outAt((aPcm.size / 2 + (p.outro?.shift ?: 0L)).toDouble())
         for (i in 0 until n) {
             val o = from + i
             if (o < aEnd) aSource.frame(o, fa) else fa.fill(0.0)

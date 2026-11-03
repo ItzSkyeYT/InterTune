@@ -450,6 +450,7 @@ fun DrawScope.drawMixCanvas(c: CanvasInputs) {
             drawAdjust(c)
         } else {
             if (spec.loopBars > 0) drawIntroTwice(c)
+            spec.outroLoopU()?.let { drawOutroLoop(c, it) }
             drawSide(c, Side.A)
             drawSide(c, Side.B)
             drawWalls(c)
@@ -505,8 +506,8 @@ private fun levels(c: CanvasInputs, side: Side): SideLevels {
         val st = Array(n) { i ->
             val u0 = g.columnU(i) - du / 2
             val u1 = u0 + du
-            val ms0 = (if (side == Side.A) spec.aMsAt(u0) else spec.bMsAt(u0)) - origin
-            val ms1 = (if (side == Side.A) spec.aMsAt(u1) else spec.bMsAt(u1)) - origin
+            val ms0 = (if (side == Side.A) spec.aHeardMsAt(u0) else spec.bMsAt(u0)) - origin
+            val ms1 = (if (side == Side.A) spec.aHeardMsAt(u1) else spec.bMsAt(u1)) - origin
             var v = bands.peak(lane, ms0, ms1) / ref
             // Walls fade over 12 dp; B is nothing before its first frame.
             val x = g.x(g.columnU(i))
@@ -700,6 +701,23 @@ private fun DrawScope.drawIntroTwice(c: CanvasInputs) {
             val xk = g.x(k)
             drawRect(c.colors.onSurface.copy(alpha = 0.5f), Offset(xk - 0.75f, band.top), Size(1.5f, band.height))
             k += bars
+        }
+    }
+    label(c.measurer, c.words.introTwiceWord(), x0 + 3 * g.dp, band.top + 9 * g.dp, c.colors.onSurfaceVariant, 10f)
+}
+
+private fun DrawScope.drawOutroLoop(c: CanvasInputs, at: ClosedFloatingPointRange<Double>) {
+    // A's loop: where its bars play again, hatched on its band like B's loop.
+    val g = c.layout
+    val x0 = max(g.x(at.start), g.pad)
+    val x1 = min(g.x(at.endInclusive), size.width - g.pad)
+    if (x1 <= x0) return
+    val band = g.a
+    clipRect(x0, band.top, x1, band.bottom) {
+        var x = x0 - band.height
+        while (x < x1) {
+            drawLine(c.colors.onSurface.copy(alpha = 0.22f), Offset(x, band.bottom), Offset(x + band.height, band.top), 1f)
+            x += 6 * g.dp
         }
     }
     label(c.measurer, c.words.introTwiceWord(), x0 + 3 * g.dp, band.top + 9 * g.dp, c.colors.onSurfaceVariant, 10f)

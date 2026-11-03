@@ -85,6 +85,8 @@ class LanePlan internal constructor(
     val speed: Double,
     /** B's loop in front of it, where the spec has one: its frames in B's copy and where it plays. */
     val loop: PlannedLoop? = null,
+    /** A's loop, where the spec has one: every frame of A in this plan is counted in A as looped. */
+    val outro: PlannedOutroLoop? = null,
 ) {
     /** The first output frame B's side gives anything: its loop's, or its own first frame. */
     val bFrom: Long get() = loop?.let { minOf(it.outFrom, bStart) } ?: bStart
@@ -143,6 +145,23 @@ object SpecPlan {
         val beatFrames = barFrames * spec.beat
         val speed = if (spec.beatMatched) spec.tempoRatio() else 1.0
 
+        // A as heard: with a loop of its bars, everything of A after them comes that much later,
+        // and every frame of A below is counted in A as looped.
+        val outroSpec = spec.outroLoop
+        if (outroSpec != null && facts.aMap != null) return Result.Refused("the outgoing loop on a time map worked out without it")
+        val outro = outroSpec?.let { l ->
+            val from = facts.aBar1 + (l.atMs - spec.a.atMs) * rate / 1000.0
+            val frames = (l.bars * spec.a.barMs * rate / 1000.0).roundToLong()
+            val seam = Loops.seamFrames(rate)
+            when {
+                from < 0 -> return Result.Refused("the outgoing loop starts before the music at hand")
+                from + frames + seam > facts.aFrames -> return Result.Refused("the outgoing loop runs past the music at hand")
+            }
+            PlannedOutroLoop(from.roundToLong(), frames, l.times, seam)
+        }
+        val aBar1 = outro?.virtual(facts.aBar1) ?: facts.aBar1
+        val aFrames = facts.aFrames + (outro?.shift ?: 0L)
+
         // A's clock: as it is up to the ramp, then at B's tempo from bar 1 on.
         val map: TimeMap
         val aBeatFrames = 60.0 / spec.a.bpm * rate
@@ -151,7 +170,7 @@ object SpecPlan {
         } else if (speed != 1.0) {
             val beats = if (abs(speed - 1) > LONG_RAMP_ABOVE) LONG_RAMP_BEATS else RAMP_BEATS
             val rampTail = beats * aBeatFrames
-            val rampStart = facts.aBar1 - rampTail
+            val rampStart = aBar1 - rampTail
             if (rampStart < 0) return Result.Refused("A's tempo would have to start moving before the music at hand")
             map = TimeMap(rampStart, 2.0 * rampTail / (1.0 + speed), speed)
         } else {
@@ -162,7 +181,7 @@ object SpecPlan {
         val loopSpec = spec.introLoop
         val loopFrames = loopSpec?.let { (it.bars * barFrames).roundToLong() } ?: 0L
         val loopAhead = loopSpec?.let { loopFrames * it.times } ?: 0L
-        val bStart = (map.outAt(facts.aBar1) + loopAhead - facts.bBar1).roundToLong()
+        val bStart = (map.outAt(aBar1) + loopAhead - facts.bBar1).roundToLong()
         // B's anchor is heard exactly on bar 1 (or after its loop); A's lands within half a frame of it.
         val bar1 = bStart + facts.bBar1 - loopAhead
         fun out(u: Double) = bar1 + u * barFrames
@@ -195,16 +214,18 @@ object SpecPlan {
         val pad = ceil(Engine.HEADROOM_PAD_S * rate).toLong()
         val bothFrom = bHeardFrom
         val bothTo = aGone
-        val mixFrom = minOf(aChangeFrom, bothFrom - pad, bFirstFrame)
+        // A's loop is played from the render: its first join, and the crossfade into it, inside it.
+        val outroFrom = outro?.let { floor(map.outAt(it.end.toDouble())).toLong() - it.seam - pad } ?: Long.MAX_VALUE
+        val mixFrom = minOf(aChangeFrom, bothFrom - pad, bFirstFrame, outroFrom)
         val mixTo = maxOf(aGone, bothTo + pad, bPlain)
 
-        val anchors = facts.anchors ?: run {
+        val anchors = facts.anchors?.let { beats -> outro?.let { virtualBeats(beats, it) } ?: beats } ?: run {
             // A's beats on the spec's grid, from where its tempo starts to move to where it is gone.
-            val first = if (map.isIdentity) facts.aBar1 else map.rampStart
+            val first = if (map.isIdentity) aBar1 else map.rampStart
             val last = map.tailAt(aGone.toDouble())
-            val k0 = floor((first - facts.aBar1) / aBeatFrames).toInt() - 1
-            val k1 = ceil((last - facts.aBar1) / aBeatFrames).toInt() + 1
-            if (map.isIdentity) DoubleArray(0) else DoubleArray(k1 - k0 + 1) { facts.aBar1 + (k0 + it) * aBeatFrames }
+            val k0 = floor((first - aBar1) / aBeatFrames).toInt() - 1
+            val k1 = ceil((last - aBar1) / aBeatFrames).toInt() + 1
+            if (map.isIdentity) DoubleArray(0) else DoubleArray(k1 - k0 + 1) { aBar1 + (k0 + it) * aBeatFrames }
         }
 
         when {
@@ -212,7 +233,7 @@ object SpecPlan {
                 "it starts %.1f s before it can be ready".format((facts.earliest - mixFrom).toDouble() / rate),
             )
             mixFrom < 0 -> return Result.Refused("it starts before the music at hand")
-            bStart > facts.aFrames && loopSpec == null -> return Result.Refused("B would start after the end of A")
+            bStart > aFrames && loopSpec == null -> return Result.Refused("B would start after the end of A")
             mixTo - bStart > facts.bFrames -> return Result.Refused(
                 "B's copy holds %.1f s, the change needs %.1f s of it".format(facts.bFrames.toDouble() / rate, (mixTo - bStart).toDouble() / rate),
             )
@@ -248,11 +269,23 @@ object SpecPlan {
                 echoFrames = echoFrames,
                 speed = map.speed,
                 loop = planned,
+                outro = outro,
             ).also {
                 it.echoingLanes = echoing
                 if (echoing.isNotEmpty()) it.echoFadeFrom = max(dryGone, aGone - echoFrames)
             },
         )
+    }
+
+    /** A's beats [beats] in A as looped: those after the loop later by it, and the loop's own over again in each pass. */
+    internal fun virtualBeats(beats: DoubleArray, loop: PlannedOutroLoop): DoubleArray {
+        val out = ArrayList<Double>(beats.size + 16)
+        for (b in beats) {
+            out += loop.virtual(b)
+            if (b >= loop.srcFrom && b < loop.end) for (k in 1..loop.times) out += b + k * loop.frames
+        }
+        out.sort()
+        return out.toDoubleArray()
     }
 
     /**

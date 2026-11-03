@@ -93,6 +93,13 @@ object TransitionJson {
                 put("times", l.times)
             })
         }
+        spec.outroLoop?.let { l ->
+            put("outroLoop", buildJsonObject {
+                put("bars", l.bars)
+                put("atMs", l.atMs)
+                put("times", l.times)
+            })
+        }
         put("bStart", spec.bStartMs)
         put("savedAt", spec.savedAt)
     }
@@ -135,6 +142,10 @@ object TransitionJson {
             introLoop = o["introLoop"]?.let { l ->
                 val lo = l as? JsonObject ?: return null
                 IntroLoop(lo.int("bars") ?: return null, lo.double("fromMs") ?: return null, lo.int("times") ?: return null)
+            },
+            outroLoop = o["outroLoop"]?.let { l ->
+                val lo = l as? JsonObject ?: return null
+                OutroLoop(lo.int("bars") ?: return null, lo.double("atMs") ?: return null, lo.int("times") ?: return null)
             },
             bStartMs = o.double("bStart") ?: 0.0,
             savedAt = o.long("savedAt") ?: 0L,

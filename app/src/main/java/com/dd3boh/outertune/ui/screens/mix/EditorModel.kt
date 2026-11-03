@@ -22,6 +22,7 @@ import com.dd3boh.outertune.mix.edit.SimpleRead
 import com.dd3boh.outertune.mix.edit.SimpleRows
 import com.dd3boh.outertune.mix.edit.SongPair
 import com.dd3boh.outertune.mix.edit.IntroLoop
+import com.dd3boh.outertune.mix.edit.OutroLoop
 import com.dd3boh.outertune.mix.edit.TransitionSpec
 import com.dd3boh.outertune.mix.edit.aGoneAt
 import com.dd3boh.outertune.mix.edit.laneAt
@@ -182,7 +183,7 @@ class MixEditor(
     fun bStartU(s: TransitionSpec = spec): Double = (s.bStartMs - s.b.atMs) / s.b.barMs + s.loopBars
 
     /** Where A's end falls, in bars of the change. */
-    fun aEndU(s: TransitionSpec = spec): Double = (facts.a.durationMs - s.a.atMs) / perA(s)
+    fun aEndU(s: TransitionSpec = spec): Double = (facts.a.durationMs - s.a.atMs) / perA(s) + s.outroLoopBars
 
     /** The wall: A cannot be heard before this, in bars of the change. */
     fun aWallU(s: TransitionSpec = spec): Double = (facts.aReachStartMs - s.a.atMs) / perA(s)
@@ -227,7 +228,7 @@ class MixEditor(
     fun sameAsAuto(s: TransitionSpec): Boolean =
         s.plain == auto.plain && s.bars == auto.bars && near(s.seconds, auto.seconds, 1e-3) &&
             near(s.a.atMs, auto.a.atMs, 0.5) && near(s.b.atMs, auto.b.atMs, 0.5) &&
-            s.beatMatch == auto.beatMatch && s.introTwice == auto.introTwice && s.introLoop == auto.introLoop &&
+            s.beatMatch == auto.beatMatch && s.introTwice == auto.introTwice && s.introLoop == auto.introLoop && s.outroLoop == auto.outroLoop &&
             s.curves.isEmpty() && s.muted.isEmpty() && s.a.fix == auto.a.fix && s.b.fix == auto.b.fix &&
             EditorPresets.sameMoves(s.moves, auto.moves)
 
@@ -434,6 +435,16 @@ class MixEditor(
     fun setIntroTwice(bars: Int): Boolean {
         if (bars !in TransitionSpec.INTRO_TWICE_BARS) return false
         return apply(spec.copy(introTwice = bars))
+    }
+
+    /**
+     * A's loop ([OutroLoop]): [bars] bars of A from bar 1 of the change (or from where a loop
+     * already starts), [times] more passes, then A goes on; null takes it away.
+     */
+    fun setOutroLoop(bars: Int?, times: Int = 1): Boolean {
+        if (bars == null) return apply(spec.copy(outroLoop = null))
+        if (bars !in IntroLoop.BARS || times !in 1..IntroLoop.MAX_TIMES) return false
+        return apply(spec.copy(outroLoop = OutroLoop(bars, spec.outroLoop?.atMs ?: spec.a.atMs, times)))
     }
 
     /**

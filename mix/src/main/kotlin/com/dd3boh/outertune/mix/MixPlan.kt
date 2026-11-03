@@ -280,6 +280,11 @@ class MixPlan(
     val beats: Int = 0,
     /** The tail frames of the outgoing song's beats the stretch must land exactly where the time map puts them. */
     val anchors: DoubleArray = DoubleArray(0),
+    /**
+     * The output frame from which the outgoing part no longer lines up with the held end even
+     * without a change of tempo: where a loop of its bars first jumps back. None for most plans.
+     */
+    val alignedUntil: Long = Long.MAX_VALUE,
 ) {
     val isGapless: Boolean get() = style == Style.GAPLESS
 

@@ -121,10 +121,35 @@ class LoopsTest {
     }
 
     @Test
+    fun `A's loop plays its bars again, then A goes on from the end of them`() {
+        val loop = com.dd3boh.outertune.mix.edit.OutroLoop(1, 40_000.0, 2)
+        val plan = planned(spec(null).copy(outroLoop = loop))
+        val o = checkNotNull(plan.outro)
+        val bar = 2.0 * rate
+        assertEquals(40.0 * rate, o.srcFrom.toDouble(), 1.0)
+        assertEquals(bar, o.frames.toDouble(), 1.0)
+        // B's anchor still lands on A's: A's bar 1 is the loop's first bar, before the passes.
+        val plain = planned(spec(null))
+        assertEquals(plain.bStart, plan.bStart)
+        // A as heard, unstretched: the looped bar, twice more, joined as B's loop is, then A from 42 s.
+        val heard = o.extend(a, 2, (a.size / 2).toLong())
+        val end = o.end.toInt()
+        for (k in 0 until 2) for (m in (o.seam + 5) until o.frames.toInt() step 113) {
+            assertEquals("pass ${k + 1}, frame $m", a[(o.srcFrom.toInt() + m) * 2], heard[(end + k * o.frames.toInt() + m) * 2])
+        }
+        for (m in 0 until rate step 97) assertEquals(a[(end + m) * 2], heard[(end + 2 * o.frames.toInt() + m) * 2])
+        // The held end is not gone back to past the first join, which it no longer matches.
+        val render = LaneMixer(plan).render(a, b, 1.0, 1.0)
+        assertTrue(render.heldPlan().alignedUntil <= end)
+        assertEquals((a.size / 2).toLong(), render.heldPlan().tailFrames)
+    }
+
+    @Test
     fun `a loop is kept and read back`() {
-        val s = spec(IntroLoop(4, 1_500.0, 2))
+        val s = spec(IntroLoop(4, 1_500.0, 2)).copy(outroLoop = com.dd3boh.outertune.mix.edit.OutroLoop(2, 38_000.0, 3))
         val back = TransitionJson.decode(TransitionJson.encode(s))
         assertEquals(s.introLoop, back?.introLoop)
+        assertEquals(s.outroLoop, back?.outroLoop)
         assertTrue(spec(IntroLoop(3, 0.0, 1)).problems().any { it.contains("loop of 3 bars") })
     }
 }

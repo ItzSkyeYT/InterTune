@@ -765,22 +765,33 @@ private fun Lowers(
         checked = spec.beatMatched && editor.beatMatchPossible,
         enabled = ready && allowed,
     ) { on -> vm.edit { setBeatMatch(on) } }
-    // B's loop in front of it, as DJ apps loop: 1, 2 or 4 bars of B, 1, 2 or 4 times over from bar 1
-    // under A, then B from its own bar 1. On B's grid, so only where B's beats were found.
-    if (spec.bars > 0 && editor.facts.b.grid != null) {
-        val loop = spec.introLoop
+    // A loop on either song, as a DJ app has one on each deck: 1, 2 or 4 bars, 1, 2 or 4 times.
+    // On the next song it plays in front of it from bar 1, under the outgoing one, which then
+    // comes in on its own bar 1; on the outgoing song its bars play again before it goes on, so
+    // the change can run past its end. On the grid, so only where both songs' beats were found.
+    if (spec.bars > 0 && editor.facts.b.grid != null && editor.facts.a.grid != null) {
+        var deck by remember { mutableStateOf(if (spec.outroLoop != null && spec.introLoop == null) Side.A else Side.B) }
+        val bars = if (deck == Side.A) spec.outroLoop?.bars else spec.introLoop?.bars
+        val times = if (deck == Side.A) spec.outroLoop?.times else spec.introLoop?.times
+        fun set(n: Int?, k: Int) = vm.edit { if (deck == Side.A) setOutroLoop(n, k) else setIntroLoop(n, k) }
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
             Text(stringResource(R.string.mix_edit_loop), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.widthIn(min = 64.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), itemVerticalAlignment = Alignment.CenterVertically) {
+                for (side in listOf(Side.A, Side.B)) FilterChip(
+                    selected = deck == side,
+                    onClick = { deck = side },
+                    label = { Text(if (side == Side.A) words.aTitle else words.bTitle, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 120.dp)) },
+                    enabled = ready,
+                )
                 for (n in IntroLoop.BARS) FilterChip(
-                    selected = loop?.bars == n,
-                    onClick = { vm.edit { setIntroLoop(if (loop?.bars == n) null else n, loop?.times ?: 1) } },
+                    selected = bars == n,
+                    onClick = { set(if (bars == n) null else n, times ?: 1) },
                     label = { Text(words.bars(n)) },
                     enabled = ready,
                 )
-                if (loop != null) for (k in LOOP_TIMES) FilterChip(
-                    selected = loop.times == k,
-                    onClick = { vm.edit { setIntroLoop(loop.bars, k) } },
+                if (bars != null) for (k in LOOP_TIMES) FilterChip(
+                    selected = times == k,
+                    onClick = { set(bars, k) },
                     label = { Text(stringResource(R.string.mix_edit_loop_times, k)) },
                     enabled = ready,
                 )

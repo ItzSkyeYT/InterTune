@@ -23,6 +23,7 @@ import com.dd3boh.outertune.mix.edit.Preset
 import com.dd3boh.outertune.mix.edit.Side
 import com.dd3boh.outertune.mix.toPcm16
 import kotlin.math.abs
+import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
 
@@ -179,6 +180,7 @@ class ChangeRender(
             bars = spec.bars,
             beats = spec.bars * spec.b.beatsPerBar,
             anchors = plan.anchors,
+            alignedUntil = plan.outro?.let { floor(plan.aMap.outAt(it.end.toDouble())).toLong() - it.seam } ?: Long.MAX_VALUE,
         )
     }
 }
@@ -308,9 +310,11 @@ class LaneMixer(private val plan: LanePlan) {
     /** A's music by output frame as the change takes it, before any lane is shaped: stretched where the plan stretches it. For a change's proof. */
     internal fun outgoingSource(a: ShortArray): FrameSource = aSource(a)
 
-    private fun aSource(a: ShortArray): FrameSource {
+    private fun aSource(held: ShortArray): FrameSource {
         val channels = plan.channels
-        val frames = plan.facts.aFrames.coerceAtMost((a.size / channels).toLong())
+        // A as heard: with a loop of its bars, the music with the loop in it.
+        val a = plan.outro?.extend(held, channels, plan.facts.aFrames) ?: held
+        val frames = (plan.facts.aFrames + (plan.outro?.shift ?: 0L)).coerceAtMost((a.size / channels).toLong())
         if (plan.aMap.isIdentity) return PcmSource(a, channels, frames)
         // The stretch lands A's beats from its own guide, a decimated mono copy taken on the change's
         // grid, from bar 1: the analysis's own starts wherever the music at hand starts, and two
