@@ -168,19 +168,19 @@ Every change in detail, and why this fork exists: [docs/FEATURES.md](https://git
 What's being worked on, roughly in order. `[x]` is done, `[~]` is built and being tested, `[ ]` is still to do. Nothing here has a date, and plans can change. Ideas are welcome in #feature-requests on [Discord](https://discord.gg/68jmqhMjXk) or as a [GitHub issue](https://github.com/ItzSkyeYT/InterTune/issues/new/choose).
 
 <details>
-<summary><b>Next: 0.13</b> · 0 of 16 done, 5 to test</summary>
+<summary><b>Next: 0.13</b> · 0 of 16 done, 7 to test</summary>
 
 `[ ]` Listen together: one person plays, friends follow the same song in real time *(in progress)*\
 `[ ]` Your year in InterTune, a recap *(in progress)*\
 `[~]` What's playing works offline and names the song once you're back online ([#48](https://github.com/ItzSkyeYT/InterTune/issues/48))\
-`[ ]` Report a problem without a GitHub account, and follow it on GitHub from a link *(in progress)*\
+`[~]` Report a problem without a GitHub account, and follow it on GitHub from a link\
 `[ ]` Find songs you saved twice, in Liked or your library ([#47](https://github.com/ItzSkyeYT/InterTune/issues/47))\
 `[ ]` Premium accounts get the 256 kbps stream\
 `[~]` Spatial audio for surround recordings, and Strength, Room and Ambience controls\
 `[~]` Choose which lyrics sources are used, and in what order\
 `[~]` Similar artists in the Favourite artists mix\
-`[ ]` Downloads in their own quality, with tags and a cover so other players can use them\
-`[ ]` Liked songs kept in sync with your downloads: unliking removes a download the app made itself ([#64](https://github.com/ItzSkyeYT/InterTune/issues/64))\
+`[ ]` Downloads in their own quality, with tags and a cover so other players can use them *(in progress)*\
+`[~]` Liked songs kept in sync with your downloads: unliking removes a download the app made itself ([#64](https://github.com/ItzSkyeYT/InterTune/issues/64))\
 `[ ]` Choose what's in the three-dot menus\
 `[ ]` Tablets: settings in two panes, and the player as a side pane *(in progress)*\
 `[ ]` A look made for foldable and flip phones *(in progress)*\
