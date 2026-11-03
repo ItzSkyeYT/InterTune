@@ -35,16 +35,21 @@ class WholeSongGridTest {
         // Every drum beat of the song on the line, to the few ms the onset curve allows.
         val worst = song.beats.maxOf { b -> abs(g.msOf(g.kNear(b * 1000)) - b * 1000) }
         assertTrue("worst beat $worst ms off", worst < 12.0)
-        assertTrue("bar 1 on a downbeat", song.downbeats.all { g.isDownbeat(g.kNear(it * 1000)) })
+        // Bar 1 on the song's downbeats: every one the grid has is one of the song's (a grid
+        // may count bars of eight at this tempo, every other one of them).
+        val ones = (g.firstBeat..g.lastBeat).filter { g.isDownbeat(it) }
+        assertTrue("no bars", ones.isNotEmpty())
+        assertTrue("bar 1 off the song's downbeats", ones.all { k -> off(g.msOf(k), song.downbeats) < 12.0 })
     }
 
     @Test
     fun aTempoThatIsNotWholeIsKept() {
+        // Mixxx's rounding goes no further than the twelfth of a BPM the line still allows.
         val song = Synth.song(SynthSpec(bpm = 123.4, bars = 48, seed = 5))
         val g = grid(song)
         println(g.describe())
-        assertFalse(g.rounded)
         assertEquals(123.4, g.bpm, 0.02)
+        assertTrue(abs(g.bpm - 123.0) > 0.3)
     }
 
     @Test

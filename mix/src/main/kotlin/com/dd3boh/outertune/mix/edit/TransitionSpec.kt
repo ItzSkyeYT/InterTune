@@ -215,6 +215,22 @@ enum class Preset(val key: String, val needsParts: Boolean) {
 }
 
 /**
+ * A loop of the next song's own bars, played in front of it: [bars] bars of B from its downbeat at
+ * [fromMs] (B's own clock), [times] over, cut on B's bar lines with a few ms crossfaded at each
+ * join so it neither clicks nor drifts off B's grid. A bar with no voice in it and no clash of key
+ * with A (or drums alone) is what Auto picks; the editor offers 1, 2 or 4 bars as DJ apps do.
+ */
+data class IntroLoop(val bars: Int, val fromMs: Double, val times: Int = 1) {
+    companion object {
+        /** The loop lengths offered, in bars. */
+        val BARS = listOf(1, 2, 4)
+
+        /** How many times a loop may play in front of the song. */
+        const val MAX_TIMES = 16
+    }
+}
+
+/**
  * One change from a song into the next, as the editor makes it and as it is saved: everything
  * else (the engine's lane plan, the canvas, the preview, the pill) is worked out from this.
  *
@@ -248,6 +264,12 @@ data class TransitionSpec(
     val muted: Set<LaneId> = emptySet(),
     /** Play the intro twice: B's first 2 or 4 bars under A from its copy, then again live. 0 is off. */
     val introTwice: Int = 0,
+    /**
+     * A loop of B's own bars played in front of it, as a DJ app's loop: [IntroLoop.bars] bars of B
+     * from [IntroLoop.fromMs], [IntroLoop.times] over, from bar 1 of the change under A, and then B
+     * from its own bar 1. Null for none.
+     */
+    val introLoop: IntroLoop? = null,
     /** Where B starts playing, in ms of its own clock: 0, its first frame, unless a later start is allowed. */
     val bStartMs: Double = 0.0,
     /** When it was saved, in ms since the epoch; 0 for a spec not saved. */
@@ -290,8 +312,23 @@ data class TransitionSpec(
     /** Whether A is stretched to B's beat in this change. */
     val beatMatched: Boolean get() = beatMatch && beatMatchAllowed()
 
-    /** Where bar position [u] of the change falls in B's own clock, in ms. */
-    fun bMsAt(u: Double): Double = b.atMs + u * b.barMs
+    /** How many bars of the change B's loop in front of it takes: its bars, times over; 0 without one. */
+    val loopBars: Double get() = introLoop?.let { (it.bars * it.times).toDouble() } ?: introTwice.toDouble()
+
+    /**
+     * Where bar position [u] of the change falls in B's own clock, in ms: inside B's loop, the bar
+     * of the loop playing there; after it, B from its own bar 1.
+     */
+    fun bMsAt(u: Double): Double {
+        val loop = loopBars
+        if (loop <= 0.0) return b.atMs + u * b.barMs
+        if (u >= 0.0 && u < loop) {
+            val bars = introLoop?.bars ?: introTwice
+            val from = introLoop?.fromMs ?: b.atMs
+            return from + (u % bars) * b.barMs
+        }
+        return b.atMs + (u - loop) * b.barMs
+    }
 
     /**
      * Where bar position [u] falls in A's own clock, in ms. Beat matched, A plays one of its own
@@ -337,6 +374,12 @@ data class TransitionSpec(
         }
         for (id in muted) if (id !in lanes.ids) add("$id is not a lane of ${lanes.key}")
         if (introTwice !in INTRO_TWICE_BARS) add("intro twice over $introTwice bars")
+        introLoop?.let { l ->
+            if (l.bars !in IntroLoop.BARS) add("a loop of ${l.bars} bars")
+            if (l.times !in 1..IntroLoop.MAX_TIMES) add("a loop played ${l.times} times")
+            if (!l.fromMs.isFinite() || l.fromMs < 0) add("a loop from ${l.fromMs} ms")
+            if (introTwice > 0) add("a loop and the intro twice at once")
+        }
         if (!bStartMs.isFinite() || bStartMs < 0) add("B starts at $bStartMs ms")
     }
 

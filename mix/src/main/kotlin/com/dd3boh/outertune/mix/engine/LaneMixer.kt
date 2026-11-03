@@ -203,10 +203,15 @@ class LaneMixer(private val plan: LanePlan) {
         val channels = plan.channels
         val rate = plan.sampleRate
         val aSource = aSource(a)
-        val bSource = PcmSource(b, channels, plan.facts.bFrames.coerceAtMost((b.size / channels).toLong()), plan.bStart)
+        val bFrames0 = plan.facts.bFrames.coerceAtMost((b.size / channels).toLong())
+        val bSource = plan.loop?.let { LoopedSource(b, channels, bFrames0, plan.bStart, it) } ?: PcmSource(b, channels, bFrames0, plan.bStart)
         val from = plan.mixFrom
         val to = plan.mixTo
         val aTo = min(plan.aGone, to)
+        // B's side from its loop where it has one: what of it comes before B's own first frame is
+        // played with A's part, which is all the held end plays until then.
+        val bFrom = plan.bFrom
+        val outEnd = max(aTo, min(plan.bStart, to))
 
         // The first pass: the peak of the sum on each knot of the headroom, counted only where both
         // songs are heard, since a song on its own plays at its own level, as it would without Mix.
@@ -216,7 +221,7 @@ class LaneMixer(private val plan: LanePlan) {
         var peakBefore = 0.0
         run {
             val sideA = SideRenderer(plan, Side.A, aSource, from)
-            val sideB = SideRenderer(plan, Side.B, bSource, plan.bStart)
+            val sideB = SideRenderer(plan, Side.B, bSource, bFrom)
             val fa = DoubleArray(channels)
             val fb = DoubleArray(channels)
             var knot = -1
@@ -236,7 +241,7 @@ class LaneMixer(private val plan: LanePlan) {
                     knot = k
                 }
                 if (o < aTo) sideA.next(o, fa) else fa.fill(0.0)
-                if (o >= plan.bStart) sideB.next(o, fb) else fb.fill(0.0)
+                if (o >= bFrom) sideB.next(o, fb) else fb.fill(0.0)
                 for (c in 0 until channels) {
                     val va = fa[c] * attenuationA
                     val vb = fb[c] * attenuationB
@@ -255,30 +260,32 @@ class LaneMixer(private val plan: LanePlan) {
         val headroom = Headroom.solve(from, loads, rate)
 
         // The second pass, under the headroom.
-        val aFrames = (aTo - from).toInt().coerceAtLeast(0)
+        val aFrames = (outEnd - from).toInt().coerceAtLeast(0)
         val bFrames = (to - plan.bStart).toInt().coerceAtLeast(0)
         val aOut = ShortArray(aFrames * channels)
         val bOut = ShortArray(bFrames * channels)
         var peakAfter = 0.0
         run {
             val sideA = SideRenderer(plan, Side.A, aSource, from)
-            val sideB = SideRenderer(plan, Side.B, bSource, plan.bStart)
+            val sideB = SideRenderer(plan, Side.B, bSource, bFrom)
             val fa = DoubleArray(channels)
             val fb = DoubleArray(channels)
             for (o in from until to) {
                 val h = headroom.at(o)
-                if (o < aTo) {
-                    sideA.next(o, fa)
+                if (o < aTo) sideA.next(o, fa) else fa.fill(0.0)
+                if (o >= bFrom) sideB.next(o, fb) else fb.fill(0.0)
+                if (o < outEnd) {
+                    // A's part, with B's loop in it until B's own first frame.
                     val i = ((o - from) * channels).toInt()
-                    for (c in 0 until channels) aOut[i + c] = toPcm16(fa[c] * attenuationA * h)
+                    val withB = o < plan.bStart
+                    for (c in 0 until channels) aOut[i + c] = toPcm16((fa[c] * attenuationA + (if (withB) fb[c] * attenuationB else 0.0)) * h)
                 }
                 if (o >= plan.bStart) {
-                    sideB.next(o, fb)
                     val i = ((o - plan.bStart) * channels).toInt()
                     for (c in 0 until channels) bOut[i + c] = toPcm16(fb[c] * attenuationB * h)
                 }
                 if (o >= plan.bothFrom && o < plan.bothTo) for (c in 0 until channels) {
-                    val va = if (o < aTo) aOut[((o - from) * channels).toInt() + c].toInt() else 0
+                    val va = if (o < outEnd) aOut[((o - from) * channels).toInt() + c].toInt() else 0
                     val vb = if (o >= plan.bStart) bOut[((o - plan.bStart) * channels).toInt() + c].toInt() else 0
                     val s = abs(va + vb) / Pcm.FULL_SCALE.toDouble()
                     if (s > peakAfter) peakAfter = s

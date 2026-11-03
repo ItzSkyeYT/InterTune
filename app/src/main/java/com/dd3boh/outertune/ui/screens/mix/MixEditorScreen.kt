@@ -119,6 +119,7 @@ import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.mix.edit.LaneSet
 import com.dd3boh.outertune.mix.edit.Preset
 import com.dd3boh.outertune.mix.edit.Side
+import com.dd3boh.outertune.mix.edit.IntroLoop
 import com.dd3boh.outertune.mix.edit.TransitionSpec
 import com.dd3boh.outertune.ui.component.FloatingTopBar
 import com.dd3boh.outertune.ui.component.LocalPlayerSheet
@@ -764,22 +765,26 @@ private fun Lowers(
         checked = spec.beatMatched && editor.beatMatchPossible,
         enabled = ready && allowed,
     ) { on -> vm.edit { setBeatMatch(on) } }
-    // Offered once playback plays it (M10): until then a change saved with it is refused at the
-    // change and Auto plays. A change that already has it keeps the switch, to turn it off.
-    if (INTRO_TWICE_PLAYS || spec.introTwice > 0) SwitchRow(
-        title = stringResource(R.string.mix_edit_intro_twice),
-        line = if (spec.introTwice > 0) stringResource(R.string.mix_edit_intro_twice_line, words.owner(words.bTitle), words.bars(spec.introTwice), words.aTitle) else null,
-        checked = spec.introTwice > 0,
-        enabled = ready && spec.bars > 0,
-    ) { on -> vm.edit { setIntroTwice(if (on) 2 else 0) } }
-    if (spec.introTwice > 0) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(horizontal = 12.dp)) {
-            for (n in listOf(2, 4)) FilterChip(
-                selected = spec.introTwice == n,
-                onClick = { vm.edit { setIntroTwice(n) } },
-                label = { Text(words.bars(n)) },
-                leadingIcon = if (spec.introTwice == n) { { Icon(Icons.Rounded.Check, null, Modifier.size(FilterChipDefaults.IconSize)) } } else null,
-            )
+    // B's loop in front of it, as DJ apps loop: 1, 2 or 4 bars of B, 1, 2 or 4 times over from bar 1
+    // under A, then B from its own bar 1. On B's grid, so only where B's beats were found.
+    if (spec.bars > 0 && editor.facts.b.grid != null) {
+        val loop = spec.introLoop
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
+            Text(stringResource(R.string.mix_edit_loop), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.widthIn(min = 64.dp))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), itemVerticalAlignment = Alignment.CenterVertically) {
+                for (n in IntroLoop.BARS) FilterChip(
+                    selected = loop?.bars == n,
+                    onClick = { vm.edit { setIntroLoop(if (loop?.bars == n) null else n, loop?.times ?: 1) } },
+                    label = { Text(words.bars(n)) },
+                    enabled = ready,
+                )
+                if (loop != null) for (k in LOOP_TIMES) FilterChip(
+                    selected = loop.times == k,
+                    onClick = { vm.edit { setIntroLoop(loop.bars, k) } },
+                    label = { Text(stringResource(R.string.mix_edit_loop_times, k)) },
+                    enabled = ready,
+                )
+            }
         }
     }
     HorizontalDivider(Modifier.padding(start = 12.dp, end = 12.dp, top = 14.dp, bottom = 6.dp), color = MaterialTheme.colorScheme.outlineVariant)
@@ -923,4 +928,5 @@ internal fun FailedState(p: MixEditorViewModel.Phase.Failed, aTitle: String, bTi
 }
 
 /** Whether playback plays a change that plays the next song's intro twice; SpecPlan refuses one until M10. */
-private const val INTRO_TWICE_PLAYS = false
+/** How many times over the loop in front of B can be played, from the editor. */
+private val LOOP_TIMES = listOf(1, 2, 4)

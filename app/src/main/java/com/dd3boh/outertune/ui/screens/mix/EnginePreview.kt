@@ -256,9 +256,9 @@ internal class PreviewSound(
     fun heardOf(s: PreviewSetup): PreviewHeard {
         val spec = s.spec
         if (spec.plain) return plainOf(s)
-        // Played as the engine plays it: a change that asks for what it does not play yet (the
-        // intro twice, a later start) is heard without it, the nearest the editor can give.
-        val playable = spec.copy(introTwice = 0, bStartMs = 0.0)
+        // Played as the engine plays it, loops in front of B and the intro twice included: a change
+        // that asks for what it does not play yet (a later start) is heard without it.
+        val playable = spec.copy(bStartMs = 0.0)
         val alone = s.solo?.let { solo(playable, it, s.from, s.to) } ?: playable
         val window = Preview.render(alone, a, b, aAnalysis, levelA, levelB).getOrThrow()
         return PreviewHeard(s, window.pcm, window.frames, { i -> window.uAt(i) }, { u -> window.indexAt(u) })

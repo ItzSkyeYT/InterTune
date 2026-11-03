@@ -21,6 +21,7 @@ import com.dd3boh.outertune.mix.edit.Side
 import com.dd3boh.outertune.mix.edit.SimpleRead
 import com.dd3boh.outertune.mix.edit.SimpleRows
 import com.dd3boh.outertune.mix.edit.SongPair
+import com.dd3boh.outertune.mix.edit.IntroLoop
 import com.dd3boh.outertune.mix.edit.TransitionSpec
 import com.dd3boh.outertune.mix.edit.aGoneAt
 import com.dd3boh.outertune.mix.edit.laneAt
@@ -172,13 +173,13 @@ class MixEditor(
 
     /** Where the canvas starts and ends, in bars of the change: 2 bars either side, or 4 s. */
     fun fitStart(s: TransitionSpec = spec): Double =
-        if (s.bars == 0) -SECONDS_AROUND_MS / s.b.barMs else -2.0 - max(0, s.introTwice - 2)
+        if (s.bars == 0) -SECONDS_AROUND_MS / s.b.barMs else -2.0
 
     fun fitEnd(s: TransitionSpec = spec): Double =
         s.lengthBars + if (s.bars == 0) SECONDS_AROUND_MS / s.b.barMs else 2.0
 
     /** Where B's first frame falls, in bars of the change. */
-    fun bStartU(s: TransitionSpec = spec): Double = (s.bStartMs - s.b.atMs) / s.b.barMs
+    fun bStartU(s: TransitionSpec = spec): Double = (s.bStartMs - s.b.atMs) / s.b.barMs + s.loopBars
 
     /** Where A's end falls, in bars of the change. */
     fun aEndU(s: TransitionSpec = spec): Double = (facts.a.durationMs - s.a.atMs) / perA(s)
@@ -226,7 +227,7 @@ class MixEditor(
     fun sameAsAuto(s: TransitionSpec): Boolean =
         s.plain == auto.plain && s.bars == auto.bars && near(s.seconds, auto.seconds, 1e-3) &&
             near(s.a.atMs, auto.a.atMs, 0.5) && near(s.b.atMs, auto.b.atMs, 0.5) &&
-            s.beatMatch == auto.beatMatch && s.introTwice == auto.introTwice &&
+            s.beatMatch == auto.beatMatch && s.introTwice == auto.introTwice && s.introLoop == auto.introLoop &&
             s.curves.isEmpty() && s.muted.isEmpty() && s.a.fix == auto.a.fix && s.b.fix == auto.b.fix &&
             EditorPresets.sameMoves(s.moves, auto.moves)
 
@@ -433,6 +434,16 @@ class MixEditor(
     fun setIntroTwice(bars: Int): Boolean {
         if (bars !in TransitionSpec.INTRO_TWICE_BARS) return false
         return apply(spec.copy(introTwice = bars))
+    }
+
+    /**
+     * B's loop in front of it ([IntroLoop]): [bars] bars of B from its bar 1 (or from the bar a loop
+     * already starts on), [times] over, then B from its own bar 1; null takes it away.
+     */
+    fun setIntroLoop(bars: Int?, times: Int = 1): Boolean {
+        if (bars == null) return apply(spec.copy(introLoop = null))
+        if (bars !in IntroLoop.BARS || times !in 1..IntroLoop.MAX_TIMES) return false
+        return apply(spec.copy(introLoop = IntroLoop(bars, spec.introLoop?.fromMs ?: spec.b.atMs, times), introTwice = 0))
     }
 
     // ---- anchors ----

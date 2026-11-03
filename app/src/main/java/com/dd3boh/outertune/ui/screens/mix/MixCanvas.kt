@@ -449,7 +449,7 @@ fun DrawScope.drawMixCanvas(c: CanvasInputs) {
         } else if (g.adjust != null) {
             drawAdjust(c)
         } else {
-            if (spec.introTwice > 0) drawIntroTwice(c)
+            if (spec.loopBars > 0) drawIntroTwice(c)
             drawSide(c, Side.A)
             drawSide(c, Side.B)
             drawWalls(c)
@@ -512,7 +512,7 @@ private fun levels(c: CanvasInputs, side: Side): SideLevels {
             val x = g.x(g.columnU(i))
             val wall = if (side == Side.A) ((x - g.x(wallU)) / (12 * g.dp) + 1).coerceIn(0f, 1f) else ((g.x(wallU) - x) / (12 * g.dp) + 1).coerceIn(0f, 1f)
             v *= wall
-            if (side == Side.B && g.columnU(i) < bStartU) v = 0f
+            if (side == Side.B && g.columnU(i) < bStartU && !(g.columnU(i) >= 0.0 && g.columnU(i) < spec.loopBars)) v = 0f
             f[i] = v
             val s = spec.laneAt(id, g.columnU(i))
             h[i] = (v * s.gain * passed(lane, s)).toFloat()
@@ -679,37 +679,27 @@ private inline fun DrawScope.translateX(dx: Float, block: DrawScope.() -> Unit) 
 }
 
 private fun DrawScope.drawIntroTwice(c: CanvasInputs) {
+    // B's loop in front of it: its bars over and over from bar 1 of the change until B's own bar 1,
+    // drawn by the song's band itself (TransitionSpec.bMsAt), hatched here so it reads as a loop.
     val g = c.layout
     val spec = g.spec
-    val x0 = max(g.x(-spec.introTwice.toDouble()), g.pad)
-    val x1 = min(g.x(0.0), size.width - g.pad)
+    val x0 = max(g.x(0.0), g.pad)
+    val x1 = min(g.x(spec.loopBars), size.width - g.pad)
     if (x1 <= x0) return
     val band = g.b
     clipRect(x0, band.top, x1, band.bottom) {
-        // B's first bars from the copy, under A, before B itself starts.
-        for (lane in g.stack) {
-            val path = Path()
-            val n = g.columns
-            for (i in 0 until n) {
-                val u = g.columnU(i)
-                val ms = spec.b.atMs + (u + spec.introTwice) * spec.b.barMs - c.bStartMs
-                val h = alone(c.bBands.peak(lane, ms, ms + spec.b.barMs / g.ppb * g.dp) / c.bBands.reference) * (band.height / 2 - 3 * g.dp)
-                val x = g.pad + (i + 0.5f) * g.dp
-                if (i == 0) path.moveTo(x, band.centre - h) else path.lineTo(x, band.centre - h)
-            }
-            for (i in n - 1 downTo 0) {
-                val u = g.columnU(i)
-                val ms = spec.b.atMs + (u + spec.introTwice) * spec.b.barMs - c.bStartMs
-                val h = alone(c.bBands.peak(lane, ms, ms + spec.b.barMs / g.ppb * g.dp) / c.bBands.reference) * (band.height / 2 - 3 * g.dp)
-                path.lineTo(g.pad + (i + 0.5f) * g.dp, band.centre + h)
-            }
-            path.close()
-            drawPath(path, c.colors.lane(lane).copy(alpha = 0.3f))
-        }
         var x = x0 - band.height
         while (x < x1) {
             drawLine(c.colors.onSurface.copy(alpha = 0.22f), Offset(x, band.bottom), Offset(x + band.height, band.top), 1f)
             x += 6 * g.dp
+        }
+        // Where one pass of the loop ends and the next begins.
+        val bars = spec.introLoop?.bars ?: spec.introTwice
+        var k = bars.toDouble()
+        while (k < spec.loopBars - 1e-9) {
+            val xk = g.x(k)
+            drawRect(c.colors.onSurface.copy(alpha = 0.5f), Offset(xk - 0.75f, band.top), Size(1.5f, band.height))
+            k += bars
         }
     }
     label(c.measurer, c.words.introTwiceWord(), x0 + 3 * g.dp, band.top + 9 * g.dp, c.colors.onSurfaceVariant, 10f)

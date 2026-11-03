@@ -16,6 +16,10 @@ import com.dd3boh.outertune.mix.auto.SongEnd
 import com.dd3boh.outertune.mix.auto.atOrAfterBStart
 import com.dd3boh.outertune.mix.Planner
 import com.dd3boh.outertune.mix.edit.Anchor
+import com.dd3boh.outertune.mix.edit.IntroLoop
+import com.dd3boh.outertune.mix.edit.Lane
+import com.dd3boh.outertune.mix.edit.LaneId
+import com.dd3boh.outertune.mix.edit.Side
 import com.dd3boh.outertune.mix.edit.LaneSet
 import com.dd3boh.outertune.mix.edit.Preset
 import com.dd3boh.outertune.mix.edit.TransitionSpec
@@ -342,6 +346,27 @@ class MixBetterTrial {
             is SpecPlan.Result.Refused -> line.append("; editor refused: ${r.why}")
             is SpecPlan.Result.Planned -> write(dir, "lock-editor", LaneMixer(r.plan).render(aEditor.pcm, bEditor.pcm, 1.0, 1.0), aEditor.pcm, bEditor.pcm, aEditor.fromMs, "forced")
         }
+        // The same change with B's bar 1 looped four times in front of it, and with A's mids gone
+        // from bar 1 (the cheap stand-in for a vocal mute), for the loop and voice measures.
+        if (env["MIX_BETTER_VARIANTS"] == "1") {
+            val looped = lock.copy(introLoop = IntroLoop(1, lock.b.atMs, 4))
+            when (val r = SpecPlan.plan(looped, editorFacts)) {
+                is SpecPlan.Result.Refused -> line.append("; loop refused: ${r.why}")
+                is SpecPlan.Result.Planned -> {
+                    write(dir, "loop-editor", LaneMixer(r.plan).render(aEditor.pcm, bEditor.pcm, 1.0, 1.0), aEditor.pcm, bEditor.pcm, aEditor.fromMs, "B's bar 1 looped 4 times")
+                    r.plan.loop?.let { l -> File(dir, "loop-editor-loop.json").writeText(buildJsonObject {
+                        put("srcFrom", l.srcFrom); put("frames", l.frames); put("outFrom", l.outFrom); put("outTo", l.outTo); put("seam", l.seam)
+                        put("bStart", r.plan.bStart); put("bBar1", r.plan.facts.bBar1); put("barFrames", r.plan.barFrames)
+                        putJsonArray("joins") { l.joins().forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) } }
+                    }.toString()) }
+                }
+            }
+            val midsOut = lock.copy(muted = setOf(LaneId(Side.A, Lane.MIDS)))
+            when (val r = SpecPlan.plan(midsOut, editorFacts)) {
+                is SpecPlan.Result.Refused -> line.append("; mids out refused: ${r.why}")
+                is SpecPlan.Result.Planned -> write(dir, "midsout-editor", LaneMixer(r.plan).render(aEditor.pcm, bEditor.pcm, 1.0, 1.0), aEditor.pcm, bEditor.pcm, aEditor.fromMs, "A's mids gone from bar 1")
+            }
+        }
 
         // 3. The same change saved and played on the phone: the end held early enough for it, B's
         // copy as long as it needs, A's anchor found again on the held end's own analysis.
@@ -454,7 +479,8 @@ class MixBetterTrial {
         val to = max(ceil(p.out(spec.lengthBars + 1.0)).toLong(), p.mixTo)
         val n = (to - from).toInt()
         val aSource = LaneMixer(p).outgoingSource(aPcm)
-        val bSource = PcmSource(bPcm, 2, (bPcm.size / 2).toLong(), p.bStart)
+        val bSource = p.loop?.let { com.dd3boh.outertune.mix.engine.LoopedSource(bPcm, 2, (bPcm.size / 2).toLong(), p.bStart, it) }
+            ?: PcmSource(bPcm, 2, (bPcm.size / 2).toLong(), p.bStart)
         val aMono = ShortArray(n)
         val bMono = ShortArray(n)
         val fa = DoubleArray(2)

@@ -86,6 +86,13 @@ object TransitionJson {
         })
         put("muted", buildJsonArray { spec.muted.map { it.key }.sorted().forEach { add(JsonPrimitive(it)) } })
         put("introTwice", spec.introTwice)
+        spec.introLoop?.let { l ->
+            put("introLoop", buildJsonObject {
+                put("bars", l.bars)
+                put("fromMs", l.fromMs)
+                put("times", l.times)
+            })
+        }
         put("bStart", spec.bStartMs)
         put("savedAt", spec.savedAt)
     }
@@ -125,6 +132,10 @@ object TransitionJson {
             curves = curves,
             muted = muted,
             introTwice = o.int("introTwice") ?: 0,
+            introLoop = o["introLoop"]?.let { l ->
+                val lo = l as? JsonObject ?: return null
+                IntroLoop(lo.int("bars") ?: return null, lo.double("fromMs") ?: return null, lo.int("times") ?: return null)
+            },
             bStartMs = o.double("bStart") ?: 0.0,
             savedAt = o.long("savedAt") ?: 0L,
             version = version,

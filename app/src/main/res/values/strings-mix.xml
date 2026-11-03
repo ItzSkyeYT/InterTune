@@ -134,8 +134,6 @@
     <string name="mix_edit_bm_refused">The tempos are %1$s%% apart.</string>
     <string name="mix_edit_bm_no_beat_a">%1$s has no steady beat here, so it keeps its own speed.</string>
     <string name="mix_edit_bm_no_bars">Without a steady beat in both songs, the change is timed in seconds.</string>
-    <string name="mix_edit_intro_twice">Play the intro twice</string>
-    <string name="mix_edit_intro_twice_line">%1$s first %2$s play under %3$s, then again as it starts.</string>
     <string name="mix_edit_back_to_auto">Back to Auto</string>
     <string name="mix_edit_plain">Plain change for these two</string>
     <string name="mix_edit_parts_need">Parts need the mixer download (%1$d MB).</string>
@@ -178,6 +176,7 @@
     <string name="mix_fix_plus">+5 ms</string>
     <string name="mix_fix_ms">%1$s ms</string>
     <string name="mix_fix_click">Metronome</string>
+    <string name="mix_edit_loop_times">×%1$d</string>
     <string name="mix_fix_lock">Lock</string>
     <string name="mix_fix_reset">Reset</string>
     <string name="mix_fix_bars_guessed">%1$s BPM · bar 1 unsure</string>
@@ -232,7 +231,7 @@
     <string name="mix_canvas_from_start">from its start</string>
     <string name="mix_canvas_echo">echo</string>
     <string name="mix_canvas_not_heard">not heard %1$s</string>
-    <string name="mix_canvas_intro_twice">intro twice</string>
+    <string name="mix_canvas_intro_twice">loop</string>
     <string name="mix_canvas_plain">Plain change: %1$s starts when %2$s ends.</string>
     <string name="mix_canvas_summary">%1$s into %2$s, %3$s, %4$s.</string>
     <string name="mix_canvas_by_beats">%1$s · by beats</string>

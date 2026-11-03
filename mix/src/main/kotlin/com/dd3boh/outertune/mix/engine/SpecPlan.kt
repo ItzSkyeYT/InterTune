@@ -8,6 +8,7 @@ package com.dd3boh.outertune.mix.engine
 
 import com.dd3boh.outertune.mix.TimeMap
 import com.dd3boh.outertune.mix.edit.How
+import com.dd3boh.outertune.mix.edit.IntroLoop
 import com.dd3boh.outertune.mix.edit.LaneId
 import com.dd3boh.outertune.mix.edit.LaneSet
 import com.dd3boh.outertune.mix.edit.Preset
@@ -82,7 +83,12 @@ class LanePlan internal constructor(
     val echoFrames: Int,
     /** A's speed through the change. */
     val speed: Double,
+    /** B's loop in front of it, where the spec has one: its frames in B's copy and where it plays. */
+    val loop: PlannedLoop? = null,
 ) {
+    /** The first output frame B's side gives anything: its loop's, or its own first frame. */
+    val bFrom: Long get() = loop?.let { minOf(it.outFrom, bStart) } ?: bStart
+
     val sampleRate: Int get() = facts.sampleRate
     val channels: Int get() = facts.channels
 
@@ -130,7 +136,7 @@ object SpecPlan {
         if (spec.lanes != LaneSet.BANDS) return Result.Refused("made on ${spec.lanes.key}, which this phone does not split into")
         spec.problems().takeIf { it.isNotEmpty() }?.let { return Result.Refused(it.joinToString("; ")) }
         // Neither is played yet: a change that asks for one is not played as something else.
-        if (spec.introTwice > 0) return Result.Refused("the intro played twice is not played yet")
+        if (spec.introTwice > 0 && spec.introLoop == null) return plan(spec.copy(introTwice = 0, introLoop = IntroLoop(spec.introTwice, spec.b.atMs, 1)), facts)
         if (spec.bStartMs > 0.0) return Result.Refused("a next song starting after its first frame is not played yet")
         val rate = facts.sampleRate
         val barFrames = spec.b.barMs * rate / 1000.0
@@ -151,9 +157,14 @@ object SpecPlan {
         } else {
             map = TimeMap.IDENTITY
         }
-        val bStart = (map.outAt(facts.aBar1) - facts.bBar1).roundToLong()
-        // B's anchor is heard exactly on bar 1; A's lands within half a frame of it.
-        val bar1 = bStart + facts.bBar1
+        // With a loop of B's bars in front of it, the loop starts on A's anchor and B's own bar 1
+        // comes that many bars later, on B's grid.
+        val loopSpec = spec.introLoop
+        val loopFrames = loopSpec?.let { (it.bars * barFrames).roundToLong() } ?: 0L
+        val loopAhead = loopSpec?.let { loopFrames * it.times } ?: 0L
+        val bStart = (map.outAt(facts.aBar1) + loopAhead - facts.bBar1).roundToLong()
+        // B's anchor is heard exactly on bar 1 (or after its loop); A's lands within half a frame of it.
+        val bar1 = bStart + facts.bBar1 - loopAhead
         fun out(u: Double) = bar1 + u * barFrames
 
         val length = spec.lengthBars
@@ -176,14 +187,15 @@ object SpecPlan {
         val aChangeFrom = min(floor(out(aFirstU)), if (map.isIdentity) Double.MAX_VALUE else floor(map.rampStart)).toLong()
 
         // B: from its first lane in to where all of them are at full and unfiltered.
-        val bHeardFrom = max(bStart, floor(bLanes.minOf { firstHeardU(spec, it)?.let(::out) ?: Double.NEGATIVE_INFINITY }).toLong())
+        val bFirstFrame = if (loopSpec != null) minOf(bStart, floor(bar1).toLong()) else bStart
+        val bHeardFrom = max(bFirstFrame, floor(bLanes.minOf { firstHeardU(spec, it)?.let(::out) ?: Double.NEGATIVE_INFINITY }).toLong())
         val bypass = ceil(Engine.BYPASS_S * rate).toLong()
         val bPlain = max(bStart, ceil(out(bLanes.maxOf { plainFromU(spec, it) })).toLong() + bypass + cutFrames)
 
         val pad = ceil(Engine.HEADROOM_PAD_S * rate).toLong()
         val bothFrom = bHeardFrom
         val bothTo = aGone
-        val mixFrom = minOf(aChangeFrom, bothFrom - pad, bStart)
+        val mixFrom = minOf(aChangeFrom, bothFrom - pad, bFirstFrame)
         val mixTo = maxOf(aGone, bothTo + pad, bPlain)
 
         val anchors = facts.anchors ?: run {
@@ -200,13 +212,23 @@ object SpecPlan {
                 "it starts %.1f s before it can be ready".format((facts.earliest - mixFrom).toDouble() / rate),
             )
             mixFrom < 0 -> return Result.Refused("it starts before the music at hand")
-            bStart > facts.aFrames -> return Result.Refused("B would start after the end of A")
+            bStart > facts.aFrames && loopSpec == null -> return Result.Refused("B would start after the end of A")
             mixTo - bStart > facts.bFrames -> return Result.Refused(
                 "B's copy holds %.1f s, the change needs %.1f s of it".format(facts.bFrames.toDouble() / rate, (mixTo - bStart).toDouble() / rate),
             )
             (mixTo - mixFrom).toDouble() / rate > Engine.MAX_SPAN_S -> return Result.Refused(
                 "it takes %.1f s".format((mixTo - mixFrom).toDouble() / rate),
             )
+        }
+        val planned = loopSpec?.let { l ->
+            val from = facts.bBar1 + (l.fromMs - spec.b.atMs) * rate / 1000.0
+            val seam = Loops.seamFrames(rate)
+            // A loop of B's very first bar joins into the silence before it, as the song itself starts.
+            when {
+                from < -0.5 -> return Result.Refused("the loop starts before B's copy")
+                from + loopFrames > facts.bFrames -> return Result.Refused("the loop runs past B's copy")
+            }
+            PlannedLoop(from.roundToLong(), loopFrames, floor(bar1).toLong(), floor(bar1).toLong() + loopAhead, seam)
         }
         return Result.Planned(
             LanePlan(
@@ -225,6 +247,7 @@ object SpecPlan {
                 bothTo = bothTo,
                 echoFrames = echoFrames,
                 speed = map.speed,
+                loop = planned,
             ).also {
                 it.echoingLanes = echoing
                 if (echoing.isNotEmpty()) it.echoFadeFrom = max(dryGone, aGone - echoFrames)
@@ -243,8 +266,10 @@ object SpecPlan {
         val aLanes = spec.lanes.lanes.map { LaneId(Side.A, it) }
         val bLanes = spec.lanes.lanes.map { LaneId(Side.B, it) }
         val aFirst = aLanes.minOf { firstMoveU(spec, it) }
-        val bStartU = (spec.bStartMs - spec.b.atMs) / spec.b.barMs
-        val bFirst = minOf(bStartU, bLanes.minOf { firstHeardU(spec, it) ?: bStartU })
+        val loopU = spec.introLoop?.let { (it.bars * it.times).toDouble() } ?: if (spec.introTwice > 0) spec.introTwice.toDouble() else 0.0
+        // B's own first frame, after its loop where it has one; the loop itself starts on bar 1.
+        val bStartU = (spec.bStartMs - spec.b.atMs) / spec.b.barMs + loopU
+        val bFirst = minOf(if (loopU > 0) minOf(0.0, bStartU) else bStartU, bLanes.minOf { firstHeardU(spec, it) ?: bStartU })
         var ms = spec.aMsAt(minOf(aFirst, bFirst))
         if (spec.beatMatched) {
             val beats = if (abs(spec.tempoRatio() - 1) > LONG_RAMP_ABOVE) LONG_RAMP_BEATS else RAMP_BEATS

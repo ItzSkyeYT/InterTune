@@ -115,6 +115,9 @@ class WholeSongGrid(
         /** How far the errors of a constant stretch may add up: Mixxx's kMaxSecsPhaseErrorSum. */
         private const val MAX_ERROR_SUM_MS = 100.0
 
+        /** How many beats of a constant region may sit off its line: Mixxx's kMaxOutliersCount. */
+        private const val MAX_OUTLIERS = 1
+
         /** The fewest beats a stretch needs to set or refine the tempo: Mixxx's kMinRegionBeatCount. */
         private const val MIN_RUN_BEATS = 16
 
@@ -190,42 +193,44 @@ class WholeSongGrid(
         )
 
         /**
-         * The runs of [beats] that are straight: each beat within [maxError] of the line from the
-         * run's first beat to its last, one beat allowed off it (never the first after the start
-         * nor the last), the errors never adding up past [maxSum]. Runs share their end beats, as
-         * Mixxx's do.
+         * Mixxx's constant regions (BeatUtils::retrieveConstRegions, in our words): from each
+         * region's first beat, the longest run to a later beat whose own mean beat length, laid
+         * from the first, keeps every beat within [maxError] of it but one (never the first after
+         * the start), never drifts past [maxSum] in one direction, and whose first and last beats
+         * are not both corrections the same way. Runs share their end beats, as Mixxx's do.
          */
         internal fun constantRuns(beats: DoubleArray, maxError: Double, maxSum: Double): List<IntRange> {
-            fun straight(left: Int, right: Int): Boolean {
-                val length = (beats[right] - beats[left]) / (right - left)
+            val runs = ArrayList<IntRange>()
+            if (beats.size < 2) return runs
+            var left = 0
+            var right = beats.size - 1
+            while (left < beats.size - 1) {
+                val mean = (beats[right] - beats[left]) / (right - left)
+                var outliers = 0
                 var ironed = beats[left]
                 var sum = 0.0
-                var outliers = 0
-                for (i in left + 1..right) {
-                    ironed += length
+                var i = left + 1
+                while (i <= right) {
+                    ironed += mean
                     val e = ironed - beats[i]
                     sum += e
                     if (abs(e) > maxError) {
                         outliers++
-                        if (outliers > 1 || i == left + 1 || i == right) return false
+                        if (outliers > MAX_OUTLIERS || i == left + 1) break
                     }
-                    if (abs(sum) > maxSum) return false
+                    if (abs(sum) > maxSum) break
+                    i++
                 }
-                return true
-            }
-            val runs = ArrayList<IntRange>()
-            var left = 0
-            while (left < beats.size - 1) {
-                var best = left + 1
-                var right = left + 2
-                // Grown a beat at a time; a beat off the line may still sit inside a longer run, so
-                // a few beyond a failure are tried before the run is closed.
-                while (right < beats.size && right - best <= 3) {
-                    if (straight(left, right)) best = right
-                    right++
+                if (i > right) {
+                    val border = if (right > left + 2) abs(beats[left + 1] - beats[left] + beats[right] - beats[right - 1] - 2 * mean) else 0.0
+                    if (border < maxError / 2) {
+                        runs += left..right
+                        left = right
+                        right = beats.size - 1
+                        continue
+                    }
                 }
-                runs += left..best
-                left = best
+                right--
             }
             return runs
         }
@@ -239,7 +244,7 @@ class WholeSongGrid(
          */
         internal fun constantLine(beats: DoubleArray, maxError: Double, maxSum: Double): ConstantLine? {
             val runs = constantRuns(beats, maxError, maxSum)
-            val longest = runs.maxByOrNull { it.last - it.first } ?: return null
+            val longest = runs.maxByOrNull { beats[it.last] - beats[it.first] } ?: return null
             if (longest.last - longest.first < MIN_RUN_BEATS) return null
             fun length(r: IntRange) = (beats[r.last] - beats[r.first]) / (r.last - r.first)
             fun range(p: Double, n: Int) = (p - maxError / n) to (p + maxError / n)
@@ -296,21 +301,16 @@ class WholeSongGrid(
 
         /**
          * Mixxx's rounding (BeatUtils::roundBpmWithinRange): the whole BPM if it lies inside the
-         * range the line allows, else the half (under 85 BPM) or the step of 1.5 (over 127), else
-         * the third; the line's own BPM where none does.
+         * range the line allows, else the half (under 85 BPM), the step of 1.5 (over 127), the
+         * third, the twelfth; the line's own BPM where none does.
          */
         internal fun roundWithin(min: Double, center: Double, max: Double): Double {
-            val whole = Math.round(center).toDouble()
-            if (whole > min && whole < max) return whole
-            val width = max - min
-            if (width > 0.5) {
-                val snap = if (center < 85) Math.round(center * 2) / 2.0 else if (center > 127) Math.round(center / 3 * 2) * 3 / 2.0 else Double.NaN
-                if (snap > min && snap < max) return snap
-            }
-            if (width > 1.0 / 3) {
-                val snap = Math.round(center * 3) / 3.0
-                if (snap > min && snap < max) return snap
-            }
+            fun snap(fraction: Double): Double? = (Math.round(center * fraction) / fraction).takeIf { it > min && it < max }
+            snap(1.0)?.let { return it }
+            if (center < 85) snap(2.0)?.let { return it }
+            if (center > 127) snap(2.0 / 3.0)?.let { return it }
+            snap(3.0)?.let { return it }
+            snap(12.0)?.let { return it }
             return center
         }
 

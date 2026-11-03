@@ -371,7 +371,9 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
                     var v = r.at(o, c).toDouble()
                     if (scale != 1.0) v *= scale
                     if (fadeFrom >= 0) v *= fadeGain(o)
-                    if (back > 0.0) v = v * (1.0 - back) + ring[from + c] * attenuation * back
+                    // Back on what was held: past the held end (a change that runs on through a
+                    // loop of the next song) there is nothing held to go back to.
+                    if (back > 0.0) v = v * (1.0 - back) + (if (o < written) ring[from + c] else 0) * attenuation * back
                     output[to + c] = toPcm16(v)
                 }
                 if (backFrom >= 0 && o + 1 >= backFrom + BACK_FRAMES) {

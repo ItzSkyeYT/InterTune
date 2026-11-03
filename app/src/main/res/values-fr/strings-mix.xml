@@ -126,8 +126,6 @@
     <string name="mix_edit_bm_refused">Les tempos diffèrent de %1$s %%.</string>
     <string name="mix_edit_bm_no_beat_a">%1$s n\'a pas de rythme régulier ici : il garde sa propre vitesse.</string>
     <string name="mix_edit_bm_no_bars">Sans rythme régulier dans les deux morceaux, la transition se compte en secondes.</string>
-    <string name="mix_edit_intro_twice">Jouer l\'intro deux fois</string>
-    <string name="mix_edit_intro_twice_line">%2$s de l\'intro de %1$s jouent sous %3$s, puis à nouveau au démarrage.</string>
     <string name="mix_edit_back_to_auto">Revenir à Auto</string>
     <string name="mix_edit_plain">Transition simple pour ces deux</string>
     <string name="mix_edit_parts_need">Les pistes nécessitent le mixeur à télécharger (%1$d Mo).</string>
@@ -166,6 +164,7 @@
     <string name="mix_fix_plus">+5 ms</string>
     <string name="mix_fix_ms">%1$s ms</string>
     <string name="mix_fix_click">Métronome</string>
+    <string name="mix_edit_loop_times">×%1$d</string>
     <string name="mix_fix_lock">Verrouiller</string>
     <string name="mix_fix_reset">Réinitialiser</string>
     <string name="mix_fix_bars_guessed">%1$s BPM · mesure 1 incertaine</string>
@@ -217,7 +216,7 @@
     <string name="mix_canvas_from_start">dès son début</string>
     <string name="mix_canvas_echo">écho</string>
     <string name="mix_canvas_not_heard">non joué %1$s</string>
-    <string name="mix_canvas_intro_twice">intro double</string>
+    <string name="mix_canvas_intro_twice">boucle</string>
     <string name="mix_canvas_plain">Transition simple : %1$s démarre quand %2$s se termine.</string>
     <string name="mix_canvas_summary">%1$s vers %2$s, %3$s, %4$s.</string>
     <string name="mix_canvas_by_beats">%1$s · par temps</string>
