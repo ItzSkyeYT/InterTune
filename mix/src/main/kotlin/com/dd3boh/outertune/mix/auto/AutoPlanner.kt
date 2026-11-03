@@ -14,7 +14,6 @@ import com.dd3boh.outertune.mix.edit.LaneId
 import com.dd3boh.outertune.mix.edit.LaneSet
 import com.dd3boh.outertune.mix.edit.Move
 import com.dd3boh.outertune.mix.edit.Preset
-import com.dd3boh.outertune.mix.edit.Side
 import com.dd3boh.outertune.mix.edit.TransitionSpec
 import kotlin.math.abs
 import kotlin.math.max
