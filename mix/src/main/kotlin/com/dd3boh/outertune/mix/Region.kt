@@ -195,10 +195,13 @@ class RegionAnalysis(
      * This window as it is where the song's tempo is not sure, or where its own sure beats run at
      * another tempo (an intro or a section with a tempo of its own).
      */
-    fun onSong(song: SongGrid, offsetMs: Double, exact: Boolean, songLine: Boolean = true, songBars: Boolean = false): RegionAnalysis {
+    fun onSong(song: SongGrid, offsetMs: Double, exact: Boolean, songLine: Boolean = true, songBars: Boolean = true): RegionAnalysis {
         if (!song.tempoSure || guideFrom != 0) return this
         val own = grid
         if (own != null && gates.beats && !SongGrid.sameTempo(own.bpm, song.bpm)) return this
+        // A song whose one line does not hold from end to end (live drums, a tempo that moves)
+        // lends its tempo only: a window that found it keeps its own line.
+        if (!song.beatsSure && own != null && SongGrid.sameTempo(own.bpm, song.bpm)) return this
         val spectrum = Spectrum.of(guide, sampleRate.toDouble() / decimation, decimation)
         val frameRate = spectrum.frameRate
         val from = spectrum.sampleToFrame(envelope.firstSound.toDouble()).toInt().coerceIn(0, spectrum.frames)
@@ -209,18 +212,37 @@ class RegionAnalysis(
         val raw = spectrum.sampleToFrame((song.t0Ms - offsetMs) * sampleRate / 1000.0)
         val mapped = raw - kotlin.math.floor(raw / period) * period
         val tracked = BeatGrid.track(spectrum.onset, frameRate, period, from, to)?.takeIf { abs(it.period / period - 1) <= SongGrid.TEMPO_REACH }
+        if (!song.beatsSure) {
+            // One that did not find it is found again near it, on its own line and its own bars.
+            val line = tracked ?: return this
+            val bars = Downbeats.find(spectrum, line)
+            val gates = Gates(
+                song.tempoZ, song.rivalRatio, line.steadiness, line.drift, line.hitShare, line.jitterMs, line.activeBeats,
+                bars?.margin ?: 0.0, fromSong = true,
+            )
+            var rhythm = Rhythm(rhythm.tempo, line, bars, gates)
+            if (kind == RegionKind.HEAD) rhythm = firstSoundIsOne(rhythm, envelope, decimation, sampleRate, spectrum.onset)
+            return withRhythm(rhythm, spectrum)
+        }
         val fitted = tracked?.let { t ->
             val a = BeatGrid.throughAt(t.heardK.toList(), t.heardT.toList(), period)
             a - kotlin.math.floor(a / period) * period
         }
         val t0 = when {
-            fitted == null -> if (exact) mapped else return this
+            // No beat of its own near the song's tempo: the song's line, trusted only where its place is exact.
+            fitted == null -> mapped
             exact && songLine -> mapped
-            else -> fitted
+            // The window's own phase, or the beat half a beat from it, whichever the song's line
+            // says: a few hundred beats tell a beat from an off-beat better than a window's few
+            // dozen, and a place known to 50 ms is enough for that.
+            else -> {
+                val other = (fitted + period / 2) % period
+                if (circular(other - mapped, period) < circular(fitted - mapped, period)) other else fitted
+            }
         }
         val line = BeatGrid.onLine(spectrum.onset, frameRate, t0, period, from, to) ?: return this
-        // A window with no beat of its own is judged by the song's beats, which it lies on.
-        val bySong = fitted == null
+        // A window with no beat of its own is judged by the song's beats, which it lies on, where it is laid exactly.
+        val bySong = fitted == null && exact
         // The song's beat nearest this window's beat 0, from where the window sits in the song: a
         // place known to a few tens of ms is enough to count beats.
         val songIndexOf0 = song.kNear(offsetMs + (t0 * Spectrum.HOP + Spectrum.ONSET_LAG) * decimation * 1000.0 / sampleRate)
@@ -236,12 +258,23 @@ class RegionAnalysis(
         )
         var rhythm = Rhythm(rhythm.tempo, line, downbeats, gates)
         if (kind == RegionKind.HEAD && !songBars) rhythm = firstSoundIsOne(rhythm, envelope, decimation, sampleRate, spectrum.onset)
-        val phrases = if (rhythm.grid != null && rhythm.downbeats != null) Phrases.find(spectrum, rhythm.grid!!, rhythm.downbeats!!, envelope) else null
+        return withRhythm(rhythm, spectrum)
+    }
+
+    /** The same region on other beats and bars, with its phrases found again on them. */
+    private fun withRhythm(rhythm: Rhythm, spectrum: Spectrum): RegionAnalysis {
+        val phrases = if (rhythm.grid != null && rhythm.downbeats != null) Phrases.find(spectrum, rhythm.grid, rhythm.downbeats, envelope) else null
         return RegionAnalysis(
             kind = kind, sampleRate = sampleRate, channels = channels, frames = frames, envelope = envelope, rhythm = rhythm,
             phrases = phrases, onset = onset, hopPeak = hopPeak, hopFrames = hopFrames, guide = guide, decimation = decimation,
             analysisMillis = analysisMillis, guideFrom = guideFrom, hopPeakAbove120 = hopPeakAbove120, hopPeakAbove400 = hopPeakAbove400,
         )
+    }
+
+    /** How far apart two phases are on a circle of [period]. */
+    private fun circular(d: Double, period: Double): Double {
+        val m = ((d % period) + period) % period
+        return minOf(m, period - m)
     }
 
     /**
