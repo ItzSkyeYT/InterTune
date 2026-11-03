@@ -516,6 +516,17 @@ object Unreleased {
     val CASTING = true
 
     /**
+     * Casting to a Chromecast opens InterTune's own receiver first (Chromecast.INTERTUNE_RECEIVER:
+     * our screen on the TV, and Google Home's buttons passed back to the phone), and Google's
+     * Default Media Receiver when the device refuses it or leaves it unopened. Ours is unpublished
+     * while it is tried, so only the devices registered in the Cast console can open it, and a
+     * release that asked every device first would wait for a refusal at each cast. His Cast
+     * console opened on 3 Nov 2026; until it gives an App ID, INTERTUNE_RECEIVER is null and
+     * nothing changes.
+     */
+    val OWN_CAST_RECEIVER = BuildConfig.DEBUG
+
+    /**
      * Songs put in with Play next stay next when a song is picked out of a list: they play right
      * after the picked song, in the order they stood, then the list (PlayNextWaiting), as Spotify's
      * "Next in queue" does. Asked for in issue #42 (23 Oct 2026). Without it a pick leaves them in
