@@ -27,6 +27,10 @@ import com.dd3boh.outertune.mix.edit.TransitionSpec
 import com.dd3boh.outertune.mix.edit.toJson
 import com.dd3boh.outertune.mix.edit.transitionSpecOf
 import com.dd3boh.outertune.playback.automix.MixStores
+import com.dd3boh.outertune.playback.batteryModeNow
+import com.dd3boh.outertune.utils.get
+import com.dd3boh.outertune.utils.dataStore
+import com.dd3boh.outertune.mix.WholeSongGrid
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
@@ -126,6 +130,26 @@ class MixEditorViewModel @Inject constructor(
 
     fun retry() = load()
 
+    /**
+     * Reads a song whole and keeps its grid, as playback does, only with the player's cache on (as
+     * sized at start): the bytes read here are then the ones it plays from.
+     */
+    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+    private fun wholeReader(source: DataSource.Factory): ((String, Double, () -> Boolean) -> WholeSongGrid?)? {
+        val cacheOn = com.dd3boh.outertune.playback.BatteryUse.songCacheMb(
+            context.dataStore[com.dd3boh.outertune.constants.MaxSongCacheSizeKey], context.batteryModeNow(),
+        ) != 0
+        if (!cacheOn) return null
+        val decoder = com.dd3boh.outertune.playback.automix.HeadDecoder(source)
+        return { id, durationMs, cancelled ->
+            val read = decoder.read(id, cancelled, wholeSeconds = WholeSongGrid.MAX_SECONDS)
+            val whole = read.whole
+            val expected = minOf(durationMs, WholeSongGrid.MAX_SECONDS * 1000)
+            if (whole == null || (durationMs > 0 && whole.seconds * 1000 < expected - 5_000)) null
+            else WholeSongGrid.analyse(whole)?.also { MixStores.wholeSongs(context).put(id, it) }
+        }
+    }
+
     /** Whether [songId]'s grid read from the whole song is locked; null where the song was never read whole. */
     suspend fun wholeLocked(songId: String): Boolean? = withContext(Dispatchers.IO) {
         runCatching { MixStores.wholeSongs(context).get(songId)?.locked }.getOrNull()
@@ -162,7 +186,7 @@ class MixEditorViewModel @Inject constructor(
                 val levelB = withContext(Dispatchers.IO) { runCatching { levelOf(toId) }.getOrDefault(1.0) }
                 val volume = runCatching { volumeOf() }.getOrDefault(1f)
                 val loaded = withContext(Dispatchers.IO) {
-                    PairLoader(source, EditorCache(context.cacheDir), { id, end -> MixStores.analysed(context, id, end) }, { id -> MixStores.wholeSongs(context).get(id) }).load(
+                    PairLoader(source, EditorCache(context.cacheDir), { id, end -> MixStores.analysed(context, id, end) }, { id -> MixStores.wholeSongs(context).get(id) }, wholeReader(source)).load(
                         inputA, inputB, levelA, levelB,
                         stage = { phase.value = Phase.Loading(it) },
                         cancelled = { cancelled.get() },

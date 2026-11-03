@@ -97,6 +97,11 @@ class PairLoader(
     private val kept: ((String, SongEnd) -> Unit)? = null,
     /** Each song's beats read from the whole song once, which its end and opening are laid on (WholeSongStore). */
     private val grids: ((String) -> WholeSongGrid?)? = null,
+    /**
+     * Reads a song with no grid yet whole and keeps its grid, as playback does; null where songs
+     * are not read whole here (the player's cache off: the song would be fetched twice). Blocking.
+     */
+    private val readWhole: ((id: String, durationMs: Double, cancelled: () -> Boolean) -> WholeSongGrid?)? = null,
 ) {
 
     enum class Stage { READING_A, READING_B, ANALYSING }
@@ -120,18 +125,21 @@ class PairLoader(
         } catch (e: IOException) {
             throw ReadFailed(Side.A, e)
         }
+        // Each song read whole once where it never was, so its end and opening keep its own tempo.
+        val aWhole = wholeOf(a.id) ?: readWhole?.let { r -> runCatching { r(a.id, a.durationMs, cancelled) }.getOrNull() }
         stage(Stage.READING_B)
         val (bWindow, bBands) = try {
             window(b, HEAD, cancelled)
         } catch (e: IOException) {
             throw ReadFailed(Side.B, e)
         }
+        val bWhole = wholeOf(b.id) ?: readWhole?.let { r -> runCatching { r(b.id, b.durationMs, cancelled) }.getOrNull() }
         cache.prune()
         stage(Stage.ANALYSING)
         // Each at its song's own tempo where the song was read whole: the opening from the song's
         // first frame, exactly; the end from where the decoder says it starts.
-        val aAnalysis = analyse(aWindow, RegionKind.TAIL)?.let { r -> wholeOf(a.id)?.let { r.onSong(it, aWindow.info.startMs, exact = false) } ?: r }
-        val bAnalysis = analyse(bWindow, RegionKind.HEAD)?.let { r -> wholeOf(b.id)?.let { r.onSong(it, bWindow.info.startMs, exact = bWindow.info.startMs == 0.0) } ?: r }
+        val aAnalysis = analyse(aWindow, RegionKind.TAIL)?.let { r -> aWhole?.let { r.onSong(it, aWindow.info.startMs, exact = false) } ?: r }
+        val bAnalysis = analyse(bWindow, RegionKind.HEAD)?.let { r -> bWhole?.let { r.onSong(it, bWindow.info.startMs, exact = bWindow.info.startMs == 0.0) } ?: r }
         val aGrid = aAnalysis?.let { gridOf(it, aWindow.info.startMs) }
         val bGrid = bAnalysis?.let { gridOf(it, bWindow.info.startMs) }
         val aGates = aAnalysis?.gates
