@@ -109,8 +109,8 @@ class WholeSongGrid(
         fun sameTempo(window: Double, song: Double): Boolean =
             doubleArrayOf(0.5, 1.0, 2.0).any { abs(window / (song * it) - 1) <= TEMPO_REACH }
 
-        /** The longest song read whole; past it (a DJ set, an hour of rain) the windows are read as they are. */
-        const val MAX_SECONDS = 15 * 60.0
+        /** The longest a song is read whole for its grid: 29 MB of its decimated copy at most, held while it is analysed. A longer one (a DJ set, an hour of rain) is read for its first 10 minutes. */
+        const val MAX_SECONDS = 10 * 60.0
 
         /** How far the errors of a constant stretch may add up: Mixxx's kMaxSecsPhaseErrorSum. */
         private const val MAX_ERROR_SUM_MS = 100.0

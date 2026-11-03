@@ -531,7 +531,9 @@ class AutomixController(
      */
     private fun readWholeSong(t: Transition, songId: String, durationMs: Long, next: Boolean) {
         val store = wholeSongs ?: return
-        if (!readWhole || t.wholeRead != null) return
+        // A song longer than a whole read (a DJ set) keeps its windows as they are: one tempo for
+        // its first minutes says nothing of its end.
+        if (!readWhole || t.wholeRead != null || durationMs > WholeSongGrid.MAX_SECONDS * 1000) return
         val cancelled = t.cancelled
         t.wholeRead = scope.launch {
             val read = runCatching {

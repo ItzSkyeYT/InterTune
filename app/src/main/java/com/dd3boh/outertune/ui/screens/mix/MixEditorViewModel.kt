@@ -141,11 +141,11 @@ class MixEditorViewModel @Inject constructor(
         ) != 0
         if (!cacheOn) return null
         val decoder = com.dd3boh.outertune.playback.automix.HeadDecoder(source)
-        return { id, durationMs, cancelled ->
-            val read = decoder.read(id, cancelled, wholeSeconds = WholeSongGrid.MAX_SECONDS)
-            val whole = read.whole
-            val expected = minOf(durationMs, WholeSongGrid.MAX_SECONDS * 1000)
-            if (whole == null || (durationMs > 0 && whole.seconds * 1000 < expected - 5_000)) null
+        return read@{ id, durationMs, cancelled ->
+            // A song longer than a whole read (a DJ set) keeps its windows as they are.
+            if (durationMs > WholeSongGrid.MAX_SECONDS * 1000) return@read null
+            val whole = decoder.read(id, cancelled, wholeSeconds = WholeSongGrid.MAX_SECONDS).whole
+            if (whole == null || (durationMs > 0 && whole.seconds * 1000 < durationMs - 5_000)) null
             else WholeSongGrid.analyse(whole)?.also { MixStores.wholeSongs(context).put(id, it) }
         }
     }
