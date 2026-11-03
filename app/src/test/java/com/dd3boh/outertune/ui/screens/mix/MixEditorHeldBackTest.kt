@@ -79,14 +79,15 @@ class MixEditorHeldBackTest {
     }
 
     @Test
-    fun `Play the intro twice is offered only once playback plays it`() {
-        // SpecPlan refuses a change that plays the intro twice, and Auto plays instead: the page
-        // offers the switch only when that refusal is gone, or to turn it off on a change that has it.
+    fun `loops are offered because playback plays them`() {
+        // The page offers a loop on either song only because SpecPlan plays it: the intro twice
+        // too, as a loop of B's first bars once, where it used to be refused and Auto played.
         val plan = File("../mix/src/main/kotlin/com/dd3boh/outertune/mix/engine/SpecPlan.kt").readText()
-        val refused = "if (spec.introTwice > 0) return Result.Refused(" in plan
+        assertTrue("if (spec.introTwice > 0) return Result.Refused(" !in plan)
+        assertTrue("introLoop = IntroLoop(spec.introTwice, spec.b.atMs, 1)" in plan)
         val screen = code("ui/screens/mix/MixEditorScreen.kt")
-        assertTrue(screen, "if (INTRO_TWICE_PLAYS || spec.introTwice > 0) SwitchRow(" in screen)
-        assertTrue("private const val INTRO_TWICE_PLAYS = ${!refused}" in screen)
+        assertTrue(screen, "setOutroLoop(n, k) else setIntroLoop(n, k)" in screen)
+        assertTrue("INTRO_TWICE_PLAYS" !in screen)
     }
 
     @Test
