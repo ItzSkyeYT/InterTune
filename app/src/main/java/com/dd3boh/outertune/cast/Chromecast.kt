@@ -12,6 +12,7 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.booleanOrNull
@@ -189,10 +190,38 @@ object Chromecast {
                     put("images", buildJsonArray { add(buildJsonObject { put("url", art) }) })
                 }
             })
+            // Which song this is, for InterTune's own receiver to match its lyrics to (LYRICS).
+            put("customData", buildJsonObject { put("mediaId", item.mediaId) })
         })
         put("currentTime", startMs.coerceAtLeast(0) / 1000.0)
         put("autoplay", autoplay)
     }.toString()
+
+    /**
+     * The lyrics InterTune's own receiver shows on [NS_INTERTUNE]: the song's lines as
+     * [start ms, text] pairs, or none to put them away. A Cast message holds 64 KB at most, so
+     * lines past [MAX_LYRICS_BYTES] are left out, from the end.
+     */
+    fun lyrics(lyrics: CastLyrics?): String {
+        fun build(lines: List<CastLyrics.Line>) = buildJsonObject {
+            put("type", LYRICS)
+            if (lyrics != null) {
+                put("mediaId", lyrics.mediaId)
+                put("shiftMs", lyrics.shiftMs)
+                put("lines", buildJsonArray { lines.forEach { add(buildJsonArray { add(it.startMs); add(it.text) }) } })
+            }
+        }.toString()
+        var lines = lyrics?.lines.orEmpty()
+        var text = build(lines)
+        while (text.toByteArray().size > MAX_LYRICS_BYTES && lines.isNotEmpty()) {
+            lines = lines.dropLast(maxOf(1, lines.size / 10))
+            text = build(lines)
+        }
+        return text
+    }
+
+    const val LYRICS = "LYRICS"
+    const val MAX_LYRICS_BYTES = 60_000
 
     /** PLAY, PAUSE or STOP for the media session [mediaSessionId]. */
     fun mediaCommand(type: String, requestId: Int, mediaSessionId: Long): String = buildJsonObject {

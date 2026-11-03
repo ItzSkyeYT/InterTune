@@ -454,6 +454,36 @@ class ChromecastLinkTest {
         assertFalse(refusals.refuses("tv", ours))
     }
 
+    private val someLyrics = CastLyrics("vid1", listOf(CastLyrics.Line(0, "First"), CastLyrics.Line(2_000, "Second")))
+
+    @Test
+    fun `lyrics go to our own receiver on our own namespace, and away again`() {
+        val (receiver, link) = connected(receivers = listOf(ours, Chromecast.DEFAULT_MEDIA_RECEIVER))
+        receiver.next(Chromecast.NS_RECEIVER, "LAUNCH")
+        runBlocking { link.showLyrics(someLyrics) }
+        val sent = receiver.next(Chromecast.NS_INTERTUNE, "LYRICS")
+        assertEquals("web-1", sent.message.destinationId)
+        assertEquals("vid1", sent.body.getValue("mediaId").jsonPrimitive.content)
+        runBlocking { link.showLyrics(null) }
+        assertNull(receiver.next(Chromecast.NS_INTERTUNE, "LYRICS").body["mediaId"])
+    }
+
+    @Test
+    fun `Google's receiver is never sent lyrics, it has no screen for them`() {
+        val (receiver, link) = connected()
+        runBlocking { link.showLyrics(someLyrics) }
+        assertFalse(receiver.sends(Chromecast.NS_INTERTUNE, "LYRICS", 400))
+    }
+
+    @Test
+    fun `lyrics are written off the main thread, where the cast session calls from`() {
+        // On a phone a socket write on the main thread throws, and the lyrics never left (3 Nov 2026);
+        // a JVM test has no main thread to catch that, so this reads the source.
+        val source = java.io.File("src/main/java/com/dd3boh/outertune/cast/ChromecastLink.kt").readText()
+        val body = source.substringAfter("override suspend fun showLyrics(").substringBefore("\n    }\n")
+        assertTrue(body, "withContext(Dispatchers.IO)" in body)
+    }
+
     @Test
     fun `a device that will not open the player is not a receiver`() {
         val receiver = FakeChromecast()
