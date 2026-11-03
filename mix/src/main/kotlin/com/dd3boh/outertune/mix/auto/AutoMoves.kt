@@ -116,6 +116,11 @@ object AutoMoves {
         putAll(incoming)
     }
 
+    /** The incoming song in on bar 1, nothing of it heard before: an opening left out, its beat landing on the line. */
+    fun cutIn(): Map<LaneId, Move> = buildMap {
+        for (lane in listOf(Lane.LOWS, Lane.MIDS, Lane.HIGHS)) put(LaneId(Side.B, lane), Move(0.0, 0.0, How.CUT))
+    }
+
     /** The incoming song as it is, from its first frame. */
     fun fromStart(): Map<LaneId, Move> = buildMap {
         for (lane in listOf(Lane.LOWS, Lane.MIDS, Lane.HIGHS)) put(LaneId(Side.B, lane), Move(0.0, 0.0, How.FROM_START))

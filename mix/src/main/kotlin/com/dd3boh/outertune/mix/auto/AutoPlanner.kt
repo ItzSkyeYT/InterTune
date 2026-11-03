@@ -9,10 +9,12 @@ package com.dd3boh.outertune.mix.auto
 import com.dd3boh.outertune.mix.Planner
 import com.dd3boh.outertune.mix.edit.Anchor
 import com.dd3boh.outertune.mix.edit.BeatFix
+import com.dd3boh.outertune.mix.edit.IntroLoop
 import com.dd3boh.outertune.mix.edit.LaneId
 import com.dd3boh.outertune.mix.edit.LaneSet
 import com.dd3boh.outertune.mix.edit.Move
 import com.dd3boh.outertune.mix.edit.Preset
+import com.dd3boh.outertune.mix.edit.Side
 import com.dd3boh.outertune.mix.edit.TransitionSpec
 import kotlin.math.abs
 import kotlin.math.max
@@ -102,6 +104,8 @@ class AutoPick(
     val unheardMs: Double,
     val score: Double,
     val why: String,
+    /** Bars of the incoming song looped in front of it, to bridge two singers ([VoiceRule]); null for none. */
+    val introLoop: IntroLoop? = null,
 ) {
     val isPlain: Boolean get() = plain != null
 
@@ -128,6 +132,13 @@ class AutoPick(
         from = move,
         plain = plain != null,
         moves = moves,
+        introLoop = introLoop,
+    )
+
+    /** The same change with [moves] and [loop] in place of its own, scored [delta] more, for [what]. */
+    fun mended(moves: Map<LaneId, Move>, loop: IntroLoop?, delta: Double, what: String): AutoPick = AutoPick(
+        kind, move, plain, bars, seconds, beatMatch, a, b, moves, onPhrase, phraseBars, bOnBar, keyDistance, speed, unheardMs, score + delta,
+        "$why; $what", loop,
     )
 
     fun describe(): String = "$pill ($kind): $why"
@@ -276,11 +287,11 @@ object AutoPlanner {
     /** The same change with the outgoing song's bar 1 [ms] later in its own clock, so its music is heard that much earlier. */
     private fun AutoPick.nudged(ms: Double): AutoPick = AutoPick(
         kind, move, plain, bars, seconds, beatMatch, a.copy(atMs = a.atMs + ms), b, moves, onPhrase, phraseBars, bOnBar, keyDistance, speed, unheardMs, score,
-        why + "; lined up by %+.1f ms".format(ms),
+        why + "; lined up by %+.1f ms".format(ms), introLoop,
     )
 
     private fun AutoPick.withWhy(refused: List<String>): AutoPick =
-        if (refused.isEmpty()) this else AutoPick(kind, move, plain, bars, seconds, beatMatch, a, b, moves, onPhrase, phraseBars, bOnBar, keyDistance, speed, unheardMs, score, why + "; " + refused.joinToString("; "))
+        if (refused.isEmpty()) this else AutoPick(kind, move, plain, bars, seconds, beatMatch, a, b, moves, onPhrase, phraseBars, bOnBar, keyDistance, speed, unheardMs, score, why + "; " + refused.joinToString("; "), introLoop)
 
     /** Every change Auto would consider for the pair, best first, ending with plain. */
     fun candidates(input: AutoInput): List<AutoPick> {
@@ -291,7 +302,8 @@ object AutoPlanner {
         out += introMix(c)
         out += handOvers(c)
         out += blends(c)
-        val sorted = out.sortedWith(compareByDescending<AutoPick> { it.score }.thenBy { it.bars }.thenBy { it.a.atMs })
+        val kept = oneVoice(c, out)
+        val sorted = kept.sortedWith(compareByDescending<AutoPick> { it.score }.thenBy { it.bars }.thenBy { it.a.atMs })
         val why = if (c.notes.isEmpty()) "nothing fits" else c.notes.distinct().joinToString("; ")
         return sorted + plain(input, AutoPlain.NO_FIT, why)
     }
@@ -346,6 +358,15 @@ object AutoPlanner {
             while (l.msOf(k) < b.firstSoundMs - B_BAR1_SLACK_MS) k += l.beatsPerBar
             k
         }
+
+        /**
+         * Where the incoming song comes in: its bar 1, or the bar line where its beat starts when it
+         * opens with a short stretch without one (a riser, a rising melody), which is then not heard.
+         */
+        val bEntry: Int? = bBar1?.let { k1 -> riserEnd(b, k1) ?: k1 }
+
+        /** The incoming song's opening before its beat is left out. */
+        val riserCut: Boolean get() = bEntry != bBar1
 
         fun note(s: String) {
             notes += s
@@ -451,8 +472,8 @@ object AutoPlanner {
             c.note("not beat locked: bars of %d and %d beats do not line up".format(la.beatsPerBar, lb.beatsPerBar))
             return emptyList()
         }
-        val k1 = c.bBar1 ?: return emptyList()
-        if (lb.msOf(k1) - b.firstSoundMs > FIRST_DOWNBEAT_MS) {
+        val k1 = c.bEntry ?: return emptyList()
+        if (!c.riserCut && lb.msOf(k1) - b.firstSoundMs > FIRST_DOWNBEAT_MS) {
             c.note("not beat locked: the next song's first downbeat comes %.1f s after its first sound".format((lb.msOf(k1) - b.firstSoundMs) / 1000))
             return emptyList()
         }
@@ -538,10 +559,11 @@ object AutoPlanner {
                 }
                 val anchorA = Anchor(c.input.aId, aLocal.msOf(kS), aLocal.bpm, CHANGE_BEATS)
                 val anchorB = Anchor(c.input.bId, atOrAfterBStart(bStartMs), bLocal.bpm, CHANGE_BEATS)
-                val why = "%d bars on the %s, in at %s, A %.2f to B %.2f BPM (A at %.4f)%s%s%s".format(
+                val why = "%d bars on the %s, in at %s, A %.2f to B %.2f BPM (A at %.4f)%s%s%s%s".format(
                     length, phraseWords(level, phrases.heard), clock(sMs), aLocal.bpm, bLocal.bpm, speed,
                     keyWords(c), if (move != Preset.FADE) ", ${moveWhy(move)}" else "",
                     if (lb.barsFromFirstBeat) ", the next song's bars from its first beat" else "",
+                    riserWords(c),
                 )
                 out += AutoPick(
                     AutoKind.BEAT_LOCKED, move, null, length, length * bBarMs / 1000.0, true, anchorA, anchorB, moves,
@@ -584,6 +606,8 @@ object AutoPlanner {
         val la = a.line ?: return emptyList()
         val lb = b.line ?: return emptyList()
         if (!la.barsTrusted || !lb.barsTrusted) return emptyList()
+        // A short opening without a beat is left out instead, the song coming in where its beat starts.
+        if (c.riserCut) return emptyList()
         // The drop: the first bar line of B's trusted beats, well after its first sound.
         val kD = lb.downbeatAtOrAfter(lb.firstK)
         val dropMs = lb.msOf(kD)
@@ -670,6 +694,7 @@ object AutoPlanner {
         // Where B comes in: its first bar line when its bars are trusted, its first beat when only
         // its beats are, its first sound otherwise.
         val (bAtMs, bWhat) = when {
+            lb != null && lb.barsTrusted && c.riserCut && c.bEntry != null -> lb.msOf(c.bEntry) to "where its beat starts"
             lb != null && lb.barsTrusted && c.bBar1 != null && lb.msOf(c.bBar1) - b.firstSoundMs <= FIRST_DOWNBEAT_MS -> lb.msOf(c.bBar1) to "its first downbeat"
             lb != null && lb.beatsTrusted -> {
                 var k = lb.kNear(b.firstSoundMs)
@@ -683,7 +708,12 @@ object AutoPlanner {
         val bBeats = CHANGE_BEATS
         val beatB = 1.0 / bBeats
         val pickupMs = bAtMs - b.firstSoundMs
-        val incoming = if (pickupMs <= PICKUP_MS) AutoMoves.fromStart() else AutoMoves.risingInto(-min(pickupMs, bBarMs) / bBarMs)
+        val incoming = when {
+            // Its opening before the beat is not heard: the song comes in on the beat.
+            bWhat == "where its beat starts" -> AutoMoves.cutIn()
+            pickupMs <= PICKUP_MS -> AutoMoves.fromStart()
+            else -> AutoMoves.risingInto(-min(pickupMs, bBarMs) / bBarMs)
+        }
 
         // Lines A may leave on, each with its phrase level: phrase lines when its bars are
         // trusted, beats in its last seconds when only its beats are.
@@ -736,8 +766,8 @@ object AutoPlanner {
                     AutoKind.HAND_OVER, move, null, 2, 2 * bBarMs / 1000.0, false, anchorA, anchorB, moves,
                     onPhrase = line.level >= 4, phraseBars = line.level, bOnBar = bWhat == "its first downbeat", keyDistance = c.keyDistance,
                     speed = 1.0, unheardMs = unheard, score = score,
-                    why = "%s on %s at %s, %.1f s before the end, into %s; %s%s".format(
-                        if (move == Preset.ECHO_OUT) "echo out" else "cut", where, clock(h), unheard / 1000, bWhat, tempo, keyWords(c),
+                    why = "%s on %s at %s, %.1f s before the end, into %s; %s%s%s".format(
+                        if (move == Preset.ECHO_OUT) "echo out" else "cut", where, clock(h), unheard / 1000, bWhat, tempo, keyWords(c), riserWords(c),
                     ),
                 )
             }
@@ -801,10 +831,50 @@ object AutoPlanner {
         return out
     }
 
+    // 5. Never two voices at once.
+
+    /**
+     * Every candidate kept to one voice at a time ([VoiceRule.mends]): as it is where its two voices
+     * never meet; otherwise mended, by the outgoing voice out on the bar line before the incoming
+     * song's first word, by bars of the incoming song with no voice in them looped in front of it so
+     * its first line comes once the outgoing one has finished (half the change at most, two bars for
+     * a hand-over, and only where its bars are trusted), or, last, by the incoming mids brought in
+     * late. A candidate that no mend keeps apart is not made. Where either song's voice is not
+     * known, the candidates stay as they are.
+     */
+    private fun oneVoice(c: Context, picks: List<AutoPick>): List<AutoPick> {
+        val a = c.a
+        val b = c.b
+        if (a.voice == null || b.voice == null) return picks
+        val barsB = c.b.line?.barsTrusted == true
+        val out = ArrayList<AutoPick>()
+        for (p in picks) {
+            val spec = p.spec()
+            val loopBars = when {
+                !barsB -> 0
+                p.kind == AutoKind.HAND_OVER -> 2
+                p.kind == AutoKind.BEAT_LOCKED -> max(1, p.bars / 2)
+                else -> 0
+            }
+            // The cheapest mend only: they all share the change's place and tempo, so a proof that
+            // refuses one for its beats would refuse the others, and each costs a render.
+            val m = VoiceRule.mends(spec, a, b, loopBars).firstOrNull()
+            if (m == null) c.note("not ${p.pill}: two voices for %.1f s and no way to part them".format(VoiceRule.together(spec, a, b)))
+            else out += if (m.spec === spec) p else p.mended(m.spec.moves, m.spec.introLoop, -m.cost, m.what)
+        }
+        return out
+    }
+
     private fun phraseWords(level: Int, heard: Boolean): String = when {
         level >= 4 -> "$level-bar phrase line" + if (heard) "" else " (counted)"
         level >= 1 -> "bar line, between phrases"
         else -> "beat"
+    }
+
+    private fun riserWords(c: Context): String {
+        if (!c.riserCut) return ""
+        val l = c.b.line ?: return ""
+        return ", the next song's %.1f s opening before its beat left out".format((l.msOf(c.bEntry!!) - c.b.firstSoundMs) / 1000)
     }
 
     private fun keyWords(c: Context): String {
@@ -820,6 +890,37 @@ object AutoPlanner {
     }
 }
 
+
+/** How many bars after its bar 1 a song's beat may start for the opening before it to be left out. */
+internal const val RISER_MAX_BARS = 4
+
+/**
+ * The bar line where [b]'s beat starts, its kick and bass come in, when it opens from its bar 1 at
+ * [k1] with a short stretch without them: a riser or a rising melody before the drop, as Starboy
+ * opens ("that rising melody at the beginning can easily be cut out", his word of 3 Nov 2026).
+ * AUTO-PLAN's entry: bar 1 where a song opens with its beat, else where its beat starts. Null where
+ * it opens with its beat, where the stretch runs past [RISER_MAX_BARS] bars or what was read, where
+ * the stretch has a voice in it (a sung pickup is kept), or where its bars are not trusted.
+ */
+internal fun riserEnd(b: SongEnd, k1: Int): Int? {
+    val l = b.line ?: return null
+    if (!l.barsTrusted) return null
+    val kickIn = b.medianLowDb - 6.0
+    fun kicking(k: Int) = b.meanLowDb(l.msOf(k), l.msOf(k + l.beatsPerBar)) >= kickIn
+    if (kicking(k1)) return null
+    var k = k1 + l.beatsPerBar
+    while (k <= k1 + RISER_MAX_BARS * l.beatsPerBar) {
+        if (l.msOf(k + l.beatsPerBar) > b.toMs) return null
+        if (kicking(k)) {
+            if (b.meanLowDb(b.firstSoundMs, l.msOf(k)) > b.medianLowDb - 9.0) return null
+            // A sung pickup is kept. The guess hears a voice in many a synth line, so only a clear one counts.
+            if ((b.singing(b.firstSoundMs, l.msOf(k)) ?: 0.0) >= VoiceRule.SINGS) return null
+            return k
+        }
+        k += l.beatsPerBar
+    }
+    return null
+}
 
 /**
  * B's anchor, never before its first frame. Bar 1 may sit up to 30 ms before B's first sound
