@@ -70,6 +70,30 @@ class AutoOnBandsTest {
     }
 
     @Test
+    fun `Auto's change with the next song's bars looped in front of it plays and passes its proof`() {
+        val (a, b) = pair()
+        val chosen = AutoOnBands.choose(a, b)
+        assertEquals(AutoKind.BEAT_LOCKED, chosen.pick.kind)
+        // As the voice rule bridges two singers: B's bar 1 twice in front of it.
+        val spec = chosen.spec.copy(introLoop = com.dd3boh.outertune.mix.edit.IntroLoop(1, chosen.spec.b.atMs, 2))
+        val facts = ChangeFacts(
+            rate, 2, (spec.a.atMs - a.copy.startMs) * rate / 1000.0, a.copy.frames.toLong(),
+            spec.b.atMs * rate / 1000.0, b.copy.frames.toLong(),
+            anchors = a.analysis.beatFrames().map { it - (a.copy.startMs - a.analysisStartMs) * rate / 1000.0 }.toDoubleArray(),
+        )
+        val plain = (SpecPlan.plan(chosen.spec, facts) as SpecPlan.Result.Planned).plan
+        val plan = (SpecPlan.plan(spec, facts) as SpecPlan.Result.Planned).plan
+        // B's own bar 1 comes two of its bars later, on the same bar 1 of the change.
+        assertEquals(plain.bar1, plan.bar1, 1.0)
+        assertEquals(plain.bStart + 2 * plain.barFrames, plan.bStart.toDouble(), 2.0)
+        val render = LaneMixer(plan).render(a.copy.pcm, b.copy.pcm, 1.0, 1.0)
+        val verdict = ProofCheck.check(AutoOnBands.proofOf(render, a.copy, b.copy, beatLocked = true))
+        assertTrue(verdict.why, verdict.passes)
+        // The held end plays all of it until B's own first frame, the loop with it.
+        assertTrue(render.outgoing.endFrame >= plan.bStart)
+    }
+
+    @Test
     fun `a proof holds a few bytes for each frame it spans, not copies of the whole change`() {
         val (a, b) = pair()
         val chosen = AutoOnBands.choose(a, b)

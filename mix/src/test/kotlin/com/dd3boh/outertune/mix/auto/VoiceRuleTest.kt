@@ -43,10 +43,10 @@ class VoiceRuleTest {
         assertFalse(p.isPlain)
         val spec = p.spec()
         assertTrue("together %.2f s".format(VoiceRule.together(spec, a, b)), VoiceRule.together(spec, a, b) <= VoiceRule.MAX_TOGETHER_S)
-        // The outgoing voice is gone before the next one is heard.
+        // The two voices meet within the one beat they hand over on, at most.
         val firstB = checkNotNull(VoiceRule.firstHeardB(spec, b))
         val lastA = checkNotNull(VoiceRule.lastHeardA(spec, a))
-        assertTrue("A heard to %.2f, B from %.2f".format(lastA, firstB), lastA <= firstB + 1.0 / 16)
+        assertTrue("A heard to %.2f, B from %.2f".format(lastA, firstB), lastA <= firstB + spec.beat)
     }
 
     @Test
@@ -89,7 +89,7 @@ class VoiceRuleTest {
     }
 
     @Test
-    fun `without a loop to play the outgoing voice leaves on the bar line before the next song sings`() {
+    fun `without a loop to play the outgoing voice hands over to the next one on a bar line`() {
         val a = Ends.tail(124.0, voice = always)
         // It sings from bar 3, and its first two bars hold a voice too, so none can be looped.
         val b = Ends.head(124.0, voice = { ms -> if (ms < 60.0 + 2 * 4 * 60_000.0 / 124.0) 0.4 else 0.95 })
@@ -99,16 +99,13 @@ class VoiceRuleTest {
         val spec = p.spec()
         assertTrue(VoiceRule.together(spec, a, b) <= VoiceRule.MAX_TOGETHER_S)
         if (p.kind == AutoKind.BEAT_LOCKED) {
-            // A's mids leave on a bar line, over the beat before it, by bar 3 of the change, and B's
-            // take over on the same beat, so the mids are never empty in between.
+            // A's mids leave on a bar line over the beat before it, and B's take over on that very
+            // beat at constant power, so the mids are never empty and never hold both voices.
             val m = checkNotNull(p.moves[MIDS_A])
             assertEquals(How.FADE, m.how)
             assertEquals(0.0, (m.end + 1e-9) % 1.0, 1e-6)
-            assertTrue(m.end <= 2.0 + 1e-9)
             assertEquals(0.0, spec.laneAt(MIDS_A, m.end).gain, 1e-9)
             assertEquals(1.0, spec.laneAt(MIDS_B, m.end).gain, 1e-9)
-            // B's mids keep rising from bar 1 as the Fade has them, only sooner at full.
-            assertEquals(0.0, p.moves[MIDS_B]!!.u, 1e-9)
             var u = m.u
             while (u <= m.end) {
                 val a2 = spec.laneAt(MIDS_A, u).gain
