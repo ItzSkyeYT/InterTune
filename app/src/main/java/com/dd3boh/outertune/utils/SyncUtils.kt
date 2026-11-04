@@ -327,13 +327,18 @@ class SyncUtils @Inject constructor(
                 }
 
                 // Unlike local songs in the database
+                val unliked = songsToUnlike.map { it.song.localToggleLike() }
                 runBlocking {
-                    songsToUnlike.forEach { song ->
+                    unliked.forEach { song ->
                         launch(Dispatchers.IO) {
-                            database.update(song.song.localToggleLike())
+                            database.update(song)
                         }
                     }
                 }
+                // A like taken back on YouTube is taken back here as the app's own heart does it:
+                // with "Remove the download with the like" on, the download the setting made goes
+                // too (LikedDownloads, issue #64). It never asked before.
+                downloadUtil.autoDownloadOnLike(unliked)
 
                 // Insert or like songs in the database, all as one transaction. This used to queue
                 // one async transaction per song and move straight on; downloadLikedSongs below
@@ -350,6 +355,10 @@ class SyncUtils @Inject constructor(
                         }
                     }
                 }
+                // Liked anew on YouTube: a download of the song the person removed earlier, or one
+                // that kept failing, is wanted again, and the catch up below takes it
+                // (LikedCatchUpMemory). A song liked all along keeps what it remembers.
+                downloadUtil.wantedAgain(toWrite.filter { (_, localSong) -> localSong?.song?.liked != true }.map { it.first.id })
 
                 // What LM held, for the next sync to compare against. Only a complete read is
                 // worth remembering: a song missing from a short one would drop out of the

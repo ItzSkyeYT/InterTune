@@ -93,6 +93,16 @@ class DownloadSqlTest {
         assertEquals(setOf("never", "landed"), sharing)
     }
 
+    @Test
+    fun `the liked songs are the ones with a like`() {
+        // The liked catch up keeps what it remembers only for these.
+        exec("UPDATE song SET liked = 1 WHERE id IN ('never', 'landed')")
+        val liked = db.createStatement().use { st ->
+            st.executeQuery(DownloadSql.LIKED_SONG_IDS).use { rs -> buildSet { while (rs.next()) add(rs.getString("id")) } }
+        }
+        assertEquals(setOf("never", "landed"), liked)
+    }
+
     private companion object {
         /** 14 Nov 2023, 22:13:20 as the app stores it. */
         const val LANDED_MS = 1_700_000_000_000L

@@ -30,4 +30,10 @@ object DownloadSql {
      * download keeps a kept cover while one of them is still downloaded (DownloadUtil.removeDownload).
      */
     const val SONGS_WITH_COVER = "SELECT id FROM song WHERE thumbnailUrl = :url"
+
+    /**
+     * Every liked song, local ones too. The liked catch up keeps what it remembers only for these
+     * (DownloadUtil.downloadLikedSongs, LikedCatchUpMemory.keepOnly).
+     */
+    const val LIKED_SONG_IDS = "SELECT id FROM song WHERE liked"
 }

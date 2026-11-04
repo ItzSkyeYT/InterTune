@@ -77,8 +77,10 @@ import com.dd3boh.outertune.utils.Throttle
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.SongItem
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -101,6 +103,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.onEach
 import okhttp3.OkHttpClient
+import java.io.File
 import java.io.IOException
 import java.io.InputStream
 import java.time.Instant
@@ -404,19 +407,68 @@ class DownloadUtil @Inject constructor(
         drop.forEach { dropSongCacheCopy(it, "its download holds it") }
     }
 
+    // Downloads asked for by hand: the liked catch up no longer leaves these songs out
+    // (LikedCatchUpMemory), whatever the person removed or what failed before.
+
     fun download(songs: List<MediaMetadata>) {
+        wantedAgain(songs.map { it.id })
         if (songs.any { downloads.value[it.id] == null }) notifyIfWaitingForWifi()
         songs.forEach { song -> downloadSong(song.id, song.title) }
     }
 
     fun download(song: MediaMetadata) {
+        wantedAgain(listOf(song.id))
         if (downloads.value[song.id] == null) notifyIfWaitingForWifi()
         downloadSong(song.id, song.title)
     }
 
     fun download(song: SongEntity) {
+        wantedAgain(listOf(song.id))
         if (downloads.value[song.id] == null) notifyIfWaitingForWifi()
         downloadSong(song.id, song.title)
+    }
+
+    /**
+     * Where what the liked catch up remembers is read and changed: one thing at a time, in the
+     * order they come, so that a failed download's removal is read after its failure
+     * (LikedCatchUpMemory.afterChange).
+     */
+    private val catchUpWork = Dispatchers.IO.limitedParallelism(1)
+    private val catchUpScope = CoroutineScope(catchUpWork + CoroutineExceptionHandler { _, e ->
+        Log.w(TAG, "What the liked catch up remembers could not be changed", e)
+    })
+    private val catchUpFile get() = File(context.filesDir, LIKED_CATCH_UP_FILE)
+
+    /** Read from its file the first time it is needed, on [catchUpWork]. */
+    private val catchUpMemory by lazy { LikedCatchUpMemory.load(catchUpFile) }
+
+    /** A write of [catchUpMemory] is on its way. On [catchUpWork]. */
+    private var catchUpSaveDue = false
+
+    /** Changes what the liked catch up remembers; written a moment later, so a bulk removal is one write. */
+    private fun rememberForCatchUp(change: LikedCatchUpMemory.() -> Boolean) {
+        catchUpScope.launch { if (catchUpMemory.change()) saveCatchUpSoon() }
+    }
+
+    /** On [catchUpWork]. */
+    private suspend fun saveCatchUpSoon() {
+        if (catchUpSaveDue) return
+        catchUpSaveDue = true
+        delay(CATCH_UP_SAVE_DELAY_MS)
+        catchUpSaveDue = false
+        runCatching { LikedCatchUpMemory.save(catchUpMemory, catchUpFile) }
+            .onFailure { Log.w(TAG, "Could not save what the liked catch up remembers", it) }
+    }
+
+    /**
+     * The person wants these songs again: downloaded by hand, liked anew here or on YouTube, or
+     * every liked song asked for in Settings. A removal or a run of failures the liked catch up
+     * remembered for them no longer holds it back (LikedCatchUpMemory).
+     */
+    fun wantedAgain(ids: Collection<String>) {
+        if (ids.isEmpty()) return
+        val asked = ids.toList()
+        rememberForCatchUp { this.wantedAgain(asked) }
     }
 
     /**
@@ -526,6 +578,10 @@ class DownloadUtil @Inject constructor(
     /** Batch variant, so liking 500 songs at once fires one Wi-Fi warning rather than 500. */
     fun autoDownloadOnLike(songs: List<SongEntity>) {
         unlikeRemovesDownloads(songs.filter { !it.liked })
+        // A like given anew: a download of the song removed earlier, or one that kept failing, is
+        // wanted again, even when the setting or Wi-Fi only holds it back now and the catch up
+        // fetches it later.
+        wantedAgain(songs.filter { it.liked }.map { it.id })
         val mode = likedAutodownload
         if (!autodownloadAllowedNow(mode)) return
         if (Throttle.isBlocked) return
@@ -631,6 +687,10 @@ class DownloadUtil @Inject constructor(
             }
 
             val batch = pending.map { it.id }.toSet()
+            // Asked for by the person, from Settings: songs whose download they removed come back,
+            // as the row says, and those that kept failing are tried. The sync's catch up leaves
+            // them out (downloadLikedSongs).
+            wantedAgain(batch)
             // A fresh record for this run. A late update for the last run's songs can still land
             // in it before the new batch is published, but any of those this run queues again gets
             // a fresh update from the enqueue below, and that clears it.
@@ -750,6 +810,12 @@ class DownloadUtil @Inject constructor(
      * that query and each state change would re-emit it: collecting it is a self-feeding loop. One
      * snapshot cannot loop, and each call only shrinks the pending set.
      *
+     * The liked sync's own, at every sync. It leaves out a song whose download the person removed
+     * and one whose download keeps failing until its wait is over (LikedCatchUpMemory): the first
+     * came back at the next sync, the second was queued and failed again, a new "Download failed"
+     * each time. Downloads the setting makes, so taking back the like takes them too, with its
+     * switch on (LikedDownloads).
+     *
      * @param mode passed in rather than read back, because the preference setter writes
      *   asynchronously and calling this straight after choosing a value would read the old one.
      * @return how many were queued, or -1 if the Wi-Fi rule blocked the whole run.
@@ -761,11 +827,29 @@ class DownloadUtil @Inject constructor(
         // Never race a scan: it clears every dateDownload first, so until it has finished
         // re-registering them, every song reads as not downloaded.
         if (isProcessingDownloads.value) return 0
-        val pending = database.likedSongsNotDownloaded().first().filter { isNotDownloaded(it.id) }
+        val missing = database.likedSongsNotDownloaded().first().filter { isNotDownloaded(it.id) }
+        val now = System.currentTimeMillis()
+        val pending = withContext(catchUpWork) {
+            forgetSongsNoLongerLiked(missing.mapTo(HashSet()) { it.id })
+            missing.filter { catchUpMemory.mayCatchUp(it.id, now) }
+        }
         if (pending.isEmpty()) return 0
         notifyIfWaitingForWifi()
-        pending.forEach { downloadSong(it.id, it.title) }
+        pending.forEach { downloadSong(it.id, it.title, byLikes = true) }
         return pending.size
+    }
+
+    /**
+     * What the liked catch up remembers of songs no longer liked goes. Asked of the database only
+     * when it holds a song outside [missing], the liked songs without a download, which is rare
+     * once it is tidy. On [catchUpWork].
+     */
+    private fun forgetSongsNoLongerLiked(missing: Set<String>) {
+        if (catchUpMemory.ids.all { it in missing }) return
+        val liked = runCatching { database.likedSongIds().toHashSet() }
+            .onFailure { Log.w(TAG, "Could not read the liked songs to tidy the catch up's memory", it) }
+            .getOrNull() ?: return
+        if (catchUpMemory.keepOnly(liked)) catchUpScope.launch { saveCatchUpSoon() }
     }
 
     /**
@@ -803,7 +887,12 @@ class DownloadUtil @Inject constructor(
                 false
             )
         }
-        if (sent && byLikes) rememberLikedDownload(id)
+        // The setting's own, or the person's: a song the setting downloaded once, whose download
+        // then failed or was cancelled, is downloaded again by hand, and taking back its like
+        // must not take that download (LikedDownloads, issue #64).
+        if (sent) {
+            if (byLikes) rememberLikedDownload(id) else forgetLikedDownload(id)
+        }
         return sent
     }
 
@@ -843,6 +932,11 @@ class DownloadUtil @Inject constructor(
      */
     fun removeDownload(id: String) {
         forgetLikedDownload(id)
+        // The liked catch up leaves it removed (LikedCatchUpMemory). Here as well as at the
+        // download's removal in the listener: a song in a download folder has no download in
+        // media3 to remove.
+        val now = System.currentTimeMillis()
+        rememberForCatchUp { removedByPerson(id, now) }
         // Its kept covers go once no download shows them. An album's songs share one cover, and
         // removing one song's download took it from the others, which then showed none offline.
         // Asked once this song's removal has reached the map, so that removing a whole album
@@ -1256,6 +1350,12 @@ class DownloadUtil @Inject constructor(
          */
         private const val COVER_WAIT_MS = 120_000L
 
+        /** What the liked catch up remembers between syncs, in the app's own files: LikedCatchUpMemory. */
+        private const val LIKED_CATCH_UP_FILE = "liked-catch-up.txt"
+
+        /** How long a change of it waits before it is written, so that a removal of hundreds of songs is one write. */
+        private const val CATCH_UP_SAVE_DELAY_MS = 1_000L
+
         /** Every message to the download service goes out through this: see DownloadServiceSends. */
         private val sends = DownloadServiceSends { Log.w("DownloadUtil", it) }
 
@@ -1337,6 +1437,19 @@ class DownloadUtil @Inject constructor(
                     val batch = likedBatch
                     likedEnds.update {
                         LikedCatchUp.afterUpdate(it, batch, download.request.id, download.state)
+                    }
+
+                    // What the sync's liked catch up remembers between syncs: a download the
+                    // person removed or cancelled, one that failed, one that landed. Queued in the
+                    // order the changes come, so a failed download's removal below is read as the
+                    // app's, not the person's (LikedCatchUpMemory).
+                    val changedAt = System.currentTimeMillis()
+                    rememberForCatchUp { afterChange(download.request.id, download.state, changedAt) }
+                    // A download of the setting's that failed or went is no longer the setting's: a
+                    // later one by hand, or a file imported into the folder, must not go with the
+                    // like (LikedDownloads, issue #64).
+                    if (download.state == Download.STATE_FAILED || download.state == Download.STATE_REMOVING) {
+                        forgetLikedDownload(download.request.id)
                     }
 
                     // Before the map changes, so a rescan merging at the same moment keeps this
