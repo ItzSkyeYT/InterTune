@@ -428,7 +428,11 @@ fun Lyrics(
     // frame (LyricsClock.wait), so that the line changes on the frame it is sung on. A pause, a
     // seek or a change of speed wakes it at once.
     val lifecycleOwner = LocalLifecycleOwner.current
-    LaunchedEffect(lyricsModel, lifecycleOwner) {
+    // Started again with each player connection: the app makes a new one every time it comes back
+    // to the front and stops the old one listening. Kept on the old one, a song paused when the app
+    // went away left this waiting for an old "playing" that never came, and the lines stood still
+    // while the song played on, until the lyrics were closed and opened again.
+    LaunchedEffect(lyricsModel, lifecycleOwner, playerConnection) {
         if (lyricsModel == null || !isSynced || (lyricsModel as SemanticLyrics.SyncedLyrics).text.isEmpty()) {
             currentLineIndex = -1
             return@LaunchedEffect
@@ -808,8 +812,9 @@ fun Lyrics(
                             }
 
                             // Lit as the frames are drawn, at where the song is at each one: the line
-                            // asks for every frame while it is being sung and the music plays.
-                            LaunchedEffect(Unit) {
+                            // asks for every frame while it is being sung and the music plays. Started
+                            // again with each player connection, as the lines' own clock above is.
+                            LaunchedEffect(playerConnection) {
                                 lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                                     while (isActive) {
                                         if (!playerConnection.isPlaying.value) playerConnection.isPlaying.first { it }
