@@ -208,6 +208,38 @@ class DownloadRunTest {
     }
 
     @Test
+    fun `a failed song stays ended while the app frees what it had`() {
+        // DownloadUtil removes a failed download at once, for its bytes: media3 reports it
+        // removing, then gone. The count does not go back for it.
+        val q = Queue()
+        q.add("a", "b", "c")
+        q.start("a"); q.progress("a", 30f); q.fail("a")
+        q.removing("a")
+        assertEquals(1, q.bar.done)
+        assertEquals(3, q.bar.total)
+        q.gone("a")
+        assertEquals(1, q.bar.done)
+        assertEquals(3, q.bar.total)
+        q.start("b"); q.land("b")
+        q.start("c"); q.progress("c", 100f)
+        assertEquals(q.bar.max, q.bar.position)
+        // Queued again afterwards, it is to come again, as any failed song is.
+        q.add("a")
+        assertEquals(1, q.bar.done)
+        assertEquals(3, q.bar.total)
+    }
+
+    @Test
+    fun `a song that landed and is then removed by hand still leaves the run`() {
+        val q = Queue()
+        q.add("a", "b")
+        q.start("a"); q.land("a")
+        q.removing("a"); q.gone("a")
+        assertEquals(0, q.bar.done)
+        assertEquals(1, q.bar.total)
+    }
+
+    @Test
     fun `a song queued again after failing is to come again, not counted twice`() {
         val q = Queue()
         q.add("a", "b", "c")
