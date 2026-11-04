@@ -1272,6 +1272,18 @@ class DownloadUtil @Inject constructor(
                             database.updateDownloadStatus(download.request.id, null)
                         }
                     }
+
+                    // A download media3 has given up on kept the bytes it had, in its index, for a
+                    // retry nothing asks for: the song reads as not downloaded, so no Remove download
+                    // is offered, and only Clear all downloads freed them. Removed now, as Remove
+                    // download removes a finished one. Here, in the change itself, on the thread the
+                    // manager lives on: a download of the song asked for again afterwards is queued
+                    // after this removal, never taken by it. The run's count and the liked catch up
+                    // keep the song as failed through the removal (DownloadRun, LikedCatchUp).
+                    if (download.state == Download.STATE_FAILED) {
+                        runCatching { downloadManager.removeDownload(download.request.id) }
+                            .onFailure { Log.w(TAG, "Could not free what the failed download of ${download.request.id} had", it) }
+                    }
                 }
             }
         )
