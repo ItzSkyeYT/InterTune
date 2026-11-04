@@ -864,6 +864,15 @@ class DownloadUtil @Inject constructor(
     }
 
     /**
+     * Settings > Migrate. On a scope of its own, as the liked catch up is: it ran on the Storage
+     * page's, and leaving the page cancelled it halfway, before the scan that registered the songs
+     * moved so far.
+     */
+    fun startMigrate() {
+        CoroutineScope(dlCoroutine).launch { migrateDownloads() }
+    }
+
+    /**
      * Moves the downloads kept inside the app into the download folder: all of them when asked
      * from Settings (Migrate), or [only] these songs, just downloaded, without a word ([quiet]).
      */
@@ -894,33 +903,46 @@ class DownloadUtil @Inject constructor(
                 // Copied from the cache's files as the new file is written: read whole into memory
                 // first, a long mix ran the app out of memory (#67).
                 val fromCache = openFromCache(downloadCache, s.key) ?: return@forEach
-                // The file is written, and checked, before anything of the old copy goes. The
-                // cache used to be emptied first and a failed write swallowed, so a folder that
-                // refused the file cost the song outright.
-                val saved = fromCache.use { stream ->
-                    val displayName = database.song(s.key).first()?.title ?: ""
-                    localMgr.getFilePathIfExists(s.key)
-                        // A file other players open, with the song's tags and cover inside; the
-                        // stream as it is when the song cannot be one (saveSongFile).
-                        ?: (if (Unreleased.DOWNLOAD_FILES) saveSongFile(s.key) else null)
-                        ?: runCatching {
-                            localMgr.saveFile(s.key, stream, displayName)
-                        }.onFailure { reportException(it) }.getOrNull()
+                // The file written and checked, the song's row pointing to it, and only then the
+                // copy in the app gone, one song at a time (moveIntoFolder). The cache used to be
+                // emptied first and a failed write swallowed, so a folder that refused the file cost
+                // the song outright; then the copy went before the row knew the file, and the song
+                // played from the network until the scan after the whole batch.
+                val moved = moveIntoFolder(
+                    save = {
+                        fromCache.use { stream ->
+                            val displayName = database.song(s.key).first()?.title ?: ""
+                            localMgr.getFilePathIfExists(s.key)
+                                // A file other players open, with the song's tags and cover inside; the
+                                // stream as it is when the song cannot be one (saveSongFile).
+                                ?: (if (Unreleased.DOWNLOAD_FILES) saveSongFile(s.key) else null)
+                                ?: runCatching {
+                                    localMgr.saveFile(s.key, stream, displayName)
+                                }.onFailure { reportException(it) }.getOrNull()
+                        }
+                    },
+                    pathOf = { uri -> runCatching { fileFromUri(context, uri)?.absolutePath }.getOrNull() },
+                    // The date the download landed, as the download listener wrote it.
+                    record = { path -> database.registerDownloadSong(s.key, stateToLocalDateTime(s.value), path) },
+                    dropCopy = {
+                        // The index entry goes as well. Left behind it still said completed, and each
+                        // later scan registered the song as downloaded again, even once its file in the
+                        // folder had been deleted.
+                        runCatching { migratedIndex.removeDownload(s.key) }
+                            .onFailure { Log.w(TAG, "Could not drop the index entry of ${s.key}", it) }
+                        downloadCache.removeResource(s.key)
+                    },
+                )
+                when (moved) {
+                    FolderMove.MOVED -> Unit
+                    FolderMove.NOT_WRITTEN -> Log.w(TAG, "Could not migrate ${s.key}, its download stays in the app")
+                    FolderMove.NO_PATH -> Log.w(TAG, "The folder's file of ${s.key} has no path on the phone, its download stays in the app as well")
+                    FolderMove.NOT_RECORDED -> Log.w(TAG, "Could not record the folder's file of ${s.key}, its download stays in the app as well")
                 }
-                if (saved == null) {
-                    Log.w(TAG, "Could not migrate ${s.key}, its download stays in the app")
-                    return@forEach
-                }
-                // The index entry goes as well. Left behind it still said completed, and each
-                // later scan registered the song as downloaded again, even once its file in the
-                // folder had been deleted.
-                runCatching { migratedIndex.removeDownload(s.key) }
-                    .onFailure { Log.w(TAG, "Could not drop the index entry of ${s.key}", it) }
-                downloadCache.removeResource(s.key)
             }
-            // The scan is what registers the copied files, so the songs play from them. Called
-            // through scanDownloads() it returned at once, since this had already set the flag it
-            // checks, and the migrated songs would not play offline until some later scan.
+            // Each song's row was written as it moved; the scan still walks the folder once and
+            // brings the folder's list and the map up to date. Called through scanDownloads() it
+            // returned at once, since this had already set the flag it checks.
             scanDownloadsLocked()
         } catch (e: Exception) {
             reportException(e)

@@ -764,10 +764,8 @@ fun ColumnScope.DownloadsFrag() {
                 TextButton(
                     onClick = {
                         showMigrationDialog = false
-
-                        coroutineScope.launch(dlCoroutine) {
-                            downloadUtil.migrateDownloads()
-                        }
+                        // Not on this page's scope: leaving the page cancelled the move halfway.
+                        downloadUtil.startMigrate()
                     }
                 ) {
                     Text(text = stringResource(android.R.string.ok))
