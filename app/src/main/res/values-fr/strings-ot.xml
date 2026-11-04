@@ -2292,4 +2292,13 @@
     <string name="widgets_all_options_full_cover">Taille du texte, ce qu\'il affiche</string>
     <string name="widgets_all_options_shelf">Arrière-plan, boutons, lignes</string>
     <string name="widgets_add_from_home">Cet écran d\'accueil n\'accepte pas les widgets des applications. Ajoutez-les depuis sa propre liste de widgets.</string>
+    <!-- Nouveautés de 0.12.8 (Walkthrough.kt, V0_12_8). -->
+    <string name="new_report_send_title">Envoyer un rapport à InterTune</string>
+    <string name="new_report_send_body">Signaler un problème peut maintenant envoyer le rapport à InterTune, sans compte GitHub. Ou le partager en fichier pour le poster sur Discord.</string>
+    <string name="new_backup_parts_title">Les sauvegardes laissent vos connexions de côté</string>
+    <string name="new_backup_parts_body">Sauvegarder demande maintenant ce que contient le fichier. Vos connexions YouTube Music et Last.fm n\'y vont que si vous les cochez.</string>
+    <string name="new_backup_parts_way">Les sauvegardes se font et se restaurent ici.</string>
+    <string name="new_backup_parts_here">Touchez Sauvegarder pour choisir ce que contient le fichier. Vos connexions n\'y vont que si vous les cochez.</string>
+    <string name="new_lyrics_save_title">Enregistrer les cartes et vidéos de paroles</string>
+    <string name="new_lyrics_save_body">Appuyez longuement sur une ligne des paroles : une carte ou une vidéo peut maintenant être enregistrée sur le téléphone, pas seulement partagée.</string>
 </resources>

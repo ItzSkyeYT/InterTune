@@ -2441,7 +2441,16 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="problem_report_share_file" translatable="false">Share as a file</string>
     <!-- Downloads saved as song files (SongFiles, Unreleased.DOWNLOAD_FILES), after the folder's warning: held from translators until his go. -->
     <string name="dl_song_files_note" translatable="false">Songs are saved as Opus or M4A files with their title, artist and cover, so other apps and cars can play them.</string>
-    <!-- What's new in 0.12.7, listed from 0.13 (his pick of 2 Nov 2026): held from translators until his go. -->
+    <!-- What's new in 0.12.8 (Walkthrough.kt, V0_12_8): held from translators until his go. -->
+    <string name="new_report_send_title" translatable="false">Send a report to InterTune</string>
+    <string name="new_report_send_body" translatable="false">Report a problem can now send the report to InterTune itself, no GitHub account needed. Or share it as a file to post on Discord.</string>
+    <string name="new_backup_parts_title" translatable="false">Backups leave your sign-ins out</string>
+    <string name="new_backup_parts_body" translatable="false">Backup now asks what goes in the file. Your YouTube Music and Last.fm sign-ins only go in if you tick them.</string>
+    <string name="new_backup_parts_way" translatable="false">Backups are made and restored in here.</string>
+    <string name="new_backup_parts_here" translatable="false">Tap Backup to pick what goes in the file. Your sign-ins only go in if you tick them.</string>
+    <string name="new_lyrics_save_title" translatable="false">Save lyrics cards and videos</string>
+    <string name="new_lyrics_save_body" translatable="false">Long-press a line of the lyrics: a card or a video can now be saved on the phone, not only shared.</string>
+    <!-- What's new in 0.12.7, listed from 0.12.8 (his pick of 2 Nov 2026): held from translators until his go. -->
     <string name="new_shelf_looks_title" translatable="false">The Shelf in three looks</string>
     <string name="new_shelf_looks_body" translatable="false">Big cover, Crate or Records, picked under Look in the widget\'s settings.</string>
     <string name="new_lyrics_video_long_title" translatable="false">Lyrics videos up to ten minutes</string>

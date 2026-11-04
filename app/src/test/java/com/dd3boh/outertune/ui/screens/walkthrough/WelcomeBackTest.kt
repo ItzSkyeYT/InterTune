@@ -247,7 +247,7 @@ class WelcomeBackTest {
     @Test
     fun `a setting is reached the way somebody would go there, through the row it is under`() {
         val insideSettings = NEW_THINGS.filter { thing -> thing.stops.any { it.route != null } }
-        assertEquals(listOf("player_pins", "settings_search", "battery_use", "share_links", "radios", "living_blur", "sleep_schedule", "content_filters", "equalizer", "resume_bluetooth", "library_import", "explain_pictures", "problem_report", "spatial_audio"), ids(insideSettings))
+        assertEquals(listOf("report_send", "backup_parts", "player_pins", "settings_search", "battery_use", "share_links", "radios", "living_blur", "sleep_schedule", "content_filters", "equalizer", "resume_bluetooth", "library_import", "explain_pictures", "problem_report", "spatial_audio"), ids(insideSettings))
         // What is on the list of settings itself is pointed at there, and there is nothing to go
         // into: the search over the list, and Battery use, a row of its own on it.
         val onTheList = listOf("settings_search", "battery_use")
