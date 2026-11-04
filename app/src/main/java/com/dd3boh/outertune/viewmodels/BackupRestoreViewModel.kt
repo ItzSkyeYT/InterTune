@@ -10,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.ViewModel
 import com.dd3boh.outertune.MainActivity
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.db.DatabaseFiles
 import com.dd3boh.outertune.db.InternalDatabase
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.extensions.div
@@ -32,6 +33,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+import java.io.IOException
 import javax.inject.Inject
 import kotlin.system.exitProcess
 
@@ -144,7 +146,8 @@ class BackupRestoreViewModel @Inject constructor(
     /**
      * Reads [uri]'s zip, validates the embedded database in a probe file before touching
      * anything live, and only swaps the probe and the settings bytes in once that validation has
-     * passed. Returns whether the swap happened.
+     * passed. Returns whether the app has to restart: after a swap, and after a swap that failed
+     * once the database had been closed for it, since the app cannot go on without one.
      *
      * The live database is checkpointed and closed only after the probe is already known good,
      * not before: a refused backup does not restart the app, so closing first would leave it
@@ -153,7 +156,7 @@ class BackupRestoreViewModel @Inject constructor(
      * writing them out immediately would leave a half-applied restore (new settings, old
      * database) on anything that fails validation.
      */
-    private fun restoreValidatedDatabase(uri: Uri): Boolean {
+    private suspend fun restoreValidatedDatabase(uri: Uri): Boolean {
         var settingsBytes: ByteArray? = null
         var databaseValidated = false
         var databaseFound = false
@@ -181,8 +184,7 @@ class BackupRestoreViewModel @Inject constructor(
                             // A wal/shm left behind by an earlier attempt belongs to whatever was
                             // written to this path before, not the fresh copy below; deleting them
                             // first stops Room replaying pages from an unrelated database into it.
-                            File(probeFile.path + "-wal").delete()
-                            File(probeFile.path + "-shm").delete()
+                            DatabaseFiles.SIDECARS.forEach { DatabaseFiles.sidecar(probeFile, it).delete() }
                             FileOutputStream(probeFile).use { outputStream ->
                                 inputStream.copyTo(outputStream)
                             }
@@ -226,27 +228,50 @@ class BackupRestoreViewModel @Inject constructor(
         }
 
         Log.i(TAG, "Found valid database, proceeding with restore")
-        database.checkpoint()
-        database.close()
+        // What the migration wrote into the probe goes into its own file, so that the one file
+        // moved into place below holds all of it.
+        if (!BackupWriter.foldLog(probeFile, check = false)) {
+            stagedCovers.deleteRecursively()
+            throw IOException("The backup's database could not be made whole on its own")
+        }
 
-        // FULL does not truncate the wal file the way TRUNCATE would, and getting the live path
-        // through openHelper.writableDatabase after close() would reopen a live connection to the
-        // very file this is about to overwrite with a raw byte copy. Neither sidecar is read by
-        // this copy, so any left behind is stale the moment it is written; delete both rather
-        // than let SQLite try to replay them against a main file that changed underneath it.
-        val liveDbFile = context.getDatabasePath(InternalDatabase.DB_NAME)
-        File(liveDbFile.path + "-wal").delete()
-        File(liveDbFile.path + "-shm").delete()
+        // The music stops before the database closes, so that playing writes nothing more into
+        // it. The player's service stays up until the restart below: the open screen holds it
+        // bound, so stopping it here would not end it. What it still writes after the close fails
+        // on the closed database and is logged.
+        withContext(Dispatchers.Main) {
+            runCatching { MusicService.alive()?.stopForRestore() }
+                .onFailure { Log.w(TAG, "Could not stop the music before the restore", it) }
+        }
 
-        probeFile.inputStream().use { input ->
-            FileOutputStream(liveDbFile).use { outputStream ->
-                input.copyTo(outputStream)
+        // From the close on the app has to restart whatever happens: it cannot go on without its
+        // database, and the next start opens the library in place, the backup's, or the one that
+        // was there if the move did not happen. Under the backups' lock, so that no backup copies
+        // the files while they change.
+        try {
+            synchronized(DatabaseFiles.lock) {
+                // The old library's log folded into its file first, so that a process that dies
+                // before the move leaves it whole. Only a help: it is replaced either way.
+                runCatching { database.checkpoint() }
+                database.close()
+                // In one step, in place of copying over song.db, which emptied it first: a process
+                // that died during the copy left a cut-off file, and SQLite's open helper deletes
+                // that as damaged, so the library came back empty.
+                DatabaseFiles.replace(probeFile, context.getDatabasePath(InternalDatabase.DB_NAME))
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "The backup's database could not be put in place, the library stays as it was", e)
+            reportException(e)
+            stagedCovers.deleteRecursively()
+            return true
         }
 
         // The automatic backup schedule is left as it is. The launch after the restart compares it
         // with these settings and replaces it if the interval differs (AutoBackup.schedule).
-        settingsBytes?.let { writeSettings(it) }
+        // Settings that cannot be written leave the ones there were, beside the restored library.
+        settingsBytes?.let { bytes ->
+            runCatching { writeSettings(bytes) }.onFailure { Log.e(TAG, "The backup's settings could not be written", it) }
+        }
 
         // Last, and apart from the rest: a photo that cannot be put in place costs its playlist a
         // cover, which is drawn as the first song's, and never the restore.
