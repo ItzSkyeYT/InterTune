@@ -48,7 +48,8 @@ import java.util.EnumMap
  * [forget] starts over: another network, another sign-in.
  *
  * The YouTube mixes are videos, with no mark of what is explicit or a music video, so the steps that
- * ask for them are left out while either content switch is on ([Wire.mixesAllowed]).
+ * ask for them are left out while either content switch is on ([Wire.mixesAllowed]), and they stand
+ * in only for the radio of a song ([isSongRadio]), never for a list that starts on one.
  *
  * No Android in here, so the order is tested with stand-ins for the network (RadioLadderTest).
  */
@@ -103,6 +104,9 @@ internal class RadioLadder(
 
     /** A step that took longer than [Wire.capMs]. */
     class TimedOut(rung: Rung, ms: Long) : IllegalStateException("${rung.label} gave no answer in $ms ms")
+
+    /** A refusal made by the debug switch (RadioAnswers.Test), taken as YouTube's own [status]. */
+    class TestRefusal(val status: Int) : IllegalStateException("HTTP $status, made by the debug switch")
 
     private val refusedUntil = EnumMap<Rung, Long>(Rung::class.java)
     @Volatile private var keptVisitor: String? = null
@@ -181,7 +185,9 @@ internal class RadioLadder(
             wire.musicAsVisitor(endpoint, visitor).onSuccess { r -> if (holdsMore(r) && visitor != null) keptVisitor = visitor }
         }?.let { return answered(it, Rung.MUSIC_AS_VISITOR) }
 
-        if (seed == null) return none()
+        // A mix of the song stands in for its radio only: never for a playlist or an album that
+        // happens to start on a song, nor for YouTube Music's own mixes, which are lists.
+        if (seed == null || !isSongRadio(endpoint)) return none()
         if (!wire.mixesAllowed) {
             trail += "YouTube's mixes: left out, a content switch is on"
             return none()
@@ -205,12 +211,17 @@ internal class RadioLadder(
         /** How long a step YouTube refused is passed over: about two radios' worth of top-ups. */
         const val REFUSED_MS = 10 * 60 * 1000L
 
+        /** A radio of one song: its id alone, or with YouTube Music's radio list of it ("RDAMVM" + the id). */
+        fun isSongRadio(endpoint: WatchEndpoint): Boolean =
+            endpoint.videoId != null && endpoint.playlistId.let { it == null || it.startsWith("RDAMVM") }
+
         /** YouTube said no, as opposed to not answering, failing, or answering with nothing usable. */
         fun isRefusal(failure: Throwable): Boolean {
             var t: Throwable? = failure
             var depth = 0
             while (t != null && depth++ < 8) {
                 if (t is ResponseException) return t.response.status.value in REFUSALS
+                if (t is TestRefusal) return t.status in REFUSALS
                 t = t.cause
             }
             return false
@@ -224,6 +235,7 @@ internal class RadioLadder(
             var depth = 0
             while (t != null && depth++ < 8) {
                 if (t is ResponseException) return "HTTP ${t.response.status.value}"
+                if (t is TestRefusal) return "HTTP ${t.status} (debug switch)"
                 t = t.cause
             }
             return failure::class.java.simpleName.ifEmpty { "failed" }

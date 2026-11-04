@@ -220,10 +220,10 @@ internal class QueueStart(private val service: Target) {
         val answer = try {
             withContext(Dispatchers.IO) { queue.getInitialStatus() }
         } catch (e: Exception) {
-            if (e is CancellationException) throw e
             // An answer that failed for something no longer wanted is not the listener's to hear
             // about: what they asked for after it reports for itself.
             if (number != lastStart) return
+            if (e is CancellationException) throw e
             // A radio YouTube gave nothing goes on from the app's own picks, when it has any; the
             // failure is reported only when it has none, as it always was.
             val own = if (isRadio && preloadItem != null) ownRadio(preloadItem) else null

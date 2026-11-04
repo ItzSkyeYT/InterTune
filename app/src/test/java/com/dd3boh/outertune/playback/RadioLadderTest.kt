@@ -239,6 +239,28 @@ class RadioLadderTest {
     }
 
     @Test
+    fun `a list that starts on a song is never stood in for by the song's mix`() = runBlocking {
+        val wire = Wire().apply {
+            music = Result.failure(refusal(HttpStatusCode.Forbidden))
+            visitor = Result.failure(refusal(HttpStatusCode.Forbidden))
+            web = Result.success(answer("A", "W"))
+        }
+        val ladder = ladder(wire)
+        assertNull(ladder.radio(WatchEndpoint(videoId = "A", playlistId = "PLsomebodys", index = 3)).from)
+        assertNull(ladder.radio(WatchEndpoint(videoId = "A", playlistId = "RDCLAK5uy_editorial")).from)
+        assertTrue(wire.asked.toString(), wire.asked.none { it.startsWith("WEB_MIX") })
+        // The song's own radio list is its radio.
+        ladder.forget()
+        assertEquals(Rung.WEB_MIX, ladder.radio(WatchEndpoint(videoId = "A", playlistId = "RDAMVMA", params = "wAEB")).from)
+    }
+
+    @Test
+    fun `the debug switch's refusal is taken as YouTube's`() {
+        assertTrue(RadioLadder.isRefusal(RadioLadder.TestRefusal(401)))
+        assertEquals("HTTP 401 (debug switch)", RadioLadder.describe(RadioLadder.TestRefusal(401)))
+    }
+
+    @Test
     fun `a step that does not answer in its time is given up, and the next one asked`() = runBlocking {
         val wire = Wire().apply {
             music = Result.failure(refusal(HttpStatusCode.Unauthorized))
