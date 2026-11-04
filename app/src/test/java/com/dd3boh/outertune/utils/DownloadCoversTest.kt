@@ -82,7 +82,10 @@ class DownloadCoversTest {
         assertEquals(2, Regex("""add\(DownloadCovers\.Interceptor\(filesDir\)\)""").findAll(app).count())
         val util = File("src/main/java/com/dd3boh/outertune/playback/DownloadUtil.kt").readText()
         assertTrue(util.substringAfter("private fun keepCoverForOffline(").contains("DownloadCovers.save(context.filesDir, model)"))
-        assertTrue(util.contains("rescanDownloads()\n            // Downloads made before their covers were kept as files get theirs now, one at a time;\n            // with no network nothing comes and the next start tries again (DownloadCovers).\n            keepMissingCovers()"))
+        // After the rescan at start, which makes the map it walks.
+        val init = util.substringAfter("    init {").substringBefore("PhoneBatterySaver.on")
+        assertTrue(init.indexOf("rescanDownloads()") in 0 until init.indexOf("keepMissingCovers()"))
+        assertTrue(init.contains("// Downloads made before their covers were kept as files get theirs now, one at a time;\n            // with no network nothing comes and the next start tries again (DownloadCovers).\n            keepMissingCovers()"))
         assertTrue(util.substringAfter("fun removeDownload(id: String) {").substringBefore("\n    }\n").contains("DownloadCovers.remove(context.filesDir, model)"))
     }
 

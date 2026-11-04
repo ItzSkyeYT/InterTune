@@ -2869,9 +2869,9 @@ class MusicService : MediaLibraryService(),
                             // built, so turning it off stops them at once. The size is as AppModule
                             // builds the cache with it: Battery use on Saver keeps 512 MB where no
                             // size was ever picked (BatteryUse.songCacheMb).
-                            // Nor a song file in a download folder, read past the cache (downloadedKey).
+                            // Nor a download in a folder, read past the cache (downloadedKey).
                             val write = BatteryUse.songCacheMb(dataStore[MaxSongCacheSizeKey], batteryMode) != 0 &&
-                                dataSpec.key?.startsWith(SONG_FILE_KEY) != true &&
+                                dataSpec.key?.startsWith(FOLDER_FILE_KEY) != true &&
                                 queueBoard.getCurrentQueue()?.findSong(dataSpec.key ?: "")?.isLocal != true
                             Log.d(TAG, "SONG CACHE: $write")
                             write
@@ -2911,7 +2911,7 @@ class MusicService : MediaLibraryService(),
             when (resolved) {
                 is ResolvedSong.LocalFile -> dataSpec.withUri(resolved.file.toUri())
                 is ResolvedSong.Downloaded -> dataSpec.buildUpon().setUri(resolved.file.uri)
-                    .setKey(downloadedKey(mediaId, resolved.file.name)).build()
+                    .setKey(downloadedKey(mediaId)).build()
                 ResolvedSong.Cached -> dataSpec
                 is ResolvedSong.KnownStream -> dataSpec.withUri(resolved.url.toUri())
                 // Asked for whole, from where the player is to the song's end, as an address already
@@ -3001,7 +3001,10 @@ class MusicService : MediaLibraryService(),
                     // A file deleted outside the app is still in the list until the next scan, so
                     // it is checked, and a song whose file has gone is played from the cache or
                     // streamed instead of failing.
-                    val isDownloadNew = downloadUtil.localMgr.isExists(mediaId)?.takeIf { it.exists() }
+                    // As the app starts the list is empty until the folders are listed, and the
+                    // song waits for that: the song cache no longer holds a copy of the download
+                    // to play meanwhile (KeptOnce).
+                    val isDownloadNew = downloadUtil.folderFileOf(mediaId, FIRST_LISTING_WAIT_MS)?.takeIf { it.exists() }
                     isDownloadNew?.let {
                         Log.i(TAG, "$said: Custom downloaded song")
                         return ResolvedSong.Downloaded(it)
@@ -3944,7 +3947,10 @@ class MusicService : MediaLibraryService(),
         fun input(sources: List<AdaptivePass.Source>) = AdaptivePass.Input(
             kind = snap.kind, tail = snap.tail, head = snap.head, queue = snap.queue, view = snap.view, taste = taste,
             sources = sources, skippedRelated = skippedRelated, offline = !snap.online,
-            playsOffline = { s -> s.isLocal || downloadCache.holdsWhole(s.id) || playerCache.holdsWhole(s.id) },
+            // A download in a folder is in neither cache: the downloads say it has landed. The song
+            // cache's copy of it used to answer for it, and a download is no longer copied there
+            // (KeptOnce). The download cache too, for the moment at start before the map is read.
+            playsOffline = { s -> s.isLocal || downloadUtil.isDownloaded(s.id) || downloadCache.holdsWhole(s.id) || playerCache.holdsWhole(s.id) },
         )
         var result = AdaptivePass.run(input(sources()))
         // Too few picks from what is stored, or nothing stored can be used because explicit songs
@@ -5950,6 +5956,12 @@ class MusicService : MediaLibraryService(),
         const val NOTIFICATION_ID = 888
         const val ERROR_CODE_NO_STREAM = 1000001
         const val CHUNK_LENGTH = 512 * 1024L
+
+        /**
+         * How long a song with its file in a download folder waits, as the app starts, for the
+         * folders to be listed (DownloadUtil.folderFileOf). A large folder takes a few seconds.
+         */
+        const val FIRST_LISTING_WAIT_MS = 10_000L
 
         /** media3's own floor, kept for everyone who is not chasing their own head. */
         /** Nothing real is quicker than this over any link, so anything under it is a miscount. */
