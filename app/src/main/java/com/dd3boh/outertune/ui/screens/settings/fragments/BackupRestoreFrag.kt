@@ -55,6 +55,7 @@ import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
 import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.AutoBackupEnabledKey
 import com.dd3boh.outertune.constants.AutoBackupFolderKey
 import com.dd3boh.outertune.constants.AutoBackupIntervalHoursKey
@@ -791,7 +792,10 @@ private fun BackupPartsDialog(
         )
         BackupPartRow(stringResource(R.string.backup_part_library), stringResource(R.string.backup_part_library_note), library, onChange = onLibrary)
         BackupPartRow(stringResource(R.string.backup_part_settings), stringResource(R.string.backup_part_settings_note), settings, onChange = onSettings)
-        BackupPartRow(stringResource(R.string.backup_part_photos), stringResource(R.string.backup_part_photos_note), photos && library, enabled = library, onChange = onPhotos)
+        // Covers picked from the phone come with PLAYLIST_COVER: without it there are none to keep.
+        if (Unreleased.PLAYLIST_COVER) {
+            BackupPartRow(stringResource(R.string.backup_part_photos), stringResource(R.string.backup_part_photos_note), photos && library, enabled = library, onChange = onPhotos)
+        }
         BackupPartRow(
             stringResource(R.string.backup_part_signins), stringResource(R.string.backup_part_signins_note), signIns && settings,
             enabled = settings, warning = stringResource(R.string.backup_part_signins_warning), onChange = onSignIns,
