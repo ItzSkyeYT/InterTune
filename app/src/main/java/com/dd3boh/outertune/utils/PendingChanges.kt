@@ -201,7 +201,7 @@ class Waiting(pending: List<Pending>) {
             is Change.Like -> likes[c.videoId] = c
             is Change.SavePlaylist -> playlists[c.browseId] = c.saved
             is Change.Delete -> playlists[c.browseId] = false
-            is Change.Rename -> { names[c.browseId] = c.name; held += c.browseId }
+            is Change.Rename -> names[c.browseId] = c.name
             is Change.Add -> held += c.browseId
             is Change.Remove -> held += c.browseId
             is Change.Move -> held += c.browseId
@@ -216,7 +216,7 @@ class Waiting(pending: List<Pending>) {
     /** Taken out of the library here, and its unlike not sent yet: the library sync leaves it out. */
     fun keptOutOfLibrary(videoId: String): Boolean = likes[videoId]?.let { !it.liked && it.outOfLibrary } == true
 
-    /** A change to the playlist's songs or name waits: the sync leaves its songs as they are here. */
+    /** A change to the playlist's songs waits (an add, a removal, a move): the sync leaves its songs as they are here. */
     fun holdsSongsOf(browseId: String): Boolean = browseId.removePrefix("VL") in held
 
     /** Whether the playlist is to be in the library (false too for one deleted here); null when nothing waits. */

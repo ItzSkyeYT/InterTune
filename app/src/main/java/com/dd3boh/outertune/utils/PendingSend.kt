@@ -40,6 +40,7 @@ import kotlinx.coroutines.launch
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * What a failed send comes to (see [Sent]), from what YouTube answered or did not.
@@ -97,12 +98,12 @@ object PendingOutcome {
 class YouTubeSender(private val database: MusicDatabase) {
 
     suspend fun send(pending: Pending): Sent = when (val c = pending.change) {
-        is Change.Like -> done(YouTube.likeVideo(c.videoId, c.liked))
-        is Change.SavePlaylist -> done(YouTube.likePlaylist(c.browseId, c.saved))
-        is Change.SaveAlbum -> done(YouTube.likePlaylist(c.playlistId, c.saved))
-        is Change.Follow -> follow(c)
-        is Change.Rename -> done(YouTube.renamePlaylist(c.browseId, c.name))
-        is Change.Delete -> done(YouTube.deletePlaylist(c.browseId))
+        is Change.Like -> done(pending, YouTube.likeVideo(c.videoId, c.liked))
+        is Change.SavePlaylist -> done(pending, YouTube.likePlaylist(c.browseId, c.saved))
+        is Change.SaveAlbum -> done(pending, YouTube.likePlaylist(c.playlistId, c.saved))
+        is Change.Follow -> follow(pending, c)
+        is Change.Rename -> done(pending, YouTube.renamePlaylist(c.browseId, c.name))
+        is Change.Delete -> done(pending, YouTube.deletePlaylist(c.browseId))
         is Change.Add -> YouTube.addToPlaylist(c.browseId, c.videoId, c.duplicate).fold(
             onSuccess = { setVideoId ->
                 if (setVideoId != null) {
@@ -111,36 +112,42 @@ class YouTubeSender(private val database: MusicDatabase) {
                 }
                 Sent.Done(setVideoId)
             },
-            onFailure = { PendingOutcome.of(it) },
+            onFailure = { failed(pending, it) },
         )
-        is Change.Remove -> when (val entry = entryOf(c.browseId, c.mapId, c.videoId, c.setVideoId)) {
-            is Entry.Known -> done(YouTube.removeFromPlaylist(c.browseId, c.videoId, entry.setVideoId))
+        is Change.Remove -> when (val entry = entryOf(pending, c.browseId, c.mapId, c.videoId, c.setVideoId)) {
+            is Entry.Known -> done(pending, YouTube.removeFromPlaylist(c.browseId, c.videoId, entry.setVideoId))
             // YouTube does not hold the song there: nothing to take out.
             Entry.Absent -> Sent.Done()
             is Entry.Unread -> entry.outcome
         }
         is Change.Move -> {
-            val moved = entryOf(c.browseId, c.mapId, c.videoId, c.setVideoId)
-            val before = entryOf(c.browseId, c.beforeMapId, c.beforeVideoId, c.beforeSetVideoId)
+            val moved = entryOf(pending, c.browseId, c.mapId, c.videoId, c.setVideoId)
+            val before = if (moved is Entry.Unread) moved else entryOf(pending, c.browseId, c.beforeMapId, c.beforeVideoId, c.beforeSetVideoId)
             when {
                 moved is Entry.Unread -> moved.outcome
                 before is Entry.Unread -> before.outcome
-                moved is Entry.Known && before is Entry.Known -> done(YouTube.moveSongPlaylist(c.browseId, moved.setVideoId, before.setVideoId))
+                moved is Entry.Known && before is Entry.Known -> done(pending, YouTube.moveSongPlaylist(c.browseId, moved.setVideoId, before.setVideoId))
                 // One of the two is not on YouTube: the order cannot be said there.
                 else -> Sent.Refused
             }
         }
     }
 
-    private suspend fun follow(c: Change.Follow): Sent {
+    private suspend fun follow(pending: Pending, c: Change.Follow): Sent {
         val channelId = c.channelId ?: YouTube.artist(c.artistId).fold(
             onSuccess = { it.artist.channelId ?: return Sent.Refused },
-            onFailure = { return PendingOutcome.of(it) },
+            onFailure = { return failed(pending, it) },
         )
-        return done(YouTube.subscribeChannel(channelId, c.followed))
+        return done(pending, YouTube.subscribeChannel(channelId, c.followed))
     }
 
-    private fun done(result: Result<*>): Sent = result.fold(onSuccess = { Sent.Done() }, onFailure = { PendingOutcome.of(it) })
+    private fun done(pending: Pending, result: Result<*>): Sent =
+        result.fold(onSuccess = { Sent.Done() }, onFailure = { failed(pending, it) })
+
+    /** What [failure] comes to, said in the log without the addresses a failed request can name. */
+    private fun failed(pending: Pending, failure: Throwable): Sent = PendingOutcome.of(failure).also { outcome ->
+        Log.w(TAG, "Could not send a ${PendingStore.kindOf(pending.change)} to YouTube Music ($outcome)", ErrorText.forLog(failure))
+    }
 
     private sealed interface Entry {
         data class Known(val setVideoId: String) : Entry
@@ -149,11 +156,11 @@ class YouTubeSender(private val database: MusicDatabase) {
     }
 
     /** The entry on YouTube that the row [mapId] of [videoId] is. */
-    private suspend fun entryOf(browseId: String, mapId: Int, videoId: String, setVideoId: String?): Entry {
+    private suspend fun entryOf(pending: Pending, browseId: String, mapId: Int, videoId: String, setVideoId: String?): Entry {
         setVideoId?.let { return Entry.Known(it) }
         runCatching { database.playlistSongMapById(mapId) }.getOrNull()
             ?.takeIf { it.songId == videoId }?.setVideoId?.let { return Entry.Known(it) }
-        val page = YouTube.playlist(browseId).getOrElse { return Entry.Unread(PendingOutcome.of(it)) }
+        val page = YouTube.playlist(browseId).getOrElse { return Entry.Unread(failed(pending, it)) }
         val walked = page.walkSongs()
         if (!walked.complete) return Entry.Unread(Sent.NotNow)
         val held = runCatching { database.setVideoIdsHeld(browseId).toHashSet() }.getOrElse { return Entry.Unread(Sent.Failed) }
@@ -214,7 +221,23 @@ object PendingChanges {
         keeping.launch {
             runCatching { store.put(accountOf(app), change) }
                 .onFailure { Log.w(TAG, "Could not keep a ${PendingStore.kindOf(change)}", it) }
-            sending.launch { send(app, patient = true) }
+            kick(app)
+        }
+    }
+
+    /** A send waiting to start, which will see every change kept before it starts. */
+    private val kickWaiting = AtomicBoolean(false)
+
+    /**
+     * Sends soon what was just kept. One send waits at most, behind the one running: a hundred songs
+     * added in a row are one send, not a hundred, and after a try that met no connection the job,
+     * which waits for one, takes over (see [send]'s patience).
+     */
+    private fun kick(context: Context) {
+        if (!kickWaiting.compareAndSet(false, true)) return
+        sending.launch {
+            kickWaiting.set(false)
+            runCatching { send(context) }.onFailure { Log.w(TAG, "Could not send the changes waiting", it) }
         }
     }
 
@@ -286,10 +309,10 @@ object PendingChanges {
     /**
      * Sends what waits for the account signed in. [Flushed.DONE] when nothing of its is left,
      * [Flushed.LEFT] when something waits for a better moment (and the job will try again), and
-     * [Flushed.BLOCKED] when the account may not be written to now. [patient]: the job and a change
-     * just made, which try whatever happened a moment ago; a sync does not try again within
-     * half a minute of a try that met no connection, so that six kinds of sync do not each wait out
-     * a timeout.
+     * [Flushed.BLOCKED] when the account may not be written to now. [patient]: the job, which tries
+     * whatever happened a moment ago. A change just made and a sync do not try again within half a
+     * minute of a try that met no connection or failed, so that six kinds of sync, or a hundred
+     * changes made offline, do not each wait out a timeout: the job is waiting for a connection.
      */
     suspend fun send(context: Context, patient: Boolean = false): Flushed {
         val store = store ?: return Flushed.DONE

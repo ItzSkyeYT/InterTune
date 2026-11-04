@@ -398,7 +398,7 @@ class ErrorTextTest {
         "recognition/RecognitionEngine.kt" to "Listening failed",
         "recognition/RecognitionEngine.kt" to "Search for '\$query' failed",
         "recognition/RecognitionEngine.kt" to "Mashup search for '\$query' failed",
-        "recognition/RecognitionEngine.kt" to "Could not push",
+        "utils/PendingSend.kt" to "Could not send a",
         "migration/LibraryImport.kt" to "YouTube could not be reached",
         "migration/LibraryImport.kt" to "YouTube refused a search",
         "utils/BackgroundChecks.kt" to "Update check failed",

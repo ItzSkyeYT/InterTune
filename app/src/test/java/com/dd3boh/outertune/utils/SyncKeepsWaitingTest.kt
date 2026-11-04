@@ -81,12 +81,18 @@ class SyncKeepsWaitingTest {
     }
 
     @Test
-    fun `a removal, a drag or a new name that waits keeps the playlist as it is here too`() {
+    fun `a removal or a drag that waits keeps the playlist as it is here too`() {
         assertFalse(PlaylistSync.mayReplace("PL1", waiting(Change.Remove("PL1", 1, "a", "S1"))))
         assertFalse(PlaylistSync.mayReplace("PL1", waiting(Change.Move("PL1", 1, "a", "S1", 2, "b", "S2"))))
-        assertFalse(PlaylistSync.mayReplace("PL1", waiting(Change.Rename("PL1", "x"))))
         // Once nothing waits, YouTube's copy, which now has them, is read as before.
         assertTrue(PlaylistSync.mayReplace("PL1", Waiting.NONE))
+    }
+
+    @Test
+    fun `a new name that waits keeps only the name, and the songs edited on the web still come in`() {
+        val w = waiting(Change.Rename("PL1", "Mine"))
+        assertTrue(PlaylistSync.mayReplace("PL1", w))
+        assertEquals("Mine", w.nameFor("PL1"))
     }
 
     @Test

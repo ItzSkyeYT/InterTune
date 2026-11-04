@@ -122,7 +122,7 @@ class AddToPlaylistInsertsFirstTest {
         // The duplicates prompt's two buttons queued the add with database.transaction and called
         // onAdded before it had run.
         assertFalse("the add goes through the one helper", Regex("""database\.transaction\s*\{""").containsMatchIn(dialog))
-        assertTrue(Regex("""addSongToPlaylist\(""").findAll(dialog).count() == 1)
+        assertTrue(Regex("""addSongRowsToPlaylist\(""").findAll(dialog).count() == 1)
     }
 
     @Test
