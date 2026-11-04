@@ -46,6 +46,7 @@ import com.dd3boh.outertune.constants.PlaylistSortTypeKey
 import com.dd3boh.outertune.constants.SyncMode
 import com.dd3boh.outertune.constants.YtmSyncModeKey
 import com.dd3boh.outertune.db.MusicDatabase
+import com.dd3boh.outertune.db.daos.AddedRow
 import com.dd3boh.outertune.db.daos.anyLocalSong
 import com.dd3boh.outertune.db.daos.playlistDuplicatesChunked
 import com.dd3boh.outertune.db.daos.playlistIdBySongsChunked
@@ -53,9 +54,9 @@ import com.dd3boh.outertune.db.entities.Playlist
 import com.dd3boh.outertune.ui.component.SortHeader
 import com.dd3boh.outertune.ui.component.items.ListItem
 import com.dd3boh.outertune.ui.component.items.PlaylistListItem
+import com.dd3boh.outertune.utils.PendingChanges
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
-import com.zionhuang.innertube.YouTube
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -339,7 +340,7 @@ private fun addAndSay(
     ids: List<String>,
     onAdded: ((Playlist) -> Unit)?,
 ) {
-    val written = database.addSongToPlaylist(playlist, ids)
+    val written = database.addSongRowsToPlaylist(playlist, ids)
     val left = ids.size - written.size
     if (left > 0) {
         val app = context.applicationContext
@@ -354,15 +355,11 @@ private fun addAndSay(
 }
 
 /**
- * Mirrors an add to a YouTube playlist. On a scope of its own, because the dialog's goes when the
- * dialog closes, which is straight after the add, and a push cut short leaves the songs local only,
- * where the next sync takes them out again. The duplicates prompt's two add buttons used to push
- * nothing at all. Saved twice's Undo puts songs back into a playlist through here too.
+ * Mirrors an add to a YouTube playlist: each row written, a song from YouTube, is kept for the
+ * account until it has it and sent in order (PendingChanges), so an add made offline or with a
+ * lapsed sign-in is no longer taken out by the next sync. The duplicates prompt's two add buttons
+ * used to push nothing at all. Saved twice's Undo puts songs back into a playlist through here too.
  */
-fun pushToYouTube(playlist: Playlist, songIds: List<String>) {
-    if (playlist.playlist.isLocal) return
-    val browseId = playlist.playlist.browseId ?: return
-    CoroutineScope(Dispatchers.IO).launch {
-        songIds.forEach { YouTube.addToPlaylist(browseId, it) }
-    }
+fun pushToYouTube(playlist: Playlist, rows: List<AddedRow>) {
+    PendingChanges.added(playlist.playlist, rows)
 }

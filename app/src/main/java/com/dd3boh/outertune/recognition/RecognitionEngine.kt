@@ -14,6 +14,7 @@ import android.Manifest
 import android.util.Log
 import dagger.hilt.android.qualifiers.ApplicationContext
 import com.dd3boh.outertune.utils.ErrorText
+import com.dd3boh.outertune.utils.PendingChanges
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.constants.RecogniseListenSecondsKey
 import com.dd3boh.outertune.constants.RecogniseAutoAddKey
@@ -21,6 +22,7 @@ import com.dd3boh.outertune.constants.Unreleased
 import android.content.Context
 import androidx.annotation.RequiresPermission
 import com.dd3boh.outertune.db.MusicDatabase
+import com.dd3boh.outertune.db.daos.AddedRow
 import com.dd3boh.outertune.db.entities.Playlist
 import com.dd3boh.outertune.db.entities.PlaylistEntity
 import com.dd3boh.outertune.db.entities.PlaylistSongMap
@@ -1268,26 +1270,23 @@ class RecognitionEngine @Inject constructor(
         scope.launch(Dispatchers.IO) {
             val added = runCatching {
                 database.transactionNow {
-                    if (playlistDuplicates(playlist.id, listOf(song.id)).isNotEmpty()) return@transactionNow false
+                    if (playlistDuplicates(playlist.id, listOf(song.id)).isNotEmpty()) return@transactionNow null
                     insert(song.toMediaMetadata())
+                    val position = nextPlaylistPosition(playlist.id)
                     insert(
                         PlaylistSongMap(
                             songId = song.id,
                             playlistId = playlist.id,
-                            position = nextPlaylistPosition(playlist.id),
+                            position = position,
                         )
                     )
                     synchronized(written) { written += song.id to playlist.id }
-                    true
+                    songMapsToPlaylist(playlist.id, position).firstOrNull { it.songId == song.id }
                 }
             }.onFailure { Log.w(TAG, "Could not add '${song.title}' to ${playlist.name}", it) }
-                .getOrDefault(false)
-            if (added && !playlist.isLocal) {
-                playlist.browseId?.let { browseId ->
-                    YouTube.addToPlaylist(browseId, song.id)
-                        .onFailure { Log.w(TAG, "Could not push '${song.title}' to ${playlist.name}", ErrorText.forLog(it)) }
-                }
-            }
+                .getOrNull()
+            // Kept for the account until it has it, and a song taken back out later is taken out there too (PendingChanges).
+            if (added != null) PendingChanges.added(playlist, listOf(AddedRow(added, duplicate = false, local = false)))
         }
     }
 
@@ -1315,21 +1314,21 @@ class RecognitionEngine @Inject constructor(
                     // order, and removing one moved all the others to the bottom, because the move
                     // matches on position. Read inside the transaction so the read and the write
                     // cannot interleave.
+                    val position = nextPlaylistPosition(target.id)
                     insert(
                         PlaylistSongMap(
                             songId = song.id,
                             playlistId = target.id,
-                            position = nextPlaylistPosition(target.id),
+                            position = position,
                         )
                     )
                     synchronized(written) { written += song.id to target.id }
+                    songMapsToPlaylist(target.id, position).firstOrNull { it.songId == song.id }
                 }
-                true
             }.onFailure { Log.w(TAG, "Could not add '${song.title}' to ${target.playlist.name}", it) }
-                .getOrDefault(false)
-            if (added) {
-                target.playlist.browseId?.let { runCatching { YouTube.addToPlaylist(it, song.id) } }
-            }
+                .getOrNull()
+            // Kept for the account until it has it, and a song taken back out later is taken out there too (PendingChanges).
+            if (added != null) PendingChanges.added(target.playlist, listOf(AddedRow(added, duplicate = false, local = false)))
         }
     }
 
@@ -1818,7 +1817,14 @@ class RecognitionEngine @Inject constructor(
         if (rows.isEmpty()) return
         withContext(Dispatchers.IO) {
             runCatching {
-                database.transactionNow { rows.forEach { (songId, playlistId) -> removeSongFromPlaylist(playlistId, songId) } }
+                database.transactionNow {
+                    rows.forEach { (songId, playlistId) ->
+                        val removed = takeSongOutOfPlaylist(playlistId, songId)
+                        // Out of the account's playlist too: it was only ever left there, and the
+                        // next sync put the piece back (PendingChanges).
+                        if (removed.isNotEmpty()) playlistRow(playlistId)?.let { PendingChanges.removed(it, removed) }
+                    }
+                }
             }.onFailure { Log.w(TAG, "Could not take ${songs.filter { it.id in ids }.joinToString { "'${it.title}'" }} out of the playlist", it) }
         }
     }

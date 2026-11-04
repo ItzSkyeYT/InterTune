@@ -26,6 +26,7 @@ import com.zionhuang.innertube.models.oddElements
 import com.zionhuang.innertube.models.response.AccountMenuResponse
 import com.zionhuang.innertube.models.response.BrowseResponse
 import com.zionhuang.innertube.models.response.CreatePlaylistResponse
+import com.zionhuang.innertube.models.response.EditPlaylistResponse
 import com.zionhuang.innertube.models.response.GetQueueResponse
 import com.zionhuang.innertube.models.response.GetSearchSuggestionsResponse
 import com.zionhuang.innertube.models.response.GetTranscriptResponse
@@ -791,9 +792,26 @@ object YouTube {
         return ""
     }
 
-    suspend fun addToPlaylist(playlistId: String, videoId: String) = runCatching {
+    /**
+     * YouTube refused an edit of a playlist and said so in its answer (STATUS_FAILED), with no error
+     * status: a song the playlist holds already, added without [addToPlaylist]'s duplicate, is one.
+     */
+    class PlaylistEditRefused(status: String?) : IllegalStateException("YouTube refused the playlist edit: $status")
+
+    /** The answer to an edit, read leniently: an answer that cannot be read still counts as done. */
+    private suspend fun io.ktor.client.statement.HttpResponse.playlistEdit(): EditPlaylistResponse? =
+        runCatchingCancellable { body<EditPlaylistResponse>() }.getOrNull()
+            ?.also { if (it.refused) throw PlaylistEditRefused(it.status) }
+
+    /**
+     * Adds [videoId] at the end of the playlist and gives back the id YouTube gave the new entry
+     * (its setVideoId, null when the answer does not say), which a removal or a move of that entry
+     * later has to name. [duplicate] adds it even when the playlist holds it already, as Add
+     * anyway means; without it YouTube refuses a song the playlist holds (PlaylistEditRefused).
+     */
+    suspend fun addToPlaylist(playlistId: String, videoId: String, duplicate: Boolean = false): Result<String?> = runCatching {
         requireAccountWrites()
-        innerTube.addToPlaylist(WEB_REMIX, playlistId, videoId)
+        innerTube.addToPlaylist(WEB_REMIX, playlistId, videoId, duplicate).playlistEdit()?.setVideoIdOf(videoId)
     }
 
     suspend fun addPlaylistToPlaylist(playlistId: String, addPlaylistId: String) = runCatching {
@@ -803,12 +821,12 @@ object YouTube {
 
     suspend fun removeFromPlaylist(playlistId: String, videoId: String, setVideoId: String) = runCatching {
         requireAccountWrites()
-        innerTube.removeFromPlaylist(WEB_REMIX, playlistId, videoId, setVideoId)
+        innerTube.removeFromPlaylist(WEB_REMIX, playlistId, videoId, setVideoId).also { it.playlistEdit() }
     }
 
     suspend fun moveSongPlaylist(playlistId: String, setVideoId: String, successorSetVideoId: String) = runCatching {
         requireAccountWrites()
-        innerTube.moveSongPlaylist(WEB_REMIX, playlistId, setVideoId, successorSetVideoId)
+        innerTube.moveSongPlaylist(WEB_REMIX, playlistId, setVideoId, successorSetVideoId).also { it.playlistEdit() }
     }
 
     /**
@@ -823,7 +841,7 @@ object YouTube {
 
     suspend fun renamePlaylist(playlistId: String, name: String) = runCatching {
         requireAccountWrites()
-        innerTube.renamePlaylist(WEB_REMIX, playlistId, name)
+        innerTube.renamePlaylist(WEB_REMIX, playlistId, name).also { it.playlistEdit() }
     }
 
     suspend fun deletePlaylist(playlistId: String) = runCatching {

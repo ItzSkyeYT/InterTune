@@ -76,6 +76,18 @@ object LikedSync {
     }
 
     /**
+     * Of the songs Liked music holds, the ones the sync may like here: all of them but those whose
+     * unlike made here waits to reach YouTube (a heart tapped off offline, Remove from library).
+     * Those used to be liked again by the next sync (scan of 4 Nov 2026, findings 7 and 8).
+     */
+    fun toLikeHere(remoteIds: List<String>, waiting: Waiting): List<String> =
+        remoteIds.filterNot { waiting.likeWanted(it) == false }
+
+    /** Of the songs [idsToUnlike] picked, the ones whose like made here is not still on its way. */
+    fun toUnlikeHere(ids: Set<String>, waiting: Waiting): Set<String> =
+        ids.filterNotTo(HashSet()) { waiting.likeWanted(it) == true }
+
+    /**
      * Whether a read of [readCount] songs can be the whole of a playlist whose header says
      * [headerCount]. Some songs in the count never come back as rows (removed or unavailable
      * videos), so a little short is normal; clearly short means a page went missing, and the
@@ -193,4 +205,95 @@ enum class SyncResult {
             else -> NOTHING
         }
     }
+}
+
+/**
+ * The library songs sync, with the changes made here that wait for the account (see [Waiting]).
+ */
+object LibrarySync {
+    /** The songs of the account's library to mark as in the library here: not one taken out here whose unlike waits. */
+    fun toAdd(remoteIds: List<String>, waiting: Waiting): List<String> =
+        remoteIds.filterNot { waiting.keptOutOfLibrary(it) }
+
+    /** "Overwrite": the songs to take out of the library here, missing from the account's, but not one liked here whose like waits. */
+    fun toRemove(localIds: List<String>, remoteIds: Set<String>, waiting: Waiting): List<String> =
+        localIds.filter { it !in remoteIds && waiting.likeWanted(it) != true }
+}
+
+/**
+ * One playlist's songs, synced: YouTube's copy replaces the one here, but never over a change made
+ * here that YouTube has not had yet, and never taking out a file from this phone, which YouTube Music
+ * cannot hold. Both used to go at the next sync, under "Keep all local content" too (scan of
+ * 4 Nov 2026, finding 3).
+ */
+object PlaylistSync {
+    /** Whether YouTube's copy may replace the playlist's songs here: not while a change to them waits. */
+    fun mayReplace(browseId: String, waiting: Waiting): Boolean = !waiting.holdsSongsOf(browseId)
+
+    /** A row of the playlist as the sync writes it: the song, and YouTube's id for the entry when it has one. */
+    data class Row(val songId: String, val setVideoId: String?)
+
+    /**
+     * The playlist after the sync: YouTube's rows in YouTube's order, and the files from this phone
+     * that were in it ([phoneFiles], each with the position it had) put back at those positions, or at
+     * the end of a playlist that got shorter.
+     */
+    fun rowsAfter(remote: List<Row>, phoneFiles: List<Pair<Int, String>>): List<Row> {
+        val rows = remote.toMutableList()
+        for ((position, songId) in phoneFiles.sortedBy { it.first }) {
+            rows.add(position.coerceIn(0, rows.size), Row(songId, null))
+        }
+        return rows
+    }
+}
+
+/**
+ * The playlists of the account's library, synced. A playlist is found here by its browseId among
+ * every row, saved or not, and an un-saved one is saved again: looking among the saved rows only, the
+ * sync made a second row beside one taken out of the library here or by an earlier sync, and the
+ * songs went into either one (scan of 4 Nov 2026, finding 9).
+ */
+object PlaylistLibrarySync {
+    sealed interface Step {
+        /** None here: a new row. */
+        data object New : Step
+
+        /** [row] is the playlist: [saveAgain] when it is out of the library here, [keepName] while a name given here waits. */
+        data class Existing(val row: com.dd3boh.outertune.db.entities.PlaylistEntity, val saveAgain: Boolean, val keepName: Boolean) : Step
+
+        /** Taken out of the library or deleted here, and YouTube has not had it yet: left alone. */
+        data object Leave : Step
+    }
+
+    /**
+     * What to do with the account's playlist [browseId], given [rows], every row here with that
+     * browseId, oldest first.
+     */
+    fun step(browseId: String, rows: List<com.dd3boh.outertune.db.entities.PlaylistEntity>, waiting: Waiting): Step {
+        if (waiting.playlistWanted(browseId) == false) return Step.Leave
+        val mine = rows.filter { it.browseId == browseId }
+        val row = mine.firstOrNull { it.bookmarkedAt != null } ?: mine.firstOrNull() ?: return Step.New
+        return Step.Existing(row, saveAgain = row.bookmarkedAt == null, keepName = waiting.nameFor(browseId) != null)
+    }
+
+    /** "Overwrite": the saved playlists here to take out of the library, missing from the account's, but not one saved here whose save waits. */
+    fun toUnsave(saved: List<String>, remoteIds: Set<String>, waiting: Waiting): List<String> =
+        saved.filter { it !in remoteIds && waiting.playlistWanted(it) != true }
+}
+
+/** Albums and artists of the account's library, with the saves and subscriptions made here that wait. */
+object SavedSync {
+    /** The account's albums to save here: not one taken out of the library here whose unsave waits. */
+    fun albumsToSave(remoteIds: List<String>, waiting: Waiting): List<String> = remoteIds.filterNot { waiting.albumWanted(it) == false }
+
+    /** "Overwrite": saved albums here missing from the account's, but not one saved here whose save waits. */
+    fun albumsToUnsave(saved: List<String>, remoteIds: Set<String>, waiting: Waiting): List<String> =
+        saved.filter { it !in remoteIds && waiting.albumWanted(it) != true }
+
+    /** The account's artists to follow here: not one unfollowed here whose unsubscription waits. */
+    fun artistsToFollow(remoteIds: List<String>, waiting: Waiting): List<String> = remoteIds.filterNot { waiting.artistWanted(it) == false }
+
+    /** "Overwrite": followed artists here missing from the account's, but not one followed here whose subscription waits. */
+    fun artistsToUnfollow(followed: List<String>, remoteIds: Set<String>, waiting: Waiting): List<String> =
+        followed.filter { it !in remoteIds && waiting.artistWanted(it) != true }
 }

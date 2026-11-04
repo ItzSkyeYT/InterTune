@@ -243,26 +243,6 @@ class SyncUtils @Inject constructor(
     }
 
     /**
-     * Like single song
-     */
-    @OptIn(ExperimentalCoroutinesApi::class)
-    fun likeSong(s: SongEntity) {
-        scope.launch {
-            if (!s.isLocal && context.mayPushToYouTube()) YouTube.likeVideo(s.id, s.liked)
-        }
-    }
-
-    /**
-     * Add/remove to library single song
-     */
-    @OptIn(ExperimentalCoroutinesApi::class)
-    fun changeInLibrary(s: SongEntity) {
-        scope.launch {
-            // we don't have an api call yet
-        }
-    }
-
-    /**
      * Singleton syncRemoteLikedSongs
      */
     suspend fun syncRemoteLikedSongs(bypass: Boolean = false): SyncResult = withContext(Dispatchers.IO) { likedSongs(bypass) }
@@ -291,6 +271,10 @@ class SyncUtils @Inject constructor(
 
         try {
             Log.d(TAG, "Liked songs synchronization started")
+            // What waits to reach the account goes first; what still waits after that stays as it
+            // was made here. An unlike made offline used to be liked again here (scan of
+            // 4 Nov 2026, findings 7 and 8).
+            val waiting = PendingChanges.sendThenWaiting(context)
 
             // Get remote and local liked songs
             YouTube.playlist("LM").onSuccess { page ->
@@ -348,7 +332,7 @@ class SyncUtils @Inject constructor(
                     // A like pushed by toggleLike may simply not have arrived yet.
                     graceDays = UNLIKE_GRACE_DAYS,
                 )
-                val songsToUnlike = localLikes.filter { it.id in idsToUnlike }
+                val songsToUnlike = LikedSync.toUnlikeHere(idsToUnlike, waiting).let { ids -> localLikes.filter { it.id in ids } }
 
                 if (songsToUnlike.isNotEmpty()) {
                     Log.i(TAG, "Unliking ${songsToUnlike.size} songs YouTube had and has since unliked")
@@ -370,7 +354,8 @@ class SyncUtils @Inject constructor(
                 // reads a snapshot of what is committed so far, and on a big batch of new likes it
                 // could run while some of those per-song transactions were still queued, and missed
                 // the songs they wrote.
-                val toWrite = remoteSongs.map { remoteSong -> remoteSong to database.song(remoteSong.id).firstOrNull() }
+                val toLike = LikedSync.toLikeHere(remoteSongs.map { it.id }, waiting).toHashSet()
+                val toWrite = remoteSongs.filter { it.id in toLike }.map { remoteSong -> remoteSong to database.song(remoteSong.id).firstOrNull() }
                 database.transactionNow {
                     toWrite.forEach { (remoteSong, localSong) ->
                         if (localSong == null) {
@@ -438,6 +423,7 @@ class SyncUtils @Inject constructor(
 
         try {
             Log.i(TAG, "Library songs synchronization started")
+            val waiting = PendingChanges.sendThenWaiting(context)
 
             // Get remote songs (from library and uploads)
             val remote = getRemoteData<SongItem>("FEmusic_liked_videos", "FEmusic_library_privately_owned_tracks")
@@ -447,11 +433,11 @@ class SyncUtils @Inject constructor(
             }
 
             if (checkOverwrite(SyncConflictResolution.OVERWRITE_WITH_REMOTE) && removalAllowed(remote, "songs")) {
-                // Identify local songs to remove
+                // Identify local songs to remove: not one liked here whose like waits to reach the account.
                 val remoteIds = remoteSongs.mapTo(HashSet()) { it.id }
-                val songsToRemoveFromLibrary = database.songsByNameAsc().first()
-                    .filterNot { it.song.isLocal }
-                    .filterNot { localSong -> localSong.id in remoteIds }
+                val localSongs = database.songsByNameAsc().first().filterNot { it.song.isLocal }
+                val idsToRemove = LibrarySync.toRemove(localSongs.map { it.id }, remoteIds, waiting).toHashSet()
+                val songsToRemoveFromLibrary = localSongs.filter { it.id in idsToRemove }
 
                 // Remove local songs from the library, and only from the library: toggleLibrary
                 // also unliked them, and whether a song is liked is the liked sync's business.
@@ -464,9 +450,10 @@ class SyncUtils @Inject constructor(
                 }
             }
 
-            // Inset or mark songs to library
+            // Inset or mark songs to library: not one taken out of the library here whose unlike waits.
+            val toAdd = LibrarySync.toAdd(remoteSongs.map { it.id }, waiting).toHashSet()
             runBlocking {
-                val jobs = remoteSongs.map { song ->
+                val jobs = remoteSongs.filter { it.id in toAdd }.map { song ->
                     launch(Dispatchers.IO) {
                         val dbSong = database.song(song.id).firstOrNull()
                         database.transaction {
@@ -523,6 +510,7 @@ class SyncUtils @Inject constructor(
 
         try {
             Log.i(TAG, "Library albums synchronization started")
+            val waiting = PendingChanges.sendThenWaiting(context)
 
             // Get remote albums (from library and uploads)
             val remote =
@@ -533,10 +521,10 @@ class SyncUtils @Inject constructor(
             }
 
             if (checkOverwrite(SyncConflictResolution.OVERWRITE_WITH_REMOTE) && removalAllowed(remote, "albums")) {
-                // Identify local albums to remove
-                val albumsToRemoveFromLibrary = database.albumsLikedAsc().first()
-                    .filterNot { it.album.isLocal }
-                    .filterNot { localAlbum -> remoteAlbums.any { it.id == localAlbum.id } }
+                // Identify local albums to remove: not one saved here whose save waits to reach the account.
+                val savedHere = database.albumsLikedAsc().first().filterNot { it.album.isLocal }
+                val idsToUnsave = SavedSync.albumsToUnsave(savedHere.map { it.id }, remoteAlbums.mapTo(HashSet()) { it.id }, waiting).toHashSet()
+                val albumsToRemoveFromLibrary = savedHere.filter { it.id in idsToUnsave }
 
                 // Remove albums from local database
                 runBlocking {
@@ -552,8 +540,11 @@ class SyncUtils @Inject constructor(
             // (oldest first, see getRemoteData), each a millisecond after the one before, so Library >
             // Albums by date added keeps YouTube's order. Marked in parallel, each took the time it
             // happened to run, and a first sync shuffled the whole album library (27 Oct 2026).
+            // Not one taken out of the library here whose unsave waits to reach the account.
+            val albumsToSave = SavedSync.albumsToSave(remoteAlbums.map { it.id }, waiting).toHashSet()
             val firstStamp = LocalDateTime.now().minusNanos(remoteAlbums.size * 1_000_000L)
             remoteAlbums.forEachIndexed { index, remoteAlbum ->
+                if (remoteAlbum.id !in albumsToSave) return@forEachIndexed
                 val stamp = firstStamp.plusNanos(index * 1_000_000L)
                 val localAlbum = database.album(remoteAlbum.id).firstOrNull()
                 if (localAlbum == null) {
@@ -608,6 +599,7 @@ class SyncUtils @Inject constructor(
 
         try {
             Log.i(TAG, "Artist subscriptions synchronization started")
+            val waiting = PendingChanges.sendThenWaiting(context)
 
             // Get remote artists (from library and uploads)
             val likedRemote = getRemoteData<ArtistItem>(
@@ -631,10 +623,10 @@ class SyncUtils @Inject constructor(
             }
 
             if (checkOverwrite(SyncConflictResolution.OVERWRITE_WITH_REMOTE) && removalAllowed(likedRemote, "artists")) {
-                // Get local artists
-                val artistsToRemoveFromSubscriptions = database.artistsBookmarkedAsc().first()
-                    .filterNot { it.artist.isLocal }
-                    .filterNot { localArtist -> likedArtists.any { it.id == localArtist.id } }
+                // Get local artists: not one followed here whose subscription waits to reach the account.
+                val followedHere = database.artistsBookmarkedAsc().first().filterNot { it.artist.isLocal }
+                val idsToUnfollow = SavedSync.artistsToUnfollow(followedHere.map { it.id }, likedArtists.mapTo(HashSet()) { it.id }, waiting).toHashSet()
+                val artistsToRemoveFromSubscriptions = followedHere.filter { it.id in idsToUnfollow }
 
                 // Remove local artists from the database
                 runBlocking {
@@ -646,12 +638,14 @@ class SyncUtils @Inject constructor(
                 }
             }
 
-            // Add or mark artists in the database
+            // Add or mark artists in the database: one unfollowed here whose unsubscription waits
+            // to reach the account is not followed again.
+            val toFollow = SavedSync.artistsToFollow(remoteArtists.map { it.id }, waiting).toHashSet()
             runBlocking {
                 remoteArtists.forEach { remoteArtist ->
                     launch(Dispatchers.IO) {
                         val localArtist = database.artist(remoteArtist.id).firstOrNull()
-                        val isLikedArtist = likedArtists.contains(remoteArtist)
+                        val isLikedArtist = likedArtists.contains(remoteArtist) && remoteArtist.id in toFollow
 
                         database.transaction {
                             if (localArtist == null) {
@@ -714,6 +708,7 @@ class SyncUtils @Inject constructor(
 
         try {
             Log.i(TAG, "Library playlist synchronization started")
+            val waiting = PendingChanges.sendThenWaiting(context)
 
             // Get remote and local playlists
             YouTube.library("FEmusic_liked_playlists").onSuccess { firstPage ->
@@ -731,11 +726,14 @@ class SyncUtils @Inject constructor(
                 if (checkOverwrite(SyncConflictResolution.OVERWRITE_WITH_REMOTE) &&
                     removalAllowed(Walked(remotePlaylists, walked.complete), "playlists")
                 ) {
-                    // Identify playlists to remove
-                    val playlistsToRemove = localPlaylists
+                    // Identify playlists to remove: not one saved here whose save waits to reach the account.
+                    val synced = localPlaylists
                         .filterNot { it.playlist.isLocal }
                         .filterNot { it.playlist.browseId == null }
-                        .filterNot { localPlaylist -> remotePlaylists.any { it.id == localPlaylist.playlist.browseId } }
+                    val toUnsave = PlaylistLibrarySync.toUnsave(
+                        synced.mapNotNull { it.playlist.browseId }, remotePlaylists.mapTo(HashSet()) { it.id }, waiting
+                    ).toHashSet()
+                    val playlistsToRemove = synced.filter { it.playlist.browseId in toUnsave }
 
                     // Remove playlists from the database
                     runBlocking {
@@ -747,44 +745,63 @@ class SyncUtils @Inject constructor(
                     }
                 }
 
+                // Every row here with a YouTube playlist behind it, saved or not: one taken out of
+                // the library here or by an earlier sync is found and saved again rather than given
+                // a second row beside it (scan of 4 Nov 2026, finding 9).
+                val rows = database.syncedPlaylistRows()
+
                 // Add or update playlists in the database
                 runBlocking {
                     remotePlaylists.forEach { remotePlaylist ->
                         launch(Dispatchers.IO) {
-                            // forcefully assign isEditable. These playlists are at mercy of YouTube
-                            var localPlaylist =
-                                localPlaylists.find { remotePlaylist.id == it.playlist.browseId }?.playlist
-                                    ?.copy(isEditable = remotePlaylist.isEditable)
-                            if (localPlaylist == null) {
-                                localPlaylist = PlaylistEntity(
-                                    name = remotePlaylist.title,
-                                    browseId = remotePlaylist.id,
-                                    isEditable = remotePlaylist.isEditable,
-                                    bookmarkedAt = LocalDateTime.now(),
-                                    thumbnailUrl = remotePlaylist.thumbnail,
-                                    remoteSongCount = remotePlaylist.songCountText?.let {
-                                        Regex("""\d+""").find(it)?.value?.toIntOrNull()
-                                    },
-                                    playEndpointParams = remotePlaylist.playEndpoint?.params,
-                                    shuffleEndpointParams = remotePlaylist.shuffleEndpoint?.params,
-                                    radioEndpointParams = remotePlaylist.radioEndpoint?.params
-                                )
-                                database.insert(localPlaylist)
-                            } else {
-                                database.update(localPlaylist, remotePlaylist)
+                            val playlistId = when (val step = PlaylistLibrarySync.step(remotePlaylist.id, rows, waiting)) {
+                                // Taken out of the library or deleted here, and the account has not had it yet.
+                                PlaylistLibrarySync.Step.Leave -> return@launch
+                                PlaylistLibrarySync.Step.New -> {
+                                    val localPlaylist = PlaylistEntity(
+                                        name = remotePlaylist.title,
+                                        browseId = remotePlaylist.id,
+                                        isEditable = remotePlaylist.isEditable,
+                                        bookmarkedAt = LocalDateTime.now(),
+                                        thumbnailUrl = remotePlaylist.thumbnail,
+                                        remoteSongCount = remotePlaylist.songCountText?.let {
+                                            Regex("""\d+""").find(it)?.value?.toIntOrNull()
+                                        },
+                                        playEndpointParams = remotePlaylist.playEndpoint?.params,
+                                        shuffleEndpointParams = remotePlaylist.shuffleEndpoint?.params,
+                                        radioEndpointParams = remotePlaylist.radioEndpoint?.params
+                                    )
+                                    database.insert(localPlaylist)
+                                    localPlaylist.id
+                                }
+                                is PlaylistLibrarySync.Step.Existing -> {
+                                    // As YouTube has it, isEditable included: these playlists are at
+                                    // its mercy. But the name given here stays while it waits to
+                                    // reach the account, and a row out of the library is saved again.
+                                    val row = step.row
+                                    database.update(
+                                        row.copy(
+                                            name = if (step.keepName) row.name else remotePlaylist.title,
+                                            browseId = remotePlaylist.id,
+                                            isEditable = remotePlaylist.isEditable,
+                                            bookmarkedAt = if (step.saveAgain) LocalDateTime.now() else row.bookmarkedAt,
+                                            thumbnailUrl = remotePlaylist.thumbnail,
+                                            remoteSongCount = remotePlaylist.songCountText?.let { Regex("""\d+""").find(it)?.value?.toIntOrNull() },
+                                            playEndpointParams = remotePlaylist.playEndpoint?.params,
+                                            shuffleEndpointParams = remotePlaylist.shuffleEndpoint?.params,
+                                            radioEndpointParams = remotePlaylist.radioEndpoint?.params,
+                                        )
+                                    )
+                                    row.id
+                                }
                             }
 
-                            // Fetch the playlist again after potential insertion/update
-                            val updatedPlaylist =
-                                database.playlistByBrowseId(remotePlaylist.id).firstOrNull()
-                            updatedPlaylist?.let {
-                                // The (playlistId, from) query. The one-argument overload takes a
-                                // song id, so this was always empty and a saved playlist that is
-                                // not ours was never refreshed.
-                                val playlistSongMaps = database.songMapsToPlaylist(updatedPlaylist.id, 0)
-                                if (updatedPlaylist.playlist.isEditable || playlistSongMaps.isNotEmpty()) {
-                                    syncPlaylist(remotePlaylist.id, updatedPlaylist.id)
-                                }
+                            // The (playlistId, from) query. The one-argument overload takes a song
+                            // id, so this was always empty and a saved playlist that is not ours was
+                            // never refreshed.
+                            val playlistSongMaps = database.songMapsToPlaylist(playlistId, 0)
+                            if (remotePlaylist.isEditable || playlistSongMaps.isNotEmpty()) {
+                                syncPlaylist(remotePlaylist.id, playlistId)
                             }
                         }
                     }
@@ -830,6 +847,13 @@ class SyncUtils @Inject constructor(
         if (!context.isInternetConnected()) {
             return@withContext false
         }
+        // What waits to reach this playlist goes first. A change made here that still waits keeps
+        // the songs as they are here: the copy read now would undo it (scan of 4 Nov 2026,
+        // findings 3 and 6), and once the account has it, the next sync reads it back.
+        if (!PlaylistSync.mayReplace(browseId, PendingChanges.sendThenWaiting(context))) {
+            Log.i(TAG, "Changes made here still wait to reach a playlist, its songs stay as they are here")
+            return@withContext false
+        }
         val playlistPage = YouTube.playlist(browseId).getOrElse {
             Log.w(TAG, "Could not read playlist $browseId: ${it.message?.let(ErrorText::withoutAddresses)}")
             return@withContext false
@@ -853,20 +877,27 @@ class SyncUtils @Inject constructor(
             // on after its page is left. Its map rows would then break the foreign key, and the
             // exception on Room's transaction thread would close the app.
             if (!playlistExists(playlistId)) return@transaction
+            // A change made here while the playlist was read: its songs stay as they are.
+            if (!PlaylistSync.mayReplace(browseId, PendingChanges.waitingNow(context))) return@transaction
+            // Files from this phone stay where they are: YouTube Music cannot hold them, and the
+            // sync took them out.
+            val phoneFiles = phoneFileRows(playlistId).map { it.position to it.songId }
             clearPlaylist(playlistId)
             val songEntities = walked.items
                 .map(SongItem::toMediaMetadata)
                 .onEach { insert(it) }
 
-            val playlistSongMaps = songEntities.mapIndexed { position, song ->
-                PlaylistSongMap(
-                    songId = song.id,
-                    playlistId = playlistId,
-                    position = position,
-                    setVideoId = song.setVideoId
-                )
-            }
-            playlistSongMaps.forEach { insert(it) }
+            PlaylistSync.rowsAfter(songEntities.map { PlaylistSync.Row(it.id, it.setVideoId) }, phoneFiles)
+                .forEachIndexed { position, row ->
+                    insert(
+                        PlaylistSongMap(
+                            songId = row.songId,
+                            playlistId = playlistId,
+                            position = position,
+                            setVideoId = row.setVideoId
+                        )
+                    )
+                }
         }
         true
     }

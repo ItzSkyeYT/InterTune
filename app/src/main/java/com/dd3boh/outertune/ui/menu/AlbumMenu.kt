@@ -282,14 +282,10 @@ fun AlbumMenu(
         AddToPlaylistDialog(
             navController = navController,
             songIds = songs.map { it.id },
-            onPreAdd = { playlist ->
-                playlist.playlist.browseId?.let { playlistId ->
-                    album.album.playlistId?.let { addPlaylistId ->
-                        YouTube.addPlaylistToPlaylist(playlistId, addPlaylistId)
-                    }
-                }
-                songs.map { it.id }
-            },
+            // The songs go to YouTube Music one by one with the dialog's add (pushToYouTube), as
+            // they go in here: the whole album pushed on top of them went out before the
+            // duplicates prompt, and in full whatever that prompt left out.
+            onPreAdd = { _ -> songs.map { it.id } },
             onDismiss = {
                 showChoosePlaylistDialog = false
             }

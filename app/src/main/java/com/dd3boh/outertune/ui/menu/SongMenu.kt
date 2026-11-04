@@ -84,7 +84,6 @@ import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.syncCoroutine
 import com.zionhuang.innertube.YouTube
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 @Composable
@@ -262,11 +261,11 @@ fun SongMenu(
                     // one of those sent a song the search was not even showing to the bottom and
                     // left a gap. A row that has already gone is left alone rather than moving
                     // whatever took its place. Saved twice takes its copies out the same way.
-                    removeFromPlaylist(playlistSong.map.id)
-                }
-
-                coroutineScope.launch {
-                    removeFromYouTubePlaylist(playlist?.playlist?.browseId, playlistSong.map)
+                    // The row as it was is what YouTube Music is told of: its entry there may have
+                    // been named since the menu was drawn.
+                    removeFromPlaylist(playlistSong.map.id)?.let { removed ->
+                        removeFromYouTubePlaylist(playlist?.playlist, removed)
+                    }
                 }
 
                 onDismiss()
@@ -399,11 +398,11 @@ fun SongMenu(
         AddToPlaylistDialog(
             navController = navController,
             songIds = listOf(song.id),
-            onPreAdd = { playlist ->
+            onPreAdd = { _ ->
+                // Not pushed from here: the dialog keeps what it writes for YouTube Music
+                // (pushToYouTube). Pushed here too, the add went out before the duplicates prompt,
+                // even when the person then cancelled it.
                 ActivityLog.note(context, database, song.id, SignalKind.ADD_TO_PLAYLIST)
-                playlist.playlist.browseId?.let { browseId ->
-                    YouTube.addToPlaylist(browseId, song.id)
-                }
                 listOf(song.id)
             },
             onDismiss = { showChoosePlaylistDialog = false }

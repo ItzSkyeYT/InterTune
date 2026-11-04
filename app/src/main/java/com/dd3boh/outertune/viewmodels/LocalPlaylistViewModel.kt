@@ -3,6 +3,7 @@ package com.dd3boh.outertune.viewmodels
 import com.dd3boh.outertune.models.blockedArtists
 import com.dd3boh.outertune.models.withoutBlocked
 import android.content.Context
+import android.util.Log
 import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -15,6 +16,7 @@ import com.dd3boh.outertune.extensions.reversed
 import com.dd3boh.outertune.extensions.toEnum
 import com.dd3boh.outertune.db.entities.Playlist
 import com.dd3boh.outertune.models.toMediaMetadata
+import com.dd3boh.outertune.utils.PendingChanges
 import com.dd3boh.outertune.utils.PlaylistCovers
 import com.dd3boh.outertune.utils.dataStore
 import com.zionhuang.innertube.YouTube
@@ -47,12 +49,6 @@ class LocalPlaylistViewModel @Inject constructor(
 ) : ViewModel() {
     val playlistId = savedStateHandle.get<String>("playlistId")!!
 
-    /**
-     * Held while a drag's moves go to YouTube Music, so a second drag waits for the first. Each
-     * drag sends its moves from its own coroutine, and on a slow connection the second could
-     * otherwise reach YouTube first and leave the order there different from the one on screen.
-     */
-    val youTubeMoveLock = Mutex()
     val playlistWithSongs = combine(
         database.playlist(playlistId),
         // Without the rows of a blocked artist's songs (ArtistBlock).
@@ -132,13 +128,16 @@ class LocalPlaylistViewModel @Inject constructor(
     fun addSong(playlist: Playlist, song: SongItem) {
         _justAdded.value += song.id
         viewModelScope.launch(Dispatchers.IO) {
-            database.transaction {
-                insert(song.toMediaMetadata())
-                addSongToPlaylist(playlist, listOf(song.id))
-            }
-            playlist.playlist.browseId?.let { browseId ->
-                runCatching { YouTube.addToPlaylist(browseId, song.id) }
-            }
+            val rows = runCatching {
+                database.transactionNow {
+                    insert(song.toMediaMetadata())
+                    addSongRowsToPlaylist(playlist, listOf(song.id))
+                }
+            }.onFailure { Log.w("LocalPlaylistViewModel", "Could not add a song to the playlist", it) }
+                .getOrDefault(emptyList())
+            // Kept for the account until it has it (PendingChanges): a network failure costs
+            // neither the local add nor, any more, the one on YouTube.
+            PendingChanges.added(playlist.playlist, rows)
         }
     }
 

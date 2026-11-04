@@ -48,6 +48,49 @@ object PlaylistSql {
     const val MAP_BY_ID = "SELECT * FROM playlist_song_map WHERE id = :id"
 
     /**
+     * Gives a row the id YouTube Music answered its add with (the entry's setVideoId), so that the
+     * row can be taken out or moved there later. Only the row the add made: the same id, the same
+     * song, and none given yet.
+     */
+    const val LEARN_SET_VIDEO_ID = """
+        UPDATE playlist_song_map SET setVideoId = :setVideoId
+        WHERE id = :mapId AND songId = :songId AND setVideoId IS NULL
+    """
+
+    /** The entries of a YouTube playlist that rows here stand for, by their setVideoId. */
+    const val SET_VIDEO_IDS_HELD = """
+        SELECT psm.setVideoId FROM playlist_song_map psm
+            JOIN playlist p ON p.id = psm.playlistId
+        WHERE p.browseId = :browseId AND psm.setVideoId IS NOT NULL
+    """
+
+    /**
+     * The rows of a playlist whose song is a file on this phone, by position: YouTube Music cannot
+     * hold them, so a sync of a synced playlist keeps them where they are.
+     */
+    const val PHONE_FILE_ROWS = """
+        SELECT psm.* FROM playlist_song_map psm
+            JOIN song s ON s.id = psm.songId
+        WHERE psm.playlistId = :playlistId AND s.isLocal = 1
+        ORDER BY psm.position
+    """
+
+    /** Which of some song ids are files on this phone. */
+    const val PHONE_FILE_IDS = "SELECT id FROM song WHERE id IN (:songIds) AND isLocal = 1"
+
+    /**
+     * Every row for one YouTube playlist, saved or not, the saved ones first and then the oldest:
+     * the one row the sync and the playlist's page take for it.
+     */
+    const val ROWS_BY_BROWSE_ID = """
+        SELECT * FROM playlist WHERE browseId = :browseId
+        ORDER BY (bookmarkedAt IS NULL), rowid
+    """
+
+    /** Every row with a YouTube playlist behind it, saved or not, oldest first. */
+    const val SYNCED_ROWS = "SELECT * FROM playlist WHERE browseId IS NOT NULL ORDER BY rowid"
+
+    /**
      * Sets a playlist's cover, or clears it with null. Only for a playlist with no YouTube playlist
      * behind it: one with a browseId keeps YouTube's picture, which its sync writes into this same
      * column, so no screen's mistake can take it. Writes this one column and no other, so a copy of

@@ -16,6 +16,7 @@ import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.extensions.div
 import com.dd3boh.outertune.extensions.zipInputStream
 import com.dd3boh.outertune.playback.MusicService
+import com.dd3boh.outertune.utils.PendingChanges
 import com.dd3boh.outertune.utils.BackupParts
 import com.dd3boh.outertune.utils.BackupWriter
 import com.dd3boh.outertune.utils.PlaylistCovers
@@ -265,6 +266,11 @@ class BackupRestoreViewModel @Inject constructor(
             stagedCovers.deleteRecursively()
             return true
         }
+
+        // The changes made here that wait for the account were made to the library just replaced:
+        // sent now, they would undo on the account what the restore put back here (a playlist
+        // deleted by mistake, deleted there after all).
+        runCatching { PendingChanges.forgetAll() }.onFailure { Log.w(TAG, "Could not forget the changes waiting for the account", it) }
 
         // The automatic backup schedule is left as it is. The launch after the restart compares it
         // with these settings and replaces it if the interval differs (AutoBackup.schedule).

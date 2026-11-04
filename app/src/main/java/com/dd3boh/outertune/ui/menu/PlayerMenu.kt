@@ -5,6 +5,7 @@ import com.dd3boh.outertune.ui.component.SleepTimerDialog
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.constants.SignalKind
+import com.dd3boh.outertune.utils.PendingChanges
 import com.dd3boh.outertune.utils.ActivityLog
 import android.content.Intent
 import android.media.audiofx.AudioEffect
@@ -479,9 +480,7 @@ fun PlayerMenu(
                     insert(mediaMetadata)
                 }
                 ActivityLog.note(context, database, mediaMetadata.id, SignalKind.ADD_TO_PLAYLIST)
-
-                playlist.playlist.browseId?.let { YouTube.addToPlaylist(it, mediaMetadata.id) }
-
+                // Not pushed from here: the dialog keeps what it writes for YouTube Music (pushToYouTube).
                 listOf(mediaMetadata.id)
             },
             onDismiss = {
@@ -636,13 +635,9 @@ private fun removeFromPlaylist(
     scope.launch(Dispatchers.IO) {
         val map = database.playlistSongMap(playlist.id, songId).first() ?: return@launch
         database.transaction {
-            move(map.playlistId, map.position, Int.MAX_VALUE)
-            delete(map.copy(position = Int.MAX_VALUE))
-        }
-        playlist.playlist.browseId?.let { browseId ->
-            map.setVideoId?.let { setVideoId ->
-                runCatching { YouTube.removeFromPlaylist(browseId, songId, setVideoId) }
-            }
+            // Found again by its id, where it is now, as the song menu takes a row out; one already
+            // gone is left alone, and YouTube Music is told of the row as it was (PendingChanges).
+            removeFromPlaylist(map.id)?.let { removed -> PendingChanges.removed(playlist.playlist, listOf(removed)) }
         }
     }
 }

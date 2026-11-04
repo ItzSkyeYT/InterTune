@@ -6,12 +6,7 @@ import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.dd3boh.outertune.utils.LocalArtworkPath
-import com.dd3boh.outertune.utils.mayPushToYouTube
-import com.dd3boh.outertune.utils.syncCoroutine
-import com.zionhuang.innertube.YouTube
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.launch
+import com.dd3boh.outertune.utils.PendingChanges
 import org.apache.commons.lang3.RandomStringUtils
 import java.time.LocalDateTime
 import java.time.Month
@@ -56,24 +51,32 @@ data class SongEntity(
         likedDate = if (!liked) LocalDateTime.now() else null,
     )
 
+    /**
+     * The like turned over, and kept for the YouTube Music account until it has it (PendingChanges):
+     * a like sent once and dropped when it failed was undone by the next sync. Local files have no
+     * YouTube id, and a like made signed out or in "Read only" stays here: nothing reaches the
+     * account then.
+     */
     fun toggleLike() = copy(
         liked = !liked,
         likedDate = if (!liked) LocalDateTime.now() else null,
         inLibrary = if (!liked) inLibrary ?: LocalDateTime.now() else inLibrary
     ).also {
-        CoroutineScope(syncCoroutine).launch {
-            // Local files have no YouTube id, and a like made signed out or in "Read only" must
-            // stay here: nothing may reach the account then.
-            if (!isLocal && mayPushToYouTube()) YouTube.likeVideo(id, !liked)
-            this.cancel()
-        }
+        PendingChanges.liked(this, liked = !liked)
     }
 
+    /**
+     * In or out of the library. Out takes the like with it, and that unlike goes to the account as
+     * the heart's does: it never did, and the next liked sync liked the song again (scan of
+     * 4 Nov 2026, finding 7). In changes nothing on the account (the app has no request for it).
+     */
     fun toggleLibrary() = copy(
         inLibrary = if (inLibrary == null) LocalDateTime.now() else null,
         liked = if (inLibrary == null) liked else false,
         likedDate = if (inLibrary == null) likedDate else null
-    )
+    ).also {
+        if (inLibrary != null) PendingChanges.tookOutOfLibrary(this)
+    }
 
     /**
      * Returns a full date string. If no full date is present, returns the year.

@@ -12,10 +12,16 @@ data class EditPlaylistBody(
 
 @Serializable
 sealed class Action {
+    /**
+     * [dedupeOption] DEDUPE_OPTION_SKIP has YouTube add the song even when the playlist holds it
+     * already, as ytmusicapi's add_playlist_items(duplicates=True) sends it; left out (null, which
+     * is not encoded), YouTube refuses a song the playlist holds.
+     */
     @Serializable
     data class AddVideoAction(
         val action: String = "ACTION_ADD_VIDEO",
-        val addedVideoId: String
+        val addedVideoId: String,
+        val dedupeOption: String? = null,
     ) : Action()
 
     @Serializable

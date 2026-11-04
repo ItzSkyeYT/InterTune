@@ -9,6 +9,7 @@
 
 package com.dd3boh.outertune
 
+import com.dd3boh.outertune.utils.PendingChanges
 import com.dd3boh.outertune.utils.ProxyAddress
 import com.dd3boh.outertune.utils.ProxyAtStart
 import com.dd3boh.outertune.models.ContentFilter
@@ -127,6 +128,8 @@ class App : Application(), SingletonImageLoader.Factory {
         // Every request that changes the account asks this first, so "Read only" and signed out
         // hold even where a call site forgot to check.
         YouTube.accountWritesAllowed = { mayPushToYouTube() }
+        // Changes made here that the account has not had yet go out once there is a connection.
+        PendingChanges.atStart(this)
         // YouTube's player script is kept here between launches, so the first song of a new
         // process does not wait for it to be fetched again: see NewPipe.kt.
         YouTube.newPipeCacheDir = cacheDir.resolve("newpipe-http")

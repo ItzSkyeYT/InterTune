@@ -64,14 +64,13 @@ import com.dd3boh.outertune.ui.dialog.AddToPlaylistDialog
 import com.dd3boh.outertune.ui.dialog.AddToQueueDialog
 import com.dd3boh.outertune.ui.dialog.DefaultDialog
 import com.dd3boh.outertune.ui.dialog.TextFieldDialog
+import com.dd3boh.outertune.utils.PendingChanges
 import com.dd3boh.outertune.utils.M3u
 import com.dd3boh.outertune.utils.PlaylistCovers
 import com.dd3boh.outertune.utils.getDownloadState
 import com.dd3boh.outertune.utils.lmScannerCoroutine
 import com.dd3boh.outertune.utils.reportException
-import com.dd3boh.outertune.utils.mayPushToYouTube
 import com.dd3boh.outertune.utils.shareSheet
-import com.dd3boh.outertune.utils.syncCoroutine
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.WatchEndpoint
 import kotlinx.coroutines.CoroutineScope
@@ -321,12 +320,8 @@ fun PlaylistMenu(
                 database.query {
                     update(playlist.playlist.copy(name = name))
                 }
-
-                coroutineScope.launch(syncCoroutine) {
-                    if (context.mayPushToYouTube()) {
-                        playlist.playlist.browseId?.let { YouTube.renamePlaylist(it, name) }
-                    }
-                }
+                // Kept for the account until it has it, and the sync leaves the name given here meanwhile.
+                PendingChanges.renamed(playlist.playlist, name)
             }
         )
     }
@@ -402,20 +397,11 @@ fun PlaylistMenu(
 
                         // Signed out or in "Read only" this removes the copy here and nothing
                         // else. It used to delete the playlist from the YouTube Music account
-                        // whatever the setting said, which cannot be undone.
-                        if (!playlist.playlist.isLocal) {
-                            coroutineScope.launch(syncCoroutine) {
-                                if (context.mayPushToYouTube()) {
-                                    playlist.playlist.browseId?.let { browseId ->
-                                        // Someone else's playlist cannot be deleted, only taken out
-                                        // of the library, as the heart does. Deleting it always
-                                        // failed, and the next sync brought it back.
-                                        if (playlist.playlist.isEditable) YouTube.deletePlaylist(browseId)
-                                        else YouTube.likePlaylist(browseId, false)
-                                    }
-                                }
-                            }
-                        }
+                        // whatever the setting said, which cannot be undone. Kept for the account
+                        // until it has it (PendingChanges). Someone else's playlist cannot be
+                        // deleted, only taken out of the library, as the heart does: deleting it
+                        // always failed, and the next sync brought it back.
+                        PendingChanges.deleted(playlist.playlist)
                     }
                 ) {
                     Text(text = stringResource(android.R.string.ok))

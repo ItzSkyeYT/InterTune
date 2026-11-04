@@ -62,10 +62,8 @@ import com.dd3boh.outertune.ui.dialog.ArtistDialog
 import com.dd3boh.outertune.utils.ShareLinks
 import com.dd3boh.outertune.utils.joinByBullet
 import com.dd3boh.outertune.utils.makeTimeString
-import com.dd3boh.outertune.utils.syncCoroutine
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.SongItem
-import kotlinx.coroutines.launch
 
 @Composable
 fun YouTubeSongMenu(
@@ -289,13 +287,8 @@ fun YouTubeSongMenu(
                     insert(song.toMediaMetadata())
                 }
                 ActivityLog.note(context, database, song.id, SignalKind.ADD_TO_PLAYLIST)
-
-                coroutineScope.launch(syncCoroutine) {
-                    playlist.playlist.browseId?.let { browseId ->
-                        YouTube.addToPlaylist(browseId, song.id)
-                    }
-                }
-
+                // Not pushed from here: the dialog keeps what it writes for YouTube Music
+                // (pushToYouTube). This sent a second add at the same moment as the dialog's.
                 listOf(song.id)
             },
             onDismiss = { showChoosePlaylistDialog = false }

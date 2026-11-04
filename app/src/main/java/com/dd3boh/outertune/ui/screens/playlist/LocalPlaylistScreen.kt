@@ -147,16 +147,13 @@ import com.dd3boh.outertune.ui.dialog.PlaylistCoverSheet
 import com.dd3boh.outertune.ui.dialog.TextFieldDialog
 import com.dd3boh.outertune.ui.player.named
 import com.dd3boh.outertune.ui.utils.getNSongsString
+import com.dd3boh.outertune.utils.PendingChanges
 import com.dd3boh.outertune.utils.PlaylistCovers
 import com.dd3boh.outertune.utils.makeTimeString
-import com.dd3boh.outertune.utils.mayPushToYouTube
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
-import com.dd3boh.outertune.utils.syncCoroutine
 import com.dd3boh.outertune.viewmodels.LocalPlaylistViewModel
 import com.zionhuang.innertube.YouTube
-import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
@@ -343,12 +340,8 @@ fun LocalPlaylistScreen(
                     database.query {
                         update(playlistEntity.copy(name = name))
                     }
-
-                    viewModel.viewModelScope.launch(syncCoroutine) {
-                        if (context.mayPushToYouTube()) {
-                            playlistEntity.browseId?.let { YouTube.renamePlaylist(it, name) }
-                        }
-                    }
+                    // Kept for the account until it has it, and the sync leaves the name given here meanwhile.
+                    PendingChanges.renamed(playlistEntity, name)
                 }
             )
         }
@@ -442,18 +435,12 @@ fun LocalPlaylistScreen(
 
                         // Signed out or in "Read only" this removes the copy here and nothing
                         // else. It used to delete the playlist from the YouTube Music account
-                        // whatever the setting said, which cannot be undone.
-                        viewModel.viewModelScope.launch(Dispatchers.IO) {
-                            if (context.mayPushToYouTube()) {
-                                playlistWithSongs.first?.playlist?.let { playlist ->
-                                    val browseId = playlist.browseId ?: return@let
-                                    // Someone else's playlist cannot be deleted, only taken out
-                                    // of the library, as the heart does.
-                                    if (playlist.isEditable) YouTube.deletePlaylist(browseId)
-                                    else YouTube.likePlaylist(browseId, false)
-                                }
-                            }
-                        }
+                        // whatever the setting said, which cannot be undone. Kept for the account
+                        // until it has it (PendingChanges), on no scope of this page's: it is
+                        // popped straight after, and a request still on its way went with it, and
+                        // the next sync brought the playlist back. Someone else's playlist cannot
+                        // be deleted, only taken out of the library, as the heart does.
+                        playlistWithSongs.first?.playlist?.let { PendingChanges.deleted(it) }
 
                         navController.popBackStack()
                     }
@@ -503,8 +490,11 @@ fun LocalPlaylistScreen(
                 // on Room's own thread and nothing waited for it, so the read could land on either
                 // side of it. Landing after, it picked out whichever song had shifted into the
                 // dragged one's old place and moved that on YouTube, in front of the wrong song.
+                // By the rows themselves, so that a song YouTube has not named yet (added from the
+                // phone) is moved there too once it has been: it used to send nothing, and the next
+                // sync undid the drag.
                 val youTubeMoves = if (playlistWithSongs.first?.playlist?.isLocal == false) {
-                    youTubeMovesAfterDrag(mutableSongs.map { it.map.setVideoId }, from, to)
+                    youTubeMovesAfterDrag(mutableSongs.map { it.map }, from, to)
                 } else {
                     emptyList()
                 }
@@ -520,16 +510,9 @@ fun LocalPlaylistScreen(
                 if (positions != null) database.transaction {
                     move(viewModel.playlistId, positions.first, positions.second)
                 }
+                // Kept for the account until it has them, in order (PendingChanges).
                 if (youTubeMoves.isNotEmpty()) {
-                    viewModel.viewModelScope.launch(Dispatchers.IO) {
-                        viewModel.youTubeMoveLock.withLock {
-                            playlistWithSongs.first?.playlist?.browseId?.let { browseId ->
-                                youTubeMoves.forEach { (setVideoId, successorSetVideoId) ->
-                                    YouTube.moveSongPlaylist(browseId, setVideoId, successorSetVideoId)
-                                }
-                            }
-                        }
-                    }
+                    playlistWithSongs.first?.playlist?.let { PendingChanges.moved(it, youTubeMoves) }
                 }
                 dragInfo = null
             }
@@ -912,24 +895,17 @@ fun LocalPlaylistScreen(
                             .filter { it.song.id in selection }
                             .sortedByDescending { it.map.position }
 
+                        val playlistEntity = playlistWithSongs.first?.playlist
                         database.transaction {
                             doomed.forEach { playlistSong ->
                                 move(playlistSong.map.playlistId, playlistSong.map.position, Int.MAX_VALUE)
                                 delete(playlistSong.map.copy(position = Int.MAX_VALUE))
                             }
                         }
-
-                        viewModel.viewModelScope.launch(Dispatchers.IO) {
-                            playlistWithSongs.first?.playlist?.browseId?.let { playlistId ->
-                                doomed.forEach { playlistSong ->
-                                    playlistSong.map.setVideoId?.let { setVideoId ->
-                                        YouTube.removeFromPlaylist(
-                                            playlistId, playlistSong.map.songId, setVideoId
-                                        )
-                                    }
-                                }
-                            }
-                        }
+                        // Each one, also those YouTube has not named yet (a song added from the
+                        // phone), which used to be skipped and came back at the next sync: kept for
+                        // the account until it has them (PendingChanges).
+                        playlistEntity?.let { PendingChanges.removed(it, doomed.map { playlistSong -> playlistSong.map }) }
                     }
                 }
             )
@@ -1224,20 +1200,6 @@ fun playlistSearchResults(songs: List<PlaylistSong>, query: String): List<Playli
     }
 
 /**
- * What to send YouTube Music after a drag: pairs of a song's set-video id and the set-video id of
- * the song it should now sit directly in front of, in the order they are to be sent.
- *
- * [setVideoIds] is the playlist in its order after the drag, the order on screen, with the song
- * dragged from [from] now at [to]. Working from that rather than from the database is the point:
- * the local move is written on another thread, and a read straight after it could see either the
- * old order or the new one.
- *
- * YouTube Music can only put a song in front of another one. A song dragged to the very end has
- * nothing after it, so it first goes in front of the song that is now last but one, and that song
- * is then put back in front of it. A song with no set-video id, such as one added here and not yet
- * synced back, cannot be named to YouTube, so then nothing is sent at all.
- */
-/**
  * The positions a drag moves a row between when a blocked artist's rows are left out of the list
  * on screen (ArtistBlock), so that a place on screen is not a position in the playlist.
  *
@@ -1257,13 +1219,27 @@ fun moveAround(positions: List<Int>, to: Int): Pair<Int, Int>? {
     return if (target == moved) null else moved to target
 }
 
-fun youTubeMovesAfterDrag(setVideoIds: List<String?>, from: Int, to: Int): List<Pair<String, String>> {
-    if (from == to || from !in setVideoIds.indices || to !in setVideoIds.indices) return emptyList()
-    val moved = setVideoIds[to] ?: return emptyList()
-    if (to < setVideoIds.lastIndex) {
-        val successor = setVideoIds[to + 1] ?: return emptyList()
+/**
+ * What to send YouTube Music after a drag: pairs of a row and the row it should now sit directly in
+ * front of, in the order they are to be sent.
+ *
+ * [rows] is the playlist in its order after the drag, the order on screen, with the row dragged from
+ * [from] now at [to]. Working from that rather than from the database is the point: the local move
+ * is written on another thread, and a read straight after it could see either the old order or the
+ * new one.
+ *
+ * YouTube Music can only put a song in front of another one. A song dragged to the very end has
+ * nothing after it, so it first goes in front of the song that is now last but one, and that song
+ * is then put back in front of it. The screen hands the rows themselves (PendingChanges names each
+ * entry once YouTube has named it); a null row cannot be named, and then nothing is sent at all.
+ */
+fun <T : Any> youTubeMovesAfterDrag(rows: List<T?>, from: Int, to: Int): List<Pair<T, T>> {
+    if (from == to || from !in rows.indices || to !in rows.indices) return emptyList()
+    val moved = rows[to] ?: return emptyList()
+    if (to < rows.lastIndex) {
+        val successor = rows[to + 1] ?: return emptyList()
         return listOf(moved to successor)
     }
-    val lastButOne = setVideoIds[to - 1] ?: return emptyList()
+    val lastButOne = rows[to - 1] ?: return emptyList()
     return listOf(moved to lastButOne, lastButOne to moved)
 }

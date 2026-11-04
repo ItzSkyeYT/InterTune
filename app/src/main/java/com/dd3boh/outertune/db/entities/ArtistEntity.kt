@@ -4,12 +4,7 @@ import androidx.compose.runtime.Immutable
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
-import com.dd3boh.outertune.utils.mayPushToYouTube
-import com.dd3boh.outertune.utils.syncCoroutine
-import com.zionhuang.innertube.YouTube
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.launch
+import com.dd3boh.outertune.utils.PendingChanges
 import org.apache.commons.lang3.RandomStringUtils
 import java.time.LocalDateTime
 
@@ -32,16 +27,9 @@ data class ArtistEntity(
         bookmarkedAt = if (bookmarkedAt != null) null else LocalDateTime.now(),
     )
 
+    /** Followed or not, and kept for the YouTube Music account until it has it (PendingChanges). */
     fun toggleLike() = localToggleLike().also {
-        CoroutineScope(syncCoroutine).launch {
-            if (!isLocal && mayPushToYouTube()) {
-                if (channelId == null)
-                    YouTube.subscribeChannel(YouTube.getChannelId(id), bookmarkedAt == null)
-                else
-                    YouTube.subscribeChannel(channelId, bookmarkedAt == null)
-            }
-            this.cancel()
-        }
+        PendingChanges.followed(this, followed = bookmarkedAt == null)
     }
 
     companion object {

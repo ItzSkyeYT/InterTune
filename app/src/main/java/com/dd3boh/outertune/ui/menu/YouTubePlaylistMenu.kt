@@ -53,10 +53,9 @@ import com.dd3boh.outertune.ui.component.items.YouTubeListItem
 import com.dd3boh.outertune.ui.dialog.AddToPlaylistDialog
 import com.dd3boh.outertune.ui.dialog.AddToQueueDialog
 import com.dd3boh.outertune.ui.dialog.DefaultDialog
+import com.dd3boh.outertune.utils.PendingChanges
 import com.dd3boh.outertune.utils.getDownloadState
-import com.dd3boh.outertune.utils.mayPushToYouTube
 import com.dd3boh.outertune.utils.shareSheet
-import com.dd3boh.outertune.utils.syncCoroutine
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.PlaylistItem
 import com.zionhuang.innertube.models.SongItem
@@ -329,7 +328,7 @@ fun YouTubePlaylistMenu(
         AddToPlaylistDialog(
             navController = navController,
             songIds = null,
-            onPreAdd = { targetPlaylist ->
+            onPreAdd = { _ ->
                 // This playlist's songs, the one the menu is for. Both calls used the id of the
                 // playlist picked instead, a local one YouTube does not know: the fetch failed,
                 // nothing was added, and the picker closed as if it had worked.
@@ -343,11 +342,7 @@ fun YouTubePlaylistMenu(
                 database.transactionNow {
                     allSongs.forEach(::insert)
                 }
-
-                targetPlaylist.playlist.browseId?.let { playlistId ->
-                    YouTube.addPlaylistToPlaylist(playlistId, playlist.id)
-                }
-
+                // The songs go to YouTube Music one by one with the dialog's add (pushToYouTube): see AlbumMenu.
                 allSongs.map { it.id }
             },
             onDismiss = { showChoosePlaylistDialog = false }
@@ -417,18 +412,9 @@ fun YouTubePlaylistMenu(
                         database.query {
                             delete(saved)
                         }
-                        if (!saved.isLocal) {
-                            coroutineScope.launch(syncCoroutine) {
-                                if (context.mayPushToYouTube()) {
-                                    saved.browseId?.let { browseId ->
-                                        // Someone else's playlist cannot be deleted, only taken
-                                        // out of the library, as the heart does.
-                                        if (saved.isEditable) YouTube.deletePlaylist(browseId)
-                                        else YouTube.likePlaylist(browseId, false)
-                                    }
-                                }
-                            }
-                        }
+                        // Kept for the account until it has it (PendingChanges). Someone else's
+                        // playlist cannot be deleted, only taken out of the library, as the heart does.
+                        PendingChanges.deleted(saved)
                     }
                 ) {
                     Text(text = stringResource(android.R.string.ok))

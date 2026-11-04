@@ -20,6 +20,7 @@ import com.dd3boh.outertune.db.entities.SimilarSong
 import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.db.entities.SongEntity
 import com.dd3boh.outertune.extensions.reversed
+import com.dd3boh.outertune.utils.PendingChanges
 import com.dd3boh.outertune.utils.fixFilePath
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -505,11 +506,18 @@ interface SongsDao {
         incrementPlayCount(songId, time.year, time.monthValue)
     }
 
+    /**
+     * In or out of the library. Out takes the like with it, here and, as the heart's unlike does, on
+     * the YouTube Music account (PendingChanges.tookOutOfLibrary), the same as SongEntity.toggleLibrary:
+     * the next liked sync used to like the song again (scan of 4 Nov 2026, finding 7).
+     */
     @Transaction
     fun toggleInLibrary(songId: String, inLibrary: LocalDateTime?) {
+        val was = if (inLibrary == null) songRow(songId) else null
         inLibrary(songId, inLibrary)
         if (inLibrary == null) {
             removeLike(songId)
+            was?.let { PendingChanges.tookOutOfLibrary(it) }
         }
     }
 

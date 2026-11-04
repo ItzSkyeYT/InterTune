@@ -234,14 +234,8 @@ fun YouTubeAlbumMenu(
         AddToPlaylistDialog(
             navController = navController,
             songIds = album?.songs?.map { it.id }.orEmpty(),
-            onPreAdd = { playlist ->
-                playlist.playlist.browseId?.let { playlistId ->
-                    album?.album?.playlistId?.let { addPlaylistId ->
-                        YouTube.addPlaylistToPlaylist(playlistId, addPlaylistId)
-                    }
-                }
-                emptyList()
-            },
+            // The songs go to YouTube Music one by one with the dialog's add (pushToYouTube): see AlbumMenu.
+            onPreAdd = { _ -> emptyList() },
             onDismiss = { showChoosePlaylistDialog = false }
         )
     }

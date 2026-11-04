@@ -7,18 +7,17 @@
 package com.dd3boh.outertune.savedtwice
 
 import com.dd3boh.outertune.db.MusicDatabase
+import com.dd3boh.outertune.db.daos.AddedRow
 import com.dd3boh.outertune.db.entities.Playlist
 import com.dd3boh.outertune.db.entities.PlaylistSongMap
 import com.dd3boh.outertune.db.entities.SongEntity
 import com.dd3boh.outertune.playback.DownloadUtil
 import com.dd3boh.outertune.playback.turnLike
 import com.dd3boh.outertune.ui.dialog.pushToYouTube
+import com.dd3boh.outertune.utils.PendingChanges
 import com.dd3boh.outertune.utils.removeFromYouTubePlaylist
-import com.dd3boh.outertune.utils.syncCoroutine
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
@@ -70,8 +69,9 @@ private class LikedShelf(private val database: MusicDatabase, private val downlo
 
 /**
  * The library: Remove from library, as the song menu does it, the row's own toggle written back.
- * That never reaches YouTube, and it takes a like with it on this phone, so Undo writes back what
- * it changed: in the library since the same day, and the like as it was.
+ * It takes a like with it, on this phone and, as the heart's unlike does, on the account
+ * (PendingChanges), so Undo writes back what it changed, in the library since the same day and the
+ * like as it was, and a like it puts back goes to the account the same way.
  */
 private class LibraryShelf(private val database: MusicDatabase) : SavedTwiceShelf {
 
@@ -84,7 +84,10 @@ private class LibraryShelf(private val database: MusicDatabase) : SavedTwiceShel
     private fun putBack(before: List<SongEntity>) {
         for (was in before) {
             val now = database.songRow(was.id) ?: continue
-            if (now.inLibrary == null) database.update(now.copy(inLibrary = was.inLibrary, liked = was.liked, likedDate = was.likedDate))
+            if (now.inLibrary == null) {
+                database.update(now.copy(inLibrary = was.inLibrary, liked = was.liked, likedDate = was.likedDate))
+                if (was.liked && !now.liked) PendingChanges.liked(was, liked = true)
+            }
         }
     }
 }
@@ -129,12 +132,16 @@ fun putBackRows(rows: PlaylistRows, removed: List<PlaylistSongMap>): List<String
     return back
 }
 
-/** [PlaylistRows] as they are stored, for a caller already in a transaction. */
+/** [PlaylistRows] as they are stored, for a caller already in a transaction. [added]: the rows its adds wrote. */
 private class StoredRows(private val database: MusicDatabase, private val playlist: Playlist) : PlaylistRows {
+    val added = ArrayList<AddedRow>()
+
     override fun remove(mapId: Int): PlaylistSongMap? = database.removeFromPlaylist(mapId)
 
     override fun add(songId: String): Int {
-        if (database.addSongToPlaylist(playlist, listOf(songId)).isEmpty()) return -1
+        val rows = database.addSongRowsToPlaylist(playlist, listOf(songId))
+        if (rows.isEmpty()) return -1
+        added += rows
         return database.nextPlaylistPosition(playlist.id) - 1
     }
 
@@ -154,13 +161,15 @@ private class PlaylistShelf(private val database: MusicDatabase, private val pla
         val removed = database.transactionNow {
             takeOutRows(StoredRows(this, playlist), copies.mapNotNull { it.key.toIntOrNull() })
         }
-        // In the background, as the menu sends it, so the list changes at once whatever the network does.
-        CoroutineScope(syncCoroutine).launch {
-            removed.forEach { removeFromYouTubePlaylist(playlist.playlist.browseId, it) }
-        }
+        // Kept for the account until it has them, as the menu keeps its removal (PendingChanges).
+        removed.forEach { removeFromYouTubePlaylist(playlist.playlist, it) }
         Taken(removed.size) {
             withContext(Dispatchers.IO) {
-                val back = database.transactionNow { putBackRows(StoredRows(this, playlist), removed) }
+                val back = database.transactionNow {
+                    val stored = StoredRows(this, playlist)
+                    putBackRows(stored, removed)
+                    stored.added
+                }
                 // At the end of the playlist on YouTube Music, as Add to playlist puts it there:
                 // only what went back here, as Add to playlist pushes only what went in.
                 pushToYouTube(playlist, back)

@@ -83,8 +83,38 @@ interface PlaylistsDao {
             LEFT JOIN song s ON psm.songId = s.id
         WHERE p.browseId = :browseId
         GROUP BY p.id
+        ORDER BY (p.bookmarkedAt IS NULL), p.rowid
+        LIMIT 1
     """)
     fun playlistByBrowseId(browseId: String): Flow<Playlist?>
+
+    /** One playlist's row as it is now, or null when it is gone. */
+    @Query("SELECT * FROM playlist WHERE id = :playlistId")
+    fun playlistRow(playlistId: String): PlaylistEntity?
+
+    /** Every row for one YouTube playlist, saved or not, saved first and then oldest. See [PlaylistSql.ROWS_BY_BROWSE_ID]. */
+    @Query(PlaylistSql.ROWS_BY_BROWSE_ID)
+    fun playlistRowsByBrowseId(browseId: String): List<PlaylistEntity>
+
+    /** Every row with a YouTube playlist behind it, saved or not, oldest first. */
+    @Query(PlaylistSql.SYNCED_ROWS)
+    fun syncedPlaylistRows(): List<PlaylistEntity>
+
+    /** See [PlaylistSql.PHONE_FILE_ROWS]. */
+    @Query(PlaylistSql.PHONE_FILE_ROWS)
+    fun phoneFileRows(playlistId: String): List<PlaylistSongMap>
+
+    /** See [PlaylistSql.PHONE_FILE_IDS]. At most 900 at a time, see [chunkSongIds]. */
+    @Query(PlaylistSql.PHONE_FILE_IDS)
+    fun phoneFileIds(songIds: List<String>): List<String>
+
+    /** See [PlaylistSql.SET_VIDEO_IDS_HELD]. */
+    @Query(PlaylistSql.SET_VIDEO_IDS_HELD)
+    fun setVideoIdsHeld(browseId: String): List<String>
+
+    /** See [PlaylistSql.LEARN_SET_VIDEO_ID]. How many rows it wrote: 0 or 1. */
+    @Query(PlaylistSql.LEARN_SET_VIDEO_ID)
+    fun learnSetVideoId(mapId: Int, songId: String, setVideoId: String): Int
 
     @Transaction
     @Query(LibrarySql.SEARCH_PLAYLISTS)
@@ -229,6 +259,22 @@ interface PlaylistsDao {
         return plan.rows.map { it.songId }
     }
 
+    /**
+     * [addSongToPlaylist], and the rows it wrote, with their ids, as the YouTube Music account is to
+     * have them (PendingChanges.added): [AddedRow.duplicate] for a song the playlist held already or
+     * that went in earlier in the same add (Add anyway), [AddedRow.local] for a file on this phone.
+     */
+    @Transaction
+    fun addSongRowsToPlaylist(playlist: Playlist, songIds: List<String>): List<AddedRow> {
+        if (songIds.isEmpty()) return emptyList()
+        val first = nextPlaylistPosition(playlist.id)
+        val held = songMapsToPlaylist(playlist.id, 0).mapTo(HashSet()) { it.songId }
+        if (addSongToPlaylist(playlist, songIds).isEmpty()) return emptyList()
+        val rows = songMapsToPlaylist(playlist.id, first)
+        val local = chunkSongIds(rows.map { it.songId }.distinct()).flatMapTo(HashSet()) { phoneFileIds(it) }
+        return rows.map { row -> AddedRow(row, duplicate = !held.add(row.songId), local = row.songId in local) }
+    }
+
     /** Of [songIds], the ones that are rows in the song table now. At most 900 at a time, see [chunkSongIds]. */
     @Query(PlaylistSql.PRESENT_SONGS)
     fun songIdsInTable(songIds: List<String>): List<String>
@@ -284,15 +330,20 @@ interface PlaylistsDao {
      */
     @Transaction
     fun removeSongFromPlaylist(playlistId: String, songId: String) {
+        takeSongOutOfPlaylist(playlistId, songId)
+    }
+
+    /** [removeSongFromPlaylist], and the rows it took out, as they were. */
+    @Transaction
+    fun takeSongOutOfPlaylist(playlistId: String, songId: String): List<PlaylistSongMap> =
         songMapsToPlaylist(playlistId, 0)
             .filter { it.songId == songId }
             .sortedByDescending { it.position }
-            .forEach { map ->
+            .onEach { map ->
                 move(playlistId, map.position, Int.MAX_VALUE)
                 // @Delete matches on the generated id, so the position it held no longer matters.
                 delete(map)
             }
-    }
 
     /**
      * Takes one row out of its playlist, found by its id where it is now rather than at the
@@ -312,6 +363,9 @@ interface PlaylistsDao {
     fun delete(playlistSongMap: PlaylistSongMap)
     // endregion
 }
+
+/** A row an add wrote: see [PlaylistsDao.addSongRowsToPlaylist]. */
+data class AddedRow(val map: PlaylistSongMap, val duplicate: Boolean, val local: Boolean)
 
 /** Ids in groups of at most [chunkSize], so a query below never binds more than that many. */
 fun chunkSongIds(songIds: List<String>, chunkSize: Int = 900): List<List<String>> = songIds.chunked(chunkSize)

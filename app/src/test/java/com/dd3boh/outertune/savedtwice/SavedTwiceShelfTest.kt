@@ -203,17 +203,17 @@ class SavedTwiceShelfTest {
     fun `out of a playlist goes the way Remove from playlist goes, and Undo the way Add to playlist goes`() {
         assertTrue("database.removeFromPlaylist(mapId)" in shelfClass("StoredRows"))
         val playlist = shelfClass("PlaylistShelf")
-        assertTrue("removeFromYouTubePlaylist(playlist.playlist.browseId, it)" in playlist)
+        assertTrue("removeFromYouTubePlaylist(playlist.playlist, it)" in playlist)
         assertTrue("pushToYouTube(playlist, " in playlist)
-        assertTrue("database.addSongToPlaylist(playlist, listOf(songId))" in shelfClass("StoredRows"))
+        assertTrue("database.addSongRowsToPlaylist(playlist, listOf(songId))" in shelfClass("StoredRows"))
         // The song menu's Remove from playlist calls the same two.
         val menu = code("ui/menu/SongMenu.kt")
         val removeFromPlaylist = menu.substringAfter("title = R.string.remove_from_playlist").substringBefore("onDismiss()")
         assertTrue("removeFromPlaylist(playlistSong.map.id)" in removeFromPlaylist)
-        assertTrue("removeFromYouTubePlaylist(playlist?.playlist?.browseId, playlistSong.map)" in removeFromPlaylist)
+        assertTrue("removeFromYouTubePlaylist(playlist?.playlist, removed)" in removeFromPlaylist)
         // And Add to playlist adds and pushes with the same two.
         val add = code("ui/dialog/AddToPlaylistDialog.kt")
-        assertTrue("database.addSongToPlaylist(playlist, ids)" in add)
+        assertTrue("database.addSongRowsToPlaylist(playlist, ids)" in add)
         assertTrue("pushToYouTube(playlist, written)" in add)
         // And as it does since #62, only what went in is pushed.
         assertTrue("pushToYouTube(playlist, back)" in playlist)

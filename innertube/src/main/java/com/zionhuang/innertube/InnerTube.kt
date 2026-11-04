@@ -482,6 +482,7 @@ class InnerTube {
         client: YouTubeClient,
         playlistId: String,
         videoId: String,
+        duplicate: Boolean = false,
     ) = httpClient.post("browse/edit_playlist") {
         ytClient(client, setLogin = true)
         setBody(
@@ -489,7 +490,10 @@ class InnerTube {
                 context = client.toContext(locale, visitorData, dataSyncId),
                 playlistId = playlistId.removePrefix("VL"),
                 actions = listOf(
-                    Action.AddVideoAction(addedVideoId = videoId)
+                    Action.AddVideoAction(
+                        addedVideoId = videoId,
+                        dedupeOption = if (duplicate) "DEDUPE_OPTION_SKIP" else null,
+                    )
                 )
             )
         )
