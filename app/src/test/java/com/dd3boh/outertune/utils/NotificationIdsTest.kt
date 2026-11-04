@@ -26,4 +26,19 @@ class NotificationIdsTest {
         val shared = ids.groupBy { it.first }.filterValues { it.size > 1 }
         assertTrue("shared notification ids: $shared", shared.isEmpty())
     }
+
+    @Test
+    fun `the failed downloads' cycling ids stay clear of every other notification`() {
+        // They counted up from 2 for the life of the process, so the 887th failure took playback's
+        // 888 and replaced the player's notification (4 Nov 2026). Now they cycle in a range of their own.
+        val service = File("src/main/java/com/dd3boh/outertune/playback/ExoDownloadService.kt").readText()
+        val first = Regex("""FAILED_NOTIFICATION_ID_FIRST\s*=\s*(\d+)""").find(service)!!.groupValues[1].toInt()
+        val kept = Regex("""FAILED_NOTIFICATIONS_KEPT\s*=\s*(\d+)""").find(service)!!.groupValues[1].toInt()
+        val declared = Regex("""val \w*NOTIFICATION_ID\s*=\s*(\d+)""")
+        val ids = File("src/main/java").walkTopDown().filter { it.extension == "kt" }
+            .flatMap { declared.findAll(it.readText()).map { m -> m.groupValues[1].toInt() } }.toList()
+        val range = first until first + kept
+        assertTrue("an id inside the failed downloads' range: ${ids.filter { it in range }}", ids.none { it in range })
+        assertTrue("posted++ % FAILED_NOTIFICATIONS_KEPT" in service)
+    }
 }

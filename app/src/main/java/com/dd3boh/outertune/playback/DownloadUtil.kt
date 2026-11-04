@@ -308,7 +308,7 @@ class DownloadUtil @Inject constructor(
                 ExoDownloadService.TerminalStateNotificationHelper(
                     context = context,
                     notificationHelper = downloadNotificationHelper,
-                    nextNotificationId = ExoDownloadService.NOTIFICATION_ID + 1
+                    firstNotificationId = ExoDownloadService.FAILED_NOTIFICATION_ID_FIRST
                 )
             )
         }
