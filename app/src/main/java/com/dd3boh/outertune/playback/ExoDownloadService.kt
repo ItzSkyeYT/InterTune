@@ -306,8 +306,11 @@ class ExoDownloadService : DownloadService(
     class TerminalStateNotificationHelper(
         private val context: Context,
         private val notificationHelper: DownloadNotificationHelper,
-        private var nextNotificationId: Int,
+        private val firstNotificationId: Int = FAILED_NOTIFICATION_ID_FIRST,
     ) : DownloadManager.Listener {
+        /** Failure notifications posted in this process; the id cycles through [FAILED_NOTIFICATIONS_KEPT]. */
+        private var posted = 0
+
         override fun onDownloadChanged(
             downloadManager: DownloadManager,
             download: Download,
@@ -325,7 +328,9 @@ class ExoDownloadService : DownloadService(
                         Util.fromUtf8Bytes(download.request.data)
                     )
                 ).setAutoCancel(true).build()
-                NotificationUtil.setNotification(context, nextNotificationId++, notification)
+                // Ids of their own, cycling: counted up from 2 for the life of the process, the
+                // 887th failure took playback's id (888) and replaced the player's notification.
+                NotificationUtil.setNotification(context, firstNotificationId + (posted++ % FAILED_NOTIFICATIONS_KEPT), notification)
             }
         }
     }
@@ -333,6 +338,10 @@ class ExoDownloadService : DownloadService(
     companion object {
         const val CHANNEL_ID = "download"
         const val NOTIFICATION_ID = 1
+
+        /** The failed downloads' notifications: ids FAILED_NOTIFICATION_ID_FIRST onwards, the last [FAILED_NOTIFICATIONS_KEPT] kept. */
+        const val FAILED_NOTIFICATION_ID_FIRST = 2000
+        const val FAILED_NOTIFICATIONS_KEPT = 20
         const val JOB_ID = 1
         const val REMOVE_ALL_PENDING_DOWNLOADS = "REMOVE_ALL_PENDING_DOWNLOADS"
 
