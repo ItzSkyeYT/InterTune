@@ -151,6 +151,17 @@ class SavedTwiceShelfTest {
         assertEquals(inOrder("Y", "B", "Z"), playlist())
     }
 
+    @Test
+    fun `a song that cannot go back is left out, no other row moves, and only what went back is said`() {
+        val ids = fill("X", "A", "Y", "B", "Z")
+        val taken = takeOutRows(rows, listOf(ids[1], ids[3]))
+        val refusing = object : PlaylistRows by rows {
+            override fun add(songId: String): Int = if (songId == "A") -1 else rows.add(songId)
+        }
+        assertEquals(listOf("B"), putBackRows(refusing, taken))
+        assertEquals(inOrder("X", "Y", "B", "Z"), playlist())
+    }
+
     // ---- the paths, as written ----
 
     private fun source(path: String) = File("src/main/java/com/dd3boh/outertune/$path").readText()
@@ -202,8 +213,10 @@ class SavedTwiceShelfTest {
         assertTrue("removeFromYouTubePlaylist(playlist?.playlist?.browseId, playlistSong.map)" in removeFromPlaylist)
         // And Add to playlist adds and pushes with the same two.
         val add = code("ui/dialog/AddToPlaylistDialog.kt")
-        assertTrue("database.addSongToPlaylist(playlist, songIds!!)" in add)
-        assertTrue("pushToYouTube(playlist, songIds!!)" in add)
+        assertTrue("database.addSongToPlaylist(playlist, ids)" in add)
+        assertTrue("pushToYouTube(playlist, written)" in add)
+        // And as it does since #62, only what went in is pushed.
+        assertTrue("pushToYouTube(playlist, back)" in playlist)
     }
 
     @Test

@@ -97,7 +97,10 @@ interface PlaylistRows {
     /** Takes one row out as Remove from playlist does. The row as it was, or null when it has gone. */
     fun remove(mapId: Int): PlaylistSongMap?
 
-    /** Adds the song at the end as Add to playlist does, and says at which position. */
+    /**
+     * Adds the song at the end as Add to playlist does, and says at which position; -1 when it
+     * could not go in (the database leaves out a song that is no longer on the phone, #62).
+     */
     fun add(songId: String): Int
 
     /** Moves the row at [from] to [to], as a drag does. */
@@ -111,14 +114,19 @@ fun takeOutRows(rows: PlaylistRows, mapIds: List<Int>): List<PlaylistSongMap> = 
  * Puts back what [takeOutRows] took: each song added as Add to playlist does, then moved back to
  * where it was. Last out, first back: each row left the playlist as it stood after the ones taken
  * before it, so its position is right again once those taken after it are back. A playlist that
- * got shorter meanwhile gets the song at its end rather than a gap.
+ * got shorter meanwhile gets the song at its end rather than a gap. Returns the songs that went
+ * back, in the order they did: one that could not is left out, and no other row moves for it.
  */
-fun putBackRows(rows: PlaylistRows, removed: List<PlaylistSongMap>) {
+fun putBackRows(rows: PlaylistRows, removed: List<PlaylistSongMap>): List<String> {
+    val back = ArrayList<String>()
     for (was in removed.asReversed()) {
         val at = rows.add(was.songId)
+        if (at < 0) continue
+        back += was.songId
         val to = minOf(was.position, at)
         if (to != at) rows.move(at, to)
     }
+    return back
 }
 
 /** [PlaylistRows] as they are stored, for a caller already in a transaction. */
@@ -126,7 +134,7 @@ private class StoredRows(private val database: MusicDatabase, private val playli
     override fun remove(mapId: Int): PlaylistSongMap? = database.removeFromPlaylist(mapId)
 
     override fun add(songId: String): Int {
-        database.addSongToPlaylist(playlist, listOf(songId))
+        if (database.addSongToPlaylist(playlist, listOf(songId)).isEmpty()) return -1
         return database.nextPlaylistPosition(playlist.id) - 1
     }
 
@@ -152,9 +160,10 @@ private class PlaylistShelf(private val database: MusicDatabase, private val pla
         }
         Taken(removed.size) {
             withContext(Dispatchers.IO) {
-                database.transactionNow { putBackRows(StoredRows(this, playlist), removed) }
-                // At the end of the playlist on YouTube Music, as Add to playlist puts it there.
-                pushToYouTube(playlist, removed.asReversed().map { it.songId })
+                val back = database.transactionNow { putBackRows(StoredRows(this, playlist), removed) }
+                // At the end of the playlist on YouTube Music, as Add to playlist puts it there:
+                // only what went back here, as Add to playlist pushes only what went in.
+                pushToYouTube(playlist, back)
             }
         }
     }
