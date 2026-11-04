@@ -10,6 +10,9 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import androidx.media3.session.MediaButtonReceiver
+import com.dd3boh.outertune.constants.PlayingQueueKey
+import com.dd3boh.outertune.utils.dataStore
+import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.widget.WidgetEntryPoint
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.CoroutineScope
@@ -62,7 +65,7 @@ class ResumingMediaButtonReceiver : MediaButtonReceiver() {
          */
         suspend fun hasSavedQueue(context: Context): Boolean = runCatching {
             EntryPointAccessors.fromApplication(context.applicationContext, WidgetEntryPoint::class.java)
-                .database().getResumptionQueue() != null
+                .database().getResumptionQueue(context.dataStore[PlayingQueueKey]) != null
         }.getOrDefault(false)
     }
 }

@@ -130,11 +130,17 @@ private const val V0_12 = 95
 private const val V0_12_5 = 97
 
 /**
- * 0.12.7, released 2 Nov 2026 as 99 without a card of its own: its things are listed from 0.13,
- * his pick of 2 Nov 2026, so somebody coming from 0.12.6 or older is shown them. Somebody who
- * already had 0.12.7 is shown only what 0.13 brings.
+ * 0.12.7, released 2 Nov 2026 as 99 without a card of its own: its things are listed from the
+ * next build (0.12.8, as it turned out), his pick of 2 Nov 2026, so somebody coming from 0.12.6 or
+ * older is shown them. Somebody who already had 0.12.7 is shown only what came after it.
  */
 private const val V0_12_7 = 99
+
+/**
+ * 0.12.8 (his yes of 4 Nov 2026): reports sent to InterTune with no GitHub account or shared as a
+ * file, backups that leave the sign-ins out, and lyrics cards and videos saved on the phone.
+ */
+private const val V0_12_8 = 100
 
 /**
  * A walk round Settings: its four groups, one bubble each.
@@ -177,6 +183,7 @@ val SETTINGS_CATEGORIES = listOfNotNull(
     Tour.ROUTE_LIBRARY,
     Tour.ROUTE_LOCAL,
     Tour.ROUTE_LOOK_AND_FEEL,
+    Tour.ROUTE_WIDGETS.takeIf { Unreleased.WIDGETS_PAGE },
     Tour.ROUTE_PLAYER,
     Tour.ROUTE_RECOGNITION,
     Tour.ROUTE_LYRICS,
@@ -197,6 +204,7 @@ val SETTINGS_CATEGORIES = listOfNotNull(
  * has either stops or a reason: the test fails on one with neither.
  */
 val CLOSER_LOOK_LEFT_OUT = mapOf(
+    Tour.ROUTE_WIDGETS to "A card for each widget on the home screen and the two to add: none of it is a setting of the app, and with no widget there is no card to point at.",
     Tour.ROUTE_BATTERY to "One choice, and the line under it says what each mode turns down: a bubble would only say it again.",
     Tour.ROUTE_ADVANCED to "Emptying the image cache and the switch for the developer's own settings: upkeep, with nothing to choose between.",
     Tour.ROUTE_ABOUT to "Nothing on it is a setting. It holds the way back into this tour.",
@@ -354,7 +362,43 @@ val RECOGNITION_ICON get() = Icons.Rounded.GraphicEq
 
 /** Newest first: what somebody sees at the top is what they have never seen before. */
 val NEW_THINGS = listOf(
-    // 0.12.7's, listed from 0.13 (see V0_12_7). The Shelf is added from its card, as the widget
+    // 0.12.8's own. Sending a report is shown where Report a problem is, in About, and the
+    // backup's choice where backups are made. The lyrics' Save lives outside Settings, so its
+    // card says where it is.
+    NewThing(
+        id = "report_send",
+        release = "0.12.8",
+        sinceVersionCode = V0_12_8,
+        title = R.string.new_report_send_title,
+        body = R.string.new_report_send_body,
+        icon = Icons.Rounded.BugReport,
+        stops = listOf(
+            TourStop("report_send_row", Tour.ROW_ABOUT, Tour.ROUTE_SETTINGS, R.string.about, R.string.new_report_way, V0_12_8),
+            TourStop("report_send_setting", Tour.SETTING_BUG_REPORT, Tour.ROUTE_ABOUT, R.string.help_bug_report_action, R.string.new_report_here, V0_12_8),
+        ),
+    ),
+    NewThing(
+        id = "backup_parts",
+        release = "0.12.8",
+        sinceVersionCode = V0_12_8,
+        title = R.string.new_backup_parts_title,
+        body = R.string.new_backup_parts_body,
+        icon = Icons.Rounded.Backup,
+        stops = listOf(
+            TourStop("backup_parts_row", Tour.ROW_BACKUP, Tour.ROUTE_SETTINGS, R.string.backup_restore, R.string.new_backup_parts_way, V0_12_8),
+            TourStop("backup_parts_setting", Tour.SETTING_BACKUP, Tour.ROUTE_BACKUP, R.string.action_backup, R.string.new_backup_parts_here, V0_12_8),
+        ),
+    ),
+    NewThing(
+        id = "lyrics_save",
+        release = "0.12.8",
+        sinceVersionCode = V0_12_8,
+        title = R.string.new_lyrics_save_title,
+        body = R.string.new_lyrics_save_body,
+        icon = Icons.Rounded.Lyrics,
+        action = NewThingAction.NONE,
+    ),
+    // 0.12.7's, listed from 0.12.8 (see V0_12_7). The Shelf is added from its card, as the widget
     // styles were; the lyrics videos and the share cards live outside Settings, so their cards
     // say where they are.
     NewThing(

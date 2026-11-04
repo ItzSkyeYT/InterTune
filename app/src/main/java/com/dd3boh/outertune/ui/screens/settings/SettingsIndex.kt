@@ -113,6 +113,7 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
     SettingEntry(Tour.ROUTE_LOCAL, R.string.scanner_type_title, under = R.string.local_library_enable_title),
 
     // Look and feel
+    SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.animations_title, R.string.animations_description, words = listOf(R.string.search_words_animations), there = Unreleased.ANIMATIONS_SWITCH),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.back_animations, R.string.back_animations_description, words = listOf(R.string.search_words_back_animations)),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.enable_dynamic_theme, R.string.enable_dynamic_theme_description, words = listOf(R.string.search_words_dynamic_theme)),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.high_contrast, R.string.high_contrast_description, under = R.string.enable_dynamic_theme),
@@ -139,6 +140,10 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.swipe2Queue, R.string.swipe2Queue_description, words = listOf(R.string.search_words_gesture)),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.swipe_to_skip_title, R.string.swipe_to_skip_description, words = listOf(R.string.search_words_gesture)),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.swipe_to_dismiss_player, R.string.swipe_to_dismiss_player_description, words = listOf(R.string.search_words_gesture)),
+
+    // Widgets: the two to add. A card's rows are one widget's own, there once for each (SettingsIndexTest leaves them out).
+    SettingEntry(Tour.ROUTE_WIDGETS, R.string.widget_label, there = Unreleased.WIDGETS_PAGE),
+    SettingEntry(Tour.ROUTE_WIDGETS, R.string.recognise, there = Unreleased.WIDGETS_PAGE),
 
     // Player and audio
     SettingEntry(Tour.ROUTE_PLAYER, R.string.auto_load_more, R.string.auto_load_more_desc),

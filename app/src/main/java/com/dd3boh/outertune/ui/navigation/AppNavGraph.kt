@@ -29,7 +29,9 @@ import androidx.navigation.navArgument
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.testerlock.TesterLock
 import com.dd3boh.outertune.ui.component.TopBarGlassDestination
+import com.dd3boh.outertune.savedtwice.SavedTwicePlace
 import com.dd3boh.outertune.ui.screens.AccountScreen
+import com.dd3boh.outertune.ui.screens.SavedTwiceScreen
 import com.dd3boh.outertune.ui.screens.AlbumScreen
 import com.dd3boh.outertune.ui.screens.BrowseScreen
 import com.dd3boh.outertune.ui.screens.HistoryScreen
@@ -87,6 +89,7 @@ import com.dd3boh.outertune.ui.screens.settings.BackupSettings
 import com.dd3boh.outertune.ui.screens.settings.BatterySettings
 import com.dd3boh.outertune.ui.screens.settings.StorageSettings
 import com.dd3boh.outertune.ui.screens.settings.UpdateSettings
+import com.dd3boh.outertune.ui.screens.settings.WidgetsSettings
 import com.dd3boh.outertune.ui.screens.walkthrough.SETTINGS_CLOSER_LOOK
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.TourState
@@ -318,6 +321,22 @@ fun NavGraphBuilder.appDestinations(
         ) {
             AutoPlaylistScreen(navController, scrollBehavior)
         }
+        if (Unreleased.SAVED_TWICE) {
+            screen(
+                route = "${SavedTwicePlace.ROUTE}/{place}?playlist={playlist}",
+                arguments = listOf(
+                    navArgument("place") {
+                        type = NavType.StringType
+                    },
+                    navArgument("playlist") {
+                        type = NavType.StringType
+                        nullable = true
+                    },
+                )
+            ) {
+                SavedTwiceScreen(navController, appScope)
+            }
+        }
         screen(
             route = "youtube_browse/{browseId}?params={params}",
             arguments = listOf(
@@ -411,6 +430,11 @@ fun NavGraphBuilder.appDestinations(
         }
         screen("settings/appearance") {
             LookAndFeelSettings(navController, scrollBehavior)
+        }
+        if (Unreleased.WIDGETS_PAGE) {
+            screen("settings/widgets") {
+                WidgetsSettings(navController, scrollBehavior)
+            }
         }
         screen("settings/library") {
             LibrarySettings(navController, scrollBehavior)

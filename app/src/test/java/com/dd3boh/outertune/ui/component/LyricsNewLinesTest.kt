@@ -22,7 +22,7 @@ class LyricsNewLinesTest {
 
     @Test
     fun `the line being sung is found as soon as the new lines are in, before the wait for the music`() {
-        val loop = source.substringAfter("LaunchedEffect(lyricsModel, lifecycleOwner) {", missingDelimiterValue = "")
+        val loop = source.substringAfter("LaunchedEffect(lyricsModel, lifecycleOwner, playerConnection) {", missingDelimiterValue = "")
             .substringBefore("\n    }\n")
         assertTrue("the loop could not be found", loop.isNotEmpty())
         val before = loop.substringBefore("repeatOnLifecycle(")

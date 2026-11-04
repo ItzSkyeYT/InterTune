@@ -1,0 +1,11 @@
+Version 0.12.8
+
+- Send a bug report without a GitHub account, or share it as a file.
+- Backups leave your sign-ins out unless you tick them.
+- Radios that failed for some people signed out work again.
+- Errors say why YouTube did not load, with the fix.
+- Save lyrics cards and videos.
+- The queue comes back after a restart.
+- Fewer crashes: full phone, background downloads, empty queue.
+
+Full changelog: https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.12.8

@@ -50,6 +50,7 @@ import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Update
+import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -113,6 +114,7 @@ internal fun settingsGroups(
     engine: Boolean = Unreleased.ENGINE,
     together: Boolean = togetherAvailable,
     battery: Boolean = Unreleased.BATTERY_MODES,
+    widgets: Boolean = Unreleased.WIDGETS_PAGE,
     testers: SettingsCategory? = TesterLock.testers?.category,
 ): List<List<SettingsCategory>> = listOfNotNull(testers?.let { listOf(it) }) + listOf(
     listOf(
@@ -122,6 +124,7 @@ internal fun settingsGroups(
     ),
     listOfNotNull(
         SettingsCategory(Tour.ROUTE_LOOK_AND_FEEL, R.string.look_and_feel, Icons.Rounded.Palette),
+        SettingsCategory(Tour.ROUTE_WIDGETS, R.string.widgets, Icons.Rounded.Widgets).takeIf { widgets },
         SettingsCategory("settings/player", R.string.player_and_audio, Icons.Rounded.PlayArrow),
         SettingsCategory("settings/recognition", R.string.recognise_settings, Icons.Rounded.GraphicEq),
         SettingsCategory("settings/library/lyrics", R.string.lyrics_settings_title, Icons.Rounded.Lyrics),
@@ -424,6 +427,7 @@ private fun SettingsPane(route: String, navController: NavController, scrollBeha
             AskForMusicOnOpening(tourRunning)
         }
         Tour.ROUTE_LOOK_AND_FEEL -> LookAndFeelSettings(navController, scrollBehavior)
+        Tour.ROUTE_WIDGETS -> WidgetsSettings(navController, scrollBehavior)
         "settings/player" -> PlayerSettings(navController, scrollBehavior)
         "settings/recognition" -> RecognitionSettings(navController, scrollBehavior)
         "settings/library/lyrics" -> LyricsSettings(navController, scrollBehavior)

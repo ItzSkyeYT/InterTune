@@ -39,6 +39,7 @@ import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Update
+import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ElevatedCard
@@ -163,6 +164,15 @@ fun SettingsScreen(
                 icon = { Icon(Icons.Rounded.Palette, null) },
                 onClick = { navController.navigate("settings/appearance") }
             )
+            // The widgets on the home screen and the ones to add: how the app looks from outside it.
+            if (Unreleased.WIDGETS_PAGE) {
+                PreferenceEntry(
+                    title = { Text(stringResource(R.string.widgets)) },
+                    description = stringResource(R.string.settings_widgets_description),
+                    icon = { Icon(Icons.Rounded.Widgets, null) },
+                    onClick = { navController.navigate("settings/widgets") }
+                )
+            }
             PreferenceEntry(
                 modifier = Modifier.tourTarget(Tour.ROW_PLAYER),
                 title = { Text(stringResource(R.string.player_and_audio)) },

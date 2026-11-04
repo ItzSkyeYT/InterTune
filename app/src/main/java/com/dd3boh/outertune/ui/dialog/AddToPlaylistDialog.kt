@@ -59,6 +59,7 @@ import com.zionhuang.innertube.YouTube
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import com.dd3boh.outertune.utils.Toaster
 
 @Composable
 fun AddToPlaylistDialog(
@@ -344,7 +345,7 @@ private fun addAndSay(
     if (left > 0) {
         val app = context.applicationContext
         Handler(Looper.getMainLooper()).post {
-            Toast.makeText(app, app.resources.getQuantityString(R.plurals.playlist_add_skipped, left, left), Toast.LENGTH_LONG).show()
+            Toaster.show(app, app.resources.getQuantityString(R.plurals.playlist_add_skipped, left, left), Toast.LENGTH_LONG)
         }
     }
     // An add of nothing at all still counts (every song of a skip-duplicates pick may be a
@@ -357,9 +358,9 @@ private fun addAndSay(
  * Mirrors an add to a YouTube playlist. On a scope of its own, because the dialog's goes when the
  * dialog closes, which is straight after the add, and a push cut short leaves the songs local only,
  * where the next sync takes them out again. The duplicates prompt's two add buttons used to push
- * nothing at all.
+ * nothing at all. Saved twice's Undo puts songs back into a playlist through here too.
  */
-private fun pushToYouTube(playlist: Playlist, songIds: List<String>) {
+fun pushToYouTube(playlist: Playlist, songIds: List<String>) {
     if (playlist.playlist.isLocal) return
     val browseId = playlist.playlist.browseId ?: return
     CoroutineScope(Dispatchers.IO).launch {

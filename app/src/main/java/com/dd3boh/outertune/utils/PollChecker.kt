@@ -20,6 +20,7 @@ import com.dd3boh.outertune.constants.LastPollFetchKey
 import com.dd3boh.outertune.constants.Polls
 import com.dd3boh.outertune.constants.PollFetchVersionKey
 import com.dd3boh.outertune.constants.PollsEnabledKey
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.extensions.isInternetConnected
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -33,6 +34,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -47,7 +49,9 @@ import javax.inject.Singleton
  * WHAT LEAVES THE DEVICE, in full, because this is the part that has to be true when the modal
  * says the answer is anonymous:
  *  - a GET for the poll list, which reveals only that some InterTune install looked
- *  - on answering, one POST carrying the poll id, the chosen option ids, and the app version
+ *  - on answering, one POST carrying the poll id and its question, the chosen options' ids and
+ *    labels, the words typed into an "Other" box when there are some, and the app version;
+ *    a follow-up question's picks go in that same event, as "<optionId>/<followUpOptionId>"
  *  - on first opening a poll or an announcement, one POST carrying its id, its text, whether it
  *    was a poll or an announcement, and the app version: once per install, never again for it
  * No account, no device id, no install id, no library, nothing derived from the hardware. Umami
@@ -70,6 +74,21 @@ class PollChecker @Inject constructor(
         val other: Boolean = false,
         /** The box's hint for an "Other" option; the app's own words when the document has none. */
         val placeholder: String? = null,
+        /** The question asked right after this option is picked ("then"); null for none. */
+        val then: FollowUp? = null,
+    )
+
+    /**
+     * A question that comes right after its option is picked, in the same card, and goes in the same
+     * answer (PollFollowUps). One level only: its options never have one of their own.
+     */
+    data class FollowUp(
+        val question: String,
+        /** Optional longer explanation under the question. */
+        val body: String?,
+        val options: List<Option>,
+        /** True when more than one option may be chosen. */
+        val multiple: Boolean,
     )
 
     data class Poll(
@@ -139,6 +158,8 @@ class PollChecker @Inject constructor(
             _currentAnnouncement.value = null
             return@withContext null
         }
+        // A document put on the phone to try a question before it goes out: see standIn.
+        standIn()?.let { return@withContext pick(it) }
         // Offline means the check could not be made, not that there is nothing to ask: a question
         // already fetched keeps showing, as it does when the fetch below fails.
         if (!context.isInternetConnected()) return@withContext restoreFromCache()
@@ -190,6 +211,16 @@ class PollChecker @Inject constructor(
             store.edit { it[AnnouncementsEnabledKey] = true }
         }
     }
+
+    /**
+     * A poll document on the phone itself, to try a question on a debug or preview build before it
+     * goes out (docs/announcements.md): files/poll-stand-in.json in the app's own storage, which only
+     * adb can put there (run-as). While it is there it is read in place of the gist, and nothing is
+     * sent: an answer goes to the log, so a test never lands among the real answers. Never in a
+     * release.
+     */
+    private fun standIn(): String? = if (!BuildConfig.DEBUG) null
+    else runCatching { File(context.filesDir, STAND_IN).takeIf { it.isFile }?.readText() }.getOrNull()
 
     /** Re-reads the cached document and picks again, since what counts as unanswered has moved. */
     private suspend fun restoreFromCache(): Poll? {
@@ -272,6 +303,8 @@ class PollChecker @Inject constructor(
                         id, label, oo.optString("image").ifEmpty { null },
                         other = oo.optBoolean("other", false),
                         placeholder = oo.optString("placeholder").ifEmpty { null },
+                        // With follow-ups off, "then" is ignored, as every older build ignores it.
+                        then = PollFollowUps.read(id, oo.optJSONObject("then")?.toString(), Unreleased.POLL_FOLLOW_UPS),
                     )
                 }
                 if (options.isEmpty()) return@runCatching null
@@ -308,27 +341,12 @@ class PollChecker @Inject constructor(
         markAnswered(poll.id)
 
         if (!Polls.isConfigured) return@withContext
-        send(
-            Polls.UMAMI_EVENT,
-            JSONObject()
-                // Readable first, because this is what the dashboard shows in a column and
-                // "widget-2026-09" tells you nothing months later. The ids are sent too:
-                // they are the stable key, they survive rewording a question, and grouping
-                // on the text would split the moment a typo is fixed.
-                .put("poll", poll.question.take(MAX_PROPERTY_CHARS))
-                .put("poll_id", poll.id)
-                .put(
-                    "answer",
-                    optionIds.mapNotNull { id -> poll.options.firstOrNull { it.id == id }?.label }
-                        .sorted()
-                        .joinToString(", ")
-                        .take(MAX_PROPERTY_CHARS)
-                )
-                .put("answer_id", optionIds.sorted().joinToString(","))
-                .put("version", BuildConfig.VERSION_NAME)
-                // The words typed for an "Other" choice, as they were written.
-                .apply { otherText?.trim()?.takeIf { it.isNotEmpty() }?.let { put("text", it.take(MAX_PROPERTY_CHARS)) } },
-        )
+        val data = answerData(poll, optionIds, otherText, BuildConfig.VERSION_NAME)
+        if (standIn() != null) {
+            Log.i(TAG, "Stand-in document: answer kept on the phone, it would send $data")
+            return@withContext
+        }
+        send(Polls.UMAMI_EVENT, JSONObject(data))
     }
 
     /**
@@ -347,7 +365,7 @@ class PollChecker @Inject constructor(
                 first = true
             }
         }
-        if (!first || !Polls.isConfigured) return@withContext
+        if (!first || !Polls.isConfigured || standIn() != null) return@withContext
         send(
             Polls.UMAMI_VIEW_EVENT,
             JSONObject()
@@ -428,8 +446,41 @@ class PollChecker @Inject constructor(
         _current.value = null
     }
 
-    private companion object {
+    companion object {
         private const val TAG = "PollChecker"
+
+        /** The stand-in document's name in the app's files: see standIn. */
+        private const val STAND_IN = "poll-stand-in.json"
+
+        /**
+         * What one answer sends, every key of it: the question and its id, the labels and the ids
+         * picked, the app version, and the words typed for an "Other". A follow-up's picks are in
+         * answer_id only, as "<optionId>/<followUpOptionId>"; the labels stay the first question's, so
+         * its counts read the same in every build. Anything that is not a choice of this poll is left out.
+         */
+        internal fun answerData(poll: Poll, optionIds: List<String>, otherText: String?, version: String): Map<String, String> {
+            val first = optionIds.filter { id -> poll.options.any { it.id == id } }.distinct()
+            val ids = first + optionIds.filter { PollFollowUps.isPick(poll, first, it) }.distinct()
+            return linkedMapOf<String, String>().apply {
+                // Readable first, because this is what the dashboard shows in a column and
+                // "widget-2026-09" tells you nothing months later. The ids are sent too:
+                // they are the stable key, they survive rewording a question, and grouping
+                // on the text would split the moment a typo is fixed.
+                put("poll", poll.question.take(MAX_PROPERTY_CHARS))
+                put("poll_id", poll.id)
+                put(
+                    "answer",
+                    first.mapNotNull { id -> poll.options.firstOrNull { it.id == id }?.label }
+                        .sorted()
+                        .joinToString(", ")
+                        .take(MAX_PROPERTY_CHARS)
+                )
+                put("answer_id", ids.sorted().joinToString(","))
+                put("version", version)
+                // The words typed for an "Other" choice, as they were written.
+                otherText?.trim()?.takeIf { it.isNotEmpty() }?.let { put("text", it.take(MAX_PROPERTY_CHARS)) }
+            }
+        }
 
         /**
          * Polls change far less often than releases, so this floor is much higher than the update

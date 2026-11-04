@@ -194,7 +194,7 @@
     <string name="privacy">프라이버시</string>
     <string name="pause_listen_history">재생 기록 일시 중지</string>
     <string name="clear_listen_history">재생 기록 지우기</string>
-    <string name="clear_listen_history_confirm">모든 재생 기록을 지우시겠습니까?</string>
+    <string name="clear_listen_history_confirm">재생한 기록에 대한 모든 내용을 지우시겠습니까? 이 작업은 Quick picks가 학습한 로그와 지금까지 학습한 내용, 그리고 표시했던 카드 기록도 함께 비웁니다.</string>
     <string name="pause_search_history">검색 기록 일시 중지</string>
     <string name="clear_search_history">검색 기록 지우기</string>
     <string name="clear_search_history_confirm">모든 검색 기록을 지우시겠습니까?</string>

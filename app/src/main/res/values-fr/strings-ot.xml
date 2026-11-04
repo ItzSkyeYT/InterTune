@@ -2217,6 +2217,68 @@
     <string name="player_pins_under_controls">Sous les commandes</string>
     <string name="player_pin_lyrics">Paroles</string>
     <string name="player_pins_reset">Réinitialiser</string>
+    <!-- Saved twice (issue #47, Unreleased.SAVED_TWICE): held back from translators until his yes on the words. -->
+    <string name="saved_twice">En double</string>
+    <plurals name="saved_twice_button">
+        <item quantity="one">%1$d titre en double</item>
+        <item quantity="many">%1$d titres en double</item>
+        <item quantity="other">%1$d titres en double</item>
+    </plurals>
+    <plurals name="saved_twice_intro_liked">
+        <item quantity="one">%1$d titre est en double dans vos titres aimés. Choisissez celui à garder.</item>
+        <item quantity="many">%1$d titres sont en double dans vos titres aimés. Choisissez celui à garder.</item>
+        <item quantity="other">%1$d titres sont en double dans vos titres aimés. Choisissez celui à garder.</item>
+    </plurals>
+    <plurals name="saved_twice_intro_library">
+        <item quantity="one">%1$d titre est en double dans votre bibliothèque. Choisissez celui à garder.</item>
+        <item quantity="many">%1$d titres sont en double dans votre bibliothèque. Choisissez celui à garder.</item>
+        <item quantity="other">%1$d titres sont en double dans votre bibliothèque. Choisissez celui à garder.</item>
+    </plurals>
+    <plurals name="saved_twice_intro_playlist">
+        <item quantity="one">%1$d titre est en double dans « %2$s ». Choisissez celui à garder.</item>
+        <item quantity="many">%1$d titres sont en double dans « %2$s ». Choisissez celui à garder.</item>
+        <item quantity="other">%1$d titres sont en double dans « %2$s ». Choisissez celui à garder.</item>
+    </plurals>
+    <string name="saved_twice_keep">Garder</string>
+    <string name="saved_twice_out_liked">Retirer des titres aimés</string>
+    <string name="saved_twice_out_library">Retirer de votre bibliothèque</string>
+    <string name="saved_twice_out_playlist">Retirer de « %1$s »</string>
+    <plurals name="saved_twice_take_liked">
+        <item quantity="one">Retirer %1$d doublon des titres aimés</item>
+        <item quantity="many">Retirer %1$d doublons des titres aimés</item>
+        <item quantity="other">Retirer %1$d doublons des titres aimés</item>
+    </plurals>
+    <plurals name="saved_twice_take_library">
+        <item quantity="one">Retirer %1$d doublon de votre bibliothèque</item>
+        <item quantity="many">Retirer %1$d doublons de votre bibliothèque</item>
+        <item quantity="other">Retirer %1$d doublons de votre bibliothèque</item>
+    </plurals>
+    <plurals name="saved_twice_take_playlist">
+        <item quantity="one">Retirer %1$d doublon de « %2$s »</item>
+        <item quantity="many">Retirer %1$d doublons de « %2$s »</item>
+        <item quantity="other">Retirer %1$d doublons de « %2$s »</item>
+    </plurals>
+    <string name="saved_twice_note">Rien n\'est supprimé de votre téléphone, et Annuler les remet en place.</string>
+    <plurals name="saved_twice_done_liked">
+        <item quantity="one">%1$d doublon retiré des titres aimés</item>
+        <item quantity="many">%1$d doublons retirés des titres aimés</item>
+        <item quantity="other">%1$d doublons retirés des titres aimés</item>
+    </plurals>
+    <plurals name="saved_twice_done_library">
+        <item quantity="one">%1$d doublon retiré de votre bibliothèque</item>
+        <item quantity="many">%1$d doublons retirés de votre bibliothèque</item>
+        <item quantity="other">%1$d doublons retirés de votre bibliothèque</item>
+    </plurals>
+    <plurals name="saved_twice_done_playlist">
+        <item quantity="one">%1$d doublon retiré de « %2$s »</item>
+        <item quantity="many">%1$d doublons retirés de « %2$s »</item>
+        <item quantity="other">%1$d doublons retirés de « %2$s »</item>
+    </plurals>
+    <string name="saved_twice_song">Titre</string>
+    <string name="saved_twice_music_video">Clip</string>
+    <string name="saved_twice_file">Fichier</string>
+    <string name="saved_twice_single">%1$s (single)</string>
+    <string name="saved_twice_none">Rien n\'est en double ici.</string>
     <string name="region_note_title">YouTube Music en Corée du Sud</string>
     <string name="region_note_body">YouTube Music n\'a pas d\'offre gratuite en Corée du Sud : là-bas, YouTube ne montre les titres, les albums et les mix qu\'aux abonnés Premium. Les titres de vos playlists se lisent quand même, et la recherche trouve toujours les vidéos. Un compte Premium, ou un VPN ou un proxy hors de Corée, fait revenir le reste.</string>
     <string name="region_note_proxy">Réglages du proxy</string>
@@ -2289,4 +2351,40 @@
     <string name="new_lyrics_video_long_body">Appuyez longuement sur une ligne des paroles pour partager une vidéo qui prend jusqu\'à dix minutes du titre. Avec le Flou vivant, son fond bouge avec la musique.</string>
     <string name="new_share_cards_title">Les titres partagés montrent leur pochette</string>
     <string name="new_share_cards_body">Un titre partagé en page InterTune affiche son nom et sa pochette dans les applis de discussion.</string>
+    <string name="backup_parts_title">Ce que contient la sauvegarde</string>
+    <string name="backup_parts_note">À restaurer sur n\'importe quel téléphone avec InterTune.</string>
+    <string name="backup_part_library">Bibliothèque</string>
+    <string name="backup_part_library_note">Titres, playlists, historique et statistiques</string>
+    <string name="backup_part_settings">Paramètres</string>
+    <string name="backup_part_settings_note">L\'apparence et la lecture de l\'app</string>
+    <string name="backup_part_photos">Photos des playlists</string>
+    <string name="backup_part_photos_note">Les couvertures choisies sur votre téléphone</string>
+    <string name="backup_part_signins">Vos connexions</string>
+    <string name="backup_part_signins_note">YouTube Music et Last.fm</string>
+    <string name="backup_part_signins_warning">Toute personne qui a ce fichier pourrait utiliser ces comptes.</string>
+    <string name="backup_parts_confirm">Sauvegarder</string>
+    <string name="animations_title">Animations</string>
+    <string name="animations_description">Sans animations, les écrans changent tout de suite et les fonds restent immobiles. Plus léger pour les téléphones anciens.</string>
+    <string name="animations_held_note">Désactivé tant que les animations sont coupées dans les réglages d\'Android.</string>
+    <string name="living_blur_still_switch">Reste immobile tant que le réglage « Animations », en haut de cette page, est désactivé.</string>
+    <string name="search_words_animations">mouvement, transitions, effets, téléphone lent, ralentissements</string>
+    <string name="widgets">Widgets</string>
+    <string name="settings_widgets_description">Ajoutez des widgets à votre écran d\'accueil, et changez l\'apparence de chacun.</string>
+    <string name="widgets_on_home_screen">Sur votre écran d\'accueil</string>
+    <string name="widgets_add_title">Ajouter un widget</string>
+    <string name="widgets_add">Ajouter</string>
+    <string name="widgets_all_options">Toutes les options</string>
+    <string name="widgets_all_options_cover">Opacité, taille du texte, ce qu\'il affiche</string>
+    <string name="widgets_all_options_full_cover">Taille du texte, ce qu\'il affiche</string>
+    <string name="widgets_all_options_shelf">Arrière-plan, boutons, lignes</string>
+    <string name="widgets_add_from_home">Cet écran d\'accueil n\'accepte pas les widgets des applications. Ajoutez-les depuis sa propre liste de widgets.</string>
+    <!-- Nouveautés de 0.12.8 (Walkthrough.kt, V0_12_8). -->
+    <string name="new_report_send_title">Envoyer un rapport à InterTune</string>
+    <string name="new_report_send_body">Signaler un problème peut maintenant envoyer le rapport à InterTune, sans compte GitHub. Ou le partager en fichier pour le poster sur Discord.</string>
+    <string name="new_backup_parts_title">Les sauvegardes laissent vos connexions de côté</string>
+    <string name="new_backup_parts_body">Sauvegarder demande maintenant ce que contient le fichier. Vos connexions YouTube Music et Last.fm n\'y vont que si vous les cochez.</string>
+    <string name="new_backup_parts_way">Les sauvegardes se font et se restaurent ici.</string>
+    <string name="new_backup_parts_here">Touchez Sauvegarder pour choisir ce que contient le fichier. Vos connexions n\'y vont que si vous les cochez.</string>
+    <string name="new_lyrics_save_title">Enregistrer les cartes et vidéos de paroles</string>
+    <string name="new_lyrics_save_body">Appuyez longuement sur une ligne des paroles : une carte ou une vidéo peut maintenant être enregistrée sur le téléphone, pas seulement partagée.</string>
 </resources>

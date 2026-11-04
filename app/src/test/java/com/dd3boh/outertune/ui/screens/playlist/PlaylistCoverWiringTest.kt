@@ -176,15 +176,15 @@ class PlaylistCoverWiringTest {
         val writer = kotlin("utils/BackupWriter.kt")
         assertTrue(writer.indexOf("ZipEntry(InternalDatabase.DB_NAME)") in 0 until writer.indexOf("PlaylistCovers.addTo(zip, context.filesDir)"))
         val restore = kotlin("viewmodels/BackupRestoreViewModel.kt")
-        val body = restore.substring(restore.indexOf("private fun restoreValidatedDatabase("))
+        val body = restore.substring(restore.indexOf("fun restoreValidatedDatabase("))
         // Staged as they are read, like the settings, so that a refused backup changes nothing.
         assertTrue("else -> PlaylistCovers.stage(stagedCovers, entry.name, inputStream)" in body)
         val refused = body.substring(body.indexOf("if (!databaseValidated) {"), body.indexOf("Found valid database"))
         assertTrue("stagedCovers.deleteRecursively()" in refused)
         // In place only once the database and the settings are: the photos come last, and cost the restore nothing.
         val place = body.indexOf("runCatching { PlaylistCovers.place(stagedCovers, context.filesDir) }")
-        assertTrue(place > body.indexOf("probeFile.inputStream().use"))
-        assertTrue(place > body.indexOf("settingsBytes?.let"))
+        assertTrue(body.indexOf("DatabaseFiles.replace(probeFile") in 0 until place)
+        assertTrue(body.indexOf("settingsBytes?.let") in 0 until place)
     }
 
     // ---- the words ----

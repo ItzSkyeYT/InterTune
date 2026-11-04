@@ -602,6 +602,20 @@ object Unreleased {
     val BATTERY_MODES = true
 
     /**
+     * Saved twice (issue #47, for 0.13): a round button with a count beside Play and Shuffle in
+     * Liked songs, in the library's songs list and in a playlist the app lets you change, shown
+     * only when a song is in there more than once; it opens a screen that lists each song's copies
+     * with one picked to keep, and takes the others out the way the heart, Remove from library and
+     * Remove from playlist do, with Undo after (SavedTwice, SavedTwiceShelf, SavedTwiceScreen).
+     * The look is the mockup he approved on 29 Oct 2026.
+     *
+     * Without it there is no button and nothing is counted. Its texts (saved_twice*) are held from
+     * translators, their French beside them in values-fr. When it is agreed: set this to true and
+     * make its texts translatable.
+     */
+    val SAVED_TWICE = BuildConfig.DEBUG
+
+    /**
      * An album carries on after its last song when Auto load more songs is on, as YouTube Music
      * does: five songs from the end the radio of the last song that has a YouTube id is asked for
      * and joins the queue (EndlessQueue, MusicService.onMediaItemTransition). The queue is a radio
@@ -644,7 +658,8 @@ object Unreleased {
      * values-fr. When it is agreed and the site files for real: set this to true and make its texts
      * translatable.
      */
-    val REPORT_RELAY = BuildConfig.DEBUG
+    // On in every build from 0.12.8, picked on 4 Nov 2026.
+    val REPORT_RELAY = true
 
     /**
      * What's playing with no connection (issue #48, planned for 0.13 on 26 Oct 2026): a listen
@@ -708,6 +723,17 @@ object Unreleased {
     val ARTIST_BLOCK = BuildConfig.DEBUG
 
     /**
+     * The Animations switch in Look and feel (Animations, ThemeFrag): off, screens and controls
+     * change at once and Living blur and the glass stand still, as with Android's own Remove
+     * animations. A tester's wish in the 0.13 poll, for older and smaller phones; his yes of 4 Nov
+     * 2026. Without it there is no row and the switch counts as on, so only Android's setting
+     * decides, as before. Its texts (animations_*, living_blur_still_switch) are held from
+     * translators, their French beside them in values-fr. When it is agreed: set this to true and
+     * make its texts translatable.
+     */
+    val ANIMATIONS_SWITCH = BuildConfig.DEBUG
+
+    /**
      * Share as a file under a report's text, in Report a problem and the crash page (ReportFile,
      * ShareReportFile): the report as InterTune-report-<day>-<time>.txt to any app. Discord takes a
      * file from anyone, where a message past 2,000 characters wants Nitro and a log pasted in pieces
@@ -717,7 +743,8 @@ object Unreleased {
      * translators, its French beside it in values-fr. When it is agreed: set this to true, add its
      * name to ReleasedFlagsTest, and make its text translatable.
      */
-    val REPORT_FILE = BuildConfig.DEBUG
+    // On in every build from 0.12.8, picked on 4 Nov 2026.
+    val REPORT_FILE = true
 
     /**
      * Downloads other apps can use (third in the 0.13 poll, the loudest topic on Discord): a song
@@ -738,4 +765,32 @@ object Unreleased {
      * ReleasedFlagsTest, make its texts translatable.
      */
     val DOWNLOAD_FILES = BuildConfig.DEBUG
+
+    /**
+     * Settings > Widgets, under Look and feel (WidgetsSettings), his ask of 3 Nov 2026 for "a easy
+     * settings menu for widgets", built as the mockup he approved
+     * (experiments/features/widget-settings-mock): a card for each widget on the home screen with
+     * its live preview, its style, the two choices most changed and All options, which opens that
+     * widget's own setup sheet; and at the foot the two widgets, each with Add, which asks the
+     * launcher for its own box. A change on a card is the sheet's own write
+     * (WidgetStore.saveSettings) and redraws that widget at once.
+     *
+     * Without it Settings has no such row, and a widget is set up from the home screen only, as
+     * before. Its texts (widgets_*) are held from translators, their French beside them in
+     * values-fr. When it is agreed: set this to true, add its name to ReleasedFlagsTest, make its
+     * texts translatable.
+     */
+    val WIDGETS_PAGE = BuildConfig.DEBUG
+
+    /**
+     * Follow-up questions in polls (PollFollowUps, PollDialog), his ask of 4 Nov 2026: an option of a
+     * poll may carry "then", a question of its own that comes right after the first one in the same
+     * card, for whoever picked that option ("Keep it, but polish the details", then "Which details?").
+     * Its picks go in the same single answer as "<optionId>/<followUpOptionId>" (docs/announcements.md).
+     *
+     * Without it the app ignores "then", as every older build does, and sends the first answer alone,
+     * so one poll works for every version. No new texts: Next and Back are the app's own. When it is
+     * agreed: set this to true and add its name to ReleasedFlagsTest.
+     */
+    val POLL_FOLLOW_UPS = BuildConfig.DEBUG
 }

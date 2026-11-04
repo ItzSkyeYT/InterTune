@@ -302,6 +302,7 @@ import com.dd3boh.outertune.constants.PlayerLiquidGlassKey
 import com.dd3boh.outertune.ui.utils.LocalAppBackdrop
 import com.dd3boh.outertune.ui.utils.ScreenRate
 import com.dd3boh.outertune.ui.utils.LocalGlassStill
+import com.dd3boh.outertune.ui.utils.Animations
 import com.dd3boh.outertune.ui.utils.stillGlass
 import com.dd3boh.outertune.ui.utils.LocalAppBackdropAvailable
 import com.dd3boh.outertune.ui.utils.Landscape
@@ -337,6 +338,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.dd3boh.outertune.utils.Toaster
 
 /**
  * How long a back takes when it is not being dragged.
@@ -521,9 +523,9 @@ class MainActivity : ComponentActivity() {
     val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
             if (isGranted) {
-//                Toast.makeText(this, "Granted", Toast.LENGTH_SHORT).show()
+//                Toaster.show(this, "Granted", Toast.LENGTH_SHORT)
             } else {
-                Toast.makeText(this, getString(R.string.scanner_missing_storage_perm), Toast.LENGTH_SHORT).show()
+                Toaster.show(this, getString(R.string.scanner_missing_storage_perm), Toast.LENGTH_SHORT)
             }
         }
 
@@ -591,11 +593,11 @@ class MainActivity : ComponentActivity() {
                     }
                     when (playSearchOutcome(found)) {
                         PlaySearch.FAILED -> {
-                            Toast.makeText(this@MainActivity, R.string.play_search_failed, Toast.LENGTH_LONG).show()
+                            Toaster.show(this@MainActivity, R.string.play_search_failed, Toast.LENGTH_LONG)
                             return@launch
                         }
                         PlaySearch.NOTHING -> {
-                            Toast.makeText(this@MainActivity, R.string.no_results_found, Toast.LENGTH_SHORT).show()
+                            Toaster.show(this@MainActivity, R.string.no_results_found, Toast.LENGTH_SHORT)
                             return@launch
                         }
                         PlaySearch.PLAY -> Unit
@@ -622,7 +624,7 @@ class MainActivity : ComponentActivity() {
                 prefs[SongSortDescendingKey] ?: true,
             ).first()
             if (songs.isEmpty()) {
-                Toast.makeText(this@MainActivity, R.string.shortcut_no_liked_songs, Toast.LENGTH_SHORT).show()
+                Toaster.show(this@MainActivity, R.string.shortcut_no_liked_songs, Toast.LENGTH_SHORT)
                 return@launch
             }
             connection.playQueue(
@@ -741,7 +743,8 @@ class MainActivity : ComponentActivity() {
 
         activityLauncher = ActivityLauncherHelper(this)
 
-        setContent {
+        // The window's compositions keep the app's pace: none with animations off (Animations).
+        setContent(parent = Animations.recomposer(this)) {
             // A tester build opens on the tester's code (src/preview, testerlock), and nothing of the
             // app is drawn or started before the code passes. No other build has a lock: there it is false.
             if (TesterLock.holds(this@MainActivity)) return@setContent
@@ -1711,7 +1714,7 @@ class MainActivity : ComponentActivity() {
                         // card is not ticked.
                         val showFromWelcome: (String, List<TourStop>) -> Unit = { card, stops ->
                             if (stops.isEmpty()) {
-                                Toast.makeText(this@MainActivity, R.string.welcome_back_not_here, Toast.LENGTH_LONG).show()
+                                Toaster.show(this@MainActivity, R.string.welcome_back_not_here, Toast.LENGTH_LONG)
                             } else {
                                 welcomeOpen = false
                                 tourFromWelcome = true
@@ -1746,7 +1749,7 @@ class MainActivity : ComponentActivity() {
                                 tourFromWelcome = false
                                 if (screensThere) navController.popBackStack(navController.graph.startDestinationId, inclusive = false)
                                 welcomeOpen = true
-                                Toast.makeText(this@MainActivity, R.string.welcome_back_not_here, Toast.LENGTH_LONG).show()
+                                Toaster.show(this@MainActivity, R.string.welcome_back_not_here, Toast.LENGTH_LONG)
                                 welcomeShow.notShown()
                             }
                         }
@@ -1766,7 +1769,7 @@ class MainActivity : ComponentActivity() {
                                             widgets.requestPinAppWidget(ComponentName(this@MainActivity, receiver), null, null)
                                             welcomeShow.looked(thing.id)
                                         } else {
-                                            Toast.makeText(this@MainActivity, R.string.welcome_back_no_widget_host, Toast.LENGTH_LONG).show()
+                                            Toaster.show(this@MainActivity, R.string.welcome_back_no_widget_host, Toast.LENGTH_LONG)
                                         }
                                     }
                                     when (thing.action) {

@@ -96,6 +96,15 @@ import kotlinx.coroutines.withContext
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.settings.settingRow
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.Checkbox
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.semantics.Role
+import com.dd3boh.outertune.utils.BackupParts
+import com.dd3boh.outertune.utils.PlaylistCovers
+import com.dd3boh.outertune.utils.Toaster
 
 // The expressive slider track, the one with the gap beside the thumb, is still marked
 // experimental in Material 3 1.4. It is what the rest of the system draws, so it is the right
@@ -105,12 +114,36 @@ import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
     val context = LocalContext.current
 
+    // What goes in the backup, picked on the sheet before the file is named. The sign-ins start off
+    // each time it opens: anyone with the file could use them.
+    var askParts by rememberSaveable { mutableStateOf(false) }
+    var withLibrary by rememberSaveable { mutableStateOf(true) }
+    var withSettings by rememberSaveable { mutableStateOf(true) }
+    var withPhotos by rememberSaveable { mutableStateOf(true) }
+    var withSignIns by rememberSaveable { mutableStateOf(false) }
     val backupLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
             if (uri != null) {
-                viewModel.backup(uri)
+                viewModel.backup(uri, BackupParts(withLibrary, withSettings, withPhotos && withLibrary, withSignIns && withSettings))
             }
         }
+    if (askParts) {
+        BackupPartsDialog(
+            library = withLibrary, settings = withSettings, photos = withPhotos, signIns = withSignIns,
+            onLibrary = { withLibrary = it }, onSettings = { withSettings = it },
+            onPhotos = { withPhotos = it }, onSignIns = { withSignIns = it },
+            onConfirm = {
+                askParts = false
+                val formatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
+                backupLauncher.launch(
+                    "${context.getString(R.string.app_name)}_${MusicDatabase.MUSIC_DATABASE_VERSION}_${
+                        LocalDateTime.now().format(formatter)
+                    }.backup"
+                )
+            },
+            onDismiss = { askParts = false },
+        )
+    }
     // A restore replaces the library and the settings that are on the phone, and the app restarts.
     // It used to begin the moment a file was chosen. Now the file is held and the question is
     // put: nothing is touched before the answer.
@@ -150,12 +183,12 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
                     0
                 }
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(
+                    Toaster.show(
                         appContext,
                         if (exported == 0) appContext.getString(R.string.no_playlists_to_export)
                         else appContext.resources.getQuantityString(R.plurals.exported_playlists, exported, exported),
                         Toast.LENGTH_SHORT
-                    ).show()
+                    )
                 }
             }
         }
@@ -244,12 +277,8 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
             },
             isEnabled = !backingUp && !restoring,
             onClick = {
-                val formatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
-                backupLauncher.launch(
-                    "${context.getString(R.string.app_name)}_${MusicDatabase.MUSIC_DATABASE_VERSION}_${
-                        LocalDateTime.now().format(formatter)
-                    }.backup"
-                )
+                withSignIns = false
+                askParts = true
             }
         )
     }
@@ -719,4 +748,86 @@ private suspend fun exportPlaylistsAsM3u(context: Context, database: MusicDataba
         }
     }
     return exported
+}
+
+/**
+ * What goes in a backup file: the library, the settings, the playlist photos and, only when ticked,
+ * the account sign-ins, which go with the settings since they live in them. Laid out after Mihon's
+ * backup dialog, where the login tokens are off by default.
+ */
+@Composable
+private fun BackupPartsDialog(
+    library: Boolean,
+    settings: Boolean,
+    photos: Boolean,
+    signIns: Boolean,
+    onLibrary: (Boolean) -> Unit,
+    onSettings: (Boolean) -> Unit,
+    onPhotos: (Boolean) -> Unit,
+    onSignIns: (Boolean) -> Unit,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    DefaultDialog(
+        onDismiss = onDismiss,
+        horizontalAlignment = Alignment.Start,
+        scrollable = true,
+        title = {
+            Text(stringResource(R.string.backup_parts_title), modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp))
+        },
+        buttons = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(android.R.string.cancel))
+            }
+            TextButton(onClick = onConfirm, enabled = library || settings) {
+                Text(stringResource(R.string.backup_parts_confirm))
+            }
+        },
+    ) {
+        Text(
+            text = stringResource(R.string.backup_parts_note),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
+        )
+        BackupPartRow(stringResource(R.string.backup_part_library), stringResource(R.string.backup_part_library_note), library, onChange = onLibrary)
+        BackupPartRow(stringResource(R.string.backup_part_settings), stringResource(R.string.backup_part_settings_note), settings, onChange = onSettings)
+        // Only where covers can be picked from the phone: without that there are none to keep.
+        if (PlaylistCovers.offered) {
+            BackupPartRow(stringResource(R.string.backup_part_photos), stringResource(R.string.backup_part_photos_note), photos && library, enabled = library, onChange = onPhotos)
+        }
+        BackupPartRow(
+            stringResource(R.string.backup_part_signins), stringResource(R.string.backup_part_signins_note), signIns && settings,
+            enabled = settings, warning = stringResource(R.string.backup_part_signins_warning), onChange = onSignIns,
+        )
+    }
+}
+
+@Composable
+private fun BackupPartRow(
+    title: String,
+    note: String,
+    checked: Boolean,
+    enabled: Boolean = true,
+    warning: String? = null,
+    onChange: (Boolean) -> Unit,
+) {
+    Row(
+        verticalAlignment = Alignment.Top,
+        modifier = Modifier
+            .fillMaxWidth()
+            .toggleable(value = checked, enabled = enabled, role = Role.Checkbox, onValueChange = onChange)
+            .padding(horizontal = 8.dp, vertical = 6.dp)
+            .alpha(if (enabled) 1f else 0.38f),
+    ) {
+        Checkbox(checked = checked, onCheckedChange = null, enabled = enabled, modifier = Modifier.padding(top = 2.dp))
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.padding(top = 2.dp)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (warning != null) {
+                Text(warning, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 2.dp))
+            }
+        }
+    }
 }
