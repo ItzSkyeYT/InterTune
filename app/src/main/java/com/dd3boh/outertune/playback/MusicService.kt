@@ -179,6 +179,7 @@ import com.dd3boh.outertune.constants.EndReason
 import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.db.entities.FormatEntity
 import com.dd3boh.outertune.db.entities.RelatedSongMap
+import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.di.AppModule.PlayerCache
 import com.dd3boh.outertune.di.DownloadCache
 import com.dd3boh.outertune.extensions.SilentHandler
@@ -2301,6 +2302,7 @@ class MusicService : MediaLibraryService(),
         queuePlaylistId = queue.playlistId
         // Whatever the last start left unsaid is for that start alone.
         radioStopped.value = null
+        radioFromInterTune.value = null
         // do not use scope.launch ... it breaks randomly... why is this bug back???
         CoroutineScope(Dispatchers.Main).launch {
             // This coroutine is not a child of anything onDestroy cancels, so it checks
@@ -2461,7 +2463,60 @@ class MusicService : MediaLibraryService(),
                 .filterNot { SongVersions.isVersionOf(it.title, seed.title) }
                 .map { it.toMediaMetadata() }
         }
+
+        override suspend fun localRadio(seed: MediaMetadata): List<MediaMetadata> = ownRadio(seed)
+
+        // "Bye, Summer · Radio": the word every language has already, and never the title of a
+        // queue the song's own name is given to elsewhere (a song played on its own).
+        override fun localRadioTitle(seed: MediaMetadata): String = "${seed.title} · ${getString(R.string.radio)}"
+
+        override fun pickedByInterTune(queue: MultiQueueObject) {
+            radioFromInterTune.value = queue.id
+        }
     })
+
+    /**
+     * The app's own radio from [seed], for when YouTube gives it nothing however it is asked
+     * (LocalRadio, RadioLadder): read from the phone, never the network. None in a build without
+     * Unreleased.RADIO_FALLBACK, and none when the database does not answer.
+     */
+    private suspend fun ownRadio(seed: MediaMetadata): List<MediaMetadata> {
+        if (!Unreleased.RADIO_FALLBACK) return emptyList()
+        val filter = ContentFilter.current
+        val youtubeOut = !isNetworkConnected.value || Throttle.isBlocked
+        return withContext(Dispatchers.IO) {
+            runCatching {
+                val id = seed.id
+                val n = LocalRadio.SIZE * 2
+                fun read(block: MusicDatabase.() -> List<Song>): List<MediaMetadata> =
+                    filter.blocked.library(database.readOrNull(block).orEmpty()).map { it.toMediaMetadata() }
+                val sources = LocalRadio.Sources(
+                    lastFm = read { radioListedFor(id, RelatedSongMap.SOURCE_LASTFM, n) },
+                    youtube = read { radioListedFor(id, RelatedSongMap.SOURCE_YOUTUBE, n) },
+                    heardWith = read { radioHeardWith(id, n) },
+                    listing = read { radioListing(id, n) },
+                    byItsArtists = read { radioByItsArtists(id, n) },
+                    nextHop = read { radioNeighboursList(id, n) },
+                )
+                val now = System.currentTimeMillis()
+                val inForce = database.readOrNull { exclusionsInForce(now) }.orEmpty()
+                val gone = inForce.filter { it.kind == ExclusionsViewModel.KIND_SONG && it.reason == ExclusionsViewModel.REASON_GONE }
+                    .mapTo(HashSet()) { it.targetId }
+                val onPhone = { s: MediaMetadata -> s.isLocal || downloadCache.holdsWhole(s.id) || playerCache.holdsWhole(s.id) }
+                val rules = LocalRadio.Rules(
+                    keptOut = inForce.filter { it.kind == ExclusionsViewModel.KIND_SONG && it.reason != ExclusionsViewModel.REASON_GONE }
+                        .mapTo(HashSet()) { it.targetId },
+                    artistsKeptOut = inForce.filter { it.kind == ExclusionsViewModel.KIND_ARTIST }
+                        .flatMapTo(HashSet()) { listOf(it.targetId, it.label.trim().lowercase()) },
+                    // With YouTube out of reach, only what is on the phone plays.
+                    plays = { s -> onPhone(s) || (!youtubeOut && s.id !in gone) },
+                    chosenOnly = filter.explicit || filter.videoSongs,
+                    chosen = { s -> s.liked || s.inLibrary != null || onPhone(s) },
+                )
+                LocalRadio.pick(seed, sources, rules)
+            }.onFailure { Log.w(TAG, "Could not make a radio from the phone", it) }.getOrDefault(emptyList())
+        }.also { Log.d(TAG, "Radio from the phone for ${seed.id}: ${it.size} songs") }
+    }
 
     /**
      * Add items to queue, right after current playing item
@@ -3809,6 +3864,13 @@ class MusicService : MediaLibraryService(),
     /** [queueId] is that queue's; [retry] starts the same queue again, as it was asked for. */
     class RadioStopped(val queueId: Long, val kind: WhyStopped.Kind, val retry: () -> Unit)
 
+    /**
+     * The queue whose radio goes on from the app's own picks, YouTube having given it nothing
+     * (LocalRadio), for the queue sheet's line under its songs; null for none. Its start or a
+     * top-up sets it, the next start clears it.
+     */
+    val radioFromInterTune = MutableStateFlow<Long?>(null)
+
     private class StoppedWhy(val kind: WhyStopped.Kind, val title: Int)
 
     /**
@@ -4930,8 +4992,16 @@ class MusicService : MediaLibraryService(),
                 val endpoint = playlistId // playlistId.substringBefore("\n")
                 val continuation = null // playlistId.substringAfter("\n")
                 val yq = YouTubeQueue(WatchEndpoint(endpoint, continuation))
-                val mediaItems = yq.nextPage()
-                Log.d(TAG, "onMediaItemTransition: Got ${mediaItems.size} songs from radio")
+                val fromYouTube = yq.nextPage()
+                // YouTube gave this seed nothing, however it was asked: the app's own picks keep a
+                // radio going (LocalRadio). Not an album's first radio, which stays an album.
+                val own = Unreleased.RADIO_FALLBACK && !endRadio && fromYouTube.drop(1).isEmpty()
+                val mediaItems = if (!own) fromYouTube else {
+                    val seed = q.getCurrentQueueShuffled().firstOrNull { it.id == endpoint }
+                        ?: MediaMetadata(id = endpoint, title = "", artists = emptyList(), duration = -1, genre = null)
+                    listOf(seed) + ownRadio(seed)
+                }
+                Log.d(TAG, "onMediaItemTransition: Got ${mediaItems.size} songs from radio" + if (own) " (the app's own picks)" else "")
                 // Only into the queue that asked for them. A page still on its way when a list from
                 // the car became current went to the end of that list instead, and reloaded it.
                 // And only while the player still holds something: a page that arrived after the
@@ -4995,6 +5065,7 @@ class MusicService : MediaLibraryService(),
                     if (joining.isNotEmpty()) noteByHand(q, songs.map { it.id })
                 }
                 if (joining.isNotEmpty()) queueBoard.enqueueEnd(joining)
+                if (own && joining.isNotEmpty()) radioFromInterTune.value = q.id
             }
         }
 

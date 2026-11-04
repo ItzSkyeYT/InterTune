@@ -169,6 +169,7 @@ import com.dd3boh.outertune.ui.component.EmptyPlaceholder
 import com.dd3boh.outertune.playback.AdaptiveNote
 import com.dd3boh.outertune.playback.AdaptiveQueue
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Radio
 import com.dd3boh.outertune.ui.component.LazyColumnScrollbar
 import com.dd3boh.outertune.ui.component.FailedNote
 import com.dd3boh.outertune.ui.component.openProxySetting
@@ -665,6 +666,9 @@ fun BoxScope.QueueContent(
     // Why the radio or mix this queue was to become did not start, said under the song it left
     // alone: Val's queue of one ("Radiotemp", 1/1, Discord, 1 Nov 2026) said nothing at all.
     val radioStopped by playerConnection.service.radioStopped.collectAsState()
+    // A radio YouTube gave nothing, going on from the app's own picks (LocalRadio): said under its
+    // songs, so nobody takes them for YouTube's.
+    val radioFromInterTune by playerConnection.service.radioFromInterTune.collectAsState()
     // The preview the sheet shows while the player holds nothing yet (after an update or a
     // restart, until something plays) is of the queue that is playing: its far end is folded
     // away like the live queue's, from the song it is at, not shown in full. Another queue looked
@@ -1281,6 +1285,38 @@ fun BoxScope.QueueContent(
                         },
                         margin = 8.dp,
                     )
+                }
+            }
+
+            if (radioFromInterTune != null && !isSearching && detachedQueue == null && radioFromInterTune == qb.getCurrentQueue()?.id) {
+                item(key = "radio-from-intertune", contentType = "radio-from-intertune") {
+                    // As the adaptive queue's line below: a picture, then two short lines.
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 20.dp)
+                    ) {
+                        Icon(
+                            Icons.Rounded.Radio,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.secondary,
+                        )
+                        Spacer(Modifier.width(16.dp))
+                        Column {
+                            Text(
+                                text = stringResource(R.string.radio_from_intertune_title),
+                                style = MaterialTheme.typography.bodyLarge,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                text = stringResource(R.string.radio_from_intertune_body),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                 }
             }
 
