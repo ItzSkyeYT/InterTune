@@ -51,6 +51,7 @@ import com.zionhuang.innertube.utils.walkItems
 import com.zionhuang.innertube.utils.walkSongs
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.withContext
@@ -85,11 +86,19 @@ class SyncUtils @Inject constructor(
 ) {
     private val TAG = "SyncUtils"
 
+    /**
+     * What a job launched on [scope] throws, logged. likeSong and syncPlaylistDetached are launched
+     * there with nobody waiting for them, so an error in them had nowhere to go and ended the app:
+     * syncPlaylist's own read of the playlist, for one, throws once a restore has closed the
+     * database. That like or playlist is simply not synced now.
+     */
+    private val syncFailed = CoroutineExceptionHandler { _, e -> Log.e(TAG, "A sync job failed", e) }
+
     // A SupervisorJob: Sync now runs here as an async that nobody may be left to await, and its
     // failure has to stay with it. On a plain Job it would cancel this scope, and every later like
     // pushed to YouTube and every later sync started here would silently do nothing until the app
-    // restarts.
-    private val scope = CoroutineScope(SupervisorJob() + syncCoroutine)
+    // restarts. The async keeps its failure for whoever awaits it; syncFailed hears the launches'.
+    private val scope = CoroutineScope(SupervisorJob() + syncCoroutine + syncFailed)
 
     private val _isSyncingRemoteLikedSongs = MutableStateFlow(false)
     private val _isSyncingRemoteSongs = MutableStateFlow(false)
