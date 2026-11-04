@@ -12,8 +12,21 @@ import com.dd3boh.outertune.db.entities.QueueSong
 import com.dd3boh.outertune.db.entities.QueueSongMap
 import com.dd3boh.outertune.models.MultiQueueObject
 import com.dd3boh.outertune.models.toMediaMetadata
+import com.dd3boh.outertune.models.MediaMetadata
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+
+/**
+ * A queue's shuffle numbers made 0 to n-1 again, keeping their order. A song deleted from the
+ * library takes its queue row with it (ON DELETE CASCADE, and the read joins the song table), so
+ * the numbers read back can have a gap, and a shuffled queue's place read through them then named
+ * another song or a place past the end of the list: the queue came back on the wrong song, or
+ * every load of it threw IllegalSeekPositionException. The same list, renumbered in place.
+ */
+internal fun closeShuffleGaps(songs: MutableList<MediaMetadata>): MutableList<MediaMetadata> {
+    songs.sortedBy { it.shuffleIndex }.forEachIndexed { i, song -> song.shuffleIndex = i }
+    return songs
+}
 
 @Dao
 interface QueueDao {
@@ -37,11 +50,11 @@ interface QueueDao {
                 MultiQueueObject(
                     id = queue.id,
                     title = queue.title,
-                    queue = shuffledSongs.map {
+                    queue = closeShuffleGaps(shuffledSongs.map {
                         val s = it.song.toMediaMetadata()
                         s.shuffleIndex = it.shuffledIndex
                         s
-                    }.toMutableList(),
+                    }.toMutableList()),
                     shuffled = queue.shuffled,
                     queuePos = queue.queuePos,
                     origin = queue.origin,
@@ -68,11 +81,11 @@ interface QueueDao {
         return MultiQueueObject(
             id = q.id,
             title = q.title,
-            queue = shuffledSongs.map {
+            queue = closeShuffleGaps(shuffledSongs.map {
                 val s = it.song.toMediaMetadata()
                 s.shuffleIndex = it.shuffledIndex
                 s
-            }.toMutableList(),
+            }.toMutableList()),
             shuffled = q.shuffled,
             queuePos = q.queuePos,
             origin = q.origin,

@@ -25,6 +25,7 @@ import com.dd3boh.outertune.models.MultiQueueObject
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.get
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -881,7 +882,7 @@ class QueueBoard(
     var queueSongMap = PriorityQueue<PriorityJob>()
     var jobActive = Mutex()
     // One save at a time, in the order they were asked for: see saveDispatcher.
-    val coroutineScope = CoroutineScope(saveDispatcher)
+    val coroutineScope = CoroutineScope(saveDispatcher + saveFailed)
 
     /**
      * Execute the most recent save request, with a 5 second delay from function call
@@ -1027,6 +1028,12 @@ class QueueBoard(
          * still be running.
          */
         private val saveDispatcher = Dispatchers.IO.limitedParallelism(1)
+
+        /**
+         * A save or delete that fails (a full phone fails them all) is logged: on a scope with no
+         * handler it would end the app.
+         */
+        private val saveFailed = CoroutineExceptionHandler { _, e -> Log.e("QueueBoard", "Saving the queues failed", e) }
     }
 
 }

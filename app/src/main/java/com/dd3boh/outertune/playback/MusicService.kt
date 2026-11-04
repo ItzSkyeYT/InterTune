@@ -1390,9 +1390,12 @@ class MusicService : MediaLibraryService(),
             }
 
             playerVolume.debounce(1000).collect(scope) { volume ->
-                dataStore.edit { settings ->
-                    settings[PlayerVolumeKey] = volume
-                }
+                // Caught: on this scope a write that fails (a full phone) would end the app.
+                runCatching {
+                    dataStore.edit { settings ->
+                        settings[PlayerVolumeKey] = volume
+                    }
+                }.onFailure { Log.w(TAG, "Could not keep the volume", it) }
             }
 
             dataStore.data
@@ -2463,7 +2466,11 @@ class MusicService : MediaLibraryService(),
      */
     fun enqueueNext(items: List<MediaItem>) {
         scope.launch {
-            if (!qbInit.value) {
+            // With no queue to put them in, the songs play as a new queue: the board is down (the
+            // mini player swiped away) or holds none (a fresh install, Persistent queue off after a
+            // restart, every queue deleted). They used to be dropped then, under a snackbar that
+            // said they went in.
+            if (!qbInit.value || queueBoard.getCurrentQueue() == null) {
 
                 // when enqueuing next when player isn't active, play as a new song
                 if (items.isNotEmpty()) {
@@ -2504,8 +2511,9 @@ class MusicService : MediaLibraryService(),
     fun enqueueEnd(items: List<MediaItem>) {
         // With the queue board down, as it is once the mini player has been swiped away, the
         // songs play as a new queue, as they do from Play next. They used to go to the end of the
-        // dismissed queue instead, where nothing showed them and nothing played them.
-        if (!qbInit.value) {
+        // dismissed queue instead, where nothing showed them and nothing played them. A board with
+        // no queue on it is the same: the songs were dropped there.
+        if (!qbInit.value || queueBoard.getCurrentQueue() == null) {
             if (items.isNotEmpty()) {
                 playQueue(
                     ListQueue(
@@ -2592,7 +2600,9 @@ class MusicService : MediaLibraryService(),
 
     fun triggerShuffle() {
         val oldIndex = activePlayer.currentMediaItemIndex
-        queueBoard.setCurrQueuePosIndex(oldIndex)
+        // An empty player says 0 (see MultiQueueObject.playNextIndex): its index is the queue's
+        // place only while it holds a song, or shuffle from the widget moved the queue to its start.
+        if (activePlayer.currentMediaItem != null) queueBoard.setCurrQueuePosIndex(oldIndex)
         val currentQueue = queueBoard.getCurrentQueue() ?: return
 
         // shuffle and update player playlist
@@ -4681,7 +4691,10 @@ class MusicService : MediaLibraryService(),
         // Held here at once, so that the next look cannot start a second timer before the store
         // has answered, and stored so that a restart of the app later that night does not either.
         sleepScheduleServed = look.night
-        scope.launch { dataStore.edit { it[SleepScheduleLastNightKey] = look.night.toString() } }
+        scope.launch {
+            runCatching { dataStore.edit { it[SleepScheduleLastNightKey] = look.night.toString() } }
+                .onFailure { Log.w(TAG, "Could not note tonight's sleep schedule", it) }
+        }
     }
 
     override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -5182,14 +5195,17 @@ class MusicService : MediaLibraryService(),
     private suspend fun takeRelatedRefreshBudget(): Boolean {
         val today = System.currentTimeMillis() / 86_400_000L
         var taken = false
-        dataStore.edit { prefs ->
-            val used = if (prefs[RelatedRefreshDayKey] == today) prefs[RelatedRefreshCountKey] ?: 0 else 0
-            if (used < RELATED_REFRESH_PER_DAY) {
-                prefs[RelatedRefreshDayKey] = today
-                prefs[RelatedRefreshCountKey] = used + 1
-                taken = true
+        // A write that fails (a full phone) takes no refresh, rather than ending the app.
+        runCatching {
+            dataStore.edit { prefs ->
+                val used = if (prefs[RelatedRefreshDayKey] == today) prefs[RelatedRefreshCountKey] ?: 0 else 0
+                if (used < RELATED_REFRESH_PER_DAY) {
+                    prefs[RelatedRefreshDayKey] = today
+                    prefs[RelatedRefreshCountKey] = used + 1
+                    taken = true
+                }
             }
-        }
+        }.onFailure { Log.w(TAG, "Could not count a related refresh", it); taken = false }
         return taken
     }
 
@@ -5609,9 +5625,11 @@ class MusicService : MediaLibraryService(),
         if (kind != null && !isCasting) activePlayer.currentMediaItem?.mediaId?.let { id -> noteSignal(id, kind, activePlayer.currentPosition) }
         updateNotification()
         offloadScope.launch {
-            dataStore.edit { settings ->
-                settings[RepeatModeKey] = repeatMode
-            }
+            runCatching {
+                dataStore.edit { settings ->
+                    settings[RepeatModeKey] = repeatMode
+                }
+            }.onFailure { Log.w(TAG, "Could not keep the repeat mode", it) }
         }
     }
 
