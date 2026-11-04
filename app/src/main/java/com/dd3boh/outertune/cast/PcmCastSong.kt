@@ -6,12 +6,17 @@
 
 package com.dd3boh.outertune.cast
 
+import android.util.Log
 import java.io.Closeable
 import java.io.IOException
 import kotlin.math.roundToInt
 
-/** What a song decodes to: its rate, its channels, and how long it lasts in microseconds (-1 when nothing says). */
-data class PcmSource(val rate: Int, val channels: Int, val durationUs: Long)
+/**
+ * What a song decodes to: its rate, its channels, how long it lasts in microseconds (-1 when nothing
+ * says), and [offsetUs], how far a whole packet's time stamp runs ahead of where its first sample
+ * falls in a decode from the start (PcmAnchor; 7.5 ms for YouTube's Opus, 0 for exact stamps).
+ */
+data class PcmSource(val rate: Int, val channels: Int, val durationUs: Long, val offsetUs: Long = 0)
 
 /**
  * Decoded audio: [frames] frames of interleaved 16-bit samples in [samples] from index 0, at [rate]
@@ -40,6 +45,55 @@ interface PcmDecoder {
 
     /** [song]'s audio from [fromUs], or from a little before it; each piece says where it is. Blocking. */
     fun open(song: CastSong, fromUs: Long): DecodedAudio
+}
+
+/**
+ * Where a decode's samples fall in the song, which a decoder's time stamps alone do not say.
+ *
+ * A decoder trims its first packet at the start of every decode, from the start of the song or
+ * from a seek (Opus: its pre-skip, 312 samples), and a file's stamps can sit off the sample count:
+ * YouTube's Opus files stamp the first packet 0 and every later one 1 ms after the count (0, 21,
+ * 41 ms...). Placed by its own first stamp, a decode started mid-song came out 1 ms late against
+ * one from the start (the Pixel 5, 4 Nov 2026): a renderer that asked twice for the same bytes got
+ * two different sets. So a decode's first piece is placed by its second, a whole packet: that one
+ * falls at its stamp less the song's [PcmSource.offsetUs], which a decode from the start measures
+ * once ([offsetUs]), and the first piece just before it.
+ */
+object PcmAnchor {
+    /**
+     * From the first two pieces of a decode from the start of a song: how far a whole packet's stamp
+     * is ahead of where its first sample falls, in microseconds; 0 when there are not two pieces.
+     */
+    fun offsetUs(fromStart: DecodedAudio): Long {
+        val first = fromStart.next() ?: return 0
+        val firstUs = first.frames * 1_000_000L / first.rate
+        val second = fromStart.next() ?: return 0
+        return second.timeUs - firstUs
+    }
+}
+
+/** [raw] with its first piece placed by its second ([PcmAnchor]), everything else as it comes. */
+class AnchoredAudio(private val raw: DecodedAudio, private val offsetUs: Long) : DecodedAudio {
+    private var started = false
+    private var waiting: DecodedPiece? = null
+
+    override fun next(): DecodedPiece? {
+        waiting?.let {
+            waiting = null
+            return it
+        }
+        if (started) return raw.next()
+        started = true
+        val piece = raw.next() ?: return null
+        // A copy: the decoder may give the next piece in the same array.
+        val first = DecodedPiece(piece.timeUs, piece.rate, piece.channels, piece.samples.copyOf(piece.frames * piece.channels), piece.frames)
+        val second = raw.next() ?: return first
+        waiting = second
+        val firstUs = second.timeUs - offsetUs - first.frames * 1_000_000L / first.rate
+        return DecodedPiece(firstUs, first.rate, first.channels, first.samples, first.frames)
+    }
+
+    override fun close() = raw.close()
 }
 
 /**
@@ -100,6 +154,7 @@ class PcmConverter(private val form: PcmForm, startFrame: Long) {
         inRate = piece.rate
         inChannels = piece.channels
         nextInput = Math.floorDiv(piece.timeUs * piece.rate + 500_000L, 1_000_000L)
+        Log.i(TAG, "Decoded audio starts at ${piece.timeUs} us (input frame $nextInput, ${piece.rate} Hz); serving from frame $nextFrame at ${form.rate} Hz")
         resampler = if (piece.rate == form.rate) {
             null
         } else {
@@ -164,6 +219,7 @@ class PcmConverter(private val form: PcmForm, startFrame: Long) {
         value.roundToInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
 
     private companion object {
+        const val TAG = "PcmConverter"
         const val OUT_FRAMES = 4096
         const val FOLD = 0.70710677f
     }
@@ -255,7 +311,8 @@ class PcmParking(
  * Its length comes from the song's duration ([source]): frames = duration x rate, rounded, so
  * a byte is a time and a range request starts decoding from that time, 200 ms early so the
  * decoder has settled, with samples dropped to the exact frame, and to the exact byte when a
- * renderer asks from the middle of a frame. A decode that ends short is made up to the length
+ * renderer asks from the middle of a frame. Where the decode's samples fall is set by PcmAnchor,
+ * so the same bytes come back for the same place whichever request reached it. A decode that ends short is made up to the length
  * with silence, one that runs over is cut, and one that fails is an error, so the renderer asks
  * again rather than playing silence.
  *
@@ -346,7 +403,8 @@ class PcmCastSong(
         private fun fill(): Boolean {
             if (decodeEnded) return false
             val converter = converter ?: PcmConverter(form, startFrame).also { converter = it }
-            val audio = audio ?: decoder.open(asIs, (form.timeUs(startFrame) - PREROLL_US).coerceAtLeast(0)).also { audio = it }
+            val audio = audio ?: AnchoredAudio(decoder.open(asIs, (form.timeUs(startFrame) - PREROLL_US).coerceAtLeast(0)), source.offsetUs)
+                .also { audio = it }
             bytesStart = 0
             bytesEnd = 0
             while (bytesEnd == bytesStart) {

@@ -75,8 +75,84 @@ class PcmCastSongTest {
         }
     }
 
-    private fun song(decoder: FakeDecoder, form: PcmForm, parking: PcmParking? = null) =
+    private fun song(decoder: PcmDecoder, form: PcmForm, parking: PcmParking? = null) =
         PcmCastSong(asIs, form, decoder.probe(asIs), decoder, parking)
+
+    /**
+     * Opus as YouTube's files decode on Android (the Pixel 5, 4 Nov 2026): packets of 960 samples at
+     * 48 kHz, the first 312 samples of the first packet each decode reads trimmed off (the pre-skip),
+     * the first packet stamped 0 and every later one at k x 20 ms + 1 ms. A packet's samples are the
+     * song's frames from k x 960 - 312, so a decode from anywhere gives the same samples for a frame.
+     */
+    private inner class OpusLikeDecoder(val frames: Long) : PcmDecoder {
+        override fun probe(song: CastSong) = PcmSource(48_000, 2, frames * 1_000_000L / 48_000, PcmAnchor.offsetUs(open(song, 0)))
+
+        override fun open(song: CastSong, fromUs: Long): DecodedAudio = object : DecodedAudio {
+            var packet = fromUs / 20_000
+            var first = true
+            val samples = ShortArray(960 * 2)
+
+            override fun next(): DecodedPiece? {
+                val skip = if (first) 312 else 0
+                val from = packet * 960 - 312 + skip
+                if (from >= frames) return null
+                val count = minOf(960L - skip, frames - from).toInt()
+                for (i in 0 until count) for (channel in 0 until 2) samples[i * 2 + channel] = sampleAt(from + i, channel)
+                val stamp = if (packet == 0L) 0L else packet * 20_000 + 1_000
+                packet++
+                first = false
+                return DecodedPiece(stamp, 48_000, 2, samples, count)
+            }
+
+            override fun close() = Unit
+        }
+    }
+
+    @Test
+    fun `a song's stamps are measured against its samples from its first two pieces`() {
+        fun audio(vararg pieces: Pair<Long, Int>) = object : DecodedAudio {
+            val left = pieces.toMutableList()
+            override fun next() = left.removeFirstOrNull()?.let { (us, frames) -> DecodedPiece(us, 48_000, 2, ShortArray(frames * 2), frames) }
+            override fun close() = Unit
+        }
+        // YouTube's Opus: a 648-frame first packet stamped 0, then 21 ms.
+        assertEquals(7_500L, PcmAnchor.offsetUs(audio(0L to 648, 21_000L to 960, 41_000L to 960)))
+        // Exact stamps, nothing trimmed.
+        assertEquals(0L, PcmAnchor.offsetUs(audio(0L to 960, 20_000L to 960)))
+        assertEquals(0L, PcmAnchor.offsetUs(audio(0L to 960)))
+        assertEquals(0L, PcmAnchor.offsetUs(audio()))
+    }
+
+    @Test
+    fun `a decode started mid-song is placed by its first whole packet, not by its first stamp`() {
+        val decoder = OpusLikeDecoder(480_000)
+        assertEquals(7_500L, decoder.probe(asIs).offsetUs)
+        // From 4.8 s: a 648-frame first piece stamped 4.801 s, whose first sample is frame 230,400.
+        val anchored = AnchoredAudio(decoder.open(asIs, 4_800_000), 7_500)
+        val first = anchored.next()!!
+        assertEquals(648, first.frames)
+        assertEquals(4_800_000L, first.timeUs)
+        assertEquals(sampleAt(230_400, 0), first.samples[0])
+        assertEquals(4_821_000L, anchored.next()!!.timeUs)
+    }
+
+    @Test
+    fun `every range is the bytes a decode from the start gives, though the decoder's stamps sit 1 ms off`() {
+        // As cast to the Pixel's test speaker on 4 Nov 2026, at the song's own rate and resampled.
+        for (form in listOf(PcmForm(PcmContainer.L16, 48_000, 2), cd)) {
+            val song = song(OpusLikeDecoder(480_000), form)
+            val whole = song.bytes(0)
+            assertEquals(song.length, whole.size.toLong())
+            for (position in listOf(4L, 384_000L, 768_002L, 1_000_000L, 1_536_001L)) {
+                val part = song.bytes(position, 16_000)
+                assertArrayEquals("${form.rate} Hz from $position", whole.copyOfRange(position.toInt(), position.toInt() + part.size), part)
+            }
+        }
+        // At the song's own rate the samples are the song's own frames, whichever decode gave them.
+        val direct = song(OpusLikeDecoder(480_000), PcmForm(PcmContainer.L16, 48_000, 2)).bytes(400_000, 8)
+        assertEquals(sampleAt(100_000, 0), ((direct[0].toInt() shl 8) or (direct[1].toInt() and 0xFF)).toShort())
+        assertEquals(sampleAt(100_000, 1), ((direct[2].toInt() shl 8) or (direct[3].toInt() and 0xFF)).toShort())
+    }
 
     /** [count] bytes from [position], read as the server reads, in pieces; fewer if the song ends. */
     private fun CastSong.bytes(position: Long, count: Long = Long.MAX_VALUE, pieceBytes: Int = 65_536): ByteArray {

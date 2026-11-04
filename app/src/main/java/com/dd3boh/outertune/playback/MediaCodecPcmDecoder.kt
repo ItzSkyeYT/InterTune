@@ -17,6 +17,7 @@ import com.dd3boh.outertune.cast.CastSong
 import com.dd3boh.outertune.cast.CastUnavailableException
 import com.dd3boh.outertune.cast.DecodedAudio
 import com.dd3boh.outertune.cast.DecodedPiece
+import com.dd3boh.outertune.cast.PcmAnchor
 import com.dd3boh.outertune.cast.PcmDecoder
 import com.dd3boh.outertune.cast.PcmSource
 import java.io.IOException
@@ -34,25 +35,24 @@ import kotlin.math.roundToInt
  * on the server's worker for the connection, never on the main thread.
  */
 class MediaCodecPcmDecoder : PcmDecoder {
-    override fun probe(song: CastSong): PcmSource {
-        val data = CastSongDataSource(song)
-        val extractor = MediaExtractor()
-        try {
-            extractor.setDataSource(data)
-            val track = audioTrack(extractor) ?: throw CastUnavailableException("The song holds no audio to decode")
-            val format = extractor.getTrackFormat(track)
-            val duration = if (format.containsKey(MediaFormat.KEY_DURATION)) format.getLong(MediaFormat.KEY_DURATION) else -1L
-            val source = PcmSource(format.getInteger(MediaFormat.KEY_SAMPLE_RATE), format.getInteger(MediaFormat.KEY_CHANNEL_COUNT), duration)
-            Log.i(TAG, "The song is ${format.getString(MediaFormat.KEY_MIME)}: $source")
-            return source
-        } catch (e: CastUnavailableException) {
-            throw e
-        } catch (e: Exception) {
-            throw data.failure ?: IOException("The song could not be read for decoding: ${e.message}", e)
-        } finally {
-            runCatching { extractor.release() }
-            data.close()
-        }
+    /**
+     * The song's rate, channels and duration from its track, and, from its first two packets decoded,
+     * how its stamps sit against its samples (PcmAnchor.offsetUs).
+     */
+    override fun probe(song: CastSong): PcmSource = open(song, 0).use { audio ->
+        val format = (audio as? Track)?.format ?: throw CastUnavailableException("The song holds no audio to decode")
+        val duration = if (format.containsKey(MediaFormat.KEY_DURATION)) format.getLong(MediaFormat.KEY_DURATION) else -1L
+        PcmSource(
+            format.getInteger(MediaFormat.KEY_SAMPLE_RATE),
+            format.getInteger(MediaFormat.KEY_CHANNEL_COUNT),
+            duration,
+            offsetUs = PcmAnchor.offsetUs(audio),
+        ).also { Log.i(TAG, "The song is ${format.getString(MediaFormat.KEY_MIME)}: $it") }
+    }
+
+    /** A decode that says what track it reads. */
+    private interface Track {
+        val format: MediaFormat
     }
 
     override fun open(song: CastSong, fromUs: Long): DecodedAudio {
@@ -90,8 +90,8 @@ class MediaCodecPcmDecoder : PcmDecoder {
         private val extractor: MediaExtractor,
         private val codec: MediaCodec,
         private val data: CastSongDataSource,
-        format: MediaFormat,
-    ) : DecodedAudio {
+        override val format: MediaFormat,
+    ) : DecodedAudio, Track {
         private val info = MediaCodec.BufferInfo()
         private val pcm = PcmSamples(format)
         private var inputDone = false
@@ -150,8 +150,8 @@ class MediaCodecPcmDecoder : PcmDecoder {
     private class RawAudio(
         private val extractor: MediaExtractor,
         private val data: CastSongDataSource,
-        format: MediaFormat,
-    ) : DecodedAudio {
+        override val format: MediaFormat,
+    ) : DecodedAudio, Track {
         private val pcm = PcmSamples(format)
         private val buffer = ByteBuffer.allocateDirect(
             if (format.containsKey(MediaFormat.KEY_MAX_INPUT_SIZE)) format.getInteger(MediaFormat.KEY_MAX_INPUT_SIZE).coerceIn(4096, 4 shl 20) else 256 * 1024,
