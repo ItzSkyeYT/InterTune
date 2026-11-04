@@ -114,6 +114,17 @@ A choice of a question can carry `then`: a second question, asked right after th
 - Only builds with follow-ups show them: debug and preview builds since 4 Nov 2026 (`Unreleased.POLL_FOLLOW_UPS`), and releases once it is turned on, 0.13 at the earliest. Every other build ignores `then` and sends the first answer alone, so one poll works for all of them. A `then` the app cannot read is left out, never the question.
 - `tools/polls/gist.py check` refuses a choice id used twice in one question, an id holding `/` or `,`, a `then` with no question or no choices, and a `then` inside a `then`.
 
+## Trying a question first
+
+A debug or preview build reads a poll document from the phone itself while there is one: `files/poll-stand-in.json` in the app's own storage. Start from the live document (`tools/polls/gist.py fetch`, which keeps the announcements and the playback block as they are), add the question, then:
+
+```
+adb push polls.json /data/local/tmp/poll-stand-in.json
+adb shell run-as dev.skye.intertune.debug cp /data/local/tmp/poll-stand-in.json files/
+```
+
+With Questions on, the question shows at the next check (Settings, Questions and news, or the next start). While the file is there nothing is fetched and nothing is sent: an answer goes to the log instead (`adb logcat -s PollChecker`), so a test never lands among the real answers. Let me be asked again shows an answered question again. `adb shell run-as dev.skye.intertune.debug rm files/poll-stand-in.json` ends it. Releases never read it.
+
 ## Worth knowing
 
 - A mistake leaves out that one announcement, never the others. A date or version the app cannot read hides it, rather than showing it early or for ever, so if one does not appear, check those first.

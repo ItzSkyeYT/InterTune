@@ -34,6 +34,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -156,6 +157,8 @@ class PollChecker @Inject constructor(
             _currentAnnouncement.value = null
             return@withContext null
         }
+        // A document put on the phone to try a question before it goes out: see standIn.
+        standIn()?.let { return@withContext pick(it) }
         // Offline means the check could not be made, not that there is nothing to ask: a question
         // already fetched keeps showing, as it does when the fetch below fails.
         if (!context.isInternetConnected()) return@withContext restoreFromCache()
@@ -207,6 +210,16 @@ class PollChecker @Inject constructor(
             store.edit { it[AnnouncementsEnabledKey] = true }
         }
     }
+
+    /**
+     * A poll document on the phone itself, to try a question on a debug or preview build before it
+     * goes out (docs/announcements.md): files/poll-stand-in.json in the app's own storage, which only
+     * adb can put there (run-as). While it is there it is read in place of the gist, and nothing is
+     * sent: an answer goes to the log, so a test never lands among the real answers. Never in a
+     * release.
+     */
+    private fun standIn(): String? = if (!BuildConfig.DEBUG) null
+    else runCatching { File(context.filesDir, STAND_IN).takeIf { it.isFile }?.readText() }.getOrNull()
 
     /** Re-reads the cached document and picks again, since what counts as unanswered has moved. */
     private suspend fun restoreFromCache(): Poll? {
@@ -327,7 +340,12 @@ class PollChecker @Inject constructor(
         markAnswered(poll.id)
 
         if (!Polls.isConfigured) return@withContext
-        send(Polls.UMAMI_EVENT, JSONObject(answerData(poll, optionIds, otherText, BuildConfig.VERSION_NAME)))
+        val data = answerData(poll, optionIds, otherText, BuildConfig.VERSION_NAME)
+        if (standIn() != null) {
+            Log.i(TAG, "Stand-in document: answer kept on the phone, it would send $data")
+            return@withContext
+        }
+        send(Polls.UMAMI_EVENT, JSONObject(data))
     }
 
     /**
@@ -346,7 +364,7 @@ class PollChecker @Inject constructor(
                 first = true
             }
         }
-        if (!first || !Polls.isConfigured) return@withContext
+        if (!first || !Polls.isConfigured || standIn() != null) return@withContext
         send(
             Polls.UMAMI_VIEW_EVENT,
             JSONObject()
@@ -429,6 +447,9 @@ class PollChecker @Inject constructor(
 
     companion object {
         private const val TAG = "PollChecker"
+
+        /** The stand-in document's name in the app's files: see standIn. */
+        private const val STAND_IN = "poll-stand-in.json"
 
         /**
          * What one answer sends, every key of it: the question and its id, the labels and the ids
