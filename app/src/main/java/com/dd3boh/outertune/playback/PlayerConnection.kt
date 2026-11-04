@@ -22,6 +22,7 @@ import androidx.media3.common.Player.STATE_ENDED
 import androidx.media3.common.Player.STATE_IDLE
 import androidx.media3.common.Timeline
 import com.dd3boh.outertune.constants.PlayOrigin
+import com.dd3boh.outertune.constants.PlayingQueueKey
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.db.entities.LyricsEntity.Companion.uninitializedLyric
 import com.dd3boh.outertune.extensions.currentMetadata
@@ -31,6 +32,8 @@ import com.dd3boh.outertune.extensions.metadata
 import com.dd3boh.outertune.extensions.togglePlayPause
 import com.dd3boh.outertune.lyrics.LyricsLookup
 import com.dd3boh.outertune.playback.queues.Queue
+import com.dd3boh.outertune.utils.dataStore
+import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.utils.reportException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -120,7 +123,7 @@ class PlayerConnection(
         repeatMode.value = player.repeatMode
 
         scope.launch {
-            val resumption = if (player.currentMetadata == null) database.getResumptionQueue() else null
+            val resumption = if (player.currentMetadata == null) database.getResumptionQueue(service.dataStore[PlayingQueueKey]) else null
             mediaMetadata.value = player.currentMetadata ?: resumption?.getCurrentSong()
             if (resumption != null && player.currentMediaItem == null) {
                 restoredPosition.value = resumption.lastSongPos.takeIf { it > 0 }

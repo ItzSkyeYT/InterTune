@@ -129,6 +129,13 @@ val MaxQueuesKey = intPreferencesKey("maxQueues")
 val PersistentQueueKey = booleanPreferencesKey("persistentQueue")
 
 /**
+ * The id of the queue playing, for the next start (QueueBoard.notePlaying). The list of queues keeps
+ * the order it is dragged into, so the last queue in it is not always the one playing. Missing, or
+ * naming a queue that is gone, the last queue is taken, as it always was.
+ */
+val PlayingQueueKey = longPreferencesKey("playingQueue")
+
+/**
  * Start playing the restored queue as soon as the app opens, rather than waiting to be told.
  *
  * Off by default and it must stay that way. This is sound without anybody pressing anything, and
