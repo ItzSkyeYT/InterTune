@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.core.graphics.scale
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.state.getAppWidgetState
+import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.appwidget.updateAll
 import androidx.glance.state.PreferencesGlanceStateDefinition
 import coil3.imageLoader
@@ -38,8 +39,10 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emptyFlow
@@ -154,6 +157,64 @@ object WidgetStore {
             manager.getAppWidgetOptions(id).getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH) >= WidgetLayout.PANES_WIDTH_DP
         }
     }.getOrDefault(false)
+
+    /**
+     * The player widgets on home screens now, by the launcher's own record, oldest first: Settings >
+     * Widgets has a card for each. The recognition button has nothing to set, so it has none.
+     */
+    fun placed(context: Context): List<Int> = runCatching {
+        AppWidgetManager.getInstance(context).getAppWidgetIds(ComponentName(context, MusicWidgetReceiver::class.java)).sorted()
+    }.getOrDefault(emptyList())
+
+    /**
+     * One widget's settings read or written at a time. A read waits for a write asked for before it,
+     * so a screen that reads a widget again never gets what it was before a change still landing.
+     */
+    private val settingsLock = Mutex()
+
+    /** Where a change asked for by a screen is written, so it lands after the screen has gone. */
+    private val settingsScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    /**
+     * What widget [appWidgetId] is set to now, or the defaults when it has never been asked: its own
+     * Glance state (WidgetKeys), which its setup sheet and Settings > Widgets both read.
+     */
+    suspend fun settingsOf(context: Context, appWidgetId: Int): WidgetSettings {
+        return settingsLock.withLock {
+            runCatching {
+                val glanceId = GlanceAppWidgetManager(context).getGlanceIdBy(appWidgetId)
+                WidgetKeys.read(getAppWidgetState(context, PreferencesGlanceStateDefinition, glanceId))
+            }.getOrDefault(WidgetSettings())
+        }
+    }
+
+    /**
+     * [settings] for widget [appWidgetId], and that widget drawn again with them at once. How its
+     * setup sheet saves and how Settings > Widgets does, so the two edit the same values.
+     */
+    suspend fun saveSettings(context: Context, appWidgetId: Int, settings: WidgetSettings) {
+        settingsLock.withLock {
+            runCatching {
+                val glanceId = GlanceAppWidgetManager(context).getGlanceIdBy(appWidgetId)
+                updateAppWidgetState(context, glanceId) { prefs -> WidgetKeys.write(prefs, settings) }
+                MusicWidget().update(context, glanceId)
+            }.onFailure { Log.w(TAG, "Could not save widget $appWidgetId's settings", it) }
+        }
+    }
+
+    /**
+     * [saveSettings] for a screen that can be left the moment a choice is made, as Settings >
+     * Widgets can: in a scope of its own, one change after another in the order they were made
+     * (each takes the lock before this returns, or queues for it), and then whatever the widget's
+     * new list is missing fetched, as the setup sheet has it fetched after its Done.
+     */
+    fun changeSettings(context: Context, appWidgetId: Int, settings: WidgetSettings) {
+        val app = context.applicationContext
+        settingsScope.launch(start = CoroutineStart.UNDISPATCHED) {
+            saveSettings(app, appWidgetId, settings)
+            runCatching { hydrate(app) }.onFailure { Log.w(TAG, "Could not fill the widget after a change", it) }
+        }
+    }
 
     suspend fun read(context: Context): WidgetSnapshot = withContext(Dispatchers.IO) {
         runCatching { WidgetCodec.decode(file(context).takeIf { it.exists() }?.readText()) }

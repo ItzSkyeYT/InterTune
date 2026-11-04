@@ -177,6 +177,7 @@ val SETTINGS_CATEGORIES = listOfNotNull(
     Tour.ROUTE_LIBRARY,
     Tour.ROUTE_LOCAL,
     Tour.ROUTE_LOOK_AND_FEEL,
+    Tour.ROUTE_WIDGETS.takeIf { Unreleased.WIDGETS_PAGE },
     Tour.ROUTE_PLAYER,
     Tour.ROUTE_RECOGNITION,
     Tour.ROUTE_LYRICS,
@@ -195,6 +196,7 @@ val SETTINGS_CATEGORIES = listOfNotNull(
  * has either stops or a reason: the test fails on one with neither.
  */
 val CLOSER_LOOK_LEFT_OUT = mapOf(
+    Tour.ROUTE_WIDGETS to "A card for each widget on the home screen and the two to add: none of it is a setting of the app, and with no widget there is no card to point at.",
     Tour.ROUTE_BATTERY to "One choice, and the line under it says what each mode turns down: a bubble would only say it again.",
     Tour.ROUTE_ADVANCED to "Emptying the image cache and the switch for the developer's own settings: upkeep, with nothing to choose between.",
     Tour.ROUTE_ABOUT to "Nothing on it is a setting. It holds the way back into this tour.",

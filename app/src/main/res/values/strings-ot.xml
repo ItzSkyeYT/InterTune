@@ -2388,4 +2388,16 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="new_lyrics_video_long_body" translatable="false">Long-press a line of the lyrics to share a video of up to ten minutes of the song. With Living blur on, its background moves with the music.</string>
     <string name="new_share_cards_title" translatable="false">Shared songs show their cover</string>
     <string name="new_share_cards_body" translatable="false">A song shared as InterTune\'s page shows its name and cover in chat apps.</string>
+    <!-- Settings > Widgets (WidgetsSettings, Unreleased.WIDGETS_PAGE): its row in Settings, its parts, All options' lines for each style, Add, and the note where the home screen takes no widget from an app. Held from translators until his go, their French beside them in values-fr. widgets_cells is a widget's size in cells, figures and a sign: nothing to translate. -->
+    <string name="widgets" translatable="false">Widgets</string>
+    <string name="settings_widgets_description" translatable="false">Add widgets to your home screen, and change how each one looks.</string>
+    <string name="widgets_on_home_screen" translatable="false">On your home screen</string>
+    <string name="widgets_add_title" translatable="false">Add a widget</string>
+    <string name="widgets_add" translatable="false">Add</string>
+    <string name="widgets_all_options" translatable="false">All options</string>
+    <string name="widgets_all_options_cover" translatable="false">Opacity, text size, what it shows</string>
+    <string name="widgets_all_options_full_cover" translatable="false">Text size, what it shows</string>
+    <string name="widgets_all_options_shelf" translatable="false">Background, buttons, rows</string>
+    <string name="widgets_add_from_home" translatable="false">This home screen does not take widgets from apps. Add them from its own widget list.</string>
+    <string name="widgets_cells" translatable="false">%1$d × %2$d</string>
 </resources>

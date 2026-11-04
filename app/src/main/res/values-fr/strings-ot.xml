@@ -2203,4 +2203,14 @@
     <string name="new_lyrics_video_long_body">Appuyez longuement sur une ligne des paroles pour partager une vidéo qui prend jusqu\'à dix minutes du titre. Avec le Flou vivant, son fond bouge avec la musique.</string>
     <string name="new_share_cards_title">Les titres partagés montrent leur pochette</string>
     <string name="new_share_cards_body">Un titre partagé en page InterTune affiche son nom et sa pochette dans les applis de discussion.</string>
+    <string name="widgets">Widgets</string>
+    <string name="settings_widgets_description">Ajoutez des widgets à votre écran d\'accueil, et changez l\'apparence de chacun.</string>
+    <string name="widgets_on_home_screen">Sur votre écran d\'accueil</string>
+    <string name="widgets_add_title">Ajouter un widget</string>
+    <string name="widgets_add">Ajouter</string>
+    <string name="widgets_all_options">Toutes les options</string>
+    <string name="widgets_all_options_cover">Opacité, taille du texte, ce qu\'il affiche</string>
+    <string name="widgets_all_options_full_cover">Taille du texte, ce qu\'il affiche</string>
+    <string name="widgets_all_options_shelf">Arrière-plan, boutons, lignes</string>
+    <string name="widgets_add_from_home">Cet écran d\'accueil n\'accepte pas les widgets des applications. Ajoutez-les depuis sa propre liste de widgets.</string>
 </resources>

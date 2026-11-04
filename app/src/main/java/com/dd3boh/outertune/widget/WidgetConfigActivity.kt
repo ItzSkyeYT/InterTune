@@ -84,10 +84,6 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
-import androidx.glance.appwidget.GlanceAppWidgetManager
-import androidx.glance.appwidget.state.getAppWidgetState
-import androidx.glance.appwidget.state.updateAppWidgetState
-import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.lifecycle.lifecycleScope
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.Unreleased
@@ -198,37 +194,19 @@ class WidgetConfigActivity : ComponentActivity() {
         }
     }
 
-    /**
-     * This widget's size on the home screen now, in dp, for the preview. A launcher gives a widget
-     * its size as a range: the narrowest width with the tallest height is its portrait shape.
-     * Null while the launcher has not said, which a Pixel does not until the widget is placed,
-     * after this screen has closed.
-     */
-    private fun widgetSize(): IntSize? {
-        val options = AppWidgetManager.getInstance(this).getAppWidgetOptions(appWidgetId)
-        val landscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-        val w = options.getInt(if (landscape) AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH else AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH)
-        val h = options.getInt(if (landscape) AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT else AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT)
-        return if (w > 0 && h > 0) IntSize(w, h) else null
-    }
+    /** This widget's size on the home screen now, for the preview: see [placedSize]. */
+    private fun widgetSize(): IntSize? = placedSize(this, appWidgetId)
 
     /** What this widget is set to now, or the defaults when it has never been asked. */
-    private suspend fun current(): WidgetSettings = runCatching {
-        val glanceId = GlanceAppWidgetManager(this).getGlanceIdBy(appWidgetId)
-        WidgetKeys.read(getAppWidgetState(this, PreferencesGlanceStateDefinition, glanceId))
-    }.getOrDefault(WidgetSettings())
+    private suspend fun current(): WidgetSettings = WidgetStore.settingsOf(this, appWidgetId)
 
     @OptIn(DelicateCoroutinesApi::class)
     private fun save(settings: WidgetSettings) {
         lifecycleScope.launch {
             val appContext = applicationContext
-            runCatching {
-                val glanceId = GlanceAppWidgetManager(this@WidgetConfigActivity).getGlanceIdBy(appWidgetId)
-                updateAppWidgetState(this@WidgetConfigActivity, glanceId) { prefs ->
-                    WidgetKeys.write(prefs, settings)
-                }
-                MusicWidget().update(this@WidgetConfigActivity, glanceId)
-            }
+            // The write a change in Settings > Widgets makes too: this widget's own state, and the
+            // widget drawn again with it.
+            WidgetStore.saveSettings(this@WidgetConfigActivity, appWidgetId, settings)
             // hydrate fetches artwork over the network and can take a while, so it runs after this
             // screen has said yes: waiting for it here would leave Done hanging, and Back or leaving
             // meanwhile would finish with the RESULT_CANCELED set in onCreate, which makes the
@@ -240,6 +218,32 @@ class WidgetConfigActivity : ComponentActivity() {
             finish()
         }
     }
+
+    companion object {
+        /**
+         * This screen for widget [appWidgetId], opened from inside the app (All options in Settings >
+         * Widgets): an edit, as from the launcher's own button. In the app's task, so Done and Back
+         * come back to the page. Nothing waits for its answer there, so leaving without Done takes
+         * nothing off the home screen.
+         */
+        fun edit(context: Context, appWidgetId: Int): Intent {
+            return Intent(context, WidgetConfigActivity::class.java).putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+        }
+    }
+}
+
+/**
+ * Widget [appWidgetId]'s size on the home screen now, in dp. A launcher gives a widget its size as
+ * a range: the narrowest width with the tallest height is its portrait shape, the widest with the
+ * shortest its shape on its side. Null while the launcher has not said, which a Pixel does not
+ * until the widget is placed, after its setup sheet has closed.
+ */
+internal fun placedSize(context: Context, appWidgetId: Int): IntSize? {
+    val options = AppWidgetManager.getInstance(context).getAppWidgetOptions(appWidgetId)
+    val landscape = context.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val w = options.getInt(if (landscape) AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH else AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH)
+    val h = options.getInt(if (landscape) AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT else AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT)
+    return if (w > 0 && h > 0) IntSize(w, h) else null
 }
 
 @Composable
@@ -394,10 +398,18 @@ private val UsualSize = IntSize(360, 170)
  * The widget on a patch of colour standing in for a home screen, with a line saying what it is:
  * this widget at its size, or, before the launcher has said what that is, a usual one. With
  * [onWallpaper] there is no patch and no line: the window lets the real wallpaper through behind
- * the widget, and the line is the first thing on the sheet under it.
+ * the widget, and the line is the first thing on the sheet under it. Without [hint], the patch and
+ * no line, as Settings > Widgets draws each widget on its card.
  */
 @Composable
-private fun Preview(settings: WidgetSettings, known: IntSize?, onWallpaper: Boolean, modifier: Modifier = Modifier) {
+private fun Preview(
+    settings: WidgetSettings,
+    known: IntSize?,
+    onWallpaper: Boolean,
+    modifier: Modifier = Modifier,
+    hint: Boolean = true,
+    redraw: Int = 0,
+) {
     val size = known ?: UsualSize
     val colors = MaterialTheme.colorScheme
     Column(modifier = modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -412,10 +424,20 @@ private fun Preview(settings: WidgetSettings, known: IntSize?, onWallpaper: Bool
                 .padding(16.dp),
             contentAlignment = Alignment.Center,
         ) {
-            LiveWidget(settings, size)
+            LiveWidget(settings, size, redraw)
         }
-        if (!onWallpaper) PreviewHint(known != null, modifier = Modifier.padding(top = 8.dp, start = 8.dp, end = 8.dp))
+        if (!onWallpaper && hint) PreviewHint(known != null, modifier = Modifier.padding(top = 8.dp, start = 8.dp, end = 8.dp))
     }
+}
+
+/**
+ * A widget on the home screen as Settings > Widgets shows it on its card: this sheet's own preview,
+ * the same live drawing at the widget's size on the same patch of colour, without the line under it.
+ * A new [redraw] draws it again from what plays now, with nothing changed.
+ */
+@Composable
+internal fun WidgetOnHomeScreen(settings: WidgetSettings, size: IntSize?, redraw: Int, modifier: Modifier = Modifier) {
+    Preview(settings, size, onWallpaper = false, modifier = modifier, hint = false, redraw = redraw)
 }
 
 /** The line that says what the preview is. */
@@ -433,13 +455,14 @@ private fun PreviewHint(known: Boolean, modifier: Modifier = Modifier) {
 /**
  * The widget as the launcher will draw it, redrawn as the settings change: Glance composes the
  * same views it sends the launcher, from the same snapshot, and they are inflated here. Scaled
- * down, never up, when the widget is bigger than the room.
+ * down, never up, when the widget is bigger than the room. Redrawn too at a new [size], which in
+ * the app comes with a turn of the phone and no new screen, and at a new [redraw].
  */
 @Composable
-private fun LiveWidget(settings: WidgetSettings, size: IntSize) {
+private fun LiveWidget(settings: WidgetSettings, size: IntSize, redraw: Int = 0) {
     val context = LocalContext.current
     var views by remember { mutableStateOf<RemoteViews?>(null) }
-    LaunchedEffect(settings) {
+    LaunchedEffect(settings, size, redraw) {
         // A slider dragged end to end asks for a drawing at every step; only the last is wanted.
         delay(60)
         // Never reached by a drawing that a newer change has cancelled: the preview keeps what it
@@ -528,9 +551,12 @@ private fun Chip(label: String, selected: Boolean, onSelect: () -> Unit) {
     FilterChip(selected = selected, onClick = onSelect, label = { Text(label) })
 }
 
-/** One style to pick: a small picture of it over its name, the card the button, outlined when chosen. The Shelf's picture is of its look. */
+/**
+ * One style to pick: a small picture of it over its name, the card the button, outlined when chosen. The Shelf's picture is of its look.
+ * Settings > Widgets offers the styles with these very tiles.
+ */
 @Composable
-private fun StyleChoice(style: WidgetStyle, selected: Boolean, look: ShelfLook, modifier: Modifier, onSelect: () -> Unit) {
+internal fun StyleChoice(style: WidgetStyle, selected: Boolean, look: ShelfLook, modifier: Modifier, onSelect: () -> Unit) {
     PictureCard(
         stringResource(
             when (style) {
@@ -543,9 +569,9 @@ private fun StyleChoice(style: WidgetStyle, selected: Boolean, look: ShelfLook, 
     ) { StylePicture(style, look, it) }
 }
 
-/** One of a Shelf's looks to pick, the same kind of card as a style. */
+/** One of a Shelf's looks to pick, the same kind of card as a style, here and in Settings > Widgets. */
 @Composable
-private fun LookChoice(look: ShelfLook, selected: Boolean, modifier: Modifier, onSelect: () -> Unit) {
+internal fun LookChoice(look: ShelfLook, selected: Boolean, modifier: Modifier, onSelect: () -> Unit) {
     PictureCard(
         stringResource(
             when (look) {
