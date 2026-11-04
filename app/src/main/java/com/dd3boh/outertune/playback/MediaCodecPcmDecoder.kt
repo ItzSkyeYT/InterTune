@@ -11,6 +11,7 @@ import android.media.MediaCodec
 import android.media.MediaDataSource
 import android.media.MediaExtractor
 import android.media.MediaFormat
+import android.util.Log
 import com.dd3boh.outertune.cast.CastReader
 import com.dd3boh.outertune.cast.CastSong
 import com.dd3boh.outertune.cast.CastUnavailableException
@@ -41,7 +42,9 @@ class MediaCodecPcmDecoder : PcmDecoder {
             val track = audioTrack(extractor) ?: throw CastUnavailableException("The song holds no audio to decode")
             val format = extractor.getTrackFormat(track)
             val duration = if (format.containsKey(MediaFormat.KEY_DURATION)) format.getLong(MediaFormat.KEY_DURATION) else -1L
-            return PcmSource(format.getInteger(MediaFormat.KEY_SAMPLE_RATE), format.getInteger(MediaFormat.KEY_CHANNEL_COUNT), duration)
+            val source = PcmSource(format.getInteger(MediaFormat.KEY_SAMPLE_RATE), format.getInteger(MediaFormat.KEY_CHANNEL_COUNT), duration)
+            Log.i(TAG, "The song is ${format.getString(MediaFormat.KEY_MIME)}: $source")
+            return source
         } catch (e: CastUnavailableException) {
             throw e
         } catch (e: Exception) {
@@ -63,6 +66,7 @@ class MediaCodecPcmDecoder : PcmDecoder {
             val format = extractor.getTrackFormat(track)
             if (fromUs > 0) extractor.seekTo(fromUs, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
             val mime = format.getString(MediaFormat.KEY_MIME) ?: throw CastUnavailableException("The song's audio has no type")
+            Log.i(TAG, "Decoding $mime from ${fromUs / 1000} ms")
             // A WAV file on the phone is raw audio already, which no codec decodes.
             if (mime == MediaFormat.MIMETYPE_AUDIO_RAW) return RawAudio(extractor, data, format)
             codec = MediaCodec.createDecoderByType(mime)
@@ -225,6 +229,7 @@ class MediaCodecPcmDecoder : PcmDecoder {
     }
 
     private companion object {
+        const val TAG = "MediaCodecPcm"
         const val TIMEOUT_US = 10_000L
 
         /** A decoder that gives nothing for this long is taken to have stopped. */

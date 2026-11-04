@@ -259,10 +259,11 @@ class CastServer(
      */
     fun preparePcm(mediaId: String, target: PcmTarget, durationHintMs: Long = -1): CastOffer {
         if (durationHintMs > 0) durationHints[mediaId] = durationHintMs
-        val source = pcmSourceFor(mediaId)
-        val form = PcmFormats.pick(target, source.rate, source.channels)
+        val decoded = pcmSourceFor(mediaId)
+        val form = PcmFormats.pick(target, decoded.rate, decoded.channels)
         pcmForms[form.key] = form
         val song = pcmSongFor(mediaId, form)
+        Log.i(TAG, "$mediaId decodes at ${decoded.rate} Hz in ${decoded.channels} channels; serving ${song.mimeType}, ${song.length} bytes, ${song.durationMs} ms")
         return CastOffer(urlFor(mediaId, form), song.mimeType, song.length, song.durationMs)
     }
 
@@ -279,7 +280,7 @@ class CastServer(
 
     private fun pcmSourceFor(mediaId: String): PcmSource {
         val decoder = pcmDecoder ?: throw CastUnavailableException("Raw audio cannot be sent from this build")
-        val source = pcmSources.getOrPut(mediaId) {
+        val decoded = pcmSources.getOrPut(mediaId) {
             lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
                 val song = songFor(mediaId)
                 try {
@@ -291,16 +292,15 @@ class CastServer(
                 }
             }
         }.value
-        if (source.durationUs > 0) return source
-        val hint = durationHints[mediaId] ?: return source
-        return source.copy(durationUs = hint * 1000)
+        if (decoded.durationUs > 0) return decoded
+        val hint = durationHints[mediaId] ?: return decoded
+        return decoded.copy(durationUs = hint * 1000)
     }
 
     private fun pcmSongFor(mediaId: String, form: PcmForm): PcmCastSong =
         pcmSongs.getOrPut("$mediaId/${form.key}") {
             lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
-                val source = pcmSourceFor(mediaId)
-                PcmCastSong(songFor(mediaId), form, source, pcmDecoder ?: throw CastUnavailableException("No decoder"), parking)
+                PcmCastSong(songFor(mediaId), form, pcmSourceFor(mediaId), pcmDecoder ?: throw CastUnavailableException("No decoder"), parking)
             }
         }.value
 
