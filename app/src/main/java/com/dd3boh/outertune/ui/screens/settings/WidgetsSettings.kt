@@ -64,6 +64,7 @@ import com.dd3boh.outertune.widget.WidgetStyle
 import com.dd3boh.outertune.widget.canPinWidgets
 import com.dd3boh.outertune.widget.pinWidget
 import com.dd3boh.outertune.widget.placedSize
+import com.dd3boh.outertune.utils.Toaster
 
 /**
  * Settings > Widgets (Unreleased.WIDGETS_PAGE), his ask of 3 Nov 2026 for "a easy settings menu for
@@ -104,7 +105,7 @@ fun WidgetsSettings(
     }
     val canPin = remember { canPinWidgets(context) }
     fun add(widget: OfferedWidget) {
-        if (!pinWidget(context, widget)) Toast.makeText(context, R.string.welcome_back_no_widget_host, Toast.LENGTH_LONG).show()
+        if (!pinWidget(context, widget)) Toaster.show(context, R.string.welcome_back_no_widget_host, Toast.LENGTH_LONG)
     }
 
     ColumnWithContentPadding(

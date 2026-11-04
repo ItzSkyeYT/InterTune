@@ -108,6 +108,7 @@ import java.time.ZoneOffset
 import java.util.concurrent.Executor
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.dd3boh.outertune.utils.Toaster
 
 @Singleton
 class DownloadUtil @Inject constructor(
@@ -395,7 +396,7 @@ class DownloadUtil @Inject constructor(
             // only have fired for someone with wifi-only downloads on a metered network, which is
             // precisely the person this feature is for.
             CoroutineScope(Dispatchers.Main.immediate).launch {
-                Toast.makeText(context, R.string.download_waiting_for_wifi, Toast.LENGTH_SHORT).show()
+                Toaster.show(context, R.string.download_waiting_for_wifi, Toast.LENGTH_SHORT)
             }
         }
     }
@@ -887,7 +888,7 @@ class DownloadUtil @Inject constructor(
                     Log.d(TAG, "Migrating download: $runs/${toMigrate.size}")
                     if (runs % 20 == 0 && !quiet) {
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "$runs/${toMigrate.size}", LENGTH_SHORT).show()
+                            Toaster.show(context, "$runs/${toMigrate.size}", LENGTH_SHORT)
                         }
                     }
                 }

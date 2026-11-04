@@ -74,6 +74,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.InputStream
+import com.dd3boh.outertune.utils.Toaster
 
 @Composable
 fun ImportM3uDialog(
@@ -457,7 +458,7 @@ suspend fun loadM3u(
         // a toast made there throws, the dialog's catch took that, and a file that could not be
         // read said nothing at all.
         withContext(Dispatchers.Main) {
-            Toast.makeText(context, R.string.m3u_import_playlist_failed, Toast.LENGTH_SHORT).show()
+            Toaster.show(context, R.string.m3u_import_playlist_failed, Toast.LENGTH_SHORT)
         }
     }
 

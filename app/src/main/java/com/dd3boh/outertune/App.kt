@@ -94,6 +94,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import java.net.Proxy
 import java.util.Locale
+import com.dd3boh.outertune.utils.Toaster
 
 @HiltAndroidApp
 class App : Application(), SingletonImageLoader.Factory {
@@ -159,7 +160,7 @@ class App : Application(), SingletonImageLoader.Factory {
                     .getOrNull()
             }
             if (proxy != null) YouTube.proxy = proxy
-            else Toast.makeText(this, R.string.proxy_not_used_at_start, Toast.LENGTH_LONG).show()
+            else Toaster.show(this, R.string.proxy_not_used_at_start, Toast.LENGTH_LONG)
         }
 
         if (dataStore[UseLoginForBrowse] != false) {
@@ -197,7 +198,7 @@ class App : Application(), SingletonImageLoader.Factory {
                         ?.takeIf { it != "null" } // Previously visitorData was sometimes saved as "null" due to a bug
                         ?: YouTube.visitorData().onFailure {
                             withContext(Dispatchers.Main) {
-                                Toast.makeText(this@App, "Failed to get visitorData.", LENGTH_SHORT).show()
+                                Toaster.show(this@App, "Failed to get visitorData.", LENGTH_SHORT)
                             }
                             reportException(it)
                         }.getOrNull()?.also { newVisitorData ->

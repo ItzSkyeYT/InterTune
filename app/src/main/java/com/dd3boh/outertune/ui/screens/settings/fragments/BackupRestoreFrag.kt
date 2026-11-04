@@ -103,6 +103,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.semantics.Role
 import com.dd3boh.outertune.utils.BackupParts
+import com.dd3boh.outertune.utils.Toaster
 
 // The expressive slider track, the one with the gap beside the thumb, is still marked
 // experimental in Material 3 1.4. It is what the rest of the system draws, so it is the right
@@ -181,12 +182,12 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
                     0
                 }
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(
+                    Toaster.show(
                         appContext,
                         if (exported == 0) appContext.getString(R.string.no_playlists_to_export)
                         else appContext.resources.getQuantityString(R.plurals.exported_playlists, exported, exported),
                         Toast.LENGTH_SHORT
-                    ).show()
+                    )
                 }
             }
         }

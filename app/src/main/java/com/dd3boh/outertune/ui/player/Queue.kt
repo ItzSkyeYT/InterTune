@@ -208,6 +208,7 @@ import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import java.time.LocalDateTime
 import kotlin.math.roundToInt
+import com.dd3boh.outertune.utils.Toaster
 
 /** The adaptive queue's note in words: see AdaptiveNote. */
 @Composable
@@ -803,7 +804,7 @@ fun BoxScope.QueueContent(
                     }.onFailure { Log.w("Queue.kt", "Could not save the queue as a playlist", it) }.isSuccess
                     if (saved) {
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, context.getString(R.string.saved_as_playlist, name), Toast.LENGTH_SHORT).show()
+                            Toaster.show(context, context.getString(R.string.saved_as_playlist, name), Toast.LENGTH_SHORT)
                         }
                     }
                 }

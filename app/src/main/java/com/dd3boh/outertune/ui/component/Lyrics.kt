@@ -157,6 +157,7 @@ import com.dd3boh.outertune.lyrics.LyricsClock
 import com.dd3boh.outertune.lyrics.LyricsMoments
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.withTimeoutOrNull
+import com.dd3boh.outertune.utils.Toaster
 
 @SuppressLint("UnusedBoxWithConstraintsScope")
 @Composable
@@ -278,7 +279,7 @@ fun Lyrics(
                 picked.addAll(result.lines)
             }
 
-            LyricsShare.Pick.Full -> Toast.makeText(context, if (isSynced) mostForVideo else mostLines, Toast.LENGTH_SHORT).show()
+            LyricsShare.Pick.Full -> Toaster.show(context, if (isSynced) mostForVideo else mostLines, Toast.LENGTH_SHORT)
 
             LyricsShare.Pick.Empty -> Unit
         }

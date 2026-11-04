@@ -88,6 +88,7 @@ import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.installedFrom
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.dd3boh.outertune.utils.Toaster
 
 /** GitHub turns down a very long address, and what led up to the fault is what the form is for. */
 private const val FORM_LOG_LIMIT = 5000
@@ -323,7 +324,7 @@ fun ProblemReportDialog(onDismiss: () -> Unit) {
                             ?.setPrimaryClip(ClipData.newPlainText("InterTune log", text.orEmpty()))
                         // Android 13 and later show their own confirmation for every copy.
                         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-                            Toast.makeText(context, R.string.problem_report_copied, Toast.LENGTH_SHORT).show()
+                            Toaster.show(context, R.string.problem_report_copied, Toast.LENGTH_SHORT)
                         }
                     }
                 ) { Text(stringResource(R.string.problem_report_copy)) }
@@ -389,7 +390,7 @@ internal fun SentDialog(sent: ReportRelay.Outcome.Sent, onDismiss: () -> Unit) {
                 context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText("InterTune report", sent.url))
                 // Android 13 and later show their own confirmation for every copy.
                 if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-                    Toast.makeText(context, R.string.problem_report_copied, Toast.LENGTH_SHORT).show()
+                    Toaster.show(context, R.string.problem_report_copied, Toast.LENGTH_SHORT)
                 }
             }) { Text(stringResource(R.string.problem_report_copy_link)) }
         },

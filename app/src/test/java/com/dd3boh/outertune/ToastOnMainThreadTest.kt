@@ -38,7 +38,7 @@ class ToastOnMainThreadTest {
     }.toList()
 
     /** The indices of [lines] that make a toast off the main thread. */
-    private fun offMainToasts(lines: List<String>): List<Int> = lines.indices.filter { "Toast.makeText" in lines[it] }.filter { at ->
+    private fun offMainToasts(lines: List<String>): List<Int> = lines.indices.filter { "Toast.makeText" in lines[it] || "Toaster.show(" in lines[it] }.filter { at ->
         var depth = 0
         for (j in at - 1 downTo maxOf(0, at - 400)) {
             val line = lines[j]
