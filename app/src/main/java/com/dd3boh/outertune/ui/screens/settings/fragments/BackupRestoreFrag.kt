@@ -55,7 +55,6 @@ import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
 import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.R
-import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.AutoBackupEnabledKey
 import com.dd3boh.outertune.constants.AutoBackupFolderKey
 import com.dd3boh.outertune.constants.AutoBackupIntervalHoursKey
@@ -104,6 +103,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.semantics.Role
 import com.dd3boh.outertune.utils.BackupParts
+import com.dd3boh.outertune.utils.PlaylistCovers
 import com.dd3boh.outertune.utils.Toaster
 
 // The expressive slider track, the one with the gap beside the thumb, is still marked
@@ -792,8 +792,8 @@ private fun BackupPartsDialog(
         )
         BackupPartRow(stringResource(R.string.backup_part_library), stringResource(R.string.backup_part_library_note), library, onChange = onLibrary)
         BackupPartRow(stringResource(R.string.backup_part_settings), stringResource(R.string.backup_part_settings_note), settings, onChange = onSettings)
-        // Covers picked from the phone come with PLAYLIST_COVER: without it there are none to keep.
-        if (Unreleased.PLAYLIST_COVER) {
+        // Only where covers can be picked from the phone: without that there are none to keep.
+        if (PlaylistCovers.offered) {
             BackupPartRow(stringResource(R.string.backup_part_photos), stringResource(R.string.backup_part_photos_note), photos && library, enabled = library, onChange = onPhotos)
         }
         BackupPartRow(
