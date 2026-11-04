@@ -22,7 +22,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.NoAccounts
-import androidx.compose.material.icons.rounded.VpnLock
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -54,9 +53,8 @@ import com.dd3boh.outertune.utils.rememberPreference
 
 /**
  * Why search, a radio, a mix or Home stopped loading, with the button that fixes it, where the
- * listener meets it (WhyStopped): a sign-in YouTube no longer accepts, with Sign in again; a
- * connection that does not reach YouTube, or one YouTube turns away, with Retry and the proxy
- * switch.
+ * listener meets it (WhyStopped): a sign-in YouTube no longer accepts, with Sign in again, or a
+ * connection that does not reach YouTube, with Retry and the proxy switch.
  *
  * The look of [RegionNote] ([NoteCard]), since it is the same kind of thing: a word from the app
  * about why something is missing. [onRetry] null leaves Retry out, for Home, which loads again by
@@ -87,18 +85,6 @@ fun WhyStoppedNote(
             icon = Icons.Rounded.CloudOff,
             title = stringResource(R.string.why_stopped_unreachable_title),
             body = stringResource(R.string.why_stopped_unreachable_body),
-            modifier = modifier,
-            margin = margin,
-        ) {
-            NoteButton(stringResource(R.string.region_note_proxy), onProxy)
-            if (onRetry != null) NoteButton(stringResource(R.string.retry), onRetry)
-        }
-
-        // A VPN or proxy is the usual cause, so the proxy switch, and Retry once it is changed.
-        Cause.REFUSED -> NoteCard(
-            icon = Icons.Rounded.VpnLock,
-            title = stringResource(R.string.why_stopped_refused_title),
-            body = stringResource(R.string.why_stopped_refused_body),
             modifier = modifier,
             margin = margin,
         ) {
@@ -156,7 +142,7 @@ fun FailedNote(
         regionClosed = region && YouTubeRegion.closed(seen),
     )
     when (cause) {
-        Cause.SIGN_IN, Cause.UNREACHABLE, Cause.REFUSED -> WhyStoppedNote(cause, onSignIn, onRetry, modifier, onProxy, margin)
+        Cause.SIGN_IN, Cause.UNREACHABLE -> WhyStoppedNote(cause, onSignIn, onRetry, modifier, onProxy, margin)
         Cause.REGION -> Column(modifier) {
             RegionNote(onProxy = onProxy, onDone = null, margin = margin)
             if (onRetry != null) LoadFailed(onRetry = onRetry)
@@ -202,8 +188,7 @@ fun KeptAlbumNote(
 
 /**
  * The note on Home for the last clear failure anywhere ([YouTubeTrouble]): the sign-in or the
- * connection, unreached or turned away. A closed country has its own note there already
- * ([RegionNoteIfClosed]).
+ * connection. A closed country has its own note there already ([RegionNoteIfClosed]).
  */
 @Composable
 fun WhyStoppedNoteIfAny(
@@ -213,9 +198,9 @@ fun WhyStoppedNoteIfAny(
 ) {
     val kind by YouTubeTrouble.kind.collectAsState()
     val cause = WhyStopped.cause(kind, signedIn = rememberSignedIn(), online = LocalNetworkConnected.current, regionClosed = false)
-    if (cause == Cause.SIGN_IN || cause == Cause.UNREACHABLE || cause == Cause.REFUSED) {
+    if (cause == Cause.SIGN_IN || cause == Cause.UNREACHABLE) {
         // Home loads again by itself when the sign-in changes, so Retry is only for the connection.
-        WhyStoppedNote(cause, onSignIn, onRetry = onRetry.takeIf { cause != Cause.SIGN_IN }, modifier = modifier)
+        WhyStoppedNote(cause, onSignIn, onRetry = onRetry.takeIf { cause == Cause.UNREACHABLE }, modifier = modifier)
     }
 }
 

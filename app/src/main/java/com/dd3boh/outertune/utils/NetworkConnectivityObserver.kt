@@ -13,7 +13,6 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
-import com.zionhuang.innertube.YouTube
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
 
@@ -81,7 +80,7 @@ class NetworkConnectivityObserver(
             // immediately re-trips; under-clearing costs the user their music.
             Throttle.onNetworkChanged()
             NetworkPace.forget()
-            YouTubeTrouble.networkChanged(signedIn = WhyStopped.signedIn(YouTube.cookie))
+            YouTubeTrouble.networkChanged()
             runCatching { onNetworkChanged() }
             runCatching { ReportTrail.thisRun.networkChangedTo(PhoneState.networkKind(connectivityManager.getNetworkCapabilities(network))) }
         }

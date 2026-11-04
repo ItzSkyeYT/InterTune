@@ -31,10 +31,6 @@ import javax.net.ssl.SSLHandshakeException
  *    signed-in request names (the dataSyncId kept since sign-in) once the cookie no longer proves
  *    it. Every radio start and every look at the account's own playlists carries it, and search
  *    and Home do too while "Use login for browse" is on.
- *  - A connection YouTube turns away: the same 401 with no account signed in, so no sign-in to
- *    blame. Val's radio on a VPN (Colombia, 4 Nov 2026) got it for every start, "401" with "{}" for
- *    an answer, while the songs themselves played; it used to be read as an expired sign-in, which
- *    that listener never had.
  *  - A connection that does not reach YouTube: no answer at all. The name not found, the
  *    connection refused, reset or timed out, the TLS handshake cut: what a blocked network or a VPN
  *    that leaves InterTune out (its split tunnelling, or a kill switch) gives. Only on a phone with
@@ -44,16 +40,11 @@ import javax.net.ssl.SSLHandshakeException
  * Anything else stays as it was: the page's own "Unknown error" and Retry, the radio's own toast.
  */
 object WhyStopped {
-    /** [REFUSED]: YouTube turned the connection away, a 401 with no account signed in. */
-    enum class Cause { SIGN_IN, REGION, UNREACHABLE, REFUSED }
+    enum class Cause { SIGN_IN, REGION, UNREACHABLE }
 
     /** What one failed request came to, as far as the causes go. */
     enum class Kind {
-        /**
-         * YouTube answered 401 (UNAUTHENTICATED, or nothing at all in the answer). Signed in, the
-         * account named is not proven by the cookie; signed out, the connection is turned away.
-         * [cause] tells the two apart.
-         */
+        /** YouTube answered 401 UNAUTHENTICATED: the account named is not proven by the cookie. */
         SIGN_IN_REFUSED,
 
         /** No answer at all: the name, the connection or the wait failed before YouTube spoke. */
@@ -104,15 +95,13 @@ object WhyStopped {
     /**
      * The cause to name for a failure of [kind], or null for none: [signedIn] as the Account page
      * reads it, [online] when the phone has a network, [regionClosed] while YouTube sees the
-     * connection in a country with no free plan. A 401 is the sign-in only when there is one;
-     * with none it is the connection turned away, unless the country's own note says more.
+     * connection in a country with no free plan.
      */
     fun cause(kind: Kind?, signedIn: Boolean, online: Boolean, regionClosed: Boolean): Cause? = when {
         kind == null -> null
         kind == Kind.SIGN_IN_REFUSED && signedIn -> Cause.SIGN_IN
         kind == Kind.NO_ANSWER -> if (online) Cause.UNREACHABLE else null
         regionClosed -> Cause.REGION
-        kind == Kind.SIGN_IN_REFUSED -> Cause.REFUSED
         else -> null
     }
 
@@ -129,7 +118,7 @@ object WhyStopped {
  *
  * In memory only, and forgotten as soon as anything says otherwise: an answer to the account for a
  * refused sign-in, any answer for a connection that did not reach YouTube, a new sign-in, another
- * network (for a 401 too when no account is signed in: that was the connection's).
+ * network.
  */
 object YouTubeTrouble {
     private val _kind = MutableStateFlow<WhyStopped.Kind?>(null)
@@ -156,14 +145,8 @@ object YouTubeTrouble {
     /** Signed in again, or out: what YouTube said of the old sign-in is no longer true. */
     fun signInChanged() = _kind.update { if (it == WhyStopped.Kind.SIGN_IN_REFUSED) null else it }
 
-    /**
-     * Another network: what this one could not reach may well be reachable from there, and with no
-     * account [signedIn], a 401 was this connection turned away (a VPN switched off is one).
-     */
-    fun networkChanged(signedIn: Boolean) {
-        reached()
-        if (!signedIn) _kind.update { if (it == WhyStopped.Kind.SIGN_IN_REFUSED) null else it }
-    }
+    /** Another network: what this one could not reach may well be reachable from there. */
+    fun networkChanged() = reached()
 
     private fun reached() = _kind.update { if (it == WhyStopped.Kind.NO_ANSWER) null else it }
 

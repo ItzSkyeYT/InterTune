@@ -3827,7 +3827,6 @@ class MusicService : MediaLibraryService(),
         return StoppedWhy(kind, when (cause) {
             WhyStopped.Cause.SIGN_IN -> R.string.why_stopped_sign_in_title
             WhyStopped.Cause.UNREACHABLE -> R.string.why_stopped_unreachable_title
-            WhyStopped.Cause.REFUSED -> R.string.why_stopped_refused_title
             WhyStopped.Cause.REGION -> R.string.region_note_title
         })
     }

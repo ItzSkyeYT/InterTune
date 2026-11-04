@@ -69,37 +69,11 @@ class WhyStoppedTest {
     }
 
     @Test
-    fun `signed out, a refusal is the connection turned away, never a sign-in`() {
+    fun `signed out, a refusal says nothing about a sign-in, and stays as it is`() {
         val kind = WhyStopped.kindOf(answered(HttpStatusCode.Unauthorized, unauthenticated))
-        assertEquals(Cause.REFUSED, WhyStopped.cause(kind, signedIn = false, online = true, regionClosed = false))
+        assertNull(WhyStopped.cause(kind, signedIn = false, online = true, regionClosed = false))
         // Where the catalogue is closed it is that note's to say.
         assertEquals(Cause.REGION, WhyStopped.cause(kind, signedIn = false, online = true, regionClosed = true))
-    }
-
-    /**
-     * Val's radio on a VPN, signed out (report of 4 Nov 2026, InterTune 0.12.7): "Client
-     * request(POST https://music.youtube.com/youtubei/v1/next?prettyPrint=false) invalid: 401 .
-     * Text: "{\n}\n"", an answer with no reason in it, for every radio start, while the songs played.
-     */
-    @Test
-    fun `Val's 401 with nothing in it, signed out, is the connection turned away`() {
-        val failure = answered(HttpStatusCode(401, ""), "{\n}\n")
-        assertTrue("${failure.message}", failure.message.orEmpty().contains("invalid: 401 . Text: \"{"))
-        assertEquals(Kind.SIGN_IN_REFUSED, WhyStopped.kindOf(failure))
-        assertEquals(Cause.REFUSED, WhyStopped.cause(WhyStopped.kindOf(failure), signedIn = false, online = true, regionClosed = false))
-        // The same answer to a signed-in request is still the sign-in's.
-        assertEquals(Cause.SIGN_IN, WhyStopped.cause(WhyStopped.kindOf(failure), signedIn = true, online = true, regionClosed = false))
-        // And the radio's toast and the queue's note say it in words, in English and in French.
-        val service = java.io.File("src/main/java/com/dd3boh/outertune/playback/MusicService.kt").readText()
-        assertTrue(service.contains("WhyStopped.Cause.REFUSED -> R.string.why_stopped_refused_title"))
-        for (path in listOf("src/main/res/values/strings-ot.xml", "src/main/res/values-fr/strings-ot.xml")) {
-            val texts = java.io.File(path).readText()
-            assertTrue(path, texts.contains("<string name=\"why_stopped_refused_title\""))
-            assertTrue(path, texts.contains("<string name=\"why_stopped_refused_body\""))
-        }
-        val note = java.io.File("src/main/java/com/dd3boh/outertune/ui/component/WhyStoppedNote.kt").readText()
-        assertTrue(note.contains("Cause.REFUSED -> NoteCard("))
-        assertTrue("Home shows it", note.substringAfter("fun WhyStoppedNoteIfAny(").contains("cause == Cause.REFUSED"))
     }
 
     @Test
@@ -167,8 +141,8 @@ class WhyStoppedTest {
         // A visitor's answer says nothing of the sign-in.
         YouTubeTrouble.answered(asAccount = false)
         assertEquals(Kind.SIGN_IN_REFUSED, YouTubeTrouble.kind.value)
-        // Nor does another network, signed in.
-        YouTubeTrouble.networkChanged(signedIn = true)
+        // Nor does another network.
+        YouTubeTrouble.networkChanged()
         assertEquals(Kind.SIGN_IN_REFUSED, YouTubeTrouble.kind.value)
         // An answer to the account does.
         YouTubeTrouble.answered(asAccount = true)
@@ -190,28 +164,12 @@ class WhyStoppedTest {
         assertNull(YouTubeTrouble.kind.value)
 
         YouTubeTrouble.failed(UnknownHostException("music.youtube.com"))
-        YouTubeTrouble.networkChanged(signedIn = true)
+        YouTubeTrouble.networkChanged()
         assertNull(YouTubeTrouble.kind.value)
 
         // An answer YouTube gave, even a refusal of another kind, is an answer.
         YouTubeTrouble.failed(SocketException("Connection reset"))
         YouTubeTrouble.failed(answered(HttpStatusCode.InternalServerError))
-        assertNull(YouTubeTrouble.kind.value)
-    }
-
-    @Test
-    fun `signed out, a connection turned away is forgotten on another network, and not on a song's answer`() {
-        YouTubeTrouble.failed(answered(HttpStatusCode(401, ""), "{\n}\n"))
-        assertEquals(Kind.SIGN_IN_REFUSED, YouTubeTrouble.kind.value)
-        // The songs played all along in Val's report: /player's answers say nothing of next.
-        YouTubeTrouble.answered(asAccount = false)
-        assertEquals(Kind.SIGN_IN_REFUSED, YouTubeTrouble.kind.value)
-        // A VPN switched off is another network.
-        YouTubeTrouble.networkChanged(signedIn = false)
-        assertNull(YouTubeTrouble.kind.value)
-        // As is a radio that starts.
-        YouTubeTrouble.failed(answered(HttpStatusCode(401, ""), "{\n}\n"))
-        YouTubeTrouble.answered(asAccount = true)
         assertNull(YouTubeTrouble.kind.value)
     }
 
