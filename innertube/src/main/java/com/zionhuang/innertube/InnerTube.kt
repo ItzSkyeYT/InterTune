@@ -349,6 +349,99 @@ class InnerTube {
         )
     }
 
+    /**
+     * [next] as a visitor, for a radio that [next] could not have: no cookie, no Authorization, no
+     * account named, and [visitorData] as the visitor's id (null for a visitor YouTube has never
+     * seen, whose answer then carries a new one). Asked only after [next] failed or gave nothing.
+     */
+    suspend fun nextAsVisitor(
+        client: YouTubeClient,
+        videoId: String?,
+        playlistId: String?,
+        playlistSetVideoId: String?,
+        index: Int?,
+        params: String?,
+        continuation: String?,
+        visitorData: String?,
+    ) = httpClient.post("next") {
+        visitorNextRequest(client, videoId, playlistId, playlistSetVideoId, index, params, continuation, visitorData)
+    }
+
+    /** What [nextAsVisitor] sends, apart from where it goes, so that a test can read it. */
+    fun HttpRequestBuilder.visitorNextRequest(
+        client: YouTubeClient,
+        videoId: String?,
+        playlistId: String?,
+        playlistSetVideoId: String?,
+        index: Int?,
+        params: String?,
+        continuation: String?,
+        visitorData: String?,
+    ) {
+        ytClient(client, setLogin = false)
+        setBody(
+            NextBody(
+                context = client.toContext(locale, visitorData, null),
+                videoId = videoId,
+                playlistId = playlistId,
+                playlistSetVideoId = playlistSetVideoId,
+                index = index,
+                params = params,
+                continuation = continuation,
+            )
+        )
+    }
+
+    /**
+     * YouTube's own watch-next (www.youtube.com, not YouTube Music), as a visitor: for a client of
+     * YouTube's (WEB, ANDROID_VR) asked for the mix of a song, whose answer holds the mix as a
+     * playlist panel. NewPipe asks a mix so (YoutubeMixPlaylistExtractor). Asked only when YouTube
+     * Music gave a radio nothing.
+     */
+    suspend fun watchNext(
+        client: YouTubeClient,
+        videoId: String,
+        playlistId: String,
+        params: String?,
+        visitorData: String?,
+    ) = httpClient.post(YouTubeClient.API_URL_YOUTUBE + "next") {
+        watchNextRequest(client, videoId, playlistId, params, visitorData)
+    }
+
+    /**
+     * What [watchNext] sends, apart from where it goes. The headers a probe from a refused
+     * connection got answers with (experiments/features/radio-fallback/probe): the client's name
+     * and version, its user agent and the visitor's id; nothing of YouTube Music's, and no account.
+     */
+    fun HttpRequestBuilder.watchNextRequest(
+        client: YouTubeClient,
+        videoId: String,
+        playlistId: String,
+        params: String?,
+        visitorData: String?,
+    ) {
+        contentType(ContentType.Application.Json)
+        headers {
+            append("X-Goog-Api-Format-Version", "1")
+            append("X-YouTube-Client-Name", client.clientId)
+            append("X-YouTube-Client-Version", client.clientVersion)
+            visitorData?.let { append("X-Goog-Visitor-Id", it) }
+        }
+        userAgent(client.userAgent)
+        parameter("prettyPrint", false)
+        setBody(
+            NextBody(
+                context = client.toContext(locale, visitorData, null),
+                videoId = videoId,
+                playlistId = playlistId,
+                playlistSetVideoId = null,
+                index = null,
+                params = params,
+                continuation = null,
+            )
+        )
+    }
+
     suspend fun getSearchSuggestions(
         client: YouTubeClient,
         input: String,
