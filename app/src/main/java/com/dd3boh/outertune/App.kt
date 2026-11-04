@@ -247,6 +247,8 @@ class App : Application(), SingletonImageLoader.Factory {
                 .collect { cookie ->
                     // Signed in again, or out: a refusal of the old sign-in no longer holds (WhyStopped).
                     YouTubeTrouble.signInChanged()
+                    // And a radio asks YouTube Music as the account again (RadioLadder).
+                    com.dd3boh.outertune.playback.RadioAnswers.forget()
                     try {
                         YouTube.cookie = cookie
                     } catch (e: Exception) {
