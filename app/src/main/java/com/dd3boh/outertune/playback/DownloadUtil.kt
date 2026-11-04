@@ -89,6 +89,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
@@ -332,6 +333,13 @@ class DownloadUtil @Inject constructor(
 
     /** Songs whose download finished since the last move into the folder, on the download manager's thread: see its onIdle. */
     private val finishedSinceMove = mutableSetOf<String>()
+
+    /**
+     * Where Remove download asks whether a song's kept cover can go, one at a time: a bulk removal
+     * asks once a song, each a read of the whole song table, and in parallel they took every
+     * database connection the lists read through.
+     */
+    private val coverChecks = Dispatchers.IO.limitedParallelism(1)
 
     fun getDownload(songId: String): Flow<LocalDateTime?> = downloads.map { it[songId] }
 
@@ -774,10 +782,14 @@ class DownloadUtil @Inject constructor(
      */
     fun removeDownload(id: String) {
         forgetLikedDownload(id)
-        CoroutineScope(Dispatchers.IO).launch {
-            runCatching { database.song(id).first()?.thumbnailUrl }.getOrNull()?.takeIf { it.startsWith("http") }?.let { url ->
-                for (model in listOf(url, url.resize(ART_PREVIEW_PX, ART_PREVIEW_PX))) DownloadCovers.remove(context.filesDir, model)
-            }
+        // Its kept covers go once no download shows them. An album's songs share one cover, and
+        // removing one song's download took it from the others, which then showed none offline.
+        // Asked once this song's removal has reached the map, so that removing a whole album
+        // leaves the cover to its last song, which takes it (coverUnusedOnceRemoved).
+        CoroutineScope(coverChecks).launch {
+            val url = runCatching { database.songRow(id)?.thumbnailUrl }.getOrNull()?.takeIf { it.startsWith("http") } ?: return@launch
+            if (!coverUnusedOnceRemoved(id, downloads, COVER_WAIT_MS) { database.songsWithCover(url) }) return@launch
+            for (model in listOf(url, url.resize(ART_PREVIEW_PX, ART_PREVIEW_PX))) DownloadCovers.remove(context.filesDir, model)
         }
         deleteSong(id)
         sends.attempt("removing $id") {
@@ -1153,6 +1165,14 @@ class DownloadUtil @Inject constructor(
         /** Minimum gap between the player requests downloads make. See the gate in the resolver. */
         private const val RESOLVE_GAP_MS = 700L
 
+        /**
+         * How long Remove download waits for the song's removal to reach the map before it asks
+         * whether the cover is still shown: a bulk removal of a few hundred songs in the download
+         * folder deletes their files one at a time. Past it the song counts as still downloaded,
+         * and the cover stays.
+         */
+        private const val COVER_WAIT_MS = 120_000L
+
         /** Every message to the download service goes out through this: see DownloadServiceSends. */
         private val sends = DownloadServiceSends { Log.w("DownloadUtil", it) }
 
@@ -1373,6 +1393,26 @@ fun applyRescanResult(
         mergeRescanResult(snapshot, live, used)
     }
     touched.removeAll(used)
+}
+
+/**
+ * Whether the covers kept for [id]'s download can go: once its removal has reached [downloads], or
+ * [waitMs] has passed, none of the songs that show the same cover ([sharing], read then, [id] among
+ * them) is downloaded or on its way. Asked after the removal, so that a whole album removed at once,
+ * every song asking before any removal has landed, leaves the cover to its last song, which takes
+ * it. A removal that never lands (a file in an import folder, a service Android refused) and songs
+ * that cannot be read keep the cover. Plain values in, so it is tested without a database.
+ */
+internal suspend fun coverUnusedOnceRemoved(
+    id: String,
+    downloads: StateFlow<Map<String, *>>,
+    waitMs: Long,
+    sharing: suspend () -> Collection<String>?,
+): Boolean {
+    withTimeoutOrNull(waitMs) { downloads.first { id !in it } }
+    val songs = runCatching { sharing() }.getOrNull() ?: return false
+    val now = downloads.value
+    return songs.none { it in now }
 }
 
 /**
