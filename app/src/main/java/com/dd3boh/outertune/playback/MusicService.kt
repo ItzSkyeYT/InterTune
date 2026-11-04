@@ -3299,6 +3299,8 @@ class MusicService : MediaLibraryService(),
                 isServable = { id -> queueBoard.getCurrentQueue()?.findSong(id) != null },
                 port = if (BuildConfig.DEBUG) CastServer.DEBUG_PORT else 0,
                 alsoLoopback = BuildConfig.DEBUG,
+                // For a renderer that takes only raw audio: the song decoded on the phone.
+                pcmDecoder = if (Unreleased.CAST_PCM) MediaCodecPcmDecoder() else null,
             )
             try {
                 server.start()
