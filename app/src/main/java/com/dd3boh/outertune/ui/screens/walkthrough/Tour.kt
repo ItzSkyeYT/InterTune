@@ -273,6 +273,7 @@ object Tour {
     const val ROUTE_ACCOUNT = "settings/account_sync"
     const val ROUTE_LIBRARY = "settings/library"
     const val ROUTE_LOCAL = "settings/local"
+    const val ROUTE_WIDGETS = "settings/widgets"
     const val ROUTE_RECOGNITION = "settings/recognition"
     const val ROUTE_LYRICS = "settings/library/lyrics"
     const val ROUTE_STORAGE = "settings/storage"

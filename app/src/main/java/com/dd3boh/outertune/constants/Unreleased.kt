@@ -724,4 +724,20 @@ object Unreleased {
      * ReleasedFlagsTest, make its texts translatable.
      */
     val DOWNLOAD_FILES = BuildConfig.DEBUG
+
+    /**
+     * Settings > Widgets, under Look and feel (WidgetsSettings), his ask of 3 Nov 2026 for "a easy
+     * settings menu for widgets", built as the mockup he approved
+     * (experiments/features/widget-settings-mock): a card for each widget on the home screen with
+     * its live preview, its style, the two choices most changed and All options, which opens that
+     * widget's own setup sheet; and at the foot the two widgets, each with Add, which asks the
+     * launcher for its own box. A change on a card is the sheet's own write
+     * (WidgetStore.saveSettings) and redraws that widget at once.
+     *
+     * Without it Settings has no such row, and a widget is set up from the home screen only, as
+     * before. Its texts (widgets_*) are held from translators, their French beside them in
+     * values-fr. When it is agreed: set this to true, add its name to ReleasedFlagsTest, make its
+     * texts translatable.
+     */
+    val WIDGETS_PAGE = BuildConfig.DEBUG
 }

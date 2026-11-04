@@ -2220,4 +2220,14 @@
     <string name="animations_held_note">Désactivé tant que les animations sont coupées dans les réglages d\'Android.</string>
     <string name="living_blur_still_switch">Reste immobile tant que le réglage « Animations », en haut de cette page, est désactivé.</string>
     <string name="search_words_animations">mouvement, transitions, effets, téléphone lent, ralentissements</string>
+    <string name="widgets">Widgets</string>
+    <string name="settings_widgets_description">Ajoutez des widgets à votre écran d\'accueil, et changez l\'apparence de chacun.</string>
+    <string name="widgets_on_home_screen">Sur votre écran d\'accueil</string>
+    <string name="widgets_add_title">Ajouter un widget</string>
+    <string name="widgets_add">Ajouter</string>
+    <string name="widgets_all_options">Toutes les options</string>
+    <string name="widgets_all_options_cover">Opacité, taille du texte, ce qu\'il affiche</string>
+    <string name="widgets_all_options_full_cover">Taille du texte, ce qu\'il affiche</string>
+    <string name="widgets_all_options_shelf">Arrière-plan, boutons, lignes</string>
+    <string name="widgets_add_from_home">Cet écran d\'accueil n\'accepte pas les widgets des applications. Ajoutez-les depuis sa propre liste de widgets.</string>
 </resources>

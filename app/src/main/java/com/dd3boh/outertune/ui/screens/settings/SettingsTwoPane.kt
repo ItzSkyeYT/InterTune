@@ -48,6 +48,7 @@ import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Update
+import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -105,14 +106,19 @@ internal data class SettingsCategory(val route: String, @StringRes val title: In
  * The screens of settings in the list's four groups, the ones the cards of the upright list are:
  * your music, how the app presents it, what it keeps on the device, the app itself.
  */
-internal fun settingsGroups(engine: Boolean = Unreleased.ENGINE, battery: Boolean = Unreleased.BATTERY_MODES): List<List<SettingsCategory>> = listOf(
+internal fun settingsGroups(
+    engine: Boolean = Unreleased.ENGINE,
+    battery: Boolean = Unreleased.BATTERY_MODES,
+    widgets: Boolean = Unreleased.WIDGETS_PAGE,
+): List<List<SettingsCategory>> = listOf(
     listOf(
         SettingsCategory("settings/account_sync", R.string.grp_account_sync, Icons.Rounded.AccountCircle),
         SettingsCategory("settings/library", R.string.grp_library_and_content, Icons.AutoMirrored.Rounded.LibraryBooks),
         SettingsCategory("settings/local", R.string.local_player_settings_title, Icons.Rounded.SdCard),
     ),
-    listOf(
+    listOfNotNull(
         SettingsCategory(Tour.ROUTE_LOOK_AND_FEEL, R.string.look_and_feel, Icons.Rounded.Palette),
+        SettingsCategory(Tour.ROUTE_WIDGETS, R.string.widgets, Icons.Rounded.Widgets).takeIf { widgets },
         SettingsCategory("settings/player", R.string.player_and_audio, Icons.Rounded.PlayArrow),
         SettingsCategory("settings/recognition", R.string.recognise_settings, Icons.Rounded.GraphicEq),
         SettingsCategory("settings/library/lyrics", R.string.lyrics_settings_title, Icons.Rounded.Lyrics),
@@ -412,6 +418,7 @@ private fun SettingsPane(route: String, navController: NavController, scrollBeha
             AskForMusicOnOpening(tourRunning)
         }
         Tour.ROUTE_LOOK_AND_FEEL -> LookAndFeelSettings(navController, scrollBehavior)
+        Tour.ROUTE_WIDGETS -> WidgetsSettings(navController, scrollBehavior)
         "settings/player" -> PlayerSettings(navController, scrollBehavior)
         "settings/recognition" -> RecognitionSettings(navController, scrollBehavior)
         "settings/library/lyrics" -> LyricsSettings(navController, scrollBehavior)

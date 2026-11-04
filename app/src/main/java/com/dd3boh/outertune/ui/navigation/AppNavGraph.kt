@@ -85,6 +85,7 @@ import com.dd3boh.outertune.ui.screens.settings.BackupSettings
 import com.dd3boh.outertune.ui.screens.settings.BatterySettings
 import com.dd3boh.outertune.ui.screens.settings.StorageSettings
 import com.dd3boh.outertune.ui.screens.settings.UpdateSettings
+import com.dd3boh.outertune.ui.screens.settings.WidgetsSettings
 import com.dd3boh.outertune.ui.screens.walkthrough.SETTINGS_CLOSER_LOOK
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.TourState
@@ -409,6 +410,11 @@ fun NavGraphBuilder.appDestinations(
         }
         screen("settings/appearance") {
             LookAndFeelSettings(navController, scrollBehavior)
+        }
+        if (Unreleased.WIDGETS_PAGE) {
+            screen("settings/widgets") {
+                WidgetsSettings(navController, scrollBehavior)
+            }
         }
         screen("settings/library") {
             LibrarySettings(navController, scrollBehavior)
