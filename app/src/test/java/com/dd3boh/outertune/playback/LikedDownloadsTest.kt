@@ -33,13 +33,19 @@ class LikedDownloadsTest {
 
     @Test
     fun `the setting remembers its own downloads, and forgets a song whose download goes by any means`() {
-        // remembered only when the request really went out, and only for the setting's downloads
-        assertTrue("if (sent && byLikes) rememberLikedDownload(id)" in util)
+        // remembered only when the request really went out, and only for the setting's downloads;
+        // a download by hand forgets it, so taking back the like never takes that one
+        assertTrue("if (sent) {\n            if (byLikes) rememberLikedDownload(id) else forgetLikedDownload(id)\n        }" in util)
         assertTrue("eligible.forEach { downloadSong(it.id, it.title, byLikes = true) }" in util)
         assertTrue("if (!downloadSong(song.id, song.title, byLikes = true)) {" in util)
+        // the sync's catch up downloads as the setting too: its liked songs from YouTube were never on the list
+        assertTrue("pending.forEach { downloadSong(it.id, it.title, byLikes = true) }" in util)
         // a removal of any kind, and a catch up stopped halfway, forget it
         assertTrue(util.substringAfter("fun removeDownload(id: String) {").trimStart().startsWith("forgetLikedDownload(id)"))
         assertTrue("forgetLikedDownload(id)\n                    sends.attempt(\"removing \$id\")" in util)
+        // and so does a download that fails or goes any other way: the notification's Cancel, Clear all downloads
+        val listener = util.substringAfter("override fun onDownloadChanged(")
+        assertTrue(listener.contains("if (download.state == Download.STATE_FAILED || download.state == Download.STATE_REMOVING) {\n                        forgetLikedDownload(download.request.id)\n                    }"))
     }
 
     @Test
@@ -49,5 +55,10 @@ class LikedDownloadsTest {
         // the selection menu's Remove all likes, which used to call nothing
         val selection = File("src/main/java/com/dd3boh/outertune/ui/menu/SelectionSongsMenu.kt").readText()
         assertTrue(selection.substringAfter("if (allLiked) {").substringBefore("} else {").contains("downloadUtil.autoDownloadOnLike(unliked)"))
+        // and a like taken back on YouTube, which the liked sync brings
+        val sync = File("src/main/java/com/dd3boh/outertune/utils/SyncUtils.kt").readText()
+        val unlikes = sync.substringAfter("// Unlike local songs in the database").substringBefore("// Insert or like songs in the database")
+        assertTrue(unlikes.contains("val unliked = songsToUnlike.map { it.song.localToggleLike() }"))
+        assertTrue(unlikes.contains("downloadUtil.autoDownloadOnLike(unliked)"))
     }
 }
