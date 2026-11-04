@@ -154,12 +154,22 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
             // for an empty file.
             val out = resolver.openOutputStream(newFile.uri) ?: throw IOException("Could not open $fileName")
             out.use { input.copyTo(it) }
-            return newFile.uri
         } catch (e: Exception) {
             // Not left behind half written, where the next scan would take it for the download.
             newFile.delete()
             throw e
         }
+        // In the list at once, as a song file is (saveSongFile): the player finds a download in the
+        // folder through it, and Remove download deletes through it. Left out until the next full
+        // scan, the song was streamed meanwhile and Remove download did nothing.
+        addAvailable(TreeDocumentFileOt(null, context, newFile.uri, newFile.name ?: fileName, "audio/mka"))
+        return newFile.uri
+    }
+
+    /** Under the same lock as [deleteFile], so a save and a delete at the same moment cannot undo each other in the list. */
+    @Synchronized
+    private fun addAvailable(file: DocumentFile) {
+        availableFiles = availableFiles + file
     }
 
     /**
@@ -190,7 +200,7 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
         }
         documentId(newFile)?.let { songFileIds[it] = mediaId }
         val saved = TreeDocumentFileOt(null, context, newFile.uri, newFile.name ?: fileName, mimeType)
-        availableFiles = availableFiles + saved
+        addAvailable(saved)
         return newFile.uri
     }
 

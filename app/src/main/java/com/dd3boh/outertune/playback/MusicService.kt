@@ -3073,6 +3073,17 @@ class MusicService : MediaLibraryService(),
 
             val isDownload =
                 downloadCache.isCached(mediaId, position, if (length >= 0) length else 1)
+            // A song moved into the download folder after the queue was made: the queue's copy of
+            // the song has no path, nor has a row read before the move recorded its file, and its
+            // copy in the app is gone. The folder is asked whatever they say; it used to be asked
+            // only for a path, and the song played from the network for the rest of the session,
+            // or offline not at all.
+            if (!isDownload && !isLocal && localPath == null) {
+                downloadUtil.localMgr.isExists(mediaId)?.takeIf { it.exists() }?.let {
+                    Log.i(TAG, "$said: Custom downloaded song, found in the folder without its path")
+                    return ResolvedSong.Downloaded(it)
+                }
+            }
             val isCache = playerCache.isCached(mediaId, position, CHUNK_LENGTH)
             // A copy fetched at a lower setting is fetched again, once, at the higher one. Only
             // upwards: re-fetching to make something worse would spend data to lose quality, and
