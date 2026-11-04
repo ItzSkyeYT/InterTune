@@ -15,15 +15,15 @@ import java.time.LocalDateTime
 
 /**
  * What the sync does with a change made here that the account has not had yet: it leaves it
- * standing, and once the account has it, reads the account as before. Each case below is one the
- * scan of 4 Nov 2026 found undone by the next sync, under "Keep all local content" too (its findings
- * 3, 7, 8 and 9), as the sync decides it, with the account's answer standing in for YouTube.
+ * standing, and once the account has it, reads the account as before. Each case below was undone
+ * by the next sync until 4 Nov 2026, under "Keep all local content" too, as the sync decides it,
+ * with the account's answer standing in for YouTube.
  */
 class SyncKeepsWaitingTest {
 
     private fun waiting(vararg changes: Change) = Waiting(changes.mapIndexed { i, c -> Pending(i + 1L, "dsid:me", 0, c) })
 
-    // ---- finding 8: an unlike that did not reach YouTube ----
+    // ---- an unlike that did not reach YouTube ----
 
     @Test
     fun `an unlike made offline is not liked again by the next liked sync`() {
@@ -45,7 +45,7 @@ class SyncKeepsWaitingTest {
         assertEquals(setOf("stale"), LikedSync.toUnlikeHere(picked, waiting(Change.Like("fresh", liked = true))))
     }
 
-    // ---- finding 7: Remove from library ----
+    // ---- Remove from library ----
 
     @Test
     fun `a song taken out of the library here stays out of the library and unliked while its unlike waits`() {
@@ -68,7 +68,7 @@ class SyncKeepsWaitingTest {
         assertEquals(listOf("gone"), removed)
     }
 
-    // ---- finding 3: an add to a synced playlist ----
+    // ---- an add to a synced playlist ----
 
     @Test
     fun `a playlist with an add that waits is not replaced by the copy YouTube still has`() {
@@ -112,7 +112,7 @@ class SyncKeepsWaitingTest {
         assertEquals(listOf("only"), PlaylistSync.rowsAfter(emptyList(), listOf(0 to "only")).map { it.songId })
     }
 
-    // ---- finding 9: a playlist un-saved here, still saved on YouTube ----
+    // ---- a playlist un-saved here, still saved on YouTube ----
 
     private fun row(id: String, browseId: String?, saved: Boolean) =
         PlaylistEntity(id = id, name = id, browseId = browseId, bookmarkedAt = if (saved) LocalDateTime.of(2026, 1, 1, 0, 0) else null)

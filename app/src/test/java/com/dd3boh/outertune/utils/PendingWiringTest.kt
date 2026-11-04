@@ -110,7 +110,7 @@ class PendingWiringTest {
         assertTrue("SavedSync.artistsToFollow(" in artists && "SavedSync.artistsToUnfollow(" in artists)
         val playlists = body(sync, "private suspend fun playlists(")
         assertTrue("PlaylistLibrarySync.step(" in playlists && "PlaylistLibrarySync.toUnsave(" in playlists)
-        // Every row with a YouTube playlist behind it, saved or not (finding 9): not only the library's.
+        // Every row with a YouTube playlist behind it, saved or not, not only the library's: no second row.
         assertTrue("database.syncedPlaylistRows()" in playlists)
         assertFalse("database.playlistByBrowseId(" in playlists)
         val one = body(sync, "suspend fun syncPlaylist(")
@@ -136,7 +136,7 @@ class PendingWiringTest {
     }
 
     @Test
-    fun `both ways out of the library send the unlike they make (finding 7)`() {
+    fun `both ways out of the library send the unlike they make`() {
         val toggle = body(code("db/entities/SongEntity.kt"), "fun toggleLibrary(")
         assertTrue("if (inLibrary != null) PendingChanges.tookOutOfLibrary(this)" in toggle)
         val dao = body(code("db/daos/SongsDao.kt"), "fun toggleInLibrary(")

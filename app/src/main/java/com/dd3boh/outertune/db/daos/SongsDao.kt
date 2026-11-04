@@ -509,7 +509,7 @@ interface SongsDao {
     /**
      * In or out of the library. Out takes the like with it, here and, as the heart's unlike does, on
      * the YouTube Music account (PendingChanges.tookOutOfLibrary), the same as SongEntity.toggleLibrary:
-     * the next liked sync used to like the song again (scan of 4 Nov 2026, finding 7).
+     * the next liked sync used to like the song again (4 Nov 2026).
      */
     @Transaction
     fun toggleInLibrary(songId: String, inLibrary: LocalDateTime?) {

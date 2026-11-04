@@ -32,7 +32,7 @@ import java.io.IOException
 
 /**
  * A change made in the app that the YouTube Music account is to have. With sync in Read and
- * write, the app is the source of truth for what the person changes in it (his word, 4 Nov 2026):
+ * write, the app is the source of truth for what the person changes in it (4 Nov 2026):
  * a change that could not be sent (offline, a sign-in that lapsed, YouTube throttling) is kept as
  * pending, sent at the next chance in the order it was made, and until then the sync leaves it
  * standing on the phone instead of putting the account's older state back. See [PendingStore]
@@ -154,8 +154,8 @@ object PendingRules {
 
     /**
      * [list] once the add of row [mapId] to [browseId] is answered with [setVideoId]: a removal or a
-     * move of that row still waiting can now name it. The answer was thrown away before (scan of
-     * 4 Nov 2026, finding 6), so a song added from the phone and taken out again before the next sync
+     * move of that row still waiting can now name it. The answer was thrown away before (4 Nov
+     * 2026), so a song added from the phone and taken out again before the next sync
      * was never taken out of the account, and the sync put it back.
      */
     fun learned(list: List<Pending>, account: String?, browseId: String, mapId: Int, setVideoId: String): List<Pending> =

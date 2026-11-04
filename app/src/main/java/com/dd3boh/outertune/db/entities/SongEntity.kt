@@ -67,8 +67,8 @@ data class SongEntity(
 
     /**
      * In or out of the library. Out takes the like with it, and that unlike goes to the account as
-     * the heart's does: it never did, and the next liked sync liked the song again (scan of
-     * 4 Nov 2026, finding 7). In changes nothing on the account (the app has no request for it).
+     * the heart's does: it never did, and the next liked sync liked the song again (4 Nov
+     * 2026). In changes nothing on the account (the app has no request for it).
      */
     fun toggleLibrary() = copy(
         inLibrary = if (inLibrary == null) LocalDateTime.now() else null,

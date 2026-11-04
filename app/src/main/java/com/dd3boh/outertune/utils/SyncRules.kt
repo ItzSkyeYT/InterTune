@@ -78,7 +78,7 @@ object LikedSync {
     /**
      * Of the songs Liked music holds, the ones the sync may like here: all of them but those whose
      * unlike made here waits to reach YouTube (a heart tapped off offline, Remove from library).
-     * Those used to be liked again by the next sync (scan of 4 Nov 2026, findings 7 and 8).
+     * Those used to be liked again by the next sync (4 Nov 2026).
      */
     fun toLikeHere(remoteIds: List<String>, waiting: Waiting): List<String> =
         remoteIds.filterNot { waiting.likeWanted(it) == false }
@@ -223,8 +223,8 @@ object LibrarySync {
 /**
  * One playlist's songs, synced: YouTube's copy replaces the one here, but never over a change made
  * here that YouTube has not had yet, and never taking out a file from this phone, which YouTube Music
- * cannot hold. Both used to go at the next sync, under "Keep all local content" too (scan of
- * 4 Nov 2026, finding 3).
+ * cannot hold. Both used to go at the next sync, under "Keep all local content" too (4 Nov
+ * 2026).
  */
 object PlaylistSync {
     /** Whether YouTube's copy may replace the playlist's songs here: not while a change to them waits. */
@@ -251,7 +251,7 @@ object PlaylistSync {
  * The playlists of the account's library, synced. A playlist is found here by its browseId among
  * every row, saved or not, and an un-saved one is saved again: looking among the saved rows only, the
  * sync made a second row beside one taken out of the library here or by an earlier sync, and the
- * songs went into either one (scan of 4 Nov 2026, finding 9).
+ * songs went into either one (4 Nov 2026).
  */
 object PlaylistLibrarySync {
     sealed interface Step {

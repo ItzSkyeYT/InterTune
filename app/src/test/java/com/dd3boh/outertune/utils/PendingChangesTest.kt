@@ -16,8 +16,8 @@ import org.junit.rules.TemporaryFolder
 import java.io.File
 
 /**
- * The changes made in the app that the YouTube Music account has not had yet (his decision of
- * 4 Nov 2026): kept through a restart, sent at the next chance in the order they were made, each
+ * The changes made in the app that the YouTube Music account has not had yet (4 Nov
+ * 2026): kept through a restart, sent at the next chance in the order they were made, each
  * forgotten once the account has it, and never sent to another account. The sends are a fake here,
  * standing for YouTube's answers; the file and the rules are the app's.
  */
@@ -166,7 +166,7 @@ class PendingChangesTest {
         assertEquals(listOf<Change>(Change.SavePlaylist("PL1", false)), s.waiting())
     }
 
-    // ---- finding 6: a song added from the phone, then taken out ----
+    // ---- a song added from the phone, then taken out ----
 
     @Test
     fun `a song added and taken out again before the add went out is never sent at all`() {
@@ -229,7 +229,7 @@ class PendingChangesTest {
         assertEquals(Change.Move("PL1", 8, "c", null, 9, "b", "S9"), learned[3])
     }
 
-    // ---- finding 7: Remove from library ----
+    // ---- Remove from library ----
 
     @Test
     fun `remove from library sends the unlike it makes, for a liked song from YouTube only`() {

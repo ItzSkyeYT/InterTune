@@ -272,8 +272,8 @@ class SyncUtils @Inject constructor(
         try {
             Log.d(TAG, "Liked songs synchronization started")
             // What waits to reach the account goes first; what still waits after that stays as it
-            // was made here. An unlike made offline used to be liked again here (scan of
-            // 4 Nov 2026, findings 7 and 8).
+            // was made here. An unlike made offline used to be liked again here (4 Nov
+            // 2026).
             val waiting = PendingChanges.sendThenWaiting(context)
 
             // Get remote and local liked songs
@@ -747,7 +747,7 @@ class SyncUtils @Inject constructor(
 
                 // Every row here with a YouTube playlist behind it, saved or not: one taken out of
                 // the library here or by an earlier sync is found and saved again rather than given
-                // a second row beside it (scan of 4 Nov 2026, finding 9).
+                // a second row beside it (4 Nov 2026).
                 val rows = database.syncedPlaylistRows()
 
                 // Add or update playlists in the database
@@ -848,8 +848,8 @@ class SyncUtils @Inject constructor(
             return@withContext false
         }
         // What waits to reach this playlist goes first. A change made here that still waits keeps
-        // the songs as they are here: the copy read now would undo it (scan of 4 Nov 2026,
-        // findings 3 and 6), and once the account has it, the next sync reads it back.
+        // the songs as they are here: the copy read now would undo it (4 Nov
+        // 2026), and once the account has it, the next sync reads it back.
         if (!PlaylistSync.mayReplace(browseId, PendingChanges.sendThenWaiting(context))) {
             Log.i(TAG, "Changes made here still wait to reach a playlist, its songs stay as they are here")
             return@withContext false

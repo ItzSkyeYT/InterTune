@@ -22,7 +22,7 @@ import java.sql.Connection
  * What the changes kept for the YouTube Music account ask of the database, run against the exported
  * schema: the rows an add wrote, with their ids, which song was in already and which is a file on
  * the phone; the id an add's answer gives a row; the entries rows here already stand for; the files a
- * sync keeps in a synced playlist; and the one row a YouTube playlist is found by (finding 9).
+ * sync keeps in a synced playlist; and the one row a YouTube playlist is found by, never a second.
  */
 class PendingSqlTest {
     private lateinit var db: Connection
@@ -158,7 +158,7 @@ class PendingSqlTest {
         assertEquals(listOf("LSfile0001"), strings(PlaylistSql.PHONE_FILE_IDS.replace(":songIds", quoted(listOf("a", "LSfile0001")))))
     }
 
-    // ---- finding 9: one row for one YouTube playlist ----
+    // ---- one row for one YouTube playlist ----
 
     @Test
     fun `a YouTube playlist's rows come saved first, then oldest, and every synced row is listed saved or not`() {
