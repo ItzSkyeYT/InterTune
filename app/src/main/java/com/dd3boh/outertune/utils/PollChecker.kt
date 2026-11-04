@@ -50,8 +50,8 @@ import javax.inject.Singleton
  * says the answer is anonymous:
  *  - a GET for the poll list, which reveals only that some InterTune install looked
  *  - on answering, one POST carrying the poll id and its question, the chosen options' ids and
- *    labels, the words typed into an "Other" box when there are some, and the app version; a
- *    follow-up question's picks go in that same event, as "<optionId>/<followUpOptionId>"
+ *    labels, the words typed into an "Other" box when there are some, and the app version;
+ *    a follow-up question's picks go in that same event, as "<optionId>/<followUpOptionId>"
  *  - on first opening a poll or an announcement, one POST carrying its id, its text, whether it
  *    was a poll or an announcement, and the app version: once per install, never again for it
  * No account, no device id, no install id, no library, nothing derived from the hardware. Umami
