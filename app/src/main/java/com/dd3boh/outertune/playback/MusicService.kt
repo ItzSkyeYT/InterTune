@@ -132,6 +132,8 @@ import com.dd3boh.outertune.constants.SpatialRoomKey
 import com.dd3boh.outertune.constants.SpatialAudioKey
 import com.dd3boh.outertune.constants.SpatialAudioMode
 import com.dd3boh.outertune.constants.PersistentQueueKey
+import com.dd3boh.outertune.constants.PlayingQueueKey
+import com.dd3boh.outertune.db.daos.playingQueueAt
 import com.dd3boh.outertune.engine.EngineLoader
 import com.dd3boh.outertune.engine.ListenLog
 import com.dd3boh.outertune.engine.TagFit
@@ -2639,8 +2641,12 @@ class MusicService : MediaLibraryService(),
             pendingQueueSave?.join()
             val persistQueue = dataStore.get(PersistentQueueKey, true)
             val maxQueues = dataStore.get(MaxQueuesKey, 19)
+            // The queue playing, by its id: the board's own while it holds one (built again after a
+            // scan or a new Max queues while the music goes on), else the one noted for the next
+            // start. Read before the new board clears the list it shares with this one.
+            val playingId = queueBoard.getCurrentQueue()?.id ?: dataStore[PlayingQueueKey]
             if (persistQueue) {
-                queueBoard = QueueBoard(this, queueBoard.masterQueues, database.readQueue().toMutableList(), maxQueues)
+                queueBoard = QueueBoard(this, queueBoard.masterQueues, database.readQueue().toMutableList(), maxQueues, playingId)
             } else {
                 queueBoard = QueueBoard(this, queueBoard.masterQueues, maxQueues = maxQueues)
             }
@@ -2760,13 +2766,31 @@ class MusicService : MediaLibraryService(),
         // before initQueue has read them back, and that window is exactly where the quiet version
         // of this bug would delete somebody's queues instead of crashing.
         if (data.isEmpty()) return
+        // The queue playing, by its id: the list keeps the order it is dragged into, and the last
+        // queue in it, taken for the one playing, got the point where another queue's song stopped.
+        val playing = data[playingQueueAt(data.map { it.id }, queueBoard.getCurrentQueue()?.id)]
         // Only when the player is holding this queue on its current song. A run that never loaded
         // it has an empty player at 0, and writing that sent the next resume back to the start.
-        val last = data.last()
-        last.lastSongPos = ResumePoint.onStop(
-            playerSongId, last.queue.getOrNull(last.queuePos)?.id, currentPosition, last.lastSongPos
+        playing.lastSongPos = ResumePoint.onStop(
+            playerSongId, playing.queue.getOrNull(playing.queuePos)?.id, currentPosition, playing.lastSongPos
         )
+        notePlayingQueue(playing.id)
         database.updateAllQueues(data)
+    }
+
+    /**
+     * [id] noted as the queue playing (PlayingQueueKey) before the queues are saved, unless it is
+     * already: the board notes it when it changes, but that write may not have landed. A write
+     * that fails (a full phone) is logged, and the queues are saved all the same; not cancellable,
+     * so a swipe's save cut short by teardown still reaches them.
+     */
+    private suspend fun notePlayingQueue(id: Long) {
+        if (dataStore[PlayingQueueKey] == id) return
+        try {
+            withContext(NonCancellable) { dataStore.edit { it[PlayingQueueKey] = id } }
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not note the queue playing", e)
+        }
     }
 
 
