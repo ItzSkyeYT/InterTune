@@ -26,6 +26,7 @@ import coil3.transition.CrossfadeTransition
 import coil3.transition.Transition
 import coil3.transition.TransitionTarget
 import com.dd3boh.outertune.constants.AnimationsKey
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.get
 import kotlinx.coroutines.CoroutineScope
@@ -107,7 +108,8 @@ object Animations {
         val app = context.applicationContext
         val resolver = app.contentResolver
         current.system = systemPace(resolver)
-        current.switchOn = app.dataStore[AnimationsKey] ?: SWITCH_DEFAULT
+        // Without the switch's flag there is no row, and the switch counts as on.
+        if (Unreleased.ANIMATIONS_SWITCH) current.switchOn = app.dataStore[AnimationsKey] ?: SWITCH_DEFAULT
         // Android sends nothing when its setting changes, so the setting itself is watched, as
         // Compose's own window recomposer watches it.
         runCatching {
@@ -121,7 +123,7 @@ object Animations {
                 },
             )
         }.onFailure { Log.w(TAG, "Android's animation setting cannot be followed", it) }
-        CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate).launch {
+        if (Unreleased.ANIMATIONS_SWITCH) CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate).launch {
             app.dataStore.data
                 .map { it[AnimationsKey] ?: SWITCH_DEFAULT }
                 .distinctUntilChanged()

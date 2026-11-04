@@ -112,17 +112,19 @@ fun ColumnScope.ThemeAppFrag() {
     // Every animation of the app, one rule with Android's own Remove animations (Animations).
     // While that one is on it holds this off: greyed, shown off, and what was set is kept for
     // after, as Battery use on Saver holds the rows it sets.
-    val heldOff = Animations.offInSystem
-    SwitchPreference(
-        modifier = Modifier.settingRow(R.string.animations_title),
-        title = { Text(stringResource(R.string.animations_title)) },
-        description = stringResource(R.string.animations_description),
-        icon = { Icon(Icons.Rounded.Animation, null) },
-        checked = animations && !heldOff,
-        isEnabled = !heldOff,
-        onCheckedChange = onAnimationsChange
-    )
-    if (heldOff) InfoLabel(stringResource(R.string.animations_held_note))
+    if (Unreleased.ANIMATIONS_SWITCH) {
+        val heldOff = Animations.offInSystem
+        SwitchPreference(
+            modifier = Modifier.settingRow(R.string.animations_title),
+            title = { Text(stringResource(R.string.animations_title)) },
+            description = stringResource(R.string.animations_description),
+            icon = { Icon(Icons.Rounded.Animation, null) },
+            checked = animations && !heldOff,
+            isEnabled = !heldOff,
+            onCheckedChange = onAnimationsChange
+        )
+        if (heldOff) InfoLabel(stringResource(R.string.animations_held_note))
+    }
 
     SwitchPreference(
         modifier = Modifier.settingRow(R.string.back_animations),

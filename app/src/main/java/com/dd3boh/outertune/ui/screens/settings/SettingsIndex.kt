@@ -111,7 +111,7 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
     SettingEntry(Tour.ROUTE_LOCAL, R.string.scanner_type_title, under = R.string.local_library_enable_title),
 
     // Look and feel
-    SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.animations_title, R.string.animations_description, words = listOf(R.string.search_words_animations)),
+    SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.animations_title, R.string.animations_description, words = listOf(R.string.search_words_animations), there = Unreleased.ANIMATIONS_SWITCH),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.back_animations, R.string.back_animations_description, words = listOf(R.string.search_words_back_animations)),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.enable_dynamic_theme, R.string.enable_dynamic_theme_description, words = listOf(R.string.search_words_dynamic_theme)),
     SettingEntry(Tour.ROUTE_LOOK_AND_FEEL, R.string.high_contrast, R.string.high_contrast_description, under = R.string.enable_dynamic_theme),
