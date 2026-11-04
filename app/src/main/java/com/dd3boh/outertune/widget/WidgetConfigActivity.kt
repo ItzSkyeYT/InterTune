@@ -91,6 +91,7 @@ import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.lifecycle.lifecycleScope
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.ui.utils.Animations
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
@@ -132,7 +133,8 @@ class WidgetConfigActivity : ComponentActivity() {
         val onWallpaper = Unreleased.WIDGET_ON_WALLPAPER && !themeFloats()
         if (onWallpaper) barsFollowWallpaper()
 
-        setContent {
+        // The window's compositions keep the app's pace: none with animations off (Animations).
+        setContent(parent = Animations.recomposer(this)) {
             val context = LocalContext.current
             val dark = isSystemInDarkTheme()
             val colors = when {

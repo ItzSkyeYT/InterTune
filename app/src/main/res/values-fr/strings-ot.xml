@@ -2215,4 +2215,9 @@
     <string name="backup_part_signins_note">YouTube Music et Last.fm</string>
     <string name="backup_part_signins_warning">Toute personne qui a ce fichier pourrait utiliser ces comptes.</string>
     <string name="backup_parts_confirm">Sauvegarder</string>
+    <string name="animations_title">Animations</string>
+    <string name="animations_description">Sans animations, les écrans changent tout de suite et les fonds restent immobiles. Plus léger pour les téléphones anciens.</string>
+    <string name="animations_held_note">Désactivé tant que les animations sont coupées dans les réglages d\'Android.</string>
+    <string name="living_blur_still_switch">Reste immobile tant que le réglage « Animations », en haut de cette page, est désactivé.</string>
+    <string name="search_words_animations">mouvement, transitions, effets, téléphone lent, ralentissements</string>
 </resources>

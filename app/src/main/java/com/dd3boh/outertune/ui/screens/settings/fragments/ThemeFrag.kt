@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Animation
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.BlurOn
 import androidx.compose.material.icons.rounded.Contrast
@@ -72,6 +73,7 @@ import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.ui.player.LivingField
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
+import com.dd3boh.outertune.constants.AnimationsKey
 import com.dd3boh.outertune.constants.BackAnimationsKey
 import com.dd3boh.outertune.constants.PureBlackKey
 import com.dd3boh.outertune.constants.PlayerGlassIntensityKey
@@ -93,8 +95,7 @@ import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.dd3boh.outertune.ui.screens.settings.settingRow
 import com.dd3boh.outertune.ui.screens.settings.MeaningLine
 import com.dd3boh.outertune.LocalBatteryMode
-import androidx.compose.ui.platform.LocalContext
-import com.dd3boh.outertune.ui.player.animationsOff
+import com.dd3boh.outertune.ui.utils.Animations
 import com.dd3boh.outertune.playback.BatteryUse
 import kotlin.math.roundToInt
 
@@ -105,7 +106,25 @@ fun ColumnScope.ThemeAppFrag() {
     val (highContrastCompat, onHccChange) = rememberPreference(HighContrastKey, defaultValue = false)
 
     val (pureBlack, onPureBlackChange) = rememberPreference(PureBlackKey, defaultValue = false)
+    val (animations, onAnimationsChange) = rememberPreference(AnimationsKey, defaultValue = Animations.SWITCH_DEFAULT)
     val (backAnimations, onBackAnimationsChange) = rememberPreference(BackAnimationsKey, defaultValue = true)
+
+    // Every animation of the app, one rule with Android's own Remove animations (Animations).
+    // While that one is on it holds this off: greyed, shown off, and what was set is kept for
+    // after, as Battery use on Saver holds the rows it sets.
+    if (Unreleased.ANIMATIONS_SWITCH) {
+        val heldOff = Animations.offInSystem
+        SwitchPreference(
+            modifier = Modifier.settingRow(R.string.animations_title),
+            title = { Text(stringResource(R.string.animations_title)) },
+            description = stringResource(R.string.animations_description),
+            icon = { Icon(Icons.Rounded.Animation, null) },
+            checked = animations && !heldOff,
+            isEnabled = !heldOff,
+            onCheckedChange = onAnimationsChange
+        )
+        if (heldOff) InfoLabel(stringResource(R.string.animations_held_note))
+    }
 
     SwitchPreference(
         modifier = Modifier.settingRow(R.string.back_animations),
@@ -242,11 +261,17 @@ fun ColumnScope.ThemePlayerFrag() {
                 colours = livingColours,
                 modifier = Modifier.padding(start = 16.dp, top = 4.dp, end = 16.dp, bottom = 8.dp)
             )
-            // With animations off in the system it stands still, here and in the player: said, so
-            // that the sliders are not taken for broken (#49).
-            if (LocalContext.current.animationsOff()) {
+            // With animations off it stands still, here and in the player: said, with the switch
+            // that does it, so that the sliders are not taken for broken (#49). Android's own is
+            // named first, as the Animations switch at the top cannot undo it.
+            val stillBecause = when {
+                Animations.offInSystem -> R.string.living_blur_still_animations
+                Animations.off -> R.string.living_blur_still_switch
+                else -> null
+            }
+            if (stillBecause != null) {
                 Box(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) {
-                    MeaningLine(stringResource(R.string.living_blur_still_animations))
+                    MeaningLine(stringResource(stillBecause))
                 }
             }
             EnumListPreference(

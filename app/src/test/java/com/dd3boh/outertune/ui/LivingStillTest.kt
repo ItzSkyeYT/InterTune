@@ -21,16 +21,18 @@ class LivingStillTest {
     fun `it stands still for Saver as Battery use decides it, not for the phone's saver behind its back`() {
         val body = read("src/main/java/com/dd3boh/outertune/ui/player/LivingBackground.kt")
         assertTrue(body.contains("wantsStillness(context, LocalBatteryMode.current)"))
-        assertTrue(body.contains("mode == BatteryMode.SAVER || (!Unreleased.BATTERY_MODES && context.isPowerSaver()) || context.animationsOff()"))
+        assertTrue(body.contains("mode == BatteryMode.SAVER || (!Unreleased.BATTERY_MODES && context.isPowerSaver()) || Animations.off"))
         assertTrue("a change of mode while it is on screen is not taken", body.contains("motion, lifecycleOwner, still) {"))
     }
 
     @Test
-    fun `with animations off Settings says why, in English and in French`() {
+    fun `with animations off Settings says why, Android's setting or the Animations switch, in English and in French`() {
         val frag = read("src/main/java/com/dd3boh/outertune/ui/screens/settings/fragments/ThemeFrag.kt")
-        assertTrue(Regex("""animationsOff\(\)\) \{\s*Box\([^\n]*\) \{\s*MeaningLine\(stringResource\(R\.string\.living_blur_still_animations\)\)""").containsMatchIn(frag))
+        assertTrue(Regex("""Animations\.offInSystem -> R\.string\.living_blur_still_animations\s*Animations\.off -> R\.string\.living_blur_still_switch""").containsMatchIn(frag))
+        assertTrue(Regex("""if \(stillBecause != null\) \{\s*Box\([^\n]*\) \{\s*MeaningLine\(stringResource\(stillBecause\)\)""").containsMatchIn(frag))
         for (path in listOf("src/main/res/values/strings-ot.xml", "src/main/res/values-fr/strings-ot.xml")) {
             assertTrue(path, read(path).contains("name=\"living_blur_still_animations\""))
+            assertTrue(path, read(path).contains("name=\"living_blur_still_switch\""))
         }
     }
 }

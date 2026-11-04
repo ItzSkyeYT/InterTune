@@ -683,6 +683,17 @@ object Unreleased {
     val ARTIST_BLOCK = BuildConfig.DEBUG
 
     /**
+     * The Animations switch in Look and feel (Animations, ThemeFrag): off, screens and controls
+     * change at once and Living blur and the glass stand still, as with Android's own Remove
+     * animations. A tester's wish in the 0.13 poll, for older and smaller phones; his yes of 4 Nov
+     * 2026. Without it there is no row and the switch counts as on, so only Android's setting
+     * decides, as before. Its texts (animations_*, living_blur_still_switch) are held from
+     * translators, their French beside them in values-fr. When it is agreed: set this to true and
+     * make its texts translatable.
+     */
+    val ANIMATIONS_SWITCH = BuildConfig.DEBUG
+
+    /**
      * Share as a file under a report's text, in Report a problem and the crash page (ReportFile,
      * ShareReportFile): the report as InterTune-report-<day>-<time>.txt to any app. Discord takes a
      * file from anyone, where a message past 2,000 characters wants Nitro and a log pasted in pieces

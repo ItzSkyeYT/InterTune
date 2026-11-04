@@ -31,7 +31,7 @@ import coil3.disk.directory
 import coil3.memory.MemoryCache
 import coil3.request.CachePolicy
 import coil3.request.allowHardware
-import coil3.request.crossfade
+import coil3.request.transitionFactory
 import com.dd3boh.outertune.constants.AccountChannelHandleKey
 import com.dd3boh.outertune.constants.AccountEmailKey
 import com.dd3boh.outertune.constants.AccountNameKey
@@ -62,6 +62,7 @@ import com.dd3boh.outertune.playback.PhoneBatterySaver
 import com.dd3boh.outertune.playback.PlayerLogger
 import com.dd3boh.outertune.playback.ProximityProbe
 import com.dd3boh.outertune.playback.StandInMemory
+import com.dd3boh.outertune.ui.utils.CoverFade
 import com.dd3boh.outertune.utils.CoilBitmapLoader
 import com.dd3boh.outertune.utils.CrashLog
 import com.dd3boh.outertune.constants.Unreleased
@@ -269,7 +270,8 @@ class App : Application(), SingletonImageLoader.Factory {
                 // A downloaded song's kept cover, served from the app's own storage: see DownloadCovers.
                 add(DownloadCovers.Interceptor(filesDir))
                 }
-                .crossfade(true)
+                // Covers fade in, and are there at once with animations off (CoverFade).
+                .transitionFactory(CoverFade())
                 .allowHardware(false)
                 .memoryCache {
                     MemoryCache.Builder()
@@ -287,7 +289,8 @@ class App : Application(), SingletonImageLoader.Factory {
                 // A downloaded song's kept cover, served from the app's own storage: see DownloadCovers.
                 add(DownloadCovers.Interceptor(filesDir))
             }
-            .crossfade(true)
+            // Covers fade in, and are there at once with animations off (CoverFade).
+            .transitionFactory(CoverFade())
             // Hardware bitmaps left ON deliberately. This used to be allowHardware(false) globally,
             // which forced every image into the Java heap as ARGB_8888. That was survivable while
             // the player drew a 120px thumbnail, but artwork is now requested at the size it is
