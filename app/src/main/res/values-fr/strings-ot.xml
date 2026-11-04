@@ -2203,4 +2203,16 @@
     <string name="new_lyrics_video_long_body">Appuyez longuement sur une ligne des paroles pour partager une vidéo qui prend jusqu\'à dix minutes du titre. Avec le Flou vivant, son fond bouge avec la musique.</string>
     <string name="new_share_cards_title">Les titres partagés montrent leur pochette</string>
     <string name="new_share_cards_body">Un titre partagé en page InterTune affiche son nom et sa pochette dans les applis de discussion.</string>
+    <string name="backup_parts_title">Ce que contient la sauvegarde</string>
+    <string name="backup_parts_note">À restaurer sur n\'importe quel téléphone avec InterTune.</string>
+    <string name="backup_part_library">Bibliothèque</string>
+    <string name="backup_part_library_note">Titres, playlists, historique et statistiques</string>
+    <string name="backup_part_settings">Paramètres</string>
+    <string name="backup_part_settings_note">L\'apparence et la lecture de l\'app</string>
+    <string name="backup_part_photos">Photos des playlists</string>
+    <string name="backup_part_photos_note">Les couvertures choisies sur votre téléphone</string>
+    <string name="backup_part_signins">Vos connexions</string>
+    <string name="backup_part_signins_note">YouTube Music et Last.fm</string>
+    <string name="backup_part_signins_warning">Toute personne qui a ce fichier pourrait utiliser ces comptes.</string>
+    <string name="backup_parts_confirm">Sauvegarder</string>
 </resources>

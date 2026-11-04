@@ -15,8 +15,12 @@ import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.extensions.div
 import com.dd3boh.outertune.extensions.zipInputStream
 import com.dd3boh.outertune.playback.MusicService
+import com.dd3boh.outertune.utils.BackupParts
 import com.dd3boh.outertune.utils.BackupWriter
 import com.dd3boh.outertune.utils.PlaylistCovers
+import com.dd3boh.outertune.utils.SettingsFile
+import com.dd3boh.outertune.utils.SignIns
+import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.reportException
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -24,6 +28,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
@@ -59,7 +64,7 @@ class BackupRestoreViewModel @Inject constructor(
      */
     val restoreInProgress: MutableStateFlow<Boolean> = restoreRunning
 
-    fun backup(uri: Uri) {
+    fun backup(uri: Uri, parts: BackupParts = BackupParts()) {
         // Also refused while a restore runs: BackupWriter.write reads database.openHelper's
         // writableDatabase, which reopens a connection to the very file restore is mid-checkpoint
         // or mid-overwrite on, producing a backup that looks successful but is not.
@@ -76,7 +81,7 @@ class BackupRestoreViewModel @Inject constructor(
                         context.applicationContext.contentResolver.openOutputStream(uri)?.use { stream ->
                             // The zip layout lives in BackupWriter so the scheduled backup writes the
                             // very same file.
-                            BackupWriter.write(context, database, stream)
+                            BackupWriter.write(context, database, stream, parts)
                         }
                     }
                 }
@@ -151,6 +156,7 @@ class BackupRestoreViewModel @Inject constructor(
     private fun restoreValidatedDatabase(uri: Uri): Boolean {
         var settingsBytes: ByteArray? = null
         var databaseValidated = false
+        var databaseFound = false
         val probeFile = context.getDatabasePath(InternalDatabase.TEST_DB_NAME)
         // The photos a backup holds as playlist covers wait here, like the settings, until the
         // database is known good: a refused backup changes nothing.
@@ -167,6 +173,7 @@ class BackupRestoreViewModel @Inject constructor(
                         }
 
                         InternalDatabase.DB_NAME -> {
+                            databaseFound = true
                             Log.i(TAG, "Testing new database for compatibility...")
                             probeFile.parentFile?.apply {
                                 if (!exists()) mkdirs()
@@ -204,6 +211,14 @@ class BackupRestoreViewModel @Inject constructor(
             }
         }
 
+        // A backup of the settings alone (the backup sheet lets the library be left out): there is
+        // no database to check or swap, and photos only come with one.
+        if (!databaseFound && settingsBytes != null) {
+            stagedCovers.deleteRecursively()
+            writeSettings(settingsBytes!!)
+            return true
+        }
+
         if (!databaseValidated) {
             Log.e(TAG, "Incompatible or missing database, aborting restore")
             stagedCovers.deleteRecursively()
@@ -231,17 +246,33 @@ class BackupRestoreViewModel @Inject constructor(
 
         // The automatic backup schedule is left as it is. The launch after the restart compares it
         // with these settings and replaces it if the interval differs (AutoBackup.schedule).
-        settingsBytes?.let { bytes ->
-            (context.filesDir / "datastore" / SETTINGS_FILENAME).outputStream().use { outputStream ->
-                outputStream.write(bytes)
-            }
-        }
+        settingsBytes?.let { writeSettings(it) }
 
         // Last, and apart from the rest: a photo that cannot be put in place costs its playlist a
         // cover, which is drawn as the first song's, and never the restore.
         runCatching { PlaylistCovers.place(stagedCovers, context.filesDir) }
 
         return true
+    }
+
+    /**
+     * Puts a backup's settings in place, with the sign-ins already on this phone kept when the
+     * backup has none: a backup leaves them out unless asked, and a restore must not sign anybody
+     * out. Settings that cannot be read that way are written as they came, as before.
+     */
+    private fun writeSettings(bytes: ByteArray) {
+        val settings = runCatching {
+            runBlocking {
+                val restored = SettingsFile.decode(bytes, context.cacheDir)
+                SettingsFile.encode(SignIns.keptOver(restored, context.dataStore.current), context.cacheDir)
+            }
+        }.getOrElse {
+            Log.w(TAG, "The backup's settings could not be read; written as they are", it)
+            bytes
+        }
+        (context.filesDir / "datastore" / SETTINGS_FILENAME).outputStream().use { outputStream ->
+            outputStream.write(settings)
+        }
     }
 
     companion object {

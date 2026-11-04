@@ -9,8 +9,8 @@ package com.dd3boh.outertune.utils
 import android.content.Context
 import com.dd3boh.outertune.db.InternalDatabase
 import com.dd3boh.outertune.db.MusicDatabase
-import com.dd3boh.outertune.extensions.div
 import com.dd3boh.outertune.extensions.zipOutputStream
+import kotlinx.coroutines.runBlocking
 import java.io.FileInputStream
 import java.io.OutputStream
 import java.util.zip.Deflater
@@ -28,30 +28,36 @@ object BackupWriter {
     const val SETTINGS_FILENAME = "settings.preferences_pb"
 
     /**
-     * Writes the settings file and the database into [output] as one zip, and after them the photos
-     * chosen as playlist covers, when there are any.
+     * Writes what [parts] asks for into [output] as one zip: the settings, the database, and after it
+     * the photos chosen as playlist covers, when there are any.
      *
      * Call it off the main thread: the checkpoint is a Room query, and the database copy can be
      * large. The stream is wrapped and closed here, so the caller only needs to open it.
      */
-    fun write(context: Context, database: MusicDatabase, output: OutputStream) {
+    fun write(context: Context, database: MusicDatabase, output: OutputStream, parts: BackupParts = BackupParts()) {
         output.buffered().zipOutputStream().use { zip ->
             zip.setLevel(Deflater.BEST_COMPRESSION)
-            (context.filesDir / "datastore" / SETTINGS_FILENAME).inputStream().buffered().use { input ->
+            if (parts.settings) {
+                // The settings as the app holds them, written through DataStore itself, and without
+                // the account sign-ins unless they were asked for: anyone with the file could use them.
+                val prefs = context.dataStore.current.let { if (parts.signIns) it else SignIns.without(it) }
+                val bytes = runBlocking { SettingsFile.encode(prefs, context.cacheDir) }
                 zip.putNextEntry(ZipEntry(SETTINGS_FILENAME))
-                input.copyTo(zip)
+                zip.write(bytes)
             }
-            // Folds the write-ahead log into the main file first, otherwise the copy below would
-            // miss everything since the last checkpoint.
-            database.checkpoint()
-            FileInputStream(database.openHelper.writableDatabase.path).use { input ->
-                zip.putNextEntry(ZipEntry(InternalDatabase.DB_NAME))
-                input.copyTo(zip)
+            if (parts.library) {
+                // Folds the write-ahead log into the main file first, otherwise the copy below would
+                // miss everything since the last checkpoint.
+                database.checkpoint()
+                FileInputStream(database.openHelper.writableDatabase.path).use { input ->
+                    zip.putNextEntry(ZipEntry(InternalDatabase.DB_NAME))
+                    input.copyTo(zip)
+                }
+                // A playlist's photo cover is a file of the app's own and the database only names it,
+                // so without the file a restored playlist would show the first song's cover again.
+                // After the database, and nothing at all for a library that has none.
+                if (parts.photos) PlaylistCovers.addTo(zip, context.filesDir)
             }
-            // A playlist's photo cover is a file of the app's own and the database only names it,
-            // so without the file a restored playlist would show the first song's cover again.
-            // After the database, and nothing at all for a library that has none.
-            PlaylistCovers.addTo(zip, context.filesDir)
         }
     }
 }

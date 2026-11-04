@@ -2388,4 +2388,17 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="new_lyrics_video_long_body" translatable="false">Long-press a line of the lyrics to share a video of up to ten minutes of the song. With Living blur on, its background moves with the music.</string>
     <string name="new_share_cards_title" translatable="false">Shared songs show their cover</string>
     <string name="new_share_cards_body" translatable="false">A song shared as InterTune\'s page shows its name and cover in chat apps.</string>
+    <!-- The backup sheet (BackupParts): what goes in a backup file, the sign-ins off by default (his yes, 4 Nov 2026): held from translators until his go. -->
+    <string name="backup_parts_title" translatable="false">What goes in the backup</string>
+    <string name="backup_parts_note" translatable="false">Restore it on any phone with InterTune.</string>
+    <string name="backup_part_library" translatable="false">Library</string>
+    <string name="backup_part_library_note" translatable="false">Songs, playlists, history and stats</string>
+    <string name="backup_part_settings" translatable="false">Settings</string>
+    <string name="backup_part_settings_note" translatable="false">How the app looks and plays</string>
+    <string name="backup_part_photos" translatable="false">Playlist photos</string>
+    <string name="backup_part_photos_note" translatable="false">Covers you picked from your phone</string>
+    <string name="backup_part_signins" translatable="false">Your sign-ins</string>
+    <string name="backup_part_signins_note" translatable="false">YouTube Music and Last.fm</string>
+    <string name="backup_part_signins_warning" translatable="false">Anyone with this file could use these accounts.</string>
+    <string name="backup_parts_confirm" translatable="false">Back up</string>
 </resources>
