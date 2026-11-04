@@ -41,6 +41,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import okhttp3.OkHttpClient
 import kotlin.math.abs
+import com.dd3boh.outertune.utils.Toaster
 
 /**
  * A listening room while it lasts, held by the [MusicService] (his yes of 17 Oct 2026 for 0.13).
@@ -428,7 +429,7 @@ class TogetherSession(
                 service.enqueueNext(listOf(song.toMediaItem()))
                 Log.i(TAG, "${from.take(8)} suggested ${message.songId}: next in the queue")
                 _status.value = _status.value.copy(lastSuggestion = "${message.title}, ${message.by}")
-                Toast.makeText(service, service.getString(R.string.together_from_guest, message.by, message.title), Toast.LENGTH_LONG).show()
+                Toaster.show(service, service.getString(R.string.together_from_guest, message.by, message.title), Toast.LENGTH_LONG)
             }
             is TogetherMessage.Kick -> if (from == ownerKey && message.to == me) {
                 Log.i(TAG, "Sent out of the room by its owner")
@@ -518,7 +519,7 @@ class TogetherSession(
             PairSeal.seal(secret, key, next.raw)?.let { send(TogetherMessage.Move(key, it)) }
         }
         Log.i(TAG, "Sent ${member.id} out; the room moves to a new code")
-        Toast.makeText(service, service.getString(R.string.together_removed, member.name.ifBlank { member.id }), Toast.LENGTH_LONG).show()
+        Toaster.show(service, service.getString(R.string.together_removed, member.name.ifBlank { member.id }), Toast.LENGTH_LONG)
         // Long enough for the messages to leave before this session closes with the old code.
         scope.launch {
             delay(MOVE_AFTER_MS)
@@ -540,7 +541,7 @@ class TogetherSession(
     }
 
     private fun closed(@StringRes why: Int) {
-        Toast.makeText(service, why, Toast.LENGTH_LONG).show()
+        Toaster.show(service, why, Toast.LENGTH_LONG)
         service.stopTogether()
     }
 

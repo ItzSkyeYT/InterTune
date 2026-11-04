@@ -168,6 +168,7 @@ import androidx.compose.ui.window.DialogWindowProvider
 import com.dd3boh.outertune.together.RoomQr
 import kotlin.math.floor
 import kotlin.math.roundToInt
+import com.dd3boh.outertune.utils.Toaster
 
 /**
  * Whether Listen together is offered: while it is built (Unreleased.LISTEN_TOGETHER), and from
@@ -360,7 +361,7 @@ private fun RoomPage(room: TogetherSession, song: MediaMetadata?, onLeave: () ->
         haptics.performHapticFeedback(HapticFeedbackType.Confirm)
         clipboard.nativeClipboard.setPrimaryClip(ClipData.newPlainText(room.code.pretty, room.code.pretty))
         // From Android 13 the system shows what was copied by itself.
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) Toast.makeText(context, copied, Toast.LENGTH_SHORT).show()
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) Toaster.show(context, copied, Toast.LENGTH_SHORT)
     }
 
     Column(Modifier.fillMaxWidth()) {

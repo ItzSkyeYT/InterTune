@@ -141,7 +141,8 @@ class TesterLockBuildTest {
     @Test
     fun `main asks before anything of the app is drawn or started`() {
         val activity = File("src/main/java/com/dd3boh/outertune/MainActivity.kt").readText()
-        val content = activity.substringAfter("        setContent {\n")
+        // The window's content, opened with or without a parent recomposer (Animations, 4 Nov 2026).
+        val content = activity.substring(Regex("""\n {8}setContent(\(.*\))? \{\n""").find(activity)!!.range.last + 1)
         val firstStatement = content.lines().map { it.trim() }.first { it.isNotEmpty() && !it.startsWith("//") }
         assertEquals("if (TesterLock.holds(this@MainActivity)) return@setContent", firstStatement)
         // The gate is MainActivity's alone. The other mentions of the lock in main are the two answers every build gives, the Testers

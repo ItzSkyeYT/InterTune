@@ -68,6 +68,7 @@ import com.zionhuang.innertube.models.SongItem
 import kotlinx.coroutines.launch
 import android.widget.Toast
 import androidx.compose.material.icons.rounded.Group
+import com.dd3boh.outertune.utils.Toaster
 
 @Composable
 fun YouTubeSongMenu(
@@ -265,7 +266,7 @@ fun YouTubeSongMenu(
                 title = R.string.together_suggest
             ) {
                 guestIn.suggest(song.toMediaMetadata())
-                Toast.makeText(context, R.string.together_suggested, Toast.LENGTH_SHORT).show()
+                Toaster.show(context, R.string.together_suggested, Toast.LENGTH_SHORT)
                 onDismiss()
             }
         }

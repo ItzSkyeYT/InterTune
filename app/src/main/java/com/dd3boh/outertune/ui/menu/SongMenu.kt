@@ -88,6 +88,7 @@ import com.zionhuang.innertube.YouTube
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import com.dd3boh.outertune.utils.Toaster
 
 @Composable
 fun SongMenu(
@@ -368,7 +369,7 @@ fun SongMenu(
                 title = R.string.together_suggest
             ) {
                 guestIn.suggest(song.toMediaMetadata())
-                Toast.makeText(context, R.string.together_suggested, Toast.LENGTH_SHORT).show()
+                Toaster.show(context, R.string.together_suggested, Toast.LENGTH_SHORT)
                 onDismiss()
             }
         }
