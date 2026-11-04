@@ -134,8 +134,14 @@ class DownloadUtil @Inject constructor(
     private val goneRun = GoneRun()
     private var lastResolveAt = 0L
     private val dataSourceFactory = ResolvingDataSource.Factory(
+        // The song cache is read here, never written: a song it holds whole is copied from it (see
+        // below), and nothing a download fetches goes into it. Without a writer of its own media3
+        // writes every byte read into the cache, and each download was kept twice, in the
+        // download cache and in the song cache: for good on Unlimited, and with a size it pushed
+        // out the songs kept from streaming. A download is kept once, where downloads live (KeptOnce).
         CacheDataSource.Factory()
             .setCache(playerCache)
+            .setCacheWriteDataSinkFactory(null)
             .setUpstreamDataSourceFactory(
                 // A sabr: address to the SABR reader, any other over the family the address was
                 // issued to, and a web client's with its page's headers, as its check was made:
@@ -342,6 +348,62 @@ class DownloadUtil @Inject constructor(
     private val coverChecks = Dispatchers.IO.limitedParallelism(1)
 
     fun getDownload(songId: String): Flow<LocalDateTime?> = downloads.map { it[songId] }
+
+    /** Whether [id] has landed, in the app or in a download folder. A song on its way is not yet. */
+    fun isDownloaded(id: String): Boolean = hasLanded(downloads.value[id])
+
+    /**
+     * Opens once the download folders have been listed since the start (the rescan in init): until
+     * then the folders' list is empty, and a song with its file in a folder is not found in it.
+     */
+    private val firstListing = java.util.concurrent.CountDownLatch(1)
+
+    /**
+     * The file of [id] in a download folder. Asked for a song whose row says its file is in one:
+     * while the folders have not been listed since the start, it waits for that, at most [waitMs].
+     * Until then the song was streamed, and offline it failed, unless the song cache happened to
+     * hold a copy; a download is no longer copied there (KeptOnce). It is the case when the player
+     * resumes as the app starts: a headset's button, Bluetooth in the car, Android Auto.
+     */
+    fun folderFileOf(id: String, waitMs: Long): androidx.documentfile.provider.DocumentFile? =
+        afterFirstListing(firstListing, waitMs) { localMgr.isExists(id) }
+
+    /**
+     * Drops the song cache's copy of [id] once its download holds the song whole: a song played
+     * before it was downloaded was kept in both, and the download was copied from the song cache.
+     * The player reads a download first, from the download cache or the folder, so the copy only
+     * took space. A copy the player is reading carries on from its open file; its next read comes
+     * from the download.
+     */
+    private fun dropSongCacheCopy(id: String, reason: String) {
+        runCatching { playerCache.removeResource(id) }
+            .onSuccess { Log.d(TAG, "The song cache's copy of $id goes, $reason") }
+            .onFailure { Log.w(TAG, "Could not drop the song cache's copy of $id", it) }
+    }
+
+    /** [dropSongCacheCopy] for a download that just landed, off the manager's thread, if the download cache holds it whole. */
+    private fun dropSongCacheCopyOnceDownloaded(id: String) {
+        CoroutineScope(Dispatchers.IO).launch {
+            if (runCatching { downloadCache.holdsWhole(id) }.getOrDefault(false)) dropSongCacheCopy(id, "it is downloaded")
+        }
+    }
+
+    /**
+     * The song cache's copies of songs the downloads hold whole, dropped: the ones every download
+     * left there before this version, and any a song got by being played before its download. After
+     * the rescan, so that the folders are listed and the map is whole.
+     */
+    private fun dropSongCacheCopiesOfDownloads() {
+        val keys = runCatching { playerCache.keys.toList() }.getOrDefault(emptyList())
+        if (keys.isEmpty()) return
+        val inFolders = runCatching { localMgr.getAvailableFiles().keys }.getOrDefault(emptySet())
+        val drop = KeptOnce.copiesToDrop(keys, downloads.value, inFolders) { id ->
+            runCatching { downloadCache.holdsWhole(id) }.getOrDefault(false)
+        }
+        if (drop.isEmpty()) return
+        Log.i(TAG, "Dropping ${drop.size} songs from the song cache, the downloads hold them")
+        drop.forEach { dropSongCacheCopy(it, "its download holds it") }
+    }
 
     fun download(songs: List<MediaMetadata>) {
         if (songs.any { downloads.value[it.id] == null }) notifyIfWaitingForWifi()
@@ -1189,7 +1251,13 @@ class DownloadUtil @Inject constructor(
         Log.i(TAG, "DownloadUtil init")
         // TODO: make sure db is update when download is queued
         CoroutineScope(dlCoroutine).launch {
-            rescanDownloads()
+            try {
+                rescanDownloads()
+            } finally {
+                // Open whatever happened: a player waiting on it gives up at once from now on.
+                firstListing.countDown()
+            }
+            dropSongCacheCopiesOfDownloads()
             // Downloads made before their covers were kept as files get theirs now, one at a time;
             // with no network nothing comes and the next start tries again (DownloadCovers).
             keepMissingCovers()
@@ -1230,6 +1298,9 @@ class DownloadUtil @Inject constructor(
                     if (download.state == Download.STATE_COMPLETED) {
                         finishedSinceMove += download.request.id
                         keepCoverForOffline(download.request.id)
+                        // The song is kept once: a copy in the song cache, from playing it before,
+                        // goes once the download cache holds the song whole (KeptOnce).
+                        dropSongCacheCopyOnceDownloaded(download.request.id)
                     }
                     // For Report a problem's trail: that one failed, never which.
                     if (download.state == Download.STATE_FAILED) ReportTrail.thisRun.downloadFailed()
@@ -1291,6 +1362,9 @@ class DownloadUtil @Inject constructor(
 
 fun stateToLocalDateTime(download: Download): LocalDateTime =
     stateToLocalDateTime(download.state, download.updateTimeMs)
+
+/** Whether a date from the downloads map is a download that has landed: a real date, not the mark of one on its way. */
+fun hasLanded(date: LocalDateTime?): Boolean = date != null && date > DownloadUtil.STATE_DOWNLOADING
 
 /**
  * What a download scan stores in dateDownload for one of media3's downloads: when it finished, or
@@ -1413,6 +1487,36 @@ internal suspend fun coverUnusedOnceRemoved(
     val songs = runCatching { sharing() }.getOrNull() ?: return false
     val now = downloads.value
     return songs.none { it in now }
+}
+
+/**
+ * What [find] answers, asked again while the download folders have not been listed since the start
+ * ([listed] not open yet): every [stepMs], and once more when they have been, for at most [waitMs].
+ * Asked again on the way as well as at the end, because a full scan at start can fill the list
+ * before the rescan that opens [listed] gets its turn. None of it once they have been listed. Plain
+ * values in, so it is tested without a folder.
+ */
+internal fun <T : Any> afterFirstListing(
+    listed: java.util.concurrent.CountDownLatch,
+    waitMs: Long,
+    stepMs: Long = 250L,
+    find: () -> T?,
+): T? {
+    var answer = find()
+    val until = System.nanoTime() + java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(waitMs)
+    while (answer == null && listed.count > 0L) {
+        val left = until - System.nanoTime()
+        if (left <= 0L) break
+        try {
+            listed.await(minOf(left, java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(stepMs)), java.util.concurrent.TimeUnit.NANOSECONDS)
+        } catch (e: InterruptedException) {
+            // The player cancelled the load: it is told, and nothing more is waited for.
+            Thread.currentThread().interrupt()
+            break
+        }
+        answer = find()
+    }
+    return answer
 }
 
 /**
