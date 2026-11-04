@@ -73,6 +73,15 @@ object SystemSearch {
     fun searchLinkFor(action: String?, words: String?): String? =
         if (action == ACTION_SEARCH && !words.isNullOrBlank()) searchLink(words) else null
 
+    /**
+     * What you have heard, the list of every song recognition named: where the notification about
+     * songs named once the phone was back online opens (RecogniseLaterWorker).
+     */
+    const val HEARD_LINK = "$APP_SCHEME://heard"
+
+    /** Whether [link] is the [HEARD_LINK]. */
+    fun isHeard(link: String): Boolean = link.trim() == HEARD_LINK
+
     /** The words a [searchLink] carries, or null for any other link. */
     fun searchOf(link: String): String? {
         val uri = runCatching { URI(link.trim()) }.getOrNull() ?: return null

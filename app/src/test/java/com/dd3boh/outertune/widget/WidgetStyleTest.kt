@@ -193,11 +193,16 @@ class WidgetStyleTest {
     fun `rows of buttons and covers keep under Glance's ten children`() {
         val widget = source("java/com/dd3boh/outertune/widget/MusicWidget.kt")
         assertFalse("Spacer(" in body(widget, "Controls"))
-        assertFalse("Spacer(" in body(widget, "ShelfCovers"))
         // A spread row has five places at most, a blank in a place the heart or shuffle leaves.
         assertEquals(2, Regex("""Spacer\(""").findAll(body(widget, "SpreadControls")).count())
         assertTrue(WidgetLayout.MAX_UP_NEXT + 1 <= 10)
-        assertTrue("a shelf's row", 6 <= 10)
+        // The looks: Big cover's picture, words and pill and a row of its mosaic each; the crate's and
+        // the records' picture, words, pill and heading and a picture for each row; and in a row, a
+        // place to tap for each song, side by side with no spacer between.
+        for (look in listOf("BigCoverLook", "RowsLook")) assertFalse(look, "Spacer(" in body(widget, look))
+        assertTrue(3 + WidgetLooks.MAX_ROWS <= 10)
+        assertTrue(4 + WidgetLooks.MAX_LOOK_ROWS <= 10)
+        assertTrue(WidgetLooks.MAX_COLUMNS <= 10 && WidgetLooks.MAX_PER_ROW <= 10)
     }
 
     // The widget's own settings, and the launcher's record of it.
@@ -239,6 +244,19 @@ class WidgetStyleTest {
                 assertTrue("$name is a name, not a sentence: $text", text.length <= 20)
             }
         }
+    }
+
+    /** The looks' words (1 Nov 2026): English and French, names and not sentences, and no long dash. */
+    @Test
+    fun `the looks' words are there in English and French, short and without a long dash`() {
+        val french = mapOf("widget_config_look" to "Apparence", "widget_look_big_cover" to "Grande pochette", "widget_look_crate" to "Bac à disques", "widget_look_records" to "Vinyles")
+        val english = mapOf("widget_config_look" to "Look", "widget_look_big_cover" to "Big cover", "widget_look_crate" to "Crate", "widget_look_records" to "Records")
+        for ((folder, words) in listOf("values" to english, "values-fr" to french)) for ((name, text) in words) {
+            assertEquals("$folder $name", text, Regex(""">([^<]+)</string>""").find(line(folder, name))!!.groupValues[1])
+            assertFalse('\u2014' in text)
+        }
+        val screen = source("java/com/dd3boh/outertune/widget/WidgetConfigActivity.kt")
+        for (name in english.keys) assertTrue("$name is on the settings screen", "R.string.$name" in screen)
     }
 
     @Test

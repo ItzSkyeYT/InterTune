@@ -1,0 +1,12 @@
+Version 0.12.6
+
+- La qualité Faible fonctionne à nouveau.
+- Élevée choisit Opus quand le son est aussi bon.
+- Les téléchargements gardent leur pochette hors ligne.
+- Albums locaux dans l'ordre disque et piste.
+- Moins de plantages : artistes, Ajouter à une playlist.
+- File d'attente et recherche corrigées, un remix retrouve l'original.
+- Une autre appli InterTune peut ouvrir vos liens.
+- Entièrement en polonais.
+
+Full changelog: https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.12.6

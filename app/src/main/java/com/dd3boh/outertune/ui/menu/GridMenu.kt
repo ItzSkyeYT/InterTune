@@ -9,6 +9,9 @@
 
 package com.dd3boh.outertune.ui.menu
 
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
@@ -121,9 +124,18 @@ fun LazyGridScope.GridMenuItem(
             )
             Text(
                 text = stringResource(title),
-                style = MaterialTheme.typography.labelLarge,
+                // The height of a line in step with the size, for the name made smaller below: at
+                // the style's own size it is the style's 20sp.
+                style = MaterialTheme.typography.labelLarge.copy(lineHeight = (20f / 14f).em),
                 textAlign = TextAlign.Center,
                 maxLines = 2,
+                // A word wider than the entry, "(recommendations)" three abreast on a phone, makes
+                // the name a little smaller instead of cut off. A name that fits is as it was.
+                autoSize = TextAutoSize.StepBased(
+                    minFontSize = 11.sp,
+                    maxFontSize = MaterialTheme.typography.labelLarge.fontSize,
+                    stepSize = 0.5.sp,
+                ),
                 modifier = Modifier.fillMaxWidth()
             )
         }

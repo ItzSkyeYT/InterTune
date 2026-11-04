@@ -270,4 +270,11 @@
     <string name="disable_screenshot_desc">이 설정을 켜면, 스크린샷이 비활성화되고 최근 앱에서 보이는 앱 화면이 숨겨집니다.</string>
     <string name="enable_discord_rpc">활동 상태 공유</string>
     <string name="action_login">로그인</string>
+    <string name="favorite_artists">좋아하는 아티스트</string>
+    <string name="crash_report_title">지난번 실행 중 InterTune에 오류가 발생했습니다</string>
+    <string name="crash_report_text">죄송합니다. 발생한 오류 정보는 기기에만 저장되었으며 어디로도 전송되지 않았습니다. 오류를 제보해 주시면 문제를 해결하는 데 큰 도움이 됩니다.</string>
+    <string name="crash_report_github">GitHub에 제보하기</string>
+    <string name="crash_report_copy">복사</string>
+    <string name="crash_report_dismiss">닫기</string>
+    <string name="crash_report_copied">오류 정보가 복사되었습니다</string>
 </resources>

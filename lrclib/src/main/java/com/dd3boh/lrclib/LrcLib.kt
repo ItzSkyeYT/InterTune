@@ -44,7 +44,8 @@ object LrcLib {
     ) = client
         .get("/api/search") {
             parameter("track_name", title)
-            parameter("artist_name", artist)
+            // Blank: the search is by title alone (the lyrics search's last try).
+            if (artist.isNotBlank()) parameter("artist_name", artist)
             if (album != null) parameter("album_name", album)
         }.body<List<Track>>()
         .filter { it.syncedLyrics != null }
@@ -90,6 +91,12 @@ object LrcLib {
         }
     }
 
+    /**
+     * The timed lyrics LRCLIB's search lists for a title and artist, for the lyrics search: up to five,
+     * the closest to [duration] first when it is known. Versions of other lengths are offered too,
+     * lower down, since the listener chooses; only those within two seconds used to be, and a radio
+     * edit with no exact twin found nothing at all.
+     */
     suspend fun getAllLyrics(
         title: String,
         artist: String,
@@ -98,26 +105,8 @@ object LrcLib {
         callback: (String) -> Unit,
     ) {
         val tracks = queryLyrics(artist, title, album)
-        var count = 0
-        var plain = 0
-        tracks.forEach {
-            if (count <= 4) {
-                if (it.syncedLyrics != null && duration == -1) {
-                    count++
-                    it.syncedLyrics.let(callback)
-                } else {
-                    if (it.syncedLyrics != null && it.duration != null && abs(it.duration - duration) <= 2) {
-                        count++
-                        it.syncedLyrics.let(callback)
-                    }
-                    if (it.plainLyrics != null && it.duration != null && abs(it.duration - duration) <= 2 && plain == 0) {
-                        count++
-                        plain++
-                        it.plainLyrics.let(callback)
-                    }
-                }
-            }
-        }
+        val ordered = if (duration > 0) tracks.sortedBy { abs((it.duration ?: Double.MAX_VALUE) - duration) } else tracks
+        ordered.take(5).forEach { track -> track.syncedLyrics?.let(callback) }
     }
 
     suspend fun lyrics(

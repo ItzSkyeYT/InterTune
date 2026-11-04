@@ -11,6 +11,7 @@ import android.net.ConnectivityManager
 import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.PowerManager
+import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
 import androidx.core.content.getSystemService
@@ -19,18 +20,28 @@ import androidx.media3.common.Player
 import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.cast.CastDevice
+import com.dd3boh.outertune.cast.CastFarewell
 import com.dd3boh.outertune.cast.CastLinkException
 import com.dd3boh.outertune.cast.CastLinks
 import com.dd3boh.outertune.cast.CastNetwork
+import com.dd3boh.outertune.cast.CastNext
+import com.dd3boh.outertune.cast.CastRoom
+import com.dd3boh.outertune.cast.CastRoomFeed
 import com.dd3boh.outertune.cast.CastServer
 import com.dd3boh.outertune.cast.FCastLink
 import com.dd3boh.outertune.cast.IdleCountdown
 import com.dd3boh.outertune.cast.LinkProblem
+import com.dd3boh.outertune.cast.PhoneName
 import com.dd3boh.outertune.cast.ReceiverLink
 import com.dd3boh.outertune.cast.ReceiverStatus
 import com.dd3boh.outertune.cast.RecentReceivers
 import com.dd3boh.outertune.constants.CastRecentKey
+import com.dd3boh.outertune.constants.LyricsTimingKey
+import com.dd3boh.outertune.constants.ShowLyricsKey
 import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.lyrics.LyricsForCast
+import com.dd3boh.outertune.lyrics.LyricsLookup
+import com.dd3boh.outertune.lyrics.LyricsTiming
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.get
 import kotlinx.coroutines.CancellationException
@@ -39,10 +50,16 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
@@ -200,6 +217,8 @@ class CastSession(
                 gaveUp(say((e as? CastLinkException)?.problem ?: LinkProblem.UNREACHABLE, link.device.name))
                 return@launch
             }
+            // InterTune's own receiver's idle screen says who is connected while the first song loads.
+            tell("The phone's name") { link.hello(phoneName()) }
             val remote = service.handOverTo(link, server, play = carryOn, onLost = ::lost)
             if (remote == null) {
                 link.close()
@@ -232,6 +251,94 @@ class CastSession(
             _state.value = State.Casting(link.device)
             rememberRecent(link.device)
             Log.i(TAG, "Casting to ${link.device.name}")
+            lyricsJob = scope.launch { followLyrics(link) }
+            queueJob = scope.launch { followQueue(link, remote) }
+            roomJob = scope.launch { followRoom(link) }
+        }
+    }
+
+    private var lyricsJob: Job? = null
+    private var queueJob: Job? = null
+    private var roomJob: Job? = null
+
+    /** What the TV's idle screen calls this phone: the name set in its system settings, else its model. */
+    private fun phoneName(): String {
+        val named = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {
+            runCatching { Settings.Global.getString(service.contentResolver, Settings.Global.DEVICE_NAME) }.getOrNull()
+        } else null
+        return PhoneName.of(named, Build.MODEL)
+    }
+
+    /**
+     * Sends something to a receiver's own screens, and logs it when that fails: they are only
+     * nice to have, so a failure never stops the cast. The link does its writing off the main
+     * thread (ChromecastLink), where this is called from.
+     */
+    private suspend fun tell(what: String, send: suspend () -> Unit) {
+        try {
+            send()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "$what could not be sent", e)
+        }
+    }
+
+    /**
+     * The songs that play next, on the TV's "Up next" shelf: read again whenever the queue, the
+     * song or the repeat mode changes, and sent when what it lists differs. Only InterTune's own
+     * receiver shows it (ReceiverLink.showQueue).
+     */
+    private suspend fun followQueue(link: ReceiverLink, remote: RemotePlayer) {
+        val changes = setOf(
+            Player.EVENT_TIMELINE_CHANGED,
+            Player.EVENT_MEDIA_ITEM_TRANSITION,
+            Player.EVENT_REPEAT_MODE_CHANGED,
+            Player.EVENT_SHUFFLE_MODE_ENABLED_CHANGED,
+        )
+        callbackFlow<List<CastNext>> {
+            val listener = object : Player.Listener {
+                override fun onEvents(player: Player, events: Player.Events) {
+                    if (changes.any { events.contains(it) }) trySend(player.castUpNext())
+                }
+            }
+            remote.addListener(listener)
+            trySend(remote.castUpNext())
+            awaitClose { remote.removeListener(listener) }
+        }.distinctUntilChanged().collectLatest { next ->
+            Log.i(TAG, "Up next for ${link.device.name}: ${next.joinToString { it.title }.ifEmpty { "nothing" }}")
+            tell("The queue") { link.showQueue(next) }
+        }
+    }
+
+    /**
+     * The Listen together room this phone is in, on the TV (CastRoomFeed): sent when there is one,
+     * changed, and put away when it closes. Only InterTune's own receiver shows it (ReceiverLink.showRoom).
+     */
+    private suspend fun followRoom(link: ReceiverLink) {
+        var shown: CastRoom? = null
+        CastRoomFeed.room.collectLatest { room ->
+            if (room == shown) return@collectLatest
+            shown = room
+            Log.i(TAG, "Room for ${link.device.name}: ${room?.let { "${it.name}, ${it.count} in it" } ?: "none"}")
+            tell("The room") { link.showRoom(room) }
+        }
+    }
+
+    /**
+     * The playing song's lyrics on the TV while the player's lyrics are open (asked for on 3 Nov 2026):
+     * the lyrics button's setting, the song's synced lines and its timing shift, sent again
+     * whenever one of them changes. Only InterTune's own receiver shows them (ReceiverLink.showLyrics).
+     */
+    private suspend fun followLyrics(link: ReceiverLink) {
+        val open = service.dataStore.data.map { it[ShowLyricsKey] ?: false }.distinctUntilChanged()
+        val timing = service.dataStore.data.map { it[LyricsTimingKey] ?: "" }.distinctUntilChanged()
+        val lyrics = LyricsLookup.bySong(service.currentMediaMetadata) { song -> song.id to service.lyricsHelper.getLyrics(song) }
+        combine(open, lyrics, timing) { on, (id, lines), saved ->
+            if (on) LyricsForCast.of(id, lines, LyricsTiming.shiftOf(saved, id)) else null
+        }.distinctUntilChanged().collectLatest { shown ->
+            Log.i(TAG, "Lyrics for ${link.device.name}: ${shown?.let { "${it.lines.size} lines of ${it.mediaId}" } ?: "none"}")
+            runCatching { link.showLyrics(shown) }.onFailure { Log.w(TAG, "The lyrics could not be sent", it) }
         }
     }
 
@@ -290,6 +397,12 @@ class CastSession(
         connecting = null
         keepAwake?.cancel()
         keepAwake = null
+        lyricsJob?.cancel()
+        lyricsJob = null
+        queueJob?.cancel()
+        queueJob = null
+        roomJob?.cancel()
+        roomJob = null
         val remote = remote
         val link = link
         val server = server
@@ -306,6 +419,9 @@ class CastSession(
             // out a DLNA poll already under way: a renderer slow to answer took more than the 3 s
             // this once allowed, the stop was dropped, and it played on after the cast had ended.
             val job = closing.launch {
+                // InterTune's own receiver first says "Back on your phone" for a moment, its song held
+                // quiet since the phone plays on already. Any other receiver is stopped at once.
+                CastFarewell.to(link)
                 withTimeoutOrNull(STOP_TIMEOUT_MS) { runCatching { link.stop() } }
                 link.close()
             }

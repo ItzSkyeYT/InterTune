@@ -15,6 +15,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -219,6 +220,17 @@ class DlnaLinkTest {
         assertEquals("uuid:kitchen", link.device.id)
         assertEquals("Acme S1", link.device.model)
         assertEquals(1, renderer.calls("GetProtocolInfo").size)
+    }
+
+    @Test
+    fun `a renderer that lists AAC by its bare name is told about the track in those words`() {
+        val renderer = FakeRenderer().apply { sink = "http-get:*:audio/mpeg:*,http-get:*:audio/aac:DLNA.ORG_PN=AAC_ISO_320" }
+        val link = link(renderer)
+        runBlocking { link.connect() }
+        runBlocking { link.load(song, 0, play = false) }
+        val metadata = renderer.calls("SetAVTransportURI").single().args["CurrentURIMetaData"]!!
+        assertTrue(metadata, metadata.contains("http-get:*:audio/aac:"))
+        assertFalse(metadata, metadata.contains("audio/mp4"))
     }
 
     @Test

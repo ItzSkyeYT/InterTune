@@ -299,6 +299,15 @@ internal class QueueStart(private val service: Target) {
         const val PRELOAD_TITLE = "Radio\u2060temp"
 
         /**
+         * A queue's title as the queue sheet shows it. The queue of one keeps [PRELOAD_TITLE] for
+         * good when the answer failed, and the sheet said "Radiotemp" over the song left alone
+         * (Val's screen, Discord, 1 Nov 2026): it is shown as that song instead. [song] is asked
+         * only then.
+         */
+        fun shownTitle(title: String, song: () -> String?): String =
+            if (title == PRELOAD_TITLE) song() ?: title else title
+
+        /**
          * Whether a player means to play. One the app paused because a song failed still does:
          * to the player that pause and the listener's are the same playWhenReady false, and only
          * the listener's is to be left alone.

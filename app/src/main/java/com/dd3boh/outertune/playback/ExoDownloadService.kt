@@ -1,11 +1,19 @@
 package com.dd3boh.outertune.playback
 
+import android.app.Activity
+import android.app.Application
 import android.app.Notification
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.graphics.drawable.Icon
 import android.os.Build
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.util.Log
 import androidx.media3.common.util.NotificationUtil
 import androidx.media3.common.util.Util
 import androidx.media3.exoplayer.offline.Download
@@ -19,16 +27,54 @@ import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
 
+/**
+ * The download service.
+ *
+ * Before Android 12 media3 makes it a foreground service, as it always did. From Android 12 this
+ * class does, because Android refuses startForeground to an app in the background and media3
+ * calls it where nothing can catch the refusal, which closed the app (issue #71). See
+ * [ForegroundPromotion], and the foreground part below.
+ */
 @AndroidEntryPoint
 class ExoDownloadService : DownloadService(
-    NOTIFICATION_ID,
-    1000L,
+    FOREGROUND_ID,
+    UPDATE_INTERVAL_MS,
     CHANNEL_ID,
     R.string.action_download,
     0
 ) {
     @Inject
     lateinit var downloadUtil: DownloadUtil
+
+    /** From Android 12 this class makes itself a foreground service, media3 does not: [ForegroundPromotion]. */
+    private val selfPromoting = ForegroundPromotion.selfPromotes(Build.VERSION.SDK_INT)
+    private val promotion = ForegroundPromotion { Log.w(TAG, it) }
+    private val handler = Handler(Looper.getMainLooper())
+
+    /** The notification is built again every second, from the first song that downloads until the last is done. */
+    private var ticking = false
+
+    override fun onCreate() {
+        super.onCreate()
+        if (!selfPromoting) return
+        // Given no notification id media3 makes no channel, and Android drops a notification posted to a
+        // channel that is not there.
+        NotificationUtil.createNotificationChannel(this, CHANNEL_ID, R.string.action_download, 0, NotificationUtil.IMPORTANCE_LOW)
+        downloadManager.addListener(downloadListener)
+        application.registerActivityLifecycleCallbacks(inFront)
+        // Songs that are downloading already, when the service starts again after Android ended it: no
+        // change is coming for them.
+        refresh()
+    }
+
+    override fun onDestroy() {
+        if (selfPromoting) {
+            handler.removeCallbacksAndMessages(null)
+            downloadManager.removeListener(downloadListener)
+            application.unregisterActivityLifecycleCallbacks(inFront)
+        }
+        super.onDestroy()
+    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == REMOVE_ALL_PENDING_DOWNLOADS) {
@@ -39,6 +85,82 @@ class ExoDownloadService : DownloadService(
         return super.onStartCommand(intent, flags, startId)
     }
 
+    /*
+     * The foreground part, from Android 12. This is what media3's own updater did when it made the
+     * service a foreground service, done here so that Android's refusal can be caught
+     * (ForegroundPromotion): Service.startForeground is final and media3 calls it from callbacks on
+     * the main looper, so neither the service nor the app could catch it there.
+     *
+     * Where the app may not start a foreground service (it is in the background: a queued download
+     * that finds Wi-Fi again, downloads resumed by a restart, a like from the media notification),
+     * the refusal is one line in the log and the downloads go on as a background service, without a
+     * notification. It is asked again at every change of a download and whenever a screen of the app
+     * comes to the front, which is when Android allows it.
+     */
+
+    /** The downloads, as media3's service listened to them: a change is a reason to look again. */
+    private val downloadListener = object : DownloadManager.Listener {
+        override fun onInitialized(downloadManager: DownloadManager) = refresh()
+
+        override fun onDownloadChanged(downloadManager: DownloadManager, download: Download, finalException: Exception?) = refresh()
+
+        override fun onDownloadRemoved(downloadManager: DownloadManager, download: Download) = refresh()
+
+        override fun onIdle(downloadManager: DownloadManager) {
+            ticking = false
+            handler.removeCallbacksAndMessages(null)
+        }
+    }
+
+    /** The app's screens: one that comes to the front is the moment a refused promotion is allowed. */
+    private val inFront = object : Application.ActivityLifecycleCallbacks {
+        override fun onActivityResumed(activity: Activity) {
+            if (promotion.owed) refresh()
+        }
+
+        override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
+        override fun onActivityStarted(activity: Activity) {}
+        override fun onActivityPaused(activity: Activity) {}
+        override fun onActivityStopped(activity: Activity) {}
+        override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
+        override fun onActivityDestroyed(activity: Activity) {}
+    }
+
+    /**
+     * While a song downloads or is removed the service is a foreground service and its notification
+     * is built again every second; at any other change the notification follows, if it is up.
+     */
+    private fun refresh() {
+        val current = downloadManager.currentDownloads
+        val running = current.any { it.needsForeground() }
+        if (running) ticking = true
+        if (running || promotion.promoted) update(current)
+    }
+
+    private fun update(current: MutableList<Download>) {
+        val notification = getForegroundNotification(current, downloadManager.notMetRequirements)
+        if (promotion.promoted) {
+            getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification)
+        } else {
+            promotion.attempt {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+                } else {
+                    startForeground(NOTIFICATION_ID, notification)
+                }
+            }
+        }
+        handler.removeCallbacksAndMessages(null)
+        // Only once it is a foreground service. A refusal is asked again at the next change, not every second.
+        if (ticking && promotion.promoted) {
+            handler.postDelayed({ update(downloadManager.currentDownloads) }, UPDATE_INTERVAL_MS)
+        }
+    }
+
+    /** media3's needsStartedService: the states in which the service has to stay up in the foreground. */
+    private fun Download.needsForeground() =
+        state == Download.STATE_DOWNLOADING || state == Download.STATE_REMOVING || state == Download.STATE_RESTARTING
+
     override fun getDownloadManager() = downloadUtil.downloadManager
 
     override fun getScheduler(): Scheduler = PlatformScheduler(this, JOB_ID)
@@ -47,8 +169,8 @@ class ExoDownloadService : DownloadService(
     private val openDownloads by lazy { DownloadsShortcut.pendingIntent(this) }
 
     /**
-     * Built again once a second while songs download (the interval given to DownloadService above)
-     * and at each song's change of state, never for every byte that arrives.
+     * Built again once a second while songs download (UPDATE_INTERVAL_MS) and at each song's change
+     * of state, never for every byte that arrives.
      *
      * The bar and the count are the run's (DownloadRun), from its first song to its last. media3's
      * bar was the average of the few songs downloading at that moment and never counted one done,
@@ -185,5 +307,18 @@ class ExoDownloadService : DownloadService(
         const val NOTIFICATION_ID = 1
         const val JOB_ID = 1
         const val REMOVE_ALL_PENDING_DOWNLOADS = "REMOVE_ALL_PENDING_DOWNLOADS"
+
+        private const val TAG = "ExoDownloadService"
+
+        /** How often the notification is built again while songs download. */
+        private const val UPDATE_INTERVAL_MS = 1000L
+
+        /**
+         * The notification id media3 is given. None from Android 12, which is media3's documented
+         * "run the service only in the background": it then never calls startForeground, and the
+         * service does (ForegroundPromotion).
+         */
+        private val FOREGROUND_ID =
+            if (ForegroundPromotion.selfPromotes(Build.VERSION.SDK_INT)) DownloadService.FOREGROUND_NOTIFICATION_ID_NONE else NOTIFICATION_ID
     }
 }

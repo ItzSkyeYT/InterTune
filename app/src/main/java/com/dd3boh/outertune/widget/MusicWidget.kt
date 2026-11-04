@@ -8,6 +8,7 @@ package com.dd3boh.outertune.widget
 
 import android.content.Context
 import android.content.res.Configuration
+import androidx.annotation.DrawableRes
 import android.graphics.Bitmap
 import android.view.View
 import androidx.compose.runtime.Composable
@@ -47,6 +48,7 @@ import androidx.glance.layout.Column
 import androidx.glance.layout.ContentScale
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
+import androidx.glance.layout.absolutePadding
 import androidx.glance.layout.fillMaxHeight
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
@@ -54,6 +56,8 @@ import androidx.glance.layout.height
 import androidx.glance.layout.padding
 import androidx.glance.layout.size
 import androidx.glance.layout.width
+import androidx.glance.semantics.contentDescription
+import androidx.glance.semantics.semantics
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
@@ -122,6 +126,8 @@ private data class Paint(
     val placeholder: ColorProvider,
     /** Up next's line between the panes. */
     val divider: ColorProvider,
+    /** Under a Shelf's pill of buttons where it sits on the background: light glass on a dark one, ink on a light one, either as the theme goes. */
+    @param:DrawableRes val glass: Int = R.drawable.widget_glass_plain,
 )
 
 /** Words and buttons over a cover are white whatever the widget's colours: the scrim under them is always dark. */
@@ -197,7 +203,12 @@ private fun paintOf(settings: WidgetSettings, snapshot: WidgetSnapshot): Paint {
         light -> ColorProvider(ink.copy(alpha = 0.12f))
         else -> ColorProvider(Color.White.copy(alpha = 0.15f))
     }
-    return Paint(settings, background, text, muted, playFill, playIcon, placeholder, divider)
+    val glass = when {
+        themed || solid == null -> R.drawable.widget_glass_theme
+        light -> R.drawable.widget_glass_ink
+        else -> R.drawable.widget_glass_plain
+    }
+    return Paint(settings, background, text, muted, playFill, playIcon, placeholder, divider, glass)
 }
 
 /** Everything a shape is drawn from. */
@@ -211,6 +222,8 @@ private class Look(
     val w: Int,
     val h: Int,
     val rtl: Boolean,
+    /** The lists' first songs' big covers, where the phone has them: Big cover with a list alone draws that song big. */
+    val firsts: Map<String, Bitmap> = emptyMap(),
 ) {
     val song: WidgetSong? get() = snapshot.nowPlaying
 }
@@ -232,12 +245,20 @@ private fun Body(drawn: WidgetStore.Drawn) {
     val small = drawn.nowCover ?: drawn.art[snapshot.nowPlaying?.id]
     val cover = if (WidgetArt.wantsBig(plan)) drawn.big ?: small else small
     val rtl = context.resources.configuration.layoutDirection == View.LAYOUT_DIRECTION_RTL
-    val look = Look(plan, snapshot, paint, cover, drawn.art, w, h, rtl)
+    val look = Look(plan, snapshot, paint, cover, drawn.art, w, h, rtl, drawn.firsts)
 
     var frame = GlanceModifier.fillMaxSize().appWidgetBackground()
-    // Full cover's face is its cover; with none to show, the cover's colour stands in.
+    // Full cover's face is its cover; with none to show, the cover's colour stands in. A Shelf's
+    // looks are drawn on their cover blurred, when that is the background they have.
     val onCover = settings.style == WidgetStyle.FULL_COVER && cover != null
-    if (!onCover) paint.background?.let { frame = frame.background(it) }
+    val blurred = if (settings.style == WidgetStyle.SHELF && settings.backgroundShown == WidgetBackground.ARTWORK) {
+        val hero = if (settings.contentShown == WidgetContent.LIST) list.firstOrNull()?.let { drawn.art[it.id] } else small
+        hero?.let { WidgetPictures.background(it, w, h, settings.look, settings.opacity) }
+    } else null
+    when {
+        blurred != null -> frame = frame.background(ImageProvider(blurred), ContentScale.FillBounds)
+        !onCover -> paint.background?.let { frame = frame.background(it) }
+    }
     if (settings.rounded) frame = frame.cornerRadius(CornerRadius)
 
     val full = settings.style == WidgetStyle.FULL_COVER
@@ -248,8 +269,8 @@ private fun Body(drawn: WidgetStore.Drawn) {
         WidgetShape.TOP -> Top(look, frame)
         WidgetShape.POSTER -> Poster(look, frame)
         WidgetShape.BANNER -> Banner(look, frame)
-        WidgetShape.SHELF -> Shelf(look, frame, list, settings.list)
-        WidgetShape.GRID -> Grid(look, frame, list, settings.list)
+        WidgetShape.BIG_COVER -> BigCoverLook(look, frame, list, settings.list)
+        WidgetShape.CRATE, WidgetShape.RECORDS -> RowsLook(look, frame, list, settings.list)
         WidgetShape.PANES -> if (full) GlassPanes(look, frame) else Panes(look, frame)
         WidgetShape.NONE -> BigHeading(settings.list, paint, frame)
     }
@@ -441,80 +462,225 @@ private fun Banner(l: Look, frame: GlanceModifier) {
     }
 }
 
+/** Behind a cover not fetched yet, in a look's pictures: a quiet light over whatever is under it. */
+private const val PICTURE_PLACEHOLDER = 0x1FFFFFFF
+
 /**
- * Shelf: what is playing in a line on top, its buttons at the end of it or on a line under it, and
- * the list as covers, each one tapped to play it.
+ * [content] at [spot] of a box [w] by [h] dp, from its top start: a look puts each thing where its
+ * plan says. The box is the whole of its parent, padded on all four sides down to the spot, and
+ * right to left the spot is mirrored here: where a thing lands depends on no gravity and on no
+ * reading of start and end, which a widget's views and Glance's padding were seen to take apart.
  */
 @Composable
-private fun Shelf(l: Look, frame: GlanceModifier, list: List<WidgetSong>, which: WidgetList) {
-    val p = l.plan
-    Column(modifier = frame.padding(horizontal = p.padH.dp, vertical = p.padV.dp)) {
-        Row(
-            modifier = GlanceModifier.fillMaxWidth().height(p.headerHeight.dp).clickable(openApp()),
-            verticalAlignment = Alignment.CenterVertically,
+private fun At(w: Int, h: Int, rtl: Boolean, spot: Spot, modifier: GlanceModifier = GlanceModifier, content: @Composable () -> Unit) {
+    val x = if (rtl) w - spot.x - spot.w else spot.x
+    Box(
+        modifier = GlanceModifier.fillMaxSize().absolutePadding(
+            left = x.coerceAtLeast(0).dp, top = spot.y.coerceAtLeast(0).dp,
+            right = (w - x - spot.w).coerceAtLeast(0).dp, bottom = (h - spot.y - spot.h).coerceAtLeast(0).dp,
+        ),
+    ) {
+        Box(modifier = modifier.fillMaxSize()) { content() }
+    }
+}
+
+/** [At] in the widget itself. */
+@Composable
+private fun At(l: Look, spot: Spot, modifier: GlanceModifier = GlanceModifier, content: @Composable () -> Unit) =
+    At(l.w, l.h, l.rtl, spot, modifier, content)
+
+/** One of a look's pictures, drawn ahead of time (WidgetPictures), where its plan put it. */
+@Composable
+private fun Picture(l: Look, bitmap: Bitmap?, spot: Spot, description: String?, modifier: GlanceModifier = GlanceModifier) {
+    At(l, spot, modifier) {
+        if (bitmap != null) {
+            Image(
+                provider = ImageProvider(bitmap),
+                contentDescription = description,
+                contentScale = ContentScale.FillBounds,
+                modifier = GlanceModifier.fillMaxSize(),
+            )
+        }
+    }
+}
+
+/** A look's pill of buttons: one pane of glass round them, as wide as they are, with play the filled one. */
+@Composable
+private fun Pill(l: Look, glass: GlassPane, face: ImageProvider, fill: ColorProvider, icon: ColorProvider, tint: ColorProvider) {
+    At(l, Spot(glass.x, glass.y, glass.w, glass.h)) {
+        Box(
+            modifier = GlanceModifier.fillMaxSize().background(face, ContentScale.FillBounds),
+            contentAlignment = Alignment.Center,
         ) {
-            Artwork(l.cover, p.headerCover, p.headerCover, l.paint, l.song?.title, radius = if (p.headerCover >= 48) 12 else 8)
-            Spacer(modifier = GlanceModifier.width(COVER_GAP_DP.dp))
-            Column(modifier = GlanceModifier.defaultWeight()) {
-                Titles(l.song, l.paint, p.titleSp, p.artistSp, p.showArtist)
-            }
-            if (p.buttonsInline && p.play) {
-                Spacer(modifier = GlanceModifier.width(SMALL_GAP_DP.dp))
-                Controls(l, l.paint.playFill, l.paint.playIcon, l.paint.text)
-            }
+            if (glass.circle) PlayButton(l.snapshot, l.plan.playSize, fill, icon)
+            else Controls(l, fill, icon, tint)
         }
-        if (!p.buttonsInline && p.play) {
-            Spacer(modifier = GlanceModifier.height(SMALL_GAP_DP.dp))
-            SpreadControls(l, l.paint.playFill, l.paint.playIcon, l.paint.text)
-        }
-        Spacer(modifier = GlanceModifier.height((if (p.buttonsInline) 10 else 8).dp))
-        if (p.heading) Heading(which, l.paint, p.headingHeight)
-        ShelfCovers(l, list)
-    }
-}
-
-/** Shelf with a list alone: its heading and its covers. */
-@Composable
-private fun Grid(l: Look, frame: GlanceModifier, list: List<WidgetSong>, which: WidgetList) {
-    val p = l.plan
-    Column(modifier = frame.padding(horizontal = p.padH.dp, vertical = p.padV.dp)) {
-        if (p.heading) Heading(which, l.paint, p.headingHeight)
-        ShelfCovers(l, list)
     }
 }
 
 /**
- * The shelf's covers, a row at a time, the room between them padding rather than spacers: a row of
- * six with five spacers between would be eleven children, and Glance drops the eleventh.
+ * A look's words: the heading over them where it is drawn there, the title's lines, and the artist.
+ * A line that shares its height with the pill at its end stops short of it ([LookPlan.lineRoom]).
  */
 @Composable
-private fun ShelfCovers(l: Look, list: List<WidgetSong>) {
+private fun LookWords(l: Look, look: LookPlan, at: Spot, song: WidgetSong?, paint: Paint, which: WidgetList) {
     val p = l.plan
+    val scale = paint.settings.textSize.scale * LocalContext.current.resources.configuration.fontScale
+    val titleH = p.titleLines.coerceAtLeast(1) * WidgetLayout.line(p.titleSp, scale)
+    val titleTop = at.y + look.headingInWords
+    val titleW = look.lineRoom(Spot(at.x, titleTop, at.w, titleH), p.glass)
+    val artistW = look.lineRoom(Spot(at.x, titleTop + titleH, at.w, WidgetLayout.line(p.artistSp, scale)), p.glass)
+    At(l, at) {
+        Column(modifier = GlanceModifier.fillMaxSize()) {
+            if (look.headingInWords > 0) {
+                Text(
+                    text = LocalContext.current.getString(headingOf(which)),
+                    style = TextStyle(color = paint.muted, fontSize = scaled(12, paint), fontWeight = FontWeight.Medium),
+                    maxLines = 1,
+                    modifier = GlanceModifier.width(at.w.dp).height(look.headingInWords.dp),
+                )
+            }
+            Text(
+                text = song?.title ?: LocalContext.current.getString(R.string.widget_nothing_playing),
+                style = TextStyle(color = paint.text, fontSize = scaled(p.titleSp, paint), fontWeight = FontWeight.Medium),
+                maxLines = p.titleLines.coerceAtLeast(1),
+                modifier = GlanceModifier.width(titleW.dp),
+            )
+            if (song != null && p.showArtist) {
+                Text(
+                    text = song.artist,
+                    style = TextStyle(color = paint.muted, fontSize = scaled(p.artistSp, paint)),
+                    maxLines = 1,
+                    modifier = GlanceModifier.width(artistW.dp),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Big cover: the cover of what is playing big, its words over its top on their band and the pill of
+ * buttons in frosted glass over its foot, and the list's covers as a mosaic round it, a row of the
+ * mosaic at a time, each cover tapped to play its song. With a list alone the big cover is the
+ * list's first song, its heading and name over it, and a tap plays it.
+ */
+@Composable
+private fun BigCoverLook(l: Look, frame: GlanceModifier, list: List<WidgetSong>, which: WidgetList) {
+    val p = l.plan
+    val look = p.look ?: return
+    val hero = look.hero ?: return
     val context = LocalContext.current
-    for (row in 0 until p.shelfRows) {
-        Row(modifier = GlanceModifier.fillMaxWidth().padding(top = (if (row > 0) p.shelfGap else 0).dp)) {
-            for (column in 0 until p.columns) {
-                val index = row * p.columns + column
-                if (index >= p.shown) break
-                val song = list[index]
-                Gap(if (column > 0) p.shelfGap else 0) {
-                    Column(
-                        modifier = GlanceModifier
-                            .width(p.tile.dp)
-                            .clickable(actionStartActivity(WidgetCommands.playIntent(context, song))),
-                    ) {
-                        Artwork(l.art[song.id], p.tile, p.tile, l.paint, song.title, radius = if (p.tile >= 64) 12 else 8)
-                        if (p.captions) {
-                            Text(
-                                text = song.title,
-                                style = TextStyle(color = l.paint.text, fontSize = scaled(12, l.paint)),
-                                maxLines = 1,
-                                modifier = GlanceModifier.padding(top = 3.dp),
-                            )
+    val density = context.resources.displayMetrics.density
+    val alone = l.paint.settings.contentShown == WidgetContent.LIST
+    val first = if (alone) list.firstOrNull() else null
+    val song = first ?: l.song
+    val art = if (alone) first?.let { l.firsts[it.id] ?: l.art[it.id] } else l.cover
+    val tap = first?.let { actionStartActivity(WidgetCommands.playIntent(context, it)) } ?: openApp()
+    val onCover = l.paint.copy(text = OnCover, muted = OnCoverMuted)
+    Box(modifier = frame) {
+        look.heroPicture?.let { pic ->
+            val d = WidgetPictures.density(look, density)
+            // The band fades out before the pill, which is frosted from the cover as it is.
+            val fade = p.glass?.let { minOf(WidgetPictures.FADE_DP, it.y - hero.y - look.band) } ?: WidgetPictures.FADE_DP
+            Picture(l, WidgetPictures.cover(context, art, pic, hero, look.heroRadius, look.band, fade, d, PICTURE_PLACEHOLDER), pic, song?.title, GlanceModifier.clickable(tap))
+        }
+        look.words?.let { LookWords(l, look, it, song, onCover, which) }
+        p.glass?.let { g ->
+            // Frosted from the cover under it, as Full cover's glass is.
+            val pane = art?.let { WidgetGlass.pane(it, hero.w, hero.h, g.copy(x = g.x - hero.x, y = g.y - hero.y), WidgetScrim.NONE, density, l.rtl) }
+            val face = if (pane != null) ImageProvider(pane) else ImageProvider(if (g.circle) R.drawable.widget_glass_plain_circle else R.drawable.widget_glass_plain)
+            Pill(l, g, face, OnCover, ColorProvider(Color(WidgetColours.deep(l.song?.colour))), OnCover)
+        }
+        // The mosaic, a row at a time: a Box keeps no more than ten children, and a row of them is one,
+        // its covers placed in it as the widget's own things are.
+        val offset = if (alone) 1 else 0
+        for (row in look.picks.withIndex().groupBy { it.value.y }.values) {
+            val start = row.first().value
+            val box = Spot(start.x, start.y, row.last().value.right - start.x, start.h)
+            At(l, box) {
+                Box(modifier = GlanceModifier.fillMaxSize()) {
+                    for ((index, spot) in row) {
+                        val pick = list.getOrNull(index + offset) ?: continue
+                        At(box.w, box.h, l.rtl, spot.at(-box.x, -box.y)) { MosaicCover(l, pick, spot, look.pickRadius, context) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** A cover of Big cover's mosaic, rounded as its own picture (Android 11 and under cannot round a widget's image), tapped to play its song. */
+@Composable
+private fun MosaicCover(l: Look, song: WidgetSong, spot: Spot, radius: Int, context: Context) {
+    val art = l.art[song.id]?.let { WidgetPictures.rounded(it, spot.w, radius) }
+    val modifier = GlanceModifier.size(spot.w.dp, spot.h.dp).clickable(actionStartActivity(WidgetCommands.playIntent(context, song)))
+    if (art != null) {
+        Image(provider = ImageProvider(art), contentDescription = song.title, contentScale = ContentScale.FillBounds, modifier = modifier)
+    } else {
+        Box(modifier = modifier.background(l.paint.placeholder).cornerRadius(radius.dp), contentAlignment = Alignment.Center) {
+            Note((spot.w * 0.42f).roundToInt(), l.paint.muted)
+        }
+    }
+}
+
+/**
+ * Crate and Records: what is playing on top (the crate's line has its cover, Records its sleeve with
+ * the record out), its words and the pill of buttons on the background, then the list's heading and
+ * its rows, each row one picture with the places to tap laid over it, a song's where its cover shows.
+ */
+@Composable
+private fun RowsLook(l: Look, frame: GlanceModifier, list: List<WidgetSong>, which: WidgetList) {
+    val p = l.plan
+    val look = p.look ?: return
+    val context = LocalContext.current
+    val density = context.resources.displayMetrics.density
+    val d = WidgetPictures.density(look, density)
+    val crate = p.shape == WidgetShape.CRATE
+    Box(modifier = frame) {
+        val hero = look.hero
+        val pic = look.heroPicture
+        if (hero != null && pic != null) {
+            val bitmap = if (crate) WidgetPictures.cover(context, l.cover, pic, hero, look.heroRadius, 0, 0, d, PICTURE_PLACEHOLDER)
+            else WidgetPictures.sleeve(context, l.cover, pic, hero, look.heroRadius, d, l.rtl, PICTURE_PLACEHOLDER)
+            Picture(l, bitmap, pic, l.song?.title, GlanceModifier.clickable(openApp()))
+        }
+        look.words?.let { LookWords(l, look, it, l.song, l.paint, which) }
+        // On the background: its glass is a drawable, a pill or, round play alone, a circle (their corners are round to the end).
+        p.glass?.let { g -> Pill(l, g, ImageProvider(l.paint.glass), l.paint.playFill, l.paint.playIcon, l.paint.text) }
+        look.heading?.let { at -> At(l, at) { Heading(which, l.paint, at.h) } }
+        val taps = look.taps()
+        var first = 0
+        for ((r, picture) in look.rowPictures.withIndex()) {
+            val count = look.rows[r]
+            val spots = look.picks.subList(first, first + count)
+            val arts = (first until first + count).map { i -> list.getOrNull(i)?.let { l.art[it.id] } }
+            val bitmap = if (crate) WidgetPictures.crate(context, arts, spots, first, picture, look.pickRadius, d, l.rtl, PICTURE_PLACEHOLDER)
+            else WidgetPictures.records(context, arts, spots, picture, d, l.rtl, PICTURE_PLACEHOLDER)
+            val row = taps.subList(first, first + count)
+            val top = row.minOf { it.y }
+            val bottom = row.maxOf { it.bottom }
+            val from = first
+            At(l, picture) {
+                Box(modifier = GlanceModifier.fillMaxSize()) {
+                    if (bitmap != null) {
+                        Image(provider = ImageProvider(bitmap), contentDescription = null, contentScale = ContentScale.FillBounds, modifier = GlanceModifier.fillMaxSize())
+                    }
+                    // Where each song can be tapped: the part of its cover that shows, placed in the
+                    // picture as the picture's covers are, mirrored with them right to left.
+                    for ((j, spot) in row.withIndex()) {
+                        val song = list.getOrNull(from + j) ?: continue
+                        At(picture.w, picture.h, l.rtl, Spot(spot.x - picture.x, top - picture.y, spot.w, bottom - top)) {
+                            Box(
+                                modifier = GlanceModifier
+                                    .fillMaxSize()
+                                    .clickable(actionStartActivity(WidgetCommands.playIntent(context, song)))
+                                    .semantics { contentDescription = song.title },
+                            ) {}
                         }
                     }
                 }
             }
+            first += count
         }
     }
 }

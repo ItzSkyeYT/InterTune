@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.lyrics
 
+import java.util.Collections
 import android.content.Context
 import android.util.Log
 import android.util.LruCache
@@ -73,6 +74,46 @@ class LyricsHelper @Inject constructor(
      */
     suspend fun getLyrics(mediaMetadata: MediaMetadata): SemanticLyrics? =
         lookups.get(mediaMetadata.id) { resolveLyrics(mediaMetadata) }
+
+    /** What [refetch] came back with. */
+    sealed interface Refetched {
+        /** Lyrics to show: other ones, now stored in place of the old, or the song's own file. */
+        data class Found(val lyrics: SemanticLyrics) : Refetched
+
+        /** Every source answered and none had any: what was stored stays. */
+        data object NoneFound : Refetched
+
+        /** No source gave an answer (offline, every one failing, the time limit): what was stored stays. */
+        data object Failed : Refetched
+    }
+
+    /**
+     * The lyrics menu's Refetch: the song looked up as [getLyrics] looks up one with nothing
+     * stored, with what is stored left as it is until other lyrics come back. Refetch used to
+     * delete the stored lyrics first, those picked in Search included, so offline, or when no
+     * source had any, the song was left with none (audit of 2 Nov 2026).
+     */
+    suspend fun refetch(mediaMetadata: MediaMetadata): Refetched {
+        val trim = context.dataStore.get(LyricTrimKey, defaultValue = false)
+        val multiline = context.dataStore.get(MultilineLrcKey, defaultValue = true)
+        val prefLocal = context.dataStore.get(LyricSourcePrefKey, true)
+
+        val localLyrics = getLocalLyrics(mediaMetadata, LrcUtils.LrcParserOptions(trim, multiline, "Unable to parse lyrics"))
+        if (prefLocal && localLyrics != null) return Refetched.Found(localLyrics)
+
+        val remote = getRemoteLyrics(mediaMetadata)
+        val found = remote.lyrics?.let { parse(it, trim, multiline) }
+        if (remote.lyrics != null && found != null) {
+            // The write runs on Room's executor whether or not this lookup is still wanted.
+            currentCoroutineContext().ensureActive()
+            database.query {
+                upsert(LyricsEntity(id = mediaMetadata.id, lyrics = remote.lyrics))
+            }
+            return Refetched.Found(found)
+        }
+        if (localLyrics != null) return Refetched.Found(localLyrics)
+        return if (remote.answered) Refetched.NoneFound else Refetched.Failed
+    }
 
     private suspend fun resolveLyrics(mediaMetadata: MediaMetadata): SemanticLyrics? {
         val trim = context.dataStore.get(LyricTrimKey, defaultValue = false)
@@ -214,6 +255,13 @@ class LyricsHelper @Inject constructor(
         return null
     }
 
+    /**
+     * Everything the providers offer for the lyrics search's title and artists, each as it arrives,
+     * for the listener to choose from: every provider asked on its own ([LyricsLookup.all]), the typed
+     * artists split, and the song's real length waited for as the automatic lookup does. Only what was
+     * found is kept for the same search again: an empty answer, often one provider failing, was kept
+     * as well, so asking again changed nothing until the app was restarted.
+     */
     suspend fun getAllLyrics(
         mediaId: String,
         songTitle: String,
@@ -228,17 +276,26 @@ class LyricsHelper @Inject constructor(
             }
             return
         }
-        val allResult = mutableListOf<LyricsResult>()
-        lyricsProviders().forEach { provider ->
-            if (provider.isEnabled(context)) {
-                provider.getAllLyrics(mediaId, songTitle, songArtists, duration) { lyrics ->
-                    val result = LyricsResult(provider.name, lyrics)
-                    allResult += result
-                    callback(result)
-                }
-            }
+        val query = LyricsQuery.typed(
+            id = mediaId,
+            title = songTitle,
+            artists = songArtists,
+            album = null,
+            duration = LyricsLookup.awaitLength(duration, database.song(mediaId).map { it?.song?.duration ?: -1 }, DURATION_WAIT_MS),
+        )
+        val providers = lyricsProviders()
+        val found = Collections.synchronizedList(mutableListOf<LyricsResult>())
+        LyricsLookup.all(
+            providers,
+            query,
+            onFailure = { provider, e -> Log.w(TAG, "Lyrics search: ${provider.name} failed: ${e.message}") },
+        ) { provider, lyrics ->
+            // The sources answer side by side; the list keeps them in the order set under Lyrics sources.
+            val result = LyricsResult(provider.name, lyrics, rank = providers.indexOf(provider))
+            found += result
+            callback(result)
         }
-        cache.put(cacheKey, allResult)
+        if (found.isNotEmpty()) cache.put(cacheKey, found.sortedBy { it.rank })
     }
 
     /** Lyrics as kept, read whatever their form. See [readKeptLyrics]. */
@@ -257,4 +314,6 @@ class LyricsHelper @Inject constructor(
 data class LyricsResult(
     val providerName: String,
     val lyrics: String,
+    /** The source's place under Lyrics sources: the search's list is kept in that order. */
+    val rank: Int = 0,
 )

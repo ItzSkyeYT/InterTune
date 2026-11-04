@@ -40,9 +40,12 @@ class PlayHealth {
         if (soundTo != null) sound = soundTo
     }
 
-    /** The player waits for data to play ([waiting]) or stops waiting, at [now] in milliseconds. */
+    /**
+     * The player waits for data to play ([waiting]) or stops waiting, at [now] in milliseconds. Answers
+     * how long the wait was when one has just ended, otherwise null.
+     */
     @Synchronized
-    fun waiting(waiting: Boolean, now: Long) {
+    fun waiting(waiting: Boolean, now: Long): Long? {
         val since = waitingSince
         if (waiting && since == null) {
             waitingSince = now
@@ -52,7 +55,9 @@ class PlayHealth {
             waitedMs += ms
             longestMs = maxOf(longestMs, ms)
             waitingSince = null
+            return ms
         }
+        return null
     }
 
     /** One window of a stream judged ([StreamPace.Meter]): [bytes] in [nanos] of waiting, for a song that needs [need] bytes a second. */

@@ -216,9 +216,10 @@ fun SelectionMediaMetadataMenu(
                 val songs = selection.map { stored[it.id] ?: it.toSongEntity() }
                 // toggleLike sends each like to YouTube itself. A likeSong after it sent it again.
                 if (allLiked) {
-                    songs.filter { it.liked }.forEach { song ->
-                        update(song.toggleLike())
-                    }
+                    val unliked = songs.filter { it.liked }.map { it.toggleLike() }
+                    unliked.forEach { update(it) }
+                    // Takes back the downloads the liked-songs setting made, when its switch says so (LikedDownloads).
+                    downloadUtil.autoDownloadOnLike(unliked)
                 } else {
                     val newlyLiked = songs.filter { !it.liked }
                         .map { it.toggleLike() }
@@ -226,7 +227,7 @@ fun SelectionMediaMetadataMenu(
                         update(s)
                     }
                     // One batch call, so liking a large selection fires a single Wi-Fi warning
-                    // rather than one per song. The branch above is an un-like, so it gets none.
+                    // rather than one per song.
                     downloadUtil.autoDownloadOnLike(newlyLiked)
                 }
             }

@@ -87,6 +87,33 @@ class FolderSongOrderTest {
     }
 
     @Test
+    fun `songs that tie on another sort keep the album's order, whichever way the list is turned`() {
+        // None of them has an artist, a release date or a play: they all tie. They used to keep
+        // the order the library handed them over in, which follows their random ids.
+        val albumOrder = listOf("One", "Two", "Three", "Ten", "Second disc opener", "Bonus a", "Bonus b")
+        for (sort in listOf(FolderSongSortType.ARTIST, FolderSongSortType.RELEASE_DATE, FolderSongSortType.PLAY_COUNT)) {
+            for (descending in listOf(false, true)) {
+                assertEquals("$sort, descending $descending", albumOrder, titles(FolderSongOrder.sorted(folder, sort, descending)))
+            }
+        }
+    }
+
+    @Test
+    fun `two songs alike in every tag go by their file, wherever they come from`() {
+        fun copy(path: String) = Song(
+            SongEntity(id = "LS" + path.hashCode(), title = "Intro", isLocal = true, localPath = path, trackNumber = 1),
+            artists = emptyList(),
+        )
+        val a = copy("/m/Album/a.mp3")
+        val b = copy("/m/Album/b.mp3")
+        val expected = listOf("/m/Album/a.mp3", "/m/Album/b.mp3")
+        for (songs in listOf(listOf(a, b), listOf(b, a))) {
+            assertEquals(expected, FolderSongOrder.sorted(songs, FolderSongSortType.TRACK_NUMBER, false).map { it.song.localPath })
+            assertEquals(expected, FolderSongOrder.sorted(songs, FolderSongSortType.NAME, false).map { it.song.localPath })
+        }
+    }
+
+    @Test
     fun `the other sorts are as they were`() {
         assertEquals(
             listOf("Bonus a", "Bonus b", "One", "Second disc opener", "Ten", "Three", "Two"),

@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import androidx.room.Embedded
 import androidx.room.Junction
 import androidx.room.Relation
+import com.dd3boh.outertune.utils.PlaylistCovers
 
 @Immutable
 data class Playlist(
@@ -31,9 +32,14 @@ data class Playlist(
     override val thumbnailUrl: String?
         get() = null
 
+    /**
+     * The pictures a playlist is drawn from: its own cover, or the songs' when it has none. A
+     * kept photo (PlaylistCovers) is drawn from its file by PlaylistThumbnail, so what is listed
+     * here is the songs', which stand in when the file is gone.
+     */
     val thumbnails: List<String>
         get() {
-            return if (playlist.thumbnailUrl != null)
+            return if (playlist.thumbnailUrl != null && !PlaylistCovers.isPhoto(playlist.thumbnailUrl))
                 listOf(playlist.thumbnailUrl)
             else songThumbnails.filterNotNull()
         }

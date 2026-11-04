@@ -26,6 +26,7 @@ import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.LibraryAdd
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.Recommend
+import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Battery5Bar
 import androidx.compose.material.icons.rounded.Search
@@ -127,6 +128,13 @@ private const val V0_12 = 95
  * release comes between.
  */
 private const val V0_12_5 = 97
+
+/**
+ * 0.12.7, released 2 Nov 2026 as 99 without a card of its own: its things are listed from 0.13,
+ * his pick of 2 Nov 2026, so somebody coming from 0.12.6 or older is shown them. Somebody who
+ * already had 0.12.7 is shown only what 0.13 brings.
+ */
+private const val V0_12_7 = 99
 
 /**
  * A walk round Settings: its four groups, one bubble each.
@@ -343,6 +351,36 @@ val RECOGNITION_ICON get() = Icons.Rounded.GraphicEq
 
 /** Newest first: what somebody sees at the top is what they have never seen before. */
 val NEW_THINGS = listOf(
+    // 0.12.7's, listed from 0.13 (see V0_12_7). The Shelf is added from its card, as the widget
+    // styles were; the lyrics videos and the share cards live outside Settings, so their cards
+    // say where they are.
+    NewThing(
+        id = "shelf_looks",
+        release = "0.12.7",
+        sinceVersionCode = V0_12_7,
+        title = R.string.new_shelf_looks_title,
+        body = R.string.new_shelf_looks_body,
+        icon = Icons.Rounded.Widgets,
+        action = NewThingAction.ADD_WIDGET,
+    ),
+    NewThing(
+        id = "lyrics_video_long",
+        release = "0.12.7",
+        sinceVersionCode = V0_12_7,
+        title = R.string.new_lyrics_video_long_title,
+        body = R.string.new_lyrics_video_long_body,
+        icon = Icons.Rounded.Lyrics,
+        action = NewThingAction.NONE,
+    ),
+    NewThing(
+        id = "share_cards",
+        release = "0.12.7",
+        sinceVersionCode = V0_12_7,
+        title = R.string.new_share_cards_title,
+        body = R.string.new_share_cards_body,
+        icon = Icons.Rounded.Share,
+        action = NewThingAction.NONE,
+    ),
     // 0.12.5's own. The widget is added from its card, as 0.11's was: its styles are picked in
     // the question it asks when it is dropped. The other three are shown where they are. The
     // search and Battery use are on the list of settings itself, so each is one stop there.

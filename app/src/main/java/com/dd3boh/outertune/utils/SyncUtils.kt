@@ -238,12 +238,15 @@ class SyncUtils @Inject constructor(
     suspend fun syncRemoteLikedSongs(bypass: Boolean = false): SyncResult = withContext(Dispatchers.IO) { likedSongs(bypass) }
 
     private suspend fun likedSongs(bypass: Boolean): SyncResult {
-        // REQUIRED: internet, no ongoing sync, category enabled, and someone signed in. The sign-in
+        // Already under way, by the sync at launch or a pull: said as that, not as nothing to sync.
+        if (_isSyncingRemoteLikedSongs.value) {
+            Log.i(TAG, "Liked songs synchronization already in progress")
+            return SyncResult.BUSY
+        }
+        // REQUIRED: internet, category enabled, and someone signed in. The sign-in
         // check used to live only in the optional block below, so a pull-to-refresh (bypass)
         // synced a signed-out session, whose empty answers read as "everything was removed".
-        if (_isSyncingRemoteLikedSongs.value || !checkEnabled(SyncContent.LIKED_SONGS) || !context.isInternetConnected() || !context.isUserLoggedIn()) {
-            if (_isSyncingRemoteLikedSongs.value)
-                Log.i(TAG, "Library songs synchronization already in progress")
+        if (!checkEnabled(SyncContent.LIKED_SONGS) || !context.isInternetConnected() || !context.isUserLoggedIn()) {
             return SyncResult.NOTHING
         }
         // OPTIONAL: auto sync and cooldown
@@ -384,10 +387,13 @@ class SyncUtils @Inject constructor(
     suspend fun syncRemoteSongs(bypass: Boolean = false): SyncResult = withContext(Dispatchers.IO) { librarySongs(bypass) }
 
     private suspend fun librarySongs(bypass: Boolean): SyncResult {
-        // REQUIRED: internet, no ongoing sync, category enabled, and someone signed in
-        if (_isSyncingRemoteSongs.value || !checkEnabled(SyncContent.PRIVATE_SONGS) || !context.isInternetConnected() || !context.isUserLoggedIn()) {
-            if (_isSyncingRemoteSongs.value)
-                Log.i(TAG, "Library songs synchronization already in progress")
+        // Already under way, by the sync at launch or a pull: said as that, not as nothing to sync.
+        if (_isSyncingRemoteSongs.value) {
+            Log.i(TAG, "Library songs synchronization already in progress")
+            return SyncResult.BUSY
+        }
+        // REQUIRED: internet, category enabled, and someone signed in
+        if (!checkEnabled(SyncContent.PRIVATE_SONGS) || !context.isInternetConnected() || !context.isUserLoggedIn()) {
             return SyncResult.NOTHING
         }
         // OPTIONAL: auto sync and cooldown
@@ -466,10 +472,13 @@ class SyncUtils @Inject constructor(
     suspend fun syncRemoteAlbums(bypass: Boolean = false): SyncResult = withContext(Dispatchers.IO) { albums(bypass) }
 
     private suspend fun albums(bypass: Boolean): SyncResult {
-        // REQUIRED: internet, no ongoing sync, category enabled, and someone signed in
-        if (_isSyncingRemoteAlbums.value || !checkEnabled(SyncContent.ALBUMS) || !context.isInternetConnected() || !context.isUserLoggedIn()) {
-            if (_isSyncingRemoteAlbums.value)
-                Log.i(TAG, "Library songs synchronization already in progress")
+        // Already under way, by the sync at launch or a pull: said as that, not as nothing to sync.
+        if (_isSyncingRemoteAlbums.value) {
+            Log.i(TAG, "Library albums synchronization already in progress")
+            return SyncResult.BUSY
+        }
+        // REQUIRED: internet, category enabled, and someone signed in
+        if (!checkEnabled(SyncContent.ALBUMS) || !context.isInternetConnected() || !context.isUserLoggedIn()) {
             return SyncResult.NOTHING
         }
         // OPTIONAL: auto sync and cooldown
@@ -509,20 +518,21 @@ class SyncUtils @Inject constructor(
                 }
             }
 
-            // Add or mark albums in local database
-            runBlocking {
-                remoteAlbums.forEach { remoteAlbum ->
-                    launch(Dispatchers.IO) {
-                        val localAlbum = database.album(remoteAlbum.id).firstOrNull()
-                        if (localAlbum == null) {
-                            database.insert(remoteAlbum)
-                            database.album(remoteAlbum.id).firstOrNull()?.let {
-                                database.update(it.album.localToggleLike())
-                            }
-                        } else if (localAlbum.album.bookmarkedAt == null) {
-                            database.update(localAlbum.album.localToggleLike())
-                        }
+            // Add or mark albums in local database, one after another in the order YouTube lists them
+            // (oldest first, see getRemoteData), each a millisecond after the one before, so Library >
+            // Albums by date added keeps YouTube's order. Marked in parallel, each took the time it
+            // happened to run, and a first sync shuffled the whole album library (27 Oct 2026).
+            val firstStamp = LocalDateTime.now().minusNanos(remoteAlbums.size * 1_000_000L)
+            remoteAlbums.forEachIndexed { index, remoteAlbum ->
+                val stamp = firstStamp.plusNanos(index * 1_000_000L)
+                val localAlbum = database.album(remoteAlbum.id).firstOrNull()
+                if (localAlbum == null) {
+                    database.insert(remoteAlbum)
+                    database.album(remoteAlbum.id).firstOrNull()?.let {
+                        database.update(it.album.copy(bookmarkedAt = stamp))
                     }
+                } else if (localAlbum.album.bookmarkedAt == null) {
+                    database.update(localAlbum.album.copy(bookmarkedAt = stamp))
                 }
             }
             result = if (remote.complete) SyncResult.SYNCED else SyncResult.FAILED
@@ -547,10 +557,13 @@ class SyncUtils @Inject constructor(
     suspend fun syncRemoteArtists(bypass: Boolean = false): SyncResult = withContext(Dispatchers.IO) { artists(bypass) }
 
     private suspend fun artists(bypass: Boolean): SyncResult {
-        // REQUIRED: internet, no ongoing sync, category enabled, and someone signed in
-        if (_isSyncingRemoteArtists.value || !checkEnabled(SyncContent.ARTISTS) || !context.isInternetConnected() || !context.isUserLoggedIn()) {
-            if (_isSyncingRemoteArtists.value)
-                Log.i(TAG, "Library songs synchronization already in progress")
+        // Already under way, by the sync at launch or a pull: said as that, not as nothing to sync.
+        if (_isSyncingRemoteArtists.value) {
+            Log.i(TAG, "Library artists synchronization already in progress")
+            return SyncResult.BUSY
+        }
+        // REQUIRED: internet, category enabled, and someone signed in
+        if (!checkEnabled(SyncContent.ARTISTS) || !context.isInternetConnected() || !context.isUserLoggedIn()) {
             return SyncResult.NOTHING
         }
         // OPTIONAL: auto sync and cooldown
@@ -650,10 +663,13 @@ class SyncUtils @Inject constructor(
     suspend fun syncRemotePlaylists(bypass: Boolean = false): SyncResult = withContext(Dispatchers.IO) { playlists(bypass) }
 
     private suspend fun playlists(bypass: Boolean): SyncResult {
-        // REQUIRED: internet, no ongoing sync, category enabled, and someone signed in
-        if (_isSyncingRemotePlaylists.value || !checkEnabled(SyncContent.PLAYLISTS) || !context.isInternetConnected() || !context.isUserLoggedIn()) {
-            if (_isSyncingRemotePlaylists.value)
-                Log.i(TAG, "Library songs synchronization already in progress")
+        // Already under way, by the sync at launch or a pull: said as that, not as nothing to sync.
+        if (_isSyncingRemotePlaylists.value) {
+            Log.i(TAG, "Library playlists synchronization already in progress")
+            return SyncResult.BUSY
+        }
+        // REQUIRED: internet, category enabled, and someone signed in
+        if (!checkEnabled(SyncContent.PLAYLISTS) || !context.isInternetConnected() || !context.isUserLoggedIn()) {
             return SyncResult.NOTHING
         }
         // OPTIONAL: auto sync and cooldown
@@ -828,10 +844,13 @@ class SyncUtils @Inject constructor(
     suspend fun syncRecentActivity(bypass: Boolean = false): SyncResult = withContext(Dispatchers.IO) { recentActivity(bypass) }
 
     private suspend fun recentActivity(bypass: Boolean): SyncResult {
-        // REQUIRED: internet, no ongoing sync, category enabled, and someone signed in
-        if (_isSyncingRecentActivity.value || !checkEnabled(SyncContent.RECENT_ACTIVITY) || !context.isInternetConnected() || !context.isUserLoggedIn()) {
-            if (_isSyncingRecentActivity.value)
-                Log.i(TAG, "Recent activity synchronization already in progress")
+        // Already under way, by the sync at launch or a pull: said as that, not as nothing to sync.
+        if (_isSyncingRecentActivity.value) {
+            Log.i(TAG, "Recent activity synchronization already in progress")
+            return SyncResult.BUSY
+        }
+        // REQUIRED: internet, category enabled, and someone signed in
+        if (!checkEnabled(SyncContent.RECENT_ACTIVITY) || !context.isInternetConnected() || !context.isUserLoggedIn()) {
             return SyncResult.NOTHING
         }
         // OPTIONAL: auto sync and cooldown
@@ -885,9 +904,15 @@ class SyncUtils @Inject constructor(
             listOf(libraryId to 0, uploadsId to 1).map { (browseId, tab) ->
                 async {
                     YouTube.library(browseId, tab).fold(
-                        onSuccess = { it.walkItems() },
+                        onSuccess = {
+                            YouTubeTrouble.answered(asAccount = true)
+                            it.walkItems()
+                        },
                         onFailure = {
                             Log.w(TAG, "Could not read $browseId: ${it.message?.let(ErrorText::withoutAddresses)}")
+                            // Asked as the account: a sign-in YouTube no longer accepts shows here
+                            // first, at Home's start, and Home says so (WhyStopped).
+                            YouTubeTrouble.failed(it)
                             Walked(emptyList<YTItem>(), complete = false)
                         }
                     )

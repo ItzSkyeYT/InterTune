@@ -72,4 +72,26 @@ class CastFormatsTest {
         // A receiver that listed what it plays is taken at its word.
         assertEquals(FormatChoice.AsIs, CastFormats.choose(FormatSupport.Listed(setOf("audio/webm")), "audio/webm", canFetchAac = true, refused = refused))
     }
+
+    @Test
+    fun `a renderer that names AAC only by its bare names gets AAC in MP4`() {
+        // A Zeppelin Wireless that plays M4A was refused every song before this (3 Nov 2026).
+        val speaker = FormatSupport.Listed(setOf("audio/mpeg", "audio/aac", "audio/x-ms-wma"))
+        assertEquals(FormatChoice.Aac, CastFormats.choose(speaker, "audio/webm; codecs=\"opus\"", canFetchAac = true))
+        assertEquals(FormatChoice.AsIs, CastFormats.choose(speaker, "audio/mp4", canFetchAac = true))
+        assertEquals(FormatChoice.AsIs, CastFormats.choose(speaker, "audio/mp4", canFetchAac = false))
+        assertEquals(FormatChoice.Unplayable("audio/webm"), CastFormats.choose(speaker, "audio/webm", canFetchAac = false))
+        for (name in listOf("audio/x-aac", "audio/aacp", "audio/vnd.dlna.adts")) {
+            assertEquals(name, FormatChoice.Aac, CastFormats.choose(FormatSupport.Listed(setOf(name)), "audio/webm", canFetchAac = true))
+        }
+    }
+
+    @Test
+    fun `the track is described in the receiver's own words`() {
+        assertEquals("audio/x-m4a", CastFormats.spelling(setOf("audio/mpeg", "audio/x-m4a"), "audio/mp4"))
+        assertEquals("audio/aac", CastFormats.spelling(setOf("audio/mpeg", "audio/aac"), "audio/mp4"))
+        assertEquals("video/x-matroska", CastFormats.spelling(setOf("video/x-matroska"), "audio/webm; codecs=\"opus\""))
+        assertEquals("audio/mp4", CastFormats.spelling(setOf("audio/mp4", "audio/aac"), "audio/mp4"))
+        assertEquals("audio/flac", CastFormats.spelling(setOf("audio/mpeg"), "audio/flac"))
+    }
 }

@@ -7,6 +7,8 @@
 
 # InterTune
 
+<sub>InnerTune ∩ OuterTune</sub>
+
 ### YouTube Music and your own music, in one Android app
 
 [![release](https://img.shields.io/github/v/release/ItzSkyeYT/InterTune?label=release&color=ed5564&labelColor=1b1f24)](https://github.com/ItzSkyeYT/InterTune/releases/latest)
@@ -20,6 +22,8 @@
 [Website](https://intertune.app) · [Download](#download) · [Features](#features) · [Good to know](#good-to-know) · [Roadmap](#roadmap) · [Wiki](https://github.com/ItzSkyeYT/InterTune/wiki) · [Discord](https://discord.gg/68jmqhMjXk) · [Donors](#donors)
 
 </div>
+
+InterTune is a free, open-source YouTube Music client for Android, forked from [OuterTune](https://github.com/OuterTune/OuterTune) (which came from [InnerTune](https://github.com/z-huang/InnerTune)). It plays YouTube Music and the music on your phone in one queue, works out recommendations on the phone from what you skip and like, casts to Chromecast, FCast and DLNA, shows synced lyrics, recognises songs and works in Android Auto. No ads, no tracking, no account needed.
 
 > **Warning:** the "InterTune" apps on Google Play and on other APK sites are not this one: they are other companies' apps, with ads. Get InterTune only from this page, Obtainium, F-Droid, Orion Store or OpenAPK.
 
@@ -164,22 +168,7 @@ Every change in detail, and why this fork exists: [docs/FEATURES.md](https://git
 What's being worked on, roughly in order. `[x]` is done, `[~]` is built and being tested, `[ ]` is still to do. Nothing here has a date, and plans can change. Ideas are welcome in #feature-requests on [Discord](https://discord.gg/68jmqhMjXk) or as a [GitHub issue](https://github.com/ItzSkyeYT/InterTune/issues/new/choose).
 
 <details>
-<summary><b>Next: 0.12.6 (fixes)</b> · 4 of 9 done, 5 to test</summary>
-
-`[x]` Slim navbar icons centred again ([#54](https://github.com/ItzSkyeYT/InterTune/issues/54))\
-`[~]` A crash on some artist pages fixed ([#53](https://github.com/ItzSkyeYT/InterTune/issues/53))\
-`[x]` Covers of downloaded songs show without a connection\
-`[~]` Saved albums keep YouTube Music's order\
-`[x]` Songs play again on Low quality\
-`[x]` High and Highest quality prefer Opus over a slightly larger AAC stream ([#57](https://github.com/ItzSkyeYT/InterTune/issues/57))\
-`[~]` Local songs sort by track number disc by disc, and folders follow the sort ([#39](https://github.com/ItzSkyeYT/InterTune/issues/39))\
-`[~]` Tapping a song no longer shows "plr: null" ([#28](https://github.com/ItzSkyeYT/InterTune/issues/28))\
-`[~]` InterTune in Polish
-
-</details>
-
-<details>
-<summary><b>Then: 0.13</b> · 0 of 15 done, 5 to test</summary>
+<summary><b>Next: 0.13</b> · 0 of 16 done, 5 to test</summary>
 
 `[ ]` Listen together: one person plays, friends follow the same song in real time *(in progress)*\
 `[ ]` Your year in InterTune, a recap *(in progress)*\
@@ -191,6 +180,7 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[~]` Choose which lyrics sources are used, and in what order\
 `[~]` Similar artists in the Favourite artists mix\
 `[ ]` Downloads in their own quality, with tags and a cover so other players can use them\
+`[ ]` Liked songs kept in sync with your downloads: unliking removes a download the app made itself ([#64](https://github.com/ItzSkyeYT/InterTune/issues/64))\
 `[ ]` Choose what's in the three-dot menus\
 `[ ]` Tablets: settings in two panes, and the player as a side pane *(in progress)*\
 `[ ]` A look made for foldable and flip phones *(in progress)*\
@@ -263,7 +253,7 @@ InterTune stands on a lot of other people's work.
 |---|---|---|
 | [InnerTune](https://github.com/z-huang/InnerTune) | [Zion Huang](https://github.com/z-huang) | The app it all started from |
 | [OuterTune](https://github.com/OuterTune/OuterTune) | [Michael Zh](https://github.com/mikooomich) · [Davide Garberi](https://github.com/DD3Boh) | The fork InterTune is built on, where the heavy lifting is |
-| [AsterTune](https://github.com/yuuichi-s/AsterTune) | [yuuichi-s](https://github.com/yuuichi-s) | The same `VISIONOS` fix, found on its own; several fixes here were rewritten from it |
+| [AsterTune](https://github.com/yuuichi-s/AsterTune) | [yuuichi-s](https://github.com/yuuichi-s) | The same `VISIONOS` fix, found on its own; how a signed-in play reaches the right channel's YouTube history follows its request (6ea96c90), and the po token page works the way its does |
 | [Metrolist](https://github.com/MetrolistGroup/Metrolist) | [MetrolistGroup](https://github.com/MetrolistGroup) | A lot of inspiration, this README included |
 | [Essentials](https://github.com/sameerasw/essentials) · [sameerasw.com](https://sameerasw.com) | [Sameera Wijerathna](https://github.com/sameerasw) | The design language the app and its site learn from |
 

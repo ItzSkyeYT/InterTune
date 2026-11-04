@@ -9,6 +9,7 @@ import com.zionhuang.innertube.models.GridRenderer
 import com.zionhuang.innertube.models.MusicCarouselShelfRenderer
 import com.zionhuang.innertube.models.MusicShelfRenderer
 import com.zionhuang.innertube.models.PlaylistItem
+import com.zionhuang.innertube.models.PlaylistPanelRenderer
 import com.zionhuang.innertube.models.SearchSuggestions
 import com.zionhuang.innertube.models.YTItem
 import com.zionhuang.innertube.models.SongItem
@@ -930,41 +931,60 @@ object YouTube {
             endpoint.index,
             endpoint.params,
             continuation).body<NextResponse>()
-        val playlistPanelRenderer = response.continuationContents?.playlistPanelContinuation
-            ?: response.contents.singleColumnMusicWatchNextResultsRenderer.tabbedRenderer
-                .watchNextTabbedResultsRenderer.tabs[0].tabRenderer.content?.musicQueueRenderer
-                ?.content?.playlistPanelRenderer!!
-        val title = response.contents.singleColumnMusicWatchNextResultsRenderer.tabbedRenderer
-            .watchNextTabbedResultsRenderer.tabs[0].tabRenderer.content?.musicQueueRenderer
-            ?.header?.musicQueueHeaderRenderer?.subtitle?.runs?.firstOrNull()?.text
-        val items = playlistPanelRenderer.contents.mapNotNull { content ->
-            content.playlistPanelVideoRenderer
-                ?.let(NextPage::fromPlaylistPanelVideoRenderer)
-                ?.let { it to content.playlistPanelVideoRenderer.selected }
-        }
-        val songs = items.map { it.first }
-        val currentIndex = items.indexOfFirst { it.second }.takeIf { it != -1 }
+        val result = nextResult(response, endpoint)
 
         // load automix items
-        playlistPanelRenderer.contents.lastOrNull()?.automixPreviewVideoRenderer?.content?.automixPlaylistVideoRenderer?.navigationEndpoint?.watchPlaylistEndpoint?.let { watchPlaylistEndpoint ->
-            return@runCatching next(watchPlaylistEndpoint).getOrThrow().let { result ->
-                result.copy(
-                    title = title,
-                    items = songs + result.items,
-                    lyricsEndpoint = response.contents.singleColumnMusicWatchNextResultsRenderer.tabbedRenderer.watchNextTabbedResultsRenderer.tabs.lyricsEndpoint(),
-                    relatedEndpoint = response.contents.singleColumnMusicWatchNextResultsRenderer.tabbedRenderer.watchNextTabbedResultsRenderer.tabs.relatedEndpoint(),
-                    currentIndex = currentIndex,
+        queueIn(response)?.contents?.lastOrNull()?.automixPreviewVideoRenderer?.content?.automixPlaylistVideoRenderer?.navigationEndpoint?.watchPlaylistEndpoint?.let { watchPlaylistEndpoint ->
+            return@runCatching next(watchPlaylistEndpoint).getOrThrow().let { more ->
+                more.copy(
+                    title = result.title,
+                    items = result.items + more.items,
+                    lyricsEndpoint = result.lyricsEndpoint,
+                    relatedEndpoint = result.relatedEndpoint,
+                    currentIndex = result.currentIndex,
                     endpoint = watchPlaylistEndpoint
                 )
             }
         }
-        NextResult(
+        result
+    }
+
+    /** The queue a watch-next answer holds: a continuation's, or the Up next tab's. */
+    private fun queueIn(response: NextResponse): PlaylistPanelRenderer? =
+        response.continuationContents?.playlistPanelContinuation
+            ?: response.contents.singleColumnMusicWatchNextResultsRenderer.tabbedRenderer
+                .watchNextTabbedResultsRenderer.tabs.firstOrNull()?.tabRenderer?.content?.musicQueueRenderer
+                ?.content?.playlistPanelRenderer
+
+    /**
+     * What [next] reads in one watch-next answer, before the automix it may end on is asked for.
+     * No network, so that a test can hand it an answer.
+     *
+     * An answer with no queue in it is a queue with no songs, and nothing to name one after.
+     * YouTube answers so for an id that is no video, and it answered so for every song on a phone
+     * it would play nothing to (issue #28). Read through `!!` it was a NullPointerException with no
+     * message, and every tap showed "plr: null" beside the player's own error. The song tapped is
+     * in the player already, and an empty answer leaves it there as the whole queue (QueueStart).
+     */
+    fun nextResult(response: NextResponse, endpoint: WatchEndpoint): NextResult {
+        val tabs = response.contents.singleColumnMusicWatchNextResultsRenderer.tabbedRenderer.watchNextTabbedResultsRenderer.tabs
+        val playlistPanelRenderer = queueIn(response)
+        val title = playlistPanelRenderer?.let {
+            tabs.firstOrNull()?.tabRenderer?.content?.musicQueueRenderer
+                ?.header?.musicQueueHeaderRenderer?.subtitle?.runs?.firstOrNull()?.text
+        }
+        val items = playlistPanelRenderer?.contents.orEmpty().mapNotNull { content ->
+            content.playlistPanelVideoRenderer
+                ?.let(NextPage::fromPlaylistPanelVideoRenderer)
+                ?.let { it to content.playlistPanelVideoRenderer.selected }
+        }
+        return NextResult(
             title = title,
-            items = songs,
-            currentIndex = currentIndex,
-            lyricsEndpoint = response.contents.singleColumnMusicWatchNextResultsRenderer.tabbedRenderer.watchNextTabbedResultsRenderer.tabs.lyricsEndpoint(),
-            relatedEndpoint = response.contents.singleColumnMusicWatchNextResultsRenderer.tabbedRenderer.watchNextTabbedResultsRenderer.tabs.relatedEndpoint(),
-            continuation = playlistPanelRenderer.continuations?.getContinuation(),
+            items = items.map { it.first },
+            currentIndex = items.indexOfFirst { it.second }.takeIf { it != -1 },
+            lyricsEndpoint = tabs.lyricsEndpoint(),
+            relatedEndpoint = tabs.relatedEndpoint(),
+            continuation = playlistPanelRenderer?.continuations?.getContinuation(),
             endpoint = endpoint
         )
     }

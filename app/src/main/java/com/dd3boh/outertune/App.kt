@@ -9,6 +9,8 @@
 
 package com.dd3boh.outertune
 
+import com.dd3boh.outertune.utils.ProxyAddress
+import com.dd3boh.outertune.utils.ProxyAtStart
 import com.dd3boh.outertune.models.ContentFilter
 import com.dd3boh.outertune.utils.BuiltInKeys
 import android.webkit.CookieManager
@@ -24,6 +26,7 @@ import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import coil3.disk.DiskCache
+import com.dd3boh.outertune.utils.DownloadCovers
 import coil3.disk.directory
 import coil3.memory.MemoryCache
 import coil3.request.CachePolicy
@@ -55,7 +58,6 @@ import com.dd3boh.outertune.constants.StreamOrderKey
 import com.dd3boh.outertune.constants.UseLoginForBrowse
 import com.dd3boh.outertune.constants.VisitorDataKey
 import com.dd3boh.outertune.extensions.toEnum
-import com.dd3boh.outertune.extensions.toInetSocketAddress
 import com.dd3boh.outertune.playback.PhoneBatterySaver
 import com.dd3boh.outertune.playback.PlayerLogger
 import com.dd3boh.outertune.playback.ProximityProbe
@@ -63,12 +65,15 @@ import com.dd3boh.outertune.playback.StandInMemory
 import com.dd3boh.outertune.utils.CoilBitmapLoader
 import com.dd3boh.outertune.utils.CrashLog
 import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.utils.ReportFeed
 import com.dd3boh.outertune.utils.RunLogs
 import com.dd3boh.outertune.utils.LocalArtworkPathKeyer
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.utils.mayPushToYouTube
 import com.dd3boh.outertune.utils.reportException
+import com.dd3boh.outertune.utils.YouTubeRegion
+import com.dd3boh.outertune.utils.YouTubeTrouble
 import com.dd3boh.outertune.utils.StreamOrder
 import com.dd3boh.outertune.utils.RemoteRoutes
 import com.dd3boh.outertune.constants.CachedPollsJsonKey
@@ -102,6 +107,8 @@ class App : Application(), SingletonImageLoader.Factory {
         PlayerLogger.install()
         // This run's own lines, kept for Report a problem after the phone's log has moved on. See RunLogs.
         if (Unreleased.PREVIOUS_LOGS) GlobalScope.launch(Dispatchers.IO) { RunLogs.start(this@App) }
+        // What Report a problem tells of the last few minutes: the app in front or not, the settings changed.
+        ReportFeed.start(this)
         // Before anything can read a built-in key: until it has run they all read as empty.
         BuiltInKeys.verify(this)
         // Before anything reads Battery use: the phone's battery saver can turn Saver on (PhoneBatterySaver).
@@ -138,16 +145,20 @@ class App : Application(), SingletonImageLoader.Factory {
             KuGou.useTraditionalChinese = true
         }
 
+        // The proxy every client takes once, here: the settings page offers a restart while the one
+        // set there differs (#68). See ProxyAtStart.
+        ProxyAtStart.setting = ProxyAtStart.of(dataStore[ProxyEnabledKey], dataStore[ProxyTypeKey], dataStore[ProxyUrlKey])
         if (dataStore[ProxyEnabledKey] == true) {
-            try {
-                YouTube.proxy = Proxy(
-                    dataStore[ProxyTypeKey].toEnum(defaultValue = Proxy.Type.HTTP),
-                    dataStore[ProxyUrlKey]!!.toInetSocketAddress()
-                )
-            } catch (e: Exception) {
-                Toast.makeText(this, "Failed to parse proxy url.", LENGTH_SHORT).show()
-                reportException(e)
+            // Read as the settings page reads it, so an address typed the way proxy apps give it
+            // works. Without one it can use, none typed included, the app starts without the proxy
+            // and says so in the listener's language: it was an English toast.
+            val proxy = ProxyAddress.parse(dataStore[ProxyUrlKey])?.let { address ->
+                runCatching { Proxy(dataStore[ProxyTypeKey].toEnum(defaultValue = Proxy.Type.HTTP), address) }
+                    .onFailure(::reportException)
+                    .getOrNull()
             }
+            if (proxy != null) YouTube.proxy = proxy
+            else Toast.makeText(this, R.string.proxy_not_used_at_start, Toast.LENGTH_LONG).show()
         }
 
         if (dataStore[UseLoginForBrowse] != false) {
@@ -195,6 +206,9 @@ class App : Application(), SingletonImageLoader.Factory {
                         }
                 }
         }
+        // Where YouTube sees this connection, asked only on a phone that points to a country where
+        // YouTube Music has no free plan (#68): see YouTubeRegion.
+        GlobalScope.launch(Dispatchers.IO) { YouTubeRegion.refresh(this@App) }
         // What the switches under Library and content hide, read once here so that a queue started
         // straight away already follows them, then followed. See ContentFilter.
         ContentFilter.current = ContentFilter.of(dataStore.current)
@@ -230,6 +244,8 @@ class App : Application(), SingletonImageLoader.Factory {
                 .map { it[InnerTubeCookieKey] }
                 .distinctUntilChanged()
                 .collect { cookie ->
+                    // Signed in again, or out: a refusal of the old sign-in no longer holds (WhyStopped).
+                    YouTubeTrouble.signInChanged()
                     try {
                         YouTube.cookie = cookie
                     } catch (e: Exception) {
@@ -250,6 +266,8 @@ class App : Application(), SingletonImageLoader.Factory {
                 .components {
                     add(CoilBitmapLoader.Factory(this@App))
                     add(LocalArtworkPathKeyer())
+                // A downloaded song's kept cover, served from the app's own storage: see DownloadCovers.
+                add(DownloadCovers.Interceptor(filesDir))
                 }
                 .crossfade(true)
                 .allowHardware(false)
@@ -266,6 +284,8 @@ class App : Application(), SingletonImageLoader.Factory {
             .components {
                 add(CoilBitmapLoader.Factory(this@App))
                 add(LocalArtworkPathKeyer())
+                // A downloaded song's kept cover, served from the app's own storage: see DownloadCovers.
+                add(DownloadCovers.Interceptor(filesDir))
             }
             .crossfade(true)
             // Hardware bitmaps left ON deliberately. This used to be allowHardware(false) globally,

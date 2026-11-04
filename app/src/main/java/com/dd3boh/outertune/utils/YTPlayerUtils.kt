@@ -2398,27 +2398,9 @@ object YTPlayerUtils {
             )
         }
 
-        // MAX takes the largest stream and nothing else is allowed a say. In particular it skips
-        // the codec bonus below, which is there to break ties between streams of similar size and
-        // would otherwise hand a 160 kbps Opus the win over a 256 kbps AAC, and it ignores whether
-        // the connection is metered, because a tier called highest that quietly drops on mobile
-        // data would be lying about what it does. Sample rate breaks genuine ties.
-        if (audioQuality == AudioQuality.MAX) {
-            @Suppress("NAME_SHADOWING")
-            return audioFormats.maxWithOrNull(
-                compareBy<PlayerResponse.StreamingData.Format> { it.bitrate }
-                    .thenBy { it.audioSampleRate ?: 0 }
-            )
-        }
-
-        return audioFormats.maxByOrNull {
-            it.bitrate * when (audioQuality) {
-                AudioQuality.AUTO -> if (connectivityManager.isActiveNetworkMetered) -1 else 1
-                AudioQuality.HIGH -> 1
-                AudioQuality.LOW -> -1
-                AudioQuality.MAX -> 1 // returned above
-            } + (if (it.mimeType.startsWith("audio/webm")) 10240 else 0) // prefer opus stream
-        }.also {
+        // The tiers are AudioPick's: Highest and High count Opus at what it is worth to the ear
+        // (#57) and never drop on mobile data; Low, and Auto on metered data, take the smallest.
+        return AudioPick.choose(audioFormats, audioQuality, connectivityManager.isActiveNetworkMetered).also {
             if (TRACE_FORMATS) {
                 android.util.Log.d(
                     "YTPlayerUtils",

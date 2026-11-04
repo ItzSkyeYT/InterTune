@@ -52,6 +52,8 @@ import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import com.dd3boh.outertune.ui.component.ChipsRow
 import com.dd3boh.outertune.ui.component.EmptyPlaceholder
 import com.dd3boh.outertune.ui.component.LazyColumnScrollbar
+import com.dd3boh.outertune.ui.component.RegionNoteIfClosed
+import com.dd3boh.outertune.utils.YouTubeRegion
 import com.dd3boh.outertune.ui.component.NavigationTitle
 import com.dd3boh.outertune.ui.component.SwipeToQueueBox
 import com.dd3boh.outertune.ui.component.button.IconButton
@@ -62,9 +64,11 @@ import com.dd3boh.outertune.ui.menu.YouTubeAlbumMenu
 import com.dd3boh.outertune.ui.menu.YouTubeArtistMenu
 import com.dd3boh.outertune.ui.menu.YouTubePlaylistMenu
 import com.dd3boh.outertune.ui.menu.YouTubeSongMenu
+import com.dd3boh.outertune.ui.menu.BlockedNote
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.viewmodels.OnlineSearchViewModel
-import com.dd3boh.outertune.ui.component.LoadFailed
+import com.dd3boh.outertune.ui.component.FailedNote
+import com.dd3boh.outertune.ui.component.RetryWhenSignInChanges
 import com.zionhuang.innertube.YouTube.SearchFilter.Companion.FILTER_ALBUM
 import com.zionhuang.innertube.YouTube.SearchFilter.Companion.FILTER_ARTIST
 import com.zionhuang.innertube.YouTube.SearchFilter.Companion.FILTER_COMMUNITY_PLAYLIST
@@ -102,6 +106,8 @@ fun OnlineSearchResult(
 
     val searchFilter by viewModel.filter.collectAsState()
     val searchSummary = viewModel.summaryPage
+    // A search for a blocked artist's name: one quiet line and Unblock, no results (ArtistBlock).
+    val blockedNamed = viewModel.blockedNamed
     val itemsPage by remember(searchFilter) {
         derivedStateOf {
             searchFilter?.value?.let {
@@ -213,16 +219,36 @@ fun OnlineSearchResult(
 
     // Two rows abreast when the phone is on its side, one otherwise (Landscape.kt).
     val columns = rememberListColumns()
+    // A fresh look at where YouTube sees the connection, for the note below: a VPN turned on or
+    // off since the app started changes the answer (#68). At most every two minutes, and only
+    // on a phone that points to a country with no free plan.
+    val regionContext = LocalContext.current
+    LaunchedEffect(Unit) { YouTubeRegion.refresh(regionContext) }
+    // Signed in again from the note: the search the old sign-in failed is asked again.
+    RetryWhenSignInChanges(failed = viewModel.failed[searchFilter?.value ?: OnlineSearchViewModel.SUMMARY] == true, retry = viewModel::retry)
     LazyColumn(
         state = lazyListState,
         contentPadding = LocalPlayerAwareWindowInsets.current
             .add(WindowInsets(top = SearchFilterHeight))
             .asPaddingValues()
     ) {
-        if (searchFilter == null) {
+        // Why the results hold videos but no songs where YouTube Music has no free plan (#68).
+        item(key = "region_note") {
+            RegionNoteIfClosed(modifier = Modifier.animateItem())
+        }
+
+        if (blockedNamed != null) {
+            item(key = "blocked") {
+                BlockedNote(artist = blockedNamed, modifier = Modifier.animateItem())
+            }
+        } else if (searchFilter == null) {
             searchSummary?.summaries?.forEach { summary ->
-                item {
-                    NavigationTitle(summary.title)
+                // YouTube's top result often comes with no heading, and an empty title left a band
+                // of nothing above it.
+                if (summary.title.isNotBlank()) {
+                    item {
+                        NavigationTitle(summary.title)
+                    }
                 }
 
                 itemsInColumns(
@@ -273,10 +299,19 @@ fun OnlineSearchResult(
             }
         }
 
-        if (searchFilter == null && searchSummary == null || searchFilter != null && itemsPage == null) {
+        if (blockedNamed == null && (searchFilter == null && searchSummary == null || searchFilter != null && itemsPage == null)) {
             item {
-                if (viewModel.failed[searchFilter?.value ?: OnlineSearchViewModel.SUMMARY] == true) {
-                    LoadFailed(onRetry = viewModel::retry)
+                val shown = searchFilter?.value ?: OnlineSearchViewModel.SUMMARY
+                if (viewModel.failed[shown] == true) {
+                    // Why, when it is clear: a sign-in YouTube no longer accepts, or a connection
+                    // that does not reach it. "Unknown error" and Retry otherwise, as before. A
+                    // closed country is said by the note above the results.
+                    FailedNote(
+                        kind = viewModel.failedKind[shown],
+                        onSignIn = { navController.navigate("login") },
+                        onRetry = viewModel::retry,
+                        region = false,
+                    )
                 } else {
                     ShimmerHost {
                         repeat(8) {

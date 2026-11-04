@@ -65,6 +65,7 @@ import com.dd3boh.outertune.ui.dialog.AddToQueueDialog
 import com.dd3boh.outertune.ui.dialog.DefaultDialog
 import com.dd3boh.outertune.ui.dialog.TextFieldDialog
 import com.dd3boh.outertune.utils.M3u
+import com.dd3boh.outertune.utils.PlaylistCovers
 import com.dd3boh.outertune.utils.getDownloadState
 import com.dd3boh.outertune.utils.lmScannerCoroutine
 import com.dd3boh.outertune.utils.reportException
@@ -392,8 +393,11 @@ fun PlaylistMenu(
                     onClick = {
                         showDeletePlaylistDialog = false
                         onDismiss()
+                        val files = context.filesDir
                         database.query {
                             delete(playlist.playlist)
+                            // The photo kept for its cover goes with it (PlaylistCovers).
+                            PlaylistCovers.forget(files, playlist.playlist.id)
                         }
 
                         // Signed out or in "Read only" this removes the copy here and nothing

@@ -7,6 +7,9 @@
  */
 package com.dd3boh.outertune.ui.screens.settings
 
+import com.dd3boh.outertune.ui.menu.rememberArtistBlock
+import com.dd3boh.outertune.ui.menu.BlockArtistIcon
+import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.screens.settings.fragments.ContentFiltersFrag
 import com.dd3boh.outertune.ui.component.FloatingTopBar
 
@@ -36,10 +39,18 @@ import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
 import com.dd3boh.outertune.ui.component.SettingsClickToReveal
 import com.dd3boh.outertune.ui.component.SwitchPreference
 import com.dd3boh.outertune.ui.screens.settings.fragments.LocalizationFrag
+import com.dd3boh.outertune.ui.screens.settings.fragments.OpenLinksFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.QuickPicksSourceFrag
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.ui.screens.settings.fragments.ShareLinksFrag
 import com.dd3boh.outertune.constants.Unreleased
+
+/** The first few blocked artists' names, and how many more, or null when there are none. */
+internal fun blockedSummary(names: List<String>): String? = when {
+    names.isEmpty() -> null
+    names.size <= 3 -> names.joinToString(", ")
+    else -> names.take(3).joinToString(", ") + " +" + (names.size - 3)
+}
 
 /**
  * What the app fills itself with.
@@ -76,7 +87,21 @@ fun LibrarySettings(
             QuickPicksSourceFrag()
             // What Share sends for a song or an album: content going out, not how the app looks.
             if (Unreleased.SHARE_PAGE) ShareLinksFrag()
+            // The links that come in, beside the ones that go out: what this install does with a
+            // YouTube Music or intertune.app link tapped elsewhere.
+            OpenLinksFrag()
             ContentFiltersFrag()
+            // Beside the switches that hide things, the artists hidden altogether (ArtistBlock).
+            if (Unreleased.ARTIST_BLOCK) {
+                val blocked = rememberArtistBlock().artists
+                PreferenceEntry(
+                    modifier = Modifier.settingRow(R.string.blocked_artists),
+                    title = { Text(stringResource(R.string.blocked_artists)) },
+                    description = blockedSummary(blocked.map { it.name }) ?: stringResource(R.string.blocked_artists_none),
+                    icon = { Icon(BlockArtistIcon, null) },
+                    onClick = { navController.toSettings("settings/library/blocked_artists") },
+                )
+            }
         }
         Spacer(modifier = Modifier.height(16.dp))
 

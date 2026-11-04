@@ -3,6 +3,7 @@ package com.dd3boh.outertune.playback.queues
 import com.dd3boh.outertune.models.ContentFilter
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.toMediaMetadata
+import com.dd3boh.outertune.utils.YouTubeTrouble
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.WatchEndpoint
 import kotlinx.coroutines.Dispatchers.IO
@@ -18,7 +19,11 @@ class YouTubeQueue(
 
     override suspend fun getInitialStatus(): Queue.Status {
         val nextResult = withContext(IO) {
-            YouTube.next(endpoint, continuation).getOrThrow()
+            // Asked as the account whenever there is one, so an answer says the sign-in still
+            // works (YouTubeTrouble); a failure is told by MusicService, which says why.
+            YouTube.next(endpoint, continuation)
+                .onSuccess { YouTubeTrouble.answered(asAccount = true) }
+                .getOrThrow()
         }
         endpoint = nextResult.endpoint
         continuation = nextResult.continuation

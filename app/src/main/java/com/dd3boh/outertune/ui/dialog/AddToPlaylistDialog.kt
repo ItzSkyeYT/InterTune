@@ -1,5 +1,9 @@
 package com.dd3boh.outertune.ui.dialog
 
+import android.content.Context
+import android.os.Handler
+import android.os.Looper
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.padding
@@ -25,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.TextUnit
@@ -40,6 +45,7 @@ import com.dd3boh.outertune.constants.PlaylistSortType
 import com.dd3boh.outertune.constants.PlaylistSortTypeKey
 import com.dd3boh.outertune.constants.SyncMode
 import com.dd3boh.outertune.constants.YtmSyncModeKey
+import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.db.daos.anyLocalSong
 import com.dd3boh.outertune.db.daos.playlistDuplicatesChunked
 import com.dd3boh.outertune.db.daos.playlistIdBySongsChunked
@@ -60,11 +66,19 @@ fun AddToPlaylistDialog(
     allowSyncing: Boolean = true,
     initialTextFieldValue: String? = null,
     songIds: List<String>?, // song ids to insert.
+    /**
+     * Runs on the IO dispatcher once a playlist is picked, before the songs are written. Whatever
+     * it has to do for the songs to exist, their rows in the song table, must be committed when it
+     * returns: write with transactionNow, not with transaction or query, which only queue the
+     * write and let the add overtake it (#62). When [songIds] is null the ids it returns are the
+     * songs.
+     */
     onPreAdd: (suspend (Playlist) -> List<String>)? = null,
-    /** Called once songs have actually gone into the playlist, and not when the person cancels. */
+    /** Called once songs have actually gone into the playlist, and not when the person cancels or none could be added. */
     onAdded: ((Playlist) -> Unit)? = null,
     onDismiss: () -> Unit,
 ) {
+    val context = LocalContext.current
     val database = LocalDatabase.current
     val coroutineScope = rememberCoroutineScope()
 
@@ -212,14 +226,13 @@ fun AddToPlaylistDialog(
                                 songIds = result
                             }
                         }
-                        duplicates = database.playlistDuplicatesChunked(playlist.id, songIds!!)
+                        val ids = songIds!!
+                        duplicates = database.playlistDuplicatesChunked(playlist.id, ids)
                         if (duplicates.isNotEmpty()) {
                             showDuplicateDialog = true
                         } else {
                             onDismiss()
-                            database.addSongToPlaylist(playlist, songIds!!)
-                            onAdded?.invoke(playlist)
-                            pushToYouTube(playlist, songIds!!)
+                            addAndSay(context, database, playlist, ids, onAdded)
                         }
                     }
                 }
@@ -264,9 +277,7 @@ fun AddToPlaylistDialog(
                         onDismiss()
                         val playlist = selectedPlaylist!!
                         val ids = songIds!!.filter { !duplicates.contains(it) }
-                        database.transaction { addSongToPlaylist(playlist, ids) }
-                        onAdded?.invoke(playlist)
-                        pushToYouTube(playlist, ids)
+                        CoroutineScope(Dispatchers.IO).launch { addAndSay(context, database, playlist, ids, onAdded) }
                     }
                 ) {
                     Text(stringResource(R.string.skip_duplicates))
@@ -278,9 +289,7 @@ fun AddToPlaylistDialog(
                         onDismiss()
                         val playlist = selectedPlaylist!!
                         val ids = songIds!!
-                        database.transaction { addSongToPlaylist(playlist, ids) }
-                        onAdded?.invoke(playlist)
-                        pushToYouTube(playlist, ids)
+                        CoroutineScope(Dispatchers.IO).launch { addAndSay(context, database, playlist, ids, onAdded) }
                     }
                 ) {
                     Text(stringResource(R.string.add_anyway))
@@ -309,6 +318,39 @@ fun AddToPlaylistDialog(
             )
         }
     }
+}
+
+/**
+ * Writes [ids] into [playlist], and then tells the person if some could not go in, calls [onAdded]
+ * and mirrors what did go in to YouTube. The one place the picker adds, for its three ways in: a
+ * pick, and Skip duplicates and Add anyway on the duplicates prompt. The prompt's two used to queue
+ * the write with a plain database.transaction and call onAdded and the push before it had run.
+ *
+ * Has to be called from a background thread, and the dialog is gone by the time it runs, and its
+ * scope with it, so the toast goes through the main looper and not through a coroutine that
+ * would already be cancelled. The database leaves out a song that is not a row in the song table
+ * and everything if the playlist is gone, rather than failing on a foreign key and closing the
+ * app (#62); the sizes say how many, and nobody is told something went in that did not.
+ */
+private fun addAndSay(
+    context: Context,
+    database: MusicDatabase,
+    playlist: Playlist,
+    ids: List<String>,
+    onAdded: ((Playlist) -> Unit)?,
+) {
+    val written = database.addSongToPlaylist(playlist, ids)
+    val left = ids.size - written.size
+    if (left > 0) {
+        val app = context.applicationContext
+        Handler(Looper.getMainLooper()).post {
+            Toast.makeText(app, app.resources.getQuantityString(R.plurals.playlist_add_skipped, left, left), Toast.LENGTH_LONG).show()
+        }
+    }
+    // An add of nothing at all still counts (every song of a skip-duplicates pick may be a
+    // duplicate), but one that was asked for songs and got none in does not.
+    if (ids.isEmpty() || written.isNotEmpty()) onAdded?.invoke(playlist)
+    pushToYouTube(playlist, written)
 }
 
 /**

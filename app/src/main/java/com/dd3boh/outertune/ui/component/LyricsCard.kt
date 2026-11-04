@@ -29,6 +29,8 @@ import android.text.TextUtils
 import android.text.format.Formatter
 import android.util.Log
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -56,6 +58,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -70,6 +73,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -88,6 +92,7 @@ import coil3.request.allowHardware
 import coil3.toBitmap
 import com.dd3boh.outertune.LocalBatteryMode
 import com.dd3boh.outertune.LocalPlayerConnection
+import com.dd3boh.outertune.lyrics.LyricsSave
 import com.dd3boh.outertune.playback.BatteryUse
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.DEFAULT_PLAYER_BACKGROUND
@@ -97,6 +102,8 @@ import com.dd3boh.outertune.constants.LivingSmoothingKey
 import com.dd3boh.outertune.constants.LivingStrengthKey
 import com.dd3boh.outertune.constants.PlayerBackgroundStyle
 import com.dd3boh.outertune.constants.PlayerBackgroundStyleKey
+import com.dd3boh.outertune.constants.PlayerGlassIntensityKey
+import com.dd3boh.outertune.constants.PlayerLiquidGlassKey
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.lyrics.LyricsShare
 import com.dd3boh.outertune.lyrics.LyricsVideo
@@ -105,6 +112,8 @@ import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.dialog.DefaultDialog
 import com.dd3boh.outertune.ui.player.LivingField
+import com.dd3boh.outertune.ui.player.KeepScreenOnController
+import com.dd3boh.outertune.ui.player.KeepScreenOnReason
 import com.dd3boh.outertune.ui.theme.extractGradientColors
 import com.dd3boh.outertune.utils.coilCoroutine
 import com.dd3boh.outertune.utils.makeTimeString
@@ -331,11 +340,23 @@ fun LyricsCardDialog(lines: List<String>, song: MediaMetadata, video: LyricsVide
     var making by remember { mutableStateOf<Job?>(null) }
     var made by remember { mutableFloatStateOf(0f) }
 
+    // A video can take minutes to make, about as long as it lasts on a slower phone: the screen
+    // stays on until it is made, so the phone does not go to sleep in the middle of it. Through the
+    // shared holder, since the player's lyrics hold the screen on through the same flag.
+    val view = LocalView.current
+    DisposableEffect(view, making != null) {
+        KeepScreenOnController.set(view, KeepScreenOnReason.LYRICS_VIDEO, making != null)
+        onDispose { KeepScreenOnController.set(view, KeepScreenOnReason.LYRICS_VIDEO, false) }
+    }
+
     // Living blur behind the video where it is the player's background, as the player has it.
     val background by rememberEnumPreference(PlayerBackgroundStyleKey, DEFAULT_PLAYER_BACKGROUND)
     val livingStrength by rememberPreference(LivingStrengthKey, LivingField.DEFAULT_STRENGTH)
     val livingSmoothing by rememberPreference(LivingSmoothingKey, LivingField.DEFAULT_SMOOTHING)
     val livingColours by rememberEnumPreference(LivingColoursKey, LivingColours.MAIN)
+    // as dark as it is behind the player's lyrics, Liquid glass and all
+    val liquidGlass by rememberPreference(PlayerLiquidGlassKey, defaultValue = false)
+    val glassIntensity by rememberPreference(PlayerGlassIntensityKey, defaultValue = 1f)
     // As the player has it: Blur in its place while Battery use is on Saver.
     val living = BatteryUse.playerBackground(background, LocalBatteryMode.current, DEFAULT_PLAYER_BACKGROUND) == PlayerBackgroundStyle.LIVING &&
         Unreleased.LIVING_BACKGROUND
@@ -349,7 +370,12 @@ fun LyricsCardDialog(lines: List<String>, song: MediaMetadata, video: LyricsVide
      */
     fun frames(clip: LyricsVideoPlan.Clip, heard: LyricsVideo.Heard?, from: Pair<IntArray?, IntArray?>? = livingFrom) = LyricsVideoFrames(
         context, clip, song.title, song.artists.joinToString { it.name }, cover,
-        living = if (living) LivingVideo(livingColours, from?.first, from?.second, livingStrength, livingSmoothing) { heard?.at(it) } else null,
+        living = if (living) {
+            LivingVideo(
+                livingColours, from?.first, from?.second, livingStrength, livingSmoothing, heardBeforeMs = heard?.beforeMs ?: 0L,
+                shows = LyricsVideoPlan.livingShows(if (liquidGlass) glassIntensity else 0f),
+            ) { heard?.at(it) }
+        } else null,
     )
 
     /**
@@ -383,7 +409,50 @@ fun LyricsCardDialog(lines: List<String>, song: MediaMetadata, video: LyricsVide
         }
     }
 
-    fun makeVideo(clip: LyricsVideoPlan.Clip) {
+    /** Says whether it was saved, and where: [place] on Android 10 and up, the file's name where the save screen asked. */
+    fun saidSaved(saved: Boolean, place: String) {
+        if (saved) Toast.makeText(context, context.getString(R.string.lyrics_saved, place), Toast.LENGTH_LONG).show()
+        else Toast.makeText(context, R.string.error_unknown, Toast.LENGTH_SHORT).show()
+    }
+
+    // Older Android asks where it goes, on the system's own save screen: one for each kind of file.
+    // The dialog stays until the answer comes, since the answer comes back to it.
+    val pickPicturePlace = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(LyricsSave.TYPE_PICTURE)) { uri ->
+        val ready = card
+        if (uri != null && ready != null) scope.launch {
+            val saved = LyricsSave.intoPicked(context, uri) { ready.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            saidSaved(saved, LyricsShare.fileName(song.title))
+            if (saved) onShared()
+        }
+    }
+    var videoToPlace by remember { mutableStateOf<File?>(null) }
+    val pickVideoPlace = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(LyricsSave.TYPE_VIDEO)) { uri ->
+        val file = videoToPlace
+        videoToPlace = null
+        if (uri != null && file != null) scope.launch {
+            val saved = LyricsSave.intoPicked(context, uri) { out -> file.inputStream().use { it.copyTo(out) } }
+            saidSaved(saved, file.name)
+            if (saved) onShared()
+        }
+    }
+
+    /** The picture kept on the phone: straight into Pictures/InterTune, or where the save screen says. */
+    fun savePicture() {
+        val ready = card ?: return
+        val name = LyricsShare.fileName(song.title)
+        if (!LyricsSave.straight) {
+            pickPicturePlace.launch(name)
+            return
+        }
+        scope.launch {
+            val saved = LyricsSave.intoGallery(context, name, video = false) { ready.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            saidSaved(saved, LyricsSave.place(video = false))
+            if (saved) onShared()
+        }
+    }
+
+    /** The video, once it is made: shared, or with [keep] saved on the phone instead (Movies/InterTune, or where the save screen says). */
+    fun makeVideo(clip: LyricsVideoPlan.Clip, keep: Boolean = false) {
         val service = playerConnection?.service ?: return
         made = 0f
         // A turn of the phone makes the screen anew, and the video in the making went with the old
@@ -405,9 +474,19 @@ fun LyricsCardDialog(lines: List<String>, song: MediaMetadata, video: LyricsVide
                     frames = { heard -> frames(clip, heard, from) },
                     progress = { made = it },
                 )
+                if (keep && LyricsSave.straight) {
+                    val saved = LyricsSave.intoGallery(context, file.name, video = true) { out -> file.inputStream().use { it.copyTo(out) } }
+                    saidSaved(saved, LyricsSave.place(video = true))
+                    if (saved) onShared()
+                    return@launch
+                }
                 // Not over a locked phone or another app: it waits for the screen to be back.
                 lifecycleOwner.withResumed {
-                    if (LyricsVideo.share(context, file, song.title)) {
+                    if (keep) {
+                        // the save screen's answer comes back to this dialog, which stays until then
+                        videoToPlace = file
+                        pickVideoPlace.launch(file.name)
+                    } else if (LyricsVideo.share(context, file, song.title)) {
                         // how big it is, to know before sending it where files have a limit
                         val size = Formatter.formatFileSize(context, file.length())
                         Toast.makeText(context, context.getString(R.string.lyrics_video_size, size), Toast.LENGTH_LONG).show()
@@ -415,7 +494,7 @@ fun LyricsCardDialog(lines: List<String>, song: MediaMetadata, video: LyricsVide
                         Toast.makeText(context, R.string.error_unknown, Toast.LENGTH_SHORT).show()
                     }
                 }
-                onShared()
+                if (!keep) onShared()
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Throwable) {
@@ -434,6 +513,15 @@ fun LyricsCardDialog(lines: List<String>, song: MediaMetadata, video: LyricsVide
         buttons = {
             TextButton(onClick = { making?.cancel() ?: onDismiss() }) {
                 Text(stringResource(android.R.string.cancel))
+            }
+            // Kept on the phone instead of sent: Pictures/InterTune or Movies/InterTune.
+            TextButton(
+                enabled = making == null && (if (asVideo) still != null else card != null),
+                onClick = {
+                    if (asVideo) video?.let { makeVideo(it, keep = true) } else savePicture()
+                },
+            ) {
+                Text(stringResource(R.string.save))
             }
             TextButton(
                 enabled = making == null && (if (asVideo) still != null else card != null),

@@ -28,7 +28,8 @@ object BackupWriter {
     const val SETTINGS_FILENAME = "settings.preferences_pb"
 
     /**
-     * Writes the settings file and the database into [output] as one zip.
+     * Writes the settings file and the database into [output] as one zip, and after them the photos
+     * chosen as playlist covers, when there are any.
      *
      * Call it off the main thread: the checkpoint is a Room query, and the database copy can be
      * large. The stream is wrapped and closed here, so the caller only needs to open it.
@@ -47,6 +48,10 @@ object BackupWriter {
                 zip.putNextEntry(ZipEntry(InternalDatabase.DB_NAME))
                 input.copyTo(zip)
             }
+            // A playlist's photo cover is a file of the app's own and the database only names it,
+            // so without the file a restored playlist would show the first song's cover again.
+            // After the database, and nothing at all for a library that has none.
+            PlaylistCovers.addTo(zip, context.filesDir)
         }
     }
 }

@@ -79,7 +79,7 @@
     <string name="tab_arrangement_disable_tip">--- 여기로 끌어내리면 비활성화됩니다 ---</string>
     <string name="settings_debug">디버그</string>
     <string name="delete_lyric_confirm">\"%s\"에 저장된 자막을 정말로 삭제할까요?</string>
-    <string name="missing_media_permission_warning">로컬 미디어 파일에 액세스 할 수 있는 권한이 필요합니다. 권한을 부여하려면 클릭하세요.</string>
+    <string name="missing_media_permission_warning">로컬 미디어를 재생하려면 저장공간 권한이 필요합니다. 권한을 허용하려면 클릭하세요.</string>
     <string name="local_player_settings_title">로컬 미디어</string>
     <string name="scan_paths_tooltip">모든 하위 디렉터리도 영향을 받습니다</string>
     <string name="queue_remote_history">최근 감상 기록(온라인)</string>
@@ -358,4 +358,20 @@
     <string name="spatial_audio">공간 음향</string>
     <string name="spatial_audio_description">음악을 머릿속이 아닌 당신 앞에 펼쳐 놓습니다.</string>
     <string name="spatial_audio_headphones">헤드폰</string>
+    <string name="back">뒤로 가기</string>
+    <string name="spatial_audio_off">꺼짐</string>
+    <string name="spatial_audio_surround">서라운드 업믹스</string>
+    <string name="spatial_audio_explain">\"헤드폰\" 기능은 앱 자체에서 처리하므로 모든 스마트폰에서 작동합니다. 반면 \"서라운드 업믹스\"는 스마트폰 기기에 처리를 요청하는 방식이기 때문에, 기기에서 해당 기능을 지원하는 경우에만 효과가 있습니다.</string>
+    <string name="auto_more_downloaded">다운로드됨</string>
+    <string name="auto_more_shuffle_library">보관함 셔플 재생</string>
+    <string name="auto_more_downloaded_line">데이터 연결 없이도 재생됩니다</string>
+    <string name="auto_more_recent">최근 재생됨</string>
+    <string name="auto_more_recent_line">마지막으로 듣던 부분부터 이어 듣기</string>
+    <string name="auto_more_shuffle_line">저장된 모든 곡을 무작위로 섞어 재생합니다</string>
+    <string name="auto_settings_sound">소리</string>
+    <string name="auto_settings_playback">재생</string>
+    <string name="auto_level_line">모든 곡의 음량을 일정하게 맞춥니다</string>
+    <string name="auto_silence_line">곡 앞뒤의 무음 구간을 건너뜁니다</string>
+    <string name="auto_more_line">대기열이 끊기지 않고 계속 이어집니다</string>
+    <string name="auto_radios_line">곡 건너뛰기와 좋아요 기록을 반영합니다</string>
 </resources>

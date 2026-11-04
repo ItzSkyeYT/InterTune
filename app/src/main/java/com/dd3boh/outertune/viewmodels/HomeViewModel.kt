@@ -83,6 +83,7 @@ import com.dd3boh.outertune.utils.QuickPicksShelf
 import com.dd3boh.outertune.widget.WidgetList
 import com.dd3boh.outertune.widget.WidgetStore
 import com.dd3boh.outertune.utils.RecentlyShown
+import com.dd3boh.outertune.utils.YouTubeTrouble
 import com.dd3boh.outertune.utils.reportException
 import com.dd3boh.outertune.utils.syncCoroutine
 import com.zionhuang.innertube.YouTube
@@ -877,8 +878,14 @@ class HomeViewModel @Inject constructor(
     private suspend fun tidyRowsNow() {
         val tidy = context.dataStore.get(TidyHomeRowsKey, true)
         // What the switches under Library and content hide, out of every row YouTube fills. The
-        // rows from the library cannot be filtered: stored songs do not keep YouTube's marks.
+        // rows from the library cannot be filtered by them: stored songs do not keep YouTube's
+        // marks. They keep their artists, so a blocked artist leaves those rows too (ArtistBlock).
         val hidden = ContentFilter.current
+        val block = hidden.blocked
+        val quickPicksPool = block.library(quickPicksPool)
+        val discoverPool = block.library(discoverPool)
+        val forgottenPool = block.library(forgottenPool)
+        val keepListeningPool = block.library(keepListeningPool)
         // The engine's row behind Quick picks, when it is the one showing (on its own or in Try
         // both), and its cards' lanes, for the lean's heading and what the pass keeps in place.
         val source = quickPicksSource()
@@ -891,7 +898,7 @@ class HomeViewModel @Inject constructor(
             if (discoverBuilding.get() == 0) discover.value = discoverPool.take(20).takeIf { discoverWanted() }
             forgottenFavorites.value = forgottenPool.take(20)
             keepListening.value = keepListeningPool
-            similarRecommendations.value = similarPool?.map { it.copy(items = hidden.apply(it.items)) }?.filter { it.items.isNotEmpty() }
+            similarRecommendations.value = similarPool?.filterNot { block.hides(it.title) }?.map { it.copy(items = hidden.apply(it.items)) }?.filter { it.items.isNotEmpty() }
             homePage.value = homePagePool?.let(hidden::home)
             // The widget's lists come from here whichever way the rows were settled; with the
             // tidy pass off they used to stay empty or frozen.
@@ -950,7 +957,8 @@ class HomeViewModel @Inject constructor(
         if (discoverBuilding.get() == 0) discover.value = if (discoverWanted()) songs(discoverPool, fresh = true, maxPerArtist = QUICK_PICKS_PER_ARTIST).take(20) else null
         forgottenFavorites.value = songs(forgottenPool).take(20)
         keepListening.value = local(keepListeningPool)
-        similarRecommendations.value = similarPool?.map { it.copy(items = yt(it.items)) }?.filter { it.items.isNotEmpty() }
+        // Nor a row "Similar to" a blocked artist, or a song of theirs, which would show their face.
+        similarRecommendations.value = similarPool?.filterNot { block.hides(it.title) }?.map { it.copy(items = yt(it.items)) }?.filter { it.items.isNotEmpty() }
         // The widget's other two lists are these same rows, filled here where they settle.
         fillWidget(WidgetList.FORGOTTEN_FAVOURITES, forgottenFavorites.value.orEmpty().map { it.toMediaMetadata() })
         fillWidget(WidgetList.KEEP_LISTENING, keepListening.value.orEmpty().filterIsInstance<Song>().map { it.toMediaMetadata() })
@@ -1240,11 +1248,15 @@ class HomeViewModel @Inject constructor(
         // value in place shows a signed-out user the last account's playlists.
         if (YouTube.cookie != null) {
             YouTube.library("FEmusic_liked_playlists").completed().onSuccess {
+                // Asked as the account always: the request that tells a sign-in still works.
+                YouTubeTrouble.answered(asAccount = true)
                 accountPlaylists.value = it.items.filterIsInstance<PlaylistItem>()
             }.onFailure {
                 // Left as it was. A transient failure blanking your playlists is worse than
                 // briefly showing the previous list, and this runs on every home load.
                 reportException(it)
+                // A sign-in YouTube no longer accepts shows here first: the note above (WhyStopped).
+                YouTubeTrouble.failed(it)
             }
         } else {
             accountPlaylists.value = null
@@ -1322,8 +1334,10 @@ class HomeViewModel @Inject constructor(
                         "${merged.sections.sumOf { it.items.size }} items, $batches continuations"
             )
             homePagePool = merged
+            YouTubeTrouble.answered(asAccount = YouTube.useLoginForBrowse)
         }.onFailure {
             reportException(it)
+            YouTubeTrouble.failed(it)
         }
         // The row is kept across loads now, so a shelf that has actually disappeared has to be
         // cleared here or last load's songs would sit there indefinitely.

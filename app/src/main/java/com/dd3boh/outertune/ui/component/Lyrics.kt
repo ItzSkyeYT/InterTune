@@ -242,7 +242,9 @@ fun Lyrics(
     var cardVideo by keep::cardVideo
     var cardSong by keep::cardSong
     val mostLines = pluralStringResource(R.plurals.lyrics_pick_most, LyricsShare.MOST_LINES, LyricsShare.MOST_LINES)
-    val mostForVideo = pluralStringResource(R.plurals.lyrics_pick_most_video, LyricsShare.MOST_LINES, LyricsShare.MOST_LINES)
+    val mostForVideo = pluralStringResource(
+        R.plurals.lyrics_pick_most_video_minutes, LyricsShare.MOST_LINES, LyricsShare.MOST_LINES, (LyricsVideoPlan.LONGEST_MS / 60_000).toInt(),
+    )
 
     /** The lines with their times in the song, as the timing bar moved them, for a video of them; none for lyrics that are not synced. */
     fun timedLines(): List<LyricsVideoPlan.Timed>? = if (!isSynced) null else lines.map {

@@ -122,13 +122,15 @@ object WidgetStore {
      * everywhere would spend the launcher's whole megabyte on a picture nobody can see.
      * [nowCover] is the now playing song's own 192 px cover. It is kept apart from [art] because
      * [art] is keyed by id and the song usually also sits in Recently played (or another list),
-     * whose 96 px copy is the one the map keeps.
+     * whose 96 px copy is the one the map keeps. [firsts] are the big covers of the lists' first
+     * songs that have one on the phone, by id: Big cover with a list alone draws that song big.
      */
     data class Drawn(
         val snapshot: WidgetSnapshot,
         val art: Map<String, Bitmap>,
         val big: Bitmap? = null,
         val nowCover: Bitmap? = null,
+        val firsts: Map<String, Bitmap> = emptyMap(),
     )
 
     private fun dir(context: Context) = File(context.filesDir, "widget").apply { mkdirs() }
@@ -166,11 +168,14 @@ object WidgetStore {
     /** The artwork the snapshot names, as bitmaps. Small, few, and only re-read when they change. */
     private fun decoded(context: Context, snapshot: WidgetSnapshot): Drawn {
         val (art, nowCover) = coversFor(snapshot, _drawn.value?.art.orEmpty(), ::decode, ::decodeCover)
+        val firsts = WidgetList.entries.mapNotNull { snapshot.list(it).firstOrNull() }.distinctBy { it.id }
+            .mapNotNull { first -> decodeCover(bigArtPath(context, first.id))?.let { first.id to it } }.toMap()
         return Drawn(
             snapshot,
             art,
             snapshot.nowPlaying?.let { decodeCover(bigArtPath(context, it.id)) },
             nowCover,
+            firsts,
         )
     }
 
@@ -184,8 +189,8 @@ object WidgetStore {
      * its file is replaced), and Full cover's glass, which is drawn from that very bitmap, is drawn
      * once per song too (see WidgetGlass).
      */
-    private val decodedCovers = object : LinkedHashMap<String, Bitmap>(4, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Bitmap>?): Boolean = size > 4
+    private val decodedCovers = object : LinkedHashMap<String, Bitmap>(8, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Bitmap>?): Boolean = size > 8
     }
 
     private fun decodeCover(path: String?): Bitmap? {
@@ -469,6 +474,7 @@ object WidgetStore {
         }
         if (widgets && changed) MusicWidget().updateAll(context)
         if (owed.isNotEmpty() && rowPicturesFor(context, which, owed)) MusicWidget().updateAll(context)
+        if (widgets && changed && firstPictureFor(context, which)) MusicWidget().updateAll(context)
     }
 
     /**
@@ -596,6 +602,8 @@ object WidgetStore {
             }
             MusicWidget().updateAll(context)
         }
+        // Last, the big cover of a list's first song, for a widget that draws it big.
+        for (which in WidgetList.entries) if (firstPictureFor(context, which)) MusicWidget().updateAll(context)
     }
 
     /** The list each widget on the home screen is set to, in no particular order, without repeats. */
@@ -604,6 +612,29 @@ object WidgetStore {
             WidgetKeys.read(getAppWidgetState(context, PreferencesGlanceStateDefinition, id)).list
         }.distinct()
     }.onFailure { Log.w(TAG, "Could not read which lists the widgets show", it) }.getOrDefault(emptyList())
+
+    /** The lists a widget draws as a Big cover of the list alone, its first song big. */
+    private suspend fun bigFirstLists(context: Context): Set<WidgetList> = runCatching {
+        GlanceAppWidgetManager(context).getGlanceIds(MusicWidget::class.java).mapNotNull { id ->
+            WidgetKeys.read(getAppWidgetState(context, PreferencesGlanceStateDefinition, id))
+                .takeIf { it.style == WidgetStyle.SHELF && it.look == ShelfLook.BIG_COVER && it.contentShown == WidgetContent.LIST }?.list
+        }.toSet()
+    }.onFailure { Log.w(TAG, "Could not read which widgets draw a first song big", it) }.getOrDefault(emptySet())
+
+    /**
+     * The big cover of [which]'s first song, where a widget draws it big (Big cover with a list
+     * alone), as the song that plays has one: its row's cover is a 128 pixel thumbnail, a blur at
+     * that size. Fetched outside the lock like a row's, once (a file there already is kept). True
+     * when the widget has something new to draw.
+     */
+    private suspend fun firstPictureFor(context: Context, which: WidgetList): Boolean {
+        if (which !in bigFirstLists(context)) return false
+        val first = read(context).list(which).firstOrNull() ?: return false
+        val made = artMutex.withLock { artInSizes(context, first.id, listOf(ART_BIG_PX)) { px -> artModel(first, px) } }
+        if (!made) return false
+        mutex.withLock { _drawn.value = decoded(context, read(context)) }
+        return true
+    }
 
     /**
      * A row straight from the library, for a widget added before Home has ever filled that row.
@@ -850,9 +881,13 @@ internal fun filledUp(held: List<WidgetSong>, more: List<WidgetSong>, maxPicks: 
  * Every artwork file this snapshot is still using, so [WidgetStore.prune] never deletes one still
  * on screen. The now playing song's big cover has no [WidgetSong.artPath] field of its own, since
  * [bigPath] computes its file from the id instead, so without this it would be eligible for
- * deletion even while it is on screen.
+ * deletion even while it is on screen; nor has a list's first song's, which Big cover with a list
+ * alone draws big.
  */
 internal fun WidgetSnapshot.artPathsInUse(bigPath: (String) -> String): Set<String> =
     (listOfNotNull(nowPlaying) + picks + forgotten + keepListening + recent + upNext)
         .mapNotNullTo(HashSet()) { it.artPath }
-        .apply { nowPlaying?.let { add(bigPath(it.id)) } }
+        .apply {
+            nowPlaying?.let { add(bigPath(it.id)) }
+            for (first in listOfNotNull(picks.firstOrNull(), forgotten.firstOrNull(), keepListening.firstOrNull(), recent.firstOrNull())) add(bigPath(first.id))
+        }

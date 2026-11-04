@@ -2,6 +2,9 @@ package com.dd3boh.outertune.ui.screens.playlist
 
 import com.dd3boh.outertune.ui.component.ScreenBackHandler
 import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -66,11 +69,14 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
@@ -136,9 +142,12 @@ import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.component.items.PlaylistThumbnail
 import com.dd3boh.outertune.ui.component.items.SongListItem
 import com.dd3boh.outertune.ui.dialog.DefaultDialog
+import com.dd3boh.outertune.ui.dialog.PlaylistCoverEditor
+import com.dd3boh.outertune.ui.dialog.PlaylistCoverSheet
 import com.dd3boh.outertune.ui.dialog.TextFieldDialog
 import com.dd3boh.outertune.ui.player.named
 import com.dd3boh.outertune.ui.utils.getNSongsString
+import com.dd3boh.outertune.utils.PlaylistCovers
 import com.dd3boh.outertune.utils.makeTimeString
 import com.dd3boh.outertune.utils.mayPushToYouTube
 import com.dd3boh.outertune.utils.rememberEnumPreference
@@ -287,6 +296,18 @@ fun LocalPlaylistScreen(
         mutableStateOf(false)
     }
 
+    // The choice of the cover is only for a playlist of one's own, and only with the flag on
+    // (PlaylistCovers.canChoose). Where it is not, Edit playlist keeps its pencil and the cover in
+    // the header is a picture and nothing more.
+    val coverChoosable = currentPlaylist != null && PlaylistCovers.canChoose(currentPlaylist.playlist.browseId)
+    var showCoverSheet by remember { mutableStateOf(false) }
+    val onChangeCover: (() -> Unit)? = if (coverChoosable) ({ showCoverSheet = true }) else null
+    // Here and not in the sheet, so that a photo picked still reaches the playlist when the sheet
+    // has gone, or the activity was made again while the picker was up.
+    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) viewModel.coverPhoto(uri)
+    }
+
     if (showRecognition && currentPlaylist != null) {
         RecognitionSheet(
             playlist = currentPlaylist,
@@ -295,9 +316,26 @@ fun LocalPlaylistScreen(
     }
 
     if (showEditDialog) {
-        playlistWithSongs.first?.playlist?.let { playlistEntity ->
+        playlistWithSongs.first?.let { editing ->
+            val playlistEntity = editing.playlist
             TextFieldDialog(
-                icon = { Icon(imageVector = Icons.Rounded.Edit, contentDescription = null) },
+                icon = {
+                    if (onChangeCover != null) {
+                        // The keyboard goes down first, so that the sheet does not come up behind it.
+                        val focus = LocalFocusManager.current
+                        val keyboard = LocalSoftwareKeyboardController.current
+                        PlaylistCoverEditor(
+                            playlist = editing,
+                            onChange = {
+                                keyboard?.hide()
+                                focus.clearFocus()
+                                onChangeCover()
+                            }
+                        )
+                    } else {
+                        Icon(imageVector = Icons.Rounded.Edit, contentDescription = null)
+                    }
+                },
                 title = { Text(text = stringResource(R.string.edit_playlist)) },
                 onDismiss = { showEditDialog = false },
                 initialTextFieldValue = TextFieldValue(playlistEntity.name, TextRange(playlistEntity.name.length)),
@@ -312,6 +350,20 @@ fun LocalPlaylistScreen(
                         }
                     }
                 }
+            )
+        }
+    }
+
+    // After the edit dialog, so that it comes up over it when opened from there.
+    if (showCoverSheet && coverChoosable) {
+        playlistWithSongs.first?.let { editing ->
+            PlaylistCoverSheet(
+                playlist = editing,
+                songs = playlistWithSongs.second,
+                onAutomatic = viewModel::coverAutomatic,
+                onPhoto = { photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                onSong = viewModel::coverSong,
+                onDismiss = { showCoverSheet = false },
             )
         }
     }
@@ -379,8 +431,13 @@ fun LocalPlaylistScreen(
                 TextButton(
                     onClick = {
                         showDeletePlaylistDialog = false
+                        val files = context.filesDir
                         database.query {
-                            playlistWithSongs.first?.let { delete(it.playlist) }
+                            playlistWithSongs.first?.let {
+                                delete(it.playlist)
+                                // The photo kept for its cover goes with it.
+                                PlaylistCovers.forget(files, it.playlist.id)
+                            }
                         }
 
                         // Signed out or in "Read only" this removes the copy here and nothing
@@ -451,8 +508,17 @@ fun LocalPlaylistScreen(
                 } else {
                     emptyList()
                 }
-                database.transaction {
-                    move(viewModel.playlistId, from, to)
+                // With a blocked artist's rows left out (ArtistBlock), a place on screen is not
+                // a position in the playlist: the dragged row goes beside the row it now follows.
+                val positions = if (from == to) {
+                    null
+                } else if (viewModel.hidesRows.value) {
+                    moveAround(mutableSongs.map { it.map.position }, to)
+                } else {
+                    from to to
+                }
+                if (positions != null) database.transaction {
+                    move(viewModel.playlistId, positions.first, positions.second)
                 }
                 if (youTubeMoves.isNotEmpty()) {
                     viewModel.viewModelScope.launch(Dispatchers.IO) {
@@ -502,6 +568,7 @@ fun LocalPlaylistScreen(
                             onShowEditDialog = { showEditDialog = true },
                             onShowRemoveDownloadDialog = { showRemoveDownloadDialog = true },
                             snackbarHostState = snackbarHostState,
+                            onChangeCover = onChangeCover,
                             modifier = Modifier,
                         )
                     }
@@ -632,6 +699,7 @@ fun LocalPlaylistScreen(
                                 snackbarHostState = snackbarHostState,
                                 savedTwice = savedTwice,
                                 onSavedTwice = onSavedTwice,
+                                onChangeCover = onChangeCover,
                                 modifier = Modifier // .animateItem()
                             )
                         }
@@ -750,6 +818,7 @@ fun LocalPlaylistScreen(
                             snackbarHostState = snackbarHostState,
                             savedTwice = savedTwice,
                             onSavedTwice = onSavedTwice,
+                            onChangeCover = onChangeCover,
                             modifier = Modifier,
                         )
                     }
@@ -887,6 +956,8 @@ fun LocalPlaylistHeader(
     /** Songs in the playlist more than once: the Saved twice button shows while above nought. */
     savedTwice: Int = 0,
     onSavedTwice: () -> Unit = {},
+    /** Opens the choice of the cover when a tap on it should (PlaylistCovers.canChoose), else null and the cover is a picture. */
+    onChangeCover: (() -> Unit)? = null,
 ) {
     Log.v("LocalPlaylistScreen", "P_H_RC-1")
     val playerConnection = LocalPlayerConnection.current ?: return
@@ -934,14 +1005,26 @@ fun LocalPlaylistHeader(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             itemVerticalAlignment = Alignment.CenterVertically
         ) {
-            PlaylistThumbnail(
-                playlist = playlist.playlist,
-                thumbnails = playlist.thumbnails,
-                size = coverSize,
-                shape = RoundedCornerShape(AlbumCornerRadius),
-                iconPadding = coverSize / 16,
-                iconTint = LocalContentColor.current.copy(alpha = 0.8f),
-            )
+            val cover: @Composable () -> Unit = {
+                PlaylistThumbnail(
+                    playlist = playlist.playlist,
+                    thumbnails = playlist.thumbnails,
+                    size = coverSize,
+                    shape = RoundedCornerShape(AlbumCornerRadius),
+                    iconPadding = coverSize / 16,
+                    iconTint = LocalContentColor.current.copy(alpha = 0.8f),
+                )
+            }
+            if (onChangeCover != null) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(AlbumCornerRadius))
+                        .clickable(onClick = onChangeCover)
+                        .named(stringResource(R.string.playlist_cover_change))
+                ) { cover() }
+            } else {
+                cover()
+            }
 
             Column(
                 verticalArrangement = Arrangement.Center,
@@ -1154,6 +1237,26 @@ fun playlistSearchResults(songs: List<PlaylistSong>, query: String): List<Playli
  * is then put back in front of it. A song with no set-video id, such as one added here and not yet
  * synced back, cannot be named to YouTube, so then nothing is sent at all.
  */
+/**
+ * The positions a drag moves a row between when a blocked artist's rows are left out of the list
+ * on screen (ArtistBlock), so that a place on screen is not a position in the playlist.
+ *
+ * [positions] are the rows' positions, in the order on screen after the drag, the dragged row now
+ * at [to]. It goes just after the row now before it, or, at the top, just before the one after it,
+ * and the rows left out keep their places among the others. Null when nothing moves.
+ */
+fun moveAround(positions: List<Int>, to: Int): Pair<Int, Int>? {
+    if (to !in positions.indices || positions.size < 2) return null
+    val moved = positions[to]
+    val target = if (to > 0) {
+        val before = positions[to - 1]
+        if (before > moved) before else before + 1
+    } else {
+        positions[1]
+    }
+    return if (target == moved) null else moved to target
+}
+
 fun youTubeMovesAfterDrag(setVideoIds: List<String?>, from: Int, to: Int): List<Pair<String, String>> {
     if (from == to || from !in setVideoIds.indices || to !in setVideoIds.indices) return emptyList()
     val moved = setVideoIds[to] ?: return emptyList()

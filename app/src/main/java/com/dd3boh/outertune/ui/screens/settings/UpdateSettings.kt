@@ -308,12 +308,13 @@ fun UpdateSettings(
                                     )
                                 }
 
-                            // Blocked on a Samsung phone: Auto Blocker's switch is the way through, and
-                            // the row is back to Install for when they return.
+                            // Blocked on a Samsung phone: Auto Blocker's switch is the way through. The
+                            // row is back to Install for when they return, and the install starts
+                            // again by itself then.
                             UpdateInstaller.State.Blocked ->
                                 if (AutoBlocker.likely()) {
                                     installer.acknowledge()
-                                    AutoBlocker.open(context)
+                                    AutoBlocker.openForUpdate(context)
                                 } else {
                                     installer.acknowledge()
                                     installer.installOrDownload(found.downloadUrl, found.sizeBytes)

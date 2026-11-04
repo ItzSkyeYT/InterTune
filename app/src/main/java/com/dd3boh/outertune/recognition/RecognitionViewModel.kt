@@ -44,6 +44,7 @@ class RecognitionViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val engine: RecognitionEngine,
     private val history: RecognitionHistory,
+    private val later: RecogniseLater,
     private val database: MusicDatabase,
 ) : ViewModel() {
 
@@ -59,8 +60,14 @@ class RecognitionViewModel @Inject constructor(
     /** When Keep listening next asks Shazam, while it waits out a run of failures. */
     val retryAt = engine.retryAt
 
+    /** Keep listening is keeping what it hears with no connection ([RecognitionEngine.keepingOffline]). */
+    val keepingOffline = engine.keepingOffline
+
     /** Everything ever heard, across restarts, newest first. */
     val heard = history.entries
+
+    /** Listens kept with no connection, waiting to be named, oldest first ([RecogniseLater]). */
+    val waiting = later.waiting
 
     /** The playlist new songs are going into, once the list was saved as one or added to one. */
     val following = engine.following
@@ -133,6 +140,16 @@ class RecognitionViewModel @Inject constructor(
             pickerWrote = ids - database.playlistDuplicates(playlist.id, ids).toSet()
             ids
         }
+
+    /**
+     * For the picker on one candidate: puts [song] in the song table, which the playlist's foreign
+     * key needs and a search result has never been in, and hands back its id for the picker to add.
+     * Written before it returns, so the add that follows finds the row (#62).
+     */
+    suspend fun prepareSong(song: SongItem): List<String> = withContext(Dispatchers.IO) {
+        database.transactionNow { insert(song.toMediaMetadata()) }
+        listOf(song.id)
+    }
 
     private var pickerWrote: List<String> = emptyList()
 
@@ -253,10 +270,14 @@ class RecognitionViewModel @Inject constructor(
      * Separate from [reset], which only empties this session.
      *
      * Clearing what the app remembers hearing is a different act from clearing the current
-     * session, and the settings entry that says it clears history should do the one it says.
+     * session, and the settings entry that says it clears history should do the one it says. What
+     * was heard with no connection and waits to be named goes too: it is part of what was heard.
      */
     fun clearHistory() {
-        viewModelScope.launch { history.clear() }
+        viewModelScope.launch {
+            history.clear()
+            runCatching { later.clear() }.onFailure { Log.w(TAG, "Could not forget the listens kept for later", it) }
+        }
     }
 
     private companion object {

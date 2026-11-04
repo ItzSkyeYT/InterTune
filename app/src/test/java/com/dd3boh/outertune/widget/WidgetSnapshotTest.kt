@@ -126,6 +126,15 @@ class WidgetSnapshotTest {
     }
 
     @Test
+    fun `a list's first song's big cover counts as in use, for Big cover with a list alone`() {
+        val first = song.copy(id = "first1", artPath = "/art/first1_128c.png")
+        val snap = WidgetSnapshot(picks = listOf(first, song.copy(id = "second1")))
+        val inUse = snap.artPathsInUse { id -> "/art/${id}_320c.png" }
+        assertTrue("/art/first1_320c.png" in inUse)
+        assertFalse("/art/second1_320c.png" in inUse)
+    }
+
+    @Test
     fun `nothing playing means no big cover to protect`() {
         assertTrue(WidgetSnapshot().artPathsInUse { "/never/$it" }.isEmpty())
     }

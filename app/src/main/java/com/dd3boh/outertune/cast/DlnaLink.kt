@@ -144,7 +144,10 @@ class DlnaLink(
                 publish(it)
             }
         }
-        val args = listOf("InstanceID" to "0", "CurrentURI" to item.url, "CurrentURIMetaData" to Didl.track(item))
+        // In the renderer's own words for the type: some refuse a track whose type they did not list.
+        val listed = (caps.formats as? FormatSupport.Listed)?.mimeTypes
+        val metadata = if (listed == null) Didl.track(item) else Didl.track(item, Didl.protocolInfo(CastFormats.spelling(listed, item.mimeType), item.length >= 0))
+        val args = listOf("InstanceID" to "0", "CurrentURI" to item.url, "CurrentURIMetaData" to metadata)
         try {
             try {
                 call(avTransport, "SetAVTransportURI", args)

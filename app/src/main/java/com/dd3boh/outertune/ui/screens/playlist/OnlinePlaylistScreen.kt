@@ -105,7 +105,9 @@ import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.ui.component.AutoResizeText
 import com.dd3boh.outertune.ui.component.FloatingFooter
+import com.dd3boh.outertune.ui.component.FailedNote
 import com.dd3boh.outertune.ui.component.FloatingTopBar
+import com.dd3boh.outertune.ui.component.RetryWhenSignInChanges
 import com.dd3boh.outertune.ui.utils.HeaderBesideList
 import com.dd3boh.outertune.ui.utils.backToMain
 import com.dd3boh.outertune.ui.utils.linkStylesWithFocus
@@ -164,6 +166,9 @@ fun OnlinePlaylistScreen(
     val mutableSongs = remember { mutableStateListOf<SongItem>() }
 
     val isLoading by viewModel.isLoading.collectAsState()
+    val failedKind by viewModel.failedKind.collectAsState()
+    // Signed in again from the note: the page the old sign-in failed is asked again.
+    RetryWhenSignInChanges(failed = failedKind != null, retry = viewModel::retry)
 
     // multiselect
     var inSelectMode by rememberSaveable { mutableStateOf(false) }
@@ -688,6 +693,16 @@ fun OnlinePlaylistScreen(
                                 }
                             }
                         }
+                    }
+                } else if (failedKind != null) {
+                    // It did not load: why, when that is clear, and Retry (WhyStopped). This was
+                    // the shimmer below, for as long as the page stayed open.
+                    item(key = "not_loaded") {
+                        FailedNote(
+                            kind = failedKind,
+                            onSignIn = { navController.navigate("login") },
+                            onRetry = viewModel::retry,
+                        )
                     }
                 } else {
                     item {
