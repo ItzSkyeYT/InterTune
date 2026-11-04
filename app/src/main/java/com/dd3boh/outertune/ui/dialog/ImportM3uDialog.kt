@@ -72,6 +72,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.InputStream
 
 @Composable
@@ -452,7 +453,12 @@ suspend fun loadM3u(
         }
     }.onFailure {
         reportException(it)
-        Toast.makeText(context, R.string.m3u_import_playlist_failed, Toast.LENGTH_SHORT).show()
+        // On the main thread. The dialog runs this on the scanner's thread, which has no looper:
+        // a toast made there throws, the dialog's catch took that, and a file that could not be
+        // read said nothing at all.
+        withContext(Dispatchers.Main) {
+            Toast.makeText(context, R.string.m3u_import_playlist_failed, Toast.LENGTH_SHORT).show()
+        }
     }
 
     if (songs.isEmpty()) {

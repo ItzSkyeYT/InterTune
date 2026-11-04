@@ -50,6 +50,7 @@ import com.zionhuang.innertube.utils.Walked
 import com.zionhuang.innertube.utils.walkItems
 import com.zionhuang.innertube.utils.walkSongs
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.SupervisorJob
@@ -169,10 +170,39 @@ class SyncUtils @Inject constructor(
             syncRemoteArtists(bypassCd),
             syncRemotePlaylists(bypassCd),
         )
-        context.dataStore.edit { settings ->
-            settings[LastFullSyncKey] = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
-        }
+        stamp(LastFullSyncKey)
         return SyncResult.combine(results)
+    }
+
+    /**
+     * Notes the time a sync ended under [key], for its cooldown. A phone with full storage cannot
+     * write it (IOException): thrown from a sync's finally it closed the app, and since the time
+     * was never noted, the sync was due again at the next opening, which closed again. Logged
+     * instead; the sync is then simply due again next time.
+     */
+    private suspend fun stamp(key: Preferences.Key<Long>) {
+        try {
+            context.dataStore.edit { settings ->
+                settings[key] = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not note when ${key.name} ended", e)
+        }
+    }
+
+    /**
+     * A kind that threw: a write that failed (SQLiteFullException on a full phone, from the
+     * transactions and direct writes here, which the catch in MusicDatabase.query and .transaction
+     * does not reach) or a read. It ends that kind, logged, and not the app: each kind had a try
+     * and a finally only, and the sync at launch runs on a scope with nothing to catch it, so the
+     * app closed a few seconds after opening, at every opening while the phone stayed full
+     * (4 Nov 2026). The kinds after it still run.
+     */
+    private fun failed(kind: String, e: Exception): SyncResult {
+        Log.e(TAG, "$kind synchronization failed", e)
+        return SyncResult.FAILED
     }
 
     private fun checkEnabled(item: SyncContent): Boolean {
@@ -366,16 +396,16 @@ class SyncUtils @Inject constructor(
                 result = if (walked.complete) SyncResult.SYNCED else SyncResult.FAILED
             }
 
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            result = failed("Liked songs", e)
         } finally {
             // First, and the stamp after it cannot be cancelled: the flag was reset last, after a
             // suspending write, so a sync cancelled by leaving its screen left the flag set,
             // and since the guard keeps a second sync out, that kind of sync never ran again.
             _isSyncingRemoteLikedSongs.value = false
-            withContext(NonCancellable) {
-                context.dataStore.edit { settings ->
-                    settings[LastLikeSongSyncKey] = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
-                }
-            }
+            withContext(NonCancellable) { stamp(LastLikeSongSyncKey) }
             Log.i(TAG, "Liked songs synchronization ended")
         }
         return result
@@ -451,16 +481,16 @@ class SyncUtils @Inject constructor(
                 jobs.joinAll()
             }
             result = if (remote.complete) SyncResult.SYNCED else SyncResult.FAILED
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            result = failed("Library songs", e)
         } finally {
             // First, and the stamp after it cannot be cancelled: the flag was reset last, after a
             // suspending write, so a sync cancelled by leaving its screen left the flag set,
             // and since the guard keeps a second sync out, that kind of sync never ran again.
             _isSyncingRemoteSongs.value = false
-            withContext(NonCancellable) {
-                context.dataStore.edit { settings ->
-                    settings[LastLibSongSyncKey] = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
-                }
-            }
+            withContext(NonCancellable) { stamp(LastLibSongSyncKey) }
             Log.i(TAG, "Library songs synchronization ended")
         }
         return result
@@ -536,16 +566,16 @@ class SyncUtils @Inject constructor(
                 }
             }
             result = if (remote.complete) SyncResult.SYNCED else SyncResult.FAILED
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            result = failed("Library albums", e)
         } finally {
             // First, and the stamp after it cannot be cancelled: the flag was reset last, after a
             // suspending write, so a sync cancelled by leaving its screen left the flag set,
             // and since the guard keeps a second sync out, that kind of sync never ran again.
             _isSyncingRemoteAlbums.value = false
-            withContext(NonCancellable) {
-                context.dataStore.edit { settings ->
-                    settings[LastAlbumSyncKey] = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
-                }
-            }
+            withContext(NonCancellable) { stamp(LastAlbumSyncKey) }
             Log.i(TAG, "Library albums synchronization ended")
         }
         return result
@@ -642,16 +672,16 @@ class SyncUtils @Inject constructor(
                 }
             }
             result = if (likedRemote.complete) SyncResult.SYNCED else SyncResult.FAILED
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            result = failed("Artist subscriptions", e)
         } finally {
             // First, and the stamp after it cannot be cancelled: the flag was reset last, after a
             // suspending write, so a sync cancelled by leaving its screen left the flag set,
             // and since the guard keeps a second sync out, that kind of sync never ran again.
             _isSyncingRemoteArtists.value = false
-            withContext(NonCancellable) {
-                context.dataStore.edit { settings ->
-                    settings[LastArtistSyncKey] = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
-                }
-            }
+            withContext(NonCancellable) { stamp(LastArtistSyncKey) }
             Log.i(TAG, "Artist subscriptions synchronization ended")
         }
         return result
@@ -761,16 +791,16 @@ class SyncUtils @Inject constructor(
                 }
                 result = if (walked.complete) SyncResult.SYNCED else SyncResult.FAILED
             }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            result = failed("Library playlist", e)
         } finally {
             // First, and the stamp after it cannot be cancelled: the flag was reset last, after a
             // suspending write, so a sync cancelled by leaving its screen left the flag set,
             // and since the guard keeps a second sync out, that kind of sync never ran again.
             _isSyncingRemotePlaylists.value = false
-            withContext(NonCancellable) {
-                context.dataStore.edit { settings ->
-                    settings[LastPlaylistSyncKey] = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
-                }
-            }
+            withContext(NonCancellable) { stamp(LastPlaylistSyncKey) }
             Log.i(TAG, "Library playlist synchronization ended")
         }
         return result
@@ -877,16 +907,16 @@ class SyncUtils @Inject constructor(
                 }
                 result = SyncResult.SYNCED
             }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            result = failed("Recent activity", e)
         } finally {
             // First, and the stamp after it cannot be cancelled: the flag was reset last, after a
             // suspending write, so a sync cancelled by leaving its screen left the flag set,
             // and since the guard keeps a second sync out, that kind of sync never ran again.
             _isSyncingRecentActivity.value = false
-            withContext(NonCancellable) {
-                context.dataStore.edit { settings ->
-                    settings[LastRecentActivitySyncKey] = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
-                }
-            }
+            withContext(NonCancellable) { stamp(LastRecentActivitySyncKey) }
             Log.i(TAG, "Recent activity synchronization ended")
         }
         return result

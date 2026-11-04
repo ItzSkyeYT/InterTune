@@ -4292,6 +4292,15 @@ class MusicService : MediaLibraryService(),
     }
 
     /**
+     * A restore is about to close the database, put the backup's in its place and restart the
+     * app: the music stops first, so that playing writes nothing more into a database that is
+     * closing (a listen's progress, the next song, the place in the queue). Main thread.
+     */
+    fun stopForRestore() {
+        if (::exoPlayer.isInitialized) activePlayer.pause()
+    }
+
+    /**
      * The song playing, if it is a blocked artist's (ArtistBlock), is passed over to the nearest
      * one that is not, as BlockedSkip finds it, and a line says why. With nothing left that is not
      * blocked, the music stops at its start, unheard, and says so unless [quiet]. Main thread.
