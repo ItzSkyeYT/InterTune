@@ -2388,4 +2388,11 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="new_lyrics_video_long_body" translatable="false">Long-press a line of the lyrics to share a video of up to ten minutes of the song. With Living blur on, its background moves with the music.</string>
     <string name="new_share_cards_title" translatable="false">Shared songs show their cover</string>
     <string name="new_share_cards_body" translatable="false">A song shared as InterTune\'s page shows its name and cover in chat apps.</string>
+    <!-- The Animations switch, first row of Look and feel (Animations, his yes of 4 Nov 2026): held from translators until his go, their French beside them in values-fr. -->
+    <string name="animations_title" translatable="false">Animations</string>
+    <string name="animations_description" translatable="false">When off, screens change at once and backgrounds stand still. Easier on older phones.</string>
+    <string name="animations_held_note" translatable="false">Off while animations are off in Android\'s settings.</string>
+    <string name="living_blur_still_switch" translatable="false">Stands still while \"Animations\" is off, at the top of this page.</string>
+    <!-- The settings search's words for Animations: open to translators, as every search word is (SettingsSearchTest). -->
+    <string name="search_words_animations">motion, transitions, effects, slow phone, lag</string>
 </resources>

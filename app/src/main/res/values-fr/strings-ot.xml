@@ -2203,4 +2203,9 @@
     <string name="new_lyrics_video_long_body">Appuyez longuement sur une ligne des paroles pour partager une vidéo qui prend jusqu\'à dix minutes du titre. Avec le Flou vivant, son fond bouge avec la musique.</string>
     <string name="new_share_cards_title">Les titres partagés montrent leur pochette</string>
     <string name="new_share_cards_body">Un titre partagé en page InterTune affiche son nom et sa pochette dans les applis de discussion.</string>
+    <string name="animations_title">Animations</string>
+    <string name="animations_description">Sans animations, les écrans changent tout de suite et les fonds restent immobiles. Plus léger pour les téléphones anciens.</string>
+    <string name="animations_held_note">Désactivé tant que les animations sont coupées dans les réglages d\'Android.</string>
+    <string name="living_blur_still_switch">Reste immobile tant que le réglage « Animations », en haut de cette page, est désactivé.</string>
+    <string name="search_words_animations">mouvement, transitions, effets, téléphone lent, ralentissements</string>
 </resources>

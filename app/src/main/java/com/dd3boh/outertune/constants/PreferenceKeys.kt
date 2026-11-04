@@ -29,6 +29,8 @@ val LivingColoursKey = stringPreferencesKey("livingBlurColours")
 val PlayerLiquidGlassKey = booleanPreferencesKey("playerLiquidGlass")
 val DarkModeKey = stringPreferencesKey("darkMode")
 val PureBlackKey = booleanPreferencesKey("pureBlack")
+/** The Animations switch, on by default: off, nothing in the app animates (Animations). */
+val AnimationsKey = booleanPreferencesKey("animations")
 val BackAnimationsKey = booleanPreferencesKey("backAnimations")
 val ShowLikedAndDownloadedPlaylist = booleanPreferencesKey("showLikedAndDownloadedPlaylist")
 /** What Home, search, artist pages and radio leave out (ContentFilter). Both off by default. */
