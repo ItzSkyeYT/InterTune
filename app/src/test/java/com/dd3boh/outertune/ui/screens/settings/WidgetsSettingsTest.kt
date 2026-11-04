@@ -264,4 +264,14 @@ class WidgetsSettingsTest {
         for ((name, _, _) in words) assertTrue("$name is not used", "R.string.$name" in used)
         assertTrue("R.string.widgets_cells" in page)
     }
+
+    @Test
+    fun `the preview is drawn again when the covers arrive`() {
+        // A widget just added was drawn before its covers were on the phone and kept a note for its
+        // cover (seen on the emulator, 4 Nov 2026): the covers in the store now redraw it.
+        val config = java.io.File("src/main/java/com/dd3boh/outertune/widget/WidgetConfigActivity.kt").readText()
+        val live = config.substringAfter("private fun LiveWidget(").substringBefore("BoxWithConstraints(")
+        assertTrue("WidgetStore.drawn.collectAsState()" in live)
+        assertTrue("LaunchedEffect(settings, size, redraw, covers)" in live)
+    }
 }

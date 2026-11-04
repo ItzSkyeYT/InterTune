@@ -63,6 +63,7 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -464,7 +465,11 @@ private fun PreviewHint(known: Boolean, modifier: Modifier = Modifier) {
 private fun LiveWidget(settings: WidgetSettings, size: IntSize, redraw: Int = 0) {
     val context = LocalContext.current
     var views by remember { mutableStateOf<RemoteViews?>(null) }
-    LaunchedEffect(settings, size, redraw) {
+    // The covers come after a widget's first draw (the store decodes them once they are on the
+    // phone): drawn again when they arrive, or a widget just added keeps a note for its cover.
+    val drawnNow by WidgetStore.drawn.collectAsState()
+    val covers = drawnNow?.let { Triple(it.nowCover != null, it.big != null, it.art.size + it.firsts.size) }
+    LaunchedEffect(settings, size, redraw, covers) {
         // A slider dragged end to end asks for a drawing at every step; only the last is wanted.
         delay(60)
         // Never reached by a drawing that a newer change has cancelled: the preview keeps what it
