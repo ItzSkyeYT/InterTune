@@ -81,6 +81,18 @@ class DownloadSqlTest {
         ).forEach { assertNull("$it", completedDownloadTime(it, LANDED_MS)) }
     }
 
+    @Test
+    fun `the songs that show a cover are the ones with its address`() {
+        // An album's songs share one cover address: Remove download asks which before it takes the kept cover.
+        exec("UPDATE song SET thumbnailUrl = 'https://lh3.googleusercontent.com/album=w544-h544-l90-rj' WHERE id IN ('never', 'landed')")
+        exec("UPDATE song SET thumbnailUrl = 'https://lh3.googleusercontent.com/single=w544-h544-l90-rj' WHERE id = 'queued'")
+        val sharing = db.prepareStatement(DownloadSql.SONGS_WITH_COVER).use { ps ->
+            ps.setString(1, "https://lh3.googleusercontent.com/album=w544-h544-l90-rj")
+            ps.executeQuery().use { rs -> buildSet { while (rs.next()) add(rs.getString("id")) } }
+        }
+        assertEquals(setOf("never", "landed"), sharing)
+    }
+
     private companion object {
         /** 14 Nov 2023, 22:13:20 as the app stores it. */
         const val LANDED_MS = 1_700_000_000_000L

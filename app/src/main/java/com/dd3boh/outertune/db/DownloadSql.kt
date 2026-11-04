@@ -24,4 +24,10 @@ object DownloadSql {
 
     /** The Downloaded list as the media browser (Android Auto) gets it. */
     const val DOWNLOADED_BY_DATE = "SELECT * FROM song WHERE isLocal = 0 AND dateDownload IS NOT NULL ORDER BY dateDownload"
+
+    /**
+     * The songs that show the cover at :url, downloaded or not: an album's songs share one. Remove
+     * download keeps a kept cover while one of them is still downloaded (DownloadUtil.removeDownload).
+     */
+    const val SONGS_WITH_COVER = "SELECT id FROM song WHERE thumbnailUrl = :url"
 }

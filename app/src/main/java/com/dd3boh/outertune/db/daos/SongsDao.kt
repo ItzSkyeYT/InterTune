@@ -412,6 +412,10 @@ interface SongsDao {
     /** See DownloadSql. */
     @Query(DownloadSql.CLEAR_SENTINELS)
     fun clearDownloadSentinels()
+
+    /** See DownloadSql. */
+    @Query(DownloadSql.SONGS_WITH_COVER)
+    fun songsWithCover(url: String): List<String>
     // endregion
 
     // region Downloaded Songs Sort
