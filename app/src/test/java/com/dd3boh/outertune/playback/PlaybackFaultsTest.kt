@@ -8,6 +8,9 @@ package com.dd3boh.outertune.playback
 
 import com.dd3boh.outertune.db.daos.closeShuffleGaps
 import com.dd3boh.outertune.models.MediaMetadata
+import com.dd3boh.outertune.models.MultiQueueObject
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -113,5 +116,16 @@ class PlaybackFaultsTest {
         assertEquals(listOf(2, 0, 3, 1), songs.map { it.shuffleIndex })
         assertEquals(listOf("b", "d", "a", "c"), songs.sortedBy { it.shuffleIndex }.map { it.id })
         assertEquals("both reads of a saved queue renumber", 2, Regex("closeShuffleGaps\\(").findAll(code("db/daos/QueueDao.kt")).count() - 1)
+    }
+
+    @Test
+    fun `looking a song up leaves the queue as it is, even with its place out of range`() {
+        val songs = mutableListOf(song("a", 1), song("b", 0), song("c", 2))
+        val q = MultiQueueObject(id = 1, title = "q", queue = songs, shuffled = true, queuePos = 7, index = 0)
+        assertSame(songs[1], q.findSong("b"))
+        assertEquals(null, q.findSong("z"))
+        assertTrue("the shuffle is still on", q.shuffled)
+        assertEquals("the place is untouched", 7, q.queuePos)
+        assertFalse("no repair renumbered the shuffle", songs.map { it.shuffleIndex } == listOf(0, 1, 2))
     }
 }
