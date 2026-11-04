@@ -334,13 +334,14 @@ object PendingChanges {
 
     /**
      * For a sync about to read the account: what waits is sent first, as sync engines push before
-     * they pull, and what is still waiting after that is what the sync leaves alone.
+     * they pull, and what is still waiting after that, with what was sent a moment ago and may not
+     * show in the read yet (PendingStore.withRecent), is what the sync leaves alone.
      */
     suspend fun sendThenWaiting(context: Context): Waiting {
         val store = store ?: return Waiting.NONE
         runCatching { send(context) }
             .onFailure { if (it is CancellationException) throw it; Log.w(TAG, "Could not send the changes waiting", it) }
-        return Waiting(store.of(accountOf(context)))
+        return Waiting(store.withRecent(accountOf(context)))
     }
 
     /** What waits for the account signed in, without sending: for a sync already in a database transaction. */

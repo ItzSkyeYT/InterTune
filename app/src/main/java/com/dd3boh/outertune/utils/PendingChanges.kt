@@ -122,13 +122,19 @@ object PendingRules {
      * to be, so it replaces one still waiting for the same thing: only the last word is sent. A
      * removal of a row whose add has not gone out yet takes the add back instead, and neither is
      * sent: the account never had that row. A delete takes everything still waiting for the
-     * playlist with it. [sending] is the change being sent at this moment, which nothing replaces.
+     * playlist with it, and a save of the playlist takes back a delete still waiting. [sending] is
+     * the change being sent at this moment, which nothing replaces.
      */
     fun put(list: List<Pending>, new: Pending, sending: Long?): List<Pending> {
         fun waiting(p: Pending) = p.account == new.account && p.seq != sending
         return when (val c = new.change) {
             is Change.Like -> list.filterNot { waiting(it) && (it.change as? Change.Like)?.videoId == c.videoId } + new
-            is Change.SavePlaylist -> list.filterNot { waiting(it) && (it.change as? Change.SavePlaylist)?.browseId == c.browseId } + new
+            // Saved again from its page: a delete of it that has not gone out is taken back, as a
+            // delete cannot be undone on the account.
+            is Change.SavePlaylist -> list.filterNot { p ->
+                waiting(p) && ((p.change as? Change.SavePlaylist)?.browseId == c.browseId ||
+                    c.saved && (p.change as? Change.Delete)?.browseId == c.browseId)
+            } + new
             is Change.SaveAlbum -> list.filterNot { waiting(it) && (it.change as? Change.SaveAlbum)?.albumId == c.albumId } + new
             is Change.Follow -> list.filterNot { waiting(it) && (it.change as? Change.Follow)?.artistId == c.artistId } + new
             is Change.Rename -> list.filterNot { waiting(it) && (it.change as? Change.Rename)?.browseId == c.browseId } + new
@@ -230,7 +236,7 @@ class Waiting(pending: List<Pending>) {
     fun artistWanted(artistId: String): Boolean? = artists[artistId]
 
     val isEmpty: Boolean
-        get() = likes.isEmpty() && playlists.isEmpty() && held.isEmpty() && albums.isEmpty() && artists.isEmpty()
+        get() = likes.isEmpty() && playlists.isEmpty() && names.isEmpty() && held.isEmpty() && albums.isEmpty() && artists.isEmpty()
 
     companion object {
         val NONE = Waiting(emptyList())
@@ -266,6 +272,9 @@ class PendingStore(private val file: File) {
     @Volatile
     private var latest: List<Pending>? = null
 
+    /** Changes the account has had lately, with the time it answered: see [withRecent]. In memory only. Under [lock]. */
+    private val recent = ArrayDeque<Pair<Long, Pending>>()
+
     /** Keeps [change] for [account]. */
     suspend fun put(account: String?, change: Change, now: Long = System.currentTimeMillis()) {
         update { s -> State(s.next + 1, PendingRules.put(s.list, Pending(s.next, account, now, change), sending)) }
@@ -278,6 +287,19 @@ class PendingStore(private val file: File) {
     suspend fun of(account: String?): List<Pending> = all().filter { it.account == account }
 
     /**
+     * What waits for [account], after the changes the account had in the last [RECENT_MS]. A read
+     * made straight after a send may not show it yet, and the sync, under "Keep all local content",
+     * would then put back for good an unlike, an unsave or a deletion the account already has. Not
+     * a playlist's songs: the next sync of the playlist puts those right by itself.
+     */
+    suspend fun withRecent(account: String?, now: Long = System.currentTimeMillis()): List<Pending> = withContext(Dispatchers.IO) {
+        lock.withLock {
+            while (recent.isNotEmpty() && now - recent.first().first > RECENT_MS) recent.removeFirst()
+            recent.map { it.second }.filter { it.account == account } + load().list.filter { it.account == account }
+        }
+    }
+
+    /**
      * What waits for [account], as last kept, without waiting for a send: for a caller in a database
      * transaction, which must not wait on anything that could wait on the database.
      */
@@ -286,7 +308,10 @@ class PendingStore(private val file: File) {
 
     /** Forgets everything waiting: a restore puts back a library these changes were not made to. */
     suspend fun forgetAll() {
-        update { s -> State(s.next, emptyList()) }
+        update { s ->
+            recent.clear()
+            State(s.next, emptyList())
+        }
     }
 
     /**
@@ -328,6 +353,7 @@ class PendingStore(private val file: File) {
             when (outcome) {
                 is Sent.Done -> {
                     val c = sent.change
+                    if (c !is Change.Add && c !is Change.Remove && c !is Change.Move) recent.addLast(System.currentTimeMillis() to sent)
                     val list = if (c is Change.Add && outcome.setVideoId != null) {
                         PendingRules.learned(rest, account, c.browseId, c.mapId, outcome.setVideoId)
                     } else rest
@@ -401,6 +427,9 @@ class PendingStore(private val file: File) {
 
         /** Sends that failed for no reason the app could name, before a change is given up. */
         const val MOST_TRIES = 5
+
+        /** How long a change the account has had still stands in the sync's view: see [withRecent]. */
+        const val RECENT_MS = 10 * 60_000L
 
         /** What a change is, for the log: never the song, the playlist or the account. */
         fun kindOf(change: Change): String = when (change) {

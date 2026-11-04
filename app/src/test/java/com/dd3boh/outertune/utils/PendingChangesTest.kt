@@ -155,6 +155,17 @@ class PendingChangesTest {
         assertEquals(listOf(Change.Add("PL2", 2, "b", false), Change.Delete("PL1")), s.waiting())
     }
 
+    @Test
+    fun `a playlist saved again from its page takes back its delete that has not gone out`() {
+        val s = store()
+        s.keep(Change.Delete("PL1"))
+        s.keep(Change.SavePlaylist("PL1", saved = true))
+        assertEquals(listOf<Change>(Change.SavePlaylist("PL1", true)), s.waiting())
+        // Taken out of the library again, the delete is not brought back: an unsave is all that goes.
+        s.keep(Change.SavePlaylist("PL1", saved = false))
+        assertEquals(listOf<Change>(Change.SavePlaylist("PL1", false)), s.waiting())
+    }
+
     // ---- finding 6: a song added from the phone, then taken out ----
 
     @Test
@@ -269,6 +280,34 @@ class PendingChangesTest {
         val seqs = runBlocking { again.all() }.map { it.seq }
         assertEquals(seqs.distinct(), seqs)
         assertEquals(seqs.sorted(), seqs)
+    }
+
+    @Test
+    fun `an unlike the account has just had still stands for a few minutes, for a read that does not show it yet`() {
+        val s = store()
+        s.keep(Change.Like("a", liked = false))
+        s.keep(Change.Add("PL1", 3, "b", false))
+        s.flush(Fake())
+        assertTrue(s.waiting().isEmpty())
+        val now = System.currentTimeMillis()
+        // Read straight after: the unlike still stands, the add does not (the playlist's next sync puts it right).
+        val shortly = runBlocking { s.withRecent(me, now + 1_000) }.map { it.change }
+        assertEquals(listOf<Change>(Change.Like("a", false)), shortly)
+        assertEquals(false, Waiting(runBlocking { s.withRecent(me, now + 1_000) }).likeWanted("a"))
+        // Not for another account, and not once the time is up.
+        assertTrue(runBlocking { s.withRecent(other, now + 1_000) }.isEmpty())
+        assertTrue(runBlocking { s.withRecent(me, now + PendingStore.RECENT_MS + 60_000) }.isEmpty())
+    }
+
+    @Test
+    fun `what waits comes after what was sent, so the last word made here is the one that stands`() {
+        val s = store()
+        s.keep(Change.Like("a", liked = false))
+        s.flush(Fake())
+        s.keep(Change.Like("a", liked = true))
+        val view = runBlocking { s.withRecent(me) }
+        assertEquals(listOf<Change>(Change.Like("a", false), Change.Like("a", true)), view.map { it.change })
+        assertEquals(true, Waiting(view).likeWanted("a"))
     }
 
     @Test
