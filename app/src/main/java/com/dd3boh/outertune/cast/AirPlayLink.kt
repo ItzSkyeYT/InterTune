@@ -530,8 +530,11 @@ class AirPlayLink(
                 endedAt = clock.nanos()
                 // Said as soon as the last frame is sent, so that the next song can follow it with
                 // no gap; the speaker still has its last two seconds to play. A song with less than
-                // that left (a seek near its end) ends only once it has been heard to start.
-                if (song.heardFrame >= 0) report(song, ReceiverState.ENDED, positionOf(song.endFrame())) else song.endPending = true
+                // that left (a seek near its end) ends only once it has been heard to start; one
+                // with nothing left at all (cast from its very end) ends at once, as nothing of it
+                // will be heard.
+                val nothingSent = song.nextFrame == song.openedAt
+                if (song.heardFrame >= 0 || nothingSent) report(song, ReceiverState.ENDED, positionOf(song.endFrame())) else song.endPending = true
             }
         }
         failure?.let { failed(song, it) }

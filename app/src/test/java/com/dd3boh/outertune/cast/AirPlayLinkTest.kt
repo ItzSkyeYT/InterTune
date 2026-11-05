@@ -451,6 +451,20 @@ class AirPlayLinkTest {
     }
 
     @Test
+    fun `a song cast from its very end ends at once`() = runBlocking {
+        // The Pixel, 5 Nov: a song paused at its last frame was cast, and play then waited for ever.
+        val speaker = FakeSpeaker()
+        val songs = songServer()
+        val link = link(speaker)
+        link.connect()
+        link.load(item(songs, "done", 44_100), 1_000, play = false)
+        link.waitFor(ReceiverState.PAUSED, load = 1)
+        link.play()
+        val ended = link.waitFor(ReceiverState.ENDED, load = 1)
+        assertEquals(1_000L, ended.positionMs)
+    }
+
+    @Test
     fun `a song loaded paused is PAUSED once its audio is there, and plays from there`() = runBlocking {
         val speaker = FakeSpeaker()
         val songs = songServer()

@@ -325,7 +325,7 @@ class AirPlayStream(
                 }
             }
             listen(frame)
-            // Until the next packet is due, a few milliseconds at most so that the sync stays on time.
+            // Until the next batch is due: 20 ms, the batch's own length.
             val wait = (nanosOf(nextFrame - leadFrames - batchFrames) - clock.nanos() + BATCH_NANOS).coerceIn(500_000L, BATCH_NANOS)
             synchronized(lock) {
                 if (!running) return
