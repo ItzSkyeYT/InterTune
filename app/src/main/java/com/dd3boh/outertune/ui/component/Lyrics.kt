@@ -633,7 +633,13 @@ fun Lyrics(
                 .add(WindowInsets(top = maxHeight / 2, bottom = maxHeight / 2))
                 .asPaddingValues(),
             modifier = Modifier
-                .fadingEdge(vertical = lyricsFadeLength(maxHeight, smallWindow))
+                // The lines scroll up under the status bar: clear there, and fading in under it,
+                // where a line used to stand half lit behind the clock (seen on the Pixel 5, 5 Nov 2026).
+                .fadingEdge(
+                    top = lyricsFadeLength(maxHeight, smallWindow),
+                    bottom = lyricsFadeLength(maxHeight, smallWindow),
+                    topClear = WindowInsets.systemBars.only(WindowInsetsSides.Top).asPaddingValues().calculateTopPadding(),
+                )
                 // Only watched, on the way in, and left for the lines and the list to act on.
                 .pointerInput(Unit) {
                     awaitEachGesture {
