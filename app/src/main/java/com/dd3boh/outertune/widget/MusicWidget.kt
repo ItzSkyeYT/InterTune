@@ -8,6 +8,7 @@ package com.dd3boh.outertune.widget
 
 import android.content.Context
 import android.content.res.Configuration
+import android.util.Log
 import androidx.annotation.DrawableRes
 import android.graphics.Bitmap
 import android.view.View
@@ -96,6 +97,9 @@ class MusicWidget(
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         // provideContent never returns, so a preview stops here.
         if (fixed != null) provideContent { GlanceTheme { Body(fixed) } }
+        // When a widget on a home screen is first drawn, or drawn again after its session ended:
+        // how long a new widget waited for this is the time to its first picture.
+        Log.i(WidgetStore.DRAW_TAG, "Drawing $id")
         val initial = WidgetStore.load(context)
         provideContent {
             // Collected rather than captured: provideGlance runs once for the life of this
@@ -238,6 +242,8 @@ private fun Body(drawn: WidgetStore.Drawn) {
     val h = size.height.value.toInt()
     val list = snapshot.list(settings.list)
     val plan = WidgetLayout.plan(w, h, settings, list.size, context.resources.configuration.fontScale, snapshot.upNext.size)
+    // Each drawing at each size, so the time from a tap or a song change to the widget is in logcat.
+    Log.d(WidgetStore.DRAW_TAG, "Composed ${w}x$h ${plan.shape}, ${if (snapshot.isPlaying) "playing" else "paused"} ${snapshot.nowPlaying?.id}, ${list.size} in ${settings.list}")
     val paint = paintOf(settings, snapshot)
     // The now playing song's own file, not the list entry the id-keyed art map would otherwise
     // resolve to whenever this same song sits at the head of Recently played; the big one only where
@@ -252,7 +258,9 @@ private fun Body(drawn: WidgetStore.Drawn) {
     // looks are drawn on their cover blurred, when that is the background they have.
     val onCover = settings.style == WidgetStyle.FULL_COVER && cover != null
     val blurred = if (settings.style == WidgetStyle.SHELF && settings.backgroundShown == WidgetBackground.ARTWORK) {
-        val hero = if (settings.contentShown == WidgetContent.LIST) list.firstOrNull()?.let { drawn.art[it.id] } else small
+        // A list alone is drawn on its first song's cover, and while its list is empty on the cover
+        // of what is playing, which it then draws big (WidgetLooks.playingBig).
+        val hero = if (settings.contentShown == WidgetContent.LIST && list.isNotEmpty()) drawn.art[list.first().id] else small
         hero?.let { WidgetPictures.background(it, w, h, settings.look, settings.opacity) }
     } else null
     when {
@@ -543,7 +551,7 @@ private fun LookWords(l: Look, look: LookPlan, at: Spot, song: WidgetSong?, pain
             Text(
                 text = song?.title ?: LocalContext.current.getString(R.string.widget_nothing_playing),
                 style = TextStyle(color = paint.text, fontSize = scaled(p.titleSp, paint), fontWeight = FontWeight.Medium),
-                maxLines = p.titleLines.coerceAtLeast(1),
+                maxLines = emptyTitleLines(song == null, p.titleLines, p.showArtist),
                 modifier = GlanceModifier.width(titleW.dp),
             )
             if (song != null && p.showArtist) {
@@ -562,7 +570,8 @@ private fun LookWords(l: Look, look: LookPlan, at: Spot, song: WidgetSong?, pain
  * Big cover: the cover of what is playing big, its words over its top on their band and the pill of
  * buttons in frosted glass over its foot, and the list's covers as a mosaic round it, a row of the
  * mosaic at a time, each cover tapped to play its song. With a list alone the big cover is the
- * list's first song, its heading and name over it, and a tap plays it.
+ * list's first song, its heading and name over it, and a tap plays it. With nothing in the list
+ * yet, any look is what is playing big (WidgetLooks.playingBig), and a tap opens the app.
  */
 @Composable
 private fun BigCoverLook(l: Look, frame: GlanceModifier, list: List<WidgetSong>, which: WidgetList) {
@@ -571,7 +580,7 @@ private fun BigCoverLook(l: Look, frame: GlanceModifier, list: List<WidgetSong>,
     val hero = look.hero ?: return
     val context = LocalContext.current
     val density = context.resources.displayMetrics.density
-    val alone = l.paint.settings.contentShown == WidgetContent.LIST
+    val alone = l.paint.settings.contentShown == WidgetContent.LIST && list.isNotEmpty()
     val first = if (alone) list.firstOrNull() else null
     val song = first ?: l.song
     val art = if (alone) first?.let { l.firsts[it.id] ?: l.art[it.id] } else l.cover
@@ -823,6 +832,13 @@ private fun Glass(l: Look, glass: GlassPane) {
     }
 }
 
+/**
+ * The title's lines. With nothing playing there is no artist, so "Nothing playing" may take the
+ * artist's line as well: at 4 x 2 on the Pixel 5 it was cut to "Nothing playi..." (5 Nov 2026).
+ */
+internal fun emptyTitleLines(empty: Boolean, titleLines: Int, showArtist: Boolean): Int =
+    titleLines.coerceAtLeast(1) + if (empty && showArtist) 1 else 0
+
 @Composable
 private fun Titles(
     song: WidgetSong?,
@@ -835,7 +851,7 @@ private fun Titles(
     Text(
         text = song?.title ?: LocalContext.current.getString(R.string.widget_nothing_playing),
         style = TextStyle(color = paint.text, fontSize = scaled(titleSp, paint), fontWeight = FontWeight.Medium),
-        maxLines = titleLines.coerceAtLeast(1),
+        maxLines = emptyTitleLines(song == null, titleLines, showArtist),
     )
     if (song != null && showArtist) {
         Text(

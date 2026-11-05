@@ -134,6 +134,30 @@ interface DatabaseDao : SongsDao, AlbumsDao, ArtistsDao, PlaylistsDao, QueueDao,
     @Query(RelatedSql.YOUTUBE_RELATED_SONGS)
     fun youtubeRelatedSongs(songId: String): List<Song>
 
+    // ---- A radio made on the phone when YouTube gives none (LocalRadio). See [RadioSql].
+    @Transaction
+    @Query(RadioSql.LISTED_FOR)
+    fun radioListedFor(songId: String, source: Int, limit: Int): List<Song>
+
+    @Transaction
+    @Query(RadioSql.LISTING)
+    fun radioListing(songId: String, limit: Int): List<Song>
+
+    @Transaction
+    @Query(RadioSql.NEIGHBOURS_LIST)
+    fun radioNeighboursList(songId: String, limit: Int): List<Song>
+
+    @Transaction
+    @Query(RadioSql.HEARD_WITH)
+    fun radioHeardWith(songId: String, limit: Int): List<Song>
+
+    @Transaction
+    @Query(RadioSql.BY_ITS_ARTISTS)
+    fun radioByItsArtists(songId: String, limit: Int): List<Song>
+
+    @Query(RadioSql.EXCLUSIONS_IN_FORCE)
+    fun exclusionsInForce(now: Long): List<com.dd3boh.outertune.engine.EngineExclusionRow>
+
     @Query("""
         SELECT * FROM genre
         WHERE genre.isLocal = 1

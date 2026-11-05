@@ -58,13 +58,11 @@ class DownloadFilesWiringTest {
 
     @Test
     fun `a song file is played past the song cache`() {
-        assertTrue(service.contains(".setKey(downloadedKey(mediaId, resolved.file.name)).build()"))
+        // Every download in a folder now, the .mka saved as the stream too: see KeptOnceTest.
+        assertTrue(service.contains(".setKey(downloadedKey(mediaId)).build()"))
         val sink = service.substringAfter("HybridCacheDataSinkFactory(playerCache) { dataSpec ->").substringBefore(".setFlags(")
-        assertTrue(sink.contains("dataSpec.key?.startsWith(SONG_FILE_KEY) != true"))
-        assertEquals("songfile:dQw4w9WgXcQ", downloadedKey("dQw4w9WgXcQ", "Rick Astley - Song.opus"))
-        assertEquals("songfile:dQw4w9WgXcQ", downloadedKey("dQw4w9WgXcQ", "Rick Astley - Song.m4a"))
-        assertEquals("a download saved as the stream keeps its id", "dQw4w9WgXcQ", downloadedKey("dQw4w9WgXcQ", "Song [dQw4w9WgXcQ].mka"))
-        assertEquals("dQw4w9WgXcQ", downloadedKey("dQw4w9WgXcQ", null))
+        assertTrue(sink.contains("dataSpec.key?.startsWith(FOLDER_FILE_KEY) != true"))
+        assertEquals("folderfile:dQw4w9WgXcQ", downloadedKey("dQw4w9WgXcQ"))
     }
 
     @Test

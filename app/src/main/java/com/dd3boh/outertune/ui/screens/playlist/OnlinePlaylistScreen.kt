@@ -542,7 +542,7 @@ fun OnlinePlaylistScreen(
                             onClick = {
                                 playerConnection.playQueue(
                                     ListQueue(
-                                        playlistId = playlist.playEndpoint!!.playlistId,
+                                        playlistId = playEndpoint.playlistId,
                                         title = playlist.title,
                                         items = songs.map { it.toMediaMetadata() },
                                     ),
@@ -562,12 +562,14 @@ fun OnlinePlaylistScreen(
                         }
                     }
 
-                    playlist.shuffleEndpoint?.let {
+                    playlist.shuffleEndpoint?.let { shuffleEndpoint ->
                         OutlinedButton(
                             onClick = {
                                 playerConnection.playQueue(
                                     ListQueue(
-                                        playlistId = playlist.playEndpoint!!.playlistId,
+                                        // A page can give Shuffle without Play (each is read from its
+                                        // own button), and `!!` here closed the app; as the menu does.
+                                        playlistId = playlist.playEndpoint?.playlistId ?: shuffleEndpoint.playlistId,
                                         title = playlist.title,
                                         items = songs.map { it.toMediaMetadata() },
                                         startShuffled = true,

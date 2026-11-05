@@ -142,6 +142,11 @@ fun LibrarySongsScreen(
         inSelectMode = false
         selection.clear()
     }
+    // A selection whose songs have all left the list (taken out of the library, unliked) leaves
+    // nothing to pick: out of the mode, not a "0/0 selected" bar over an empty list (5 Nov 2026).
+    LaunchedEffect(inSelectMode, songs?.isEmpty()) {
+        if (inSelectMode && songs?.isEmpty() == true) onExitSelectionMode()
+    }
     if (inSelectMode) {
         ScreenBackHandler(onBack = onExitSelectionMode)
     }
@@ -361,7 +366,14 @@ fun LibrarySongsScreen(
                     item {
                         EmptyPlaceholder(
                             icon = Icons.Rounded.MusicNote,
-                            text = stringResource(R.string.library_song_empty),
+                            // Said for the list picked above: "Library songs" under Liked read as if the library were empty.
+                            text = stringResource(
+                                when (filter) {
+                                    SongFilter.LIKED -> R.string.library_song_empty_liked
+                                    SongFilter.DOWNLOADED -> R.string.library_song_empty_downloaded
+                                    SongFilter.LIBRARY -> R.string.library_song_empty
+                                }
+                            ),
                             modifier = Modifier.animateItem()
                         )
                     }

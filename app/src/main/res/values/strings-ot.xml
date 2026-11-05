@@ -191,7 +191,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="playback_auth_when_refused">Only when a song is refused</string>
     <string name="playback_auth_always">Always</string>
     <string name="err_age_restricted">YouTube will not play this one without an account old enough to see it. Other songs are unaffected.</string>
-    <string name="err_song_unavailable">YouTube no longer has this song, or does not serve it where you are. Other songs are unaffected.</string>
+    <string name="err_song_unavailable">YouTube no longer has this song, or not where you are.</string>
     <string name="err_copy_details">Copy error details</string>
 
 <!-- Sort menu -->
@@ -205,7 +205,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="bits_per_sample">Bits per sample</string>
     <string name="create_sync_playlist">Sync Playlist</string>
     <string name="create_sync_playlist_description">Note: This allows for syncing with YouTube Music. This is NOT changeable later. You cannot add local songs to synced playlists.</string>
-    <string name="create_sync_playlist_failed">Could not create the playlist on YouTube Music. Nothing was created; try again when you are online.</string>
+    <string name="create_sync_playlist_failed">Could not create the playlist on YouTube Music. Try again online.</string>
     <string name="disc_number">Disc number</string>
     <string name="extra_details">Extra details</string>
     <string name="file_path">File path</string>
@@ -467,8 +467,8 @@ while also allowing users to translate our app as well. New, specific strings to
 
 <!--Lyrics settings -->
     <string name="lyrics_font_Size">Font size</string>
-    <string name="lyrics_karaoke_title">Karaoke style lyrics.</string>
-    <string name="lyrics_karaoke_description">Enables word by word lyric syncing. Requires lyrics format support.</string>
+    <string name="lyrics_karaoke_title">Karaoke style lyrics</string>
+    <string name="lyrics_karaoke_description">Each word lights up as it is sung. Only for lyrics that come with word timings.</string>
     <string name="lyrics_karaoke_hz_title">Adjust karaoke lyrics update speed</string>
     <string name="lyrics_multiline_title">Read multiline lyrics</string>
     <string name="lyrics_multiline_description">Treat all the lines between sync points as one lyric text</string>
@@ -768,7 +768,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="song_cache_max_size">Maximum song cache size</string>
     <string name="image_cache_max_size">Maximum artwork cache size</string>
     <string name="max_queues_description">How many queues the app keeps at once. The oldest is dropped when you go past this.</string>
-    <string name="enable_proxy_description">Send YouTube Music requests and streams through another server first. Pictures, lyrics and the other services the app uses still connect directly. Leave this off unless you know you need it.</string>
+    <string name="enable_proxy_description">Send everything the app fetches through another server first, pictures and lyrics included. Speakers and TVs on your network are still reached directly. Leave this off unless you know you need it.</string>
     <string name="show_liked_and_downloaded_playlist_description">Show Liked songs and Downloaded songs as playlists in your library.</string>
 
     <!-- Descriptions for rows whose titles alone did not say what they do -->
@@ -886,7 +886,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="welcome_back_done">Done</string>
     <string name="welcome_back_entry">What is new</string>
     <string name="welcome_back_not_here">That is not on screen in this setup, so there is nothing to point at.</string>
-    <string name="welcome_back_no_widget_host">This home screen does not take widgets from apps. Add it from the home screen\'s own widget list.</string>
+    <string name="welcome_back_no_widget_host">This home screen can\'t take app widgets. Use its own widget list.</string>
     <!-- The card at the top of Home that the page waits behind. %1$d is how many things are new,
          %2$s the version somebody came from, as in 0.11. -->
     <plurals name="welcome_card_since">
@@ -1335,7 +1335,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="exclusion_reason_gone">No longer on YouTube</string>
     <string name="error_youtube_not_answering">YouTube is not answering right now. The song was tried several ways.</string>
     <string name="error_cached_part_stale">The saved part of this song no longer matches what YouTube serves. Press play to load it again.</string>
-    <string name="error_connection_turned_away">YouTube is turning this connection away, so every song looks unavailable. A VPN, or a school or work network, can do this.</string>
+    <string name="error_connection_turned_away">YouTube refuses this connection. Try without a VPN or on other Wi-Fi.</string>
     <string name="menu_not_this_song">Not this song</string>
     <string name="menu_less_of_artist">Less of this artist</string>
     <string name="menu_never_artist">Never this artist (recommendations)</string>
@@ -2088,6 +2088,22 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="hide_explicit_description">Songs and albums marked explicit stay out of Home, search, artist pages and what a radio adds.</string>
     <string name="hide_video_songs">Hide music videos</string>
     <string name="hide_video_songs_description">Only album and single tracks are offered, not music videos or uploads. A song you pick still plays.</string>
+    <!-- The AI filter (Unreleased.AI_FILTER, AiFilterFrag in Library and content, the artist menus, over
+         search results): held back from translators until the words are agreed. French beside them in values-fr. -->
+    <string name="ai_filter" translatable="false">AI music</string>
+    <string name="ai_filter_off" translatable="false">Off</string>
+    <string name="ai_filter_recommendations" translatable="false">Hide from recommendations</string>
+    <string name="ai_filter_everywhere" translatable="false">Block everywhere</string>
+    <string name="ai_filter_note" translatable="false">Uses a hand-made list of AI artists: CevvalKoala\'s YouTube blocklist and a few known AI acts. It can be wrong, so long-press an artist to mark it AI or not.</string>
+    <string name="ai_filter_explain" translatable="false">\"Hide from recommendations\" keeps AI songs out of Home, \"Quick picks\", radios and autoplay. \"Block everywhere\" also hides them in search and skips any that reach the queue. Songs in your library and playlists you made are never touched.</string>
+    <string name="ai_filter_mark_ai" translatable="false">Mark as AI</string>
+    <string name="ai_filter_not_ai" translatable="false">Not AI</string>
+    <plurals name="ai_filter_hidden" translatable="false">
+        <item quantity="one">%1$d AI result hidden</item>
+        <item quantity="other">%1$d AI results hidden</item>
+    </plurals>
+    <string name="ai_filter_show" translatable="false">Show</string>
+    <string name="ai_filter_skipped" translatable="false">Skipped an AI song</string>
 
     <!-- The recognition widget in the launcher's picker (recognition_widget_info). -->
     <string name="recognition_widget_description">One button that names the song playing around you.</string>
@@ -2473,7 +2489,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="region_note_title">YouTube Music in South Korea</string>
     <string name="region_note_body">YouTube Music has no free plan in South Korea, so YouTube shows songs, albums and mixes there only to Premium members. Songs in your playlists still play, and search still finds videos. A Premium account, or a VPN or proxy outside Korea, brings the rest back.</string>
     <string name="region_note_proxy">Proxy settings</string>
-    <string name="proxy_restart_title">Restart to use the new proxy</string>
+    <string name="proxy_restart_title">Restart to apply the proxy setting</string>
     <string name="proxy_restart_description">InterTune takes the proxy when it starts. Tap to restart it now; the music stops.</string>
     <!-- Why search, radios, mixes or Home stopped loading (WhyStopped): on Home, on a search, album or playlist page that failed, and under a radio that did not start. Held from translators until his yes. -->
     <string name="why_stopped_sign_in_title" translatable="false">Your YouTube sign-in expired</string>
@@ -2481,6 +2497,9 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="why_stopped_sign_in_again" translatable="false">Sign in again</string>
     <string name="why_stopped_unreachable_title" translatable="false">YouTube can\'t be reached</string>
     <string name="why_stopped_unreachable_body" translatable="false">This connection isn\'t getting through to YouTube. If you use a VPN, make sure its split tunnelling includes InterTune, or try another network.</string>
+    <!-- Under a radio's songs in the queue when YouTube gave the radio nothing and InterTune picked them itself (LocalRadio, Unreleased.RADIO_FALLBACK). Held from translators until his yes. -->
+    <string name="radio_from_intertune_title" translatable="false">Picked by InterTune</string>
+    <string name="radio_from_intertune_body" translatable="false">YouTube sent no radio</string>
     <string name="album_not_loaded_title" translatable="false">This album did not load</string>
     <string name="album_not_loaded_body" translatable="false">YouTube did not send it, so only the songs InterTune already had are shown.</string>
     <string name="lyrics_refetch_failed" translatable="false">Lyrics could not be fetched. Check the connection.</string>
@@ -2588,4 +2607,12 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="widgets_all_options_shelf" translatable="false">Background, buttons, rows</string>
     <string name="widgets_add_from_home" translatable="false">This home screen does not take widgets from apps. Add them from its own widget list.</string>
     <string name="widgets_cells" translatable="false">%1$d × %2$d</string>
+    <!-- The Songs tab with nothing in it, by the list picked above (Liked, Downloaded): held from translators until the next push, French beside them in values-fr. Library keeps library_song_empty. -->
+    <string name="library_song_empty_liked" translatable="false">Songs you like will show up here</string>
+    <string name="library_song_empty_downloaded" translatable="false">Downloaded songs will show up here</string>
+    <!-- A write the phone refused, in a toast (NotSaved): a setting, a sort, an add to a playlist. Held for translators. -->
+    <string name="not_saved_storage_full" translatable="false">Not saved: the phone\'s storage is full. Free some space and try again.</string>
+    <string name="not_saved" translatable="false">Not saved: something went wrong. Please try again.</string>
+    <!-- The question before the downloads of the songs picked in a selection are removed. Held for translators. -->
+    <string name="remove_download_selection_confirm" translatable="false">Remove the downloads of the songs you picked?</string>
 </resources>

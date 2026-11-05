@@ -1,0 +1,250 @@
+{
+ "responseContext": {
+  "visitorData": "CgtUZXN0VmlzaXRvcg%3D%3D"
+ },
+ "contents": {
+  "singleColumnWatchNextResults": {
+   "playlist": {
+    "playlist": {
+     "title": "Mix - Bye, Summer (바이, 썸머)",
+     "playlistId": "RDAMVMAlNEtjBX1wU",
+     "isInfinite": true,
+     "contents": [
+      {
+       "playlistPanelVideoRenderer": {
+        "title": {
+         "runs": [
+          {
+           "text": "Bye, Summer (바이, 썸머)"
+          }
+         ]
+        },
+        "lengthText": {
+         "runs": [
+          {
+           "text": "3:39"
+          }
+         ]
+        },
+        "longBylineText": {
+         "runs": [
+          {
+           "text": "이지금 [IU Official]",
+           "navigationEndpoint": {
+            "browseEndpoint": {
+             "browseId": "UC3SyT4_WLHzN7JmHQwKQZww"
+            }
+           }
+          }
+         ]
+        },
+        "shortBylineText": {
+         "runs": [
+          {
+           "text": "이지금 [IU Official]",
+           "navigationEndpoint": {
+            "browseEndpoint": {
+             "browseId": "UC3SyT4_WLHzN7JmHQwKQZww"
+            }
+           }
+          }
+         ]
+        },
+        "videoId": "AlNEtjBX1wU",
+        "selected": true,
+        "thumbnail": {
+         "thumbnails": [
+          {
+           "url": "https://i.ytimg.com/vi/AlNEtjBX1wU/hqdefault.jpg",
+           "width": 480,
+           "height": 360
+          },
+          {
+           "url": "https://i.ytimg.com/vi/AlNEtjBX1wU/sddefault.jpg",
+           "width": 640,
+           "height": 480
+          }
+         ]
+        }
+       }
+      },
+      {
+       "playlistPanelVideoRenderer": {
+        "title": {
+         "runs": [
+          {
+           "text": "My sea (아이와 나의 바다)"
+          }
+         ]
+        },
+        "lengthText": {
+         "runs": [
+          {
+           "text": "5:17"
+          }
+         ]
+        },
+        "longBylineText": {
+         "runs": [
+          {
+           "text": "이지금 [IU Official]",
+           "navigationEndpoint": {
+            "browseEndpoint": {
+             "browseId": "UC3SyT4_WLHzN7JmHQwKQZww"
+            }
+           }
+          }
+         ]
+        },
+        "shortBylineText": {
+         "runs": [
+          {
+           "text": "이지금 [IU Official]",
+           "navigationEndpoint": {
+            "browseEndpoint": {
+             "browseId": "UC3SyT4_WLHzN7JmHQwKQZww"
+            }
+           }
+          }
+         ]
+        },
+        "videoId": "TqIAndOnd74",
+        "selected": false,
+        "thumbnail": {
+         "thumbnails": [
+          {
+           "url": "https://i.ytimg.com/vi/TqIAndOnd74/hqdefault.jpg",
+           "width": 480,
+           "height": 360
+          },
+          {
+           "url": "https://i.ytimg.com/vi/TqIAndOnd74/sddefault.jpg",
+           "width": 640,
+           "height": 480
+          }
+         ]
+        }
+       }
+      },
+      {
+       "playlistPanelVideoRenderer": {
+        "title": {
+         "runs": [
+          {
+           "text": "October 4th (10월 4일)"
+          }
+         ]
+        },
+        "lengthText": {
+         "runs": [
+          {
+           "text": "3:53"
+          }
+         ]
+        },
+        "longBylineText": {
+         "runs": [
+          {
+           "text": "이지금 [IU Official]",
+           "navigationEndpoint": {
+            "browseEndpoint": {
+             "browseId": "UC3SyT4_WLHzN7JmHQwKQZww"
+            }
+           }
+          }
+         ]
+        },
+        "shortBylineText": {
+         "runs": [
+          {
+           "text": "이지금 [IU Official]",
+           "navigationEndpoint": {
+            "browseEndpoint": {
+             "browseId": "UC3SyT4_WLHzN7JmHQwKQZww"
+            }
+           }
+          }
+         ]
+        },
+        "videoId": "ULhVF6UeRtA",
+        "selected": false,
+        "thumbnail": {
+         "thumbnails": [
+          {
+           "url": "https://i.ytimg.com/vi/ULhVF6UeRtA/hqdefault.jpg",
+           "width": 480,
+           "height": 360
+          },
+          {
+           "url": "https://i.ytimg.com/vi/ULhVF6UeRtA/sddefault.jpg",
+           "width": 640,
+           "height": 480
+          }
+         ]
+        }
+       }
+      },
+      {
+       "playlistPanelVideoRenderer": {
+        "title": {
+         "runs": [
+          {
+           "text": "RESCENE (리센느) 'Pretty Girl' Special Video"
+          }
+         ]
+        },
+        "lengthText": {
+         "runs": [
+          {
+           "text": "3:34"
+          }
+         ]
+        },
+        "longBylineText": {
+         "runs": [
+          {
+           "text": "RESCENE",
+           "navigationEndpoint": {
+            "browseEndpoint": {
+             "browseId": "UCtKtCiaWRz-d3EZn2xd1mdA"
+            }
+           }
+          }
+         ]
+        },
+        "shortBylineText": {
+         "runs": [
+          {
+           "text": "RESCENE",
+           "navigationEndpoint": {
+            "browseEndpoint": {
+             "browseId": "UCtKtCiaWRz-d3EZn2xd1mdA"
+            }
+           }
+          }
+         ]
+        },
+        "videoId": "qZlu2j2SiBA",
+        "selected": false,
+        "thumbnail": {
+         "thumbnails": [
+          {
+           "url": "https://i.ytimg.com/vi/qZlu2j2SiBA/hqdefault.jpg",
+           "width": 480,
+           "height": 360
+          },
+          {
+           "url": "https://i.ytimg.com/vi/qZlu2j2SiBA/sddefault.jpg",
+           "width": 640,
+           "height": 480
+          }
+         ]
+        }
+       }
+      }
+     ]
+    }
+   }
+  }
+ }
+}

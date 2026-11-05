@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.viewmodels
 
+import com.dd3boh.outertune.models.AiFilter
 import com.dd3boh.outertune.models.ContentFilter
 import com.dd3boh.outertune.engine.PastSeeds
 import com.dd3boh.outertune.constants.EngineOverridesKey
@@ -906,20 +907,23 @@ class HomeViewModel @Inject constructor(
         val discoverPool = block.library(discoverPool)
         val forgottenPool = block.library(forgottenPool)
         val keepListeningPool = block.library(keepListeningPool)
+        // And AI songs, out of every row, the library's too, but never a song of the library itself
+        // or of a playlist the listener made (AiFilter). Off unless its setting is on.
+        val ai = AiFilter.current
         // The engine's row behind Quick picks, when it is the one showing (on its own or in Try
         // both), and its cards' lanes, for the lean's heading and what the pass keeps in place.
         val source = quickPicksSource()
         val engineRow = lastEngineRow?.takeIf { (source == QuickPicksSource.ENGINE || source == QuickPicksSource.COMPARE) && engineFallback.value == 0 }
         val laneOf = engineRow?.let { r -> (r.cards + r.pool).associate { it.songId to it.lane } }.orEmpty()
         if (!tidy) {
-            quickPicks.value = quickPicksPool.take(20)
-            ytQuickPicks.value = ytQuickPicksPool?.let(hidden::apply)?.take(20)
+            quickPicks.value = ai.recommendedSongs(quickPicksPool).take(20)
+            ytQuickPicks.value = ytQuickPicksPool?.let(hidden::apply)?.let(ai::recommendations)?.take(20)
             leanOnScreen.value = leanOnScreenOf(engineRow, quickPicks.value.orEmpty(), laneOf, source)
-            if (discoverBuilding.get() == 0) discover.value = discoverPool.take(20).takeIf { discoverWanted() }
-            forgottenFavorites.value = forgottenPool.take(20)
-            keepListening.value = keepListeningPool
-            similarRecommendations.value = similarPool?.filterNot { block.hides(it.title) }?.map { it.copy(items = hidden.apply(it.items)) }?.filter { it.items.isNotEmpty() }
-            homePage.value = homePagePool?.let(hidden::home)
+            if (discoverBuilding.get() == 0) discover.value = ai.recommendedSongs(discoverPool).take(20).takeIf { discoverWanted() }
+            forgottenFavorites.value = ai.recommendedSongs(forgottenPool).take(20)
+            keepListening.value = keepListeningPool.filterNot { it is Song && ai.hidesInRecommendations(it) }
+            similarRecommendations.value = similarPool?.filterNot { block.hides(it.title) }?.map { it.copy(items = ai.recommendations(hidden.apply(it.items))) }?.filter { it.items.isNotEmpty() }
+            homePage.value = homePagePool?.let(hidden::home)?.let(ai::home)
             // The widget's lists come from here whichever way the rows were settled; with the
             // tidy pass off they used to stay empty or frozen.
             fillWidget(WidgetList.FORGOTTEN_FAVOURITES, forgottenFavorites.value.orEmpty().map { it.toMediaMetadata() })
@@ -948,7 +952,7 @@ class HomeViewModel @Inject constructor(
         // Quick picks is the row that is supposed to be varied, and the one that goes lopsided:
         // a run of the same sort of music arrives together because it comes from the same few
         // artists. Two apiece breaks that up without thinning a row that was fine already.
-        fun songs(items: List<Song>, fresh: Boolean = false, maxPerArtist: Int = Int.MAX_VALUE, capOf: ((Song) -> Int)? = null) = pass.row(items.filter { it.song.id !in goneIds }, fresh, { it.song.id }, { it.song.title }, { it.artists.firstOrNull()?.name }, { it.artists.firstOrNull()?.id }, { it.song.id in againIds }, maxPerArtist, capOf)
+        fun songs(items: List<Song>, fresh: Boolean = false, maxPerArtist: Int = Int.MAX_VALUE, capOf: ((Song) -> Int)? = null) = pass.row(items.filter { it.song.id !in goneIds && !ai.hidesInRecommendations(it) }, fresh, { it.song.id }, { it.song.title }, { it.artists.firstOrNull()?.name }, { it.artists.firstOrNull()?.id }, { it.song.id in againIds }, maxPerArtist, capOf)
         // The engine's own row under a lean: its lead cards keep their places and the first
         // column through the pass (LeanRow.compose). Never Try both, whose row is a drafted mix.
         val leanRow = engineRow?.takeIf { source == QuickPicksSource.ENGINE && it.lean.lane != null }
@@ -956,20 +960,21 @@ class HomeViewModel @Inject constructor(
             val lead = leanRow?.lean?.lane ?: return songs(quickPicksPool, fresh = true, maxPerArtist = QUICK_PICKS_PER_ARTIST).take(20)
             val tidied = songs(quickPicksPool, fresh = true, maxPerArtist = QUICK_PICKS_PER_ARTIST, capOf = { s -> if (laneOf[s.id] == lead) maxOf(QUICK_PICKS_PER_ARTIST, leanRow.leadArtistCap) else QUICK_PICKS_PER_ARTIST })
             val cardIds = leanRow.cards.mapTo(HashSet()) { it.songId }
-            return LeanRow.compose(quickPicksPool.filter { it.id in cardIds }, tidied, lead, 20, EngineParams.DEFAULT.columns, { it.id }, { laneOf[it.id] }, { it.artists.firstOrNull()?.name })
+            return LeanRow.compose(quickPicksPool.filter { it.id in cardIds && !ai.hidesInRecommendations(it) }, tidied, lead, 20, EngineParams.DEFAULT.columns, { it.id }, { laneOf[it.id] }, { it.artists.firstOrNull()?.name })
         }
-        fun local(items: List<LocalItem>) = pass.row(items.filter { (it as? Song)?.song?.id !in goneIds }, false, { (it as? Song)?.song?.id }, { (it as? Song)?.song?.title }, { (it as? Song)?.artists?.firstOrNull()?.name }, { (it as? Song)?.artists?.firstOrNull()?.id })
-        fun yt(items: List<YTItem>, fresh: Boolean = false, maxPerArtist: Int = Int.MAX_VALUE) = pass.row(items.filter { (it as? SongItem)?.id !in goneIds && !hidden.hides(it) }, fresh, { (it as? SongItem)?.id }, { (it as? SongItem)?.title }, { (it as? SongItem)?.artists?.firstOrNull()?.name }, { (it as? SongItem)?.artists?.firstOrNull()?.id }, { false }, maxPerArtist)
+        fun local(items: List<LocalItem>) = pass.row(items.filter { (it as? Song)?.song?.id !in goneIds && (it as? Song)?.let(ai::hidesInRecommendations) != true }, false, { (it as? Song)?.song?.id }, { (it as? Song)?.song?.title }, { (it as? Song)?.artists?.firstOrNull()?.name }, { (it as? Song)?.artists?.firstOrNull()?.id })
+        fun yt(items: List<YTItem>, fresh: Boolean = false, maxPerArtist: Int = Int.MAX_VALUE) = pass.row(items.filter { (it as? SongItem)?.id !in goneIds && !hidden.hides(it) && !ai.hidesInRecommendations(it) }, fresh, { (it as? SongItem)?.id }, { (it as? SongItem)?.title }, { (it as? SongItem)?.artists?.firstOrNull()?.name }, { (it as? SongItem)?.artists?.firstOrNull()?.id }, { false }, maxPerArtist)
         // Whichever Quick picks row is on screen goes first; the other is not shown and must not
         // claim songs from the rows below it.
         val ytShown = ytRowOnScreen(ytQuickPicksPool)
         if (ytShown) {
             ytQuickPicks.value = ytQuickPicksPool?.let { yt(it, fresh = true, maxPerArtist = QUICK_PICKS_PER_ARTIST).filterIsInstance<SongItem>().take(20) }
             Log.d("HomeViewModel", "showing the YouTube row: ${ytQuickPicks.value?.size} of a pool of ${ytQuickPicksPool?.size} after tidy, first ${ytQuickPicks.value?.firstOrNull()?.title}")
-            quickPicks.value = quickPicksPool.take(20)
+            // Drawn in its place when the AI filter has left YouTube's row empty, so filtered too.
+            quickPicks.value = ai.recommendedSongs(quickPicksPool).take(20)
         } else {
             quickPicks.value = quickPicksRow()
-            ytQuickPicks.value = ytQuickPicksPool?.let(hidden::apply)?.take(20)
+            ytQuickPicks.value = ytQuickPicksPool?.let(hidden::apply)?.let(ai::recommendations)?.take(20)
         }
         leanOnScreen.value = leanOnScreenOf(engineRow, if (ytShown) emptyList() else quickPicks.value.orEmpty(), laneOf, source)
         // Under Quick picks, so it gives way to it; nothing just played, like Quick picks.
@@ -1396,7 +1401,7 @@ class HomeViewModel @Inject constructor(
         tidyRows()
 
         YouTube.explore().onSuccess { page ->
-            explorePage.value = page.copy(newReleaseAlbums = ContentFilter.current.apply(page.newReleaseAlbums))
+            explorePage.value = page.copy(newReleaseAlbums = AiFilter.current.recommendations(ContentFilter.current.apply(page.newReleaseAlbums)))
         }.onFailure {
             reportException(it)
         }
@@ -1404,9 +1409,9 @@ class HomeViewModel @Inject constructor(
         // No syncUtils.syncRecentActivity() here: nothing shows recent activity any more, so the
         // browse it made every half hour with auto sync on fetched the account's history for no one.
 
-        allYtItems.value = ContentFilter.current.apply(
+        allYtItems.value = AiFilter.current.recommendations(ContentFilter.current.apply(
             similarPool?.flatMap { it.items }.orEmpty() + homePagePool?.sections?.flatMap { it.items }.orEmpty()
-        )
+        ))
 
         isLoading.value = false
     }
@@ -1755,6 +1760,11 @@ class HomeViewModel @Inject constructor(
         // A switch under Library and content changes the rows at once, both ways.
         viewModelScope.launch {
             ContentFilter.changes.drop(1).collect { tidyRows() }
+        }
+        // So does the AI filter's setting, or an artist marked from its menu; not every change
+        // to the library, which only ever brings songs back that the rows could not have held.
+        viewModelScope.launch {
+            AiFilter.changes.map { Triple(it.mode, it.markedAi, it.notAi) }.distinctUntilChanged().drop(1).collect { tidyRows() }
         }
         viewModelScope.launch {
             lastFmSimilar.caughtUpAt.drop(1).collect {

@@ -20,8 +20,11 @@ import kotlinx.coroutines.launch
  * The launcher's way in.
  *
  * A widget can be added while the app has never run, or while it is playing and knows things it
- * has not bothered to write down, so both ends of that are filled in here: whatever the snapshot
- * is missing when the widget appears, [WidgetStore.hydrate] goes and gets.
+ * has not bothered to write down, so both ends of that are filled in here: the widget is drawn at
+ * once from what is written, and whatever the snapshot is missing when the widget appears,
+ * [WidgetStore.hydrate] goes and gets. Android sends this the moment a widget is bound, which on
+ * the Pixel 5 is before its setup sheet opens (the sheet's Done draws it again with its settings),
+ * and the first widget's onEnabled comes just before it, so nothing more is needed there.
  */
 class MusicWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = MusicWidget()
@@ -29,6 +32,7 @@ class MusicWidgetReceiver : GlanceAppWidgetReceiver() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
+        Log.i(WidgetStore.DRAW_TAG, "Asked to draw widgets ${appWidgetIds.joinToString()}")
         super.onUpdate(context, appWidgetManager, appWidgetIds)
         // Not held open with goAsync, which this used to call: super has already taken the
         // broadcast's one pending result, so a second call returned null and held nothing. What

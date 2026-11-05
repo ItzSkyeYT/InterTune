@@ -45,6 +45,7 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.AppBarHeight
 import com.dd3boh.outertune.constants.SearchFilterHeight
 import com.dd3boh.outertune.constants.SwipeToQueueKey
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.extensions.toMediaItem
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.ListQueue
@@ -226,6 +227,8 @@ fun OnlineSearchResult(
     LaunchedEffect(Unit) { YouTubeRegion.refresh(regionContext) }
     // Signed in again from the note: the search the old sign-in failed is asked again.
     RetryWhenSignInChanges(failed = viewModel.failed[searchFilter?.value ?: OnlineSearchViewModel.SUMMARY] == true, retry = viewModel::retry)
+    // Results the AI filter hid from what this filter shows, with Block everywhere. Said, never silent.
+    val aiHidden = viewModel.aiHidden[searchFilter?.value ?: OnlineSearchViewModel.SUMMARY] ?: 0
     LazyColumn(
         state = lazyListState,
         contentPadding = LocalPlayerAwareWindowInsets.current
@@ -235,6 +238,12 @@ fun OnlineSearchResult(
         // Why the results hold videos but no songs where YouTube Music has no free plan (#68).
         item(key = "region_note") {
             RegionNoteIfClosed(modifier = Modifier.animateItem())
+        }
+
+        if (Unreleased.AI_FILTER && aiHidden > 0) {
+            item(key = "ai_hidden") {
+                AiHiddenLine(count = aiHidden, onShow = viewModel::showAiResults, modifier = Modifier.animateItem())
+            }
         }
 
         if (blockedNamed != null) {

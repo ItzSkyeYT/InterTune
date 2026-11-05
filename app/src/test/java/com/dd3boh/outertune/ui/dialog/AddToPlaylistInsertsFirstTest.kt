@@ -40,6 +40,7 @@ class AddToPlaylistInsertsFirstTest {
         "ui/player/PinActions.kt" to 1,
         "ui/menu/YouTubeSongMenu.kt" to 1,
         "ui/menu/YouTubePlaylistMenu.kt" to 1,
+        "ui/menu/YouTubeAlbumMenu.kt" to 1,
         "ui/menu/QueueMenu.kt" to 1,
         "ui/menu/SelectionSongsMenu.kt" to 1,
         "ui/screens/RecognitionScreen.kt" to 2,
@@ -52,7 +53,6 @@ class AddToPlaylistInsertsFirstTest {
         "ui/menu/AlbumMenu.kt",
         "ui/menu/FolderMenu.kt",
         "ui/menu/PlaylistMenu.kt",
-        "ui/menu/YouTubeAlbumMenu.kt",
     )
 
     private fun kotlinFiles() = sources.walkTopDown().filter { it.isFile && it.extension == "kt" }.toList()

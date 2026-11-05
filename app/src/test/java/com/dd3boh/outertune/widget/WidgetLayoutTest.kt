@@ -173,15 +173,23 @@ class WidgetLayoutTest {
     }
 
     @Test
-    fun `a Shelf holding a list alone is drawn in its look, or is its heading where there is nothing to draw`() {
+    fun `a Shelf holding a list alone is drawn in its look, what is playing while the list is empty, or its heading where neither fits`() {
         val list = shelf.copy(content = WidgetContent.LIST)
         for ((look, shape) in listOf(ShelfLook.BIG_COVER to WidgetShape.BIG_COVER, ShelfLook.CRATE to WidgetShape.CRATE, ShelfLook.RECORDS to WidgetShape.RECORDS)) {
             val p = plan(400, 250, list.copy(look = look))
             assertEquals(shape, p.shape)
             assertFalse("no buttons on a list alone", p.play)
             assertTrue("$look: ${p.shown}", p.shown in 5..6)
-            assertEquals(0, plan(400, 188, list.copy(look = look), available = 0).shown)
-            assertEquals(WidgetShape.NONE, plan(400, 188, list.copy(look = look), available = 0).shape)
+            // Nothing in the list yet: what is playing, big, still without buttons, and no song of the list.
+            val empty = plan(400, 188, list.copy(look = look), available = 0)
+            assertEquals(WidgetShape.BIG_COVER, empty.shape)
+            assertEquals(0, empty.shown)
+            assertFalse(empty.play)
+            assertTrue(empty.look!!.picks.isEmpty())
+            assertEquals("no heading over a song that is not the list's", 0, empty.look!!.headingInWords)
+            assertTrue(empty.coverW >= 160)
+            // Too flat for a cover with its words: the heading, as before.
+            assertEquals(WidgetShape.NONE, plan(400, 90, list.copy(look = look), available = 0).shape)
         }
         // Cover and Full cover are what is playing, whatever a Shelf was set to hold.
         assertEquals(WidgetShape.SIDE, plan(400, 188, list.copy(style = WidgetStyle.COVER)).shape)
@@ -274,6 +282,14 @@ class WidgetLayoutTest {
                     }
                 }
                 checkFits(p, w, h, settings, fontScale, available, ::ok)
+                // An empty list, as a widget just added or offline has: a Shelf draws what is playing
+                // big wherever that fits, never a line, a tile or a bare heading there.
+                if (settings.style == WidgetStyle.SHELF && available == 0) {
+                    ok(p.shown == 0, "songs in an empty list")
+                    val big = WidgetLooks.playingBig(w, h, settings, settings.textSize.scale * fontScale)
+                    ok(big == null || p.shape == WidgetShape.BIG_COVER, "a line or a heading where what is playing fits big")
+                    if (p.shape == WidgetShape.BIG_COVER) ok(p.look!!.picks.isEmpty() && p.look!!.headingInWords == 0, "an empty list drawn with songs or a heading")
+                }
                 ok(WidgetArt.bytes(p, 2.75f) <= (if (p.look != null) WidgetArt.LOOK_BUDGET_BYTES else WidgetArt.BUDGET_BYTES), "too many bitmap bytes for the launcher")
             }
         }
@@ -390,7 +406,9 @@ class WidgetLayoutTest {
         val lines = WidgetFill.lookLines(p, scale).map { it.second }
         val things = listOfNotNull(look.hero, look.heroPicture, pill, look.heading, look.pillRoom, look.words) + lines + look.picks + look.rowPictures
         ok(things.all { widget.contains(it) }, "something out of the widget")
-        ok(p.shown in 0..available && p.shown == look.picks.size + (if (list && p.shape == WidgetShape.BIG_COVER) 1 else 0), "songs the list does not have")
+        // A list alone's big cover is its first song; with an empty list it is what is playing.
+        ok(p.shown in 0..available && p.shown == look.picks.size + (if (list && p.shape == WidgetShape.BIG_COVER && available > 0) 1 else 0), "songs the list does not have")
+        if (list) ok(!p.play, "buttons on a list alone")
         ok(lines.all { it.w >= WidgetLooks.WORDS_MIN_DP }, "the words squeezed")
         look.words?.let { words ->
             ok(lines.sumOf { it.h } <= words.h && lines.all { words.contains(Spot(it.x, it.y, minOf(it.w, words.w), it.h)) }, "the words taller than their room")

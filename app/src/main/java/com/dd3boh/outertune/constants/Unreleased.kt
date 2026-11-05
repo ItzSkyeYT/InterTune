@@ -841,4 +841,48 @@ object Unreleased {
      * add its name to ReleasedFlagsTest, and make its texts translatable.
      */
     val CAST_LADDER = BuildConfig.DEBUG
+
+    /**
+     * A radio YouTube Music refuses still plays (his word of 4 Nov 2026, after Val's radio of one
+     * song and his own try through Orbot: "we need to find a good method to let the users be able to
+     * listen to music"). When YouTube Music's own answer is refused or holds nothing but the song,
+     * the radio asks again as a visitor with a visitorData issued now, then for YouTube's own mix of
+     * the song through its web client and its VR client (RadioLadder, RadioAnswers); and when none
+     * of them gives anything, it is made from what the phone knows: Last.fm's and YouTube's lists
+     * of similar songs, the listener's own history and the song's artists (LocalRadio), with a line
+     * in the queue that says so. For a radio's start, its top-ups and the adaptive queue's pages.
+     *
+     * Without it a refused radio is the song alone, as before. Its texts (radio_from_intertune_*)
+     * are held from translators, their French beside them in values-fr. When it is agreed: set this
+     * to true, add its name to ReleasedFlagsTest, make its texts translatable.
+     */
+    val RADIO_FALLBACK = BuildConfig.DEBUG
+
+    /**
+     * Lyrics videos lit word by word (his idea, 4 Nov 2026), as the lyrics view lights them, where
+     * the lyrics have word times and word by word is on in the lyrics settings: the line being sung
+     * at LyricsVideoPlan.UNSUNG, and each word lit across as it is sung. Without it, or without word
+     * times, a video lights whole lines as before. No new texts. When it is agreed: set this to true
+     * and add its name to ReleasedFlagsTest.
+     */
+    val LYRICS_VIDEO_WORDS = BuildConfig.DEBUG
+
+    /**
+     * The AI filter (AiFilter, TODO section 17, upstream #1173): a row under Settings > Library and
+     * content with three states, Off, Hide from recommendations and Block everywhere, going by a
+     * hand-made list of AI artists bundled as assets/ai_artists.txt (tools/ai-filter/build_list.py:
+     * CevvalKoala's blocklist and a few known AI acts). Mark as AI and Not AI in an artist's
+     * long-press menu, and a line over search results saying how many were hidden, with a tap to
+     * show them.
+     *
+     * A first cut, seen on an emulator only, its texts held from translators (ai_filter_*), their
+     * French beside them. Without the flag the setting reads as Off whatever is stored (a restored
+     * backup can bring it), the menus have no row, and the list is never read. Built for 0.12.5 if
+     * it is solid in time (his word, 25 Oct 2026), Off by default: every path is a release's, with
+     * the bundled list and no fetch, so shipping it is this flag set to true and its name added to
+     * ReleasedFlagsTest. AiFilterFlagTest holds its reads: App, AiFilter.modeOf, LibrarySettings,
+     * SettingsIndex, AiArtistMark (the artist menus' row), OnlineSearchResult and MusicService (the
+     * queue's skip). To drop it instead: this flag and those reads, then AiFilter and its calls.
+     */
+    val AI_FILTER = BuildConfig.DEBUG
 }

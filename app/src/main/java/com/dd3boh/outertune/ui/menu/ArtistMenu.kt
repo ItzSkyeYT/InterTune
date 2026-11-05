@@ -15,6 +15,7 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -26,6 +27,7 @@ import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.ArtistSongSortType
 import com.dd3boh.outertune.db.entities.Artist
+import com.dd3boh.outertune.models.AiFilter
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.ui.component.button.IconButton
@@ -34,6 +36,7 @@ import com.dd3boh.outertune.utils.shareSheet
 import com.zionhuang.innertube.YouTube
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -51,6 +54,7 @@ fun ArtistMenu(
     val isNetworkConnected = LocalNetworkConnected.current
     val artistState = remember(originalArtist.id) { database.artist(originalArtist.id) }.collectAsState(initial = originalArtist)
     val artist = artistState.value ?: originalArtist
+    val aiFilter by AiFilter.changes.collectAsState()
 
     ArtistListItem(
         artist = artist,
@@ -150,6 +154,11 @@ fun ArtistMenu(
                 }
                 context.startActivity(context.shareSheet(intent))
             }
+        }
+        aiArtistMenuItem(artist.id, aiFilter) {
+            // Not cancelled with the menu, which closes at once.
+            coroutineScope.launch(NonCancellable) { toggleAiArtist(context, artist.id) }
+            onDismiss()
         }
     }
 }

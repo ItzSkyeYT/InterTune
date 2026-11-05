@@ -8,6 +8,7 @@ package com.dd3boh.outertune.playback
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -131,6 +132,28 @@ class ExoDownloadForegroundTest {
         assertTrue("and has the downloads' ticks stop", "handler.removeCallbacksAndMessages(null)" in onDestroy)
         val resumed = service.substringAfter("override fun onActivityResumed(").substringBefore("\n        }\n")
         assertTrue("a screen in front asks again, once something is owed", "if (promotion.owed) refresh()" in resumed)
+    }
+
+    @Test
+    fun `Android 15's six hours stop the download service, not the app`() {
+        // Android 15 gives a dataSync foreground service six hours a day while the app is in the
+        // background, then calls onTimeout(startId, fgsType); a service that has not stopped a few
+        // seconds later ends the whole process, the music playing with it. Downloads waiting for
+        // Wi-Fi or a network keep this service in the foreground all along.
+        val timeout = Regex("""override fun onTimeout\(\s*startId: Int,\s*fgsType: Int\s*\)\s*\{""").find(service)
+        assertNotNull("ExoDownloadService answers onTimeout(startId, fgsType)", timeout)
+        val body = service.substring(braces(service, timeout!!.range.last))
+        assertTrue("it stops the service at once, as Android asks", "stopSelf()" in body)
+        assertTrue("its notification goes with it", "stopForeground(STOP_FOREGROUND_REMOVE)" in body)
+        assertTrue("the notification's ticks stop", "handler.removeCallbacksAndMessages(null)" in body)
+        assertTrue("and it is marked as going", "timedOut = true" in body)
+        assertFalse("it asks for the foreground no more", "promotion.attempt" in body || "refresh()" in body)
+        assertFalse("the downloads are left queued: nothing is removed or paused", "removeDownload" in body || "pause" in body.lowercase())
+
+        // Until Android has destroyed it, a download's change or a screen in front would put the
+        // notification back and ask for the foreground again.
+        val refresh = service.substringAfter("private fun refresh() {").trimStart()
+        assertTrue("refresh does nothing once the service has timed out", refresh.startsWith("if (timedOut) return"))
     }
 
     @Test

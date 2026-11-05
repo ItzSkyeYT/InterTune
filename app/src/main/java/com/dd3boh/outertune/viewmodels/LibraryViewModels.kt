@@ -79,6 +79,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.Duration
@@ -190,13 +191,24 @@ class LibraryFoldersViewModel @Inject constructor(
         localSongDtSongCount.value = database.localSongCountInPath(dir ?: path).first()
     }
 
+    private var searchJob: Job? = null
+
     /**
-     * Update filteredSongs with search query
+     * Update filteredSongs with search query. The last query asked wins: the search still running
+     * for an earlier one is cancelled, or a short query with many rows could finish after the
+     * longer one typed next and put its rows back. An emptied field empties the results, as when
+     * the search opens, rather than leaving the last ones up. Written on the main thread, where
+     * the list is drawn from.
      */
     fun searchInDir(query: String, dir: String = path) {
-        if (query.isNotBlank()) {
-            viewModelScope.launch(Dispatchers.IO) {
-                val dbSongs = ContentFilter.current.blocked.library(database.searchSongsAllLocalInDir(dir, query).first())
+        searchJob?.cancel()
+        if (query.isBlank()) {
+            filteredSongs.clear()
+            return
+        }
+        searchJob = viewModelScope.launch(Dispatchers.IO) {
+            val dbSongs = ContentFilter.current.blocked.library(database.searchSongsAllLocalInDir(dir, query).first())
+            withContext(Dispatchers.Main) {
                 filteredSongs.clear()
                 filteredSongs.addAll(dbSongs)
             }

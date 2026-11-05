@@ -50,7 +50,7 @@ class SettingsSearchApproximateTest {
         "lyircs font" to listOf("Font size"),
         "colours" to listOf("Living blur colours", "Enable dynamic theme"),
         "skip silense" to listOf("Skip silence"),
-        "karaokee" to listOf("Karaoke style lyrics."),
+        "karaokee" to listOf("Karaoke style lyrics"),
         // the other word for it
         "dark mode" to listOf("Dark theme"),
         "darkmode" to listOf("Dark theme"),

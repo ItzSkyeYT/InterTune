@@ -148,6 +148,7 @@ import com.dd3boh.outertune.ui.dialog.TextFieldDialog
 import com.dd3boh.outertune.ui.player.named
 import com.dd3boh.outertune.ui.utils.getNSongsString
 import com.dd3boh.outertune.utils.PlaylistCovers
+import com.dd3boh.outertune.utils.getDownloadState
 import com.dd3boh.outertune.utils.makeTimeString
 import com.dd3boh.outertune.utils.mayPushToYouTube
 import com.dd3boh.outertune.utils.rememberEnumPreference
@@ -771,16 +772,19 @@ fun LocalPlaylistScreen(
                         isActive = song.song.id == mediaMetadata?.id,
                         isPlaying = isPlaying,
                         swipeEnabled = swipeEnabled,
+                        // A row is picked by its own place in the playlist, not by its song: a song
+                        // in the playlist twice is two rows, and picking one picked both, and
+                        // Remove from playlist took every copy.
                         onSelectedChange = {
                             inSelectMode = true
                             if (it) {
-                                selection.add(song.song.id)
+                                selection.add(song.map.id.toString())
                             } else {
-                                selection.remove(song.song.id)
+                                selection.remove(song.map.id.toString())
                             }
                         },
                         inSelectMode = inSelectMode,
-                        isSelected = selection.contains(song.song.id),
+                        isSelected = selection.contains(song.map.id.toString()),
 
                         onPlay = {
                             playerConnection.playQueue(
@@ -893,12 +897,12 @@ fun LocalPlaylistScreen(
             SelectHeader(
                 navController = navController,
                 selectedItems = selection.mapNotNull { id ->
-                    playlistWithSongs.second.find { it.song.id == id }?.song
+                    playlistWithSongs.second.find { it.map.id.toString() == id }?.song
                 }.map { it.toMediaMetadata() },
                 totalItemCount = shownSongs.size,
                 onSelectAll = {
                     selection.clear()
-                    selection.addAll(shownSongs.map { it.song.id })
+                    selection.addAll(shownSongs.map { it.map.id.toString() })
                 },
                 onDeselectAll = { selection.clear() },
                 menuState = menuState,
@@ -909,7 +913,7 @@ fun LocalPlaylistScreen(
                         // the ones after it. Descending position order means each removal only
                         // shifts rows we have already handled, so the captured positions stay valid.
                         val doomed = playlistWithSongs.second
-                            .filter { it.song.id in selection }
+                            .filter { it.map.id.toString() in selection }
                             .sortedByDescending { it.map.position }
 
                         database.transaction {
@@ -930,6 +934,9 @@ fun LocalPlaylistScreen(
                                 }
                             }
                         }
+                        // The rows picked are gone: the bar stayed up saying "0/1 selected" (Pixel 5,
+                        // 5 Nov 2026), as the Songs tab's did after Remove all from library.
+                        onExitSelectionMode()
                     }
                 }
             )
@@ -976,13 +983,20 @@ fun LocalPlaylistHeader(
         mutableIntStateOf(Download.STATE_STOPPED)
     }
 
-//    LaunchedEffect(songs) {
-//        val songs = songs.filterNot { it.song.song.isLocal }
-//        if (songs.isEmpty()) return@LaunchedEffect
-//        downloadUtil.downloads.collect { downloads ->
-//            downloadState = getDownloadState(songs.map { downloads[it.song.id] })
-//        }
-//    }
+    // Worked out again, as PlaylistMenu does. Upstream commented this out in a refactor
+    // (25d504fe1), and the button below was then always Download: never the pin that removes the
+    // playlist's downloads, never the spinner that cancels them, and a tap over a downloaded
+    // playlist did nothing.
+    LaunchedEffect(songs) {
+        val songs = songs.filterNot { it.song.song.isLocal }
+        if (songs.isEmpty()) {
+            downloadState = Download.STATE_STOPPED
+            return@LaunchedEffect
+        }
+        downloadUtil.downloads.collect { downloads ->
+            downloadState = getDownloadState(songs.map { downloads[it.song.id] })
+        }
+    }
 
     // Beside its list (Landscape.kt) the header has half the page, and on most phones that is
     // less than the cover and the row of buttons take together. The cover gives way there and

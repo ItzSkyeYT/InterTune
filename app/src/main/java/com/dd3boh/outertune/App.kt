@@ -9,9 +9,19 @@
 
 package com.dd3boh.outertune
 
+import com.dd3boh.outertune.utils.AppProxySelector
 import com.dd3boh.outertune.utils.ProxyAddress
 import com.dd3boh.outertune.utils.ProxyAtStart
 import com.dd3boh.outertune.models.ContentFilter
+import com.dd3boh.outertune.models.AiArtistList
+import com.dd3boh.outertune.models.AiFilter
+import com.dd3boh.outertune.models.AiFilterMode
+import com.dd3boh.outertune.widget.WidgetEntryPoint
+import dagger.hilt.android.EntryPointAccessors
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import com.dd3boh.outertune.utils.BuiltInKeys
 import android.webkit.CookieManager
 import android.os.Looper
@@ -93,6 +103,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import java.net.Proxy
+import java.net.ProxySelector
 import java.util.Locale
 import com.dd3boh.outertune.utils.Toaster
 
@@ -100,7 +111,7 @@ import com.dd3boh.outertune.utils.Toaster
 class App : Application(), SingletonImageLoader.Factory {
     private val TAG = App::class.simpleName.toString()
 
-    @OptIn(DelicateCoroutinesApi::class)
+    @OptIn(DelicateCoroutinesApi::class, ExperimentalCoroutinesApi::class)
     override fun onCreate() {
         super.onCreate()
         // First, so a crash anywhere below is kept for the next launch to offer. See CrashLog.
@@ -159,8 +170,12 @@ class App : Application(), SingletonImageLoader.Factory {
                     .onFailure(::reportException)
                     .getOrNull()
             }
-            if (proxy != null) YouTube.proxy = proxy
-            else Toaster.show(this, R.string.proxy_not_used_at_start, Toast.LENGTH_LONG)
+            if (proxy != null) {
+                YouTube.proxy = proxy
+                // And for everything else the app fetches, covers and downloads to a folder
+                // included, which went round it (#68); the home network stays direct.
+                ProxySelector.setDefault(AppProxySelector(proxy))
+            } else Toaster.show(this, R.string.proxy_not_used_at_start, Toast.LENGTH_LONG)
         }
 
         if (dataStore[UseLoginForBrowse] != false) {
@@ -220,6 +235,33 @@ class App : Application(), SingletonImageLoader.Factory {
                 .distinctUntilChanged()
                 .collect { ContentFilter.current = it }
         }
+        // The AI filter: the setting and the listener's marks followed and, while it is on, the
+        // songs they chose, which it never touches. Its list is read the first time it is on, so
+        // with the setting Off, as it is by default, a launch reads nothing. See AiFilter.
+        if (Unreleased.AI_FILTER) {
+            GlobalScope.launch(Dispatchers.IO) {
+                val list by lazy {
+                    AiArtistList.load(this@App).also {
+                        Log.d(TAG, "AI filter: ${it.ids.size} artists listed, built ${it.built}, ${it.unreadable} lines unread")
+                    }
+                }
+                val database by lazy { EntryPointAccessors.fromApplication(this@App, WidgetEntryPoint::class.java).database() }
+                dataStore.data
+                    .map { if (AiFilter.modeOf(it) == AiFilterMode.OFF) AiFilter() else AiFilter.of(it, list.ids, emptySet()) }
+                    .distinctUntilChanged()
+                    .flatMapLatest { filter ->
+                        if (filter.isOff) flowOf(filter)
+                        else database.chosenSongIds().map { filter.copy(chosenSongs = it.toHashSet()) }
+                            // Not knowing what the listener chose, it hides nothing rather than risk their songs.
+                            .catch { e ->
+                                Log.w(TAG, "AI filter: could not read the songs the listener chose, so it hides nothing", e)
+                                emit(AiFilter())
+                            }
+                    }
+                    .distinctUntilChanged()
+                    .collect { AiFilter.current = it }
+            }
+        }
         GlobalScope.launch {
             dataStore.data
                 .map { it[DataSyncIdKey] }
@@ -248,6 +290,8 @@ class App : Application(), SingletonImageLoader.Factory {
                 .collect { cookie ->
                     // Signed in again, or out: a refusal of the old sign-in no longer holds (WhyStopped).
                     YouTubeTrouble.signInChanged()
+                    // And a radio asks YouTube Music as the account again (RadioLadder).
+                    com.dd3boh.outertune.playback.RadioAnswers.forget()
                     try {
                         YouTube.cookie = cookie
                     } catch (e: Exception) {

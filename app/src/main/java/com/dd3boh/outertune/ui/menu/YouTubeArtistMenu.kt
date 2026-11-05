@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -24,11 +25,14 @@ import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.db.entities.ArtistEntity
+import com.dd3boh.outertune.models.AiFilter
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.component.items.YouTubeListItem
 import com.dd3boh.outertune.utils.shareSheet
 import com.zionhuang.innertube.models.ArtistItem
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.launch
 
 @Composable
 fun YouTubeArtistMenu(
@@ -39,6 +43,8 @@ fun YouTubeArtistMenu(
     val database = LocalDatabase.current
     val playerConnection = LocalPlayerConnection.current ?: return
     val libraryArtist by remember(artist.id) { database.artist(artist.id) }.collectAsState(initial = null)
+    val aiFilter by AiFilter.changes.collectAsState()
+    val scope = rememberCoroutineScope()
 
     YouTubeListItem(
         item = artist,
@@ -110,6 +116,11 @@ fun YouTubeArtistMenu(
                 putExtra(Intent.EXTRA_TEXT, artist.shareLink)
             }
             context.startActivity(context.shareSheet(intent))
+            onDismiss()
+        }
+        aiArtistMenuItem(artist.id, aiFilter) {
+            // Not cancelled with the menu, which closes at once.
+            scope.launch(NonCancellable) { toggleAiArtist(context, artist.id) }
             onDismiss()
         }
     }

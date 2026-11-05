@@ -6,6 +6,7 @@ import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.constants.SignalKind
 import com.dd3boh.outertune.utils.ActivityLog
+import android.util.Log
 import android.content.Intent
 import android.media.audiofx.AudioEffect
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -53,7 +54,6 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -105,8 +105,8 @@ import com.dd3boh.outertune.ui.dialog.TogetherSheet
 import com.dd3boh.outertune.ui.dialog.togetherAvailable
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
+import com.dd3boh.outertune.utils.syncCoroutine
 import com.zionhuang.innertube.YouTube
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import kotlin.math.log2
@@ -135,7 +135,6 @@ fun PlayerMenu(
     val currentFormatState = remember(mediaMetadata.id) { database.format(mediaMetadata.id) }.collectAsState(initial = null)
     val currentFormat = currentFormatState.value
     val librarySong by remember(mediaMetadata.id) { database.song(mediaMetadata.id) }.collectAsState(initial = null)
-    val coroutineScope = rememberCoroutineScope()
 
     val download by LocalDownloadUtil.current.getDownload(mediaMetadata.id).collectAsState(initial = null)
 
@@ -284,7 +283,7 @@ fun PlayerMenu(
                 title = R.string.remove_from_playlist
             ) {
                 if (inPlaylists.size == 1) {
-                    removeFromPlaylist(database, coroutineScope, inPlaylists.first(), mediaMetadata.id)
+                    removeFromPlaylist(database, inPlaylists.first(), mediaMetadata.id)
                     onDismiss()
                 } else {
                     showRemoveFromPlaylist = true
@@ -480,7 +479,7 @@ fun PlayerMenu(
                     },
                     modifier = Modifier.clickable {
                         showRemoveFromPlaylist = false
-                        removeFromPlaylist(database, coroutineScope, playlist, mediaMetadata.id)
+                        removeFromPlaylist(database, playlist, mediaMetadata.id)
                         onDismiss()
                     }
                 )
@@ -586,8 +585,16 @@ fun PitchTempoDialog(
     )
 }
 
+/**
+ * The value one step below or above [current] on [values], which run upwards, also when [current]
+ * is not on them: the steps went by its place in the list, -1 for a speed off the 0.05 grid (one a
+ * media controller can set), and "-" then asked for the place before the first and closed the app.
+ */
+internal fun <T : Comparable<T>> stepValue(values: List<T>, current: T, up: Boolean): T? =
+    if (up) values.firstOrNull { it > current } else values.lastOrNull { it < current }
+
 @Composable
-fun <T> ValueAdjuster(
+fun <T : Comparable<T>> ValueAdjuster(
     icon: ImageVector,
     currentValue: T,
     values: List<T>,
@@ -607,9 +614,9 @@ fun <T> ValueAdjuster(
         )
 
         IconButton(
-            enabled = currentValue != values.first(),
+            enabled = stepValue(values, currentValue, up = false) != null,
             onClick = {
-                onValueUpdate(values[values.indexOf(currentValue) - 1])
+                stepValue(values, currentValue, up = false)?.let(onValueUpdate)
             }
         ) {
             Icon(
@@ -626,9 +633,9 @@ fun <T> ValueAdjuster(
         )
 
         IconButton(
-            enabled = currentValue != values.last(),
+            enabled = stepValue(values, currentValue, up = true) != null,
             onClick = {
-                onValueUpdate(values[values.indexOf(currentValue) + 1])
+                stepValue(values, currentValue, up = true)?.let(onValueUpdate)
             }
         ) {
             Icon(
@@ -648,20 +655,24 @@ fun <T> ValueAdjuster(
  */
 internal fun removeFromPlaylist(
     database: MusicDatabase,
-    scope: CoroutineScope,
     playlist: Playlist,
     songId: String,
 ) {
-    scope.launch(Dispatchers.IO) {
-        val map = database.playlistSongMap(playlist.id, songId).first() ?: return@launch
-        database.transaction {
-            move(map.playlistId, map.position, Int.MAX_VALUE)
-            delete(map.copy(position = Int.MAX_VALUE))
-        }
-        playlist.playlist.browseId?.let { browseId ->
-            map.setVideoId?.let { setVideoId ->
-                runCatching { YouTube.removeFromPlaylist(browseId, songId, setVideoId) }
+    // On a scope of its own, as SongMenu's remove is: the menu closes on the same tap, and its own
+    // scope ended a frame later, taking the YouTube request with it, so the next sync put the song
+    // back in the playlist. Caught, since nothing above this scope would catch it.
+    CoroutineScope(syncCoroutine).launch {
+        runCatching {
+            val map = database.playlistSongMap(playlist.id, songId).first() ?: return@launch
+            database.transaction {
+                move(map.playlistId, map.position, Int.MAX_VALUE)
+                delete(map.copy(position = Int.MAX_VALUE))
             }
-        }
+            playlist.playlist.browseId?.let { browseId ->
+                map.setVideoId?.let { setVideoId ->
+                    YouTube.removeFromPlaylist(browseId, songId, setVideoId)
+                }
+            }
+        }.onFailure { Log.w("PlayerMenu", "Could not remove the song from the playlist", it) }
     }
 }

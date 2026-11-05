@@ -86,7 +86,8 @@ class LyricsTimingTest {
         assertTrue(view.contains("val shiftNow by rememberUpdatedState(shiftMs)"))
         assertTrue("the highlight", view.contains("LyricsTiming.lyricsPosition(sliderPosition ?: clock.at(drawnAt), shiftNow)"))
         assertTrue("a tap on a line", view.contains("seekTo(LyricsTiming.songPosition(item.start.toLong(), shiftNow))"))
-        assertTrue("the video of picked lines", view.contains("LyricsTiming.songPosition(it.start.toLong(), shiftNow)"))
+        assertTrue("the video of picked lines", view.contains("LyricsTiming.songPosition(line.start.toLong(), shiftNow)"))
+        assertTrue("and their words, where it lights them", view.contains("LyricsTiming.songPosition(word.timeRange.first.toLong(), shiftNow)"))
         assertFalse("no read of the position against the lines left unmoved",
             Regex("""findCurrentLineIndex\(lines, (sliderPosition|playerConnection)""").containsMatchIn(view))
         assertFalse(view.contains("seekTo(item.start.toLong())"))
