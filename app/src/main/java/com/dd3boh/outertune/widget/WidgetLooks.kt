@@ -246,6 +246,20 @@ object WidgetLooks {
         }
     }
 
+    /**
+     * What is playing, big, for a Shelf whose list has nothing in it yet: Big cover's cover alone,
+     * its words over its top and its pill over its foot, on the Shelf's own background. A widget just
+     * added, or one offline before any list was written, has an empty list: a crate or records then
+     * drew a thin line in a card made for rows, and a list alone its heading on an empty card. A list
+     * alone keeps to no buttons, and its heading waits for its songs. Null where the cover and its
+     * words do not fit, which leaves the line, the tile or the heading.
+     */
+    fun playingBig(w: Int, h: Int, s: WidgetSettings, scale: Float): WidgetPlan? {
+        val list = s.contentShown == WidgetContent.LIST
+        val playing = s.copy(content = WidgetContent.BOTH, buttons = if (list) WidgetButtons.NONE else s.buttons)
+        return bigCover(w, h, playing, available = 0, scale = scale, list = false)
+    }
+
     /** The pill of buttons: previous, play and next, or play alone in a circle; the heart is added by [withLike]. */
     private class Pill(val skips: Boolean, val button: Int, val play: Int, val gap: Int) {
         val h: Int get() = maxOf(button, play) + 2 * PILL_PAD_V_DP

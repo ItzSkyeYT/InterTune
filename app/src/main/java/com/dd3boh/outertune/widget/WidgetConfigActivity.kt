@@ -210,12 +210,11 @@ class WidgetConfigActivity : ComponentActivity() {
             // The write a change in Settings > Widgets makes too: this widget's own state, and the
             // widget drawn again with it.
             WidgetStore.saveSettings(this@WidgetConfigActivity, appWidgetId, settings)
-            // hydrate fetches artwork over the network and can take a while, so it runs after this
+            // Then the snapshot written and the widget drawn from it at once, the library read and
+            // the artwork fetched after (see hydrate). That can take a while, so it runs after this
             // screen has said yes: waiting for it here would leave Done hanging, and Back or leaving
             // meanwhile would finish with the RESULT_CANCELED set in onCreate, which makes the
-            // launcher remove the widget. GlobalScope because the work must outlive this activity;
-            // hydrate ends in its own updateAll. Until then a new widget can show its rows empty,
-            // since hydrate writes the snapshot once, after every row's artwork.
+            // launcher remove the widget. GlobalScope because the work must outlive this activity.
             GlobalScope.launch { runCatching { WidgetStore.hydrate(appContext) } }
             setResult(Activity.RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId))
             finish()
