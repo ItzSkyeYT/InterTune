@@ -191,6 +191,7 @@ import com.dd3boh.outertune.extensions.isUserLoggedIn
 import com.dd3boh.outertune.extensions.joinWithin
 import com.dd3boh.outertune.extensions.metadata
 import com.dd3boh.outertune.extensions.setOffloadEnabled
+import com.dd3boh.outertune.extensions.shouldShowPlayButton
 import com.dd3boh.outertune.lyrics.LyricsHelper
 import com.dd3boh.outertune.models.ContentFilter
 import com.dd3boh.outertune.models.HybridCacheDataSinkFactory
@@ -4811,7 +4812,7 @@ class MusicService : MediaLibraryService(),
 
     override fun onIsPlayingChanged(isPlaying: Boolean) {
         playingNow.value = isPlaying
-        updateWidget()
+        // The widget is redrawn in onEvents when its button changes, not here: see widgetMeantToPlay.
         // The stream is what costs battery, so it runs only while something is playing. Glide the
         // stage home on pause rather than dropping it, since the listener may well be mid-turn.
         // Both are about sound coming out of the phone, so neither starts for a receiver.
@@ -5149,6 +5150,12 @@ class MusicService : MediaLibraryService(),
         // Another speed or pitch is made on the app's own path: see applyOffload.
         if (events.contains(Player.EVENT_PLAYBACK_PARAMETERS_CHANGED)) applyOffload()
         if (events.containsAny(Player.EVENT_PLAYBACK_STATE_CHANGED, Player.EVENT_PLAY_WHEN_READY_CHANGED)) {
+            // The widget's play button, redrawn when it changes: see widgetMeantToPlay.
+            val meantToPlay = !activePlayer.shouldShowPlayButton()
+            if (meantToPlay != widgetMeantToPlay) {
+                widgetMeantToPlay = meantToPlay
+                updateWidget()
+            }
             val isBufferingOrReady =
                 player.playbackState == Player.STATE_BUFFERING || player.playbackState == Player.STATE_READY
             // Music is coming out of the speaker again, so whatever stopped it is history.
@@ -5785,6 +5792,15 @@ class MusicService : MediaLibraryService(),
     }
 
     /**
+     * What the widget's play button last showed: pause while the player is meant to play, as the
+     * notification and the app's own button do (shouldShowPlayButton), so buffering counts as
+     * playing. It followed isPlaying, which is false while a song loads: every next tap drew play
+     * for about half a second and then pause again, two redraws more (Pixel 5, 5 Nov 2026), and a
+     * pause while a song loaded did not redraw it at all.
+     */
+    private var widgetMeantToPlay: Boolean? = null
+
+    /**
      * What the home screen widget draws is a snapshot on disk, written here whenever the song or
      * the playback state changes. Off the main thread, never blocking playback, and when nobody
      * has added a widget it writes a line of text and fetches nothing.
@@ -5801,7 +5817,7 @@ class MusicService : MediaLibraryService(),
                     // main thread. Going away, the player is not asked, and the widget keeps the last.
                     if (stopped) now(false)
                     else withContext(Dispatchers.Main) {
-                        now(activePlayer.isPlaying).copy(
+                        now(!activePlayer.shouldShowPlayButton()).copy(
                             shuffled = activePlayer.shuffleModeEnabled,
                             upNext = activePlayer.upNext(WidgetLayout.MAX_UP_NEXT),
                         )
