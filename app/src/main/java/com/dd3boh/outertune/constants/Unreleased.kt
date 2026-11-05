@@ -528,6 +528,21 @@ object Unreleased {
     val OWN_CAST_RECEIVER = BuildConfig.DEBUG
 
     /**
+     * Casting to AirPlay speakers the classic way (AirPlay 1, RAOP), his ask of 5 Nov 2026 after a
+     * Zeppelin Wireless refused every DLNA form: the picker lists what answers `_raop._tcp` on the
+     * Wi-Fi (AirPlayDevices), and AirPlayLink plays there. Unlike DLNA and Chromecast, AirPlay is
+     * pushed: the phone decodes each song (the cast server's raw audio, so it needs [CAST_PCM]) and
+     * sends it in real time over RTP, two seconds ahead of the speaker, as uncompressed Apple
+     * Lossless or L16. Unencrypted only, the way most AirPlay 2 speakers still take it, with the
+     * auth-setup step for those that ask it; speakers that need a password or a pairing code are
+     * refused with the picker's words for a receiver it cannot cast to.
+     *
+     * Without it nothing looks for AirPlay speakers, and nothing else changes. No new texts. When
+     * it is agreed: set this to true and add its name to ReleasedFlagsTest.
+     */
+    val CAST_AIRPLAY = BuildConfig.DEBUG
+
+    /**
      * Songs put in with Play next stay next when a song is picked out of a list: they play right
      * after the picked song, in the order they stood, then the list (PlayNextWaiting), as Spotify's
      * "Next in queue" does. Asked for in issue #42 (23 Oct 2026). Without it a pick leaves them in
