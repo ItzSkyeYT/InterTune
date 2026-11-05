@@ -133,6 +133,7 @@ import androidx.media3.common.Player.REPEAT_MODE_ALL
 import androidx.media3.common.Player.REPEAT_MODE_OFF
 import androidx.media3.common.Player.REPEAT_MODE_ONE
 import androidx.media3.common.Player.STATE_ENDED
+import androidx.media3.common.Timeline
 import androidx.navigation.NavController
 import com.dd3boh.outertune.LocalMenuState
 import com.dd3boh.outertune.LocalPlayerAwareWindowInsets
@@ -171,7 +172,11 @@ import com.dd3boh.outertune.ui.component.EmptyPlaceholder
 import com.dd3boh.outertune.playback.AdaptiveNote
 import com.dd3boh.outertune.playback.AdaptiveQueue
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Radio
 import com.dd3boh.outertune.ui.component.LazyColumnScrollbar
+import com.dd3boh.outertune.ui.component.FailedNote
+import com.dd3boh.outertune.ui.component.openProxySetting
+import com.dd3boh.outertune.playback.QueueStart
 import com.dd3boh.outertune.ui.component.SelectHeader
 import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.component.button.ResizableIconButton
@@ -180,7 +185,7 @@ import com.dd3boh.outertune.ui.dialog.TextFieldDialog
 import com.dd3boh.outertune.ui.menu.PlayerMenu
 import com.dd3boh.outertune.ui.menu.QueueMenu
 import com.dd3boh.outertune.utils.QueueToPlaylist
-import com.dd3boh.outertune.utils.makeTimeString
+import com.dd3boh.outertune.utils.queueLengthText
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import kotlinx.coroutines.Dispatchers
@@ -207,6 +212,7 @@ import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import java.time.LocalDateTime
 import kotlin.math.roundToInt
+import com.dd3boh.outertune.utils.Toaster
 
 /** The adaptive queue's note in words: see AdaptiveNote. */
 @Composable
@@ -473,6 +479,8 @@ fun BoxScope.QueueContent(
      * SONG LIST
      */
     val mutableSongs = remember { mutableStateListOf<MediaMetadata>() }
+    // Which of the player's lists mutableSongs was last filled from, by the effect that fills it.
+    var songsFrom by remember { mutableStateOf<List<Timeline.Window>?>(null) }
     // Which queue the list was last put at its playing song for. Null until this opening's first.
     var scrolledFor by remember { mutableStateOf<String?>(null) }
     val lazySongsListState = rememberLazyListState()
@@ -539,7 +547,8 @@ fun BoxScope.QueueContent(
     }
     val reorderableState = rememberReorderableLazyListState(
         lazyListState = lazySongsListState,
-        scrollThresholdPadding = WindowInsets.systemBars.add(
+        // No status bar on top: the song list stops at its edge (see songList).
+        scrollThresholdPadding = WindowInsets.systemBars.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal).add(
             WindowInsets(top = ListItemHeight, bottom = ListItemHeight)
         ).asPaddingValues()
     ) { from, to ->
@@ -651,25 +660,46 @@ fun BoxScope.QueueContent(
     // the one playing, going back to the first song folded away every song played since, and they
     // seemed to vanish. See AdaptiveQueue.settledThrough.
     val reachedInQueue by playerConnection.service.reachedInQueue.collectAsState()
+    // The songs the listener put in or moved by hand: shown with the songs ahead, not folded away
+    // with the radio's (AdaptiveQueue.shownInSheet).
+    val byHandInQueue by playerConnection.service.byHandInQueue.collectAsState()
     // What the adaptive queue last changed, said under the songs on show, and the songs it put in
     // that have not played, marked in their rows. Only for the live queue of a radio.
     val adaptivePicks by playerConnection.service.adaptivePicks.collectAsState()
     val adaptiveNote by playerConnection.service.adaptiveNote.collectAsState()
     val adaptiveSaying = adaptiveTailActive && !isSearching && detachedQueue == null
+    // Why the radio or mix this queue was to become did not start, said under the song it left
+    // alone: Val's queue of one ("Radiotemp", 1/1, Discord, 1 Nov 2026) said nothing at all.
+    val radioStopped by playerConnection.service.radioStopped.collectAsState()
+    // A radio YouTube gave nothing, going on from the app's own picks (LocalRadio): said under its
+    // songs, so nobody takes them for YouTube's.
+    val radioFromInterTune by playerConnection.service.radioFromInterTune.collectAsState()
     // The preview the sheet shows while the player holds nothing yet (after an update or a
     // restart, until something plays) is of the queue that is playing: its far end is folded
     // away like the live queue's, from the song it is at, not shown in full. Another queue looked
     // at from the list of queues still shows all of it.
     val previewOfPlaying = detachedQueue != null && detachedQueue?.id == qb.getCurrentQueue()?.id
     val foldTail = adaptiveTailActive && !isSearching && (detachedQueue == null || previewOfPlaying)
+    // The songs the list shows. mutableSongs is filled from the player's list by the effect below,
+    // which runs only once the frame the player's list changed in has been drawn. In that frame the
+    // song playing, what the queue has reached and so the fold were new already, and the songs
+    // were not. Back in the app after the phone was locked with the queue open, the far end had
+    // been changed meanwhile, and that frame put the new fold over the old songs: songs the queue
+    // no longer held showed for a moment, then the right ones (his note of 30 Oct 2026). Until the
+    // effect has caught up, the list shows the player's own songs, worked out in the same frame as
+    // the fold. A drag (the player's list unchanged while a row moves) and a swipe (the row taken
+    // out before the player says so) still show mutableSongs, as before.
+    val playerSongs = remember(queueWindows) { QueueRows.of(queueWindows.mapNotNull { it.mediaItem.metadata }) }
+    val songs = QueueRows.onShow(mutableSongs, playerSongs, caughtUp = songsFrom === queueWindows, preview = detachedQueue != null || fallBackQueue != null)
     val visibleSongs: List<MediaMetadata> =
-        if (!foldTail) mutableSongs
+        if (!foldTail) songs
         else {
-            val settled = detachedQueue?.let { AdaptiveQueue.settledThrough(it.getQueuePosShuffled(), mutableSongs, { it.id }, reachedInQueue) }
-                ?: AdaptiveQueue.settledThrough(currentWindowIndex, mutableSongs, { it.id }, reachedInQueue)
-            mutableSongs.take((settled + 1 + ADAPTIVE_VISIBLE_AHEAD).coerceIn(0, mutableSongs.size))
+            val playing = detachedQueue?.getQueuePosShuffled() ?: currentWindowIndex
+            val settled = detachedQueue?.let { AdaptiveQueue.settledThrough(it.getQueuePosShuffled(), songs, { it.id }, reachedInQueue) }
+                ?: AdaptiveQueue.settledThrough(currentWindowIndex, songs, { it.id }, reachedInQueue)
+            songs.take(AdaptiveQueue.shownInSheet(settled, playing, songs, { it.id }, byHandInQueue, ADAPTIVE_VISIBLE_AHEAD))
         }
-    val hiddenTailCount = if (isSearching) 0 else mutableSongs.size - visibleSongs.size
+    val hiddenTailCount = if (isSearching) 0 else songs.size - visibleSongs.size
 
     // Refreshed while searching as well, and only the scroll waits for the search to close. It
     // used to stop here during a search, so Start radio from a result replaced the queue while the
@@ -708,7 +738,7 @@ fun BoxScope.QueueContent(
         // Each row under a name of its own that it keeps: see QueueRows. A list that comes back
         // the same, as it does when only a song's length was learned, is left alone, and so is a
         // selection made in it.
-        val shown = QueueRows.of(queueWindows.mapNotNull { it.mediaItem.metadata })
+        val shown = playerSongs
         if (!QueueRows.same(shown, mutableSongs)) {
             mutableSongs.apply {
                 clear()
@@ -717,6 +747,7 @@ fun BoxScope.QueueContent(
             // A selection is of the list as it was: cleared with it, as it always was.
             selectedItems.clear()
         }
+        songsFrom = queueWindows
 
         val showing = "playing " + qb.getCurrentQueue()?.id
         // Not before the song playing is in the list: queueWindows can still be empty on the
@@ -781,7 +812,7 @@ fun BoxScope.QueueContent(
                     }.onFailure { Log.w("Queue.kt", "Could not save the queue as a playlist", it) }.isSuccess
                     if (saved) {
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, context.getString(R.string.saved_as_playlist, name), Toast.LENGTH_SHORT).show()
+                            Toaster.show(context, context.getString(R.string.saved_as_playlist, name), Toast.LENGTH_SHORT)
                         }
                     }
                 }
@@ -945,7 +976,7 @@ fun BoxScope.QueueContent(
                                     )
                                 }
                                 Text(
-                                    text = "${index + 1}. ${mq.title}",
+                                    text = "${index + 1}. ${QueueStart.shownTitle(mq.title) { mq.getCurrentQueueShuffled().firstOrNull()?.title }}",
                                     maxLines = 1,
                                     overflow = TextOverflow.MiddleEllipsis,
                                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 0.dp)
@@ -1037,12 +1068,22 @@ fun BoxScope.QueueContent(
     val songList: @Composable ColumnScope.(PaddingValues) -> Unit = { contentPadding ->
         Log.v("QueueContent", "QC-s_b")
         val songsScroll = rememberQueueSheetScroll(queueState)
+        // The space for the status bar sits outside the list, so a row scrolled up is cut at the
+        // status bar's edge instead of passing under the clock (Pixel 5, 5 Nov 2026). At rest the
+        // first row is where it was.
+        val listDirection = LocalLayoutDirection.current
         LazyColumn(
             state = lazySongsListState,
-            contentPadding = contentPadding,
-            modifier = if (songsScroll != null) Modifier.nestedScroll(songsScroll) else Modifier
+            contentPadding = PaddingValues(
+                start = contentPadding.calculateStartPadding(listDirection),
+                end = contentPadding.calculateEndPadding(listDirection),
+                bottom = contentPadding.calculateBottomPadding(),
+            ),
+            modifier = Modifier
+                .padding(top = contentPadding.calculateTopPadding())
+                .then(if (songsScroll != null) Modifier.nestedScroll(songsScroll) else Modifier)
         ) {
-            if ((if (isSearching) filteredSongs else mutableSongs).isEmpty()) {
+            if ((if (isSearching) filteredSongs else songs).isEmpty()) {
                 item {
                     EmptyPlaceholder(
                         icon = Icons.Rounded.MusicNote,
@@ -1248,6 +1289,61 @@ fun BoxScope.QueueContent(
             // picks after your skip". It used to be a row of its own above the songs, which said
             // "Tuned to this session" over playlists and albums too, put the list's scroll one row
             // above the song playing, and was off screen whenever the sheet opened at that song.
+            val stopped = radioStopped?.takeIf { !isSearching && detachedQueue == null && it.queueId == qb.getCurrentQueue()?.id }
+            if (stopped != null) {
+                item(key = "radio-stopped", contentType = "radio-stopped") {
+                    // Its buttons lead away from the player: the sheets go down on the way, or the
+                    // page opened under them unseen.
+                    FailedNote(
+                        kind = stopped.kind,
+                        onSignIn = {
+                            navController.navigate("login")
+                            queueState?.collapseSoft()
+                            playerState.collapseSoft()
+                        },
+                        onRetry = stopped.retry,
+                        onProxy = {
+                            openProxySetting()
+                            queueState?.collapseSoft()
+                            playerState.collapseSoft()
+                        },
+                        margin = 8.dp,
+                    )
+                }
+            }
+
+            if (radioFromInterTune != null && !isSearching && detachedQueue == null && radioFromInterTune == qb.getCurrentQueue()?.id) {
+                item(key = "radio-from-intertune", contentType = "radio-from-intertune") {
+                    // As the adaptive queue's line below: a picture, then two short lines.
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 20.dp)
+                    ) {
+                        Icon(
+                            Icons.Rounded.Radio,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.secondary,
+                        )
+                        Spacer(Modifier.width(16.dp))
+                        Column {
+                            Text(
+                                text = stringResource(R.string.radio_from_intertune_title),
+                                style = MaterialTheme.typography.bodyLarge,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                text = stringResource(R.string.radio_from_intertune_body),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+
             val note = adaptiveNote.takeIf { adaptiveSaying }
             if (hiddenTailCount > 0 || note != null) {
                 item(key = "adaptive-tail", contentType = "adaptive-tail") {
@@ -1430,7 +1526,9 @@ fun BoxScope.QueueContent(
                             }
                     ) {
                         Text(
-                            text = detachedQueue?.title ?: mutableQueues.getOrNull(playingQueue)?.title ?: "",
+                            text = (detachedQueue ?: mutableQueues.getOrNull(playingQueue))
+                                ?.let { shown -> QueueStart.shownTitle(shown.title) { shown.getCurrentQueueShuffled().firstOrNull()?.title } }
+                                ?: "",
                             style = MaterialTheme.typography.titleMedium,
                             maxLines = if (compact) 1 else Int.MAX_VALUE,
                             overflow = TextOverflow.Ellipsis,
@@ -1444,7 +1542,8 @@ fun BoxScope.QueueContent(
                             icon = Icons.AutoMirrored.Rounded.PlaylistAdd,
                             enabled = mutableSongs.isNotEmpty(),
                             onClick = {
-                                val title = detachedQueue?.title ?: mutableQueues.getOrNull(playingQueue)?.title
+                                val title = (detachedQueue ?: mutableQueues.getOrNull(playingQueue))
+                                    ?.let { shown -> QueueStart.shownTitle(shown.title) { shown.getCurrentQueueShuffled().firstOrNull()?.title } }
                                 coroutineScope.launch(Dispatchers.IO) {
                                     val names = database.playlists(PlaylistFilter.LIBRARY, PlaylistSortType.NAME, true)
                                         .first().map { it.playlist.name }
@@ -1476,10 +1575,10 @@ fun BoxScope.QueueContent(
                         horizontalAlignment = Alignment.End,
                         modifier = Modifier.padding(horizontal = 8.dp)
                     ) {
-                        fun getQueueLength(): Int {
+                        fun getQueueLengths(): List<Int> {
                             return if (!detachedHead) {
-                                queueWindows.sumOf { it.mediaItem.metadata!!.duration }
-                            } else detachedQueue?.queue?.sumOf { it.duration } ?: 0
+                                queueWindows.map { it.mediaItem.metadata?.duration ?: -1 }
+                            } else detachedQueue?.queue?.map { it.duration } ?: emptyList()
                         }
 
                         fun getQueuePositionStr(): String {
@@ -1497,7 +1596,7 @@ fun BoxScope.QueueContent(
                         )
 
                         Text(
-                            text = makeTimeString(getQueueLength() * 1000L),
+                            text = queueLengthText(getQueueLengths()),
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
@@ -1627,7 +1726,8 @@ fun BoxScope.QueueContent(
                         Box(modifier = Modifier.weight(1f)) {
                             ResizableIconButton(
                                 icon = when (repeatMode) {
-                                    REPEAT_MODE_OFF -> R.drawable.repeat_off
+                                    // Off is the repeat icon greyed out, as the notification draws it (his word, 5 Nov 2026).
+                                    REPEAT_MODE_OFF -> R.drawable.repeat_on
                                     REPEAT_MODE_ALL -> R.drawable.repeat_on
                                     REPEAT_MODE_ONE -> R.drawable.repeat_one
                                     else -> throw IllegalStateException()
@@ -1637,7 +1737,7 @@ fun BoxScope.QueueContent(
                                     .padding(4.dp)
                                     .align(Alignment.Center)
                                     .named(repeatName(repeatMode)),
-                                color = iconButtonColor,
+                                color = if (repeatMode == REPEAT_MODE_OFF) iconButtonColor.copy(alpha = REPEAT_OFF_ALPHA) else iconButtonColor,
                                 enabled = !detachedHead,
                                 onClick = {
                                     playerConnection.player.toggleRepeatMode()

@@ -6,7 +6,8 @@
    way (library-import): megabytes that would count against the 25 MB the library has to fit in.
 
    The app's own logs, one file per run for Report a problem (logs, RunLogs), belong to this phone
-   and stay out: up to some megabytes, and of no use on another phone.
+   and stay out: up to some megabytes, and of no use on another phone. So do the words typed on
+   Report a problem or the crash page and not sent yet (ReportDraft), with the rest of datastore/.
 -->
 <full-backup-content>
     <exclude

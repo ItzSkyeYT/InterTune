@@ -4,7 +4,7 @@
     <string name="recent_activity">Activité récente</string>
     <string name="song_added_to_queue_end">\"%s\" ajouté à la fin de la file d\'attente</string>
     <string name="library">Bibliothèque</string>
-    <string name="song_added_to_queue">\"%s\" inséré dans la file d\'attente</string>
+    <string name="song_added_to_queue">\"%s\" sera lu ensuite</string>
     <string name="sort_by_date_released">Date de sortie</string>
     <string name="local_history">Locale</string>
     <string name="remote_history">Distant</string>
@@ -105,7 +105,7 @@
     <string name="sync_progress_success">Synchronisation terminée</string>
     <string name="tab_arrangement_home_required">L\'onglet Accueil est obligatoire.</string>
     <string name="scanner_manual_btn">Déclencher la synchronisation manuelle</string>
-    <string name="scanner_missing_storage_perm">Le scanner multimédia local nécessite des autorisations de stockage pour fonctionner</string>
+    <string name="scanner_missing_storage_perm">Le scanner local a besoin de l\'autorisation de stockage.</string>
     <string name="scanner_scan_fail">Échec de l\'analyse</string>
     <string name="scanner_ytm_link_fail">La tâche de liaison des artistes YouTube a échoué</string>
     <string name="scanner_ytm_link_success">Le travail de création de liens vers les artistes YouTube est terminé</string>
@@ -124,6 +124,11 @@
     </plurals>
     <string name="swipe2Queue">Glisser pour mettre en file d’attente</string>
     <string name="playlist_add_local_to_synced_note">L\'ajout de fichiers de ce téléphone à une playlist synchronisée avec YouTube Music n\'est pas pris en charge.</string>
+    <plurals name="playlist_add_skipped">
+        <item quantity="one">%1$d titre n\'a pas pu être ajouté à la playlist.</item>
+        <item quantity="many">%1$d titres n\'ont pas pu être ajoutés à la playlist.</item>
+        <item quantity="other">%1$d titres n\'ont pas pu être ajoutés à la playlist.</item>
+    </plurals>
     <string name="grp_lyrics_format">Formatage</string>
     <string name="tab_arrangement_disable_tip">--- Faites glisser ci-dessous pour désactiver ---</string>
     <string name="scanner_progress_syncing">Synchronisation…</string>
@@ -171,12 +176,12 @@
     <string name="speed_slow">Lent</string>
     <string name="speed_medium">Moyen</string>
     <string name="speed_fast">Rapide</string>
-    <string name="lyrics_karaoke_description">Permet la synchronisation mot à mot des paroles. Nécessite la prise en charge du format des paroles.</string>
+    <string name="lyrics_karaoke_description">Chaque mot s\'allume au moment où il est chanté. Seulement pour les paroles minutées mot par mot.</string>
     <string name="m3u_ytm_lookup">Rechercher sur YouTube Music des titres non trouvées dans la base de données de l\'application</string>
     <string name="tablet_ui_title_description">Activer une interface paysage optimisée pour les écrans plus grands, quelle que soit la taille actuelle de l\'écran</string>
     <string name="attribution_title">Attribution</string>
     <string name="oss_licenses_title">Licences open source</string>
-    <string name="lyrics_karaoke_title">Paroles de style karaoké.</string>
+    <string name="lyrics_karaoke_title">Paroles de style karaoké</string>
     <string name="disable_lm_confirm">Voulez-vous vraiment désactiver les fonctionnalités multimédias locales ? Le contenu de votre bibliothèque ne sera pas affecté.</string>
     <string name="scanner_progress_discovering">À la découverte…</string>
     <string name="scanner_progress_processing">Traitement…</string>
@@ -270,7 +275,7 @@
     <string name="action_done">Terminé</string>
     <string name="download_on_wifi_only_description">Attend une connexion Wi-Fi avant de télécharger. Les téléchargements lancés en données mobiles sont mis en attente et démarrent tout seuls dès que le Wi-Fi revient</string>
     <string name="download_on_wifi_only_title">Télécharger en Wi-Fi uniquement</string>
-    <string name="download_waiting_for_wifi">En attente. Le téléchargement démarrera dès que le Wi-Fi sera disponible</string>
+    <string name="download_waiting_for_wifi">En attente. Le téléchargement démarrera avec le Wi-Fi.</string>
     <plurals name="download_progress_songs">
         <item quantity="one">%1$d sur %2$d titre</item>
         <item quantity="many">%1$d sur %2$d titres</item>
@@ -387,7 +392,8 @@
     <string name="update_awaiting_confirmation">Prête. Android va vous demander de confirmer l\'installation.</string>
     <string name="update_needs_permission">Android a besoin de votre autorisation pour qu\'InterTune installe des applications. Touchez pour ouvrir ce paramètre, puis revenez et réessayez.</string>
     <string name="update_install_failed">Installation impossible : %1$s. Vous pouvez toujours la télécharger vous-même depuis la page de la version.</string>
-    <string name="update_blocked_samsung">L\'installation n\'a pas abouti. Le Bloqueur automatique de Samsung l\'a sans doute empêchée : désactivez-le le temps d\'installer, puis réactivez-le si vous voulez.</string>
+    <string name="update_blocked_samsung">L\'installation n\'a pas abouti : le Bloqueur automatique de Samsung l\'a sans doute empêchée. Désactivez-le, puis revenez ici et l\'installation recommence toute seule. Vous pouvez réactiver le Bloqueur automatique juste après.</string>
+    <string name="auto_blocker_note">Mise à jour terminée. Si vous avez désactivé le Bloqueur automatique pour cela, vous pouvez le réactiver maintenant.</string>
     <string name="update_blocked">L\'installation n\'a pas abouti. Réessayez, ou téléchargez la mise à jour depuis la page de la version.</string>
     <string name="update_open_auto_blocker">Ouvrir le Bloqueur automatique</string>
     <string name="update_try_again">Réessayer</string>
@@ -415,7 +421,7 @@
     <string name="song_cache_max_size">Taille maximale du cache des morceaux</string>
     <string name="image_cache_max_size">Taille maximale du cache des pochettes</string>
     <string name="max_queues_description">Combien de files d\'attente l\'application conserve à la fois. La plus ancienne est supprimée au-delà de ce nombre.</string>
-    <string name="enable_proxy_description">Faire passer les requêtes et les flux de YouTube Music par un autre serveur. Les images, les paroles et les autres services utilisés par l\'application se connectent toujours directement. Laissez ceci désactivé sauf si vous savez que vous en avez besoin.</string>
+    <string name="enable_proxy_description">Faire passer tout ce que l\'application récupère par un autre serveur, images et paroles comprises. Les enceintes et téléviseurs de votre réseau restent joints directement. Laissez ceci désactivé sauf si vous savez que vous en avez besoin.</string>
     <string name="show_liked_and_downloaded_playlist_description">Afficher Titres aimés et Titres téléchargés comme des playlists dans votre bibliothèque.</string>
     <string name="pause_listen_history_description">Ne plus ajouter de morceaux à votre historique. Rien de ce qui s\'y trouve déjà n\'est supprimé.</string>
     <string name="pause_remote_listen_history_description">Ne plus indiquer à YouTube Music ce que vous écoutez. Votre historique dans cette application continue quoi qu\'il arrive.</string>
@@ -545,15 +551,16 @@
     <string name="playback_auth_when_refused">Seulement quand un titre est refusé</string>
     <string name="playback_auth_always">Toujours</string>
     <string name="err_age_restricted">YouTube ne lira pas ce titre sans un compte ayant l\'âge requis. Les autres titres ne sont pas concernés.</string>
-    <string name="err_song_unavailable">YouTube n\'a plus ce titre, ou ne le propose pas là où vous êtes. Les autres titres ne sont pas concernés.</string>
+    <string name="err_song_unavailable">YouTube n\'a plus ce titre, ou pas là où vous êtes.</string>
+    <string name="gone_song_skipped">Titre passé, indisponible sur YouTube : « %1$s »</string>
     <!-- Dialog -->
-    <string name="create_sync_playlist_failed">Impossible de créer la playlist sur YouTube Music. Rien n\'a été créé ; réessayez une fois en ligne.</string>
+    <string name="create_sync_playlist_failed">Playlist non créée sur YouTube Music. Réessayez une fois en ligne.</string>
     <!-- Sync -->
     <string name="sync_progress_failed">La synchronisation n\'a pas abouti. Rien n\'a été supprimé ; réessayez plus tard.</string>
     <string name="sync_progress_nothing">Rien à synchroniser. Vérifiez que la synchronisation est activée pour au moins un type de contenu.</string>
     <string name="playlist_sync_failed">Impossible de synchroniser cette playlist. Elle a été laissée telle quelle.</string>
     <!-- Settings -->
-    <string name="proxy_examples">Le format est hôte:port, par exemple 127.0.0.1:8118. Tor via Orbot donne 127.0.0.1:8118 pour HTTP ou 127.0.0.1:9050 pour SOCKS. Évitez les listes de proxys publics : celui qui en gère un voit tout ce que vous récupérez.</string>
+    <string name="proxy_examples">Le format est hôte:port, par exemple 127.0.0.1:8118. Tor via Orbot donne 127.0.0.1:8118 pour HTTP ou 127.0.0.1:9050 pour SOCKS, mais YouTube retient souvent les résultats de recherche et les mix via Tor. Évitez les listes de proxys publics : celui qui en gère un voit tout ce que vous récupérez.</string>
     <!-- About settings -->
     <string name="help_discord">Discussion de la communauté (via Discord)</string>
     <string name="help_translate">Aider à traduire InterTune (via Weblate)</string>
@@ -658,7 +665,7 @@
     <string name="recognition_phone_nothing">Aucun titre trouvé sur ce téléphone</string>
     <string name="recognition_phone_nothing_hint">Réessayez pendant que le titre joue.</string>
     <string name="recognition_phone_results_channel">Titres trouvés sur ce téléphone</string>
-    <string name="recognition_phone_needs_permission">InterTune a aussi besoin de l\'autorisation du micro pour écouter ce téléphone.</string>
+    <string name="recognition_phone_needs_permission">InterTune a aussi besoin du micro pour écouter ce téléphone.</string>
     <string name="recognition_phone_heard_nothing">Aucun son n\'est venu du téléphone. InterTune laisse de côté ses propres titres, et certaines applis bloquent l\'enregistrement.</string>
     <string name="recognition_room_tile">Titre autour de vous</string>
     <string name="recognition_phone_continue">Continuer</string>
@@ -989,12 +996,12 @@
     <string name="exclusion_reason_snooze">Moins de cet artiste, pendant un mois</string>
     <string name="exclusion_reason_rest">Mis au repos après avoir été passé</string>
     <string name="exclusion_reason_gone">N\'est plus sur YouTube</string>
-    <string name="error_youtube_not_answering">YouTube ne répond pas pour le moment. Le titre a été essayé de plusieurs façons.</string>
+    <string name="error_youtube_not_answering">YouTube ne répond pas. Le titre a été essayé de plusieurs façons.</string>
     <string name="error_cached_part_stale">La partie enregistrée de ce titre ne correspond plus à ce que YouTube fournit. Appuyez sur lecture pour le charger à nouveau.</string>
-    <string name="error_connection_turned_away">YouTube refuse cette connexion, donc chaque titre semble indisponible. Un VPN, ou un réseau d\'école ou de travail, peut en être la cause.</string>
+    <string name="error_connection_turned_away">YouTube refuse cette connexion. Essayez sans VPN ou un autre Wi-Fi.</string>
     <string name="menu_not_this_song">Pas ce titre</string>
     <string name="menu_less_of_artist">Moins de cet artiste</string>
-    <string name="menu_never_artist">Jamais cet artiste</string>
+    <string name="menu_never_artist">Jamais cet artiste (recommandations)</string>
     <string name="why_these">Pourquoi ces titres ?</string>
     <string name="why_these_seeds">Construit autour de</string>
     <string name="why_these_not_this_one">Pas celui-ci</string>
@@ -1052,16 +1059,16 @@
         <item quantity="other">%1$s : contenait %2$d des %3$d titres choisis par vous-même, cartes touchées comprises, dans %4$s</item>
     </plurals>
     <string name="recommendations_held_nothing">%1$s : rien à comparer pour l\'instant, car vous n\'avez choisi vous-même aucun titre dans %2$s</string>
-    <string name="recommendations_after_refresh">la journée suivant son actualisation</string>
+    <string name="recommendations_after_refresh">le lendemain de son actualisation</string>
     <plurals name="recommendations_after_refreshes">
-        <item quantity="one">la journée suivant chacune de ses %1$d actualisations</item>
-        <item quantity="many">la journée suivant chacune de ses %1$d actualisations</item>
-        <item quantity="other">la journée suivant chacune de ses %1$d actualisations</item>
+        <item quantity="one">le lendemain de %1$d actualisation</item>
+        <item quantity="many">le lendemain de chacune de ses %1$d actualisations</item>
+        <item quantity="other">le lendemain de chacune de ses %1$d actualisations</item>
     </plurals>
     <plurals name="recommendations_after_any_refresh">
-        <item quantity="one">la journée suivant l\'une de ses %1$d actualisations</item>
-        <item quantity="many">la journée suivant l\'une de ses %1$d actualisations</item>
-        <item quantity="other">la journée suivant l\'une de ses %1$d actualisations</item>
+        <item quantity="one">le lendemain de %1$d actualisation</item>
+        <item quantity="many">le lendemain de l\'une de ses %1$d actualisations</item>
+        <item quantity="other">le lendemain de l\'une de ses %1$d actualisations</item>
     </plurals>
     <plurals name="recommendations_refreshes">
         <item quantity="one">%1$d actualisation</item>
@@ -1327,6 +1334,11 @@
     <string name="widget_style_full_cover">Pochette entière</string>
     <string name="widget_style_shelf">Étagère</string>
     <string name="widget_up_next">À suivre</string>
+    <!-- A Shelf's three looks (1 Nov 2026). -->
+    <string name="widget_config_look">Apparence</string>
+    <string name="widget_look_big_cover">Grande pochette</string>
+    <string name="widget_look_crate">Bac à disques</string>
+    <string name="widget_look_records">Vinyles</string>
     <!-- Recommendations: the little "i" beside an item, and what it opens -->
     <string name="tidy_home_rows_info">Aucune rangée de l\'accueil ne montre un titre déjà présent dans une rangée précédente, et les versions d\'un même titre (live, remasterisé, vidéo) comptent pour une. Rien ne comble les trous, donc une rangée peut être plus courte. Désactivé, vos exclusions ne filtrent plus que la rangée « Meilleures recommandations ».</string>
     <string name="rank_with_listening_info">Remet la « Sélection Rapide » dans un ordre qui vous convient : les titres que vous écoutez souvent, écoutés récemment ou aimés passent plutôt devant. Rien n\'est ajouté ni retiré. La rangée est laissée telle quelle quand « Meilleures recommandations » ou « Essayer les deux » la remplit.</string>
@@ -1592,6 +1604,10 @@
     <string name="share_link_page_description">La personne choisit son appli : Spotify, Apple Music, Deezer et d\'autres</string>
     <string name="share_link_choice_kept">Votre choix est gardé pour les prochains partages. Vous pouvez le changer à tout moment dans Paramètres, sous %1$s.</string>
     <string name="share_link_not_chosen">Pas encore choisi</string>
+    <string name="open_links_title">Ouvrir les liens dans %1$s</string>
+    <string name="open_links_description">Les liens YouTube Music et intertune.app s\'ouvrent dans cette appli. Désactivez pour laisser une autre appli, comme InterTune Preview, les ouvrir.</string>
+    <string name="open_links_android_off">Le réglage des liens d\'Android est désactivé pour cette appli : aucun lien ne s\'y ouvre.</string>
+    <string name="open_links_android_settings">Réglages des liens d\'Android</string>
     <string name="stats_nothing_played">Rien n\'a été joué sur cette période.</string>
     <string name="sort_order_ascending">Ordre croissant</string>
     <string name="sort_order_descending">Ordre décroissant</string>
@@ -1661,6 +1677,21 @@
     <string name="problem_report_copy">Copier</string>
     <string name="problem_report_copied">Copié</string>
     <string name="problem_report_close">Fermer</string>
+    <string name="problem_report_send">Envoyer à InterTune</string>
+    <string name="problem_report_what">Que s\'est-il passé\u00A0? (facultatif)</string>
+    <string name="problem_report_contact">Comment vous joindre (facultatif)</string>
+    <string name="problem_report_contact_hint">Pseudo Discord ou e-mail</string>
+    <string name="problem_report_contact_note">Seule l\'équipe d\'InterTune le voit.</string>
+    <string name="problem_report_sent">Envoyé sous le n°\u00A0%1$d</string>
+    <string name="problem_report_sent_body">Tout le monde peut le suivre sur GitHub, sans compte.</string>
+    <string name="problem_report_open_issue">Ouvrir le n°\u00A0%1$d</string>
+    <string name="problem_report_copy_link">Copier le lien</string>
+    <string name="problem_report_held">Envoyé. Il paraîtra sur GitHub une fois relu.</string>
+    <string name="problem_report_send_failed">Envoi impossible. Réessayez, ou copiez-le et postez-le dans #bug-reports.</string>
+    <string name="report_way_anonymous">Anonyme</string>
+    <string name="report_way_github">Compte GitHub</string>
+    <string name="report_way_anonymous_note">Sans compte. Vous recevez un lien pour le suivre.</string>
+    <string name="report_way_github_note">Ouvre le formulaire sur GitHub, où vous vous connectez et recevez les réponses.</string>
     <string name="problem_report_now">Maintenant</string>
     <string name="problem_report_went_wrong">%1$s · erreur à %2$s</string>
     <string name="problem_report_no_fault">%1$s · aucune erreur notée</string>
@@ -1668,6 +1699,8 @@
     <string name="problem_report_none_then">Aucune erreur n\'a été notée cette fois-là. Voici ses dernières lignes.</string>
     <string name="problem_report_nothing_then">Rien n\'a été écrit cette fois-là.</string>
     <string name="problem_report_older">Voir les plus anciens</string>
+    <string name="problem_report_extras">Le rapport contient aussi les réglages qui comptent ici et les étapes juste avant. Elles ne nomment aucun morceau, aucune recherche ni personne.</string>
+    <string name="problem_report_extras_settings">Le rapport contient aussi les réglages qui comptent ici, tels qu\'ils sont maintenant.</string>
     <string name="welcome_back_title">Content de vous revoir</string>
     <string name="welcome_back_body">Voici les nouveautés depuis votre dernière visite.</string>
     <string name="welcome_back_everything">Ce qui a été ajouté récemment, et où le trouver.</string>
@@ -1683,8 +1716,8 @@
     <string name="welcome_back_settings_show">Faire le tour</string>
     <string name="welcome_back_done">Terminé</string>
     <string name="welcome_back_entry">Nouveautés</string>
-    <string name="welcome_back_not_here">Ce n\'est pas à l\'écran avec ces réglages, il n\'y a donc rien à montrer.</string>
-    <string name="welcome_back_no_widget_host">Cet écran d\'accueil n\'accepte pas les widgets des applications. Ajoutez-le depuis la liste de widgets de l\'écran d\'accueil.</string>
+    <string name="welcome_back_not_here">Ce n\'est pas affiché avec ces réglages : rien à montrer.</string>
+    <string name="welcome_back_no_widget_host">Cet écran d\'accueil refuse les widgets d\'applis. Passez par sa liste.</string>
     <string name="welcome_card_see">Voir</string>
     <string name="welcome_card_dismiss">Masquer cette note</string>
     <string name="new_quick_picks_title">Une Sélection Rapide que vous pouvez orienter</string>
@@ -1873,6 +1906,22 @@
     <string name="hide_explicit_description">Les titres et albums marqués explicites n\'apparaissent plus dans l\'accueil, la recherche, les pages d\'artiste et ce qu\'ajoute une radio.</string>
     <string name="hide_video_songs">Masquer les clips</string>
     <string name="hide_video_songs_description">Seuls les titres d\'albums et de singles sont proposés, pas les clips ni les vidéos mises en ligne. Un titre que vous choisissez se lit quand même.</string>
+    <!-- The AI filter (Unreleased.AI_FILTER): held with the English until the words are agreed. -->
+    <string name="ai_filter">Musique IA</string>
+    <string name="ai_filter_off">Désactivé</string>
+    <string name="ai_filter_recommendations">Masquer des recommandations</string>
+    <string name="ai_filter_everywhere">Bloquer partout</string>
+    <string name="ai_filter_note">S\'appuie sur une liste d\'artistes IA faite à la main : la liste de blocage YouTube de CevvalKoala et quelques artistes IA connus. Elle peut se tromper : appuyez longuement sur un artiste pour le marquer IA ou non.</string>
+    <string name="ai_filter_explain">« Masquer des recommandations » écarte les titres IA de l\'Accueil, de la « Sélection Rapide », des radios et de la lecture automatique. « Bloquer partout » les masque aussi dans la recherche et passe ceux qui arrivent dans la file d\'attente. Les titres de votre bibliothèque et vos propres playlists ne sont jamais touchés.</string>
+    <string name="ai_filter_mark_ai">Marquer comme IA</string>
+    <string name="ai_filter_not_ai">Pas de l\'IA</string>
+    <plurals name="ai_filter_hidden">
+        <item quantity="one">%1$d résultat IA masqué</item>
+        <item quantity="many">%1$d de résultats IA masqués</item>
+        <item quantity="other">%1$d résultats IA masqués</item>
+    </plurals>
+    <string name="ai_filter_show">Afficher</string>
+    <string name="ai_filter_skipped">Titre IA passé</string>
     <!-- The recognition widget in the launcher's picker (recognition_widget_info). -->
     <string name="recognition_widget_description">Un bouton qui trouve le titre qui passe autour de vous.</string>
     <!-- The sleep timer on a schedule, under the sleep timer's fade in Player and audio (SleepScheduleFrag, ScheduledSleep). -->
@@ -1893,6 +1942,7 @@
     <string name="lyrics_video_making">Création de la vidéo…</string>
     <string name="lyrics_video_failed">La vidéo n\'a pas pu être créée</string>
     <string name="lyrics_video_size">La vidéo fait %1$s</string>
+    <string name="lyrics_saved">Enregistré : %1$s</string>
     <plurals name="lyrics_picked_video">
         <item quantity="one">%1$d ligne, %2$s</item>
         <item quantity="many">%1$d lignes, %2$s</item>
@@ -1902,6 +1952,11 @@
         <item quantity="one">Une image prend %1$d ligne, une vidéo une minute de la chanson</item>
         <item quantity="many">Une image prend %1$d lignes au plus, une vidéo une minute de la chanson</item>
         <item quantity="other">Une image prend %1$d lignes au plus, une vidéo une minute de la chanson</item>
+    </plurals>
+    <plurals name="lyrics_pick_most_video_minutes">
+        <item quantity="one">Une image prend %1$d ligne, une vidéo %2$d minutes de la chanson</item>
+        <item quantity="many">Une image prend %1$d lignes au plus, une vidéo %2$d minutes de la chanson</item>
+        <item quantity="other">Une image prend %1$d lignes au plus, une vidéo %2$d minutes de la chanson</item>
     </plurals>
     <string name="queue_from_search">« %1$s »</string>
     <!-- The phone's own search and the equalizer, in every build from 0.12. -->
@@ -1997,6 +2052,7 @@
     <string name="search_words_ytm_sync">YouTube Music, playlists, j\'aime, bibliothèque</string>
     <string name="search_words_sync_now">synchroniser maintenant, actualiser</string>
     <string name="search_words_share_links">partager, lien</string>
+    <string name="search_words_open_links">liens pris en charge, ouvrir par défaut, application par défaut, YouTube</string>
     <string name="search_words_explicit">explicite, contrôle parental, enfants, grossièretés</string>
     <string name="search_words_language">langue</string>
     <string name="search_words_country">pays, région</string>
@@ -2102,4 +2158,181 @@
     <string name="player_pins_under_controls">Sous les commandes</string>
     <string name="player_pin_lyrics">Paroles</string>
     <string name="player_pins_reset">Réinitialiser</string>
+    <!-- Saved twice (issue #47, Unreleased.SAVED_TWICE): held back from translators until his yes on the words. -->
+    <string name="saved_twice">En double</string>
+    <plurals name="saved_twice_button">
+        <item quantity="one">%1$d titre en double</item>
+        <item quantity="many">%1$d titres en double</item>
+        <item quantity="other">%1$d titres en double</item>
+    </plurals>
+    <plurals name="saved_twice_intro_liked">
+        <item quantity="one">%1$d titre est en double dans vos titres aimés. Choisissez celui à garder.</item>
+        <item quantity="many">%1$d titres sont en double dans vos titres aimés. Choisissez celui à garder.</item>
+        <item quantity="other">%1$d titres sont en double dans vos titres aimés. Choisissez celui à garder.</item>
+    </plurals>
+    <plurals name="saved_twice_intro_library">
+        <item quantity="one">%1$d titre est en double dans votre bibliothèque. Choisissez celui à garder.</item>
+        <item quantity="many">%1$d titres sont en double dans votre bibliothèque. Choisissez celui à garder.</item>
+        <item quantity="other">%1$d titres sont en double dans votre bibliothèque. Choisissez celui à garder.</item>
+    </plurals>
+    <plurals name="saved_twice_intro_playlist">
+        <item quantity="one">%1$d titre est en double dans « %2$s ». Choisissez celui à garder.</item>
+        <item quantity="many">%1$d titres sont en double dans « %2$s ». Choisissez celui à garder.</item>
+        <item quantity="other">%1$d titres sont en double dans « %2$s ». Choisissez celui à garder.</item>
+    </plurals>
+    <string name="saved_twice_keep">Garder</string>
+    <string name="saved_twice_out_liked">Retirer des titres aimés</string>
+    <string name="saved_twice_out_library">Retirer de votre bibliothèque</string>
+    <string name="saved_twice_out_playlist">Retirer de « %1$s »</string>
+    <plurals name="saved_twice_take_liked">
+        <item quantity="one">Retirer %1$d doublon des titres aimés</item>
+        <item quantity="many">Retirer %1$d doublons des titres aimés</item>
+        <item quantity="other">Retirer %1$d doublons des titres aimés</item>
+    </plurals>
+    <plurals name="saved_twice_take_library">
+        <item quantity="one">Retirer %1$d doublon de votre bibliothèque</item>
+        <item quantity="many">Retirer %1$d doublons de votre bibliothèque</item>
+        <item quantity="other">Retirer %1$d doublons de votre bibliothèque</item>
+    </plurals>
+    <plurals name="saved_twice_take_playlist">
+        <item quantity="one">Retirer %1$d doublon de « %2$s »</item>
+        <item quantity="many">Retirer %1$d doublons de « %2$s »</item>
+        <item quantity="other">Retirer %1$d doublons de « %2$s »</item>
+    </plurals>
+    <string name="saved_twice_note">Rien n\'est supprimé de votre téléphone, et Annuler les remet en place.</string>
+    <plurals name="saved_twice_done_liked">
+        <item quantity="one">%1$d doublon retiré des titres aimés</item>
+        <item quantity="many">%1$d doublons retirés des titres aimés</item>
+        <item quantity="other">%1$d doublons retirés des titres aimés</item>
+    </plurals>
+    <plurals name="saved_twice_done_library">
+        <item quantity="one">%1$d doublon retiré de votre bibliothèque</item>
+        <item quantity="many">%1$d doublons retirés de votre bibliothèque</item>
+        <item quantity="other">%1$d doublons retirés de votre bibliothèque</item>
+    </plurals>
+    <plurals name="saved_twice_done_playlist">
+        <item quantity="one">%1$d doublon retiré de « %2$s »</item>
+        <item quantity="many">%1$d doublons retirés de « %2$s »</item>
+        <item quantity="other">%1$d doublons retirés de « %2$s »</item>
+    </plurals>
+    <string name="saved_twice_song">Titre</string>
+    <string name="saved_twice_music_video">Clip</string>
+    <string name="saved_twice_file">Fichier</string>
+    <string name="saved_twice_single">%1$s (single)</string>
+    <string name="saved_twice_none">Rien n\'est en double ici.</string>
+    <string name="region_note_title">YouTube Music en Corée du Sud</string>
+    <string name="region_note_body">YouTube Music n\'a pas d\'offre gratuite en Corée du Sud : là-bas, YouTube ne montre les titres, les albums et les mix qu\'aux abonnés Premium. Les titres de vos playlists se lisent quand même, et la recherche trouve toujours les vidéos. Un compte Premium, ou un VPN ou un proxy hors de Corée, fait revenir le reste.</string>
+    <string name="region_note_proxy">Réglages du proxy</string>
+    <string name="proxy_restart_title">Redémarrer pour appliquer le réglage du proxy</string>
+    <string name="proxy_restart_description">InterTune prend le proxy au démarrage. Touchez pour le redémarrer maintenant ; la musique s\'arrête.</string>
+    <string name="why_stopped_sign_in_title">Votre connexion YouTube a expiré</string>
+    <string name="why_stopped_sign_in_body">YouTube n\'accepte plus la connexion que garde InterTune, donc la recherche, les radios et les mix ne se chargent pas. Reconnectez-vous pour les retrouver.</string>
+    <string name="why_stopped_sign_in_again">Se reconnecter</string>
+    <string name="why_stopped_unreachable_title">Impossible de joindre YouTube</string>
+    <string name="why_stopped_unreachable_body">Cette connexion n\'arrive pas jusqu\'à YouTube. Si vous utilisez un VPN, vérifiez que son split tunneling inclut InterTune, ou essayez un autre réseau.</string>
+    <string name="radio_from_intertune_title">Choisis par InterTune</string>
+    <string name="radio_from_intertune_body">YouTube n\'a pas envoyé de radio</string>
+    <string name="album_not_loaded_title">Cet album ne s\'est pas chargé</string>
+    <string name="album_not_loaded_body">YouTube ne l\'a pas envoyé, donc seuls les titres qu\'InterTune avait déjà sont affichés.</string>
+    <string name="lyrics_refetch_failed">Paroles non récupérées. Vérifiez la connexion.</string>
+    <string name="lyrics_refetch_none">Pas d\'autres paroles trouvées, celles-ci restent donc.</string>
+    <string name="play_search_failed">La recherche n\'a pas abouti, rien n\'a été lancé.</string>
+    <string name="proxy_address_format">Saisissez l\'adresse au format hôte:port, par exemple 127.0.0.1:8118.</string>
+    <string name="proxy_address_missing">Aucun proxy n\'est utilisé tant qu\'aucune adresse n\'est réglée ici.</string>
+    <string name="proxy_not_used_at_start">Aucun proxy n\'est utilisé : son adresse est illisible.</string>
+    <string name="sync_progress_busy">Une synchronisation est déjà en cours. Ses changements apparaîtront à la fin.</string>
+    <!-- What's playing with no connection (issue #48, RecogniseLater, Unreleased.RECOGNISE_OFFLINE): a listen kept to be named once the phone is back online. -->
+    <string name="recognise_later_kept">Pas de connexion. Ce qui a été entendu est gardé, et le titre sera trouvé dès votre retour en ligne.</string>
+    <string name="recognise_later_keeping">Pas de connexion. Ce qui est entendu est gardé pour plus tard</string>
+    <string name="recognise_later_waiting">En attente de connexion</string>
+    <string name="recognise_later_channel">Titres entendus hors ligne</string>
+    <plurals name="recognise_later_named">
+        <item quantity="one">%1$d titre entendu hors ligne a été trouvé</item>
+        <item quantity="many">%1$d titres entendus hors ligne ont été trouvés</item>
+        <item quantity="other">%1$d titres entendus hors ligne ont été trouvés</item>
+    </plurals>
+    <string name="recognise_later_none">Aucun titre trouvé pour ce qui a été entendu hors ligne</string>
+    <!-- Liked songs kept in sync with their downloads (issue #64, Unreleased.LIKED_SYNC): held from translators until he says. -->
+    <string name="liked_download_sync">Supprimer le téléchargement avec le j’aime</string>
+    <string name="liked_download_sync_description">Seulement les titres que ce réglage a téléchargés. Un titre téléchargé par vous reste.</string>
+    <!-- Pochette de la playlist (PlaylistCovers, PlaylistCoverSheet, Unreleased.PLAYLIST_COVER): held from translators in values until the words are agreed. -->
+    <string name="playlist_cover_change">Changer la pochette</string>
+    <string name="playlist_cover_title">Pochette de la playlist</string>
+    <string name="playlist_cover_note">La pochette au-dessus change à chaque choix.</string>
+    <string name="playlist_cover_automatic">Automatique</string>
+    <string name="playlist_cover_automatic_note">La pochette du premier titre</string>
+    <string name="playlist_cover_photo">Une photo</string>
+    <string name="playlist_cover_photo_note">Depuis votre téléphone</string>
+    <string name="playlist_cover_songs">Un titre de cette playlist</string>
+    <!-- Bloquer l'artiste (ArtistBlock, Unreleased.ARTIST_BLOCK): held from translators in values until the words are agreed. -->
+    <string name="menu_block_artist">Bloquer l\'artiste</string>
+    <string name="block_artist_which">Bloquer quel artiste\u00A0?</string>
+    <string name="block_artist_title">Bloquer %1$s\u00A0?</string>
+    <string name="block_artist_body">Ses titres, ses albums et son visage disparaissent d\'InterTune\u00A0: recherche, Accueil, radios, votre bibliothèque et vos playlists. Ses titres sont passés. Débloquez à tout moment dans Paramètres &gt; Bibliothèque et Contenu &gt; Artistes bloqués.</string>
+    <string name="block_artist_confirm">Bloquer</string>
+    <string name="unblock">Débloquer</string>
+    <string name="blocked_artists">Artistes bloqués</string>
+    <string name="blocked_artists_none">Aucun</string>
+    <string name="blocked_artists_intro">Les artistes bloqués disparaissent de la recherche, de l\'Accueil, des radios, de votre bibliothèque et de vos playlists, et leurs titres sont passés.</string>
+    <string name="blocked_artists_add">Ajouter un artiste</string>
+    <string name="blocked_artists_not_found">Aucun artiste trouvé.</string>
+    <string name="blocked_today">Bloqué aujourd\'hui</string>
+    <string name="blocked_on">Bloqué le %1$s</string>
+    <string name="unblocked">%1$s débloqué</string>
+    <string name="blocked_search_note">%1$s est bloqué, donc rien de cet artiste ne s\'affiche.</string>
+    <string name="blocked_song_skipped">%1$s est bloqué, donc son titre a été passé.</string>
+    <string name="blocked_songs_left">Il ne reste que des titres d\'artistes bloqués : la musique s\'arrête.</string>
+    <string name="search_words_blocked_artists">bannir, masquer, ignorer, liste noire</string>
+    <string name="crash_newer_title">InterTune %1$s est disponible</string>
+    <string name="crash_newer_body">Cette version corrige peut-être déjà ce plantage. Mettez à jour d\'abord, puis signalez-le s\'il revient.</string>
+    <string name="crash_newer_update">Mettre à jour</string>
+    <string name="problem_report_share_file">Partager en fichier</string>
+    <string name="dl_song_files_note">Chaque titre y est enregistré en Opus ou en M4A, avec son nom, son artiste et sa pochette, pour que d\'autres applis et les voitures puissent le lire.</string>
+    <string name="new_shelf_looks_title">L\'Étagère en trois looks</string>
+    <string name="new_shelf_looks_body">Grande pochette, Bac à disques ou Vinyles, à choisir sous Look dans les réglages du widget.</string>
+    <string name="new_lyrics_video_long_title">Des vidéos de paroles jusqu\'à dix minutes</string>
+    <string name="new_lyrics_video_long_body">Appuyez longuement sur une ligne des paroles pour partager une vidéo qui prend jusqu\'à dix minutes du titre. Avec le Flou vivant, son fond bouge avec la musique.</string>
+    <string name="new_share_cards_title">Les titres partagés montrent leur pochette</string>
+    <string name="new_share_cards_body">Un titre partagé en page InterTune affiche son nom et sa pochette dans les applis de discussion.</string>
+    <string name="backup_parts_title">Ce que contient la sauvegarde</string>
+    <string name="backup_parts_note">À restaurer sur n\'importe quel téléphone avec InterTune.</string>
+    <string name="backup_part_library">Bibliothèque</string>
+    <string name="backup_part_library_note">Titres, playlists, historique et statistiques</string>
+    <string name="backup_part_settings">Paramètres</string>
+    <string name="backup_part_settings_note">L\'apparence et la lecture de l\'app</string>
+    <string name="backup_part_photos">Photos des playlists</string>
+    <string name="backup_part_photos_note">Les couvertures choisies sur votre téléphone</string>
+    <string name="backup_part_signins">Vos connexions</string>
+    <string name="backup_part_signins_note">YouTube Music et Last.fm</string>
+    <string name="backup_part_signins_warning">Toute personne qui a ce fichier pourrait utiliser ces comptes.</string>
+    <string name="backup_parts_confirm">Sauvegarder</string>
+    <string name="animations_title">Animations</string>
+    <string name="animations_description">Sans animations, les écrans changent tout de suite et les fonds restent immobiles. Plus léger pour les téléphones anciens.</string>
+    <string name="animations_held_note">Désactivé tant que les animations sont coupées dans les réglages d\'Android.</string>
+    <string name="living_blur_still_switch">Reste immobile tant que le réglage « Animations », en haut de cette page, est désactivé.</string>
+    <string name="search_words_animations">mouvement, transitions, effets, téléphone lent, ralentissements</string>
+    <string name="widgets">Widgets</string>
+    <string name="settings_widgets_description">Ajoutez des widgets à votre écran d\'accueil, et changez l\'apparence de chacun.</string>
+    <string name="widgets_on_home_screen">Sur votre écran d\'accueil</string>
+    <string name="widgets_add_title">Ajouter un widget</string>
+    <string name="widgets_add">Ajouter</string>
+    <string name="widgets_all_options">Toutes les options</string>
+    <string name="widgets_all_options_cover">Opacité, taille du texte, ce qu\'il affiche</string>
+    <string name="widgets_all_options_full_cover">Taille du texte, ce qu\'il affiche</string>
+    <string name="widgets_all_options_shelf">Arrière-plan, boutons, lignes</string>
+    <string name="widgets_add_from_home">Cet écran d\'accueil n\'accepte pas les widgets des applications. Ajoutez-les depuis sa propre liste de widgets.</string>
+    <!-- Nouveautés de 0.12.8 (Walkthrough.kt, V0_12_8). -->
+    <string name="new_report_send_title">Envoyer un rapport à InterTune</string>
+    <string name="new_report_send_body">Signaler un problème peut maintenant envoyer le rapport à InterTune, sans compte GitHub. Ou le partager en fichier pour le poster sur Discord.</string>
+    <string name="new_backup_parts_title">Les sauvegardes laissent vos connexions de côté</string>
+    <string name="new_backup_parts_body">Sauvegarder demande maintenant ce que contient le fichier. Vos connexions YouTube Music et Last.fm n\'y vont que si vous les cochez.</string>
+    <string name="new_backup_parts_way">Les sauvegardes se font et se restaurent ici.</string>
+    <string name="new_backup_parts_here">Touchez Sauvegarder pour choisir ce que contient le fichier. Vos connexions n\'y vont que si vous les cochez.</string>
+    <string name="new_lyrics_save_title">Enregistrer les cartes et vidéos de paroles</string>
+    <string name="new_lyrics_save_body">Appuyez longuement sur une ligne des paroles : une carte ou une vidéo peut maintenant être enregistrée sur le téléphone, pas seulement partagée.</string>
+    <string name="library_song_empty_liked" translatable="false">Les titres que vous aimez s\'afficheront ici</string>
+    <string name="library_song_empty_downloaded" translatable="false">Les titres téléchargés s\'afficheront ici</string>
+    <string name="not_saved_storage_full" translatable="false">Non enregistré : stockage du téléphone plein. Libérez de la place.</string>
+    <string name="not_saved" translatable="false">Non enregistré : un problème est survenu. Réessayez.</string>
+    <string name="remove_download_selection_confirm" translatable="false">Supprimer les téléchargements des titres choisis ?</string>
 </resources>

@@ -15,9 +15,10 @@ import org.junit.Test
 class SettingsTwoPaneTest {
 
     @Test
-    fun `the list has the four groups of the upright cards, fifteen screens in all`() {
-        val groups = settingsGroups(engine = true, battery = true)
-        assertEquals(listOf(3, 4, 4, 4), groups.map { it.size })
+    fun `the list has the four groups of the upright cards, sixteen screens in all`() {
+        // Widgets (Unreleased.WIDGETS_PAGE, 4 Nov 2026) is the second group's fifth, under Look and feel.
+        val groups = settingsGroups(engine = true, battery = true, widgets = true)
+        assertEquals(listOf(3, 5, 4, 4), groups.map { it.size })
         assertEquals("settings/account_sync", groups.first().first().route)
         assertEquals("settings/about", groups.last().last().route)
     }
@@ -35,6 +36,14 @@ class SettingsTwoPaneTest {
         val without = settingsGroups(engine = true, battery = false).flatten().map { it.route }
         assertEquals("settings/battery", with[with.indexOf("settings/storage") + 1])
         assertEquals(with - "settings/battery", without)
+    }
+
+    @Test
+    fun `without the Widgets page its screen is not offered, and nothing else goes`() {
+        val with = settingsGroups(engine = true, widgets = true).flatten().map { it.route }
+        val without = settingsGroups(engine = true, widgets = false).flatten().map { it.route }
+        assertEquals("settings/widgets", with[with.indexOf("settings/appearance") + 1])
+        assertEquals(with - "settings/widgets", without)
     }
 
     @Test

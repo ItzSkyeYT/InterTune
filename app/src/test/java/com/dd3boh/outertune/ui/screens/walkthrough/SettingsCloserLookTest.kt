@@ -72,7 +72,8 @@ class SettingsCloserLookTest {
             else assertTrue("$route has no stop and is not listed as left out", !why.isNullOrBlank())
         }
         assertTrue("left out, and not a category: ${CLOSER_LOOK_LEFT_OUT.keys - SETTINGS_CATEGORIES.toSet()}", SETTINGS_CATEGORIES.containsAll(CLOSER_LOOK_LEFT_OUT.keys))
-        assertTrue("a tour of the settings with most of them left out", toured.size >= SETTINGS_CATEGORIES.size - 3)
+        // Four left out of sixteen since Widgets (4 Nov 2026): its cards are the widgets on the home screen, none a setting of the app.
+        assertTrue("a tour of the settings with most of them left out", toured.size >= SETTINGS_CATEGORIES.size - 4)
     }
 
     @Test

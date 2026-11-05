@@ -96,4 +96,44 @@ class QueueRowsTest {
         assertEquals(2, Regex("""scrolledFor != showing""").findAll(queue).count())
         assertEquals(2, Regex("""scrolledFor = showing""").findAll(queue).count())
     }
+
+    // His note of 30 Oct 2026: "When locking and unlocking phone while intertune is foreground,
+    // queue flashes future results". The far end of a radio changes while the phone is locked, and
+    // the first frame back put the new fold over the songs the sheet held from before the lock.
+
+    private val e = song("e", 0.55)
+
+    @Test
+    fun `the frame the player's list changes in shows the player's songs, not the ones kept from before`() {
+        val kept = QueueRows.of(listOf(a, b, c, d))
+        val player = QueueRows.of(listOf(a, b, c, e))
+        assertEquals(player, QueueRows.onShow(kept, player, caughtUp = false, preview = false))
+    }
+
+    @Test
+    fun `once filled from the player's list the sheet shows its own copy, a drag or a swipe ahead of the player`() {
+        val player = QueueRows.of(listOf(a, b, c, d))
+        val dragged = QueueRows.of(listOf(a, c, b, d))
+        assertEquals(dragged, QueueRows.onShow(dragged, player, caughtUp = true, preview = false))
+        val swiped = QueueRows.of(listOf(a, c, d))
+        assertEquals(swiped, QueueRows.onShow(swiped, player, caughtUp = true, preview = false))
+    }
+
+    @Test
+    fun `a preview of a queue the player does not hold is the sheet's own`() {
+        val preview = QueueRows.of(listOf(a, b))
+        assertEquals(preview, QueueRows.onShow(preview, emptyList(), caughtUp = false, preview = true))
+    }
+
+    @Test
+    fun `the fold is laid over the songs the list shows, and the list says which of the player's lists it holds`() {
+        val queue = code("src/main/java/com/dd3boh/outertune/ui/player/Queue.kt")
+        assertTrue("val songs = QueueRows.onShow(mutableSongs, playerSongs, caughtUp = songsFrom === queueWindows" in queue)
+        assertTrue("songs.take(" in queue)
+        assertTrue("val hiddenTailCount = if (isSearching) 0 else songs.size - visibleSongs.size" in queue)
+        assertFalse("the fold over the sheet's own copy is the flash", "mutableSongs.take(" in queue)
+        // Filled and marked in one go, in the effect that fills the list from the player's.
+        val effect = queue.substringAfter("val shown = playerSongs").substringBefore("val showing = \"playing \"")
+        assertTrue(effect, "songsFrom = queueWindows" in effect)
+    }
 }

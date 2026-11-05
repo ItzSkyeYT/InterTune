@@ -67,6 +67,8 @@ import com.dd3boh.outertune.constants.LyricTrimKey
 import com.dd3boh.outertune.constants.MultilineLrcKey
 import com.dd3boh.outertune.db.entities.LyricsEntity
 import com.dd3boh.outertune.extensions.isInternetConnected
+import com.dd3boh.outertune.db.entities.LyricsEntity.Companion.uninitializedLyric
+import com.dd3boh.outertune.lyrics.LyricsHelper
 import com.dd3boh.outertune.lyrics.LyricsShare
 import com.dd3boh.outertune.lyrics.lyricsPreview
 import com.dd3boh.outertune.lyrics.readKeptLyrics
@@ -84,6 +86,7 @@ import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.utils.shareSheet
 import com.dd3boh.outertune.viewmodels.LyricsMenuViewModel
 import org.akanework.gramophone.logic.utils.SemanticLyrics
+import com.dd3boh.outertune.utils.Toaster
 
 
 @Composable
@@ -187,7 +190,9 @@ fun LyricsMenu(
         )
     }
 
-    if (showSearchDialog) {
+    // Out of sight while its results are up, so they do not sit on top of its fields (his screen,
+    // 1 Nov 2026); back from the results brings it back as it was typed, to search again.
+    if (showSearchDialog && !showSearchResultDialog) {
         DefaultDialog(
             scrollable = true,
             onDismiss = { showSearchDialog = false },
@@ -240,7 +245,9 @@ fun LyricsMenu(
                 value = titleField,
                 onValueChange = onTitleFieldChange,
                 singleLine = true,
-                label = { Text(stringResource(R.string.song_title)) }
+                label = { Text(stringResource(R.string.song_title)) },
+                // Both fields as wide as the dialog: a long title widened its own field only.
+                modifier = Modifier.fillMaxWidth()
             )
 
             Spacer(Modifier.height(12.dp))
@@ -249,7 +256,8 @@ fun LyricsMenu(
                 value = artistField,
                 onValueChange = onArtistFieldChange,
                 singleLine = true,
-                label = { Text(stringResource(R.string.song_artists)) }
+                label = { Text(stringResource(R.string.song_artists)) },
+                modifier = Modifier.fillMaxWidth()
             )
         }
     }
@@ -476,9 +484,22 @@ fun LyricsMenu(
             // move made for the old lines played the new ones late. The same lyrics keep it.
             val before = dbLyric?.lyrics?.let { readKeptLyrics(it, lyricTrim, multilineLrc) }
             onDismiss()
-            viewModel.refetchLyrics(song) { fresh ->
-                onRefreshRequest(fresh)
-                if (fresh != null && fresh != before) onOtherLyrics(song.id)
+            viewModel.refetchLyrics(song) { result ->
+                when (result) {
+                    is LyricsHelper.Refetched.Found -> {
+                        onRefreshRequest(result.lyrics)
+                        if (result.lyrics != before) onOtherLyrics(song.id)
+                    }
+                    // What is on screen stays as it is, and the toast says why nothing changed.
+                    // The view was handed nothing here, which it draws as the loading placeholder,
+                    // and that stayed until the song changed.
+                    LyricsHelper.Refetched.NoneFound -> Toaster.show(
+                        context,
+                        if (before != null && before != uninitializedLyric) R.string.lyrics_refetch_none else R.string.lyrics_not_found,
+                        Toast.LENGTH_SHORT,
+                    )
+                    LyricsHelper.Refetched.Failed -> Toaster.show(context, R.string.lyrics_refetch_failed, Toast.LENGTH_LONG)
+                }
             }
         }
         GridMenuItem(
@@ -515,7 +536,7 @@ fun LyricsMenu(
                 ?.setPrimaryClip(ClipData.newPlainText(song.title, LyricsShare.text(shown.orEmpty())))
             // Android 13 and later show their own confirmation for every copy.
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-                Toast.makeText(context, R.string.lyrics_copied, Toast.LENGTH_SHORT).show()
+                Toaster.show(context, R.string.lyrics_copied, Toast.LENGTH_SHORT)
             }
             onDismiss()
         }

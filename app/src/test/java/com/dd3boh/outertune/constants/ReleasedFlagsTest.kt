@@ -34,6 +34,7 @@ class ReleasedFlagsTest {
         "LIVING_BACKGROUND", "CASTING", "ADAPTIVE_PASS", "EQUALIZER",
         "PREVIOUS_LOGS",
         "SABR_RUNG", "SHARE_PAGE", "SABR_AHEAD", "PLAY_NEXT_STAYS", "SETTINGS_SEARCH", "BATTERY_MODES",
+        "REPORT_RELAY", "REPORT_FILE",
     )
 
     private val sources = File("src/main/java/com/dd3boh/outertune")

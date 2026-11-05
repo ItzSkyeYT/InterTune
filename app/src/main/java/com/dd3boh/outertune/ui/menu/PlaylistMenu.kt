@@ -67,6 +67,7 @@ import com.dd3boh.outertune.ui.dialog.AddToQueueDialog
 import com.dd3boh.outertune.ui.dialog.DefaultDialog
 import com.dd3boh.outertune.ui.dialog.TextFieldDialog
 import com.dd3boh.outertune.utils.M3u
+import com.dd3boh.outertune.utils.PlaylistCovers
 import com.dd3boh.outertune.utils.getDownloadState
 import com.dd3boh.outertune.utils.lmScannerCoroutine
 import com.dd3boh.outertune.utils.reportException
@@ -76,6 +77,7 @@ import com.dd3boh.outertune.utils.syncCoroutine
 import com.zionhuang.innertube.YouTube
 import com.zionhuang.innertube.models.WatchEndpoint
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.io.IOException
 
@@ -116,6 +118,16 @@ fun PlaylistMenu(
     LaunchedEffect(Unit) {
         database.playlistSongs(playlist.id).collect {
             songs = it.map(PlaylistSong::song)
+        }
+    }
+
+    // The songs, read at the tap when the menu has not had them yet: Play or Shuffle tapped while
+    // the database was slow to answer (a sync writing) played an empty list (UI scan, 5 Nov 2026).
+    // On the screen's scope, which outlives the menu.
+    fun withSongs(block: (List<Song>) -> Unit) {
+        if (songs.isNotEmpty()) block(songs)
+        else coroutineScope.launch {
+            block(runCatching { database.playlistSongs(playlist.id).first().map(PlaylistSong::song) }.getOrDefault(emptyList()))
         }
     }
 
@@ -189,15 +201,17 @@ fun PlaylistMenu(
             title = R.string.play
         ) {
             onDismiss()
-            playerConnection.playQueue(
-                ListQueue(
-                    title = playlist.playlist.name,
-                    items = songs.map { it.toMediaMetadata() },
-                    playlistId = playlist.playlist.browseId,
-                    mixPlaylistId = playlist.id.takeIf { Unreleased.AUTOMIX_EDITOR },
-                ),
-                origin = PlayOrigin.PLAYLIST,
-            )
+            withSongs { list ->
+                playerConnection.playQueue(
+                    ListQueue(
+                        title = playlist.playlist.name,
+                        items = list.map { it.toMediaMetadata() },
+                        playlistId = playlist.playlist.browseId,
+                        mixPlaylistId = playlist.id.takeIf { Unreleased.AUTOMIX_EDITOR },
+                    ),
+                    origin = PlayOrigin.PLAYLIST,
+                )
+            }
         }
 
         GridMenuItem(
@@ -205,16 +219,18 @@ fun PlaylistMenu(
             title = R.string.shuffle
         ) {
             onDismiss()
-            playerConnection.playQueue(
-                ListQueue(
-                    title = playlist.playlist.name,
-                    items = songs.map { it.toMediaMetadata() },
-                    startShuffled = true,
-                    playlistId = playlist.playlist.browseId,
-                    mixPlaylistId = playlist.id.takeIf { Unreleased.AUTOMIX_EDITOR },
-                ),
-                origin = PlayOrigin.PLAYLIST,
-            )
+            withSongs { list ->
+                playerConnection.playQueue(
+                    ListQueue(
+                        title = playlist.playlist.name,
+                        items = list.map { it.toMediaMetadata() },
+                        startShuffled = true,
+                        playlistId = playlist.playlist.browseId,
+                        mixPlaylistId = playlist.id.takeIf { Unreleased.AUTOMIX_EDITOR },
+                    ),
+                    origin = PlayOrigin.PLAYLIST,
+                )
+            }
         }
 
         if (isNetworkConnected) {
@@ -242,8 +258,10 @@ fun PlaylistMenu(
             icon = Icons.AutoMirrored.Rounded.PlaylistPlay,
             title = R.string.play_next
         ) {
-            coroutineScope.launch {
-                playerConnection.enqueueNext(songs.map { it.toMediaItem() })
+            withSongs { list ->
+                coroutineScope.launch {
+                    playerConnection.enqueueNext(list.map { it.toMediaItem() })
+                }
             }
             onDismiss()
         }
@@ -409,8 +427,11 @@ fun PlaylistMenu(
                     onClick = {
                         showDeletePlaylistDialog = false
                         onDismiss()
+                        val files = context.filesDir
                         database.query {
                             delete(playlist.playlist)
+                            // The photo kept for its cover goes with it (PlaylistCovers).
+                            PlaylistCovers.forget(files, playlist.playlist.id)
                         }
 
                         // Signed out or in "Read only" this removes the copy here and nothing

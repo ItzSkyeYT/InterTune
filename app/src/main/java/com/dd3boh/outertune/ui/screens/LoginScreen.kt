@@ -74,6 +74,7 @@ import com.dd3boh.outertune.constants.LoginPickerDeclinedKey
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.VisitorDataKey
 import com.dd3boh.outertune.ui.component.FloatingTopBar
+import com.dd3boh.outertune.utils.WhyStopped
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.utils.reportException
@@ -341,7 +342,13 @@ fun LoginScreen(
                                 fun onRetrieveDataSyncId(newDataSyncId: String?) {
                                     if (newDataSyncId == null) return
                                     post {
-                                        if (isYouTubeMusicPage(this@apply.url)) {
+                                        // Only from a page that is signed in. YouTube Music gives a
+                                        // visitor an id too, and kept, it was named on every radio
+                                        // start with no sign-in behind it, which YouTube refused
+                                        // with a 401 (Val, 4 Nov 2026).
+                                        val page = this@apply.url
+                                        val cookie = runCatching { CookieManager.getInstance().getCookie(page) }.getOrNull()
+                                        if (isYouTubeMusicPage(page) && WhyStopped.signedIn(cookie)) {
                                             keep { it[DataSyncIdKey] = newDataSyncId.substringBefore("||") }
                                         }
                                     }

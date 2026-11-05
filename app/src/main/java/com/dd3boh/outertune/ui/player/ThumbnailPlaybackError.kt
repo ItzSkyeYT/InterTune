@@ -22,10 +22,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -60,6 +63,7 @@ import com.dd3boh.outertune.utils.YTPlayerUtils
 import com.dd3boh.outertune.utils.installedFrom
 import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
+import com.dd3boh.outertune.utils.Toaster
 
 @SuppressLint("UnusedBoxWithConstraintsScope")
 @Composable
@@ -144,6 +148,22 @@ fun ThumbnailPlaybackError(
                 style = MaterialTheme.typography.bodyMedium
             )
         }
+        // The retry this screen is handed was never drawn: the play button was the only way to try
+        // again, and nothing said so.
+        TextButton(onClick = retry) {
+            Icon(
+                imageVector = Icons.Rounded.Refresh,
+                contentDescription = null,
+                tint = textColor,
+                modifier = Modifier.size(18.dp),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = stringResource(R.string.retry),
+                color = textColor,
+                style = MaterialTheme.typography.labelLarge,
+            )
+        }
         // Copying used to be a hidden tap on the stack trace itself, which meant nobody found it
         // and bug reports arrived as photographs of a screen. It is a button now, and it says when
         // it has worked.
@@ -170,7 +190,7 @@ fun ThumbnailPlaybackError(
             clipboardManager.nativeClipboard.setPrimaryClip(
                 ClipData.newPlainText("InterTune player error", AnnotatedString(report))
             )
-            Toast.makeText(context, R.string.copied, Toast.LENGTH_SHORT).show()
+            Toaster.show(context, R.string.copied, Toast.LENGTH_SHORT)
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

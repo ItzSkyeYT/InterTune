@@ -30,7 +30,7 @@ while also allowing users to translate our app as well. New, specific strings to
 <!-- Queue -->
     <string name="queues_title">Queues</string>
     <string name="create_queue">New queue</string>
-    <string name="song_added_to_queue">\"%s\" inserted into queue</string>
+    <string name="song_added_to_queue">\"%s\" plays next</string>
     <string name="song_added_to_queue_end">\"%s\" added to the end of queue</string>
     <string name="queues_empty">No queues</string>
     <string name="queue_default_name">Queue</string>
@@ -191,7 +191,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="playback_auth_when_refused">Only when a song is refused</string>
     <string name="playback_auth_always">Always</string>
     <string name="err_age_restricted">YouTube will not play this one without an account old enough to see it. Other songs are unaffected.</string>
-    <string name="err_song_unavailable">YouTube no longer has this song, or does not serve it where you are. Other songs are unaffected.</string>
+    <string name="err_song_unavailable">YouTube no longer has this song, or not where you are.</string>
+    <string name="gone_song_skipped">Skipped a song not available on YouTube: “%1$s”</string>
     <string name="err_copy_details">Copy error details</string>
 
 <!-- Sort menu -->
@@ -205,13 +206,17 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="bits_per_sample">Bits per sample</string>
     <string name="create_sync_playlist">Sync Playlist</string>
     <string name="create_sync_playlist_description">Note: This allows for syncing with YouTube Music. This is NOT changeable later. You cannot add local songs to synced playlists.</string>
-    <string name="create_sync_playlist_failed">Could not create the playlist on YouTube Music. Nothing was created; try again when you are online.</string>
+    <string name="create_sync_playlist_failed">Could not create the playlist on YouTube Music. Try again online.</string>
     <string name="disc_number">Disc number</string>
     <string name="extra_details">Extra details</string>
     <string name="file_path">File path</string>
     <string name="track_number">Track number</string>
     <string name="play_count">Play count</string>
     <string name="playlist_add_local_to_synced_note">Adding files from this phone to a playlist synced with YouTube Music is not supported.</string>
+    <plurals name="playlist_add_skipped">
+        <item quantity="one">%1$d song could not be added to the playlist.</item>
+        <item quantity="other">%1$d songs could not be added to the playlist.</item>
+    </plurals>
     <string name="playlist_missing_note">Playlists missing? Click here to enable sync read-write mode in settings</string>
     <string name="toggle_lyrics">Toggle lyrics</string>
 
@@ -237,7 +242,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="grp_lyrics_parser">Parser</string>
     <string name="grp_lyrics_source">Lyric sources</string>
     <string name="grp_manual_scanner">Manual scanner</string>
-    <string name="proxy_examples">Format is host:port, for example 127.0.0.1:8118. Tor through Orbot gives 127.0.0.1:8118 for HTTP or 127.0.0.1:9050 for SOCKS. Avoid public proxy lists: whoever runs one sees everything you fetch.</string>
+    <string name="proxy_examples">Format is host:port, for example 127.0.0.1:8118. Tor through Orbot gives 127.0.0.1:8118 for HTTP or 127.0.0.1:9050 for SOCKS, but YouTube often holds back search results and mixes over Tor. Avoid public proxy lists: whoever runs one sees everything you fetch.</string>
     <string name="grp_sync">Sync</string>
 
 <!-- About settings -->
@@ -425,7 +430,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="update_awaiting_confirmation">Ready. Android will ask you to confirm the install.</string>
     <string name="update_needs_permission">Android needs your permission for InterTune to install apps. Tap to open that setting, then come back and try again.</string>
     <string name="update_install_failed">Could not install: %1$s. You can still download it yourself from the release page.</string>
-    <string name="update_blocked_samsung">The install did not go through. Samsung\'s Auto Blocker probably stopped it: turn it off for a moment, install, then turn it back on if you like.</string>
+    <string name="update_blocked_samsung">The install did not go through: Samsung\'s Auto Blocker probably stopped it. Turn it off, then come back here and the install starts again by itself. You can turn Auto Blocker back on right after.</string>
+    <string name="auto_blocker_note">Updated. If you turned Auto Blocker off for this, you can turn it back on now.</string>
     <string name="update_blocked">The install did not go through. Try again, or download the update from the release page.</string>
     <string name="update_open_auto_blocker">Open Auto Blocker</string>
     <string name="update_try_again">Try again</string>
@@ -468,8 +474,8 @@ while also allowing users to translate our app as well. New, specific strings to
 
 <!--Lyrics settings -->
     <string name="lyrics_font_Size">Font size</string>
-    <string name="lyrics_karaoke_title">Karaoke style lyrics.</string>
-    <string name="lyrics_karaoke_description">Enables word by word lyric syncing. Requires lyrics format support.</string>
+    <string name="lyrics_karaoke_title">Karaoke style lyrics</string>
+    <string name="lyrics_karaoke_description">Each word lights up as it is sung. Only for lyrics that come with word timings.</string>
     <string name="lyrics_karaoke_hz_title">Adjust karaoke lyrics update speed</string>
     <string name="lyrics_multiline_title">Read multiline lyrics</string>
     <string name="lyrics_multiline_description">Treat all the lines between sync points as one lyric text</string>
@@ -769,7 +775,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="song_cache_max_size">Maximum song cache size</string>
     <string name="image_cache_max_size">Maximum artwork cache size</string>
     <string name="max_queues_description">How many queues the app keeps at once. The oldest is dropped when you go past this.</string>
-    <string name="enable_proxy_description">Send YouTube Music requests and streams through another server first. Pictures, lyrics and the other services the app uses still connect directly. Leave this off unless you know you need it.</string>
+    <string name="enable_proxy_description">Send everything the app fetches through another server first, pictures and lyrics included. Speakers and TVs on your network are still reached directly. Leave this off unless you know you need it.</string>
     <string name="show_liked_and_downloaded_playlist_description">Show Liked songs and Downloaded songs as playlists in your library.</string>
 
     <!-- Descriptions for rows whose titles alone did not say what they do -->
@@ -887,7 +893,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="welcome_back_done">Done</string>
     <string name="welcome_back_entry">What is new</string>
     <string name="welcome_back_not_here">That is not on screen in this setup, so there is nothing to point at.</string>
-    <string name="welcome_back_no_widget_host">This home screen does not take widgets from apps. Add it from the home screen\'s own widget list.</string>
+    <string name="welcome_back_no_widget_host">This home screen can\'t take app widgets. Use its own widget list.</string>
     <!-- The card at the top of Home that the page waits behind. %1$d is how many things are new,
          %2$s the version somebody came from, as in 0.11. -->
     <plurals name="welcome_card_since">
@@ -1336,10 +1342,10 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="exclusion_reason_gone">No longer on YouTube</string>
     <string name="error_youtube_not_answering">YouTube is not answering right now. The song was tried several ways.</string>
     <string name="error_cached_part_stale">The saved part of this song no longer matches what YouTube serves. Press play to load it again.</string>
-    <string name="error_connection_turned_away">YouTube is turning this connection away, so every song looks unavailable. A VPN, or a school or work network, can do this.</string>
+    <string name="error_connection_turned_away">YouTube refuses this connection. Try without a VPN or on other Wi-Fi.</string>
     <string name="menu_not_this_song">Not this song</string>
     <string name="menu_less_of_artist">Less of this artist</string>
-    <string name="menu_never_artist">Never this artist</string>
+    <string name="menu_never_artist">Never this artist (recommendations)</string>
     <string name="why_these">Why these?</string>
     <string name="why_these_seeds">Built around</string>
     <string name="why_these_not_this_one">Not this one</string>
@@ -1653,6 +1659,11 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="widget_style_shelf">Shelf</string>
     <!-- Over the next songs of the queue, on a widget as wide as a tablet's. -->
     <string name="widget_up_next">Up next</string>
+    <!-- A Shelf's three looks (1 Nov 2026). -->
+    <string name="widget_config_look">Look</string>
+    <string name="widget_look_big_cover">Big cover</string>
+    <string name="widget_look_crate">Crate</string>
+    <string name="widget_look_records">Records</string>
 
 <!-- Recommendations: the little "i" beside an item, and what it opens -->
     <string name="tidy_home_rows_info">No Home row shows a song an earlier row already has, and versions of one song (live, remastered, video) count as the same. Nothing fills a gap, so a row can come up short. Off, your exclusions only filter the \"Best recommendations\" row.</string>
@@ -1959,6 +1970,11 @@ while also allowing users to translate our app as well. New, specific strings to
     <!-- Links you share from 0.12.5: the line under the question the first share asks (%1$s is the Settings screen, Library and content), and the row's value before anything is picked. -->
     <string name="share_link_choice_kept">Your pick is kept for later shares. You can change it any time in Settings, under %1$s.</string>
     <string name="share_link_not_chosen">Not chosen yet</string>
+    <!-- Open links in InterTune (OpenLinks): %1$s is the build's own name, InterTune, InterTune Preview or InterTune Debug. -->
+    <string name="open_links_title">Open links in %1$s</string>
+    <string name="open_links_description">YouTube Music and intertune.app links open in this app. Turn it off to let another app, like InterTune Preview, open them.</string>
+    <string name="open_links_android_off">Android\'s own link setting is off for this app, so no link opens here.</string>
+    <string name="open_links_android_settings">Android\'s link settings</string>
     <string name="favourites_strict" translatable="false">Favourites only</string>
     <string name="favourites_strict_on" translatable="false">Turn off to let similar artists join in.</string>
     <string name="favourites_strict_off" translatable="false">Similar artists join in, one song in four at most.</string>
@@ -1996,6 +2012,23 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="problem_report_copy">Copy</string>
     <string name="problem_report_copied">Copied</string>
     <string name="problem_report_close">Close</string>
+    <!-- Send to InterTune (Unreleased.REPORT_RELAY): for translators only after his yes on the words (kept off visionos-fix until then). -->
+    <string name="problem_report_send">Send to InterTune</string>
+    <string name="problem_report_what">What happened? (optional)</string>
+    <string name="problem_report_contact">How to reach you (optional)</string>
+    <string name="problem_report_contact_hint">Discord name or email</string>
+    <string name="problem_report_contact_note">Only the InterTune team sees this.</string>
+    <string name="problem_report_sent">Sent as #%1$d</string>
+    <string name="problem_report_sent_body">Anyone can follow it on GitHub, no account needed.</string>
+    <string name="problem_report_open_issue">Open #%1$d</string>
+    <string name="problem_report_copy_link">Copy link</string>
+    <string name="problem_report_held">Sent. It goes on GitHub once someone has looked at it.</string>
+    <string name="problem_report_send_failed">Couldn\'t send it. Try again, or copy it and post it in #bug-reports.</string>
+    <!-- The two ways a report goes, picked at the top of Report a problem and the crash page; the pick is kept. For translators only after his yes. -->
+    <string name="report_way_anonymous">Anonymous</string>
+    <string name="report_way_github">GitHub account</string>
+    <string name="report_way_anonymous_note">No account needed. You get a link to follow it.</string>
+    <string name="report_way_github_note">Opens the form on GitHub, where you sign in and get the replies.</string>
     <string name="problem_report_now">Now</string>
     <string name="problem_report_went_wrong">%1$s · went wrong at %2$s</string>
     <string name="problem_report_no_fault">%1$s · no fault noted</string>
@@ -2003,6 +2036,9 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="problem_report_none_then">Nothing that looks like a fault was noted that time. These are its last lines.</string>
     <string name="problem_report_nothing_then">Nothing was written that time.</string>
     <string name="problem_report_older">Show older</string>
+    <!-- Unreleased.REPORT_PLUS: held from translators until his yes (translatable="false"), the French beside it in values-fr. -->
+    <string name="problem_report_extras" translatable="false">The report also has the settings that matter here and the steps taken just before. The steps name no song, search or person.</string>
+    <string name="problem_report_extras_settings" translatable="false">The report also has the settings that matter here, as they are now.</string>
     <!-- Casting, behind Unreleased.CASTING -->
     <string name="cast">Cast</string>
     <string name="cast_to">Cast to</string>
@@ -2056,6 +2092,22 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="hide_explicit_description">Songs and albums marked explicit stay out of Home, search, artist pages and what a radio adds.</string>
     <string name="hide_video_songs">Hide music videos</string>
     <string name="hide_video_songs_description">Only album and single tracks are offered, not music videos or uploads. A song you pick still plays.</string>
+    <!-- The AI filter (Unreleased.AI_FILTER, AiFilterFrag in Library and content, the artist menus, over
+         search results): held back from translators until the words are agreed. French beside them in values-fr. -->
+    <string name="ai_filter" translatable="false">AI music</string>
+    <string name="ai_filter_off" translatable="false">Off</string>
+    <string name="ai_filter_recommendations" translatable="false">Hide from recommendations</string>
+    <string name="ai_filter_everywhere" translatable="false">Block everywhere</string>
+    <string name="ai_filter_note" translatable="false">Uses a hand-made list of AI artists: CevvalKoala\'s YouTube blocklist and a few known AI acts. It can be wrong, so long-press an artist to mark it AI or not.</string>
+    <string name="ai_filter_explain" translatable="false">\"Hide from recommendations\" keeps AI songs out of Home, \"Quick picks\", radios and autoplay. \"Block everywhere\" also hides them in search and skips any that reach the queue. Songs in your library and playlists you made are never touched.</string>
+    <string name="ai_filter_mark_ai" translatable="false">Mark as AI</string>
+    <string name="ai_filter_not_ai" translatable="false">Not AI</string>
+    <plurals name="ai_filter_hidden" translatable="false">
+        <item quantity="one">%1$d AI result hidden</item>
+        <item quantity="other">%1$d AI results hidden</item>
+    </plurals>
+    <string name="ai_filter_show" translatable="false">Show</string>
+    <string name="ai_filter_skipped" translatable="false">Skipped an AI song</string>
 
     <!-- The recognition widget in the launcher's picker (recognition_widget_info). -->
     <string name="recognition_widget_description">One button that names the song playing around you.</string>
@@ -2104,6 +2156,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="lyrics_video_making">Making the video…</string>
     <string name="lyrics_video_failed">The video could not be made</string>
     <string name="lyrics_video_size">The video is %1$s</string>
+    <!-- Held back from translators until the next push of texts. %1$s is where the lyrics card or video went: Movies/InterTune, Pictures/InterTune, or the file's name where the system asked. -->
+    <string name="lyrics_saved" translatable="false">Saved: %1$s</string>
     <plurals name="lyrics_picked_video">
         <item quantity="one">%1$d line, %2$s</item>
         <item quantity="other">%1$d lines, %2$s</item>
@@ -2111,6 +2165,11 @@ while also allowing users to translate our app as well. New, specific strings to
     <plurals name="lyrics_pick_most_video">
         <item quantity="one">A picture takes %1$d line, a video a minute of the song</item>
         <item quantity="other">A picture takes up to %1$d lines, a video a minute of the song</item>
+    </plurals>
+    <!-- Held back from translators until the next push of texts, which also drops lyrics_pick_most_video above (a video takes ten minutes now). %1$d is the most lines a picture takes, %2$d the most minutes of the song a video takes. -->
+    <plurals name="lyrics_pick_most_video_minutes" translatable="false">
+        <item quantity="one">A picture takes %1$d line, a video %2$d minutes of the song</item>
+        <item quantity="other">A picture takes up to %1$d lines, a video %2$d minutes of the song</item>
     </plurals>
     <string name="queue_from_search">“%1$s”</string>
     <string name="support_title">Support InterTune</string>
@@ -2185,6 +2244,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="search_words_ytm_sync">YouTube Music, playlists, likes, library</string>
     <string name="search_words_sync_now">sync now, refresh</string>
     <string name="search_words_share_links">share, link, song link</string>
+    <string name="search_words_open_links">supported links, open by default, default app, YouTube, YouTube Music, Preview</string>
     <string name="search_words_explicit">explicit, parental, children, swear words</string>
     <string name="search_words_language">language, locale</string>
     <string name="search_words_country">country, region</string>
@@ -2278,4 +2338,194 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="player_pins_under_controls">Under the controls</string>
     <string name="player_pin_lyrics">Lyrics</string>
     <string name="player_pins_reset">Reset to default</string>
+    <!-- Saved twice (issue #47, Unreleased.SAVED_TWICE): held back from translators until his yes on the words, their French beside them in values-fr. The place in each is the list the screen was opened from. -->
+    <string name="saved_twice" translatable="false">Saved twice</string>
+    <!-- For a screen reader: the round button beside Play and Shuffle, and the number on it. -->
+    <plurals name="saved_twice_button" translatable="false">
+        <item quantity="one">%1$d song saved twice</item>
+        <item quantity="other">%1$d songs saved twice</item>
+    </plurals>
+    <plurals name="saved_twice_intro_liked" translatable="false">
+        <item quantity="one">%1$d song is in Liked more than once. Pick the one to keep.</item>
+        <item quantity="other">%1$d songs are in Liked more than once. Pick the one to keep.</item>
+    </plurals>
+    <plurals name="saved_twice_intro_library" translatable="false">
+        <item quantity="one">%1$d song is in your library more than once. Pick the one to keep.</item>
+        <item quantity="other">%1$d songs are in your library more than once. Pick the one to keep.</item>
+    </plurals>
+    <!-- %2$s is the playlist's name. -->
+    <plurals name="saved_twice_intro_playlist" translatable="false">
+        <item quantity="one">%1$d song is in %2$s more than once. Pick the one to keep.</item>
+        <item quantity="other">%1$d songs are in %2$s more than once. Pick the one to keep.</item>
+    </plurals>
+    <!-- Under the copy that stays. -->
+    <string name="saved_twice_keep" translatable="false">Keep</string>
+    <!-- Under each copy that goes. %1$s is the playlist's name. -->
+    <string name="saved_twice_out_liked" translatable="false">Take out of Liked</string>
+    <string name="saved_twice_out_library" translatable="false">Take out of your library</string>
+    <string name="saved_twice_out_playlist" translatable="false">Take out of %1$s</string>
+    <!-- The button at the bottom. %2$s is the playlist's name. -->
+    <plurals name="saved_twice_take_liked" translatable="false">
+        <item quantity="one">Take %1$d copy out of Liked</item>
+        <item quantity="other">Take %1$d copies out of Liked</item>
+    </plurals>
+    <plurals name="saved_twice_take_library" translatable="false">
+        <item quantity="one">Take %1$d copy out of your library</item>
+        <item quantity="other">Take %1$d copies out of your library</item>
+    </plurals>
+    <plurals name="saved_twice_take_playlist" translatable="false">
+        <item quantity="one">Take %1$d copy out of %2$s</item>
+        <item quantity="other">Take %1$d copies out of %2$s</item>
+    </plurals>
+    <string name="saved_twice_note" translatable="false">Nothing is deleted from your phone, and Undo brings them back.</string>
+    <!-- Said once the button is tapped, with Undo beside it. %2$s is the playlist's name. -->
+    <plurals name="saved_twice_done_liked" translatable="false">
+        <item quantity="one">%1$d copy taken out of Liked</item>
+        <item quantity="other">%1$d copies taken out of Liked</item>
+    </plurals>
+    <plurals name="saved_twice_done_library" translatable="false">
+        <item quantity="one">%1$d copy taken out of your library</item>
+        <item quantity="other">%1$d copies taken out of your library</item>
+    </plurals>
+    <plurals name="saved_twice_done_playlist" translatable="false">
+        <item quantity="one">%1$d copy taken out of %2$s</item>
+        <item quantity="other">%1$d copies taken out of %2$s</item>
+    </plurals>
+    <!-- What a copy is, first on its line: "Song · Riot! · 3:31", "Music video · 3:42", a file on the phone. -->
+    <string name="saved_twice_song" translatable="false">Song</string>
+    <string name="saved_twice_music_video" translatable="false">Music video</string>
+    <string name="saved_twice_file" translatable="false">File</string>
+    <!-- An album that is the song's single: "Houdini (single)". -->
+    <string name="saved_twice_single" translatable="false">%1$s (single)</string>
+    <string name="saved_twice_none" translatable="false">Nothing in here is saved twice.</string>
+    <!-- #68: where YouTube Music has no free plan (South Korea), on Home, above search results and on an album that did not load. -->
+    <string name="region_note_title">YouTube Music in South Korea</string>
+    <string name="region_note_body">YouTube Music has no free plan in South Korea, so YouTube shows songs, albums and mixes there only to Premium members. Songs in your playlists still play, and search still finds videos. A Premium account, or a VPN or proxy outside Korea, brings the rest back.</string>
+    <string name="region_note_proxy">Proxy settings</string>
+    <string name="proxy_restart_title">Restart to apply the proxy setting</string>
+    <string name="proxy_restart_description">InterTune takes the proxy when it starts. Tap to restart it now; the music stops.</string>
+    <!-- Why search, radios, mixes or Home stopped loading (WhyStopped): on Home, on a search, album or playlist page that failed, and under a radio that did not start. Held from translators until his yes. -->
+    <string name="why_stopped_sign_in_title" translatable="false">Your YouTube sign-in expired</string>
+    <string name="why_stopped_sign_in_body" translatable="false">YouTube no longer accepts the sign-in InterTune keeps, so search, radios and mixes don\'t load. Sign in again to bring them back.</string>
+    <string name="why_stopped_sign_in_again" translatable="false">Sign in again</string>
+    <string name="why_stopped_unreachable_title" translatable="false">YouTube can\'t be reached</string>
+    <string name="why_stopped_unreachable_body" translatable="false">This connection isn\'t getting through to YouTube. If you use a VPN, make sure its split tunnelling includes InterTune, or try another network.</string>
+    <!-- Under a radio's songs in the queue when YouTube gave the radio nothing and InterTune picked them itself (LocalRadio, Unreleased.RADIO_FALLBACK). Held from translators until his yes. -->
+    <string name="radio_from_intertune_title" translatable="false">Picked by InterTune</string>
+    <string name="radio_from_intertune_body" translatable="false">YouTube sent no radio</string>
+    <string name="album_not_loaded_title" translatable="false">This album did not load</string>
+    <string name="album_not_loaded_body" translatable="false">YouTube did not send it, so only the songs InterTune already had are shown.</string>
+    <string name="lyrics_refetch_failed" translatable="false">Lyrics could not be fetched. Check the connection.</string>
+    <string name="lyrics_refetch_none" translatable="false">No other lyrics were found, so these stay.</string>
+    <string name="play_search_failed" translatable="false">The search did not work, so nothing was played.</string>
+    <string name="proxy_address_format" translatable="false">Type the address as host:port, for example 127.0.0.1:8118.</string>
+    <string name="proxy_address_missing" translatable="false">No proxy is used until an address is set here.</string>
+    <string name="proxy_not_used_at_start" translatable="false">No proxy is in use: its address could not be read.</string>
+    <string name="sync_progress_busy" translatable="false">A sync is already running. Its changes show up when it ends.</string>
+    <!-- What's playing with no connection (issue #48, RecogniseLater, Unreleased.RECOGNISE_OFFLINE): a listen kept to be named once the phone is back online. Held back from translators until the words are agreed, the French beside them in values-fr. -->
+    <string name="recognise_later_kept" translatable="false">No connection. It kept what it heard and will name the song once you are back online.</string>
+    <string name="recognise_later_keeping" translatable="false">No connection. Keeping what it hears for later</string>
+    <string name="recognise_later_waiting" translatable="false">Waiting for a connection</string>
+    <string name="recognise_later_channel" translatable="false">Songs heard offline</string>
+    <plurals name="recognise_later_named" translatable="false">
+        <item quantity="one">Found the song you heard offline</item>
+        <item quantity="other">Found %1$d songs you heard offline</item>
+    </plurals>
+    <string name="recognise_later_none" translatable="false">Nothing found for what you heard offline</string>
+    <!-- Liked songs kept in sync with their downloads (issue #64, Unreleased.LIKED_SYNC): held from translators until he says. -->
+    <string name="liked_download_sync" translatable="false">Remove the download with the like</string>
+    <string name="liked_download_sync_description" translatable="false">Only songs this setting downloaded. A song you downloaded yourself stays.</string>
+    <!-- Playlist cover (PlaylistCovers, PlaylistCoverSheet, Unreleased.PLAYLIST_COVER): the choice in Edit playlist and in the sheet that opens from it and from the cover in a playlist's header. Held from translators until the words are agreed, their French beside them in values-fr. -->
+    <string name="playlist_cover_change" translatable="false">Change cover</string>
+    <string name="playlist_cover_title" translatable="false">Playlist cover</string>
+    <string name="playlist_cover_note" translatable="false">The cover above changes as you pick.</string>
+    <string name="playlist_cover_automatic" translatable="false">Automatic</string>
+    <string name="playlist_cover_automatic_note" translatable="false">The first song\'s cover</string>
+    <string name="playlist_cover_photo" translatable="false">A photo</string>
+    <string name="playlist_cover_photo_note" translatable="false">From your phone</string>
+    <string name="playlist_cover_songs" translatable="false">A song from this playlist</string>
+    <!-- Block artist (ArtistBlock, Unreleased.ARTIST_BLOCK): the last item of the song menus, the first button of an artist page's pill, Settings > Library and content > Blocked artists, and the line a search for a blocked artist shows. Held from translators until the words are agreed, their French beside them in values-fr. %1$s is the artist's name. -->
+    <string name="menu_block_artist" translatable="false">Block artist</string>
+    <string name="block_artist_which" translatable="false">Block which artist?</string>
+    <string name="block_artist_title" translatable="false">Block %1$s?</string>
+    <string name="block_artist_body" translatable="false">Their songs, albums and face disappear from InterTune: search, Home, radios, your library and playlists. Their songs are skipped. Unblock any time in Settings &gt; Library and content &gt; Blocked artists.</string>
+    <string name="block_artist_confirm" translatable="false">Block</string>
+    <string name="unblock" translatable="false">Unblock</string>
+    <string name="blocked_artists" translatable="false">Blocked artists</string>
+    <string name="blocked_artists_none" translatable="false">None</string>
+    <string name="blocked_artists_intro" translatable="false">Blocked artists are gone from search, Home, radios, your library and playlists, and their songs are skipped.</string>
+    <string name="blocked_artists_add" translatable="false">Add an artist</string>
+    <string name="blocked_artists_not_found" translatable="false">No artist found.</string>
+    <string name="blocked_today" translatable="false">Blocked today</string>
+    <string name="blocked_on" translatable="false">Blocked %1$s</string>
+    <string name="unblocked" translatable="false">%1$s unblocked</string>
+    <string name="blocked_search_note" translatable="false">%1$s is blocked, so nothing of theirs shows.</string>
+    <string name="blocked_song_skipped" translatable="false">%1$s is blocked, so their song was skipped.</string>
+    <string name="blocked_songs_left" translatable="false">The songs left are all by blocked artists, so the music stopped.</string>
+    <!-- The settings search's words for Blocked artists: open to translators, as every search word is (SettingsSearchTest). -->
+    <string name="search_words_blocked_artists">ban, hide, mute, blocklist</string>
+    <!-- The crash page when the update check has already found a newer version (CrashReportDialog, the dead-ends audit 1.10): held from translators until his go. -->
+    <string name="crash_newer_title" translatable="false">InterTune %1$s is out</string>
+    <string name="crash_newer_body" translatable="false">It may already fix this crash. Update first, then report it if it comes back.</string>
+    <string name="crash_newer_update" translatable="false">Update</string>
+    <!-- Share as a file under a report (ReportFile, Unreleased.REPORT_FILE): held from translators until his go. -->
+    <string name="problem_report_share_file" translatable="false">Share as a file</string>
+    <!-- Downloads saved as song files (SongFiles, Unreleased.DOWNLOAD_FILES), after the folder's warning: held from translators until his go. -->
+    <string name="dl_song_files_note" translatable="false">Songs are saved as Opus or M4A files with their title, artist and cover, so other apps and cars can play them.</string>
+    <!-- What's new in 0.12.8 (Walkthrough.kt, V0_12_8): held from translators until his go. -->
+    <string name="new_report_send_title" translatable="false">Send a report to InterTune</string>
+    <string name="new_report_send_body" translatable="false">Report a problem can now send the report to InterTune itself, no GitHub account needed. Or share it as a file to post on Discord.</string>
+    <string name="new_backup_parts_title" translatable="false">Backups leave your sign-ins out</string>
+    <string name="new_backup_parts_body" translatable="false">Backup now asks what goes in the file. Your YouTube Music and Last.fm sign-ins only go in if you tick them.</string>
+    <string name="new_backup_parts_way" translatable="false">Backups are made and restored in here.</string>
+    <string name="new_backup_parts_here" translatable="false">Tap Backup to pick what goes in the file. Your sign-ins only go in if you tick them.</string>
+    <string name="new_lyrics_save_title" translatable="false">Save lyrics cards and videos</string>
+    <string name="new_lyrics_save_body" translatable="false">Long-press a line of the lyrics: a card or a video can now be saved on the phone, not only shared.</string>
+    <!-- What's new in 0.12.7, listed from 0.12.8 (his pick of 2 Nov 2026): held from translators until his go. -->
+    <string name="new_shelf_looks_title" translatable="false">The Shelf in three looks</string>
+    <string name="new_shelf_looks_body" translatable="false">Big cover, Crate or Records, picked under Look in the widget\'s settings.</string>
+    <string name="new_lyrics_video_long_title" translatable="false">Lyrics videos up to ten minutes</string>
+    <string name="new_lyrics_video_long_body" translatable="false">Long-press a line of the lyrics to share a video of up to ten minutes of the song. With Living blur on, its background moves with the music.</string>
+    <string name="new_share_cards_title" translatable="false">Shared songs show their cover</string>
+    <string name="new_share_cards_body" translatable="false">A song shared as InterTune\'s page shows its name and cover in chat apps.</string>
+    <!-- The backup sheet (BackupParts): what goes in a backup file, the sign-ins off by default (his yes, 4 Nov 2026): held from translators until his go. -->
+    <string name="backup_parts_title" translatable="false">What goes in the backup</string>
+    <string name="backup_parts_note" translatable="false">Restore it on any phone with InterTune.</string>
+    <string name="backup_part_library" translatable="false">Library</string>
+    <string name="backup_part_library_note" translatable="false">Songs, playlists, history and stats</string>
+    <string name="backup_part_settings" translatable="false">Settings</string>
+    <string name="backup_part_settings_note" translatable="false">How the app looks and plays</string>
+    <string name="backup_part_photos" translatable="false">Playlist photos</string>
+    <string name="backup_part_photos_note" translatable="false">Covers you picked from your phone</string>
+    <string name="backup_part_signins" translatable="false">Your sign-ins</string>
+    <string name="backup_part_signins_note" translatable="false">YouTube Music and Last.fm</string>
+    <string name="backup_part_signins_warning" translatable="false">Anyone with this file could use these accounts.</string>
+    <string name="backup_parts_confirm" translatable="false">Back up</string>
+    <!-- The Animations switch, first row of Look and feel (Animations, his yes of 4 Nov 2026): held from translators until his go, their French beside them in values-fr. -->
+    <string name="animations_title" translatable="false">Animations</string>
+    <string name="animations_description" translatable="false">When off, screens change at once and backgrounds stand still. Easier on older phones.</string>
+    <string name="animations_held_note" translatable="false">Off while animations are off in Android\'s settings.</string>
+    <string name="living_blur_still_switch" translatable="false">Stands still while \"Animations\" is off, at the top of this page.</string>
+    <!-- The settings search's words for Animations: open to translators, as every search word is (SettingsSearchTest). -->
+    <string name="search_words_animations">motion, transitions, effects, slow phone, lag</string>
+    <!-- Settings > Widgets (WidgetsSettings, Unreleased.WIDGETS_PAGE): its row in Settings, its parts, All options' lines for each style, Add, and the note where the home screen takes no widget from an app. Held from translators until his go, their French beside them in values-fr. widgets_cells is a widget's size in cells, figures and a sign: nothing to translate. -->
+    <string name="widgets" translatable="false">Widgets</string>
+    <string name="settings_widgets_description" translatable="false">Add widgets to your home screen, and change how each one looks.</string>
+    <string name="widgets_on_home_screen" translatable="false">On your home screen</string>
+    <string name="widgets_add_title" translatable="false">Add a widget</string>
+    <string name="widgets_add" translatable="false">Add</string>
+    <string name="widgets_all_options" translatable="false">All options</string>
+    <string name="widgets_all_options_cover" translatable="false">Opacity, text size, what it shows</string>
+    <string name="widgets_all_options_full_cover" translatable="false">Text size, what it shows</string>
+    <string name="widgets_all_options_shelf" translatable="false">Background, buttons, rows</string>
+    <string name="widgets_add_from_home" translatable="false">This home screen does not take widgets from apps. Add them from its own widget list.</string>
+    <string name="widgets_cells" translatable="false">%1$d × %2$d</string>
+    <!-- The Songs tab with nothing in it, by the list picked above (Liked, Downloaded): held from translators until the next push, French beside them in values-fr. Library keeps library_song_empty. -->
+    <string name="library_song_empty_liked" translatable="false">Songs you like will show up here</string>
+    <string name="library_song_empty_downloaded" translatable="false">Downloaded songs will show up here</string>
+    <!-- A write the phone refused, in a toast (NotSaved): a setting, a sort, an add to a playlist. Held for translators. -->
+    <string name="not_saved_storage_full" translatable="false">Not saved: the phone\'s storage is full. Free some space and try again.</string>
+    <string name="not_saved" translatable="false">Not saved: something went wrong. Please try again.</string>
+    <!-- The question before the downloads of the songs picked in a selection are removed. Held for translators. -->
+    <string name="remove_download_selection_confirm" translatable="false">Remove the downloads of the songs you picked?</string>
 </resources>

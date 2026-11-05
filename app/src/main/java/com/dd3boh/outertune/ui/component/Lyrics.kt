@@ -112,6 +112,7 @@ import com.dd3boh.outertune.constants.LyricClickable
 import com.dd3boh.outertune.constants.LyricAutoScrollKey
 import com.dd3boh.outertune.constants.LyricFontSizeKey
 import com.dd3boh.outertune.constants.LyricKaraokeEnable
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.LyricLatinKey
 import com.dd3boh.outertune.constants.LyricUpdateSpeed
 import com.dd3boh.outertune.constants.LyricsPosition
@@ -157,6 +158,7 @@ import com.dd3boh.outertune.lyrics.LyricsClock
 import com.dd3boh.outertune.lyrics.LyricsMoments
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.withTimeoutOrNull
+import com.dd3boh.outertune.utils.Toaster
 
 @SuppressLint("UnusedBoxWithConstraintsScope")
 @Composable
@@ -242,12 +244,24 @@ fun Lyrics(
     var cardVideo by keep::cardVideo
     var cardSong by keep::cardSong
     val mostLines = pluralStringResource(R.plurals.lyrics_pick_most, LyricsShare.MOST_LINES, LyricsShare.MOST_LINES)
-    val mostForVideo = pluralStringResource(R.plurals.lyrics_pick_most_video, LyricsShare.MOST_LINES, LyricsShare.MOST_LINES)
+    val mostForVideo = pluralStringResource(
+        R.plurals.lyrics_pick_most_video_minutes, LyricsShare.MOST_LINES, LyricsShare.MOST_LINES, (LyricsVideoPlan.LONGEST_MS / 60_000).toInt(),
+    )
 
-    /** The lines with their times in the song, as the timing bar moved them, for a video of them; none for lyrics that are not synced. */
-    fun timedLines(): List<LyricsVideoPlan.Timed>? = if (!isSynced) null else lines.map {
+    /**
+     * The lines with their times in the song, as the timing bar moved them, for a video of them; none
+     * for lyrics that are not synced. With word by word on, their words too, which the video then
+     * lights one by one as this view does (Unreleased.LYRICS_VIDEO_WORDS).
+     */
+    fun timedLines(): List<LyricsVideoPlan.Timed>? = if (!isSynced) null else lines.map { line ->
         LyricsVideoPlan.Timed(
-            it.text, LyricsTiming.songPosition(it.start.toLong(), shiftNow), LyricsTiming.songPosition(it.end.toLong(), shiftNow), it.isTranslated,
+            line.text, LyricsTiming.songPosition(line.start.toLong(), shiftNow), LyricsTiming.songPosition(line.end.toLong(), shiftNow), line.isTranslated,
+            words = if (!Unreleased.LYRICS_VIDEO_WORDS || !lyricsFancy) emptyList() else line.words.orEmpty().map { word ->
+                LyricsVideoPlan.Word(
+                    word.charRange.first, word.charRange.last + 1,
+                    LyricsTiming.songPosition(word.timeRange.first.toLong(), shiftNow), LyricsTiming.songPosition(word.timeRange.last.toLong(), shiftNow),
+                )
+            },
         )
     }
 
@@ -276,7 +290,7 @@ fun Lyrics(
                 picked.addAll(result.lines)
             }
 
-            LyricsShare.Pick.Full -> Toast.makeText(context, if (isSynced) mostForVideo else mostLines, Toast.LENGTH_SHORT).show()
+            LyricsShare.Pick.Full -> Toaster.show(context, if (isSynced) mostForVideo else mostLines, Toast.LENGTH_SHORT)
 
             LyricsShare.Pick.Empty -> Unit
         }
@@ -425,7 +439,11 @@ fun Lyrics(
     // frame (LyricsClock.wait), so that the line changes on the frame it is sung on. A pause, a
     // seek or a change of speed wakes it at once.
     val lifecycleOwner = LocalLifecycleOwner.current
-    LaunchedEffect(lyricsModel, lifecycleOwner) {
+    // Started again with each player connection: the app makes a new one every time it comes back
+    // to the front and stops the old one listening. Kept on the old one, a song paused when the app
+    // went away left this waiting for an old "playing" that never came, and the lines stood still
+    // while the song played on, until the lyrics were closed and opened again.
+    LaunchedEffect(lyricsModel, lifecycleOwner, playerConnection) {
         if (lyricsModel == null || !isSynced || (lyricsModel as SemanticLyrics.SyncedLyrics).text.isEmpty()) {
             currentLineIndex = -1
             return@LaunchedEffect
@@ -626,7 +644,13 @@ fun Lyrics(
                 .add(WindowInsets(top = maxHeight / 2, bottom = maxHeight / 2))
                 .asPaddingValues(),
             modifier = Modifier
-                .fadingEdge(vertical = lyricsFadeLength(maxHeight, smallWindow))
+                // The lines scroll up under the status bar: clear there, and fading in under it,
+                // where a line used to stand half lit behind the clock (seen on the Pixel 5, 5 Nov 2026).
+                .fadingEdge(
+                    top = lyricsFadeLength(maxHeight, smallWindow),
+                    bottom = lyricsFadeLength(maxHeight, smallWindow),
+                    topClear = WindowInsets.systemBars.only(WindowInsetsSides.Top).asPaddingValues().calculateTopPadding(),
+                )
                 // Only watched, on the way in, and left for the lines and the list to act on.
                 .pointerInput(Unit) {
                     awaitEachGesture {
@@ -805,8 +829,9 @@ fun Lyrics(
                             }
 
                             // Lit as the frames are drawn, at where the song is at each one: the line
-                            // asks for every frame while it is being sung and the music plays.
-                            LaunchedEffect(Unit) {
+                            // asks for every frame while it is being sung and the music plays. Started
+                            // again with each player connection, as the lines' own clock above is.
+                            LaunchedEffect(playerConnection) {
                                 lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                                     while (isActive) {
                                         if (!playerConnection.isPlaying.value) playerConnection.isPlaying.first { it }

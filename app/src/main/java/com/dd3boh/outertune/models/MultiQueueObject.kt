@@ -85,16 +85,17 @@ data class MultiQueueObject(
     }
 
     /**
-     * Retrieve a song given a song ID. Returns null if no song is found
+     * Retrieve a song given a song ID. Returns null if no song is found.
+     *
+     * Read only, and null rather than a throw: it is called off the main thread (the player's
+     * loader at every open, the song cache, the cast server) while the main thread may be removing
+     * a song. Through getCurrentSong it used to repair the queue's place in passing, which in that
+     * moment switched the shuffle off and moved the queue to its start, and a list shrinking under
+     * the read threw, which failed that song's load.
      */
-    fun findSong(mediaId: String): MediaMetadata? {
-        val currentSong = getCurrentSong()
-        if (currentSong?.id == mediaId) {
-            return currentSong
-        }
-
-        return queue.fastFirstOrNull { it.id == mediaId }
-    }
+    fun findSong(mediaId: String): MediaMetadata? = runCatching {
+        queue.getOrNull(queuePos)?.takeIf { it.id == mediaId } ?: queue.fastFirstOrNull { it.id == mediaId }
+    }.getOrNull()
 
     /**
      * Returns the index of current queue position considering shuffle state

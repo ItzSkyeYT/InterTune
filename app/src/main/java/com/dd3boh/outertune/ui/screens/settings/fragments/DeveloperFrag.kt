@@ -77,6 +77,7 @@ import com.dd3boh.outertune.constants.WebClientFirstKey
 import com.dd3boh.outertune.constants.SabrOnlyKey
 import com.dd3boh.outertune.constants.EveryDirectRefusedKey
 import com.dd3boh.outertune.playback.HistoryAddressCheck
+import com.dd3boh.outertune.playback.RadioAnswers
 import com.dd3boh.outertune.ui.component.ListPreference
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
@@ -91,6 +92,8 @@ import com.dd3boh.outertune.utils.scanners.LocalMediaScanner
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
+import com.dd3boh.outertune.utils.Toaster
 
 /**
  * Which of VISIONOS's identities are taken for refused, to hear the clients behind them take over:
@@ -198,6 +201,22 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
                     fault = it
                 },
             )
+            if (Unreleased.RADIO_FALLBACK) {
+                // Radios refused on purpose, to see each step a refused radio takes (RadioLadder,
+                // LocalRadio) without a network YouTube distrusts. In memory only, as the row above.
+                var radioTest by remember { mutableStateOf(RadioAnswers.test) }
+                ListPreference(
+                    title = { Text("DEBUG: Refuse radios") },
+                    icon = { Icon(Icons.Rounded.Science, null) },
+                    selectedValue = radioTest,
+                    values = RadioAnswers.Test.entries,
+                    valueText = { it.words },
+                    onValueSelected = {
+                        RadioAnswers.setTest(it)
+                        radioTest = it
+                    },
+                )
+            }
         }
         if (VisionosTest.offered(testBuild = BuildConfig.DEBUG, identities = Unreleased.VISIONOS_IDENTITIES, fallback = Unreleased.WEB_FALLBACK)) {
             // One row over the two keys. As two switches, "this app's VISIONOS" and "VISIONOS",
@@ -272,17 +291,19 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
             title = { Text("DEBUG: Force local to remote artist migration NOW") },
             icon = { Icon(Icons.Rounded.Backup, null) },
             onClick = {
-                Toast.makeText(context, context.getString(R.string.scanner_ytm_link_start), Toast.LENGTH_SHORT)
-                    .show()
+                Toaster.show(context, context.getString(R.string.scanner_ytm_link_start), Toast.LENGTH_SHORT)
                 coroutineScope.launch(lmScannerCoroutine) {
                     val scanner = LocalMediaScanner.getScanner(context, ScannerImpl.TAGLIB, SCANNER_OWNER_LM)
                     Log.i(SETTINGS_TAG, "Force Migrating local artists to YTM (MANUAL TRIGGERED)")
                     scanner.localToRemoteArtist(database)
-                    Toast.makeText(
-                        context,
-                        context.getString(R.string.scanner_ytm_link_success),
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    // Back on the main thread: a toast made on the scanner's worker thread closes the app (#74).
+                    withContext(Dispatchers.Main) {
+                        Toaster.show(
+                            context,
+                            context.getString(R.string.scanner_ytm_link_success),
+                            Toast.LENGTH_SHORT
+                        )
+                    }
                 }
             }
         )
@@ -608,7 +629,7 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
                 title = { Text("DEBUG: Nuke local lib") },
                 icon = { Icon(Icons.Rounded.ErrorOutline, null) },
                 onClick = {
-                    Toast.makeText(context, "Nuking local files from database...", Toast.LENGTH_SHORT).show()
+                    Toaster.show(context, "Nuking local files from database...", Toast.LENGTH_SHORT)
                     coroutineScope.launch(Dispatchers.IO) {
                         Log.i(SETTINGS_TAG, "Nuke database status:  ${database.nukeLocalData()}")
                     }
@@ -618,7 +639,7 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
                 title = { Text("DEBUG: Nuke local artists") },
                 icon = { Icon(Icons.Rounded.WarningAmber, null) },
                 onClick = {
-                    Toast.makeText(context, "Nuking local artists from database...", Toast.LENGTH_SHORT).show()
+                    Toaster.show(context, "Nuking local artists from database...", Toast.LENGTH_SHORT)
                     coroutineScope.launch(Dispatchers.IO) {
                         Log.i(SETTINGS_TAG, "Nuke database status:  ${database.nukeLocalArtists()}")
                     }
@@ -628,8 +649,7 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
                 title = { Text("DEBUG: Nuke dangling format entities") },
                 icon = { Icon(Icons.Rounded.WarningAmber, null) },
                 onClick = {
-                    Toast.makeText(context, "Nuking dangling format entities from database...", Toast.LENGTH_SHORT)
-                        .show()
+                    Toaster.show(context, "Nuking dangling format entities from database...", Toast.LENGTH_SHORT)
                     coroutineScope.launch(Dispatchers.IO) {
                         Log.i(SETTINGS_TAG, "Nuke database status:  ${database.nukeDanglingFormatEntities()}")
                     }
@@ -639,7 +659,7 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
                 title = { Text("DEBUG: Nuke local db lyrics") },
                 icon = { Icon(Icons.Rounded.WarningAmber, null) },
                 onClick = {
-                    Toast.makeText(context, "Nuking local lyrics from database...", Toast.LENGTH_SHORT).show()
+                    Toaster.show(context, "Nuking local lyrics from database...", Toast.LENGTH_SHORT)
                     coroutineScope.launch(Dispatchers.IO) {
                         Log.i(SETTINGS_TAG, "Nuke database status:  ${database.nukeLocalLyrics()}")
                     }
@@ -649,7 +669,7 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
                 title = { Text("DEBUG: Nuke dangling db lyrics") },
                 icon = { Icon(Icons.Rounded.WarningAmber, null) },
                 onClick = {
-                    Toast.makeText(context, "Nuking dangling lyrics from database...", Toast.LENGTH_SHORT).show()
+                    Toaster.show(context, "Nuking dangling lyrics from database...", Toast.LENGTH_SHORT)
                     coroutineScope.launch(Dispatchers.IO) {
                         Log.i(SETTINGS_TAG, "Nuke database status:  ${database.nukeDanglingLyrics()}")
                     }
@@ -659,7 +679,7 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
                 title = { Text("DEBUG: Nuke remote playlists") },
                 icon = { Icon(Icons.Rounded.WarningAmber, null) },
                 onClick = {
-                    Toast.makeText(context, "Nuking remote playlists from database...", Toast.LENGTH_SHORT).show()
+                    Toaster.show(context, "Nuking remote playlists from database...", Toast.LENGTH_SHORT)
                     coroutineScope.launch(Dispatchers.IO) {
                         Log.i(SETTINGS_TAG, "Nuke database status:  ${database.nukeRemotePlaylists()}")
                     }

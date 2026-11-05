@@ -1,0 +1,60 @@
+name: Tester report
+description: Something broke in an InterTune Tester build
+title: "[Tester] "
+labels: ["bug", "tester"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For testers of InterTune Tester builds. **Report a problem** on the app's Testers page
+        (Settings > Testers) opens this form with the build, your tester number, the device and the
+        log already in.
+
+  - type: input
+    id: build
+    attributes:
+      label: Test build
+      description: The version at the top of Settings > Testers.
+      placeholder: "0.12.6-preview.20261101.1200 (98)"
+    validations:
+      required: true
+
+  - type: input
+    id: tester
+    attributes:
+      label: Tester number
+      description: Filled in when you report from the Testers page. Your number, never your code.
+      placeholder: "3"
+
+  - type: input
+    id: device
+    attributes:
+      label: Device and Android version
+      placeholder: "Pixel 7a, Android 16"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: tried
+    attributes:
+      label: Was it one of this build's "What to try first"?
+      options:
+        - "Yes"
+        - "No, something else"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you saw, and what you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log
+      description: Filled in when you report from the app. Leave it as it is.
+      render: text

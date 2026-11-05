@@ -232,7 +232,11 @@ object Throttle {
 /** Records what a /player answer implies about the network and returns it untouched. */
 fun Result<PlayerResponse>.noteThrottle(): Result<PlayerResponse> = also { r ->
     r.fold(
-        onSuccess = { Throttle.note(it.playabilityStatus.status, it.playabilityStatus.reason) },
+        onSuccess = {
+            Throttle.note(it.playabilityStatus.status, it.playabilityStatus.reason)
+            // Whatever it said, YouTube answered: a note that it cannot be reached is over.
+            YouTubeTrouble.answered(asAccount = false)
+        },
         onFailure = { Throttle.noteFailure(it) }
     )
 }

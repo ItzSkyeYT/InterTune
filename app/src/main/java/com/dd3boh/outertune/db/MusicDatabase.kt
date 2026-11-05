@@ -64,9 +64,18 @@ class MusicDatabase(
     /** Runs [block] inside one transaction on the calling thread, for a background job that must see its own writes before going on. */
     fun <T> transactionNow(block: MusicDatabase.() -> T): T = delegate.runInTransaction(java.util.concurrent.Callable { block() })
 
+    /**
+     * Queues [block] on Room's executor and returns at once. A block that throws there is logged
+     * and dropped: an exception on Room's own threads has nowhere to go and ends the app, and a
+     * phone with full storage fails every write (SQLiteFullException).
+     */
     fun query(block: MusicDatabase.() -> Unit) = with(delegate) {
         queryExecutor.execute {
-            block(this@MusicDatabase)
+            try {
+                block(this@MusicDatabase)
+            } catch (e: Exception) {
+                Log.e("MusicDatabase", "A database job failed and was dropped", e)
+            }
         }
     }
 
@@ -83,10 +92,21 @@ class MusicDatabase(
      */
     fun <T : Any> readOrNull(block: MusicDatabase.() -> T?): T? = boundedRead.orNull { block(this) }
 
+    /**
+     * Queues [block] as one transaction on Room's executor and returns at once, before it has run.
+     * A caller whose next step needs what it writes uses [transactionNow]: Add to playlist went on
+     * to a write of its own while the insert of its song still waited in this queue (#62). A block
+     * that throws is rolled back and logged, as in [query].
+     */
     fun transaction(block: MusicDatabase.() -> Unit) = with(delegate) {
         transactionExecutor.execute {
-            runInTransaction {
-                block(this@MusicDatabase)
+            // Outside runInTransaction, so a block that throws still rolls the transaction back.
+            try {
+                runInTransaction {
+                    block(this@MusicDatabase)
+                }
+            } catch (e: Exception) {
+                Log.e("MusicDatabase", "A database transaction failed and was rolled back", e)
             }
         }
     }

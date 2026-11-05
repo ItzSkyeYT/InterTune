@@ -59,9 +59,11 @@ import com.dd3boh.outertune.ui.component.PreferenceEntry
  */
 @Composable
 internal fun rememberSettingsSearch(): SettingsSearchIndex {
-    // In the app's language, which the resources follow when it changes.
+    // In the app's language, which the resources follow when it changes, and under this build's name.
     val resources = LocalResources.current
-    return remember(resources) { SettingsSearchIndex.of(text = { resources.getString(it) }) }
+    return remember(resources) {
+        SettingsSearchIndex.of(text = { resources.getString(it) }, appName = resources.getString(R.string.app_name))
+    }
 }
 
 /** The key a result is known by while it is the one picked: its screen and its title. */

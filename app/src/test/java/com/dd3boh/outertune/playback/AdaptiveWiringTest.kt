@@ -147,8 +147,10 @@ class AdaptiveWiringTest {
 
     @Test
     fun `songs put in, moved or swiped by hand are noted`() {
-        assertTrue("noteByHand(q, items)" in body(service, "fun enqueueNext("))
-        assertTrue("queueBoard.getCurrentQueue()?.let { noteByHand(it, items) }" in body(service, "fun enqueueEnd("))
+        assertTrue("noteByHand(q, items.map { it.mediaId })" in body(service, "fun enqueueNext("))
+        // Add to queue, from the swipe and from a menu with a radio picked (AddToQueueTest).
+        assertTrue("queueBoard.getCurrentQueue()?.let { addToQueue(it, " in body(service, "fun enqueueEnd("))
+        assertTrue("noteByHand(q, songs.map { it.id })" in body(service, "fun addToQueue("))
         val sheet = code("ui/player/Queue.kt")
         assertEquals("both swipes", 2, Regex("""playerConnection\.service\.noteRemovedByHand\(it\)""").findAll(sheet).count())
         assertTrue("playerConnection.service.noteMovedByHand(it)" in sheet)

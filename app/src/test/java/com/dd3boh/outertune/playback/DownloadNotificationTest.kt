@@ -73,8 +73,14 @@ class DownloadNotificationTest {
     @Test
     fun `the notification is built once a second at most, never for every byte`() {
         // DownloadService(notification id, update interval in ms, ...): media3 builds it again at
-        // that interval while songs download, and at each change of state.
-        val interval = Regex("""DownloadService\(\s*NOTIFICATION_ID,\s*(\d+)L""").find(service)?.groupValues?.get(1)?.toLong()
+        // that interval while songs download, and at each change of state. From Android 12 the
+        // service does the same itself, at the same interval (ExoDownloadForegroundTest).
+        assertTrue(
+            "the interval is handed to media3 and used by the service's own ticks",
+            Regex("""DownloadService\(\s*FOREGROUND_ID,\s*UPDATE_INTERVAL_MS,""").containsMatchIn(service) &&
+                "postDelayed(" in service && "UPDATE_INTERVAL_MS)" in service,
+        )
+        val interval = Regex("""UPDATE_INTERVAL_MS\s*=\s*(\d+)L""").find(service)?.groupValues?.get(1)?.toLong()
         assertTrue("an interval of $interval ms", interval != null && interval >= 1000)
         // Nothing else posts it: the download path itself never touches a notification.
         val util = File("src/main/java/com/dd3boh/outertune/playback/DownloadUtil.kt").readText()

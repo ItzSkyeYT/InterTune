@@ -140,6 +140,11 @@ import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 import com.dd3boh.outertune.ui.utils.paneInsets
 import com.dd3boh.outertune.ui.utils.rememberHeaderBeside
+import com.dd3boh.outertune.savedtwice.SavedTwicePlace
+import com.dd3boh.outertune.savedtwice.likedCopies
+import com.dd3boh.outertune.ui.screens.SavedTwiceButton
+import com.dd3boh.outertune.ui.screens.rememberSavedTwiceCount
+import com.dd3boh.outertune.utils.Toaster
 
 enum class PlaylistType {
     LIKE, DOWNLOAD, FAVOURITES, OTHER
@@ -249,6 +254,11 @@ fun AutoPlaylistScreen(
     val thumbnail by viewModel.thumbnail.collectAsState()
     val mutableSongs = remember { mutableStateListOf<Song>() }
 
+    // Songs liked more than once, for the button beside Play and Shuffle (issue #47).
+    val savedTwice = if (Unreleased.SAVED_TWICE && playlistType == PlaylistType.LIKE) {
+        rememberSavedTwiceCount(songs) { likedCopies(songs) }
+    } else 0
+
     val snackbarHostState = LocalSnackbarHostState.current
     val lazyListState = rememberLazyListState()
 
@@ -307,7 +317,7 @@ fun AutoPlaylistScreen(
                         existed -> context.resources.getQuantityString(R.plurals.list_queued_other, n, n, queueName)
                         else -> context.resources.getQuantityString(R.plurals.list_queued_new, n, n, queueName)
                     }
-                    Toast.makeText(context, words, Toast.LENGTH_SHORT).show()
+                    Toaster.show(context, words, Toast.LENGTH_SHORT)
                 }
             },
             onDismiss = { showChooseQueueDialog = false }
@@ -542,7 +552,10 @@ fun AutoPlaylistScreen(
                     }
 
                     if (songs.isNotEmpty()) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
                             Button(
                                 onClick = {
                                     playerConnection.playQueue(
@@ -588,6 +601,10 @@ fun AutoPlaylistScreen(
                                 )
                                 Spacer(Modifier.size(ButtonDefaults.IconSpacing))
                                 Text(stringResource(R.string.shuffle))
+                            }
+
+                            if (savedTwice > 0) {
+                                SavedTwiceButton(savedTwice, onClick = { navController.navigate(SavedTwicePlace.Liked.route) })
                             }
                         }
                     }

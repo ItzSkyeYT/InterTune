@@ -7,10 +7,12 @@
 package com.dd3boh.outertune.playback
 
 import android.util.Log
+import com.dd3boh.outertune.models.AiFilter
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.MultiQueueObject
 import com.dd3boh.outertune.playback.queues.Queue
 import com.zionhuang.innertube.models.BrowseEndpoint
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -49,6 +51,11 @@ import kotlinx.coroutines.withContext
  * A radio that YouTube answers with nothing but the song it was started from goes on from the
  * songs related to that song ([filled]). It used to stop after it: the queue held that one song,
  * and a queue of one never asks for a next page.
+ *
+ * A radio YouTube gives nothing at all, however it is asked (RadioLadder), goes on from the app's
+ * own picks ([Target.localRadio], LocalRadio), and so does a radio of one with no related songs to
+ * fill it: the queue says so ([Target.pickedByInterTune]). The service gives none in a build without
+ * Unreleased.RADIO_FALLBACK, and a radio YouTube refused is then the song alone, as before.
  *
  * A song picked out of a list ([Queue.songPicked]: a row tapped in a playlist, an album, the
  * library) plays first, and the rest of the list follows the shuffle button as it was at the tap:
@@ -140,6 +147,18 @@ internal class QueueStart(private val service: Target) {
          * page fails; never throws.
          */
         suspend fun fetchRelated(seed: MediaMetadata, endpoint: BrowseEndpoint?): List<MediaMetadata>
+
+        /**
+         * The app's own radio from [seed] (LocalRadio), for when YouTube gave it nothing. Asks
+         * nothing of the network, and never throws; none in a build without the fallback.
+         */
+        suspend fun localRadio(seed: MediaMetadata): List<MediaMetadata> = emptyList()
+
+        /** What the queue of [seed]'s own radio is called. */
+        fun localRadioTitle(seed: MediaMetadata): String = seed.title
+
+        /** [queue] was loaded with the app's own picks after its first song: for the queue's line. */
+        fun pickedByInterTune(queue: MultiQueueObject) {}
     }
 
     /**
@@ -214,7 +233,12 @@ internal class QueueStart(private val service: Target) {
             // An answer that failed for something no longer wanted is not the listener's to hear
             // about: what they asked for after it reports for itself.
             if (number != lastStart) return false
-            throw e
+            if (e is CancellationException) throw e
+            // A radio YouTube gave nothing goes on from the app's own picks, when it has any; the
+            // failure is reported only when it has none, as it always was.
+            val own = if (isRadio && preloadItem != null) ownRadio(preloadItem) else null
+            if (service.destroyed || number != lastStart) return false
+            own ?: throw e
         }
         // The same after the network wait. Nothing below suspends but the filling of a radio of
         // one, which checks both again, and onDestroy runs on the same main thread, so it cannot
@@ -251,6 +275,8 @@ internal class QueueStart(private val service: Target) {
         Log.d(TAG, "playQueue: Queue initial status item count: ${initialStatus.items.size}")
         if (!initialStatus.items.isEmpty()) {
             val (items, start) = initialStatus.withPreload(preloadItem)
+            // The artists of the song this queue starts from count as chosen in it (AiFilter.forQueue).
+            items.getOrNull(start)?.let { song -> AiFilter.startedFrom(song.artists.map { it.id }) }
             // Taken before the board is asked for the list: a list of the playing queue's own
             // title refills that queue, and the songs put in with Play next went with its old
             // songs. A pick names no song early (a ListQueue), so nothing has changed the board
@@ -271,6 +297,7 @@ internal class QueueStart(private val service: Target) {
             // Into the queue before it is loaded, so the player gets them with the rest of it.
             if (full != null && waiting != null) service.keepPlayNext(full, waiting)
             service.setCurrQueue(full, shouldResume)
+            if (full != null && initialStatus.fromInterTune) service.pickedByInterTune(full)
             // After the load, so the song is never without a queue.
             if (spent) service.dropQueue(PRELOAD_TITLE)
         }
@@ -299,7 +326,24 @@ internal class QueueStart(private val service: Target) {
         // from any other page.
         val more = RadioPage.fresh(related, status.items + seed)
         Log.d(TAG, "playQueue: Radio answered with its own song alone, ${more.size} related songs after it")
-        return if (more.isEmpty()) status else status.copy(items = status.items + more, mediaItemIndex = 0)
+        if (more.isNotEmpty()) return status.copy(items = status.items + more, mediaItemIndex = 0)
+        // Nothing related either: the app's own picks, when it has any.
+        val own = RadioPage.fresh(service.localRadio(seed), status.items + seed)
+        if (!wanted()) return null
+        if (own.isEmpty()) return status
+        Log.d(TAG, "playQueue: Radio of one, ${own.size} of the app's own picks after it")
+        return status.copy(items = status.items + own, mediaItemIndex = 0, fromInterTune = true)
+    }
+
+    /**
+     * [seed]'s radio from the app's own picks, for a radio YouTube gave nothing: [seed] and then
+     * them, under [Target.localRadioTitle]. Null when there are none.
+     */
+    private suspend fun ownRadio(seed: MediaMetadata): Queue.Status? {
+        val own = RadioPage.fresh(service.localRadio(seed), listOf(seed))
+        Log.d(TAG, "playQueue: Radio failed, ${own.size} of the app's own picks")
+        if (own.isEmpty()) return null
+        return Queue.Status(service.localRadioTitle(seed), listOf(seed) + own, 0, fromInterTune = true)
     }
 
     companion object {
@@ -308,6 +352,15 @@ internal class QueueStart(private val service: Target) {
 
         /** What the queue of one is called until the queue's answer names it. */
         const val PRELOAD_TITLE = "Radio\u2060temp"
+
+        /**
+         * A queue's title as the queue sheet shows it. The queue of one keeps [PRELOAD_TITLE] for
+         * good when the answer failed, and the sheet said "Radiotemp" over the song left alone
+         * (Val's screen, Discord, 1 Nov 2026): it is shown as that song instead. [song] is asked
+         * only then.
+         */
+        fun shownTitle(title: String, song: () -> String?): String =
+            if (title == PRELOAD_TITLE) song() ?: title else title
 
         /**
          * Whether a player means to play. One the app paused because a song failed still does:

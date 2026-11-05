@@ -34,3 +34,20 @@ sealed interface ResolvedSong {
     /** A stream just resolved from YouTube. */
     data class NewStream(val data: YTPlayerUtils.PlaybackData) : ResolvedSong
 }
+
+/** The start of the cache key a download in a folder is read under: see [downloadedKey]. Nothing is cached under it. */
+const val FOLDER_FILE_KEY = "folderfile:"
+
+/**
+ * The cache key the player reads a download in a folder under: one of its own, so the song cache
+ * neither reads nor writes it, and the file is read from the folder alone.
+ *
+ * A song file (SongFileNames: the .opus or .m4a a download is saved as with Unreleased.DOWNLOAD_FILES)
+ * holds other bytes than the stream the song cache keeps under the song's id: under the id, a part of
+ * the stream cached earlier would be joined to the rest of the file, two containers in one song. A
+ * download saved as the stream itself (.mka) was read under the id, through the song cache, and so
+ * written into it at each play: a download kept twice (KeptOnce), and a part cached from another
+ * stream, at another quality, joined to it. In every build, so the files keep playing the same way
+ * after an update without the flag.
+ */
+fun downloadedKey(mediaId: String): String = FOLDER_FILE_KEY + mediaId

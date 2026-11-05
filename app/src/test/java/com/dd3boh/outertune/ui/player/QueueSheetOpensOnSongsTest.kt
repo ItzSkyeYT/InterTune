@@ -41,8 +41,8 @@ class QueueSheetOpensOnSongsTest {
     @Test
     fun `the preview of the queue playing folds its far end away like the live queue`() {
         assertTrue(queue.contains("val foldTail = adaptiveTailActive && !isSearching && (detachedQueue == null || previewOfPlaying)"))
-        assertTrue(queue.contains("if (!foldTail) mutableSongs"))
-        assertTrue(queue.contains("detachedQueue?.let { AdaptiveQueue.settledThrough(it.getQueuePosShuffled(), mutableSongs, { it.id }, reachedInQueue) }"))
+        assertTrue(queue.contains("if (!foldTail) songs"))
+        assertTrue(queue.contains("detachedQueue?.let { AdaptiveQueue.settledThrough(it.getQueuePosShuffled(), songs, { it.id }, reachedInQueue) }"))
     }
 
     @Test

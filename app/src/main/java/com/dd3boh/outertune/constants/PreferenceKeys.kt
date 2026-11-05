@@ -29,11 +29,15 @@ val LivingColoursKey = stringPreferencesKey("livingBlurColours")
 val PlayerLiquidGlassKey = booleanPreferencesKey("playerLiquidGlass")
 val DarkModeKey = stringPreferencesKey("darkMode")
 val PureBlackKey = booleanPreferencesKey("pureBlack")
+/** The Animations switch, on by default: off, nothing in the app animates (Animations). */
+val AnimationsKey = booleanPreferencesKey("animations")
 val BackAnimationsKey = booleanPreferencesKey("backAnimations")
 val ShowLikedAndDownloadedPlaylist = booleanPreferencesKey("showLikedAndDownloadedPlaylist")
 /** What Home, search, artist pages and radio leave out (ContentFilter). Both off by default. */
 val HideExplicitKey = booleanPreferencesKey("hideExplicit")
 val HideVideoSongsKey = booleanPreferencesKey("hideVideoSongs")
+/** The artists the listener blocked, as ArtistBlock.encode writes them (Unreleased.ARTIST_BLOCK). None by default. */
+val BlockedArtistsKey = stringPreferencesKey("blockedArtists")
 val SwipeToQueueKey = booleanPreferencesKey("swipeToQueue")
 val FlatSubfoldersKey = booleanPreferencesKey("flatSubfolders")
 val TabletUiKey = booleanPreferencesKey("tabletUi")
@@ -52,8 +56,14 @@ val YtmSyncContentKey = stringPreferencesKey("ytmSyncContent")
 val YtmSyncModeKey = stringPreferencesKey("ytmSyncMode")
 val YtmSyncConflictKey = stringPreferencesKey("ytmSyncConflict")
 val LikedAutoDownloadKey = stringPreferencesKey("likedAutoDownloadKey")
+/** Whether taking back a like removes the download that LikedAutoDownloadKey made for the song (issue #64): LikedDownloads. */
+val LikedDownloadSyncKey = booleanPreferencesKey("likedDownloadSync")
+/** The songs LikedAutoDownloadKey downloaded itself, by id, so that an unlike removes those and never one downloaded by hand. */
+val LikedAutoDownloadedKey = stringSetPreferencesKey("likedAutoDownloaded")
 val ContentLanguageKey = stringPreferencesKey("contentLanguage")
 val ContentCountryKey = stringPreferencesKey("contentCountry")
+/** The country the note about YouTube Music with no free plan was sent away for: YouTubeRegion. */
+val RegionNoteDoneKey = stringPreferencesKey("regionNoteDone")
 val ProxyEnabledKey = booleanPreferencesKey("proxyEnabled")
 val ProxyUrlKey = stringPreferencesKey("proxyUrl")
 val ProxyTypeKey = stringPreferencesKey("proxyType")
@@ -117,6 +127,13 @@ val AudioGaplessOffloadKey = booleanPreferencesKey("enableGaplessOffload")
 
 val MaxQueuesKey = intPreferencesKey("maxQueues")
 val PersistentQueueKey = booleanPreferencesKey("persistentQueue")
+
+/**
+ * The id of the queue playing, for the next start (QueueBoard.notePlaying). The list of queues keeps
+ * the order it is dragged into, so the last queue in it is not always the one playing. Missing, or
+ * naming a queue that is gone, the last queue is taken, as it always was.
+ */
+val PlayingQueueKey = longPreferencesKey("playingQueue")
 
 /**
  * Start playing the restored queue as soon as the app opens, rather than waiting to be told.
@@ -385,8 +402,11 @@ val ExcludedScanPathsKey = stringPreferencesKey("exclScanPaths") // previously "
 val LastLocalScanKey = longPreferencesKey("lastLocalScan")
 /** Whether the automatic scan has asked for the storage permission yet. It asks once; see scanInit. */
 val LocalMediaPermissionAskedKey = booleanPreferencesKey("localMediaPermissionAsked")
-/** Set once TrackTagReread has read the track tags of the local songs that had no number (issue #39). */
-val TrackTagsRereadKey = booleanPreferencesKey("trackTagsReread")
+/**
+ * Set once TrackTagReread has read the tags of the local songs that had no track or no disc number
+ * (issue #39). "trackTagsReread" was the pass of 0.12.5, which looked at the track numbers only.
+ */
+val TrackTagsRereadKey = booleanPreferencesKey("trackTagsRereadDiscs")
 
 /**
  * Experimental settings
@@ -429,6 +449,14 @@ val SwipeToDismissPlayerKey = booleanPreferencesKey("swipeToDismissPlayer")
  * nothing chosen yet, and the first share asks; the pick made there or in Settings is kept here.
  */
 val ShareLinkKindKey = stringPreferencesKey("shareLinkKind")
+
+/**
+ * How Report a problem and the crash page send a report: a ReportWay. Unset, it reads as
+ * ReportWay.ANONYMOUS; the way last picked is kept for the next report (his rule of 28 Oct 2026:
+ * anonymous for people who would rather not sign in, the account way kept once someone picks it,
+ * and anonymous still one tap away).
+ */
+val ReportWayKey = stringPreferencesKey("reportWay")
 
 /**
  * Whether the transport controls sit inside one shared panel, or stand on their own.
@@ -580,6 +608,21 @@ val UpdateSnoozeUntilKey = longPreferencesKey("updateSnoozeUntil")
 /** The version code the background check last notified about, so it says so once, not every run. */
 val LastNotifiedUpdateCodeKey = intPreferencesKey("lastNotifiedUpdateCode")
 
+/**
+ * Epoch millis of the tap on Open Auto Blocker that the install is to start again after: it starts
+ * when the person is next back in InterTune, within half an hour, and this is cleared as it does.
+ * Unset when nothing is owed. In the settings and not in memory, since the app can be ended while
+ * the person is in Settings. See AutoBlockerReturn.
+ */
+val AutoBlockerReturnAtKey = longPreferencesKey("autoBlockerReturnAt")
+
+/**
+ * The version code of the build that last saw Auto Blocker stop an install. The build that
+ * replaces it says once that Auto Blocker can go back on, and clears this as it does. Unset when
+ * there is nothing to say. See AutoBlockerReturn.
+ */
+val AutoBlockerBlockedByKey = intPreferencesKey("autoBlockerBlockedBy")
+
 /** The poll id the background check last notified about, for the same reason. */
 val LastNotifiedPollIdKey = stringPreferencesKey("lastNotifiedPollId")
 
@@ -610,6 +653,18 @@ val DismissedUpdateCodeKey = intPreferencesKey("dismissedUpdateCode")
 val BackgroundCheckHoursKey = intPreferencesKey("backgroundCheckHours")
 
 val PollsEnabledKey = booleanPreferencesKey("pollsEnabled")
+
+/**
+ * The AI filter (AiFilter, Unreleased.AI_FILTER): an AiFilterMode by name, Off, hide from
+ * recommendations, or block everywhere. Unset is Off, and so is anything in a build without the flag.
+ */
+val AiFilterKey = stringPreferencesKey("aiFilter")
+
+/** Channel ids of the artists the listener marked as AI from the artist's menu. See AiFilter.toggle. */
+val AiMarkedArtistsKey = stringSetPreferencesKey("aiMarkedArtists")
+
+/** Channel ids of the artists the listener marked Not AI: never hidden, whatever the list says. */
+val AiNotArtistsKey = stringSetPreferencesKey("aiNotArtists")
 
 /**
  * Whether announcements are shown, separately from questions. Unset means never asked. Someone who

@@ -38,12 +38,19 @@ class RoutedPlayer(local: Player) : ForwardingSimpleBasePlayer(Steady(local)) {
     }
 
     /**
-     * [player] as it is, except that it is never loading while idle or ended. ExoPlayer can say
-     * both for a moment, as when the song playing is taken out of the queue, and the state this
-     * class builds from it refuses that pair: an IllegalArgumentException on the main thread that
-     * closed the app (18 Oct 2026, a song removed from the queue).
+     * [player] as it is, except for two pairs ExoPlayer can report for a moment and the state this
+     * class builds from it refuses, each an IllegalArgumentException on the main thread that closed
+     * the app: loading while idle or ended (18 Oct 2026, a song removed from the queue), and an
+     * empty queue while buffering or playing (#73, 3 Nov 2026, every song removed from the queue).
+     * An empty queue reads as ended, where ExoPlayer itself goes next.
      */
     internal class Steady(player: Player) : ForwardingPlayer(player) {
+        override fun getPlaybackState(): Int {
+            val state = super.getPlaybackState()
+            val stopped = state == Player.STATE_IDLE || state == Player.STATE_ENDED
+            return if (!stopped && currentTimeline.isEmpty) Player.STATE_ENDED else state
+        }
+
         override fun isLoading(): Boolean {
             val state = playbackState
             return super.isLoading() && state != Player.STATE_IDLE && state != Player.STATE_ENDED

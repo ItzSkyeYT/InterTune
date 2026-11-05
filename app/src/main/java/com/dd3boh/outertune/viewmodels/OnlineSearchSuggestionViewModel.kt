@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.viewmodels
 
+import com.dd3boh.outertune.models.ContentFilter
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dd3boh.outertune.db.MusicDatabase
@@ -43,7 +44,8 @@ class OnlineSearchSuggestionViewModel @Inject constructor(
                                 suggestions = result?.queries?.filter { query ->
                                     history.none { it.query == query }
                                 }.orEmpty(),
-                                items = result?.recommendedItems.orEmpty().distinctBy { it.id }
+                                // Nothing of a blocked artist, the artist included (ArtistBlock).
+                                items = ContentFilter.current.blocked.apply(result?.recommendedItems.orEmpty().distinctBy { it.id })
                             )
                         }
                 }

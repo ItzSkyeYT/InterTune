@@ -70,7 +70,13 @@ import com.dd3boh.outertune.constants.SongSortDescendingKey
 import com.dd3boh.outertune.constants.SongSortType
 import com.dd3boh.outertune.constants.SongSortTypeKey
 import com.dd3boh.outertune.constants.SwipeToQueueKey
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.db.entities.Song
+import com.dd3boh.outertune.savedtwice.SavedTwicePlace
+import com.dd3boh.outertune.savedtwice.libraryCopies
+import com.dd3boh.outertune.savedtwice.likedCopies
+import com.dd3boh.outertune.ui.screens.SavedTwiceButton
+import com.dd3boh.outertune.ui.screens.rememberSavedTwiceCount
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.ui.component.ChipsRow
@@ -136,6 +142,11 @@ fun LibrarySongsScreen(
         inSelectMode = false
         selection.clear()
     }
+    // A selection whose songs have all left the list (taken out of the library, unliked) leaves
+    // nothing to pick: out of the mode, not a "0/0 selected" bar over an empty list (5 Nov 2026).
+    LaunchedEffect(inSelectMode, songs?.isEmpty()) {
+        if (inSelectMode && songs?.isEmpty() == true) onExitSelectionMode()
+    }
     if (inSelectMode) {
         ScreenBackHandler(onBack = onExitSelectionMode)
     }
@@ -147,6 +158,24 @@ fun LibrarySongsScreen(
             }
         }
     }
+
+    // Songs in the list more than once, for the button beside the count (issue #47): Liked and
+    // Library only, which each have a way to take a song out. Downloaded has none.
+    val savedTwicePlace = when (filter) {
+        SongFilter.LIKED -> SavedTwicePlace.Liked
+        SongFilter.LIBRARY -> SavedTwicePlace.Library
+        SongFilter.DOWNLOADED -> null
+    }.takeIf { Unreleased.SAVED_TWICE }
+    val savedTwice = if (Unreleased.SAVED_TWICE) {
+        rememberSavedTwiceCount(savedTwicePlace, songs) {
+            val list = songs.orEmpty()
+            when (savedTwicePlace) {
+                SavedTwicePlace.Liked -> likedCopies(list)
+                SavedTwicePlace.Library -> libraryCopies(list)
+                else -> emptyList()
+            }
+        }
+    } else 0
 
     LaunchedEffect(Unit) {
         when (filter) {
@@ -210,6 +239,10 @@ fun LibrarySongsScreen(
                         color = MaterialTheme.colorScheme.secondary,
                         maxLines = 1
                     )
+                    if (savedTwice > 0 && savedTwicePlace != null) {
+                        Spacer(Modifier.width(12.dp))
+                        SavedTwiceButton(savedTwice, onClick = { navController.navigate(savedTwicePlace.route) })
+                    }
                     Spacer(Modifier.width(4.dp))
                     ActionDropdown(
                         actions = listOf(
@@ -333,7 +366,14 @@ fun LibrarySongsScreen(
                     item {
                         EmptyPlaceholder(
                             icon = Icons.Rounded.MusicNote,
-                            text = stringResource(R.string.library_song_empty),
+                            // Said for the list picked above: "Library songs" under Liked read as if the library were empty.
+                            text = stringResource(
+                                when (filter) {
+                                    SongFilter.LIKED -> R.string.library_song_empty_liked
+                                    SongFilter.DOWNLOADED -> R.string.library_song_empty_downloaded
+                                    SongFilter.LIBRARY -> R.string.library_song_empty
+                                }
+                            ),
                             modifier = Modifier.animateItem()
                         )
                     }

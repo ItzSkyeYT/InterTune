@@ -24,7 +24,7 @@ class DownloadToFolderTest {
         val idle = body.substringAfter("override fun onIdle(downloadManager: DownloadManager) {").substringBefore("override fun onDownloadChanged(")
         assertTrue("only with a folder set", idle.contains("context.dataStore.get(DownloadPathKey, \"\").isEmpty()"))
         assertTrue(idle.contains("migrateDownloads(quiet = true, only = just)"))
-        assertTrue(body.contains("if (download.state == Download.STATE_COMPLETED) finishedSinceMove += download.request.id"))
+        assertTrue(body.contains("if (download.state == Download.STATE_COMPLETED) {\n                        finishedSinceMove += download.request.id"))
     }
 
     @Test

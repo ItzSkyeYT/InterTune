@@ -6,11 +6,13 @@
 
 package com.dd3boh.outertune.cast
 
+import com.dd3boh.outertune.constants.Unreleased
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.booleanOrNull
@@ -48,6 +50,16 @@ object Chromecast {
 
     /** Google's Default Media Receiver: plays a url with a title and a picture. */
     const val DEFAULT_MEDIA_RECEIVER = "CC1AD845"
+
+    /**
+     * InterTune's own receiver: the App ID the Cast console gave it on 3 Nov 2026 (unpublished, its page at
+     * https://cast-dev--intertune-app.netlify.app/cast/ while it is tried). Asked for only where Unreleased.OWN_CAST_RECEIVER is on.
+     */
+    val INTERTUNE_RECEIVER: String? = "0EF3B3F0"
+
+    /** The receivers a link opens, in order: InterTune's own first when the build asks for it, Google's last. */
+    fun receivers(own: String? = INTERTUNE_RECEIVER.takeIf { Unreleased.OWN_CAST_RECEIVER }): List<String> =
+        listOfNotNull(own, DEFAULT_MEDIA_RECEIVER).distinct()
 
     /** Who a sender is on the device's own connection, and who the device is on it. */
     const val PLATFORM_SENDER = "sender-0"
@@ -178,10 +190,91 @@ object Chromecast {
                     put("images", buildJsonArray { add(buildJsonObject { put("url", art) }) })
                 }
             })
+            // Which song this is, for InterTune's own receiver to match its lyrics to (LYRICS).
+            put("customData", buildJsonObject { put("mediaId", item.mediaId) })
         })
         put("currentTime", startMs.coerceAtLeast(0) / 1000.0)
         put("autoplay", autoplay)
     }.toString()
+
+    /**
+     * The lyrics InterTune's own receiver shows on [NS_INTERTUNE]: the song's lines as
+     * [start ms, text] pairs, or none to put them away. A Cast message holds 64 KB at most, so
+     * lines past [MAX_LYRICS_BYTES] are left out, from the end.
+     */
+    fun lyrics(lyrics: CastLyrics?): String {
+        fun build(lines: List<CastLyrics.Line>) = buildJsonObject {
+            put("type", LYRICS)
+            if (lyrics != null) {
+                put("mediaId", lyrics.mediaId)
+                put("shiftMs", lyrics.shiftMs)
+                put("lines", buildJsonArray { lines.forEach { add(buildJsonArray { add(it.startMs); add(it.text) }) } })
+            }
+        }.toString()
+        var lines = lyrics?.lines.orEmpty()
+        var text = build(lines)
+        while (text.toByteArray().size > MAX_LYRICS_BYTES && lines.isNotEmpty()) {
+            lines = lines.dropLast(maxOf(1, lines.size / 10))
+            text = build(lines)
+        }
+        return text
+    }
+
+    const val LYRICS = "LYRICS"
+    const val MAX_LYRICS_BYTES = 60_000
+
+    /** What the phone is called, for our own receiver's idle screen to say who is connected. */
+    fun hello(name: String): String = buildJsonObject {
+        put("type", HELLO)
+        put("name", name)
+    }.toString()
+
+    /**
+     * The songs that play after this one, for our own receiver's "Up next" shelf: the first
+     * [MAX_UP_NEXT] of [next], each with its words and cover where it has them. None empties the shelf.
+     */
+    fun queue(next: List<CastNext>): String = buildJsonObject {
+        put("type", QUEUE)
+        put("next", buildJsonArray {
+            next.take(MAX_UP_NEXT).forEach { song ->
+                add(buildJsonObject {
+                    put("title", song.title)
+                    song.artist?.takeIf { it.isNotBlank() }?.let { put("artist", it) }
+                    song.cover?.let { put("cover", it) }
+                })
+            }
+        })
+    }.toString()
+
+    /**
+     * A Listen together room for our own receiver's screen: its name, how many are in it, their
+     * first letters and the invite's QR code as a PNG data url (a code too big for one Cast
+     * message is left out, and the TV shows the room without it). A room with no name, or none,
+     * puts the screen away.
+     */
+    fun room(room: CastRoom?): String = buildJsonObject {
+        put("type", ROOM)
+        if (room != null && room.name.isNotBlank()) {
+            put("name", room.name)
+            put("count", room.count)
+            put("people", buildJsonArray { room.people.take(CastRoom.MAX_PEOPLE).forEach { add(it) } })
+            room.qr?.takeIf { it.length <= MAX_QR_CHARS }?.let { put("qr", it) }
+        }
+    }.toString()
+
+    /** The cast is over: our own receiver says so on the TV for a moment. */
+    fun bye(): String = typeOnly(BYE)
+
+    const val HELLO = "HELLO"
+    const val QUEUE = "QUEUE"
+    const val ROOM = "ROOM"
+    const val BYE = "BYE"
+
+    /** How many songs the "Up next" shelf holds. */
+    const val MAX_UP_NEXT = 3
+
+    /** The longest QR data url sent: a Cast message holds 64 KB at most, and the rest of it is words. */
+    const val MAX_QR_CHARS = 40_000
 
     /** PLAY, PAUSE or STOP for the media session [mediaSessionId]. */
     fun mediaCommand(type: String, requestId: Int, mediaSessionId: Long): String = buildJsonObject {

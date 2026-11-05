@@ -1,6 +1,7 @@
 package com.dd3boh.outertune.playback
 
 import com.dd3boh.outertune.constants.PlayOrigin
+import com.dd3boh.outertune.constants.PlayingQueueKey
 import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
@@ -36,6 +37,8 @@ import com.dd3boh.outertune.extensions.toggleRepeatMode
 import com.dd3boh.outertune.extensions.toggleShuffleMode
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
 import com.dd3boh.outertune.utils.albumWithOrderedSongs
+import com.dd3boh.outertune.utils.dataStore
+import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.utils.reportException
 import com.dd3boh.outertune.widget.WidgetList
 import com.dd3boh.outertune.widget.WidgetStore
@@ -144,7 +147,7 @@ class MediaLibrarySessionCallback @Inject constructor(
      */
     private suspend fun resumptionItems(): MediaItemsWithStartPosition? {
         val (q, items) = withContext(Dispatchers.IO) {
-            val q = database.getResumptionQueue() ?: return@withContext null
+            val q = database.getResumptionQueue(context.dataStore[PlayingQueueKey]) ?: return@withContext null
             Log.i(TAG, "Resumption queue found. Loading queue: size = ${q.queue.size}, queue name = ${q.title}, " +
                     "queuePosShuffled = ${q.getQueuePosShuffled()}, lastSongPos = ${q.lastSongPos},")
             q to MediaItemsWithStartPosition(
@@ -783,7 +786,7 @@ class MediaLibrarySessionCallback @Inject constructor(
      */
     private suspend fun nowPlaying(): MediaItem? {
         val playing = withContext(Dispatchers.Main) { service.player.currentMediaItem?.metadata }
-        val song = playing ?: runCatching { database.getResumptionQueue()?.getCurrentSong() }.getOrNull() ?: return null
+        val song = playing ?: runCatching { database.getResumptionQueue(context.dataStore[PlayingQueueKey])?.getCurrentSong() }.getOrNull() ?: return null
         return action(
             "${AutoBrowse.RESUME}/queue", song.title, song.artists.joinToString { it.name }, AutoArt.uri(context, AutoArt.SONG, song.id),
             group = context.getString(if (playing != null) R.string.auto_now_playing else R.string.auto_carry_on), single = LIST,
@@ -800,7 +803,7 @@ class MediaLibrarySessionCallback @Inject constructor(
         val jump = context.getString(R.string.auto_jump_back_in)
         if (carryOn) {
             val playing = withContext(Dispatchers.Main) { service.player.currentMediaItem?.metadata }
-                ?: runCatching { database.getResumptionQueue()?.getCurrentSong() }.getOrNull()
+                ?: runCatching { database.getResumptionQueue(context.dataStore[PlayingQueueKey])?.getCurrentSong() }.getOrNull()
             if (playing != null) {
                 items += action("${AutoBrowse.RESUME}/queue", context.getString(R.string.auto_carry_on), playing.title, AutoArt.uri(context, AutoArt.SONG, playing.id), jump)
             }

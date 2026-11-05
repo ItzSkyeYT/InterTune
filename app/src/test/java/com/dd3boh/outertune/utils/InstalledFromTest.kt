@@ -7,6 +7,7 @@
 package com.dd3boh.outertune.utils
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -44,12 +45,50 @@ class InstalledFromTest {
     }
 
     @Test
-    fun `no installer, or the phone's own, is a file installed by hand`() {
+    fun `no installer, or Android's own, is a file installed by hand`() {
         assertEquals("a file, installed by hand", from(null))
         assertEquals("a file, installed by hand", from("com.google.android.packageinstaller"))
         assertEquals("a file, installed by hand", from("com.android.packageinstaller"))
-        // A phone maker's own installer.
-        assertEquals("a file, installed by hand", from("com.miui.packageinstaller"))
+    }
+
+    @Test
+    fun `a phone maker's installer may have done the updater's install, so it is not called by hand`() {
+        // HyperOS names its own for the updater's installs too (#67, 31 Oct 2026).
+        assertEquals("a file, or InterTune's updater through com.miui.packageinstaller", from("com.miui.packageinstaller"))
+    }
+
+    @Test
+    fun `a copy the updater noted is the updater's, whatever Android names`() {
+        fun byUpdater(installer: String?) = installedFrom(installer, installer, own, byUpdater = true)
+        assertEquals("InterTune's updater, from GitHub", byUpdater(own))
+        assertEquals("InterTune's updater, from GitHub", byUpdater(null))
+        assertEquals("InterTune's updater, from GitHub, through com.miui.packageinstaller", byUpdater("com.miui.packageinstaller"))
+        assertEquals("InterTune's updater, from GitHub, through com.google.android.packageinstaller", byUpdater("com.google.android.packageinstaller"))
+    }
+
+    @Test
+    fun `the updater's note is about this copy only for the same version, installed after it and within the hour`() {
+        val at = 1_800_000_000_000L
+        val note = "98 $at"
+        assertTrue(installedByUpdater(note, 98, at + 40_000))
+        assertTrue("Android's confirmation waited", installedByUpdater(note, 98, at + 50 * 60_000L))
+        assertFalse("another version", installedByUpdater(note, 99, at + 40_000))
+        assertFalse("installed before the note", installedByUpdater(note, 98, at - 1))
+        assertFalse("the same version again by hand, later that day", installedByUpdater(note, 98, at + 2 * 3_600_000L))
+        assertFalse(installedByUpdater(null, 98, at))
+        assertFalse(installedByUpdater("", 98, at))
+        assertFalse(installedByUpdater("98", 98, at))
+        assertFalse(installedByUpdater("x $at", 98, at))
+    }
+
+    @Test
+    fun `the updater notes the version before Android gets the apk, and forgets it when the install does not go ahead`() {
+        val updater = File("src/main/java/com/dd3boh/outertune/utils/UpdateInstaller.kt").readText()
+        val commit = updater.substringAfter("private suspend fun commit(apk: File)")
+        assertTrue(commit.indexOf("UpdaterNote.note(context, it)") in 0 until commit.indexOf("session.commit(pending.intentSender)"))
+        assertTrue("cancelled, or blocked by Auto Blocker", updater.substringAfter("private fun aborted(").substringBefore("\n    }").contains("UpdaterNote.forget(context)"))
+        val failed = updater.substringAfter("PackageInstaller.STATUS_FAILURE_BLOCKED ->").substringAfter("else -> {").substringBefore("_state.value = State.Failed(")
+        assertTrue(failed.contains("UpdaterNote.forget(context)"))
     }
 
     @Test

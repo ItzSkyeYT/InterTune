@@ -141,6 +141,10 @@ class RecognitionService : Service() {
         scope.launch {
             engine.retryAt.drop(1).collect { if (engine.running.value) redraw() }
         }
+        // The same for no connection, with what it hears kept for later (RecogniseLater).
+        scope.launch {
+            engine.keepingOffline.drop(1).collect { if (engine.running.value) redraw() }
+        }
     }
 
     /**
@@ -169,7 +173,7 @@ class RecognitionService : Service() {
                     // leaves the status bar as the song arrives, and nothing is taken longer than
                     // the song needed.
                     PhoneAudio.release()
-                    if (headless || !appInFront()) notifyFound(state.track)
+                    if (headless || !appInFront()) notifyFound(state.track, state.searchWords)
                 }
             }
         }
@@ -265,8 +269,11 @@ class RecognitionService : Service() {
         }
 
         // Keep listening that Shazam has stopped answering says so, where it used to look exactly
-        // like a run listening to a quiet room. The same words as the screen's.
-        val waiting = engine.retryAt.value?.takeIf { engine.continuous.value }?.let { retryAt ->
+        // like a run listening to a quiet room. The same words as the screen's. With no connection
+        // it says what is kept instead (RecogniseLater), as the screen does.
+        val waiting = if (engine.keepingOffline.value && engine.continuous.value) {
+            getString(R.string.recognise_later_keeping)
+        } else engine.retryAt.value?.takeIf { engine.continuous.value }?.let { retryAt ->
             val seconds = ShazamBackoff.secondsLeft(retryAt, System.currentTimeMillis())
             if (seconds > 0) resources.getQuantityString(R.plurals.recognition_shazam_waiting, seconds, seconds)
             else getString(R.string.recognition_shazam_retrying)
@@ -317,9 +324,11 @@ class RecognitionService : Service() {
     /**
      * The song the tile's listen found: its name, its artist, Shazam's cover when it comes in
      * time, and a tap that opens InterTune's search for it, to play it or add it to a playlist.
+     * The search is for the words that found it ([words], RecognitionEngine.State.Found's
+     * searchWords): his reel heard as "Lush Life (Riot Remix)", a version YouTube Music lists no
+     * song of, opened on other people's uploads and covers, and Zara Larsson's own was not there.
      */
-    private fun notifyFound(track: Recognised) {
-        val words = listOfNotNull(track.title, track.artist).joinToString(" ")
+    private fun notifyFound(track: Recognised, words: String) {
         val open = PendingIntent.getActivity(
             this, 2,
             Intent(Intent.ACTION_VIEW, android.net.Uri.parse(SystemSearch.searchLink(words)), this, MainActivity::class.java)
@@ -351,13 +360,18 @@ class RecognitionService : Service() {
         }
     }
 
-    /** The tile's listen ended without a song. Quiet, and gone when tapped. */
+    /**
+     * The tile's listen ended without a song. Quiet, and gone when tapped. With no connection it
+     * says what it kept, to be named once there is one ([RecogniseLater]).
+     */
     private fun notifyNothing() {
+        val kept = engine.state.value == RecognitionEngine.State.Kept
+        val hint = getString(if (kept) R.string.recognise_later_kept else nothingHint())
         val notification = NotificationCompat.Builder(this, RESULTS_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_recognise)
-            .setContentTitle(getString(R.string.recognition_phone_nothing))
-            .setStyle(NotificationCompat.BigTextStyle().bigText(getString(nothingHint())))
-            .setContentText(getString(nothingHint()))
+            .setContentTitle(getString(if (kept) R.string.recognise_later_waiting else R.string.recognition_phone_nothing))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(hint))
+            .setContentText(hint)
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()

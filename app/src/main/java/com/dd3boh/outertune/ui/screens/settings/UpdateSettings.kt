@@ -68,6 +68,7 @@ import com.dd3boh.outertune.utils.AutoBlocker
 import com.dd3boh.outertune.ui.component.androidUpdateButton
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
+import com.dd3boh.outertune.utils.Toaster
 
 /**
  * Everything to do with app updates, in one place.
@@ -210,14 +211,14 @@ fun UpdateSettings(
                         checking = false
                         if (result == null) {
                             // A null result means nothing new only when the check got an answer.
-                            Toast.makeText(
+                            Toaster.show(
                                 context,
                                 context.getString(
                                     if (updateChecker.lastCheckFailed.value) R.string.update_check_failed
                                     else R.string.no_updates_available
                                 ),
                                 Toast.LENGTH_SHORT
-                            ).show()
+                            )
                         }
                     }
                 }
@@ -308,12 +309,13 @@ fun UpdateSettings(
                                     )
                                 }
 
-                            // Blocked on a Samsung phone: Auto Blocker's switch is the way through, and
-                            // the row is back to Install for when they return.
+                            // Blocked on a Samsung phone: Auto Blocker's switch is the way through. The
+                            // row is back to Install for when they return, and the install starts
+                            // again by itself then.
                             UpdateInstaller.State.Blocked ->
                                 if (AutoBlocker.likely()) {
                                     installer.acknowledge()
-                                    AutoBlocker.open(context)
+                                    AutoBlocker.openForUpdate(context)
                                 } else {
                                     installer.acknowledge()
                                     installer.installOrDownload(found.downloadUrl, found.sizeBytes)

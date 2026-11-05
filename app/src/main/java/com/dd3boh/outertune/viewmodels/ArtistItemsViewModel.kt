@@ -1,5 +1,8 @@
 package com.dd3boh.outertune.viewmodels
 
+import kotlinx.coroutines.flow.drop
+import com.zionhuang.innertube.models.YTItem
+import com.dd3boh.outertune.models.blockedArtists
 import com.dd3boh.outertune.models.ContentFilter
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -24,10 +27,18 @@ class ArtistItemsViewModel @Inject constructor(
     val title = MutableStateFlow("")
     val itemsPage = MutableStateFlow<ItemsPage?>(null)
 
+    /** The items as YouTube sent them, so that a block or an unblock while the page is open shows at once. */
+    private var itemsAsSent: List<YTItem> = emptyList()
+
     /** The first request failed. The page showed its loading shimmer until a page came, forever. */
     val failed = MutableStateFlow(false)
 
     init {
+        viewModelScope.launch {
+            blockedArtists.drop(1).collect {
+                itemsPage.update { page -> page?.copy(items = ContentFilter.current.apply(itemsAsSent)) }
+            }
+        }
         load()
     }
 
@@ -42,8 +53,9 @@ class ArtistItemsViewModel @Inject constructor(
                 )
             ).onSuccess { artistItemsPage ->
                 title.value = artistItemsPage.title
+                itemsAsSent = artistItemsPage.items.distinctBy { it.id }
                 itemsPage.value = ItemsPage(
-                    items = ContentFilter.current.apply(artistItemsPage.items.distinctBy { it.id }),
+                    items = ContentFilter.current.apply(itemsAsSent),
                     continuation = artistItemsPage.continuation
                 )
             }.onFailure {
@@ -59,6 +71,7 @@ class ArtistItemsViewModel @Inject constructor(
             val continuation = oldItemsPage.continuation ?: return@launch
             YouTube.artistItemsContinuation(continuation)
                 .onSuccess { artistItemsContinuationPage ->
+                    itemsAsSent = (itemsAsSent + artistItemsContinuationPage.items).distinctBy { it.id }
                     itemsPage.update {
                         ItemsPage(
                             items = (oldItemsPage.items + ContentFilter.current.apply(artistItemsContinuationPage.items)).distinctBy { it.id },

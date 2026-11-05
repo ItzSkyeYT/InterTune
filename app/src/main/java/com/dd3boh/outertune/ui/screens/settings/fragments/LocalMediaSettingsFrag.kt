@@ -284,8 +284,9 @@ fun ColumnScope.LocalScannerFrag() {
                                             duration = SnackbarDuration.Short
                                         )
                                     } catch (e: ScannerAbortException) {
+                                        // A stop, said as one: this was the success text with the reason after it.
                                         snackbarHostState.showSnackbar(
-                                            message = "${context.getString(R.string.scanner_ytm_link_success)}: ${e.message}",
+                                            message = "${context.getString(R.string.scanner_ytm_link_fail)}: ${e.message}",
                                             withDismissAction = true,
                                             duration = SnackbarDuration.Short
                                         )

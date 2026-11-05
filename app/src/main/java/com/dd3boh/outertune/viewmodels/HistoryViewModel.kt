@@ -1,5 +1,7 @@
 package com.dd3boh.outertune.viewmodels
 
+import kotlinx.coroutines.flow.combine
+import com.dd3boh.outertune.models.blockedArtists
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -37,6 +39,8 @@ class HistoryViewModel @Inject constructor(
      * Watched only while the screen is: the listen log is written to every minute of playback.
      */
     val days: StateFlow<List<HistoryDayGroup<HistoryEntry>>> = database.historyPlays()
+        // Without a blocked artist's plays (ArtistBlock).
+        .combine(blockedArtists) { rows, block -> if (block.isEmpty) rows else rows.filterNot { block.hides(it.song) } }
         .map { rows ->
             HistoryDays.group(rows.map { HistoryEntry.of(it) }, LocalDate.now(), { it.start }, { it.at })
         }

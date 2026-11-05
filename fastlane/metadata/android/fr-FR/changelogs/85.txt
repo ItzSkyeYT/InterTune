@@ -1,0 +1,11 @@
+Version 0.10.8
+=== Nouveautés ===
+• Sauvegardes auto : choix du dossier, fréquence et nombre de conserver. Bibliothèque, listes et historique. Désactivé par défaut.
+• Enregistrer la file d'attente en liste de lecture.
+• Exporter les listes en fichiers M3U en un clic.
+=== Corrections ===
+• Fin du blocage « Attente de reconnexion ».
+• L'option audio simultané s'active immédiatement.
+• Correction des métadonnées et ajout d'un bouton retour.
+=== Divers ===
+• Améliorations de l'interface, des sélections rapides et de la lecture.

@@ -27,11 +27,11 @@ class ShareLinksTest {
     private fun rick(seconds: Int = 213, albumTrack: Boolean = true) =
         ShareLinks.song(id, "Never Gonna Give You Up", listOf("Rick Astley"), seconds, albumTrack)
 
-    /** What the page reads back out of a link, the way a browser's URLSearchParams does. */
+    /** What the page reads back out of a link: a song's id from its path, the rest the way a browser's URLSearchParams does. */
     private fun read(link: String): Map<String, String> =
         link.substringAfter('#').split('&').associate {
             URLDecoder.decode(it.substringBefore('='), "UTF-8") to URLDecoder.decode(it.substringAfter('=', ""), "UTF-8")
-        }
+        } + listOfNotNull(link.substringAfter("/s/v/", "").substringBefore('#').takeIf { it.isNotEmpty() }?.let { "v" to it })
 
     @Test
     fun `a song keeps the link it always had`() {
@@ -40,12 +40,13 @@ class ShareLinksTest {
 
     @Test
     fun `the page's link carries the song`() {
-        assertEquals("${ShareLinks.PAGE}#v=$id&t=Never%20Gonna%20Give%20You%20Up&a=Rick%20Astley&d=213&k=t", rick().page)
+        // The id in the path, so that a chat app's preview can name the song (the version after 0.12.6).
+        assertEquals("${ShareLinks.PAGE}v/$id#t=Never%20Gonna%20Give%20You%20Up&a=Rick%20Astley&d=213&k=t", rick().page)
     }
 
     @Test
     fun `a video is not marked as an album track, and an unknown length is left out`() {
-        assertEquals("${ShareLinks.PAGE}#v=$id&t=Never%20Gonna%20Give%20You%20Up&a=Rick%20Astley", rick(seconds = -1, albumTrack = false).page)
+        assertEquals("${ShareLinks.PAGE}v/$id#t=Never%20Gonna%20Give%20You%20Up&a=Rick%20Astley", rick(seconds = -1, albumTrack = false).page)
         assertFalse(rick(seconds = 0).page!!.contains("&d="))
     }
 
@@ -67,7 +68,7 @@ class ShareLinksTest {
     @Test
     fun `nothing but letters, digits and percent signs after the names begin`() {
         val link = ShareLinks.song(id, "A&B=C#D?E+F%G/H \"x\" 夜", listOf("Earth, Wind & Fire"), 100, true).page!!
-        val carried = link.substringAfter("&t=")
+        val carried = link.substringAfter("#t=")
         assertTrue(carried, Regex("[A-Za-z0-9%._*-]+&a=[A-Za-z0-9%._*-]+&d=100&k=t").matches(carried))
     }
 

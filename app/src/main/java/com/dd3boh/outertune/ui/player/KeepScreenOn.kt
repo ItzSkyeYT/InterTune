@@ -16,6 +16,7 @@ enum class KeepScreenOnReason {
     LYRICS,
     IMMERSIVE_LANDSCAPE,
     RECOGNITION,
+    LYRICS_VIDEO,
 }
 
 /**
@@ -40,7 +41,7 @@ class KeepScreenOnReasons {
 /**
  * Single owner of a View's [View.keepScreenOn][android.view.View.setKeepScreenOn] flag, shared by
  * every reason that wants the screen held awake (lyrics in the open player, immersive landscape
- * while playing, recognition listening).
+ * while playing, recognition listening, a lyrics video being made).
  *
  * keepScreenOn is one boolean on one View, so two places writing it directly race: whichever
  * disposes last wins and silently clears the other's request. Each caller here instead adds or

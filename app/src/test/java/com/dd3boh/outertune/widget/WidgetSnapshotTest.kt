@@ -27,6 +27,25 @@ class WidgetSnapshotTest {
         updatedAt = 1_789_000_000_000L,
     )
 
+    /**
+     * After an update of the app the file still said playing, and the redrawn widget offered pause
+     * over silence (the Pixel 5, 5 Nov 2026): with no player running, it is drawn paused, and nothing
+     * else about it changes. With the player running, the file is the player's own word.
+     */
+    @Test
+    fun `with no player running a widget is drawn paused, whatever the file says`() {
+        val playing = snapshot()
+        assertEquals(playing.copy(isPlaying = false), playing.withPlayer(running = false))
+        assertEquals(playing, playing.withPlayer(running = true))
+        val paused = playing.copy(isPlaying = false)
+        assertEquals(paused, paused.withPlayer(running = false))
+        assertEquals(paused, paused.withPlayer(running = true))
+        // Both ways in: the first draw of a session and the write a new widget makes.
+        val store = java.io.File("src/main/java/com/dd3boh/outertune/widget/WidgetStore.kt").readText()
+        assertTrue("read(context).withPlayer(MusicService.isRunning)).also { _drawn.value = it }" in store)
+        assertTrue("var snapshot = read(context).withPlayer(MusicService.isRunning)" in store.substringAfter("suspend fun hydrate("))
+    }
+
     @Test
     fun `a snapshot survives the trip to disk and back`() {
         val back = WidgetCodec.decode(WidgetCodec.encode(snapshot()))
@@ -123,6 +142,15 @@ class WidgetSnapshotTest {
         val inUse = snap.artPathsInUse { id -> "/art/${id}_320.png" }
         assertTrue("/art/now1_320.png" in inUse)
         assertTrue("/art/now1_192.png" in inUse)
+    }
+
+    @Test
+    fun `a list's first song's big cover counts as in use, for Big cover with a list alone`() {
+        val first = song.copy(id = "first1", artPath = "/art/first1_128c.png")
+        val snap = WidgetSnapshot(picks = listOf(first, song.copy(id = "second1")))
+        val inUse = snap.artPathsInUse { id -> "/art/${id}_320c.png" }
+        assertTrue("/art/first1_320c.png" in inUse)
+        assertFalse("/art/second1_320c.png" in inUse)
     }
 
     @Test

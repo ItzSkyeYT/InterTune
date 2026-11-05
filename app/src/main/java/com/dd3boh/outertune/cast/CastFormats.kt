@@ -35,8 +35,9 @@ sealed interface FormatChoice {
  *
  * YouTube songs usually come as Opus in WebM, which every FCast receiver plays and most DLNA TVs,
  * AV receivers and speakers do not. YouTube also offers the same song as AAC in MP4, so a renderer
- * that lists MP4 and not WebM is sent that. A local file has only itself, so a renderer that does
- * not list its type cannot be sent it.
+ * that lists MP4 and not WebM is sent that, and so is one that names AAC only by its bare names
+ * (3 Nov 2026: a Zeppelin Wireless that plays M4A was refused every song). A local file has only
+ * itself, so a renderer that does not list its type cannot be sent it.
  */
 object CastFormats {
     /** What an AAC fetch is served as. */
@@ -56,6 +57,27 @@ object CastFormats {
         setOf("audio/aac", "audio/aacp", "audio/x-aac", "audio/vnd.dlna.adts"),
         setOf("audio/aiff", "audio/x-aiff"),
     )
+
+    /**
+     * AAC under its bare names. Many renderers list only these and still play AAC in MP4, the M4A
+     * files they are sold for: a DLNA profile such as AAC_ISO_320 is MP4 under the type audio/aac.
+     */
+    private val bareAac = setOf("audio/aac", "audio/aacp", "audio/x-aac", "audio/vnd.dlna.adts")
+
+    /** Whether a receiver that listed [listed] is worth our AAC in MP4: it lists MP4, or names AAC its own way. */
+    fun takesAac(listed: Set<String>): Boolean = plays(listed, AAC_MIME) || listed.any { it in bareAac }
+
+    /**
+     * The receiver's own name for [mimeType], for the track it is told about: some renderers refuse
+     * a type they did not list in those words. The type itself where the receiver listed nothing like it.
+     */
+    fun spelling(listed: Set<String>, mimeType: String): String {
+        val type = CastMime.bare(mimeType)
+        if (type in listed) return type
+        families.firstOrNull { type in it }?.let { family -> listed.firstOrNull { it in family }?.let { return it } }
+        if (isAac(type)) listed.firstOrNull { it in bareAac }?.let { return it }
+        return type
+    }
 
     /** Whether a receiver that listed [listed] plays files of [mimeType]. */
     fun plays(listed: Set<String>, mimeType: String): Boolean {
@@ -78,7 +100,8 @@ object CastFormats {
             if (canFetchAac && !isAac(mimeType) && CastMime.bare(mimeType) in refused) FormatChoice.Aac else FormatChoice.AsIs
         is FormatSupport.Listed -> when {
             plays(support.mimeTypes, mimeType) -> FormatChoice.AsIs
-            canFetchAac && !isAac(mimeType) && plays(support.mimeTypes, AAC_MIME) -> FormatChoice.Aac
+            isAac(mimeType) && takesAac(support.mimeTypes) -> FormatChoice.AsIs
+            canFetchAac && !isAac(mimeType) && takesAac(support.mimeTypes) -> FormatChoice.Aac
             else -> FormatChoice.Unplayable(CastMime.bare(mimeType))
         }
     }

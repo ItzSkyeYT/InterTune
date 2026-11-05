@@ -100,9 +100,7 @@ fun YouTubePlaylistMenu(
     LaunchedEffect(songs) {
         if (songs.isEmpty()) return@LaunchedEffect
         downloadUtil.downloads.collect { downloads ->
-            downloadUtil.downloads.collect { downloads ->
-                downloadState = getDownloadState(songs.map { downloads[it.id] })
-            }
+            downloadState = getDownloadState(songs.map { downloads[it.id] })
         }
     }
 
@@ -329,7 +327,7 @@ fun YouTubePlaylistMenu(
         AddToPlaylistDialog(
             navController = navController,
             songIds = null,
-            onPreAdd = { targetPlaylist ->
+            onPreAdd = { _ ->
                 // This playlist's songs, the one the menu is for. Both calls used the id of the
                 // playlist picked instead, a local one YouTube does not know: the fetch failed,
                 // nothing was added, and the picker closed as if it had worked.
@@ -339,14 +337,14 @@ fun YouTubePlaylistMenu(
                     }.map {
                         it.toMediaMetadata()
                     }
-                database.transaction {
+                // Written before this returns: the add that follows needs every row (#62).
+                database.transactionNow {
                     allSongs.forEach(::insert)
                 }
 
-                targetPlaylist.playlist.browseId?.let { playlistId ->
-                    YouTube.addPlaylistToPlaylist(playlistId, playlist.id)
-                }
-
+                // No push of the whole playlist to YouTube here: it ran before the duplicates
+                // question and ignored its answer, and the dialog pushes each song it adds itself
+                // (as PlaylistMenu, 28 Sep 2026).
                 allSongs.map { it.id }
             },
             onDismiss = { showChoosePlaylistDialog = false }

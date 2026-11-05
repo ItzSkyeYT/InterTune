@@ -22,7 +22,7 @@ class QueueIdsStayUniqueTest {
 
     @Test
     fun `the board keeps one queue per id after loading`() {
-        val init = board.substringAfter("    init {").substringBefore("masterIndex = masterQueues.size - 1")
+        val init = board.substringAfter("    init {").substringBefore("masterIndex = playingQueueAt(")
         assertTrue(init.contains("masterQueues.retainAll { seen.add(it.id) }"))
     }
 

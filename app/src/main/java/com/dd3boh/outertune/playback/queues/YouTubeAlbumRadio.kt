@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.playback.queues
 
+import com.dd3boh.outertune.models.AiFilter
 import com.dd3boh.outertune.models.ContentFilter
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.toMediaMetadata
@@ -34,7 +35,9 @@ class YouTubeAlbumRadio(
             // returns empty instead of throwing, so the album plays and tops up from the
             // continuation on the next page.
             // The album as it is, since it was chosen; what the radio adds past it is filtered.
-            items = (albumSongs + ContentFilter.current.apply(nextResult.items.drop(albumSongs.size))).map { it.toMediaMetadata() },
+            // The album's own artists stay in the radio with the AI filter (AiFilter.forQueue).
+            items = (albumSongs.also { songs -> AiFilter.startedFrom(songs.flatMap { s -> s.artists.map { it.id } }) } +
+                AiFilter.forQueue().recommendations(ContentFilter.current.apply(nextResult.items.drop(albumSongs.size)))).map { it.toMediaMetadata() },
             mediaItemIndex = nextResult.currentIndex ?: 0
         )
     }
@@ -46,6 +49,6 @@ class YouTubeAlbumRadio(
             YouTube.next(endpoint, continuation).getOrThrow()
         }
         continuation = nextResult.continuation
-        return ContentFilter.current.apply(nextResult.items).map { it.toMediaMetadata() }
+        return AiFilter.forQueue().recommendations(ContentFilter.current.apply(nextResult.items)).map { it.toMediaMetadata() }
     }
 }

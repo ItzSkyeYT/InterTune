@@ -17,6 +17,19 @@ object PlaylistSql {
     const val EXISTS = "SELECT EXISTS(SELECT 1 FROM playlist WHERE id = :playlistId)"
 
     /**
+     * Which of some song ids are rows in the song table. Add to playlist asks this before it
+     * writes, because a map row's foreign key on the song refuses an id that is not one, and
+     * OR IGNORE does not cover a foreign key (#62).
+     */
+    const val PRESENT_SONGS = "SELECT id FROM song WHERE id IN (:songIds)"
+
+    /**
+     * Where the next song of a playlist goes: one past the last position. COALESCE because MAX over
+     * no rows is null, and an empty playlist has to start at 0.
+     */
+    const val NEXT_POSITION = "SELECT COALESCE(MAX(position), -1) + 1 FROM playlist_song_map WHERE playlistId = :playlistId"
+
+    /**
      * Puts the song at one position at another and shifts the songs between them by one to close
      * up. It matches on the position alone, so a caller holding a position that is out of date
      * moves whichever song holds it now.
@@ -33,6 +46,14 @@ object PlaylistSql {
 
     /** One map row as it is now, found by its id, which unlike its position never changes. */
     const val MAP_BY_ID = "SELECT * FROM playlist_song_map WHERE id = :id"
+
+    /**
+     * Sets a playlist's cover, or clears it with null. Only for a playlist with no YouTube playlist
+     * behind it: one with a browseId keeps YouTube's picture, which its sync writes into this same
+     * column, so no screen's mistake can take it. Writes this one column and no other, so a copy of
+     * the row from before (a rename from a list's menu) cannot put an old cover back.
+     */
+    const val SET_COVER = "UPDATE playlist SET thumbnailUrl = :thumbnailUrl WHERE id = :playlistId AND browseId IS NULL"
 
     /**
      * The playlists a song sits in, for offering to take it back out again. Local playlists and

@@ -364,6 +364,29 @@ class CastMockReceiversTest {
     }
 
     @Test
+    fun `a renderer that lists AAC only by its bare name is sent AAC in its own words and plays it`() {
+        // A Zeppelin Wireless names AAC this way and plays M4A; it was refused every song (3 Nov 2026).
+        val port = freePort()
+        val log = mock(
+            "mock_dlna.py", "--host", "127.0.0.1", "--port", "$port", "--speed", "4", "--ffprobe", "--strict-metadata",
+            "--list", "audio/mpeg,audio/aac:DLNA.ORG_PN=AAC_ISO_320", "--accept", "audio/mpeg,audio/mp4,audio/x-m4a",
+        )
+        val link = DlnaLink(CastAddress.parse("dlna http://127.0.0.1:$port/desc.xml")!!, scope, timing = DlnaLink.Timing(pollActiveMs = 250))
+            .also { links += it }
+        runBlocking { link.connect() }
+        val formats = link.caps.formats as FormatSupport.Listed
+        assertEquals(setOf("audio/mpeg", "audio/aac"), formats.mimeTypes)
+        assertEquals(FormatChoice.Aac, CastFormats.choose(formats, "audio/webm", canFetchAac = true))
+
+        runBlocking { link.load(item("opus1", "Opus tone", aac = true), 0, play = true) }
+        val didl = waitFor(log, "didl")
+        assertTrue(didl.text("protocol_info")!!, didl.text("protocol_info")!!.startsWith("http-get:*:audio/aac:"))
+        val song = waitFor(log, "song") { it.text("url")!!.contains("/aac/opus1.m4a") }
+        assertEquals("true", song.text("ok"))
+        link.await { it.state == ReceiverState.PLAYING }
+    }
+
+    @Test
     fun `a renderer sent a type it did not list fails the song`() {
         val port = freePort()
         mock("mock_dlna.py", "--host", "127.0.0.1", "--port", "$port", "--speed", "4")

@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.viewmodels
 
+import com.dd3boh.outertune.models.withoutBlocked
 import android.content.Context
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
@@ -202,7 +203,10 @@ class AutoPlaylistViewModel @Inject constructor(
                     )
                 else -> MutableStateFlow(emptyList())
             }
-        }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+        }
+        // Nor a blocked artist's songs (ArtistBlock).
+        .withoutBlocked()
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     companion object {
         /**

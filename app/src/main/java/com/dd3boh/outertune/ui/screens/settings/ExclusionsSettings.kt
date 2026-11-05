@@ -8,8 +8,11 @@ package com.dd3boh.outertune.ui.screens.settings
 
 import com.dd3boh.outertune.ui.component.FloatingTopBar
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -116,7 +119,15 @@ fun ExclusionsSettings(
         Spacer(Modifier.height(24.dp))
     }
 
-    SnackbarHost(hostState = snackbarHostState, modifier = Modifier.padding(LocalPlayerAwareWindowInsets.current.asPaddingValues()))
+    // At the bottom, over the player, as on every other screen: by itself it stood over the page's first line.
+    Box(modifier = Modifier.fillMaxSize()) {
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .windowInsetsPadding(LocalPlayerAwareWindowInsets.current)
+                .align(Alignment.BottomCenter),
+        )
+    }
 
     FloatingTopBar(
         title = stringResource(R.string.exclusions),

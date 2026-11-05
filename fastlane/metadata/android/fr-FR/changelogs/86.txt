@@ -1,0 +1,4 @@
+Version 0.10.8.5
+=== Notes ===
+• Aucun changement fonctionnel. Cette mise à jour permet simplement de compiler le projet pour les contributeurs extérieurs. Un fichier local.properties manquant corrompait le BuildConfig et l'absence de clé de signature bloquait la compilation.
+Journal complet : https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.10.8.5

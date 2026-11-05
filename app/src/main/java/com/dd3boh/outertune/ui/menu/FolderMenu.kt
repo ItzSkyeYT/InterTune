@@ -33,9 +33,13 @@ import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.constants.FolderSongSortDescendingKey
+import com.dd3boh.outertune.constants.FolderSongSortType
+import com.dd3boh.outertune.constants.FolderSongSortTypeKey
 import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.extensions.toMediaItem
 import com.dd3boh.outertune.models.DirectoryTree
+import com.dd3boh.outertune.models.FolderOrder
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.ui.component.items.SongFolderItem
@@ -44,6 +48,8 @@ import com.dd3boh.outertune.ui.dialog.AddToQueueDialog
 import com.dd3boh.outertune.utils.M3u
 import com.dd3boh.outertune.utils.joinByBullet
 import com.dd3boh.outertune.utils.lmScannerCoroutine
+import com.dd3boh.outertune.utils.rememberEnumPreference
+import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.utils.reportException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -63,6 +69,9 @@ fun FolderMenu(
     val playerConnection = LocalPlayerConnection.current ?: return
 
     val allFolderSongs = remember { mutableStateListOf<Song>() }
+    // The sort of the Folders tab, which a folder played from here follows.
+    val (sortType) = rememberEnumPreference(FolderSongSortTypeKey, FolderSongSortType.NAME)
+    val (sortDescending) = rememberPreference(FolderSongSortDescendingKey, true)
     var subDirSongCount by remember {
         mutableIntStateOf(0)
     }
@@ -85,9 +94,13 @@ fun FolderMenu(
     }
 
     suspend fun fetchAllSongsRecursive(onFetch: (() -> Unit)? = null) {
-        val dbSongs = database.localSongsInDirDeep(folder.getFullSquashedDir())
+        val dir = folder.getFullSquashedDir()
+        val dbSongs = database.localSongsInDirDeep(dir)
+        // In the order the folder's screen shows them, folder by folder (FolderOrder). They came
+        // in the order the library holds them, so Play ignored the sort picked.
+        val dates = if (FolderOrder.byDate(sortType)) FolderOrder.newestDates(database.localFolderDates(dir), sortType) else emptyMap()
         allFolderSongs.clear()
-        allFolderSongs.addAll(dbSongs)
+        allFolderSongs.addAll(FolderOrder.playOrder(dir, dbSongs, sortType, sortDescending, dates))
         if (onFetch != null) {
             onFetch()
         }

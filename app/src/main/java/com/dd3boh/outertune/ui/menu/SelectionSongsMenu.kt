@@ -175,6 +175,10 @@ fun SelectionMediaMetadataMenu(
                             toggleInLibrary(song.id, null)
                         }
                     }
+                    // As the other removals do: the songs leave the list they were picked in, and the
+                    // sheet left open over a "0/0 selected" bar looked as if nothing had happened.
+                    onDismiss()
+                    clearAction()
                 }
             } else {
                 GridMenuItem(
@@ -216,9 +220,10 @@ fun SelectionMediaMetadataMenu(
                 val songs = selection.map { stored[it.id] ?: it.toSongEntity() }
                 // toggleLike sends each like to YouTube itself. A likeSong after it sent it again.
                 if (allLiked) {
-                    songs.filter { it.liked }.forEach { song ->
-                        update(song.toggleLike())
-                    }
+                    val unliked = songs.filter { it.liked }.map { it.toggleLike() }
+                    unliked.forEach { update(it) }
+                    // Takes back the downloads the liked-songs setting made, when its switch says so (LikedDownloads).
+                    downloadUtil.autoDownloadOnLike(unliked)
                 } else {
                     val newlyLiked = songs.filter { !it.liked }
                         .map { it.toggleLike() }
@@ -226,7 +231,7 @@ fun SelectionMediaMetadataMenu(
                         update(s)
                     }
                     // One batch call, so liking a large selection fires a single Wi-Fi warning
-                    // rather than one per song. The branch above is an un-like, so it gets none.
+                    // rather than one per song.
                     downloadUtil.autoDownloadOnLike(newlyLiked)
                 }
             }
@@ -317,7 +322,9 @@ fun SelectionMediaMetadataMenu(
             onDismiss = { showRemoveDownloadDialog = false },
             content = {
                 Text(
-                    text = stringResource(R.string.remove_download_playlist_confirm, "selection"),
+                    // Its own words: the playlist's sentence with the English word "selection" in
+                    // it read "remove all "selection" playlist songs", in every language.
+                    text = stringResource(R.string.remove_download_selection_confirm),
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.padding(horizontal = 18.dp)
                 )

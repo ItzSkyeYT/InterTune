@@ -4,6 +4,7 @@ import androidx.compose.material.icons.rounded.PersonOff
 import androidx.compose.material.icons.rounded.Snooze
 import androidx.compose.material.icons.rounded.Block
 import com.dd3boh.outertune.constants.SignalKind
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.utils.ActivityLog
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
@@ -76,6 +77,7 @@ import com.dd3boh.outertune.ui.dialog.ArtistDialog
 import com.dd3boh.outertune.ui.dialog.DetailsDialog
 import com.dd3boh.outertune.ui.dialog.TextFieldDialog
 import com.dd3boh.outertune.utils.ShareLinks
+import com.dd3boh.outertune.utils.removeFromYouTubePlaylist
 import com.dd3boh.outertune.utils.joinByBullet
 import com.dd3boh.outertune.utils.makeTimeString
 import com.dd3boh.outertune.utils.rememberEnumPreference
@@ -144,6 +146,8 @@ fun SongMenu(
     var showDetailsDialog by rememberSaveable {
         mutableStateOf(false)
     }
+    var showBlockArtist by rememberSaveable { mutableStateOf(false) }
+    val blockable = remember(song.artists) { blockChoices(song.artists) }
 
     ListItem(
         title = song.song.title,
@@ -257,20 +261,12 @@ fun SongMenu(
                     // before an earlier removal closed up the positions behind it, and moving by
                     // one of those sent a song the search was not even showing to the bottom and
                     // left a gap. A row that has already gone is left alone rather than moving
-                    // whatever took its place.
-                    val map = playlistSongMapById(playlistSong.map.id) ?: return@transaction
-                    move(map.playlistId, map.position, Int.MAX_VALUE)
-                    delete(map.copy(position = Int.MAX_VALUE))
+                    // whatever took its place. Saved twice takes its copies out the same way.
+                    removeFromPlaylist(playlistSong.map.id)
                 }
 
                 coroutineScope.launch {
-                    playlist?.playlist?.browseId?.let { playlistId ->
-                        if (playlistSong.map.setVideoId != null) {
-                            YouTube.removeFromPlaylist(
-                                playlistId, playlistSong.map.songId, playlistSong.map.setVideoId
-                            )
-                        }
-                    }
+                    removeFromYouTubePlaylist(playlist?.playlist?.browseId, playlistSong.map)
                 }
 
                 onDismiss()
@@ -355,6 +351,10 @@ fun SongMenu(
                 }
             }
         }
+        // Last, so that nothing anyone knows the place of moves.
+        if (Unreleased.ARTIST_BLOCK && blockable.isNotEmpty()) {
+            GridMenuItem(icon = BlockArtistIcon, title = R.string.menu_block_artist) { showBlockArtist = true }
+        }
     }
 
     /**
@@ -415,6 +415,17 @@ fun SongMenu(
             navController = navController,
             artists = song.artists,
             onDismiss = { showSelectArtistDialog = false }
+        )
+    }
+
+    if (showBlockArtist) {
+        BlockArtistFlow(
+            artists = blockable,
+            onClose = { showBlockArtist = false },
+            onBlocked = {
+                showBlockArtist = false
+                onDismiss()
+            },
         )
     }
 

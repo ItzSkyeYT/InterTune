@@ -28,6 +28,7 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,6 +36,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
@@ -48,7 +50,7 @@ import com.dd3boh.outertune.db.entities.PlaylistEntity
 import com.dd3boh.outertune.ui.component.items.Icon.PlaylistIcon
 import com.dd3boh.outertune.ui.utils.SameTextSize
 import com.dd3boh.outertune.ui.utils.getNSongsString
-import com.dd3boh.outertune.utils.getThumbnailModel
+import com.dd3boh.outertune.utils.PlaylistCovers
 import kotlin.math.roundToInt
 
 @Composable
@@ -225,12 +227,18 @@ fun PlaylistThumbnail(
             .clip(shape)
             .background(MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp))
     ) {
-        val thumbnail = playlist.thumbnailUrl ?: thumbnails.firstOrNull()
-        if (thumbnail != null) {
-            val density = LocalDensity.current
-            val px = (size.value * density.density).roundToInt()
+        val files = LocalContext.current.filesDir
+        val density = LocalDensity.current
+        val px = (size.value * density.density).roundToInt()
+        val automatic = thumbnails.firstOrNull()
+        // A photo chosen for the playlist is a file of the app's own (PlaylistCovers); where it is
+        // gone the first song's cover is drawn, as if none was chosen.
+        val model = remember(playlist.thumbnailUrl, automatic, files, px) {
+            PlaylistCovers.model(files, playlist.thumbnailUrl, automatic, px)
+        }
+        if (model != null) {
             AsyncImage(
-                model = getThumbnailModel(thumbnail, px, px),
+                model = model,
                 contentDescription = null,
                 contentScale = ContentScale.Companion.Crop,
                 modifier = Modifier.Companion
