@@ -20,6 +20,9 @@ class SentSongTest {
         assertEquals(ReportAction.IGNORE, rung.onReport(failed, latestTicket = 4, support = FormatSupport.Unknown))
         assertEquals(ReportAction.FOLLOW, rung.onReport(failed.copy(state = ReceiverState.PLAYING), latestTicket = 4, support = FormatSupport.Unknown))
         assertEquals(ReportAction.IGNORE, rung.onReport(failed.copy(load = 1), latestTicket = 4, support = FormatSupport.Unknown))
+        // Once it plays, a failure later in the song is the song's, for the playback rules.
+        rung.settled()
+        assertEquals(ReportAction.FAILED, rung.onReport(failed, latestTicket = 4, support = FormatSupport.Unknown))
     }
 
     private val entry = RemoteEntry(key = 1L, mediaId = "vid1", durationMs = 200_000L, item = "vid1")

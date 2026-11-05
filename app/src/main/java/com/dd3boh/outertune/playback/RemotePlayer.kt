@@ -616,6 +616,8 @@ class RemotePlayer(
         val speaker = climb.speaker
         if (answer == RungAnswer.Plays) {
             if (this.climb === climb) this.climb = null
+            // A failure later in the song is the song's, as for any song.
+            sent?.takeIf { it.linkLoad == attempt.linkLoad }?.settled()
             if (speaker != null && attempt.rung.key != climb.remembered) {
                 Log.i(TAG, "Remembered ${attempt.rung} for ${link.device.name} ($speaker)")
                 scope.launch(Dispatchers.IO) { rungMemory?.remember(speaker, attempt.rung.key) }

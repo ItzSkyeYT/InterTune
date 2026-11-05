@@ -63,6 +63,23 @@ class CastPcmWiringTest {
     }
 
     @Test
+    fun `the ladder's two sentences say which speaker and what to do, held from translators with their French beside them`() {
+        val english = File("src/main/res/values/strings-ot.xml").readText()
+        val french = File("src/main/res/values-fr/strings-ot.xml").readText()
+        for (name in listOf("casting_refused_every_form", "casting_never_asked")) {
+            val en = Regex("""<string name="$name" translatable="false">(.+?)</string>""").find(english)?.groupValues?.get(1)
+            val fr = Regex("""<string name="$name">(.+?)</string>""").find(french)?.groupValues?.get(1)
+            for (text in listOf(en, fr)) {
+                assertTrue("$name: $text", text != null && text.startsWith("%1\$s ") && text.length <= 160)
+                assertTrue("$name has a long dash", '\u2014' !in text!! && '\u2013' !in text)
+            }
+        }
+        val service = code("playback/MusicService.kt")
+        assertTrue("getString(R.string.casting_refused_every_form, speaker)" in service)
+        assertTrue("getString(R.string.casting_never_asked, speaker)" in service)
+    }
+
+    @Test
     fun `a song is decoded on the remote player's worker, inside its send or a rung it sends`() {
         val player = code("playback/RemotePlayer.kt")
         val send = player.substringAfter("private suspend fun send(").substringBefore("private suspend fun failed(")

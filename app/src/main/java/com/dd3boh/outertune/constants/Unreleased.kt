@@ -792,7 +792,7 @@ object Unreleased {
      * (RungJudge), and the next is tried without the listener doing anything; the rung that played
      * is remembered for the speaker on the phone only (CastRungMemory) and tried first next time.
      * The listener hears of a failure only when every rung failed, in words that say what to do
-     * (cast_refused_every_form, cast_never_asked). Raw rungs only with [CAST_PCM].
+     * (casting_refused_every_form, casting_never_asked). Raw rungs only with [CAST_PCM].
      *
      * Without it a DLNA speaker gets CastFormats' single choice, as before. Its two texts are held
      * from translators, their French beside them in values-fr. When it is agreed: set this to true,
