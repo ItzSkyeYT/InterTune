@@ -550,7 +550,8 @@ fun BoxScope.QueueContent(
     }
     val reorderableState = rememberReorderableLazyListState(
         lazyListState = lazySongsListState,
-        scrollThresholdPadding = WindowInsets.systemBars.add(
+        // No status bar on top: the song list stops at its edge (see songList).
+        scrollThresholdPadding = WindowInsets.systemBars.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal).add(
             WindowInsets(top = ListItemHeight, bottom = ListItemHeight)
         ).asPaddingValues()
     ) { from, to ->
@@ -1065,10 +1066,20 @@ fun BoxScope.QueueContent(
     val songList: @Composable ColumnScope.(PaddingValues) -> Unit = { contentPadding ->
         Log.v("QueueContent", "QC-s_b")
         val songsScroll = rememberQueueSheetScroll(queueState)
+        // The space for the status bar sits outside the list, so a row scrolled up is cut at the
+        // status bar's edge instead of passing under the clock (Pixel 5, 5 Nov 2026). At rest the
+        // first row is where it was.
+        val listDirection = LocalLayoutDirection.current
         LazyColumn(
             state = lazySongsListState,
-            contentPadding = contentPadding,
-            modifier = if (songsScroll != null) Modifier.nestedScroll(songsScroll) else Modifier
+            contentPadding = PaddingValues(
+                start = contentPadding.calculateStartPadding(listDirection),
+                end = contentPadding.calculateEndPadding(listDirection),
+                bottom = contentPadding.calculateBottomPadding(),
+            ),
+            modifier = Modifier
+                .padding(top = contentPadding.calculateTopPadding())
+                .then(if (songsScroll != null) Modifier.nestedScroll(songsScroll) else Modifier)
         ) {
             if ((if (isSearching) filteredSongs else songs).isEmpty()) {
                 item {
