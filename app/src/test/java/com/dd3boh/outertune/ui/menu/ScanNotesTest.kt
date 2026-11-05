@@ -54,4 +54,13 @@ class ScanNotesTest {
         val menu = source("java/com/dd3boh/outertune/ui/menu/YouTubePlaylistMenu.kt")
         assertEquals(1, Regex("""downloadUtil\.downloads\.collect""").findAll(menu).count())
     }
+
+    @Test
+    fun `a playlist's menu plays its songs even before it has read them`() {
+        val menu = source("java/com/dd3boh/outertune/ui/menu/PlaylistMenu.kt")
+        assertTrue("database.playlistSongs(playlist.id).first()" in menu.substringAfter("fun withSongs("))
+        // Play, Shuffle and Play next go through it.
+        assertEquals(3, Regex("""withSongs \{ list ->""").findAll(menu).count())
+        assertFalse("items = songs.map { it.toMediaMetadata() }," in menu.substringBefore("Icons.Rounded.Radio"))
+    }
 }
