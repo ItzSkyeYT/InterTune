@@ -427,6 +427,60 @@ class CastServerTest {
     }
 
     @Test
+    fun `a url with DLNA's labels names the type in the renderer's words, a plain one in InterTune's, without DLNA's headers`() {
+        val server = serve(FakeSource("v" to FakeSong(6000, mimeType = "audio/mp4")))
+        // Before the renderer's list is known, InterTune's words, as always.
+        head(server.prepare("v").url).use { assertEquals("audio/mp4", it.header("Content-Type")) }
+        server.speaksTo(setOf("audio/mpeg", "audio/x-m4a"))
+        head(server.prepare("v").url).use {
+            assertEquals("audio/x-m4a", it.header("Content-Type"))
+            assertEquals("Streaming", it.header("transferMode.dlna.org"))
+            assertTrue(it.header("contentFeatures.dlna.org")!!.startsWith("DLNA.ORG_OP=01"))
+        }
+        val plain = server.prepare("v", plain = true)
+        assertEquals("http://127.0.0.1:${server.boundPort}/c/${server.token}/s/plain/v.m4a", plain.url)
+        get(plain.url).use {
+            assertEquals(200, it.code)
+            assertEquals("audio/mp4", it.header("Content-Type"))
+            assertNull(it.header("contentFeatures.dlna.org"))
+            assertNull(it.header("transferMode.dlna.org"))
+            assertArrayEquals(expected(0, 6000), it.body!!.bytes())
+        }
+    }
+
+    @Test
+    fun `plain raw audio is named as RFC 2586 writes it, whatever words the renderer used`() {
+        val server = serve(FakeSource("v" to FakeSong(6000)), pcmDecoder = ToneDecoder(48_000, 48_000))
+        val form = PcmForm(PcmContainer.L16, 48_000, 2, "AUDIO/L16;RATE=48000;CHANNELS=2")
+        val dlna = server.preparePcm("v", form, plain = false)
+        head(dlna.url).use { assertEquals("AUDIO/L16;RATE=48000;CHANNELS=2", it.header("Content-Type")) }
+        val plain = server.preparePcm("v", form, plain = true)
+        assertEquals("audio/L16;rate=48000;channels=2", plain.mimeType)
+        head(plain.url).use {
+            assertEquals("audio/L16;rate=48000;channels=2", it.header("Content-Type"))
+            assertNull(it.header("contentFeatures.dlna.org"))
+        }
+    }
+
+    @Test
+    fun `the server counts what each url was fetched to, each url apart`() {
+        val server = serve(FakeSource("v" to FakeSong(5000)))
+        val url = server.url("v")
+        assertEquals(FetchStats(), server.fetchStats(url))
+        head(url).close()
+        get(url, "bytes=1000-").use { assertEquals(4000, it.body!!.bytes().size) }
+        val deadline = System.nanoTime() + 2_000_000_000L
+        while (server.fetchStats(url).open > 0 && System.nanoTime() < deadline) Thread.sleep(10)
+        val stats = server.fetchStats(url)
+        assertEquals(2, stats.requests)
+        assertEquals(4000L, stats.bodyBytes)
+        assertEquals(0, stats.open)
+        assertTrue(stats.lastActivityAt > 0)
+        assertEquals(FetchStats(), server.fetchStats(server.prepare("v", plain = true).url))
+        assertEquals(FetchStats(), server.fetchStats("http://127.0.0.1/nothing"))
+    }
+
+    @Test
     fun `a server that cannot decode says so, and sends no raw audio`() {
         val server = serve(FakeSource("v" to FakeSong(6000)))
         try {

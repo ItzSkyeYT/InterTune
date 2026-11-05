@@ -150,7 +150,7 @@ class DlnaLink(
         // In the renderer's own words for the type: some refuse a track whose type they did not list.
         val listed = (caps.formats as? FormatSupport.Listed)?.mimeTypes
         val type = if (listed == null) item.mimeType else CastFormats.spelling(listed, item.mimeType)
-        val protocolInfo = Didl.protocolInfo(type, item.length >= 0, item.converted)
+        val protocolInfo = if (item.plainLabels) Didl.plainProtocolInfo(item.mimeType) else Didl.protocolInfo(type, item.length >= 0, item.converted)
         val metadata = Didl.track(item, protocolInfo)
         val args = listOf("InstanceID" to "0", "CurrentURI" to item.url, "CurrentURIMetaData" to metadata)
         Log.i(TAG, "To ${device.name}: $protocolInfo, ${item.length} bytes")

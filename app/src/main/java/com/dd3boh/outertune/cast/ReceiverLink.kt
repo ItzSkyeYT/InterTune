@@ -38,7 +38,8 @@ data class CastDevice(
  * One song as a receiver is given it: where to fetch it (the cast server's url), what it is, and
  * what to show while it plays. [length] is in bytes and [durationMs] in milliseconds, each -1
  * when not known. [converted] is raw audio the phone decodes for a renderer that takes nothing
- * else, which a DLNA renderer is told (DLNA.ORG_CI=1).
+ * else, which a DLNA renderer is told (DLNA.ORG_CI=1). [plainLabels] describes it to a DLNA
+ * renderer without DLNA's labels, in InterTune's words for its type (CastLadder's plain rungs).
  */
 data class CastItem(
     val mediaId: String,
@@ -51,6 +52,7 @@ data class CastItem(
     val album: String? = null,
     val artworkUrl: String? = null,
     val converted: Boolean = false,
+    val plainLabels: Boolean = false,
 )
 
 /**

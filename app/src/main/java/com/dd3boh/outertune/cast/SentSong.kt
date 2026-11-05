@@ -46,6 +46,11 @@ class SentSong<T>(
     val local: Boolean,
     /** Whether this is the one retry as AAC after the song failed as it is. */
     val retry: Boolean,
+    /**
+     * Whether this is one rung of CastLadder: its failure is the ladder's to judge, which tries the
+     * next rung, and the playback rules hear of a failure only once every rung has failed.
+     */
+    val ladder: Boolean = false,
 ) {
     private var failureTaken = false
 
@@ -56,6 +61,7 @@ class SentSong<T>(
     fun onReport(status: ReceiverStatus, latestTicket: Int, support: FormatSupport): ReportAction {
         if (status.load != linkLoad) return ReportAction.IGNORE
         if (status.state != ReceiverState.FAILED) return ReportAction.FOLLOW
+        if (ladder) return ReportAction.IGNORE
         if (failureTaken) return ReportAction.IGNORE
         failureTaken = true
         val worthRetry = load.ticket == latestTicket &&

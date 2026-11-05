@@ -205,17 +205,27 @@ object PcmFormats {
             }
             return PcmForm(PcmContainer.WAV, rate, sourceChannels.coerceIn(1, 2), target.wav ?: "audio/wav")
         }
+        return l16Forms(target, sourceRate, sourceChannels, bareRates = listOf(CD_RATE)).first()
+    }
+
+    /**
+     * Every L16 form [target] takes, best first, one for each rate: the order and the channels of
+     * [pick]. An entry that names no rate stands for [bareRates]: CD audio's alone for a single
+     * pick, both of the LPCM profile's where the cast can fall back to the next (CastLadder).
+     */
+    fun l16Forms(target: PcmTarget, sourceRate: Int, sourceChannels: Int, bareRates: List<Int>): List<PcmForm> {
         val choices = target.l16.flatMap { offer ->
-            val rates = listOf(offer.rate ?: CD_RATE)
+            val rates = offer.rate?.let(::listOf) ?: bareRates
             val channels = offer.channels?.let(::listOf) ?: listOf(1, 2)
             rates.flatMap { rate -> channels.filter { it in PcmForm.CHANNELS }.map { Triple(rate, it, offer) } }
         }
         require(choices.isNotEmpty()) { "No L16 entry names one or two channels" }
-        val rate = choices.map { it.first }.distinct().minWith(compareBy({ penalty(it, sourceRate) }, { it }))
-        val atRate = choices.filter { it.first == rate }
-        val channels = if (atRate.any { it.second == 2 }) 2 else 1
-        val exact = atRate.firstOrNull { it.second == channels && it.third.rate == rate && it.third.channels == channels }?.third
-        return PcmForm(PcmContainer.L16, rate, channels, exact?.contentType ?: PcmForm.defaultType(PcmContainer.L16, rate, channels))
+        return choices.map { it.first }.distinct().sortedWith(compareBy({ penalty(it, sourceRate) }, { it })).map { rate ->
+            val atRate = choices.filter { it.first == rate }
+            val channels = if (atRate.any { it.second == 2 }) 2 else 1
+            val exact = atRate.firstOrNull { it.second == channels && it.third.rate == rate && it.third.channels == channels }?.third
+            PcmForm(PcmContainer.L16, rate, channels, exact?.contentType ?: PcmForm.defaultType(PcmContainer.L16, rate, channels))
+        }
     }
 
     /** How far [rate] is from [source]: none for the same, then rates of CD quality or better by distance, then lower ones, highest first. */

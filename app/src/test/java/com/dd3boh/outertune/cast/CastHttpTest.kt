@@ -206,6 +206,30 @@ class CastHttpTest {
     }
 
     @Test
+    fun `a plain url names the same song, and is told apart by its own path`() {
+        val form = PcmForm(PcmContainer.L16, 44_100, 2)
+        val url = CastHttp.songUrl(InetAddress.getByName("192.168.1.20"), 47800, token, "abc", form.extension, pcm = form, plain = true)
+        assertEquals("http://192.168.1.20:47800/c/$token/l16-44100-2/plain/abc.pcm", url)
+        val path = CastHttp.parsePath(url)!!
+        assertEquals(CastPath(token, "abc", pcm = form, plain = true), path)
+        assertEquals("l16-44100-2/plain/abc", path.fetchKey)
+        assertEquals(CastPath(token, "abc", plain = true), CastHttp.parsePath("/c/$token/s/plain/abc.webm"))
+        assertEquals("s/abc", CastHttp.parsePath("/c/$token/s/abc.webm")!!.fetchKey)
+        assertEquals("aac/plain/abc", CastHttp.parsePath("/c/$token/aac/plain/abc.m4a")!!.fetchKey)
+        for (bad in listOf("/c/$token/s/dlna/abc.webm", "/c/$token/s/plain/x/abc.webm", "/c/$token/plain/abc.webm")) assertNull(bad, CastHttp.parsePath(bad))
+    }
+
+    @Test
+    fun `a plain reply is what a web server sends, without DLNA's headers`() {
+        val reply = CastHttp.songReply(request(), "audio/L16;rate=44100;channels=2", 176_400, converted = true, plain = true)
+        assertEquals("audio/L16;rate=44100;channels=2", reply.header("Content-Type"))
+        assertEquals("176400", reply.header("Content-Length"))
+        assertEquals("bytes", reply.header("Accept-Ranges"))
+        assertNull(reply.header("contentFeatures.dlna.org"))
+        assertNull(reply.header("transferMode.dlna.org"))
+    }
+
+    @Test
     fun `raw audio is served under its full type, as LPCM made on the phone`() {
         val reply = CastHttp.songReply(request(), "audio/L16;rate=44100;channels=2", 176_400, converted = true)
         assertEquals("audio/L16;rate=44100;channels=2", reply.header("Content-Type"))

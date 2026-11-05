@@ -255,6 +255,17 @@ class DlnaLinkTest {
     }
 
     @Test
+    fun `a plainly labelled song is described with its type alone, in InterTune's words`() {
+        val renderer = FakeRenderer().apply { sink = "http-get:*:audio/mpeg:*,http-get:*:audio/x-m4a:DLNA.ORG_PN=AAC_ISO_320" }
+        val link = link(renderer)
+        runBlocking { link.connect() }
+        runBlocking { link.load(song.copy(plainLabels = true), 0, play = false) }
+        val metadata = renderer.calls("SetAVTransportURI").single().args["CurrentURIMetaData"]!!
+        assertTrue(metadata, metadata.contains("protocolInfo=\"http-get:*:audio/mp4:*\""))
+        assertFalse(metadata, metadata.contains("DLNA.ORG_"))
+    }
+
+    @Test
     fun `a renderer that will not say what it plays is still connected, and sent songs as they are`() {
         val renderer = FakeRenderer().apply { protocolInfoBroken = true }
         val link = link(renderer, name = "Speaker")

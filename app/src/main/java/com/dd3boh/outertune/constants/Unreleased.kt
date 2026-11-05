@@ -782,4 +782,21 @@ object Unreleased {
      * ReleasedFlagsTest.
      */
     val CAST_PCM = BuildConfig.DEBUG
+
+    /**
+     * Casting to a DLNA speaker adapts to it (his word of 5 Nov 2026: "the casting thing should try
+     * to work on as many speakers as possible, as well as adapt to the speaker"): a song goes down
+     * CastLadder's rungs until one plays, the song as it is, AAC, raw audio at each rate the speaker
+     * lists, WAV, each labelled first as DLNA has it and then plainly. A rung is given up on a
+     * fault, an error the speaker reports, no fetch within 9 s, or a fetch dropped at once
+     * (RungJudge), and the next is tried without the listener doing anything; the rung that played
+     * is remembered for the speaker on the phone only (CastRungMemory) and tried first next time.
+     * The listener hears of a failure only when every rung failed, in words that say what to do
+     * (cast_refused_every_form, cast_never_asked). Raw rungs only with [CAST_PCM].
+     *
+     * Without it a DLNA speaker gets CastFormats' single choice, as before. Its two texts are held
+     * from translators, their French beside them in values-fr. When it is agreed: set this to true,
+     * add its name to ReleasedFlagsTest, and make its texts translatable.
+     */
+    val CAST_LADDER = BuildConfig.DEBUG
 }

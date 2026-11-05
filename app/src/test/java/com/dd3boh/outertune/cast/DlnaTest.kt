@@ -121,6 +121,13 @@ class DlnaTest {
     // DIDL-Lite
 
     @Test
+    fun `a plain protocolInfo is the type and nothing else`() {
+        assertEquals("http-get:*:audio/L16;rate=44100;channels=2:*", Didl.plainProtocolInfo(" audio/L16;rate=44100;channels=2 "))
+        assertEquals("http-get:*:audio/mp4:*", Didl.plainProtocolInfo("audio/mp4; codecs=\"mp4a.40.2\""))
+        assertEquals("http-get:*:audio/wav:*", Didl.plainProtocolInfo("audio/wav"))
+    }
+
+    @Test
     fun `raw audio is described with its rate and channels, as LPCM the phone made`() {
         val pcm = item.copy(
             url = "http://192.168.1.20:47800/c/abcd/l16-44100-2/dQw4w9WgXcQ.pcm",

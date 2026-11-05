@@ -17,9 +17,22 @@ import androidx.media3.common.SimpleBasePlayer
 import androidx.media3.common.util.Util
 import com.dd3boh.outertune.cast.CastFormats
 import com.dd3boh.outertune.cast.CastItem
+import com.dd3boh.outertune.cast.CastLadder
+import com.dd3boh.outertune.cast.CastMime
+import com.dd3boh.outertune.cast.CastProtocol
+import com.dd3boh.outertune.cast.CastRung
+import com.dd3boh.outertune.cast.CastRungMemory
 import com.dd3boh.outertune.cast.CastServer
+import com.dd3boh.outertune.cast.CastWords
+import com.dd3boh.outertune.cast.FetchStats
 import com.dd3boh.outertune.cast.FormatChoice
 import com.dd3boh.outertune.cast.FormatSupport
+import com.dd3boh.outertune.cast.LadderWalk
+import com.dd3boh.outertune.cast.PcmTarget
+import com.dd3boh.outertune.cast.RungAnswer
+import com.dd3boh.outertune.cast.RungForm
+import com.dd3boh.outertune.cast.RungJudge
+import com.dd3boh.outertune.cast.RungLabels
 import com.dd3boh.outertune.cast.LinkState
 import com.dd3boh.outertune.cast.ReceiverLink
 import com.dd3boh.outertune.cast.ReceiverState
@@ -44,6 +57,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.concurrent.ConcurrentHashMap
@@ -76,6 +90,13 @@ internal const val QUIET_START = 25
  * cannot get, or that the receiver cannot be sent, is a player error, so the skip-or-stop setting
  * applies as it does for a song the phone cannot play.
  *
+ * With [rungMemory] (Unreleased.CAST_LADDER), a DLNA renderer is instead tried down CastLadder's
+ * rungs until one plays: each try sent as a work job of its own, and judged every half second
+ * (RungJudge) from what the renderer says and what the cast server saw it fetch, so that a pause
+ * or a seek is never held up behind a slow renderer. The rung that played is remembered for the
+ * renderer and tried first next time; the listener hears of a failure only once every rung has
+ * failed. Every rung and its answer go to the log.
+ *
  * The device volume is the receiver's, so the volume keys and the system panel change it once
  * media3 turns the session remote, which it does for [DeviceInfo.PLAYBACK_TYPE_REMOTE].
  */
@@ -91,6 +112,12 @@ class RemotePlayer(
     private var shuffle: Boolean,
     /** Called on the main thread when the receiver is gone, with the link's last status, which says why. */
     private val onLost: (ReceiverStatus) -> Unit,
+    /** The rung that played on each renderer (CastLadder); null keeps to CastFormats' single choice. */
+    private val rungMemory: CastRungMemory? = null,
+    /** The listener's words for a song no rung could play. */
+    private val words: CastWords = CastWords.English,
+    /** Whether raw audio may be sent (Unreleased.CAST_PCM). */
+    private val canDecode: Boolean = Unreleased.CAST_PCM,
 ) : SimpleBasePlayer(looper) {
     private val playback = RemotePlayback<MediaItem>(now = ::linkClock)
     // Not immediate: the status watcher started in init must not run before construction is done.
@@ -112,6 +139,13 @@ class RemotePlayer(
      * for this cast.
      */
     private val refusedAsIs: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
+    /** Whether songs go down CastLadder's rungs: a DLNA renderer, with the ladder on. */
+    private val climbing = rungMemory != null && link.device.protocol == CastProtocol.DLNA
+
+    /** The song going down the ladder now; null when none is. Set on the work queue, read by the watcher. */
+    @Volatile
+    private var climb: Climb? = null
 
     private var released = false
     private var deviceVolume = MAX_VOLUME
@@ -138,6 +172,11 @@ class RemotePlayer(
         }
         scope.launch { link.status.collect(::onStatus) }
         scope.launch { link.requests.collect(::onRequest) }
+        if (climbing) {
+            // A url with DLNA's labels names its type in the renderer's own words, as the track's metadata does.
+            server.speaksTo((link.caps.formats as? FormatSupport.Listed)?.mimeTypes)
+            scope.launch { watchClimbs() }
+        }
     }
 
     /** The receiver it plays on. */
@@ -278,8 +317,19 @@ class RemotePlayer(
             when (command) {
                 is RemoteCommand.Load -> delivering { send(command, aac = null) }
                 is RemoteCommand.Seek -> work.trySend { if (command.ticket == latestTicket.get()) link.seek(command.positionMs) }
-                RemoteCommand.Play -> delivering { link.play() }
-                RemoteCommand.Pause -> delivering { link.pause() }
+                RemoteCommand.Play -> delivering {
+                    try {
+                        link.play()
+                    } catch (e: Exception) {
+                        // A try still being judged takes the refusal as its answer (RungJudge).
+                        if (climb?.attempt?.refuse(e) != true) throw e
+                    }
+                    climb?.attempt?.played(linkClock())
+                }
+                RemoteCommand.Pause -> delivering {
+                    climb?.attempt?.paused()
+                    link.pause()
+                }
                 RemoteCommand.Stop -> work.trySend { link.stop() }
             }
         }
@@ -306,6 +356,7 @@ class RemotePlayer(
      */
     private suspend fun send(load: RemoteCommand.Load<MediaItem>, aac: Boolean?) {
         if (load.ticket != latestTicket.get()) return
+        if (climbing && aac == null) return startClimb(load)
         val mediaId = load.entry.mediaId
         val song = load.entry.item.metadata
         val local = song?.isLocal == true
@@ -317,7 +368,7 @@ class RemotePlayer(
             val choice = if (aac == true) {
                 FormatChoice.Aac
             } else {
-                CastFormats.choose(link.caps.formats, asIs.mimeType, canFetchAac = !local, refused = refusedAsIs, canDecode = Unreleased.CAST_PCM)
+                CastFormats.choose(link.caps.formats, asIs.mimeType, canFetchAac = !local, refused = refusedAsIs, canDecode = canDecode)
             }
             if (choice is FormatChoice.Unplayable) {
                 // What it listed goes in the message, so a report says what this receiver does play.
@@ -365,6 +416,237 @@ class RemotePlayer(
             val reported = attempt != null && status.load == attempt.linkLoad && status.state == ReceiverState.FAILED
             if (!reported) failed(load.ticket, e.message ?: "Could not send the song to ${link.device.name}")
         }
+    }
+
+    /** One song going down the ladder: its rungs, the try under way, and whether the raw rungs know the song's real rate. */
+    private class Climb(
+        val load: RemoteCommand.Load<MediaItem>,
+        val walk: LadderWalk,
+        val speaker: String?,
+        val remembered: String?,
+        val asIsType: String,
+        val local: Boolean,
+    ) {
+        @Volatile
+        var attempt: Attempt? = null
+
+        @Volatile
+        var probed = false
+    }
+
+    /**
+     * One try of [rung]: the url it was sent at, the link's number for its load, what the server had
+     * seen of that url before it ([baseline]), and since when it has been told to play (-1 while it
+     * waits paused). Thread safe: sent on the work queue, judged by the watcher on the main thread.
+     */
+    private class Attempt(val rung: CastRung, val url: String, val linkLoad: Int, val baseline: FetchStats, playAskedAt: Long) {
+        @Volatile
+        var playAskedAt: Long = playAskedAt
+            private set
+
+        @Volatile
+        var refusal: String? = null
+            private set
+
+        @Volatile
+        var judged = false
+
+        fun played(at: Long) {
+            if (playAskedAt < 0) playAskedAt = at
+        }
+
+        fun paused() {
+            playAskedAt = -1
+        }
+
+        /** Takes [e] as this try's answer, when it is still waiting for one. */
+        fun refuse(e: Exception): Boolean {
+            if (judged) return false
+            refusal = e.message ?: "Refused"
+            return true
+        }
+    }
+
+    /**
+     * The first rung for [load]'s song: the song resolved, the ladder worked out for this renderer
+     * and this song, the rung that played here last time first. On the work queue, never the main
+     * thread: resolving can go to YouTube.
+     */
+    private suspend fun startClimb(load: RemoteCommand.Load<MediaItem>) {
+        val mediaId = load.entry.mediaId
+        val local = load.entry.item.metadata?.isLocal == true
+        try {
+            val asIs = server.prepare(mediaId)
+            val support = link.caps.formats
+            val base = CastLadder.rungs(support, asIs.mimeType, canFetchAac = !local, canDecode = canDecode, sourceRate = CastLadder.estimatedRate(asIs.mimeType))
+            if (base.isEmpty()) {
+                // Nothing this renderer lists can be made from this song: said as before, with what it lists.
+                val listed = (support as? FormatSupport.Listed)?.mimeTypes?.sorted()?.take(8)?.joinToString()
+                failed(load.ticket, "${link.device.name} does not play ${CastMime.bare(asIs.mimeType)}" + (listed?.let { " (it lists $it)" } ?: ""))
+                return
+            }
+            val speaker = CastRungMemory.speakerOf(link.device)
+            val remembered = speaker?.let { rungMemory?.rungFor(it) }
+            val rungs = CastLadder.startingAt(base, remembered)
+            Log.i(TAG, "Ladder for $mediaId on ${link.device.name}: ${rungs.joinToString()}" + (remembered?.let { " (remembered: $it)" } ?: ""))
+            if (load.ticket != latestTicket.get()) return
+            val climb = Climb(load, LadderWalk(rungs), speaker, remembered, asIs.mimeType, local)
+            this.climb = climb
+            tryRung(climb, rungs.first())
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not send $mediaId to ${link.device.name}", e)
+            failed(load.ticket, e.message ?: "Could not send the song to ${link.device.name}")
+        }
+    }
+
+    /** Sends [first], a rung of [climb], and leaves it to the watcher. On the work queue. */
+    private suspend fun tryRung(climb: Climb, first: CastRung) {
+        val load = climb.load
+        if (climb !== this.climb || load.ticket != latestTicket.get()) return
+        val mediaId = load.entry.mediaId
+        var rung = first
+        if (rung.form is RungForm.Raw && !climb.probed) {
+            // The raw rungs were ordered by the rate the song most likely decodes at; now it is
+            // looked at, and they are ordered by the real one.
+            climb.probed = true
+            val source = runCatching { server.pcmSourceOf(mediaId, load.entry.durationMs) }
+                .onFailure { Log.i(TAG, "$mediaId cannot be decoded for ${link.device.name}: ${it.message}") }
+                .getOrNull()
+            val raw = if (source == null) {
+                emptyList()
+            } else {
+                CastLadder.rawForms(link.caps.formats, source.rate, source.channels)
+                    .flatMap { listOf(CastRung(RungForm.Raw(it), RungLabels.DLNA), CastRung(RungForm.Raw(it), RungLabels.PLAIN)) }
+            }
+            val rest = climb.walk.rungs.dropWhile { it != rung }
+            climb.walk.replaceRest(raw + rest.filter { it.form !is RungForm.Raw })
+            rung = climb.walk.current ?: return giveUp(climb)
+        }
+        val plain = rung.labels == RungLabels.PLAIN
+        val number = climb.walk.tried.size + 1
+        try {
+            val offer = when (val form = rung.form) {
+                is RungForm.AsIs -> server.prepare(mediaId, plain = plain)
+                RungForm.Aac -> server.prepare(mediaId, aac = true, plain = plain)
+                is RungForm.Raw -> server.preparePcm(mediaId, form.form, plain, load.entry.durationMs)
+            }
+            if (climb !== this.climb || load.ticket != latestTicket.get()) return
+            val song = load.entry.item.metadata
+            val item = CastItem(
+                mediaId = mediaId,
+                url = offer.url,
+                mimeType = offer.mimeType,
+                length = offer.length,
+                durationMs = offer.durationMs.takeIf { it > 0 } ?: load.entry.durationMs,
+                title = song?.title,
+                artist = song?.artists?.joinToString { it.name }?.takeIf { it.isNotEmpty() },
+                album = song?.album?.title,
+                artworkUrl = castArtwork(song?.thumbnailUrl),
+                converted = rung.form is RungForm.Raw,
+                plainLabels = plain,
+            )
+            val linkLoad = link.status.value.load + 1
+            val attempt = Attempt(rung, offer.url, linkLoad, server.fetchStats(offer.url), if (load.play) linkClock() else -1)
+            climb.attempt = attempt
+            val choice = when (rung.form) {
+                is RungForm.AsIs -> FormatChoice.AsIs
+                RungForm.Aac -> FormatChoice.Aac
+                is RungForm.Raw -> FormatChoice.Pcm(PcmTarget(emptyList()))
+            }
+            sent = SentSong(load, linkLoad, climb.asIsType, choice, climb.local, retry = false, ladder = true)
+            Log.i(TAG, "Rung $number of ${climb.walk.rungs.size} for $mediaId on ${link.device.name}: $rung, ${offer.mimeType}, ${offer.length} bytes, from ${load.startMs} ms")
+            try {
+                link.load(item, load.startMs, load.play)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                attempt.refuse(e)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // This form cannot be had for this song (no AAC copy, no decode): the next rung.
+            Log.i(TAG, "Rung $number for $mediaId, $rung, could not be made: ${e.message}")
+            val next = climb.walk.next(RungAnswer.Refused("Could not be made: ${e.message}"))
+            if (next != null) tryRung(climb, next) else giveUp(climb)
+        }
+    }
+
+    /** Judges the try under way every half second (RungJudge), while this player lives. Main thread. */
+    private suspend fun watchClimbs() {
+        while (!released) {
+            delay(WATCH_MS)
+            val climb = climb ?: continue
+            val attempt = climb.attempt ?: continue
+            if (attempt.judged) continue
+            if (climb.load.ticket != latestTicket.get()) {
+                // Skipped, stopped or replaced: nothing more is sent for it.
+                if (this.climb === climb) this.climb = null
+                continue
+            }
+            val status = link.status.value
+            val mine = status.load == attempt.linkLoad
+            val seen = server.fetchStats(attempt.url)
+            val fetched = FetchStats(
+                requests = seen.requests - attempt.baseline.requests,
+                bodyBytes = seen.bodyBytes - attempt.baseline.bodyBytes,
+                open = seen.open,
+                lastActivityAt = seen.lastActivityAt,
+            )
+            val answer = RungJudge.judge(
+                attempt.refusal,
+                if (mine) status.state else ReceiverState.LOADING,
+                if (mine) status.error else null,
+                fetched,
+                attempt.playAskedAt,
+                linkClock(),
+            ) ?: continue
+            attempt.judged = true
+            onAnswer(climb, attempt, answer, fetched)
+        }
+    }
+
+    /** Acts on [answer] for [attempt]: remembers the rung that plays, forgets a remembered one that failed, tries the next. Main thread. */
+    private fun onAnswer(climb: Climb, attempt: Attempt, answer: RungAnswer, fetched: FetchStats) {
+        val mediaId = climb.load.entry.mediaId
+        Log.i(TAG, "${link.device.name} answered ${attempt.rung} for $mediaId: ${describe(answer)} (${fetched.requests} requests, ${fetched.bodyBytes} bytes)")
+        val next = climb.walk.next(answer)
+        val speaker = climb.speaker
+        if (answer == RungAnswer.Plays) {
+            if (this.climb === climb) this.climb = null
+            if (speaker != null && attempt.rung.key != climb.remembered) {
+                Log.i(TAG, "Remembered ${attempt.rung} for ${link.device.name} ($speaker)")
+                scope.launch(Dispatchers.IO) { rungMemory?.remember(speaker, attempt.rung.key) }
+            }
+            return
+        }
+        if (speaker != null && attempt.rung.key == climb.remembered) {
+            Log.i(TAG, "Forgot ${attempt.rung} for ${link.device.name}: it failed")
+            scope.launch(Dispatchers.IO) { rungMemory?.forget(speaker) }
+        }
+        if (next != null) {
+            work.trySend { tryRung(climb, next) }
+        } else {
+            scope.launch(Dispatchers.IO) { giveUp(climb) }
+        }
+    }
+
+    /** Every rung failed, or the renderer never reached the phone: the listener is told, in words that say what to do. */
+    private suspend fun giveUp(climb: Climb) {
+        if (climb === this.climb) this.climb = null
+        val name = link.device.name
+        val tried = climb.walk.tried.joinToString { (rung, answer) -> "$rung: ${describe(answer)}" }
+        Log.w(TAG, "No rung played ${climb.load.entry.mediaId} on $name: $tried")
+        failed(climb.load.ticket, if (climb.walk.cannotReach) words.neverAsked(name) else words.refusedEveryForm(name))
+    }
+
+    private fun describe(answer: RungAnswer): String = when (answer) {
+        RungAnswer.Plays -> "plays"
+        is RungAnswer.Refused -> "refused (${answer.why})"
+        is RungAnswer.NeverFetched -> "never fetched in ${answer.ms / 1000} s"
+        is RungAnswer.FailedOnContent -> "read ${answer.bytes / 1024} KB and failed (${answer.why})"
     }
 
     private suspend fun failed(ticket: Int, message: String) = withContext(Dispatchers.Main) {
@@ -451,6 +733,9 @@ class RemotePlayer(
 
         /** As the phone's own player is set up in MusicService. */
         const val SEEK_INCREMENT_MS = 5_000L
+
+        /** How often a try down the ladder is judged. */
+        const val WATCH_MS = 500L
 
         /** The links' clock, which every reported position is timed by. */
         fun linkClock(): Long = System.nanoTime() / 1_000_000L

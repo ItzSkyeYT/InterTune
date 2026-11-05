@@ -25,6 +25,7 @@ import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * What a receiver is told about a song: where to fetch it, what it is, and how long in bytes; for
@@ -113,6 +114,31 @@ class CastServer(
     /** Each song's length as the queue knows it, for a decode that cannot tell its own. */
     private val durationHints = ConcurrentHashMap<String, Long>()
     private val parking = PcmParking()
+
+    /**
+     * The types the session's renderer listed, lower case, for writing each type in its own words
+     * on a url with DLNA's labels ([speaksTo]); null serves every type in InterTune's words.
+     */
+    @Volatile
+    private var listedTypes: Set<String>? = null
+
+    /** What each url was fetched to so far, by [CastPath.fetchKey]: what the ladder reads a try by (RungJudge). */
+    private val fetches = ConcurrentHashMap<String, FetchCounter>()
+
+    private class FetchCounter {
+        val requests = AtomicInteger()
+        val bodyBytes = AtomicLong()
+        val open = AtomicInteger()
+
+        @Volatile
+        var lastActivityAt = 0L
+
+        fun touch() {
+            lastActivityAt = System.nanoTime() / 1_000_000L
+        }
+
+        fun snapshot() = FetchStats(requests.get(), bodyBytes.get(), open.get(), lastActivityAt)
+    }
 
     val isRunning: Boolean get() = serverSocket?.isClosed == false
 
@@ -219,6 +245,7 @@ class CastServer(
             refusing.clear()
             songs.clear()
             aacSongs.clear()
+            fetches.clear()
             parking.shut()
             pcmSongs.clear()
             pcmSources.clear()
@@ -229,25 +256,40 @@ class CastServer(
 
     /**
      * Resolves [mediaId] now and says where a receiver fetches it; with [aac], the song fetched
-     * again as AAC for a receiver that takes no Opus. Blocking, and it may go to the network, so
-     * never on the main thread. Throws [CastUnavailableException] with the reason when the song
-     * cannot be had.
+     * again as AAC for a receiver that takes no Opus; with [plain], at a url served without DLNA's
+     * labels. Blocking, and it may go to the network, so never on the main thread. Throws
+     * [CastUnavailableException] with the reason when the song cannot be had.
      */
-    fun prepare(mediaId: String, aac: Boolean = false): CastOffer {
+    fun prepare(mediaId: String, aac: Boolean = false, plain: Boolean = false): CastOffer {
         val song = songFor(mediaId, aac)
-        return CastOffer(urlFor(mediaId, song.mimeType, aac), song.mimeType, song.length)
+        return CastOffer(urlFor(mediaId, song.mimeType, aac, plain), song.mimeType, song.length)
     }
 
     /** The url for [mediaId], ending in the extension that goes with [mimeType]. */
-    fun urlFor(mediaId: String, mimeType: String, aac: Boolean = false): String {
+    fun urlFor(mediaId: String, mimeType: String, aac: Boolean = false, plain: Boolean = false): String {
         val port = boundPort.takeIf { it > 0 } ?: error("The cast server is not running")
-        return CastHttp.songUrl(bindAddress, port, token, mediaId, CastMime.extensionFor(mimeType), aac)
+        return CastHttp.songUrl(bindAddress, port, token, mediaId, CastMime.extensionFor(mimeType), aac, plain = plain)
     }
 
     /** The url for [mediaId] decoded into raw audio of [form]. */
-    fun urlFor(mediaId: String, form: PcmForm): String {
+    fun urlFor(mediaId: String, form: PcmForm, plain: Boolean = false): String {
         val port = boundPort.takeIf { it > 0 } ?: error("The cast server is not running")
-        return CastHttp.songUrl(bindAddress, port, token, mediaId, form.extension, pcm = form)
+        return CastHttp.songUrl(bindAddress, port, token, mediaId, form.extension, pcm = form, plain = plain)
+    }
+
+    /**
+     * The types the session's renderer [listed] (FormatSupport.Listed's), so that a url with DLNA's
+     * labels names its song's type in the renderer's own words, as the track's metadata does
+     * (CastFormats.spelling); null names every type in InterTune's words.
+     */
+    fun speaksTo(listed: Set<String>?) {
+        listedTypes = listed
+    }
+
+    /** What [url], one of this server's, has been fetched to so far; all zero for a url never asked for. */
+    fun fetchStats(url: String): FetchStats {
+        val key = CastHttp.parsePath(url)?.fetchKey ?: return FetchStats()
+        return fetches[key]?.snapshot() ?: FetchStats()
     }
 
     /**
@@ -258,13 +300,31 @@ class CastServer(
      * [CastUnavailableException] when the song cannot be had or decoded.
      */
     fun preparePcm(mediaId: String, target: PcmTarget, durationHintMs: Long = -1): CastOffer {
-        if (durationHintMs > 0) durationHints[mediaId] = durationHintMs
-        val decoded = pcmSourceFor(mediaId)
-        val form = PcmFormats.pick(target, decoded.rate, decoded.channels)
+        val decoded = pcmSourceOf(mediaId, durationHintMs)
+        return preparePcm(mediaId, PcmFormats.pick(target, decoded.rate, decoded.channels), plain = false, durationHintMs)
+    }
+
+    /**
+     * Says where a renderer fetches [mediaId] decoded into raw audio of exactly [form] (a rung of
+     * CastLadder), with or without DLNA's labels ([plain]). Blocking, like [preparePcm].
+     */
+    fun preparePcm(mediaId: String, form: PcmForm, plain: Boolean, durationHintMs: Long = -1): CastOffer {
+        val decoded = pcmSourceOf(mediaId, durationHintMs)
         pcmForms[form.key] = form
         val song = pcmSongFor(mediaId, form)
         Log.i(TAG, "$mediaId decodes at ${decoded.rate} Hz in ${decoded.channels} channels; serving ${song.mimeType}, ${song.length} bytes, ${song.durationMs} ms")
-        return CastOffer(urlFor(mediaId, form), song.mimeType, song.length, song.durationMs)
+        val type = if (plain) PcmForm.defaultType(form.container, form.rate, form.channels) else song.mimeType
+        return CastOffer(urlFor(mediaId, form, plain), type, song.length, song.durationMs)
+    }
+
+    /**
+     * What [mediaId] decodes to (looked at once, then remembered for the session), its duration
+     * from [durationHintMs] when the song does not say. Blocking. Throws [CastUnavailableException]
+     * when it cannot be decoded, or when this build cannot decode at all.
+     */
+    fun pcmSourceOf(mediaId: String, durationHintMs: Long = -1): PcmSource {
+        if (durationHintMs > 0) durationHints[mediaId] = durationHintMs
+        return pcmSourceFor(mediaId)
     }
 
     /** Resolves [mediaId] afresh on its next request, after the receiver said it failed. */
@@ -456,27 +516,46 @@ class CastServer(
             return sendText(output, method, 503, "The song could not be found")
         }
 
-        val reply = CastHttp.songReply(request, song.mimeType, song.length, song.converted)
-        output.write(CastHttp.head(reply.status, reply.headers))
-        if (method == "HEAD" || reply.bodyLength == 0L) {
-            output.flush()
-            return
+        // In the renderer's own words with DLNA's labels, as the track's metadata names it
+        // (DlnaLink); InterTune's own on a plain url. Raw audio's form already holds the words.
+        val listed = listedTypes
+        val type = when {
+            path.plain && path.pcm != null -> PcmForm.defaultType(path.pcm.container, path.pcm.rate, path.pcm.channels)
+            path.plain || listed == null || path.pcm != null -> song.mimeType
+            else -> CastFormats.spelling(listed, song.mimeType)
         }
-        song.openAt(reply.bodyStart).use { reader ->
-            val buffer = ByteArray(BUFFER_BYTES)
-            var left = if (reply.bodyLength >= 0) reply.bodyLength else Long.MAX_VALUE
-            while (left > 0) {
-                val count = reader.read(buffer, 0, minOf(buffer.size.toLong(), left).toInt())
-                if (count < 0) break
-                output.write(buffer, 0, count)
-                left -= count
+        val reply = CastHttp.songReply(request, type, song.length, song.converted, plain = path.plain)
+        val counter = fetches.getOrPut(path.fetchKey) { FetchCounter() }
+        counter.requests.incrementAndGet()
+        counter.open.incrementAndGet()
+        counter.touch()
+        try {
+            output.write(CastHttp.head(reply.status, reply.headers))
+            if (method == "HEAD" || reply.bodyLength == 0L) {
+                output.flush()
+                return
             }
-            output.flush()
-            if (reply.bodyLength >= 0 && left > 0) {
-                // Closing now tells the receiver the body is short, and it asks again from where
-                // it stopped.
-                Log.w(TAG, "${path.mediaId} ended $left bytes early")
+            song.openAt(reply.bodyStart).use { reader ->
+                val buffer = ByteArray(BUFFER_BYTES)
+                var left = if (reply.bodyLength >= 0) reply.bodyLength else Long.MAX_VALUE
+                while (left > 0) {
+                    val count = reader.read(buffer, 0, minOf(buffer.size.toLong(), left).toInt())
+                    if (count < 0) break
+                    output.write(buffer, 0, count)
+                    counter.bodyBytes.addAndGet(count.toLong())
+                    counter.touch()
+                    left -= count
+                }
+                output.flush()
+                if (reply.bodyLength >= 0 && left > 0) {
+                    // Closing now tells the receiver the body is short, and it asks again from
+                    // where it stopped.
+                    Log.w(TAG, "${path.mediaId} ended $left bytes early")
+                }
             }
+        } finally {
+            counter.open.decrementAndGet()
+            counter.touch()
         }
     }
 
