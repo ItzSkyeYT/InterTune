@@ -2501,4 +2501,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="no_app_to_pick">No file picker here. Install a file manager app.</string>
     <!-- The notification a headset or widget press shows for the moment between the app starting and the song's own notification (MediaButtonStart, issue #98). Held for translators. -->
     <string name="media_button_resuming" translatable="false">Resuming your queue</string>
+    <!-- The Songs tab with nothing in it, by the list picked above (Liked, Downloaded): held from translators until the next push, French beside them in values-fr. Library keeps library_song_empty. -->
+    <string name="library_song_empty_liked" translatable="false">Songs you like will show up here</string>
+    <string name="library_song_empty_downloaded" translatable="false">Downloaded songs will show up here</string>
 </resources>
