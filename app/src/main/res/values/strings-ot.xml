@@ -2495,4 +2495,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <!-- The Songs tab with nothing in it, by the list picked above (Liked, Downloaded): held from translators until the next push, French beside them in values-fr. Library keeps library_song_empty. -->
     <string name="library_song_empty_liked" translatable="false">Songs you like will show up here</string>
     <string name="library_song_empty_downloaded" translatable="false">Downloaded songs will show up here</string>
+    <!-- A write the phone refused, in a toast (NotSaved): a setting, a sort, an add to a playlist. Held for translators. -->
+    <string name="not_saved_storage_full" translatable="false">Not saved: the phone\'s storage is full. Free some space and try again.</string>
+    <string name="not_saved" translatable="false">Not saved: something went wrong. Please try again.</string>
 </resources>

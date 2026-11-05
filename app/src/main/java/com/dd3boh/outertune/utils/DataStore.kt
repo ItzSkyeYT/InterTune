@@ -10,7 +10,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.preferencesDataStore
 import com.dd3boh.outertune.constants.NewInstallSongCache
 import com.dd3boh.outertune.lyrics.LyricsTimingOnTime
@@ -85,8 +84,9 @@ fun <T> rememberPreference(
                     // NonCancellable: the screen that set it may close at once (the player menu's
                     // Toggle lyrics does), which cancels this scope, and DataStore runs the edit in
                     // its caller's context, so the write was sometimes dropped.
+                    // And said, not thrown, when it fails (a full phone): see NotSaved.
                     coroutineScope.launch(NonCancellable) {
-                        context.dataStore.edit {
+                        context.editOrSay {
                             it[key] = value
                         }
                     }
@@ -144,7 +144,7 @@ inline fun <reified T : Enum<T>> rememberEnumPreference(
                 set(value) {
                     // NonCancellable for the same reason as in rememberPreference.
                     coroutineScope.launch(NonCancellable) {
-                        context.dataStore.edit {
+                        context.editOrSay {
                             it[key] = value.name
                         }
                     }
