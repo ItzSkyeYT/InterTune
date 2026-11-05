@@ -13,7 +13,7 @@ import org.junit.Test
 import java.io.File
 
 /**
- * Crossfade is held back: on in debug and preview builds, off in a release, and off in every build
+ * Crossfade is held back: on in debug builds, off in previews and in a release, and off in every build
  * until the listener switches it on. It plays on AutoMix's stage, so this holds the places it is
  * wired in to the shape they were written in: the flag, the settings rows, the stage wanted with
  * it, the fade left out while it is on, and the controller planning a crossfade without Auto's
@@ -39,8 +39,8 @@ class CrossfadeHeldBackTest {
     private fun body(text: String, header: String) = text.substringAfter(header).substringBefore("\n    }\n")
 
     @Test
-    fun `Crossfade is on in debug and preview builds only`() {
-        assertTrue(Regex("""val CROSSFADE = BuildConfig\.DEBUG\s*$""", RegexOption.MULTILINE).containsMatchIn(code(source("constants/Unreleased.kt"))))
+    fun `Crossfade is on in debug builds only, as AutoMix is`() {
+        assertTrue(Regex("""val CROSSFADE = BuildConfig\.DEBUG && BuildConfig\.BUILD_TYPE == "debug"\s*$""", RegexOption.MULTILINE).containsMatchIn(code(source("constants/Unreleased.kt"))))
     }
 
     @Test

@@ -527,8 +527,10 @@ object Unreleased {
      * a model of media3's audio sink), not yet heard on a phone. The setting starts off, and with
      * it off, or this off, playback is what it was. To ship: set this to true, or delete it with
      * the checks that read it, in MusicService, PlayerSettings, PlayerFrag and DeveloperFrag.
+     *
+     * Debug builds only since 26 Oct 2026: kept out of the previews that testers get.
      */
-    val AUTOMIX = BuildConfig.DEBUG
+    val AUTOMIX = BuildConfig.DEBUG && BuildConfig.BUILD_TYPE == "debug"
 
     /**
      * Mix, the next step of AutoMix: a Mix switch on each playlist, a line between two songs that
@@ -540,8 +542,10 @@ object Unreleased {
      * Not in any release. With this off, playlists, the queue and the player are what they were,
      * and nothing reads or writes those files. It plays only with AUTOMIX on. To ship: set this to
      * true, or delete it with the checks that read it.
+     *
+     * Debug builds only, as AutoMix is: kept out of the previews that testers get.
      */
-    val AUTOMIX_EDITOR = BuildConfig.DEBUG
+    val AUTOMIX_EDITOR = BuildConfig.DEBUG && BuildConfig.BUILD_TYPE == "debug"
 
     /**
      * Crossfade, under Player and audio beside Fade between tracks and AutoMix: a song that ends by
@@ -561,8 +565,11 @@ object Unreleased {
      * off the setting is never read, and playback is what it was. To ship: set this to true, or
      * delete it with the checks that read it, in MusicService, PlayerSettings, PlayerFrag and
      * SettingsIndex, and make its texts translatable.
+     *
+     * Debug builds only, as AutoMix is, whose stage it plays on (his word of 5 Nov 2026: into 0.13
+     * behind its debug switch).
      */
-    val CROSSFADE = BuildConfig.DEBUG
+    val CROSSFADE = BuildConfig.DEBUG && BuildConfig.BUILD_TYPE == "debug"
 
     /**
      * Casting to a Chromecast opens InterTune's own receiver first (Chromecast.INTERTUNE_RECEIVER:
