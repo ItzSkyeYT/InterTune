@@ -182,6 +182,25 @@ class WidgetLooksTest {
         assertTrue(plan(243, 216, records).look != null)
     }
 
+    /**
+     * A list alone whose list is still empty is drawn as what is playing (WidgetLooks.playingBig):
+     * the playing cover big and blurred behind, its words, and a tap that opens the app, never the
+     * first song of a list that has none.
+     */
+    @Test
+    fun `a list alone with nothing in it draws what is playing`() {
+        val widget = File("src/main/java/com/dd3boh/outertune/widget/MusicWidget.kt").readText()
+        val bigCover = widget.substringAfter("private fun BigCoverLook(").substringBefore("private fun MosaicCover(")
+        assertTrue("val alone = l.paint.settings.contentShown == WidgetContent.LIST && list.isNotEmpty()" in bigCover)
+        val body = widget.substringAfter("private fun Body(").substringBefore("private fun openApp(")
+        assertTrue("settings.contentShown == WidgetContent.LIST && list.isNotEmpty()" in body)
+        // and the plan for it is Big cover's cover alone, as with a Shelf of both
+        val alone = plan(360, 240, records.copy(content = WidgetContent.LIST), available = 0)
+        val both = plan(360, 240, big, available = 0)
+        assertEquals(both.look!!.hero, alone.look!!.hero)
+        assertNull(alone.glass)
+    }
+
     /** The old Shelf's drawing is gone with its shapes. */
     @Test
     fun `the old shelf's drawing is gone`() {

@@ -187,7 +187,11 @@ enum class WidgetShape {
     /** Full cover, wide and not tall: the song at the top, the glass bar at the bottom. */
     BANNER,
 
-    /** Shelf, Big cover: the cover of what is playing big, the list as a mosaic of covers beside it; with a list alone, its first song big. */
+    /**
+     * Shelf, Big cover: the cover of what is playing big, the list as a mosaic of covers beside it;
+     * with a list alone, its first song big. Every look of a Shelf whose list is still empty draws
+     * what is playing this way, the cover alone (WidgetLooks.playingBig).
+     */
     BIG_COVER,
 
     /** Shelf, Crate: what is playing in a line on top, the list's covers leaning in a crate under it; with a list alone, its heading and the crate. */
@@ -388,15 +392,17 @@ object WidgetLayout {
 
     /** Every shape but the heart, which [withLike] adds where it fits. */
     private fun shape(w: Int, h: Int, s: WidgetSettings, available: Int, scale: Float, upNext: Int): WidgetPlan {
+        // A Shelf with nothing in its list yet (just added, or offline) draws what is playing big.
+        fun empty() = if (available <= 0) WidgetLooks.playingBig(w, h, s, scale) else null
         if (s.contentShown == WidgetContent.LIST) {
-            return WidgetLooks.plan(w, h, s, available, scale) ?: WidgetPlan(s.style, WidgetShape.NONE, padH = 12, padV = 10)
+            return WidgetLooks.plan(w, h, s, available, scale) ?: empty() ?: WidgetPlan(s.style, WidgetShape.NONE, padH = 12, padV = 10)
         }
         if (w < TINY_WIDTH_DP) return tile(w, h, s)
         if (h < LINE_HEIGHT_DP) return line(w, h, s, scale)
         if (s.style == WidgetStyle.SHELF) {
             // A look with no room: a narrow, tall widget is better as its cover with play than as a
             // line with most of its height empty; anything else is the line.
-            return WidgetLooks.plan(w, h, s, available, scale)
+            return WidgetLooks.plan(w, h, s, available, scale) ?: empty()
                 ?: if (w < LOOK_TILE_BELOW_DP && h >= w) tile(w, h, s) else line(w, h, s, scale)
         }
         if (w >= PANES_WIDTH_DP && h >= PANES_HEIGHT_DP && upNext > 0) panes(w, h, s, scale, upNext)?.let { return it }
