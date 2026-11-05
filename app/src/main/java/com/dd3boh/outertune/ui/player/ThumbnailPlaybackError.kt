@@ -63,6 +63,7 @@ import com.dd3boh.outertune.utils.YTPlayerUtils
 import com.dd3boh.outertune.utils.installedFrom
 import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
+import com.dd3boh.outertune.utils.Toaster
 
 @SuppressLint("UnusedBoxWithConstraintsScope")
 @Composable
@@ -189,7 +190,7 @@ fun ThumbnailPlaybackError(
             clipboardManager.nativeClipboard.setPrimaryClip(
                 ClipData.newPlainText("InterTune player error", AnnotatedString(report))
             )
-            Toast.makeText(context, R.string.copied, Toast.LENGTH_SHORT).show()
+            Toaster.show(context, R.string.copied, Toast.LENGTH_SHORT)
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

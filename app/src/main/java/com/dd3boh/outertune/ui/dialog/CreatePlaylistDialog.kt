@@ -44,6 +44,7 @@ import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.semantics.Role
+import com.dd3boh.outertune.utils.Toaster
 
 @Composable
 fun CreatePlaylistDialog(
@@ -71,7 +72,7 @@ fun CreatePlaylistDialog(
                     YouTube.createPlaylist(playlistName).getOrElse {
                         Log.w("CreatePlaylistDialog", "Could not create the playlist on YouTube Music", ErrorText.forLog(it))
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(appContext, R.string.create_sync_playlist_failed, Toast.LENGTH_LONG).show()
+                            Toaster.show(appContext, R.string.create_sync_playlist_failed, Toast.LENGTH_LONG)
                         }
                         return@launch
                     }

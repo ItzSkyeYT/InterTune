@@ -64,6 +64,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import com.dd3boh.outertune.utils.Toaster
 
 /**
  * Casting from start to finish, one receiver at a time: the server, the link, handing playback to
@@ -363,7 +364,7 @@ class CastSession(
         val minutes = IdleCountdown.TIMEOUT_MS / 60_000
         Log.i(TAG, "Nothing played on ${remote.device.name} for $minutes min, ending the cast")
         end(playHere = false)
-        Toast.makeText(service, service.getString(R.string.cast_ended_idle, minutes), Toast.LENGTH_LONG).show()
+        Toaster.show(service, service.getString(R.string.cast_ended_idle, minutes), Toast.LENGTH_LONG)
     }
 
     private fun lost(status: ReceiverStatus) {
@@ -372,7 +373,7 @@ class CastSession(
         val reason = say(status.problem ?: LinkProblem.LOST, remote.device.name)
         end(playHere = false)
         _problem.value = reason
-        Toast.makeText(service, service.getString(R.string.cast_lost, reason), Toast.LENGTH_LONG).show()
+        Toaster.show(service, service.getString(R.string.cast_lost, reason), Toast.LENGTH_LONG)
     }
 
     /** What went wrong with the receiver called [name], in the listener's language. */

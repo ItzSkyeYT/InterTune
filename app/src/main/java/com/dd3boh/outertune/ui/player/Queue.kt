@@ -169,6 +169,7 @@ import com.dd3boh.outertune.ui.component.EmptyPlaceholder
 import com.dd3boh.outertune.playback.AdaptiveNote
 import com.dd3boh.outertune.playback.AdaptiveQueue
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Radio
 import com.dd3boh.outertune.ui.component.LazyColumnScrollbar
 import com.dd3boh.outertune.ui.component.FailedNote
 import com.dd3boh.outertune.ui.component.openProxySetting
@@ -208,6 +209,7 @@ import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import java.time.LocalDateTime
 import kotlin.math.roundToInt
+import com.dd3boh.outertune.utils.Toaster
 
 /** The adaptive queue's note in words: see AdaptiveNote. */
 @Composable
@@ -665,6 +667,9 @@ fun BoxScope.QueueContent(
     // Why the radio or mix this queue was to become did not start, said under the song it left
     // alone: Val's queue of one ("Radiotemp", 1/1, Discord, 1 Nov 2026) said nothing at all.
     val radioStopped by playerConnection.service.radioStopped.collectAsState()
+    // A radio YouTube gave nothing, going on from the app's own picks (LocalRadio): said under its
+    // songs, so nobody takes them for YouTube's.
+    val radioFromInterTune by playerConnection.service.radioFromInterTune.collectAsState()
     // The preview the sheet shows while the player holds nothing yet (after an update or a
     // restart, until something plays) is of the queue that is playing: its far end is folded
     // away like the live queue's, from the song it is at, not shown in full. Another queue looked
@@ -803,7 +808,7 @@ fun BoxScope.QueueContent(
                     }.onFailure { Log.w("Queue.kt", "Could not save the queue as a playlist", it) }.isSuccess
                     if (saved) {
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, context.getString(R.string.saved_as_playlist, name), Toast.LENGTH_SHORT).show()
+                            Toaster.show(context, context.getString(R.string.saved_as_playlist, name), Toast.LENGTH_SHORT)
                         }
                     }
                 }
@@ -1284,6 +1289,38 @@ fun BoxScope.QueueContent(
                 }
             }
 
+            if (radioFromInterTune != null && !isSearching && detachedQueue == null && radioFromInterTune == qb.getCurrentQueue()?.id) {
+                item(key = "radio-from-intertune", contentType = "radio-from-intertune") {
+                    // As the adaptive queue's line below: a picture, then two short lines.
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 20.dp)
+                    ) {
+                        Icon(
+                            Icons.Rounded.Radio,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.secondary,
+                        )
+                        Spacer(Modifier.width(16.dp))
+                        Column {
+                            Text(
+                                text = stringResource(R.string.radio_from_intertune_title),
+                                style = MaterialTheme.typography.bodyLarge,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                text = stringResource(R.string.radio_from_intertune_body),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+
             val note = adaptiveNote.takeIf { adaptiveSaying }
             if (hiddenTailCount > 0 || note != null) {
                 item(key = "adaptive-tail", contentType = "adaptive-tail") {
@@ -1666,7 +1703,8 @@ fun BoxScope.QueueContent(
                         Box(modifier = Modifier.weight(1f)) {
                             ResizableIconButton(
                                 icon = when (repeatMode) {
-                                    REPEAT_MODE_OFF -> R.drawable.repeat_off
+                                    // Off is the repeat icon greyed out, as the notification draws it (his word, 5 Nov 2026).
+                                    REPEAT_MODE_OFF -> R.drawable.repeat_on
                                     REPEAT_MODE_ALL -> R.drawable.repeat_on
                                     REPEAT_MODE_ONE -> R.drawable.repeat_one
                                     else -> throw IllegalStateException()
@@ -1676,7 +1714,7 @@ fun BoxScope.QueueContent(
                                     .padding(4.dp)
                                     .align(Alignment.Center)
                                     .named(repeatName(repeatMode)),
-                                color = iconButtonColor,
+                                color = if (repeatMode == REPEAT_MODE_OFF) iconButtonColor.copy(alpha = REPEAT_OFF_ALPHA) else iconButtonColor,
                                 enabled = !detachedHead,
                                 onClick = {
                                     playerConnection.player.toggleRepeatMode()

@@ -1,0 +1,11 @@
+Version 0.11.1
+
+- Odtwarzanie mogło się zatrzymać przy zmianie utworu, a aplikacja nie chciała się otworzyć do momentu wymuszenia jej zatrzymania. Naprawiono.
+- Naciśnięcie „Odtwarzaj” przywraca utwór, którego nie udało się załadować z powodu złego połączenia.
+- Stuknięcie dwóch utworów jeden po drugim: odtwarzany jest ten ostatni.
+- Aplikacja automatycznie włącza się ponownie po przywróceniu kopii zapasowej.
+- Historia rejestruje utwór już po 2 sekundach słuchania (wcześniej trwało to 5 sekund).
+- Brak adresów sieciowych w logach i raportach o błędach.
+
+Pełna lista zmian:
+https://github.com

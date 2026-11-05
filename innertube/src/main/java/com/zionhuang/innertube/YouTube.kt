@@ -17,6 +17,7 @@ import com.zionhuang.innertube.models.Tabs
 import com.zionhuang.innertube.models.WatchEndpoint
 import com.zionhuang.innertube.models.WatchEndpoint.WatchEndpointMusicSupportedConfigs.WatchEndpointMusicConfig.Companion.MUSIC_VIDEO_TYPE_ATV
 import com.zionhuang.innertube.models.YouTubeClient
+import com.zionhuang.innertube.models.YouTubeClient.Companion.ANDROID_VR_NO_AUTH
 import com.zionhuang.innertube.models.YouTubeClient.Companion.WEB
 import com.zionhuang.innertube.models.YouTubeClient.Companion.WEB_REMIX
 import com.zionhuang.innertube.models.YouTubeLocale
@@ -54,6 +55,7 @@ import com.zionhuang.innertube.pages.SearchResult
 import com.zionhuang.innertube.pages.SearchSuggestionPage
 import com.zionhuang.innertube.pages.SearchSummary
 import com.zionhuang.innertube.pages.SearchSummaryPage
+import com.zionhuang.innertube.pages.WatchPlaylistPage
 import com.zionhuang.innertube.utils.runCatchingCancellable
 import io.ktor.client.call.body
 import io.ktor.client.plugins.ResponseException
@@ -63,6 +65,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.io.File
 import java.net.Proxy
@@ -987,6 +990,64 @@ object YouTube {
             continuation = playlistPanelRenderer?.continuations?.getContinuation(),
             endpoint = endpoint
         )
+    }
+
+    /**
+     * [next] as a visitor: no cookie and no account named, with [visitorData] as the visitor's id.
+     * For a radio whose [next] was refused or gave nothing but its own song: a sign-in YouTube no
+     * longer takes, an account id sent with no cookie (Val, 4 Nov 2026: 401 on every radio while
+     * search worked), a visitorData YouTube distrusts. The automix the answer may end on is asked
+     * for the same way, as [next] asks for it.
+     */
+    suspend fun nextAsVisitor(endpoint: WatchEndpoint, visitorData: String?): Result<NextResult> = runCatchingCancellable {
+        suspend fun ask(e: WatchEndpoint) = innerTube.nextAsVisitor(
+            WEB_REMIX, e.videoId, e.playlistId, e.playlistSetVideoId, e.index, e.params, null, visitorData,
+        ).body<NextResponse>()
+        val response = ask(endpoint)
+        val result = nextResult(response, endpoint)
+        val automix = queueIn(response)?.contents?.lastOrNull()?.automixPreviewVideoRenderer?.content
+            ?.automixPlaylistVideoRenderer?.navigationEndpoint?.watchPlaylistEndpoint
+            ?: return@runCatchingCancellable result
+        val more = nextResult(ask(automix), automix)
+        more.copy(
+            title = result.title,
+            items = result.items + more.items,
+            lyricsEndpoint = result.lyricsEndpoint,
+            relatedEndpoint = result.relatedEndpoint,
+            currentIndex = result.currentIndex,
+            endpoint = automix,
+        )
+    }
+
+    /**
+     * YouTube's own mix of [videoId], asked of www.youtube.com by [client] as a visitor, for a radio
+     * YouTube Music would not give. WEB asks for the mix NewPipe asks for ("RD" + the id, with
+     * params OAE%3D), any other client for YouTube Music's radio list ("RDAMVM" + the id). From three
+     * Tor exits on 4 Nov 2026, where YouTube Music's own radio came back with its first song alone
+     * or 403: WEB's mix answered all three times (25 songs), ANDROID_VR's two times in three. Fails
+     * when the answer holds no mix.
+     */
+    suspend fun mix(videoId: String, client: YouTubeClient, visitorData: String? = this.visitorData): Result<NextResult> = runCatchingCancellable {
+        val web = client.clientName == WEB.clientName
+        val playlistId = if (web) "RD$videoId" else "RDAMVM$videoId"
+        val text = innerTube.watchNext(client, videoId, playlistId, if (web) "OAE%3D" else null, visitorData).bodyAsText()
+        WatchPlaylistPage.parse(Json.parseToJsonElement(text).jsonObject, WatchEndpoint(videoId = videoId, playlistId = playlistId))
+            ?: throw NoMixException(client.clientName)
+    }
+
+    class NoMixException(client: String) : IllegalStateException("$client answered with no mix")
+
+    /**
+     * A visitorData YouTube issues now, to this connection: [ANDROID_VR_NO_AUTH]'s /player asked
+     * without one, whose answer carries a new one whatever it says (YTPlayerUtils mints its own
+     * so for the stream walk). /player answered from every Tor exit tried where YouTube Music's
+     * radio did not. The answer is not kept for anything else.
+     */
+    suspend fun issuedVisitorData(videoId: String): Result<String> = runCatchingCancellable {
+        innerTube.player(ANDROID_VR_NO_AUTH, videoId, null, null, null, visitorData = null)
+            .body<PlayerResponse>().responseContext.visitorData
+            ?.takeIf { VISITOR_DATA_REGEX.containsMatchIn(it) }
+            ?: throw IllegalStateException("no visitorData in the answer")
     }
 
     suspend fun lyrics(endpoint: BrowseEndpoint): Result<String?> = runCatching {

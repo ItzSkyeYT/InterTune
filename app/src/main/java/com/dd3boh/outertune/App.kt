@@ -9,6 +9,7 @@
 
 package com.dd3boh.outertune
 
+import com.dd3boh.outertune.utils.AppProxySelector
 import com.dd3boh.outertune.utils.ProxyAddress
 import com.dd3boh.outertune.utils.ProxyAtStart
 import com.dd3boh.outertune.models.ContentFilter
@@ -93,7 +94,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import java.net.Proxy
+import java.net.ProxySelector
 import java.util.Locale
+import com.dd3boh.outertune.utils.Toaster
 
 @HiltAndroidApp
 class App : Application(), SingletonImageLoader.Factory {
@@ -158,8 +161,12 @@ class App : Application(), SingletonImageLoader.Factory {
                     .onFailure(::reportException)
                     .getOrNull()
             }
-            if (proxy != null) YouTube.proxy = proxy
-            else Toast.makeText(this, R.string.proxy_not_used_at_start, Toast.LENGTH_LONG).show()
+            if (proxy != null) {
+                YouTube.proxy = proxy
+                // And for everything else the app fetches, covers and downloads to a folder
+                // included, which went round it (#68); the home network stays direct.
+                ProxySelector.setDefault(AppProxySelector(proxy))
+            } else Toaster.show(this, R.string.proxy_not_used_at_start, Toast.LENGTH_LONG)
         }
 
         if (dataStore[UseLoginForBrowse] != false) {
@@ -197,7 +204,7 @@ class App : Application(), SingletonImageLoader.Factory {
                         ?.takeIf { it != "null" } // Previously visitorData was sometimes saved as "null" due to a bug
                         ?: YouTube.visitorData().onFailure {
                             withContext(Dispatchers.Main) {
-                                Toast.makeText(this@App, "Failed to get visitorData.", LENGTH_SHORT).show()
+                                Toaster.show(this@App, "Failed to get visitorData.", LENGTH_SHORT)
                             }
                             reportException(it)
                         }.getOrNull()?.also { newVisitorData ->
@@ -247,6 +254,8 @@ class App : Application(), SingletonImageLoader.Factory {
                 .collect { cookie ->
                     // Signed in again, or out: a refusal of the old sign-in no longer holds (WhyStopped).
                     YouTubeTrouble.signInChanged()
+                    // And a radio asks YouTube Music as the account again (RadioLadder).
+                    com.dd3boh.outertune.playback.RadioAnswers.forget()
                     try {
                         YouTube.cookie = cookie
                     } catch (e: Exception) {

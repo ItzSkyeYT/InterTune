@@ -18,6 +18,7 @@ import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
 import java.util.concurrent.ConcurrentHashMap
+import com.dd3boh.outertune.utils.Toaster
 
 class DownloadDirectoryManagerOt(private var context: Context, private var dir: Uri, extraDirs: List<Uri>) {
     val TAG = DownloadDirectoryManagerOt::class.simpleName.toString()
@@ -104,7 +105,7 @@ class DownloadDirectoryManagerOt(private var context: Context, private var dir: 
             allDirs = mutableListOf()
             unreadableExtraDirs = emptyList()
 //            reportException(e)
-//            Toast.makeText(context, "Failed to initiate download manager: " + e.message, Toast.LENGTH_LONG).show()
+//            Toaster.show(context, "Failed to initiate download manager: " + e.message, Toast.LENGTH_LONG)
             // TODO: snackbar for failed uri or not set up?
         }
     }

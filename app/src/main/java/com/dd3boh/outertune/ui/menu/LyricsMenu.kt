@@ -86,6 +86,7 @@ import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.utils.shareSheet
 import com.dd3boh.outertune.viewmodels.LyricsMenuViewModel
 import org.akanework.gramophone.logic.utils.SemanticLyrics
+import com.dd3boh.outertune.utils.Toaster
 
 
 @Composable
@@ -492,12 +493,12 @@ fun LyricsMenu(
                     // What is on screen stays as it is, and the toast says why nothing changed.
                     // The view was handed nothing here, which it draws as the loading placeholder,
                     // and that stayed until the song changed.
-                    LyricsHelper.Refetched.NoneFound -> Toast.makeText(
+                    LyricsHelper.Refetched.NoneFound -> Toaster.show(
                         context,
                         if (before != null && before != uninitializedLyric) R.string.lyrics_refetch_none else R.string.lyrics_not_found,
                         Toast.LENGTH_SHORT,
-                    ).show()
-                    LyricsHelper.Refetched.Failed -> Toast.makeText(context, R.string.lyrics_refetch_failed, Toast.LENGTH_LONG).show()
+                    )
+                    LyricsHelper.Refetched.Failed -> Toaster.show(context, R.string.lyrics_refetch_failed, Toast.LENGTH_LONG)
                 }
             }
         }
@@ -535,7 +536,7 @@ fun LyricsMenu(
                 ?.setPrimaryClip(ClipData.newPlainText(song.title, LyricsShare.text(shown.orEmpty())))
             // Android 13 and later show their own confirmation for every copy.
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-                Toast.makeText(context, R.string.lyrics_copied, Toast.LENGTH_SHORT).show()
+                Toaster.show(context, R.string.lyrics_copied, Toast.LENGTH_SHORT)
             }
             onDismiss()
         }

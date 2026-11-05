@@ -52,6 +52,9 @@ object PlaylistCovers {
      */
     fun canChoose(browseId: String?, enabled: Boolean = Unreleased.PLAYLIST_COVER): Boolean = enabled && browseId == null
 
+    /** Whether this build lets anyone pick a cover at all: the backup sheet offers their photos only then. */
+    val offered: Boolean get() = canChoose(browseId = null)
+
     // ---- the size of a kept photo ----
 
     /**

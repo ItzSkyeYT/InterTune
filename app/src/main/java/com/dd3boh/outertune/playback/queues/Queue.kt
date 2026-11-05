@@ -30,6 +30,11 @@ interface Queue {
          * radio answered with nothing but that song can be filled without asking for it again.
          */
         val relatedEndpoint: BrowseEndpoint? = null,
+        /**
+         * The songs after the first are the app's own picks (LocalRadio), YouTube having given the
+         * radio nothing: the queue says so.
+         */
+        val fromInterTune: Boolean = false,
     ) {
         /**
          * The list with [preload], the song already playing from its one-song queue, in the

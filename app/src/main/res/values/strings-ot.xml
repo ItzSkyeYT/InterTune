@@ -191,7 +191,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="playback_auth_when_refused">Only when a song is refused</string>
     <string name="playback_auth_always">Always</string>
     <string name="err_age_restricted">YouTube will not play this one without an account old enough to see it. Other songs are unaffected.</string>
-    <string name="err_song_unavailable">YouTube no longer has this song, or does not serve it where you are. Other songs are unaffected.</string>
+    <string name="err_song_unavailable">YouTube no longer has this song, or not where you are.</string>
     <string name="err_copy_details">Copy error details</string>
 
 <!-- Sort menu -->
@@ -205,7 +205,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="bits_per_sample">Bits per sample</string>
     <string name="create_sync_playlist">Sync Playlist</string>
     <string name="create_sync_playlist_description">Note: This allows for syncing with YouTube Music. This is NOT changeable later. You cannot add local songs to synced playlists.</string>
-    <string name="create_sync_playlist_failed">Could not create the playlist on YouTube Music. Nothing was created; try again when you are online.</string>
+    <string name="create_sync_playlist_failed">Could not create the playlist on YouTube Music. Try again online.</string>
     <string name="disc_number">Disc number</string>
     <string name="extra_details">Extra details</string>
     <string name="file_path">File path</string>
@@ -763,7 +763,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="song_cache_max_size">Maximum song cache size</string>
     <string name="image_cache_max_size">Maximum artwork cache size</string>
     <string name="max_queues_description">How many queues the app keeps at once. The oldest is dropped when you go past this.</string>
-    <string name="enable_proxy_description">Send YouTube Music requests and streams through another server first. Pictures, lyrics and the other services the app uses still connect directly. Leave this off unless you know you need it.</string>
+    <string name="enable_proxy_description">Send everything the app fetches through another server first, pictures and lyrics included. Speakers and TVs on your network are still reached directly. Leave this off unless you know you need it.</string>
     <string name="show_liked_and_downloaded_playlist_description">Show Liked songs and Downloaded songs as playlists in your library.</string>
 
     <!-- Descriptions for rows whose titles alone did not say what they do -->
@@ -881,7 +881,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="welcome_back_done">Done</string>
     <string name="welcome_back_entry">What is new</string>
     <string name="welcome_back_not_here">That is not on screen in this setup, so there is nothing to point at.</string>
-    <string name="welcome_back_no_widget_host">This home screen does not take widgets from apps. Add it from the home screen\'s own widget list.</string>
+    <string name="welcome_back_no_widget_host">This home screen can\'t take app widgets. Use its own widget list.</string>
     <!-- The card at the top of Home that the page waits behind. %1$d is how many things are new,
          %2$s the version somebody came from, as in 0.11. -->
     <plurals name="welcome_card_since">
@@ -1330,7 +1330,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="exclusion_reason_gone">No longer on YouTube</string>
     <string name="error_youtube_not_answering">YouTube is not answering right now. The song was tried several ways.</string>
     <string name="error_cached_part_stale">The saved part of this song no longer matches what YouTube serves. Press play to load it again.</string>
-    <string name="error_connection_turned_away">YouTube is turning this connection away, so every song looks unavailable. A VPN, or a school or work network, can do this.</string>
+    <string name="error_connection_turned_away">YouTube refuses this connection. Try without a VPN or on other Wi-Fi.</string>
     <string name="menu_not_this_song">Not this song</string>
     <string name="menu_less_of_artist">Less of this artist</string>
     <string name="menu_never_artist">Never this artist (recommendations)</string>
@@ -2374,7 +2374,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="region_note_title">YouTube Music in South Korea</string>
     <string name="region_note_body">YouTube Music has no free plan in South Korea, so YouTube shows songs, albums and mixes there only to Premium members. Songs in your playlists still play, and search still finds videos. A Premium account, or a VPN or proxy outside Korea, brings the rest back.</string>
     <string name="region_note_proxy">Proxy settings</string>
-    <string name="proxy_restart_title">Restart to use the new proxy</string>
+    <string name="proxy_restart_title">Restart to apply the proxy setting</string>
     <string name="proxy_restart_description">InterTune takes the proxy when it starts. Tap to restart it now; the music stops.</string>
     <!-- Why search, radios, mixes or Home stopped loading (WhyStopped): on Home, on a search, album or playlist page that failed, and under a radio that did not start. Held from translators until his yes. -->
     <string name="why_stopped_sign_in_title" translatable="false">Your YouTube sign-in expired</string>
@@ -2382,6 +2382,9 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="why_stopped_sign_in_again" translatable="false">Sign in again</string>
     <string name="why_stopped_unreachable_title" translatable="false">YouTube can\'t be reached</string>
     <string name="why_stopped_unreachable_body" translatable="false">This connection isn\'t getting through to YouTube. If you use a VPN, make sure its split tunnelling includes InterTune, or try another network.</string>
+    <!-- Under a radio's songs in the queue when YouTube gave the radio nothing and InterTune picked them itself (LocalRadio, Unreleased.RADIO_FALLBACK). Held from translators until his yes. -->
+    <string name="radio_from_intertune_title" translatable="false">Picked by InterTune</string>
+    <string name="radio_from_intertune_body" translatable="false">YouTube sent no radio</string>
     <string name="album_not_loaded_title" translatable="false">This album did not load</string>
     <string name="album_not_loaded_body" translatable="false">YouTube did not send it, so only the songs InterTune already had are shown.</string>
     <string name="lyrics_refetch_failed" translatable="false">Lyrics could not be fetched. Check the connection.</string>
@@ -2441,7 +2444,16 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="problem_report_share_file" translatable="false">Share as a file</string>
     <!-- Downloads saved as song files (SongFiles, Unreleased.DOWNLOAD_FILES), after the folder's warning: held from translators until his go. -->
     <string name="dl_song_files_note" translatable="false">Songs are saved as Opus or M4A files with their title, artist and cover, so other apps and cars can play them.</string>
-    <!-- What's new in 0.12.7, listed from 0.13 (his pick of 2 Nov 2026): held from translators until his go. -->
+    <!-- What's new in 0.12.8 (Walkthrough.kt, V0_12_8): held from translators until his go. -->
+    <string name="new_report_send_title" translatable="false">Send a report to InterTune</string>
+    <string name="new_report_send_body" translatable="false">Report a problem can now send the report to InterTune itself, no GitHub account needed. Or share it as a file to post on Discord.</string>
+    <string name="new_backup_parts_title" translatable="false">Backups leave your sign-ins out</string>
+    <string name="new_backup_parts_body" translatable="false">Backup now asks what goes in the file. Your YouTube Music and Last.fm sign-ins only go in if you tick them.</string>
+    <string name="new_backup_parts_way" translatable="false">Backups are made and restored in here.</string>
+    <string name="new_backup_parts_here" translatable="false">Tap Backup to pick what goes in the file. Your sign-ins only go in if you tick them.</string>
+    <string name="new_lyrics_save_title" translatable="false">Save lyrics cards and videos</string>
+    <string name="new_lyrics_save_body" translatable="false">Long-press a line of the lyrics: a card or a video can now be saved on the phone, not only shared.</string>
+    <!-- What's new in 0.12.7, listed from 0.12.8 (his pick of 2 Nov 2026): held from translators until his go. -->
     <string name="new_shelf_looks_title" translatable="false">The Shelf in three looks</string>
     <string name="new_shelf_looks_body" translatable="false">Big cover, Crate or Records, picked under Look in the widget\'s settings.</string>
     <string name="new_lyrics_video_long_title" translatable="false">Lyrics videos up to ten minutes</string>
@@ -2480,4 +2492,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="widgets_all_options_shelf" translatable="false">Background, buttons, rows</string>
     <string name="widgets_add_from_home" translatable="false">This home screen does not take widgets from apps. Add them from its own widget list.</string>
     <string name="widgets_cells" translatable="false">%1$d × %2$d</string>
+    <!-- The Songs tab with nothing in it, by the list picked above (Liked, Downloaded): held from translators until the next push, French beside them in values-fr. Library keeps library_song_empty. -->
+    <string name="library_song_empty_liked" translatable="false">Songs you like will show up here</string>
+    <string name="library_song_empty_downloaded" translatable="false">Downloaded songs will show up here</string>
 </resources>

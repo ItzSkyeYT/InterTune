@@ -175,6 +175,10 @@ fun SelectionMediaMetadataMenu(
                             toggleInLibrary(song.id, null)
                         }
                     }
+                    // As the other removals do: the songs leave the list they were picked in, and the
+                    // sheet left open over a "0/0 selected" bar looked as if nothing had happened.
+                    onDismiss()
+                    clearAction()
                 }
             } else {
                 GridMenuItem(

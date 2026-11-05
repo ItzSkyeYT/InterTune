@@ -225,6 +225,14 @@ class WidgetStyleTest {
         assertTrue(max >= 2 * WidgetLayout.PANES_WIDTH_DP - 100)
     }
 
+    /** After an update the launcher shows the initial layout for seconds: the widget's own picture, not a spinner card (his pick, 5 Nov 2026). */
+    @Test
+    fun `while it loads, the widget shows its own picture and not a spinner card`() {
+        val info = source("res/xml/music_widget_info.xml")
+        assertTrue("""android:initialLayout="@layout/widget_preview"""" in info)
+        assertTrue("glance_default_loading_layout" !in info)
+    }
+
     // The words.
 
     private val held = listOf("widget_config_style", "widget_style_cover", "widget_style_full_cover", "widget_style_shelf", "widget_up_next")

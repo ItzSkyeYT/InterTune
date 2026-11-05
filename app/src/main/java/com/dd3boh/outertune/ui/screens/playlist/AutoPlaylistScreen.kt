@@ -144,6 +144,7 @@ import com.dd3boh.outertune.savedtwice.SavedTwicePlace
 import com.dd3boh.outertune.savedtwice.likedCopies
 import com.dd3boh.outertune.ui.screens.SavedTwiceButton
 import com.dd3boh.outertune.ui.screens.rememberSavedTwiceCount
+import com.dd3boh.outertune.utils.Toaster
 
 enum class PlaylistType {
     LIKE, DOWNLOAD, FAVOURITES, OTHER
@@ -316,7 +317,7 @@ fun AutoPlaylistScreen(
                         existed -> context.resources.getQuantityString(R.plurals.list_queued_other, n, n, queueName)
                         else -> context.resources.getQuantityString(R.plurals.list_queued_new, n, n, queueName)
                     }
-                    Toast.makeText(context, words, Toast.LENGTH_SHORT).show()
+                    Toaster.show(context, words, Toast.LENGTH_SHORT)
                 }
             },
             onDismiss = { showChooseQueueDialog = false }

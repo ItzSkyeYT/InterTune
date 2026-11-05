@@ -128,6 +128,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import kotlin.math.max
 import kotlin.math.roundToInt
+import com.dd3boh.outertune.utils.Toaster
 
 /**
  * A few lines of a song's lyrics as a picture to send: the lines in large type over the colours of
@@ -411,8 +412,8 @@ fun LyricsCardDialog(lines: List<String>, song: MediaMetadata, video: LyricsVide
 
     /** Says whether it was saved, and where: [place] on Android 10 and up, the file's name where the save screen asked. */
     fun saidSaved(saved: Boolean, place: String) {
-        if (saved) Toast.makeText(context, context.getString(R.string.lyrics_saved, place), Toast.LENGTH_LONG).show()
-        else Toast.makeText(context, R.string.error_unknown, Toast.LENGTH_SHORT).show()
+        if (saved) Toaster.show(context, context.getString(R.string.lyrics_saved, place), Toast.LENGTH_LONG)
+        else Toaster.show(context, R.string.error_unknown, Toast.LENGTH_SHORT)
     }
 
     // Older Android asks where it goes, on the system's own save screen: one for each kind of file.
@@ -489,9 +490,9 @@ fun LyricsCardDialog(lines: List<String>, song: MediaMetadata, video: LyricsVide
                     } else if (LyricsVideo.share(context, file, song.title)) {
                         // how big it is, to know before sending it where files have a limit
                         val size = Formatter.formatFileSize(context, file.length())
-                        Toast.makeText(context, context.getString(R.string.lyrics_video_size, size), Toast.LENGTH_LONG).show()
+                        Toaster.show(context, context.getString(R.string.lyrics_video_size, size), Toast.LENGTH_LONG)
                     } else {
-                        Toast.makeText(context, R.string.error_unknown, Toast.LENGTH_SHORT).show()
+                        Toaster.show(context, R.string.error_unknown, Toast.LENGTH_SHORT)
                     }
                 }
                 if (!keep) onShared()
@@ -499,7 +500,7 @@ fun LyricsCardDialog(lines: List<String>, song: MediaMetadata, video: LyricsVide
                 throw cancelled
             } catch (failure: Throwable) {
                 Log.w("LyricsCard", "The lyrics video could not be made", failure)
-                Toast.makeText(context, R.string.lyrics_video_failed, Toast.LENGTH_LONG).show()
+                Toaster.show(context, R.string.lyrics_video_failed, Toast.LENGTH_LONG)
             } finally {
                 making = null
                 if (activity != null && turned != null) activity.requestedOrientation = turned
@@ -533,7 +534,7 @@ fun LyricsCardDialog(lines: List<String>, song: MediaMetadata, video: LyricsVide
                     val ready = card ?: return@TextButton
                     scope.launch {
                         if (!LyricsCard.share(context, ready, song.title)) {
-                            Toast.makeText(context, R.string.error_unknown, Toast.LENGTH_SHORT).show()
+                            Toaster.show(context, R.string.error_unknown, Toast.LENGTH_SHORT)
                         }
                         onShared()
                     }

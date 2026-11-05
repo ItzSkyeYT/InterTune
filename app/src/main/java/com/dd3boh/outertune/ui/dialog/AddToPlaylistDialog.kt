@@ -59,6 +59,7 @@ import com.zionhuang.innertube.YouTube
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import com.dd3boh.outertune.utils.Toaster
 
 @Composable
 fun AddToPlaylistDialog(
@@ -344,7 +345,7 @@ private fun addAndSay(
     if (left > 0) {
         val app = context.applicationContext
         Handler(Looper.getMainLooper()).post {
-            Toast.makeText(app, app.resources.getQuantityString(R.plurals.playlist_add_skipped, left, left), Toast.LENGTH_LONG).show()
+            Toaster.show(app, app.resources.getQuantityString(R.plurals.playlist_add_skipped, left, left), Toast.LENGTH_LONG)
         }
     }
     // An add of nothing at all still counts (every song of a skip-duplicates pick may be a

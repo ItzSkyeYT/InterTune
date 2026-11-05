@@ -633,7 +633,8 @@ object Unreleased {
      * values-fr. When it is agreed and the site files for real: set this to true and make its texts
      * translatable.
      */
-    val REPORT_RELAY = BuildConfig.DEBUG
+    // On in every build from 0.12.8, picked on 4 Nov 2026.
+    val REPORT_RELAY = true
 
     /**
      * What's playing with no connection (issue #48, planned for 0.13 on 26 Oct 2026): a listen
@@ -717,7 +718,8 @@ object Unreleased {
      * translators, its French beside it in values-fr. When it is agreed: set this to true, add its
      * name to ReleasedFlagsTest, and make its text translatable.
      */
-    val REPORT_FILE = BuildConfig.DEBUG
+    // On in every build from 0.12.8, picked on 4 Nov 2026.
+    val REPORT_FILE = true
 
     /**
      * Downloads other apps can use (third in the 0.13 poll, the loudest topic on Discord): a song
@@ -754,4 +756,41 @@ object Unreleased {
      * texts translatable.
      */
     val WIDGETS_PAGE = BuildConfig.DEBUG
+
+    /**
+     * Follow-up questions in polls (PollFollowUps, PollDialog), his ask of 4 Nov 2026: an option of a
+     * poll may carry "then", a question of its own that comes right after the first one in the same
+     * card, for whoever picked that option ("Keep it, but polish the details", then "Which details?").
+     * Its picks go in the same single answer as "<optionId>/<followUpOptionId>" (docs/announcements.md).
+     *
+     * Without it the app ignores "then", as every older build does, and sends the first answer alone,
+     * so one poll works for every version. No new texts: Next and Back are the app's own. When it is
+     * agreed: set this to true and add its name to ReleasedFlagsTest.
+     */
+    val POLL_FOLLOW_UPS = BuildConfig.DEBUG
+
+    /**
+     * A radio YouTube Music refuses still plays (his word of 4 Nov 2026, after Val's radio of one
+     * song and his own try through Orbot: "we need to find a good method to let the users be able to
+     * listen to music"). When YouTube Music's own answer is refused or holds nothing but the song,
+     * the radio asks again as a visitor with a visitorData issued now, then for YouTube's own mix of
+     * the song through its web client and its VR client (RadioLadder, RadioAnswers); and when none
+     * of them gives anything, it is made from what the phone knows: Last.fm's and YouTube's lists
+     * of similar songs, the listener's own history and the song's artists (LocalRadio), with a line
+     * in the queue that says so. For a radio's start, its top-ups and the adaptive queue's pages.
+     *
+     * Without it a refused radio is the song alone, as before. Its texts (radio_from_intertune_*)
+     * are held from translators, their French beside them in values-fr. When it is agreed: set this
+     * to true, add its name to ReleasedFlagsTest, make its texts translatable.
+     */
+    val RADIO_FALLBACK = BuildConfig.DEBUG
+
+    /**
+     * Lyrics videos lit word by word (his idea, 4 Nov 2026), as the lyrics view lights them, where
+     * the lyrics have word times and word by word is on in the lyrics settings: the line being sung
+     * at LyricsVideoPlan.UNSUNG, and each word lit across as it is sung. Without it, or without word
+     * times, a video lights whole lines as before. No new texts. When it is agreed: set this to true
+     * and add its name to ReleasedFlagsTest.
+     */
+    val LYRICS_VIDEO_WORDS = BuildConfig.DEBUG
 }
