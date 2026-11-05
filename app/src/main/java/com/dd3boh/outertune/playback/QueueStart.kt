@@ -163,6 +163,13 @@ internal class QueueStart(private val service: Target) {
 
     /**
      * @param origin A PlayOrigin code.
+     * @param beforeStart runs right before each time the player is told to start this queue (once
+     * for a list; for a queue that starts early on its first song, then again for the whole queue),
+     * and never for a start dropped or failed before that. Mix links the current queue to its
+     * playlist there, so its stage is in the chain for the queue's first song: linked after the
+     * start, the first song played without it and its change into the second always stayed plain.
+     * @return whether this queue was started: false for a start dropped for a newer one or for a
+     * service torn down, so the caller leaves alone the queue that plays.
      * @throws Exception whatever the queue's answer failed with. The caller reports it.
      */
     suspend fun run(
@@ -175,7 +182,8 @@ internal class QueueStart(private val service: Target) {
         origin: Int,
         originSlot: Int,
         runId: Long,
-    ) {
+        beforeStart: () -> Unit = {},
+    ): Boolean {
         val number = ++lastStart
         var queueTitle = title
         var q: MultiQueueObject? = null
@@ -186,9 +194,9 @@ internal class QueueStart(private val service: Target) {
         service.boardReady()
         // The board can wait for another caller's load or for a pending queue save, and the
         // service can be torn down meanwhile.
-        if (service.destroyed) return
+        if (service.destroyed) return false
         // Or something else was asked for meanwhile, and this one's song is never loaded.
-        if (number != lastStart) return
+        if (number != lastStart) return false
         // Read before the board is asked anything, as the button showed it at the tap: see the
         // class note. Only for a pick; the Shuffle button's own list starts on any song.
         val pickedShuffled = queue.songPicked && !queue.startShuffled && service.shuffleOn
@@ -215,6 +223,7 @@ internal class QueueStart(private val service: Target) {
             // Started now, while the rest is asked for. Only here, with a song of this queue in
             // the player: a queue that names none leaves the player holding the queue before it,
             // and starting that would play the old song.
+            beforeStart()
             service.start(playWhenReady)
         }
 
@@ -223,27 +232,27 @@ internal class QueueStart(private val service: Target) {
         } catch (e: Exception) {
             // An answer that failed for something no longer wanted is not the listener's to hear
             // about: what they asked for after it reports for itself.
-            if (number != lastStart) return
+            if (number != lastStart) return false
             if (e is CancellationException) throw e
             // A radio YouTube gave nothing goes on from the app's own picks, when it has any; the
             // failure is reported only when it has none, as it always was.
             val own = if (isRadio && preloadItem != null) ownRadio(preloadItem) else null
-            if (service.destroyed || number != lastStart) return
+            if (service.destroyed || number != lastStart) return false
             own ?: throw e
         }
         // The same after the network wait. Nothing below suspends but the filling of a radio of
         // one, which checks both again, and onDestroy runs on the same main thread, so it cannot
         // slip in between.
-        if (service.destroyed) return
+        if (service.destroyed) return false
         // Nor can another tap. One made during the wait has the player now, or will have it when
         // its own answer comes, and this answer is dropped whole: it is not loaded, and it leaves
         // no queue of its own on the board.
         if (number != lastStart) {
             Log.d(TAG, "playQueue: Queue initial status dropped, another queue was asked for since")
-            return
+            return false
         }
         val initialStatus = if (isRadio && preloadItem != null && answer.items.size == 1) {
-            filled(answer, preloadItem) { !service.destroyed && number == lastStart } ?: return
+            filled(answer, preloadItem) { !service.destroyed && number == lastStart } ?: return false
         } else {
             answer
         }
@@ -296,7 +305,9 @@ internal class QueueStart(private val service: Target) {
         // For a queue that had no song to start with, this is its start. After an early start the
         // player is prepared already, and a song that failed to load meanwhile gets its second try
         // here. What it does not do then is play a song paused since the tap: see the class note.
+        beforeStart()
         service.start(if (preloadItem != null) playWhenReady && service.wantsToPlay else playWhenReady)
+        return true
     }
 
     /**

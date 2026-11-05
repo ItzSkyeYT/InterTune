@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Mix: two waveforms crossing, the one going out large on the left and small on the right, the
+    one coming in the other way round. Our own drawing, so it is never taken for recognition's sound
+    bars (ic_recognise) or a Venn diagram.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M2,12C5,1.5 9,1.5 12,12C14.5,17.5 18.5,17.5 22,12"
+        android:strokeWidth="2"
+        android:strokeColor="#FF000000"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M2,12C5.5,6.5 9.5,6.5 12,12C15,22.5 19,22.5 22,12"
+        android:strokeWidth="2"
+        android:strokeColor="#FF000000"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

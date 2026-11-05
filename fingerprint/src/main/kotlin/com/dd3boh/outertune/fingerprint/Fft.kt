@@ -20,7 +20,7 @@ package com.dd3boh.outertune.fingerprint
  * packing two real samples per complex bin, which at 1500 transforms per recognition is a few tens
  * of milliseconds and not worth the extra failure surface.
  */
-internal class Fft(private val size: Int) {
+class Fft(private val size: Int) {
 
     init {
         require(size > 0 && size and (size - 1) == 0) { "FFT size must be a power of two, got $size" }

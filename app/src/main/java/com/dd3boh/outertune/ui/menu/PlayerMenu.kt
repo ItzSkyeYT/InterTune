@@ -85,6 +85,8 @@ import androidx.compose.material.icons.rounded.PlaylistRemove
 import androidx.compose.foundation.Image
 import androidx.compose.ui.graphics.ColorFilter
 import com.dd3boh.outertune.R
+import com.dd3boh.outertune.ui.screens.mix.openMixEditor
+import com.dd3boh.outertune.ui.screens.mix.rememberMixMenuEntry
 import com.dd3boh.outertune.constants.MAX_PLAYER_VOLUME
 import com.dd3boh.outertune.constants.ShowLyricsKey
 import com.dd3boh.outertune.constants.SyncMode
@@ -171,6 +173,7 @@ fun PlayerMenu(
     }
 
     val (sleepTimerEnabled, sleepTimerTimeLeft) = rememberSleepTimerState(playerConnection)
+    val mixEntry = if (Unreleased.AUTOMIX_EDITOR) rememberMixMenuEntry(mediaMetadata.id) else null
 
     var showSleepTimerDialog by remember {
         mutableStateOf(false)
@@ -402,6 +405,20 @@ fun PlayerMenu(
             title = R.string.signal_path
         ) {
             showSignalPath = true
+        }
+        // Mix: the change from this song into the next, shaped by hand, only while a Mix queue
+        // plays, so after every item that is always there. Just after a change it opens that one.
+        // It opens on Simple, a sheet over the player, so the player stays open under it.
+        if (Unreleased.AUTOMIX_EDITOR) {
+            if (mixEntry != null) {
+                GridMenuItem(
+                    icon = R.drawable.ic_mix,
+                    title = if (mixEntry.last) R.string.mix_edit_last_transition else R.string.mix_edit_transition,
+                ) {
+                    navController.openMixEditor(mixEntry.pair)
+                    onDismiss()
+                }
+            }
         }
         // Last, and only while something is actually tracking. It belongs in this menu because the
         // moment you want it is the moment you are listening, but it does not belong above items

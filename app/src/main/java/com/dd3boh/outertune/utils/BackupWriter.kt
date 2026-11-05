@@ -12,7 +12,10 @@ import android.util.Log
 import com.dd3boh.outertune.db.DatabaseFiles
 import com.dd3boh.outertune.db.InternalDatabase
 import com.dd3boh.outertune.db.MusicDatabase
+import com.dd3boh.outertune.extensions.div
 import com.dd3boh.outertune.extensions.zipOutputStream
+import com.dd3boh.outertune.mix.edit.JsonFileBeatFixStore
+import com.dd3boh.outertune.mix.edit.JsonFileTransitionStore
 import kotlinx.coroutines.runBlocking
 import java.io.File
 import java.io.FileInputStream
@@ -20,6 +23,7 @@ import java.io.IOException
 import java.io.OutputStream
 import java.util.zip.Deflater
 import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 /**
  * The one place that knows what a backup file is made of.
@@ -40,8 +44,16 @@ object BackupWriter {
     private const val ATTEMPTS = 3
 
     /**
-     * Writes what [parts] asks for into [output] as one zip: the settings, the database, and after it
-     * the photos chosen as playlist covers, when there are any.
+     * The listener's own files that travel with the library, each under its path in the app's
+     * files, which is also its name in the zip: Mix's saved transitions and beat fixes, kept in
+     * files and not in the database (DESIGN.md 5 has them travel with backups). A backup made
+     * before they were carried restores without touching the ones on the phone.
+     */
+    val FILES: List<String> = listOf(JsonFileTransitionStore.FILE, JsonFileBeatFixStore.FILE)
+
+    /**
+     * Writes what [parts] asks for into [output] as one zip: the settings, Mix's [FILES] and the
+     * database, and after it the photos chosen as playlist covers, when there are any.
      *
      * Call it off the main thread: the copy waits for the database's write lock, and the database
      * can be large. The stream is wrapped and closed here, so the caller only needs to open it.
@@ -64,6 +76,9 @@ object BackupWriter {
                     zip.write(bytes)
                 }
                 if (copy != null) {
+                    // Mix's saved changes belong to the library's songs, and a restore puts them
+                    // back only with a database, so they go with the library.
+                    addFiles(zip, context.filesDir)
                     FileInputStream(copy).use { input ->
                         zip.putNextEntry(ZipEntry(InternalDatabase.DB_NAME))
                         input.copyTo(zip)
@@ -76,6 +91,33 @@ object BackupWriter {
             }
         } finally {
             copy?.parentFile?.deleteRecursively()
+        }
+    }
+
+    /** Puts the [FILES] there are under [filesDir] into [zip], each under its name there. */
+    internal fun addFiles(zip: ZipOutputStream, filesDir: File) {
+        for (name in FILES) {
+            val file = filesDir / name
+            if (!file.isFile) continue
+            file.inputStream().buffered().use { input ->
+                zip.putNextEntry(ZipEntry(name))
+                input.copyTo(zip)
+            }
+        }
+    }
+
+    /** Puts [files] a backup carried back under [filesDir], by their names in the zip ([FILES]), each whole or not at all. */
+    fun restoreFiles(filesDir: File, files: Map<String, ByteArray>) {
+        for ((name, bytes) in files) {
+            require(name in FILES) { "$name is not a file a backup carries" }
+            val file = filesDir / name
+            file.parentFile?.let { if (!it.isDirectory && !it.mkdirs()) throw IOException("cannot make ${it.path}") }
+            val next = File(file.path + ".restored")
+            next.writeBytes(bytes)
+            if (!next.renameTo(file)) {
+                next.delete()
+                throw IOException("cannot put back $name")
+            }
         }
     }
 

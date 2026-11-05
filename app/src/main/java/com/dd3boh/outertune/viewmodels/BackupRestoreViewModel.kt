@@ -159,6 +159,8 @@ class BackupRestoreViewModel @Inject constructor(
      */
     private suspend fun restoreValidatedDatabase(uri: Uri): Boolean {
         var settingsBytes: ByteArray? = null
+        // Mix's saved transitions and beat fixes, kept in memory with the settings until the database is known good.
+        val files = LinkedHashMap<String, ByteArray>()
         var databaseValidated = false
         var databaseFound = false
         val probeFile = context.getDatabasePath(InternalDatabase.TEST_DB_NAME)
@@ -174,6 +176,10 @@ class BackupRestoreViewModel @Inject constructor(
                     when (entry.name) {
                         SETTINGS_FILENAME -> {
                             settingsBytes = inputStream.readBytes()
+                        }
+
+                        in BackupWriter.FILES -> {
+                            files[entry.name] = inputStream.readBytes()
                         }
 
                         InternalDatabase.DB_NAME -> {
@@ -273,6 +279,10 @@ class BackupRestoreViewModel @Inject constructor(
         settingsBytes?.let { bytes ->
             runCatching { writeSettings(bytes) }.onFailure { Log.e(TAG, "The backup's settings could not be written", it) }
         }
+        // Past the point of no return: the database is in place. Mix's files that cannot be put
+        // back are logged, and the restore goes on to its restart.
+        runCatching { BackupWriter.restoreFiles(context.filesDir, files) }
+            .onFailure { Log.w(TAG, "Mix's saved transitions could not be put back", it) }
 
         // Last, and apart from the rest: a photo that cannot be put in place costs its playlist a
         // cover, which is drawn as the first song's, and never the restore.

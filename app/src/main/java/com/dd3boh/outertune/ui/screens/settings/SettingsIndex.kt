@@ -153,6 +153,8 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
     SettingEntry(Tour.ROUTE_PLAYER, R.string.adaptive_queue, R.string.adaptive_radio_description, words = listOf(R.string.search_words_radio)),
     SettingEntry(Tour.ROUTE_PLAYER, R.string.transition_fade, R.string.transition_fade_description, words = listOf(R.string.search_words_crossfade)),
     SettingEntry(Tour.ROUTE_PLAYER, R.string.transition_fade_length, under = R.string.transition_fade),
+    SettingEntry(Tour.ROUTE_PLAYER, R.string.crossfade, R.string.crossfade_description, there = Unreleased.CROSSFADE),
+    SettingEntry(Tour.ROUTE_PLAYER, R.string.crossfade_length, under = R.string.crossfade, there = Unreleased.CROSSFADE),
     SettingEntry(Tour.ROUTE_PLAYER, R.string.spatial_audio, words = listOf(R.string.spatial_audio_headphones, R.string.spatial_audio_surround, R.string.search_words_spatial)),
     SettingEntry(Tour.ROUTE_PLAYER, R.string.head_tracking, under = R.string.spatial_audio, words = listOf(R.string.search_words_head_tracking)),
     SettingEntry(Tour.ROUTE_PLAYER, R.string.head_tracking_response, under = R.string.head_tracking),
