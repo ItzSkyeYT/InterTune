@@ -7,6 +7,7 @@
 package com.dd3boh.outertune.cast
 
 import android.net.Network
+import com.dd3boh.outertune.BuildConfig
 import com.dd3boh.outertune.constants.Unreleased
 import kotlinx.coroutines.CoroutineScope
 import javax.net.SocketFactory
@@ -24,6 +25,12 @@ object CastLinks {
             CastProtocol.FCAST -> FCastLink(device, scope, sender, sockets)
             CastProtocol.DLNA -> DlnaLink(device, scope, LanHttp(sockets))
             CastProtocol.CHROMECAST -> ChromecastLink(device, scope, sockets, userAgent = "${sender.appName}/${sender.appVersion}")
+            CastProtocol.AIRPLAY -> AirPlayLink(
+                device, scope, sockets,
+                bindUdp = { socket -> network?.bindSocket(socket) },
+                userAgent = "${sender.appName}/${sender.appVersion}",
+                audit = BuildConfig.DEBUG,
+            )
         }
     }
 }

@@ -11,8 +11,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import java.io.IOException
 
-/** The kinds of receiver casting talks to, in the order they were built. */
-enum class CastProtocol { FCAST, DLNA, CHROMECAST }
+/** The kinds of receiver casting talks to, in the order they were built. AirPlay only with Unreleased.CAST_AIRPLAY. */
+enum class CastProtocol { FCAST, DLNA, CHROMECAST, AIRPLAY }
 
 /**
  * A receiver, found on the network or typed in by address.
