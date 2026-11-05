@@ -91,6 +91,19 @@ class RecentReceiversTest {
     }
 
     @Test
+    fun `a speaker typed in by address that the search finds too is listed once, by its own name`() {
+        // An AirPlay speaker typed in is "airplay:<host>:<port>"; found on the Wi-Fi it is "airplay:<its MAC>" (5 Nov 2026: listed twice).
+        val found = CastDevice(CastProtocol.AIRPLAY, "airplay:AABBCCDDEEFF", "Zeppelin", "192.168.1.70", 7000)
+        val typed = CastDevice(CastProtocol.AIRPLAY, "airplay:192.168.1.70:7000", "192.168.1.70", "192.168.1.70", 7000)
+        assertEquals(listOf(found), RecentReceivers.listed(listOf(found), listOf(typed), emptyList(), emptySet(), emptySet()))
+        // Not found yet: the typed one stands, as before.
+        assertEquals(listOf(typed), RecentReceivers.listed(emptyList(), listOf(typed), emptyList(), emptySet(), emptySet()))
+        // Another port is another receiver.
+        val elsewhere = typed.copy(id = "airplay:192.168.1.70:5000", port = 5000)
+        assertEquals(2, RecentReceivers.listed(listOf(found), listOf(elsewhere), emptyList(), emptySet(), emptySet()).size)
+    }
+
+    @Test
     fun `a remembered receiver is listed only once it has answered, and a found one goes when it stops answering`() {
         val recent = listOf(tv, pixel, renderer)
         // Nothing has answered yet: none of the remembered ones shows, not even for a moment (20 Oct 2026).
