@@ -67,7 +67,7 @@ class RecentReceiversTest {
         assertEquals(emptyList<CastDevice>(), RecentReceivers.decode("not json"))
         assertEquals(emptyList<CastDevice>(), RecentReceivers.decode("{}"))
         val one = RecentReceivers.encode(listOf(pixel))
-        val withJunk = "[" + "{\"protocol\":\"AIRPLAY\",\"id\":\"x\",\"name\":\"x\",\"host\":\"x\",\"port\":1}," + one.removePrefix("[")
+        val withJunk = "[" + "{\"protocol\":\"MIRACAST\",\"id\":\"x\",\"name\":\"x\",\"host\":\"x\",\"port\":1}," + one.removePrefix("[")
         assertEquals(listOf(pixel), RecentReceivers.decode(withJunk))
     }
 

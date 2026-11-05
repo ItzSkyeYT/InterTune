@@ -86,7 +86,7 @@ class AirPlayStream(
     private val ssrc: Int = (Math.random() * Int.MAX_VALUE).toInt(),
     firstSeq: Int = (Math.random() * 0xFFFF).toInt(),
     /** Every packet's audio, for a check that what arrives is what was sent; debug builds only. */
-    private val sentAudio: ((rtpTime: Long, samples: ShortArray, frames: Int) -> Unit)? = null,
+    private val sentAudio: ((rtpTime: Long, samples: ShortArray, frames: Int, first: Boolean) -> Unit)? = null,
 ) : Closeable {
     /** Fills one packet: up to [AirPlay.FRAMES_PER_PACKET] frames into [samples], and what they are into [packet]. */
     fun interface Feed {
@@ -279,6 +279,8 @@ class AirPlayStream(
         val samples = ShortArray(AirPlay.FRAMES_PER_PACKET * AirPlay.CHANNELS)
         val packet = AirPlayPacket()
         val leadFrames = leadNanos * AirPlay.RATE / 1_000_000_000L
+        // Packets go a few at a time, every 20 ms, rather than one every 8 ms: a fifth of the wake-ups.
+        val batchFrames = BATCH_NANOS * AirPlay.RATE / 1_000_000_000L
         var failures = 0
         while (true) {
             val now = clock.nanos()
@@ -302,7 +304,7 @@ class AirPlayStream(
                         lastSyncAt = now
                     }
                     var burst = 0
-                    while (nextFrame <= frame + leadFrames && burst < MAX_BURST) {
+                    while (nextFrame <= frame + leadFrames + batchFrames && burst < MAX_BURST) {
                         packet.at = nextFrame
                         feed.fill(samples, packet)
                         // What the feed did not fill is silence, never what the last packet held.
@@ -324,7 +326,7 @@ class AirPlayStream(
             }
             listen(frame)
             // Until the next packet is due, a few milliseconds at most so that the sync stays on time.
-            val wait = (nanosOf(nextFrame - leadFrames) - clock.nanos()).coerceIn(500_000L, MAX_SLEEP_NANOS)
+            val wait = (nanosOf(nextFrame - leadFrames - batchFrames) - clock.nanos() + BATCH_NANOS).coerceIn(500_000L, BATCH_NANOS)
             synchronized(lock) {
                 if (!running) return
             }
@@ -345,7 +347,7 @@ class AirPlayStream(
         val total = AirPlayRtp.HEADER_BYTES + length
         backlogLength[slot] = total
         backlogSeq[slot] = seq
-        sentAudio?.invoke(rtpTime(nextFrame), samples, AirPlay.FRAMES_PER_PACKET)
+        sentAudio?.invoke(rtpTime(nextFrame), samples, AirPlay.FRAMES_PER_PACKET, firstPacket)
         record(nextFrame, packet)
         audio.send(DatagramPacket(bytes, total, target, serverPort))
         firstPacket = false
@@ -489,7 +491,7 @@ class AirPlayStream(
         const val BACKLOG = 1024
         private const val MAX_BURST = 64
         private const val MAX_SPANS = 4096
-        private const val MAX_SLEEP_NANOS = 4_000_000L
+        private const val BATCH_NANOS = 20_000_000L
         private const val MAX_SEND_FAILURES = 50
     }
 }

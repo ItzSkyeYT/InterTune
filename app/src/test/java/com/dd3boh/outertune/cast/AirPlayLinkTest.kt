@@ -64,6 +64,7 @@ class AirPlayLinkTest {
     private inner class FakeSpeaker(
         private val announceStatus: (attempt: Int) -> Int = { 200 },
         private val privateKey: PrivateKey? = null,
+        private val flushStatus: Int = 200,
     ) : AutoCloseable {
         val server = ServerSocket(0, 5, loopback)
         val audio = DatagramSocket(0, loopback)
@@ -152,6 +153,7 @@ class AirPlayLinkTest {
                             extra.append("Session: 1\r\n")
                         }
                         "RECORD" -> extra.append("Audio-Latency: 0\r\n")
+                        "FLUSH" -> status = flushStatus
                     }
                     out.write("RTSP/1.0 $status ${if (status == 200) "OK" else "Nope"}\r\nCSeq: $cseq\r\nServer: AirTunes/366.0\r\n$extra\r\n".toByteArray())
                     out.flush()
@@ -426,6 +428,21 @@ class AirPlayLinkTest {
         assertEquals(10_000L, ended.positionMs)
         Thread.sleep(200)
         assertEquals((440_118L until 441_000L).toList(), songFrames(speaker.stretch(1)))
+    }
+
+    @Test
+    fun `a speaker that will not flush is paused all the same`() = runBlocking {
+        val speaker = FakeSpeaker(flushStatus = 501)
+        val songs = songServer()
+        val link = link(speaker)
+        link.connect()
+        link.load(item(songs, "long", 441_000), 0, play = true)
+        link.waitFor(ReceiverState.PLAYING, load = 1)
+        link.pause()
+        assertEquals(ReceiverState.PAUSED, link.status.value.state)
+        link.play()
+        link.waitFor(ReceiverState.PLAYING, load = 1)
+        assertEquals(LinkState.CONNECTED, link.status.value.link)
     }
 
     @Test

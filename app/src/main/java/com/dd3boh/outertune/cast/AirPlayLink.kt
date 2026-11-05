@@ -263,6 +263,7 @@ class AirPlayLink(
         val serverPort = ports["server_port"]?.toIntOrNull() ?: throw IOException("SETUP gave no server port: ${setup.header("transport")}")
         val controlPort = ports["control_port"]?.toIntOrNull() ?: serverPort + 1
         rtsp.session = setup.header("session")?.substringBefore(';')?.trim() ?: "1"
+        latencyOf(setup)?.let { stream.outputLatencyFrames = it }
         stream.connect(rtsp.remote, serverPort, controlPort)
         // RECORD names the first packet; the stretch starts exactly there.
         val first = stream.frameAt(clock.nanos())
@@ -270,7 +271,7 @@ class AirPlayLink(
             "RECORD",
             headers = listOf("Range" to "npt=0-", "RTP-Info" to "seq=${stream.nextSeq};rtptime=${stream.rtpTime(first)}"),
         )
-        record.header("audio-latency")?.toIntOrNull()?.takeIf { it in 0..AirPlay.RATE }?.let { stream.outputLatencyFrames = it }
+        latencyOf(record)?.let { stream.outputLatencyFrames = it }
         stream.start(at = first)
         Log.i(
             TAG,
@@ -278,6 +279,9 @@ class AirPlayLink(
                 "control $controlPort, its delay ${stream.outputLatencyFrames} frames",
         )
     }
+
+    /** The speaker's own delay (Audio-Latency, in frames), which some say in answer to SETUP and others to RECORD. */
+    private fun latencyOf(answer: RtspResponse): Int? = answer.header("audio-latency")?.toIntOrNull()?.takeIf { it in 0..AirPlay.RATE }
 
     /** The AES key sealed for the speaker with RSA-OAEP, and the IV, both base64 without padding. */
     private fun sealed(aes: AesKey): Pair<String, String> {
@@ -477,7 +481,10 @@ class AirPlayLink(
     private fun flush(session: Session) {
         val (seq, frame) = session.stream.stop()
         synchronized(state) { flushedAt = frame }
-        session.rtsp.request("FLUSH", headers = listOf("RTP-Info" to "seq=$seq;rtptime=${session.stream.rtpTime(frame)}"))
+        val answer = session.rtsp.exchange("FLUSH", headers = listOf("RTP-Info" to "seq=$seq;rtptime=${session.stream.rtpTime(frame)}"))
+        // A speaker that will not flush still stops when the packets do, two seconds later; a
+        // pause or a seek goes on regardless.
+        if (answer.status != 200) Log.i(TAG, "${device.name} answered FLUSH with $answer")
     }
 
     /** One packet's audio, on the sender's thread: the song's next frames, or silence while it loads, waits or has ended. */
@@ -684,8 +691,8 @@ class AirPlayLink(
         private var packets = 0
         private var block = 0
 
-        fun sent(rtpTime: Long, samples: ShortArray, frames: Int) {
-            if (lastRtp < 0 || ((rtpTime - lastRtp) and 0xFFFFFFFFL) != AirPlay.FRAMES_PER_PACKET.toLong()) {
+        fun sent(rtpTime: Long, samples: ShortArray, frames: Int, first: Boolean) {
+            if (first || lastRtp < 0 || ((rtpTime - lastRtp) and 0xFFFFFFFFL) != AirPlay.FRAMES_PER_PACKET.toLong()) {
                 // A new stretch: the marker packet the receiver will see too.
                 stretchStart = rtpTime
                 packets = 0
