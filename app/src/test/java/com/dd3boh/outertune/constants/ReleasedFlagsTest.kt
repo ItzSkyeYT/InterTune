@@ -47,6 +47,8 @@ class ReleasedFlagsTest {
     private fun code(file: File) = code(file.readText())
 
     /** Every flag with what it is set to, as written. */
+    private val DEBUG_ONLY = "BuildConfig.DEBUG && BuildConfig.BUILD_TYPE == \"debug\""
+
     private val flags: Map<String, String> =
         Regex("""^\s*val ([A-Z][A-Z0-9_]*) = (.+?)\s*$""", RegexOption.MULTILINE)
             .findAll(code(File(sources, "constants/Unreleased.kt")))
@@ -70,10 +72,12 @@ class ReleasedFlagsTest {
     }
 
     @Test
-    fun `every other flag is on in debug and preview builds only`() {
+    fun `every other flag is on in debug and preview builds only, or in debug builds only`() {
         // Not false, which would take a feature from the debug build too, and nothing worked out.
+        // Debug builds only keeps a feature from the previews testers get (AutoMix, 26 Oct 2026).
+        val held = setOf("BuildConfig.DEBUG", DEBUG_ONLY)
         for ((flag, value) in flags - inEveryBuild) {
-            assertEquals("$flag is neither on in every build nor held back", "BuildConfig.DEBUG", value)
+            assertTrue("$flag is neither on in every build nor held back: $value", value in held)
         }
     }
 
@@ -102,11 +106,12 @@ class ReleasedFlagsTest {
     }
 
     @Test
-    fun `Mix stays in debug and preview builds, the mixer, its editor and Crossfade`() {
+    fun `Mix stays in debug builds, the mixer, its editor and Crossfade`() {
         // Held back until it has been heard on a phone and the words have a yes. Named here so
-        // that shipping any of them takes more than adding a name to the list above.
+        // that shipping any of them takes more than adding a name to the list above. Debug builds
+        // only, out of the previews testers get, as AutoMix has been since 26 Oct 2026.
         for (flag in listOf("AUTOMIX", "AUTOMIX_EDITOR", "CROSSFADE")) {
-            assertEquals(flag, "BuildConfig.DEBUG", flags[flag])
+            assertEquals(flag, DEBUG_ONLY, flags[flag])
             assertFalse(flag, flag in inEveryBuild)
         }
         // Crossfade plays on the mixer's stage: a build with its row and without the stage would
