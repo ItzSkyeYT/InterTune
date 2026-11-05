@@ -322,7 +322,9 @@ fun SelectionMediaMetadataMenu(
             onDismiss = { showRemoveDownloadDialog = false },
             content = {
                 Text(
-                    text = stringResource(R.string.remove_download_playlist_confirm, "selection"),
+                    // Its own words: the playlist's sentence with the English word "selection" in
+                    // it read "remove all "selection" playlist songs", in every language.
+                    text = stringResource(R.string.remove_download_selection_confirm),
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.padding(horizontal = 18.dp)
                 )

@@ -2312,4 +2312,5 @@
     <string name="media_button_resuming" translatable="false">Reprise de votre file d\'attente</string>
     <string name="library_song_empty_liked" translatable="false">Les titres que vous aimez s\'afficheront ici</string>
     <string name="library_song_empty_downloaded" translatable="false">Les titres téléchargés s\'afficheront ici</string>
+    <string name="remove_download_selection_confirm" translatable="false">Supprimer les téléchargements des titres choisis ?</string>
 </resources>
