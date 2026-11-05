@@ -3351,8 +3351,8 @@ class MusicService : MediaLibraryService(),
 
     /** The listener's words for a song no rung could play on a speaker. */
     private val castWords = object : CastWords {
-        override fun refusedEveryForm(speaker: String) = getString(R.string.casting_refused_every_form, speaker)
-        override fun neverAsked(speaker: String) = getString(R.string.casting_never_asked, speaker)
+        override fun refusedEveryForm() = getString(R.string.casting_refused_every_form)
+        override fun neverAsked() = getString(R.string.casting_never_asked)
     }
 
     internal fun handOverTo(link: ReceiverLink, server: CastServer, play: Boolean?, onLost: (ReceiverStatus) -> Unit): RemotePlayer? {

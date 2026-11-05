@@ -635,7 +635,7 @@ class RemotePlayer(
         val name = link.device.name
         val tried = climb.walk.tried.joinToString { (rung, answer) -> "$rung: ${describe(answer)}" }
         Log.w(TAG, "No rung played ${climb.load.entry.mediaId} on $name: $tried")
-        failed(climb.load.ticket, if (climb.walk.cannotReach) words.neverAsked(name) else words.refusedEveryForm(name))
+        failed(climb.load.ticket, if (climb.walk.cannotReach) words.neverAsked() else words.refusedEveryForm())
     }
 
     private fun describe(answer: RungAnswer): String = when (answer) {

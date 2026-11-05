@@ -368,16 +368,19 @@ class CastRungMemory(private val file: File?) {
 /** The listener's words for a song no rung could play (the app's, in its language; English here for the tests). */
 interface CastWords {
     /** Every rung the renderer allows was tried and none played. */
-    fun refusedEveryForm(speaker: String): String
+    fun refusedEveryForm(): String
 
     /** The renderer never once asked the phone for the song. */
-    fun neverAsked(speaker: String): String
+    fun neverAsked(): String
 
+    /**
+     * Two lines of a toast at most, which is all Android shows of one: about 35 characters a line
+     * on a Pixel 5. Without the speaker's name, which the listener has just picked and which can
+     * fill a line alone; with it, what to do was cut off (seen on the Pixel 5, 5 Nov 2026).
+     */
     object English : CastWords {
-        override fun refusedEveryForm(speaker: String) =
-            "$speaker did not play this song in any form it takes. Play it on this phone, or cast to another speaker."
+        override fun refusedEveryForm() = "The speaker cannot play this song. Play it on this phone."
 
-        override fun neverAsked(speaker: String) =
-            "$speaker never asked this phone for the song. Check that both are on the same Wi-Fi, and that it lets devices reach each other."
+        override fun neverAsked() = "The speaker cannot reach this phone. Put both on the same Wi-Fi."
     }
 }

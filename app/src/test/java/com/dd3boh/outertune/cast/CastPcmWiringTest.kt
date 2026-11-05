@@ -63,20 +63,25 @@ class CastPcmWiringTest {
     }
 
     @Test
-    fun `the ladder's two sentences say which speaker and what to do, held from translators with their French beside them`() {
+    fun `the ladder's two sentences say why and what to do in two lines of a toast, held from translators with their French beside them`() {
         val english = File("src/main/res/values/strings-ot.xml").readText()
         val french = File("src/main/res/values-fr/strings-ot.xml").readText()
         for (name in listOf("casting_refused_every_form", "casting_never_asked")) {
             val en = Regex("""<string name="$name" translatable="false">(.+?)</string>""").find(english)?.groupValues?.get(1)
             val fr = Regex("""<string name="$name">(.+?)</string>""").find(french)?.groupValues?.get(1)
             for (text in listOf(en, fr)) {
-                assertTrue("$name: $text", text != null && text.startsWith("%1\$s ") && text.length <= 160)
-                assertTrue("$name has a long dash", '\u2014' !in text!! && '\u2013' !in text)
+                // Android shows two lines of a toast, about 35 characters each on a Pixel 5: with the
+                // speaker's name, what to do was cut off (5 Nov 2026).
+                val shown = text?.replace("\\'", "'")
+                assertTrue("$name: $text", shown != null && '%' !in shown && shown.length <= 64)
+                // Why, then what to do: two sentences.
+                assertEquals("$name: $text", 2, Regex("""[.?!](\s|$)""").findAll(shown!!).count())
+                assertTrue("$name has a long dash", '\u2014' !in shown && '\u2013' !in shown)
             }
         }
         val service = code("playback/MusicService.kt")
-        assertTrue("getString(R.string.casting_refused_every_form, speaker)" in service)
-        assertTrue("getString(R.string.casting_never_asked, speaker)" in service)
+        assertTrue("getString(R.string.casting_refused_every_form)" in service)
+        assertTrue("getString(R.string.casting_never_asked)" in service)
     }
 
     @Test

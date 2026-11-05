@@ -1866,8 +1866,8 @@
     <string name="cast_lost_connection">Connexion perdue avec %1$s</string>
     <string name="cast_lost">Cast arrêté. %1$s. En pause sur ce téléphone.</string>
     <string name="cast_ended_idle">Cast arrêté après %1$d minutes sans lecture.</string>
-    <string name="casting_refused_every_form">%1$s n\'a lu ce morceau sous aucune des formes qu\'il accepte. Écoutez-le sur ce téléphone, ou castez vers une autre enceinte.</string>
-    <string name="casting_never_asked">%1$s n\'a jamais demandé le morceau à ce téléphone. Vérifiez que les deux sont sur le même Wi-Fi et que celui-ci laisse les appareils se joindre.</string>
+    <string name="casting_refused_every_form">L\'enceinte ne lit pas ce morceau. Écoutez-le sur ce téléphone.</string>
+    <string name="casting_never_asked">L\'enceinte ne joint pas ce téléphone. Utilisez le même Wi-Fi.</string>
     <!-- Copy and share in the lyrics view's menu, and the lines picked for a picture (LyricsCard) -->
     <string name="lyrics_copy">Copier les paroles</string>
     <string name="lyrics_copied">Paroles copiées</string>
