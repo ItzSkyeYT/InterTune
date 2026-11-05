@@ -233,15 +233,10 @@ fun YouTubeAlbumMenu(
     if (showChoosePlaylistDialog) {
         AddToPlaylistDialog(
             navController = navController,
+            // No push of the whole list to YouTube here: it ran before the duplicates question and
+            // ignored its answer (Cancel still added everything after the next sync), and the dialog
+            // pushes each song it adds itself. PlaylistMenu dropped the same push on 28 Sep 2026.
             songIds = album?.songs?.map { it.id }.orEmpty(),
-            onPreAdd = { playlist ->
-                playlist.playlist.browseId?.let { playlistId ->
-                    album?.album?.playlistId?.let { addPlaylistId ->
-                        YouTube.addPlaylistToPlaylist(playlistId, addPlaylistId)
-                    }
-                }
-                emptyList()
-            },
             onDismiss = { showChoosePlaylistDialog = false }
         )
     }
