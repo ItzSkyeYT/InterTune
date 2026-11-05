@@ -42,6 +42,7 @@ import com.dd3boh.outertune.ui.component.ColumnWithContentPadding
 import com.dd3boh.outertune.ui.component.FloatingTopBar
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.PreferenceGroupTitle
+import com.dd3boh.outertune.utils.Toaster
 
 /**
  * The row in Player and audio's Audio card, under Fade between tracks, that opens [MixingSettings]
@@ -124,7 +125,7 @@ fun MixingSettings(
             confirmButton = {
                 TextButton(onClick = {
                     confirming = false
-                    MixStores.changeTransitions(scope, context, failed = { Toast.makeText(context, R.string.error_unknown, Toast.LENGTH_LONG).show() }) { it.clear() }
+                    MixStores.changeTransitions(scope, context, failed = { Toaster.show(context, R.string.error_unknown, Toast.LENGTH_LONG) }) { it.clear() }
                 }) { Text(stringResource(R.string.mixing_clear)) }
             },
         )

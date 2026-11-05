@@ -126,6 +126,7 @@ import com.dd3boh.outertune.ui.component.LocalPlayerSheet
 import com.dd3boh.outertune.ui.component.ScreenBackHandler
 import com.dd3boh.outertune.ui.component.TopBarActions
 import com.dd3boh.outertune.ui.utils.LocalLandscape
+import com.dd3boh.outertune.utils.Toaster
 import com.dd3boh.outertune.utils.rememberPreference
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -548,10 +549,10 @@ private fun save(vm: MixEditorViewModel, context: android.content.Context, hapti
     vm.save { ok ->
         if (ok) {
             haptic.performHapticFeedback(HapticFeedbackType.Confirm)
-            Toast.makeText(context, R.string.mix_edit_saved, Toast.LENGTH_SHORT).show()
+            Toaster.show(context, R.string.mix_edit_saved, Toast.LENGTH_SHORT)
             navController.navigateUp()
         } else {
-            Toast.makeText(context, R.string.error_unknown, Toast.LENGTH_LONG).show()
+            Toaster.show(context, R.string.error_unknown, Toast.LENGTH_LONG)
         }
     }
 }

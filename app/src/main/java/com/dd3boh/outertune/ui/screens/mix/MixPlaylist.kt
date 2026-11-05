@@ -76,6 +76,7 @@ import com.dd3boh.outertune.mix.pill.PlainReason
 import com.dd3boh.outertune.playback.automix.MixStores
 import com.dd3boh.outertune.playback.automix.MixSwitches
 import com.dd3boh.outertune.ui.component.ExplainButton
+import com.dd3boh.outertune.utils.Toaster
 import com.dd3boh.outertune.utils.rememberPreference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -327,7 +328,7 @@ fun MixPillLine(
                     enabled = saved != null,
                     onClick = {
                         menu = false
-                        MixStores.changeTransitions(scope, context, failed = { Toast.makeText(context, R.string.error_unknown, Toast.LENGTH_LONG).show() }) { it.delete(pair) }
+                        MixStores.changeTransitions(scope, context, failed = { Toaster.show(context, R.string.error_unknown, Toast.LENGTH_LONG) }) { it.delete(pair) }
                     },
                 )
                 DropdownMenuItem(
@@ -335,7 +336,7 @@ fun MixPillLine(
                     enabled = saved?.plain != true && from.id != to.id,
                     onClick = {
                         menu = false
-                        MixStores.changeTransitions(scope, context, failed = { Toast.makeText(context, R.string.error_unknown, Toast.LENGTH_LONG).show() }) {
+                        MixStores.changeTransitions(scope, context, failed = { Toaster.show(context, R.string.error_unknown, Toast.LENGTH_LONG) }) {
                             it.put(Pills.plainSpec(pair, saved))
                         }
                     },
