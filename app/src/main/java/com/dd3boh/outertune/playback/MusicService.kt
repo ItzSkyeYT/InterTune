@@ -229,6 +229,7 @@ import com.dd3boh.outertune.utils.StepLog
 import com.dd3boh.outertune.utils.StepTimedOut
 import com.dd3boh.outertune.utils.StreamFamily
 import com.dd3boh.outertune.utils.withinResolveTime
+import com.dd3boh.outertune.utils.FaultInjection
 import com.dd3boh.outertune.utils.YTPlayerUtils
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.enumPreference
@@ -3099,7 +3100,9 @@ class MusicService : MediaLibraryService(),
             val resolveBegan = System.currentTimeMillis()
             val played = runBlocking(Dispatchers.IO) {
                 try {
-                    withinResolveTime(context = wish) { standIns.playbackData(mediaId, askedAgain = stoppedByError && stoppedOn == mediaId) }
+                    // The developer's "The next song fetched is gone from YouTube", debug builds only: see FaultInjection.callsGone.
+                    if (FaultInjection.callsGone(mediaId)) Result.failure(YTPlayerUtils.SongUnavailable("This video is not available (fault injection)"))
+                    else withinResolveTime(context = wish) { standIns.playbackData(mediaId, askedAgain = stoppedByError && stoppedOn == mediaId) }
                 } catch (e: StepTimedOut) {
                     Log.w(TAG, "$said: [$mediaId] no stream within ${StepLog.limit(e.ms)}, given up as a timeout")
                     Result.failure(e)
@@ -3627,6 +3630,13 @@ class MusicService : MediaLibraryService(),
 
     /** The same, set by passOverBlocked: moving past a blocked artist's song says nothing about it either. */
     @Volatile private var skippingBlocked = false
+
+    /**
+     * The song the player was last ready to play, since the last change of song: set by onEvents,
+     * cleared by onMediaItemTransition. A song YouTube calls gone before it was ever ready is
+     * passed over (passOverGone); one that played some of itself first is not. Main thread.
+     */
+    private var readyFor: String? = null
 
     /**
      * The music was stopped by passOverBlocked on a blocked artist's song with nothing after it to
@@ -4316,6 +4326,39 @@ class MusicService : MediaLibraryService(),
     }
 
     /**
+     * Passes over the song the player stopped on with [error] when YouTube calls it gone and none
+     * of it played (GoneSkip), whatever "Auto skip to next song when error occurs" says, and says
+     * which song. False when GoneSkip says not to: the error then goes the way it always went.
+     * It plays on only if it was playing: a listener who had paused and skipped onto it gets the
+     * song after it loaded and left paused. Main thread.
+     */
+    private fun passOverGone(error: PlaybackException, failedId: String?): Boolean {
+        val player = activePlayer
+        val target = GoneSkip.target(
+            error, failedId, player.currentMediaItem?.mediaId, readyFor,
+            at = player.currentMediaItemIndex,
+            next = player.nextMediaItemIndex,
+            previous = player.previousMediaItemIndex,
+            back = transitionWentBack,
+            // The runaway guard of skipOnError, which this counts against as well.
+            tooMany = consecutivePlaybackErr + 2 > MAX_PLAYER_CONSECUTIVE_ERR,
+        ) ?: return false
+        val title = player.currentMediaItem?.mediaMetadata?.title?.toString()?.takeIf { it.isNotBlank() }
+        Log.i(TAG, "PLAYING: $failedId called gone by every client before any of it played, passed over")
+        consecutivePlaybackErr += 2
+        // The listener did not skip it: see skippingOnError.
+        skippingOnError = true
+        player.seekTo(target, C.TIME_UNSET)
+        player.prepare()
+        Toaster.show(
+            this@MusicService,
+            title?.let { getString(R.string.gone_song_skipped, it) } ?: getString(R.string.err_song_unavailable),
+            Toast.LENGTH_LONG,
+        )
+        return true
+    }
+
+    /**
      * A restore is about to close the database, put the backup's in its place and restart the
      * app: the music stops first, so that playing writes nothing more into a database that is
      * closing (a listen's progress, the next song, the place in the queue). Main thread.
@@ -4437,6 +4480,11 @@ class MusicService : MediaLibraryService(),
             player.prepare()
             return
         }
+
+        // A song every client called gone, before any of it played: passed over to the next one,
+        // whatever skip on error says, and named (issue #82). No network or retry can bring it
+        // back, so it neither waits for the network nor is tried again. See GoneSkip.
+        if (passOverGone(error, failedId)) return
 
         // Wait for reconnection, but only where a network could help. See waitsForNetwork: a
         // local file that has gone missing used to wait here for good whenever the phone was
@@ -4767,6 +4815,9 @@ class MusicService : MediaLibraryService(),
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
         super.onMediaItemTransition(mediaItem, reason)
         songChanges.value += 1
+        // Nothing of the new song has played yet: see readyFor. Before onPlayerError, which the
+        // player calls after this when the song it moved on to failed while read ahead.
+        readyFor = null
         // How playback has gone so far, at every song, so that a report of a run that ended
         // carries it too. Where the sound goes by kind only, never a device's name: see PlayHealth.
         if (mediaItem != null) {
@@ -5060,6 +5111,9 @@ class MusicService : MediaLibraryService(),
     override fun onEvents(player: Player, events: Player.Events) {
         // Another speed or pitch is made on the app's own path: see applyOffload.
         if (events.contains(Player.EVENT_PLAYBACK_PARAMETERS_CHANGED)) applyOffload()
+        // Whatever the events: a song reached without a gap is ready from its first moment, and
+        // its state never changes. See readyFor.
+        if (player.playbackState == Player.STATE_READY) readyFor = player.currentMediaItem?.mediaId
         if (events.containsAny(Player.EVENT_PLAYBACK_STATE_CHANGED, Player.EVENT_PLAY_WHEN_READY_CHANGED)) {
             val isBufferingOrReady =
                 player.playbackState == Player.STATE_BUFFERING || player.playbackState == Player.STATE_READY

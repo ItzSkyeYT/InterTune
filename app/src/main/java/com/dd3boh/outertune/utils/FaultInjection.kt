@@ -37,6 +37,7 @@ object FaultInjection {
         PLAYER_HANGS_VISIONOS("/player hangs for VISIONOS"),
         STREAM_STOPS("The stream stops after 1 MB, once"),
         STREAM_403("The stream gets 403 after 1 MB"),
+        SONG_GONE("The next song fetched is gone from YouTube"),
     }
 
     /** Where an interceptor sits. */
@@ -62,13 +63,31 @@ object FaultInjection {
     @Volatile
     private var refused: String? = null
 
+    /** The song [Mode.SONG_GONE] fell on: see [callsGone]. */
+    @Volatile
+    private var gone: String? = null
+
     fun set(mode: Mode) {
         if (!enabled) return
         this.mode = mode
         delivered.set(0)
         stalled.set(false)
         refused = null
+        gone = null
         Log.w(TAG, "fault injection: ${mode.words}")
+    }
+
+    /**
+     * Whether the player's fetch of [videoId] fails as a song every client calls gone
+     * ([Mode.SONG_GONE]): the first song whose stream is fetched once the mode is on, and from
+     * then on that one only, so that a queue can be played up to it and past it, as past a real
+     * one (issue #82, GoneSkip). Put a song next with Play next after choosing the mode.
+     */
+    fun callsGone(videoId: String): Boolean {
+        if (!enabled || mode != Mode.SONG_GONE) return false
+        val first = synchronized(this) { gone ?: videoId.also { gone = it } }
+        if (first == videoId) Log.w(TAG, "fault injection: $videoId is called gone")
+        return first == videoId
     }
 
     /** Whether a /player request of [client] is to hang. */
