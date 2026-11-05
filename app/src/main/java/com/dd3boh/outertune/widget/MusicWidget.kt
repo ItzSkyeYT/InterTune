@@ -8,6 +8,7 @@ package com.dd3boh.outertune.widget
 
 import android.content.Context
 import android.content.res.Configuration
+import android.util.Log
 import androidx.annotation.DrawableRes
 import android.graphics.Bitmap
 import android.view.View
@@ -96,6 +97,9 @@ class MusicWidget(
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         // provideContent never returns, so a preview stops here.
         if (fixed != null) provideContent { GlanceTheme { Body(fixed) } }
+        // When a widget on a home screen is first drawn, or drawn again after its session ended:
+        // how long a new widget waited for this is the time to its first picture.
+        Log.i(WidgetStore.DRAW_TAG, "Drawing $id")
         val initial = WidgetStore.load(context)
         provideContent {
             // Collected rather than captured: provideGlance runs once for the life of this
@@ -238,6 +242,8 @@ private fun Body(drawn: WidgetStore.Drawn) {
     val h = size.height.value.toInt()
     val list = snapshot.list(settings.list)
     val plan = WidgetLayout.plan(w, h, settings, list.size, context.resources.configuration.fontScale, snapshot.upNext.size)
+    // Each drawing at each size, so the time from a tap or a song change to the widget is in logcat.
+    Log.d(WidgetStore.DRAW_TAG, "Composed ${w}x$h ${plan.shape}, ${if (snapshot.isPlaying) "playing" else "paused"} ${snapshot.nowPlaying?.id}, ${list.size} in ${settings.list}")
     val paint = paintOf(settings, snapshot)
     // The now playing song's own file, not the list entry the id-keyed art map would otherwise
     // resolve to whenever this same song sits at the head of Recently played; the big one only where
