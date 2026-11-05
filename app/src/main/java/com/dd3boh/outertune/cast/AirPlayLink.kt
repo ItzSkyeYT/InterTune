@@ -70,6 +70,8 @@ class AirPlayLink(
     private val rsaKey: PublicKey? = null,
     /** Logs a checksum of every second of audio sent, for the fake receiver to compare (debug builds). */
     private val audit: Boolean = false,
+    /** A song's cover as a speaker with a screen takes it: its type and bytes, or null. Blocking. */
+    private val covers: (url: String) -> Pair<String, ByteArray>? = AirPlayCovers::fetch,
     private val leadNanos: Long = AirPlayStream.LEAD_NANOS,
 ) : ReceiverLink {
     @Volatile
@@ -117,6 +119,13 @@ class AirPlayLink(
         var done = false
         var endPending = false
         var failed = false
+
+        /** The cover, fetched once for the song, for a speaker that shows it (md 1). */
+        @Volatile
+        var cover: Pair<String, ByteArray>? = null
+
+        @Volatile
+        var coverTried = false
 
         /** The last frame the speaker was heard to play, and when, for a pause or a gap. */
         var heardFrame = -1L
@@ -536,7 +545,7 @@ class AirPlayLink(
      */
     private fun tell(song: Song, at: Long, songFrame: Long) {
         val wanted = AirPlayDevices.txtOf(device).metadata
-        if (0 !in wanted && 2 !in wanted) return
+        if (wanted.none { it in 0..2 }) return
         val session = session ?: return
         scope.launch(Dispatchers.IO) {
             val stream = session.stream
@@ -550,6 +559,16 @@ class AirPlayLink(
                     val start = at - songFrame
                     val body = AirPlayMetadata.progress(stream.rtpTime(start), stream.rtpTime(at), stream.rtpTime(start + song.totalFrames))
                     session.rtsp.request("SET_PARAMETER", headers = rtpInfo, body = body.toByteArray(), contentType = "text/parameters")
+                }
+                if (1 in wanted) {
+                    val url = song.item.artworkUrl
+                    if (!song.coverTried && url != null) {
+                        song.coverTried = true
+                        song.cover = covers(url)
+                    }
+                    song.cover?.let { (type, bytes) ->
+                        session.rtsp.request("SET_PARAMETER", headers = rtpInfo, body = bytes, contentType = type)
+                    }
                 }
             }.onFailure { Log.i(TAG, "${device.name} did not take the song's details: ${it.message}") }
         }
@@ -614,6 +633,7 @@ class AirPlayLink(
     /** Every second: a stretch that has nothing left to play stops; a speaker that went quiet is lost; the session is kept alive. */
     private suspend fun watch() {
         var lastOptions = clock.nanos()
+        var keepAliveFailures = 0
         while (!closed) {
             delay(1_000)
             val session = session ?: continue
@@ -635,7 +655,18 @@ class AirPlayLink(
             }
             if (now - lastOptions > KEEP_ALIVE_NANOS) {
                 lastOptions = now
-                runCatching { session.rtsp.exchange("OPTIONS", "*") }.onFailure { Log.i(TAG, "${device.name}: keep-alive failed: ${it.message}") }
+                try {
+                    session.rtsp.exchange("OPTIONS", "*")
+                    keepAliveFailures = 0
+                } catch (e: IOException) {
+                    Log.i(TAG, "${device.name}: keep-alive failed: ${e.message}")
+                    // A speaker switched off mid-song leaves the connection open and silent: two
+                    // keep-alives in a row with no answer is a speaker that is gone.
+                    if (++keepAliveFailures >= 2 && !session.hungUp && this.session === session) {
+                        lose("${device.name} stopped answering", LinkProblem.STOPPED_ANSWERING)
+                        return
+                    }
+                }
             }
         }
     }

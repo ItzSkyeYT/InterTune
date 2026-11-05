@@ -296,10 +296,15 @@ class AirPlayLinkTest {
     /** The song frames in [packets], in order, each the frame number its samples spell; silence is left out. */
     private fun songFrames(packets: List<Received>): List<Long> = packets.flatMap { CounterSignal.frames(it.samples) }
 
-    private fun link(speaker: FakeSpeaker, device: CastDevice = speaker.device, rsa: java.security.PublicKey? = null) =
+    private fun link(
+        speaker: FakeSpeaker,
+        device: CastDevice = speaker.device,
+        rsa: java.security.PublicKey? = null,
+        covers: (String) -> Pair<String, ByteArray>? = { null },
+    ) =
         AirPlayLink(
             device, scope,
-            latencyFrames = 4_410, leadNanos = 20_000_000, primeFrames = 1_000, pipeFrames = 44_100, rsaKey = rsa,
+            latencyFrames = 4_410, leadNanos = 20_000_000, primeFrames = 1_000, pipeFrames = 44_100, rsaKey = rsa, covers = covers,
         ).also { link -> closing += AutoCloseable { link.close() } }
 
     private fun item(server: CounterSongServer, name: String, frames: Long) = server.item(name, frames)
@@ -480,9 +485,11 @@ class AirPlayLinkTest {
     fun `a speaker that shows songs is told the title and where the song stands, as its first packet goes`() = runBlocking {
         val speaker = FakeSpeaker()
         val songs = songServer()
-        val link = link(speaker, speaker.device(mapOf("et" to "0", "md" to "0,1,2")))
+        val cover = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 1, 2, 3)
+        val asked = CopyOnWriteArrayList<String>()
+        val link = link(speaker, speaker.device(mapOf("et" to "0", "md" to "0,1,2")), covers = { url -> asked += url; "image/jpeg" to cover })
         link.connect()
-        link.load(songs.item("a", 22_050).copy(title = "Starboy", artist = "The Weeknd", album = "Starboy"), 0, play = true)
+        link.load(songs.item("a", 22_050).copy(title = "Starboy", artist = "The Weeknd", album = "Starboy", artworkUrl = "https://example.org/c=w1200-h1200"), 0, play = true)
         link.waitFor(ReceiverState.ENDED, load = 1)
         eventually(what = "the song's details") { speaker.methods().count { it == "SET_PARAMETER" } >= 2 }
         val details = speaker.requests.indexOfFirst { it.first == "SET_PARAMETER" && "application/x-dmap-tagged" in it.second }
@@ -496,6 +503,35 @@ class AirPlayLinkTest {
         val first = speaker.stretch(0).first { packet -> CounterSignal.frames(packet.samples).firstOrNull() == 0L }
         assertEquals(first.timestamp, start.toLong())
         assertTrue(speaker.requests[progress].second, "RTP-Info: rtptime=$start" in speaker.requests[progress].second)
+        eventually(what = "the cover") { speaker.requests.any { it.first == "SET_PARAMETER" && "image/jpeg" in it.second } }
+        val artwork = speaker.requests.indexOfFirst { it.first == "SET_PARAMETER" && "image/jpeg" in it.second }
+        assertTrue(speaker.bodies[artwork].contentEquals(cover))
+        assertEquals(listOf("https://example.org/c=w1200-h1200"), asked)
+    }
+
+    @Test
+    fun `a cover is asked at 600 pixels and taken only as JPEG or PNG`() {
+        val server = java.net.ServerSocket(0, 5, loopback)
+        closing += server
+        val paths = CopyOnWriteArrayList<String>()
+        thread(isDaemon = true) {
+            while (true) {
+                val socket = try { server.accept() } catch (e: IOException) { return@thread }
+                socket.use {
+                    val head = readHead(BufferedInputStream(socket.getInputStream()))
+                    val path = head.lines().first().split(' ')[1]
+                    paths += path
+                    val (type, body) = if ("png" in path) "image/png" to byteArrayOf(1, 2) else "text/html" to byteArrayOf(3)
+                    socket.getOutputStream().write("HTTP/1.1 200 OK\r\nContent-Type: $type\r\nContent-Length: ${body.size}\r\nConnection: close\r\n\r\n".toByteArray() + body)
+                }
+            }
+        }
+        val base = "http://127.0.0.1:${server.localPort}"
+        val png = AirPlayCovers.fetch("$base/png=w1200-h1200")
+        assertEquals("image/png", png?.first)
+        assertTrue(png!!.second.contentEquals(byteArrayOf(1, 2)))
+        assertEquals(null, AirPlayCovers.fetch("$base/page"))
+        assertEquals(listOf("/png=w600-h600", "/page"), paths.toList())
     }
 
     @Test

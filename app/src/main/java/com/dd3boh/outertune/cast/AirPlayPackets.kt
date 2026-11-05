@@ -297,3 +297,39 @@ object AirPlayMetadata {
         return out
     }
 }
+
+/** Covers for speakers with a screen: fetched from the web at a size a speaker shows, JPEG or PNG only. */
+object AirPlayCovers {
+    /** Big enough for the screen of an AV receiver; a speaker refuses much larger. */
+    const val MAX_BYTES = 512 * 1024
+
+    /**
+     * [url] asked at 600 pixels where the image host takes a size in the url (as the player's
+     * covers do), then fetched: its type and bytes, or null when it is not a JPEG or PNG, too
+     * large, or cannot be had. Blocking.
+     */
+    fun fetch(url: String): Pair<String, ByteArray>? = runCatching {
+        val small = url.replace(Regex("""=w\d+-h\d+"""), "=w600-h600")
+        val connection = java.net.URL(small).openConnection() as java.net.HttpURLConnection
+        connection.connectTimeout = 5_000
+        connection.readTimeout = 5_000
+        try {
+            if (connection.responseCode != 200) return null
+            val type = connection.contentType?.substringBefore(';')?.trim()?.lowercase()
+            if (type != "image/jpeg" && type != "image/png") return null
+            val out = java.io.ByteArrayOutputStream()
+            val buffer = ByteArray(16 * 1024)
+            connection.inputStream.use { input ->
+                while (true) {
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    out.write(buffer, 0, count)
+                    if (out.size() > MAX_BYTES) return null
+                }
+            }
+            type to out.toByteArray()
+        } finally {
+            connection.disconnect()
+        }
+    }.getOrNull()
+}
