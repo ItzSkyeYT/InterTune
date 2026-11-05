@@ -552,6 +552,7 @@
     <string name="playback_auth_always">Toujours</string>
     <string name="err_age_restricted">YouTube ne lira pas ce titre sans un compte ayant l\'âge requis. Les autres titres ne sont pas concernés.</string>
     <string name="err_song_unavailable">YouTube n\'a plus ce titre, ou pas là où vous êtes.</string>
+    <string name="gone_song_skipped">Titre passé, indisponible sur YouTube : « %1$s »</string>
     <!-- Dialog -->
     <string name="create_sync_playlist_failed">Playlist non créée sur YouTube Music. Réessayez une fois en ligne.</string>
     <!-- Sync -->

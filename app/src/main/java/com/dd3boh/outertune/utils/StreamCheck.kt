@@ -257,6 +257,24 @@ object StreamCheck {
     const val ACCOUNT_SPARED_AFTER = 2
 
     /**
+     * Whether YouTube Music's web client is asked of a song as a visitor at its turn, where it used
+     * to be passed over because every client before it called the song gone: on the same terms as
+     * the account ([asksAccountBeforeGone]), for a walk that has no account on the web client.
+     *
+     * YouTube's other clients call some songs "not available" that YouTube Music's web client plays
+     * whole: issue #82's kynPZKHJixA, UNPLAYABLE to VISIONOS and ANDROID_VR from France and as the
+     * US, played from WEB_REMIX on the emulator (5 Nov 2026). A song called gone is passed over
+     * now, whatever the listener's skip setting (GoneSkip), so the word has to be every client's.
+     */
+    fun asksWebBeforeGone(
+        anonymous: List<PlayerResponse.PlayabilityStatus>,
+        unreached: Boolean,
+        askedAlready: Boolean,
+        ofAnotherCopy: Boolean,
+        othersGoneInARow: Int,
+    ): Boolean = asksAccountBeforeGone(anonymous, unreached, askedAlready, ofAnotherCopy, othersGoneInARow)
+
+    /**
      * Whether a fallback client's failed request leaves it open what has become of the song, for
      * [unavailableSong]'s unreached.
      *
