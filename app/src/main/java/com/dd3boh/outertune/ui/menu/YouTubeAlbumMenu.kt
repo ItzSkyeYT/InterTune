@@ -236,7 +236,18 @@ fun YouTubeAlbumMenu(
             // No push of the whole list to YouTube here: it ran before the duplicates question and
             // ignored its answer (Cancel still added everything after the next sync), and the dialog
             // pushes each song it adds itself. PlaylistMenu dropped the same push on 28 Sep 2026.
-            songIds = album?.songs?.map { it.id }.orEmpty(),
+            // The page's songs while the album is not stored yet, as Play next and Add to queue
+            // have them, written before this returns (#62). From the stored album alone a pick made
+            // before the page's write landed, or on a slow network, added nothing, and the picker
+            // closed as if it had worked (UI scan, 5 Nov 2026).
+            songIds = null,
+            onPreAdd = {
+                val toAdd = songsToQueue
+                database.transactionNow {
+                    toAdd.forEach(::insert)
+                }
+                toAdd.map { it.id }
+            },
             onDismiss = { showChoosePlaylistDialog = false }
         )
     }
