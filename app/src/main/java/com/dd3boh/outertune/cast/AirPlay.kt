@@ -193,10 +193,27 @@ object AirPlayDevices {
             host = host,
             port = port,
             location = location(txt),
-            model = txt.model,
+            model = modelName(txt.model),
             // An Apple TV has a screen; every other AirPlay receiver is a speaker or a box behind one.
             audioOnly = txt.model?.startsWith("AppleTV", ignoreCase = true) != true,
         )
+    }
+
+    /**
+     * The model as the picker shows it: Apple's own boxes by their names ("AirPort10,115" is an
+     * AirPort Express), a maker's identifier without its version digits ("Zeppelin1,2" is a
+     * Zeppelin), and a name a maker wrote out as it is. Null for none.
+     */
+    fun modelName(model: String?): String? {
+        val name = model?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        val identifier = Regex("""^([A-Za-z][A-Za-z ]*?)\d+,\d+$""").find(name)?.groupValues?.get(1)?.trim() ?: return name
+        return when {
+            identifier.equals("AirPort", ignoreCase = true) -> "AirPort Express"
+            identifier.equals("AppleTV", ignoreCase = true) -> "Apple TV"
+            identifier.equals("AudioAccessory", ignoreCase = true) -> "HomePod"
+            identifier.startsWith("Mac", ignoreCase = true) || identifier.startsWith("iMac", ignoreCase = true) -> "Mac"
+            else -> identifier
+        }
     }
 
     /** A speaker typed in by address: nothing is known of it until it answers. */

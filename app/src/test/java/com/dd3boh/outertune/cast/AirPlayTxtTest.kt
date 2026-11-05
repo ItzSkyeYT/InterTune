@@ -91,6 +91,23 @@ class AirPlayTxtTest {
     }
 
     @Test
+    fun `the picker shows a model a person reads, not Apple's identifier`() {
+        assertEquals("AirPort Express", AirPlayDevices.modelName("AirPort10,115"))
+        assertEquals("Apple TV", AirPlayDevices.modelName("AppleTV3,2"))
+        assertEquals("HomePod", AirPlayDevices.modelName("AudioAccessory5,1"))
+        assertEquals("Mac", AirPlayDevices.modelName("MacBookPro18,3"))
+        assertEquals("Zeppelin", AirPlayDevices.modelName("Zeppelin1,2"))
+        assertEquals("Zeppelin Wireless", AirPlayDevices.modelName("Zeppelin Wireless"))
+        assertEquals("Denon AVR-X1600H", AirPlayDevices.modelName(" Denon AVR-X1600H "))
+        assertEquals(null, AirPlayDevices.modelName(""))
+        assertEquals("AirPort Express", AirPlayDevices.of("AABB@Den", "10.0.0.2", 5000, mapOf("am" to "AirPort10,115")).model)
+        // The plan still reads the identifier itself.
+        val homePod = AirPlayDevices.of("AABB@Kitchen", "10.0.0.3", 7000, mapOf("am" to "AudioAccessory5,1"))
+        assertEquals("HomePod", homePod.model)
+        assertTrue(AirPlayDevices.txtOf(homePod).plan() is AirPlayPlan.No)
+    }
+
+    @Test
     fun `the TXT record rides in the location, so a remembered speaker keeps it`() {
         val device = AirPlayDevices.of("AABBCCDDEEFF@Den", "10.0.0.3", 5000, speaker + ("am" to "B&W Zeppelin=Wireless"))
         assertTrue(device.location!!.startsWith("raop:"))
