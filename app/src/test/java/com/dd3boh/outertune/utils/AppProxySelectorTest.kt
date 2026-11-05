@@ -72,6 +72,15 @@ class AppProxySelectorTest {
     }
 
     @Test
+    fun `the setting says what it now covers, in English and French`() {
+        for (folder in listOf("values", "values-fr")) {
+            val line = File("src/main/res/$folder/strings-ot.xml").readLines().single { "name=\"enable_proxy_description\"" in it }
+            assertFalse(folder, "still connect directly" in line || "toujours directement" in line)
+            assertTrue(folder, "pictures and lyrics included" in line || "images et paroles comprises" in line)
+        }
+    }
+
+    @Test
     fun `the app makes it the default when it starts with a proxy`() {
         val app = File("src/main/java/com/dd3boh/outertune/App.kt").readText()
         val start = app.indexOf("if (proxy != null) {")
