@@ -28,6 +28,7 @@ import com.dd3boh.outertune.db.entities.SongEntity
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.DownloadUtil
+import com.dd3boh.outertune.playback.MusicService
 import com.dd3boh.outertune.ui.theme.extractCoverColor
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.ui.utils.coverAddresses
@@ -229,7 +230,7 @@ object WidgetStore {
 
     /** What to draw right now: the flow if this process has it, else the file. */
     suspend fun load(context: Context): Drawn = drawn.value ?: withContext(Dispatchers.IO) {
-        decoded(context, read(context)).also { _drawn.value = it }
+        decoded(context, read(context).withPlayer(MusicService.isRunning)).also { _drawn.value = it }
     }
 
     /** The artwork the snapshot names, as bitmaps. Small, few, and only re-read when they change. */
@@ -594,7 +595,7 @@ object WidgetStore {
         if (!hasWidgets(context)) return
         val started = System.currentTimeMillis()
         mutex.withLock {
-            var snapshot = read(context)
+            var snapshot = read(context).withPlayer(MusicService.isRunning)
             snapshot.nowPlaying?.let { now ->
                 if (now.artPath == null || now.colour == null) {
                     val art = now.artPath ?: artOnPhone(context, now.id, ART_NOW_PX)
@@ -959,6 +960,15 @@ internal fun likeGuess(song: MediaMetadata?, row: SongEntity?): Boolean =
 internal fun nextRecent(old: List<WidgetSong>, played: WidgetSong, paused: Boolean, maxPicks: Int): List<WidgetSong> =
     if (paused) old
     else (listOf(played) + old).distinctBy { it.id }.take(maxPicks)
+
+/**
+ * The snapshot as it can be drawn with the player's service [running] or not. Nothing plays without
+ * that service, but the file keeps the play state it was last written with: the service writes
+ * paused as it goes away, and an update of the app, or Android stopping it, never lets it. A widget
+ * drawn again after an update offered pause over silence (seen on the Pixel 5, 5 Nov 2026).
+ */
+internal fun WidgetSnapshot.withPlayer(running: Boolean): WidgetSnapshot =
+    if (isPlaying && !running) copy(isPlaying = false) else this
 
 /**
  * Whether the library fills [which] when a widget appears, holding [held]. Recently played is the
