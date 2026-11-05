@@ -94,4 +94,17 @@ class CastPcmWiringTest {
         assertTrue("work.trySend { tryRung(climb, next) }" in player)
         assertEquals(1, Regex("""(?<!fun )tryRung\(climb, rungs\.first\(\)\)""").findAll(player).count())
     }
+
+    @Test
+    fun `a speaker that played no form keeps the song's copy on the phone and is not sent the song again`() {
+        val error = code("playback/MusicService.kt").substringAfter("override fun onPlayerError(").substringBefore("private fun scheduleQuietRetry(")
+        assertTrue("val speakerGaveUp = isCasting && Unreleased.CAST_LADDER && error.errorCode == PlaybackException.ERROR_CODE_REMOTE_ERROR" in error)
+        // The copy is judged only when the speaker did not give up, and once: it was thrown out and
+        // the song sent again, so the ladder walked twice before anyone heard why.
+        assertTrue("val goOn = !speakerGaveUp && badCachedCopy.playerFailed(failedId, error)" in error)
+        assertEquals(1, Regex("""badCachedCopy\.playerFailed\(""").findAll(error).count())
+        assertTrue(error.indexOf("val goOn =") < error.indexOf("player.prepare()"))
+        // What the speaker said is the message, as it is for any receiver's failure.
+        assertTrue("isCasting && error.errorCode == PlaybackException.ERROR_CODE_REMOTE_ERROR && !error.message.isNullOrBlank()) error.message!!" in error)
+    }
 }

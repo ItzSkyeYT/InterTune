@@ -4432,7 +4432,12 @@ class MusicService : MediaLibraryService(),
         val failedId = PlayBook.itemOf(error, player.currentTimeline) ?: player.currentMediaItem?.mediaId
         // The route the song failed on, read before its address is forgotten: see SongRoutes.
         val failedRoute = streamAddresses.clientOf(failedId)
-        val goOn = badCachedCopy.playerFailed(failedId, error)
+        // While casting with the ladder, a failure is the speaker's: a DLNA speaker has been sent
+        // every form it takes, and the remote player has made its own retry for other receivers.
+        // The song's copy on the phone stays. Throwing it out sent the song again and the ladder
+        // walked once more, half a minute of silence before the message (5 Nov 2026).
+        val speakerGaveUp = isCasting && Unreleased.CAST_LADDER && error.errorCode == PlaybackException.ERROR_CODE_REMOTE_ERROR
+        val goOn = !speakerGaveUp && badCachedCopy.playerFailed(failedId, error)
         if (streamAddresses.playerFailedOn(failedId)) {
             Log.d(TAG, "PLAYING: the player failed on $failedId, its stream address will be asked for again")
         }
