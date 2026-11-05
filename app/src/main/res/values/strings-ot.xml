@@ -191,7 +191,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="playback_auth_when_refused">Only when a song is refused</string>
     <string name="playback_auth_always">Always</string>
     <string name="err_age_restricted">YouTube will not play this one without an account old enough to see it. Other songs are unaffected.</string>
-    <string name="err_song_unavailable">YouTube no longer has this song, or does not serve it where you are. Other songs are unaffected.</string>
+    <string name="err_song_unavailable">YouTube no longer has this song, or not where you are.</string>
     <string name="err_sign_in_wanted">YouTube wants a sign-in to play from this network. VPNs and shared connections are often refused.</string>
     <string name="gone_song_skipped">Skipped a song not available on YouTube: “%1$s”</string>
     <string name="err_copy_details">Copy error details</string>
@@ -207,7 +207,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="bits_per_sample">Bits per sample</string>
     <string name="create_sync_playlist">Sync Playlist</string>
     <string name="create_sync_playlist_description">Note: This allows for syncing with YouTube Music. This is NOT changeable later. You cannot add local songs to synced playlists.</string>
-    <string name="create_sync_playlist_failed">Could not create the playlist on YouTube Music. Nothing was created; try again when you are online.</string>
+    <string name="create_sync_playlist_failed">Could not create the playlist on YouTube Music. Try again online.</string>
     <string name="disc_number">Disc number</string>
     <string name="extra_details">Extra details</string>
     <string name="file_path">File path</string>
@@ -883,7 +883,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="welcome_back_done">Done</string>
     <string name="welcome_back_entry">What is new</string>
     <string name="welcome_back_not_here">That is not on screen in this setup, so there is nothing to point at.</string>
-    <string name="welcome_back_no_widget_host">This home screen does not take widgets from apps. Add it from the home screen\'s own widget list.</string>
+    <string name="welcome_back_no_widget_host">This home screen can\'t take app widgets. Use its own widget list.</string>
     <!-- The card at the top of Home that the page waits behind. %1$d is how many things are new,
          %2$s the version somebody came from, as in 0.11. -->
     <plurals name="welcome_card_since">
@@ -1332,7 +1332,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="exclusion_reason_gone">No longer on YouTube</string>
     <string name="error_youtube_not_answering">YouTube is not answering right now. The song was tried several ways.</string>
     <string name="error_cached_part_stale">The saved part of this song no longer matches what YouTube serves. Press play to load it again.</string>
-    <string name="error_connection_turned_away">YouTube is turning this connection away, so every song looks unavailable. A VPN, or a school or work network, can do this.</string>
+    <string name="error_connection_turned_away">YouTube refuses this connection. Try without a VPN or on other Wi-Fi.</string>
     <string name="error_sign_in_wanted">YouTube wants a sign-in on this network. Try without a VPN.</string>
     <string name="menu_not_this_song">Not this song</string>
     <string name="menu_less_of_artist">Less of this artist</string>

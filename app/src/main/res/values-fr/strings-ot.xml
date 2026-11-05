@@ -105,7 +105,7 @@
     <string name="sync_progress_success">Synchronisation terminée</string>
     <string name="tab_arrangement_home_required">L\'onglet Accueil est obligatoire.</string>
     <string name="scanner_manual_btn">Déclencher la synchronisation manuelle</string>
-    <string name="scanner_missing_storage_perm">Le scanner multimédia local nécessite des autorisations de stockage pour fonctionner</string>
+    <string name="scanner_missing_storage_perm">Le scanner local a besoin de l\'autorisation de stockage.</string>
     <string name="scanner_scan_fail">Échec de l\'analyse</string>
     <string name="scanner_ytm_link_fail">La tâche de liaison des artistes YouTube a échoué</string>
     <string name="scanner_ytm_link_success">Le travail de création de liens vers les artistes YouTube est terminé</string>
@@ -275,7 +275,7 @@
     <string name="action_done">Terminé</string>
     <string name="download_on_wifi_only_description">Attend une connexion Wi-Fi avant de télécharger. Les téléchargements lancés en données mobiles sont mis en attente et démarrent tout seuls dès que le Wi-Fi revient</string>
     <string name="download_on_wifi_only_title">Télécharger en Wi-Fi uniquement</string>
-    <string name="download_waiting_for_wifi">En attente. Le téléchargement démarrera dès que le Wi-Fi sera disponible</string>
+    <string name="download_waiting_for_wifi">En attente. Le téléchargement démarrera avec le Wi-Fi.</string>
     <plurals name="download_progress_songs">
         <item quantity="one">%1$d sur %2$d titre</item>
         <item quantity="many">%1$d sur %2$d titres</item>
@@ -551,11 +551,11 @@
     <string name="playback_auth_when_refused">Seulement quand un titre est refusé</string>
     <string name="playback_auth_always">Toujours</string>
     <string name="err_age_restricted">YouTube ne lira pas ce titre sans un compte ayant l\'âge requis. Les autres titres ne sont pas concernés.</string>
-    <string name="err_song_unavailable">YouTube n\'a plus ce titre, ou ne le propose pas là où vous êtes. Les autres titres ne sont pas concernés.</string>
+    <string name="err_song_unavailable">YouTube n\'a plus ce titre, ou pas là où vous êtes.</string>
     <string name="err_sign_in_wanted">YouTube demande de se connecter pour lire depuis ce réseau. Les VPN et les connexions partagées sont souvent refusés.</string>
     <string name="gone_song_skipped">Titre passé, indisponible sur YouTube : « %1$s »</string>
     <!-- Dialog -->
-    <string name="create_sync_playlist_failed">Impossible de créer la playlist sur YouTube Music. Rien n\'a été créé ; réessayez une fois en ligne.</string>
+    <string name="create_sync_playlist_failed">Playlist non créée sur YouTube Music. Réessayez une fois en ligne.</string>
     <!-- Sync -->
     <string name="sync_progress_failed">La synchronisation n\'a pas abouti. Rien n\'a été supprimé ; réessayez plus tard.</string>
     <string name="sync_progress_nothing">Rien à synchroniser. Vérifiez que la synchronisation est activée pour au moins un type de contenu.</string>
@@ -656,7 +656,7 @@
     <string name="recognition_phone_nothing">Aucun titre trouvé sur ce téléphone</string>
     <string name="recognition_phone_nothing_hint">Réessayez pendant que le titre joue.</string>
     <string name="recognition_phone_results_channel">Titres trouvés sur ce téléphone</string>
-    <string name="recognition_phone_needs_permission">InterTune a aussi besoin de l\'autorisation du micro pour écouter ce téléphone.</string>
+    <string name="recognition_phone_needs_permission">InterTune a aussi besoin du micro pour écouter ce téléphone.</string>
     <string name="recognition_phone_heard_nothing">Aucun son n\'est venu du téléphone. InterTune laisse de côté ses propres titres, et certaines applis bloquent l\'enregistrement.</string>
     <string name="recognition_room_tile">Titre autour de vous</string>
     <string name="recognition_phone_continue">Continuer</string>
@@ -987,9 +987,9 @@
     <string name="exclusion_reason_snooze">Moins de cet artiste, pendant un mois</string>
     <string name="exclusion_reason_rest">Mis au repos après avoir été passé</string>
     <string name="exclusion_reason_gone">N\'est plus sur YouTube</string>
-    <string name="error_youtube_not_answering">YouTube ne répond pas pour le moment. Le titre a été essayé de plusieurs façons.</string>
+    <string name="error_youtube_not_answering">YouTube ne répond pas. Le titre a été essayé de plusieurs façons.</string>
     <string name="error_cached_part_stale">La partie enregistrée de ce titre ne correspond plus à ce que YouTube fournit. Appuyez sur lecture pour le charger à nouveau.</string>
-    <string name="error_connection_turned_away">YouTube refuse cette connexion, donc chaque titre semble indisponible. Un VPN, ou un réseau d\'école ou de travail, peut en être la cause.</string>
+    <string name="error_connection_turned_away">YouTube refuse cette connexion. Essayez sans VPN ou un autre Wi-Fi.</string>
     <string name="error_sign_in_wanted">YouTube demande de se connecter sur ce réseau. Essayez sans VPN.</string>
     <string name="menu_not_this_song">Pas ce titre</string>
     <string name="menu_less_of_artist">Moins de cet artiste</string>
@@ -1708,8 +1708,8 @@
     <string name="welcome_back_settings_show">Faire le tour</string>
     <string name="welcome_back_done">Terminé</string>
     <string name="welcome_back_entry">Nouveautés</string>
-    <string name="welcome_back_not_here">Ce n\'est pas à l\'écran avec ces réglages, il n\'y a donc rien à montrer.</string>
-    <string name="welcome_back_no_widget_host">Cet écran d\'accueil n\'accepte pas les widgets des applications. Ajoutez-le depuis la liste de widgets de l\'écran d\'accueil.</string>
+    <string name="welcome_back_not_here">Ce n\'est pas affiché avec ces réglages : rien à montrer.</string>
+    <string name="welcome_back_no_widget_host">Cet écran d\'accueil refuse les widgets d\'applis. Passez par sa liste.</string>
     <string name="welcome_card_see">Voir</string>
     <string name="welcome_card_dismiss">Masquer cette note</string>
     <string name="new_quick_picks_title">Une Sélection Rapide que vous pouvez orienter</string>
@@ -2255,7 +2255,7 @@
     <string name="unblocked">%1$s débloqué</string>
     <string name="blocked_search_note">%1$s est bloqué, donc rien de cet artiste ne s\'affiche.</string>
     <string name="blocked_song_skipped">%1$s est bloqué, donc son titre a été passé.</string>
-    <string name="blocked_songs_left">Les titres restants sont tous d\'artistes bloqués, donc la musique s\'est arrêtée.</string>
+    <string name="blocked_songs_left">Il ne reste que des titres d\'artistes bloqués : la musique s\'arrête.</string>
     <string name="search_words_blocked_artists">bannir, masquer, ignorer, liste noire</string>
     <string name="crash_newer_title">InterTune %1$s est disponible</string>
     <string name="crash_newer_body">Cette version corrige peut-être déjà ce plantage. Mettez à jour d\'abord, puis signalez-le s\'il revient.</string>
