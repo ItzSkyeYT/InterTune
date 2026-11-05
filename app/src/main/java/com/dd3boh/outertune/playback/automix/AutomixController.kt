@@ -88,6 +88,12 @@ import kotlin.math.max
  * change is never worse for it. A saved change that starts further from the end has the end held
  * earlier.
  *
+ * Crossfade (Unreleased.CROSSFADE) works the same way, through the same steps and guards, with
+ * Planner.crossfade for the plan: no copy, no saved change, no whole song read, no bands. With
+ * AutoMix on as well, Auto plans first and a change it would leave gapless is crossfaded. A queue
+ * that plays as a mix gets no crossfade at all (Crossfade.whyOff): what the rule knows of the
+ * queue playing is kept until another queue starts.
+ *
  * Every decision is one line in the log, starting "AutoMix:". Nothing here seeks, so a song that
  * ends by itself is still the player's own automatic change, and its listen is ENDED.
  */
@@ -121,7 +127,18 @@ class AutomixController(
      * what was already fetched. With it off, a whole read would fetch the song twice.
      */
     private val readWhole: Boolean = false,
+    /** The queue playing, for Crossfade's rule; null when the service has none. Main thread. */
+    private val queue: () -> QueueNow? = { null },
+    /** Every pair of songs with a change saved for it, for Crossfade's rule. Blocking, so called on IO. */
+    private val savedPairs: () -> Set<SongPair> = { emptySet() },
 ) : Player.Listener, AutomixAudioProcessor.Events {
+
+    /**
+     * The queue playing as the service has it: [key] names one start of it, so another value is
+     * another queue, or the same one started again; [songs] gives its songs in its own order,
+     * shuffle aside, as the playlist it came from has them.
+     */
+    class QueueNow(val key: Any, val songs: () -> List<String>)
 
     class Conditions(
         val casting: Boolean,
@@ -166,15 +183,18 @@ class AutomixController(
     private val _decided = MutableStateFlow<Decided?>(null)
     val decided: StateFlow<Decided?> = _decided.asStateFlow()
 
-    /** The setting. Off costs nothing: no tick, no read, no worker. */
+    /**
+     * Either setting, AutoMix or Crossfade (see [setModes]): the stage is wanted in the chain and
+     * the changes are looked at. Off costs nothing: no tick, no read, no worker.
+     */
     var enabled = false
-        set(value) {
+        private set(value) {
             if (field == value) return
             field = value
             stage.wanted = value
             if (!value) {
                 _decided.value = null
-                transition?.let { abort(it, "AutoMix was switched off") }
+                transition?.let { abort(it, "AutoMix and Crossfade were switched off") }
                 stopWork()
                 say("off; it leaves the chain at the next song started by hand, levelling the songs till then")
             } else {
@@ -182,6 +202,34 @@ class AutomixController(
             }
             refresh()
         }
+
+    /** AutoMix's setting for the queue playing: with Mix ([lanes]), the switch of the playlist it came from. */
+    private var auto = false
+
+    /** Crossfade's length in seconds while it is on (Unreleased.CROSSFADE), null while it is off. */
+    private var crossfadeSeconds: Int? = null
+
+    /** Whether the queue playing comes from a playlist whose Mix switch is on: no crossfade in it. */
+    private var mixPlaylist = false
+
+    /**
+     * What is on for the queue playing: AutoMix ([automix]), Crossfade at [crossfadeSeconds] (null
+     * while it is off), and whether the queue comes from a playlist whose Mix switch is on
+     * ([mixPlaylist]). Main thread.
+     */
+    fun setModes(automix: Boolean, crossfadeSeconds: Int?, mixPlaylist: Boolean) {
+        if (automix == auto && crossfadeSeconds == this.crossfadeSeconds && mixPlaylist == this.mixPlaylist) return
+        auto = automix
+        this.crossfadeSeconds = crossfadeSeconds
+        this.mixPlaylist = mixPlaylist
+        say(
+            "AutoMix ${if (automix) "on" else "off"}" + (if (mixPlaylist) " for this playlist" else "") +
+                ", Crossfade " + (crossfadeSeconds?.let { "$it s" } ?: "off"),
+        )
+        val was = enabled
+        enabled = automix || crossfadeSeconds != null
+        if (enabled == was) refresh()
+    }
 
     private val main = Handler(Looper.getMainLooper())
     private var worker: ExecutorService? = null
@@ -218,6 +266,26 @@ class AutomixController(
     private var seekedLateId: String? = null
 
     private val window = Timeline.Window()
+
+    // What Crossfade's rule knows of the queue playing (Crossfade.whyOff), kept until another
+    // queue starts. Main thread.
+
+    /** The start of the queue it is about, as [QueueNow.key] names it. */
+    private var queueKey: Any? = null
+
+    /** Auto has mixed two songs of this queue since it started. */
+    private var queueAutoMixed = false
+
+    /** Two songs side by side in it with a change saved for them, once [queueSavedRead]. */
+    private var queueSavedPair: SongPair? = null
+    private var queueSavedRead = false
+    private var queueSavedJob: Job? = null
+
+    /** The player's timeline the saved changes were last read for: another means other songs. */
+    private var queueTimeline: Timeline? = null
+
+    /** Why Crossfade is off for this queue, as last said, so each reason is said once. */
+    private var queueOffSaid: String? = null
 
     init {
         stage.events = this
@@ -267,6 +335,9 @@ class AutomixController(
 
         /** Given up: a plan still being worked out for it is not handed to the stage. Read on the worker. */
         val abandoned = AtomicBoolean(false)
+
+        /** Its plan is a crossfade, not Auto's: set on the worker before the plan is handed over. */
+        @Volatile var crossfaded = false
     }
 
     // ---- the player
@@ -368,6 +439,7 @@ class AutomixController(
         enabled = false
         tickJob?.cancel()
         transition?.reading?.cancel()
+        queueSavedJob?.cancel()
         stopWork()
     }
 
@@ -387,7 +459,9 @@ class AutomixController(
             publishLevels()
             return
         }
-        if (t == null || t.a.id != current.mediaId || t.b?.id != next?.mediaId) {
+        val newPair = t == null || t.a.id != current.mediaId || t.b?.id != next?.mediaId
+        lookAtQueue(newPair)
+        if (newPair) {
             t?.let { old ->
                 old.cancelled.set(true)
                 if (old.a.id == current.mediaId) abort(old, "the next song changed")
@@ -405,13 +479,22 @@ class AutomixController(
         if (t.finished) return
         if (t.holding) {
             // What may change while the end is held, and stops it: a sleep timer, casting, the
-            // setting. The queue and the playback parameters have their own events.
-            AutomixGuards.whyNot(snapshot(t))?.let { abort(t, it) } ?: later(HOLDING_LOOK_MS)
+            // settings, Crossfade's rule for the queue. The queue's songs and the playback
+            // parameters have their own events.
+            (AutomixGuards.whyNot(snapshot(t)) ?: wayGone(t))?.let { abort(t, it) } ?: later(HOLDING_LOOK_MS)
             return
         }
+        val way = way()
+        sayCrossfadeOff()
+        // Crossfade alone waits for the queue's saved changes to be read, which looks again.
+        if (way == Crossfade.Way.CROSSFADE && !queueSavedRead) return
+        // Neither applies to this queue: the change is today's, and there is nothing to look at
+        // until the settings or the queue change, which look again.
+        if (way == Crossfade.Way.NONE) return decide(t, null)
         val duration = player.duration
         if (duration == C.TIME_UNSET || duration <= 0) return later(AutomixSchedule.nextLookMs(Long.MAX_VALUE, 1f))
         val left = duration - player.currentPosition
+        val doing = if (way == Crossfade.Way.CROSSFADE) "crossfading" else "mixing"
         // A plain change saved for the pair is refused like any guard, with its own reason.
         val refusal = AutomixGuards.refusal(snapshot(t))
             ?: t.saved?.takeIf { it.plain }?.let { AutomixGuards.Refusal(PlainReason.YOUR_CHOICE, "a plain change was saved for these two") }
@@ -421,7 +504,7 @@ class AutomixController(
         if (why != null) {
             if (why != t.refusal) {
                 t.refusal = why
-                say("not mixing ${t.a.id} into ${t.b?.id ?: "nothing"}: $why")
+                say("not $doing ${t.a.id} into ${t.b?.id ?: "nothing"}: $why")
             }
             // Conditions can change (a sleep timer cancelled, skip silence turned off), and each
             // is looked at again when its event comes; nothing ticks for a change that cannot be.
@@ -431,9 +514,9 @@ class AutomixController(
         val b = t.b!!
         when (AutomixSchedule.due(left, t.armFromMs)) {
             AutomixSchedule.Step.WAIT -> Unit
-            AutomixSchedule.Step.READ -> readHead(t, b)
+            AutomixSchedule.Step.READ -> readHead(t, b, way)
             AutomixSchedule.Step.ARM -> {
-                readHead(t, b)
+                readHead(t, b, way)
                 if (!t.armRequested && t.head != null) {
                     if (AutomixSchedule.loaded(duration, player.currentPosition, player.bufferedPosition, player.totalBufferedDuration)) arm(t, left)
                 }
@@ -446,7 +529,7 @@ class AutomixController(
                     t.head == null -> "its opening was not read in time"
                     else -> "the songs were not loaded in time"
                 }
-                say("not mixing ${t.a.id} into ${b.id}: $what")
+                say("not $doing ${t.a.id} into ${b.id}: $what")
             }
         }
         if (!t.armRequested) later(AutomixSchedule.nextLookMs(left, player.playbackParameters.speed, t.armFromMs))
@@ -461,10 +544,12 @@ class AutomixController(
         }
     }
 
-    private fun readHead(t: Transition, b: AutomixGuards.Song) {
+    private fun readHead(t: Transition, b: AutomixGuards.Song, way: Crossfade.Way) {
         if (t.head != null || t.reading != null || t.headFailed) return
+        // A crossfade needs the opening alone: no copy for bands, no saved change, no whole song.
+        val bands = lanes && way.auto
         // On bands the opening is read every time: its full-rate copy is not kept between songs.
-        if (!lanes) heads[b.id]?.let {
+        if (!bands) heads[b.id]?.let {
             t.head = it
             say("opening of ${b.id} known from before: ${describe(it)}")
             return
@@ -473,12 +558,13 @@ class AutomixController(
         val aId = t.a.id
         t.shuffled = player.shuffleModeEnabled
         val shuffled = t.shuffled
+        val grids = way.auto
         t.reading = scope.launch {
-            val saved = if (lanes && !shuffled) withContext(Dispatchers.IO) { runCatching { savedChange(aId, b.id) }.getOrNull() } else null
-            val (gridA, gridB) = wholeSongs?.let { store ->
+            val saved = if (bands && !shuffled) withContext(Dispatchers.IO) { runCatching { savedChange(aId, b.id) }.getOrNull() } else null
+            val (gridA, gridB) = wholeSongs?.takeIf { grids }?.let { store ->
                 withContext(Dispatchers.IO) { runCatching { store.get(aId) }.getOrNull() to runCatching { store.get(b.id) }.getOrNull() }
             } ?: (null to null)
-            val copySeconds = if (lanes) copySecondsFor(saved) else 0.0
+            val copySeconds = if (bands) copySecondsFor(saved) else 0.0
             val result = runCatching {
                 withContext(Dispatchers.IO) { decoder.read(b.id, { cancelled.get() }, copySeconds) }
             }
@@ -512,8 +598,9 @@ class AutomixController(
                     say("opening of ${b.id}: ${describe(head)}, read in ${read.readMs} ms, analysed in ${head.analysisMillis.toLong()} ms")
                     if (saved != null) savedFor(t, saved)
                     // A song with no grid yet is read whole now, the next one first: its opening is
-                    // what a change reads most of.
+                    // what a change reads most of. Not for a crossfade, which has no beat to lay.
                     when {
+                        !grids -> Unit
                         gridB == null -> readWholeSong(t, b.id, b.durationMs, next = true)
                         gridA == null -> readWholeSong(t, t.a.id, t.a.durationMs, next = false)
                     }
@@ -731,7 +818,10 @@ class AutomixController(
         val style = if (mixing) t.plan?.style ?: Style.GAPLESS else Style.GAPLESS
         lastStyles.addFirst(style)
         while (lastStyles.size > 2) lastStyles.removeLast()
-        say(if (mixing) "song change: ${t.b?.id} comes in under ${t.a.id}, ${style.name.lowercase()}" else "song change: ${t.b?.id} after the whole of ${t.a.id}")
+        // Auto has mixed two songs of this queue: no crossfade in it from now on (Crossfade.whyOff).
+        if (mixing && !t.crossfaded) queueAutoMixed = true
+        val how = if (t.crossfaded) "crossfade" else style.name.lowercase()
+        say(if (mixing) "song change: ${t.b?.id} comes in under ${t.a.id}, $how" else "song change: ${t.b?.id} after the whole of ${t.a.id}")
     }
 
     override fun blendDone(id: Long, clipped: Long, peak: Int) = main.postFor(id) { t ->
@@ -794,11 +884,23 @@ class AutomixController(
 
     private fun plan(t: Transition, held: HeldTail, ring: ShortArray, frames: Long) {
         val head = t.head ?: return
+        val way = way()
+        if (way == Crossfade.Way.NONE) {
+            // Crossfade's rule turned it off for this queue while the end was being held.
+            say("gapless: crossfade off for this queue: ${crossfadeOff() ?: "AutoMix is off"}")
+            t.finished = true
+            return
+        }
         val work = work() ?: return
         val gridA = t.gridA
         val tailStartMs = t.tailStartMs.toDouble()
         val c = conditions()
         val levels = stage.levels
+        val seconds = crossfadeSeconds?.toDouble()
+        // Crossfade alone, or Crossfade where Auto would leave the change gapless. A style asked
+        // for in the developer options is Auto's, and stays as it comes out, gapless included.
+        val crossfadeFirst = way == Crossfade.Way.CROSSFADE
+        val crossfadeAfter = way == Crossfade.Way.AUTO_THEN_CROSSFADE && c.forcedStyle == null
         val input = { readMark: Long, tail: RegionAnalysis ->
             PlanInput(
                 tail = tail,
@@ -826,26 +928,35 @@ class AutomixController(
                 val tail = RegionAnalysis.analyse(FrontEnd.of(ring, held.sampleRate, held.channels, 0, frames.toInt()), RegionKind.TAIL)
                     .let { r -> gridA?.let { r.onSong(it, tailStartMs, exact = false) } ?: r }
                 val planInput = input(stage.readMark, tail)
-                val plan = Planner.plan(planInput)
+                val autoPlan = if (crossfadeFirst) null else Planner.plan(planInput)
+                val crossfadeNow = crossfadeFirst || (crossfadeAfter && autoPlan!!.isGapless)
+                val crossfade = if (crossfadeNow && seconds != null) Planner.crossfade(planInput, seconds) else null
+                // A crossfade that cannot be made either leaves Auto's own word in the log.
+                val plan = crossfade?.takeIf { autoPlan == null || !it.isGapless } ?: autoPlan!!
+                val crossfaded = plan === crossfade
+                // Before it is handed over: the song change it makes reads it.
+                t.crossfaded = crossfaded
                 val rendered = MixRender.renderOutgoing(plan, ring, tail.guide, tail.decimation, plan.anchors)
                 // Given up while it was worked out (a sleep timer set, AutoMix switched off): the
                 // stage would refuse it anyway, so it is not handed over.
                 if (!t.abandoned.get()) stage.offer(held, plan, rendered)
-                // Then the same change on bands, from copies, to take the place of that one if in time.
-                val onBands = if (lanes && c.soundBeforeMix) {
+                // Then Auto's same change on bands, from copies, to take the place of that one if in
+                // time; never for a crossfade.
+                val bands = lanes && !crossfaded
+                val onBands = if (bands && c.soundBeforeMix) {
                     BandsOutcome("not on bands: the boost, the equalizer or spatial audio would be on one song and not the other")
-                } else if (lanes && !t.abandoned.get()) {
+                } else if (bands && !t.abandoned.get()) {
                     runCatching { onBands(t, held, ring, frames, tail, head, planInput.earliestChange, planInput.attenuationA, planInput.attenuationB) }
                         .getOrElse { e ->
                             Log.w(TAG, "AutoMix: the change on bands failed", e)
                             BandsOutcome("not on bands: ${e.javaClass.simpleName}")
                         }
                 } else null
-                plan to onBands
+                Planned(plan, onBands, declined = autoPlan?.takeIf { crossfaded }?.reason)
             }
             val workMs = SystemClock.elapsedRealtime() - started
             main.post {
-                val (plan, onBands) = outcome.getOrElse { e ->
+                val (plan, onBands, declined) = outcome.getOrElse { e ->
                     Log.w(TAG, "AutoMix: planning failed", e)
                     decide(t, AutoChoice.Plain(PlainReason.NO_FIT))
                     say("gapless: planning failed (${e.javaClass.simpleName})")
@@ -860,15 +971,21 @@ class AutomixController(
                 t.plan = plan
                 // What was handed over last is what plays, unless it came too late (the log says so):
                 // the saved change, which its own pill names, Auto's change on bands, or the first plan.
+                // A crossfade is not Auto's, and Mix's line says nothing of it.
                 when {
+                    t.crossfaded -> decide(t, null)
                     onBands?.saved == true -> decide(t, null)
                     onBands?.auto != null -> decide(t, onBands.auto)
                     else -> decide(t, AutoChoice.of(plan.style, plan.bars, plan.seconds, Pills.reasonOfPlanner(plan.reason)))
                 }
-                say("plan ${plan.describe()}${timesOf(t, plan)}, worked out in $workMs ms")
+                val after = declined?.let { "; Auto stays gapless: $it" } ?: ""
+                say("plan ${plan.describe()}${timesOf(t, plan)}, worked out in $workMs ms$after")
             }
         }
     }
+
+    /** What the worker came to: the plan handed over, the change on bands, and Auto's reason where a crossfade took its place. */
+    private data class Planned(val plan: MixPlan, val onBands: BandsOutcome?, val declined: String?)
 
     /** What the change on bands came to: a line for the log, and what plays if it is taken. */
     private class BandsOutcome(val log: String, val saved: Boolean = false, val auto: AutoChoice? = null)
@@ -1040,19 +1157,94 @@ class AutomixController(
 
     // ---- small things
 
-    /** Says what [t] has come to, while it is the change after the song playing. */
+    /**
+     * Says what [t] has come to, while it is the change after the song playing. Only while AutoMix
+     * is on for this queue: Mix's line and pills name Auto's changes, never a crossfade.
+     */
     private fun decide(t: Transition, choice: AutoChoice?) {
-        t.decision = choice
+        val said = choice?.takeIf { auto }
+        t.decision = said
         if (transition !== t) return
         val b = t.b
-        _decided.value = if (choice == null || b == null) null else Decided(SongPair(t.a.id, b.id), choice)
+        _decided.value = if (said == null || b == null) null else Decided(SongPair(t.a.id, b.id), said)
+    }
+
+    // ---- Crossfade's rule
+
+    /** How the change after the song playing is made, from the settings and the queue playing. */
+    private fun way(): Crossfade.Way = Crossfade.way(auto, crossfadeSeconds != null, crossfadeOff() != null)
+
+    /** Why the queue playing gets no crossfade at all, or null while it may (Crossfade.whyOff). */
+    private fun crossfadeOff(): String? = Crossfade.whyOff(mixPlaylist, queueAutoMixed, queueSavedPair)
+
+    /** Says why Crossfade is off for the queue playing, once for each reason. */
+    private fun sayCrossfadeOff() {
+        if (crossfadeSeconds == null) return
+        val why = crossfadeOff() ?: return
+        if (why == queueOffSaid) return
+        queueOffSaid = why
+        say("crossfade off for this queue: $why")
+    }
+
+    /**
+     * Why the end held for [t] is let go now that the settings or the queue's rule changed, or
+     * null: no change applies to the queue any more, Auto's mix was handed over before AutoMix was
+     * switched off, or a crossfade before Crossfade was.
+     */
+    private fun wayGone(t: Transition): String? {
+        val way = way()
+        val plan = t.plan
+        return when {
+            way == Crossfade.Way.NONE -> "crossfade off for this queue: ${crossfadeOff() ?: "AutoMix is off"}"
+            plan == null || plan.isGapless -> null
+            t.crossfaded && crossfadeSeconds == null -> "Crossfade was switched off"
+            !t.crossfaded && !way.auto -> "AutoMix was switched off"
+            else -> null
+        }
+    }
+
+    /**
+     * Keeps what Crossfade's rule knows of the queue playing: forgotten when another queue starts,
+     * and its saved changes read again on IO whenever its songs or the change after the song
+     * playing may have changed ([newPair]), so a change saved meanwhile counts from then on.
+     */
+    private fun lookAtQueue(newPair: Boolean) {
+        val now = queue()
+        if (now?.key != queueKey) {
+            queueKey = now?.key
+            queueAutoMixed = false
+            queueSavedPair = null
+            queueSavedRead = false
+            queueSavedJob?.cancel()
+            queueSavedJob = null
+            queueTimeline = null
+            queueOffSaid = null
+        }
+        if (crossfadeSeconds == null) return
+        val timeline = player.currentTimeline
+        val sameSongs = timeline === queueTimeline
+        if (sameSongs && !newPair && (queueSavedRead || queueSavedJob != null)) return
+        queueTimeline = timeline
+        val songs = now?.songs?.invoke() ?: (0 until timeline.windowCount).map { timeline.getWindow(it, window).mediaItem.mediaId }
+        val key = queueKey
+        queueSavedJob?.cancel()
+        queueSavedJob = scope.launch {
+            val found = withContext(Dispatchers.IO) { runCatching { Crossfade.savedSideBySide(songs, savedPairs()) } }
+            if (key != queueKey) return@launch
+            queueSavedJob = null
+            found.exceptionOrNull()?.let { say("could not read the saved changes for Crossfade's rule: ${it.javaClass.simpleName}") }
+            queueSavedPair = found.getOrNull()
+            queueSavedRead = true
+            refresh()
+        }
     }
 
     private fun snapshot(t: Transition): AutomixGuards.Snapshot {
         val c = conditions()
         val parameters = player.playbackParameters
         return AutomixGuards.Snapshot(
-            settingOn = enabled,
+            settingOn = auto,
+            crossfadeOn = crossfadeSeconds != null,
             stageInChain = stage.activeForStream,
             casting = c.casting,
             repeatOne = player.repeatMode == Player.REPEAT_MODE_ONE,

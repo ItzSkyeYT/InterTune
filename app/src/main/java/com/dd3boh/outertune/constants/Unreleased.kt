@@ -544,6 +544,27 @@ object Unreleased {
     val AUTOMIX_EDITOR = BuildConfig.DEBUG
 
     /**
+     * Crossfade, under Player and audio beside Fade between tracks and AutoMix: a song that ends by
+     * itself fades out while the next one fades in, an equal-power blend of the length chosen (2 to
+     * 12 s) that ends where the outgoing song's music does (Planner.crossfade). Asked for on 5 Nov
+     * 2026: "make a plain crossfade and name it crossfade".
+     *
+     * It plays on AutoMix's stage, under the same guards (never for a song chosen by hand, nor
+     * between two songs of one album), and side by side with it: with both on, Auto plans first and
+     * a change it would leave gapless is crossfaded. A queue that plays as a mix gets no crossfade
+     * at all: one from a playlist whose Mix switch is on, one where two songs side by side have a
+     * change saved for them, and one where Auto has already mixed two songs (Crossfade.whyOff).
+     * While it is on, Fade between tracks is not used.
+     *
+     * Not heard on a phone yet. Its texts are held from translators, their French beside them. It
+     * plays only with AUTOMIX on, whose stage it uses, so it ships with AUTOMIX or after it. With it
+     * off the setting is never read, and playback is what it was. To ship: set this to true, or
+     * delete it with the checks that read it, in MusicService, PlayerSettings, PlayerFrag and
+     * SettingsIndex, and make its texts translatable.
+     */
+    val CROSSFADE = BuildConfig.DEBUG
+
+    /**
      * Songs put in with Play next stay next when a song is picked out of a list: they play right
      * after the picked song, in the order they stood, then the list (PlayNextWaiting), as Spotify's
      * "Next in queue" does. Asked for in issue #42 (23 Oct 2026). Without it a pick leaves them in

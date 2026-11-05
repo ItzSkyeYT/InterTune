@@ -77,7 +77,7 @@ class AutomixControllerRulesTest {
         // plain one included, is read for neither the held end nor the change on bands.
         val read = body(controller, "private fun readHead(")
         assertTrue(read, "t.shuffled = player.shuffleModeEnabled" in read)
-        assertTrue(read, "val saved = if (lanes && !shuffled)" in read)
+        assertTrue(read, "val saved = if (bands && !shuffled)" in read)
         val bands = controller.substringAfter("private fun onBands(").substringBefore("Presets.onBands(")
         assertTrue(bands, "val latest = if (t.shuffled) Result.success(null) else runCatching { savedChange(t.a.id, b.id) }" in bands)
         // Nothing else reads the saved changes.

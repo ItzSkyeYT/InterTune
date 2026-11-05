@@ -101,13 +101,16 @@ class ReleasedFlagsTest {
     }
 
     @Test
-    fun `Mix stays in debug and preview builds, the mixer and its editor both`() {
+    fun `Mix stays in debug and preview builds, the mixer, its editor and Crossfade`() {
         // Held back until it has been heard on a phone and the words have a yes. Named here so
-        // that shipping either takes more than adding a name to the list above.
-        for (flag in listOf("AUTOMIX", "AUTOMIX_EDITOR")) {
+        // that shipping any of them takes more than adding a name to the list above.
+        for (flag in listOf("AUTOMIX", "AUTOMIX_EDITOR", "CROSSFADE")) {
             assertEquals(flag, "BuildConfig.DEBUG", flags[flag])
             assertFalse(flag, flag in inEveryBuild)
         }
+        // Crossfade plays on the mixer's stage: a build with its row and without the stage would
+        // offer a switch that does nothing.
+        assertTrue("CROSSFADE" !in inEveryBuild || "AUTOMIX" in inEveryBuild)
     }
 
     // ---- what went on for 0.11.5 ----

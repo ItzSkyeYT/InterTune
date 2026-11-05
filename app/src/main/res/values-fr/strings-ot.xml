@@ -596,6 +596,12 @@
     <string name="automix_description">Enchaîne chaque titre avec le suivant, comme un DJ.</string>
     <string name="automix_explain">Quand un titre se termine tout seul, le suivant arrive par-dessous, sur le temps quand les deux ont un rythme régulier. Un titre choisi à la main, ou du même album, change comme avant.</string>
     <string name="transition_fade_automix_on">Inactif tant qu\'AutoMix est activé.</string>
+    <!-- Crossfade: held from translators in values until the words are agreed. -->
+    <string name="crossfade">Fondu enchaîné</string>
+    <string name="crossfade_description">La fin d\'un titre s\'efface pendant que le suivant monte.</string>
+    <string name="crossfade_length">Durée du fondu enchaîné</string>
+    <string name="crossfade_note">Pas entre deux titres d\'un même album, ni dans une playlist mixée.</string>
+    <string name="transition_fade_crossfade_on">Inactif tant que le fondu enchaîné est activé.</string>
     <!-- Storage setting -->
     <string name="clear_downloads_confirm">Supprimer tous les téléchargements internes ? Les téléchargements externes et les importations supplémentaires ne sont pas touchés.</string>
     <string name="player_glass_preview_needs_13">L\'aperçu en direct du verre nécessite Android 13 ou plus récent</string>

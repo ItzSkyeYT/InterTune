@@ -165,6 +165,8 @@ import com.dd3boh.outertune.constants.StopMusicOnTaskClearKey
 import com.dd3boh.outertune.constants.TransitionFadeKey
 import com.dd3boh.outertune.constants.AutomixKey
 import com.dd3boh.outertune.constants.AutomixStyleKey
+import com.dd3boh.outertune.constants.CrossfadeKey
+import com.dd3boh.outertune.constants.CrossfadeSecondsKey
 import com.dd3boh.outertune.constants.MixPlaylistsKey
 import com.dd3boh.outertune.constants.MixQueueLinksKey
 import com.dd3boh.outertune.mix.Style
@@ -178,6 +180,7 @@ import com.dd3boh.outertune.playback.automix.AutomixAudioSink
 import com.dd3boh.outertune.playback.automix.AutomixController
 import com.dd3boh.outertune.playback.automix.AutomixProcessorChain
 import com.dd3boh.outertune.playback.automix.AutomixVolume
+import com.dd3boh.outertune.playback.automix.Crossfade
 import com.dd3boh.outertune.playback.automix.HeadDecoder
 import com.dd3boh.outertune.playback.automix.MixStores
 import androidx.media3.common.audio.AudioProcessorChain
@@ -1211,6 +1214,10 @@ class MusicService : MediaLibraryService(),
                             // Each song's beats from all of it, read once; only with the player's cache on, as it is sized at start.
                             wholeSongs = if (Unreleased.AUTOMIX_EDITOR) MixStores.wholeSongs(this@MusicService) else null,
                             readWhole = BatteryUse.songCacheMb(dataStore[MaxSongCacheSizeKey], batteryMode) != 0,
+                            // Crossfade's rule: the queue playing, each start of it apart (its run), and
+                            // the pairs with a change saved for them, from the one store the editor saves to.
+                            queue = { queueBoard.getCurrentQueue()?.let { q -> AutomixController.QueueNow(q.id to q.runId) { q.songIds() } } },
+                            savedPairs = { if (Unreleased.AUTOMIX_EDITOR) MixStores.transitions(this@MusicService).all().mapTo(HashSet()) { it.pair } else emptySet() },
                         ).also { addListener(it) }
                     }
                 }
@@ -1931,9 +1938,11 @@ class MusicService : MediaLibraryService(),
                 dataStore.data
                     .map { it[TransitionFadeSecondsKey] ?: TransitionFadeEnvelope.DEFAULT_SECONDS }
                     .distinctUntilChanged(),
-                // AutoMix carries each song into the next by itself, and the fade would only dip it.
+                // AutoMix carries each song into the next by itself, and the fade would only dip it;
+                // so does Crossfade, wherever it is on.
                 automixWanted(),
-            ) { fade, seconds, automixOn -> (fade && !automixOn) to seconds }
+                crossfadeWanted(),
+            ) { fade, seconds, automixOn, crossfade -> (fade && !automixOn && crossfade == null) to seconds }
                 .collectLatest(scope) { (fade, seconds) ->
                     transitionFade.fadeMs = TransitionFadeEnvelope.fadeMsFor(seconds)
                     if (transitionFade.enabled == fade) return@collectLatest
@@ -1977,9 +1986,11 @@ class MusicService : MediaLibraryService(),
                         if (decided != null) withContext(Dispatchers.IO) { MixStores.heardChange(this@MusicService, decided.pair, decided.choice) }
                     }
                 }
-                automixWanted()
-                    .collectLatest(scope) { on ->
-                        automix?.enabled = on
+                // One stage for both, in the chain while either is on. With Mix, AutoMix is on only
+                // for a queue from a playlist whose Mix switch is on, which keeps Crossfade out of it.
+                combine(automixWanted(), crossfadeWanted()) { on, crossfade -> on to crossfade }
+                    .collectLatest(scope) { (on, crossfade) ->
+                        automix?.setModes(on, crossfade, mixPlaylist = Unreleased.AUTOMIX_EDITOR && on)
                         // Offload skips the chain, the stage with it.
                         applyOffload()
                     }
@@ -3668,6 +3679,15 @@ class MusicService : MediaLibraryService(),
             dataStore.data.map { it[MixPlaylistsKey] ?: emptySet() },
         ) { playlist, on -> playlist != null && playlist in on }
         else -> dataStore.data.map { it[AutomixKey] ?: false }
+    }.distinctUntilChanged()
+
+    /**
+     * Crossfade's length in seconds while it is on, null while it is off: off when absent, and
+     * never without Unreleased.CROSSFADE, nor without Unreleased.AUTOMIX, whose stage it plays on.
+     */
+    private fun crossfadeWanted(): Flow<Int?> = when {
+        !Unreleased.AUTOMIX || !Unreleased.CROSSFADE -> flowOf(null)
+        else -> dataStore.data.map { if (it[CrossfadeKey] == true) Crossfade.seconds(it[CrossfadeSecondsKey]) else null }
     }.distinctUntilChanged()
 
     /**

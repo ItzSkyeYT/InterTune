@@ -16,6 +16,9 @@ import com.dd3boh.outertune.mix.pill.PlainReason
  * The planner asks some of these again (length, album, the same song), as a second guard; these
  * are the ones only the player knows: what comes next, the repeat mode, casting, the speed, and
  * the audio settings under which a held end would not be what is heard.
+ *
+ * Crossfade plays on the same stage under the same guards: with it on, a change may be made with
+ * AutoMix off, and every other refusal stands.
  */
 object AutomixGuards {
 
@@ -26,6 +29,7 @@ object AutomixGuards {
     class Song(val id: String, val albumId: String?, val durationMs: Long)
 
     class Snapshot(
+        /** AutoMix's setting for the queue playing. */
         val settingOn: Boolean,
         /** Whether the stage is in the chain for the song playing: it joins a stream only as the stream starts. */
         val stageInChain: Boolean,
@@ -46,6 +50,8 @@ object AutomixGuards {
         val sleepTimer: Boolean,
         /** The listener seeked within the last minute of the song playing. */
         val seekedLate: Boolean,
+        /** Crossfade's setting (Unreleased.CROSSFADE), which may make a change with AutoMix off. */
+        val crossfadeOn: Boolean = false,
     )
 
     /** Why a change may not be mixed: the reason a pill or the queue's line names, and the line for the log. */
@@ -61,7 +67,7 @@ object AutomixGuards {
         fun no(reason: PlainReason, log: String) = Refusal(reason, log)
         return when {
             // Never on a screen: with AutoMix off nothing is said about the next change.
-            !s.settingOn -> no(PlainReason.YOUR_CHOICE, "AutoMix is off")
+            !s.settingOn && !s.crossfadeOn -> no(PlainReason.YOUR_CHOICE, "AutoMix is off")
             s.casting -> no(PlainReason.CASTING, "casting")
             current == null -> no(PlainReason.NOT_READY, "nothing is playing")
             s.repeatOne -> no(PlainReason.REPEAT_ONE, "repeat one is on")
