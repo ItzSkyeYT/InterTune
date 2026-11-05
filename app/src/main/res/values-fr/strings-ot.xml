@@ -176,12 +176,12 @@
     <string name="speed_slow">Lent</string>
     <string name="speed_medium">Moyen</string>
     <string name="speed_fast">Rapide</string>
-    <string name="lyrics_karaoke_description">Permet la synchronisation mot à mot des paroles. Nécessite la prise en charge du format des paroles.</string>
+    <string name="lyrics_karaoke_description">Chaque mot s\'allume au moment où il est chanté. Seulement pour les paroles minutées mot par mot.</string>
     <string name="m3u_ytm_lookup">Rechercher sur YouTube Music des titres non trouvées dans la base de données de l\'application</string>
     <string name="tablet_ui_title_description">Activer une interface paysage optimisée pour les écrans plus grands, quelle que soit la taille actuelle de l\'écran</string>
     <string name="attribution_title">Attribution</string>
     <string name="oss_licenses_title">Licences open source</string>
-    <string name="lyrics_karaoke_title">Paroles de style karaoké.</string>
+    <string name="lyrics_karaoke_title">Paroles de style karaoké</string>
     <string name="disable_lm_confirm">Voulez-vous vraiment désactiver les fonctionnalités multimédias locales ? Le contenu de votre bibliothèque ne sera pas affecté.</string>
     <string name="scanner_progress_discovering">À la découverte…</string>
     <string name="scanner_progress_processing">Traitement…</string>

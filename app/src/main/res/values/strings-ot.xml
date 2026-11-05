@@ -462,8 +462,8 @@ while also allowing users to translate our app as well. New, specific strings to
 
 <!--Lyrics settings -->
     <string name="lyrics_font_Size">Font size</string>
-    <string name="lyrics_karaoke_title">Karaoke style lyrics.</string>
-    <string name="lyrics_karaoke_description">Enables word by word lyric syncing. Requires lyrics format support.</string>
+    <string name="lyrics_karaoke_title">Karaoke style lyrics</string>
+    <string name="lyrics_karaoke_description">Each word lights up as it is sung. Only for lyrics that come with word timings.</string>
     <string name="lyrics_karaoke_hz_title">Adjust karaoke lyrics update speed</string>
     <string name="lyrics_multiline_title">Read multiline lyrics</string>
     <string name="lyrics_multiline_description">Treat all the lines between sync points as one lyric text</string>
