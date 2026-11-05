@@ -1839,19 +1839,80 @@ class ChainWalkTest {
     }
 
     @Test
-    fun `a song the clients before it call gone is not asked of the web client, and is called gone as before`() {
+    fun `a song the clients before it call gone is asked of the web client once, and is called gone when it says so too`() {
+        // Issue #82: YouTube Music's web client plays songs the others call "not available", so
+        // it is asked before a song is called gone. Its own word for a song that is gone, "Video
+        // unavailable", is not counted: the song is called gone in the first client's words.
         remembering("VISIONOS", "ANDROID_VR")
         val gone = refused("This video is not available", status = "UNPLAYABLE")
         val script = Script(
-            says = mapOf("VISIONOS" to listOf(gone), "ANDROID_VR" to listOf(refused(bot)), "IOS" to listOf(gone)),
+            says = mapOf(
+                "VISIONOS" to listOf(gone),
+                "ANDROID_VR" to listOf(refused(bot)),
+                "WEB_REMIX" to listOf(refused("Video unavailable", status = "UNPLAYABLE")),
+                "IOS" to listOf(gone),
+            ),
+            playerScript = playerScript,
+            solver = solving,
             canSolve = true,
         )
         val failure = walk(script).exceptionOrNull()
 
-        assertEquals(listOf("VISIONOS", "ANDROID_VR", "IOS"), script.askedOf)
-        assertEquals("no player script was fetched to hear it said a third time", 0, script.scriptsAskedFor)
+        assertEquals(listOf("VISIONOS", "ANDROID_VR", "WEB_REMIX", "IOS"), script.askedOf)
+        assertEquals("as a visitor", listOf("WEB_REMIX" to false), script.carriedInOrder.filter { it.first == "WEB_REMIX" })
         assertTrue("the song is called gone, so that its other copy is looked for: $failure", failure is YTPlayerUtils.SongUnavailable)
         assertEquals("This video is not available", failure?.message)
+        assertEquals("VISIONOS UNPLAYABLE, ANDROID_VR LOGIN_REQUIRED, WEB_REMIX UNPLAYABLE, IOS UNPLAYABLE", YTPlayerUtils.lastStreamTrail)
+        assertEquals("nothing learned of the web client for the songs after", "VISIONOS", YTPlayerUtils.streamMemory.worked)
+        assertFalse("WEB_REMIX" in YTPlayerUtils.streamMemory.refusedAt.keys)
+    }
+
+    @Test
+    fun `a song the clients before it call gone plays when the web client serves it, and the web client is not asked first after that`() {
+        // Issue #82: kynPZKHJixA, UNPLAYABLE to VISIONOS and ANDROID_VR, played whole from
+        // WEB_REMIX on the emulator (5 Nov 2026). Its own turn, before IOS.
+        remembering("VISIONOS", "ANDROID_VR")
+        val gone = refused("This video is not available", status = "UNPLAYABLE")
+        val script = Script(
+            says = mapOf("VISIONOS" to listOf(gone), "ANDROID_VR" to listOf(gone), "WEB_REMIX" to listOf(ciphered())),
+            playerScript = playerScript,
+            solver = solving,
+            canSolve = true,
+        )
+        val data = walk(script).getOrThrow()
+
+        assertEquals(listOf("VISIONOS", "ANDROID_VR", "WEB_REMIX"), script.askedOf)
+        assertEquals("VISIONOS UNPLAYABLE, ANDROID_VR UNPLAYABLE, WEB_REMIX OK, HEAD 200 with the video's token", YTPlayerUtils.lastStreamTrail)
+        assertEquals(asked(Script.VIDEO_TOKEN), data.streamUrl)
+        assertTrue(data.validated)
+        assertEquals("one song only the web client plays does not make it the first asked", "VISIONOS", YTPlayerUtils.streamMemory.worked)
+    }
+
+    @Test
+    fun `whatever else the web client answers before a song is called gone, the song is called gone on what the others said, and nothing of it is counted`() {
+        // The bot check, no answer at all, an OK whose address is refused: none says the song is
+        // there to be had, and none goes to the throttle or to StreamOrder.
+        for (webSays in listOf<Any>(refused(bot), UnknownHostException("no address"), ciphered())) {
+            Throttle.clear("the next case")
+            YTPlayerUtils.forgetGoneInARow()
+            remembering("VISIONOS", "ANDROID_VR")
+            val gone = refused("This video is not available", status = "UNPLAYABLE")
+            val script = Script(
+                says = mapOf("VISIONOS" to listOf(gone), "ANDROID_VR" to listOf(gone), "WEB_REMIX" to listOf(webSays), "IOS" to listOf(gone)),
+                heads = mapOf("web-remix" to 403),
+                playerScript = playerScript,
+                solver = solving,
+                canSolve = true,
+            )
+            val failure = walk(script).exceptionOrNull()
+
+            assertTrue("$webSays: $failure", failure is YTPlayerUtils.SongUnavailable)
+            assertEquals("This video is not available", failure?.message)
+            assertEquals("$webSays: asked once", 1, script.askedOf.count { it == "WEB_REMIX" })
+            assertFalse("$webSays: nothing told to the throttle", Throttle.isBlocked)
+            assertEquals("$webSays: nothing learned of it", "VISIONOS", YTPlayerUtils.streamMemory.worked)
+            assertFalse("$webSays: no strike", "WEB_REMIX" in YTPlayerUtils.streamMemory.refusedAt.keys)
+        }
     }
 
     // --- VISIONOS under its two other identities (Unreleased.VISIONOS_IDENTITIES). ---
@@ -2174,15 +2235,41 @@ class ChainWalkTest {
     }
 
     @Test
-    fun `signed out, a song every client calls gone is called gone as before, and no web client is asked`() {
+    fun `signed out, a song the clients before it call gone is asked of the web client as a visitor, and plays when it is served`() {
+        // It used to be called gone with the web client never asked (issue #82).
         remembering("VISIONOS", "ANDROID_VR")
         val script = goneButFor(ciphered())
+        val data = walk(script).getOrThrow()
+
+        assertEquals(listOf("VISIONOS", "ANDROID_VR", "WEB_REMIX"), script.askedOf)
+        assertEquals("as a visitor", listOf("WEB_REMIX" to false), script.carriedInOrder.filter { it.first == "WEB_REMIX" })
+        assertTrue(data.validated)
+    }
+
+    @Test
+    fun `signed out, a song every client calls gone, the web client too, is called gone with no account's word on it`() {
+        remembering("VISIONOS", "ANDROID_VR")
+        val script = goneButFor(refused("Video unavailable", status = "UNPLAYABLE"))
         val failure = walk(script).exceptionOrNull()
 
-        assertEquals(listOf("VISIONOS", "ANDROID_VR", "IOS"), script.askedOf)
-        assertEquals("no player script fetched", 0, script.scriptsAskedFor)
+        assertEquals(listOf("VISIONOS", "ANDROID_VR", "WEB_REMIX", "IOS"), script.askedOf)
         assertTrue(failure.toString(), failure is YTPlayerUtils.SongUnavailable)
         assertFalse("no account to have said anything", (failure as YTPlayerUtils.SongUnavailable).byTheAccountToo)
+    }
+
+    @Test
+    fun `signed out, the web client is asked once in a walk before a song is called gone, and not while two other songs in a row were`() {
+        val gone = refused("Video unavailable", status = "UNPLAYABLE")
+        assertTrue(walkSong("TESTVIDEO01", goneButFor(gone)).exceptionOrNull() is YTPlayerUtils.SongUnavailable)
+        // The second song in a row called gone is walked twice (issue #28): the web client once.
+        val second = goneButFor(gone)
+        assertTrue(walkSong("TESTVIDEO02", second).exceptionOrNull() is YTPlayerUtils.SongUnavailable)
+        assertTrue("walked again with a new visitorData: ${second.askedOf}", "ANDROID_VR as a new visitor" in second.askedOf)
+        assertEquals("the web client once, in the first pass: ${second.askedOf}", 1, second.askedOf.count { it == "WEB_REMIX" })
+        // A connection YouTube turns away calls every song gone: not asked once more for each.
+        val third = goneButFor(ciphered())
+        assertTrue(walkSong("TESTVIDEO03", third).exceptionOrNull() is YTPlayerUtils.SongUnavailable)
+        assertFalse("the web client was asked: ${third.askedOf}", "WEB_REMIX" in third.askedOf)
     }
 
     @Test
