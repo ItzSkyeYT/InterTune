@@ -20,7 +20,10 @@ enum class Style {
     /** Today's change: the outgoing song to its last sample, then the next. The fallback for everything. */
     GAPLESS,
 
-    /** An equal-power blend from the outgoing song's true end back, with the next song's first sound at its start. */
+    /**
+     * An equal-power blend from the outgoing song's true end back, with the next song's first sound
+     * at its start. The listener's plain crossfade (Planner.crossfade) is one too, of a set length.
+     */
     BLEND,
 
     /** A longer blend with the outgoing song filtered away under the incoming one: both ends loud. */

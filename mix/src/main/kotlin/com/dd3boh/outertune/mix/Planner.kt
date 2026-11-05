@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.mix
 
+import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.floor
@@ -103,6 +104,9 @@ object Planner {
     const val SMOOTH_MIN_S = 8.0
     const val SMOOTH_LOUD_S = 15.0
 
+    /** A crossfade is never shorter than this: where less of the song is left, the change is gapless. */
+    const val CROSSFADE_MIN_S = 2.0
+
     const val CUT_LATEST_S = 4.0
     const val CUT_WINDOW_S = 20.0
 
@@ -149,6 +153,29 @@ object Planner {
         if (guard(input) != null) return null
         if (style == Style.GAPLESS) return gapless(input, "gapless asked for")
         return build(Context(input), style)
+    }
+
+    /**
+     * The plain crossfade the listener sets (Crossfade), Auto aside: an equal-power blend of
+     * [seconds], ending at the outgoing song's true end, with the incoming song's first sound at
+     * its start. Unlike Auto's blend it keeps its length: no beat to shorten it to, no fade of the
+     * song's own to follow, no filter and no change of tempo. Shorter only where too little of the
+     * song is left, never under [CROSSFADE_MIN_S], and gapless where a guard fails or not even that
+     * is left.
+     */
+    fun crossfade(input: PlanInput, seconds: Double): MixPlan {
+        guard(input)?.let { return gapless(input, it) }
+        val c = Context(input)
+        val wanted = c.frames(seconds)
+        val (start, end) = fitEnding(c, wanted, min(wanted, c.frames(CROSSFADE_MIN_S)))
+            ?: return gapless(input, "not crossfade: too little of this song is left")
+        val gainA = Curve(1.0, listOf(Ramp(start, end, 1.0, 0.0, Shape.COSINE_FALL)))
+        val gainB = Curve(0.0, listOf(Ramp(start, end, 0.0, 1.0, Shape.SINE_RISE)))
+        val length = if (seconds == floor(seconds)) "%d".format(Locale.ROOT, seconds.toLong()) else "%.1f".format(Locale.ROOT, seconds)
+        var why = "crossfade $length s"
+        if (end - start < wanted - 1) why += ", %.1f s of it: too little of this song is left for more".format(Locale.ROOT, c.seconds(end - start))
+        return assemble(c, Style.BLEND, why, start, end, TimeMap.IDENTITY, gainA, gainB, emptyList(), emptyList(), bars = 0, what = "crossfade")
+            ?: gapless(input, c.refusals.joinToString("; "))
     }
 
     /** Why there is no mix at all, or null when one may be tried. */
@@ -583,16 +610,18 @@ object Planner {
         bFrameZero: Double = start - c.firstSoundB,
         beats: Int = 0,
         anchors: DoubleArray = DoubleArray(0),
+        /** What a refusal calls it in the log. */
+        what: String = style.name.lowercase(),
     ): MixPlan? {
         val bStart = bStartFor(c, bFrameZero)
-        if (bStart < c.earliest) return c.refuse(style, "the next song would have to start before the plan can be in place")
-        if (bStart > c.tail.frames) return c.refuse(style, "the next song would start after the end of this one")
+        if (bStart < c.earliest) return c.refuse(style, "the next song would have to start before the plan can be in place", what)
+        if (bStart > c.tail.frames) return c.refuse(style, "the next song would start after the end of this one", what)
         val lead = c.frames(HEADROOM_LEAD_S)
         // The outgoing song's rendered part must reach back to the incoming song's first frame:
         // from there on the mixer takes the outgoing song from that part, so a next song with a
         // quiet first second, which starts before the blend does, would otherwise meet silence.
         val aFirst = minOf(firstProcessed ?: Long.MAX_VALUE, floor(start - lead).toLong(), bStart)
-        if (aFirst < c.earliest) return c.refuse(style, "it would change something before the plan can be in place")
+        if (aFirst < c.earliest) return c.refuse(style, "it would change something before the plan can be in place", what)
         val aGone = ceil(end).toLong()
         val (room, incoming) = headroom(c, map, gainA, gainB, filtersB, bStart.toDouble(), start, end)
         val shapedUntil = maxOf(aGone + lead.toLong(), filtersB.maxOfOrNull { it.end } ?: 0L, floor(start - lead).toLong() + incoming.size.toLong() * Headroom.STEP)
