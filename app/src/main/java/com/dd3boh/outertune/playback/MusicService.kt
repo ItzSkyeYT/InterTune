@@ -300,6 +300,7 @@ import kotlin.math.min
 import kotlin.math.pow
 import androidx.media3.exoplayer.source.LoadEventInfo
 import androidx.media3.exoplayer.source.MediaLoadData
+import com.dd3boh.outertune.utils.Toaster
 
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 /** Silence longer than this starts a new listening session. */
@@ -2327,13 +2328,12 @@ class MusicService : MediaLibraryService(),
                 reportException(e)
                 val why = stoppedWhy(e)
                 if (why == null) {
-                    Toast.makeText(this@MusicService, ErrorText.withoutAddresses("plr: ${e.message}"), Toast.LENGTH_LONG)
-                        .show()
+                    Toaster.show(this@MusicService, ErrorText.withoutAddresses("plr: ${e.message}"), Toast.LENGTH_LONG)
                 } else {
                     // Plain words instead of the exception (the pale vow's "plr: Client
                     // request(POST https://music.youtube.com/youtubei/v1..."), and the queue sheet
                     // says the rest under the song left alone, with the button that fixes it.
-                    Toast.makeText(this@MusicService, getString(why.title), Toast.LENGTH_LONG).show()
+                    Toaster.show(this@MusicService, getString(why.title), Toast.LENGTH_LONG)
                     radioStopped.value = queueBoard.getCurrentQueue()
                         ?.takeIf { queue.preloadItem != null && it.title == QueueStart.PRELOAD_TITLE }
                         ?.let { alone ->
@@ -4294,7 +4294,7 @@ class MusicService : MediaLibraryService(),
     fun waitOnNetworkError() {
         if (!waitingForNetworkConnection.value) {
             // One toast per outage. The retries stay quiet, or there is one every few seconds.
-            Toast.makeText(this@MusicService, getString(R.string.wait_to_reconnect), Toast.LENGTH_LONG).show()
+            Toaster.show(this@MusicService, getString(R.string.wait_to_reconnect), Toast.LENGTH_LONG)
         }
         waitingForNetworkConnection.value = true
         scheduleNetworkRetry()
@@ -4357,7 +4357,7 @@ class MusicService : MediaLibraryService(),
             activePlayer.prepare()
             activePlayer.play()
 
-            Toast.makeText(this@MusicService, getString(R.string.err_play_next_on_error), Toast.LENGTH_SHORT).show()
+            Toaster.show(this@MusicService, getString(R.string.err_play_next_on_error), Toast.LENGTH_SHORT)
             return
         }
 
@@ -4369,12 +4369,12 @@ class MusicService : MediaLibraryService(),
             return
         }
         stopsOnError()
-        Toast.makeText(this@MusicService, getString(R.string.err_stop_on_too_many_errors), Toast.LENGTH_LONG).show()
+        Toaster.show(this@MusicService, getString(R.string.err_stop_on_too_many_errors), Toast.LENGTH_LONG)
     }
 
     fun stopOnError() {
         stopsOnError()
-        Toast.makeText(this@MusicService, getString(R.string.err_stop_on_error), Toast.LENGTH_LONG).show()
+        Toaster.show(this@MusicService, getString(R.string.err_stop_on_error), Toast.LENGTH_LONG)
     }
 
     /**
@@ -4424,7 +4424,7 @@ class MusicService : MediaLibraryService(),
             lastBlockedStop = playing.id to now
             // Not while a radio's own songs are still on their way behind it: they come next.
             if (!quiet && !again && queueBoard.getCurrentQueue()?.title != QueueStart.PRELOAD_TITLE) {
-                Toast.makeText(this, getString(R.string.blocked_songs_left), Toast.LENGTH_LONG).show()
+                Toaster.show(this, getString(R.string.blocked_songs_left), Toast.LENGTH_LONG)
             }
             return
         }
@@ -4435,7 +4435,7 @@ class MusicService : MediaLibraryService(),
         skippingBlocked = true
         activePlayer.seekTo(target, C.TIME_UNSET)
         if (resume) activePlayer.play()
-        Toast.makeText(this, getString(R.string.blocked_song_skipped, who), Toast.LENGTH_SHORT).show()
+        Toaster.show(this, getString(R.string.blocked_song_skipped, who), Toast.LENGTH_SHORT)
     }
 
     override fun onTimelineChanged(timeline: Timeline, reason: Int) {
@@ -4552,14 +4552,14 @@ class MusicService : MediaLibraryService(),
         // raw "Unexpected SongUnavailable" at every tap (21 Oct 2026: thirteen taps on one song).
         val gone = !gaveUp && !turnedAway && YTPlayerUtils.isUnavailableSong(error)
         if (gone && failedId != null && !goneSongs.tellOnce(failedId)) return
-        Toast.makeText(
+        Toaster.show(
             this@MusicService,
             if (gaveUp) getString(R.string.error_youtube_not_answering)
             else if (turnedAway) getString(R.string.error_connection_turned_away)
             else if (gone) getString(R.string.err_song_unavailable)
             else ErrorText.withoutAddresses("plr: ${error.message} (${error.errorCode}): ${error.cause?.message ?: ""} "),
             Toast.LENGTH_LONG
-        ).show()
+        )
     }
 
     /**
@@ -4701,7 +4701,7 @@ class MusicService : MediaLibraryService(),
         PlayHealth.thisRun.failed()
         noteGivenUp(id, recoveryBudget.takenFor(id, now) + 1, "no byte from YouTube's servers for ${StepLog.limit(stallWatch.silentMs(now))}")
         if (dataStore.get(SkipOnErrorKey, false)) skipOnError() else stopOnError()
-        Toast.makeText(this@MusicService, getString(R.string.error_youtube_not_answering), Toast.LENGTH_LONG).show()
+        Toaster.show(this@MusicService, getString(R.string.error_youtube_not_answering), Toast.LENGTH_LONG)
     }
 
     override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {

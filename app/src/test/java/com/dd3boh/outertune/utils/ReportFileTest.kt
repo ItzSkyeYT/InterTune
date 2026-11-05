@@ -52,7 +52,8 @@ class ReportFileTest {
         for (page in listOf("ui/component/ProblemReportDialog.kt", "ui/component/CrashReportDialog.kt")) {
             assertTrue(page, source(page).contains("if (Unreleased.REPORT_FILE) ShareReportFile(text)"))
         }
-        assertTrue(source("constants/Unreleased.kt").contains("val REPORT_FILE = BuildConfig.DEBUG"))
+        // On in every build from 0.12.8 (his yes of 4 Nov 2026).
+        assertTrue(source("constants/Unreleased.kt").contains("val REPORT_FILE = true"))
     }
 
     @Test

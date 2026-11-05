@@ -67,6 +67,7 @@ import com.dd3boh.outertune.utils.installSource
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import kotlinx.coroutines.launch
+import com.dd3boh.outertune.utils.Toaster
 
 /**
  * The trace's characters looked at for the issue's link, at most. The link itself is cut to FORM_LINK_LIMIT
@@ -237,7 +238,7 @@ fun CrashReportDialog() {
                             ?.setPrimaryClip(ClipData.newPlainText("InterTune crash", text))
                         // Android 13 and later show their own confirmation for every copy.
                         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-                            Toast.makeText(context, R.string.crash_report_copied, Toast.LENGTH_SHORT).show()
+                            Toaster.show(context, R.string.crash_report_copied, Toast.LENGTH_SHORT)
                         }
                         forget()
                     }

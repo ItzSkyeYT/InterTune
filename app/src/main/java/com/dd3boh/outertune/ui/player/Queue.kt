@@ -209,6 +209,7 @@ import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 import java.time.LocalDateTime
 import kotlin.math.roundToInt
+import com.dd3boh.outertune.utils.Toaster
 
 /** The adaptive queue's note in words: see AdaptiveNote. */
 @Composable
@@ -807,7 +808,7 @@ fun BoxScope.QueueContent(
                     }.onFailure { Log.w("Queue.kt", "Could not save the queue as a playlist", it) }.isSuccess
                     if (saved) {
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, context.getString(R.string.saved_as_playlist, name), Toast.LENGTH_SHORT).show()
+                            Toaster.show(context, context.getString(R.string.saved_as_playlist, name), Toast.LENGTH_SHORT)
                         }
                     }
                 }
@@ -1702,7 +1703,8 @@ fun BoxScope.QueueContent(
                         Box(modifier = Modifier.weight(1f)) {
                             ResizableIconButton(
                                 icon = when (repeatMode) {
-                                    REPEAT_MODE_OFF -> R.drawable.repeat_off
+                                    // Off is the repeat icon greyed out, as the notification draws it (his word, 5 Nov 2026).
+                                    REPEAT_MODE_OFF -> R.drawable.repeat_on
                                     REPEAT_MODE_ALL -> R.drawable.repeat_on
                                     REPEAT_MODE_ONE -> R.drawable.repeat_one
                                     else -> throw IllegalStateException()
@@ -1712,7 +1714,7 @@ fun BoxScope.QueueContent(
                                     .padding(4.dp)
                                     .align(Alignment.Center)
                                     .named(repeatName(repeatMode)),
-                                color = iconButtonColor,
+                                color = if (repeatMode == REPEAT_MODE_OFF) iconButtonColor.copy(alpha = REPEAT_OFF_ALPHA) else iconButtonColor,
                                 enabled = !detachedHead,
                                 onClick = {
                                     playerConnection.player.toggleRepeatMode()

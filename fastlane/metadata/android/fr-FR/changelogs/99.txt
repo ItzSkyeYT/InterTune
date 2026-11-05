@@ -10,4 +10,4 @@ Version 0.12.7
 - Rechercher les paroles en trouve plus.
 - Un message pour la Corée du Sud.
 
-Full changelog: https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.12.7
+Full changelog : https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.12.7

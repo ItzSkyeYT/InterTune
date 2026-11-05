@@ -36,6 +36,7 @@ import java.io.FileOutputStream
 import java.io.IOException
 import javax.inject.Inject
 import kotlin.system.exitProcess
+import com.dd3boh.outertune.utils.Toaster
 
 @HiltViewModel
 class BackupRestoreViewModel @Inject constructor(
@@ -89,10 +90,10 @@ class BackupRestoreViewModel @Inject constructor(
                 }
                 backupInProgress.value = false
                 result.onSuccess {
-                    Toast.makeText(context, R.string.backup_create_success, Toast.LENGTH_SHORT).show()
+                    Toaster.show(context, R.string.backup_create_success, Toast.LENGTH_SHORT)
                 }.onFailure {
                     reportException(it)
-                    Toast.makeText(context, R.string.backup_create_failed, Toast.LENGTH_SHORT).show()
+                    Toaster.show(context, R.string.backup_create_failed, Toast.LENGTH_SHORT)
                 }
             }
         }
@@ -129,15 +130,15 @@ class BackupRestoreViewModel @Inject constructor(
                         )
                         exitProcess(0)
                     } else {
-                        Toast.makeText(
+                        Toaster.show(
                             context,
                             context.getString(R.string.err_restore_incompatible_database),
                             Toast.LENGTH_SHORT
-                        ).show()
+                        )
                     }
                 }.onFailure {
                     reportException(it)
-                    Toast.makeText(context, it.message, Toast.LENGTH_SHORT).show()
+                    Toaster.show(context, it.message, Toast.LENGTH_SHORT)
                 }
             }
         }

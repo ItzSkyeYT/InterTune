@@ -1,0 +1,12 @@
+Version 0.12.1
+
+- Utwory uruchamiają się szybciej i wznawiają odtwarzanie, gdy zostaną zatrzymane.
+- Muzyka uruchomiona w trybie offline zaczyna się odtwarzać po odzyskaniu połączenia z siecią.
+- Jeśli YouTube odrzuci Twoje połączenie, aplikacja wyświetli stosowny komunikat.
+- Wyszukiwanie urządzeń do przesyłania ekranu nie powoduje już awarii aplikacji w niektórych sieciach.
+- Stuknięcie ikony kolejki przy Polubionych i Pobranych wywołuje pytanie o wybór konkretnej kolejki.
+- Aktualizacja z poziomu aplikacji pokazuje dokładny status działań systemu Android.
+- Funkcja zgłaszania problemów zachowuje logi z ostatnich 15 uruchomień aplikacji.
+
+Pełna lista zmian:
+https://github.com

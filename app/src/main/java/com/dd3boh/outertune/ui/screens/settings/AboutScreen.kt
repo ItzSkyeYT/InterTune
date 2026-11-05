@@ -94,6 +94,7 @@ import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 import androidx.compose.material.icons.rounded.VolunteerActivism
 import com.dd3boh.outertune.ui.dialog.SupportDialog
+import com.dd3boh.outertune.utils.Toaster
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -323,7 +324,7 @@ fun AboutScreen(
                             clipboardManager.nativeClipboard.setPrimaryClip(clipData)
                             // Android 13 and later say it was copied themselves; before, nothing did.
                             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-                                Toast.makeText(context, R.string.copied, Toast.LENGTH_SHORT).show()
+                                Toaster.show(context, R.string.copied, Toast.LENGTH_SHORT)
                             }
                         }
                     )

@@ -104,4 +104,26 @@ class WidgetOneUiSizesTest {
         }
         return text.length
     }
+
+    /**
+     * The report of 4 Nov 2026 (experiments/bugs/widget-1104): a Records Shelf added at five by
+     * three on the S25 Ultra, 405 by 337 dp at a font scale of 0.9. With its list in, each look draws
+     * its own. With the list still empty, as right after it is added or offline, each draws what is
+     * playing big, where the crate and the records drew a 72 dp line and a list alone its heading.
+     */
+    @Test
+    fun `the S25 Ultra's five by three draws what is playing big while its list is empty, and its look once the list is in`() {
+        for (look in ShelfLook.entries) {
+            val both = shelf.copy(look = look)
+            assertEquals(look.name, WidgetLayout.plan(405, 337, both, 6, 0.9f).shape.name)
+            val empty = WidgetLayout.plan(405, 337, both, 0, 0.9f)
+            assertEquals("$look", WidgetShape.BIG_COVER, empty.shape)
+            assertTrue("$look: ${empty.coverW}", empty.coverW >= 300)
+            assertTrue("$look", empty.play && empty.skips && empty.like)
+            val alone = WidgetLayout.plan(405, 337, both.copy(content = WidgetContent.LIST), 0, 0.9f)
+            assertEquals("$look", WidgetShape.BIG_COVER, alone.shape)
+            assertTrue("$look: ${alone.coverW}", alone.coverW >= 300)
+            assertTrue("$look: no buttons on a list alone", !alone.play && alone.glass == null)
+        }
+    }
 }

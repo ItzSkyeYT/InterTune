@@ -103,6 +103,8 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.semantics.Role
 import com.dd3boh.outertune.utils.BackupParts
+import com.dd3boh.outertune.utils.PlaylistCovers
+import com.dd3boh.outertune.utils.Toaster
 
 // The expressive slider track, the one with the gap beside the thumb, is still marked
 // experimental in Material 3 1.4. It is what the rest of the system draws, so it is the right
@@ -181,12 +183,12 @@ fun ColumnScope.BackupAndRestoreFrag(viewModel: BackupRestoreViewModel) {
                     0
                 }
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(
+                    Toaster.show(
                         appContext,
                         if (exported == 0) appContext.getString(R.string.no_playlists_to_export)
                         else appContext.resources.getQuantityString(R.plurals.exported_playlists, exported, exported),
                         Toast.LENGTH_SHORT
-                    ).show()
+                    )
                 }
             }
         }
@@ -790,7 +792,10 @@ private fun BackupPartsDialog(
         )
         BackupPartRow(stringResource(R.string.backup_part_library), stringResource(R.string.backup_part_library_note), library, onChange = onLibrary)
         BackupPartRow(stringResource(R.string.backup_part_settings), stringResource(R.string.backup_part_settings_note), settings, onChange = onSettings)
-        BackupPartRow(stringResource(R.string.backup_part_photos), stringResource(R.string.backup_part_photos_note), photos && library, enabled = library, onChange = onPhotos)
+        // Only where covers can be picked from the phone: without that there are none to keep.
+        if (PlaylistCovers.offered) {
+            BackupPartRow(stringResource(R.string.backup_part_photos), stringResource(R.string.backup_part_photos_note), photos && library, enabled = library, onChange = onPhotos)
+        }
         BackupPartRow(
             stringResource(R.string.backup_part_signins), stringResource(R.string.backup_part_signins_note), signIns && settings,
             enabled = settings, warning = stringResource(R.string.backup_part_signins_warning), onChange = onSignIns,

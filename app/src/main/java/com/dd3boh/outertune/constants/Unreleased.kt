@@ -633,7 +633,8 @@ object Unreleased {
      * values-fr. When it is agreed and the site files for real: set this to true and make its texts
      * translatable.
      */
-    val REPORT_RELAY = BuildConfig.DEBUG
+    // On in every build from 0.12.8, picked on 4 Nov 2026.
+    val REPORT_RELAY = true
 
     /**
      * What's playing with no connection (issue #48, planned for 0.13 on 26 Oct 2026): a listen
@@ -717,7 +718,8 @@ object Unreleased {
      * translators, its French beside it in values-fr. When it is agreed: set this to true, add its
      * name to ReleasedFlagsTest, and make its text translatable.
      */
-    val REPORT_FILE = BuildConfig.DEBUG
+    // On in every build from 0.12.8, picked on 4 Nov 2026.
+    val REPORT_FILE = true
 
     /**
      * Downloads other apps can use (third in the 0.13 poll, the loudest topic on Discord): a song
@@ -782,4 +784,13 @@ object Unreleased {
      * to true, add its name to ReleasedFlagsTest, make its texts translatable.
      */
     val RADIO_FALLBACK = BuildConfig.DEBUG
+
+    /**
+     * Lyrics videos lit word by word (his idea, 4 Nov 2026), as the lyrics view lights them, where
+     * the lyrics have word times and word by word is on in the lyrics settings: the line being sung
+     * at LyricsVideoPlan.UNSUNG, and each word lit across as it is sung. Without it, or without word
+     * times, a video lights whole lines as before. No new texts. When it is agreed: set this to true
+     * and add its name to ReleasedFlagsTest.
+     */
+    val LYRICS_VIDEO_WORDS = BuildConfig.DEBUG
 }

@@ -437,7 +437,7 @@ class ErrorTextTest {
      * resources) names no address and is left as it is.
      */
     private val shownFailures = listOf(
-        "playback/MusicService.kt" to "Toast.makeText(",
+        "playback/MusicService.kt" to "Toaster.show(",
         "utils/UpdateInstaller.kt" to "State.Failed(",
         "recognition/RecognitionEngine.kt" to "State.Failed(",
         "ui/screens/LastFmLoginScreen.kt" to "error = ",
