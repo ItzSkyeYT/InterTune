@@ -1,0 +1,7 @@
+Version 0.12.9
+
+- Les radios et mix en indonésien, finnois et danois continuent après le premier titre.
+- Un titre que YouTube ne joue plus est passé avec une note, au lieu d'arrêter la musique.
+- Signaler un problème garde ce que vous avez écrit jusqu'à l'envoi.
+
+Full changelog : https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.12.9

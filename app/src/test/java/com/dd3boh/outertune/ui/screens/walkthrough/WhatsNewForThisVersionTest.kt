@@ -21,8 +21,12 @@ class WhatsNewForThisVersionTest {
     private val versionName = Regex("""versionName = "([^"]+)"""").find(gradle)!!.groupValues[1]
     private val versionCode = Regex("""versionCode = (\d+)""").find(gradle)!!.groupValues[1].toInt()
 
-    /** Versions that only fix things, named here on purpose: none so far. */
-    private val NOTHING_TO_SHOW = emptySet<String>()
+    /**
+     * Versions that only fix things, named here on purpose. 0.12.9: radios in Indonesian, Finnish
+     * and Danish (#83), a song YouTube no longer plays skipped instead of stopping the music (#82),
+     * and the report's boxes kept until sent; nothing to show round.
+     */
+    private val NOTHING_TO_SHOW = setOf("0.12.9")
 
     @Test
     fun `the version this build is has its own New in entries`() {
