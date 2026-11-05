@@ -112,6 +112,7 @@ import com.dd3boh.outertune.constants.LyricClickable
 import com.dd3boh.outertune.constants.LyricAutoScrollKey
 import com.dd3boh.outertune.constants.LyricFontSizeKey
 import com.dd3boh.outertune.constants.LyricKaraokeEnable
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.LyricLatinKey
 import com.dd3boh.outertune.constants.LyricUpdateSpeed
 import com.dd3boh.outertune.constants.LyricsPosition
@@ -247,10 +248,20 @@ fun Lyrics(
         R.plurals.lyrics_pick_most_video_minutes, LyricsShare.MOST_LINES, LyricsShare.MOST_LINES, (LyricsVideoPlan.LONGEST_MS / 60_000).toInt(),
     )
 
-    /** The lines with their times in the song, as the timing bar moved them, for a video of them; none for lyrics that are not synced. */
-    fun timedLines(): List<LyricsVideoPlan.Timed>? = if (!isSynced) null else lines.map {
+    /**
+     * The lines with their times in the song, as the timing bar moved them, for a video of them; none
+     * for lyrics that are not synced. With word by word on, their words too, which the video then
+     * lights one by one as this view does (Unreleased.LYRICS_VIDEO_WORDS).
+     */
+    fun timedLines(): List<LyricsVideoPlan.Timed>? = if (!isSynced) null else lines.map { line ->
         LyricsVideoPlan.Timed(
-            it.text, LyricsTiming.songPosition(it.start.toLong(), shiftNow), LyricsTiming.songPosition(it.end.toLong(), shiftNow), it.isTranslated,
+            line.text, LyricsTiming.songPosition(line.start.toLong(), shiftNow), LyricsTiming.songPosition(line.end.toLong(), shiftNow), line.isTranslated,
+            words = if (!Unreleased.LYRICS_VIDEO_WORDS || !lyricsFancy) emptyList() else line.words.orEmpty().map { word ->
+                LyricsVideoPlan.Word(
+                    word.charRange.first, word.charRange.last + 1,
+                    LyricsTiming.songPosition(word.timeRange.first.toLong(), shiftNow), LyricsTiming.songPosition(word.timeRange.last.toLong(), shiftNow),
+                )
+            },
         )
     }
 

@@ -768,4 +768,13 @@ object Unreleased {
      * agreed: set this to true and add its name to ReleasedFlagsTest.
      */
     val POLL_FOLLOW_UPS = BuildConfig.DEBUG
+
+    /**
+     * Lyrics videos lit word by word (his idea, 4 Nov 2026), as the lyrics view lights them, where
+     * the lyrics have word times and word by word is on in the lyrics settings: the line being sung
+     * at LyricsVideoPlan.UNSUNG, and each word lit across as it is sung. Without it, or without word
+     * times, a video lights whole lines as before. No new texts. When it is agreed: set this to true
+     * and add its name to ReleasedFlagsTest.
+     */
+    val LYRICS_VIDEO_WORDS = BuildConfig.DEBUG
 }
