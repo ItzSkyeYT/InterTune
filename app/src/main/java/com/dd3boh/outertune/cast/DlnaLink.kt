@@ -120,11 +120,14 @@ class DlnaLink(
 
         // Neither of these is needed to play: a renderer that will not say gets the song as it is,
         // and its volume stays its own business.
-        val formats = found.connectionManager?.let { manager ->
+        val sink = found.connectionManager?.let { manager ->
             runCatching { call(manager, "GetProtocolInfo") }
                 .onFailure { Log.i(TAG, "${device.name} did not say what it plays: ${it.message}") }
-                .getOrNull()?.get("Sink")?.let(ProtocolInfo::support)
-        } ?: FormatSupport.Unknown
+                .getOrNull()?.get("Sink")
+        }
+        // Its own list, word for word: what a report needs when a speaker refuses what was sent.
+        sink?.let { Log.i(TAG, "${device.name} lists: ${it.take(SINK_LOGGED)}") }
+        val formats = sink?.let(ProtocolInfo::support) ?: FormatSupport.Unknown
         val volume = readVolume()
         caps = LinkCaps(formats = formats, canSetSpeed = false, hasVolume = found.renderingControl != null)
         synchronized(stateLock) {
@@ -147,8 +150,10 @@ class DlnaLink(
         // In the renderer's own words for the type: some refuse a track whose type they did not list.
         val listed = (caps.formats as? FormatSupport.Listed)?.mimeTypes
         val type = if (listed == null) item.mimeType else CastFormats.spelling(listed, item.mimeType)
-        val metadata = Didl.track(item, Didl.protocolInfo(type, item.length >= 0, item.converted))
+        val protocolInfo = if (item.plainLabels) Didl.plainProtocolInfo(item.mimeType) else Didl.protocolInfo(type, item.length >= 0, item.converted)
+        val metadata = Didl.track(item, protocolInfo)
         val args = listOf("InstanceID" to "0", "CurrentURI" to item.url, "CurrentURIMetaData" to metadata)
+        Log.i(TAG, "To ${device.name}: $protocolInfo, ${item.length} bytes")
         try {
             try {
                 call(avTransport, "SetAVTransportURI", args)
@@ -163,6 +168,15 @@ class DlnaLink(
                 synchronized(stateLock) { loaded.tracker.playAsked(now()) }
             }
             loaded.sent = true
+        } catch (e: UpnpFault) {
+            // The speaker's own answer, code and words, for the report.
+            Log.w(TAG, "${device.name} refused the song: UPnP ${e.code}, ${e.message}")
+            synchronized(stateLock) {
+                if (current === loaded) {
+                    _status.update { it.copy(state = ReceiverState.FAILED, error = e.message, reportedAt = now()) }
+                }
+            }
+            throw e
         } catch (e: IOException) {
             synchronized(stateLock) {
                 if (current === loaded) {
@@ -352,5 +366,8 @@ class DlnaLink(
 
     private companion object {
         const val TAG = "DlnaLink"
+
+        /** As much of a speaker's list as the log keeps: enough for every entry of the speakers seen so far. */
+        const val SINK_LOGGED = 1500
     }
 }

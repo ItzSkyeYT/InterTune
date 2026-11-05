@@ -35,9 +35,13 @@ class CastRequest(val method: String, val target: String, val headers: Map<Strin
 /**
  * A song url taken apart: the session's token, the song's id, and whether it is the song fetched
  * again as AAC for a receiver that takes no Opus (`/aac/` rather than `/s/`), or decoded into raw
- * audio of [pcm]'s form for one that takes neither (`/l16-44100-2/`, `/wav-48000-2/`).
+ * audio of [pcm]'s form for one that takes neither (`/l16-44100-2/`, `/wav-48000-2/`). [plain]
+ * (`/plain/` before the file) serves it without DLNA's labels (CastLadder's plain rungs).
  */
-data class CastPath(val token: String, val mediaId: String, val aac: Boolean = false, val pcm: PcmForm? = null)
+data class CastPath(val token: String, val mediaId: String, val aac: Boolean = false, val pcm: PcmForm? = null, val plain: Boolean = false) {
+    /** The url's kind and song, without the token: what the server counts fetches by. */
+    val fetchKey: String get() = "${pcm?.key ?: if (aac) "aac" else "s"}${if (plain) "/plain" else ""}/$mediaId"
+}
 
 /** What reading a request head off a connection came to. */
 sealed interface HeadRead {
@@ -162,9 +166,10 @@ object CastHttp {
         extension: String,
         aac: Boolean = false,
         pcm: PcmForm? = null,
+        plain: Boolean = false,
     ): String {
         val kind = pcm?.key ?: if (aac) "aac" else "s"
-        return "http://${hostForUrl(host)}:$port/c/$token/$kind/${encodeSegment(mediaId)}.$extension"
+        return "http://${hostForUrl(host)}:$port/c/$token/$kind/${if (plain) "plain/" else ""}${encodeSegment(mediaId)}.$extension"
     }
 
     /** An address as it goes in a url: IPv6 in brackets, with a zone's % escaped. */
@@ -227,15 +232,16 @@ object CastHttp {
             path = if (slash < 0) "/" else path.substring(slash)
         }
         val parts = path.split('/')
-        if (parts.size != 5 || parts[0].isNotEmpty() || parts[1] != "c") return null
+        val plain = parts.size == 6 && parts[4] == "plain"
+        if ((parts.size != 5 && !plain) || parts[0].isNotEmpty() || parts[1] != "c") return null
         val pcm = PcmForm.fromKey(parts[3])
         if (parts[3] != "s" && parts[3] != "aac" && pcm == null) return null
         val token = parts[2].takeIf { it.isNotEmpty() } ?: return null
-        val file = parts[4]
+        val file = parts.last()
         val dot = file.lastIndexOf('.')
         val encodedId = if (dot >= 0) file.substring(0, dot) else file
         val mediaId = decodeSegment(encodedId)?.takeIf { it.isNotEmpty() } ?: return null
-        return CastPath(token, mediaId, aac = parts[3] == "aac", pcm = pcm)
+        return CastPath(token, mediaId, aac = parts[3] == "aac", pcm = pcm, plain = plain)
     }
 
     // Requests
@@ -293,29 +299,30 @@ object CastHttp {
      * The reply to a GET or HEAD for a song of type [mimeType] and [total] bytes (below 0 when
      * not known), [converted] when the phone made it (raw audio).
      *
-     * Every reply says Accept-Ranges and carries the DLNA headers: renderers that do not know
-     * them ignore them, and some that do will not seek without them. CORS is open because a
-     * browser-based receiver fetches from another origin and needs to read Content-Range; the
-     * token, not the origin, is what guards the url.
+     * Every reply says Accept-Ranges and, unless [plain], carries the DLNA headers: renderers that
+     * do not know them ignore them, and some that do will not seek without them. A plain reply is
+     * what a web server would send, for the renderers that refuse what the DLNA headers say
+     * (CastLadder). CORS is open because a browser-based receiver fetches from another origin and
+     * needs to read Content-Range; the token, not the origin, is what guards the url.
      */
-    fun songReply(request: CastRequest, mimeType: String, total: Long, converted: Boolean = false): SongReply {
+    fun songReply(request: CastRequest, mimeType: String, total: Long, converted: Boolean = false, plain: Boolean = false): SongReply {
         val headers = mutableListOf(
             "Content-Type" to mimeType,
             "Cache-Control" to "no-store",
             "Access-Control-Allow-Origin" to "*",
             "Access-Control-Expose-Headers" to "Content-Length, Content-Range, Accept-Ranges",
-            "transferMode.dlna.org" to "Streaming",
-            "Connection" to "close",
         )
+        if (!plain) headers += "transferMode.dlna.org" to "Streaming"
+        headers += "Connection" to "close"
         if (total < 0) {
             // A copy whose length nothing recorded. Served whole and ended by closing, since no
             // Content-Range or Content-Length can be written for it.
             headers += "Accept-Ranges" to "none"
-            headers += "contentFeatures.dlna.org" to dlnaFeatures(mimeType, byteSeek = false, converted)
+            if (!plain) headers += "contentFeatures.dlna.org" to dlnaFeatures(mimeType, byteSeek = false, converted)
             return SongReply(200, headers, 0, -1)
         }
         headers += "Accept-Ranges" to "bytes"
-        headers += "contentFeatures.dlna.org" to dlnaFeatures(mimeType, byteSeek = true, converted)
+        if (!plain) headers += "contentFeatures.dlna.org" to dlnaFeatures(mimeType, byteSeek = true, converted)
         return when (val range = parseRange(request.header("range"), total)) {
             RangeAnswer.Whole -> {
                 headers += "Content-Length" to total.toString()

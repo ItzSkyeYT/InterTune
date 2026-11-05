@@ -12,6 +12,19 @@ import org.junit.Test
 
 /** What the remote player does with each report about the song it sent last. */
 class SentSongTest {
+    @Test
+    fun `a rung of the ladder that fails is the ladder's to judge, and the playback rules hear nothing of it`() {
+        val load = RemoteCommand.Load(ticket = 4, entry = RemoteEntry(1L, "v", 200_000, "item"), startMs = 0, play = true)
+        val rung = SentSong(load, linkLoad = 2, mimeType = "audio/webm", choice = FormatChoice.Pcm(PcmTarget.LPCM), local = false, retry = false, ladder = true)
+        val failed = ReceiverStatus(link = LinkState.CONNECTED, state = ReceiverState.FAILED, load = 2, error = "UPnP 714")
+        assertEquals(ReportAction.IGNORE, rung.onReport(failed, latestTicket = 4, support = FormatSupport.Unknown))
+        assertEquals(ReportAction.FOLLOW, rung.onReport(failed.copy(state = ReceiverState.PLAYING), latestTicket = 4, support = FormatSupport.Unknown))
+        assertEquals(ReportAction.IGNORE, rung.onReport(failed.copy(load = 1), latestTicket = 4, support = FormatSupport.Unknown))
+        // Once it plays, a failure later in the song is the song's, for the playback rules.
+        rung.settled()
+        assertEquals(ReportAction.FAILED, rung.onReport(failed, latestTicket = 4, support = FormatSupport.Unknown))
+    }
+
     private val entry = RemoteEntry(key = 1L, mediaId = "vid1", durationMs = 200_000L, item = "vid1")
 
     private fun sent(

@@ -31,11 +31,27 @@ class CastPcmWiringTest {
 
     @Test
     fun `the remote player and the probe choose raw audio only with the flag`() {
-        for (path in listOf("playback/RemotePlayer.kt", "playback/CastProbe.kt")) {
-            val text = code(path)
-            assertTrue(path, "canDecode = Unreleased.CAST_PCM" in text)
-            assertEquals(path, 1, Regex("""canDecode =""").findAll(text).count())
-        }
+        val probe = code("playback/CastProbe.kt")
+        assertTrue("canDecode = Unreleased.CAST_PCM" in probe)
+        assertEquals(1, Regex("""canDecode =""").findAll(probe).count())
+        // The remote player reads the flag once, as the default of what it is given, and both its
+        // ways of choosing (CastFormats, CastLadder) read that.
+        val player = code("playback/RemotePlayer.kt")
+        assertTrue("private val canDecode: Boolean = Unreleased.CAST_PCM," in player)
+        assertEquals(2, Regex("""canDecode = canDecode""").findAll(player).count())
+        assertEquals(0, Regex("""canDecode = Unreleased""").findAll(player).count())
+        assertTrue("canDecode" !in code("playback/MusicService.kt"))
+    }
+
+    @Test
+    fun `the ladder is held back to debug and preview builds, and given to the remote player only with its flag`() {
+        assertTrue(Regex("""\bval CAST_LADDER = BuildConfig\.DEBUG\s*$""", RegexOption.MULTILINE).containsMatchIn(code("constants/Unreleased.kt")))
+        val service = code("playback/MusicService.kt")
+        assertTrue("rungMemory = if (Unreleased.CAST_LADDER) castRungMemory else null," in service)
+        // On the phone only: never in a backup.
+        assertTrue("CastRungMemory(File(noBackupFilesDir, CastRungMemory.FILE))" in service)
+        // DLNA only: FCast and Chromecast keep their single choice.
+        assertTrue("private val climbing = rungMemory != null && link.device.protocol == CastProtocol.DLNA" in code("playback/RemotePlayer.kt"))
     }
 
     @Test
@@ -47,12 +63,53 @@ class CastPcmWiringTest {
     }
 
     @Test
-    fun `a song is decoded on the remote player's worker, inside its send`() {
+    fun `the ladder's two sentences say why and what to do in two lines of a toast, held from translators with their French beside them`() {
+        val english = File("src/main/res/values/strings-ot.xml").readText()
+        val french = File("src/main/res/values-fr/strings-ot.xml").readText()
+        for (name in listOf("casting_refused_every_form", "casting_never_asked")) {
+            val en = Regex("""<string name="$name" translatable="false">(.+?)</string>""").find(english)?.groupValues?.get(1)
+            val fr = Regex("""<string name="$name">(.+?)</string>""").find(french)?.groupValues?.get(1)
+            for (text in listOf(en, fr)) {
+                // Android shows two lines of a toast, about 35 characters each on a Pixel 5: with the
+                // speaker's name, what to do was cut off (5 Nov 2026).
+                val shown = text?.replace("\\'", "'")
+                assertTrue("$name: $text", shown != null && '%' !in shown && shown.length <= 64)
+                // Why, then what to do: two sentences.
+                assertEquals("$name: $text", 2, Regex("""[.?!](\s|$)""").findAll(shown!!).count())
+                assertTrue("$name has a long dash", '\u2014' !in shown && '\u2013' !in shown)
+            }
+        }
+        val service = code("playback/MusicService.kt")
+        assertTrue("getString(R.string.casting_refused_every_form)" in service)
+        assertTrue("getString(R.string.casting_never_asked)" in service)
+    }
+
+    @Test
+    fun `a song is decoded on the remote player's worker, inside its send or a rung it sends`() {
         val player = code("playback/RemotePlayer.kt")
         val send = player.substringAfter("private suspend fun send(").substringBefore("private suspend fun failed(")
         assertTrue("server.preparePcm(" in send)
-        assertEquals(1, Regex("""preparePcm\(""").findAll(player).count())
-        // send is only ever run from the work queue, which runs on Dispatchers.IO.
+        val rung = player.substringAfter("private suspend fun tryRung(").substringBefore("private suspend fun watchClimbs(")
+        assertTrue("server.preparePcm(" in rung)
+        assertTrue("server.pcmSourceOf(" in rung)
+        assertEquals(2, Regex("""preparePcm\(""").findAll(player).count())
+        // send and tryRung only ever run from the work queue, which runs on Dispatchers.IO: a rung
+        // goes from the watcher to the next only through it.
         assertTrue("scope.launch(Dispatchers.IO) {\n            for (job in work)" in player)
+        assertTrue("work.trySend { tryRung(climb, next) }" in player)
+        assertEquals(1, Regex("""(?<!fun )tryRung\(climb, rungs\.first\(\)\)""").findAll(player).count())
+    }
+
+    @Test
+    fun `a speaker that played no form keeps the song's copy on the phone and is not sent the song again`() {
+        val error = code("playback/MusicService.kt").substringAfter("override fun onPlayerError(").substringBefore("private fun scheduleQuietRetry(")
+        assertTrue("val speakerGaveUp = isCasting && Unreleased.CAST_LADDER && error.errorCode == PlaybackException.ERROR_CODE_REMOTE_ERROR" in error)
+        // The copy is judged only when the speaker did not give up, and once: it was thrown out and
+        // the song sent again, so the ladder walked twice before anyone heard why.
+        assertTrue("val goOn = !speakerGaveUp && badCachedCopy.playerFailed(failedId, error)" in error)
+        assertEquals(1, Regex("""badCachedCopy\.playerFailed\(""").findAll(error).count())
+        assertTrue(error.indexOf("val goOn =") < error.indexOf("player.prepare()"))
+        // What the speaker said is the message, as it is for any receiver's failure.
+        assertTrue("isCasting && error.errorCode == PlaybackException.ERROR_CODE_REMOTE_ERROR && !error.message.isNullOrBlank()) error.message!!" in error)
     }
 }

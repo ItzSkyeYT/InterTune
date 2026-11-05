@@ -97,7 +97,9 @@ import com.dd3boh.outertune.constants.FollowPhoneSaverKey
 import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.cast.CastFormats
 import com.dd3boh.outertune.cast.CastNetwork
+import com.dd3boh.outertune.cast.CastRungMemory
 import com.dd3boh.outertune.cast.CastServer
+import com.dd3boh.outertune.cast.CastWords
 import com.dd3boh.outertune.cast.ReceiverLink
 import com.dd3boh.outertune.cast.ReceiverStatus
 import com.dd3boh.outertune.constants.AutoLoadMoreKey
@@ -3461,6 +3463,15 @@ class MusicService : MediaLibraryService(),
      * stands, through the analytics listener that stays on it; with no transition behind it, it is
      * recorded as a stop.
      */
+    /** The rung that played on each DLNA speaker (CastLadder), on this phone only. */
+    private val castRungMemory by lazy { CastRungMemory(File(noBackupFilesDir, CastRungMemory.FILE)) }
+
+    /** The listener's words for a song no rung could play on a speaker. */
+    private val castWords = object : CastWords {
+        override fun refusedEveryForm() = getString(R.string.casting_refused_every_form)
+        override fun neverAsked() = getString(R.string.casting_never_asked)
+    }
+
     internal fun handOverTo(link: ReceiverLink, server: CastServer, play: Boolean?, onLost: (ReceiverStatus) -> Unit): RemotePlayer? {
         val routed = routedPlayer ?: return null
         val exo = exoPlayer
@@ -3479,6 +3490,9 @@ class MusicService : MediaLibraryService(),
             repeatMode = exo.repeatMode,
             shuffle = exo.shuffleModeEnabled,
             onLost = onLost,
+            // A DLNA speaker gets the song in the first form that plays there, remembered for it.
+            rungMemory = if (Unreleased.CAST_LADDER) castRungMemory else null,
+            words = castWords,
         )
         exo.removeListener(this)
         isCasting = true
@@ -4578,7 +4592,12 @@ class MusicService : MediaLibraryService(),
         val failedId = PlayBook.itemOf(error, player.currentTimeline) ?: player.currentMediaItem?.mediaId
         // The route the song failed on, read before its address is forgotten: see SongRoutes.
         val failedRoute = streamAddresses.clientOf(failedId)
-        val goOn = badCachedCopy.playerFailed(failedId, error)
+        // While casting with the ladder, a failure is the speaker's: a DLNA speaker has been sent
+        // every form it takes, and the remote player has made its own retry for other receivers.
+        // The song's copy on the phone stays. Throwing it out sent the song again and the ladder
+        // walked once more, half a minute of silence before the message (5 Nov 2026).
+        val speakerGaveUp = isCasting && Unreleased.CAST_LADDER && error.errorCode == PlaybackException.ERROR_CODE_REMOTE_ERROR
+        val goOn = !speakerGaveUp && badCachedCopy.playerFailed(failedId, error)
         if (streamAddresses.playerFailedOn(failedId)) {
             Log.d(TAG, "PLAYING: the player failed on $failedId, its stream address will be asked for again")
         }
@@ -4657,6 +4676,9 @@ class MusicService : MediaLibraryService(),
             if (gaveUp) getString(R.string.error_youtube_not_answering)
             else if (turnedAway) getString(R.string.error_connection_turned_away)
             else if (gone) getString(R.string.err_song_unavailable)
+            // While casting the receiver's own failure is a sentence already (RemotePlayer): it says
+            // which speaker and what to do, and the player's code and a "plr:" only hid it.
+            else if (isCasting && error.errorCode == PlaybackException.ERROR_CODE_REMOTE_ERROR && !error.message.isNullOrBlank()) error.message!!
             else ErrorText.withoutAddresses("plr: ${error.message} (${error.errorCode}): ${error.cause?.message ?: ""} "),
             Toast.LENGTH_LONG
         )

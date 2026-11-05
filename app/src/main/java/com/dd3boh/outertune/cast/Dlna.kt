@@ -108,6 +108,15 @@ object Didl {
     }
 
     /**
+     * A `res` protocolInfo with none of DLNA's labels: the type, raw audio's rate and channels
+     * kept, and `*` for the rest, for a renderer that refuses a profile or a flag (CastLadder).
+     */
+    fun plainProtocolInfo(mimeType: String): String {
+        val type = if (PcmFormats.isL16(mimeType)) mimeType.trim() else CastMime.bare(mimeType)
+        return "http-get:*:$type:*"
+    }
+
+    /**
      * One track. Every value is escaped, so this is well-formed XML; Soap then escapes it again as
      * an argument. A missing title becomes the id, because a few renderers refuse a track without one.
      */

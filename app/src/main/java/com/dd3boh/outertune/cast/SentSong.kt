@@ -46,8 +46,22 @@ class SentSong<T>(
     val local: Boolean,
     /** Whether this is the one retry as AAC after the song failed as it is. */
     val retry: Boolean,
+    /**
+     * Whether this is one rung of CastLadder: its failure is the ladder's to judge, which tries the
+     * next rung, and the playback rules hear of a failure only once every rung has failed.
+     */
+    ladder: Boolean = false,
 ) {
     private var failureTaken = false
+
+    /** Whether a failure is still the ladder's to judge: until the rung plays ([settled]). */
+    var ladder: Boolean = ladder
+        private set
+
+    /** The rung plays: a failure from now on is the song's, for the playback rules, as for any song. */
+    fun settled() {
+        ladder = false
+    }
 
     /**
      * What [status] calls for. [latestTicket] is the player's latest load, since a song already
@@ -56,6 +70,7 @@ class SentSong<T>(
     fun onReport(status: ReceiverStatus, latestTicket: Int, support: FormatSupport): ReportAction {
         if (status.load != linkLoad) return ReportAction.IGNORE
         if (status.state != ReceiverState.FAILED) return ReportAction.FOLLOW
+        if (ladder) return ReportAction.IGNORE
         if (failureTaken) return ReportAction.IGNORE
         failureTaken = true
         val worthRetry = load.ticket == latestTicket &&
