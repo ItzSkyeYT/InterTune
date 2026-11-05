@@ -38,7 +38,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -164,7 +163,6 @@ internal fun rememberPinActions(
     val downloadUtil = LocalDownloadUtil.current
     val playerConnection = LocalPlayerConnection.current
     val clipboardManager = LocalClipboard.current
-    val coroutineScope = rememberCoroutineScope()
     val songId = mediaMetadata?.id
 
     val watchSong = songId != null && (PlayerPin.LIBRARY in pinned || PlayerPin.DETAILS in pinned)
@@ -232,7 +230,7 @@ internal fun rememberPinActions(
                         },
                         modifier = Modifier.clickable {
                             showRemove = false
-                            removeFromPlaylist(database, coroutineScope, playlist, mediaMetadata.id)
+                            removeFromPlaylist(database, playlist, mediaMetadata.id)
                         },
                     )
                 }
@@ -296,7 +294,7 @@ internal fun rememberPinActions(
                 PlayerPin.ADD_TO_PLAYLIST -> showPlaylists = true
                 // With one playlist it acts at once; with several it asks, as the menu does.
                 PlayerPin.REMOVE_FROM_PLAYLIST ->
-                    if (inPlaylists.size == 1) removeFromPlaylist(database, coroutineScope, inPlaylists.first(), song.id)
+                    if (inPlaylists.size == 1) removeFromPlaylist(database, inPlaylists.first(), song.id)
                     else showRemove = true
                 PlayerPin.DOWNLOAD -> if (getDownloadState(download) != Download.STATE_STOPPED) {
                     downloadUtil.removeDownload(song.id)
