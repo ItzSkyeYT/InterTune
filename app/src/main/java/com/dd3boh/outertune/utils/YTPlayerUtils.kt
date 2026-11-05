@@ -879,6 +879,15 @@ object YTPlayerUtils {
 
         /** It answered in YouTube's words for a song that is gone: see [SongUnavailable.byTheAccountToo]. */
         var saidGone = false
+
+        /**
+         * YouTube Music's web client asked as a visitor in this walk, wherever it stood and
+         * whatever it said. Where the walk has no account on the web client, it is the one asked
+         * before a song is called gone, on the same terms: see [StreamCheck.asksWebBeforeGone].
+         * Neither teaches StreamOrder anything then: a song only the web client plays must not
+         * make it the first asked for every song after.
+         */
+        var webAsked = false
     }
 
     /**
@@ -1700,16 +1709,26 @@ object YTPlayerUtils {
             // says counts only if it plays the song or calls it gone too. See AccountBeforeGone.
             var beforeGone = false
             if (client === WEB_FALLBACK_CLIENT || client === ACCOUNT_WEB_CLIENT) {
-                // A song every client asked before it calls gone is gone for this one too, and
-                // would cost a player script to hear it said again: see StreamCheck.saysGone.
-                // But for the account, once, before the song is called so: it may be served what
-                // a visitor is not. See StreamCheck.asksAccountBeforeGone.
+                // A song every client asked before it calls gone used to be taken for gone for the
+                // web client too, and passed over here, sparing a player script. It is not always
+                // so: YouTube Music's own web client plays songs the others call "not available"
+                // (issue #82). So the web client is asked, once, before the song is called gone:
+                // as the account where the walk has the account's web client, which may be served
+                // what a visitor is not, and as a visitor where it has not. See
+                // StreamCheck.asksAccountBeforeGone and StreamCheck.asksWebBeforeGone.
                 if (fallbackSaid.isNotEmpty() && fallbackSaid.all { it.status != "OK" && StreamCheck.saysGone(it.reason) }) {
-                    beforeGone = client === ACCOUNT_WEB_CLIENT &&
-                        StreamCheck.asksAccountBeforeGone(
+                    beforeGone = when {
+                        client === ACCOUNT_WEB_CLIENT -> StreamCheck.asksAccountBeforeGone(
                             fallbackSaid, unreached = songLeftOpen, askedAlready = account.asked, ofAnotherCopy = account.ofAnotherCopy,
                             othersGoneInARow = othersGoneInARow(videoId),
                         )
+                        // The account's turn comes: the same web client, asked as more than a visitor.
+                        ACCOUNT_WEB_CLIENT in clients -> false
+                        else -> StreamCheck.asksWebBeforeGone(
+                            fallbackSaid, unreached = songLeftOpen, askedAlready = account.webAsked, ofAnotherCopy = account.ofAnotherCopy,
+                            othersGoneInARow = othersGoneInARow(videoId),
+                        )
+                    }
                     if (!beforeGone) continue
                 }
                 // Held, the account's as well: asked in this pass it would serve every song as the
@@ -1735,7 +1754,10 @@ object YTPlayerUtils {
             // The experiment's client, of which nothing is counted: see TRIAL_CLIENT.
             val isTrial = client === trial
             if (asAccount && !isTrial) account.asked = true
-            if (beforeGone) Log.i(TAG, "[$videoId] every client before it called the song gone: asking the account before calling it so")
+            if (client === WEB_FALLBACK_CLIENT) account.webAsked = true
+            if (beforeGone) {
+                Log.i(TAG, "[$videoId] every client before it called the song gone: asking ${if (asAccount) "the account" else "YouTube Music's web client"} before calling it so")
+            }
             // Where this client's own answer went in fallbackSaid when it was OK, so that an OK whose
             // address is then refused can be taken back (see the refusal below).
             var saidOkAt = -1
@@ -1813,7 +1835,8 @@ object YTPlayerUtils {
             streamPlayerResponse = result.getOrNull()
             result.exceptionOrNull()?.let { failure ->
                 val unreached = StreamOrder.networkDidNotAnswer(failure)
-                if (!unreached) asked += StreamOrder.Asked(clientLabel, worked = false, asAccount)
+                // Asked before a song is called gone, a client teaches StreamOrder nothing: see AccountBeforeGone.
+                if (!unreached && !beforeGone) asked += StreamOrder.Asked(clientLabel, worked = false, asAccount)
                 // No network at all ends the song at once, at the main client or the first
                 // request of all, so offline the error comes quickly. Anything else, a timeout
                 // above all, goes on to the next client: one request that did not answer said
@@ -1833,7 +1856,7 @@ object YTPlayerUtils {
             // Noted as having given no stream, until its url passes the check below.
             // A song YouTube calls gone, region locked or age gated says nothing of the client:
             // no strike. See StreamOrder.strikes.
-            if (streamPlayerResponse != null && StreamOrder.strikes(streamPlayerResponse?.playabilityStatus?.reason)) {
+            if (streamPlayerResponse != null && !beforeGone && StreamOrder.strikes(streamPlayerResponse?.playabilityStatus?.reason)) {
                 asked += StreamOrder.Asked(clientLabel, worked = false, asAccount)
             }
             if (!isMain && !isTrial && !beforeGone) streamPlayerResponse?.rememberBlock()
@@ -1996,7 +2019,9 @@ object YTPlayerUtils {
                 // goes, when it made one: an OK in words that call the song gone made none (see
                 // StreamOrder.strikes), and the last one noted, another client's, went instead.
                 if (asked.lastOrNull()?.client == clientLabel) asked.removeAt(asked.lastIndex)
-                if (status != null) {
+                // Not a client asked before a song is called gone: one song only YouTube Music's web
+                // client plays must not make it the first asked for every song after (StreamOrder).
+                if (status != null && !beforeGone) {
                     asked += StreamOrder.Asked(clientLabel, worked = verdict == StreamCheck.Verdict.PASS, asAccount)
                 }
                 if (verdict == StreamCheck.Verdict.PASS) {
