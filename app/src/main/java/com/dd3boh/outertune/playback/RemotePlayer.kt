@@ -33,6 +33,7 @@ import com.dd3boh.outertune.cast.RemoteRequest
 import com.dd3boh.outertune.cast.RemoteSong
 import com.dd3boh.outertune.cast.ReportAction
 import com.dd3boh.outertune.cast.SentSong
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.extensions.metadata
 import com.dd3boh.outertune.ui.utils.resize
 import com.google.common.util.concurrent.Futures
@@ -69,10 +70,11 @@ internal const val QUIET_START = 25
  * into the usual listener calls, so the queue board, the notification and the screens follow the
  * receiver without knowing it is one.
  *
- * Each song goes in the form the receiver plays (CastFormats), and one it fails is tried once
- * more as AAC when the receiver never said what it plays. A song the phone cannot get, or that the
- * receiver cannot be sent, is a player error, so the skip-or-stop setting applies as it does for
- * a song the phone cannot play.
+ * Each song goes in the form the receiver plays (CastFormats): as it is, as AAC, or, for a renderer
+ * that lists only raw audio, decoded on the phone and sent as L16 (with Unreleased.CAST_PCM). One
+ * it fails is tried once more as AAC when the receiver never said what it plays. A song the phone
+ * cannot get, or that the receiver cannot be sent, is a player error, so the skip-or-stop setting
+ * applies as it does for a song the phone cannot play.
  *
  * The device volume is the receiver's, so the volume keys and the system panel change it once
  * media3 turns the session remote, which it does for [DeviceInfo.PLAYBACK_TYPE_REMOTE].
@@ -312,14 +314,23 @@ class RemotePlayer(
         var attempt: SentSong<MediaItem>? = null
         try {
             val asIs = server.prepare(mediaId)
-            val choice = if (aac == true) FormatChoice.Aac else CastFormats.choose(link.caps.formats, asIs.mimeType, canFetchAac = !local, refused = refusedAsIs)
+            val choice = if (aac == true) {
+                FormatChoice.Aac
+            } else {
+                CastFormats.choose(link.caps.formats, asIs.mimeType, canFetchAac = !local, refused = refusedAsIs, canDecode = Unreleased.CAST_PCM)
+            }
             if (choice is FormatChoice.Unplayable) {
                 // What it listed goes in the message, so a report says what this receiver does play.
                 val listed = (link.caps.formats as? FormatSupport.Listed)?.mimeTypes?.sorted()?.take(8)?.joinToString()
                 failed(load.ticket, "${link.device.name} does not play ${choice.mimeType}" + (listed?.let { " (it lists $it)" } ?: ""))
                 return
             }
-            val offer = if (choice == FormatChoice.Aac) server.prepare(mediaId, aac = true) else asIs
+            val offer = when (choice) {
+                FormatChoice.Aac -> server.prepare(mediaId, aac = true)
+                // Decoded on the phone from the song as it is: the renderer lists only raw audio.
+                is FormatChoice.Pcm -> server.preparePcm(mediaId, choice.target, load.entry.durationMs)
+                else -> asIs
+            }
             // Resolving can take seconds; the listener may have moved on meanwhile.
             if (load.ticket != latestTicket.get()) return
             val item = CastItem(
@@ -327,11 +338,13 @@ class RemotePlayer(
                 url = offer.url,
                 mimeType = offer.mimeType,
                 length = offer.length,
-                durationMs = load.entry.durationMs,
+                // Raw audio's own, from its frames, so a renderer's byte seeks land where it means.
+                durationMs = offer.durationMs.takeIf { it > 0 } ?: load.entry.durationMs,
                 title = song?.title,
                 artist = song?.artists?.joinToString { it.name }?.takeIf { it.isNotEmpty() },
                 album = song?.album?.title,
                 artworkUrl = castArtwork(song?.thumbnailUrl),
+                converted = choice is FormatChoice.Pcm,
             )
             Log.i(TAG, "Sending $mediaId to ${link.device.name} as $choice (${offer.mimeType}), from ${load.startMs} ms")
             // Noted before the load, since a receiver can refuse the song before load returns. Loads

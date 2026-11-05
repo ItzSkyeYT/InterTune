@@ -793,4 +793,20 @@ object Unreleased {
      * agreed: set this to true and add its name to ReleasedFlagsTest.
      */
     val POLL_FOLLOW_UPS = BuildConfig.DEBUG
+
+    /**
+     * Casting to a DLNA speaker that takes only raw audio (Geogos's Zeppelin Wireless, 4 Nov 2026:
+     * "does not play audio/webm (it lists audio/l16, audio/l8)"): when the speaker takes neither
+     * the song as it is nor AAC, the phone decodes the song itself (MediaCodecPcmDecoder) and the
+     * cast server sends it as audio/L16, big-endian 16-bit at a rate the speaker lists, or as WAV
+     * to one that lists WAV and not L16 (CastFormats.choose, PcmFormats, PcmCastSong). Never L8.
+     * About 1.5 Mbit/s on the Wi-Fi, no loss beyond the decode the phone does anyway, and a
+     * windowed-sinc resampler only when the speaker lists no rate the song decodes at. His "we do
+     * that" of 4 Nov 2026, for 0.13.
+     *
+     * Without it such a speaker is refused every song with the message naming what it lists, as
+     * before. No new texts. When it is agreed: set this to true and add its name to
+     * ReleasedFlagsTest.
+     */
+    val CAST_PCM = BuildConfig.DEBUG
 }

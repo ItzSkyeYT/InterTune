@@ -110,8 +110,40 @@ class CastServerTest {
         servable: (String) -> Boolean = { true },
         maxConnections: Int = CastServer.MAX_CONNECTIONS,
         port: Int = 0,
-    ): CastServer = CastServer(source, loopback, servable, port = port, maxConnections = maxConnections)
+        pcmDecoder: PcmDecoder? = null,
+    ): CastServer = CastServer(source, loopback, servable, port = port, maxConnections = maxConnections, pcmDecoder = pcmDecoder)
         .also { servers += it; it.start() }
+
+    private fun pcmAt(frame: Long, channel: Int): Short = ((frame * 3 + channel * 1_000) % 30_000).toShort()
+
+    /** Decodes any song into [frames] stereo frames at [rate], each sample worked out from its frame. */
+    private inner class ToneDecoder(val rate: Int, val frames: Long) : PcmDecoder {
+        val probes = AtomicInteger()
+
+        override fun probe(song: CastSong): PcmSource {
+            probes.incrementAndGet()
+            return PcmSource(rate, 2, frames * 1_000_000L / rate)
+        }
+
+        override fun open(song: CastSong, fromUs: Long): DecodedAudio = object : DecodedAudio {
+            var at = fromUs * rate / 1_000_000L
+            val samples = ShortArray(2048)
+
+            override fun next(): DecodedPiece? {
+                if (at >= frames) return null
+                val count = minOf(1024L, frames - at).toInt()
+                for (i in 0 until count) {
+                    samples[2 * i] = pcmAt(at + i, 0)
+                    samples[2 * i + 1] = pcmAt(at + i, 1)
+                }
+                val piece = DecodedPiece(at * 1_000_000L / rate, rate, 2, samples, count)
+                at += count
+                return piece
+            }
+
+            override fun close() = Unit
+        }
+    }
 
     private fun CastServer.url(id: String, ext: String = "webm") =
         "http://127.0.0.1:$boundPort/c/$token/s/$id.$ext"
@@ -353,6 +385,57 @@ class CastServerTest {
         head(server.url("v")).close()
         assertEquals(2, source.aacOpens.get())
         assertEquals(2, source.opens.get())
+    }
+
+    @Test
+    fun `raw audio is decoded from the song as it is, described without decoding, and served from any byte`() {
+        val decoder = ToneDecoder(48_000, 48_000)
+        val source = FakeSource("v" to FakeSong(6000, mimeType = "audio/webm"))
+        val server = serve(source, pcmDecoder = decoder)
+        val offer = server.preparePcm("v", PcmTarget(listOf(PcmOffer("audio/L16;rate=48000;channels=2", 48_000, 2, "LPCM"))))
+        assertEquals("http://127.0.0.1:${server.boundPort}/c/${server.token}/l16-48000-2/v.pcm", offer.url)
+        assertEquals("audio/L16;rate=48000;channels=2", offer.mimeType)
+        assertEquals(192_000L, offer.length)
+        assertEquals(1_000L, offer.durationMs)
+        head(offer.url).use {
+            assertEquals(200, it.code)
+            assertEquals("192000", it.header("Content-Length"))
+            assertEquals("audio/L16;rate=48000;channels=2", it.header("Content-Type"))
+            assertEquals("Streaming", it.header("transferMode.dlna.org"))
+            assertEquals(
+                "DLNA.ORG_PN=LPCM;DLNA.ORG_OP=01;DLNA.ORG_CI=1;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+                it.header("contentFeatures.dlna.org"),
+            )
+        }
+        // A seek: a range from the middle of a frame, the samples big-endian.
+        get(offer.url, "bytes=96002-").use {
+            assertEquals(206, it.code)
+            assertEquals("bytes 96002-191999/192000", it.header("Content-Range"))
+            val body = it.body!!.bytes()
+            assertEquals(95_998, body.size)
+            assertEquals(pcmAt(24_000, 1), ((body[0].toInt() shl 8) or (body[1].toInt() and 0xFF)).toShort())
+            assertEquals(pcmAt(24_001, 0), ((body[2].toInt() shl 8) or (body[3].toInt() and 0xFF)).toShort())
+        }
+        get(offer.url).use { assertEquals(192_000, it.body!!.bytes().size) }
+        assertEquals("the song is looked at once", 1, decoder.probes.get())
+        assertEquals(1, source.opens.get())
+
+        // Forgetting the song forgets what it decodes to as well.
+        server.forget("v")
+        head(offer.url).close()
+        assertEquals(2, decoder.probes.get())
+    }
+
+    @Test
+    fun `a server that cannot decode says so, and sends no raw audio`() {
+        val server = serve(FakeSource("v" to FakeSong(6000)))
+        try {
+            server.preparePcm("v", PcmTarget.LPCM)
+            fail("Raw audio was offered without a decoder")
+        } catch (e: CastUnavailableException) {
+            assertEquals("Raw audio cannot be sent from this build", e.message)
+        }
+        get("http://127.0.0.1:${server.boundPort}/c/${server.token}/l16-44100-2/v.pcm").use { assertEquals(503, it.code) }
     }
 
     @Test
