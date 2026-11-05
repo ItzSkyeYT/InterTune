@@ -264,6 +264,9 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import kotlin.math.max
 
+/** The repeat button off: the repeat icon at this strength, as the media notification draws it (his word, 5 Nov 2026). */
+internal const val REPEAT_OFF_ALPHA = 0.4f
+
 @SuppressLint("UnusedBoxWithConstraintsScope")
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
@@ -1643,7 +1646,8 @@ fun BottomSheetPlayer(
                         Box(modifier = Modifier.weight(1f)) {
                             ResizableIconButton(
                                 icon = when (repeatMode) {
-                                    REPEAT_MODE_OFF -> R.drawable.repeat_off
+                                    // Off is the repeat icon greyed out, as the notification draws it (his word, 5 Nov 2026).
+                                    REPEAT_MODE_OFF -> R.drawable.repeat_on
                                     REPEAT_MODE_ALL -> R.drawable.repeat_on
                                     REPEAT_MODE_ONE -> R.drawable.repeat_one
                                     else -> throw IllegalStateException()
@@ -1653,7 +1657,7 @@ fun BottomSheetPlayer(
                                     .padding(4.dp)
                                     .align(Alignment.Center)
                                     .named(repeatName(repeatMode)),
-                                color = onBackgroundColor,
+                                color = if (repeatMode == REPEAT_MODE_OFF) onBackgroundColor.copy(alpha = REPEAT_OFF_ALPHA) else onBackgroundColor,
                                 enabled = playerConnection.player.currentMediaItem != null,
                                 onClick = {
                                     playerConnection.player.toggleRepeatMode()
