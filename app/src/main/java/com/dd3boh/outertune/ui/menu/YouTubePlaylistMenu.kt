@@ -100,9 +100,7 @@ fun YouTubePlaylistMenu(
     LaunchedEffect(songs) {
         if (songs.isEmpty()) return@LaunchedEffect
         downloadUtil.downloads.collect { downloads ->
-            downloadUtil.downloads.collect { downloads ->
-                downloadState = getDownloadState(songs.map { downloads[it.id] })
-            }
+            downloadState = getDownloadState(songs.map { downloads[it.id] })
         }
     }
 

@@ -2307,4 +2307,5 @@
     <string name="library_song_empty_downloaded" translatable="false">Les titres téléchargés s\'afficheront ici</string>
     <string name="not_saved_storage_full" translatable="false">Non enregistré : stockage du téléphone plein. Libérez de la place.</string>
     <string name="not_saved" translatable="false">Non enregistré : un problème est survenu. Réessayez.</string>
+    <string name="remove_download_selection_confirm" translatable="false">Supprimer les téléchargements des titres choisis ?</string>
 </resources>

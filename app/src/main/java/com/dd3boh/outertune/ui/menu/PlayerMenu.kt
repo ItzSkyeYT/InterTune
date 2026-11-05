@@ -566,8 +566,16 @@ fun PitchTempoDialog(
     )
 }
 
+/**
+ * The value one step below or above [current] on [values], which run upwards, also when [current]
+ * is not on them: the steps went by its place in the list, -1 for a speed off the 0.05 grid (one a
+ * media controller can set), and "-" then asked for the place before the first and closed the app.
+ */
+internal fun <T : Comparable<T>> stepValue(values: List<T>, current: T, up: Boolean): T? =
+    if (up) values.firstOrNull { it > current } else values.lastOrNull { it < current }
+
 @Composable
-fun <T> ValueAdjuster(
+fun <T : Comparable<T>> ValueAdjuster(
     icon: ImageVector,
     currentValue: T,
     values: List<T>,
@@ -587,9 +595,9 @@ fun <T> ValueAdjuster(
         )
 
         IconButton(
-            enabled = currentValue != values.first(),
+            enabled = stepValue(values, currentValue, up = false) != null,
             onClick = {
-                onValueUpdate(values[values.indexOf(currentValue) - 1])
+                stepValue(values, currentValue, up = false)?.let(onValueUpdate)
             }
         ) {
             Icon(
@@ -606,9 +614,9 @@ fun <T> ValueAdjuster(
         )
 
         IconButton(
-            enabled = currentValue != values.last(),
+            enabled = stepValue(values, currentValue, up = true) != null,
             onClick = {
-                onValueUpdate(values[values.indexOf(currentValue) + 1])
+                stepValue(values, currentValue, up = true)?.let(onValueUpdate)
             }
         ) {
             Icon(
