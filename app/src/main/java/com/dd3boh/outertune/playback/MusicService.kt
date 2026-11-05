@@ -5865,6 +5865,18 @@ class MusicService : MediaLibraryService(),
      * has added a widget it writes a line of text and fetches nothing.
      */
     private fun updateWidget(stopped: Boolean = false) {
+        // Going away, the widget keeps the song its play button resumes, read now, while the queue
+        // still holds it: read inside the write, which waits for the store's lock, it came after
+        // deInitQueue had emptied the board. And a service that has played nothing since it started
+        // has no song in the player at all (initQueue restores the queues without loading it), so
+        // the song is then the one the queue stands at. Either way the widget said "Nothing playing"
+        // over a paused queue (Pixel 5, 5 Nov 2026). Without Persistent queue nothing resumes, so it
+        // then keeps nothing. Read without getCurrentSong, which repairs the queue as it reads.
+        val kept = if (!stopped || !dataStore.get(PersistentQueueKey, true)) null else {
+            val song = currentMediaMetadata.value
+                ?: queueBoard.takeIf { qbInit.value }?.getCurrentQueue()?.let { q -> q.queue.getOrNull(q.queuePos) }
+            song?.let { WidgetStore.NowState(it, false, likeGuess(it, currentSong.value?.song)) }
+        }
         lastingScope.launch {
             runCatching {
                 WidgetStore.setNowPlaying(this@MusicService) {
@@ -5874,7 +5886,7 @@ class MusicService : MediaLibraryService(),
                     }
                     // The queue's shuffle and Up next are the player's, so they are read with it on the
                     // main thread. Going away, the player is not asked, and the widget keeps the last.
-                    if (stopped) now(false)
+                    if (stopped) kept ?: WidgetStore.NowState(null, false)
                     else withContext(Dispatchers.Main) {
                         now(activePlayer.isPlaying).copy(
                             shuffled = activePlayer.shuffleModeEnabled,
