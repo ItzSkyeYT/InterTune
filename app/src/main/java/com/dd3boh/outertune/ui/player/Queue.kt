@@ -257,14 +257,27 @@ internal val QueueFlingAfter = 64.dp
  * Puts the list at [index] once its rows reach that far, and says whether it did. Rows just put
  * into the list are laid out a frame later, and a scroll asked for before then is cut to the top.
  * Done once per opening, that was never put right, so the queue opened at its first song instead
- * of the one playing (his report, 26 Oct 2026).
+ * of the one playing (his report, 26 Oct 2026). A few songs stay in sight above it: see
+ * [queueRowsAbove].
  */
 internal suspend fun LazyListState.scrollToWhenLaidOut(index: Int): Boolean {
     if (index < 0) return false
     withTimeoutOrNull(2_000) { snapshotFlow { layoutInfo.totalItemsCount }.first { it > index } } ?: return false
-    scrollToItem(index)
+    val info = layoutInfo
+    val visible = info.viewportSize.height - info.beforeContentPadding - info.afterContentPadding
+    val above = queueRowsAbove(visible, info.visibleItemsInfo.firstOrNull()?.size ?: 0)
+    scrollToItem((index - above).coerceAtLeast(0))
     return true
 }
+
+/**
+ * How many songs show above the one playing when the queue opens (#80, 4 Nov 2026): about a third
+ * of the list in sight, rounded, three at most, so what came before it is there without scrolling.
+ * Cut down instead of rounded, the Pixel 5 showed two, a hair short of the reporter's three. None
+ * before the rows are laid out.
+ */
+internal fun queueRowsAbove(visibleHeight: Int, rowHeight: Int): Int =
+    if (visibleHeight <= 0 || rowHeight <= 0) 0 else (visibleHeight * 0.3f / rowHeight).roundToInt().coerceIn(0, 3)
 
 /**
  * The queue's own link from a list to its sheet, with [QueueOvershootBuffer]. Only the queue has
