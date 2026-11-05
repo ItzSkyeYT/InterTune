@@ -551,7 +551,7 @@ private fun LookWords(l: Look, look: LookPlan, at: Spot, song: WidgetSong?, pain
             Text(
                 text = song?.title ?: LocalContext.current.getString(R.string.widget_nothing_playing),
                 style = TextStyle(color = paint.text, fontSize = scaled(p.titleSp, paint), fontWeight = FontWeight.Medium),
-                maxLines = p.titleLines.coerceAtLeast(1),
+                maxLines = emptyTitleLines(song == null, p.titleLines, p.showArtist),
                 modifier = GlanceModifier.width(titleW.dp),
             )
             if (song != null && p.showArtist) {
@@ -832,6 +832,13 @@ private fun Glass(l: Look, glass: GlassPane) {
     }
 }
 
+/**
+ * The title's lines. With nothing playing there is no artist, so "Nothing playing" may take the
+ * artist's line as well: at 4 x 2 on the Pixel 5 it was cut to "Nothing playi..." (5 Nov 2026).
+ */
+internal fun emptyTitleLines(empty: Boolean, titleLines: Int, showArtist: Boolean): Int =
+    titleLines.coerceAtLeast(1) + if (empty && showArtist) 1 else 0
+
 @Composable
 private fun Titles(
     song: WidgetSong?,
@@ -844,7 +851,7 @@ private fun Titles(
     Text(
         text = song?.title ?: LocalContext.current.getString(R.string.widget_nothing_playing),
         style = TextStyle(color = paint.text, fontSize = scaled(titleSp, paint), fontWeight = FontWeight.Medium),
-        maxLines = titleLines.coerceAtLeast(1),
+        maxLines = emptyTitleLines(song == null, titleLines, showArtist),
     )
     if (song != null && showArtist) {
         Text(
