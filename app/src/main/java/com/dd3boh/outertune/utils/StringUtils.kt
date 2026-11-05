@@ -27,6 +27,18 @@ fun makeTimeString(duration: Long?): String {
     }
 }
 
+/**
+ * The queue's total under its position. A song whose length YouTube never gave (-1, as some songs
+ * the phone picks for a radio have) is left out of the sum, and a "+" then says the queue runs
+ * longer than that, rather than a total that looks exact and is short.
+ */
+fun queueLengthText(lengths: List<Int>): String {
+    val known = lengths.filter { it > 0 }
+    if (known.isEmpty() && lengths.isNotEmpty()) return "–:––"
+    val total = makeTimeString(known.sumOf { it.toLong() } * 1000L)
+    return if (known.size < lengths.size) "$total+" else total
+}
+
 fun md5(str: String): String {
     val md = MessageDigest.getInstance("MD5")
     return BigInteger(1, md.digest(str.toByteArray())).toString(16).padStart(32, '0')

@@ -182,7 +182,7 @@ import com.dd3boh.outertune.ui.dialog.TextFieldDialog
 import com.dd3boh.outertune.ui.menu.PlayerMenu
 import com.dd3boh.outertune.ui.menu.QueueMenu
 import com.dd3boh.outertune.utils.QueueToPlaylist
-import com.dd3boh.outertune.utils.makeTimeString
+import com.dd3boh.outertune.utils.queueLengthText
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import kotlinx.coroutines.Dispatchers
@@ -1552,10 +1552,10 @@ fun BoxScope.QueueContent(
                         horizontalAlignment = Alignment.End,
                         modifier = Modifier.padding(horizontal = 8.dp)
                     ) {
-                        fun getQueueLength(): Int {
+                        fun getQueueLengths(): List<Int> {
                             return if (!detachedHead) {
-                                queueWindows.sumOf { it.mediaItem.metadata!!.duration }
-                            } else detachedQueue?.queue?.sumOf { it.duration } ?: 0
+                                queueWindows.map { it.mediaItem.metadata?.duration ?: -1 }
+                            } else detachedQueue?.queue?.map { it.duration } ?: emptyList()
                         }
 
                         fun getQueuePositionStr(): String {
@@ -1573,7 +1573,7 @@ fun BoxScope.QueueContent(
                         )
 
                         Text(
-                            text = makeTimeString(getQueueLength() * 1000L),
+                            text = queueLengthText(getQueueLengths()),
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
