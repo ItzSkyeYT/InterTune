@@ -76,6 +76,7 @@ import com.dd3boh.outertune.constants.WebClientFirstKey
 import com.dd3boh.outertune.constants.SabrOnlyKey
 import com.dd3boh.outertune.constants.EveryDirectRefusedKey
 import com.dd3boh.outertune.playback.HistoryAddressCheck
+import com.dd3boh.outertune.playback.RadioAnswers
 import com.dd3boh.outertune.ui.component.ListPreference
 import com.dd3boh.outertune.ui.component.PreferenceEntry
 import com.dd3boh.outertune.ui.component.SwitchPreference
@@ -199,6 +200,22 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
                     fault = it
                 },
             )
+            if (Unreleased.RADIO_FALLBACK) {
+                // Radios refused on purpose, to see each step a refused radio takes (RadioLadder,
+                // LocalRadio) without a network YouTube distrusts. In memory only, as the row above.
+                var radioTest by remember { mutableStateOf(RadioAnswers.test) }
+                ListPreference(
+                    title = { Text("DEBUG: Refuse radios") },
+                    icon = { Icon(Icons.Rounded.Science, null) },
+                    selectedValue = radioTest,
+                    values = RadioAnswers.Test.entries,
+                    valueText = { it.words },
+                    onValueSelected = {
+                        RadioAnswers.setTest(it)
+                        radioTest = it
+                    },
+                )
+            }
         }
         if (VisionosTest.offered(testBuild = BuildConfig.DEBUG, identities = Unreleased.VISIONOS_IDENTITIES, fallback = Unreleased.WEB_FALLBACK)) {
             // One row over the two keys. As two switches, "this app's VISIONOS" and "VISIONOS",

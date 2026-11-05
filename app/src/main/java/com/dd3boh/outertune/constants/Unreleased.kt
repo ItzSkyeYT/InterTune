@@ -770,6 +770,22 @@ object Unreleased {
     val POLL_FOLLOW_UPS = BuildConfig.DEBUG
 
     /**
+     * A radio YouTube Music refuses still plays (his word of 4 Nov 2026, after Val's radio of one
+     * song and his own try through Orbot: "we need to find a good method to let the users be able to
+     * listen to music"). When YouTube Music's own answer is refused or holds nothing but the song,
+     * the radio asks again as a visitor with a visitorData issued now, then for YouTube's own mix of
+     * the song through its web client and its VR client (RadioLadder, RadioAnswers); and when none
+     * of them gives anything, it is made from what the phone knows: Last.fm's and YouTube's lists
+     * of similar songs, the listener's own history and the song's artists (LocalRadio), with a line
+     * in the queue that says so. For a radio's start, its top-ups and the adaptive queue's pages.
+     *
+     * Without it a refused radio is the song alone, as before. Its texts (radio_from_intertune_*)
+     * are held from translators, their French beside them in values-fr. When it is agreed: set this
+     * to true, add its name to ReleasedFlagsTest, make its texts translatable.
+     */
+    val RADIO_FALLBACK = BuildConfig.DEBUG
+
+    /**
      * Lyrics videos lit word by word (his idea, 4 Nov 2026), as the lyrics view lights them, where
      * the lyrics have word times and word by word is on in the lyrics settings: the line being sung
      * at LyricsVideoPlan.UNSUNG, and each word lit across as it is sung. Without it, or without word

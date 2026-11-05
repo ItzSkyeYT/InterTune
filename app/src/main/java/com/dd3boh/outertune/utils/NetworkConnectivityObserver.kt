@@ -81,6 +81,8 @@ class NetworkConnectivityObserver(
             Throttle.onNetworkChanged()
             NetworkPace.forget()
             YouTubeTrouble.networkChanged()
+            // What YouTube refused a radio on this network it may well answer on that one.
+            com.dd3boh.outertune.playback.RadioAnswers.forget()
             runCatching { onNetworkChanged() }
             runCatching { ReportTrail.thisRun.networkChangedTo(PhoneState.networkKind(connectivityManager.getNetworkCapabilities(network))) }
         }
