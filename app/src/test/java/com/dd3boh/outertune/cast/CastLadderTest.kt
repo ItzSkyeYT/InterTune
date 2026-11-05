@@ -169,6 +169,20 @@ class CastLadderTest {
         assertEquals("l16-44100-2:dlna", walk.current?.key)
     }
 
+    @Test
+    fun `once the song is decoded the raw rungs follow its real rate, and the remembered rung stays first`() {
+        // Seen on the Pixel 5, 5 Nov 2026: the rung remembered went second after the re-order.
+        val walk = LadderWalk(CastLadder.startingAt(zeppelin, "l16-48000-2:plain"))
+        val support = FormatSupport.Listed(setOf("audio/l16"), zeppelinOffers)
+        walk.replaceRest(CastLadder.afterDecoding(walk.rungs, support, 48_000 to 2, "l16-48000-2:plain"))
+        assertEquals(listOf("l16-48000-2:plain", "l16-48000-2:dlna", "l16-44100-2:dlna", "l16-44100-2:plain"), keys(walk.rungs))
+        // A song that cannot be decoded keeps only its other rungs.
+        val mixed = rungs("http-get:*:audio/mp4:*,http-get:*:audio/L16;rate=44100;channels=2:*")
+        assertEquals(listOf("aac:dlna", "aac:plain"), keys(CastLadder.afterDecoding(mixed, ProtocolInfo.support("http-get:*:audio/mp4:*,http-get:*:audio/L16;rate=44100;channels=2:*"), null, null)))
+        // A remembered raw rung of a rate the song no longer has is not forced in.
+        assertEquals(listOf("l16-44100-2:dlna", "l16-44100-2:plain", "l16-48000-2:dlna", "l16-48000-2:plain"), keys(CastLadder.afterDecoding(zeppelin, support, 44_100 to 2, "l16-96000-2:plain")))
+    }
+
     private val zeppelinOffers = listOf(PcmOffer("audio/L16;rate=44100;channels=2", 44_100, 2), PcmOffer("audio/L16;rate=48000;channels=2", 48_000, 2))
 
     // Judging one try

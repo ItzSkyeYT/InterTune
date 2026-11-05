@@ -136,6 +136,21 @@ object CastLadder {
         else -> 44_100
     }
 
+    /**
+     * [rest], the rungs not tried yet, once the song has been decoded: the raw ones put in the order
+     * of the rate it really decodes at ([decoded]: rate and channels), or taken out when it cannot
+     * be decoded ([decoded] null), after the others as always, and the [remembered] rung still first.
+     */
+    fun afterDecoding(rest: List<CastRung>, support: FormatSupport, decoded: Pair<Int, Int>?, remembered: String?): List<CastRung> {
+        val raw = if (decoded == null) {
+            emptyList()
+        } else {
+            rawForms(support, decoded.first, decoded.second)
+                .flatMap { listOf(CastRung(RungForm.Raw(it), RungLabels.DLNA), CastRung(RungForm.Raw(it), RungLabels.PLAIN)) }
+        }
+        return startingAt(rest.filter { it.form !is RungForm.Raw } + raw, remembered)
+    }
+
     /** [rungs] with the one under [remembered] first, when it is among them; as they are otherwise. */
     fun startingAt(rungs: List<CastRung>, remembered: String?): List<CastRung> {
         val first = rungs.firstOrNull { it.key == remembered } ?: return rungs

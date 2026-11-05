@@ -514,14 +514,8 @@ class RemotePlayer(
             val source = runCatching { server.pcmSourceOf(mediaId, load.entry.durationMs) }
                 .onFailure { Log.i(TAG, "$mediaId cannot be decoded for ${link.device.name}: ${it.message}") }
                 .getOrNull()
-            val raw = if (source == null) {
-                emptyList()
-            } else {
-                CastLadder.rawForms(link.caps.formats, source.rate, source.channels)
-                    .flatMap { listOf(CastRung(RungForm.Raw(it), RungLabels.DLNA), CastRung(RungForm.Raw(it), RungLabels.PLAIN)) }
-            }
             val rest = climb.walk.rungs.dropWhile { it != rung }
-            climb.walk.replaceRest(raw + rest.filter { it.form !is RungForm.Raw })
+            climb.walk.replaceRest(CastLadder.afterDecoding(rest, link.caps.formats, source?.let { it.rate to it.channels }, climb.remembered))
             rung = climb.walk.current ?: return giveUp(climb)
         }
         val plain = rung.labels == RungLabels.PLAIN
