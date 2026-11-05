@@ -57,11 +57,11 @@ class CastLadderTest {
     fun `only what the speaker lists, and every form when it lists nothing`() {
         // MP4 listed, so AAC; nothing raw listed.
         assertEquals(listOf("aac:dlna", "aac:plain"), keys(rungs("http-get:*:audio/mpeg:*,http-get:*:audio/x-m4a:*")))
-        // A renderer that would not say: every form, raw at both LPCM rates.
+        // A renderer that would not say: every form, raw at both LPCM rates, CD audio's first.
         assertEquals(
             listOf(
                 "asis:audio/webm:dlna", "asis:audio/webm:plain", "aac:dlna", "aac:plain",
-                "l16-48000-2:dlna", "l16-48000-2:plain", "l16-44100-2:dlna", "l16-44100-2:plain",
+                "l16-44100-2:dlna", "l16-44100-2:plain", "l16-48000-2:dlna", "l16-48000-2:plain",
                 "wav-48000-2:dlna", "wav-48000-2:plain",
             ),
             keys(CastLadder.rungs(FormatSupport.Unknown, opus, canFetchAac = true, canDecode = true, sourceRate = 48_000)),
@@ -85,10 +85,26 @@ class CastLadderTest {
     }
 
     @Test
-    fun `two L16 rates at most, the nearest first, and a bare L16 entry at both LPCM rates`() {
+    fun `two L16 rates at most, the nearest first, and a bare L16 entry at both LPCM rates, CD audio's first`() {
         val many = (listOf(8_000, 16_000, 22_050, 32_000, 44_100, 96_000)).joinToString(",") { "http-get:*:audio/L16;rate=$it;channels=2:*" }
         assertEquals(listOf("l16-44100-2:dlna", "l16-44100-2:plain", "l16-96000-2:dlna", "l16-96000-2:plain"), keys(rungs(many)))
-        assertEquals(listOf("l16-48000-2", "l16-44100-2"), rungs("http-get:*:audio/L16:*").map { it.form.key }.distinct())
+        // A speaker that names no rate may play any L16 as CD audio, and 48 kHz slow would still
+        // count as playing: 44.1 first even for a song at 48, as the cast without the ladder sends.
+        assertEquals(listOf("l16-44100-2", "l16-48000-2"), rungs("http-get:*:audio/L16:*").map { it.form.key }.distinct())
+        // The Zeppelin Wireless's list as the app's message showed it to Geogos (4 Nov 2026), which
+        // takes rates off, so perhaps not its whole word; never L8.
+        assertEquals(
+            listOf("l16-44100-2:dlna", "l16-44100-2:plain", "l16-48000-2:dlna", "l16-48000-2:plain"),
+            keys(rungs("http-get:*:audio/l16:*,http-get:*:audio/l8:*")),
+        )
+        // A rate it names comes before one guessed.
+        assertEquals(listOf("l16-48000-2", "l16-44100-2"), rungs("http-get:*:audio/L16;rate=48000;channels=2:*,http-get:*:audio/L16:*").map { it.form.key }.distinct())
+        // The real rate, once decoded, changes nothing for guesses.
+        val bare = ProtocolInfo.support("http-get:*:audio/L16:*")
+        assertEquals(
+            listOf("l16-44100-2:dlna", "l16-44100-2:plain", "l16-48000-2:dlna", "l16-48000-2:plain"),
+            keys(CastLadder.afterDecoding(rungs("http-get:*:audio/L16:*"), bare, 48_000 to 2, null)),
+        )
     }
 
     @Test

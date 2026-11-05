@@ -212,6 +212,9 @@ object PcmFormats {
      * Every L16 form [target] takes, best first, one for each rate: the order and the channels of
      * [pick]. An entry that names no rate stands for [bareRates]: CD audio's alone for a single
      * pick, both of the LPCM profile's where the cast can fall back to the next (CastLadder).
+     * Rates the renderer names come first, the song's own first; rates only guessed for an entry
+     * that names none come after, in the order of [bareRates]. A renderer that names no rate may
+     * take every L16 for CD audio and play 48 kHz slow, which would still count as playing.
      */
     fun l16Forms(target: PcmTarget, sourceRate: Int, sourceChannels: Int, bareRates: List<Int>): List<PcmForm> {
         val choices = target.l16.flatMap { offer ->
@@ -220,7 +223,9 @@ object PcmFormats {
             rates.flatMap { rate -> channels.filter { it in PcmForm.CHANNELS }.map { Triple(rate, it, offer) } }
         }
         require(choices.isNotEmpty()) { "No L16 entry names one or two channels" }
-        return choices.map { it.first }.distinct().sortedWith(compareBy({ penalty(it, sourceRate) }, { it })).map { rate ->
+        val named = target.l16.mapNotNull { it.rate }.toSet()
+        val order = compareBy<Int>({ it !in named }, { if (it in named) penalty(it, sourceRate) else bareRates.indexOf(it).toDouble() }, { it })
+        return choices.map { it.first }.distinct().sortedWith(order).map { rate ->
             val atRate = choices.filter { it.first == rate }
             val channels = if (atRate.any { it.second == 2 }) 2 else 1
             val exact = atRate.firstOrNull { it.second == channels && it.third.rate == rate && it.third.channels == channels }?.third

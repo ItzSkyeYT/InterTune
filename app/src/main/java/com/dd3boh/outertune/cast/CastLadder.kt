@@ -109,12 +109,12 @@ object CastLadder {
 
     /**
      * The raw audio a renderer that said [support] takes, best first: L16 at up to [MOST_RATES]
-     * rates (an L16 entry that names none is taken at both of the LPCM profile's), then WAV. A
-     * renderer that said nothing gets both, at the LPCM rates.
+     * rates (an L16 entry that names none is taken at both of the LPCM profile's, CD audio's
+     * first), then WAV. A renderer that said nothing gets both, as if it listed L16 with no rate.
      */
     fun rawForms(support: FormatSupport, sourceRate: Int, sourceChannels: Int): List<PcmForm> {
         val target = when (support) {
-            FormatSupport.Unknown -> PcmTarget(PcmTarget.LPCM.l16, wav = "audio/wav")
+            FormatSupport.Unknown -> PcmTarget(listOf(PcmOffer("audio/L16")), wav = "audio/wav")
             is FormatSupport.Listed -> PcmFormats.target(support) ?: return emptyList()
         }
         val l16 = if (target.l16.isEmpty()) {
