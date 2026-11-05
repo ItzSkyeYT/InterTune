@@ -2301,4 +2301,6 @@
     <string name="new_backup_parts_here">Touchez Sauvegarder pour choisir ce que contient le fichier. Vos connexions n\'y vont que si vous les cochez.</string>
     <string name="new_lyrics_save_title">Enregistrer les cartes et vidéos de paroles</string>
     <string name="new_lyrics_save_body">Appuyez longuement sur une ligne des paroles : une carte ou une vidéo peut maintenant être enregistrée sur le téléphone, pas seulement partagée.</string>
+    <string name="library_song_empty_liked" translatable="false">Les titres que vous aimez s\'afficheront ici</string>
+    <string name="library_song_empty_downloaded" translatable="false">Les titres téléchargés s\'afficheront ici</string>
 </resources>
