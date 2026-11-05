@@ -36,7 +36,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -97,8 +96,8 @@ fun CrashReportDialog() {
     val skippedCode by rememberPreference(DismissedUpdateCodeKey, -1)
     val newer = crashNewerVersion(foundCode, foundName, BuildConfig.VERSION_CODE, skippedCode)
     val fromFdroid = remember { context.installSource() == InstallSource.F_DROID }
-    var what by rememberSaveable { mutableStateOf("") }
-    var contact by rememberSaveable { mutableStateOf("") }
+    // What happened and how to reach them, kept until a report is sent: see ReportDraft.
+    val words = rememberReportWords()
     var sending by remember { mutableStateOf(false) }
     var outcome by remember { mutableStateOf<ReportRelay.Outcome?>(null) }
     val scope = rememberCoroutineScope()
@@ -119,7 +118,7 @@ fun CrashReportDialog() {
             .appendQueryParameter("title", "Crash: $cause")
             .build()
         // What they typed, then the trace from its top, as much as the link holds for someone signed out.
-        val said = if (relay && what.isNotBlank()) what.trim().take(FORM_WHAT_LIMIT) + "\n\n" else ""
+        val said = if (relay && words.what.isNotBlank()) words.what.trim().take(FORM_WHAT_LIMIT) + "\n\n" else ""
         val room = FORM_LINK_LIMIT - base.toString().length - "&body=".length - ProblemLog.linkLength("$said```\n\n```")
         val uri = base.buildUpon()
             .appendQueryParameter("body", "$said```\n${ProblemLog.startForLink(text.take(ISSUE_BODY_LIMIT), room)}\n```")
@@ -162,13 +161,13 @@ fun CrashReportDialog() {
                     Spacer(Modifier.height(8.dp))
                     Text(stringResource(R.string.problem_report_extras))
                 }
-                if (relay) {
+                if (relay && words.back) {
                     Spacer(Modifier.height(12.dp))
                     ReportWayChoice(way, onPick = { way = it })
                     Spacer(Modifier.height(12.dp))
                     OutlinedTextField(
-                        value = what,
-                        onValueChange = { what = it.take(2000) },
+                        value = words.what,
+                        onValueChange = words::typeWhat,
                         label = { Text(stringResource(R.string.problem_report_what)) },
                         minLines = 2,
                         maxLines = 5,
@@ -179,8 +178,8 @@ fun CrashReportDialog() {
                         Spacer(Modifier.height(8.dp))
                         val failed = outcome is ReportRelay.Outcome.Failed
                         OutlinedTextField(
-                            value = contact,
-                            onValueChange = { contact = it.take(200) },
+                            value = words.contact,
+                            onValueChange = words::typeContact,
                             label = { Text(stringResource(R.string.problem_report_contact)) },
                             placeholder = { Text(stringResource(R.string.problem_report_contact_hint)) },
                             supportingText = { Text(stringResource(if (failed) R.string.problem_report_send_failed else R.string.problem_report_contact_note)) },
@@ -215,10 +214,12 @@ fun CrashReportDialog() {
                             device = ProblemLog.device(),
                             report = text,
                             title = "Crash: $cause",
-                            contact = contact,
-                            what = what,
+                            contact = words.contact,
+                            what = words.what,
                         )
                         if (result is ReportRelay.Outcome.Failed) Log.w("CrashReport", "Not sent: ${result.why}")
+                        // Filed, or kept by the site for a look: the words went with it.
+                        else words.sent()
                         outcome = result
                         sending = false
                     }

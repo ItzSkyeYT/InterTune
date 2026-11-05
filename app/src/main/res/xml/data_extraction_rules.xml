@@ -11,6 +11,10 @@
 
    The app's own logs, one file per run for Report a problem (logs, RunLogs), belong to this phone
    and stay out of both: up to some megabytes, and of no use on another phone.
+
+   So do the words typed on Report a problem or the crash page and not sent yet (ReportDraft):
+   they are this phone's, in a file of their own beside the settings, out of the cloud backup with
+   the rest of datastore/ and out of a transfer by name.
 -->
 <data-extraction-rules>
     <cloud-backup>
@@ -43,6 +47,9 @@
         <exclude
             domain="file"
             path="logs/" />
+        <exclude
+            domain="file"
+            path="datastore/report_draft.preferences_pb" />
         <exclude
             domain="file"
             path="./exoplayer" />

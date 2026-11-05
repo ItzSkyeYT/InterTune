@@ -189,8 +189,8 @@ fun ProblemReportDialog(onDismiss: () -> Unit) {
     // Anonymous, or with the person's GitHub account: the way picked last time comes up first (ReportWayKey).
     var way by rememberEnumPreference(ReportWayKey, ReportWay.ANONYMOUS)
     val withGitHub = relay && way == ReportWay.GITHUB
-    var what by rememberSaveable { mutableStateOf("") }
-    var contact by rememberSaveable { mutableStateOf("") }
+    // What happened and how to reach them, kept until a report is sent: see ReportDraft.
+    val words = rememberReportWords()
     var sending by remember { mutableStateOf(false) }
     var outcome by remember { mutableStateOf<ReportRelay.Outcome?>(null) }
     val scope = rememberCoroutineScope()
@@ -207,7 +207,7 @@ fun ProblemReportDialog(onDismiss: () -> Unit) {
             .appendQueryParameter("build", choice?.build ?: ProblemLog.build())
             .appendQueryParameter("device", ProblemLog.device())
             // What they typed above, into the form's own box for it (id what-happens).
-            .apply { if (relay && what.isNotBlank()) appendQueryParameter("what-happens", what.trim().take(FORM_WHAT_LIMIT)) }
+            .apply { if (relay && words.what.isNotBlank()) appendQueryParameter("what-happens", words.what.trim().take(FORM_WHAT_LIMIT)) }
             .build()
         // The log as much as the link holds: see FORM_LINK_LIMIT.
         val room = FORM_LINK_LIMIT - form.toString().length - "&logs=".length
@@ -244,13 +244,13 @@ fun ProblemReportDialog(onDismiss: () -> Unit) {
                     Spacer(Modifier.height(12.dp))
                     LogList(all, picked, showAll, onPick = { picked = it }, onShowAll = { showAll = true })
                 }
-                if (relay && text != null) {
+                if (relay && text != null && words.back) {
                     Spacer(Modifier.height(12.dp))
                     ReportWayChoice(way, onPick = { way = it })
                     Spacer(Modifier.height(12.dp))
                     OutlinedTextField(
-                        value = what,
-                        onValueChange = { what = it.take(2000) },
+                        value = words.what,
+                        onValueChange = words::typeWhat,
                         label = { Text(stringResource(R.string.problem_report_what)) },
                         minLines = 2,
                         maxLines = 5,
@@ -261,8 +261,8 @@ fun ProblemReportDialog(onDismiss: () -> Unit) {
                         Spacer(Modifier.height(8.dp))
                         val failed = outcome is ReportRelay.Outcome.Failed
                         OutlinedTextField(
-                            value = contact,
-                            onValueChange = { contact = it.take(200) },
+                            value = words.contact,
+                            onValueChange = words::typeContact,
                             label = { Text(stringResource(R.string.problem_report_contact)) },
                             placeholder = { Text(stringResource(R.string.problem_report_contact_hint)) },
                             supportingText = { Text(stringResource(if (failed) R.string.problem_report_send_failed else R.string.problem_report_contact_note)) },
@@ -297,11 +297,13 @@ fun ProblemReportDialog(onDismiss: () -> Unit) {
                             build = choice?.build ?: ProblemLog.build(),
                             device = ProblemLog.device(),
                             report = text.orEmpty(),
-                            title = ReportRelay.title(found) ?: what.lineSequence().firstOrNull()?.trim(),
-                            contact = contact,
-                            what = what,
+                            title = ReportRelay.title(found) ?: words.what.lineSequence().firstOrNull()?.trim(),
+                            contact = words.contact,
+                            what = words.what,
                         )
                         if (result is ReportRelay.Outcome.Failed) Log.w("ProblemReport", "Not sent: ${result.why}")
+                        // Filed, or kept by the site for a look: the words went with it.
+                        else words.sent()
                         outcome = result
                         sending = false
                     }

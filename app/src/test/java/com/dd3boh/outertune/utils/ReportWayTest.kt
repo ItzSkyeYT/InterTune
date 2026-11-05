@@ -55,7 +55,8 @@ class ReportWayTest {
     @Test
     fun `what was typed goes into the form's own box`() {
         val problem = read("ui/component/ProblemReportDialog.kt")
-        assertTrue("appendQueryParameter(\"what-happens\", what.trim().take(FORM_WHAT_LIMIT))" in problem)
+        // The words as kept until sent (ReportDraft): the same box's words.
+        assertTrue("appendQueryParameter(\"what-happens\", words.what.trim().take(FORM_WHAT_LIMIT))" in problem)
         // The id is the form's: renaming the box there would empty it silently.
         assertTrue(File("../.github/ISSUE_TEMPLATE/bug_report.yml").readText().contains("id: what-happens"))
     }
