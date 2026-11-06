@@ -105,6 +105,9 @@ import java.text.NumberFormat
 import java.time.LocalDate
 import java.time.LocalTime
 import java.util.Locale
+import com.dd3boh.outertune.stats.FoundHere
+import java.time.Instant
+import java.time.ZoneId
 
 /** Findings shown before Show more: enough to fill a screen, few enough to reach the lists. */
 private const val SHOWN_INSIGHTS = 6
@@ -133,6 +136,7 @@ fun LazyListScope.statsInsights(
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
     actions: InsightActions,
+    found: FoundHere.Result? = null,
 ) {
     val stats = shown.stats
     val dim = if (loading) 0.4f else 1f
@@ -163,6 +167,15 @@ fun LazyListScope.statsInsights(
         if (hours != null) item(key = "insights_hours") {
             val width = LocalLandscape.current.cardWidth()
             HoursCard(hours, Modifier.widthIn(max = width).cardPadding().alpha(dim).animateItem())
+        }
+    }
+
+    // Found with InterTune (his idea of 6 Nov 2026), the first of the findings. All time, the same
+    // whatever period is picked, so it is not dimmed while another period loads.
+    found?.takeIf { it.total > 0 }?.let { f ->
+        item(key = "insights_found") {
+            val width = LocalLandscape.current.cardWidth()
+            FoundCard(f, Modifier.widthIn(max = width).cardPadding().animateItem())
         }
     }
 
@@ -572,6 +585,111 @@ private fun sourceLabel(source: ListenSource): String = when (source) {
     ListenSource.HOME -> stringResource(R.string.home)
     ListenSource.RECOGNISED -> stringResource(R.string.stats_source_label_recognised)
     ListenSource.OTHER -> stringResource(R.string.stats_source_label_other)
+}
+
+/**
+ * Found with InterTune: how many of the songs the listener liked InterTune played them first, the
+ * split by where from under it, as Where your listening came from has its own, and since when.
+ */
+@Composable
+private fun FoundCard(found: FoundHere.Result, modifier: Modifier) {
+    val format = rememberStatsFormat()
+    val accent = MaterialTheme.colorScheme.primary
+    val since = remember(found.since, format) {
+        format.day(Instant.ofEpochMilli(found.since).atZone(ZoneId.systemDefault()).toLocalDate().toEpochDay(), weekday = false)
+    }
+    ElevatedCard(modifier = modifier) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(ListThumbnailSize)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.secondaryContainer)
+            ) {
+                Icon(Icons.Rounded.Explore, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
+            }
+            Spacer(Modifier.width(16.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = fill(stringResource(R.string.stats_found), listOf(Part(format.count(found.total), Mark.NUMBER)), accent),
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+                FoundBar(found.byWay)
+                Text(
+                    text = stringResource(R.string.stats_known_since, since),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+            }
+        }
+    }
+}
+
+/** The found songs by where they came from, drawn as [SourcesBar] draws its shares, with counts. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun FoundBar(byWay: List<Pair<FoundHere.Way, Int>>) {
+    val format = rememberStatsFormat()
+    val colors = listOf(
+        MaterialTheme.colorScheme.primary,
+        MaterialTheme.colorScheme.tertiary,
+        MaterialTheme.colorScheme.secondary,
+        MaterialTheme.colorScheme.outline,
+    )
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        modifier = Modifier
+            .padding(top = 12.dp)
+            .fillMaxWidth()
+            .height(8.dp)
+            .clip(RoundedCornerShape(4.dp))
+    ) {
+        byWay.forEachIndexed { i, (_, n) ->
+            Box(
+                Modifier
+                    .weight(n.toFloat())
+                    .fillMaxHeight()
+                    .background(colors[i % colors.size])
+            )
+        }
+    }
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = Modifier.padding(top = 8.dp),
+    ) {
+        byWay.forEachIndexed { i, (way, n) ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(colors[i % colors.size])
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = wayLabel(way) + " " + format.count(n),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun wayLabel(way: FoundHere.Way): String = when (way) {
+    FoundHere.Way.QUICK_PICKS -> stringResource(R.string.quick_picks)
+    FoundHere.Way.RADIOS -> stringResource(R.string.found_way_radios)
+    FoundHere.Way.DISCOVER -> stringResource(R.string.discover_something_new)
+    FoundHere.Way.HOME -> stringResource(R.string.found_way_home)
 }
 
 /** How a filled-in part of a sentence is set: a name in bold, a number in the accent colour. */

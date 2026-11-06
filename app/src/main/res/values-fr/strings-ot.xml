@@ -2336,15 +2336,7 @@
     <string name="not_saved" translatable="false">Non enregistré : un problème est survenu. Réessayez.</string>
     <string name="remove_download_selection_confirm" translatable="false">Supprimer les téléchargements des titres choisis ?</string>
     <string name="queue_held_row_label" translatable="false">revenir au titre en cours</string>
-    <string name="found_with_intertune" translatable="false">Découvert avec InterTune</string>
-    <plurals name="found_liked_songs" translatable="false">
-        <item quantity="one">titre aimé</item>
-        <item quantity="other">titres aimés</item>
-    </plurals>
-    <plurals name="found_first_heard_since" translatable="false">
-        <item quantity="one">entendu ici en premier, depuis le %s</item>
-        <item quantity="other">entendus ici en premier, depuis le %s</item>
-    </plurals>
+    <string name="stats_found" translatable="false">InterTune vous a fait découvrir %1$s des titres que vous aimez.</string>
     <string name="found_way_radios" translatable="false">Radios</string>
     <string name="found_way_home" translatable="false">Autres rangées de l\'accueil</string>
 </resources>

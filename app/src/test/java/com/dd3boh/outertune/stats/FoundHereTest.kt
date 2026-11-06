@@ -96,12 +96,17 @@ class FoundHereTest {
     }
 
     @Test
-    fun `the page reads it once, all time, and shows it only when something qualifies`() {
+    fun `the page reads it once, all time, and shows it as the first of the finding cards when something qualifies`() {
         val vm = File("src/main/java/com/dd3boh/outertune/viewmodels/StatsViewModel.kt").readText()
         assertTrue(vm.contains("FoundHere.compute(database.statsFoundFirstListens(), database.statsBounds().firstLiveAt)"))
         val screen = File("src/main/java/com/dd3boh/outertune/ui/screens/StatsScreen.kt").readText()
-        assertTrue(screen.contains("found?.takeIf { it.total > 0 }?.let { f ->"))
-        // Above the period's findings and lists, right under the chips.
-        assertTrue(screen.indexOf("key = \"foundWithInterTune\"") in 0 until screen.indexOf("statsInsights("))
+        assertTrue(screen.contains("found = found,"))
+        val cards = File("src/main/java/com/dd3boh/outertune/ui/screens/StatsInsights.kt").readText()
+        assertTrue(cards.contains("found?.takeIf { it.total > 0 }?.let { f ->"))
+        // A card as the findings are, the first of them: after the summary and the hours, before the rest.
+        val at = cards.indexOf("item(key = \"insights_found\")")
+        assertTrue(at > cards.indexOf("item(key = \"insights_hours\")"))
+        assertTrue(at < cards.indexOf("// A finding whose song or artist is not there to show is left out"))
+        assertTrue(cards.substringAfter("private fun FoundCard(").substringBefore("\n}\n").contains("ElevatedCard("))
     }
 }

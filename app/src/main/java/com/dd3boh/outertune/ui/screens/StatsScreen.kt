@@ -1,26 +1,5 @@
 package com.dd3boh.outertune.ui.screens
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import com.dd3boh.outertune.stats.FoundHere
-import java.time.Instant
-import java.time.ZoneId
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -157,14 +136,6 @@ fun StatsScreen(
             )
         }
 
-        // Found with InterTune (his idea of 6 Nov 2026): all time, whatever period is picked above,
-        // and left out until something qualifies, as the lists below are.
-        found?.takeIf { it.total > 0 }?.let { f ->
-            item(key = "foundWithInterTune") {
-                FoundWithInterTune(f, Modifier.animateItem())
-            }
-        }
-
         insights?.let { shown ->
             statsInsights(
                 shown = shown,
@@ -173,6 +144,7 @@ fun StatsScreen(
                 expanded = showAllInsights,
                 onExpandedChange = { showAllInsights = it },
                 actions = insightActions,
+                found = found,
             )
         }
 
@@ -325,83 +297,3 @@ fun StatsScreen(
 
     FloatingTopBar(title = stringResource(R.string.stats), navController = navController)
 }
-
-/**
- * Found with InterTune: the songs the listener liked that InterTune played them first, the count big
- * beside its words, then where those first plays came from, a row each with its share as a bar.
- */
-@Composable
-private fun FoundWithInterTune(found: FoundHere.Result, modifier: Modifier = Modifier) {
-    // The day as the card under it writes its own, "since 31 October" (StatsFormat.day).
-    val format = rememberStatsFormat()
-    val since = remember(found.since, format) {
-        format.day(Instant.ofEpochMilli(found.since).atZone(ZoneId.systemDefault()).toLocalDate().toEpochDay(), weekday = false)
-    }
-    val most = found.byWay.maxOf { it.second }.coerceAtLeast(1)
-    Column(modifier = modifier) {
-        NavigationTitle(title = stringResource(R.string.found_with_intertune))
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 8.dp),
-        ) {
-            Text(
-                text = format.count(found.total),
-                style = MaterialTheme.typography.displayMedium,
-                fontWeight = FontWeight.Medium,
-            )
-            Spacer(modifier = Modifier.width(14.dp))
-            Column {
-                Text(
-                    text = pluralStringResource(R.plurals.found_liked_songs, found.total),
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Text(
-                    text = pluralStringResource(R.plurals.found_first_heard_since, found.total, since),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-        for ((way, n) in found.byWay) {
-            val label = when (way) {
-                FoundHere.Way.QUICK_PICKS -> stringResource(R.string.quick_picks)
-                FoundHere.Way.RADIOS -> stringResource(R.string.found_way_radios)
-                FoundHere.Way.DISCOVER -> stringResource(R.string.discover_something_new)
-                FoundHere.Way.HOME -> stringResource(R.string.found_way_home)
-            }
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 6.dp)
-                    // Read as one: the way and its count.
-                    .semantics(mergeDescendants = true) {},
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(text = label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-                    Text(
-                        text = format.count(n),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Spacer(modifier = Modifier.height(6.dp))
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(4.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainerHighest),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth(n.toFloat() / most)
-                            .fillMaxHeight()
-                            .clip(RoundedCornerShape(2.dp))
-                            .background(MaterialTheme.colorScheme.primary),
-                    )
-                }
-            }
-        }
-    }
-}
-
