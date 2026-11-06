@@ -101,6 +101,11 @@ class QueueMoveBeforePlayTest {
         )
         assertTrue("its rows get handles", sheet.contains("if (!lockQueue && (!detachedHead || movesStoredQueue) && !isSearching) {"))
         assertTrue(
+            "the lit row follows the song that will play after a move",
+            sheet.contains("val detachedPlace = remember(detachedQueue, unloadedQueueChanged) { detachedQueue?.getQueuePosShuffled() }") &&
+                sheet.contains("|| index == detachedPlace,")
+        )
+        assertTrue(
             "an empty player is not asked to move a song",
             sheet.contains("if (playerConnection.player.mediaItemCount > 0) {\n                        playerConnection.player.moveMediaItem(from, to)")
         )

@@ -488,6 +488,9 @@ fun BoxScope.QueueContent(
     // yet, so these rows are the queue board's own: they can be dragged, and a move goes to the
     // board alone, which saves it. A queue picked from the list to look at is not this one.
     val movesStoredQueue = detachedHead && detachedQueue != null && detachedQueue === fallbackSeed && queueWindows.isEmpty()
+    // The shown queue's place, read again when the stored queue is said to have changed: a move
+    // there takes the place along with the song that will play, and the lit row has to follow it.
+    val detachedPlace = remember(detachedQueue, unloadedQueueChanged) { detachedQueue?.getQueuePosShuffled() }
     val mutableQueues = remember { mutableStateListOf<MultiQueueObject>() }
     var playingQueue by remember { mutableIntStateOf(-1) }
 
@@ -1249,7 +1252,7 @@ fun BoxScope.QueueContent(
                             // Not while the song is held at an edge (#81): the held row wears it then. What
                             // is left of this row in sight is under that one, and the rest passes under
                             // the bar at the foot, where its highlight showed the song a second time.
-                            isActive = (index == currentWindowIndex && !detachedHead && heldEdge == QueueHeld.Edge.NONE) || index == detachedQueue?.getQueuePosShuffled(),
+                            isActive = (index == currentWindowIndex && !detachedHead && heldEdge == QueueHeld.Edge.NONE) || index == detachedPlace,
                             isPlaying = isPlaying && !detachedHead,
                             isNew = adaptiveSaying && window.id in adaptivePicks,
                             trailingContent = {
