@@ -172,7 +172,8 @@ class ChangeRender(
      * frame it needs, and a style for the logs and for the planner's rule against two smooth blends
      * in a row.
      */
-    fun heldPlan(): MixPlan {
+    @JvmOverloads
+    fun heldPlan(checkFrames: Long = 0): MixPlan {
         val spec = plan.spec
         val style = when {
             spec.from == Preset.CUT -> Style.CUT
@@ -201,8 +202,10 @@ class ChangeRender(
             attenuationA = attenuationA,
             attenuationB = attenuationB,
             shapedUntil = plan.mixTo,
+            // The incoming song's first frames handed back after the song change, where asked: for
+            // the check that a later entry came in on the frame the copy has there.
             lockFrom = 0,
-            lockTo = 0,
+            lockTo = checkFrames,
             speed = plan.speed,
             bars = spec.bars,
             beats = spec.bars * spec.b.beatsPerBar,

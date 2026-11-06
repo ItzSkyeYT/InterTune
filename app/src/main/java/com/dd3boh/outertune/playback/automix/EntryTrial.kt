@@ -36,8 +36,10 @@ data class EntryTrial(val exitLeftS: Double, val entryS: Double, val bars: Int) 
         val aBeats = gridA?.beatsPerBar ?: 4
         val line = downbeatNear(gridA, aDurationMs - exitLeftS * 1000)
         val start = line - bars * aBeats * 60_000.0 / aBpm
-        val entry = downbeatNear(gridB, entryS * 1000)
-        if (start <= 0 || entry <= 0) return null
+        // An entry of 0 or less plays B from its first frame, its bar near 2 s on the box's first bar.
+        val entry = if (entryS <= 0) 0.0 else downbeatNear(gridB, entryS * 1000)
+        val bAnchor = if (entryS <= 0) downbeatNear(gridB, 2_000.0) else entry
+        if (start <= 0 || bAnchor <= 0) return null
         val half = bars / 2.0
         val moves = mapOf(
             LaneId(Side.A, Lane.LOWS) to Move(half, 0.0, How.CUT),
@@ -49,7 +51,7 @@ data class EntryTrial(val exitLeftS: Double, val entryS: Double, val bars: Int) 
         )
         return TransitionSpec(
             a = Anchor(aId, start, aBpm, aBeats),
-            b = Anchor(bId, entry, gridB?.bpm ?: NOMINAL_BPM, gridB?.beatsPerBar ?: 4),
+            b = Anchor(bId, bAnchor, gridB?.bpm ?: NOMINAL_BPM, gridB?.beatsPerBar ?: 4),
             lanes = LaneSet.BANDS, bars = bars, beatMatch = true, preset = Preset.CUSTOM, moves = moves,
             bStartMs = entry,
         ).takeIf { it.isValid }

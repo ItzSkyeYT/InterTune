@@ -377,9 +377,9 @@ class AutomixAudioProcessor(
         held?.entrySkipped(done)
     }
 
-    override fun entrySkipTook(frames: Long, millis: Long) {
+    override fun entrySkipTook(frames: Long, millis: Long, encoderDelay: Int) {
         val rate = held?.sampleRate ?: return
-        tell { note(armId, "the next song's first %.1f s skipped in %d ms".format(java.util.Locale.ROOT, frames.toDouble() / rate, millis)) }
+        tell { note(armId, "the next song's first %.1f s skipped in %d ms, its encoder delay %d frames".format(java.util.Locale.ROOT, frames.toDouble() / rate, millis, encoderDelay)) }
     }
 
     /** What changed with the last call, said once. */

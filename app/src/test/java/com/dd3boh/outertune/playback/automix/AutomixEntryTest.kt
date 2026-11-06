@@ -122,7 +122,7 @@ class AutomixEntryTest {
             val lp = c.plan
             println("seed $seed: ${notes.filter { it.startsWith("planned") || it.contains("skipped") || it.startsWith("let go") || it.startsWith("refused") }}")
             assertTrue(notes.toString(), notes.any { it.startsWith("planned") })
-            assertTrue(notes.toString(), notes.any { it.startsWith("the next song's first 30.0 s skipped in") })
+            assertTrue(notes.toString(), notes.any { it.startsWith("the next song's first 30.0 s skipped in") && it.endsWith("its encoder delay 0 frames") })
             // What was heard: A as it is, the change as rendered, then B from where the change leaves it.
             val armFrame = (songA.size / 2 - tailFrames).toInt()
             val out = ShortList()

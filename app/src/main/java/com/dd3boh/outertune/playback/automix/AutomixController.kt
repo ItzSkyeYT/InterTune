@@ -324,6 +324,9 @@ class AutomixController(
         /** The next song's frame the end was held for it to come in on, 0 for its first. */
         var entryFrames = 0L
 
+        /** The last reason given for not holding the end yet, so each is said once. */
+        var waitingSaid: String? = null
+
         /** Each song's beats as read from all of it (WholeSongGrid), where they were; the read under way for one that has none. */
         var gridA: WholeSongGrid? = null
         var gridB: WholeSongGrid? = null
@@ -527,6 +530,9 @@ class AutomixController(
                 readHead(t, b, way)
                 if (!t.armRequested && t.head != null) {
                     if (AutomixSchedule.loaded(duration, player.currentPosition, player.bufferedPosition, player.totalBufferedDuration)) arm(t, left)
+                    else waiting(t, "the songs are not loaded yet: this one to %.1f s of %.1f, %.1f s ahead in all".format(
+                        player.bufferedPosition / 1000.0, duration / 1000.0, player.totalBufferedDuration / 1000.0,
+                    ))
                 }
             }
             AutomixSchedule.Step.TOO_LATE -> if (!t.armRequested && !t.lateSaid) {
@@ -609,7 +615,8 @@ class AutomixController(
                     t.gridB = gridB
                     t.copy = read.copy
                     t.copyFrames = read.copyFrames
-                    say("opening of ${b.id}: ${describe(head)}, read in ${read.readMs} ms, analysed in ${head.analysisMillis.toLong()} ms")
+                    val trim = if (read.trimmed > 0) ", its encoder delay of ${read.trimmed} frames trimmed" else ""
+                    say("opening of ${b.id}: ${describe(head)}, read in ${read.readMs} ms, analysed in ${head.analysisMillis.toLong()} ms$trim")
                     t.trial = saved != null && saved === trial
                     if (saved != null) savedFor(t, saved)
                     // A song with no grid yet is read whole now, the next one first: its opening is
@@ -720,7 +727,8 @@ class AutomixController(
         val rate = format.sampleRate
         val channels = format.channelCount
         if (rate <= 0 || channels <= 0) return
-        if (!stage.activeForStream || t.armTries >= ARM_TRIES) return
+        if (!stage.activeForStream) return waiting(t, "the stage is not in the chain for this song")
+        if (t.armTries >= ARM_TRIES) return
         val head = t.head ?: return
         if (head.sampleRate != rate || head.channels != channels) {
             // The sink cannot carry one track into a track of another format: it would play the
@@ -752,6 +760,14 @@ class AutomixController(
             }
             stage.requestArm(AutomixAudioProcessor.Arm(id, ring, rate, channels, System.nanoTime(), entry))
         }
+    }
+
+    /** Why the end is not held yet though it is due, said once for each reason. */
+    private fun waiting(t: Transition, why: String) {
+        val key = why.substringBefore(':')
+        if (key == t.waitingSaid) return
+        t.waitingSaid = key
+        say("the end of ${t.a.id} is due to be held, not yet: $why")
     }
 
     /**
@@ -856,6 +872,7 @@ class AutomixController(
     }
 
     override fun lockFrames(id: Long, frames: ShortArray, fromFrame: Long) = main.postFor(id) { t ->
+        if (t.entryFrames > 0L) return@postFor entryCheck(t, frames, fromFrame)
         val head = t.head
         if (head == null) {
             say("no lock check: the opening is not known")
@@ -877,6 +894,47 @@ class AutomixController(
                     stage.requestAbort(t.id, "the incoming song does not line up with its opening (%.1f ms, match %.2f)".format(r.offsetMs, r.match), beatFrames(t))
                 }
             }
+        }
+    }
+
+    /**
+     * Where the next song, brought in at a later bar, really came in: its first frames as they
+     * reached the mixer held against the copy around its planned entry, frame by frame. Logged
+     * only; the held end's own check against the copy crosses over to the song where they differ.
+     */
+    private fun entryCheck(t: Transition, frames: ShortArray, fromFrame: Long) {
+        val copy = t.copy ?: return
+        val channels = t.head?.channels ?: return
+        val copyFrames = t.copyFrames.toLong()
+        val entry = t.entryFrames
+        val work = work() ?: return
+        work.execute {
+            val n = minOf(frames.size / channels, ENTRY_CHECK_FRAMES)
+            val live = DoubleArray(n) { i -> var s = 0.0; for (c in 0 until channels) s += frames[i * channels + c]; s }
+            val liveEnergy = live.sumOf { it * it }
+            var best = 0
+            var bestMatch = -2.0
+            var atPlan = 0.0
+            for (lag in -ENTRY_CHECK_REACH..ENTRY_CHECK_REACH) {
+                val at = entry + fromFrame + lag
+                if (at < 0 || at + n > copyFrames) continue
+                var dot = 0.0
+                var energy = 0.0
+                for (i in 0 until n) {
+                    var v = 0.0
+                    val base = ((at + i) * channels).toInt()
+                    for (c in 0 until channels) v += copy[base + c]
+                    dot += v * live[i]
+                    energy += v * v
+                }
+                val match = if (energy > 0 && liveEnergy > 0) dot / kotlin.math.sqrt(energy * liveEnergy) else 0.0
+                if (lag == 0) atPlan = match
+                if (match > bestMatch) {
+                    bestMatch = match
+                    best = lag
+                }
+            }
+            main.post { say("entry check: the next song came in %d frames from its planned one (match %.4f there, %.4f on it)".format(best, bestMatch, atPlan)) }
         }
     }
 
@@ -1061,7 +1119,9 @@ class AutomixController(
             lanePlan?.let { p ->
                 val render = LaneMixer(p).render(ring, copy, attenuationA, attenuationB)
                 if (t.abandoned.get()) return BandsOutcome("on bands, not used: the change was given up")
-                stage.offer(held, render.heldPlan(), render.outgoing, render.incoming, replaces = true)
+                // A later entry hands its first frames back, for the check that it came in where the copy has it.
+                val check = if (t.entryFrames > 0L) ENTRY_CHECK_FRAMES.toLong() else 0L
+                stage.offer(held, render.heldPlan(check), render.outgoing, render.incoming, replaces = true)
                 return BandsOutcome(
                     "on bands, saved: ${p.describe()}, " + "rendered in %.0f ms, headroom %.1f dB, peak %.2f".format(
                         render.renderMillis, render.headroom.deepestDb, render.peakAfter,
@@ -1364,6 +1424,10 @@ class AutomixController(
         const val HEAD_CACHE = 8
         const val NORMALIZATION_CACHE = 64
         const val ARM_TRIES = 3
+
+        /** How many of a later entry's first frames are held against the copy, and how far either side. */
+        const val ENTRY_CHECK_FRAMES = 8192
+        const val ENTRY_CHECK_REACH = 4096
         const val HOLDING_LOOK_MS = 1_000L
         const val KEPT_GUIDE_S = 4.5
         const val LOCK_FAILED_KEPT = 256

@@ -36,7 +36,7 @@ class EntrySkipTest {
         override fun entrySkipped(done: Boolean) {
             this.done = done
         }
-        override fun entrySkipTook(frames: Long, millis: Long) {
+        override fun entrySkipTook(frames: Long, millis: Long, encoderDelay: Int) {
             tookFrames = frames
         }
     }
@@ -97,6 +97,27 @@ class EntrySkipTest {
         assertTrue(sink.emptyTimes.isNotEmpty())
         assertTrue(sink.emptyTimes.all { it == start + us(entry) })
         assertEquals(start + us(entry), sink.times[0])
+    }
+
+    @Test
+    fun `a second configure a buffer into the new song goes on counting`() {
+        // As on the emulator (6 Nov): the new decoder's first buffer, 648 frames, then the sink
+        // configured again for its output format. Counting from there dropped 648 frames too many.
+        val entry = 30L * rate
+        val stage = Stage(entry)
+        val sink = Sink()
+        val skip = EntrySkip(stage)
+        skip.configured(format)
+        assertTrue(skip.handle(buffer(0, 648), 0) { b, t -> sink.handle(b, t) })
+        skip.configured(format)
+        var frame = 648
+        while (sink.frames.isEmpty()) {
+            assertTrue(skip.handle(buffer(frame, 960), us(frame.toLong())) { b, t -> sink.handle(b, t) })
+            frame += 960
+        }
+        assertEquals(1, stage.asked)
+        assertEquals((entry % 32768).toInt(), sink.frames[0].toInt())
+        assertEquals(us(entry), sink.times[0])
     }
 
     @Test

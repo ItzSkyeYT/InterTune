@@ -39,8 +39,8 @@ internal class EntrySkip(private val stage: Stage, private val nanoTime: () -> L
         /** Some of them were dropped, all of them when [done]. */
         fun entrySkipped(done: Boolean)
 
-        /** They took [millis] to drop, [frames] of them. */
-        fun entrySkipTook(frames: Long, millis: Long)
+        /** They took [millis] to drop, [frames] of them; the sink then trims [encoderDelay] frames more, the stream's own. */
+        fun entrySkipTook(frames: Long, millis: Long, encoderDelay: Int)
     }
 
     private var frameBytes = 0
@@ -51,15 +51,23 @@ internal class EntrySkip(private val stage: Stage, private val nanoTime: () -> L
     private var entryUs = C.TIME_UNSET
     private var entryBuffer: ByteBuffer? = null
     private var startedNanos = 0L
+    private var encoderDelay = 0
 
     /** Whether frames of the stream starting now are being dropped. */
     val skipping: Boolean get() = newStream && target > 0 && skipped < target
 
-    /** A stream is configured: its first buffer is the one asked about. */
+    /**
+     * A stream is configured: its first buffer is the one asked about. The renderer configures the
+     * sink again a buffer into a new song, as the new decoder reports its output format: the same
+     * format while frames are being dropped is the same stream, and the count goes on.
+     */
     fun configured(format: Format) {
         val pcm = MimeTypes.AUDIO_RAW == format.sampleMimeType && format.pcmEncoding != Format.NO_VALUE && format.channelCount > 0
-        frameBytes = if (pcm) Util.getPcmFrameSize(format.pcmEncoding, format.channelCount) else 0
+        val bytes = if (pcm) Util.getPcmFrameSize(format.pcmEncoding, format.channelCount) else 0
+        if (newStream && target > 0 && bytes == frameBytes && format.sampleRate == rate) return
+        frameBytes = bytes
         rate = format.sampleRate
+        encoderDelay = format.encoderDelay.coerceAtLeast(0)
         newStream = frameBytes > 0 && rate > 0
         target = -1
         skipped = 0
@@ -90,7 +98,7 @@ internal class EntrySkip(private val stage: Stage, private val nanoTime: () -> L
             skipped += take
             val done = skipped == target
             stage.entrySkipped(done)
-            if (done) stage.entrySkipTook(target, (nanoTime() - startedNanos) / 1_000_000L)
+            if (done) stage.entrySkipTook(target, (nanoTime() - startedNanos) / 1_000_000L, encoderDelay)
             // The held end drains on, at the entry's time should the drain close on this call.
             sink(EMPTY, entryUs)
             if (!buffer.hasRemaining()) return true
