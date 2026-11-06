@@ -269,7 +269,7 @@ class StatsFormat(
 }
 
 @Composable
-private fun rememberStatsFormat(): StatsFormat {
+internal fun rememberStatsFormat(): StatsFormat {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
     return remember(context, configuration) {

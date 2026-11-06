@@ -1,6 +1,5 @@
 package com.dd3boh.outertune.ui.screens
 
-import android.text.format.DateFormat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,9 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.dd3boh.outertune.stats.FoundHere
 import java.time.Instant
-import java.time.LocalDate
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -335,11 +332,10 @@ fun StatsScreen(
  */
 @Composable
 private fun FoundWithInterTune(found: FoundHere.Result, modifier: Modifier = Modifier) {
-    val locale = LocalConfiguration.current.locales[0]
-    val since = remember(found.since, locale) {
-        val day = Instant.ofEpochMilli(found.since).atZone(ZoneId.systemDefault()).toLocalDate()
-        val skeleton = if (day.year == LocalDate.now().year) "dMMM" else "dMMMy"
-        DateTimeFormatter.ofPattern(DateFormat.getBestDateTimePattern(locale, skeleton), locale).format(day)
+    // The day as the card under it writes its own, "since 31 October" (StatsFormat.day).
+    val format = rememberStatsFormat()
+    val since = remember(found.since, format) {
+        format.day(Instant.ofEpochMilli(found.since).atZone(ZoneId.systemDefault()).toLocalDate().toEpochDay(), weekday = false)
     }
     val most = found.byWay.maxOf { it.second }.coerceAtLeast(1)
     Column(modifier = modifier) {
@@ -349,7 +345,7 @@ private fun FoundWithInterTune(found: FoundHere.Result, modifier: Modifier = Mod
             modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 8.dp),
         ) {
             Text(
-                text = found.total.toString(),
+                text = format.count(found.total),
                 style = MaterialTheme.typography.displayMedium,
                 fontWeight = FontWeight.Medium,
             )
@@ -383,7 +379,7 @@ private fun FoundWithInterTune(found: FoundHere.Result, modifier: Modifier = Mod
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(text = label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
                     Text(
-                        text = n.toString(),
+                        text = format.count(n),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
