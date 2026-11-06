@@ -743,12 +743,9 @@ private fun Lowers(
     } else {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(presetRow.scroll).padding(horizontal = 12.dp)) { chips() }
     }
-    Text(
-        words.presetLine(ui.lit, spec, editor.auto.plain),
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-    )
+    // No sentence under the chips: the lit chip names the preset, the canvas shows it (his rule of
+    // 2 Nov 2026, "a mixer does not need comments").
+    Spacer(Modifier.height(6.dp))
     val bass = editor.twoBasslines()
     if (bass >= 0.5) {
         Text(

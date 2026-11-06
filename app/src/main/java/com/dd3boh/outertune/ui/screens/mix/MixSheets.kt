@@ -190,8 +190,12 @@ fun LengthSheet(vm: MixEditorViewModel, editor: MixEditor, words: EditorWords, o
         val spec = editor.spec
         Column(Modifier.verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 16.dp)) {
             Text(stringResource(R.string.mix_edit_length_title), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(horizontal = 24.dp))
-            val note = if (editor.facts.barsMode) stringResource(R.string.mix_edit_length_note, words.number(spec.b.bpm)) else stringResource(R.string.mix_edit_length_note_timed)
-            Text(note, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+            // The tempo the lengths are counted at, as a label; nothing when the change is timed in seconds.
+            if (editor.facts.barsMode) {
+                Text(words.bpm(spec.b.bpm), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+            } else {
+                Spacer(Modifier.height(8.dp))
+            }
             val options = editor.lengthOptions()
             for (o in options.filter { it.bars > 0 }) {
                 val ok = o.refused == null
@@ -426,12 +430,17 @@ fun MomentsSheet(editor: MixEditor, words: EditorWords, onPlay: (Double) -> Unit
         val spec = editor.spec
         Column(Modifier.verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 16.dp)) {
             Text(stringResource(R.string.mix_moments_title), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(horizontal = 24.dp))
-            Text(
-                stringResource(if (spec.plain) R.string.mix_moments_plain else R.string.mix_moments_note),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
-            )
+            // Only the state, when there is nothing to list; no hint on how to use the list.
+            if (spec.plain) {
+                Text(
+                    stringResource(R.string.mix_moments_plain),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                )
+            } else {
+                Spacer(Modifier.height(8.dp))
+            }
             if (!spec.plain) editor.moments().forEachIndexed { i, m ->
                 Row(
                     modifier = Modifier

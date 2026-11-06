@@ -167,33 +167,29 @@ class EditorWords(private val res: Resources, val aTitle: String, val bTitle: St
         Preset.CUT -> res.getString(TimedLines.cutPreset(s.bars == 0))
     }
 
-    /** What happens at a moment: "After Hours' hats come in", "Lows swap". */
+    /**
+     * What happens at a moment, as a label and never a sentence (his rule of 2 Nov 2026, "a mixer
+     * does not need comments"): "Bass in", "Highs out · fade", "Lows swap".
+     */
     fun moment(m: Moment): String {
         val lane = m.lane
         return when (m.kind) {
-            Moment.Kind.SWAP -> res.getString(pick(lane!!, R.string.mix_edit_m_swap, R.string.mix_edit_m_swap_one), laneName(lane), laneWord(lane))
+            Moment.Kind.SWAP -> res.getString(pick(lane!!, R.string.mix_edit_m_swap, R.string.mix_edit_m_swap_one), laneName(lane))
             Moment.Kind.ENTRY -> when {
-                m.how == How.THIN && (lane == Lane.HIGHS || lane == Lane.DRUMS) -> res.getString(R.string.mix_edit_m_hats, owner(bTitle))
-                m.how == How.MUFFLED -> res.getString(pick(lane!!, R.string.mix_edit_m_rise, R.string.mix_edit_m_rise_one), owner(bTitle), laneWord(lane))
-                else -> res.getString(pick(lane!!, R.string.mix_edit_m_in, R.string.mix_edit_m_in_one), owner(bTitle), laneWord(lane))
+                m.how == How.THIN && (lane == Lane.HIGHS || lane == Lane.DRUMS) -> res.getString(R.string.mix_edit_m_hats)
+                m.how == How.MUFFLED -> res.getString(pick(lane!!, R.string.mix_edit_m_rise, R.string.mix_edit_m_rise_one), laneName(lane))
+                else -> res.getString(pick(lane!!, R.string.mix_edit_m_in, R.string.mix_edit_m_in_one), laneName(lane))
             }
             Moment.Kind.EXIT -> {
-                val one = !plural(lane!!)
-                val verb = res.getString(
-                    when (m.how) {
-                        How.CUT -> if (one) R.string.mix_edit_v_cut_one else R.string.mix_edit_v_cut
-                        How.MUFFLE -> if (one) R.string.mix_edit_v_muffle_one else R.string.mix_edit_v_muffle
-                        How.THIN -> if (one) R.string.mix_edit_v_thin_one else R.string.mix_edit_v_thin
-                        How.ECHO -> if (one) R.string.mix_edit_v_echo_one else R.string.mix_edit_v_echo
-                        else -> if (one) R.string.mix_edit_v_fade_one else R.string.mix_edit_v_fade
-                    }
-                )
-                res.getString(if (one) R.string.mix_edit_m_out_one else R.string.mix_edit_m_out, owner(aTitle), laneWord(lane), verb)
+                val how = when (m.how) {
+                    How.CUT, How.MUFFLE, How.THIN, How.ECHO -> m.how
+                    else -> How.FADE
+                }
+                res.getString(pick(lane!!, R.string.mix_edit_m_out, R.string.mix_edit_m_out_one), laneName(lane), howName(how).lowercase(locale))
             }
-            Moment.Kind.MUTED_A -> res.getString(pick(lane!!, R.string.mix_edit_m_muted, R.string.mix_edit_m_muted_one), owner(aTitle), laneWord(lane))
-            Moment.Kind.MUTED_B -> res.getString(pick(lane!!, R.string.mix_edit_m_waits, R.string.mix_edit_m_waits_one), owner(bTitle), laneWord(lane))
-            Moment.Kind.CURVE_A -> res.getString(pick(lane!!, R.string.mix_edit_m_curve, R.string.mix_edit_m_curve_one), owner(aTitle), laneWord(lane))
-            Moment.Kind.CURVE_B -> res.getString(pick(lane!!, R.string.mix_edit_m_curve, R.string.mix_edit_m_curve_one), owner(bTitle), laneWord(lane))
+            Moment.Kind.MUTED_A -> res.getString(pick(lane!!, R.string.mix_edit_m_muted, R.string.mix_edit_m_muted_one), laneName(lane))
+            Moment.Kind.MUTED_B -> res.getString(pick(lane!!, R.string.mix_edit_m_waits, R.string.mix_edit_m_waits_one), laneName(lane))
+            Moment.Kind.CURVE_A, Moment.Kind.CURVE_B -> res.getString(pick(lane!!, R.string.mix_edit_m_curve, R.string.mix_edit_m_curve_one), laneName(lane))
             Moment.Kind.STARTS_UNDER -> res.getString(R.string.mix_edit_m_under, bTitle, aTitle)
         }
     }
@@ -271,9 +267,9 @@ class EditorWords(private val res: Resources, val aTitle: String, val bTitle: St
         val pct = String.format(locale, "%.1f", abs(1 - ratio) * 100)
         return when {
             !s.beatMatchAllowed() && s.bars > 0 -> res.getString(R.string.mix_edit_bm_refused, pct)
-            s.beatMatched && abs(1 - ratio) < 0.0005 -> res.getString(R.string.mix_edit_bm_same, aTitle, owner(bTitle))
-            s.beatMatched -> res.getString(if (ratio < 1) R.string.mix_edit_bm_slower else R.string.mix_edit_bm_faster, aTitle, pct, owner(bTitle))
-            else -> res.getString(R.string.mix_edit_bm_off, String.format(locale, "%.2f", s.b.barMs / 1000 * abs(1 - ratio) * s.lengthBars), length(s))
+            s.beatMatched && abs(1 - ratio) < 0.0005 -> res.getString(R.string.mix_edit_bm_same)
+            s.beatMatched -> res.getString(if (ratio < 1) R.string.mix_edit_bm_slower else R.string.mix_edit_bm_faster, aTitle, pct)
+            else -> res.getString(R.string.mix_edit_bm_off, String.format(locale, "%.2f", s.b.barMs / 1000 * abs(1 - ratio) * s.lengthBars))
         }
     }
 }
