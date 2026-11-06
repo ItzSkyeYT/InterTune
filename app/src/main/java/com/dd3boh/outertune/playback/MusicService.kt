@@ -6242,7 +6242,8 @@ class MusicService : MediaLibraryService(),
                         dataStore.edit { it[MixPlaylistsKey] = (it[MixPlaylistsKey] ?: emptySet()) + MIX_TRIAL_PLAYLIST }
                         val songs = withContext(Dispatchers.IO) { YouTube.queue(ids) }.getOrNull().orEmpty()
                         if (songs.isEmpty()) Log.w(TAG, "AutoMix trial: no songs for $ids")
-                        else playQueue(ListQueue(title = "Mix trial", items = songs.map { it.toMediaMetadata() }, mixPlaylistId = MIX_TRIAL_PLAYLIST))
+                        // From the shell, outside the app: listens it plays are counted as another app's.
+                        else playQueue(ListQueue(title = "Mix trial", items = songs.map { it.toMediaMetadata() }, mixPlaylistId = MIX_TRIAL_PLAYLIST), origin = PlayOrigin.EXTERNAL)
                     }
                 }
                 "end" -> {
