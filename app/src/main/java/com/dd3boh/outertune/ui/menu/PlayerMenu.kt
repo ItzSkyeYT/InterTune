@@ -133,7 +133,7 @@ fun PlayerMenu(
     val currentFormat = currentFormatState.value
     val librarySong by remember(mediaMetadata.id) { database.song(mediaMetadata.id) }.collectAsState(initial = null)
 
-    val download by LocalDownloadUtil.current.getDownload(mediaMetadata.id).collectAsState(initial = null)
+    val download by remember(mediaMetadata.id) { downloadUtil.getDownload(mediaMetadata.id) }.collectAsState(initial = null)
 
     // Which editable playlists this song sits in, so it can be taken out from here. Removing was
     // only ever offered from the song list, so getting a track out of the playlist you were
