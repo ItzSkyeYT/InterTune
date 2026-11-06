@@ -17,7 +17,7 @@ import kotlin.math.min
  * on to the end of the outgoing song itself. This is that stage:
  *
  * - [State.PASS]: frames pass through, scaled by the current song's attenuation.
- * - [State.CAPTURE]: armed up to about 98 s before the end. Input is taken into memory as fast as
+ * - [State.CAPTURE]: armed up to about 108 s before the end. Input is taken into memory as fast as
  *   it comes, and output is the held frames, in order, at the pace the caller asks for: the same
  *   samples the chain would have played anyway.
  * - [State.DRAIN]: the stream has ended and the next song is waiting. The held tail plays out,

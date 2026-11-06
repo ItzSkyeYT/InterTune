@@ -48,8 +48,16 @@ class SinkDriver(
     private val switchGapMs: Int = 30,
     /** Whether the renderer reports each new stream, so the sink drains once more as it starts. */
     private val reportsNewStream: Boolean = true,
+    /** Whether AutomixAudioSink's EntrySkip sits in front of the sink, dropping a next song's frames before its entry. */
+    skipsEntries: Boolean = false,
 ) {
     private val format = AudioProcessor.AudioFormat(rate, channels, C.ENCODING_PCM_16BIT)
+    private val entrySkip = if (skipsEntries) EntrySkip(stage) { clockMs * 1_000_000L } else null
+    private val mediaFormat = androidx.media3.common.Format.Builder().setSampleMimeType(androidx.media3.common.MimeTypes.AUDIO_RAW)
+        .setPcmEncoding(C.ENCODING_PCM_16BIT).setChannelCount(channels).setSampleRate(rate).build()
+
+    /** DefaultAudioSink's start time moves by what a new stream's first buffer is off from the frames counted, at its sync. */
+    private var syncAdjustUs = 0L
     private val frameBytes = 2 * channels
     private val gain = GainAudioProcessor()
     val pipeline = AudioProcessingPipeline(ImmutableList.of(gain, stage))
@@ -177,7 +185,8 @@ class SinkDriver(
             buffer = b
             val before = written
             val inputBefore = b.bytes.remaining()
-            val taken = handleBuffer(b)
+            val taken = entrySkip?.handle(b.bytes, timeUsOf(b.song, b.firstFrame.toLong())) { bytes, t -> handleBuffer(Buffer(b.song, frameAt(b.song, t), bytes)) }
+                ?: handleBuffer(b)
             if (!taken && written == before && b.bytes.remaining() == inputBefore && outputBuffer == null && !pipeline.isEnded()) stalls++
             if (!taken) return
             buffer = null
@@ -204,6 +213,7 @@ class SinkDriver(
             // The first buffer of the next song brings its format: the sink is configured, and
             // the processors with it, while the old stream is still in the chain.
             pipeline.configure(format)
+            entrySkip?.configured(mediaFormat)
             pendingConfiguration = song
         }
         val next = songs[song]
@@ -221,6 +231,13 @@ class SinkDriver(
         return frames * 1_000_000L / rate
     }
 
+    /** The frame of [song] at time [us]: the inverse of [timeUsOf], to the frame. */
+    private fun frameAt(song: Int, us: Long): Int {
+        var before = 0L
+        for (k in 0 until song) before += songs[k].size / channels
+        return ((us * rate + 999_999L) / 1_000_000L - before).toInt()
+    }
+
     private fun handleBuffer(b: Buffer): Boolean {
         stage.sinkInput(timeUsOf(b.song, b.firstFrame.toLong()))
         if (pendingConfiguration != null) {
@@ -233,6 +250,7 @@ class SinkDriver(
             startSong = b.song
             startFrame = b.firstFrame.toLong()
             submittedFrames = 0
+            syncAdjustUs = 0
             needsSync = false
             needsInit = false
             positionKnown = true
@@ -240,12 +258,13 @@ class SinkDriver(
         }
         if (inputBuffer == null) {
             if (!b.bytes.hasRemaining()) return true
-            val expected = timeUsOf(startSong, startFrame) + submittedFrames * 1_000_000L / rate
+            val expected = timeUsOf(startSong, startFrame) + syncAdjustUs + submittedFrames * 1_000_000L / rate
             val actual = timeUsOf(b.song, b.firstFrame.toLong())
             if (!needsSync && abs(expected - actual) > 200_000) needsSync = true
             if (needsSync) {
                 if (!drainToEndOfStream()) return false
                 needsSync = false
+                syncAdjustUs += actual - expected
                 applyParameters(b)
             }
             submittedFrames += b.bytes.remaining() / frameBytes

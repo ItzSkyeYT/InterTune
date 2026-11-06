@@ -70,6 +70,8 @@ class AutomixAudioProcessorTest {
         val during: (Run) -> Unit = {},
         /** Hand over the change on bands, from a copy of the next song: on its own, or after the first plan to take its place. */
         val bands: Bands? = null,
+        /** The ring the end is held in, in seconds: as big as it can be unless a test asks for less. */
+        val ringSeconds: Int = AutomixSchedule.CAPACITY_SECONDS,
     ) {
         var clockNanos = 0L
         val notes = ArrayList<String>()
@@ -169,7 +171,7 @@ class AutomixAudioProcessorTest {
             val left = armSecondsLeft
             if (!armRequested && left != null && song == 0 && frame >= aFrames - left * rate) {
                 armRequested = true
-                stage.requestArm(AutomixAudioProcessor.Arm(1, ShortArray(AutomixSchedule.capacityFrames(rate) * 2), rate, 2, clockNanos))
+                stage.requestArm(AutomixAudioProcessor.Arm(1, ShortArray(ringSeconds * rate * 2), rate, 2, clockNanos))
             }
             if (offerAtTick >= 0 && ticks >= offerAtTick) {
                 val c = change
@@ -439,8 +441,8 @@ class AutomixAudioProcessorTest {
 
     @Test
     fun `an end too long for the ring lets the rest through, every sample in order`() {
-        // Asked to hold sixty seconds where there is room for forty-eight.
-        val run = Run(armSecondsLeft = 60.0, style = null).go()
+        // Asked to hold sixty seconds where the ring made for it has room for forty-eight.
+        val run = Run(armSecondsLeft = 60.0, style = null, ringSeconds = 48).go()
         assertTrue(run.armed)
         assertTrue(run.notes.toString(), run.notes.any { it.contains("did not fit") })
         val heard = run.driver.heard.toArray()
