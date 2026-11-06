@@ -589,7 +589,7 @@ class AutomixController(
                 loaded = AutomixSchedule.loaded(duration, player.currentPosition, player.bufferedPosition, player.totalBufferedDuration),
                 armRequested = t.armRequested,
             )
-        if (want && !loadingAhead) say("loading on for the change of ${t.a.id}: this one to %.1f s of %.1f, %.1f s ahead in all".format(
+        if (want && !loadingAhead) say("loading on for the change of ${t.a.id}: " + "this one to %.1f s of %.1f, %.1f s ahead in all".format(
             player.bufferedPosition / 1000.0, duration / 1000.0, player.totalBufferedDuration / 1000.0,
         ))
         setLoadAhead(want)
