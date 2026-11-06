@@ -34,9 +34,10 @@ import kotlin.math.min
 /**
  * The reels' way's features as the port computes them from the audio, against the prototype's.
  *
- * Reads the PC trial's cache (decoded songs and their htdemucs voice parts, never copied): set
- * REELS_CACHE to experiments/features/automix/party-2010s/cache. Per feature, the median and the
- * largest difference over every bar of the 24 songs; then the 23 decisions again from the port's
+ * Reads the PC trial's caches (decoded songs and their htdemucs voice parts, never copied): set
+ * REELS_CACHE to experiments/features/automix/party-2010s/cache, and the rebuilt cache of the seven
+ * regression pairs after a colon. Per feature, the median and the largest difference over every
+ * bar of every song; then every fixture decision again from the port's
  * features, from the port's voice labels on the prototype's features, and from VoiceGuess (the
  * app's stand-in for a voice part, a bar sung where its mean is at least VoiceRule.SINGS). Writes
  * part-b.txt and the port's features per song to REELS_OUT (default round4/trial).
@@ -52,7 +53,9 @@ class ReelsAnalysisTrial {
         val out = File(env["REELS_OUT"]?.takeIf { it.isNotBlank() } ?: "/home/melb/projects/intertune/experiments/features/automix/round4/trial")
         File(out, "features").mkdirs()
         val only = env["REELS_ONLY"]?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }?.toSet()
-        val ids = ReelsFixtures.ids().filter { only == null || it in only }
+        val dirs = cache!!.split(':').filter { it.isNotBlank() }.map { File(it) }
+        fun file(name: String) = dirs.map { File(it, name) }.firstOrNull { it.exists() } ?: File(dirs[0], name)
+        val ids = ReelsFixtures.ids().filter { (only == null || it in only) && file("$it.f32").exists() }
         val r = StringBuilder()
         fun say(s: String) {
             r.append(s).append('\n')
@@ -82,10 +85,10 @@ class ReelsAnalysisTrial {
             val started = System.nanoTime()
             val fixture = ReelsFixtures.song(id)
             val grid = fixture.grid
-            val py = Json.parseToJsonElement(File(cache, "$id.analysis.json").readText()).jsonObject
-            val pyPulse = Json.parseToJsonElement(File(cache, "$id.pulse.json").readText()).jsonObject
-            val stereo = readF32(File(cache!!, "$id.f32"))
-            val vocalsFile = File(cache, "$id.vocals.f32")
+            val py = Json.parseToJsonElement(file("$id.analysis.json").readText()).jsonObject
+            val pyPulse = Json.parseToJsonElement(file("$id.pulse.json").readText()).jsonObject
+            val stereo = readF32(file("$id.f32"))
+            val vocalsFile = file("$id.vocals.f32")
             val vocals = if (vocalsFile.exists()) readF32(vocalsFile) else null
             val res = ReelsAnalysis.analyse(stereo, grid, vocals)
             val pulse = ReelsAnalysis.pulse(stereo, res.bars.map { it.t }, grid.bpm)
@@ -164,7 +167,7 @@ class ReelsAnalysisTrial {
         )
         for ((label, c) in guessByLabel) say("    voice part '${label.label}': ${c[0] + c[1]} bars, VoiceGuess says sung in ${c[1]}")
 
-        if (only == null) {
+        if (only == null && ids.size == ReelsFixtures.ids().size) {
             say("")
             say("Decisions on the render fields, against the frozen ones:")
             decisions(say = ::say, name = "prototype features and voice (part A)") { ReelsFixtures.song(it) }
@@ -177,10 +180,90 @@ class ReelsAnalysisTrial {
         File(out, if (only == null) "part-b.txt" else "part-b-some.txt").writeText(r.toString())
     }
 
+    /**
+     * The app's whole-song grid (WholeSongGrid, Mixxx's constant tempo) against the Beat This! grid
+     * the prototype used, on the same 24 songs: the tempo, where the app's beats sit against Beat
+     * This!'s at a quarter, half and three quarters of the song (ms, and in beats), and its bar 1.
+     * Numbers only. Writes grid.txt.
+     */
+    @Test
+    fun grid() {
+        val cache = env["REELS_CACHE"]?.takeIf { it.isNotBlank() }
+        assumeTrue("set REELS_CACHE and REELS_GRID=1 to run", cache != null && env["REELS_GRID"] == "1")
+        val dirs = cache!!.split(':').filter { it.isNotBlank() }.map { File(it) }
+        fun file(name: String) = dirs.map { File(it, name) }.firstOrNull { it.exists() } ?: File(dirs[0], name)
+        val out = File(env["REELS_OUT"]?.takeIf { it.isNotBlank() } ?: "/home/melb/projects/intertune/experiments/features/automix/round4/trial")
+        out.mkdirs()
+        val r = StringBuilder()
+        fun say(s: String) {
+            r.append(s).append('\n')
+            println(s)
+        }
+        say("id: Beat This! bpm / app bpm (octave, %), beat offset app - Beat This! at 25/50/75% (ms; in beats), app bar 1 against Beat This!'s at 50% (beats), app gates")
+        val tally = LinkedHashMap<String, Int>()
+        for (id in ReelsFixtures.ids().filter { file("$it.f32").exists() }) {
+            val bt = ReelsFixtures.song(id).grid
+            val stereo = readF32(file("$id.f32"))
+            val shorts = ShortArray(stereo.size) { Math.rint(stereo[it] * 32768.0).coerceIn(-32768.0, 32767.0).toInt().toShort() }
+            val g = com.dd3boh.outertune.mix.WholeSongGrid.analyse(com.dd3boh.outertune.mix.FrontEnd.of(shorts, ReelsAnalysis.RATE, 2))
+            if (g == null) {
+                say("$id: Beat This! %.2f; the app found no grid".format(Locale.ROOT, bt.bpm))
+                tally.merge("no grid", 1, Int::plus)
+                continue
+            }
+            val dur = stereo.size / 2.0 / ReelsAnalysis.RATE
+            val pB = 60.0 / bt.bpm
+            val pA = 60.0 / g.bpm
+            val tA0 = g.t0Ms / 1000
+            val ratio = g.bpm / bt.bpm
+            val octave = listOf(0.5, 1.0, 2.0).minBy { abs(ratio / it - 1) }
+            val offsets = listOf(0.25, 0.5, 0.75).map { f ->
+                val kB = Math.round((f * dur - bt.t0) / pB)
+                val tb = bt.t0 + kB * pB
+                val kA = Math.round((tb - tA0) / pA)
+                tA0 + kA * pA - tb
+            }
+            val mid = offsets[1]
+            val beatClass = if (abs(mid) <= 0.025) "beats on" else if (abs(abs(mid) / pB - 0.5) <= 0.1) "half a beat off" else "beats off"
+            // bar 1 at the middle: Beat This!'s downbeat nearest the middle, and the app's nearest it
+            var barText = "no bars"
+            var barClass = "app has no bars"
+            if (g.barPhase >= 0 && abs(octave - 1.0) < 1e-9) {
+                var kB = Math.round((0.5 * dur - bt.t0) / pB)
+                while (Math.floorMod(kB - bt.phase, 4L) != 0L) kB++
+                val tbd = bt.t0 + kB * pB
+                var kA = Math.round((tbd - tA0) / pA)
+                val cands = (kA - 4..kA + 4).filter { Math.floorMod(it - g.barPhase.toLong(), g.beatsPerBar.toLong()) == 0L }
+                kA = cands.minBy { abs(tA0 + it * pA - tbd) }
+                val raw = (tA0 + kA * pA - tbd) / pB
+                // bar lines compared in 4-beat bars: an app bar of 8 beats whose line is 4 beats off still lands on a bar line
+                val beats = raw - 4 * Math.round(raw / 4)
+                barText = "%+.2f (raw %+.2f, %d-beat bars)".format(Locale.ROOT, beats, raw, g.beatsPerBar)
+                barClass = if (abs(beats) <= 0.1) "bar lines same" else if (abs(abs(beats) - Math.round(abs(beats))) <= 0.1) "bar lines off by ${Math.round(abs(beats))} beats" else "bar lines off by part of a beat"
+            } else if (g.barPhase >= 0) {
+                barClass = "bars not compared (other octave)"
+            }
+            tally.merge(if (abs(octave - 1.0) < 1e-9) "same octave" else "octave x$octave", 1, Int::plus)
+            tally.merge(beatClass, 1, Int::plus)
+            tally.merge(barClass, 1, Int::plus)
+            say(
+                "%s: %.3f / %.3f (x%s, %+.3f%%), %s; bars %s (%s); tempoSure %s beatsSure %s barsSure %s, rounded %s".format(
+                    Locale.ROOT, id, bt.bpm, g.bpm, octave, (ratio / octave - 1) * 100,
+                    offsets.joinToString(" / ") { "%+.0f ms (%+.2f)".format(Locale.ROOT, it * 1000, it / pB) },
+                    barText, barClass, g.tempoSure, g.beatsSure, g.barsSure, g.rounded,
+                ),
+            )
+        }
+        say("")
+        for ((k, v) in tally) say("  $k: $v")
+        File(out, "grid.txt").writeText(r.toString())
+    }
+
     private fun decisions(say: (String) -> Unit, name: String, song: (String) -> ReelsSong) {
         var same = 0
         val notes = ArrayList<String>()
-        for ((n, a, b) in ReelsFixtures.pairs()) {
+        val pairs = ReelsFixtures.pairs()
+        for ((n, a, b) in pairs) {
             val frozen = ReelsFixtures.decision(n)
             val d = ReelsWay.decide(song(a), song(b))
             val json = d.toJson()
@@ -193,7 +276,7 @@ class ReelsAnalysisTrial {
                     (d.fit.why?.let { " (does not fit: ${it.joinToString()})" } ?: "") + "; " + diffs.take(4).joinToString("; ")
             }
         }
-        say("  $name: $same of 23 as frozen")
+        say("  $name: $same of ${pairs.size} as frozen")
         notes.forEach(say)
     }
 
