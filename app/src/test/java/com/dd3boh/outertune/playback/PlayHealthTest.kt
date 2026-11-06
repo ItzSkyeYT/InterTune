@@ -113,6 +113,27 @@ class PlayHealthTest {
     }
 
     @Test
+    fun `the phone's low-power path is named when a track went down it, before where the sound goes (#90)`() {
+        val h = PlayHealth()
+        h.song("USB")
+        h.audioTrack(offload = false)
+        assertEquals("nothing said while no track used it", "1 song; sound to USB", h.describe(0))
+        h.song()
+        h.audioTrack(offload = true)
+        h.audioTrack(offload = true)
+        assertEquals("2 songs; the low-power path (offload) for 2 of 3 audio tracks; sound to USB", h.describe(0))
+        val one = PlayHealth().apply { song(); audioTrack(offload = true) }
+        assertEquals("1 song; the low-power path (offload) for 1 of 1 audio track", one.describe(0))
+    }
+
+    @Test
+    fun `every audio track the player opens is counted, with whether it went down the low-power path (#90)`() {
+        val body = File("src/main/java/com/dd3boh/outertune/playback/MusicService.kt").readText()
+        val opened = body.substringAfter("override fun onAudioTrackInitialized(").substringBefore("\n                    }\n")
+        assertTrue("PlayHealth.thisRun.audioTrack(audioTrackConfig.offload)" in opened)
+    }
+
+    @Test
     fun `the service counts the player's own streams only, and logs the line at every song`() {
         val body = File("src/main/java/com/dd3boh/outertune/playback/MusicService.kt").readText()
         assertTrue(body.contains("health = if (calls === playerCalls) PlayHealth.thisRun else null"))

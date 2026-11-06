@@ -1287,6 +1287,13 @@ class MusicService : MediaLibraryService(),
                     override fun onLoadCompleted(eventTime: AnalyticsListener.EventTime, loadEventInfo: LoadEventInfo, mediaLoadData: MediaLoadData) {
                         badCachedCopy.loadCompleted(loadEventInfo.dataSpec.key)
                     }
+
+                    // Whether the sound went down the phone's low-power path (Saver's offload), for
+                    // Report a problem: nothing said so in #90's report.
+                    override fun onAudioTrackInitialized(eventTime: AnalyticsListener.EventTime, audioTrackConfig: AudioSink.AudioTrackConfig) {
+                        PlayHealth.thisRun.audioTrack(audioTrackConfig.offload)
+                        Log.i(TAG, "AUDIO: a track opened on ${if (audioTrackConfig.offload) "the phone's low-power path (offload)" else "the app's own path"}, encoding ${audioTrackConfig.encoding}, ${audioTrackConfig.sampleRate} Hz")
+                    }
                 })
 
                 // misc. Nothing needs the app's own path yet: the effects' observers below say so
