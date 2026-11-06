@@ -83,7 +83,8 @@ class BatteryUseWiringTest {
     @Test
     fun `offload is decided in one place, by the rule, with everything that needs the app's own path`() {
         val apply = body(service, "private fun applyOffload()")
-        assertTrue("BatteryUse.offload(batteryMode, offloadSwitch, needsAppPath)" in apply)
+        assertTrue("val outputSafe = SoundRoute.offloadSafe(this)" in apply)
+        assertTrue("BatteryUse.offload(batteryMode, offloadSwitch, needsAppPath, outputSafe)" in apply)
         for (needs in listOf(
             "spatialUpmixProcessor.enabled", "binauralProcessor.enabled", "transitionFade.enabled",
             "!equalizerProcessor.settings.isFlat", "exoPlayer.skipSilenceEnabled",
@@ -97,6 +98,16 @@ class BatteryUseWiringTest {
         assertTrue("events.contains(Player.EVENT_PLAYBACK_PARAMETERS_CHANGED)" in service)
         assertTrue("the player starts by the same rule", "setOffloadEnabled(BatteryUse.offload(" in service)
         assertEquals("setOffloadEnabled is called in two places only", 2, Regex("""setOffloadEnabled\(""").findAll(service).count())
+        assertTrue("the player starts knowing the outputs", "outputSafe = SoundRoute.offloadSafe(this@MusicService)" in service)
+    }
+
+    @Test
+    fun `the low-power path is asked again whenever an output comes or goes, for as long as the service lives (#90)`() {
+        val watch = service.substringAfter("private val offloadOutputs = object : android.media.AudioDeviceCallback()").substringBefore("\n    }\n")
+        assertTrue("applyOffload()" in watch.substringAfter("onAudioDevicesAdded"))
+        assertTrue("applyOffload()" in watch.substringAfter("onAudioDevicesRemoved"))
+        assertTrue("registerAudioDeviceCallback(offloadOutputs, " in body(service, "override fun onCreate()"))
+        assertTrue("unregisterAudioDeviceCallback(offloadOutputs)" in body(service, "override fun onDestroy()"))
     }
 
     @Test
