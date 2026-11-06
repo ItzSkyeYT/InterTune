@@ -227,7 +227,10 @@ class QueueBoard(
 
                 match.playlistId = continuationEndpoint
 
-                saveQueue(match)
+                // A new shuffle is a new order of the songs, which only saveQueueSongs writes:
+                // saveQueue keeps the queue's own row, so the order lived in memory only, and a
+                // queue the system closed in the background came back in the playlist's order (#87).
+                if (shuffled) saveQueueSongs(match) else saveQueue(match)
                 return match
             } else if (delta) {
                 if (QUEUE_DEBUG)
