@@ -82,6 +82,26 @@ object StatsSql {
     """
 
     /**
+     * Every liked song with the first listen it ever had, backfilled or live, for Found with
+     * InterTune (stats/FoundHere.kt): where that play came from, how far into a run of songs the
+     * listener did not pick it came, and the like as stored, the wall clock written as if it were
+     * UTC. A song first heard twice in the same millisecond has two rows; FoundHere keeps one.
+     */
+    const val FOUND_FIRST_LISTENS = """
+        SELECT l.songId, s.likedDate, f.firstAt, l.tzOffsetMin, l.origin, l.autoplayDepth
+        FROM listen l
+            JOIN (
+                SELECT songId, MIN(CASE WHEN startedAt > 0 THEN startedAt ELSE endedAt - playedMs END) AS firstAt
+                FROM listen
+                GROUP BY songId
+            ) f ON f.songId = l.songId
+                AND f.firstAt = (CASE WHEN l.startedAt > 0 THEN l.startedAt ELSE l.endedAt - l.playedMs END)
+            JOIN song s ON s.id = l.songId
+        WHERE s.liked = 1 AND s.likedDate IS NOT NULL
+        ORDER BY l.songId, l.id
+    """
+
+    /**
      * Most played artists, the row below the songs: the artists credited on the songs played
      * since :fromTimeStamp, by plays and then by time played. Unlike the reads above it is a Room
      * flow over the play events, the table the songs and albums lists beside it read, dated the

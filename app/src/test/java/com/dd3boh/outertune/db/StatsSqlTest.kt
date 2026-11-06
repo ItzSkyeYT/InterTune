@@ -275,4 +275,39 @@ class StatsSqlTest {
         event("local", t, playTime = 5 * minute)
         assertEquals(listOf("FEmusic_library_privately_owned_artist_x"), mostPlayedArtists(0))
     }
+
+    /** A listen with its source and how far into a run the listener did not pick it came, for Found with InterTune. */
+    private fun foundListen(song: String, startedAt: Long, origin: Int, depth: Int = 0, endReason: Int = 1, playedMs: Long = 3 * minute, endedAt: Long = startedAt + playedMs) =
+        exec(
+            """INSERT INTO listen(songId, startedAt, endedAt, tzOffsetMin, playedMs, durationMs, ratio, endReason, origin,
+                originSlot, queueId, autoplayDepth, sessionId, counted, continuesListenId)
+            VALUES ('$song', $startedAt, $endedAt, 60, $playedMs, 200000, 0.9, $endReason, $origin, -1, 0, $depth, $startedAt, 1, NULL)"""
+        )
+
+    @Test
+    fun `found with InterTune reads each liked song's first listen, backfilled or with no start`() {
+        song("a"); song("b"); song("c"); song("d")
+        exec("UPDATE song SET liked = 1, likedDate = ${t + 5 * minute} WHERE id IN ('a', 'b', 'd')")
+        // a: first from Quick picks, then again from a search.
+        foundListen("a", t, origin = 2)
+        foundListen("a", t + 60 * minute, origin = 1)
+        // b: a row backfilled from the old play log first (no source, endReason 0), then a radio's.
+        foundListen("b", t - 10 * minute, origin = 0, endReason = 0)
+        foundListen("b", t + minute, origin = 8, depth = 3)
+        // c: not liked.
+        foundListen("c", t, origin = 2)
+        // d: its only row has no start, dated back from its end.
+        foundListen("d", 0, origin = 18, playedMs = 2 * minute, endedAt = t + 4 * minute)
+        val rows = query(StatsSql.FOUND_FIRST_LISTENS) {
+            com.dd3boh.outertune.stats.FoundFirstListen(
+                it.getString("songId"), it.getLong("likedDate"), it.getLong("firstAt"), it.getInt("tzOffsetMin"),
+                it.getInt("origin"), it.getInt("autoplayDepth"),
+            )
+        }
+        assertEquals(listOf("a", "b", "d"), rows.map { it.songId })
+        assertEquals(listOf(2, 0, 18), rows.map { it.origin })
+        assertEquals(listOf(t, t - 10 * minute, t + 2 * minute), rows.map { it.firstAt })
+        assertEquals(t + 5 * minute, rows[0].likedDate)
+        assertEquals(60, rows[0].tzOffsetMin)
+    }
 }
