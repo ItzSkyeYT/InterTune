@@ -29,8 +29,10 @@ class ListKeysAndSlimBarTest {
         assertEquals(2, Regex("""key = \{ index, item -> "\$\{item\.id\}#\${'$'}index" \}""").findAll(items).count())
         val artist = read("ui/screens/artist/ArtistScreen.kt")
         assertTrue(artist.contains("key = { index, item -> \"song:\${item.id}#\$index\" }"))
-        assertEquals(2, Regex("""items = section\.items\.distinctBy \{ it\.id \}""").findAll(artist).count())
-        assertTrue(artist.contains("items = libraryAlbums.distinctBy { it.id }"))
+        // The songs' list and the row of cards (a scrolling row since #86, each card under key(item.id)).
+        assertEquals(2, Regex("""section\.items\.distinctBy \{ it\.id \}""").findAll(artist).count())
+        assertTrue(artist.contains("libraryAlbums.distinctBy { it.id }"))
+        assertEquals(2, Regex("""key\((album|item)\.id\) \{""").findAll(artist).count())
     }
 
     @Test
