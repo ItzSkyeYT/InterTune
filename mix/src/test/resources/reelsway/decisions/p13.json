@@ -1,0 +1,167 @@
+{
+ "n": "p13",
+ "a": "leanon",
+ "b": "ratherbe",
+ "aBpm": 98.0,
+ "bBpm": 121.0,
+ "aT0": 0.09530085096769926,
+ "aPhase": 0,
+ "bT0": 0.40909787911978474,
+ "bPhase": 1,
+ "fit": {
+  "tempo": false,
+  "tempoOffPct": -19.01,
+  "octave": 1,
+  "entry": true,
+  "anyPlacement": false,
+  "voiceGate": true,
+  "best": {
+   "A": 54,
+   "D": 48,
+   "gridA": true,
+   "gridAInfo": {
+    "share": 1.0,
+    "medAbsLagMs": 1.0,
+    "spreadMs": 4.4,
+    "barAgreement": 0.85,
+    "bars": [
+     38,
+     57
+    ]
+   },
+   "gridB": true,
+   "gridBInfo": {
+    "share": 1.0,
+    "medAbsLagMs": 4.0,
+    "spreadMs": 2.8,
+    "barAgreement": 0.9557522123893806,
+    "bars": [
+     48,
+     51
+    ]
+   },
+   "bothEarly": 1,
+   "bothLast": 0
+  },
+  "why": [
+   "tempo"
+  ]
+ },
+ "ratio": 1.0,
+ "stretch": false,
+ "octave": 1,
+ "entryBarB": 16,
+ "entryT": 32.64050283779747,
+ "aEndLine": 72,
+ "firstDownbeatB": 0,
+ "fullPhraseB": 16,
+ "aCandidates": [
+  {
+   "L": 44,
+   "t": 107.85040289178403,
+   "lift": 23.666773319244385,
+   "isLift": true,
+   "boxLow": -3.0472412109375,
+   "thin": false,
+   "end": false,
+   "leftS": 68.57142857142858,
+   "score": 3.7857142857142856,
+   "gridOk": true,
+   "gridInfo": {
+    "share": 1.0,
+    "medAbsLagMs": 4.0,
+    "spreadMs": 6.4,
+    "barAgreement": 0.85,
+    "bars": [
+     28,
+     47
+    ]
+   }
+  },
+  {
+   "L": 54,
+   "t": 132.34019881015138,
+   "lift": 22.219840049743652,
+   "isLift": true,
+   "boxLow": -0.7120065689086914,
+   "thin": false,
+   "end": false,
+   "leftS": 44.081632653061234,
+   "score": 3.897959183673469,
+   "gridOk": true,
+   "gridInfo": {
+    "share": 1.0,
+    "medAbsLagMs": 1.0,
+    "spreadMs": 4.4,
+    "barAgreement": 0.85,
+    "bars": [
+     38,
+     57
+    ]
+   }
+  },
+  {
+   "L": 62,
+   "t": 151.93203554484526,
+   "lift": 8.812385559082031,
+   "isLift": true,
+   "boxLow": -2.945054054260254,
+   "thin": false,
+   "end": false,
+   "leftS": 24.48979591836735,
+   "score": 2.090851491811324,
+   "gridOk": true,
+   "gridInfo": {
+    "share": 1.0,
+    "medAbsLagMs": 1.0,
+    "spreadMs": 4.0,
+    "barAgreement": 0.85,
+    "bars": [
+     46,
+     65
+    ]
+   }
+  },
+  {
+   "L": 72,
+   "t": 176.4218314632126,
+   "lift": 0.0,
+   "isLift": false,
+   "boxLow": -0.7407846450805664,
+   "thin": false,
+   "end": true,
+   "leftS": 0.0,
+   "score": 0.5,
+   "gridOk": true,
+   "gridInfo": {
+    "share": 0.94,
+    "medAbsLagMs": 2.0,
+    "spreadMs": 10.8,
+    "barAgreement": 0.85,
+    "bars": [
+     56,
+     75
+    ]
+   }
+  }
+ ],
+ "bGridOk": true,
+ "bGridInfo": {
+  "share": 1.0,
+  "medAbsLagMs": 2.0,
+  "spreadMs": 0.0,
+  "barAgreement": 0.9557522123893806,
+  "bars": [
+   16,
+   19
+  ]
+ },
+ "tempoRatioIfMatched": 0.8099173553719008,
+ "move": "cut",
+ "exitBar": 54,
+ "exitT": 132.34019881015138,
+ "aSingsLast": true,
+ "bSingsStart": true,
+ "aFullBass": false,
+ "bFullBass": true
+}

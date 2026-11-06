@@ -1,0 +1,123 @@
+{
+ "n": "p17",
+ "a": "levels",
+ "b": "firestone",
+ "aBpm": 126.0,
+ "bBpm": 114.04358353510895,
+ "aT0": 0.3144476673918309,
+ "aPhase": 0,
+ "bT0": 0.21250955414012224,
+ "bPhase": 0,
+ "fit": {
+  "tempo": false,
+  "tempoOffPct": 10.48,
+  "octave": 1,
+  "entry": false,
+  "anyPlacement": false,
+  "voiceGate": true,
+  "best": {
+   "A": 84,
+   "D": 8,
+   "gridA": true,
+   "gridAInfo": {
+    "share": 0.85,
+    "medAbsLagMs": 0.0,
+    "spreadMs": 4.0,
+    "barAgreement": 0.6014492753623188,
+    "bars": [
+     68,
+     87
+    ]
+   },
+   "gridB": false,
+   "gridBInfo": {
+    "share": 1.0,
+    "medAbsLagMs": 70.0,
+    "spreadMs": 0.0,
+    "barAgreement": 0.9925373134328358,
+    "bars": [
+     8,
+     11
+    ]
+   },
+   "bothEarly": 0,
+   "bothLast": 0
+  },
+  "why": [
+   "tempo",
+   "no usable entry in B"
+  ]
+ },
+ "ratio": 1.0,
+ "stretch": false,
+ "octave": 1,
+ "entryBarB": 1,
+ "entryT": 2.3169681528662367,
+ "aEndLine": 101,
+ "firstDownbeatB": 1,
+ "fullPhraseB": null,
+ "aCandidates": [
+  {
+   "L": 84,
+   "t": 160.31444766739182,
+   "lift": 13.009517669677734,
+   "isLift": true,
+   "boxLow": -18.51121234893799,
+   "thin": true,
+   "end": false,
+   "leftS": 32.38095238095238,
+   "score": 5.442855607895624,
+   "gridOk": true,
+   "gridInfo": {
+    "share": 0.85,
+    "medAbsLagMs": 0.0,
+    "spreadMs": 4.0,
+    "barAgreement": 0.6014492753623188,
+    "bars": [
+     68,
+     87
+    ]
+   }
+  },
+  {
+   "L": 101,
+   "t": 192.6954000483442,
+   "lift": 0.0,
+   "isLift": false,
+   "boxLow": -4.523320198059082,
+   "thin": false,
+   "end": true,
+   "leftS": 0.0,
+   "score": 0.5,
+   "gridOk": true,
+   "gridInfo": {
+    "share": 1.0,
+    "medAbsLagMs": 2.0,
+    "spreadMs": 6.0,
+    "barAgreement": 0.6014492753623188,
+    "bars": [
+     85,
+     104
+    ]
+   }
+  }
+ ],
+ "bGridOk": false,
+ "bGridInfo": {
+  "share": 0.0,
+  "medAbsLagMs": null,
+  "spreadMs": null,
+  "bars": [
+   1,
+   4
+  ]
+ },
+ "tempoRatioIfMatched": 1.1048407643312104,
+ "move": "echo",
+ "exitBar": 84,
+ "exitT": 160.31444766739182,
+ "aSingsLast": false,
+ "bSingsStart": false,
+ "aFullBass": false,
+ "bFullBass": false
+}
