@@ -215,6 +215,36 @@ class ProblemLogTest {
     }
 
     @Test
+    fun `a report without the steps keeps the fault's own first lines for the link, not a trace's last frames (#90)`() {
+        // 0.12.9 on a Pixel 11, 6 Nov 2026: the end of the log was the trace's last frames and the
+        // player's warning that repeats it, and the line that named the fault was cut away.
+        val trace = listOf(
+            "11-06 12:59:12.403 E/MediaCodecAudioRenderer( 6711): Audio sink error",
+            "11-06 12:59:12.403 E/MediaCodecAudioRenderer( 6711):   K2.r: AudioTrack write failed: -32",
+        ) + List(12) { "11-06 12:59:12.403 E/MediaCodecAudioRenderer( 6711):       at M2.B.h$it(SourceFile:91)" }
+        val repeated = listOf(
+            "11-06 12:59:12.408 W/ExoPlayerImplInternal( 6711): Recoverable renderer error",
+            "11-06 12:59:12.408 W/ExoPlayerImplInternal( 6711):   K2.p: MediaCodecAudioRenderer error, index=1, format_supported=YES",
+        ) + List(12) { "11-06 12:59:12.408 W/ExoPlayerImplInternal( 6711):       at K2.U.j$it(SourceFile:1570)" }
+        val stops = List(8) { "11-06 13:0$it:47 STOPPED: paused by the headphones or the speaker went away (screen on, in the foreground)" }
+        val report = ProblemLog.report(
+            ProblemLog.excerpt(song + trace + repeated), build = "0.12.9 (101, core release)", device = "Google Pixel 11, Android 17 (API 37)",
+            installedFrom = "Obtainium", stops = stops,
+            phoneNow = "mobile data, metered, about 15 Mbps down and 15 Mbps up, no VPN, Data Saver off; battery saver on, Battery use Saver",
+        )
+        val cut = ProblemLog.fittedForLink(report, 3600, 5000)
+        assertTrue(ProblemLog.linkLength(cut) <= 3600)
+        assertTrue(cut.startsWith("InterTune 0.12.9 (101, core release)\nGoogle Pixel 11"))
+        assertTrue(">>> here" in cut)
+        assertTrue("Audio sink error" in cut)
+        assertTrue("the line that names the fault", "K2.r: AudioTrack write failed: -32" in cut)
+        // With no fault the end is kept, as before.
+        val quiet = ProblemLog.report(ProblemLog.excerpt(song + after), build = "b", device = "d", installedFrom = "F-Droid")
+        assertEquals(quiet, ProblemLog.fitted(quiet, quiet.length))
+        assertTrue(ProblemLog.fitted(quiet, 300).trimEnd().endsWith("Min threshold: 0.3 (duration 155s)"))
+    }
+
+    @Test
     fun `escaping counts three for a space, a colon or a letter outside ASCII, one for the rest`() {
         assertEquals(3, ProblemLog.linkLength("abc"))
         assertEquals(9, ProblemLog.linkLength("a b:c"))
