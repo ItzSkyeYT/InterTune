@@ -1070,6 +1070,13 @@ class AutomixController(
                 )
             }
         }
+        if (t.entryFrames > 0L) {
+            // The end was held for the next song to come in at a later bar, and Auto's change
+            // brings it in from its first: the end plays out as it is, the next song from its entry.
+            if (t.abandoned.get()) return BandsOutcome("on bands, not used: the change was given up")
+            stage.offer(held, MixPlan.gapless(rate, held.channels, frames, attenuationA, attenuationB, "the change held for cannot play"), EMPTY_PART, replaces = true)
+            return BandsOutcome("on bands: gapless, the next song from its entry$why", auto = AutoChoice.Plain(PlainReason.NO_FIT))
+        }
         // Auto on bands. By now the first plan has taken its time: the change may start only past
         // what will have gone out by the time this one is worked out, proofs and all.
         val started = SystemClock.elapsedRealtime()
