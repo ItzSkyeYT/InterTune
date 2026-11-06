@@ -1,0 +1,112 @@
+{
+ "n": "2",
+ "a": "wakemeup",
+ "b": "afterhours",
+ "aBpm": 111.0,
+ "bBpm": 109.0,
+ "aT0": 0.049484424183231415,
+ "aPhase": 0,
+ "bT0": 0.13212617939909202,
+ "bPhase": 0,
+ "fit": {
+  "tempo": true,
+  "tempoOffPct": 1.83,
+  "octave": 1,
+  "entry": true,
+  "anyPlacement": true,
+  "voiceGate": true,
+  "best": {
+   "A": 142,
+   "D": 60,
+   "gridA": true,
+   "gridAInfo": {
+    "share": 0.94,
+    "medAbsLagMs": 2.0,
+    "spreadMs": 2.0,
+    "barAgreement": 0.9178082191780822,
+    "bars": [
+     126,
+     145
+    ]
+   },
+   "gridB": true,
+   "gridBInfo": {
+    "share": 1.0,
+    "medAbsLagMs": 4.0,
+    "spreadMs": 1.4,
+    "barAgreement": 0.9180327868852459,
+    "bars": [
+     60,
+     63
+    ]
+   },
+   "bothEarly": 0,
+   "bothLast": 0
+  }
+ },
+ "move": "reels",
+ "exitBar": 142,
+ "exitT": 307.07651145121025,
+ "boxStartBarA": 134,
+ "boxStartT": 289.77921415391296,
+ "dropBar": 60,
+ "dropSure": true,
+ "dropT": 132.24221792251836,
+ "entryBarB": 52,
+ "entryT": 114.6275390234358,
+ "leadOffsetBars": 0,
+ "shape": "build",
+ "swap": false,
+ "swapBoxBar": null,
+ "ratio": 1.018348623853211,
+ "stretch": true,
+ "echo": true,
+ "octave": 1,
+ "aEndLine": 142,
+ "dLow": 24.599549770355225,
+ "dLevel": 7.569617033004761,
+ "aCandidates": [
+  {
+   "L": 142,
+   "t": 307.07651145121025,
+   "lift": 0.0,
+   "isLift": false,
+   "boxLow": -5.329450988769533,
+   "thin": false,
+   "end": true,
+   "leftS": 0.0,
+   "score": 1.0,
+   "bothSungEarly": 0,
+   "bothSungLast": 0,
+   "bothSung": 0
+  }
+ ],
+ "bCandidates": [
+  {
+   "bar": 20,
+   "rise": 16.48392677307129,
+   "before": -16.062484741210938,
+   "sustain": -1.0753288269042969
+  },
+  {
+   "bar": 60,
+   "rise": 10.244258880615234,
+   "before": -9.974336624145508,
+   "sustain": 0.08167266845703125
+  }
+ ],
+ "voices": {
+  "aSungBoxBars": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8
+  ],
+  "bSungBoxBars": [],
+  "rule7": true
+ }
+}

@@ -21,3 +21,10 @@ p20 animals summer
 p21 summer iwannago
 r1 iwannago outside
 h1 saxobeat onemoretime
+reg1 lushlife leanon
+reg2 wakemeup afterhours
+reg3 middle midnightcity
+reg4 saopaulo whyb
+reg5 yesbaby sandstorm
+reg6 amidreaming starboy
+reg7 lvsandals softcore

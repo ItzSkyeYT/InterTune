@@ -24,9 +24,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * The reels' way decides as the prototype's round 3 did on its 23 pairs (the party set p01 to p21,
- * r1 and h1): the fixtures in resources/reelsway are the inputs decide.py read and the decisions it
- * wrote, numbers and song ids only.
+ * The reels' way decides as the prototype's round 3 did on its 30 pairs (the party set p01 to p21,
+ * r1 and h1, and the seven regression pairs reg1 to reg7): the fixtures in resources/reelsway are
+ * the inputs decide.py read and the decisions it wrote, numbers and song ids only.
  */
 class ReelsWayTest {
 
