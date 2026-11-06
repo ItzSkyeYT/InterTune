@@ -533,12 +533,50 @@ object Unreleased {
      * For 0.13. Its analysis and its mixes were checked on the PC (AutomixTrial, 38 songs, through
      * a model of media3's audio sink), not yet heard on a phone. The setting starts off, and with
      * it off, or this off, playback is what it was. To ship: set this to true, or delete it with
-     * the checks that read it, in MusicService, PlayerSettings, PlayerFrag and DeveloperFrag, and
-     * its row's entry in SETTINGS_INDEX.
+     * the checks that read it, in MusicService, PlayerSettings, PlayerFrag and DeveloperFrag.
      *
      * Debug builds only since 26 Oct 2026: kept out of the previews that testers get.
      */
     val AUTOMIX = BuildConfig.DEBUG && BuildConfig.BUILD_TYPE == "debug"
+
+    /**
+     * Mix, the next step of AutoMix: a Mix switch on each playlist, a line between two songs that
+     * says how one goes into the next, and a page to shape that change by hand and hear it as it
+     * will play, on lows, mids and highs (experiments/features/automix/DESIGN.md, 21 Oct 2026).
+     * A change saved by hand belongs to its two songs, wherever they meet, and is kept in a file of
+     * its own under the app's files (TransitionStore in :mix), not in the database.
+     *
+     * Not in any release. With this off, playlists, the queue and the player are what they were,
+     * and nothing reads or writes those files. It plays only with AUTOMIX on. To ship: set this to
+     * true, or delete it with the checks that read it.
+     *
+     * Debug builds only, as AutoMix is: kept out of the previews that testers get.
+     */
+    val AUTOMIX_EDITOR = BuildConfig.DEBUG && BuildConfig.BUILD_TYPE == "debug"
+
+    /**
+     * Crossfade, under Player and audio beside Fade between tracks and AutoMix: a song that ends by
+     * itself fades out while the next one fades in, an equal-power blend of the length chosen (2 to
+     * 12 s) that ends where the outgoing song's music does (Planner.crossfade). Asked for on 5 Nov
+     * 2026: "make a plain crossfade and name it crossfade".
+     *
+     * It plays on AutoMix's stage, under the same guards (never for a song chosen by hand, nor
+     * between two songs of one album), and side by side with it: with both on, Auto plans first and
+     * a change it would leave gapless is crossfaded. A queue that plays as a mix gets no crossfade
+     * at all: one from a playlist whose Mix switch is on, one where two songs side by side have a
+     * change saved for them, and one where Auto has already mixed two songs (Crossfade.whyOff).
+     * While it is on, Fade between tracks is not used.
+     *
+     * Not heard on a phone yet. Its texts are held from translators, their French beside them. It
+     * plays only with AUTOMIX on, whose stage it uses, so it ships with AUTOMIX or after it. With it
+     * off the setting is never read, and playback is what it was. To ship: set this to true, or
+     * delete it with the checks that read it, in MusicService, PlayerSettings, PlayerFrag and
+     * SettingsIndex, and make its texts translatable.
+     *
+     * Debug builds only, as AutoMix is, whose stage it plays on (his word of 5 Nov 2026: into 0.13
+     * behind its debug switch).
+     */
+    val CROSSFADE = BuildConfig.DEBUG && BuildConfig.BUILD_TYPE == "debug"
 
     /**
      * Casting to a Chromecast opens InterTune's own receiver first (Chromecast.INTERTUNE_RECEIVER:

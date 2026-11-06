@@ -71,6 +71,12 @@ data class MultiQueueObject(
     }
 
     /**
+     * The songs' ids in the queue's own order, shuffle aside: the playlist's order for a queue
+     * started from one. A copy, for Crossfade's rule (AutomixController).
+     */
+    fun songIds(): List<String> = queue.map { it.id }
+
+    /**
      * Retrieve the song at current position in the queue
      */
     fun getCurrentSong(): MediaMetadata? {

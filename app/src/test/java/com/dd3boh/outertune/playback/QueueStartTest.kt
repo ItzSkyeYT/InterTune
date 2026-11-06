@@ -14,10 +14,12 @@ import com.dd3boh.outertune.playback.queues.Queue
 import com.zionhuang.innertube.models.BrowseEndpoint
 import java.io.IOException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.yield
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -230,6 +232,7 @@ class QueueStartTest {
         shouldResume: Boolean = false,
         playWhenReady: Boolean = true,
         runId: Long = 7,
+        beforeStart: () -> Unit = {},
     ) = run(
         queue = queue,
         playWhenReady = playWhenReady,
@@ -240,6 +243,7 @@ class QueueStartTest {
         origin = 3,
         originSlot = 2,
         runId = runId,
+        beforeStart = beforeStart,
     )
 
     private val started = "player: prepare, playWhenReady true"
@@ -1114,6 +1118,24 @@ class QueueStartTest {
         assertEquals(listOf("B Mix"), service.queues.map { it.title })
     }
 
+    @Test
+    fun `a start dropped for a newer tap says it started nothing, the newer one that it did`() = runBlocking {
+        // The caller links only a queue a tap started to its Mix playlist: the dropped one used to
+        // unlink the playlist that went on playing, turning Mix off under it.
+        val service = Service()
+        val first = LateQueue(song("A"))
+        val second = LateQueue(song("B"))
+        val start = QueueStart(service)
+        val one = async { start.play(first, runId = 7) }
+        first.asked.await()
+        val two = async { start.play(second, runId = 8) }
+        second.asked.await()
+        first.answer.complete(Queue.Status("A Mix", listOf(song("A"), song("A2")), 0))
+        assertFalse(one.await())
+        second.answer.complete(Queue.Status("B Mix", listOf(song("B"), song("B2")), 0))
+        assertTrue(two.await())
+    }
+
     // A song picked out of a list (issue #42). With shuffle on, the list used to play in its own
     // order from the song, and shuffle went off with it, or stayed showing on over that order when
     // the list refilled a queue of its own title. The board turns these asks into the order
@@ -1141,6 +1163,48 @@ class QueueStartTest {
         QueueStart(service).play(picked())
 
         assertEquals("add 'Playlist' [A, B, C, D, E] at 3 replace", service.board().first())
+    }
+
+    // What runs right before the player is told to start (Mix links the queue to its playlist there).
+
+    @Test
+    fun `a list is linked before its first song starts, never after`() = runBlocking {
+        // Linked after the start, a Mix playlist's first song played without Mix's stage, and its
+        // change into the second stayed plain.
+        val service = Service()
+        QueueStart(service).play(ListQueue(title = "Playlist", items = list), beforeStart = { service.asked += "link" })
+
+        assertEquals(listOf("add 'Playlist' [A, B, C, D, E] at 0 replace", "load 'Playlist' [A, B, C, D, E] at 0 $tags", "link", started), service.asked)
+    }
+
+    @Test
+    fun `a queue that starts early on its first song is linked before each start`() = runBlocking {
+        // First the queue of one, then the whole queue the player is given after it: each is the
+        // current queue as it starts, and each is linked (or unlinked) before it does.
+        val service = Service()
+        val radio = LateQueue(song("A"))
+        val job = launch { QueueStart(service).play(radio, isRadio = true, beforeStart = { service.asked += "link" }) }
+        radio.asked.await()
+        radio.answer.complete(Queue.Status("A Radio", listOf(song("A"), song("B"), song("C")), 0))
+        job.join()
+
+        val order = service.asked.filter { it == "link" || it.startsWith("player") }
+        assertEquals(listOf("link", started, "link", "player: prepare, playWhenReady true"), order)
+    }
+
+    @Test
+    fun `a start dropped for a newer tap is never linked`() = runBlocking {
+        val service = Service()
+        val start = QueueStart(service)
+        val first = LateQueue(preloadItem = null, songPicked = true)
+        val links = mutableListOf<String>()
+        val one = async { start.play(first, runId = 7, beforeStart = { links += "first" }) }
+        first.asked.await()
+        start.play(ListQueue(title = "Playlist", items = list), runId = 8, beforeStart = { links += "second" })
+        first.answer.complete(Queue.Status("Other list", listOf(song("P"), song("Q")), 1))
+
+        assertFalse(one.await())
+        assertEquals(listOf("second"), links)
     }
 
     @Test

@@ -60,6 +60,8 @@ import com.dd3boh.outertune.ui.screens.library.LibraryScreen
 import com.dd3boh.outertune.ui.screens.library.LibrarySongsScreen
 import com.dd3boh.outertune.ui.screens.playlist.AutoPlaylistScreen
 import com.dd3boh.outertune.ui.screens.playlist.LocalPlaylistScreen
+import com.dd3boh.outertune.ui.screens.mix.MIX_EDITOR_ROUTE
+import com.dd3boh.outertune.ui.screens.mix.MixEditorScreen
 import com.dd3boh.outertune.ui.screens.playlist.OnlinePlaylistScreen
 import com.dd3boh.outertune.ui.screens.search.OnlineSearchResult
 import com.dd3boh.outertune.ui.screens.search.SearchBarContainer
@@ -94,6 +96,8 @@ import com.dd3boh.outertune.ui.screens.walkthrough.SETTINGS_CLOSER_LOOK
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.TourState
 import com.dd3boh.outertune.ui.screens.walkthrough.TourTargets
+import com.dd3boh.outertune.ui.screens.mix.MixRoutes
+import com.dd3boh.outertune.ui.screens.mix.MixingSettings
 import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeCard
 import com.dd3boh.outertune.ui.screens.walkthrough.tourAll
 import kotlinx.coroutines.CoroutineScope
@@ -456,6 +460,21 @@ fun NavGraphBuilder.appDestinations(
         if (Unreleased.EQUALIZER) {
             screen("settings/player/equalizer") {
                 EqualizerSettings(navController, scrollBehavior)
+            }
+        }
+        // Mix: Settings > Mixing, and the editor of the change from one song into the next.
+        if (Unreleased.AUTOMIX_EDITOR) {
+            screen(MixRoutes.SETTINGS) {
+                MixingSettings(navController, scrollBehavior)
+            }
+            screen(
+                route = MIX_EDITOR_ROUTE,
+                arguments = listOf(
+                    navArgument("from") { type = NavType.StringType },
+                    navArgument("to") { type = NavType.StringType },
+                ),
+            ) {
+                MixEditorScreen(navController)
             }
         }
         screen("settings/storage") {

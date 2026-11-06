@@ -67,9 +67,52 @@ class AutomixControllerRulesTest {
 
     @Test
     fun `the player's resolver fetches a song once at a time only with AutoMix in the build`() {
-        // One resolver for the service since SABR reads the next song ahead through it (SabrAhead).
-        assertTrue("private val playerResolver by lazy { SongResolver(streamAddresses).also { if (Unreleased.AUTOMIX) it.fetches = OneFetchAtATime() } }" in service)
-        assertTrue("val resolver = if (forPlayer) playerResolver else SongResolver(streamAddresses)" in service)
+        assertTrue("SongResolver(streamAddresses).also { if (Unreleased.AUTOMIX) it.fetches = OneFetchAtATime() }" in service)
         assertTrue("val one = fetches ?: return fetch(mediaId, position, staleQuality, partialCopy, said)" in service)
+    }
+
+    @Test
+    fun `shuffled playback mixes by Auto alone, as the queue's line says, and never by a saved change`() {
+        // Pills.of(shuffled = true) names Auto's pick for the queue's line, so a saved change, a
+        // plain one included, is read for neither the held end nor the change on bands.
+        val read = body(controller, "private fun readHead(")
+        assertTrue(read, "t.shuffled = player.shuffleModeEnabled" in read)
+        assertTrue(read, "val saved = if (bands && !shuffled)" in read)
+        val bands = controller.substringAfter("private fun onBands(").substringBefore("Presets.onBands(")
+        assertTrue(bands, "val latest = if (t.shuffled) Result.success(null) else runCatching { savedChange(t.a.id, b.id) }" in bands)
+        // Nothing else reads the saved changes.
+        assertTrue(Regex("""savedChange\(""").findAll(controller).count() == 2)
+    }
+
+    @Test
+    fun `a plain change saved while the end is held is heard plain, not mixed by Auto`() {
+        // The end is held before the store is read again on the worker: a plain change saved by
+        // then hands the stage a gapless plan, as the queue's line says, instead of Auto's mix.
+        val bands = controller.substringAfter("private fun onBands(").substringBefore("val allowance = ")
+        val plain = bands.substringAfter("if (latestSaved?.plain == true) {").substringBefore("\n        }\n")
+        assertTrue(plain, "stage.offer(held, MixPlan.gapless(" in plain && "replaces = true)" in plain)
+        assertTrue(plain, "auto = AutoChoice.Plain(PlainReason.YOUR_CHOICE)" in plain)
+        assertFalse(bands, ".takeIf { !it.plain }" in bands)
+    }
+
+    @Test
+    fun `only a queue a tap starts is linked to its Mix playlist, before its first song starts`() {
+        // QueueStart calls beforeStart only for the start that goes ahead (QueueStartTest).
+        val play = service.substringAfter("fun playQueue(").substringBefore("private val queueStart = QueueStart(")
+        assertTrue(play, "beforeStart = { if (Unreleased.AUTOMIX_EDITOR) linkMixQueue((queue as? ListQueue)?.mixPlaylistId) }," in play)
+        assertTrue(Regex("""linkMixQueue\(""").findAll(service).count() == 2)
+    }
+
+    @Test
+    fun `a decision said again is not a new value for the queue's line and the heard changes`() {
+        // decide() runs at every look while a change is refused; StateFlow drops a value equal to
+        // the last, so what is said again neither rewrites heard.json nor plans every pair again.
+        assertTrue("data class Decided(val pair: SongPair, val choice: AutoChoice)" in controller)
+        val pair = com.dd3boh.outertune.mix.edit.SongPair("a", "b")
+        val plain = com.dd3boh.outertune.mix.pill.AutoChoice.Plain(com.dd3boh.outertune.mix.pill.PlainReason.RUN_TOGETHER)
+        val flow = kotlinx.coroutines.flow.MutableStateFlow<AutomixController.Decided?>(AutomixController.Decided(pair, plain))
+        val before = flow.value
+        flow.value = AutomixController.Decided(pair, com.dd3boh.outertune.mix.pill.AutoChoice.Plain(com.dd3boh.outertune.mix.pill.PlainReason.RUN_TOGETHER))
+        assertTrue(flow.value === before)
     }
 }

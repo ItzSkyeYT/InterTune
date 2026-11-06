@@ -20,7 +20,10 @@ enum class Style {
     /** Today's change: the outgoing song to its last sample, then the next. The fallback for everything. */
     GAPLESS,
 
-    /** An equal-power blend from the outgoing song's true end back, with the next song's first sound at its start. */
+    /**
+     * An equal-power blend from the outgoing song's true end back, with the next song's first sound
+     * at its start. The listener's plain crossfade (Planner.crossfade) is one too, of a set length.
+     */
     BLEND,
 
     /** A longer blend with the outgoing song filtered away under the incoming one: both ends loud. */
@@ -181,8 +184,12 @@ class Headroom(val start: Long, val step: Int, val values: FloatArray) {
         val position = (frame - start).toDouble() / step
         val i = position.toInt()
         if (i >= values.size - 1) return if (i >= values.size) 1.0 else values[i].toDouble()
+        val a = values[i]
+        val b = values[i + 1]
+        // Exactly 1 where it does not dip, so a song meets its own samples there to the bit.
+        if (a == 1f && b == 1f) return 1.0
         val f = position - i
-        return values[i] * (1.0 - f) + values[i + 1] * f
+        return a * (1.0 - f) + b * f
     }
 
     /** The output frame after which it is 1 again. */
@@ -276,6 +283,11 @@ class MixPlan(
     val beats: Int = 0,
     /** The tail frames of the outgoing song's beats the stretch must land exactly where the time map puts them. */
     val anchors: DoubleArray = DoubleArray(0),
+    /**
+     * The output frame from which the outgoing part no longer lines up with the held end even
+     * without a change of tempo: where a loop of its bars first jumps back. None for most plans.
+     */
+    val alignedUntil: Long = Long.MAX_VALUE,
 ) {
     val isGapless: Boolean get() = style == Style.GAPLESS
 

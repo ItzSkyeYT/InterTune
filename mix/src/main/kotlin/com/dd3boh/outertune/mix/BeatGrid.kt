@@ -65,7 +65,11 @@ class BeatGrid(
             ts += heardT[i]
         }
         if (ks.size < max(MIN_LINE_POINTS, (LINE_HIT_SHARE * (toK - fromK + 1)).toInt())) return null
-        val (a, b) = leastSquares(ks, ts) ?: return null
+        var (a, b) = leastSquares(ks, ts) ?: return null
+        wholeBpm(ks, ts, b, frameRate)?.let { whole ->
+            b = whole
+            a = throughAt(ks, ts, whole)
+        }
         var squares = 0.0
         for (j in ks.indices) {
             val r = ts[j] - (a + ks[j] * b)
@@ -170,6 +174,10 @@ class BeatGrid(
                 t0 = line.first
                 p = line.second
                 if (it == 1) {
+                    wholeBpm(ks, ts, p, frameRate)?.let { whole ->
+                        p = whole
+                        t0 = throughAt(ks, ts, whole)
+                    }
                     var squares = 0.0
                     for (j in ks.indices) {
                         val r = ts[j] - (t0 + ks[j] * p)
@@ -194,6 +202,60 @@ class BeatGrid(
                 }
             }
             return null
+        }
+
+        /**
+         * The beats of [onset] between [from] and [to] on a line given from elsewhere, t0 + k
+         * [period] (the song read whole, [WholeSongGrid]), judged as [track] judges its own line: the
+         * stretch where it keeps landing on strong onsets, the share it hits there, how far those
+         * onsets sit off it. The line itself is kept as it is. With no onset heard on it, the whole
+         * region is its stretch and nothing was hit. Null with fewer than four beats in the region.
+         */
+        fun onLine(onset: FloatArray, frameRate: Double, t0: Double, period: Double, from: Int = 0, to: Int = onset.size): BeatGrid? {
+            val lo = from.coerceIn(0, onset.size)
+            val hi = to.coerceIn(lo, onset.size)
+            if (period <= 0) return null
+            val first = floor((lo - t0) / period).toInt() + 1
+            val last = floor((hi - 1 - t0) / period).toInt()
+            if (last - first < 3) return null
+            val hitRadius = HIT_MS / 1000.0 * frameRate
+            val strong = strongPeaks(onset, lo, hi)
+            val hits = BooleanArray(last - first + 1)
+            val heard = DoubleArray(last - first + 1)
+            for (k in first..last) {
+                val h = nearestStrong(strong, t0 + k * period, hitRadius)
+                if (h != null) {
+                    hits[k - first] = true
+                    heard[k - first] = h
+                }
+            }
+            val stretch = bestStretch(hits)
+            val (s0, s1) = stretch ?: (0 to hits.size - 1)
+            val ks = ArrayList<Int>()
+            val ts = ArrayList<Double>()
+            for (i in s0..s1) if (hits[i]) {
+                ks += first + i
+                ts += heard[i]
+            }
+            var squares = 0.0
+            for (j in ks.indices) {
+                val r = ts[j] - (t0 + ks[j] * period)
+                squares += r * r
+            }
+            return BeatGrid(
+                t0 = t0,
+                period = period,
+                firstBeat = first + s0,
+                lastBeat = first + s1,
+                hitShare = if (stretch == null) 0.0 else ks.size.toDouble() / (s1 - s0 + 1),
+                jitterMs = if (ks.isEmpty()) Double.POSITIVE_INFINITY else sqrt(squares / ks.size) / frameRate * 1000.0,
+                steadiness = steadiness(ks, ts, frameRate),
+                drift = drift(ks, ts),
+                beats = ts.toDoubleArray(),
+                frameRate = frameRate,
+                heardK = ks.toIntArray(),
+                heardT = ts.toDoubleArray(),
+            )
         }
 
         /**
@@ -356,6 +418,47 @@ class BeatGrid(
             val shift = floor(t0 / p).toInt()
             return (t0 - shift * p) to p
         }
+
+        /**
+         * The period of the whole tempo nearest the line through [ks] and [ts], when the line cannot
+         * tell that tempo from its own: within three of its standard errors (and 0.02 BPM at least).
+         * Songs are made on a grid of whole BPM nearly always, and a line through a short or loose
+         * stretch is off by tenths of a BPM, which drifts a beat mix apart by tens of ms in a few
+         * bars. Held against the Harmonix annotations (mix-better, 2 Nov 2026): the median tempo
+         * error went from 0.015% to none, and windows off by more than 0.1% from 55 to 43 of 260;
+         * a song whose tempo is not whole keeps it wherever its line is sure of it. Null to keep
+         * the line's own.
+         */
+        internal fun wholeBpm(ks: List<Int>, ts: List<Double>, period: Double, frameRate: Double): Double? {
+            val n = ks.size
+            if (n < 4 || period <= 0) return null
+            val mk = ks.average()
+            var skk = 0.0
+            var squares = 0.0
+            val a = throughAt(ks, ts, period)
+            for (j in 0 until n) {
+                skk += (ks[j] - mk) * (ks[j] - mk)
+                val r = ts[j] - (a + ks[j] * period)
+                squares += r * r
+            }
+            if (skk <= 0) return null
+            val slopeError = sqrt(squares / max(1, n - 2) / skk)
+            val bpm = 60.0 * frameRate / period
+            val bpmError = bpm * slopeError / period
+            val whole = Math.round(bpm).toDouble()
+            if (whole <= 0 || abs(bpm - whole) > max(WHOLE_BPM_SLACK, WHOLE_BPM_ERRORS * bpmError)) return null
+            return 60.0 * frameRate / whole
+        }
+
+        /** The line of slope [period] through [ks] and [ts] at its best: where it crosses grid index 0. */
+        internal fun throughAt(ks: List<Int>, ts: List<Double>, period: Double): Double {
+            var sum = 0.0
+            for (j in ks.indices) sum += ts[j] - ks[j] * period
+            return sum / ks.size
+        }
+
+        private const val WHOLE_BPM_SLACK = 0.02
+        private const val WHOLE_BPM_ERRORS = 3.0
 
         /** The least-squares line t = a + b k, or null with fewer than four points. */
         internal fun leastSquares(ks: List<Int>, ts: List<Double>): Pair<Double, Double>? {

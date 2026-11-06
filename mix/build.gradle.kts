@@ -9,6 +9,8 @@ kotlin {
 dependencies {
     // Only for its Fft. The fingerprint code itself is not used here.
     implementation(project(":fingerprint"))
+    // The stored form of a saved transition (edit/TransitionJson.kt): JSON trees only, no compiler plugin.
+    implementation(libs.kotlinx.serialization.json)
     testImplementation(libs.junit)
 }
 

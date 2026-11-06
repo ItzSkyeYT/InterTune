@@ -203,11 +203,32 @@ val TransitionFadeSecondsKey = intPreferencesKey("transitionFadeSeconds")
 val AutomixKey = booleanPreferencesKey("automix")
 
 /**
+ * Whether a song that ends by itself fades out while the next one fades in (Crossfade). Off when
+ * absent, and read only while Unreleased.CROSSFADE is on. It plays on AutoMix's stage, under its
+ * guards and beside it, never in a queue that plays as a mix. While it is on, Fade between tracks
+ * is not used. See playback.automix.Crossfade.
+ */
+val CrossfadeKey = booleanPreferencesKey("crossfade")
+
+/** How long each crossfade lasts, in seconds: one of Crossfade.SECONDS_CHOICES, 6 when absent. */
+val CrossfadeSecondsKey = intPreferencesKey("crossfadeSeconds")
+
+/**
  * Debug builds only: the style every AutoMix transition is asked to take, by its name in
  * com.dd3boh.outertune.mix.Style, or absent for the planner's own choice. A style that cannot be
  * done for a pair is still refused, and that change stays as it is today.
  */
 val AutomixStyleKey = stringPreferencesKey("automixStyle")
+
+/**
+ * Mix (Unreleased.AUTOMIX_EDITOR): the library playlists whose Mix switch is on, by their id.
+ * Absent or without a playlist's id, that playlist plays as it always did. In the settings, not the
+ * database, so it needs no migration and still travels with a backup.
+ */
+val MixPlaylistsKey = stringSetPreferencesKey("mixPlaylists")
+
+/** Mix: which playlist each queue was started from, as QueueLinks writes them. See MusicService.refreshMix. */
+val MixQueueLinksKey = stringSetPreferencesKey("mixQueueLinks")
 
 
 /**

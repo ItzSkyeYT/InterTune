@@ -69,6 +69,8 @@ import com.dd3boh.outertune.ui.screens.settings.fragments.SpatialAudioFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.PlaybackBehaviourFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.PlayerGeneralFrag
 import com.dd3boh.outertune.ui.screens.settings.fragments.AutomixFrag
+import com.dd3boh.outertune.ui.screens.settings.fragments.CrossfadeFrag
+import com.dd3boh.outertune.ui.screens.mix.MixingEntry
 import com.dd3boh.outertune.ui.screens.settings.fragments.TransitionFadeFrag
 import com.dd3boh.outertune.utils.rememberPreference
 import kotlinx.coroutines.Dispatchers
@@ -129,7 +131,12 @@ fun PlayerSettings(
             AudioQualityFrag()
             AdaptiveQueueFrag()
             TransitionFadeFrag()
-            if (Unreleased.AUTOMIX) AutomixFrag()
+            // A plain crossfade, on AutoMix's stage and beside it.
+            if (Unreleased.CROSSFADE) CrossfadeFrag()
+            // Mix replaces the prototype's one switch with a switch on each playlist, and the
+            // rest of it lives on a page of its own.
+            if (Unreleased.AUTOMIX_EDITOR) MixingEntry(navController)
+            else if (Unreleased.AUTOMIX) AutomixFrag()
         }
         Spacer(modifier = Modifier.height(16.dp))
 

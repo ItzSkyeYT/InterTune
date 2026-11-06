@@ -38,6 +38,8 @@ class HeldTailTest {
         val armSecondsLeft: Double = 40.0,
         val forced: Style? = null,
         val formatsMatch: Boolean = true,
+        /** What the worker plans with: Auto, or the listener's crossfade. */
+        val planner: (PlanInput) -> MixPlan = Planner::plan,
         val action: (Run) -> Unit = {},
     ) {
         val held = HeldTail(2, rate, (capacitySeconds * rate).toInt()).also {
@@ -76,7 +78,7 @@ class HeldTailTest {
                     tail = tailAnalysis, head = headB, readMark = held.read, attenuationA = attA, attenuationB = attB,
                     aDurationMs = 200_000, bDurationMs = 200_000, forced = forced,
                 )
-                val p = Planner.plan(input)
+                val p = planner(input)
                 val r = MixRender.renderOutgoing(p, tail, tailAnalysis.guide, tailAnalysis.decimation, p.anchors)
                 taken = p
                 rendered = r
@@ -143,6 +145,24 @@ class HeldTailTest {
             val bCheckpoint = run.model.checkpoints.first { it.song == 1 }
             assertEquals(run.armFrame + p.bStart, bCheckpoint.trackFrame)
             // And everything heard is what the plan says, to the bit, whatever the buffer sizes.
+            assertArrayEquals(run.expected(), run.model.heard.toArray())
+        }
+    }
+
+    @Test
+    fun aCrossfadePlaysThroughTheHeldEndAsPlannedToTheBit() {
+        // The listener's crossfade goes through the same held end as Auto's changes.
+        for (seed in 1L..2L) {
+            val run = Run(seed = seed, planner = { Planner.crossfade(it, 6.0) }).go()
+            val p = run.taken!!
+            println("seed $seed: ${p.describe()}; ${run.held.note}; held ${run.held.clipped} clipped")
+            assertEquals(Style.BLEND, p.style)
+            assertEquals(6.0, p.seconds, 0.001)
+            assertTrue(run.held.note, run.held.note.startsWith("planned"))
+            assertEquals(0, run.model.stalls)
+            assertEquals(0, run.model.underruns)
+            val bCheckpoint = run.model.checkpoints.first { it.song == 1 }
+            assertEquals(run.armFrame + p.bStart, bCheckpoint.trackFrame)
             assertArrayEquals(run.expected(), run.model.heard.toArray())
         }
     }

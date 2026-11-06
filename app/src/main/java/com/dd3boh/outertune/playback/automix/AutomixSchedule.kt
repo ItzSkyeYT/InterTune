@@ -6,6 +6,9 @@
 
 package com.dd3boh.outertune.playback.automix
 
+import com.dd3boh.outertune.mix.edit.TransitionSpec
+import com.dd3boh.outertune.mix.engine.Engine
+
 /**
  * When AutoMix does each thing, by how much of the song playing is left, and the checks on what
  * it was handed. No Android in here, so it is tested; AutomixController reads the player for it.
@@ -55,13 +58,29 @@ object AutomixSchedule {
         TOO_LATE,
     }
 
-    /** What is due with [leftMs] of the song left. */
-    fun due(leftMs: Long): Step = when {
+    /**
+     * What is due with [leftMs] of the song left, the end being held from [armFromMs] left: earlier
+     * than usual for a saved change that starts further from the end (see [armFromFor]).
+     */
+    fun due(leftMs: Long, armFromMs: Long = ARM_FROM_LEFT_MS): Step = when {
         leftMs < ARM_UNTIL_LEFT_MS -> Step.TOO_LATE
-        leftMs <= ARM_FROM_LEFT_MS -> Step.ARM
+        leftMs <= armFromMs -> Step.ARM
         leftMs <= READ_LEFT_MS -> Step.READ
         else -> Step.WAIT
     }
+
+    /** The most a saved change may ask the end to be held from: the ring's room, less what the spatial stages add and a margin. */
+    const val ARM_FROM_LEFT_MAX_MS = (CAPACITY_SECONDS - 2) * 1000L
+
+    /**
+     * How long before the first frame a saved change touches its end must be held: the time to
+     * take the end in, which the decoder does at several times the speed it is played, and to work
+     * the change out, with room to spare.
+     */
+    const val SAVED_LEAD_MS = 15_000L
+
+    /** Where the end is held from for a saved change whose first frame is [changeLeftMs] before the song's end. */
+    fun armFromFor(changeLeftMs: Long): Long = (changeLeftMs + SAVED_LEAD_MS).coerceIn(ARM_FROM_LEFT_MS, ARM_FROM_LEFT_MAX_MS)
 
     /**
      * How long to wait, at [speed], before looking again with [leftMs] left: until the next step is
@@ -69,11 +88,11 @@ object AutomixSchedule {
      * for (the songs loaded, the opening read) arrives by itself. Null when nothing is left to do
      * for this song.
      */
-    fun nextLookMs(leftMs: Long, speed: Float): Long? {
+    fun nextLookMs(leftMs: Long, speed: Float, armFromMs: Long = ARM_FROM_LEFT_MS): Long? {
         val s = speed.takeIf { it > 0.01f } ?: 1f
         val untilMs = when {
             leftMs > READ_LEFT_MS -> leftMs - READ_LEFT_MS
-            leftMs > ARM_FROM_LEFT_MS -> leftMs - ARM_FROM_LEFT_MS
+            leftMs > armFromMs -> leftMs - armFromMs
             leftMs >= ARM_UNTIL_LEFT_MS -> return WINDOW_LOOK_MS
             else -> return null
         }
@@ -115,4 +134,22 @@ object AutomixSchedule {
     private const val MAX_WAIT_MS = 60_000L
     private const val END_SLACK_MS = 300L
     private const val MIN_WORK_MS = 2_000L
+
+    /** The opening is copied this much past what a change needs of it, and a minute at most. */
+    const val COPY_MARGIN_S = 2.0
+    const val COPY_MAX_S = 60.0
+
+    /**
+     * How much of the next song's opening to copy, in seconds: what Auto can reach, or what the
+     * saved change needs of it, a minute at most. A lane leaving by Echo rings up to
+     * [Engine.ECHO_MAX_BARS_AFTER] bars past the change's end, and the end has the headroom's pad
+     * after it: a change whose last exit was an echo was refused for a copy a second or two short,
+     * and Auto played while the editor's preview, with a minute of B, had played it whole.
+     */
+    fun copySecondsFor(saved: TransitionSpec?): Double {
+        val need = saved?.takeIf { !it.plain }?.let {
+            (it.b.atMs + it.lengthMs + Engine.ECHO_MAX_BARS_AFTER * it.b.barMs) / 1000.0 + Engine.HEADROOM_PAD_S + COPY_MARGIN_S
+        } ?: 0.0
+        return need.coerceAtLeast(HEAD_SECONDS + COPY_MARGIN_S).coerceAtMost(COPY_MAX_S)
+    }
 }

@@ -73,6 +73,40 @@ class AutomixGuardsTest {
     }
 
     @Test
+    fun `with Crossfade on, a change may be made with AutoMix off, and every other guard still refuses`() {
+        assertNull(AutomixGuards.whyNot(snapshot(settingOn = false).withCrossfade()))
+        assertNull(AutomixGuards.whyNot(snapshot(settingOn = true).withCrossfade()))
+        val refusals = mapOf(
+            "casting" to snapshot(settingOn = false, casting = true),
+            "nothing is playing" to snapshot(settingOn = false, current = null),
+            "repeat one is on" to snapshot(settingOn = false, repeatOne = true),
+            "nothing comes next" to snapshot(settingOn = false, next = null),
+            "the same song comes again" to snapshot(settingOn = false, next = AutomixGuards.Song("a", "album-a", 200_000)),
+            "the two songs are from one album" to snapshot(settingOn = false, next = AutomixGuards.Song("b", "album-a", 180_000)),
+            "this song is under a minute" to snapshot(settingOn = false, current = AutomixGuards.Song("a", null, 59_999)),
+            "this song's length is not known" to snapshot(settingOn = false, current = AutomixGuards.Song("a", null, -1)),
+            "the next song is under a minute" to snapshot(settingOn = false, next = AutomixGuards.Song("b", null, 54_000)),
+            "the next song's length is not known" to snapshot(settingOn = false, next = AutomixGuards.Song("b", null, -1)),
+            "the speed or the pitch is not as recorded" to snapshot(settingOn = false, speed = 0.8f),
+            "skip silence is on" to snapshot(settingOn = false, skipSilence = true),
+            "head tracking is on" to snapshot(settingOn = false, headTracking = true),
+            "the surround upmix is on" to snapshot(settingOn = false, upmix = true),
+            "the spatial Ambience is on" to snapshot(settingOn = false, ambience = true),
+            "FFmpeg decodes this build's audio" to snapshot(settingOn = false, ffmpeg = true),
+            "a sleep timer is set" to snapshot(settingOn = false, sleepTimer = true),
+            "the song was moved within its last minute" to snapshot(settingOn = false, seekedLate = true),
+            "AutoMix was not on yet as this song started" to snapshot(settingOn = false, stageInChain = false),
+        )
+        for ((why, s) in refusals) assertEquals(why, AutomixGuards.whyNot(s.withCrossfade()))
+    }
+
+    /** [this] with Crossfade on and the rest as it is. */
+    private fun AutomixGuards.Snapshot.withCrossfade() = AutomixGuards.Snapshot(
+        settingOn, stageInChain, casting, repeatOne, current, next, speed, pitch, skipSilence,
+        headTracking, upmix, ambience, ffmpeg, sleepTimer, seekedLate, crossfadeOn = true,
+    )
+
+    @Test
     fun `a minute exactly is long enough`() {
         assertNull(AutomixGuards.whyNot(snapshot(current = AutomixGuards.Song("a", null, 60_000), next = AutomixGuards.Song("b", null, 60_000))))
     }

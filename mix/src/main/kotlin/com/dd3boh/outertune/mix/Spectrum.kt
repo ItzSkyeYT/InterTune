@@ -40,7 +40,12 @@ class Spectrum private constructor(
     val lowOnset: FloatArray,
     /** The flux of the bands from 200 Hz to 2.5 kHz, where snares and claps sit. */
     val midOnset: FloatArray,
+    /** The decimated mono copy the spectrum was taken from. */
+    private val mono: FloatArray,
 ) {
+    /** The pitch classes of the same copy, for the bars; worked out the first time they are asked for. */
+    val harmony: Harmony by lazy { Harmony.of(mono, decimatedRate) }
+
     /** Spectral frames per second, 86 at 44.1 kHz and 94 at 48 kHz. */
     val frameRate: Double get() = decimatedRate / HOP
 
@@ -139,6 +144,7 @@ class Spectrum private constructor(
                 onset = normalise(rawOnset, frameRate),
                 lowOnset = normalise(rawLow, frameRate),
                 midOnset = normalise(rawMid, frameRate),
+                mono = mono,
             )
         }
 

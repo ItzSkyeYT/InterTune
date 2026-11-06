@@ -261,9 +261,6 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
                 onCheckedChange = onWebClientFirstChange,
             )
         }
-        if (BuildConfig.DEBUG && Unreleased.AUTOMIX) {
-            AutomixStyleRow()
-        }
         if (BuildConfig.DEBUG && Unreleased.SABR) {
             SwitchPreference(
                 title = { Text(stringResource(R.string.sabr_only)) },
@@ -308,6 +305,10 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
                     )
                 }
             }
+        }
+
+        if (BuildConfig.DEBUG && Unreleased.AUTOMIX) {
+            AutomixStyleRow()
         }
 
         PreferenceEntry(

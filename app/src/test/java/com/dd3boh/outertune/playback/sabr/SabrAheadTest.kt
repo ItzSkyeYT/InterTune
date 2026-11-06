@@ -482,7 +482,7 @@ class SabrAheadTest {
         // After the player's own resolve of the song, when one is out: the chain walked once.
         assertTrue(resolving, resolving.indexOf("while (resolvingSongs.containsKey(id)") in 0 until resolving.indexOf("playerResolver.resolve("))
         assertTrue("cachedUpTo = { id -> playerCache.getCachedLength(id, 0, Long.MAX_VALUE).coerceAtLeast(0) }," in service)
-        assertTrue("val resolver = if (forPlayer) playerResolver else SongResolver(streamAddresses)" in service)
+        assertTrue("val resolver = playerResolver" in service)
         assertTrue("if (Unreleased.SABR_AHEAD) SabrOver.ahead = sabrAhead" in service)
     }
 

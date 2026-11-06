@@ -6,6 +6,18 @@
 
 package com.dd3boh.outertune.playback.automix
 
+import com.dd3boh.outertune.mix.edit.Anchor
+import com.dd3boh.outertune.mix.edit.How
+import com.dd3boh.outertune.mix.edit.Lane
+import com.dd3boh.outertune.mix.edit.LaneId
+import com.dd3boh.outertune.mix.edit.LaneSet
+import com.dd3boh.outertune.mix.edit.Move
+import com.dd3boh.outertune.mix.edit.Preset
+import com.dd3boh.outertune.mix.edit.Presets
+import com.dd3boh.outertune.mix.edit.Side
+import com.dd3boh.outertune.mix.edit.TransitionSpec
+import com.dd3boh.outertune.mix.engine.ChangeFacts
+import com.dd3boh.outertune.mix.engine.SpecPlan
 import com.dd3boh.outertune.playback.automix.AutomixSchedule.Step
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -26,6 +38,21 @@ class AutomixScheduleTest {
         assertEquals(Step.TOO_LATE, AutomixSchedule.due(24_999))
         // A song shorter than two minutes has its next song read at once.
         assertEquals(Step.READ, AutomixSchedule.due(90_000))
+    }
+
+    @Test
+    fun `a saved change that starts further from the end has its end held earlier, as far as the ring allows`() {
+        // Wake Me Up into After Hours: 8 bars at 109 BPM and 4 beats of ramp, ending 9 s before the end.
+        val changeLeft = 9_000L + 17_615L + 2_162L
+        val from = AutomixSchedule.armFromFor(changeLeft)
+        assertEquals(changeLeft + AutomixSchedule.SAVED_LEAD_MS, from)
+        assertEquals(Step.ARM, AutomixSchedule.due(from, from))
+        assertEquals(Step.READ, AutomixSchedule.due(from + 1, from))
+        assertEquals(500L, AutomixSchedule.nextLookMs(from - 100, 1f, from))
+        // A change close to the end is held as Auto's are, and one too far from it no earlier than the ring can hold.
+        assertEquals(AutomixSchedule.ARM_FROM_LEFT_MS, AutomixSchedule.armFromFor(10_000))
+        assertEquals(AutomixSchedule.ARM_FROM_LEFT_MAX_MS, AutomixSchedule.armFromFor(60_000))
+        assertTrue(AutomixSchedule.ARM_FROM_LEFT_MAX_MS < AutomixSchedule.CAPACITY_SECONDS * 1000L)
     }
 
     @Test
@@ -69,5 +96,26 @@ class AutomixScheduleTest {
     fun `the held end has room for the whole window and what follows it`() {
         assertEquals(48 * 44_100, AutomixSchedule.capacityFrames(44_100))
         assertTrue(AutomixSchedule.capacityFrames(48_000) >= (AutomixSchedule.ARM_FROM_LEFT_MS / 1000 + 5) * 48_000)
+    }
+
+    @Test
+    fun `a change whose last exit is an echo copies enough of the next song for the echo`() {
+        // 16 bars at 128 BPM from the next song's first second, A's mids echoing out at bar 16.
+        val fade = Presets.moves(Preset.FADE, LaneSet.BANDS, 16.0, 0.25)!!
+        val spec = TransitionSpec(
+            a = Anchor("a", 20_000.0, 128.0), b = Anchor("b", 1_000.0, 128.0), lanes = LaneSet.BANDS,
+            bars = 16, beatMatch = true, preset = Preset.CUSTOM, moves = fade + (LaneId(Side.A, Lane.MIDS) to Move(14.0, 2.0, How.ECHO)),
+        )
+        assertTrue(spec.problems().toString(), spec.isValid)
+        val seconds = AutomixSchedule.copySecondsFor(spec)
+        // The change, two bars of echo after it, the pad and the margin.
+        assertEquals((1_000.0 + 16 * 1_875.0 + 2 * 1_875.0) / 1000.0 + 0.4 + 2.0, seconds, 1e-9)
+        val rate = 48_000
+        val facts = ChangeFacts(rate, 2, 20.0 * rate, 60L * rate, 1.0 * rate, (seconds * rate).toLong())
+        val planned = SpecPlan.plan(spec, facts)
+        assertTrue((planned as? SpecPlan.Result.Refused)?.why ?: "", planned is SpecPlan.Result.Planned)
+        // Nothing saved, or a plain change: what Auto can reach.
+        assertEquals(AutomixSchedule.HEAD_SECONDS + AutomixSchedule.COPY_MARGIN_S, AutomixSchedule.copySecondsFor(null), 1e-9)
+        assertEquals(AutomixSchedule.HEAD_SECONDS + AutomixSchedule.COPY_MARGIN_S, AutomixSchedule.copySecondsFor(spec.copy(plain = true)), 1e-9)
     }
 }

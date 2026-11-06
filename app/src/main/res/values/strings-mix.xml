@@ -1,0 +1,385 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Mix's transition editor (DESIGN.md section 3). Kept out of strings-ot.xml on purpose: every
+  text here waits for a yes on its words before it goes to translators, and only then moves there.
+-->
+<resources>
+    <string name="mix_edit_title">Edit transition</string>
+    <string name="mix_edit_undo">Undo</string>
+    <string name="mix_edit_redo">Redo</string>
+    <string name="mix_edit_close">Close</string>
+    <string name="mix_edit_save">Save</string>
+
+    <!-- the two song rows -->
+    <string name="mix_edit_bpm">%1$s BPM</string>
+    <string name="mix_edit_bpm_unknown">\? BPM</string>
+    <string name="mix_edit_fix_beat_of">Fix the beat of %1$s</string>
+    <string name="mix_edit_bar_one_at">Bar 1 at %1$s</string>
+    <!-- "After Hours' beat", "Wake Me Up's end": the owner's form of a title -->
+    <string name="mix_edit_owner">%1$s\'s</string>
+    <string name="mix_edit_owner_s">%1$s\'</string>
+
+    <!-- lanes -->
+    <string name="mix_edit_lows">Lows</string>
+    <string name="mix_edit_mids">Mids</string>
+    <string name="mix_edit_highs">Highs</string>
+    <string name="mix_edit_vocals">Vocals</string>
+    <string name="mix_edit_drums">Drums</string>
+    <string name="mix_edit_bass">Bass</string>
+    <string name="mix_edit_melody">Melody</string>
+
+    <!-- the bar row -->
+    <plurals name="mix_edit_bars">
+        <item quantity="one">%d bar</item>
+        <item quantity="other">%d bars</item>
+    </plurals>
+    <plurals name="mix_edit_beats">
+        <item quantity="one">%d beat</item>
+        <item quantity="other">%d beats</item>
+    </plurals>
+    <string name="mix_edit_seconds">%1$s s</string>
+    <string name="mix_edit_length">Length of the change</string>
+    <string name="mix_edit_view_songs">Songs</string>
+    <string name="mix_edit_view_bands">Bands</string>
+    <string name="mix_edit_view_parts">Parts</string>
+
+    <!-- the now line -->
+    <string name="mix_edit_now_bar">Bar %1$d of %2$d</string>
+    <string name="mix_edit_now_second">Second %1$d of %2$d</string>
+    <plurals name="mix_edit_now_before">
+        <item quantity="one">%d bar before the change</item>
+        <item quantity="other">%d bars before the change</item>
+    </plurals>
+    <string name="mix_edit_now_before_timed">Before the change</string>
+    <string name="mix_edit_now_after">After the change</string>
+    <string name="mix_edit_now_plain">Plain change</string>
+    <string name="mix_edit_plain_yours">Plain change · your choice</string>
+    <string name="mix_edit_loses">%1$s loses its last %2$s</string>
+    <string name="mix_edit_reading_a">Reading the end of %1$s…</string>
+    <string name="mix_edit_reading_b">Reading the start of %1$s…</string>
+    <string name="mix_edit_analysing">Finding the beats…</string>
+
+    <!-- moments: %1$s is the song's owner form, %2$s the lane in lower case -->
+    <bool name="mix_edit_plural_lows">true</bool>
+    <bool name="mix_edit_plural_mids">true</bool>
+    <bool name="mix_edit_plural_highs">true</bool>
+    <bool name="mix_edit_plural_vocals">true</bool>
+    <bool name="mix_edit_plural_drums">true</bool>
+    <bool name="mix_edit_plural_bass">false</bool>
+    <bool name="mix_edit_plural_melody">false</bool>
+    <string name="mix_edit_m_swap">%1$s swap</string>
+    <string name="mix_edit_m_swap_one">%1$s swap</string>
+    <string name="mix_edit_m_hats">%1$s hats come in</string>
+    <string name="mix_edit_m_in">%1$s %2$s come in</string>
+    <string name="mix_edit_m_in_one">%1$s %2$s comes in</string>
+    <string name="mix_edit_m_rise">%1$s %2$s rise, muffled</string>
+    <string name="mix_edit_m_rise_one">%1$s %2$s rises, muffled</string>
+    <string name="mix_edit_m_out">%1$s %2$s %3$s</string>
+    <string name="mix_edit_m_out_one">%1$s %2$s %3$s</string>
+    <string name="mix_edit_v_cut">stop</string>
+    <string name="mix_edit_v_cut_one">stops</string>
+    <string name="mix_edit_v_fade">fade out</string>
+    <string name="mix_edit_v_fade_one">fades out</string>
+    <string name="mix_edit_v_muffle">muffle away</string>
+    <string name="mix_edit_v_muffle_one">muffles away</string>
+    <string name="mix_edit_v_thin">thin out</string>
+    <string name="mix_edit_v_thin_one">thins out</string>
+    <string name="mix_edit_v_echo">echo out</string>
+    <string name="mix_edit_v_echo_one">echoes out</string>
+    <string name="mix_edit_m_muted">%1$s %2$s are muted</string>
+    <string name="mix_edit_m_muted_one">%1$s %2$s is muted</string>
+    <string name="mix_edit_m_waits">%1$s %2$s wait until after the change</string>
+    <string name="mix_edit_m_waits_one">%1$s %2$s waits until after the change</string>
+    <string name="mix_edit_m_curve">%1$s %2$s follow your curve</string>
+    <string name="mix_edit_m_curve_one">%1$s %2$s follows your curve</string>
+    <string name="mix_edit_m_under">%1$s starts under %2$s</string>
+
+    <!-- presets -->
+    <string name="mix_edit_presets">Presets</string>
+    <string name="mix_preset_custom">Custom</string>
+    <string name="mix_preset_auto">Auto</string>
+    <string name="mix_preset_vocals_over">Vocals over</string>
+    <string name="mix_preset_beat_under">Beat under</string>
+    <string name="mix_preset_drum_swap">Drum swap</string>
+    <string name="mix_preset_riff_rise">Riff rise</string>
+    <string name="mix_preset_fade">Fade</string>
+    <string name="mix_preset_rise">Rise</string>
+    <string name="mix_preset_blend">Blend</string>
+    <string name="mix_preset_echo_out">Echo out</string>
+    <string name="mix_preset_cut">Cut</string>
+    <string name="mix_line_custom">Your own moves for these two songs.</string>
+    <string name="mix_line_auto">The app\'s pick for these two songs.</string>
+    <string name="mix_line_auto_plain">Auto plays these two as a plain change.</string>
+    <string name="mix_line_vocals_over">%1$s keeps singing over %2$s beat, then hands over.</string>
+    <string name="mix_line_beat_under">%1$s drums carry %2$s opening, then %3$s drops.</string>
+    <string name="mix_line_drum_swap">Down to %1$s drums, then %2$s builds over them.</string>
+    <string name="mix_line_riff_rise">%1$s melody rises under %2$s, which ends with its voice alone.</string>
+    <string name="mix_line_fade">One smooth handover, one bassline at a time.</string>
+    <string name="mix_line_rise">%1$s opens up from muffled while %2$s thins out.</string>
+    <string name="mix_line_blend">Both songs blend evenly, the basses swap halfway.</string>
+    <string name="mix_line_echo_out">%1$s last line echoes away while %2$s comes in.</string>
+    <string name="mix_line_cut">A hard cut on the bar.</string>
+    <string name="mix_line_cut_timed">A hard cut.</string>
+    <string name="mix_line_plain">Plays as a plain change: %1$s to its end, then %2$s.</string>
+    <string name="mix_edit_two_basslines">Two basslines for %1$s.</string>
+    <string name="mix_edit_needs_parts">Needs the mixer download</string>
+    <string name="mix_edit_replaced">Custom moves replaced by %1$s.</string>
+
+    <!-- switches and buttons -->
+    <string name="mix_edit_beat_matching">Beat matching</string>
+    <string name="mix_edit_bm_slower">%1$s plays %2$s%% slower to lock to %3$s beat.</string>
+    <string name="mix_edit_bm_faster">%1$s plays %2$s%% faster to lock to %3$s beat.</string>
+    <string name="mix_edit_bm_same">%1$s is already on %2$s beat.</string>
+    <string name="mix_edit_bm_off">Off: the beats drift %1$s s apart over %2$s.</string>
+    <string name="mix_edit_bm_refused">The tempos are %1$s%% apart.</string>
+    <string name="mix_edit_bm_no_beat_a">%1$s has no steady beat here, so it keeps its own speed.</string>
+    <string name="mix_edit_bm_no_bars">Without a steady beat in both songs, the change is timed in seconds.</string>
+    <string name="mix_edit_back_to_auto">Back to Auto</string>
+    <string name="mix_edit_plain">Plain change for these two</string>
+    <string name="mix_edit_parts_need">Parts need the mixer download (%1$d MB).</string>
+
+    <!-- transport -->
+    <string name="mix_edit_play">Play</string>
+    <string name="mix_edit_stop">Stop</string>
+    <string name="mix_edit_loop">Loop</string>
+
+    <!-- length sheet -->
+    <string name="mix_edit_length_title">Length</string>
+    <string name="mix_edit_length_note">At %1$s BPM. Each length keeps where the change ends.</string>
+    <string name="mix_edit_length_note_timed">Each length keeps where the change ends.</string>
+    <string name="mix_edit_length_at">bar 1 at %1$s</string>
+    <string name="mix_edit_length_timed">With beat matching off:</string>
+    <string name="mix_edit_length_no_32">32 bars is not offered: it is past what can be held of %1$s.</string>
+
+    <!-- limits -->
+    <string name="mix_edit_limit_a_reach">Only the last %1$s of %2$s can be used.</string>
+    <string name="mix_edit_limit_a_ends">%1$s ends at %2$s, before its last move.</string>
+    <string name="mix_edit_limit_b_first">%1$s always starts at its first second.</string>
+    <string name="mix_edit_limit_b_reach">%1$s opening is read up to %2$s.</string>
+    <string name="mix_edit_limit_a_needs">This needs %1$s of %2$s end; only the last %3$s can be used.</string>
+    <string name="mix_edit_limit_a_plays">For now a saved change can start at most %1$s before the end of %2$s.</string>
+
+    <!-- fix the beat -->
+    <string name="mix_fix_title">Fix the beat: %1$s</string>
+    <string name="mix_fix_sure">%1$s BPM · sure</string>
+    <string name="mix_fix_changed">%1$s BPM · changed by you</string>
+    <string name="mix_fix_half">Half</string>
+    <string name="mix_fix_double">Double</string>
+    <string name="mix_fix_tap">Tap</string>
+    <string name="mix_fix_tap_done">Done</string>
+    <string name="mix_fix_tapped">Taps: %1$d · %2$s BPM</string>
+    <string name="mix_fix_the_one">The 1:</string>
+    <string name="mix_fix_earlier">A beat earlier</string>
+    <string name="mix_fix_later">A beat later</string>
+    <string name="mix_fix_nudge">Nudge:</string>
+    <string name="mix_fix_minus">-5 ms</string>
+    <string name="mix_fix_plus">+5 ms</string>
+    <string name="mix_fix_ms">%1$s ms</string>
+    <string name="mix_fix_click">Metronome</string>
+    <string name="mix_edit_loop_times">×%1$d</string>
+    <string name="mix_fix_lock">Lock</string>
+    <string name="mix_fix_reset">Reset</string>
+    <string name="mix_fix_bars_guessed">%1$s BPM · bar 1 unsure</string>
+    <string name="mix_fix_type">BPM</string>
+    <string name="mix_beat_note_none">Beat unsure</string>
+    <string name="mix_beat_note_bar_one">Bar 1 unsure</string>
+
+    <!-- moments sheet -->
+    <string name="mix_moments_title">Moments</string>
+    <string name="mix_moments_note">Tap one to play from there.</string>
+    <string name="mix_moments_plain">A plain change has no moments.</string>
+    <string name="mix_pos_bar">bar %1$s</string>
+    <string name="mix_pos_beat">bar %1$s, beat %2$d</string>
+    <string name="mix_moments_times">%1$s %2$s · %3$s %4$s</string>
+
+    <!-- how bar, lane menu, adjust -->
+    <string name="mix_how_fade">Fade</string>
+    <string name="mix_how_muffle">Muffle</string>
+    <string name="mix_how_muffled">Muffled</string>
+    <string name="mix_how_thin">Thin</string>
+    <string name="mix_how_echo">Echo</string>
+    <string name="mix_how_cut">Cut</string>
+    <string name="mix_how_keep">Keep</string>
+    <string name="mix_how_start">From the start</string>
+    <string name="mix_how_customize">Customize</string>
+    <string name="mix_how_shorter">Shorter</string>
+    <string name="mix_how_longer">Longer</string>
+    <string name="mix_how_more">More</string>
+    <string name="mix_how_whole">whole change</string>
+    <string name="mix_how_on_beat">on the beat</string>
+    <string name="mix_how_kept">kept</string>
+    <string name="mix_how_from_start">from start</string>
+    <string name="mix_how_mixed">mixed</string>
+    <string name="mix_lane_mute">Mute in this change</string>
+    <string name="mix_lane_unmute">Unmute</string>
+    <string name="mix_lane_alone">Listen alone</string>
+    <string name="mix_lane_alone_stop">Stop listening alone</string>
+    <string name="mix_lane_keep">Keep the whole time</string>
+    <string name="mix_lane_adjust">Adjust curve</string>
+    <string name="mix_lane_muted">%1$s · muted</string>
+    <string name="mix_lane_soloed">%1$s · alone</string>
+    <string name="mix_adjust_title">Adjust: %1$s</string>
+    <string name="mix_adjust_done">Done</string>
+    <string name="mix_adjust_two_points">A curve keeps two points at least.</string>
+
+    <!-- on the canvas -->
+    <string name="mix_canvas_leaves">leaves from %1$s</string>
+    <string name="mix_canvas_comes">comes in from %1$s</string>
+    <string name="mix_canvas_how_from">%1$s from %2$s</string>
+    <string name="mix_canvas_how_in_from">%1$s in from %2$s</string>
+    <string name="mix_canvas_cut_at">cut at %1$s</string>
+    <string name="mix_canvas_from_start">from its start</string>
+    <string name="mix_canvas_echo">echo</string>
+    <string name="mix_canvas_not_heard">not heard %1$s</string>
+    <string name="mix_canvas_intro_twice">loop</string>
+    <string name="mix_canvas_plain">Plain change: %1$s starts when %2$s ends.</string>
+    <string name="mix_canvas_summary">%1$s into %2$s, %3$s, %4$s.</string>
+    <string name="mix_canvas_by_beats">%1$s · by beats</string>
+
+    <!-- talkback -->
+    <string name="mix_a11y_exit">%1$s, %2$s leaves at %3$s, %4$s. Use the actions to move it.</string>
+    <string name="mix_a11y_entry">%1$s, %2$s comes in at %3$s, %4$s. Use the actions to move it.</string>
+    <string name="mix_a11y_anchor">%1$s at bar 1: %2$s. Use the actions to move it a bar.</string>
+    <string name="mix_a11y_bar_earlier">A bar earlier</string>
+    <string name="mix_a11y_bar_later">A bar later</string>
+    <string name="mix_a11y_beat_earlier">A beat earlier</string>
+    <string name="mix_a11y_beat_later">A beat later</string>
+
+    <!-- states -->
+    <string name="mix_edit_discard_title">Discard your changes?</string>
+    <string name="mix_edit_keep_editing">Keep editing</string>
+    <string name="mix_edit_discard">Discard</string>
+    <string name="mix_edit_saved">Transition saved</string>
+    <string name="mix_edit_offline">Both songs have to be read once. Connect to the internet, or download them.</string>
+    <string name="mix_edit_unreadable">%1$s end cannot be read ahead on this connection. Download it to edit this change.</string>
+    <string name="mix_edit_unreadable_b">%1$s opening could not be read. Try again, or download it.</string>
+    <string name="mix_edit_download">Download</string>
+    <string name="mix_edit_try_again">Try again</string>
+    <string name="mix_edit_guard_skip_silence">Skip silence is on, so this plays as a plain change for now.</string>
+    <string name="mix_edit_guard_formats">The two songs come in different formats, so this plays as a plain change for now.</string>
+    <string name="mix_edit_guard_same_song">A song into itself plays as a plain change.</string>
+    <!-- Mix (Unreleased.AUTOMIX_EDITOR): the playlist's Mix row, the line between two songs, the queue's line, Settings > Mixing. -->
+    <string name="mix">Mix</string>
+    <string name="mix_off">Songs flow into each other, like a DJ set.</string>
+    <string name="mix_on">Mixed. Tap a change to hear it or shape it.</string>
+    <string name="mix_shuffled">Playing shuffled: each change is Auto.</string>
+    <string name="mix_explain">When a song ends by itself, the next one comes in under it, on the beat when both have a steady one. Songs you skip to change as before.</string>
+    <string name="mix_blocked_casting">Not mixing while casting.</string>
+    <string name="mix_blocked_together">Not mixing while listening together.</string>
+    <string name="mix_blocked_repeat_one">Not mixing while Repeat one is on.</string>
+    <string name="mix_blocked_speed">Not mixing while the speed or pitch is changed.</string>
+    <string name="mix_blocked_skip_silence">Not mixing while Skip silence is on.</string>
+    <string name="mix_blocked_spatial">Not mixing with head tracking, Surround upmix or Ambience on.</string>
+    <string name="mix_blocked_decoder">Not mixing while the FFmpeg decoder is on.</string>
+    <string name="mix_blocked_sleep_timer">Not mixing while a sleep timer is set.</string>
+    <string name="mix_pill_auto">Auto</string>
+    <string name="mix_move_custom">Custom</string>
+    <string name="mix_move_auto">Auto</string>
+    <string name="mix_move_vocals_over">Vocals over</string>
+    <string name="mix_move_beat_under">Beat under</string>
+    <string name="mix_move_drum_swap">Drum swap</string>
+    <string name="mix_move_riff_rise">Riff rise</string>
+    <string name="mix_move_fade">Fade</string>
+    <string name="mix_move_rise">Rise</string>
+    <string name="mix_move_blend">Blend</string>
+    <string name="mix_move_echo_out">Echo out</string>
+    <string name="mix_move_cut">Cut</string>
+    <plurals name="mix_pill_bars">
+        <item quantity="one">%1$s · %2$d bar</item>
+        <item quantity="other">%1$s · %2$d bars</item>
+    </plurals>
+    <string name="mix_pill_seconds">%1$s · %2$d s</string>
+    <string name="mix_pill_bands">%1$s · bands this time</string>
+    <string name="mix_pill_needs_look">needs a look</string>
+    <string name="mix_pill_plain">Plain · %1$s</string>
+    <string name="mix_plain_casting">casting</string>
+    <string name="mix_plain_together">listening together</string>
+    <string name="mix_plain_repeat_one">repeat one</string>
+    <string name="mix_plain_same_song">same song</string>
+    <string name="mix_plain_run_together">they run together</string>
+    <string name="mix_plain_short_song">short song</string>
+    <string name="mix_plain_speed">speed changed</string>
+    <string name="mix_plain_skip_silence">skip silence</string>
+    <string name="mix_plain_spatial">spatial audio</string>
+    <string name="mix_plain_sleep_timer">sleep timer</string>
+    <string name="mix_plain_decoder">FFmpeg decoder</string>
+    <string name="mix_plain_formats">different formats</string>
+    <string name="mix_plain_not_ready">not ready in time</string>
+    <string name="mix_plain_no_time">no time to prepare</string>
+    <string name="mix_plain_from_next">from the next song</string>
+    <string name="mix_plain_no_fit">nothing fits</string>
+    <string name="mix_plain_your_choice">your choice</string>
+    <string name="mix_pill_yours">Your change: %1$s</string>
+    <string name="mix_pill_described">Transition from %1$s to %2$s: %3$s</string>
+    <string name="mix_pair">%1$s into %2$s</string>
+    <string name="mix_edit_transition">Edit transition</string>
+    <string name="mix_edit_last_transition">Edit the last transition</string>
+    <string name="mix_back_to_auto">Back to Auto</string>
+    <string name="mix_plain_for_these">Plain change for these two</string>
+    <string name="mix_menu_on">Mix: on</string>
+    <string name="mix_menu_off">Mix: off</string>
+    <string name="mix_next">Next: %1$s into %2$s</string>
+    <string name="mixing">Mixing</string>
+    <string name="mixing_description">Playlists, parts, storage.</string>
+    <string name="mixing_where">Where songs mix</string>
+    <string name="mixing_where_line">Playlists mix when their Mix switch is on.</string>
+    <string name="mixing_parts">Parts</string>
+    <string name="mixing_parts_none">Parts are not in this build yet. Songs mix with lows, mids and highs.</string>
+    <string name="mixing_storage">Storage</string>
+    <string name="mixing_saved">Saved transitions</string>
+    <string name="mixing_clear">Clear</string>
+    <plurals name="mixing_clear_confirm">
+        <item quantity="one">Forget %d saved transition? It goes back to Auto.</item>
+        <item quantity="other">Forget %d saved transitions? Each pair goes back to Auto.</item>
+    </plurals>
+
+    <!-- Simple: the sheet every way in opens, a row per choice (DESIGN.md, "Two levels") -->
+    <string name="mix_simple_level_simple">Simple</string>
+    <string name="mix_simple_level_advanced">Advanced</string>
+    <string name="mix_simple_hear">Hear the change</string>
+    <string name="mix_simple_starts">Starts at %1$s in %2$s</string>
+    <string name="mix_simple_starts_lost">Starts at %1$s in %2$s · its last %3$s not heard</string>
+    <string name="mix_simple_window">The change, at %1$s in %2$s. Drag it, or the next song\'s waveform, to move it a beat at a time.</string>
+    <string name="mix_simple_key">Key %1$s</string>
+    <string name="mix_simple_auto_picked">Auto picked %1$s. %2$s</string>
+    <string name="mix_simple_line_custom">Your own mix of the rows below.</string>
+    <string name="mix_simple_set_in_advanced">Set in Advanced</string>
+    <string name="mix_simple_set_by_auto">Set by Auto</string>
+    <string name="mix_simple_advanced_note">Changed in Advanced. A choice here replaces it.</string>
+    <string name="mix_simple_auto_note">Auto\'s own move. A choice here replaces it.</string>
+    <string name="mix_simple_replaced">Moves from Advanced replaced.</string>
+    <string name="mix_simple_length_no_32">Longer than what can be used of %1$s</string>
+    <string name="mix_simple_open">Open</string>
+    <string name="mix_simple_closed">Closed</string>
+    <string name="mix_simple_volume">Volume</string>
+    <string name="mix_simple_eq">EQ</string>
+    <string name="mix_simple_filter">Filter</string>
+    <string name="mix_simple_effects">Effects</string>
+    <string name="mix_simple_parts">Parts</string>
+    <string name="mix_simple_none">None</string>
+    <string name="mix_simple_overlap">Overlap</string>
+    <string name="mix_simple_overlap_line">Both play in full, then %1$s drops out</string>
+    <string name="mix_simple_crossfade">Crossfade</string>
+    <string name="mix_simple_crossfade_line">One fades out as the other fades in</string>
+    <string name="mix_simple_cut">Cut</string>
+    <string name="mix_simple_cut_line">Straight from one to the other on a bar line</string>
+    <string name="mix_simple_cut_line_timed">Straight from one to the other</string>
+    <string name="mix_simple_bass_swap">Bass swap</string>
+    <string name="mix_simple_bass_swap_line">The basses trade places on one beat, never two at once</string>
+    <string name="mix_simple_bass_swap_line_timed">The basses trade places at one moment, never two at once</string>
+    <string name="mix_simple_lows_first">Lows out first</string>
+    <string name="mix_simple_lows_first_line">%1$s bass leaves before the rest</string>
+    <string name="mix_simple_low_pass_in">Low pass filter in</string>
+    <string name="mix_simple_low_pass_in_line">%1$s opens up from muffled</string>
+    <string name="mix_simple_high_pass_out">High pass filter out</string>
+    <string name="mix_simple_high_pass_out_line">%1$s thins out as it leaves</string>
+    <string name="mix_simple_both">Both</string>
+    <string name="mix_simple_both_line">%1$s opens up while %2$s thins out</string>
+    <string name="mix_simple_echo_out">Echo out</string>
+    <string name="mix_simple_echo_out_line">%1$s last line echoes away</string>
+    <string name="mix_simple_parts_off">Off</string>
+    <string name="mix_simple_parts_off_line">Whole songs</string>
+    <string name="mix_simple_vocals_over_line">%1$s keeps singing over %2$s beat</string>
+    <string name="mix_simple_beat_under_line">%1$s drums carry %2$s opening</string>
+    <string name="mix_simple_drum_swap_line">The drums trade places on one bar line</string>
+</resources>
