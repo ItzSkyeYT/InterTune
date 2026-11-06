@@ -60,6 +60,7 @@ object ReelsWay {
 
     /** The change for A into B. */
     fun decide(a: ReelsSong, b: ReelsSong, rules: ReelsRules = ReelsRules()): ReelsDecision {
+        require(a.bars.isNotEmpty() && b.bars.isNotEmpty()) { "both songs need their bars (${a.id}: ${a.bars.size}, ${b.id}: ${b.bars.size})" }
         val pa = Profile(a)
         val pb = Profile(b)
         val why = ArrayList<String>()

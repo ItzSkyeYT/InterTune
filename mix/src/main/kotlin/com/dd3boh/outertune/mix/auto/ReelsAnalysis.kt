@@ -88,6 +88,7 @@ object ReelsAnalysis {
         val down = (0 until nBeats).filter { it % 4 == grid.phase }.toIntArray()
         val barT = DoubleArray(down.size) { beatT[down[it]] }
         val nb = barT.size
+        require(nb > 0) { "no whole bar on the grid in ${"%.1f".format(dur)} s" }
 
         val bars = barFeatures(lowRateCopy(mono), beatT, down, dur)
         val ev = evidence(bars)
