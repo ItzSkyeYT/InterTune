@@ -97,7 +97,7 @@ class WholeSongGrid(
 
     companion object {
         /** The form's version: a grid of another one is found again when its song next plays, unless locked. */
-        const val VERSION = 2
+        const val VERSION = 3
 
         /** How far off the beats heard at either end of the line a rounded tempo may put it: Mixxx's "inaudible". */
         const val FIT_MS = 25.0
@@ -150,7 +150,7 @@ class WholeSongGrid(
             val bpm = 60.0 * frameRate / line.period
             val whole = roundWithin(60.0 * frameRate / line.longestPeriod, bpm, 60.0 * frameRate / line.shortestPeriod)
             val period = 60.0 * frameRate / whole
-            val through = adjustPhase(line.through, period, beats, maxError)
+            val through = onTheBeat(spectrum.lowOnset, spectrum.midOnset, adjustPhase(line.through, period, beats, maxError), period, from, to)
             val t0 = through - kotlin.math.floor(through / period) * period
             val grid = BeatGrid.onLine(spectrum.onset, frameRate, t0, period, from, to) ?: return null
             val downbeats = Downbeats.find(spectrum, grid)
@@ -191,6 +191,40 @@ class WholeSongGrid(
                 runBeats = line.runBeats,
                 onLine = line.onLine,
             )
+        }
+
+        /**
+         * How much more the kick and the snare must hit the line half a beat away for the line to move
+         * there. The beats are placed from every band at once, and in dance music the hats on the
+         * off-beat can win: the line then ran half a beat off all song long, sure of itself (Levels,
+         * Lush Life, Save The World and Turn Down for What, against Beat This!'s grids of 37 songs, 6 Nov
+         * 2026). Kick (under 150 Hz) times snare and clap (200 Hz to 2.5 kHz) put those four 1.49 to
+         * 4 times over on the other side, and favour the line already there on all the other songs;
+         * the band under 150 Hz alone does not, as an off-beat bass outdoes the kick (Feels So Close,
+         * 1.7 to 1). Sandstorm's off-beat stabs fool every band and stay half a beat off.
+         */
+        const val BEAT_SIDE_MARGIN = 1.2
+
+        /** [through], or the line half a beat from it where the kick and the snare rise more on that one's beats. */
+        internal fun onTheBeat(low: FloatArray, mid: FloatArray, through: Double, period: Double, from: Int, to: Int): Double {
+            fun hits(t: Double) = kickOn(low, t, period, from, to) * kickOn(mid, t, period, from, to)
+            val half = through + period / 2
+            return if (hits(half) > BEAT_SIDE_MARGIN * hits(through)) half else through
+        }
+
+        /** The mean rise of a band's onsets [low] on the beats of the line through [through], each the largest within a frame of it. */
+        internal fun kickOn(low: FloatArray, through: Double, period: Double, from: Int, to: Int): Double {
+            val first = kotlin.math.ceil((from - through) / period).toInt()
+            val last = kotlin.math.floor((to - 1 - through) / period).toInt()
+            if (last < first) return 0.0
+            var sum = 0.0
+            for (k in first..last) {
+                val c = Math.round(through + k * period).toInt()
+                var most = 0f
+                for (f in c - 1..c + 1) if (f in low.indices && low[f] > most) most = low[f]
+                sum += most
+            }
+            return sum / (last - first + 1)
         }
 
         /** A straight line through a song's beats: its period, a frame it passes through, the periods its stretches allow, and how many beats it holds. */

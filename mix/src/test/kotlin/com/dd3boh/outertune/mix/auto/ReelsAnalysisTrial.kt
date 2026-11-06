@@ -205,7 +205,20 @@ class ReelsAnalysisTrial {
             val bt = ReelsFixtures.song(id).grid
             val stereo = readF32(file("$id.f32"))
             val shorts = ShortArray(stereo.size) { Math.rint(stereo[it] * 32768.0).coerceIn(-32768.0, 32767.0).toInt().toShort() }
-            val g = com.dd3boh.outertune.mix.WholeSongGrid.analyse(com.dd3boh.outertune.mix.FrontEnd.of(shorts, ReelsAnalysis.RATE, 2))
+            val front = com.dd3boh.outertune.mix.FrontEnd.of(shorts, ReelsAnalysis.RATE, 2)
+            val g = com.dd3boh.outertune.mix.WholeSongGrid.analyse(front)
+            // How strongly each band rises on Beat This!'s beats and on the line half a beat away from them.
+            val kick = run {
+                val sp = com.dd3boh.outertune.mix.Spectrum.of(front)
+                val per = 60.0 / bt.bpm * sp.frameRate
+                val thr = (bt.t0 * front.sampleRate / front.factor - com.dd3boh.outertune.mix.Spectrum.ONSET_LAG) / com.dd3boh.outertune.mix.Spectrum.HOP
+                fun pair(band: FloatArray): String {
+                    val on = com.dd3boh.outertune.mix.WholeSongGrid.kickOn(band, thr, per, 0, sp.frames)
+                    val off = com.dd3boh.outertune.mix.WholeSongGrid.kickOn(band, thr + per / 2, per, 0, sp.frames)
+                    return "%.3f/%.3f".format(Locale.ROOT, on, off)
+                }
+                "truth low %s mid %s all %s".format(Locale.ROOT, pair(sp.lowOnset), pair(sp.midOnset), pair(sp.onset))
+            }
             if (g == null) {
                 say("$id: Beat This! %.2f; the app found no grid".format(Locale.ROOT, bt.bpm))
                 tally.merge("no grid", 1, Int::plus)
@@ -247,10 +260,10 @@ class ReelsAnalysisTrial {
             tally.merge(beatClass, 1, Int::plus)
             tally.merge(barClass, 1, Int::plus)
             say(
-                "%s: %.3f / %.3f (x%s, %+.3f%%), %s; bars %s (%s); tempoSure %s beatsSure %s barsSure %s, rounded %s".format(
+                "%s: %.3f / %.3f (x%s, %+.3f%%), %s; bars %s (%s); tempoSure %s beatsSure %s barsSure %s, rounded %s; %s".format(
                     Locale.ROOT, id, bt.bpm, g.bpm, octave, (ratio / octave - 1) * 100,
                     offsets.joinToString(" / ") { "%+.0f ms (%+.2f)".format(Locale.ROOT, it * 1000, it / pB) },
-                    barText, barClass, g.tempoSure, g.beatsSure, g.barsSure, g.rounded,
+                    barText, barClass, g.tempoSure, g.beatsSure, g.barsSure, g.rounded, kick,
                 ),
             )
         }
