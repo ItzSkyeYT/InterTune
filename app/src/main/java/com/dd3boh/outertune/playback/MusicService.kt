@@ -185,6 +185,7 @@ import com.dd3boh.outertune.playback.automix.AutomixController
 import com.dd3boh.outertune.playback.automix.AutomixProcessorChain
 import com.dd3boh.outertune.playback.automix.AutomixVolume
 import com.dd3boh.outertune.playback.automix.Crossfade
+import com.dd3boh.outertune.playback.automix.EntryTrial
 import com.dd3boh.outertune.playback.automix.HeadDecoder
 import com.dd3boh.outertune.playback.automix.MixStores
 import androidx.media3.common.audio.AudioProcessorChain
@@ -1247,6 +1248,8 @@ class MusicService : MediaLibraryService(),
                             // the pairs with a change saved for them, from the one store the editor saves to.
                             queue = { queueBoard.getCurrentQueue()?.let { q -> AutomixController.QueueNow(q.id to q.runId) { q.songIds() } } },
                             savedPairs = { if (Unreleased.AUTOMIX_EDITOR) MixStores.transitions(this@MusicService).all().mapTo(HashSet()) { it.pair } else emptySet() },
+                            // A change far from the end forced on every pair while its file is there: the debug app only, for trying the engine.
+                            entryTrial = { if (BuildConfig.BUILD_TYPE == "debug") EntryTrial.read(java.io.File(filesDir, EntryTrial.FILE)) else null },
                         ).also { addListener(it) }
                     }
                 }
@@ -6250,6 +6253,47 @@ class MusicService : MediaLibraryService(),
         }
     }
 
+    /**
+     * Debug app only, for trying Mix on a device from the shell, as a foreground service only the
+     * shell can start this way:
+     *
+     *     adb shell am start-foreground-service -n dev.skye.intertune.debug/com.dd3boh.outertune.playback.MusicService \
+     *         --es mixtrial "'play <id> <id>'"
+     *
+     * `play` plays those songs as the queue of a Mix playlist, `end <ms>` goes to that long before
+     * the end of the song playing, `pause` pauses. Several commands are separated by `;`.
+     */
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (BuildConfig.BUILD_TYPE == "debug" && Unreleased.AUTOMIX_EDITOR) intent?.getStringExtra("mixtrial")?.let { mixTrial(it) }
+        return super.onStartCommand(intent, flags, startId)
+    }
+
+    private fun mixTrial(commands: String) {
+        for (command in commands.split(';')) {
+            val words = command.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+            if (words.isEmpty()) continue
+            Log.i(TAG, "AutoMix trial: ${words.joinToString(" ")}")
+            when (words.first()) {
+                "play" -> {
+                    val ids = words.drop(1)
+                    scope.launch {
+                        dataStore.edit { it[MixPlaylistsKey] = (it[MixPlaylistsKey] ?: emptySet()) + MIX_TRIAL_PLAYLIST }
+                        val songs = withContext(Dispatchers.IO) { YouTube.queue(ids) }.getOrNull().orEmpty()
+                        if (songs.isEmpty()) Log.w(TAG, "AutoMix trial: no songs for $ids")
+                        // From the shell, outside the app: listens it plays are counted as another app's.
+                        else playQueue(ListQueue(title = "Mix trial", items = songs.map { it.toMediaMetadata() }, mixPlaylistId = MIX_TRIAL_PLAYLIST), origin = PlayOrigin.EXTERNAL)
+                    }
+                }
+                "end" -> {
+                    val left = words.getOrNull(1)?.toLongOrNull() ?: 60_000L
+                    val duration = exoPlayer.duration
+                    if (duration > 0) exoPlayer.seekTo(maxOf(0L, duration - left))
+                }
+                "pause" -> exoPlayer.pause()
+            }
+        }
+    }
+
     override fun onDestroy() {
         // Checked by playQueue's resolve coroutine each time it resumes: that coroutine belongs to
         // no scope this method cancels (see the comment at its launch site), so this is the only
@@ -6379,6 +6423,8 @@ class MusicService : MediaLibraryService(),
     }
 
     companion object {
+        /** The Mix playlist the debug app's trial queue counts as (see mixTrial). */
+        private const val MIX_TRIAL_PLAYLIST = "mix-trial"
         /**
          * Skip silence that only skips silence. media3's defaults count anything under level 1024 (about
          * -30 dBFS) for 100 ms as silence and play it faster, so the quiet start of a piano piece or a fade

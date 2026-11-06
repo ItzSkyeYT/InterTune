@@ -30,6 +30,11 @@ class ModelSong(val name: String, val samples: ShortArray, val channels: Int = 2
  *
  * Everything is in frames and model time; [step] advances the clock by [tickMs], as the player's
  * work loop does.
+ *
+ * In front of the sink, as AutomixAudioSink does on the phone: a next song armed to come in after
+ * its first frame ([HeldTail.entryToSkip]) has its frames before the entry skipped as they are
+ * decoded, while every buffer skipped hands the sink an empty one so the held end drains on; the
+ * entry buffer goes in from the entry, its time moved there, so the position counts from it.
  */
 class SinkModel(
     val held: HeldTail,
@@ -66,6 +71,16 @@ class SinkModel(
 
     /** How often a pass through the sink's loop moved nothing at all; the real sink would spin. */
     var stalls = 0
+        private set
+
+    // In front of the sink: the next song's frames before its entry, skipped as they are decoded.
+    private var skipTarget = -1L
+    private var skipped = 0L
+
+    /** When skipping the next song's first frames began and ended, in model time; -1 before. */
+    var skipStartMs = -1L
+        private set
+    var skipEndMs = -1L
         private set
 
     // The renderer: which song, how far into it, and the buffer it is trying to hand over.
@@ -135,7 +150,7 @@ class SinkModel(
         while (handed < buffersPerTick && !ended) {
             val b = buffer ?: nextBuffer() ?: return
             buffer = b
-            if (!handleBuffer(b)) return
+            if (!handleInFront(b)) return
             buffer = null
             handed++
         }
@@ -155,6 +170,7 @@ class SinkModel(
             gapUntilMs = -1
             song++
             songPosition = 0
+            skipTarget = -1
             // The next song's first decoded buffer brings its format: the sink is configured,
             // and the processors with it, while the old stream is still in the chain.
             pendingConfiguration = song
@@ -167,15 +183,41 @@ class SinkModel(
         return b
     }
 
-    private fun handleBuffer(b: Buffer): Boolean {
-        if (pendingConfiguration != null) {
-            if (!drainToEndOfStream()) return false
-            // The track is reused: the new stream's position counts from here, and every
-            // processor is flushed for it.
-            checkpoints += Checkpoint(written + pendingFrames(), pendingConfiguration!!, 0)
-            pendingConfiguration = null
-            flushPipeline(if (configureSeen) HeldTail.Flush.SONG_CHANGE else HeldTail.Flush.PARAMETERS)
+    /** AutomixAudioSink's handleBuffer: the next song's frames before its entry skipped, the rest to the sink. */
+    private fun handleInFront(b: Buffer): Boolean {
+        if (skipTarget < 0 && b.song > 0 && b.from == 0) {
+            // The first buffer of a new stream: whether it comes in at a later frame is asked once.
+            skipTarget = held.entryToSkip()
+            skipped = 0
         }
+        if (skipTarget > 0 && skipped < skipTarget) {
+            if (skipStartMs < 0) skipStartMs = clockMs
+            val take = min(b.remaining.toLong(), skipTarget - skipped).toInt()
+            b.position += take
+            skipped += take
+            held.entrySkipped(skipped == skipTarget)
+            if (skipped == skipTarget) skipEndMs = clockMs
+            // An empty buffer, so the drain goes on while nothing of the next song goes in.
+            applyPending()
+            if (b.remaining == 0) return true
+        }
+        return handleBuffer(b)
+    }
+
+    /** At a pending configuration: the chain drained to its end, then the new stream's position counted from here and every processor flushed. */
+    private fun applyPending(): Boolean {
+        if (pendingConfiguration == null) return true
+        if (!drainToEndOfStream()) return false
+        // The track is reused: the new stream's position counts from here, from the frame it
+        // comes in on, and every processor is flushed for it.
+        checkpoints += Checkpoint(written + pendingFrames(), pendingConfiguration!!, skipTarget.coerceAtLeast(0))
+        pendingConfiguration = null
+        flushPipeline(if (configureSeen) HeldTail.Flush.SONG_CHANGE else HeldTail.Flush.PARAMETERS)
+        return true
+    }
+
+    private fun handleBuffer(b: Buffer): Boolean {
+        if (!applyPending()) return false
         if (inputBuffer == null) inputBuffer = b
         processBuffers()
         if (inputBuffer!!.remaining == 0) {

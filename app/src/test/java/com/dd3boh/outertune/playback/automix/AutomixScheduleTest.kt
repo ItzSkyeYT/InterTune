@@ -51,8 +51,27 @@ class AutomixScheduleTest {
         assertEquals(500L, AutomixSchedule.nextLookMs(from - 100, 1f, from))
         // A change close to the end is held as Auto's are, and one too far from it no earlier than the ring can hold.
         assertEquals(AutomixSchedule.ARM_FROM_LEFT_MS, AutomixSchedule.armFromFor(10_000))
-        assertEquals(AutomixSchedule.ARM_FROM_LEFT_MAX_MS, AutomixSchedule.armFromFor(60_000))
+        assertEquals(AutomixSchedule.ARM_FROM_LEFT_MAX_MS, AutomixSchedule.armFromFor(100_000))
         assertTrue(AutomixSchedule.ARM_FROM_LEFT_MAX_MS < AutomixSchedule.CAPACITY_SECONDS * 1000L)
+    }
+
+    @Test
+    fun `a change far from the end has its end held early enough, the next song's skip included`() {
+        // The reels' box: A cut on a line 70 s before its end, 8 bars of 128 BPM before it and 8
+        // beats of ramp, so its first change 88.75 s before the end; B comes in 30 s into it.
+        val changeLeft = 70_000L + 15_000L + 3_750L
+        assertEquals(changeLeft + AutomixSchedule.SAVED_LEAD_MS, AutomixSchedule.armFromFor(changeLeft))
+        // Skipping B's first 30 s at eight times real time adds 3.75 s, and the ring still holds it all.
+        assertEquals(changeLeft + AutomixSchedule.SAVED_LEAD_MS + 3_750L, AutomixSchedule.armFromFor(changeLeft, entrySeconds = 30.0))
+        assertTrue(AutomixSchedule.armFromFor(changeLeft, entrySeconds = 30.0) <= AutomixSchedule.ARM_FROM_LEFT_MAX_MS)
+        // An entry a minute into B for the same box asks for more than the ring holds.
+        assertEquals(AutomixSchedule.ARM_FROM_LEFT_MAX_MS, AutomixSchedule.armFromFor(changeLeft, entrySeconds = 60.0))
+        // The ring is as big as the change needs: Auto's usual 48 s, up to 110 s for the furthest.
+        assertEquals(48 * 44_100, AutomixSchedule.ringFrames(44_100, AutomixSchedule.ARM_FROM_LEFT_MS))
+        assertEquals(110 * 48_000, AutomixSchedule.ringFrames(48_000, AutomixSchedule.ARM_FROM_LEFT_MAX_MS))
+        // 16-bit stereo: 21.1 MB at 48 kHz for the furthest, 8.5 MB for Auto's usual window at 44.1 kHz.
+        assertEquals(21_120_000L, AutomixSchedule.ringFrames(48_000, AutomixSchedule.ARM_FROM_LEFT_MAX_MS) * 2L * 2L)
+        assertEquals(8_467_200L, AutomixSchedule.ringFrames(44_100, AutomixSchedule.ARM_FROM_LEFT_MS) * 2L * 2L)
     }
 
     @Test
@@ -94,7 +113,7 @@ class AutomixScheduleTest {
 
     @Test
     fun `the held end has room for the whole window and what follows it`() {
-        assertEquals(48 * 44_100, AutomixSchedule.capacityFrames(44_100))
+        assertEquals(110 * 44_100, AutomixSchedule.capacityFrames(44_100))
         assertTrue(AutomixSchedule.capacityFrames(48_000) >= (AutomixSchedule.ARM_FROM_LEFT_MS / 1000 + 5) * 48_000)
     }
 

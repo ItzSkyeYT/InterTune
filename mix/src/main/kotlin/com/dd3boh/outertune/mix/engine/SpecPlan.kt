@@ -52,8 +52,8 @@ class ChangeFacts(
 /**
  * A change as the engine plays it: the spec, and every frame it happens on. Output frames are
  * counted as A's frames are until A's tempo starts to move, so on the phone they are the held
- * end's own; B's frame n is heard at output frame [bStart] + n, and bar position u of the change
- * at [out] (u).
+ * end's own; B's frame n is heard at output frame [bOrigin] + n, from its frame [bEntry] on, and
+ * bar position u of the change at [out] (u).
  */
 class LanePlan internal constructor(
     val spec: TransitionSpec,
@@ -66,7 +66,7 @@ class LanePlan internal constructor(
     val bar1: Double,
     /** One of B's bars in output frames. B is never stretched, so the change runs on B's clock. */
     val barFrames: Double,
-    /** The output frame of B's first frame. */
+    /** The output frame of B's first frame heard: its frame [bEntry]. */
     val bStart: Long,
     /** The first output frame rendered: until here A plays as it is. */
     val mixFrom: Long,
@@ -87,7 +87,12 @@ class LanePlan internal constructor(
     val loop: PlannedLoop? = null,
     /** A's loop, where the spec has one: every frame of A in this plan is counted in A as looped. */
     val outro: PlannedOutroLoop? = null,
+    /** B's own frame heard first, at [bStart]: 0, or the bar it comes in on. Its frames before are never heard. */
+    val bEntry: Long = 0,
 ) {
+    /** The output frame B's frame 0 would be heard on, had it been played from its start. */
+    val bOrigin: Long get() = bStart - bEntry
+
     /** The first output frame B's side gives anything: its loop's, or its own first frame. */
     val bFrom: Long get() = loop?.let { minOf(it.outFrom, bStart) } ?: bStart
 
@@ -116,7 +121,8 @@ class LanePlan internal constructor(
     fun describe(): String {
         val tempo = if (speed == 1.0) "A at its own speed" else "A at %.4f".format(speed)
         val name = if (spec.preset == Preset.AUTO) "Auto (${AutoSpec.label(spec)})" else AutoSpec.label(spec.copy(from = spec.preset))
-        return "$name on ${spec.lanes.key}, $tempo, B at frame $bStart, A gone at frame $aGone"
+        val from = if (bEntry > 0) " from its frame $bEntry" else ""
+        return "$name on ${spec.lanes.key}, $tempo, B at frame $bStart$from, A gone at frame $aGone"
     }
 }
 
@@ -139,8 +145,10 @@ object SpecPlan {
         spec.problems().takeIf { it.isNotEmpty() }?.let { return Result.Refused(it.joinToString("; ")) }
         // Neither is played yet: a change that asks for one is not played as something else.
         if (spec.introTwice > 0 && spec.introLoop == null) return plan(spec.copy(introTwice = 0, introLoop = IntroLoop(spec.introTwice, spec.b.atMs, 1)), facts)
-        if (spec.bStartMs > 0.0) return Result.Refused("a next song starting after its first frame is not played yet")
         val rate = facts.sampleRate
+        // B comes in at its own frame [entry], heard on the frame where it falls; nothing of it before.
+        val entry = (spec.bStartMs * rate / 1000.0).roundToLong()
+        if (entry > 0 && (spec.introLoop != null || spec.introTwice > 0)) return Result.Refused("a loop in front of a next song that comes in after its first frame is not played yet")
         val barFrames = spec.b.barMs * rate / 1000.0
         val beatFrames = barFrames * spec.beat
         val speed = if (spec.beatMatched) spec.tempoRatio() else 1.0
@@ -181,9 +189,10 @@ object SpecPlan {
         val loopSpec = spec.introLoop
         val loopFrames = loopSpec?.let { (it.bars * barFrames).roundToLong() } ?: 0L
         val loopAhead = loopSpec?.let { loopFrames * it.times } ?: 0L
-        val bStart = (map.outAt(aBar1) + loopAhead - facts.bBar1).roundToLong()
+        val bOrigin = (map.outAt(aBar1) + loopAhead - facts.bBar1).roundToLong()
+        val bStart = bOrigin + entry
         // B's anchor is heard exactly on bar 1 (or after its loop); A's lands within half a frame of it.
-        val bar1 = bStart + facts.bBar1 - loopAhead
+        val bar1 = bOrigin + facts.bBar1 - loopAhead
         fun out(u: Double) = bar1 + u * barFrames
 
         val length = spec.lengthBars
@@ -234,8 +243,8 @@ object SpecPlan {
             )
             mixFrom < 0 -> return Result.Refused("it starts before the music at hand")
             bStart > aFrames && loopSpec == null -> return Result.Refused("B would start after the end of A")
-            mixTo - bStart > facts.bFrames -> return Result.Refused(
-                "B's copy holds %.1f s, the change needs %.1f s of it".format(facts.bFrames.toDouble() / rate, (mixTo - bStart).toDouble() / rate),
+            mixTo - bOrigin > facts.bFrames -> return Result.Refused(
+                "B's copy holds %.1f s, the change needs %.1f s of it".format(facts.bFrames.toDouble() / rate, (mixTo - bOrigin).toDouble() / rate),
             )
             (mixTo - mixFrom).toDouble() / rate > Engine.MAX_SPAN_S -> return Result.Refused(
                 "it takes %.1f s".format((mixTo - mixFrom).toDouble() / rate),
@@ -270,6 +279,7 @@ object SpecPlan {
                 speed = map.speed,
                 loop = planned,
                 outro = outro,
+                bEntry = entry,
             ).also {
                 it.echoingLanes = echoing
                 if (echoing.isNotEmpty()) it.echoFadeFrom = max(dryGone, aGone - echoFrames)
@@ -291,9 +301,10 @@ object SpecPlan {
     /**
      * Where in A, in ms of its own clock, the first frame [spec] touches comes: its first move, or
      * the tempo ramp before bar 1, or the next song's first frame, heard or not, less the
-     * headroom's room. The end has to be held from before it. B always plays from its first frame,
-     * so a bar 1 later in B (an intro left out under A) starts B that much earlier under A, where
-     * the song changes, and the plan starts there too ([plan]'s mixFrom).
+     * headroom's room. The end has to be held from before it. B plays from its first frame unless
+     * the spec brings it in later ([TransitionSpec.bStartMs]), so a bar 1 later in B than where it
+     * starts (an intro left out under A) starts B that much earlier under A, where the song
+     * changes, and the plan starts there too ([plan]'s mixFrom).
      */
     fun firstChangeMs(spec: TransitionSpec): Double {
         val aLanes = spec.lanes.lanes.map { LaneId(Side.A, it) }
