@@ -1051,7 +1051,8 @@ class AutomixController(
                     say("plan ${plan.style.name.lowercase()} worked out in $workMs ms, not used: the change was given up")
                     return@post
                 }
-                t.plan = plan
+                // Held for a later entry, the first plan was never handed over: the change on bands is the one that plays.
+                t.plan = onBands?.plan?.takeIf { t.entryFrames > 0L } ?: plan
                 // What was handed over last is what plays, unless it came too late (the log says so):
                 // the saved change, which its own pill names, Auto's change on bands, or the first plan.
                 // A crossfade is not Auto's, and Mix's line says nothing of it.
@@ -1070,8 +1071,8 @@ class AutomixController(
     /** What the worker came to: the plan handed over, the change on bands, and Auto's reason where a crossfade took its place. */
     private data class Planned(val plan: MixPlan, val onBands: BandsOutcome?, val declined: String?)
 
-    /** What the change on bands came to: a line for the log, and what plays if it is taken. */
-    private class BandsOutcome(val log: String, val saved: Boolean = false, val auto: AutoChoice? = null)
+    /** What the change on bands came to: a line for the log, what plays if it is taken, and the plan handed over for it. */
+    private class BandsOutcome(val log: String, val saved: Boolean = false, val auto: AutoChoice? = null, val plan: MixPlan? = null)
 
     /**
      * The change on lows, mids and highs, from the held end [ring] and the next song's copy, handed
@@ -1121,12 +1122,14 @@ class AutomixController(
                 if (t.abandoned.get()) return BandsOutcome("on bands, not used: the change was given up")
                 // A later entry hands its first frames back, for the check that it came in where the copy has it.
                 val check = if (t.entryFrames > 0L) ENTRY_CHECK_FRAMES.toLong() else 0L
-                stage.offer(held, render.heldPlan(check), render.outgoing, render.incoming, replaces = true)
+                val heldPlan = render.heldPlan(check)
+                stage.offer(held, heldPlan, render.outgoing, render.incoming, replaces = true)
                 return BandsOutcome(
                     "on bands, saved: ${p.describe()}, " + "rendered in %.0f ms, headroom %.1f dB, peak %.2f".format(
                         render.renderMillis, render.headroom.deepestDb, render.peakAfter,
                     ),
                     saved = true,
+                    plan = heldPlan,
                 )
             }
         }

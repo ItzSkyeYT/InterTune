@@ -29,31 +29,12 @@ class AutomixAudioSink(sink: AudioSink, private val stage: AutomixAudioProcessor
 
     private val entrySkip = EntrySkip(stage)
 
-    // Debug builds: the buffers around a new stream, for the check that a later entry is counted from the stream's first frame.
-    private var lastTimeUs = 0L
-    private var lastBytes = 0
-    private var afterConfigure = 0
-    private var frameBytes = 4
-
     override fun configure(inputFormat: Format, specifiedBufferSize: Int, outputChannels: IntArray?) {
         super.configure(inputFormat, specifiedBufferSize, outputChannels)
         entrySkip.configured(inputFormat)
-        if (com.dd3boh.outertune.BuildConfig.DEBUG) {
-            frameBytes = runCatching { androidx.media3.common.util.Util.getPcmFrameSize(inputFormat.pcmEncoding, inputFormat.channelCount) }.getOrDefault(4).coerceAtLeast(1)
-            android.util.Log.i("AutoMix", "sink: configured (${inputFormat.sampleRate} Hz, delay ${inputFormat.encoderDelay}); the last buffer before at $lastTimeUs us, ${lastBytes / frameBytes} frames")
-            afterConfigure = 3
-        }
     }
 
     override fun handleBuffer(buffer: ByteBuffer, presentationTimeUs: Long, encodedAccessUnitCount: Int): Boolean {
-        if (com.dd3boh.outertune.BuildConfig.DEBUG) {
-            if (afterConfigure > 0 && (presentationTimeUs != lastTimeUs || buffer.remaining() != lastBytes)) {
-                afterConfigure--
-                android.util.Log.i("AutoMix", "sink: buffer at $presentationTimeUs us, ${buffer.remaining() / frameBytes} frames, after the configure")
-            }
-            lastTimeUs = presentationTimeUs
-            lastBytes = buffer.remaining()
-        }
         stage.sinkInput(presentationTimeUs)
         return entrySkip.handle(buffer, presentationTimeUs) { b, t -> super.handleBuffer(b, t, if (b.hasRemaining()) encodedAccessUnitCount else 0) }
     }
