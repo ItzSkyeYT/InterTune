@@ -14,6 +14,7 @@ import com.dd3boh.outertune.db.entities.HistoryPiece
 import com.dd3boh.outertune.db.entities.HistoryPlayWithSong
 import com.dd3boh.outertune.db.StatsSql
 import com.dd3boh.outertune.engine.EngineSql
+import com.dd3boh.outertune.stats.FoundFirstListen
 import com.dd3boh.outertune.stats.StatsBounds
 import com.dd3boh.outertune.stats.StatsListen
 import com.dd3boh.outertune.stats.StatsSongArtist
@@ -417,6 +418,9 @@ interface ListenDao {
 
     @Query(StatsSql.BOUNDS)
     fun statsBounds(): StatsBounds
+
+    @Query(StatsSql.FOUND_FIRST_LISTENS)
+    fun statsFoundFirstListens(): List<FoundFirstListen>
 
     data class CodeCount(val code: Int, val n: Int)
 
