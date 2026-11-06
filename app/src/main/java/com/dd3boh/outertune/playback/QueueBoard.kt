@@ -643,48 +643,15 @@ class QueueBoard(
         fromIndex: Int,
         toIndex: Int,
     ): Int {
-        val items = queue.getCurrentQueueShuffled()
-        var newQueuePos = queue.getQueuePosShuffled()
-        val currentMediaItemIndex = player.activePlayer.currentMediaItemIndex
-
-        // update current position only if the move will affect it
-        if (currentMediaItemIndex >= min(fromIndex, toIndex) && currentMediaItemIndex <= max(fromIndex, toIndex)) {
-            if (fromIndex == currentMediaItemIndex) {
-                newQueuePos = toIndex
-            } else if (currentMediaItemIndex == toIndex) {
-                if (currentMediaItemIndex < fromIndex) {
-                    newQueuePos++
-                } else {
-                    newQueuePos--
-                }
-            } else if (toIndex > currentMediaItemIndex) {
-                newQueuePos--
-            } else {
-                newQueuePos++
-            }
-        }
-
-        // I like to move it move it
-        if (queue.shuffled) {
-            items.move(fromIndex, toIndex)
-            items.fastForEachIndexed { index, s ->
-                // items is a copy of queue.queue, assume all objects will exist *once* only
-                queue.queue.find { it == s }?.shuffleIndex = index
-            }
-        } else {
-            queue.queue.move(fromIndex, toIndex)
-        }
-        queue.getCurrentQueueShuffled().fastForEachIndexed { index, s -> s.shuffleIndex = index }
-        // setCurrentQueuePos takes a place in play order, so it runs once the play order is
-        // renumbered. A shuffled queue's stored order does not change on a move, so its current
-        // song keeps its stored place, and writing the play position there named another song as
-        // current.
-        queue.setCurrentQueuePos(newQueuePos)
+        // No index while the player holds nothing: before play after a restart, when the queue
+        // sheet moves songs in the stored queue. The player's index then reads 0.
+        val playerIndex = player.activePlayer.takeIf { it.mediaItemCount > 0 }?.currentMediaItemIndex
+        val newQueuePos = moveInPlayOrder(queue, fromIndex, toIndex, playerIndex)
 
         saveQueueSongs(queue)
 
         if (QUEUE_DEBUG)
-            Log.d(TAG, "Moved item from $currentMediaItemIndex to $newQueuePos")
+            Log.d(TAG, "Moved item from $fromIndex to $toIndex, the queue's place is now $newQueuePos")
         return newQueuePos
     }
 
@@ -1216,3 +1183,55 @@ internal fun queuesKept(queues: List<MultiQueueObject>, max: Int, playingId: Lon
  * the older one back, which is why saveQueueSongs copies only the songs too.
  */
 internal fun queuesToSave(queues: List<MultiQueueObject>): List<MultiQueueObject> = queues.toList()
+
+
+/**
+ * Moves the song at [fromIndex] to [toIndex] in [queue]'s play order, and keeps the queue's place on
+ * the song it was on. Returns that place, in play order.
+ *
+ * [playerIndex] is the player's index of the song playing, or null while the player holds nothing:
+ * before play after a restart, when the queue sheet shows the stored queue and its rows can be
+ * dragged. The queue's own place names the song that will play then. The player's index, which
+ * reads 0 when it is empty, counted the first song as playing, so a move across the one that was
+ * to play left the place on the song before or after it.
+ */
+internal fun moveInPlayOrder(queue: MultiQueueObject, fromIndex: Int, toIndex: Int, playerIndex: Int?): Int {
+    val items = queue.getCurrentQueueShuffled()
+    var newQueuePos = queue.getQueuePosShuffled()
+    val currentMediaItemIndex = playerIndex ?: newQueuePos
+
+    // update current position only if the move will affect it
+    if (currentMediaItemIndex >= min(fromIndex, toIndex) && currentMediaItemIndex <= max(fromIndex, toIndex)) {
+        if (fromIndex == currentMediaItemIndex) {
+            newQueuePos = toIndex
+        } else if (currentMediaItemIndex == toIndex) {
+            if (currentMediaItemIndex < fromIndex) {
+                newQueuePos++
+            } else {
+                newQueuePos--
+            }
+        } else if (toIndex > currentMediaItemIndex) {
+            newQueuePos--
+        } else {
+            newQueuePos++
+        }
+    }
+
+    // I like to move it move it
+    if (queue.shuffled) {
+        items.move(fromIndex, toIndex)
+        items.fastForEachIndexed { index, s ->
+            // items is a copy of queue.queue, assume all objects will exist *once* only
+            queue.queue.find { it == s }?.shuffleIndex = index
+        }
+    } else {
+        queue.queue.move(fromIndex, toIndex)
+    }
+    queue.getCurrentQueueShuffled().fastForEachIndexed { index, s -> s.shuffleIndex = index }
+    // setCurrentQueuePos takes a place in play order, so it runs once the play order is
+    // renumbered. A shuffled queue's stored order does not change on a move, so its current
+    // song keeps its stored place, and writing the play position there named another song as
+    // current.
+    queue.setCurrentQueuePos(newQueuePos)
+    return newQueuePos
+}

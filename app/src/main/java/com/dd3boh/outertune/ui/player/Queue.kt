@@ -484,6 +484,10 @@ fun BoxScope.QueueContent(
      * queue to preview". Only the first is safe to clear automatically.
      */
     val fallbackSeed = remember { fallBackQueue }
+    // The queue the player will play, shown before play after a restart. The player holds nothing
+    // yet, so these rows are the queue board's own: they can be dragged, and a move goes to the
+    // board alone, which saves it. A queue picked from the list to look at is not this one.
+    val movesStoredQueue = detachedHead && detachedQueue != null && detachedQueue === fallbackSeed && queueWindows.isEmpty()
     val mutableQueues = remember { mutableStateListOf<MultiQueueObject>() }
     var playingQueue by remember { mutableIntStateOf(-1) }
 
@@ -586,7 +590,13 @@ fun BoxScope.QueueContent(
             dragInfo?.let { (from, to) ->
                 if (from != to) {
                     qb.moveSong(from, to)
-                    playerConnection.player.moveMediaItem(from, to)
+                    if (playerConnection.player.mediaItemCount > 0) {
+                        playerConnection.player.moveMediaItem(from, to)
+                    } else {
+                        // Nothing the player reports says the stored queue changed: the artwork
+                        // strip and this sheet read it from the queue board again.
+                        playerConnection.service.unloadedQueueChanged.value += 1
+                    }
                     // Where the listener put it, the adaptive queue leaves it.
                     mutableSongs.getOrNull(to)?.id?.let { playerConnection.service.noteMovedByHand(it) }
                 }
@@ -1260,7 +1270,7 @@ fun BoxScope.QueueContent(
                                     // Not over search results, as in a playlist: the results are not redrawn
                                     // after a move, so a second drag started from rows that were no longer
                                     // where they showed.
-                                    if (!lockQueue && !detachedHead && !isSearching) {
+                                    if (!lockQueue && (!detachedHead || movesStoredQueue) && !isSearching) {
                                         Icon(
                                             imageVector = Icons.Rounded.DragHandle,
                                             contentDescription = null,
