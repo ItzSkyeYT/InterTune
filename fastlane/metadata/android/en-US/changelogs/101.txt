@@ -1,0 +1,7 @@
+Version 0.12.9
+
+- Radios and mixes in Indonesian, Finnish and Danish keep going after the first song.
+- A song YouTube no longer plays is skipped with a note, instead of stopping the music.
+- Report a problem keeps what you typed until it is sent.
+
+Full changelog: https://github.com/ItzSkyeYT/InterTune/releases/tag/v0.12.9
