@@ -61,7 +61,6 @@ class AutomixGuardsTest {
             "the speed or the pitch is not as recorded" to snapshot(speed = 1.25f),
             "the speed or the pitch is not as recorded" to snapshot(pitch = 0.9f),
             "skip silence is on" to snapshot(skipSilence = true),
-            "head tracking is on" to snapshot(headTracking = true),
             "the surround upmix is on" to snapshot(upmix = true),
             "the spatial Ambience is on" to snapshot(ambience = true),
             "FFmpeg decodes this build's audio" to snapshot(ffmpeg = true),
@@ -70,6 +69,16 @@ class AutomixGuardsTest {
             "AutoMix was not on yet as this song started" to snapshot(stageInChain = false),
         )
         for ((why, s) in refusals) assertEquals(why, AutomixGuards.whyNot(s))
+    }
+
+    @Test
+    fun `head tracking does not stop a change, its switch on or off, AutoMix or Crossfade (his word, 6 Nov)`() {
+        // His word of 6 Nov 2026: a saved change plays regardless. The switch alone, with spatial
+        // audio off, held every change back on his phone.
+        assertNull(AutomixGuards.whyNot(snapshot(headTracking = true)))
+        assertNull(AutomixGuards.whyNot(snapshot(settingOn = false, headTracking = true).withCrossfade()))
+        // The surround upmix and Ambience still do: they change the channels or delay the sound.
+        assertEquals("the surround upmix is on", AutomixGuards.whyNot(snapshot(headTracking = true, upmix = true)))
     }
 
     @Test
@@ -89,7 +98,6 @@ class AutomixGuardsTest {
             "the next song's length is not known" to snapshot(settingOn = false, next = AutomixGuards.Song("b", null, -1)),
             "the speed or the pitch is not as recorded" to snapshot(settingOn = false, speed = 0.8f),
             "skip silence is on" to snapshot(settingOn = false, skipSilence = true),
-            "head tracking is on" to snapshot(settingOn = false, headTracking = true),
             "the surround upmix is on" to snapshot(settingOn = false, upmix = true),
             "the spatial Ambience is on" to snapshot(settingOn = false, ambience = true),
             "FFmpeg decodes this build's audio" to snapshot(settingOn = false, ffmpeg = true),

@@ -169,7 +169,7 @@ class MixHeldBackTest {
             PlainReason.SHORT_SONG to snapshot(next = AutomixGuards.Song("b", null, 54_000)),
             PlainReason.SPEED to snapshot(speed = 1.25f),
             PlainReason.SKIP_SILENCE to snapshot(skipSilence = true),
-            PlainReason.SPATIAL to snapshot(headTracking = true),
+            PlainReason.SPATIAL to snapshot(upmix = true),
             PlainReason.DECODER to snapshot(ffmpeg = true),
             PlainReason.SLEEP_TIMER to snapshot(sleepTimer = true),
             PlainReason.NO_TIME to snapshot(seekedLate = true),

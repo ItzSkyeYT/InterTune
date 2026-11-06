@@ -41,6 +41,12 @@ object AutomixGuards {
         val speed: Float,
         val pitch: Float,
         val skipSilence: Boolean,
+        /**
+         * Head tracking, kept for the log's picture of the player but no reason to refuse (his word
+         * of 6 Nov 2026, "it should play regardless"): the stage mixes before the spatial stage, which
+         * goes on tracking the head live on the mixed sound. It was refused with the switch alone, so a
+         * switch left on with spatial audio off held every change back.
+         */
         val headTracking: Boolean,
         val upmix: Boolean,
         /** The experimental Ambience above 0: it delays everything by 21 ms and adds to every drain, so the next song's frames would not be where its opening says. */
@@ -80,7 +86,6 @@ object AutomixGuards {
             next.durationMs < 0 -> no(PlainReason.NOT_READY, "the next song's length is not known")
             s.speed != 1f || s.pitch != 1f -> no(PlainReason.SPEED, "the speed or the pitch is not as recorded")
             s.skipSilence -> no(PlainReason.SKIP_SILENCE, "skip silence is on")
-            s.headTracking -> no(PlainReason.SPATIAL, "head tracking is on")
             s.upmix -> no(PlainReason.SPATIAL, "the surround upmix is on")
             s.ambience -> no(PlainReason.SPATIAL, "the spatial Ambience is on")
             s.ffmpeg -> no(PlainReason.DECODER, "FFmpeg decodes this build's audio")
