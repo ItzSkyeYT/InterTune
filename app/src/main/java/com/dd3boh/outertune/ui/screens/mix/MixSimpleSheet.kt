@@ -705,18 +705,17 @@ private fun ColumnScope.Choices(
                 EditorPresets.moves(p, editor.auto.lengthBars, editor.auto.lanes, editor.auto.beat)?.let { EditorPresets.sameMoves(editor.auto.moves, it) } == true
         }
     }
-    val line = when {
-        ui.lit == Preset.CUSTOM -> stringResource(R.string.mix_simple_line_custom)
-        ui.lit == Preset.AUTO && !spec.plain && autoPick != null ->
-            res.getString(R.string.mix_simple_auto_picked, words.presetName(autoPick), words.presetLine(autoPick, spec, false))
-        else -> words.presetLine(ui.lit, spec, editor.auto.plain)
+    // A label, never a sentence (his rule of 2 Nov 2026): only what Auto picked, when it is a preset.
+    if (ui.lit == Preset.AUTO && !spec.plain && autoPick != null) {
+        Text(
+            res.getString(R.string.mix_simple_auto_picked, words.presetName(autoPick)),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 6.dp),
+        )
+    } else {
+        Spacer(Modifier.height(10.dp))
     }
-    Text(
-        line,
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 6.dp),
-    )
     Rows(editor, spec, ui, words, look, onRow)
 }
 
@@ -867,8 +866,8 @@ private fun RowCard(
                         ) {
                             RadioButton(selected = i == selected, onClick = null)
                             Column(Modifier.padding(start = 10.dp)) {
+                                // The option's name only: no line saying what it does (his rule of 2 Nov 2026).
                                 Text(o.name, style = MaterialTheme.typography.bodyMedium)
-                                o.line?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                             }
                         }
                     }

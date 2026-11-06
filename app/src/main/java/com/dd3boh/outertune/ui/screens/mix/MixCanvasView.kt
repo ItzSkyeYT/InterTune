@@ -433,9 +433,17 @@ private fun finish(
     state.held = null
     state.float = null
     if (!moved) {
+        // A dot's or a bracket's bar of choices closes when it is tapped again, and when anything
+        // else is: the ruler (which still plays from there), a lane's name or empty space.
+        val tappedOn = when (hit) {
+            is CanvasLayout.Hit.GripHit -> Selection.Handle(hit.grip.id)
+            is CanvasLayout.Hit.BracketHit -> Selection.Bracket(hit.bracket.side)
+            else -> null
+        }
+        if (tappedOn == null && hit !is CanvasLayout.Hit.Point) state.selection = null
         when (hit) {
-            is CanvasLayout.Hit.GripHit -> state.selection = Selection.Handle(hit.grip.id)
-            is CanvasLayout.Hit.BracketHit -> state.selection = Selection.Bracket(hit.bracket.side)
+            is CanvasLayout.Hit.GripHit, is CanvasLayout.Hit.BracketHit ->
+                state.selection = if (state.selection == tappedOn) null else tappedOn
             is CanvasLayout.Hit.CurveLane -> actions.enterAdjust(hit.id.lane)
             is CanvasLayout.Hit.Ruler -> {
                 val now = System.currentTimeMillis()
