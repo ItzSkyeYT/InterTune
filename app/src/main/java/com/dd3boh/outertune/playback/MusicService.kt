@@ -1469,11 +1469,12 @@ class MusicService : MediaLibraryService(),
                 .distinctUntilChanged()
                 .collectLatest(scope) { binauralProcessor.stageWidthDegrees = it.toFloat() }
 
-            // Read once a buffer as well: a band is heard moving as its slider moves. Off while
-            // Battery use is on Saver, the switch keeping what was set (BatteryUse.equalizer).
-            dataStore.data.combine(PhoneBatterySaver.on) { prefs, phoneSaver ->
+            // Read once a buffer as well: a band is heard moving as its slider moves. As set in every
+            // Battery use, Saver included (his word of 6 Nov 2026, #91): for headphones it is a
+            // correction, not an effect, as in Precise Volume.
+            dataStore.data.map { prefs ->
                 EqualizerAudioProcessor.Settings(
-                    Unreleased.EQUALIZER && BatteryUse.equalizer(prefs[EqualizerEnabledKey] ?: false, prefs.batteryMode(phoneSaver)),
+                    Unreleased.EQUALIZER && (prefs[EqualizerEnabledKey] ?: false),
                     EqualizerPreset.parse(prefs[EqualizerGainsKey]),
                 )
             }

@@ -132,14 +132,14 @@ object BatteryUse {
         mode == BatteryMode.SAVER && chosen == AudioQuality.AUTO
 
     // The sound effects, which Saver turns off (his answer of 24 Oct 2026). With none of them on,
-    // the song can go to the phone's low-power audio path.
+    // the song can go to the phone's low-power audio path. Not the equalizer, which stays as set
+    // in every mode (his word of 6 Nov 2026, #91): for headphones it is a correction, not an
+    // effect, as in Precise Volume; a curve that is not flat keeps the song on the app's path.
 
     fun holdsEffects(mode: BatteryMode): Boolean = mode == BatteryMode.SAVER
 
     fun spatialAudio(chosen: SpatialAudioMode, mode: BatteryMode): SpatialAudioMode =
         if (holdsEffects(mode)) SpatialAudioMode.OFF else chosen
-
-    fun equalizer(chosen: Boolean, mode: BatteryMode): Boolean = chosen && !holdsEffects(mode)
 
     fun fade(chosen: Boolean, mode: BatteryMode): Boolean = chosen && !holdsEffects(mode)
 

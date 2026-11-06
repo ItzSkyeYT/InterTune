@@ -97,7 +97,6 @@ class BatteryUseTest {
     fun `Saver turns the sound effects off`() {
         assertTrue(BatteryUse.holdsEffects(SAVER))
         for (chosen in SpatialAudioMode.entries) assertEquals(SpatialAudioMode.OFF, BatteryUse.spatialAudio(chosen, SAVER))
-        assertFalse(BatteryUse.equalizer(true, SAVER))
         assertFalse(BatteryUse.fade(true, SAVER))
         assertFalse("its scan runs while music plays", BatteryUse.proximity(true, SAVER))
         assertEquals("no boost past 100%", 1f, BatteryUse.volume(2.5f, SAVER))
@@ -164,7 +163,6 @@ class BatteryUseTest {
         for (mode in listOf(FULL, BALANCED)) {
             for (chosen in SpatialAudioMode.entries) assertEquals(chosen, BatteryUse.spatialAudio(chosen, mode))
             for (chosen in listOf(true, false)) {
-                assertEquals(chosen, BatteryUse.equalizer(chosen, mode))
                 assertEquals(chosen, BatteryUse.fade(chosen, mode))
                 assertEquals(chosen, BatteryUse.proximity(chosen, mode))
                 assertEquals(chosen, BatteryUse.downloadsOnWifiOnly(chosen, mode))
@@ -191,7 +189,6 @@ class BatteryUseTest {
         for (mode in modes) assertTrue(BatteryUse.offload(mode, developerSwitch = true, needsAppPath = false, outputSafe = true))
         // An effect switched off by hand stays off.
         for (mode in modes) {
-            assertFalse(BatteryUse.equalizer(false, mode))
             assertFalse(BatteryUse.fade(false, mode))
             assertEquals(SpatialAudioMode.OFF, BatteryUse.spatialAudio(SpatialAudioMode.OFF, mode))
         }

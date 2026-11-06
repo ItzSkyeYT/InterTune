@@ -43,16 +43,31 @@ class BatteryUseWiringTest {
     }
 
     @Test
+    fun `Saver leaves the equalizer as it is set, and its page and row are never held (#91)`() {
+        // His word of 6 Nov 2026: an equalizer for headphones is a correction, not an effect, and
+        // stays on in Saver as it does in Precise Volume. The song then keeps to the app's own path.
+        val read = service.substringAfter("EqualizerAudioProcessor.Settings(").substringBefore("EqualizerPreset.parse(prefs[EqualizerGainsKey])")
+        assertTrue(read, "Unreleased.EQUALIZER && (prefs[EqualizerEnabledKey] ?: false)" in read)
+        assertFalse("Battery use" in read || "batteryMode" in read)
+        assertFalse("BatteryUse.equalizer(" in service)
+        val page = source("ui/screens/settings/EqualizerSettings.kt")
+        assertFalse("saverHolds()" in page)
+        assertFalse("SaverHoldsLabel" in page)
+        // The low-power path still waits for a curve that is not flat.
+        assertTrue("!equalizerProcessor.settings.isFlat" in body(service, "private fun applyOffload()"))
+    }
+
+    @Test
     fun `the player asks the rule for every sound effect it applies`() {
         assertTrue("spatial audio", "BatteryUse.spatialAudio(" in service)
-        assertTrue("the equalizer", "BatteryUse.equalizer(" in service)
         assertTrue("the fade between songs", "BatteryUse.fade(" in service)
         assertTrue("the volume past 100%", "BatteryUse.volume(" in service)
         assertTrue("Quieter as you walk away", "BatteryUse.proximity(" in service)
         // Each of them reads the mode from the same settings it reads its own value from, so the
         // two can never disagree for a moment, and again when the phone's battery saver changes.
-        assertEquals(5, Regex("""dataStore\.data\s*\.combine\(PhoneBatterySaver\.on\) \{ prefs, phoneSaver ->""").findAll(service).count())
-        assertEquals(5, Regex("""prefs\.batteryMode\(phoneSaver\)""").findAll(service).count())
+        // Four since the equalizer stopped asking (#91): spatial audio, the fade, the volume, proximity.
+        assertEquals(4, Regex("""dataStore\.data\s*\.combine\(PhoneBatterySaver\.on\) \{ prefs, phoneSaver ->""").findAll(service).count())
+        assertEquals(4, Regex("""prefs\.batteryMode\(phoneSaver\)""").findAll(service).count())
         assertTrue(Regex("""private fun Preferences\.batteryMode\(phoneSaver: Boolean\): BatteryMode =\s*BatteryUse\.modeOf\(this\[BatteryModeKey], this\[FollowPhoneSaverKey], phoneSaver\)""").containsMatchIn(service))
     }
 
