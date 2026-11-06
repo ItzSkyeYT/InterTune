@@ -131,6 +131,8 @@ class AutomixController(
     private val queue: () -> QueueNow? = { null },
     /** Every pair of songs with a change saved for it, for Crossfade's rule. Blocking, so called on IO. */
     private val savedPairs: () -> Set<SongPair> = { emptySet() },
+    /** A change far from the end forced on every pair, for trying the engine: the debug app only. Blocking, so called on IO. */
+    private val entryTrial: () -> EntryTrial? = { null },
 ) : Player.Listener, AutomixAudioProcessor.Events {
 
     /**
@@ -315,6 +317,12 @@ class AutomixController(
 
         /** The change saved for this pair, read with the opening. */
         var saved: TransitionSpec? = null
+
+        /** Whether [saved] is the debug app's forced trial ([EntryTrial]), not the listener's. */
+        var trial = false
+
+        /** The next song's frame the end was held for it to come in on, 0 for its first. */
+        var entryFrames = 0L
 
         /** Each song's beats as read from all of it (WholeSongGrid), where they were; the read under way for one that has none. */
         var gridA: WholeSongGrid? = null
@@ -559,11 +567,17 @@ class AutomixController(
         t.shuffled = player.shuffleModeEnabled
         val shuffled = t.shuffled
         val grids = way.auto
+        val aDurationMs = t.a.durationMs.takeIf { it > 0 } ?: player.duration
         t.reading = scope.launch {
-            val saved = if (bands && !shuffled) withContext(Dispatchers.IO) { runCatching { savedChange(aId, b.id) }.getOrNull() } else null
+            val listeners = if (bands && !shuffled) withContext(Dispatchers.IO) { runCatching { savedChange(aId, b.id) }.getOrNull() } else null
             val (gridA, gridB) = wholeSongs?.takeIf { grids }?.let { store ->
                 withContext(Dispatchers.IO) { runCatching { store.get(aId) }.getOrNull() to runCatching { store.get(b.id) }.getOrNull() }
             } ?: (null to null)
+            // The debug app's forced change far from the end, where nothing is saved for the pair.
+            val trial = if (bands && !shuffled && listeners == null) {
+                withContext(Dispatchers.IO) { runCatching { entryTrial() }.getOrNull() }?.spec(aId, b.id, aDurationMs, gridA, gridB)
+            } else null
+            val saved = listeners ?: trial
             val copySeconds = if (bands) copySecondsFor(saved) else 0.0
             val result = runCatching {
                 withContext(Dispatchers.IO) { decoder.read(b.id, { cancelled.get() }, copySeconds) }
@@ -596,6 +610,7 @@ class AutomixController(
                     t.copy = read.copy
                     t.copyFrames = read.copyFrames
                     say("opening of ${b.id}: ${describe(head)}, read in ${read.readMs} ms, analysed in ${head.analysisMillis.toLong()} ms")
+                    t.trial = saved != null && saved === trial
                     if (saved != null) savedFor(t, saved)
                     // A song with no grid yet is read whole now, the next one first: its opening is
                     // what a change reads most of. Not for a crossfade, which has no beat to lay.
@@ -690,9 +705,14 @@ class AutomixController(
         val duration = t.a.durationMs.takeIf { it > 0 } ?: player.duration.takeIf { it > 0 } ?: return
         val firstMs = runCatching { SpecPlan.firstChangeMs(Presets.onBands(saved)) }.getOrNull() ?: return
         val changeLeft = (duration - firstMs).toLong()
-        t.armFromMs = AutomixSchedule.armFromFor(changeLeft)
-        val reach = if (changeLeft + AutomixSchedule.SAVED_LEAD_MS > AutomixSchedule.ARM_FROM_LEFT_MAX_MS) ", which is further from the end than the end can be held: Auto plays" else ""
-        say("saved for ${t.a.id} into ${t.b?.id}: ${saved.label}, it starts " + "%.1f s before the end".format(changeLeft / 1000.0) + reach)
+        // A next song that comes in at a later bar has its frames before it skipped once the end is held: time for that too.
+        val entrySeconds = saved.bStartMs / 1000.0
+        val lead = AutomixSchedule.SAVED_LEAD_MS + (entrySeconds * 1000 / AutomixSchedule.ENTRY_SKIP_SPEED).toLong()
+        t.armFromMs = AutomixSchedule.armFromFor(changeLeft, entrySeconds)
+        val reach = if (changeLeft + lead > AutomixSchedule.ARM_FROM_LEFT_MAX_MS) ", which is further from the end than the end can be held: Auto plays" else ""
+        val whose = if (t.trial) "forced for a trial" else "saved"
+        val from = if (entrySeconds > 0) ", the next song in from %.1f s".format(entrySeconds) else ""
+        say("$whose for ${t.a.id} into ${t.b?.id}: ${saved.label}, it starts " + "%.1f s before the end".format(changeLeft / 1000.0) + from + reach)
     }
 
     private fun arm(t: Transition, left: Long) {
@@ -717,16 +737,20 @@ class AutomixController(
         t.armTries++
         t.sampleRate = rate
         t.expectedTailMs = left
+        // A change that brings the next song in at a later bar: only on bands, where its plan is made for that bar.
+        t.entryFrames = if (lanes && way().auto) t.saved?.takeIf { !it.plain }?.let { Math.round(it.bStartMs * rate / 1000.0) } ?: 0L else 0L
+        val entry = t.entryFrames
+        val ringFrames = AutomixSchedule.ringFrames(rate, max(t.armFromMs, left))
         val work = work() ?: return
         val id = t.id
         work.execute {
             val ring = try {
-                ShortArray(AutomixSchedule.capacityFrames(rate) * channels)
+                ShortArray(ringFrames * channels)
             } catch (e: OutOfMemoryError) {
                 main.post { say("not holding the end of ${t.a.id}: no memory for it") }
                 return@execute
             }
-            stage.requestArm(AutomixAudioProcessor.Arm(id, ring, rate, channels, System.nanoTime()))
+            stage.requestArm(AutomixAudioProcessor.Arm(id, ring, rate, channels, System.nanoTime(), entry))
         }
     }
 
@@ -938,8 +962,9 @@ class AutomixController(
                 t.crossfaded = crossfaded
                 val rendered = MixRender.renderOutgoing(plan, ring, tail.guide, tail.decimation, plan.anchors)
                 // Given up while it was worked out (a sleep timer set, AutoMix switched off): the
-                // stage would refuse it anyway, so it is not handed over.
-                if (!t.abandoned.get()) stage.offer(held, plan, rendered)
+                // stage would refuse it anyway, so it is not handed over. Nor where the end was held
+                // for the next song to come in at a later bar, which only the change on bands plays.
+                if (!t.abandoned.get() && t.entryFrames == 0L) stage.offer(held, plan, rendered)
                 // Then Auto's same change on bands, from copies, to take the place of that one if in
                 // time; never for a crossfade.
                 val bands = lanes && !crossfaded
@@ -1008,7 +1033,11 @@ class AutomixController(
         // Read again here, so a change saved in the editor while this song played is the one
         // heard, if what was read of the next song's opening holds it; otherwise it plays next time.
         // Shuffled, Auto alone.
-        val latest = if (t.shuffled) Result.success(null) else runCatching { savedChange(t.a.id, b.id) }
+        val latest = when {
+            t.shuffled -> Result.success(null)
+            t.trial -> Result.success(t.saved)
+            else -> runCatching { savedChange(t.a.id, b.id) }
+        }
         val latestSaved = if (latest.isSuccess) latest.getOrNull() else t.saved
         if (latestSaved?.plain == true) {
             // Plain saved for these two after the end began to be held: they meet as they would

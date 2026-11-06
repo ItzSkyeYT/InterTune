@@ -37,7 +37,10 @@ class AutomixBandsHeldBackTest {
         assertTrue("private val lanes: Boolean = false," in controller)
         // Bands are Auto's: a crossfade has none, with the flag or without it (CrossfadeHeldBackTest).
         assertTrue("val bands = lanes && way.auto" in controller)
-        assertTrue("val saved = if (bands && !shuffled) withContext(Dispatchers.IO) { runCatching { savedChange(aId, b.id) }.getOrNull() } else null" in controller)
+        assertTrue("val listeners = if (bands && !shuffled) withContext(Dispatchers.IO) { runCatching { savedChange(aId, b.id) }.getOrNull() } else null" in controller)
+        // The debug app's forced trial is a change on bands too, and only where nothing is saved.
+        assertTrue("val trial = if (bands && !shuffled && listeners == null) {" in controller)
+        assertTrue("val saved = listeners ?: trial" in controller)
         assertTrue("val copySeconds = if (bands) copySecondsFor(saved) else 0.0" in controller)
         assertTrue("if (!bands) heads[b.id]?.let {" in controller)
         assertTrue("val bands = lanes && !crossfaded" in controller)
