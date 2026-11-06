@@ -3940,7 +3940,8 @@ class MusicService : MediaLibraryService(),
                 repeatOne = exoPlayer.repeatMode == REPEAT_MODE_ONE,
                 speedChanged = parameters.speed != 1f || parameters.pitch != 1f,
                 skipSilence = exoPlayer.skipSilenceEnabled,
-                spatial = c.headTracking || c.upmix || c.ambience,
+                // Head tracking holds no change back, here as at playback (AutomixGuards, his word of 6 Nov 2026).
+                spatial = c.upmix || c.ambience,
                 decoder = c.ffmpeg,
                 sleepTimer = c.sleepTimer,
             )

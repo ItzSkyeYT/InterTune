@@ -82,6 +82,16 @@ class AutomixGuardsTest {
     }
 
     @Test
+    fun `the playlist's lines and the queue's line hold back what playback holds back, head tracking not among it`() {
+        // 6 Nov 2026: playback stopped refusing for head tracking, but the lines between a playlist's
+        // songs still showed every change as held back for it, and never the one he had saved.
+        val service = java.io.File("src/main/java/com/dd3boh/outertune/playback/MusicService.kt").readText()
+        val blocker = service.substringAfter("fun mixBlocker(): PlainReason? {").substringBefore("\n    }\n")
+        assertTrue(blocker, "spatial = c.upmix || c.ambience," in blocker)
+        assertFalse("headTracking" in blocker.substringAfter("PlayerFacts("))
+    }
+
+    @Test
     fun `with Crossfade on, a change may be made with AutoMix off, and every other guard still refuses`() {
         assertNull(AutomixGuards.whyNot(snapshot(settingOn = false).withCrossfade()))
         assertNull(AutomixGuards.whyNot(snapshot(settingOn = true).withCrossfade()))
