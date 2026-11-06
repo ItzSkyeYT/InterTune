@@ -1,0 +1,148 @@
+{
+ "n": "p19",
+ "a": "heroes",
+ "b": "animals",
+ "aBpm": 126.0,
+ "bBpm": 128.0,
+ "aT0": 0.16915699922660396,
+ "aPhase": 0,
+ "bT0": 0.0076607445008462696,
+ "bPhase": 1,
+ "fit": {
+  "tempo": true,
+  "tempoOffPct": -1.56,
+  "octave": 1,
+  "entry": true,
+  "anyPlacement": true,
+  "voiceGate": true,
+  "best": {
+   "A": 100,
+   "D": 16,
+   "gridA": true,
+   "gridAInfo": {
+    "share": 1.0,
+    "medAbsLagMs": 2.0,
+    "spreadMs": 6.2,
+    "barAgreement": 0.990990990990991,
+    "bars": [
+     84,
+     103
+    ]
+   },
+   "gridB": true,
+   "gridBInfo": {
+    "share": 1.0,
+    "medAbsLagMs": 2.0,
+    "spreadMs": 7.0,
+    "barAgreement": 0.8163265306122449,
+    "bars": [
+     16,
+     19
+    ]
+   },
+   "bothEarly": 0,
+   "bothLast": 0
+  }
+ },
+ "move": "reels",
+ "exitBar": 100,
+ "exitT": 190.64534747541705,
+ "boxStartBarA": 92,
+ "boxStartT": 175.40725223732184,
+ "dropBar": 16,
+ "dropSure": true,
+ "dropT": 30.476410744500846,
+ "entryBarB": 8,
+ "entryT": 15.476410744500846,
+ "leadOffsetBars": 0,
+ "shape": "build",
+ "swap": false,
+ "swapBoxBar": null,
+ "ratio": 0.984375,
+ "stretch": true,
+ "echo": false,
+ "octave": 1,
+ "aEndLine": 109,
+ "dLow": 19.882246017456055,
+ "dLevel": 10.995030641555786,
+ "aCandidates": [
+  {
+   "L": 76,
+   "t": 144.93106176113136,
+   "lift": 8.699626922607422,
+   "isLift": true,
+   "boxLow": -7.637328529357909,
+   "thin": false,
+   "end": false,
+   "leftS": 62.85714285714286,
+   "score": 1.1034781592232838,
+   "bothSungEarly": 0,
+   "bothSungLast": 0
+  },
+  {
+   "L": 100,
+   "t": 190.64534747541705,
+   "lift": 8.041431427001953,
+   "isLift": true,
+   "boxLow": -3.7917016983032212,
+   "thin": false,
+   "end": false,
+   "leftS": 17.142857142857167,
+   "score": 2.081786428179059,
+   "bothSungEarly": 0,
+   "bothSungLast": 0,
+   "bothSung": 0
+  },
+  {
+   "L": 109,
+   "t": 207.78820461827422,
+   "lift": 0.0,
+   "isLift": false,
+   "boxLow": -0.13416709899902202,
+   "thin": false,
+   "end": true,
+   "leftS": 0.0,
+   "score": 0.5,
+   "bothSungEarly": 0,
+   "bothSungLast": 0
+  }
+ ],
+ "bCandidates": [
+  {
+   "bar": 16,
+   "rise": 15.58079719543457,
+   "before": -16.07033500671387,
+   "sustain": -0.4766174316406264
+  },
+  {
+   "bar": 44,
+   "rise": 9.595291137695312,
+   "before": -10.989963150024415,
+   "sustain": -1.469855880737306
+  },
+  {
+   "bar": 60,
+   "rise": 15.176467895507812,
+   "before": -15.093263244628908,
+   "sustain": 0.07201805114745952
+  },
+  {
+   "bar": 68,
+   "rise": 15.035369873046875,
+   "before": -15.048738098144533,
+   "sustain": -0.013419723510743609
+  }
+ ],
+ "voices": {
+  "aSungBoxBars": [
+   1,
+   4,
+   5,
+   6,
+   7,
+   8
+  ],
+  "bSungBoxBars": [],
+  "rule7": true
+ }
+}

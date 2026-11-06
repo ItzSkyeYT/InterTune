@@ -1,0 +1,125 @@
+{
+ "n": "5",
+ "a": "yesbaby",
+ "b": "sandstorm",
+ "aBpm": 134.0,
+ "bBpm": 136.08333333333334,
+ "aT0": 0.3117647058823549,
+ "aPhase": 1,
+ "bT0": 0.39513737497449025,
+ "bPhase": 1,
+ "fit": {
+  "tempo": true,
+  "tempoOffPct": -1.53,
+  "octave": 1,
+  "entry": true,
+  "anyPlacement": true,
+  "voiceGate": true,
+  "best": {
+   "A": 58,
+   "D": 25,
+   "gridA": true,
+   "gridAInfo": {
+    "share": 0.55,
+    "medAbsLagMs": 2.0,
+    "spreadMs": 4.0,
+    "barAgreement": 0.8962264150943396,
+    "bars": [
+     42,
+     61
+    ]
+   },
+   "gridB": true,
+   "gridBInfo": {
+    "share": 1.0,
+    "medAbsLagMs": 6.0,
+    "spreadMs": 0.0,
+    "barAgreement": 0.6238095238095238,
+    "bars": [
+     25,
+     28
+    ]
+   },
+   "bothEarly": 0,
+   "bothLast": 0
+  }
+ },
+ "move": "reels",
+ "exitBar": 58,
+ "exitT": 104.64012291483758,
+ "boxStartBarA": 50,
+ "boxStartT": 90.31176470588235,
+ "dropBar": 25,
+ "dropSure": false,
+ "dropT": 44.926674423351706,
+ "entryBarB": 17,
+ "entryT": 30.817672586242093,
+ "leadOffsetBars": 0,
+ "shape": "beat",
+ "swap": true,
+ "swapBoxBar": 5,
+ "ratio": 0.9846907532149417,
+ "stretch": true,
+ "echo": false,
+ "octave": 1,
+ "aEndLine": 96,
+ "dLow": 0.15352439880371094,
+ "dLevel": 0.18404674530029297,
+ "aCandidates": [
+  {
+   "L": 58,
+   "t": 104.64012291483758,
+   "lift": 35.48125219345093,
+   "isLift": true,
+   "boxLow": -3.499126815795897,
+   "thin": false,
+   "end": false,
+   "leftS": 68.05970149253733,
+   "score": 3.2985074626865667,
+   "bothSungEarly": 0,
+   "bothSungLast": 0,
+   "bothSung": 0
+  },
+  {
+   "L": 78,
+   "t": 140.46101843722565,
+   "lift": 7.684226989746094,
+   "isLift": true,
+   "boxLow": -0.5060924530029283,
+   "thin": false,
+   "end": false,
+   "leftS": 32.23880597014926,
+   "score": 1.115086598182792,
+   "bothSungEarly": 0,
+   "bothSungLast": 0
+  },
+  {
+   "L": 96,
+   "t": 172.6998244073749,
+   "lift": 0.0,
+   "isLift": false,
+   "boxLow": -1.494804763793944,
+   "thin": false,
+   "end": true,
+   "leftS": 0.0,
+   "score": 0.5,
+   "bothSungEarly": 0,
+   "bothSungLast": 0
+  }
+ ],
+ "bCandidates": [],
+ "voices": {
+  "aSungBoxBars": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8
+  ],
+  "bSungBoxBars": [],
+  "rule7": true
+ }
+}

@@ -147,4 +147,28 @@ class WholeSongGridTest {
         assertTrue(kept.locked)
         assertEquals(127.5, kept.bpm, 0.0)
     }
+
+    @Test
+    fun `the line moves half a beat when the kick and the snare hit there, and not on a near tie`() {
+        val period = 40.0
+        val n = 4000
+        // The hats' line through 0 (weak in these two bands), the kick and the snare half a beat later.
+        val low = FloatArray(n)
+        val mid = FloatArray(n)
+        for (k in 0 until 99) {
+            low[k * 40] = 0.2f; mid[k * 40] = 0.2f
+            low[20 + k * 40] = 1f; mid[20 + k * 40] = 1f
+        }
+        assertEquals(20.0, WholeSongGrid.onTheBeat(low, mid, 0.0, period, 0, n), 1e-9)
+        // A line already on them stays.
+        assertEquals(20.0, WholeSongGrid.onTheBeat(low, mid, 20.0, period, 0, n), 1e-9)
+        // Nearly even (1.1 x 1.05 = 1.155, under the margin of 1.2): the line stays where the beats put it.
+        val evenLow = FloatArray(n)
+        val evenMid = FloatArray(n)
+        for (k in 0 until 99) {
+            evenLow[k * 40] = 1f; evenMid[k * 40] = 1f
+            evenLow[20 + k * 40] = 1.1f; evenMid[20 + k * 40] = 1.05f
+        }
+        assertEquals(0.0, WholeSongGrid.onTheBeat(evenLow, evenMid, 0.0, period, 0, n), 1e-9)
+    }
 }
