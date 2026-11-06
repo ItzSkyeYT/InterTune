@@ -1291,7 +1291,7 @@ class MusicService : MediaLibraryService(),
 
                 // misc. Nothing needs the app's own path yet: the effects' observers below say so
                 // as they are read, through applyOffload.
-                setOffloadEnabled(BatteryUse.offload(batteryMode, offloadSwitch, needsAppPath = false))
+                setOffloadEnabled(BatteryUse.offload(batteryMode, offloadSwitch, needsAppPath = false, outputSafe = SoundRoute.offloadSafe(this@MusicService)))
                 // The next song is made ready while one plays: resolved and its first seconds
                 // loaded, so that Next starts it at once instead of waiting for /player, the n
                 // step, the check and the first bytes. Off by default since media3 1.5. media3
@@ -1438,6 +1438,11 @@ class MusicService : MediaLibraryService(),
                     setSmallIcon(R.drawable.small_icon)
                 }
         )
+
+        // Saver's low-power path stays off USB headphones and other digital cables: asked again
+        // whenever an output comes or goes. Its first answer, for what is connected now, comes
+        // once this returns.
+        runCatching { getSystemService<AudioManager>()?.registerAudioDeviceCallback(offloadOutputs, Handler(Looper.getMainLooper())) }
 
         // lateinit tasks
         offloadScope.launch {
@@ -2985,7 +2990,30 @@ class MusicService : MediaLibraryService(),
             !equalizerProcessor.settings.isFlat || exoPlayer.skipSilenceEnabled ||
             exoPlayer.playbackParameters != PlaybackParameters.DEFAULT || sleepTimer.isActive ||
             (Unreleased.AUTOMIX && automix?.enabled == true)
-        exoPlayer.setOffloadEnabled(BatteryUse.offload(batteryMode, offloadSwitch, needsAppPath))
+        val outputSafe = SoundRoute.offloadSafe(this)
+        if (outputSafe != lastOutputSafe) {
+            lastOutputSafe = outputSafe
+            Log.i(TAG, if (outputSafe) "OUTPUTS: no USB or other digital cable, Saver may use the low-power path" else "OUTPUTS: USB or another digital cable connected, Saver keeps the app's own path")
+        }
+        exoPlayer.setOffloadEnabled(BatteryUse.offload(batteryMode, offloadSwitch, needsAppPath, outputSafe))
+    }
+
+    /** What [applyOffload] last found of the outputs, so the log says each change once. Main thread. */
+    private var lastOutputSafe: Boolean? = null
+
+    /**
+     * The low-power path asked again whenever an output comes or goes: Saver keeps it off while USB
+     * headphones or another digital cable are connected (SoundRoute.offloadSafe, #90). Registered in
+     * onCreate for the service's life, on the main thread, where [applyOffload] runs.
+     */
+    private val offloadOutputs = object : android.media.AudioDeviceCallback() {
+        override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>?) {
+            if (!destroyed) applyOffload()
+        }
+
+        override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>?) {
+            if (!destroyed) applyOffload()
+        }
     }
 
     private fun openAudioEffectSession() {
@@ -6237,6 +6265,7 @@ class MusicService : MediaLibraryService(),
         if (volumeReceiverRegistered) runCatching { unregisterReceiver(volumeReceiver) }
         // The audio manager holds the callback, and through it this instance, until it is let go.
         if (resumeOnBluetooth) runCatching { getSystemService<AudioManager>()?.unregisterAudioDeviceCallback(bluetoothOutputs) }
+        runCatching { getSystemService<AudioManager>()?.unregisterAudioDeviceCallback(offloadOutputs) }
         if (fakeBluetoothOutputRegistered) runCatching { unregisterReceiver(fakeBluetoothOutput) }
         checkpointJob?.cancel()
         // The observers, the sleep timer and the retry and radio jobs end here. Nothing that has to
