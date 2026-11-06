@@ -1078,6 +1078,25 @@ fun BoxScope.QueueContent(
         }
     }
 
+    // A song's ⋮: in its row, and on the playing song's row held at the edge of the list (#81).
+    fun showSongMenu(song: MediaMetadata) {
+        menuState.show {
+            PlayerMenu(
+                mediaMetadata = song,
+                navController = navController,
+                playerBottomSheetState = playerState,
+                onDismiss = {
+                    menuState.dismiss()
+                },
+            )
+        }
+        haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+    }
+
+    // On its side the songs run to the foot of the screen, under the navigation bar: the song held
+    // at their bottom stays above it (#81). Upright, the bar of controls at the foot leaves the room.
+    val heldBottomRoom = if (landscape) WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom).asPaddingValues().calculateBottomPadding() else 0.dp
+
     val songList: @Composable ColumnScope.(PaddingValues) -> Unit = { contentPadding ->
         Log.v("QueueContent", "QC-s_b")
         val songsScroll = rememberQueueSheetScroll(queueState)
@@ -1085,6 +1104,36 @@ fun BoxScope.QueueContent(
         // status bar's edge instead of passing under the clock (Pixel 5, 5 Nov 2026). At rest the
         // first row is where it was.
         val listDirection = LocalLayoutDirection.current
+        val thumbnailSize = (ListThumbnailSize.value * density.density).roundToInt()
+
+        // The song playing, held at the edge the list scrolled away from (#81): see QueueHeld. Its
+        // room at the foot is the bar's that floats over the list there, or on its side the
+        // navigation bar's (heldBottomRoom).
+        val heldRoom = maxOf(contentPadding.calculateBottomPadding(), heldBottomRoom)
+        val heldRoomPx = with(density) { heldRoom.roundToPx() }
+        val rowPx = with(density) { ListItemHeight.roundToPx() }
+        val placed = scrolledFor == "playing " + qb.getCurrentQueue()?.id
+        val heldSong = visibleSongs.getOrNull(currentWindowIndex)
+            ?.takeIf { QueueHeld.holds(isSearching, inSelectMode, detachedHead, reorderableState.isAnyItemDragging, placed) }
+        val heldAt = if (heldSong != null) currentWindowIndex else -1
+        val heldEdge by remember(heldAt, heldRoomPx, rowPx) {
+            derivedStateOf {
+                val info = lazySongsListState.layoutInfo
+                QueueHeld.edge(
+                    // The song's row alone, without the Mix's line under it (MixNextLine).
+                    laid = info.visibleItemsInfo.map { QueueHeld.Laid(it.index, it.offset, minOf(it.size, rowPx)) },
+                    playing = heldAt,
+                    top = 0,
+                    bottom = info.viewportEndOffset - heldRoomPx,
+                )
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .padding(top = contentPadding.calculateTopPadding())
+                .movesListFromHeldRow(lazySongsListState)
+        ) {
         LazyColumn(
             state = lazySongsListState,
             contentPadding = PaddingValues(
@@ -1092,9 +1141,7 @@ fun BoxScope.QueueContent(
                 end = contentPadding.calculateEndPadding(listDirection),
                 bottom = contentPadding.calculateBottomPadding(),
             ),
-            modifier = Modifier
-                .padding(top = contentPadding.calculateTopPadding())
-                .then(if (songsScroll != null) Modifier.nestedScroll(songsScroll) else Modifier)
+            modifier = if (songsScroll != null) Modifier.nestedScroll(songsScroll) else Modifier
         ) {
             if ((if (isSearching) filteredSongs else songs).isEmpty()) {
                 item {
@@ -1106,7 +1153,6 @@ fun BoxScope.QueueContent(
                 }
             }
 
-            val thumbnailSize = (ListThumbnailSize.value * density.density).roundToInt()
             itemsIndexed(
                 items = if (isSearching) filteredSongs else visibleSongs,
                 key = { _, item -> QueueRows.key(item) },
@@ -1190,7 +1236,10 @@ fun BoxScope.QueueContent(
                     val content = @Composable {
                         MediaMetadataListItem(
                             mediaMetadata = window,
-                            isActive = (index == currentWindowIndex && !detachedHead) || index == detachedQueue?.getQueuePosShuffled(),
+                            // Not while the song is held at an edge (#81): the held row wears it then. What
+                            // is left of this row in sight is under that one, and the rest passes under
+                            // the bar at the foot, where its highlight showed the song a second time.
+                            isActive = (index == currentWindowIndex && !detachedHead && heldEdge == QueueHeld.Edge.NONE) || index == detachedQueue?.getQueuePosShuffled(),
                             isPlaying = isPlaying && !detachedHead,
                             isNew = adaptiveSaying && window.id in adaptivePicks,
                             trailingContent = {
@@ -1201,19 +1250,7 @@ fun BoxScope.QueueContent(
                                     )
                                 } else {
                                     IconButton(
-                                        onClick = {
-                                            menuState.show {
-                                                PlayerMenu(
-                                                    mediaMetadata = window,
-                                                    navController = navController,
-                                                    playerBottomSheetState = playerState,
-                                                    onDismiss = {
-                                                        menuState.dismiss()
-                                                    },
-                                                )
-                                            }
-                                            haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
-                                        }
+                                        onClick = { showSongMenu(window) }
                                     ) {
                                         Icon(
                                             imageVector = Icons.Rounded.MoreVert,
@@ -1397,6 +1434,29 @@ fun BoxScope.QueueContent(
                 }
             }
         }
+
+        if (heldSong != null && heldEdge != QueueHeld.Edge.NONE) {
+            QueueHeldRow(
+                song = heldSong,
+                edge = heldEdge,
+                isPlaying = isPlaying,
+                isNew = adaptiveSaying && heldSong.id in adaptivePicks,
+                thumbnailSize = thumbnailSize,
+                rowPadding = PaddingValues(
+                    start = contentPadding.calculateStartPadding(listDirection),
+                    end = contentPadding.calculateEndPadding(listDirection),
+                ),
+                // Where the queue puts the song when it opens on it, a few songs above it.
+                onShowPlaying = {
+                    coroutineScope.launch { lazySongsListState.scrollToWhenLaidOut(heldAt) }
+                    haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                },
+                onMenu = { showSongMenu(heldSong) },
+                modifier = if (heldEdge == QueueHeld.Edge.TOP) Modifier.align(Alignment.TopCenter)
+                else Modifier.align(Alignment.BottomCenter).padding(bottom = heldRoom),
+            )
+        }
+        } // the list and the song held over it
         LazyColumnScrollbar(
             state = lazySongsListState,
         )
