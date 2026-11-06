@@ -243,8 +243,11 @@ object Engine {
     /** But never more than this many bars past the change. */
     const val ECHO_MAX_BARS_AFTER = 2.0
 
-    /** The longest a change may take, its echo included. */
-    const val MAX_SPAN_S = 64.0
+    /**
+     * The longest a change may take, its echo included: 32 bars at 90 BPM and their pads. The held
+     * end has to hold all of it, and the parts rendered for it cost about 0.4 MB a second of it.
+     */
+    const val MAX_SPAN_S = 90.0
 
     /** The cosine an echo's last repeat is faded over, as a share of the time it rings. */
     internal fun echoLevel(o: Long, fadeFrom: Long, end: Long): Double = when {

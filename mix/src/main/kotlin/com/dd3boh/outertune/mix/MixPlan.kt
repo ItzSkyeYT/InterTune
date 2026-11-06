@@ -237,7 +237,8 @@ class Headroom(val start: Long, val step: Int, val values: FloatArray) {
 /**
  * One transition, worked out to the frame. Every time here is an output frame counted from the
  * first frame of the held tail; output and tail frames are the same until the outgoing song's
- * tempo starts to move. The incoming song's frame n is output at [bStart] + n.
+ * tempo starts to move. The incoming song's frame [bEntry] + n is output at [bStart] + n: it comes
+ * in from its own first frame, or from a later bar, and none of its frames before that is heard.
  */
 class MixPlan(
     val style: Style,
@@ -247,7 +248,7 @@ class MixPlan(
     val channels: Int,
     /** How long the held tail is. */
     val tailFrames: Long,
-    /** The output frame of the incoming song's first frame, where the drain ends. */
+    /** The output frame of the incoming song's first frame heard (its frame [bEntry]), where the drain ends. */
     val bStart: Long,
     val aMap: TimeMap,
     /** The first output frame where the outgoing song differs from its raw held tail. */
@@ -288,6 +289,11 @@ class MixPlan(
      * without a change of tempo: where a loop of its bars first jumps back. None for most plans.
      */
     val alignedUntil: Long = Long.MAX_VALUE,
+    /**
+     * The incoming song's own frame heard first, at [bStart]: 0 for its first frame, or its bar
+     * where the change brings it in later. Its frames before it are skipped, never heard.
+     */
+    val bEntry: Long = 0,
 ) {
     val isGapless: Boolean get() = style == Style.GAPLESS
 
@@ -302,9 +308,11 @@ class MixPlan(
 
     fun describe(): String = when (style) {
         Style.GAPLESS -> "GAPLESS: $reason"
-        Style.BEAT -> "BEAT $bars bars %.1f s, A at %.4f: %s".format(seconds, speed, reason)
-        else -> "$style %.1f s: %s".format(seconds, reason)
+        Style.BEAT -> "BEAT $bars bars %.1f s, A at %.4f%s: %s".format(seconds, speed, entryText(), reason)
+        else -> "$style %.1f s%s: %s".format(seconds, entryText(), reason)
     }
+
+    private fun entryText(): String = if (bEntry > 0) ", B from %.2f s".format(bEntry.toDouble() / sampleRate) else ""
 
     companion object {
         /** Today's change, sample for sample: the whole tail, then the next song. */

@@ -39,6 +39,32 @@ internal class StretchSource(private val frames: Wsola.Frames, private val from:
 }
 
 /**
+ * B's copy by output frame when it comes in after its first frame: its frame n at [origin] + n,
+ * silence before its frame [entry], which it starts on over a few milliseconds of a raised cosine
+ * so that the middle of a song never starts with a click.
+ */
+internal class EntrySource(
+    private val pcm: ShortArray,
+    private val channels: Int,
+    private val frames: Long,
+    private val origin: Long,
+    private val entry: Long,
+    private val fadeFrames: Int,
+) : FrameSource {
+    override fun frame(t: Long, into: DoubleArray) {
+        val i = t - origin
+        if (i < entry || i >= frames) {
+            for (c in 0 until channels) into[c] = 0.0
+            return
+        }
+        val k = i - entry
+        val g = if (k >= fadeFrames) 1.0 else 0.5 - 0.5 * kotlin.math.cos(Math.PI * (k + 1) / (fadeFrames + 1))
+        val base = (i * channels).toInt()
+        for (c in 0 until channels) into[c] = pcm[base + c] * g
+    }
+}
+
+/**
  * One song's side of a change, frame after frame from [origin]: its music cut into bands, each
  * band shaped by its lane, and the lanes added back. Where every lane is at full and nothing
  * rings, the music itself is given out, not the sum of its bands, so it is the song's own
@@ -113,7 +139,8 @@ class ChangeRender(
      * Output frames [from] until [to] as they are heard, interleaved 16-bit: A as it is before the
      * change, the two parts added through it, B as it is after it. The same samples the stage plays,
      * so the editor's preview is the change itself. [a] and [b] are the music the change was rendered
-     * from, A's by output frame before its tempo moves and B's from its first frame.
+     * from, A's by output frame before its tempo moves and B's from its first frame, of which
+     * nothing before its entry is heard.
      */
     fun mix(a: ShortArray, b: ShortArray, from: Long, to: Long): ShortArray {
         val channels = plan.channels
@@ -128,8 +155,8 @@ class ChangeRender(
                     // Before the change A plays as it is, on its own clock.
                     o < plan.mixFrom -> attenuate(if (o in 0 until aFrames) a[(o * channels).toInt() + c] else 0, attenuationA)
                     o >= plan.mixTo -> {
-                        val j = o - plan.bStart
-                        attenuate(if (j in 0 until bFrames) b[(j * channels).toInt() + c] else 0, attenuationB)
+                        val j = o - plan.bOrigin
+                        attenuate(if (j in plan.bEntry until bFrames) b[(j * channels).toInt() + c] else 0, attenuationB)
                     }
                     else -> ChangeSum.add(outgoing.at(o, c).toDouble(), incoming.at(o, c).toDouble())
                 }
@@ -181,6 +208,7 @@ class ChangeRender(
             beats = spec.bars * spec.b.beatsPerBar,
             anchors = plan.anchors,
             alignedUntil = plan.outro?.let { floor(plan.aMap.outAt(it.end.toDouble())).toLong() - it.seam } ?: Long.MAX_VALUE,
+            bEntry = plan.bEntry,
         )
     }
 }
@@ -206,7 +234,12 @@ class LaneMixer(private val plan: LanePlan) {
         val rate = plan.sampleRate
         val aSource = aSource(a)
         val bFrames0 = plan.facts.bFrames.coerceAtMost((b.size / channels).toLong())
-        val bSource = plan.loop?.let { LoopedSource(b, channels, bFrames0, plan.bStart, it, rate) } ?: PcmSource(b, channels, bFrames0, plan.bStart)
+        val bSource = when {
+            plan.loop != null -> LoopedSource(b, channels, bFrames0, plan.bStart, plan.loop, rate)
+            // B from a later bar: none of it before, and no click where it starts.
+            plan.bEntry > 0 -> EntrySource(b, channels, bFrames0, plan.bOrigin, plan.bEntry, ENTRY_FADE_MS * rate / 1000)
+            else -> PcmSource(b, channels, bFrames0, plan.bStart)
+        }
         val from = plan.mixFrom
         val to = plan.mixTo
         val aTo = min(plan.aGone, to)
@@ -297,7 +330,7 @@ class LaneMixer(private val plan: LanePlan) {
         return ChangeRender(
             plan = plan,
             outgoing = RenderedOutgoing(from, aFrames, channels, aOut, headroom),
-            incoming = RenderedIncoming(plan.bStart, bFrames, channels, bOut, b, attenuationB, Math.round(plan.barFrames * plan.spec.beat)),
+            incoming = RenderedIncoming(plan.bStart, bFrames, channels, bOut, b, attenuationB, Math.round(plan.barFrames * plan.spec.beat), entry = plan.bEntry),
             headroom = headroom,
             peakBefore = peakBefore,
             peakAfter = peakAfter,
@@ -305,6 +338,11 @@ class LaneMixer(private val plan: LanePlan) {
             attenuationB = attenuationB,
             renderMillis = (System.nanoTime() - started) / 1e6,
         )
+    }
+
+    companion object {
+        /** How long B takes to start when it comes in after its first frame: no click, nothing heard as a fade. */
+        const val ENTRY_FADE_MS = 5
     }
 
     /** A's music by output frame as the change takes it, before any lane is shaped: stretched where the plan stretches it. For a change's proof. */
