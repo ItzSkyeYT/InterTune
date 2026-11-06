@@ -349,6 +349,25 @@ class AutomixController(
 
         /** Its plan is a crossfade, not Auto's: set on the worker before the plan is handed over. */
         @Volatile var crossfaded = false
+
+        /**
+         * This change started over after a seek, with everything read with the opening: the
+         * opening, its copy and the songs' beats read whole, the saved change and whether it is the
+         * debug app's trial, the queue's shuffle as it was read, and how early the end is held.
+         * The opening is not read again, so whatever is not carried over here is lost for good.
+         */
+        fun startedOver(id: Long): Transition = Transition(id, a, b).also {
+            it.head = head
+            it.headFailed = headFailed
+            it.copy = copy
+            it.copyFrames = copyFrames
+            it.saved = saved
+            it.trial = trial
+            it.shuffled = shuffled
+            it.gridA = gridA
+            it.gridB = gridB
+            it.armFromMs = armFromMs
+        }
     }
 
     // ---- the player
@@ -373,14 +392,7 @@ class AutomixController(
             mixing = null
             transition?.takeIf { it.armRequested || it.holding }?.let { old ->
                 if (old.holding) say("dropped: a seek")
-                transition = Transition(nextTransitionId++, old.a, old.b).also {
-                    it.head = old.head
-                    it.headFailed = old.headFailed
-                    it.copy = old.copy
-                    it.copyFrames = old.copyFrames
-                    it.saved = old.saved
-                    it.armFromMs = old.armFromMs
-                }
+                transition = old.startedOver(nextTransitionId++)
             }
         }
         refresh()

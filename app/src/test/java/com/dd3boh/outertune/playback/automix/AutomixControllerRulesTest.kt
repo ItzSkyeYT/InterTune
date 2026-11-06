@@ -58,6 +58,21 @@ class AutomixControllerRulesTest {
     }
 
     @Test
+    fun `a change started over after a seek keeps everything read with the opening`() {
+        // On the Pixel 5 (6 Nov) the debug app's trial lost its flag this way: its end had been
+        // held once, the queue was started again and A sought, so the change started over without
+        // knowing it was the trial; the change on bands looked for a change saved for the pair,
+        // found none, and A played out whole. A shuffled queue lost its shuffle the same way, and
+        // both songs the beats read from all of them.
+        val seek = body(controller, "override fun onPositionDiscontinuity(")
+        assertTrue(seek, "transition = old.startedOver(nextTransitionId++)" in seek)
+        val over = body(controller, "fun startedOver(id: Long): Transition")
+        for (field in listOf("head", "headFailed", "copy", "copyFrames", "saved", "trial", "shuffled", "gridA", "gridB", "armFromMs")) {
+            assertTrue("$field is lost when the change starts over", "it.$field = $field" in over)
+        }
+    }
+
+    @Test
     fun `a plan worked out for a change given up is not handed to the stage, and a dropped end is let go`() {
         assertTrue("t.abandoned.set(true)" in body(controller, "private fun abort("))
         assertTrue("if (!t.abandoned.get() && t.entryFrames == 0L) stage.offer(held, plan, rendered)" in controller)
