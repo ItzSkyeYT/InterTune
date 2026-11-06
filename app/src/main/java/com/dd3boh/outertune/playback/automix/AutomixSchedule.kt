@@ -139,6 +139,16 @@ object AutomixSchedule {
     }
 
     /**
+     * Whether the player is to load on for the change of this song, past where its load control
+     * rests, which is short of the song's end for a song over five minutes, with nothing of the
+     * next one, until 30 s before its end: only for a change whose end is held earlier than
+     * Auto's usual window ([armFromMs] past [ARM_FROM_LEFT_MS]), from where the next song's
+     * opening is read until its end is held, and while what holding it needs is not yet loaded.
+     */
+    fun loadAhead(armFromMs: Long, leftMs: Long, loaded: Boolean, armRequested: Boolean): Boolean =
+        armFromMs > ARM_FROM_LEFT_MS && !loaded && !armRequested && leftMs <= READ_LEFT_MS && leftMs >= ARM_UNTIL_LEFT_MS
+
+    /**
      * Whether a held end is the end of the song: as long as what was left of it when it began to be
      * held, give or take [TAIL_SLACK_MS]. The sink drains its chain whenever a stream is configured
      * again, and a stream configured again in the middle of a song would otherwise pass for its end.

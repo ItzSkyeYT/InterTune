@@ -133,6 +133,8 @@ class AutomixController(
     private val savedPairs: () -> Set<SongPair> = { emptySet() },
     /** A change far from the end forced on every pair, for trying the engine: the debug app only. Blocking, so called on IO. */
     private val entryTrial: () -> EntryTrial? = { null },
+    /** Asks the player to load on past its load control's rest, for a change held far from the end (AutomixLoadControl). Main thread. */
+    private val loadAhead: (Boolean) -> Unit = {},
 ) : Player.Listener, AutomixAudioProcessor.Events {
 
     /**
@@ -442,6 +444,7 @@ class AutomixController(
      * stage leaves the chain at a song started by hand or after a stop.
      */
     private fun levelsWhileOff() {
+        setLoadAhead(false)
         if (stage.activeForStream) publishLevels()
     }
 
@@ -460,6 +463,7 @@ class AutomixController(
 
     fun release() {
         enabled = false
+        setLoadAhead(false)
         tickJob?.cancel()
         transition?.reading?.cancel()
         queueSavedJob?.cancel()
@@ -498,7 +502,8 @@ class AutomixController(
     }
 
     private fun tick() {
-        val t = transition ?: return
+        val t = transition ?: return setLoadAhead(false)
+        keepLoading(t)
         if (t.finished) return
         if (t.holding) {
             // What may change while the end is held, and stops it: a sleep timer, casting, the
@@ -559,6 +564,35 @@ class AutomixController(
             }
         }
         if (!t.armRequested) later(AutomixSchedule.nextLookMs(left, player.playbackParameters.speed, t.armFromMs))
+    }
+
+    /** Whether the player was last asked to load on ([loadAhead]), so each change is said once. */
+    private var loadingAhead = false
+
+    private fun setLoadAhead(on: Boolean) {
+        if (on == loadingAhead) return
+        loadingAhead = on
+        loadAhead(on)
+    }
+
+    /**
+     * A change held earlier than Auto's window needs the song playing loaded to its end and the
+     * next one's first seconds before its end can be held; the player's load control rests short
+     * of that until 30 s are left, so it is asked to load on until they are in. Auto's own
+     * changes never ask.
+     */
+    private fun keepLoading(t: Transition) {
+        val duration = player.duration
+        val want = enabled && !t.finished && !t.holding && t.saved != null && duration != C.TIME_UNSET && duration > 0 &&
+            AutomixSchedule.loadAhead(
+                t.armFromMs, duration - player.currentPosition,
+                loaded = AutomixSchedule.loaded(duration, player.currentPosition, player.bufferedPosition, player.totalBufferedDuration),
+                armRequested = t.armRequested,
+            )
+        if (want && !loadingAhead) say("loading on for the change of ${t.a.id}: this one to %.1f s of %.1f, %.1f s ahead in all".format(
+            player.bufferedPosition / 1000.0, duration / 1000.0, player.totalBufferedDuration / 1000.0,
+        ))
+        setLoadAhead(want)
     }
 
     private fun later(ms: Long?) {
@@ -754,6 +788,7 @@ class AutomixController(
         // The level of the next song as stored by now, which reading its opening has just brought.
         publishLevels()
         t.armRequested = true
+        setLoadAhead(false)
         t.armTries++
         t.sampleRate = rate
         t.expectedTailMs = left
@@ -787,6 +822,7 @@ class AutomixController(
      * song fades out over a beat. Once, and for good: nothing is held for this change again.
      */
     private fun abort(t: Transition, why: String) {
+        setLoadAhead(false)
         if (!t.holding && !t.armRequested) return
         t.abandoned.set(true)
         stage.cancelArm()

@@ -182,6 +182,7 @@ import com.dd3boh.outertune.mix.pill.QueueLinks
 import com.dd3boh.outertune.playback.automix.AutomixAudioProcessor
 import com.dd3boh.outertune.playback.automix.AutomixAudioSink
 import com.dd3boh.outertune.playback.automix.AutomixController
+import com.dd3boh.outertune.playback.automix.AutomixLoadControl
 import com.dd3boh.outertune.playback.automix.AutomixProcessorChain
 import com.dd3boh.outertune.playback.automix.AutomixVolume
 import com.dd3boh.outertune.playback.automix.Crossfade
@@ -838,6 +839,9 @@ class MusicService : MediaLibraryService(),
      * built as they always were. With it on and the setting off the stage stays out of the chain.
      */
     private val automixStage: AutomixAudioProcessor? = if (Unreleased.AUTOMIX) AutomixAudioProcessor() else null
+
+    /** The player's load control, which a change held far from the end may ask to load on: with AutoMix in the build only. */
+    private var automixLoadControl: AutomixLoadControl? = null
     private var automix: AutomixController? = null
 
     /** Whether normalisation is on, for AutoMix to work out the next song's level off the main thread. */
@@ -1215,6 +1219,8 @@ class MusicService : MediaLibraryService(),
                 DefaultLoadControl.Builder()
                     .setBufferDurationsMs(30_000, 300_000, 1_000, 2_000)
                     .build()
+                    // With AutoMix in the build, a change held far from the end may ask it to load on.
+                    .let { control -> if (Unreleased.AUTOMIX) AutomixLoadControl(control).also { automixLoadControl = it } else control }
             )
             .build()
             .apply {
@@ -1250,6 +1256,7 @@ class MusicService : MediaLibraryService(),
                             savedPairs = { if (Unreleased.AUTOMIX_EDITOR) MixStores.transitions(this@MusicService).all().mapTo(HashSet()) { it.pair } else emptySet() },
                             // A change far from the end forced on every pair while its file is there: the debug app only, for trying the engine.
                             entryTrial = { if (BuildConfig.BUILD_TYPE == "debug") EntryTrial.read(java.io.File(filesDir, EntryTrial.FILE)) else null },
+                            loadAhead = { on -> automixLoadControl?.ahead = on },
                         ).also { addListener(it) }
                     }
                 }
