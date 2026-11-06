@@ -9,6 +9,7 @@ import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.db.entities.Album
 import com.dd3boh.outertune.db.entities.ArtistEntity
 import com.dd3boh.outertune.db.entities.Song
+import com.dd3boh.outertune.stats.FoundHere
 import com.dd3boh.outertune.stats.ListeningInsights
 import com.dd3boh.outertune.stats.ListeningStats
 import com.dd3boh.outertune.stats.StatsInput
@@ -22,6 +23,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
@@ -97,6 +99,26 @@ class StatsViewModel @Inject constructor(
     val insights: StateFlow<PeriodInsights?> = statPeriod.mapLatest { period ->
         insightsCache[period] ?: readInsights(period)?.also { insightsCache[period] = it }
             ?: PeriodInsights(period, ListeningStats.EMPTY, emptyMap(), emptyMap())
+    }.stateIn(viewModelScope, SharingStarted.Lazily, null)
+
+    /**
+     * Found with InterTune (stats/FoundHere.kt): the songs the listener liked that InterTune played
+     * them first, since the live log began, whatever period is picked. Read once when the page
+     * opens, as the insights are, never observed. Null until read, and after a read that failed.
+     */
+    val found: StateFlow<FoundHere.Result?> = flow {
+        emit(
+            withContext(Dispatchers.IO) {
+                try {
+                    FoundHere.compute(database.statsFoundFirstListens(), database.statsBounds().firstLiveAt)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    reportException(e)
+                    null
+                }
+            }
+        )
     }.stateIn(viewModelScope, SharingStarted.Lazily, null)
 
     private suspend fun readInsights(period: StatPeriod): PeriodInsights? = withContext(Dispatchers.IO) {

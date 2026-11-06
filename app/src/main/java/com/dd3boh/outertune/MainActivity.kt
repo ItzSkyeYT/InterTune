@@ -617,7 +617,8 @@ class MainActivity : ComponentActivity() {
      */
     private fun playLikedWhenReady() {
         lifecycleScope.launch {
-            val connection = snapshotFlow { playerConnection }.filterNotNull().first()
+            // A live one, as for the widget's songs: see PlayerConnection.isAlive.
+            val connection = snapshotFlow { playerConnection?.takeIf { it.isAlive } }.filterNotNull().first()
             val prefs = dataStore.data.first()
             val songs = database.likedSongs(
                 prefs[SongSortTypeKey].toEnum(SongSortType.CREATE_DATE),
@@ -1374,13 +1375,17 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                     LaunchedEffect(playerConnection, widgetSongPending, pendingWidgetTap.intent) {
+                        // Only a connection whose service is still there: one left from before the
+                        // service stopped took the tap and played nothing. The tap waits for the
+                        // next connection instead, which restarts this effect.
+                        val live = playerConnection?.takeIf { it.isAlive }
                         if (widgetSongPending) {
-                            playFromWidget(intent, database, playerConnection, coroutineScope)
-                            if (playerConnection != null) widgetSongPending = false
+                            playFromWidget(intent, database, live, coroutineScope)
+                            if (live != null) widgetSongPending = false
                         }
                         pendingWidgetTap.intent?.let { pending ->
-                            playFromWidget(pending, database, playerConnection, coroutineScope)
-                            if (playerConnection != null) pendingWidgetTap.intent = null
+                            playFromWidget(pending, database, live, coroutineScope)
+                            if (live != null) pendingWidgetTap.intent = null
                         }
                     }
 
@@ -1417,7 +1422,8 @@ class MainActivity : ComponentActivity() {
                     TogetherProposalDialog(playerConnection)
                     LaunchedEffect(pendingLaunchLink, pendingLink.link, playerConnection, oobeStatus) {
                         val link = pendingLaunchLink ?: pendingLink.link ?: return@LaunchedEffect
-                        val connection = playerConnection ?: return@LaunchedEffect
+                        // A live one, as for the widget's songs: see PlayerConnection.isAlive.
+                        val connection = playerConnection?.takeIf { it.isAlive } ?: return@LaunchedEffect
                         if (oobeStatus < OOBE_VERSION) return@LaunchedEffect
                         snapshotFlow { navBackStackEntry }.first { it != null }
                         if (pendingLaunchLink != null) pendingLaunchLink = null else pendingLink.link = null

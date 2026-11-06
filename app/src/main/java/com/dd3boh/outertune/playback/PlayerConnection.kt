@@ -58,6 +58,14 @@ class PlayerConnection(
     val player = service.player
     val scope = binder.viewModelScope
 
+    /**
+     * False once the service this connection was made for has stopped. The service stops by itself
+     * when a queue ends with the app in the background, and the app's screen keeps this connection
+     * until the next one arrives, a moment after it comes back. What is asked of it in between plays
+     * nothing: a song tapped on the widget then opened the app on silence (Pixel 5, 6 Nov 2026).
+     */
+    val isAlive: Boolean get() = !service.isDestroyed
+
     val playbackState = MutableStateFlow(player.playbackState)
     private val playWhenReady = MutableStateFlow(player.playWhenReady)
     /**

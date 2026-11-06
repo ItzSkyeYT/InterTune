@@ -335,19 +335,24 @@ object WidgetStore {
         var owed: Pair<MediaMetadata, List<Int>>? = null
         var owedNext = emptyList<MediaMetadata>()
         var written = ""
+        // What this write changes on the widget. A song change calls this 4 to 10 times within two
+        // seconds (the player's timeline and position events, its play state), mostly with nothing
+        // new, and every write redrew the widget and sent its pictures to the launcher again, about
+        // 2.5 MB a size: the new title took 0.9 to 2 s to show (Pixel 5, 5 Nov 2026). A write that
+        // changes nothing the widget shows is now skipped, and so is its redraw.
+        var changed = emptyList<String>()
         mutex.withLock {
             val (song, isPlaying, liked, shuffled, queued) = state()
             val old = read(context)
             wantedArt = song?.id
             written = "${song?.id}, ${if (isPlaying) "playing" else "paused"}"
             if (song == null) {
-                write(
-                    context,
-                    old.copy(
-                        nowPlaying = null, isPlaying = false, isLiked = false, upNext = emptyList(),
-                        isShuffled = shuffled ?: old.isShuffled, updatedAt = System.currentTimeMillis(),
-                    ),
+                val next = old.copy(
+                    nowPlaying = null, isPlaying = false, isLiked = false, upNext = emptyList(),
+                    isShuffled = shuffled ?: old.isShuffled,
                 )
+                changed = old.changesTo(next)
+                if (changed.isNotEmpty()) write(context, next.copy(updatedAt = System.currentTimeMillis()))
             } else {
                 val same = old.nowPlaying?.id == song.id
                 // The picture is only for a widget. The words are written either way, so a widget
@@ -389,18 +394,17 @@ object WidgetStore {
                         isLocal = next.isLocal,
                     )
                 } ?: old.upNext
-                write(
-                    context,
-                    old.copy(
-                        nowPlaying = now,
-                        isPlaying = isPlaying,
-                        isLiked = likedFor(old, song.id, liked),
-                        recent = recent,
-                        isShuffled = shuffled ?: old.isShuffled,
-                        upNext = upNext,
-                        updatedAt = System.currentTimeMillis(),
-                    ),
+                val next = old.copy(
+                    nowPlaying = now,
+                    isPlaying = isPlaying,
+                    isLiked = likedFor(old, song.id, liked),
+                    recent = recent,
+                    isShuffled = shuffled ?: old.isShuffled,
+                    upNext = upNext,
                 )
+                changed = old.changesTo(next)
+                if (changed.isNotEmpty()) write(context, next.copy(updatedAt = System.currentTimeMillis()))
+                // A missing picture is still fetched when nothing else changed.
                 if (widgets) {
                     // Three sizes: a widget given over to the artwork wants a real cover, one with
                     // a title beside it a smaller one, and a list row a thumbnail.
@@ -415,11 +419,15 @@ object WidgetStore {
                     if (bare.isNotEmpty() && wideWidgets(context)) owedNext = queued.orEmpty().filter { it.id in bare }
                 }
             }
-            prune(context, read(context))
+            if (changed.isNotEmpty()) prune(context, read(context))
         }
         if (widgets) {
-            Log.d(DRAW_TAG, "Written $written")
-            MusicWidget().updateAll(context)
+            if (changed.isEmpty()) {
+                Log.d(DRAW_TAG, "Unchanged $written, not drawn again")
+            } else {
+                Log.d(DRAW_TAG, "Written $written (${changed.joinToString()})")
+                MusicWidget().updateAll(context)
+            }
         }
         owed?.let { (song, sizes) ->
             if (picturesFor(context, song, sizes)) MusicWidget().updateAll(context)

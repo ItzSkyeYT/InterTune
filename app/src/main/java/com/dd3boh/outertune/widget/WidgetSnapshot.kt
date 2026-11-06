@@ -71,6 +71,21 @@ data class WidgetSnapshot(
 
     /** Every song the snapshot names, for the artwork it needs. */
     fun songs(): List<WidgetSong> = listOfNotNull(nowPlaying) + picks + forgotten + keepListening + recent + upNext
+
+    /**
+     * What [next] would show differently from this snapshot, by part, for the store's log; empty when
+     * the widget would look the same. [updatedAt] is left out: every write changes it and the widget
+     * never shows it.
+     */
+    fun changesTo(next: WidgetSnapshot): List<String> = buildList {
+        if (nowPlaying?.id != next.nowPlaying?.id) add("song") else if (nowPlaying != next.nowPlaying) add("song's details")
+        if (isPlaying != next.isPlaying) add("play")
+        if (isLiked != next.isLiked) add("like")
+        if (isShuffled != next.isShuffled) add("shuffle")
+        if (upNext != next.upNext) add("up next")
+        if (recent != next.recent) add("recent")
+        if (picks != next.picks || forgotten != next.forgotten || keepListening != next.keepListening) add("lists")
+    }
 }
 
 /**

@@ -144,9 +144,15 @@ object BatteryUse {
      * Whether the song goes to the phone's low-power audio path (offload): in Saver, or wherever
      * the developer's switch asks for it, and only while nothing needs the app's own path. Skip
      * silence, another speed or pitch, a sleep timer counting down and every sound effect do.
+     *
+     * Saver also waits for [outputSafe] (SoundRoute.offloadSafe): no USB headphones or other
+     * digital cable connected. On a Pixel 11 with USB headphones and the screen off, the low-power
+     * path went silent after half a minute and stayed silent, through a restart of the player,
+     * until they were plugged in again (#90, 6 Nov 2026). A switch turned on by hand is the
+     * person's own choice, and keeps its offload.
      */
-    fun offload(mode: BatteryMode, developerSwitch: Boolean, needsAppPath: Boolean): Boolean =
-        !needsAppPath && (developerSwitch || mode == BatteryMode.SAVER)
+    fun offload(mode: BatteryMode, developerSwitch: Boolean, needsAppPath: Boolean, outputSafe: Boolean): Boolean =
+        !needsAppPath && (developerSwitch || (mode == BatteryMode.SAVER && outputSafe))
 
     // Downloads, the player's background and the song cache.
 
