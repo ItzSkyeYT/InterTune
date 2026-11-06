@@ -184,9 +184,11 @@ import com.dd3boh.outertune.mix.pill.QueueLinks
 import com.dd3boh.outertune.playback.automix.AutomixAudioProcessor
 import com.dd3boh.outertune.playback.automix.AutomixAudioSink
 import com.dd3boh.outertune.playback.automix.AutomixController
+import com.dd3boh.outertune.playback.automix.AutomixLoadControl
 import com.dd3boh.outertune.playback.automix.AutomixProcessorChain
 import com.dd3boh.outertune.playback.automix.AutomixVolume
 import com.dd3boh.outertune.playback.automix.Crossfade
+import com.dd3boh.outertune.playback.automix.EntryTrial
 import com.dd3boh.outertune.playback.automix.HeadDecoder
 import com.dd3boh.outertune.playback.automix.MixStores
 import androidx.media3.common.audio.AudioProcessorChain
@@ -865,6 +867,9 @@ class MusicService : MediaLibraryService(),
      * built as they always were. With it on and the setting off the stage stays out of the chain.
      */
     private val automixStage: AutomixAudioProcessor? = if (Unreleased.AUTOMIX) AutomixAudioProcessor() else null
+
+    /** The player's load control, which a change held far from the end may ask to load on: with AutoMix in the build only. */
+    private var automixLoadControl: AutomixLoadControl? = null
     private var automix: AutomixController? = null
 
     /** Whether normalisation is on, for AutoMix to work out the next song's level off the main thread. */
@@ -1246,6 +1251,8 @@ class MusicService : MediaLibraryService(),
                 DefaultLoadControl.Builder()
                     .setBufferDurationsMs(30_000, 300_000, 1_000, 2_000)
                     .build()
+                    // With AutoMix in the build, a change held far from the end may ask it to load on.
+                    .let { control -> if (Unreleased.AUTOMIX) AutomixLoadControl(control).also { automixLoadControl = it } else control }
             )
             .build()
             .apply {
@@ -1279,6 +1286,9 @@ class MusicService : MediaLibraryService(),
                             // the pairs with a change saved for them, from the one store the editor saves to.
                             queue = { queueBoard.getCurrentQueue()?.let { q -> AutomixController.QueueNow(q.id to q.runId) { q.songIds() } } },
                             savedPairs = { if (Unreleased.AUTOMIX_EDITOR) MixStores.transitions(this@MusicService).all().mapTo(HashSet()) { it.pair } else emptySet() },
+                            // A change far from the end forced on every pair while its file is there: the debug app only, for trying the engine.
+                            entryTrial = { if (BuildConfig.BUILD_TYPE == "debug") EntryTrial.read(java.io.File(filesDir, EntryTrial.FILE)) else null },
+                            loadAhead = { on -> automixLoadControl?.ahead = on },
                         ).also { addListener(it) }
                     }
                 }
@@ -1318,6 +1328,13 @@ class MusicService : MediaLibraryService(),
 
                     override fun onLoadCompleted(eventTime: AnalyticsListener.EventTime, loadEventInfo: LoadEventInfo, mediaLoadData: MediaLoadData) {
                         badCachedCopy.loadCompleted(loadEventInfo.dataSpec.key)
+                    }
+
+                    // Whether the sound went down the phone's low-power path (Saver's offload), for
+                    // Report a problem: nothing said so in #90's report.
+                    override fun onAudioTrackInitialized(eventTime: AnalyticsListener.EventTime, audioTrackConfig: AudioSink.AudioTrackConfig) {
+                        PlayHealth.thisRun.audioTrack(audioTrackConfig.offload)
+                        Log.i(TAG, "AUDIO: a track opened on ${if (audioTrackConfig.offload) "the phone's low-power path (offload)" else "the app's own path"}, encoding ${audioTrackConfig.encoding}, ${audioTrackConfig.sampleRate} Hz")
                     }
                 })
 
@@ -1605,11 +1622,12 @@ class MusicService : MediaLibraryService(),
                 .distinctUntilChanged()
                 .collectLatest(scope) { binauralProcessor.stageWidthDegrees = it.toFloat() }
 
-            // Read once a buffer as well: a band is heard moving as its slider moves. Off while
-            // Battery use is on Saver, the switch keeping what was set (BatteryUse.equalizer).
-            dataStore.data.combine(PhoneBatterySaver.on) { prefs, phoneSaver ->
+            // Read once a buffer as well: a band is heard moving as its slider moves. As set in every
+            // Battery use, Saver included (his word of 6 Nov 2026, #91): for headphones it is a
+            // correction, not an effect, as in Precise Volume.
+            dataStore.data.map { prefs ->
                 EqualizerAudioProcessor.Settings(
-                    Unreleased.EQUALIZER && BatteryUse.equalizer(prefs[EqualizerEnabledKey] ?: false, prefs.batteryMode(phoneSaver)),
+                    Unreleased.EQUALIZER && (prefs[EqualizerEnabledKey] ?: false),
                     EqualizerPreset.parse(prefs[EqualizerGainsKey]),
                 )
             }
@@ -6306,6 +6324,47 @@ class MusicService : MediaLibraryService(),
         }
     }
 
+    /**
+     * Debug app only, for trying Mix on a device from the shell, as a foreground service only the
+     * shell can start this way:
+     *
+     *     adb shell am start-foreground-service -n dev.skye.intertune.debug/com.dd3boh.outertune.playback.MusicService \
+     *         --es mixtrial "'play <id> <id>'"
+     *
+     * `play` plays those songs as the queue of a Mix playlist, `end <ms>` goes to that long before
+     * the end of the song playing, `pause` pauses. Several commands are separated by `;`.
+     */
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (BuildConfig.BUILD_TYPE == "debug" && Unreleased.AUTOMIX_EDITOR) intent?.getStringExtra("mixtrial")?.let { mixTrial(it) }
+        return super.onStartCommand(intent, flags, startId)
+    }
+
+    private fun mixTrial(commands: String) {
+        for (command in commands.split(';')) {
+            val words = command.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+            if (words.isEmpty()) continue
+            Log.i(TAG, "AutoMix trial: ${words.joinToString(" ")}")
+            when (words.first()) {
+                "play" -> {
+                    val ids = words.drop(1)
+                    scope.launch {
+                        dataStore.edit { it[MixPlaylistsKey] = (it[MixPlaylistsKey] ?: emptySet()) + MIX_TRIAL_PLAYLIST }
+                        val songs = withContext(Dispatchers.IO) { YouTube.queue(ids) }.getOrNull().orEmpty()
+                        if (songs.isEmpty()) Log.w(TAG, "AutoMix trial: no songs for $ids")
+                        // From the shell, outside the app: listens it plays are counted as another app's.
+                        else playQueue(ListQueue(title = "Mix trial", items = songs.map { it.toMediaMetadata() }, mixPlaylistId = MIX_TRIAL_PLAYLIST), origin = PlayOrigin.EXTERNAL)
+                    }
+                }
+                "end" -> {
+                    val left = words.getOrNull(1)?.toLongOrNull() ?: 60_000L
+                    val duration = exoPlayer.duration
+                    if (duration > 0) exoPlayer.seekTo(maxOf(0L, duration - left))
+                }
+                "pause" -> exoPlayer.pause()
+            }
+        }
+    }
+
     override fun onDestroy() {
         stopTogether()
         // Checked by playQueue's resolve coroutine each time it resumes: that coroutine belongs to
@@ -6436,6 +6495,8 @@ class MusicService : MediaLibraryService(),
     }
 
     companion object {
+        /** The Mix playlist the debug app's trial queue counts as (see mixTrial). */
+        private const val MIX_TRIAL_PLAYLIST = "mix-trial"
         /**
          * Skip silence that only skips silence. media3's defaults count anything under level 1024 (about
          * -30 dBFS) for 100 ms as silence and play it faster, so the quiet start of a piano piece or a fade

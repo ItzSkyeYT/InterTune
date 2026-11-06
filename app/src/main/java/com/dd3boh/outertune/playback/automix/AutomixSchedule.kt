@@ -27,8 +27,17 @@ object AutomixSchedule {
     /** ...until here. Later than this the change stays as it is: there would be no time to plan it. */
     const val ARM_UNTIL_LEFT_MS = 25_000L
 
-    /** Room for the held end: the window's start, what the spatial stages add at the end of a song, and some to spare. */
-    const val CAPACITY_SECONDS = 48
+    /**
+     * The most of a song's end that can be held: enough for a change whose box starts about 90 s
+     * before the end, the outgoing song cut on a line up to about 70 to 75 s before it, with the
+     * time a slow phone takes to hold it, work it out and skip the next song to its entry. In
+     * 16-bit stereo that is 19.4 MB at 44.1 kHz and 21.1 MB at 48 kHz (YouTube's Opus), so the
+     * ring is only made that big for a change that starts that early ([ringFrames]).
+     */
+    const val CAPACITY_SECONDS = 110
+
+    /** Room in the ring past where the end is held from: what the spatial stages add at the end of a song, and some to spare. */
+    const val RING_SPARE_SECONDS = 8
 
     /** The next song has to be loaded this far when its way in is held, so it starts on time. */
     const val NEXT_LOADED_MS = 5_000L
@@ -43,6 +52,13 @@ object AutomixSchedule {
     const val FIRST_WORK_MS = 4_000L
 
     fun capacityFrames(sampleRate: Int): Int = CAPACITY_SECONDS * sampleRate
+
+    /**
+     * The ring for an end held from [armFromMs] before the end: that much and the spare, the
+     * capacity at most. Auto's usual window takes the 48 s it always did.
+     */
+    fun ringFrames(sampleRate: Int, armFromMs: Long): Int =
+        ((armFromMs / 1000.0 + RING_SPARE_SECONDS) * sampleRate).toInt().coerceAtMost(capacityFrames(sampleRate))
 
     enum class Step {
         /** Too early for anything. */
@@ -79,8 +95,20 @@ object AutomixSchedule {
      */
     const val SAVED_LEAD_MS = 15_000L
 
-    /** Where the end is held from for a saved change whose first frame is [changeLeftMs] before the song's end. */
-    fun armFromFor(changeLeftMs: Long): Long = (changeLeftMs + SAVED_LEAD_MS).coerceIn(ARM_FROM_LEFT_MS, ARM_FROM_LEFT_MAX_MS)
+    /**
+     * How fast the decoder skips the next song's first frames when it comes in after them, in
+     * times real time, at the least: what it holds the end at on a slow phone (about 7 to 19 times
+     * on the Pixel 5, 80 on the emulator).
+     */
+    const val ENTRY_SKIP_SPEED = 8.0
+
+    /**
+     * Where the end is held from for a saved change whose first frame is [changeLeftMs] before the
+     * song's end, with the next song coming in [entrySeconds] into it: skipping its frames before
+     * that takes time once the end is held, which the lead gives it too.
+     */
+    fun armFromFor(changeLeftMs: Long, entrySeconds: Double = 0.0): Long =
+        (changeLeftMs + SAVED_LEAD_MS + (entrySeconds * 1000 / ENTRY_SKIP_SPEED).toLong()).coerceIn(ARM_FROM_LEFT_MS, ARM_FROM_LEFT_MAX_MS)
 
     /**
      * How long to wait, at [speed], before looking again with [leftMs] left: until the next step is
@@ -109,6 +137,16 @@ object AutomixSchedule {
         val left = durationMs - positionMs
         return bufferedPositionMs >= durationMs - END_SLACK_MS && totalBufferedMs - left >= NEXT_LOADED_MS
     }
+
+    /**
+     * Whether the player is to load on for the change of this song, past where its load control
+     * rests, which is short of the song's end for a song over five minutes, with nothing of the
+     * next one, until 30 s before its end: only for a change whose end is held earlier than
+     * Auto's usual window ([armFromMs] past [ARM_FROM_LEFT_MS]), from where the next song's
+     * opening is read until its end is held, and while what holding it needs is not yet loaded.
+     */
+    fun loadAhead(armFromMs: Long, leftMs: Long, loaded: Boolean, armRequested: Boolean): Boolean =
+        armFromMs > ARM_FROM_LEFT_MS && !loaded && !armRequested && leftMs <= READ_LEFT_MS && leftMs >= ARM_UNTIL_LEFT_MS
 
     /**
      * Whether a held end is the end of the song: as long as what was left of it when it began to be

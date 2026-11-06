@@ -58,9 +58,24 @@ class AutomixControllerRulesTest {
     }
 
     @Test
+    fun `a change started over after a seek keeps everything read with the opening`() {
+        // On the Pixel 5 (6 Nov) the debug app's trial lost its flag this way: its end had been
+        // held once, the queue was started again and A sought, so the change started over without
+        // knowing it was the trial; the change on bands looked for a change saved for the pair,
+        // found none, and A played out whole. A shuffled queue lost its shuffle the same way, and
+        // both songs the beats read from all of them.
+        val seek = body(controller, "override fun onPositionDiscontinuity(")
+        assertTrue(seek, "transition = old.startedOver(nextTransitionId++)" in seek)
+        val over = body(controller, "fun startedOver(id: Long): Transition")
+        for (field in listOf("head", "headFailed", "copy", "copyFrames", "saved", "trial", "shuffled", "gridA", "gridB", "armFromMs")) {
+            assertTrue("$field is lost when the change starts over", "it.$field = $field" in over)
+        }
+    }
+
+    @Test
     fun `a plan worked out for a change given up is not handed to the stage, and a dropped end is let go`() {
         assertTrue("t.abandoned.set(true)" in body(controller, "private fun abort("))
-        assertTrue("if (!t.abandoned.get()) stage.offer(held, plan, rendered)" in controller)
+        assertTrue("if (!t.abandoned.get() && t.entryFrames == 0L) stage.offer(held, plan, rendered)" in controller)
         val dropped = controller.substringAfter("override fun dropped(id: Long)").substringBefore("\n    }\n")
         assertTrue(dropped, "t.finished = true" in dropped)
     }
@@ -77,9 +92,13 @@ class AutomixControllerRulesTest {
         // plain one included, is read for neither the held end nor the change on bands.
         val read = body(controller, "private fun readHead(")
         assertTrue(read, "t.shuffled = player.shuffleModeEnabled" in read)
-        assertTrue(read, "val saved = if (bands && !shuffled)" in read)
+        assertTrue(read, "val listeners = if (bands && !shuffled)" in read)
+        assertTrue(read, "val trial = if (bands && !shuffled && listeners == null) {" in read)
         val bands = controller.substringAfter("private fun onBands(").substringBefore("Presets.onBands(")
-        assertTrue(bands, "val latest = if (t.shuffled) Result.success(null) else runCatching { savedChange(t.a.id, b.id) }" in bands)
+        // Shuffled first: not even the debug app's forced trial plays for a shuffled queue.
+        assertTrue(bands, "t.shuffled -> Result.success(null)" in bands)
+        assertTrue(bands, bands.indexOf("t.shuffled -> Result.success(null)") < bands.indexOf("t.trial -> Result.success(t.saved)"))
+        assertTrue(bands, "else -> runCatching { savedChange(t.a.id, b.id) }" in bands)
         // Nothing else reads the saved changes.
         assertTrue(Regex("""savedChange\(""").findAll(controller).count() == 2)
     }

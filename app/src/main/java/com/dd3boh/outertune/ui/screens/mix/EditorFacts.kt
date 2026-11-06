@@ -153,9 +153,9 @@ class PairFacts(
         const val REACH_B_MS = 60_000.0
 
         /**
-         * What playback can do today: it holds at most the last 46 s of A and wants a saved
-         * change's first frame 15 s after that, so a change that starts further from the end is
-         * never played (Auto plays). The design's 72 s waits for longer holds (M3).
+         * What playback can do: it holds at most the last 108 s of A and wants a saved change's
+         * first frame 15 s after that, so a change that starts further from the end is never
+         * played (Auto plays). That is past the design's 72 s, which is the limit now.
          */
         const val PLAY_REACH_MS = (AutomixSchedule.ARM_FROM_LEFT_MAX_MS - AutomixSchedule.SAVED_LEAD_MS).toDouble()
     }

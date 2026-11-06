@@ -32,12 +32,24 @@ class PlayHealth {
     private var silenceCuts = 0
     private var failed = 0
     private var sound: String? = null
+    private var tracks = 0
+    private var offloaded = 0
 
     /** A song starts, its sound going to [soundTo] ([SoundRoute]), when that is known. */
     @Synchronized
     fun song(soundTo: String? = null) {
         songs++
         if (soundTo != null) sound = soundTo
+    }
+
+    /**
+     * The player opened an audio track, on the phone's low-power path ([offload]) or the app's own.
+     * Whether a song went down that path is what #90 turned on (6 Nov 2026), and nothing said it.
+     */
+    @Synchronized
+    fun audioTrack(offload: Boolean) {
+        tracks++
+        if (offload) offloaded++
     }
 
     /**
@@ -116,6 +128,7 @@ class PlayHealth {
         if (slowCuts > 0) append("; ").append(count(slowCuts, "slow connection")).append(" cut")
         if (silenceCuts > 0) append("; ").append(count(silenceCuts, "silent connection")).append(" cut")
         if (failed > 0) append("; ").append(count(failed, "song")).append(" failed")
+        if (offloaded > 0) append("; the low-power path (offload) for ").append(offloaded).append(" of ").append(count(tracks, "audio track"))
         sound?.let { append("; sound to ").append(it) }
     }
 

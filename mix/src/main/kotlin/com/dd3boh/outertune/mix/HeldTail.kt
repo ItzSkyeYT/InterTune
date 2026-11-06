@@ -17,14 +17,22 @@ import kotlin.math.min
  * on to the end of the outgoing song itself. This is that stage:
  *
  * - [State.PASS]: frames pass through, scaled by the current song's attenuation.
- * - [State.CAPTURE]: armed about 40 s before the end. Input is taken into memory as fast as it
- *   comes, and output is the held frames, in order, at the pace the caller asks for: the same
+ * - [State.CAPTURE]: armed up to about 108 s before the end. Input is taken into memory as fast as
+ *   it comes, and output is the held frames, in order, at the pace the caller asks for: the same
  *   samples the chain would have played anyway.
  * - [State.DRAIN]: the stream has ended and the next song is waiting. The held tail plays out,
  *   raw at first, then as the plan has it, and the drain is held open until the plan's frame for
  *   the next song's start, or to the tail's last frame without a plan: today's gapless change.
- * - [State.MIX]: the next song's frames come in from its real start, and for each one exactly one
- *   frame goes out: the next song shaped by the plan, plus the matching frame of the outgoing song.
+ * - [State.MIX]: the next song's frames come in from its real start, or from the frame it was
+ *   armed to come in on ([entry]), and for each one exactly one frame goes out: the next song
+ *   shaped by the plan, plus the matching frame of the outgoing song.
+ *
+ * A next song that comes in after its first frame never brings its earlier frames here: the sink
+ * in front of the chain skips them as they are decoded, while the held end plays on, and tells
+ * this stage when the next frame in is the entry ([entrySkipped]). A plan for such a change is
+ * taken only for that entry, and is let go before any of it is heard if the frames before it are
+ * not all skipped by then: the held end then plays out as it is, and the next song comes in at
+ * its entry after it.
  *
  * Its invariants are the design's: every call that is given input or asked for output while
  * there is some consumes or produces something, so the sink's loop never spins; before the song
@@ -81,6 +89,9 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
 
     private var ring: ShortArray? = null
 
+    /** How many frames the ring armed now holds: [capacity] at most, less for an end held from nearer the end. */
+    private var ringFrames = capacityFrames
+
     /** Tail frames held so far. */
     var written = 0L
         private set
@@ -96,6 +107,20 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
 
     /** The transition was given up: no plan is taken for it any more, whenever one arrives. */
     private var aborted = false
+
+    /**
+     * The incoming song's own frame this change brings it in on, given as the end began to be
+     * held: 0 for its first frame. Its frames before it are skipped before they reach this stage.
+     */
+    var entry = 0L
+        private set
+
+    /** Whether every frame of the incoming song before [entry] has been skipped, so the next one in is the entry. */
+    var entryReady = true
+        private set
+
+    /** Whether any frame before [entry] has been skipped: from then on the next song comes in at its entry, mixed or not. */
+    private var entryStarted = false
 
     @Volatile
     private var offered: Offer? = null
@@ -185,12 +210,14 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
      * the memory cannot be had, in which case nothing changes.
      *
      * [preallocated] is a ring made elsewhere, so that the audio thread does not have to find
-     * several megabytes at once: [capacity] frames of [channels], all silence. Silence matters,
-     * since the stretcher reads past the last held frame as silence.
+     * several megabytes at once: up to [capacity] frames of [channels], all silence. Silence
+     * matters, since the stretcher reads past the last held frame as silence. [entry] is the
+     * incoming song's frame the change brings it in on, 0 for its first.
      */
-    fun arm(preallocated: ShortArray? = null): Boolean {
+    @JvmOverloads
+    fun arm(preallocated: ShortArray? = null, entry: Long = 0): Boolean {
         if (state != State.PASS || inputEnded) return false
-        if (preallocated != null && preallocated.size != capacityFrames * channels) {
+        if (preallocated != null && (preallocated.size > capacityFrames * channels || preallocated.size % channels != 0 || preallocated.isEmpty())) {
             note = "the ring made for the end is the wrong size"
             return false
         }
@@ -200,6 +227,7 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
             note = "no memory to hold the end"
             return false
         }
+        ringFrames = ring!!.size / channels
         written = 0
         read = 0
         overflowed = false
@@ -210,9 +238,33 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
         fadeFrom = -1
         fadeLength = 0
         backFrom = -1
+        this.entry = entry.coerceAtLeast(0)
+        entryReady = this.entry == 0L
+        entryStarted = false
         state = State.CAPTURE
         note = ""
         return true
+    }
+
+    /**
+     * How many of the incoming song's first frames are to be skipped before it reaches this stage:
+     * the armed [entry] while the change is still coming and has not been given up, 0 otherwise.
+     * Asked as the next song's first frames are decoded; once skipping has begun it goes on to the
+     * entry whatever happens to the plan.
+     */
+    fun entryToSkip(): Long = when {
+        entry <= 0L -> 0L
+        state != State.CAPTURE && state != State.DRAIN -> 0L
+        entryStarted -> entry
+        aborted || overflowed -> 0L
+        else -> entry
+    }
+
+    /** The sink has skipped the incoming song's first frames up to its entry ([done]), or begun to. */
+    fun entrySkipped(done: Boolean) {
+        if (entry <= 0L) return
+        entryStarted = true
+        if (done) entryReady = true
     }
 
     /** The held tail so far, for the worker: frames 0 until [written] never change once held. */
@@ -264,6 +316,8 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
         val p = o.plan
         when {
             p.isGapless -> note = "gapless: ${p.reason}"
+            p.bEntry != entry -> note = "refused: planned for the next song from its frame ${p.bEntry}, held for its frame $entry"
+            o.incoming != null && o.incoming.entry != p.bEntry -> note = "refused: the incoming part starts elsewhere in the song"
             !songChange -> note = "refused: no song change to mix into"
             !formatMatches -> note = "refused: the next song's format differs"
             p.tailFrames != written -> note = "refused: planned for ${p.tailFrames} frames, ${written} held"
@@ -291,6 +345,7 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
      */
     fun process(input: ShortArray, inOffset: Int, inFrames: Int, output: ShortArray, outOffset: Int, maxOut: Int): Int {
         takeOffer()
+        if (state == State.DRAIN) checkEntry(maxOut)
         lastConsumed = 0
         return when (state) {
             State.PASS -> pass(input, inOffset, min(inFrames, maxOut), output, outOffset)
@@ -321,7 +376,7 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
     private fun capture(input: ShortArray, inOffset: Int, inFrames: Int, output: ShortArray, outOffset: Int, maxOut: Int): Int {
         val ring = this.ring!!
         if (!overflowed) {
-            val room = (capacityFrames - written).toInt()
+            val room = (ringFrames - written).toInt()
             val n = min(inFrames, room)
             System.arraycopy(input, inOffset * channels, ring, (written * channels).toInt(), n * channels)
             written += n
@@ -388,6 +443,29 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
             n++
         }
         return n
+    }
+
+    /**
+     * A plan that brings the next song in after its first frame, whose earlier frames are not all
+     * skipped yet with its first change coming up within this call and a margin: let go before any
+     * of it is heard, so the held end plays out as it is, today's change, and the next song comes
+     * in at its entry after it.
+     */
+    private fun checkEntry(maxOut: Int) {
+        val p = plan ?: return
+        if (p.bEntry <= 0L || entryReady || backFrom >= 0 || fadeFrom >= 0) return
+        if (read + maxOut + sampleRate / ENTRY_MARGIN_PARTS < p.firstChange) return
+        if (read >= p.aFirstProcessed) {
+            // Never so, since a plan is taken a second ahead of its first change and this is
+            // looked at on every call; were it so, the change gives up the way an abort does.
+            abort("the next song's frames before its entry were not all skipped in time")
+            return
+        }
+        plan = null
+        rendered = null
+        incoming = null
+        aborted = true
+        note = "let go before it was heard: the next song's frames before its entry were not all skipped in time"
     }
 
     private fun fadeGain(o: Long): Double = if (fadeFrom < 0 || o < fadeFrom) 1.0 else (1.0 - (o - fadeFrom).toDouble() / max(1, fadeLength)).coerceIn(0.0, 1.0)
@@ -505,12 +583,14 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
     }
 
     /**
-     * Holds the incoming song's frame [bFrame], at [inFrame] of [input], against its copy. Once
-     * enough of it was heard to tell, they either agree, and nothing is checked again, or they do
-     * not, and the change crosses over to the song as it plays from output frame [at].
+     * Holds the incoming song's [n]th frame in, its own frame [RenderedIncoming.entry] + [n], at
+     * [inFrame] of [input], against its copy. Once enough of it was heard to tell, they either
+     * agree, and nothing is checked again, or they do not, and the change crosses over to the song
+     * as it plays from output frame [at].
      */
-    private fun join(input: ShortArray, inFrame: Int, bFrame: Long, at: Long, b: RenderedIncoming) {
-        if (bFrame >= b.copyFrames || bFrame >= JOIN_FRAMES_S * sampleRate) {
+    private fun join(input: ShortArray, inFrame: Int, n: Long, at: Long, b: RenderedIncoming) {
+        val bFrame = b.entry + n
+        if (bFrame >= b.copyFrames || n >= JOIN_FRAMES_S * sampleRate) {
             joinDone = true
             return
         }
@@ -570,7 +650,7 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
 
     /** Whether a call with input would take any of it: false while the held end is full or being let go. */
     fun canTakeInput(): Boolean = when (state) {
-        State.CAPTURE -> !overflowed && written < capacityFrames
+        State.CAPTURE -> !overflowed && written < ringFrames
         State.DRAIN -> false
         else -> true
     }
@@ -595,7 +675,9 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
             }
             Flush.SONG_CHANGE -> {
                 val p = plan
-                val ready = state == State.DRAIN && wasEnded && songChange && p != null && backFrom < 0 && read == p.bStart
+                // A plan for a later entry only once the frames before it are skipped, so the frame
+                // that comes in next is the one the plan puts on its bar.
+                val ready = state == State.DRAIN && wasEnded && songChange && p != null && backFrom < 0 && read == p.bStart && (p.bEntry == 0L || entryReady)
                 // Through the blend the outgoing song keeps the level it had as the drain closed.
                 outgoingScale = if (p != null && p.attenuationA > 0.0) attenuation / p.attenuationA else 1.0
                 attenuation = nextAttenuation
@@ -693,6 +775,9 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
         fadeLength = 0
         backFrom = -1
         outgoingScale = 1.0
+        entry = 0
+        entryReady = true
+        entryStarted = false
     }
 
     private companion object {
@@ -703,6 +788,9 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
 
         /** How long an abort takes to cross back to the held end as it was: 10 ms at 44.1 kHz. */
         const val BACK_FRAMES = 441
+
+        /** A plan whose entry is not in hand is let go this long, a fifth of a second, before its first change. */
+        const val ENTRY_MARGIN_PARTS = 5
 
         /**
          * The incoming song is held against its copy over its first seconds, and judged once the

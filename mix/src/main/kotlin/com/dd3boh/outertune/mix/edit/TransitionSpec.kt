@@ -440,8 +440,11 @@ data class TransitionSpec(
         val LENGTHS_BARS = listOf(2, 4, 8, 16)
         val LENGTHS_SECONDS = listOf(4.0, 6.0, 8.0, 12.0)
 
-        /** The longest a stored change may be: Auto may write other lengths than the editor offers. */
-        const val MAX_BARS = 16
+        /**
+         * The longest a stored change may be: Auto may write other lengths than the editor offers,
+         * up to the 32-bar phrase a DJ blends two songs over.
+         */
+        const val MAX_BARS = 32
         const val MAX_SECONDS = 60.0
 
         /** Intro twice: off, or over 2 or 4 bars. */

@@ -46,6 +46,19 @@ import kotlin.math.abs
  */
 class MixEditorTest {
 
+    /**
+     * What playback held of A's end before changes could start anywhere (46 s, less the 15 s lead):
+     * the rule that a change starts no further from the end than playback holds is tested at it,
+     * since playback now holds more (PairFacts.PLAY_REACH_MS, 93 s) than the design's reach of A.
+     */
+    private val HELD_31_S = 31_000.0
+
+    @Test
+    fun `playback now holds more of A's end than the editor reaches`() {
+        assertEquals(93_000.0, PairFacts.PLAY_REACH_MS, 0.0)
+        assertTrue(PairFacts.PLAY_REACH_MS > PairFacts.REACH_A_MS)
+    }
+
     private val gridA = SongGrid(t0Ms = 281_340.0, periodMs = 60_000.0 / 111)
     private val gridB = SongGrid(t0Ms = 1_210.0, periodMs = 60_000.0 / 109)
 
@@ -262,12 +275,12 @@ class MixEditorTest {
     @Test
     fun `B moves only as far as playback holds A's end before its first frame, and says why`() {
         val base = facts()
-        val f = PairFacts(base.a, base.b, playReachMs = PairFacts.PLAY_REACH_MS)
+        val f = PairFacts(base.a, base.b, playReachMs = HELD_31_S)
         val e = MixEditor(f, AutoSpec.fallback(f), null)
         val (moved, limit) = e.anchorMoved(e.spec, Side.B, -40_000.0, byBeats = false)
-        assertEquals(Limit.APlays(PairFacts.PLAY_REACH_MS), limit)
+        assertEquals(Limit.APlays(HELD_31_S), limit)
         val left = f.a.durationMs - SpecPlan.firstChangeMs(Presets.onBands(moved))
-        assertTrue("$left", left <= PairFacts.PLAY_REACH_MS + 0.5)
+        assertTrue("$left", left <= HELD_31_S + 0.5)
         assertTrue("B moved on: ${moved.b.atMs}", moved.b.atMs > e.spec.b.atMs)
         // What was read of B ends the other way: its 60 s window holds the change and two bars more.
         val (far, end) = e.anchorMoved(e.spec, Side.B, -70_000.0, byBeats = false)
@@ -401,19 +414,19 @@ class MixEditorTest {
     @Test
     fun `a change starts no further from A's end than playback can hold it, and says why`() {
         val base = facts()
-        val f = PairFacts(base.a, base.b, playReachMs = PairFacts.PLAY_REACH_MS)
+        val f = PairFacts(base.a, base.b, playReachMs = HELD_31_S)
         val e = MixEditor(f, AutoSpec.fallback(f), null)
         // Auto's own change saves nothing to hold, so it is never refused for it.
         assertNull(e.playLimitOf(e.spec))
         // Dragged 20 s earlier, bar 1 stops where the change's first frame is 31 s before A's end.
         val (moved, limit) = e.anchorMoved(e.spec, Side.A, 20_000.0, byBeats = false)
-        assertEquals(Limit.APlays(PairFacts.PLAY_REACH_MS), limit)
+        assertEquals(Limit.APlays(HELD_31_S), limit)
         val left = f.a.durationMs - SpecPlan.firstChangeMs(Presets.onBands(moved))
-        assertTrue("$left", left <= PairFacts.PLAY_REACH_MS + 0.5)
-        assertTrue("$left", left > PairFacts.PLAY_REACH_MS - f.a.grid!!.barMs)
+        assertTrue("$left", left <= HELD_31_S + 0.5)
+        assertTrue("$left", left > HELD_31_S - f.a.grid!!.barMs)
         assertNull(e.reachOf(moved))
         // 16 bars at 109 BPM take 35 s: more than playback holds for now.
-        assertEquals(Limit.APlays(PairFacts.PLAY_REACH_MS), e.lengthOptions().first { it.bars == 16 }.refused)
+        assertEquals(Limit.APlays(HELD_31_S), e.lengthOptions().first { it.bars == 16 }.refused)
         assertFalse(e.setLength(16))
         assertNull(e.lengthOptions().first { it.bars == 8 }.refused)
         // Where nothing holds it back, the design's reach is the only limit.

@@ -43,7 +43,7 @@ import kotlin.math.min
 class AutomixAudioProcessor(
     private val log: (String) -> Unit = { Log.i(TAG, it) },
     private val nanoTime: () -> Long = System::nanoTime,
-) : BaseAudioProcessor() {
+) : BaseAudioProcessor(), EntrySkip.Stage {
 
     /** What the stage tells its controller, on the player's thread: each call must be quick. */
     interface Events {
@@ -93,9 +93,11 @@ class AutomixAudioProcessor(
     /**
      * A request to start holding the end, with the ring made for it off this thread. Taken at the
      * next buffer, and only within a second of [atNanos]: a request that waited for a stream the
-     * stage is not part of must not start holding some later song in its middle.
+     * stage is not part of must not start holding some later song in its middle. [entryFrames] is
+     * the next song's frame the change brings it in on, 0 for its first: its frames before are
+     * dropped in front of the sink as they are decoded, whether the change is mixed or not.
      */
-    class Arm(val id: Long, val ring: ShortArray, val sampleRate: Int, val channels: Int, val atNanos: Long)
+    class Arm(val id: Long, val ring: ShortArray, val sampleRate: Int, val channels: Int, val atNanos: Long, val entryFrames: Long = 0)
 
     private class Abort(val id: Long, val why: String, val fadeFrames: Long)
 
@@ -343,7 +345,7 @@ class AutomixAudioProcessor(
             held.state != HeldTail.State.PASS -> "an end is held already"
             arm.sampleRate != held.sampleRate || arm.channels != held.channels -> "the song's format changed"
             sinkPositionUs == C.TIME_UNSET -> "the output has no position yet"
-            !held.arm(arm.ring) -> held.note.ifEmpty { "the end could not be held" }
+            !held.arm(arm.ring, arm.entryFrames) -> held.note.ifEmpty { "the end could not be held" }
             else -> null
         }
         if (why != null) {
@@ -356,6 +358,28 @@ class AutomixAudioProcessor(
         state = held.state
         readMark = 0
         tell { armed(arm.id, held.sampleRate, held.channels, sinkInputUs, sinkPositionUs) }
+    }
+
+    // ---- the next song's frames before its entry, dropped in front of the sink (EntrySkip)
+
+    override fun entryToSkip(): Long {
+        val held = held ?: return 0
+        if (failed || !configureSeen || !formatMatches) return 0
+        return try {
+            held.entryToSkip()
+        } catch (e: Throwable) {
+            fail("skipping", e)
+            0
+        }
+    }
+
+    override fun entrySkipped(done: Boolean) {
+        held?.entrySkipped(done)
+    }
+
+    override fun entrySkipTook(frames: Long, millis: Long, encoderDelay: Int) {
+        val rate = held?.sampleRate ?: return
+        tell { note(armId, "the next song's first %.1f s skipped in %d ms, its encoder delay %d frames".format(java.util.Locale.ROOT, frames.toDouble() / rate, millis, encoderDelay)) }
     }
 
     /** What changed with the last call, said once. */

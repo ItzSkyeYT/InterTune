@@ -95,7 +95,10 @@ class TransitionSpecTest {
     fun `the other rules`() {
         val spec = Specs.fadeOnBands()
         assertFalse(spec.copy(b = spec.b.copy(song = Specs.A_ID)).isValid)
-        assertFalse(spec.copy(bars = 32).isValid)
+        // Up to the 32-bar phrase a DJ blends over, not past it.
+        assertTrue(spec.copy(bars = 32).isValid)
+        assertFalse(spec.copy(bars = 33).isValid)
+        assertFalse(spec.copy(bars = 64).isValid)
         assertFalse(spec.copy(bars = 8, seconds = 6.0).isValid)
         assertFalse(spec.copy(bars = 0, seconds = 0.0).isValid)
         assertFalse(spec.copy(introTwice = 3).isValid)

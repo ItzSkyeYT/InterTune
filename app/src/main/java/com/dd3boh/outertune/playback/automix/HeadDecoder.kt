@@ -46,7 +46,7 @@ class HeadDecoder(private val source: DataSource.Factory) {
      * The opening's analysis input, and its full-rate copy, interleaved 16 bit, where one was asked
      * for; and the whole song's analysis input, where the whole song was asked for.
      */
-    class Head(val front: FrontEndResult, val readMs: Long, val copy: ShortArray? = null, val copyFrames: Int = 0, val whole: FrontEndResult? = null)
+    class Head(val front: FrontEndResult, val readMs: Long, val copy: ShortArray? = null, val copyFrames: Int = 0, val whole: FrontEndResult? = null, val trimmed: Int = 0)
 
     /**
      * Reads the opening of [mediaId], and keeps [copySeconds] of it at the full rate when that is
@@ -68,6 +68,7 @@ class HeadDecoder(private val source: DataSource.Factory) {
             // The frames the sink drops at the start of the stream (TrimmingAudioProcessor), which
             // media3 reads from the container and hands on in the track's format.
             var toTrim = if (format.containsKey(KEY_ENCODER_DELAY)) format.getInteger(KEY_ENCODER_DELAY).coerceAtLeast(0) else 0
+            val trimmed = toTrim
             val decoder = runCatching { MediaCodecUtil.getDecoderInfo(mime, false, false)?.name }.getOrNull()
             codec = if (decoder != null) MediaCodec.createByCodecName(decoder) else MediaCodec.createDecoderByType(mime)
             // A fresh format with what a decoder needs, as the renderer gives it: the encoder delay
@@ -175,7 +176,7 @@ class HeadDecoder(private val source: DataSource.Factory) {
             // The extractor takes a failed read for the end of the song and says so only in its own
             // log, so an opening cut short by the network would pass for a short song.
             if (result.seconds < MIN_SECONDS) throw IOException("the opening came short, %.1f s".format(result.seconds))
-            return Head(result, SystemClock.elapsedRealtime() - started, copy, if (copy != null) copied.toInt() else 0, whole?.result())
+            return Head(result, SystemClock.elapsedRealtime() - started, copy, if (copy != null) copied.toInt() else 0, whole?.result(), trimmed)
         } finally {
             runCatching { codec?.stop() }
             runCatching { codec?.release() }

@@ -32,6 +32,7 @@ class RenderedOutgoing(val firstFrame: Long, val frames: Int, val channels: Int,
  * [endFrame], at the level [attenuation]. [copy] is the copy it was rendered from, which the stage
  * holds the song as it really plays against: they are the same decode, so they should agree to
  * the sample. [beatFrames] is one of its beats, what the outgoing song fades over if they do not.
+ * [entry] is the song's own frame heard at [firstFrame]: 0, or the bar it comes in on.
  */
 class RenderedIncoming(
     val firstFrame: Long,
@@ -41,6 +42,7 @@ class RenderedIncoming(
     val copy: ShortArray,
     val attenuation: Double,
     val beatFrames: Long,
+    val entry: Long = 0,
 ) {
     val endFrame: Long get() = firstFrame + frames
     val copyFrames: Int get() = copy.size / channels
