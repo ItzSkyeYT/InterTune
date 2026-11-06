@@ -443,6 +443,9 @@ class MusicService : MediaLibraryService(),
     /** Set at the top of onDestroy; see the checks in playQueue's resolve coroutine below. */
     @Volatile private var destroyed = false
 
+    /** Whether this service has been torn down: anything asked of it then does nothing. See PlayerConnection.isAlive. */
+    val isDestroyed: Boolean get() = destroyed
+
     /**
      * The save deInitQueue launched instead of waiting for, when it was reached from a swipe of
      * the mini player rather than teardown. initQueue joins this before it re-reads the saved
