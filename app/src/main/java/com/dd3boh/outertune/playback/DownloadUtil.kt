@@ -292,6 +292,13 @@ class DownloadUtil @Inject constructor(
                     playbackTrackingUrl = playbackData.playbackTracking?.videostatsPlaybackUrl?.baseUrl
                 )
             )
+            // A song saved from a list that gave no length (a search shelf, 6 Nov 2026) kept none
+            // until it was played: the download has it now. Only the song's own stream, since a
+            // stand-in's can be another cut of it, and only where none is known.
+            if (played.from == mediaId) {
+                playbackData.videoDetails?.lengthSeconds?.toIntOrNull()?.takeIf { it > 0 }
+                    ?.let { fillSongDuration(mediaId, it) }
+            }
         }
 
         // The developer's "Stream over SABR only", as the player has it (MusicService): the same

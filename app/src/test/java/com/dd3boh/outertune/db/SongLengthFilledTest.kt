@@ -29,6 +29,17 @@ class SongLengthFilledTest {
     }
 
     @Test
+    fun `a download fills in the length of a song saved without one, from its own stream only`() {
+        // Mr. Saxobeat (Radio Edit) from a search's Songs shelf, which gave no length, downloaded
+        // on the emulator on 6 Nov 2026: its row stayed at -1 until it was played.
+        val util = File("src/main/java/com/dd3boh/outertune/playback/DownloadUtil.kt").readText()
+        val write = util.substringAfter("upsertFormatKeepingLoudness(").substringBefore("SabrOver.over(")
+        assertTrue(write, write.contains("if (played.from == mediaId) {"))
+        assertTrue(write, write.contains("playbackData.videoDetails?.lengthSeconds?.toIntOrNull()?.takeIf { it > 0 }"))
+        assertTrue(write, write.contains("fillSongDuration(mediaId, it)"))
+    }
+
+    @Test
     fun `only a missing length is filled, never one the row already has`() {
         val query = dao.substringBefore("fun fillSongDuration(").substringAfterLast("@Query(")
         assertTrue(query, query.contains("UPDATE song SET duration = :duration WHERE id = :id AND duration <= 0"))
