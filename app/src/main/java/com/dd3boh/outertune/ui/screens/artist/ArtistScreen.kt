@@ -72,7 +72,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.util.fastForEach
+import androidx.compose.ui.util.fastForEachIndexed
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil3.compose.AsyncImage
@@ -453,7 +453,7 @@ fun ArtistScreen(
                     }
                 }
 
-                if (!showLocal) artistPage?.sections?.fastForEach { section ->
+                if (!showLocal) artistPage?.sections?.fastForEachIndexed { sectionIndex, section ->
                     val isSongsSection = (section.items.firstOrNull() as? SongItem)?.album != null
 
                     item {
@@ -471,7 +471,8 @@ fun ArtistScreen(
                         items(
                             // Played by finding the song in section.items, so a song YouTube lists twice is shown once (#53).
                             items = section.items.distinctBy { it.id },
-                            key = { it.id }
+                            // Keys are the whole list's, and a song in two shelves would have had one key twice.
+                            key = { "$sectionIndex:${it.id}" }
                         ) { song ->
                             SwipeToQueueBox(
                                 item = (song as SongItem).toMediaItem(),
