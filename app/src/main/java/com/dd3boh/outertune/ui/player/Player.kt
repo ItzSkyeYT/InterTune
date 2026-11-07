@@ -2326,6 +2326,9 @@ private fun SeekBar(
         },
         modifier = Modifier
             .padding(horizontal = gutter)
+            // A drag that starts on the bar is the bar's, even when the thumb goes down first:
+            // half the bar thumb's 4 dp width is where the track starts.
+            .seekDrag(duration, trackInset = 2.dp, rtl = LocalLayoutDirection.current == LayoutDirection.Rtl, onSlide = onSlide, onSlideDone = onSlideDone)
             .onPreviewKeyEvent(onKey)
     )
 
