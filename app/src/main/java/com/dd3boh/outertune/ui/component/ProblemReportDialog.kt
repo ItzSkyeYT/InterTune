@@ -259,7 +259,8 @@ fun ProblemReportDialog(
                     // The steps are this run's; a run before it, or a quiet one, has its settings only.
                     Text(stringResource(if (choice.trail != null) R.string.problem_report_extras else R.string.problem_report_extras_settings))
                 }
-                if (all != null && all.size > 1) {
+                // From the player's error the report is that error's: no list of earlier runs to choose among.
+                if (all != null && all.size > 1 && playerError == null) {
                     Spacer(Modifier.height(12.dp))
                     LogList(all, picked, showAll, onPick = { picked = it }, onShowAll = { showAll = true })
                 }

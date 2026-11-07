@@ -336,5 +336,7 @@ class ProblemLogTest {
         val dialog = java.io.File("src/main/java/com/dd3boh/outertune/ui/component/ProblemReportDialog.kt").readText()
         assertTrue("ProblemLog.withPlayerError(it, playerError!!.lines, playerError.full)" in dialog)
         assertTrue("(if (withPlayer) playerError?.title else null) ?: ReportRelay.title(found)" in dialog)
+        // That error's report only: no earlier runs to pick from.
+        assertTrue("if (all != null && all.size > 1 && playerError == null) {" in dialog)
     }
 }
