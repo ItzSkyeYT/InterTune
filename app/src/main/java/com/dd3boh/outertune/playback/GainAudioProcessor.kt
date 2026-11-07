@@ -169,11 +169,16 @@ class GainAudioProcessor : BaseAudioProcessor() {
         /** The highest a boosted sample goes, as a fraction of full scale: -1 dBFS. */
         const val CEILING = 0.89f
 
-        /** How long the limiter holds its level after a peak: past a 20 Hz half cycle. */
-        const val HOLD_SECONDS = 0.05
+        /**
+         * How long the limiter holds its level after a peak: past a bass note's cycles, so the gain
+         * does not move with them. With [RELEASE_SECONDS], measured on a mastered song at 4x
+         * (experiments/bugs/issue-93/tune.py): the shape error within 20 ms windows was 0.040,
+         * against 0.149 for the old soft clip and 0.074 with 50 ms and 200 ms.
+         */
+        const val HOLD_SECONDS = 0.1
 
         /** How fast the boost comes back once the hold is over: the time constant. */
-        const val RELEASE_SECONDS = 0.2
+        const val RELEASE_SECONDS = 0.5
 
         /** 16-bit samples are signed, so full scale is 32768 downward and 32767 upward. */
         const val SHORT_SCALE = 32767f
