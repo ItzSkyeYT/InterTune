@@ -876,15 +876,59 @@ private fun RowCard(
 // ---- the waveforms ----
 
 /**
- * The waveforms laid out for one frame: A on its own clock, fixed, from the earliest of it a
- * change may use to past its end, and B under it as it falls against A in the change. Every
- * length in px.
+ * The stretch of A the Simple view shows, in ms of A's own clock: the change with the bars either
+ * side of it that Advanced shows ([MixEditor.fitStart], [MixEditor.fitEnd]), [MIN_BARS] of A's at
+ * the least, so a short change keeps A before it and B after it in view. It used to run from the
+ * earliest of A a change may use to past A's end: with A's last 72 s in reach, a 2-bar change at
+ * the end took a twelfth of the width, pressed against its edge. A view is kept while the change
+ * stays [EDGE_BARS] clear of both edges, and moved just enough where a drag takes it closer; one
+ * the change has left altogether, or of another length or tempo, is laid out afresh around it.
  */
-private class WaveFrame(val editor: MixEditor, val spec: TransitionSpec, val width: Float, val height: Float, val dp: Float) {
+internal class WaveView(val startMs: Double, val spanMs: Double) {
+    val endMs: Double get() = startMs + spanMs
+
+    companion object {
+        const val MIN_BARS = 8.0
+        const val EDGE_BARS = 1.0
+
+        fun of(editor: MixEditor, spec: TransitionSpec, previous: WaveView?): WaveView {
+            val perA = editor.perA(spec)
+            val from = spec.aMsAt(editor.fitStart(spec))
+            val to = spec.aMsAt(editor.fitEnd(spec))
+            val span = max(to - from, MIN_BARS * perA)
+            // Never before what was read of A, where a change cannot be either.
+            val floor = editor.facts.a.windowStartMs
+            val centred = max(floor, (from + to - span) / 2)
+            val p = previous ?: return WaveView(centred, span)
+            val in0 = spec.aMsAt(0.0)
+            val in1 = spec.aMsAt(spec.lengthBars)
+            if (abs(p.spanMs - span) > 0.5 || in1 < p.startMs || in0 > p.endMs) return WaveView(centred, span)
+            val margin = EDGE_BARS * perA
+            var start = p.startMs
+            if (in0 - margin < start) start = in0 - margin
+            if (in1 + margin > start + span) start = in1 + margin - span
+            start = max(floor, start)
+            return if (start == p.startMs) p else WaveView(start, span)
+        }
+    }
+}
+
+/** The view the waveforms were last drawn with, for [WaveView.of] to keep or move. */
+private class ViewKept {
+    private var last: WaveView? = null
+
+    fun of(editor: MixEditor, spec: TransitionSpec): WaveView = WaveView.of(editor, spec, last).also { last = it }
+}
+
+/**
+ * The waveforms laid out for one frame: A on its own clock over [view], and B under it as it
+ * falls against A in the change. Every length in px.
+ */
+internal class WaveFrame(val editor: MixEditor, val spec: TransitionSpec, view: WaveView, val width: Float, val height: Float, val dp: Float) {
     val pad = 8 * dp
     val perA = editor.perA(spec)
-    val startMs = editor.facts.aReachStartMs
-    val endMs = editor.facts.a.durationMs + (spec.lengthBars / 2 + 1) * perA
+    val startMs = view.startMs
+    val endMs = view.endMs
     val msPerPx = (endMs - startMs) / (width - 2 * pad)
     val laneH = (height - 36 * dp) / 2
     val aTop = 12 * dp
@@ -924,6 +968,7 @@ private fun Waves(
     val haptic = LocalHapticFeedback.current
     val read = remember(spec) { editor.rows(spec) }
     var dragging by remember { mutableStateOf(false) }
+    val kept = remember(editor) { ViewKept() }
     val earlier = stringResource(R.string.mix_a11y_bar_earlier)
     val later = stringResource(R.string.mix_a11y_bar_later)
     val described = stringResource(R.string.mix_simple_window, words.clock(spec.a.atMs), words.aTitle) + " " + words.summary(editor)
@@ -935,7 +980,7 @@ private fun Waves(
             .clip(RoundedCornerShape(12.dp))
             .background(look.canvas),
     ) {
-        val frame = WaveFrame(editor, spec, constraints.maxWidth.toFloat(), constraints.maxHeight.toFloat(), density.density)
+        val frame = WaveFrame(editor, spec, kept.of(editor, spec), constraints.maxWidth.toFloat(), constraints.maxHeight.toFloat(), density.density)
         val now = rememberUpdatedState(frame)
         fun moveBy(bars: Int) {
             vm.edit {
