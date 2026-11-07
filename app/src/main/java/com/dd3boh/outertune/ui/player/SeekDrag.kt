@@ -9,9 +9,11 @@ package com.dd3boh.outertune.ui.player
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import kotlin.math.abs
 
 /**
  * The seek bar's own drag. The player sheet takes a drag that goes down a touch slop (22 px on the
@@ -23,10 +25,24 @@ import androidx.compose.ui.unit.dp
  * another), so this one drives the slider: [onSlide] as it goes, [onSlideDone] when the finger
  * lifts. A tap, a finger that moves less than [CLAIM], is the slider's, as before.
  *
- * [trackInset] is where the slider's track starts and ends inside it: half its thumb's width. [rtl]:
- * the bar runs right to left, as the slider does in a right-to-left language.
+ * It sits on the bar together with its times and the room under them, not on the bar alone: the
+ * bar took a finger only on its own 48 dp of a strip about 76 dp tall down to the buttons, and a
+ * thumb on the times moved nothing (7 Nov 2026, "the player bar needs to be easier to drag"). Below
+ * [barBottom] (px from the top, the bar's own height) a drag is the bar's only once it goes more
+ * across than down ([claimsSeek]), so a swipe down from the times still closes the player.
+ *
+ * [trackInset] is where the slider's track starts and ends inside the strip: its side padding and
+ * half its thumb's width. [rtl]: the bar runs right to left, as the slider does in a right-to-left
+ * language.
  */
-internal fun Modifier.seekDrag(duration: Long, trackInset: Dp, rtl: Boolean, onSlide: (Long) -> Unit, onSlideDone: () -> Unit): Modifier =
+internal fun Modifier.seekDrag(
+    duration: Long,
+    trackInset: Dp,
+    rtl: Boolean,
+    barBottom: () -> Float,
+    onSlide: (Long) -> Unit,
+    onSlideDone: () -> Unit,
+): Modifier =
     pointerInput(duration, rtl) {
         if (duration <= 0) return@pointerInput
         val claimAt = CLAIM.toPx()
@@ -47,7 +63,9 @@ internal fun Modifier.seekDrag(duration: Long, trackInset: Dp, rtl: Boolean, onS
                         if (claimed) change.consume()
                         break
                     }
-                    if (!claimed && (change.position - down.position).getDistance() >= claimAt) claimed = true
+                    // Taken first by something else, the player's swipe down: it is not the bar's.
+                    if (!claimed && change.isConsumed) break
+                    if (!claimed && claimsSeek(down.position, change.position, claimAt, barBottom())) claimed = true
                     if (claimed) {
                         change.consume()
                         onSlide(valueAt(change.position.x))
@@ -59,6 +77,18 @@ internal fun Modifier.seekDrag(duration: Long, trackInset: Dp, rtl: Boolean, onS
             }
         }
     }
+
+/**
+ * Whether a finger that went down at [down] and is now at [now] has made the drag the bar's: [claimPx]
+ * of movement, in any direction on the bar itself (above [barBottomPx]), where a thumb often goes
+ * down a little first; on the times and the room under them, only a move that goes at least as far
+ * across as down.
+ */
+internal fun claimsSeek(down: Offset, now: Offset, claimPx: Float, barBottomPx: Float): Boolean {
+    val moved = now - down
+    if (moved.getDistance() < claimPx) return false
+    return down.y < barBottomPx || abs(moved.x) >= abs(moved.y)
+}
 
 /** How far a finger moves on the bar before the drag is the bar's: well under a touch slop. */
 private val CLAIM = 3.dp
