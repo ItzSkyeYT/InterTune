@@ -137,6 +137,10 @@ class MatchSideTest {
             for (i in 0 until 50) assertEquals(songB[((plan.mixTo + i - plan.bOrigin) * 2).toInt()], after[i * 2])
             // The end is held for the frame the song as it plays comes in on.
             assertEquals(plan.bEntry, SpecPlan.liveEntryFrames(spec, rate))
+            // What the editor makes sure was read of B is what the change reads of it.
+            val reads = s.switchFrame + (plan.mixTo - s.switchAt)
+            assertEquals(reads * 1000.0 / rate, SpecPlan.bReadToMs(spec)!!, 1.5)
+            assertTrue(SpecPlan.bReadToMs(spec)!! * rate / 1000 >= reads)
             // Nothing of B is heard before its entry: A's part there is A under the shared headroom.
             for (o in render.outgoing.firstFrame until s.heardFrom) for (c in 0 until 2) {
                 assertEquals("frame $o", toPcm16(songA[(o * 2 + c).toInt()] * render.headroom.at(o)), render.outgoing.at(o, c))

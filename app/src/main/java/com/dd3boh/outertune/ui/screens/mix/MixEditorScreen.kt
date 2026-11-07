@@ -448,8 +448,9 @@ fun MixEditorScreen(navController: NavController) {
                 val e = vm.editor
                 val s = vm.ui.value?.spec
                 if (e == null || s == null) "0:00 / 0:00" else {
-                    val span = (e.fitEnd() - e.fitStart()) * s.b.barMs
-                    val at = ((playU - e.fitStart()) * s.b.barMs).coerceIn(0.0, span)
+                    // A bar as it is heard: B's, or A's where B is the song adjusted.
+                    val span = (e.fitEnd() - e.fitStart()) * s.heardBarMs
+                    val at = ((playU - e.fitStart()) * s.heardBarMs).coerceIn(0.0, span)
                     "${wordsNow.clock(at)} / ${wordsNow.clock(span)}"
                 }
             },

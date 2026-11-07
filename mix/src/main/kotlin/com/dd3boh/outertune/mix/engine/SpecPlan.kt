@@ -402,6 +402,18 @@ object SpecPlan {
     fun liveEntryFrames(spec: TransitionSpec, rate: Int): Long =
         bLayout(spec, rate)?.liveEntry ?: (spec.bStartMs * rate / 1000.0).roundToLong()
 
+    /**
+     * How far into B a change with B adjusted reads it, in B's ms: to its own bar line after its
+     * way back to its own tempo, and the cross-over there. Null where B is not the song adjusted.
+     * What the editor makes sure it has read of B.
+     */
+    fun bReadToMs(spec: TransitionSpec): Double? = bLayout(spec, READ_RATE)?.let {
+        // A millisecond over, for the frames each rate rounds to.
+        it.switchFrame * 1000.0 / READ_RATE + 2 * SWITCH_MS + 1.0
+    }
+
+    private const val READ_RATE = 48_000
+
     /** The change with B adjusted: A at its own speed throughout, B at A's tempo while both are heard. See [bLayout]. */
     private fun planBAdjusted(spec: TransitionSpec, facts: ChangeFacts): Result {
         if (facts.aMap != null) return Result.Refused("the next song adjusted on a time map worked out for the song before it")

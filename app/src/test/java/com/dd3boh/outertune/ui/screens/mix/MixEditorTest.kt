@@ -226,6 +226,38 @@ class MixEditorTest {
     }
 
     @Test
+    fun `with the next song adjusted, what was read of it holds its way back to its own tempo too`() {
+        // B at 113 here, faster than A: slowed to A's tempo through the change, its way back to its
+        // own takes it a bar past the two the canvas shows after the change.
+        val faster = SongGrid(t0Ms = 1_210.0, periodMs = 60_000.0 / 113)
+        val probe = editor(facts(bGrid = faster))
+        val s = probe.spec
+        assertTrue(s.beatMatched)
+        val aReads = s.bMsAt(probe.fitEnd(s))
+        val bReads = SpecPlan.bReadToMs(s.copy(matchSide = Side.B))!!
+        assertTrue("$bReads after $aReads", bReads > aReads + 1_000.0)
+        // Read just past what A adjusted needs: B cannot be picked.
+        val short = editor(facts(bWindowEndMs = aReads + 200.0, bGrid = faster))
+        assertEquals(s.bars, short.spec.bars)
+        assertNull(short.reachOf(short.spec))
+        assertFalse(short.bAdjustPossible)
+        assertFalse(short.setMatchSide(Side.B))
+        // Read to its way back: it can, and a longer change is refused for what it would read.
+        val enough = editor(facts(bWindowEndMs = bReads + 1.0, bGrid = faster))
+        assertTrue(enough.setMatchSide(Side.B))
+        assertNull(enough.reachOf(enough.spec))
+        val longer = enough.lengthOptions().first { it.bars > s.bars }
+        assertTrue("${longer.refused}", longer.refused is Limit.BReach)
+        // Moved later into B, its anchor stops where what was read still holds the way back.
+        val room = editor(facts(bWindowEndMs = bReads + 10_000.0, bGrid = faster))
+        assertTrue(room.setMatchSide(Side.B))
+        val (far, end) = room.anchorMoved(room.spec, Side.B, -70_000.0, byBeats = false)
+        assertTrue("$end", end is Limit.APlays || end is Limit.BReach)
+        assertTrue("${far.b.atMs} from ${room.spec.b.atMs}", far.b.atMs > room.spec.b.atMs)
+        assertTrue(SpecPlan.bReadToMs(far)!! <= bReads + 10_000.0 + 0.5)
+    }
+
+    @Test
     fun `the lengths offered are bars, and seconds too with beat matching off`() {
         val e = editor()
         assertEquals(listOf(2, 4, 8, 16), e.lengthOptions().map { it.bars })

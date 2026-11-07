@@ -361,9 +361,12 @@ class MixEditor(
     fun reachOf(s: TransitionSpec): Limit? {
         val aFirst = s.aMsAt(fitStart(s))
         if (aFirst < facts.aReachStartMs - 0.5) return Limit.ANeeds(facts.a.durationMs - aFirst, facts.aReachMs)
-        if (s.bMsAt(fitEnd(s)) > facts.bReachEndMs + 0.5) return Limit.BReach(facts.bReachEndMs)
+        if (bReadTo(s) > facts.bReachEndMs + 0.5) return Limit.BReach(facts.bReachEndMs)
         return playLimitOf(s)
     }
+
+    /** How far into B [s] reads it, in B's ms: the canvas's end, or with B adjusted, its way back to its own tempo. */
+    private fun bReadTo(s: TransitionSpec): Double = max(s.bMsAt(fitEnd(s)), SpecPlan.bReadToMs(s) ?: 0.0)
 
     /**
      * Why [s] would never be played, or null: its first frame comes further before A's end than
@@ -432,8 +435,12 @@ class MixEditor(
         return apply(spec.copy(beatMatch = on))
     }
 
-    /** Whether the next song can be the one adjusted: its beats found, and no loop in the change, which that does not play yet. */
-    val bAdjustPossible: Boolean get() = facts.b.grid != null && spec.introLoop == null && spec.outroLoop == null && spec.introTwice == 0
+    /**
+     * Whether the next song can be the one adjusted: its beats found, no loop in the change, which
+     * that does not play yet, and enough of it read for its way back to its own tempo.
+     */
+    val bAdjustPossible: Boolean get() = facts.b.grid != null && spec.introLoop == null && spec.outroLoop == null && spec.introTwice == 0 &&
+        bReadTo(spec.copy(matchSide = Side.B)) <= facts.bReachEndMs + 0.5
 
     /** The song the beat matcher adjusts: A, at B's tempo through the change, or B, at A's. */
     fun setMatchSide(side: Side): Boolean {
@@ -538,8 +545,8 @@ class MixEditor(
             at += stepMs
             limit = Limit.BFirstSecond
         }
-        // What was read of B holds the change and the bars after it.
-        val need = (from.lengthBars + 2) * from.b.barMs
+        // What was read of B holds the change and the bars after it, and with B adjusted, its way back.
+        val need = max((from.lengthBars + 2) * from.b.barMs, SpecPlan.bReadToMs(from.copy(bStartMs = 0.0))?.minus(from.b.atMs) ?: 0.0)
         if (at + need > facts.bReachEndMs + 0.5) {
             limit = Limit.BReach(facts.bReachEndMs)
             while (at + need > facts.bReachEndMs + 0.5 && at - stepMs >= -0.5) at -= stepMs
