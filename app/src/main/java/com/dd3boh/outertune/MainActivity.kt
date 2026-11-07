@@ -202,6 +202,7 @@ import com.dd3boh.outertune.ui.menu.BottomSheetMenu
 import com.dd3boh.outertune.ui.menu.MenuState
 import com.dd3boh.outertune.ui.player.BottomSheetPlayer
 import com.dd3boh.outertune.ui.screens.settings.SettingJumpHost
+import com.dd3boh.outertune.ui.screens.settings.SettingsFollowTheTurn
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 import com.dd3boh.outertune.ui.screens.walkthrough.TourOverlay
@@ -2000,6 +2001,8 @@ class MainActivity : ComponentActivity() {
                                         appScope = coroutineScope,
                                     )
                                 }
+                                // A screen of settings open upright goes into the two panes as the phone turns.
+                                SettingsFollowTheTurn(navController, tourState.running)
                             }
 
                             val navbar: @Composable() (() -> Unit) = @Composable {

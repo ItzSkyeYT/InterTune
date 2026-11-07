@@ -49,6 +49,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import kotlinx.coroutines.flow.MutableStateFlow
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -104,10 +105,31 @@ fun SettingsScreen(
     LaunchedEffect(tourRunning) { if (tourRunning) query = "" }
     if (Unreleased.SETTINGS_SEARCH) ScreenBackHandler(enabled = query.isNotEmpty()) { query = "" }
 
+    // What the panes hold once chosen there, so that turning the phone upright opens that screen
+    // as a page of its own, as Samsung's settings do; and what a page that was open upright is to
+    // open in the panes as the phone turns (SettingsFollowTheTurn).
+    var picked by rememberSaveable { mutableStateOf<ArrayList<String>?>(null) }
+    val listHandle = remember(navController) { runCatching { navController.getBackStackEntry(Tour.ROUTE_SETTINGS).savedStateHandle }.getOrNull() }
+    val pending by remember(listHandle) { listHandle?.getStateFlow<ArrayList<String>?>(SETTINGS_PANES_OPEN, null) ?: MutableStateFlow<ArrayList<String>?>(null) }.collectAsState()
+
     // A window wide enough for it has the list and the chosen screen side by side.
     if (Unreleased.SETTINGS_TWO_PANE && LocalLandscape.current.windowWidth >= SettingsTwoPaneMinWidth) {
-        SettingsTwoPane(navController, scrollBehavior, tourRunning, query, onQueryChange = { query = it })
+        SettingsTwoPane(
+            navController, scrollBehavior, tourRunning, query, onQueryChange = { query = it },
+            initialOpen = pending,
+            onOpen = {
+                picked = ArrayList(it)
+                if (pending != null) listHandle?.set(SETTINGS_PANES_OPEN, null)
+            },
+        )
         return
+    }
+    // Upright again after the panes: the screen chosen there opens as a page of its own.
+    LaunchedEffect(Unit) {
+        picked?.let { chain ->
+            picked = null
+            if (!tourRunning) chain.forEach { navController.navigate(it) }
+        }
     }
     val focus = LocalFocusManager.current
 

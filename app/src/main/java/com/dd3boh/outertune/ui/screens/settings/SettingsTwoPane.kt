@@ -231,6 +231,10 @@ fun SettingsTwoPane(
     tourRunning: Boolean = false,
     query: String = "",
     onQueryChange: (String) -> Unit = {},
+    /** What to open on the right as the panes come on screen: the screen a page upright showed (SettingsFollowTheTurn). */
+    initialOpen: List<String>? = null,
+    /** What the panes hold each time it changes, for the list to open on its own once the window is upright again. */
+    onOpen: (List<String>) -> Unit = {},
 ) {
     val groups = settingsGroups()
     val listed = remember(groups) { groups.flatten().map { it.route } }
@@ -244,7 +248,10 @@ fun SettingsTwoPane(
     fun show(next: List<String>) {
         for (route in open) if (route !in next) kept.removeState(route)
         open = next
+        onOpen(next)
     }
+    // A screen that was a page of its own upright opens here as the window turns wide.
+    LaunchedEffect(initialOpen) { initialOpen?.takeIf { it.isNotEmpty() }?.let { show(it) } }
     val ask = remember {
         { route: String, over: Boolean -> settingsOpened(open, route, listed, further, over)?.also { show(it) } != null }
     }
