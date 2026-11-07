@@ -123,6 +123,8 @@ private class LogChoice(
     /** The settings that bear on the problem and the steps before it ([ReportExtras]): empty and null without Unreleased.REPORT_PLUS. */
     val settings: List<String> = emptyList(),
     val trail: String? = null,
+    /** The newest run in which something went wrong ([latestProblemFirst]): listed first, picked, and marked. */
+    val latestProblem: Boolean = false,
 ) {
     val version: String get() = run?.versionName ?: BuildConfig.VERSION_NAME
     val build: String get() = run?.build ?: ProblemLog.build()
@@ -189,7 +191,11 @@ fun ProblemReportDialog(
                     LogChoice(it, excerpt, emptyList(), installedFrom, phoneNow, settings = extras?.settings.orEmpty())
                 }
             } else emptyList()
-            listOf(now) + earlier
+            // The newest run in which something went wrong comes first and is the one picked: a
+            // report sent right after the app was opened again showed a run with nothing in it
+            // (#97, 7 Nov 2026), while the fault was in the run before.
+            val (ordered, marked) = latestProblemFirst(listOf(now) + earlier) { it.excerpt.faultAt != null }
+            ordered.mapIndexed { i, c -> if (i == marked) c.marked() else c }
         }
     }
     val all = choices
@@ -438,6 +444,19 @@ internal fun HeldDialog(onDismiss: () -> Unit) {
     )
 }
 
+/** [this], marked as the newest run in which something went wrong. */
+private fun LogChoice.marked() = LogChoice(run, excerpt, stops, installedFrom, phoneNow, playback, settings, trail, latestProblem = true)
+
+/**
+ * [items], newest first, with the newest that [hasProblem] moved to the front, and its place there
+ * (0), or -1 when none has one and the order is left as it was.
+ */
+internal fun <T> latestProblemFirst(items: List<T>, hasProblem: (T) -> Boolean): Pair<List<T>, Int> {
+    val at = items.indexOfFirst(hasProblem)
+    if (at < 0) return items to -1
+    return (listOf(items[at]) + items.filterIndexed { i, _ -> i != at }) to 0
+}
+
 /** The logs to choose from, this run's first; the picked one stands out, and is shown even among the older. */
 @Composable
 private fun LogList(choices: List<LogChoice>, picked: Int, showAll: Boolean, onPick: (Int) -> Unit, onShowAll: () -> Unit) {
@@ -466,6 +485,13 @@ private fun LogList(choices: List<LogChoice>, picked: Int, showAll: Boolean, onP
                         style = MaterialTheme.typography.bodySmall,
                         color = if (selected) ink else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    if (choice.latestProblem) {
+                        Text(
+                            stringResource(R.string.problem_report_latest_problem),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
                 }
             }
         }
