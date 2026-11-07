@@ -22,12 +22,13 @@ import kotlin.math.abs
 
 /**
  * A change far from the end, forced for trying the engine on a device: the debug app only, and
- * only while the file [FILE] is in its files folder, as `{"exitLeftS": 70, "entryS": 30, "bars": 8}`.
+ * only while the file [FILE] is in its files folder, as `{"exitLeftS": 70, "entryS": 30, "bars": 8}`,
+ * with `"side": "B"` to have the beat matcher adjust the next song instead of this one.
  * Every pair then changes the reels' way: A at full to its line [exitLeftS] before its end, cut
  * there, B in from its bar nearest [entryS] on the box's first bar, [bars] bars before the line,
  * the basses swapped on the middle bar line. Played as a change saved for the pair would be.
  */
-data class EntryTrial(val exitLeftS: Double, val entryS: Double, val bars: Int) {
+data class EntryTrial(val exitLeftS: Double, val entryS: Double, val bars: Int, val side: Side = Side.A) {
 
     /** The change for [aId] into [bId], laid on each song's grid where it has one, else on a nominal 120 BPM. */
     fun spec(aId: String, bId: String, aDurationMs: Long, gridA: WholeSongGrid?, gridB: WholeSongGrid?): TransitionSpec? {
@@ -53,7 +54,7 @@ data class EntryTrial(val exitLeftS: Double, val entryS: Double, val bars: Int) 
             a = Anchor(aId, start, aBpm, aBeats),
             b = Anchor(bId, bAnchor, gridB?.bpm ?: NOMINAL_BPM, gridB?.beatsPerBar ?: 4),
             lanes = LaneSet.BANDS, bars = bars, beatMatch = true, preset = Preset.CUSTOM, moves = moves,
-            bStartMs = entry,
+            bStartMs = entry, matchSide = side,
         ).takeIf { it.isValid }
     }
 
@@ -71,7 +72,7 @@ data class EntryTrial(val exitLeftS: Double, val entryS: Double, val bars: Int) 
         fun read(file: File): EntryTrial? = runCatching {
             if (!file.isFile) return null
             val o = JSONObject(file.readText())
-            EntryTrial(o.getDouble("exitLeftS"), o.getDouble("entryS"), o.optInt("bars", 8))
+            EntryTrial(o.getDouble("exitLeftS"), o.getDouble("entryS"), o.optInt("bars", 8), if (o.optString("side") == "B") Side.B else Side.A)
         }.getOrNull()
     }
 }

@@ -794,7 +794,9 @@ class AutomixController(
     /** How long a saved change runs from its first frame, in A's own ms: to its last bar, the echo's two after it where A leaves by one, and the headroom's pad. */
     private fun changeSpanMs(spec: TransitionSpec, firstMs: Double): Long {
         val echo = if (spec.moves.values.any { it.how == How.ECHO }) Engine.ECHO_MAX_BARS_AFTER else 0.0
-        return (spec.aMsAt(spec.lengthBars + echo) - firstMs + Engine.HEADROOM_PAD_S * 1000).toLong().coerceAtLeast(0)
+        // Where B is the song adjusted, it glides home and goes on to its own next bar line inside the change.
+        val glide = if (spec.bAdjusted) SpecPlan.GLIDE_BARS + 1.0 else 0.0
+        return (spec.aMsAt(spec.lengthBars + echo + glide) - firstMs + Engine.HEADROOM_PAD_S * 1000).toLong().coerceAtLeast(0)
     }
 
     /** This phone's pace, as measured on its own changes and kept between starts; the Pixel 5's until then. */
@@ -835,7 +837,8 @@ class AutomixController(
         t.sampleRate = rate
         t.expectedTailMs = left
         // A change that brings the next song in at a later bar: only on bands, where its plan is made for that bar.
-        t.entryFrames = if (lanes && way().auto) t.saved?.takeIf { !it.plain }?.let { Math.round(it.bStartMs * rate / 1000.0) } ?: 0L else 0L
+        // The frame the song as it plays comes in on: its entry, moved by what B's stretch gains or loses where B is the song adjusted.
+        t.entryFrames = if (lanes && way().auto) t.saved?.takeIf { !it.plain }?.let { SpecPlan.liveEntryFrames(Presets.onBands(it), rate) } ?: 0L else 0L
         val entry = t.entryFrames
         val ringFrames = AutomixSchedule.ringFrames(rate, max(t.armFromMs, left))
         val work = work() ?: return

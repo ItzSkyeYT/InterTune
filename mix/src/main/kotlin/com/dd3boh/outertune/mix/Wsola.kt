@@ -60,7 +60,7 @@ class Wsola(
      * Output frames [from] to [to] of [map], interleaved, in full-scale units (a sample of the tail
      * keeps its 16-bit value). Tail frames before 0 or past the end read as silence.
      */
-    fun render(map: TimeMap, from: Long, to: Long): DoubleArray {
+    fun render(map: FrameMap, from: Long, to: Long): DoubleArray {
         val length = (to - from).toInt()
         val out = DoubleArray(max(0, length) * channels)
         if (length <= 0) return out
@@ -78,16 +78,18 @@ class Wsola(
      * tail: a few numbers a hop, from which any output frame can then be made on demand, so a long
      * stretch is never held whole.
      */
-    fun frames(map: TimeMap, from: Long, to: Long): Frames {
+    fun frames(map: FrameMap, from: Long, to: Long): Frames {
         // Each output frame lies in the first half of grid frame k2 and the second half of k2 - 1.
         val kFirst = Math.floorDiv(from - phase, HOP.toLong()) - 1
         val kLast = Math.floorDiv(max(from, to - 1) - phase, HOP.toLong())
         // Each search continues the frame before it, so the chain starts from the last grid frame
-        // the map leaves alone; it is the same chain whatever stretch is asked for.
+        // the map leaves alone; it is the same chain whatever stretch is asked for. A song
+        // stretched from its first frame heard starts it where the map puts its first frame.
         var k0 = kFirst
-        while (!isIdentityFrame(map, k0)) k0--
+        val inPlace = map.inPlaceUntil != Double.NEGATIVE_INFINITY
+        if (inPlace) while (!isIdentityFrame(map, k0)) k0--
         val positions = LongArray((kLast - kFirst + 1).toInt())
-        var previous = start(k0)
+        var previous = if (inPlace) start(k0) else (map.tailAt(start(k0) + FRAME / 2.0) - FRAME / 2.0).roundToLong()
         if (k0 >= kFirst) positions[(k0 - kFirst).toInt()] = previous
         var continuing = 0
         for (k in k0 + 1..kLast) {
@@ -148,7 +150,7 @@ class Wsola(
         if (t in 0 until tailFrames) tail[(t * channels + channel).toInt()].toDouble() else 0.0
 
     /** Whether grid frame [k] lies wholly where the map is still the identity. */
-    private fun isIdentityFrame(map: TimeMap, k: Long): Boolean = map.isIdentity || (start(k) + FRAME).toDouble() <= map.rampStart
+    private fun isIdentityFrame(map: FrameMap, k: Long): Boolean = (start(k) + FRAME).toDouble() <= map.inPlaceUntil
 
     /** The output frame grid frame [k] starts on. */
     private fun start(k: Long): Long = phase + k * HOP

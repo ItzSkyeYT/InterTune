@@ -63,6 +63,8 @@ class HeldEntryTest {
         /** The entry the end is armed with, where it differs from the plan's (a plan for another entry). */
         val armEntry: Long? = null,
         val buffersPerTick: Int = 4,
+        /** The song the beat matcher adjusts. */
+        val side: Side = Side.A,
     ) {
         val held = HeldTail(2, rate, (capacityS * rate).toInt()).also {
             it.setAttenuation(attA)
@@ -103,7 +105,7 @@ class HeldEntryTest {
             return TransitionSpec(
                 a = Anchor("a", start * 1000.0, songA.spec.bpm), b = Anchor("b", bMs, songB.spec.bpm),
                 lanes = LaneSet.BANDS, bars = boxBars, beatMatch = true, preset = Preset.CUSTOM, moves = moves,
-                bStartMs = bMs,
+                bStartMs = bMs, matchSide = side,
             )
         }
 
@@ -118,7 +120,7 @@ class HeldEntryTest {
         private fun control() {
             val (song, frame) = model.position()
             if (armFrame < 0 && song == 0 && frame >= songA.frames - armLeftS * rate) {
-                if (held.arm(entry = armEntry ?: entry)) armFrame = model.consumedPosition()
+                if (held.arm(entry = armEntry ?: SpecPlan.liveEntryFrames(spec, rate))) armFrame = model.consumedPosition()
             }
             // The worker plans the moment the end is held, from the held end and B's copy.
             if (render == null && held.state == HeldTail.State.DRAIN) {
@@ -194,6 +196,29 @@ class HeldEntryTest {
             assertArrayEquals(run.expected(), run.model.heard.toArray())
             assertEquals(0, run.model.stalls)
             assertEquals("no underruns", 0, run.model.underruns)
+            assertEquals(0L, run.held.clipped)
+        }
+    }
+
+    @Test
+    fun `with B adjusted, the song as it plays takes over on B's own bar line, to the bit`() {
+        for (seed in 1L..2L) {
+            val run = Run(seed = seed, side = Side.B).go()
+            val lp = run.lanePlan!!
+            val s = lp.bStretch!!
+            println("seed $seed: ${run.heldPlan!!.describe()}; ${run.held.note}; live from B's frame ${lp.bEntry}, own samples from output ${s.switchAt}")
+            // Taken, and the song as it plays agreed with its copy from the first frame it came in on.
+            assertTrue(run.held.note, run.held.note.startsWith("planned"))
+            assertEquals(lp.bEntry, run.heldPlan!!.bEntry)
+            // A plays as it is; B is heard from its entry on the box's first bar.
+            assertTrue(lp.aMap.isIdentity)
+            assertEquals(lp.bar1, s.heardFrom.toDouble(), 0.5)
+            val cp = run.model.checkpoints.first { it.song == 1 }
+            assertEquals(run.armFrame + lp.bStart, cp.trackFrame)
+            assertEquals(lp.bEntry, cp.songFrame)
+            assertArrayEquals(run.expected(), run.model.heard.toArray())
+            assertEquals(0, run.model.stalls)
+            assertEquals(0, run.model.underruns)
             assertEquals(0L, run.held.clipped)
         }
     }

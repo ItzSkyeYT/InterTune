@@ -33,6 +33,7 @@ import com.dd3boh.outertune.mix.engine.SpecPlan
 import com.dd3boh.outertune.mix.pill.Pills
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -200,6 +201,60 @@ class MixEditorTest {
         assertTrue(sixteen.refused is Limit.BReach)
         assertFalse(e.setLength(16))
         assertNull(e.lengthOptions().first { it.bars == 8 }.refused)
+    }
+
+    @Test
+    fun `the beat matcher adjusts A unless the next song is picked, and a loop keeps it on A`() {
+        val e = editor()
+        assertTrue(e.spec.beatMatched)
+        assertEquals(Side.A, e.spec.matchSide)
+        assertTrue(e.bAdjustPossible)
+        assertTrue(e.setMatchSide(Side.B))
+        assertTrue(e.spec.bAdjusted)
+        // No longer Auto's own change, and saved as it is.
+        assertNotEquals(Preset.AUTO, e.lit())
+        // The bars are the same; a bar heard lasts A's own.
+        assertEquals(4 * 60_000.0 / 111, e.spec.heardBarMs, 0.5)
+        // A loop is not played with B adjusted: none can be set, and B cannot be picked with one.
+        assertFalse(e.setIntroLoop(2))
+        assertTrue(e.setMatchSide(Side.A))
+        assertTrue(e.setIntroLoop(2))
+        assertFalse(e.setMatchSide(Side.B))
+        // Without B's beats there is nothing to lay it on.
+        val noBeat = editor(facts(bGrid = null))
+        assertFalse(noBeat.bAdjustPossible)
+    }
+
+    @Test
+    fun `with the next song adjusted, what was read of it holds its way back to its own tempo too`() {
+        // B at 113 here, faster than A: slowed to A's tempo through the change, its way back to its
+        // own takes it a bar past the two the canvas shows after the change.
+        val faster = SongGrid(t0Ms = 1_210.0, periodMs = 60_000.0 / 113)
+        val probe = editor(facts(bGrid = faster))
+        val s = probe.spec
+        assertTrue(s.beatMatched)
+        val aReads = s.bMsAt(probe.fitEnd(s))
+        val bReads = SpecPlan.bReadToMs(s.copy(matchSide = Side.B))!!
+        assertTrue("$bReads after $aReads", bReads > aReads + 1_000.0)
+        // Read just past what A adjusted needs: B cannot be picked.
+        val short = editor(facts(bWindowEndMs = aReads + 200.0, bGrid = faster))
+        assertEquals(s.bars, short.spec.bars)
+        assertNull(short.reachOf(short.spec))
+        assertFalse(short.bAdjustPossible)
+        assertFalse(short.setMatchSide(Side.B))
+        // Read to its way back: it can, and a longer change is refused for what it would read.
+        val enough = editor(facts(bWindowEndMs = bReads + 1.0, bGrid = faster))
+        assertTrue(enough.setMatchSide(Side.B))
+        assertNull(enough.reachOf(enough.spec))
+        val longer = enough.lengthOptions().first { it.bars > s.bars }
+        assertTrue("${longer.refused}", longer.refused is Limit.BReach)
+        // Moved later into B, its anchor stops where what was read still holds the way back.
+        val room = editor(facts(bWindowEndMs = bReads + 10_000.0, bGrid = faster))
+        assertTrue(room.setMatchSide(Side.B))
+        val (far, end) = room.anchorMoved(room.spec, Side.B, -70_000.0, byBeats = false)
+        assertTrue("$end", end is Limit.APlays || end is Limit.BReach)
+        assertTrue("${far.b.atMs} from ${room.spec.b.atMs}", far.b.atMs > room.spec.b.atMs)
+        assertTrue(SpecPlan.bReadToMs(far)!! <= bReads + 10_000.0 + 0.5)
     }
 
     @Test

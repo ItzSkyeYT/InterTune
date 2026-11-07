@@ -12,6 +12,7 @@ import com.dd3boh.outertune.mix.edit.How
 import com.dd3boh.outertune.mix.edit.Lane
 import com.dd3boh.outertune.mix.edit.Preset
 import com.dd3boh.outertune.mix.edit.TransitionSpec
+import com.dd3boh.outertune.mix.edit.Side
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.ceil
@@ -213,7 +214,7 @@ class EditorWords(private val res: Resources, val aTitle: String, val bTitle: St
     fun nowStopped(e: MixEditor): String {
         val s = e.spec
         if (s.plain) return res.getString(R.string.mix_edit_plain_yours)
-        val len = if (s.bars > 0) "${bars(s.bars)}, ${seconds(s.lengthMs / 1000)}" else seconds(s.seconds)
+        val len = if (s.bars > 0) "${bars(s.bars)}, ${seconds(s.lengthBars * s.heardBarMs / 1000)}" else seconds(s.seconds)
         val lost = e.unheardMs()
         return if (lost >= 1000) "$len · ${res.getString(R.string.mix_edit_loses, aTitle, clock(lost))}" else len
     }
@@ -268,6 +269,10 @@ class EditorWords(private val res: Resources, val aTitle: String, val bTitle: St
         return when {
             !s.beatMatchAllowed() && s.bars > 0 -> res.getString(R.string.mix_edit_bm_refused, pct)
             s.beatMatched && abs(1 - ratio) < 0.0005 -> res.getString(R.string.mix_edit_bm_same)
+            // The song adjusted, with how much: A to B's tempo, or B to A's.
+            s.beatMatched && s.matchSide == Side.B -> res.getString(
+                if (ratio > 1) R.string.mix_edit_bm_slower else R.string.mix_edit_bm_faster, bTitle, String.format(locale, "%.1f", abs(1 - 1 / ratio) * 100),
+            )
             s.beatMatched -> res.getString(if (ratio < 1) R.string.mix_edit_bm_slower else R.string.mix_edit_bm_faster, aTitle, pct)
             else -> res.getString(R.string.mix_edit_bm_off, String.format(locale, "%.2f", s.b.barMs / 1000 * abs(1 - ratio) * s.lengthBars))
         }
