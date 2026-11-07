@@ -233,11 +233,26 @@ class AutomixController(
             return
         }
         joining = true
-        player.seekTo(player.currentPosition)
+        joiningSince = SystemClock.elapsedRealtime()
+        seekInPlace()
     }
 
-    /** The stage was asked to join the song playing and has not yet: its guard waits rather than refuses. */
+    /**
+     * A seek to where the music is, which the player really makes: it drops a seek to the very
+     * millisecond it is at as one to nowhere (ExoPlayerImplInternal.seekToInternal), and the sink is
+     * then never flushed. A millisecond back is not heard; the seek's own gap is.
+     */
+    private fun seekInPlace() {
+        val at = player.currentPosition
+        player.seekTo(if (at > 0) at - 1 else 1)
+    }
+
+    /** The stage was asked to join the song playing and has not yet: its guard waits rather than refuses, for [JOIN_WAIT_MS]. */
     private var joining = false
+    private var joiningSince = 0L
+
+    /** Whether a join asked for is still to be waited for: a seek the player did not make must not hold the guard for good. */
+    private fun stillJoining(): Boolean = joining && SystemClock.elapsedRealtime() - joiningSince < JOIN_WAIT_MS
 
     /** AutoMix's setting for the queue playing: with Mix ([lanes]), the switch of the playlist it came from. */
     private var auto = false
@@ -461,7 +476,7 @@ class AutomixController(
         // still playing out after its change was given up, AutoMix switched off included, so
         // whatever the stage holds, going to where the music is now drops it, and the change is
         // heard at once.
-        if (stage.state == HeldTail.State.CAPTURE || stage.state == HeldTail.State.DRAIN) player.seekTo(player.currentPosition)
+        if (stage.state == HeldTail.State.CAPTURE || stage.state == HeldTail.State.DRAIN) seekInPlace()
     }
 
     /**
@@ -1478,7 +1493,7 @@ class AutomixController(
         return AutomixGuards.Snapshot(
             settingOn = auto,
             crossfadeOn = crossfadeSeconds != null,
-            stageInChain = stage.activeForStream || joining,
+            stageInChain = stage.activeForStream || stillJoining(),
             casting = c.casting,
             repeatOne = player.repeatMode == Player.REPEAT_MODE_ONE,
             current = t.a.copy(durationMs = player.duration.takeIf { it != C.TIME_UNSET } ?: -1),
@@ -1565,6 +1580,9 @@ class AutomixController(
         const val ENTRY_CHECK_FRAMES = 8192
         const val ENTRY_CHECK_REACH = 4096
         const val HOLDING_LOOK_MS = 1_000L
+
+        /** How long a join asked for keeps the guard waiting before the change is called plain after all. */
+        const val JOIN_WAIT_MS = 3_000L
         const val KEPT_GUIDE_S = 4.5
         const val LOCK_FAILED_KEPT = 256
 

@@ -95,7 +95,11 @@ class AutomixJoinTest {
         val setter = controller.substringAfter("var enabled = false").substringBefore("private var joining")
         assertTrue("AutoMix coming on joins the song playing", "joinNow()" in setter)
         val join = controller.substringAfter("private fun joinNow()").substringBefore("\n    }\n")
-        assertTrue("it joins by a seek to where the music is", "player.seekTo(player.currentPosition)" in join)
+        assertTrue("it joins by a seek to where the music is", "seekInPlace()" in join)
+        // A seek to the very millisecond the player is at is dropped by the player, and nothing joins.
+        val inPlace = controller.substringAfter("private fun seekInPlace()").substringBefore("\n    }\n")
+        assertTrue(inPlace, "player.seekTo(if (at > 0) at - 1 else 1)" in inPlace)
+        assertTrue("player.seekTo(player.currentPosition)" !in controller)
         val guards = File(dir, "AutomixGuards.kt").readText()
         assertTrue("no refusal for a seek near the end", "last minute" !in guards && "seekedLate" !in guards)
     }
