@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.ui.screens.mix
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,12 +23,12 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.mix.pill.PlainReason
 
 /**
- * The editor's warning that this change will not play as made right now, with the page that changes
- * the setting behind it when there is one (his rule of 2 Nov 2026: say why, and offer the fix). A
+ * The editor's warning that this change will not play as made right now, with the setting behind
+ * it when there is one, opened at its row (his rule of 2 Nov 2026: say why, and offer the fix). A
  * saved change is kept either way; it plays once the setting changes.
  */
 @Composable
-internal fun GuardBand(text: String, route: String?, onOpen: (String) -> Unit) {
+internal fun GuardBand(text: String, @StringRes setting: Int?) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -41,16 +42,17 @@ internal fun GuardBand(text: String, route: String?, onOpen: (String) -> Unit) {
             color = MaterialTheme.colorScheme.onErrorContainer,
             modifier = Modifier.weight(1f).padding(vertical = 7.dp),
         )
-        if (route != null) {
-            TextButton(onClick = { onOpen(route) }) {
+        if (setting != null) {
+            TextButton(onClick = { MixWords.openSetting(setting) }) {
                 Text(stringResource(R.string.settings), color = MaterialTheme.colorScheme.onErrorContainer)
             }
         }
     }
 }
 
-/** Where a guard is fixed: the setting behind a blocking reason, Skip silence's page for the editor's own Skip silence guard. */
-internal fun guardRoute(skipSilence: Boolean, blocker: PlainReason?): String? = when {
+/** Where a guard is fixed: the setting behind a blocking reason, Skip silence for the editor's own Skip silence guard. */
+@StringRes
+internal fun guardSetting(skipSilence: Boolean, blocker: PlainReason?): Int? = when {
     skipSilence -> MixWords.blockedSetting(PlainReason.SKIP_SILENCE)
     blocker != null -> MixWords.blockedSetting(blocker)
     else -> null

@@ -14,6 +14,7 @@ import com.dd3boh.outertune.mix.FrontEnd
 import com.dd3boh.outertune.mix.KeyEstimate
 import com.dd3boh.outertune.mix.Keys
 import com.dd3boh.outertune.mix.RegionAnalysis
+import com.dd3boh.outertune.mix.RegionFile
 import com.dd3boh.outertune.mix.RegionKind
 import com.dd3boh.outertune.mix.Spectrum
 import com.dd3boh.outertune.mix.Tempo
@@ -22,9 +23,15 @@ import com.dd3boh.outertune.mix.edit.BeatFix
 import com.dd3boh.outertune.mix.edit.Lane
 import com.dd3boh.outertune.mix.edit.Side
 import com.dd3boh.outertune.mix.auto.SongEnd
+import com.dd3boh.outertune.mix.auto.SongEndJson
+import com.dd3boh.outertune.mix.edit.TransitionJson
 import com.dd3boh.outertune.mix.edit.TransitionSpec
 import com.dd3boh.outertune.mix.engine.AutoOnBands
 import com.dd3boh.outertune.mix.engine.Copy
+import java.io.BufferedInputStream
+import java.io.BufferedOutputStream
+import java.io.DataInputStream
+import java.io.DataOutputStream
 import java.io.File
 import java.io.IOException
 import java.security.MessageDigest
@@ -58,28 +65,134 @@ class LoadedPair(
     val bCopy: Copy,
     /** Auto's own words for its pick, for the log. */
     val autoWhy: String = "",
+    /** How long each part took and what came from the cache. */
+    val took: LoadTimes? = null,
 )
 
-/** Where the editor's windows are kept between openings, in the app's cache: Android may clear it, and that only costs a read. */
-class EditorCache(cacheDir: File) {
+/** How long a pair took to load and which parts came from the editor's cache, for the log and the tests. */
+class LoadTimes(val readMs: Double, val analysisMs: Double, val autoMs: Double, val analysisKept: Boolean, val autoKept: Boolean) {
+    override fun toString(): String =
+        "read in %.0f ms, analysed in %.0f ms%s, Auto in %.0f ms%s".format(
+            readMs, analysisMs, if (analysisKept) " (kept)" else "", autoMs, if (autoKept) " (kept)" else "",
+        )
+}
+
+/** Auto's pick for a pair as the editor last loaded it: the spec as Auto gave it, its words, and both songs' ends as it heard them. */
+class KeptAuto(val spec: TransitionSpec, val why: String, val aEnd: SongEnd, val bEnd: SongEnd)
+
+/**
+ * Where the editor's windows are kept between openings, in the app's cache: Android may clear it,
+ * and that only costs a read. Beside each window, what the analysis found in it, and for each pair
+ * Auto's pick, so going back to a pair takes a moment instead of analysing it again (his ask of
+ * 6 Nov 2026). Both are kept under [stamp], the build that made them: a new build analyses afresh.
+ */
+class EditorCache(cacheDir: File, private val stamp: String = "") {
     val dir = File(cacheDir, "mix/editor")
+    private val autoDir = File(dir, "auto")
 
     fun files(id: String, end: String): Triple<File, File, File> {
-        val key = MessageDigest.getInstance("SHA-1").digest(id.toByteArray()).joinToString("") { "%02x".format(it) }
+        val key = digest(id)
         return Triple(File(dir, "$key-$end.pcm"), File(dir, "$key-$end.info"), File(dir, "$key-$end.bands"))
     }
 
-    /** Keeps the newest windows, about four pairs' worth. */
+    /** The window's analysis, dropped with the window. */
+    fun analysisFile(id: String, end: String): File = File(dir, "${digest(id)}-$end.analysis")
+
+    /** What the analysis found in the window [info] describes, when it was kept by this build for that window. */
+    fun analysis(id: String, end: String, info: WindowInfo): RegionAnalysis? {
+        val file = analysisFile(id, end)
+        if (!file.isFile) return null
+        return runCatching {
+            DataInputStream(BufferedInputStream(file.inputStream(), BUFFER)).use { input ->
+                if (input.readUTF() != stamp || input.readInt() != PairLoader.ANALYSIS_VERSION || input.readUTF() != info.toText()) return null
+                RegionFile.read(input)
+            }
+        }.onFailure { Log.w(TAG, "A kept analysis could not be read", it) }.getOrNull()
+            ?.takeIf { it.frames == info.frames && it.sampleRate == info.sampleRate && it.channels == info.channels }
+    }
+
+    fun keepAnalysis(id: String, end: String, info: WindowInfo, r: RegionAnalysis) {
+        val file = analysisFile(id, end)
+        write(file) { out ->
+            out.writeUTF(stamp)
+            out.writeInt(PairLoader.ANALYSIS_VERSION)
+            out.writeUTF(info.toText())
+            RegionFile.write(r, out)
+        }
+    }
+
+    /** Auto's pick kept under [key], everything it was chosen from; null where there is none from this build. */
+    fun auto(key: String): KeptAuto? {
+        val file = File(autoDir, digest(key))
+        if (!file.isFile) return null
+        return runCatching {
+            DataInputStream(BufferedInputStream(file.inputStream(), BUFFER)).use { input ->
+                if (text(input) != "$stamp\n$key") return null
+                val why = text(input)
+                val spec = TransitionJson.decode(text(input)) ?: return null
+                val aEnd = SongEndJson.decode(text(input)) ?: return null
+                val bEnd = SongEndJson.decode(text(input)) ?: return null
+                file.setLastModified(System.currentTimeMillis())
+                KeptAuto(spec, why, aEnd, bEnd)
+            }
+        }.onFailure { Log.w(TAG, "A kept pick could not be read", it) }.getOrNull()
+    }
+
+    fun keepAuto(key: String, kept: KeptAuto) {
+        autoDir.mkdirs()
+        write(File(autoDir, digest(key))) { out ->
+            text("$stamp\n$key", out)
+            text(kept.why, out)
+            text(TransitionJson.encode(kept.spec), out)
+            text(SongEndJson.encode(kept.aEnd), out)
+            text(SongEndJson.encode(kept.bEnd), out)
+        }
+    }
+
+    /** Keeps the newest windows, about four pairs' worth, with their analyses, and the newest picks. */
     fun prune() {
         val sets = dir.listFiles()?.filter { it.name.endsWith(".pcm") }?.sortedByDescending { it.lastModified() } ?: return
         for (old in sets.drop(KEPT)) {
             val stem = old.name.removeSuffix(".pcm")
-            listOf(".pcm", ".info", ".bands").forEach { File(dir, stem + it).delete() }
+            listOf(".pcm", ".info", ".bands", ".analysis").forEach { File(dir, stem + it).delete() }
         }
+        autoDir.listFiles()?.sortedByDescending { it.lastModified() }?.drop(KEPT_PICKS)?.forEach { it.delete() }
+    }
+
+    /** Written whole beside the file, then put in its place, so a file is never read half written. */
+    private fun write(file: File, body: (DataOutputStream) -> Unit) {
+        runCatching {
+            file.parentFile?.mkdirs()
+            val part = File(file.path + ".part")
+            DataOutputStream(BufferedOutputStream(part.outputStream(), BUFFER)).use(body)
+            if (!part.renameTo(file)) {
+                part.delete()
+                throw IOException("could not keep ${file.name}")
+            }
+        }.onFailure { Log.w(TAG, "Could not keep ${file.name}", it) }
     }
 
     private companion object {
+        const val TAG = "MixEditor"
         const val KEPT = 8
+        const val KEPT_PICKS = 64
+        const val BUFFER = 1 shl 16
+
+        fun digest(text: String): String = MessageDigest.getInstance("SHA-1").digest(text.toByteArray()).joinToString("") { "%02x".format(it) }
+
+        fun text(value: String, out: DataOutputStream) {
+            val bytes = value.toByteArray(Charsets.UTF_8)
+            out.writeInt(bytes.size)
+            out.write(bytes)
+        }
+
+        fun text(input: DataInputStream): String {
+            val n = input.readInt()
+            if (n < 0 || n > MAX_TEXT) throw IOException("a text of $n bytes")
+            return ByteArray(n).also { input.readFully(it) }.toString(Charsets.UTF_8)
+        }
+
+        const val MAX_TEXT = 4 shl 20
     }
 }
 
@@ -119,6 +232,7 @@ class PairLoader(
 
     /** [levelA] and [levelB]: each song's level as the phone plays it now, which Auto's proofs hear it at. */
     fun load(a: SongInput, b: SongInput, levelA: Double = 1.0, levelB: Double = 1.0, stage: (Stage) -> Unit, cancelled: () -> Boolean): LoadedPair {
+        val started = System.nanoTime()
         stage(Stage.READING_A)
         val (aWindow, aBands) = try {
             window(a, TAIL, cancelled)
@@ -136,10 +250,15 @@ class PairLoader(
         val bWhole = wholeOf(b.id) ?: readWhole?.let { r -> runCatching { r(b.id, b.durationMs, cancelled) }.getOrNull() }
         cache.prune()
         stage(Stage.ANALYSING)
+        val readAt = System.nanoTime()
+        // What was found in each window, from the cache when this build kept it for that window.
+        val (aFound, aKept) = analysed(a.id, TAIL, aWindow, RegionKind.TAIL)
+        val (bFound, bKept) = analysed(b.id, HEAD, bWindow, RegionKind.HEAD)
         // Each at its song's own tempo where the song was read whole: the opening from the song's
         // first frame, exactly; the end from where the decoder says it starts.
-        val aAnalysis = analyse(aWindow, RegionKind.TAIL)?.let { r -> aWhole?.let { r.onSong(it, aWindow.info.startMs, exact = false) } ?: r }
-        val bAnalysis = analyse(bWindow, RegionKind.HEAD)?.let { r -> bWhole?.let { r.onSong(it, bWindow.info.startMs, exact = bWindow.info.startMs == 0.0) } ?: r }
+        val aAnalysis = aFound?.let { r -> aWhole?.let { r.onSong(it, aWindow.info.startMs, exact = false) } ?: r }
+        val bAnalysis = bFound?.let { r -> bWhole?.let { r.onSong(it, bWindow.info.startMs, exact = bWindow.info.startMs == 0.0) } ?: r }
+        val analysedAt = System.nanoTime()
         val aGrid = aAnalysis?.let { gridOf(it, aWindow.info.startMs) }
         val bGrid = bAnalysis?.let { gridOf(it, bWindow.info.startMs) }
         val aGates = aAnalysis?.gates
@@ -180,7 +299,25 @@ class PairLoader(
         var autoWhy = "no analysis"
         var aKey: KeyEstimate? = null
         var bKey: KeyEstimate? = null
-        val auto = if (aAnalysis != null && bAnalysis != null) {
+        // Auto's pick depends on nothing but what is keyed here: both windows and what was found in
+        // them, the songs' whole grids, their fixes and their levels. A fix, a new read or a new
+        // build is a new key, and Auto picks again.
+        val autoKey = listOf(
+            "ids ${a.id} ${b.id} albums ${a.albumId} ${b.albumId}",
+            "a ${aWindow.info.toText()}", "b ${bWindow.info.toText()}",
+            "whole a ${aWhole?.let { WholeSongGrid.encode(it) }}", "whole b ${bWhole?.let { WholeSongGrid.encode(it) }}",
+            "fix a ${a.fix}", "fix b ${b.fix}",
+            "levels %.6f %.6f".format(java.util.Locale.ROOT, levelA, levelB),
+        ).joinToString("\n")
+        val keptAuto = if (aAnalysis != null && bAnalysis != null) cache.auto(autoKey) else null
+        val auto = if (keptAuto != null) {
+            autoWhy = "${keptAuto.why}, kept"
+            kept?.invoke(a.id, keptAuto.aEnd)
+            kept?.invoke(b.id, keptAuto.bEnd)
+            aKey = keptAuto.aEnd.key
+            bKey = keptAuto.bEnd.key
+            autoSpecOf(keptAuto.spec, aFacts, bFacts, facts)
+        } else if (aAnalysis != null && bAnalysis != null) {
             runCatching {
                 val aSong = AutoOnBands.Song(a.id, aCopy, aAnalysis, aWindow.info.startMs, aWindow.info.durationMs, a.albumId, a.fix)
                 val bSong = AutoOnBands.Song(b.id, bCopy, bAnalysis, bWindow.info.startMs, bWindow.info.durationMs, b.albumId, b.fix)
@@ -190,6 +327,7 @@ class PairLoader(
                 kept?.invoke(b.id, bSong.end)
                 aKey = aSong.end.key
                 bKey = bSong.end.key
+                cache.keepAuto(autoKey, KeptAuto(chosen.spec, autoWhy, aSong.end, bSong.end))
                 autoSpecOf(chosen.spec, aFacts, bFacts, facts)
             }.onFailure { Log.w(TAG, "No Auto for the pair", it) }.getOrNull()
         } else null
@@ -197,14 +335,28 @@ class PairLoader(
         // Auto found the keys on its way; without it, they are read here, as Auto reads them.
         if (aKey == null) aKey = aAnalysis?.let { runCatching { Keys.of(it) }.getOrNull() }
         if (bKey == null) bKey = bAnalysis?.let { runCatching { Keys.of(it) }.getOrNull() }
+        val doneAt = System.nanoTime()
+        val took = LoadTimes(
+            readMs = (readAt - started) / 1e6, analysisMs = (analysedAt - readAt) / 1e6, autoMs = (doneAt - analysedAt) / 1e6,
+            analysisKept = aKept && bKept, autoKept = keptAuto != null,
+        )
+        Log.i(TAG, "Pair loaded: $took")
         return LoadedPair(
             LoadedSong(a.id, a.title, aWindow, aBands, aAnalysis, aGrid, aKey),
             LoadedSong(b.id, b.title, bWindow, bBands, bAnalysis, bGrid, bKey),
-            facts, auto ?: AutoSpec.fallback(facts), aCopy, bCopy, autoWhy,
+            facts, auto ?: AutoSpec.fallback(facts), aCopy, bCopy, autoWhy, took,
         )
     }
 
     private fun wholeOf(id: String): WholeSongGrid? = grids?.let { runCatching { it(id) }.getOrNull() }
+
+    /** What was found in [window], and whether it came from the cache; analysed and kept where it did not. */
+    private fun analysed(id: String, end: String, window: PcmWindow, kind: RegionKind): Pair<RegionAnalysis?, Boolean> {
+        cache.analysis(id, end, window.info)?.let { return it to true }
+        val found = analyse(window, kind) ?: return null to false
+        cache.keepAnalysis(id, end, window.info, found)
+        return found to false
+    }
 
     /** A window read whole into the heap, the form the engine renders from. */
     private fun copyOf(window: PcmWindow): Copy {
@@ -238,6 +390,7 @@ class PairLoader(
             }
         }
         cache.dir.mkdirs()
+        cache.analysisFile(song.id, end).delete()
         val part = File(pcm.path + ".part")
         var meter: BandMeter? = null
         val info = WindowDecoder(source).decode(

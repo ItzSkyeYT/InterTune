@@ -77,7 +77,7 @@ class MixHeldBackTest {
         // The playlist: the row and the pills.
         val playlist = lines("ui/screens/playlist/LocalPlaylistScreen.kt")
         assertTrue("if (Unreleased.AUTOMIX_EDITOR && navController != null) {" in playlist)
-        assertEquals("MixRow(playlistId = playlist.id, songCount = songs.size, navController = navController)",
+        assertEquals("MixRow(playlistId = playlist.id, songCount = songs.size)",
             playlist[playlist.indexOf("if (Unreleased.AUTOMIX_EDITOR && navController != null) {") + 1])
         // The queue: the chip and the line.
         val queue = lines("ui/player/Queue.kt")

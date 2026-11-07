@@ -351,8 +351,7 @@ fun MixEditorScreen(navController: NavController) {
         formats -> stringResource(R.string.mix_edit_guard_formats)
         else -> blocker?.let { MixWords.blocked(it) }?.let { stringResource(it) }
     }
-    val guardRoute = if (guard != null && vm.fromId != vm.toId && !formats) guardRoute(skipSilence, blocker) else null
-    val openGuard: (String) -> Unit = { navController.navigate(it) }
+    val guardSetting = if (guard != null && vm.fromId != vm.toId && !formats) guardSetting(skipSilence, blocker) else null
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val tall = maxHeight >= 700.dp
@@ -365,7 +364,7 @@ fun MixEditorScreen(navController: NavController) {
             if (!landscape) {
                 LevelSwitch(simple = false, onSimple = { vm.showSimple(true) }, onAdvanced = {}, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp))
             }
-            if (guard != null) GuardBand(guard, guardRoute, openGuard)
+            if (guard != null) GuardBand(guard, guardSetting)
             SongRow(songA, aTitle, spec?.let { words.clock(it.a.atMs) }, spec?.let { vm.editor?.shownBpm(Side.A, it) }, spec?.a?.fix?.isNone == false, words, landscape, spec?.let { vm.editor?.beatNote(Side.A, it) }) { fixOpen = Side.A }
             when (val p = phase) {
                 is MixEditorViewModel.Phase.Failed -> FailedState(p, aTitle, bTitle, if (p.side == Side.A) songA else songB, vm)
@@ -493,8 +492,7 @@ fun MixEditorScreen(navController: NavController) {
             words = words,
             colors = colors,
             guard = guard,
-            guardRoute = guardRoute,
-            onOpenGuard = openGuard,
+            guardSetting = guardSetting,
             playing = playing,
             playU = { playU },
             said = said,
