@@ -848,7 +848,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="recognition_phone_nothing">No song found on this device</string>
     <string name="recognition_phone_nothing_hint">Try again while the song is playing.</string>
     <string name="recognition_phone_results_channel">Songs found on this device</string>
-    <string name="recognition_phone_needs_permission">InterTune needs the microphone permission to listen to this device too.</string>
+    <string name="recognition_phone_needs_permission">InterTune needs the microphone to listen to this device too.</string>
     <string name="recognition_phone_heard_nothing">No sound came through from the device. InterTune leaves its own songs out, and some apps block recording.</string>
     <string name="recognition_room_tile">Song around you</string>
     <string name="recognition_phone_continue">Continue</string>
