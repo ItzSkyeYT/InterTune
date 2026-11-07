@@ -9,6 +9,8 @@
 
 package com.dd3boh.outertune.ui.player
 
+import androidx.compose.ui.draw.shadow
+import com.dd3boh.outertune.ui.utils.LocalPlainDock
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
@@ -107,6 +109,9 @@ fun MiniPlayer(
 
     val glass = rememberGlassSpec()
     val glassOn = glass != null
+    // Below Android 13 with Liquid glass on: the same floating panel, a plain pane instead of glass.
+    val plain = !glassOn && LocalPlainDock.current
+    val floats = glassOn || plain
     val glassShape = RoundedCornerShape(24.dp)
     // Slightly more opaque than the dock: this panel carries two lines of text over whatever the
     // library happens to be showing, so it is the first place a section heading bleeds through.
@@ -147,6 +152,11 @@ fun MiniPlayer(
                             }
                         ))
                         .background(glassTint, glassShape)
+                } else if (plain) {
+                    Modifier
+                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                        .shadow(4.dp, glassShape)
+                        .background(MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp), glassShape)
                 } else Modifier
             )
     ) {
@@ -156,9 +166,9 @@ fun MiniPlayer(
                 drawStopIndicator = { },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = if (glassOn) 20.dp else 0.dp)
+                    .padding(horizontal = if (floats) 20.dp else 0.dp)
                     .height(2.dp)
-                    .then(if (glassOn) Modifier.clip(CircleShape) else Modifier)
+                    .then(if (floats) Modifier.clip(CircleShape) else Modifier)
                     .align(Alignment.BottomCenter),
             )
         }
