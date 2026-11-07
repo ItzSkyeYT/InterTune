@@ -173,10 +173,10 @@ object SpecPlan {
         if (spec.plain) return Result.Refused("a plain change")
         if (spec.lanes == LaneSet.PARTS) {
             if (!facts.parts) return Result.Refused("made on parts, which this phone does not split into")
-            // Parts are read as they are: a stretch or a loop would move each part on its own, and
-            // the four would no longer add up to the song.
-            if (spec.beatMatched || spec.introTwice > 0 || spec.introLoop != null || spec.outroLoop != null) {
-                return Result.Refused("parts with beat matching or a loop are not played yet")
+            // A stretch takes the parts at the song's own positions (Wsola.Frames.frameOf); a loop
+            // would be joined on each part on its own, and the four would no longer add up to the song.
+            if (spec.introTwice > 0 || spec.introLoop != null || spec.outroLoop != null) {
+                return Result.Refused("parts with a loop are not played yet")
             }
         } else if (spec.lanes != LaneSet.BANDS) return Result.Refused("made on ${spec.lanes.key}, which this phone does not split into")
         spec.problems().takeIf { it.isNotEmpty() }?.let { return Result.Refused(it.joinToString("; ")) }
@@ -214,7 +214,6 @@ object SpecPlan {
         } else {
             map = TimeMap.IDENTITY
         }
-        if (spec.lanes == LaneSet.PARTS && !map.isIdentity) return Result.Refused("parts with A's tempo moving are not played yet")
         // With a loop of B's bars in front of it, the loop starts on A's anchor and B's own bar 1
         // comes that many bars later, on B's grid.
         val loopSpec = spec.introLoop

@@ -309,7 +309,19 @@ class Wsola(
         internal fun startOf(k: Long): Long = start(k)
 
         /** Output frame [o], one sample per channel into [into]. */
-        fun frame(o: Long, into: DoubleArray) {
+        fun frame(o: Long, into: DoubleArray) = frameWith(o, into) { t, c -> sample(t, c) }
+
+        /**
+         * Output frame [o] of [part], a part of the same music (its frames for its frames), taken at
+         * the positions and through the splices chosen on the music itself: the parts of a song
+         * stretched this way still add up to the song stretched.
+         */
+        fun frameOf(part: java.nio.ShortBuffer, o: Long, into: DoubleArray) {
+            val partFrames = part.limit() / channels
+            frameWith(o, into) { t, c -> if (t in 0 until partFrames) part.get((t * channels + c).toInt()).toDouble() else 0.0 }
+        }
+
+        private inline fun frameWith(o: Long, into: DoubleArray, sampleOf: (Long, Int) -> Double) {
             val k2 = Math.floorDiv(o - phase, HOP.toLong())
             val i2 = (o - start(k2)).toInt()
             val j2 = (k2 - kFirst).toInt()
@@ -318,7 +330,7 @@ class Wsola(
             if (fade < 0) {
                 // The tail as it is: where the map leaves it alone, and where a grid frame goes on
                 // from the one before it, whose second half is the same samples.
-                for (c in 0 until channels) into[c] = sample(p2 + i2, c)
+                for (c in 0 until channels) into[c] = sampleOf(p2 + i2, c)
                 return
             }
             // A splice: the grid frame before it goes on until the crossfade, which is centred where
@@ -333,7 +345,7 @@ class Wsola(
             val w1 = 1.0 - w2
             val like = fadeLike[j2].coerceIn(0.0, 1.0)
             val gain = 1.0 / sqrt(w1 * w1 + w2 * w2 + 2 * like * w1 * w2)
-            for (c in 0 until channels) into[c] = (w1 * sample(p1 + HOP + i2, c) + w2 * sample(p2 + i2, c)) * gain
+            for (c in 0 until channels) into[c] = (w1 * sampleOf(p1 + HOP + i2, c) + w2 * sampleOf(p2 + i2, c)) * gain
         }
     }
 

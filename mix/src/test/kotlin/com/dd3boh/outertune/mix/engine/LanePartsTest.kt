@@ -64,15 +64,34 @@ class LanePartsTest {
     private val b = Synth.song(SynthSpec(bpm = 120.0, bars = 24, seed = 32)).samples
 
     @Test
-    fun `parts play only where they are at hand, and not yet with a stretch or a loop`() {
+    fun `parts play only where they are at hand, and not yet with a loop`() {
         val moves = every(Side.A, Move(2.0, 4.0, How.FADE)) + every(Side.B, Move(2.0, 4.0, How.FADE))
         val refused = SpecPlan.plan(spec(moves), facts(a, b, parts = false))
         assertTrue(refused is SpecPlan.Result.Refused)
         assertTrue(SpecPlan.plan(spec(moves), facts(a, b)) is SpecPlan.Result.Planned)
         val stretched = spec(moves, beatMatch = true).copy(b = Anchor("song-b", 1_000.0, 122.0))
         assertTrue(stretched.beatMatched)
-        val matched = SpecPlan.plan(stretched, facts(a, b))
-        assertTrue("a stretch moves each part on its own", matched is SpecPlan.Result.Refused)
+        assertTrue("a stretch takes the parts at the song's positions", SpecPlan.plan(stretched, facts(a, b)) is SpecPlan.Result.Planned)
+        val looped = SpecPlan.plan(spec(moves).copy(introTwice = 1), facts(a, b))
+        assertTrue("a loop would be joined on each part on its own", looped is SpecPlan.Result.Refused)
+    }
+
+    @Test
+    fun `stretched, A or B, the parts still add up to the song stretched`() {
+        val moves = every(Side.A, Move(2.0, 4.0, How.FADE)) + every(Side.B, Move(2.0, 4.0, How.FADE))
+        for (side in listOf(Side.A, Side.B)) {
+            val s = spec(moves, beatMatch = true).copy(b = Anchor("song-b", 1_000.0, 122.0), matchSide = side)
+            assertTrue(s.beatMatched)
+            val plan = planned(s, facts(a, b))
+            if (side == Side.A) assertTrue("A is stretched", !plan.aMap.isIdentity) else assertTrue("B is the one adjusted", plan.bStretch != null)
+            val split = LaneMixer(plan).render(a, b, 1.0, 1.0, quarters(a), quarters(b))
+            val whole = LaneMixer(plan).render(a, b, 1.0, 1.0, alone(a, 0), alone(b, 3))
+            val x = split.mix(a, b, plan.mixFrom, plan.mixTo)
+            val y = whole.mix(a, b, plan.mixFrom, plan.mixTo)
+            var worst = 0
+            for (i in x.indices) worst = maxOf(worst, abs(x[i] - y[i]))
+            assertTrue("$side stretched: the parts' sum strays $worst from the song's", worst <= 3)
+        }
     }
 
     @Test

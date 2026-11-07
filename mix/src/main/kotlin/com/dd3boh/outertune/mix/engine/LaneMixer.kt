@@ -30,13 +30,24 @@ import kotlin.math.max
 import kotlin.math.min
 
 /** A's music by output frame: through the time map by the stretch, silence outside what it covers. */
-internal class StretchSource(private val frames: Wsola.Frames, private val from: Long, private val to: Long, private val channels: Int) : FrameSource {
+internal class StretchSource(internal val frames: Wsola.Frames, internal val from: Long, internal val to: Long, private val channels: Int) : FrameSource {
     override fun frame(t: Long, into: DoubleArray) {
         if (t < from || t >= to) {
             for (c in 0 until channels) into[c] = 0.0
             return
         }
         frames.frame(t, into)
+    }
+}
+
+/** A part of A by output frame, stretched with A: at A's own positions and splices ([Wsola.Frames.frameOf]). */
+internal class StretchPartSource(private val song: StretchSource, private val part: java.nio.ShortBuffer, private val channels: Int) : FrameSource {
+    override fun frame(t: Long, into: DoubleArray) {
+        if (t < song.from || t >= song.to) {
+            for (c in 0 until channels) into[c] = 0.0
+            return
+        }
+        song.frames.frameOf(part, t, into)
     }
 }
 
@@ -73,15 +84,20 @@ internal class EntrySource(
  * so the change ends on B's own frames, the ones the song as it plays goes on with.
  */
 internal class GlideSource(
-    private val stretched: Wsola.Frames,
+    internal val stretched: Wsola.Frames,
     private val pcm: ShortArray,
     private val channels: Int,
-    private val frames: Long,
-    private val s: BStretch,
-    private val fadeFrames: Int,
+    internal val frames: Long,
+    internal val s: BStretch,
+    internal val fadeFrames: Int,
+    /** A part of B (its frames for B's frames) to give instead of B itself: read at B's positions, splices and switch. */
+    private val part: java.nio.ShortBuffer? = null,
 ) : FrameSource {
     private val own = DoubleArray(channels)
     private val rising = s.map.t0 > 0
+
+    /** The same glide over [part] of B. */
+    fun ofPart(part: java.nio.ShortBuffer) = GlideSource(stretched, pcm, channels, frames, s, fadeFrames, part)
 
     override fun frame(t: Long, into: DoubleArray) {
         if (t < s.heardFrom) {
@@ -92,7 +108,7 @@ internal class GlideSource(
             ownAt(s.switchFrame + (t - s.switchAt), into)
             return
         }
-        stretched.frame(t, into)
+        if (part != null) stretched.frameOf(part, t, into) else stretched.frame(t, into)
         val k = t - s.heardFrom
         if (rising && k < fadeFrames) {
             val g = 0.5 - 0.5 * kotlin.math.cos(Math.PI * (k + 1) / (fadeFrames + 1))
@@ -111,7 +127,8 @@ internal class GlideSource(
             return
         }
         val base = (i * channels).toInt()
-        for (c in 0 until channels) into[c] = pcm[base + c].toDouble()
+        if (part != null) for (c in 0 until channels) into[c] = part.get(base + c).toDouble()
+        else for (c in 0 until channels) into[c] = pcm[base + c].toDouble()
     }
 }
 
@@ -332,17 +349,22 @@ class LaneMixer(private val plan: LanePlan) {
         val onParts = plan.spec.lanes == LaneSet.PARTS
         val aPartSources = if (!onParts) null else {
             val partsOfA = requireNotNull(aParts) { "a change made on parts needs A's parts" }
-            check(plan.aMap.isIdentity && plan.outro == null) { "parts are read as they are" }
+            check(plan.outro == null) { "parts with a loop are not played yet" }
             val aFrames = plan.facts.aFrames.coerceAtMost((a.size / channels).toLong())
-            partsOfA.map { BufferSource(it, channels, aFrames) }
+            // Stretched with A where A is stretched: at its positions and splices, so they still add up to A.
+            partsOfA.map { part -> (aSource as? StretchSource)?.let { StretchPartSource(it, part, channels) } ?: BufferSource(part, channels, aFrames) }
         }
         val bPartSources = if (!onParts) null else {
             val partsOfB = requireNotNull(bParts) { "a change made on parts needs B's parts" }
-            check(plan.bStretch == null && plan.loop == null) { "parts are read as they are" }
-            // As B's own copy is read: from its first frame at bStart, or from its entry with the same rise.
-            partsOfB.map {
-                if (plan.bEntry > 0) BufferSource(it, channels, bFrames0, plan.bOrigin, plan.bEntry, ENTRY_FADE_MS * rate / 1000)
-                else BufferSource(it, channels, bFrames0, plan.bStart)
+            check(plan.loop == null && plan.bStretch?.loop == null) { "parts with a loop are not played yet" }
+            partsOfB.map { part ->
+                when {
+                    // Stretched with B where B is the one adjusted: its positions, splices and switch to its own.
+                    bSource is GlideSource -> bSource.ofPart(part)
+                    // As B's own copy is read: from its entry with the same rise, or from its first frame at bStart.
+                    plan.bEntry > 0 -> BufferSource(part, channels, bFrames0, plan.bOrigin, plan.bEntry, ENTRY_FADE_MS * rate / 1000)
+                    else -> BufferSource(part, channels, bFrames0, plan.bStart)
+                }
             }
         }
         val from = plan.mixFrom
