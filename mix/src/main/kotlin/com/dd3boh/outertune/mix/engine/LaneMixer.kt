@@ -20,6 +20,7 @@ import com.dd3boh.outertune.mix.Style
 import com.dd3boh.outertune.mix.Wsola
 import com.dd3boh.outertune.mix.edit.Lane
 import com.dd3boh.outertune.mix.edit.LaneId
+import com.dd3boh.outertune.mix.edit.LaneSet
 import com.dd3boh.outertune.mix.edit.Preset
 import com.dd3boh.outertune.mix.edit.Side
 import com.dd3boh.outertune.mix.toPcm16
@@ -122,14 +123,23 @@ internal class GlideSource(
  * differ, from a tenth of a second before, which is long enough for the band filters to settle
  * from rest: a change of a few bars costs a fraction of one that cut the whole span.
  */
-internal class SideRenderer(private val plan: LanePlan, private val side: Side, private val source: FrameSource, origin: Long) {
+internal class SideRenderer(
+    private val plan: LanePlan,
+    private val side: Side,
+    private val source: FrameSource,
+    origin: Long,
+    /** The song's parts in [LaneSet.PARTS]'s order, read as [source] reads the song, for a change made on parts. */
+    private val parts: List<FrameSource>? = null,
+) {
     private val channels = plan.channels
     private var split: BandSplit? = null
     private val settle = (Engine.SETTLE_S * plan.sampleRate).toLong()
     private val lanes = plan.spec.lanes.lanes
     private val voices = lanes.map { LaneVoice(LaneId(side, it), plan, channels) }
     private val bandOf = IntArray(lanes.size) {
-        when (lanes[it]) {
+        if (parts != null) {
+            LaneSet.PARTS.lanes.indexOf(lanes[it]).also { k -> require(k >= 0) { "${lanes[it]} is not a part" } }
+        } else when (lanes[it]) {
             Lane.LOWS -> 0
             Lane.MIDS -> 1
             Lane.HIGHS -> 2
@@ -137,8 +147,12 @@ internal class SideRenderer(private val plan: LanePlan, private val side: Side, 
         }
     }
     private val stream = DoubleArray(channels)
-    private val bands = Array(3) { DoubleArray(channels) }
+    private val bands = Array(if (parts != null) parts.size else 3) { DoubleArray(channels) }
     private var next = origin
+
+    init {
+        require(parts == null || parts.size == LaneSet.PARTS.lanes.size) { "four parts, not ${parts?.size}" }
+    }
 
     /** Output frame [o] of this side into [out], in full-scale units; frames come one after another from the origin. */
     fun next(o: Long, out: DoubleArray) {
@@ -157,8 +171,13 @@ internal class SideRenderer(private val plan: LanePlan, private val side: Side, 
             if (silent) for (c in 0 until channels) out[c] = 0.0 else source.frame(o, out)
             return
         }
-        val s = split ?: BandSplit(source, channels, plan.sampleRate, o - settle).also { split = it }
-        s.bands(o, stream, bands[0], bands[1], bands[2])
+        if (parts != null) {
+            // The parts as they are: no filter to settle, and the four add up to the song.
+            for (k in parts.indices) parts[k].frame(o, bands[k])
+        } else {
+            val s = split ?: BandSplit(source, channels, plan.sampleRate, o - settle).also { split = it }
+            s.bands(o, stream, bands[0], bands[1], bands[2])
+        }
         for (c in 0 until channels) out[c] = 0.0
         val echo = if (side == Side.A) Engine.echoLevel(o, plan.echoFadeFrom, plan.aGone) else 1.0
         for (i in voices.indices) voices[i].process(bands[bandOf[i]], out, echo)
@@ -284,18 +303,43 @@ class LaneMixer(private val plan: LanePlan) {
      * [b]. Each song is kept at its own [attenuationA] and [attenuationB], its loudness
      * normalisation as it plays.
      */
-    fun render(a: ShortArray, b: ShortArray, attenuationA: Double, attenuationB: Double): ChangeRender {
+    @JvmOverloads
+    fun render(
+        a: ShortArray,
+        b: ShortArray,
+        attenuationA: Double,
+        attenuationB: Double,
+        /** A's parts in [LaneSet.PARTS]'s order, each frame for frame with [a]: for a change made on parts. */
+        aParts: List<ShortArray>? = null,
+        /** B's, frame for frame with [b]. */
+        bParts: List<ShortArray>? = null,
+    ): ChangeRender {
         val started = System.nanoTime()
         val channels = plan.channels
         val rate = plan.sampleRate
         val aSource = aSource(a)
         val bFrames0 = plan.facts.bFrames.coerceAtMost((b.size / channels).toLong())
-        val bSource = when {
-            plan.bStretch != null -> stretchedB(b, bFrames0)
-            plan.loop != null -> LoopedSource(b, channels, bFrames0, plan.bStart, plan.loop, rate)
+        fun bSourceOf(music: ShortArray): FrameSource = when {
+            plan.bStretch != null -> stretchedB(music, bFrames0)
+            plan.loop != null -> LoopedSource(music, channels, bFrames0, plan.bStart, plan.loop, rate)
             // B from a later bar: none of it before, and no click where it starts.
-            plan.bEntry > 0 -> EntrySource(b, channels, bFrames0, plan.bOrigin, plan.bEntry, ENTRY_FADE_MS * rate / 1000)
-            else -> PcmSource(b, channels, bFrames0, plan.bStart)
+            plan.bEntry > 0 -> EntrySource(music, channels, bFrames0, plan.bOrigin, plan.bEntry, ENTRY_FADE_MS * rate / 1000)
+            else -> PcmSource(music, channels, bFrames0, plan.bStart)
+        }
+        val bSource = bSourceOf(b)
+        // A change made on parts: each part read the way its song is, which the plan keeps to
+        // reading as it is (no stretch, no loop: see SpecPlan).
+        val onParts = plan.spec.lanes == LaneSet.PARTS
+        val aPartSources = if (!onParts) null else {
+            val partsOfA = requireNotNull(aParts) { "a change made on parts needs A's parts" }
+            check(plan.aMap.isIdentity && plan.outro == null) { "parts are read as they are" }
+            val aFrames = plan.facts.aFrames.coerceAtMost((a.size / channels).toLong())
+            partsOfA.map { PcmSource(it, channels, aFrames) }
+        }
+        val bPartSources = if (!onParts) null else {
+            val partsOfB = requireNotNull(bParts) { "a change made on parts needs B's parts" }
+            check(plan.bStretch == null && plan.loop == null) { "parts are read as they are" }
+            partsOfB.map { bSourceOf(it) }
         }
         val from = plan.mixFrom
         val to = plan.mixTo
@@ -312,8 +356,8 @@ class LaneMixer(private val plan: LanePlan) {
         val peaks = DoubleArray(knots)
         var peakBefore = 0.0
         run {
-            val sideA = SideRenderer(plan, Side.A, aSource, from)
-            val sideB = SideRenderer(plan, Side.B, bSource, bFrom)
+            val sideA = SideRenderer(plan, Side.A, aSource, from, aPartSources)
+            val sideB = SideRenderer(plan, Side.B, bSource, bFrom, bPartSources)
             val fa = DoubleArray(channels)
             val fb = DoubleArray(channels)
             var knot = -1
@@ -358,8 +402,8 @@ class LaneMixer(private val plan: LanePlan) {
         val bOut = ShortArray(bFrames * channels)
         var peakAfter = 0.0
         run {
-            val sideA = SideRenderer(plan, Side.A, aSource, from)
-            val sideB = SideRenderer(plan, Side.B, bSource, bFrom)
+            val sideA = SideRenderer(plan, Side.A, aSource, from, aPartSources)
+            val sideB = SideRenderer(plan, Side.B, bSource, bFrom, bPartSources)
             val fa = DoubleArray(channels)
             val fb = DoubleArray(channels)
             for (o in from until to) {

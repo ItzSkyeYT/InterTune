@@ -174,6 +174,31 @@ object Presets {
         )
     }
 
+    /**
+     * A change made on bands, opened on parts: each part takes the moves of the band it sounds in,
+     * bass from the lows, drums from the highs, and voice and melody both from the mids. The
+     * listener's timing and choices stay. A spec on parts is given back as it is.
+     */
+    fun onParts(spec: TransitionSpec): TransitionSpec {
+        if (spec.lanes == LaneSet.PARTS) return spec
+        val from = listOf(
+            LaneId(Side.A, Lane.BASS) to LaneId(Side.A, Lane.LOWS),
+            LaneId(Side.A, Lane.DRUMS) to LaneId(Side.A, Lane.HIGHS),
+            LaneId(Side.A, Lane.VOCALS) to LaneId(Side.A, Lane.MIDS),
+            LaneId(Side.A, Lane.MELODY) to LaneId(Side.A, Lane.MIDS),
+            LaneId(Side.B, Lane.BASS) to LaneId(Side.B, Lane.LOWS),
+            LaneId(Side.B, Lane.DRUMS) to LaneId(Side.B, Lane.HIGHS),
+            LaneId(Side.B, Lane.VOCALS) to LaneId(Side.B, Lane.MIDS),
+            LaneId(Side.B, Lane.MELODY) to LaneId(Side.B, Lane.MIDS),
+        )
+        return spec.copy(
+            lanes = LaneSet.PARTS,
+            moves = from.mapNotNull { (part, band) -> spec.moves[band]?.let { part to it } }.toMap(),
+            curves = from.mapNotNull { (part, band) -> spec.curves[band]?.let { part to it } }.toMap(),
+            muted = from.filter { (_, band) -> band in spec.muted }.map { it.first }.toSet(),
+        )
+    }
+
     private fun same(a: Map<LaneId, Move>, b: Map<LaneId, Move>): Boolean =
         a.keys == b.keys && a.all { (id, m) -> b[id]?.let { n -> n.how == m.how && abs(n.u - m.u) < EPS && abs(n.len - m.len) < EPS } == true }
 
