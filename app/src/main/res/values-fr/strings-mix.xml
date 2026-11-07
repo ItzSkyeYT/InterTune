@@ -147,7 +147,7 @@
     <string name="mix_edit_limit_b_first">%1$s démarre toujours à sa première seconde.</string>
     <string name="mix_edit_limit_b_reach">Le début de %1$s n\'est lu que jusqu\'à %2$s.</string>
     <string name="mix_edit_limit_a_needs">Il faudrait %1$s de la fin de %2$s ; seules les dernières %3$s peuvent servir.</string>
-    <string name="mix_edit_limit_a_plays">Pour l\'instant, un enchaînement enregistré commence au plus tôt %1$s avant la fin de %2$s.</string>
+    <string name="mix_edit_limit_phone">Limite de ce téléphone : %1$s avant la fin</string>
 
     <string name="mix_fix_title">Corriger le tempo : %1$s</string>
     <string name="mix_fix_sure">%1$s BPM · sûr</string>
@@ -242,6 +242,8 @@
     <string name="mix_edit_guard_skip_silence">Le saut des silences est activé : cette transition reste simple pour l\'instant.</string>
     <string name="mix_edit_guard_formats">Les deux morceaux n\'ont pas le même format : cette transition reste simple pour l\'instant.</string>
     <string name="mix_edit_guard_same_song">Un morceau vers lui-même reste une transition simple.</string>
+    <string name="mix_edit_guard_phone">Reste simple : commence %1$s avant la fin, limite de ce téléphone %2$s</string>
+    <string name="mix_edit_guard_phone_fix">Rapprocher</string>
     <!-- Mix (Unreleased.AUTOMIX_EDITOR) -->
     <string name="mix">Mix</string>
     <string name="mix_off">Les titres s\'enchaînent les uns dans les autres, comme un DJ.</string>

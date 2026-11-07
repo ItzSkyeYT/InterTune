@@ -33,6 +33,7 @@ import com.dd3boh.outertune.playback.batteryModeNow
 import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.mix.WholeSongGrid
+import com.dd3boh.outertune.playback.automix.AutomixPace
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
@@ -185,9 +186,12 @@ class MixEditorViewModel @Inject constructor(
                 val levelA = withContext(Dispatchers.IO) { runCatching { levelOf(fromId) }.getOrDefault(1.0) }
                 val levelB = withContext(Dispatchers.IO) { runCatching { levelOf(toId) }.getOrDefault(1.0) }
                 val volume = runCatching { volumeOf() }.getOrDefault(1f)
+                // This phone's pace as playback keeps it, the Pixel 5's guess until it has one, as
+                // playback does: how far before the end it can hold a change in time.
+                val pace = withContext(Dispatchers.IO) { AutomixPace.read(context.filesDir) } ?: AutomixPace()
                 val loaded = withContext(Dispatchers.IO) {
                     PairLoader(source, EditorCache(context.cacheDir, buildStamp()), { id, end -> MixStores.analysed(context, id, end) }, { id -> MixStores.wholeSongs(context).get(id) }, wholeReader(source)).load(
-                        inputA, inputB, levelA, levelB,
+                        inputA, inputB, levelA, levelB, pace,
                         stage = { phase.value = Phase.Loading(it) },
                         cancelled = { cancelled.get() },
                     )

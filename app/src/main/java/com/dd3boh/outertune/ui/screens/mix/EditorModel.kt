@@ -28,6 +28,7 @@ import com.dd3boh.outertune.mix.edit.aGoneAt
 import com.dd3boh.outertune.mix.edit.laneAt
 import com.dd3boh.outertune.mix.edit.unheardMs
 import com.dd3boh.outertune.mix.engine.SpecPlan
+import com.dd3boh.outertune.playback.automix.AutomixSchedule
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.max
@@ -51,8 +52,8 @@ sealed interface Limit {
     /** "16 bars needs 0:52 of Wake Me Up's end; only 1:12 can be used." */
     data class ANeeds(val neededMs: Double, val reachMs: Double) : Limit
 
-    /** "For now a saved change can start at most 0:31 before the end of Wake Me Up." */
-    data class APlays(val reachMs: Double) : Limit
+    /** "This phone's limit: 1:24 before the end": as far as playback on this phone holds A's end in time for it. */
+    data class PhoneReach(val reachMs: Double) : Limit
 }
 
 /** One line of the length sheet. */
@@ -369,14 +370,54 @@ class MixEditor(
     private fun bReadTo(s: TransitionSpec): Double = max(s.bMsAt(fitEnd(s)), SpecPlan.bReadToMs(s) ?: 0.0)
 
     /**
-     * Why [s] would never be played, or null: its first frame comes further before A's end than
-     * playback can hold A for a saved change ([PairFacts.playReachMs]), so Auto would play instead.
-     * Auto's own change and a plain one save nothing to hold, so they are never refused for it.
+     * Why [s] would never be played as made, or null: its first frame comes further before A's end
+     * than playback on this phone can hold A's end in time for it ([PairFacts.pace]), so it would
+     * play as a plain change. Worked out exactly as playback works it out. Auto's own change and a
+     * plain one save nothing to hold, so they are never refused for it.
      */
-    fun playLimitOf(s: TransitionSpec): Limit? {
+    fun playLimitOf(s: TransitionSpec): Limit.PhoneReach? {
         if (s.plain || sameAsAuto(s)) return null
+        return phoneLimitOf(s)
+    }
+
+    /** Where [s] is past what this phone holds in time, its reach; whoever made it. */
+    private fun phoneLimitOf(s: TransitionSpec): Limit.PhoneReach? {
+        val pace = facts.pace ?: return null
+        val lead = AutomixSchedule.savedLead(s, facts.a.durationMs, pace) ?: return null
+        return if (lead.fits) null else Limit.PhoneReach(max(0L, pace.reachMs(lead.spanMs, lead.entrySeconds)).toDouble())
+    }
+
+    /** How far before A's end [s]'s first frame may be on this phone, in ms; null where nothing holds it back, negative where nowhere is. */
+    private fun phoneReachMs(s: TransitionSpec): Double? {
+        val pace = facts.pace ?: return null
+        val lead = AutomixSchedule.savedLead(s, facts.a.durationMs, pace) ?: return null
+        return pace.reachMs(lead.spanMs, lead.entrySeconds).toDouble()
+    }
+
+    /** A saved change past this phone's limit, as the warning band says it: where it starts, and the limit. */
+    data class PhoneGuard(val startsMs: Double, val reachMs: Double)
+
+    /** [s] past this phone's limit, or null; see [playLimitOf]. */
+    fun phoneGuard(s: TransitionSpec = spec): PhoneGuard? {
+        val limit = playLimitOf(s) ?: return null
         val first = runCatching { SpecPlan.firstChangeMs(Presets.onBands(s)) }.getOrNull() ?: return null
-        return if (facts.a.durationMs - first > facts.playReachMs + 0.5) Limit.APlays(facts.playReachMs) else null
+        return PhoneGuard(facts.a.durationMs - first, limit.reachMs)
+    }
+
+    /**
+     * The fix for [phoneGuard]: the change moved later in A by whole bars, its shape kept, until
+     * this phone holds its end in time. False where it already does, or no place before A's end does.
+     */
+    fun fitToPhone(): Boolean {
+        if (playLimitOf(spec) == null) return false
+        val step = gridA(spec)?.barMs ?: HALF_SECOND_MS
+        val latest = facts.a.durationMs - spec.aGoneAt() * perA(spec)
+        var s = spec
+        while (s.a.atMs + step <= latest + 0.5) {
+            s = s.copy(a = s.a.copy(atMs = s.a.atMs + step))
+            if (playLimitOf(s) == null) return apply(s)
+        }
+        return false
     }
 
     /** Sets the length; the change keeps its end in A, and a preset is written again at the new length. */
@@ -484,7 +525,7 @@ class MixEditor(
      *
      * Either song can be moved. B always plays from its first frame: a bar 1 later in B starts B
      * that much earlier under A, its opening silent until its lanes come in, so how far B can move
-     * is how much of A's end playback holds before the change ([PairFacts.playReachMs]).
+     * is how much of A's end this phone holds in time before the change ([PairFacts.pace]).
      */
     fun anchorMoved(from: TransitionSpec, side: Side, deltaMs: Double, byBeats: Boolean): Pair<TransitionSpec, Limit?> =
         anchorMoved(from, side, deltaMs, if (byBeats) Snap.BEATS else Snap.BARS)
@@ -493,9 +534,12 @@ class MixEditor(
         if (side == Side.B) return bMoved(from, deltaMs, snap)
         val per = perA(from)
         val reachEarliest = facts.aReachStartMs - fitStart(from) * per
-        // Bar 1 as early as playback can hold the change's first frame, which moves with it.
+        // Bar 1 as early as this phone can hold the change's first frame in time, which moves with
+        // it; how far that is does not change with bar 1 (the change keeps its length and entry).
         val lead = runCatching { from.a.atMs - SpecPlan.firstChangeMs(Presets.onBands(from)) }.getOrNull()
-        val playEarliest = if (from.plain || lead == null) reachEarliest else facts.a.durationMs - facts.playReachMs + lead
+        val phoneReach = if (from.plain) null else phoneReachMs(from)
+        if (phoneReach != null && phoneReach < 0) return from to Limit.PhoneReach(0.0)
+        val playEarliest = if (lead == null || phoneReach == null) reachEarliest else facts.a.durationMs - phoneReach + lead
         val earliest = max(reachEarliest, playEarliest)
         val latest = facts.a.durationMs - from.aGoneAt() * per
         val wanted = from.a.atMs - deltaMs
@@ -505,14 +549,21 @@ class MixEditor(
         var at = snapped
         var limit: Limit? = null
         if (at < earliest - 0.5) {
-            limit = if (playEarliest > reachEarliest) Limit.APlays(facts.playReachMs) else Limit.AReach(facts.aReachMs)
+            limit = if (playEarliest > reachEarliest) Limit.PhoneReach(phoneReach!!) else Limit.AReach(facts.aReachMs)
             while (at < earliest - 0.5) at += stepMs
         }
         if (at > latest + 0.5) {
             limit = Limit.AEnds(facts.a.durationMs)
             while (at > latest + 0.5 && at - stepMs >= earliest - 0.5) at -= stepMs
         }
-        return from.copy(a = from.a.copy(atMs = max(0.0, at))) to limit
+        var next = from.copy(a = from.a.copy(atMs = max(0.0, at)))
+        // To the frame, as playback decides it: a step later while this phone would not hold it in time.
+        while (next.a.atMs + stepMs <= latest + 0.5) {
+            val why = playLimitOf(next) ?: break
+            next = next.copy(a = next.a.copy(atMs = next.a.atMs + stepMs))
+            limit = why
+        }
+        return next to limit
     }
 
     /** How a dragged anchor lands: on bar lines, on beats, or on beats with bar lines sticky. */
@@ -552,12 +603,16 @@ class MixEditor(
             while (at + need > facts.bReachEndMs + 0.5 && at - stepMs >= -0.5) at -= stepMs
         }
         var next = from.copy(b = from.b.copy(atMs = max(0.0, at)), bStartMs = 0.0)
-        // B's first frame, further before bar 1, inside what playback holds of A's end.
+        // B's first frame, further before bar 1, only as far before A's end as this phone holds in time.
         if (!next.plain) {
-            while (playLimitOf(next) != null && next.b.atMs - stepMs >= -0.5) {
+            var stopped = false
+            while (next.b.atMs - stepMs >= -0.5) {
+                playLimitOf(next) ?: break
                 next = next.copy(b = next.b.copy(atMs = max(0.0, next.b.atMs - stepMs)))
-                limit = Limit.APlays(facts.playReachMs)
+                stopped = true
             }
+            // Said for the change where it stopped: how far this phone holds that one.
+            if (stopped) limit = Limit.PhoneReach(max(0.0, phoneReachMs(next) ?: 0.0))
         }
         return next to limit
     }

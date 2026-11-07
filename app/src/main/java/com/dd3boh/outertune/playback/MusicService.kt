@@ -1291,8 +1291,8 @@ class MusicService : MediaLibraryService(),
                             entryTrial = { if (BuildConfig.BUILD_TYPE == "debug") EntryTrial.read(java.io.File(filesDir, EntryTrial.FILE)) else null },
                             loadAhead = { on -> automixLoadControl?.ahead = on },
                             // This phone's pace for far changes, kept between starts in a few lines of its own.
-                            loadPace = { java.io.File(filesDir, "mix-pace.txt").takeIf { it.isFile }?.readText()?.let { AutomixPace.decode(it) } },
-                            savePace = { pace -> java.io.File(filesDir, "mix-pace.txt").writeText(pace.encode()) },
+                            loadPace = { AutomixPace.read(filesDir) },
+                            savePace = { pace -> AutomixPace.write(filesDir, pace) },
                         ).also { addListener(it) }
                     }
                 }

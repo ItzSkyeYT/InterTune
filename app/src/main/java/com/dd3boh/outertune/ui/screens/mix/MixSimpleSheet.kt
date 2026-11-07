@@ -226,6 +226,7 @@ fun MixSimpleSheet(
     colors: MixColors,
     guard: String?,
     @StringRes guardSetting: Int? = null,
+    guardFix: GuardFix? = null,
     playing: Boolean,
     playU: () -> Double,
     said: String?,
@@ -314,7 +315,7 @@ fun MixSimpleSheet(
                     onAdvanced = ::toAdvanced,
                 )
                 // A guard that will refuse at playback: editing and saving still work.
-                if (guard != null) GuardBand(guard, guardSetting)
+                if (guard != null) GuardBand(guard, guardSetting, guardFix)
                 @Composable
                 fun SongsPart(waveHeight: Dp) {
                     SongLine(songA, words.aTitle, spec?.let { editor?.shownBpm(Side.A, it) }, vm.pair?.a?.key, words, look.dark, spec?.let { editor?.beatNote(Side.A, it) }) { onFix(Side.A) }

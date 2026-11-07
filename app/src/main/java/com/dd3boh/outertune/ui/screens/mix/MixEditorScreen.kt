@@ -345,13 +345,20 @@ fun MixEditorScreen(navController: NavController) {
     // that changes it, where there is one.
     val blocker = rememberMixBlocker()
     val formats = vm.pair?.let { it.a.pcm.info.sampleRate != it.b.pcm.info.sampleRate || it.a.pcm.info.channels != it.b.pcm.info.channels } == true
+    // A change past what this phone holds in time (one saved before, or before the phone was
+    // measured this slow) plays plain: said, with the fix that brings it closer to the end.
+    val phoneGuard = spec?.let { s -> editor?.phoneGuard(s) }
     val guard = when {
         vm.fromId == vm.toId -> stringResource(R.string.mix_edit_guard_same_song)
         skipSilence -> stringResource(R.string.mix_edit_guard_skip_silence)
         formats -> stringResource(R.string.mix_edit_guard_formats)
+        phoneGuard != null -> words.phoneGuard(phoneGuard)
         else -> blocker?.let { MixWords.blocked(it) }?.let { stringResource(it) }
     }
-    val guardSetting = if (guard != null && vm.fromId != vm.toId && !formats) guardSetting(skipSilence, blocker) else null
+    val phoneFix = if (guard != null && phoneGuard != null && vm.fromId != vm.toId && !skipSilence && !formats) {
+        GuardFix(stringResource(R.string.mix_edit_guard_phone_fix)) { vm.edit { fitToPhone() } }
+    } else null
+    val guardSetting = if (guard != null && vm.fromId != vm.toId && !formats && phoneFix == null) guardSetting(skipSilence, blocker) else null
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val tall = maxHeight >= 700.dp
@@ -364,7 +371,7 @@ fun MixEditorScreen(navController: NavController) {
             if (!landscape) {
                 LevelSwitch(simple = false, onSimple = { vm.showSimple(true) }, onAdvanced = {}, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp))
             }
-            if (guard != null) GuardBand(guard, guardSetting)
+            if (guard != null) GuardBand(guard, guardSetting, phoneFix)
             SongRow(songA, aTitle, spec?.let { words.clock(it.a.atMs) }, spec?.let { vm.editor?.shownBpm(Side.A, it) }, spec?.a?.fix?.isNone == false, words, landscape, spec?.let { vm.editor?.beatNote(Side.A, it) }) { fixOpen = Side.A }
             when (val p = phase) {
                 is MixEditorViewModel.Phase.Failed -> FailedState(p, aTitle, bTitle, if (p.side == Side.A) songA else songB, vm)
@@ -496,6 +503,7 @@ fun MixEditorScreen(navController: NavController) {
             colors = colors,
             guard = guard,
             guardSetting = guardSetting,
+            guardFix = phoneFix,
             playing = playing,
             playU = { playU },
             said = said,

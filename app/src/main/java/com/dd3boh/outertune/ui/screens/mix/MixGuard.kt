@@ -22,13 +22,17 @@ import androidx.compose.ui.unit.dp
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.mix.pill.PlainReason
 
+/** A fix the band offers on the change itself, where the reason is the change's own (too far for this phone). */
+class GuardFix(val label: String, val onClick: () -> Unit)
+
 /**
  * The editor's warning that this change will not play as made right now, with the setting behind
- * it when there is one, opened at its row (his rule of 2 Nov 2026: say why, and offer the fix). A
- * saved change is kept either way; it plays once the setting changes.
+ * it when there is one, opened at its row, or the fix on the change itself (his rule of 2 Nov
+ * 2026: say why, and offer the fix). A saved change is kept either way; it plays once the setting
+ * changes.
  */
 @Composable
-internal fun GuardBand(text: String, @StringRes setting: Int?) {
+internal fun GuardBand(text: String, @StringRes setting: Int?, fix: GuardFix? = null) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -42,7 +46,11 @@ internal fun GuardBand(text: String, @StringRes setting: Int?) {
             color = MaterialTheme.colorScheme.onErrorContainer,
             modifier = Modifier.weight(1f).padding(vertical = 7.dp),
         )
-        if (setting != null) {
+        if (fix != null) {
+            TextButton(onClick = fix.onClick) {
+                Text(fix.label, color = MaterialTheme.colorScheme.onErrorContainer)
+            }
+        } else if (setting != null) {
             TextButton(onClick = { MixWords.openSetting(setting) }) {
                 Text(stringResource(R.string.settings), color = MaterialTheme.colorScheme.onErrorContainer)
             }
