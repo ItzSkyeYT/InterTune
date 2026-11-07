@@ -2495,4 +2495,6 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="not_saved" translatable="false">Not saved: something went wrong. Please try again.</string>
     <!-- A picker asked for on a device with none (#120, #121). -->
     <string name="no_app_to_pick">No file picker here. Install a file manager app.</string>
+    <!-- The notification a headset or widget press shows for the moment between the app starting and the song's own notification (MediaButtonStart, issue #98). Held for translators. -->
+    <string name="media_button_resuming" translatable="false">Resuming your queue</string>
 </resources>

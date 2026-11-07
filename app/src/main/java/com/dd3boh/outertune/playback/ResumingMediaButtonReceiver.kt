@@ -53,6 +53,7 @@ class ResumingMediaButtonReceiver : MediaButtonReceiver() {
 
     override fun shouldStartForegroundService(context: Context, intent: Intent): Boolean {
         if (!startService) Log.i(TAG, "Nothing to resume, so the media button does not start the player")
+        else Log.i(TAG, if (MusicService.isRunning) "The media button goes to the player running" else "The media button starts the player")
         return startService
     }
 

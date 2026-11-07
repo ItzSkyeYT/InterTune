@@ -2306,4 +2306,5 @@
     <string name="not_saved" translatable="false">Non enregistré : un problème est survenu. Réessayez.</string>
     <!-- A picker asked for on a device with none (#120, #121). -->
     <string name="no_app_to_pick">Pas de sélecteur de fichiers. Installez un gestionnaire de fichiers.</string>
+    <string name="media_button_resuming" translatable="false">Reprise de votre file d\'attente</string>
 </resources>
