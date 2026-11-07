@@ -230,7 +230,9 @@ object VersionCard {
         val code = design.serial.removePrefix("No. ")
         val codeLeft = width - pad - number.measureText(code)
         canvas.drawText(code, codeLeft, nameBaseline, number)
-        canvas.drawText("No. ", codeLeft - numberLead.measureText("No. "), nameBaseline, numberLead)
+        // "No." in English, "N°" in French: the day under the name is in the phone's language too.
+        val lead = context.getString(R.string.version_card_number) + " "
+        canvas.drawText(lead, codeLeft - numberLead.measureText(lead), nameBaseline, numberLead)
 
         // Round corners through a shader: a clipped path has jagged corners in a bitmap's canvas.
         val card = createBitmap(DeviceCard.WIDTH, DeviceCard.HEIGHT)
@@ -406,7 +408,8 @@ fun VersionCardDialog(onDismiss: () -> Unit) {
             modifier = Modifier
                 .fillMaxSize()
                 .graphicsLayer { alpha = 1f - gone.value }
-                .drawBehind { drawRect(Color.Black.copy(alpha = 0.86f * dim.value)) }
+                // Dark enough that About's title does not show through beside "Your card" (0.86 let it).
+                .drawBehind { drawRect(Color.Black.copy(alpha = 0.94f * dim.value)) }
                 .clickable(interactionSource = null, indication = null, onClick = ::leave)
                 .windowInsetsPadding(WindowInsets.safeDrawing)
                 .padding(24.dp),
@@ -438,7 +441,7 @@ fun VersionCardDialog(onDismiss: () -> Unit) {
                 }
             }
             val ratio = (DeviceCard.ART + DeviceCard.BAND).toFloat()
-            val description = stringResource(R.string.version_card_title) + ", " + design.serial + ", " + found
+            val description = stringResource(R.string.version_card_title) + ", " + stringResource(R.string.version_card_number) + " " + design.serial.removePrefix("No. ") + ", " + found
             if (wide) {
                 // On its side: the card as tall as the screen lets it be, the rest beside it.
                 val cardWidth = min((maxHeight - 8.dp) / ratio, 360.dp)

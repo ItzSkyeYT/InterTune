@@ -2542,4 +2542,5 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="version_card_title" translatable="false">Your card</string>
     <string name="version_card_more" translatable="false">%1$d more</string>
     <string name="version_card_found" translatable="false">Found %1$s</string>
+    <string name="version_card_number" translatable="false">No.</string>
 </resources>
