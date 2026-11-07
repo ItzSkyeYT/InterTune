@@ -125,6 +125,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -1182,6 +1183,10 @@ class MainActivity : ComponentActivity() {
                 val backdropAvailable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                         (!useNavRail || landscape.active)
                 val navGlass = liquidGlass && backdropAvailable
+                // Below Android 13 there is no glass to draw, but the floating dock is only a shape:
+                // with Liquid glass on there, the bar keeps the dock's shape and margins with a plain
+                // fill (Mesh Raj's ask of 7 Nov 2026, on a Galaxy M30s with Android 11).
+                val plainDock = liquidGlass && !navGlass && Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU && !useNavRail
                 // Saver keeps the glass where it is and draws it still: no layer is recorded for it
                 // and no panel blurs or bends one (BatteryUse.glassStill, LocalGlassStill).
                 val glassStill = BatteryUse.glassStill(batteryMode)
@@ -2080,12 +2085,27 @@ class MainActivity : ComponentActivity() {
                                                     // callback runs on the node's own unclipped
                                                     // canvas, so it would paint a square patch.
                                                     .background(dockTint, dockShape)
+                                            } else if (plainDock) {
+                                                // The glass dock's shape and margins, with the bar's own
+                                                // fill and a shadow instead of the glass.
+                                                Modifier
+                                                    .windowInsetsPadding(
+                                                        windowsInsets.only(WindowInsetsSides.Horizontal)
+                                                            .add(cutoutInsets.only(WindowInsetsSides.Horizontal))
+                                                    )
+                                                    .padding(
+                                                        start = 12.dp,
+                                                        end = 12.dp,
+                                                        bottom = (bottomInset - 4.dp).coerceAtLeast(6.dp)
+                                                    )
+                                                    .shadow(6.dp, dockShape)
+                                                    .background(MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp), dockShape)
                                             } else Modifier
                                         ),
-                                    containerColor = if (navGlass) Color.Transparent
+                                    containerColor = if (navGlass || plainDock) Color.Transparent
                                     else MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp),
                                     contentColor = MaterialTheme.colorScheme.onSurface,
-                                    windowInsets = if (navGlass) WindowInsets(0, 0, 0, 0)
+                                    windowInsets = if (navGlass || plainDock) WindowInsets(0, 0, 0, 0)
                                     else NavigationBarDefaults.windowInsets
                                 ) {
                                     navigationItems.fastForEach { screen ->
