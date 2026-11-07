@@ -85,7 +85,8 @@ class KeptAuto(val spec: TransitionSpec, val why: String, val aEnd: SongEnd, val
  * Where the editor's windows are kept between openings, in the app's cache: Android may clear it,
  * and that only costs a read. Beside each window, what the analysis found in it, and for each pair
  * Auto's pick, so going back to a pair takes a moment instead of analysing it again (his ask of
- * 6 Nov 2026). Both are kept under [stamp], the build that made them: a new build analyses afresh.
+ * 6 Nov 2026). Both are kept under [stamp], the code that made them (MixCode.STAMP, a stamp of
+ * the Mix module's sources): a build whose Mix code changed analyses afresh, any other keeps them.
  */
 class EditorCache(cacheDir: File, private val stamp: String = "") {
     val dir = File(cacheDir, "mix/editor")

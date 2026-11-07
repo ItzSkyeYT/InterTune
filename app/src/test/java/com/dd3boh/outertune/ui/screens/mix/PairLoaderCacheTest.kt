@@ -29,8 +29,9 @@ import kotlin.math.sin
 /**
  * His ask of 6 Nov 2026: once a pair was analysed, going back to it should not analyse it again.
  * The editor keeps each window's analysis and Auto's pick for the pair; a second opening takes
- * both from the cache and opens on the same change, a beat fix has Auto pick again, and a new
- * build analyses afresh.
+ * both from the cache and opens on the same change, a beat fix has Auto pick again, and a change
+ * to the Mix code analyses afresh. The stamp is the Mix code's, not the install's: a new build
+ * whose Mix code is the same keeps what was found.
  */
 @UnstableApi
 class PairLoaderCacheTest {
@@ -132,7 +133,14 @@ class PairLoaderCacheTest {
     }
 
     @Test
-    fun `a new build analyses afresh`() {
+    fun `the editor keeps its finds under the Mix code's stamp, not the install's`() {
+        val model = File("src/main/java/com/dd3boh/outertune/ui/screens/mix/MixEditorViewModel.kt").readText()
+        assertTrue("EditorCache(context.cacheDir, MixCode.STAMP)" in model)
+        assertFalse("lastUpdateTime" in model)
+    }
+
+    @Test
+    fun `a change to the Mix code analyses afresh`() {
         load(cache("build-1"))
         val after = load(cache("build-2"))
         assertFalse(after.took!!.analysisKept)
