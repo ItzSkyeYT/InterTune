@@ -101,6 +101,8 @@ object TransitionJson {
             })
         }
         put("bStart", spec.bStartMs)
+        // Written only where B is the song adjusted: every change saved before reads as A, as it was.
+        if (spec.matchSide == Side.B) put("matchSide", "B")
         put("savedAt", spec.savedAt)
     }
 
@@ -148,6 +150,11 @@ object TransitionJson {
                 OutroLoop(lo.int("bars") ?: return null, lo.double("atMs") ?: return null, lo.int("times") ?: return null)
             },
             bStartMs = o.double("bStart") ?: 0.0,
+            matchSide = when (o.string("matchSide")) {
+                null, "A" -> Side.A
+                "B" -> Side.B
+                else -> return null
+            },
             savedAt = o.long("savedAt") ?: 0L,
             version = version,
         )

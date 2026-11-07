@@ -286,6 +286,12 @@ data class TransitionSpec(
     val outroLoop: OutroLoop? = null,
     /** Where B starts playing, in ms of its own clock: 0, its first frame, unless a later start is allowed. */
     val bStartMs: Double = 0.0,
+    /**
+     * The song the beat matcher adjusts: A, played at B's tempo through the change as it always
+     * was, or B, played at A's tempo while both are heard and brought back to its own once A is
+     * gone. The bars of the change are the same either way; only how long they last differs.
+     */
+    val matchSide: Side = Side.A,
     /** When it was saved, in ms since the epoch; 0 for a spec not saved. */
     val savedAt: Long = 0,
     val version: Int = VERSION,
@@ -325,6 +331,12 @@ data class TransitionSpec(
 
     /** Whether A is stretched to B's beat in this change. */
     val beatMatched: Boolean get() = beatMatch && beatMatchAllowed()
+
+    /** Whether the beat matcher moves B to A's tempo, instead of A to B's. */
+    val bAdjusted: Boolean get() = beatMatched && matchSide == Side.B
+
+    /** One bar of the change as it is heard, in ms: B's bar, or B's bar at A's tempo where B is adjusted. */
+    val heardBarMs: Double get() = if (bAdjusted) b.barMs * tempoRatio() else b.barMs
 
     /** How many of the change's bars A's loop adds to A: its bars, times over, at A's speed through the change; 0 without one. */
     val outroLoopBars: Double get() = outroLoop?.let { it.bars * it.times * a.barMs / (if (beatMatched) b.barMs * tempoRatio() else b.barMs) } ?: 0.0

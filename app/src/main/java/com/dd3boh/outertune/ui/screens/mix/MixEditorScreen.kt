@@ -443,12 +443,15 @@ fun MixEditorScreen(navController: NavController) {
             playing = playing,
             enabled = phase is MixEditorViewModel.Phase.Ready,
             // Read in the transport itself, so the page is not composed again on every frame it plays.
+            // The playhead and the page's state first, whatever else is missing: they are what makes the clock move on.
             time = {
+                val u = playU
+                val s = ui?.spec
                 val e = vm.editor
-                val s = vm.ui.value?.spec
                 if (e == null || s == null) "0:00 / 0:00" else {
-                    val span = (e.fitEnd() - e.fitStart()) * s.b.barMs
-                    val at = ((playU - e.fitStart()) * s.b.barMs).coerceIn(0.0, span)
+                    // A bar as it is heard: B's, or A's where B is the song adjusted.
+                    val span = (e.fitEnd() - e.fitStart()) * s.heardBarMs
+                    val at = ((u - e.fitStart()) * s.heardBarMs).coerceIn(0.0, span)
                     "${wordsNow.clock(at)} / ${wordsNow.clock(span)}"
                 }
             },
@@ -762,6 +765,20 @@ private fun Lowers(
         checked = spec.beatMatched && editor.beatMatchPossible,
         enabled = ready && allowed,
     ) { on -> vm.edit { setBeatMatch(on) } }
+    // The song the beat matcher adjusts, as two decks' pitch faders: the lit one moves to the other's tempo.
+    if (spec.beatMatched && editor.beatMatchPossible) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
+            Text(stringResource(R.string.mix_edit_bm_adjust), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.widthIn(min = 64.dp))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), itemVerticalAlignment = Alignment.CenterVertically) {
+                for (side in listOf(Side.A, Side.B)) FilterChip(
+                    selected = spec.matchSide == side,
+                    onClick = { vm.edit { setMatchSide(side) } },
+                    label = { Text(if (side == Side.A) words.aTitle else words.bTitle, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 120.dp)) },
+                    enabled = ready && (side == Side.A || editor.bAdjustPossible || spec.matchSide == Side.B),
+                )
+            }
+        }
+    }
     // A loop on either song, as a DJ app has one on each deck: 1, 2 or 4 bars, 1, 2 or 4 times.
     // On the next song it plays in front of it from bar 1, under the outgoing one, which then
     // comes in on its own bar 1; on the outgoing song its bars play again before it goes on, so

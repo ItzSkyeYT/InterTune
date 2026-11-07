@@ -228,7 +228,7 @@ class MixEditor(
     fun sameAsAuto(s: TransitionSpec): Boolean =
         s.plain == auto.plain && s.bars == auto.bars && near(s.seconds, auto.seconds, 1e-3) &&
             near(s.a.atMs, auto.a.atMs, 0.5) && near(s.b.atMs, auto.b.atMs, 0.5) &&
-            s.beatMatch == auto.beatMatch && s.introTwice == auto.introTwice && s.introLoop == auto.introLoop && s.outroLoop == auto.outroLoop &&
+            s.beatMatch == auto.beatMatch && s.matchSide == auto.matchSide && s.introTwice == auto.introTwice && s.introLoop == auto.introLoop && s.outroLoop == auto.outroLoop &&
             s.curves.isEmpty() && s.muted.isEmpty() && s.a.fix == auto.a.fix && s.b.fix == auto.b.fix &&
             EditorPresets.sameMoves(s.moves, auto.moves)
 
@@ -361,9 +361,12 @@ class MixEditor(
     fun reachOf(s: TransitionSpec): Limit? {
         val aFirst = s.aMsAt(fitStart(s))
         if (aFirst < facts.aReachStartMs - 0.5) return Limit.ANeeds(facts.a.durationMs - aFirst, facts.aReachMs)
-        if (s.bMsAt(fitEnd(s)) > facts.bReachEndMs + 0.5) return Limit.BReach(facts.bReachEndMs)
+        if (bReadTo(s) > facts.bReachEndMs + 0.5) return Limit.BReach(facts.bReachEndMs)
         return playLimitOf(s)
     }
+
+    /** How far into B [s] reads it, in B's ms: the canvas's end, or with B adjusted, its way back to its own tempo. */
+    private fun bReadTo(s: TransitionSpec): Double = max(s.bMsAt(fitEnd(s)), SpecPlan.bReadToMs(s) ?: 0.0)
 
     /**
      * Why [s] would never be played, or null: its first frame comes further before A's end than
@@ -432,6 +435,19 @@ class MixEditor(
         return apply(spec.copy(beatMatch = on))
     }
 
+    /**
+     * Whether the next song can be the one adjusted: its beats found, no loop in the change, which
+     * that does not play yet, and enough of it read for its way back to its own tempo.
+     */
+    val bAdjustPossible: Boolean get() = facts.b.grid != null && spec.introLoop == null && spec.outroLoop == null && spec.introTwice == 0 &&
+        bReadTo(spec.copy(matchSide = Side.B)) <= facts.bReachEndMs + 0.5
+
+    /** The song the beat matcher adjusts: A, at B's tempo through the change, or B, at A's. */
+    fun setMatchSide(side: Side): Boolean {
+        if (side == Side.B && !bAdjustPossible) return false
+        return apply(spec.copy(matchSide = side))
+    }
+
     fun setIntroTwice(bars: Int): Boolean {
         if (bars !in TransitionSpec.INTRO_TWICE_BARS) return false
         return apply(spec.copy(introTwice = bars))
@@ -443,6 +459,7 @@ class MixEditor(
      */
     fun setOutroLoop(bars: Int?, times: Int = 1): Boolean {
         if (bars == null) return apply(spec.copy(outroLoop = null))
+        if (spec.bAdjusted) return false
         if (bars !in IntroLoop.BARS || times !in 1..IntroLoop.MAX_TIMES) return false
         return apply(spec.copy(outroLoop = OutroLoop(bars, spec.outroLoop?.atMs ?: spec.a.atMs, times)))
     }
@@ -453,6 +470,7 @@ class MixEditor(
      */
     fun setIntroLoop(bars: Int?, times: Int = 1): Boolean {
         if (bars == null) return apply(spec.copy(introLoop = null))
+        if (spec.bAdjusted) return false
         if (bars !in IntroLoop.BARS || times !in 1..IntroLoop.MAX_TIMES) return false
         return apply(spec.copy(introLoop = IntroLoop(bars, spec.introLoop?.fromMs ?: spec.b.atMs, times), introTwice = 0))
     }
@@ -527,8 +545,8 @@ class MixEditor(
             at += stepMs
             limit = Limit.BFirstSecond
         }
-        // What was read of B holds the change and the bars after it.
-        val need = (from.lengthBars + 2) * from.b.barMs
+        // What was read of B holds the change and the bars after it, and with B adjusted, its way back.
+        val need = max((from.lengthBars + 2) * from.b.barMs, SpecPlan.bReadToMs(from.copy(bStartMs = 0.0))?.minus(from.b.atMs) ?: 0.0)
         if (at + need > facts.bReachEndMs + 0.5) {
             limit = Limit.BReach(facts.bReachEndMs)
             while (at + need > facts.bReachEndMs + 0.5 && at - stepMs >= -0.5) at -= stepMs
