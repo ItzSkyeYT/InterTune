@@ -245,7 +245,10 @@ object SpecPlan {
         // A's loop is played from the render: its first join, and the crossfade into it, inside it.
         val outroFrom = outro?.let { floor(map.outAt(it.end.toDouble())).toLong() - it.seam - pad } ?: Long.MAX_VALUE
         val mixFrom = minOf(aChangeFrom, bothFrom - pad, bFirstFrame, outroFrom)
-        val mixTo = maxOf(aGone, bothTo + pad, bPlain)
+        // A loop of B's bars plays to its end and its join into B's own bar 1, however long it runs
+        // after A is gone: after the change the song as it plays goes on, which never loops.
+        val loopEnd = if (loopSpec != null) floor(bar1).toLong() + loopAhead + Loops.seamFrames(rate) else Long.MIN_VALUE
+        val mixTo = maxOf(aGone, bothTo + pad, bPlain, loopEnd)
 
         val anchors = facts.anchors?.let { beats -> outro?.let { virtualBeats(beats, it) } ?: beats } ?: run {
             // A's beats on the spec's grid, from where its tempo starts to move to where it is gone.

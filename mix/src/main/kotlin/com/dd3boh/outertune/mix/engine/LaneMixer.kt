@@ -261,7 +261,9 @@ class ChangeRender(
             anchors = plan.anchors,
             alignedUntil = plan.outro?.let { floor(plan.aMap.outAt(it.end.toDouble())).toLong() - it.seam } ?: Long.MAX_VALUE,
             bEntry = plan.bEntry,
-            incomingOwnFrom = plan.bStretch?.let { it.switchAt + it.switchFrames } ?: Long.MIN_VALUE,
+            // Where B's part is B's own music, the song as it plays: after its way back to its own
+            // tempo where it is adjusted, after its loop where it has one, at once otherwise.
+            incomingOwnFrom = plan.bStretch?.let { it.switchAt + it.switchFrames } ?: plan.loop?.let { it.outTo + it.seam } ?: Long.MIN_VALUE,
         )
     }
 }
