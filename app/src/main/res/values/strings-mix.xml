@@ -123,7 +123,7 @@
     <string name="mix_line_plain">Plays as a plain change: %1$s to its end, then %2$s.</string>
     <string name="mix_edit_two_basslines">Two basslines · %1$s</string>
     <string name="mix_edit_needs_parts">Needs the mixer download</string>
-    <string name="mix_edit_replaced">Custom moves replaced by %1$s.</string>
+    <string name="mix_edit_replaced">Replaced by %1$s</string>
 
     <!-- switches and buttons -->
     <string name="mix_edit_beat_matching">Beat matching</string>
@@ -138,7 +138,7 @@
     <string name="mix_edit_bm_no_bars">Timed in seconds</string>
     <string name="mix_edit_back_to_auto">Back to Auto</string>
     <string name="mix_edit_plain">Plain change for these two</string>
-    <string name="mix_edit_parts_need">Parts need the mixer download (%1$d MB).</string>
+    <string name="mix_edit_parts_need">Parts · %1$d MB download</string>
 
     <!-- transport -->
     <string name="mix_edit_play">Play</string>
@@ -151,15 +151,15 @@
     <string name="mix_edit_length_note_timed">Each length keeps where the change ends.</string>
     <string name="mix_edit_length_at">bar 1 at %1$s</string>
     <string name="mix_edit_length_timed">With beat matching off:</string>
-    <string name="mix_edit_length_no_32">32 bars is not offered: it is past what can be held of %1$s.</string>
+    <string name="mix_edit_length_no_32">No 32 bars · too long for %1$s</string>
 
     <!-- limits -->
-    <string name="mix_edit_limit_a_reach">Only the last %1$s of %2$s can be used.</string>
-    <string name="mix_edit_limit_a_ends">%1$s ends at %2$s, before its last move.</string>
-    <string name="mix_edit_limit_b_first">%1$s always starts at its first second.</string>
-    <string name="mix_edit_limit_b_reach">%1$s opening is read up to %2$s.</string>
-    <string name="mix_edit_limit_a_needs">This needs %1$s of %2$s end; only the last %3$s can be used.</string>
-    <string name="mix_edit_limit_phone">This phone\'s limit: %1$s before the end</string>
+    <string name="mix_edit_limit_a_reach">%2$s · last %1$s only</string>
+    <string name="mix_edit_limit_a_ends">%1$s ends at %2$s</string>
+    <string name="mix_edit_limit_b_first">%1$s · from its start</string>
+    <string name="mix_edit_limit_b_reach">%1$s read to %2$s</string>
+    <string name="mix_edit_limit_a_needs">Needs %1$s of %2$s · last %3$s only</string>
+    <string name="mix_edit_limit_phone">Limit · %1$s before the end</string>
 
     <!-- fix the beat -->
     <string name="mix_fix_title">Fix the beat: %1$s</string>
@@ -257,10 +257,10 @@
     <string name="mix_edit_unreadable_b">%1$s opening could not be read. Try again, or download it.</string>
     <string name="mix_edit_download">Download</string>
     <string name="mix_edit_try_again">Try again</string>
-    <string name="mix_edit_guard_skip_silence">Skip silence is on, so this plays as a plain change for now.</string>
-    <string name="mix_edit_guard_formats">The two songs come in different formats, so this plays as a plain change for now.</string>
-    <string name="mix_edit_guard_same_song">A song into itself plays as a plain change.</string>
-    <string name="mix_edit_guard_phone">Plays plain: starts %1$s before the end, this phone\'s limit %2$s</string>
+    <string name="mix_edit_guard_skip_silence">Plain · Skip silence</string>
+    <string name="mix_edit_guard_formats">Plain · different formats</string>
+    <string name="mix_edit_guard_same_song">Plain · same song</string>
+    <string name="mix_edit_guard_phone">Plain · %1$s before the end · limit %2$s</string>
     <string name="mix_edit_guard_phone_fix">Move closer</string>
     <!-- Mix (Unreleased.AUTOMIX_EDITOR): the playlist's Mix row, the line between two songs, the queue's line, Settings > Mixing. -->
     <string name="mix">Mix</string>
@@ -268,14 +268,14 @@
     <string name="mix_on">Mixed. Tap a change to hear it or shape it.</string>
     <string name="mix_shuffled">Playing shuffled: each change is Auto.</string>
     <string name="mix_explain">When a song ends by itself, the next one comes in under it, on the beat when both have a steady one. Songs you skip to change as before.</string>
-    <string name="mix_blocked_casting">Not mixing while casting.</string>
-    <string name="mix_blocked_together">Not mixing while listening together.</string>
-    <string name="mix_blocked_repeat_one">Not mixing while Repeat one is on.</string>
-    <string name="mix_blocked_speed">Not mixing while the speed or pitch is changed.</string>
-    <string name="mix_blocked_skip_silence">Not mixing while Skip silence is on.</string>
-    <string name="mix_blocked_spatial">Not mixing with Surround upmix or Ambience on.</string>
-    <string name="mix_blocked_decoder">Not mixing while the FFmpeg decoder is on.</string>
-    <string name="mix_blocked_sleep_timer">Not mixing while a sleep timer is set.</string>
+    <string name="mix_blocked_casting">Plain · casting</string>
+    <string name="mix_blocked_together">Plain · listening together</string>
+    <string name="mix_blocked_repeat_one">Plain · Repeat one</string>
+    <string name="mix_blocked_speed">Plain · speed or pitch changed</string>
+    <string name="mix_blocked_skip_silence">Plain · Skip silence</string>
+    <string name="mix_blocked_spatial">Plain · Surround upmix or Ambience</string>
+    <string name="mix_blocked_decoder">Plain · FFmpeg decoder</string>
+    <string name="mix_blocked_sleep_timer">Plain · sleep timer</string>
     <string name="mix_pill_auto">Auto</string>
     <string name="mix_move_custom">Custom</string>
     <string name="mix_move_auto">Auto</string>
@@ -352,7 +352,7 @@
     <string name="mix_simple_set_by_auto">Set by Auto</string>
     <string name="mix_simple_advanced_note">Changed in Advanced</string>
     <string name="mix_simple_auto_note">Auto\'s own move</string>
-    <string name="mix_simple_replaced">Moves from Advanced replaced.</string>
+    <string name="mix_simple_replaced">Advanced moves replaced</string>
     <string name="mix_simple_length_no_32">Longer than what can be used of %1$s</string>
     <string name="mix_simple_open">Open</string>
     <string name="mix_simple_closed">Closed</string>

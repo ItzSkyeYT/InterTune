@@ -116,7 +116,7 @@
     <string name="mix_line_plain">Transition simple : %1$s jusqu\'à sa fin, puis %2$s.</string>
     <string name="mix_edit_two_basslines">Deux basses · %1$s</string>
     <string name="mix_edit_needs_parts">Nécessite le mixeur à télécharger</string>
-    <string name="mix_edit_replaced">Réglages personnalisés remplacés par %1$s.</string>
+    <string name="mix_edit_replaced">Remplacé par %1$s</string>
 
     <string name="mix_edit_beat_matching">Calage du tempo</string>
     <string name="mix_edit_bm_adjust">Ajuster</string>
@@ -130,7 +130,7 @@
     <string name="mix_edit_bm_no_bars">En secondes</string>
     <string name="mix_edit_back_to_auto">Revenir à Auto</string>
     <string name="mix_edit_plain">Transition simple pour ces deux</string>
-    <string name="mix_edit_parts_need">Les pistes nécessitent le mixeur à télécharger (%1$d Mo).</string>
+    <string name="mix_edit_parts_need">Pistes · téléchargement de %1$d Mo</string>
 
     <string name="mix_edit_play">Lire</string>
     <string name="mix_edit_stop">Arrêter</string>
@@ -141,14 +141,14 @@
     <string name="mix_edit_length_note_timed">Chaque durée garde la fin de la transition.</string>
     <string name="mix_edit_length_at">mesure 1 à %1$s</string>
     <string name="mix_edit_length_timed">Sans calage du tempo :</string>
-    <string name="mix_edit_length_no_32">Pas de 32 mesures : c\'est plus que ce qui peut être gardé de %1$s.</string>
+    <string name="mix_edit_length_no_32">Pas de 32 mesures · trop long pour %1$s</string>
 
-    <string name="mix_edit_limit_a_reach">Seules les dernières %1$s de %2$s peuvent servir.</string>
-    <string name="mix_edit_limit_a_ends">%1$s se termine à %2$s, avant son dernier mouvement.</string>
-    <string name="mix_edit_limit_b_first">%1$s démarre toujours à sa première seconde.</string>
-    <string name="mix_edit_limit_b_reach">Le début de %1$s n\'est lu que jusqu\'à %2$s.</string>
-    <string name="mix_edit_limit_a_needs">Il faudrait %1$s de la fin de %2$s ; seules les dernières %3$s peuvent servir.</string>
-    <string name="mix_edit_limit_phone">Limite de ce téléphone : %1$s avant la fin</string>
+    <string name="mix_edit_limit_a_reach">%2$s · %1$s de fin seulement</string>
+    <string name="mix_edit_limit_a_ends">%1$s se termine à %2$s</string>
+    <string name="mix_edit_limit_b_first">%1$s · depuis son début</string>
+    <string name="mix_edit_limit_b_reach">%1$s lu jusqu\'à %2$s</string>
+    <string name="mix_edit_limit_a_needs">%1$s de %2$s requis · %3$s de fin max</string>
+    <string name="mix_edit_limit_phone">Limite · %1$s avant la fin</string>
 
     <string name="mix_fix_title">Corriger le tempo : %1$s</string>
     <string name="mix_fix_sure">%1$s BPM · sûr</string>
@@ -240,10 +240,10 @@
     <string name="mix_edit_unreadable_b">Le début de %1$s n\'a pas pu être lu. Réessayez, ou téléchargez-le.</string>
     <string name="mix_edit_download">Télécharger</string>
     <string name="mix_edit_try_again">Réessayer</string>
-    <string name="mix_edit_guard_skip_silence">Le saut des silences est activé : cette transition reste simple pour l\'instant.</string>
-    <string name="mix_edit_guard_formats">Les deux morceaux n\'ont pas le même format : cette transition reste simple pour l\'instant.</string>
-    <string name="mix_edit_guard_same_song">Un morceau vers lui-même reste une transition simple.</string>
-    <string name="mix_edit_guard_phone">Reste simple : commence %1$s avant la fin, limite de ce téléphone %2$s</string>
+    <string name="mix_edit_guard_skip_silence">Sans mix · Ignorer le silence</string>
+    <string name="mix_edit_guard_formats">Sans mix · formats différents</string>
+    <string name="mix_edit_guard_same_song">Sans mix · même titre</string>
+    <string name="mix_edit_guard_phone">Sans mix · %1$s avant la fin · limite %2$s</string>
     <string name="mix_edit_guard_phone_fix">Rapprocher</string>
     <!-- Mix (Unreleased.AUTOMIX_EDITOR) -->
     <string name="mix">Mix</string>
@@ -251,14 +251,14 @@
     <string name="mix_on">Mixé. Touchez un enchaînement pour l\'écouter ou le modifier.</string>
     <string name="mix_shuffled">En lecture aléatoire : chaque enchaînement est en Auto.</string>
     <string name="mix_explain">Quand un titre se termine tout seul, le suivant arrive par-dessous, sur le temps quand les deux ont un rythme régulier. Un titre choisi à la main change comme avant.</string>
-    <string name="mix_blocked_casting">Pas de mix pendant la diffusion.</string>
-    <string name="mix_blocked_together">Pas de mix pendant l\'écoute à plusieurs.</string>
-    <string name="mix_blocked_repeat_one">Pas de mix tant que la répétition du titre est activée.</string>
-    <string name="mix_blocked_speed">Pas de mix tant que la vitesse ou la hauteur est modifiée.</string>
-    <string name="mix_blocked_skip_silence">Pas de mix tant que « Ignorer le silence » est activé.</string>
-    <string name="mix_blocked_spatial">Pas de mix avec l\'upmix surround ou Ambience activés.</string>
-    <string name="mix_blocked_decoder">Pas de mix tant que le décodeur FFmpeg est activé.</string>
-    <string name="mix_blocked_sleep_timer">Pas de mix tant qu\'une minuterie est réglée.</string>
+    <string name="mix_blocked_casting">Sans mix · diffusion</string>
+    <string name="mix_blocked_together">Sans mix · écoute à plusieurs</string>
+    <string name="mix_blocked_repeat_one">Sans mix · répétition du titre</string>
+    <string name="mix_blocked_speed">Sans mix · vitesse ou hauteur modifiée</string>
+    <string name="mix_blocked_skip_silence">Sans mix · Ignorer le silence</string>
+    <string name="mix_blocked_spatial">Sans mix · upmix surround ou Ambience</string>
+    <string name="mix_blocked_decoder">Sans mix · décodeur FFmpeg</string>
+    <string name="mix_blocked_sleep_timer">Sans mix · minuterie</string>
     <string name="mix_pill_auto">Auto</string>
     <string name="mix_move_custom">Personnalisé</string>
     <string name="mix_move_auto">Auto</string>
@@ -337,7 +337,7 @@
     <string name="mix_simple_set_by_auto">Réglé par Auto</string>
     <string name="mix_simple_advanced_note">Modifié dans Avancé</string>
     <string name="mix_simple_auto_note">Réglage d\'Auto</string>
-    <string name="mix_simple_replaced">Réglages d\'Avancé remplacés.</string>
+    <string name="mix_simple_replaced">Mouvements avancés remplacés</string>
     <string name="mix_simple_length_no_32">Plus long que ce qui peut servir de %1$s</string>
     <string name="mix_simple_open">Ouvert</string>
     <string name="mix_simple_closed">Fermé</string>
