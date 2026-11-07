@@ -222,8 +222,16 @@ class AutomixController(
      * gap as it comes on, then the change out of this song is mixed.
      */
     private fun joinNow() {
-        if (stage.activeForStream || player.currentMediaItem == null) return
-        if (player.playbackState != Player.STATE_READY && player.playbackState != Player.STATE_BUFFERING) return
+        val why = when {
+            stage.activeForStream -> "already in the chain for the song playing"
+            player.currentMediaItem == null -> "nothing is playing"
+            player.playbackState != Player.STATE_READY && player.playbackState != Player.STATE_BUFFERING -> "the player is not playing (state ${player.playbackState})"
+            else -> null
+        }
+        if (why != null) {
+            say("no join: $why")
+            return
+        }
         joining = true
         player.seekTo(player.currentPosition)
     }

@@ -86,10 +86,14 @@ class AutomixAudioSink(sink: AudioSink, private val stage: AutomixAudioProcessor
      * configure: this is the same stream going on, not a new one.
      */
     private fun joinIfWanted() {
-        val format = lastFormat ?: return
         if (!stage.wanted || stage.activeForStream) return
+        val format = lastFormat ?: run {
+            Log.i(TAG, "AutoMix: the stage cannot join yet: the sink has no song configured")
+            return
+        }
         try {
             super.configure(format, lastBufferSize, lastOutputChannels)
+            Log.i(TAG, "AutoMix: the song playing configured again, with the stage")
         } catch (e: AudioSink.ConfigurationException) {
             Log.w(TAG, "AutoMix: the stage could not join the song playing", e)
         }
