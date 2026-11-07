@@ -45,6 +45,11 @@ class ScnetPlan(val frames: Int, val overlap: Double) {
     /** Fills [left] and [right] ([SEGMENT] samples each) with segment [i] of the stretch, as the model gets it. */
     fun input(i: Int, srcLeft: FloatArray, srcRight: FloatArray, left: FloatArray, right: FloatArray) {
         require(srcLeft.size >= frames && srcRight.size >= frames)
+        input(i, { channel, frame -> if (channel == 0) srcLeft[frame] else srcRight[frame] }, left, right)
+    }
+
+    /** The same from a stretch read frame by frame, so it need not be held whole (WindowSplitter). */
+    fun input(i: Int, stretch: Stretch, left: FloatArray, right: FloatArray) {
         val s = start(i)
         val n = length(i)
         for (p in 0 until n) {
@@ -53,8 +58,8 @@ class ScnetPlan(val frames: Int, val overlap: Double) {
                 j -= border
                 if (j < 0) j = -j else if (j >= frames) j = 2 * (frames - 1) - j
             }
-            left[p] = srcLeft[j]
-            right[p] = srcRight[j]
+            left[p] = stretch.sample(0, j)
+            right[p] = stretch.sample(1, j)
         }
         if (n < SEGMENT) {
             val reflect = n > SEGMENT / 2
@@ -103,6 +108,11 @@ class ScnetPlan(val frames: Int, val overlap: Double) {
             return lo
         }
     }
+}
+
+/** A stretch of stereo audio read a sample at a time: [frame] from 0 of [channel] 0 (left) or 1 (right). */
+fun interface Stretch {
+    fun sample(channel: Int, frame: Int): Float
 }
 
 /**
