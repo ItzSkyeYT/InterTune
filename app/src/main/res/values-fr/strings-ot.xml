@@ -227,7 +227,7 @@
     <string name="scanner_sensitivity_L0">Prendre le premier résultat fourni par YouTube lorsque la recherche sur YouTube est activée ; sinon, rechercher une correspondance avec le titre</string>
     <string name="app_info_title">Informations sur l\'application</string>
     <string name="device_info_title">Informations sur l\'appareil</string>
-    <string name="help_bug_report_action">Soumettre un rapport de bogue (via GitHub)</string>
+    <string name="help_bug_report_action">Signaler un problème</string>
     <string name="help_contact_email_inquiries">Autres demandes (Appuyez pour copier l\'adresse e-mail)</string>
     <string name="help_support_forum">Aide et support (via GitHub)</string>
     <string name="wiki">Wiki</string>
@@ -659,16 +659,16 @@
     <string name="recognise_once_desc">Identifie un titre, puis s\'arrête.</string>
     <string name="recognise_keep_listening_short">Continue jusqu\'à ce que vous l\'arrêtiez.</string>
     <string name="recognition_source_room">Autour de vous</string>
-    <string name="recognition_source_phone">Sur ce téléphone</string>
+    <string name="recognition_source_phone">Sur cet appareil</string>
     <string name="recognition_phone_note">Android ne laisse une appli entendre les autres qu\'en enregistrant l\'écran, d\'où sa question. InterTune ne prend que le son, jamais l\'image, et seulement pour cette écoute.</string>
-    <string name="recognition_phone_tile">Titre sur ce téléphone</string>
-    <string name="recognition_service_title_phone">À l\'écoute de ce téléphone</string>
+    <string name="recognition_phone_tile">Titre sur cet appareil</string>
+    <string name="recognition_service_title_phone">À l\'écoute de cet appareil</string>
     <string name="recognition_phone_found_tap">touchez pour l\'ouvrir dans InterTune</string>
-    <string name="recognition_phone_nothing">Aucun titre trouvé sur ce téléphone</string>
+    <string name="recognition_phone_nothing">Aucun titre trouvé sur cet appareil</string>
     <string name="recognition_phone_nothing_hint">Réessayez pendant que le titre joue.</string>
-    <string name="recognition_phone_results_channel">Titres trouvés sur ce téléphone</string>
-    <string name="recognition_phone_needs_permission">InterTune a aussi besoin du micro pour écouter ce téléphone.</string>
-    <string name="recognition_phone_heard_nothing">Aucun son n\'est venu du téléphone. InterTune laisse de côté ses propres titres, et certaines applis bloquent l\'enregistrement.</string>
+    <string name="recognition_phone_results_channel">Titres trouvés sur cet appareil</string>
+    <string name="recognition_phone_needs_permission">InterTune a aussi besoin du micro pour écouter cet appareil.</string>
+    <string name="recognition_phone_heard_nothing">Aucun son n\'est venu de l\'appareil. InterTune laisse de côté ses propres titres, et certaines applis bloquent l\'enregistrement.</string>
     <string name="recognition_room_tile">Titre autour de vous</string>
     <string name="recognition_phone_continue">Continuer</string>
     <string name="recognition_phone_needs_notifications">InterTune a besoin des notifications pour vous donner le titre.</string>
@@ -748,7 +748,7 @@
     <string name="recognition_history">Ce que vous avez entendu</string>
     <string name="recognition_history_empty">Rien pour l\'instant. Les titres que vous identifiez apparaîtront ici.</string>
     <string name="recognition_no_match">Shazam n\'a pas reconnu ce titre.</string>
-    <string name="recognition_heard_nothing">Le micro n\'a rien entendu. Essayez de rapprocher le téléphone du haut-parleur.</string>
+    <string name="recognition_heard_nothing">Le micro n\'a rien entendu. Essayez de rapprocher l\'appareil du haut-parleur.</string>
     <string name="recognition_failed">Cela n\'a pas fonctionné. Vérifiez votre connexion et réessayez.</string>
     <string name="recognition_stop">Arrêter et identifier</string>
     <string name="recognition_try_again">Réessayer</string>
@@ -1672,6 +1672,7 @@
     <string name="android_auto_missing_body">Android Auto n\'affiche que les applications installées par Google Play, il masque donc InterTune. Pour l\'ajouter : ouvrez les paramètres d\'Android Auto sur votre téléphone et touchez dix fois la ligne Version. Ouvrez ensuite les paramètres pour les développeurs depuis le menu en haut et activez Sources inconnues.</string>
     <string name="problem_report_title">Signaler un problème</string>
     <string name="problem_report_found">Voici la dernière chose qui a mal tourné, telle que l\'application l\'a notée, avec ce qui l\'a précédée. Les titres en cours de lecture y figurent. Rien ne quitte le téléphone sauf si vous l\'envoyez.</string>
+    <string name="problem_report_latest_problem">Dernière session avec un problème</string>
     <string name="problem_report_player">Voici l\'erreur du lecteur, avec ce que l\'application a noté avant. Les titres en cours de lecture y figurent. Rien ne quitte le téléphone sauf si vous l\'envoyez.</string>
     <string name="problem_report_none">Aucune erreur n\'a été notée depuis l\'ouverture de l\'application. Voici ses dernières lignes.</string>
     <string name="problem_report_empty">Le journal du téléphone n\'a pas pu être lu. Le formulaire s\'ouvre quand même avec la version et le téléphone déjà remplis.</string>
@@ -2426,4 +2427,8 @@
     <string name="stats_found" translatable="false">InterTune vous a fait découvrir %1$s des titres que vous aimez.</string>
     <string name="found_way_radios" translatable="false">Radios</string>
     <string name="found_way_home" translatable="false">Autres rangées de l\'accueil</string>
+    <string name="version_card_title" translatable="false">Votre carte</string>
+    <string name="version_card_more" translatable="false">Encore %1$d</string>
+    <string name="version_card_found" translatable="false">Trouvée le %1$s</string>
+    <string name="version_card_number" translatable="false">N°</string>
 </resources>
