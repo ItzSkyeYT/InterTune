@@ -18,6 +18,8 @@ include(":lrclib")
 include(":lastfm")
 include(":fingerprint")
 include(":mix")
+// Parts for Mix: SCNet's STFT, its segments and its runner, pure Kotlin (Unreleased.AUTOMIX_PARTS).
+include(":parts")
 include(":material-color-utilities")
 include(":ffMetadataEx")
 include(":taglib")
