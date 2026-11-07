@@ -530,7 +530,6 @@ private fun WhereLine(
     said: String?,
     modifier: Modifier,
 ) {
-    val res = LocalResources.current
     val text by remember(editor, spec, words, phase, playing, said) {
         derivedStateOf {
             when {
@@ -540,13 +539,8 @@ private fun WhereLine(
                     PairLoader.Stage.READING_B -> words.readingB()
                     PairLoader.Stage.ANALYSING -> words.analysing()
                 }
-                editor == null || spec == null -> ""
-                playing -> words.nowPlaying(editor, playU())
-                else -> {
-                    val lost = editor.unheardMs(spec)
-                    if (lost >= 1000) res.getString(R.string.mix_simple_starts_lost, words.clock(spec.a.atMs), words.aTitle, words.clock(lost))
-                    else res.getString(R.string.mix_simple_starts, words.clock(spec.a.atMs), words.aTitle)
-                }
+                // No narration of the change, playing or stopped (his rule: no comments in the mixer).
+                else -> ""
             }
         }
     }

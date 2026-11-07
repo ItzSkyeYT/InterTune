@@ -64,4 +64,23 @@ class MixNoCommentsTest {
         assertTrue("state.selection = if (state.selection == tappedOn) null else tappedOn" in view)
         assertTrue("if (tappedOn == null && hit !is CanvasLayout.Hit.Point) state.selection = null" in view)
     }
+
+    /**
+     * His order of 7 Nov 2026: "NUKE the moments thing. DELETE IT". No list of the change's moments,
+     * and no line narrating it, playing or stopped, on either level: a refusal or the loading stage only.
+     */
+    @Test
+    fun `no moments sheet and no line narrating the change`() {
+        val dir = File("src/main/java/com/dd3boh/outertune/ui/screens/mix")
+        for (name in listOf("MixSheets.kt", "MixEditorScreen.kt", "MixSimpleSheet.kt")) {
+            assertFalse(name, "MomentsSheet" in File(dir, name).readText())
+        }
+        val screen = File(dir, "MixEditorScreen.kt").readText()
+        val now = screen.substringAfter("private fun NowLine(").substringBefore("\n}\n")
+        val simple = File(dir, "MixSimpleSheet.kt").readText()
+        val where = simple.substringAfter("private fun WhereLine(").substringBefore("\n}\n")
+        for ((name, body) in listOf("NowLine" to now, "WhereLine" to where)) {
+            assertFalse(name, "nowPlaying(" in body || "nowStopped(" in body || "mix_simple_starts" in body || "clickable(" in body)
+        }
+    }
 }
