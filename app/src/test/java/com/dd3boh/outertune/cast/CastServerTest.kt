@@ -18,6 +18,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
+import java.io.File
 import java.io.IOException
 import java.net.InetAddress
 import java.net.InetSocketAddress
@@ -737,12 +738,42 @@ class CastServerTest {
             } catch (expected: IOException) {
             }
         }
-        try {
-            Socket().use { it.connect(InetSocketAddress("127.0.0.1", port), 2000) }
-            fail("Still listening after stop")
-        } catch (expected: IOException) {
+        // The port is the system's again once the server stops, and on a busy machine another
+        // program can take it at once: a Gradle or Kotlin daemon opening a loopback port failed a
+        // full check on 7 Nov 2026. So what is checked is that this process no longer listens
+        // there, read from Linux's own table, and where there is none, that nothing answers.
+        val listening = listeningHere(port)
+        if (listening != null) {
+            assertFalse("Still listening after stop", listening)
+        } else {
+            try {
+                Socket().use { it.connect(InetSocketAddress("127.0.0.1", port), 2000) }
+                fail("Still listening after stop")
+            } catch (expected: IOException) {
+            }
         }
         server.stop()
+    }
+
+    /**
+     * Whether this process has a socket listening on [port], from /proc/net/tcp and tcp6 (the
+     * listening sockets, by inode) and /proc/self/fd (this process's own); null without /proc.
+     */
+    private fun listeningHere(port: Int): Boolean? {
+        val tables = listOf(File("/proc/net/tcp"), File("/proc/net/tcp6")).filter { it.canRead() }
+        val fds = File("/proc/self/fd").listFiles()
+        if (tables.isEmpty() || fds == null) return null
+        val hex = "%04X".format(port)
+        // Each line: sl, local address (ip:port in hex), remote address, state (0A is LISTEN), ..., inode.
+        val inodes = tables.flatMap { it.readLines().drop(1) }.mapNotNull { line ->
+            val f = line.trim().split(Regex("\\s+"))
+            if (f.size > 9 && f[1].substringAfterLast(':') == hex && f[3] == "0A") f[9] else null
+        }.toSet()
+        if (inodes.isEmpty()) return false
+        return fds.any { fd ->
+            val target = runCatching { java.nio.file.Files.readSymbolicLink(fd.toPath()).toString() }.getOrNull()
+            target != null && target.removePrefix("socket:[").removeSuffix("]") in inodes
+        }
     }
 
     @Test
