@@ -28,10 +28,11 @@ class PillsTest {
     private val b = PillSong(Specs.B_ID, albumId = "album-b", durationMs = 361_000)
     private val pair = SongPair(a.id, b.id)
 
-    private fun planner(auto: AutoChoice? = null, fits: Boolean = true, parts: Boolean = false) = object : PairPlanner {
+    private fun planner(auto: AutoChoice? = null, fits: Boolean = true, parts: Boolean = false, held: Boolean = true) = object : PairPlanner {
         override fun auto(pair: SongPair) = auto
         override fun stillFits(spec: TransitionSpec) = fits
         override fun partsReady(pair: SongPair) = parts
+        override fun heldInTime(spec: TransitionSpec, aDurationMs: Long) = held
     }
 
     @Test
@@ -58,6 +59,26 @@ class PillsTest {
     @Test
     fun `a saved edit whose songs changed since needs a look`() {
         assertEquals(Pill.NeedsLook, Pills.of(a, b, Specs.fadeOnBands(), null, planner(fits = false)))
+    }
+
+    @Test
+    fun `a saved edit this phone cannot hold in time plays plain, and the pill says so`() {
+        assertEquals(Pill.Plain(PlainReason.TOO_FAR), Pills.of(a, b, Specs.fadeOnBands(), null, planner(held = false)))
+        // Plain style: no pencil, what plays is named.
+        assertFalse(Pill.Plain(PlainReason.TOO_FAR).edited)
+        // What keeps it from playing anyway is said first: its songs changed (Auto plays), a setting, the pair.
+        assertEquals(Pill.NeedsLook, Pills.of(a, b, Specs.fadeOnBands(), null, planner(fits = false, held = false)))
+        assertEquals(Pill.Plain(PlainReason.SKIP_SILENCE), Pills.of(a, b, Specs.fadeOnBands(), PlainReason.SKIP_SILENCE, planner(held = false)))
+        // A plain change asked for holds nothing; Auto's own change is never too far.
+        assertEquals(Pill.Plain(PlainReason.YOUR_CHOICE), Pills.of(a, b, Pills.plainSpec(pair, null), null, planner(held = false)))
+        assertEquals(Pill.Auto, Pills.of(a, b, null, null, object : PairPlanner {
+            override fun auto(pair: SongPair): AutoChoice? = null
+            override fun heldInTime(spec: TransitionSpec, aDurationMs: Long) = false
+        }))
+        // Shuffled, saved changes are not used: Auto's line.
+        assertEquals(Pill.Move(Preset.FADE, PillLength.bars(8)), Pills.of(a, b, Specs.fadeOnBands(), null, planner(AutoChoice.Mixed(Preset.FADE, PillLength.bars(8)), held = false), shuffled = true))
+        // Unless told otherwise, every saved change is held in time.
+        assertTrue(PairPlanner.NOT_YET.heldInTime(Specs.fadeOnBands(), 308_000))
     }
 
     @Test

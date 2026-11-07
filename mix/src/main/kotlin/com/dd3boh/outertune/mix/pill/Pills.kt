@@ -44,6 +44,9 @@ enum class PlainReason {
     FORMATS,
     NOT_READY,
     NO_TIME,
+
+    /** A saved change that starts further before the end than this phone can hold the end in time for it. */
+    TOO_FAR,
     FROM_NEXT,
 
     /** The planner found no way to mix these two: every style was refused for its own reason. */
@@ -147,6 +150,12 @@ interface PairPlanner {
     /** Whether a change made on parts has its parts this time; without them it plays on bands. */
     fun partsReady(pair: SongPair): Boolean = false
 
+    /**
+     * Whether this phone can hold the end of a saved change's first song, [aDurationMs] long, in
+     * time for it; playback plays it plain where it cannot. True while nothing says otherwise.
+     */
+    fun heldInTime(spec: TransitionSpec, aDurationMs: Long): Boolean = true
+
     companion object {
         val NOT_YET: PairPlanner = object : PairPlanner {
             override fun auto(pair: SongPair): AutoChoice? = null
@@ -207,6 +216,7 @@ object Pills {
         if (spec != null) {
             if (spec.plain) return Pill.Plain(PlainReason.YOUR_CHOICE)
             if (!planner.stillFits(spec)) return Pill.NeedsLook
+            if (!planner.heldInTime(spec, a.durationMs)) return Pill.Plain(PlainReason.TOO_FAR)
             val bands = spec.lanes == LaneSet.PARTS && !planner.partsReady(pair)
             return Pill.Edited(spec.preset, PillLength.of(spec), bandsThisTime = bands)
         }

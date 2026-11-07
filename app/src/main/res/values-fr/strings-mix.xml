@@ -293,6 +293,7 @@
     <string name="mix_plain_formats">formats différents</string>
     <string name="mix_plain_not_ready">pas prêt à temps</string>
     <string name="mix_plain_no_time">pas le temps de préparer</string>
+    <string name="mix_plain_too_far">trop loin pour ce téléphone</string>
     <string name="mix_plain_from_next">dès le titre suivant</string>
     <string name="mix_plain_no_fit">rien ne convient</string>
     <string name="mix_plain_your_choice">votre choix</string>

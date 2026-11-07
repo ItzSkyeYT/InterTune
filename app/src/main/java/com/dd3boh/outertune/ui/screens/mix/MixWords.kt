@@ -59,6 +59,7 @@ object MixWords {
         PlainReason.FORMATS -> R.string.mix_plain_formats
         PlainReason.NOT_READY -> R.string.mix_plain_not_ready
         PlainReason.NO_TIME -> R.string.mix_plain_no_time
+        PlainReason.TOO_FAR -> R.string.mix_plain_too_far
         PlainReason.FROM_NEXT -> R.string.mix_plain_from_next
         PlainReason.NO_FIT -> R.string.mix_plain_no_fit
         PlainReason.YOUR_CHOICE -> R.string.mix_plain_your_choice
