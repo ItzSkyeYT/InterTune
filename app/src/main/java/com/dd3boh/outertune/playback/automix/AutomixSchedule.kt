@@ -6,8 +6,11 @@
 
 package com.dd3boh.outertune.playback.automix
 
+import com.dd3boh.outertune.mix.edit.Presets
 import com.dd3boh.outertune.mix.edit.TransitionSpec
 import com.dd3boh.outertune.mix.engine.Engine
+import com.dd3boh.outertune.mix.engine.SpecPlan
+import kotlin.math.max
 
 /**
  * When AutoMix does each thing, by how much of the song playing is left, and the checks on what
@@ -186,7 +189,10 @@ object AutomixSchedule {
      */
     fun copySecondsFor(saved: TransitionSpec?): Double {
         val need = saved?.takeIf { !it.plain }?.let {
-            (it.b.atMs + it.lengthMs + Engine.ECHO_MAX_BARS_AFTER * it.b.barMs) / 1000.0 + Engine.HEADROOM_PAD_S + COPY_MARGIN_S
+            val change = (it.b.atMs + it.lengthMs + Engine.ECHO_MAX_BARS_AFTER * it.b.barMs) / 1000.0
+            // With the next song adjusted, its way back to its own tempo and its own next bar line.
+            val wayBack = SpecPlan.bReadToMs(Presets.onBands(it))?.let { ms -> ms / 1000.0 } ?: 0.0
+            max(change, wayBack) + Engine.HEADROOM_PAD_S + COPY_MARGIN_S
         } ?: 0.0
         return need.coerceAtLeast(HEAD_SECONDS + COPY_MARGIN_S).coerceAtMost(COPY_MAX_S)
     }
