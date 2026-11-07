@@ -60,6 +60,10 @@ class VersionTapsTest {
         val tap = card.substringAfter("fun rememberVersionTap(").substringBefore("\n}\n")
         assertTrue("the taps are not counted by VersionTaps", "VersionTaps()" in tap && "taps.tap(SystemClock.uptimeMillis())" in tap)
         assertTrue("found once, one tap opens it", "if (DeviceCard.foundOn(found.value, code) != null) open.value()" in tap)
+        // A toast queued behind the others stayed four seconds over the card on the Pixel 5.
+        assertTrue("the countdown is the app's snackbar", "snackbar.showSnackbar(resources.getString(R.string.version_card_more, answer.taps))" in tap)
+        assertTrue("and no toast", "Toaster" !in tap)
+        assertTrue("gone when the card comes", tap.substringAfter("VersionTaps.Answer.Card -> {").substringBefore("open.value()").contains("saying[0]?.cancel()"))
     }
 
     @Test
