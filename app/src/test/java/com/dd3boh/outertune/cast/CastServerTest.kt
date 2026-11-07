@@ -688,11 +688,17 @@ class CastServerTest {
         }
 
         server.stop()
-        for (host in listOf("127.0.0.1", "127.0.0.2")) {
-            try {
-                Socket().use { it.connect(InetSocketAddress(host, port), 2000) }
-                fail("Still listening on $host after stop")
-            } catch (expected: IOException) {
+        // As in the stop test: the port is the system's again, so this process's own sockets are read.
+        val listening = listeningHere(port)
+        if (listening != null) {
+            assertFalse("Still listening after stop", listening)
+        } else {
+            for (host in listOf("127.0.0.1", "127.0.0.2")) {
+                try {
+                    Socket().use { it.connect(InetSocketAddress(host, port), 2000) }
+                    fail("Still listening on $host after stop")
+                } catch (expected: IOException) {
+                }
             }
         }
     }
