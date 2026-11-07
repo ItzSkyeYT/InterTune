@@ -1064,12 +1064,14 @@ class AutomixController(
             // a second before they are heard, so the volume follows at the change the player
             // reports. A first start or a seek is heard at once.
             if (!player.isPlaying || player.currentPosition < 1_000) syncNormalising()
-            // In the chain for the song playing, as AutoMix came on in its middle: its change is
-            // looked at again now, not at the next look the guard's wait had set.
+            // In the chain for the song playing: as AutoMix came on in its middle, or as a queue's
+            // first song started, a moment after the guard had looked while nothing played yet. Its
+            // change is looked at again now, not at the next look the guard's wait had set, which
+            // could be minutes away with the change called plain until then.
             if (active) {
-                val joined = joining
+                if (joining) say("in the chain for the song playing")
                 joining = false
-                if (joined && enabled) refresh()
+                if (enabled) refresh()
             }
         }
     }
