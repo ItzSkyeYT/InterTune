@@ -137,6 +137,7 @@ import com.dd3boh.outertune.mix.edit.LaneId
 import com.dd3boh.outertune.mix.edit.LaneSet
 import com.dd3boh.outertune.mix.edit.PartsRow
 import com.dd3boh.outertune.mix.edit.Preset
+import com.dd3boh.outertune.mix.engine.BHeard
 import com.dd3boh.outertune.mix.edit.Side
 import com.dd3boh.outertune.mix.edit.SimpleRead
 import com.dd3boh.outertune.mix.edit.SimpleRows
@@ -921,6 +922,9 @@ private class ViewKept {
 internal class WaveFrame(val editor: MixEditor, val spec: TransitionSpec, view: WaveView, val width: Float, val height: Float, val dp: Float) {
     val pad = 8 * dp
     val perA = editor.perA(spec)
+
+    /** Where the next song is heard on the change's bars, its way back to its own tempo included. */
+    val bHeard = BHeard(spec)
     val startMs = view.startMs
     val endMs = view.endMs
     val msPerPx = (endMs - startMs) / (width - 2 * pad)
@@ -1131,8 +1135,8 @@ private fun DrawScope.drawWaves(f: WaveFrame, pair: LoadedPair, look: SimpleLook
             column(x, aCentre, half, full, look.a.copy(alpha = 0.18f))
             column(x, aCentre, half, heard, look.a.copy(alpha = if (inside) 0.95f else 0.6f))
         }
-        val b0 = spec.bMsAt(f.uOfX(x - step / 2))
-        val b1 = spec.bMsAt(f.uOfX(x + step / 2))
+        val b0 = f.bHeard.msAt(f.uOfX(x - step / 2))
+        val b1 = f.bHeard.msAt(f.uOfX(x + step / 2))
         if (b1 > 0 && b0 < bEnd) {
             val (full, heard) = levels(bBands, Side.B, max(0.0, b0) - bOrigin, b1 - bOrigin, u)
             column(x, bCentre, half, full, look.b.copy(alpha = 0.18f))

@@ -8,6 +8,7 @@ package com.dd3boh.outertune.playback.automix
 
 import com.dd3boh.outertune.mix.edit.Anchor
 import com.dd3boh.outertune.mix.edit.How
+import com.dd3boh.outertune.mix.edit.IntroLoop
 import com.dd3boh.outertune.mix.edit.Lane
 import com.dd3boh.outertune.mix.edit.LaneId
 import com.dd3boh.outertune.mix.edit.LaneSet
@@ -165,6 +166,38 @@ class AutomixScheduleTest {
         // A plain change has no lead.
         assertNull(AutomixSchedule.savedLead(spec.copy(plain = true), duration, pace))
     }
+    @Test
+    fun `a loop in front of the next song that runs past the change counts in its span, whichever song is adjusted`() {
+        // 8 bars, A at 128 and B at 124 from its bar 1 at 4 s, B's first 4 bars looped four times: 16 bars.
+        val fade = Presets.moves(Preset.FADE, LaneSet.BANDS, 8.0, 0.25)!!
+        val spec = TransitionSpec(
+            a = Anchor("a", 200_000.0, 128.0), b = Anchor("b", 4_000.0, 124.0), lanes = LaneSet.BANDS,
+            bars = 8, beatMatch = true, preset = Preset.CUSTOM, moves = fade, introLoop = IntroLoop(4, 4_000.0, 4),
+        )
+        assertTrue(spec.problems().toString(), spec.isValid)
+        val pace = AutomixPace()
+        for (side in listOf(Side.A, Side.B)) {
+            val s = Presets.onBands(spec.copy(matchSide = side))
+            val first = SpecPlan.firstChangeMs(s)
+            val span = AutomixSchedule.changeSpanMs(s, first)
+            // To the loop's end at least, past the change's 8 bars.
+            assertTrue("$side: $span", first + span >= s.aMsAt(16.0) + Engine.HEADROOM_PAD_S * 1000)
+            assertEquals(span, AutomixSchedule.savedLead(s, 301_700.0, pace)!!.spanMs)
+        }
+        // With the next song adjusted, on to where its own samples take over after the loop.
+        val b = Presets.onBands(spec.copy(matchSide = Side.B))
+        val first = SpecPlan.firstChangeMs(b)
+        assertEquals((SpecPlan.bAdjustedEndMs(b)!! - first + Engine.HEADROOM_PAD_S * 1000).toLong(), AutomixSchedule.changeSpanMs(b, first))
+        // And the copy holds the loop's bars wherever they are in B.
+        val late = spec.copy(matchSide = Side.B, introLoop = IntroLoop(2, 40_000.0, 1))
+        assertTrue(AutomixSchedule.copySecondsFor(late) * 1000 >= 40_000.0 + 2 * late.b.barMs)
+        val rate = 48_000
+        val seconds = AutomixSchedule.copySecondsFor(late)
+        val facts = ChangeFacts(rate, 2, 200.0 * rate, 300L * rate, 4.0 * rate, (seconds * rate).toLong())
+        val planned = SpecPlan.plan(Presets.onBands(late), facts)
+        assertTrue((planned as? SpecPlan.Result.Refused)?.why ?: "", planned is SpecPlan.Result.Planned)
+    }
+
     @Test
     fun `a change that adjusts the next song copies it as far as its way back to its own tempo`() {
         // 16 bars, A at 88 and B at 90 BPM from its first second, A fading out: B is slowed to A's

@@ -10,6 +10,7 @@ import com.dd3boh.outertune.mix.ChangeSum
 import com.dd3boh.outertune.mix.Curve
 import com.dd3boh.outertune.mix.Decimator
 import com.dd3boh.outertune.mix.FloatList
+import com.dd3boh.outertune.mix.FrameMap
 import com.dd3boh.outertune.mix.Headroom
 import com.dd3boh.outertune.mix.MixPlan
 import com.dd3boh.outertune.mix.Pcm
@@ -261,7 +262,9 @@ class ChangeRender(
             anchors = plan.anchors,
             alignedUntil = plan.outro?.let { floor(plan.aMap.outAt(it.end.toDouble())).toLong() - it.seam } ?: Long.MAX_VALUE,
             bEntry = plan.bEntry,
-            incomingOwnFrom = plan.bStretch?.let { it.switchAt + it.switchFrames } ?: Long.MIN_VALUE,
+            // Where B's part is B's own music, the song as it plays: after its way back to its own
+            // tempo where it is adjusted, after its loop where it has one, at once otherwise.
+            incomingOwnFrom = plan.bStretch?.let { it.switchAt + it.switchFrames } ?: plan.loop?.let { it.outTo + it.seam } ?: Long.MIN_VALUE,
         )
     }
 }
@@ -403,27 +406,66 @@ class LaneMixer(private val plan: LanePlan) {
     private fun stretchedB(b: ShortArray, frames: Long): FrameSource {
         val s = plan.bStretch!!
         val channels = plan.channels
+        // What is stretched: B as played, its loop's passes laid in where it has one, from its frame [lo].
+        val (music, lo) = s.loop?.let { asPlayed(b, frames, s, it) } ?: (b to 0L)
+        val musicFrames = (music.size / channels).toLong()
         val factor = Pcm.decimationFor(plan.sampleRate)
         val decimator = Decimator(plan.sampleRate, factor)
-        val mono = FloatList((frames / factor + 1).toInt())
+        val mono = FloatList((musicFrames / factor + 1).toInt())
         val inverse = 1.0 / (Pcm.FULL_SCALE * channels)
         var i = 0
-        val end = (frames * channels).toInt()
+        val end = (musicFrames * channels).toInt()
         while (i < end) {
             var sum = 0
-            for (c in 0 until channels) sum += b[i + c]
+            for (c in 0 until channels) sum += music[i + c]
             decimator.push(sum * inverse, mono)
             i += channels
         }
         // Laid out for every frame a band split may read before B is heard, up to where its own samples have taken over.
         val from = s.heardFrom - (Engine.SETTLE_S * plan.sampleRate).toLong() - 1
         val to = s.switchAt + s.switchFrames + 1
-        val wsola = Wsola(b, channels, plan.sampleRate, mono.toArray(), factor, s.anchors, phase = plan.gridOrigin).frames(s.map, from, to)
+        val map = if (lo == 0L) s.map else Shifted(s.map, -lo)
+        val anchors = if (lo == 0L) s.anchors else DoubleArray(s.anchors.size) { s.anchors[it] - lo }
+        val wsola = Wsola(music, channels, plan.sampleRate, mono.toArray(), factor, anchors, phase = plan.gridOrigin).frames(map, from, to)
         return GlideSource(wsola, b, channels, frames, s, ENTRY_FADE_MS * plan.sampleRate / 1000)
+    }
+
+    /**
+     * B as played with its loop in front, for the stretch: its frames, the loop's passes laid in
+     * just before its own bar 1 and joined as with A adjusted ([LoopedSource]), from its frame
+     * returned beside them (before its first where the loop starts before it) up to a little past
+     * where its own samples take over, which is all the stretch reads.
+     */
+    internal fun asPlayed(b: ShortArray, frames: Long, s: BStretch, loop: PlannedLoop): Pair<ShortArray, Long> {
+        val channels = plan.channels
+        val lo = min(0L, loop.outFrom)
+        val hi = max(loop.outTo + loop.seam, min(frames, s.switchFrame + s.switchFrames + 2L * Wsola.FRAME))
+        val source = LoopedSource(b, channels, frames, 0L, loop, plan.sampleRate)
+        val out = ShortArray(((hi - lo) * channels).toInt())
+        val frame = DoubleArray(channels)
+        for (v in lo until hi) {
+            source.frame(v, frame)
+            val i = ((v - lo) * channels).toInt()
+            for (c in 0 until channels) out[i + c] = toPcm16(frame[c])
+        }
+        return out to lo
+    }
+
+    /** [map] with every frame it gives moved by [by]: B as played, counted from the first frame of a copy of it. */
+    private class Shifted(private val map: FrameMap, private val by: Long) : FrameMap {
+        override fun tailAt(out: Double): Double = map.tailAt(out) + by
+        override fun outAt(tail: Double): Double = map.outAt(tail - by)
+        override val inPlaceUntil: Double get() = map.inPlaceUntil
     }
 
     /** A's music by output frame as the change takes it, before any lane is shaped: stretched where the plan stretches it. For a change's proof. */
     internal fun outgoingSource(a: ShortArray): FrameSource = aSource(a)
+
+    /** B's music by output frame as the change takes it, before any lane is shaped. For a change's proof. */
+    internal fun incomingSource(b: ShortArray): FrameSource {
+        val frames = plan.facts.bFrames.coerceAtMost((b.size / plan.channels).toLong())
+        return if (plan.bStretch != null) stretchedB(b, frames) else error("only B adjusted")
+    }
 
     private fun aSource(held: ShortArray): FrameSource {
         val channels = plan.channels

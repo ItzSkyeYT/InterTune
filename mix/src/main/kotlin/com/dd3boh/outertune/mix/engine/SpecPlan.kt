@@ -126,14 +126,23 @@ class LanePlan internal constructor(
         val name = if (spec.preset == Preset.AUTO) "Auto (${AutoSpec.label(spec)})" else AutoSpec.label(spec.copy(from = spec.preset))
         val from = if (bEntry > 0) " from its frame $bEntry" else ""
         val b = bStretch?.let { ", B at %.4f till A is gone, its own from frame %d".format(it.map.speed, it.switchAt) } ?: ""
-        return "$name on ${spec.lanes.key}, $tempo$b, B at frame $bStart$from, A gone at frame $aGone"
+        val loops = listOfNotNull(
+            spec.outroLoop?.let { ", A's loop of ${it.bars} bar${if (it.bars == 1) "" else "s"}, ${it.times} more" },
+            spec.introLoop?.let { ", B's loop of ${it.bars} bar${if (it.bars == 1) "" else "s"}, ${it.times} times" },
+        ).joinToString("")
+        return "$name on ${spec.lanes.key}, $tempo$b$loops, B at frame $bStart$from, A gone at frame $aGone"
     }
 }
 
 /**
  * B stretched by the beat matcher: its frames by output frame ([map]), heard from [heardFrom], its
  * own samples taking over at output frame [switchAt] with its frame [switchFrame], crossed over
- * to in [switchFrames], and its beats ([anchors], in its own frames) for the stretch to land.
+ * to in [switchFrames], and its beats ([anchors]) for the stretch to land.
+ *
+ * With a loop in front of it, what is stretched is B as played: its frames as they are, except the
+ * ones just before its own bar 1, whose place the loop's passes take ([loop], counted in B's own
+ * frames, so its passes run up to that bar). [map] and [anchors] count frames of B as played,
+ * which are B's own everywhere but inside the loop; its own samples take over after it.
  */
 class BStretch(
     val map: GlideMap,
@@ -142,6 +151,7 @@ class BStretch(
     val switchFrame: Long,
     val switchFrames: Int,
     val anchors: DoubleArray,
+    val loop: PlannedLoop? = null,
 )
 
 /** Turns a spec and the music at hand into the [LanePlan] the engine plays, or says why it cannot. */
@@ -161,30 +171,22 @@ object SpecPlan {
         if (spec.plain) return Result.Refused("a plain change")
         if (spec.lanes != LaneSet.BANDS) return Result.Refused("made on ${spec.lanes.key}, which this phone does not split into")
         spec.problems().takeIf { it.isNotEmpty() }?.let { return Result.Refused(it.joinToString("; ")) }
-        if (spec.bAdjusted) return planBAdjusted(spec, facts)
-        // Neither is played yet: a change that asks for one is not played as something else.
-        if (spec.introTwice > 0 && spec.introLoop == null) return plan(spec.copy(introTwice = 0, introLoop = IntroLoop(spec.introTwice, spec.b.atMs, 1)), facts)
+        // The intro twice is a loop of B's first bars, played once.
+        if (spec.introTwice > 0 && spec.introLoop == null) return plan(spec.copy(introTwice = 0, introLoop = introLoopOf(spec)), facts)
         val rate = facts.sampleRate
         // B comes in at its own frame [entry], heard on the frame where it falls; nothing of it before.
         val entry = (spec.bStartMs * rate / 1000.0).roundToLong()
-        if (entry > 0 && (spec.introLoop != null || spec.introTwice > 0)) return Result.Refused("a loop in front of a next song that comes in after its first frame is not played yet")
+        if (entry > 0 && spec.introLoop != null) return Result.Refused("a loop in front of a next song that comes in after its first frame is not played yet")
+        if (spec.bAdjusted) return planBAdjusted(spec, facts)
         val barFrames = spec.b.barMs * rate / 1000.0
         val beatFrames = barFrames * spec.beat
         val speed = if (spec.beatMatched) spec.tempoRatio() else 1.0
 
         // A as heard: with a loop of its bars, everything of A after them comes that much later,
         // and every frame of A below is counted in A as looped.
-        val outroSpec = spec.outroLoop
-        if (outroSpec != null && facts.aMap != null) return Result.Refused("the outgoing loop on a time map worked out without it")
-        val outro = outroSpec?.let { l ->
-            val from = facts.aBar1 + (l.atMs - spec.a.atMs) * rate / 1000.0
-            val frames = (l.bars * spec.a.barMs * rate / 1000.0).roundToLong()
-            val seam = Loops.seamFrames(rate)
-            when {
-                from < 0 -> return Result.Refused("the outgoing loop starts before the music at hand")
-                from + frames + seam > facts.aFrames -> return Result.Refused("the outgoing loop runs past the music at hand")
-            }
-            PlannedOutroLoop(from.roundToLong(), frames, l.times, seam)
+        val outro = when (val o = outroOf(spec, facts)) {
+            is Placed.Refused -> return Result.Refused(o.why)
+            is Placed.Loop -> o.loop
         }
         val aBar1 = outro?.virtual(facts.aBar1) ?: facts.aBar1
         val aFrames = facts.aFrames + (outro?.shift ?: 0L)
@@ -245,7 +247,10 @@ object SpecPlan {
         // A's loop is played from the render: its first join, and the crossfade into it, inside it.
         val outroFrom = outro?.let { floor(map.outAt(it.end.toDouble())).toLong() - it.seam - pad } ?: Long.MAX_VALUE
         val mixFrom = minOf(aChangeFrom, bothFrom - pad, bFirstFrame, outroFrom)
-        val mixTo = maxOf(aGone, bothTo + pad, bPlain)
+        // A loop of B's bars plays to its end and its join into B's own bar 1, however long it runs
+        // after A is gone: after the change the song as it plays goes on, which never loops.
+        val loopEnd = if (loopSpec != null) floor(bar1).toLong() + loopAhead + Loops.seamFrames(rate) else Long.MIN_VALUE
+        val mixTo = maxOf(aGone, bothTo + pad, bPlain, loopEnd)
 
         val anchors = facts.anchors?.let { beats -> outro?.let { virtualBeats(beats, it) } ?: beats } ?: run {
             // A's beats on the spec's grid, from where its tempo starts to move to where it is gone.
@@ -306,6 +311,30 @@ object SpecPlan {
         )
     }
 
+    /** B's loop in front of it: its own, or the intro twice, which is B's first bars from its bar 1 played once more. */
+    private fun introLoopOf(spec: TransitionSpec): IntroLoop? =
+        spec.introLoop ?: spec.introTwice.takeIf { it > 0 }?.let { IntroLoop(it, spec.b.atMs, 1) }
+
+    private sealed class Placed {
+        class Loop(val loop: PlannedOutroLoop?) : Placed()
+        class Refused(val why: String) : Placed()
+    }
+
+    /** A's loop in the music at hand, whichever song is adjusted; none without one, or why it cannot be had. */
+    private fun outroOf(spec: TransitionSpec, facts: ChangeFacts): Placed {
+        val l = spec.outroLoop ?: return Placed.Loop(null)
+        if (facts.aMap != null) return Placed.Refused("the outgoing loop on a time map worked out without it")
+        val rate = facts.sampleRate
+        val from = facts.aBar1 + (l.atMs - spec.a.atMs) * rate / 1000.0
+        val frames = (l.bars * spec.a.barMs * rate / 1000.0).roundToLong()
+        val seam = Loops.seamFrames(rate)
+        return when {
+            from < 0 -> Placed.Refused("the outgoing loop starts before the music at hand")
+            from + frames + seam > facts.aFrames -> Placed.Refused("the outgoing loop runs past the music at hand")
+            else -> Placed.Loop(PlannedOutroLoop(from.roundToLong(), frames, l.times, seam))
+        }
+    }
+
     /** A's beats [beats] in A as looped: those after the loop later by it, and the loop's own over again in each pass. */
     internal fun virtualBeats(beats: DoubleArray, loop: PlannedOutroLoop): DoubleArray {
         val out = ArrayList<Double>(beats.size + 16)
@@ -335,7 +364,9 @@ object SpecPlan {
         val bFirst = minOf(if (loopU > 0) minOf(0.0, bStartU) else bStartU, bLanes.minOf { firstHeardU(spec, it) ?: bStartU })
         var ms = spec.aMsAt(minOf(aFirst, bFirst))
         // With B adjusted, the song as it plays comes in before B is heard by what the stretch gains.
-        bLayout(spec, READ_RATE)?.let { ms = minOf(ms, spec.aMsAt(bStartU) + min(0L, it.bStartAt) * 1000.0 / READ_RATE) }
+        bLayout(spec, READ_RATE)?.let { ms = minOf(ms, spec.aMsAt(it.firstU) + min(0L, it.bStartAt) * 1000.0 / READ_RATE) }
+        // A's loop is played from the change: from its first join on, A is no longer the held end.
+        spec.outroLoop?.let { ms = minOf(ms, it.atMs + it.bars * spec.a.barMs - Loops.SEAM_MS) }
         if (spec.beatMatched && !spec.bAdjusted) {
             val beats = if (abs(spec.tempoRatio() - 1) > LONG_RAMP_ABOVE) LONG_RAMP_BEATS else RAMP_BEATS
             ms = minOf(ms, spec.a.atMs - beats * 60_000.0 / spec.a.bpm)
@@ -370,31 +401,53 @@ object SpecPlan {
         val switchFrame: Long,
         /** Output frames after B is first heard where the song as it plays comes in with frame [entry]: before it where B's stretch gains frames. */
         val bStartAt: Long,
+        /** The frame of B as played first heard, which the offsets above count from: [entry], or with a loop in front, the loop's first where it comes first. */
+        val first: Long,
+        /** Where [first] falls in the change, in its bars. */
+        val firstU: Double,
+        /** The frame of B as played on bar 1 of the change: B's anchor, or with a loop, as many frames before it as the loop's passes take. */
+        val bar1At: Double,
+        /** B's loop in front of it, in frames of B as played: its passes in place of the frames just before B's own bar 1. */
+        val loop: PlannedLoop?,
     )
 
-    /** [spec]'s layout for B adjusted, at [rate]; null where B is not the song adjusted. */
-    fun bLayout(spec: TransitionSpec, rate: Int): BLayout? {
+    /**
+     * [spec]'s layout for B adjusted, at [rate], with B's anchor at its frame [bBar1]; null where B
+     * is not the song adjusted. With a loop in front of B, B as played is B with the loop's passes
+     * laid in just before its own bar 1, in the place of the frames that lead into it, as with A
+     * adjusted, so its first pass starts on bar 1 of the change and B's own bar 1 comes as many
+     * bars later as the loop takes; all of it at A's tempo while A is heard.
+     */
+    fun bLayout(spec: TransitionSpec, rate: Int, bBar1: Double = spec.b.atMs * rate / 1000.0): BLayout? {
         if (!spec.bAdjusted) return null
         val entry = (spec.bStartMs * rate / 1000.0).roundToLong()
         val speed = 1.0 / spec.tempoRatio()
         val barFrames = spec.heardBarMs * rate / 1000.0
-        val bAt = spec.b.atMs * rate / 1000.0
         val bBarOwn = spec.b.barMs * rate / 1000.0
-        // B's entry, in bars of the change.
-        val uEntry = (entry - bAt) / bBarOwn
+        val loop = introLoopOf(spec)?.let { l ->
+            val frames = (l.bars * bBarOwn).roundToLong()
+            val to = floor(bBar1).toLong()
+            PlannedLoop(Math.round(bBar1 + (l.fromMs - spec.b.atMs) * rate / 1000.0), frames, to - frames * l.times, to, Loops.seamFrames(rate))
+        }
+        val bar1At = bBar1 - (loop?.let { it.outTo - it.outFrom } ?: 0L)
+        // B is heard from its entry, or from its loop's first pass where that comes first.
+        val first = loop?.let { min(entry, it.outFrom) } ?: entry
+        val firstU = (first - bar1At) / bBarOwn
         // The first bar line once every lane of A is gone, its echo rung out.
         val aLanes = spec.lanes.lanes.map { LaneId(Side.A, it) }
         val echo = aLanes.any { id -> spec.curves[id] == null && id !in spec.muted && spec.moves[id]?.how == How.ECHO }
         val gone = aLanes.maxOf { spec.goneAt(it) } + if (echo) Engine.ECHO_MAX_BARS_AFTER else 0.0
-        val glideFrom = max(0.0, (ceil(gone - 1e-9) - uEntry) * barFrames)
+        val glideFrom = max(0.0, (ceil(gone - 1e-9) - firstU) * barFrames)
         val glideTo = glideFrom + GLIDE_BARS * barFrames
-        val map = GlideMap(0.0, entry.toDouble(), speed, glideFrom, glideTo)
-        // B's own next bar line once it is back at its own speed: its music from there on is its own.
+        val map = GlideMap(0.0, first.toDouble(), speed, glideFrom, glideTo)
+        // B's own next bar line once it is back at its own speed, and past its loop's last join: its
+        // music from there on is its own.
         val atGlideTo = map.tailAt(glideTo)
-        val switchFrame = Math.round(bAt + ceil((atGlideTo - bAt) / bBarOwn - 1e-9) * bBarOwn)
+        val own = loop?.let { max(atGlideTo, (it.outTo + it.seam).toDouble()) } ?: atGlideTo
+        val switchFrame = Math.round(bBar1 + ceil((own - bBar1) / bBarOwn - 1e-9) * bBarOwn)
         val switchAt = Math.round(glideTo + (switchFrame - atGlideTo))
         // Its frame [entry] then, one for one, is on frame switchFrame at switchAt.
-        return BLayout(entry, speed, glideFrom, glideTo, switchAt, switchFrame, switchAt - (switchFrame - entry))
+        return BLayout(entry, speed, glideFrom, glideTo, switchAt, switchFrame, switchAt - (switchFrame - entry), first, firstU, bar1At, loop)
     }
 
     /**
@@ -409,26 +462,46 @@ object SpecPlan {
      * What the editor makes sure it has read of B.
      */
     fun bReadToMs(spec: TransitionSpec): Double? = bLayout(spec, READ_RATE)?.let {
-        // A millisecond over, for the frames each rate rounds to.
-        it.switchFrame * 1000.0 / READ_RATE + 2 * SWITCH_MS + 1.0
+        // A millisecond over, for the frames each rate rounds to; a loop's own bars, and the bar
+        // line after them each pass comes out of, wherever they are in B.
+        val loop = it.loop?.let { l -> (l.srcFrom + l.frames + l.seam) * 1000.0 / READ_RATE + 1.0 } ?: 0.0
+        max(it.switchFrame * 1000.0 / READ_RATE + 2 * SWITCH_MS + 1.0, loop)
+    }
+
+    /**
+     * Where a change with B adjusted is over, in A's ms (A plays at its own speed): B's own samples
+     * have taken over and run for a moment, after its way back to its own tempo and after its loop.
+     * Null where B is not the song adjusted. How long the change runs, for the time it takes.
+     */
+    fun bAdjustedEndMs(spec: TransitionSpec): Double? = bLayout(spec, READ_RATE)?.let {
+        spec.aMsAt(it.firstU) + (it.switchAt + 2 * SWITCH_MS * READ_RATE / 1000.0) * 1000.0 / READ_RATE
     }
 
     private const val READ_RATE = 48_000
 
-    /** The change with B adjusted: A at its own speed throughout, B at A's tempo while both are heard. See [bLayout]. */
+    /**
+     * The change with B adjusted: A at its own speed throughout, its loop's passes included, and B
+     * at A's tempo while both are heard, its loop's passes included. See [bLayout].
+     */
     private fun planBAdjusted(spec: TransitionSpec, facts: ChangeFacts): Result {
         if (facts.aMap != null) return Result.Refused("the next song adjusted on a time map worked out for the song before it")
-        if (spec.introLoop != null || spec.introTwice > 0 || spec.outroLoop != null) return Result.Refused("a loop in a change that adjusts the next song is not played yet")
         val rate = facts.sampleRate
-        val layout = bLayout(spec, rate)!!
+        // A's loop, A at its own speed: its frames as looped are the output's own.
+        val outro = when (val o = outroOf(spec, facts)) {
+            is Placed.Refused -> return Result.Refused(o.why)
+            is Placed.Loop -> o.loop
+        }
+        val aFrames = facts.aFrames + (outro?.shift ?: 0L)
+        val layout = bLayout(spec, rate, facts.bBar1)!!
         val barFrames = spec.heardBarMs * rate / 1000.0
         val beatFrames = barFrames * spec.beat
         val bBarOwn = spec.b.barMs * rate / 1000.0
-        // A is heard as it is: bar 1 is its anchor, and B's anchor falls on it within half a frame.
-        val bar1 = facts.aBar1
+        // A is heard as it is: bar 1 is its anchor, and B's anchor (or its loop's first frame) falls
+        // on it within half a frame.
+        val bar1 = outro?.virtual(facts.aBar1) ?: facts.aBar1
         fun out(u: Double) = bar1 + u * barFrames
-        val bHeard = (bar1 + (layout.entry - facts.bBar1) / layout.speed).roundToLong()
-        val map = GlideMap(bHeard.toDouble(), layout.entry.toDouble(), layout.speed, bHeard + layout.glideFrom, bHeard + layout.glideTo)
+        val bHeard = (bar1 + (layout.first - layout.bar1At) / layout.speed).roundToLong()
+        val map = GlideMap(bHeard.toDouble(), layout.first.toDouble(), layout.speed, bHeard + layout.glideFrom, bHeard + layout.glideTo)
         val switchAt = bHeard + layout.switchAt
         val bStart = bHeard + layout.bStartAt
 
@@ -448,23 +521,30 @@ object SpecPlan {
         val bPlain = max(bHeard, ceil(out(bLanes.maxOf { plainFromU(spec, it) })).toLong() + bypass + cutFrames)
         val pad = ceil(Engine.HEADROOM_PAD_S * rate).toLong()
         val switchFrames = ceil(SWITCH_MS / 1000.0 * rate).toLong()
-        val mixFrom = minOf(aChangeFrom, bHeardFrom - pad, bHeard, bStart)
+        // A's loop is played from the change: its first join, and the crossfade into it, inside it.
+        val outroFrom = outro?.let { it.end - it.seam - pad } ?: Long.MAX_VALUE
+        val mixFrom = minOf(aChangeFrom, bHeardFrom - pad, bHeard, bStart, outroFrom)
         // The change runs on B's own samples for a moment after they have taken over, so the song
         // as it plays meets them there, sample for sample.
         val mixTo = maxOf(aGone, aGone + pad, bPlain, switchAt + 2 * switchFrames, bStart + 1)
-        // B's beats, its own grid, for the stretch to land each one where the map puts it.
+        // B's beats, its own grid, for the stretch to land each one where the map puts it. A loop
+        // is whole bars of B on its grid, so B as played keeps B's grid through it.
         val bBeatOwn = bBarOwn * spec.beat
         val bAnchors = run {
-            val k0 = floor((layout.entry - facts.bBar1) / bBeatOwn).toInt() - 1
+            val k0 = floor((layout.first - facts.bBar1) / bBeatOwn).toInt() - 1
             val k1 = ceil((layout.switchFrame - facts.bBar1) / bBeatOwn).toInt() + 1
             DoubleArray(max(0, k1 - k0 + 1)) { facts.bBar1 + (k0 + it) * bBeatOwn }
         }
+        val loop = layout.loop
         when {
             mixFrom < facts.earliest -> return Result.Refused(
                 "it starts %.1f s before it can be ready".format((facts.earliest - mixFrom).toDouble() / rate),
             )
             mixFrom < 0 -> return Result.Refused("it starts before the music at hand")
-            bHeard > facts.aFrames -> return Result.Refused("B would start after the end of A")
+            bHeard > aFrames -> return Result.Refused("B would start after the end of A")
+            // Each pass comes out of what follows the looped bars, so that has to be in the copy too.
+            loop != null && loop.srcFrom < 0 -> return Result.Refused("the loop starts before B's copy")
+            loop != null && loop.srcFrom + loop.frames + loop.seam > facts.bFrames -> return Result.Refused("the loop runs past B's copy")
             layout.switchFrame + (mixTo - switchAt) > facts.bFrames -> return Result.Refused(
                 "B's copy holds %.1f s, the change needs %.1f s of it".format(facts.bFrames.toDouble() / rate, (layout.switchFrame + mixTo - switchAt).toDouble() / rate),
             )
@@ -489,8 +569,9 @@ object SpecPlan {
                 bothTo = aGone,
                 echoFrames = echoFrames,
                 speed = 1.0,
+                outro = outro,
                 bEntry = layout.entry,
-                bStretch = BStretch(map, bHeard, switchAt, layout.switchFrame, switchFrames.toInt(), bAnchors),
+                bStretch = BStretch(map, bHeard, switchAt, layout.switchFrame, switchFrames.toInt(), bAnchors, loop),
             ).also {
                 it.echoingLanes = echoing
                 if (echoing.isNotEmpty()) it.echoFadeFrom = max(dryGone, aGone - echoFrames)

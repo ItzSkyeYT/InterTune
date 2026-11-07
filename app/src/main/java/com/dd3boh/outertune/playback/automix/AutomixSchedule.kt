@@ -10,6 +10,7 @@ import com.dd3boh.outertune.mix.edit.How
 import com.dd3boh.outertune.mix.edit.Presets
 import com.dd3boh.outertune.mix.edit.TransitionSpec
 import com.dd3boh.outertune.mix.engine.Engine
+import com.dd3boh.outertune.mix.engine.Loops
 import com.dd3boh.outertune.mix.engine.SpecPlan
 import kotlin.math.max
 
@@ -198,12 +199,14 @@ object AutomixSchedule {
     /**
      * How long a saved change runs from its first frame [firstMs], in A's own ms: to its last bar,
      * the echo's two after it where A leaves by one, the next song's way back to its own tempo and
-     * on to its own next bar line where it is the song adjusted, and the headroom's pad.
+     * on to its own next bar line where it is the song adjusted, the end of a loop in front of the
+     * next song that runs on past all that, and the headroom's pad.
      */
     fun changeSpanMs(spec: TransitionSpec, firstMs: Double): Long {
         val echo = if (spec.moves.values.any { it.how == How.ECHO }) Engine.ECHO_MAX_BARS_AFTER else 0.0
         val glide = if (spec.bAdjusted) SpecPlan.GLIDE_BARS + 1.0 else 0.0
-        return (spec.aMsAt(spec.lengthBars + echo + glide) - firstMs + Engine.HEADROOM_PAD_S * 1000).toLong().coerceAtLeast(0)
+        val end = maxOf(spec.aMsAt(spec.lengthBars + echo + glide), spec.aMsAt(spec.loopBars) + Loops.SEAM_MS, SpecPlan.bAdjustedEndMs(spec) ?: 0.0)
+        return (end - firstMs + Engine.HEADROOM_PAD_S * 1000).toLong().coerceAtLeast(0)
     }
 
     /**
