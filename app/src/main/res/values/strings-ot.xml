@@ -192,6 +192,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="playback_auth_always">Always</string>
     <string name="err_age_restricted">YouTube will not play this one without an account old enough to see it. Other songs are unaffected.</string>
     <string name="err_song_unavailable">YouTube no longer has this song, or not where you are.</string>
+    <string name="err_not_audio">What came back for this song is not audio. Something on this connection may be answering in YouTube\'s place, like a VPN or an ad blocker.</string>
     <string name="gone_song_skipped">Skipped a song not available on YouTube: “%1$s”</string>
     <string name="err_copy_details">Copy error details</string>
 
