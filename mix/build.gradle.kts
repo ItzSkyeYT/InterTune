@@ -44,27 +44,46 @@ abstract class MixCodeStamp : DefaultTask() {
 
     @TaskAction
     fun write() {
-        val digest = MessageDigest.getInstance("SHA-256")
-        for ((label, dir) in listOf("mix" to mixSources, "fingerprint" to fingerprintSources)) {
-            val root = dir.get().asFile
-            val files = root.walkTopDown().filter { it.isFile }.map { it.relativeTo(root).invariantSeparatorsPath }.sorted()
-            for (path in files) {
-                digest.update("$label/$path".toByteArray(Charsets.UTF_8))
-                digest.update(0)
-                digest.update(root.resolve(path).readBytes())
-                digest.update(0)
+        fun stampOf(keep: (label: String, path: String) -> Boolean): String {
+            val digest = MessageDigest.getInstance("SHA-256")
+            for ((label, dir) in listOf("mix" to mixSources, "fingerprint" to fingerprintSources)) {
+                val root = dir.get().asFile
+                val files = root.walkTopDown().filter { it.isFile }.map { it.relativeTo(root).invariantSeparatorsPath }.sorted()
+                for (path in files) {
+                    if (!keep(label, path)) continue
+                    digest.update("$label/$path".toByteArray(Charsets.UTF_8))
+                    digest.update(0)
+                    digest.update(root.resolve(path).readBytes())
+                    digest.update(0)
+                }
             }
+            return digest.digest().joinToString("") { "%02x".format(it) }
         }
-        val stamp = digest.digest().joinToString("") { "%02x".format(it) }
+        val stamp = stampOf { _, _ -> true }
+        // The analysis of a song's end or opening: everything but how a change is chosen, planned and
+        // played (auto, engine, edit, pill and the renderer's own files), so a change to mixing keeps it.
+        val mixing = listOf("/auto/", "/engine/", "/edit/", "/pill/", "/Wsola.kt", "/MixRender.kt", "/MixPlan.kt", "/HeldTail.kt", "/Planner.kt")
+        fun analysis(label: String, path: String) = label == "fingerprint" || mixing.none { "/$path".contains(it) }
+        val analysisStamp = stampOf(::analysis)
+        // Auto's pick: the analysis and Auto's own rules (a change to how changes are rendered keeps it).
+        fun auto(path: String) = "/$path".contains("/auto/") || listOf("/engine/AutoSpec.kt", "/engine/AutoOnBands.kt").any { "/$path".endsWith(it) }
+        val autoStamp = stampOf { label, path -> analysis(label, path) || (label == "mix" && auto(path)) }
         val file = out.get().asFile.resolve("com/dd3boh/outertune/mix/MixCode.kt")
         file.parentFile.mkdirs()
         file.writeText(
             """
             |package com.dd3boh.outertune.mix
             |
-            |/** Written by the build (mix/build.gradle.kts, MixCodeStamp): a stamp of this module's sources. */
+            |/** Written by the build (mix/build.gradle.kts, MixCodeStamp): stamps of this module's sources. */
             |object MixCode {
+            |    /** All of it. */
             |    const val STAMP = "$stamp"
+            |
+            |    /** The code an analysis of a song comes from: what the editor's kept analyses are kept under. */
+            |    const val ANALYSIS = "$analysisStamp"
+            |
+            |    /** The analysis and Auto's rules: what Auto's kept picks are kept under. */
+            |    const val AUTO = "$autoStamp"
             |}
             |""".trimMargin()
         )

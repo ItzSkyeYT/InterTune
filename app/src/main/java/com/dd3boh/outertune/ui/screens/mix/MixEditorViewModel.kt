@@ -192,7 +192,7 @@ class MixEditorViewModel @Inject constructor(
                 // playback does: how far before the end it can hold a change in time.
                 val pace = withContext(Dispatchers.IO) { AutomixPace.read(context.filesDir) } ?: AutomixPace()
                 val loaded = withContext(Dispatchers.IO) {
-                    PairLoader(source, EditorCache(context.cacheDir, MixCode.STAMP), { id, end -> MixStores.analysed(context, id, end) }, { id -> MixStores.wholeSongs(context).get(id) }, wholeReader(source)).load(
+                    PairLoader(source, EditorCache(context.cacheDir, MixCode.ANALYSIS, MixCode.AUTO), { id, end -> MixStores.analysed(context, id, end) }, { id -> MixStores.wholeSongs(context).get(id) }, wholeReader(source)).load(
                         inputA, inputB, levelA, levelB, pace,
                         stage = { phase.value = Phase.Loading(it) },
                         cancelled = { cancelled.get() },
