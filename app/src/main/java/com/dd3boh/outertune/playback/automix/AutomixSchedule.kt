@@ -46,9 +46,6 @@ object AutomixSchedule {
     /** The next song has to be loaded this far when its way in is held, so it starts on time. */
     const val NEXT_LOADED_MS = 5_000L
 
-    /** A seek this close to the end is the listener choosing where to be, and that end is not mixed. */
-    const val SEEK_LATE_MS = 60_000L
-
     /** How far the held end may be from what was left of the song when it began to be held. */
     const val TAIL_SLACK_MS = 1_500L
 

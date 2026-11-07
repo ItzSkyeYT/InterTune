@@ -208,10 +208,28 @@ class AutomixController(
                 stopWork()
                 say("off; it leaves the chain at the next song started by hand, levelling the songs till then")
             } else {
-                say("on; it joins the chain at the next song")
+                say("on; it joins the song playing")
+                joinNow()
             }
             refresh()
         }
+
+    /**
+     * The stage joins a stream only as the sink configures it, so AutoMix switched on in the middle
+     * of a song waited for the next one, and the change out of the song playing stayed plain, while
+     * a change has to play in the playlist it was made in (7 Nov 2026). A seek to where the music
+     * is has the sink configure the song again with the stage in it (AutomixAudioSink): a moment's
+     * gap as it comes on, then the change out of this song is mixed.
+     */
+    private fun joinNow() {
+        if (stage.activeForStream || player.currentMediaItem == null) return
+        if (player.playbackState != Player.STATE_READY && player.playbackState != Player.STATE_BUFFERING) return
+        joining = true
+        player.seekTo(player.currentPosition)
+    }
+
+    /** The stage was asked to join the song playing and has not yet: its guard waits rather than refuses. */
+    private var joining = false
 
     /** AutoMix's setting for the queue playing: with Mix ([lanes]), the switch of the playlist it came from. */
     private var auto = false
@@ -271,9 +289,6 @@ class AutomixController(
 
     /** How long the last change on bands took to work out, Auto's proofs included. Worker only. */
     @Volatile private var lastBandsMs: Long? = null
-
-    /** The song the listener moved within its last minute; its end is not mixed. */
-    private var seekedLateId: String? = null
 
     private val window = Timeline.Window()
 
@@ -383,7 +398,7 @@ class AutomixController(
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
         syncNormalising()
         if (!enabled) return levelsWhileOff()
-        if (mediaItem?.mediaId != seekedLateId) seekedLateId = null
+        joining = false
         refresh()
     }
 
@@ -391,11 +406,10 @@ class AutomixController(
         syncNormalising()
         if (!enabled) return levelsWhileOff()
         if (reason == Player.DISCONTINUITY_REASON_SEEK) {
-            val duration = player.duration
-            val id = newPosition.mediaItem?.mediaId
-            seekedLateId = if (duration > 0 && duration - newPosition.positionMs <= AutomixSchedule.SEEK_LATE_MS) id else null
             // The seek flushed the stage, which let go of anything it held. The change starts over
-            // from where the music is now, with the opening already read.
+            // from where the music is now, with the opening already read: a seek into the last
+            // minute, to hear the change, is mixed as long as there is time to hold the end and
+            // work it out (AutomixSchedule.due).
             stage.cancelArm()
             mixing = null
             transition?.takeIf { it.armRequested || it.holding }?.let { old ->
@@ -1050,6 +1064,13 @@ class AutomixController(
             // a second before they are heard, so the volume follows at the change the player
             // reports. A first start or a seek is heard at once.
             if (!player.isPlaying || player.currentPosition < 1_000) syncNormalising()
+            // In the chain for the song playing, as AutoMix came on in its middle: its change is
+            // looked at again now, not at the next look the guard's wait had set.
+            if (active) {
+                val joined = joining
+                joining = false
+                if (joined && enabled) refresh()
+            }
         }
     }
 
@@ -1447,7 +1468,7 @@ class AutomixController(
         return AutomixGuards.Snapshot(
             settingOn = auto,
             crossfadeOn = crossfadeSeconds != null,
-            stageInChain = stage.activeForStream,
+            stageInChain = stage.activeForStream || joining,
             casting = c.casting,
             repeatOne = player.repeatMode == Player.REPEAT_MODE_ONE,
             current = t.a.copy(durationMs = player.duration.takeIf { it != C.TIME_UNSET } ?: -1),
@@ -1460,7 +1481,6 @@ class AutomixController(
             ambience = c.ambience,
             ffmpeg = c.ffmpeg,
             sleepTimer = c.sleepTimer,
-            seekedLate = seekedLateId != null && seekedLateId == t.a.id,
         )
     }
 
