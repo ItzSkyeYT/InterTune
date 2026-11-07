@@ -47,6 +47,7 @@ import com.dd3boh.outertune.mix.engine.SpecPlan
 import com.dd3boh.outertune.mix.engine.Engine
 import com.dd3boh.outertune.mix.edit.SongPair
 import com.dd3boh.outertune.mix.edit.How
+import com.dd3boh.outertune.mix.edit.LaneSet
 import com.dd3boh.outertune.mix.pill.AutoChoice
 import com.dd3boh.outertune.mix.pill.AnalysedPlanner
 import com.dd3boh.outertune.mix.pill.PlainReason
@@ -141,6 +142,11 @@ class AutomixController(
     private val loadPace: () -> AutomixPace? = { null },
     /** Keeps this phone's pace for the next start. Blocking, so called on IO. */
     private val savePace: (AutomixPace) -> Unit = {},
+    /**
+     * Where the editor keeps its windows and their parts (the app's cache), for a change saved on
+     * parts to play on them ([PartsForPlay]); null for bands only.
+     */
+    private val partsCache: java.io.File? = null,
 ) : Player.Listener, AutomixAudioProcessor.Events {
 
     /**
@@ -1249,10 +1255,24 @@ class AutomixController(
             return BandsOutcome("on bands: a plain change, saved for these two", auto = AutoChoice.Plain(PlainReason.YOUR_CHOICE))
         }
         latestSaved?.let { saved ->
-            val spec = Presets.onBands(saved)
+            // A change saved on parts plays on them where both songs' parts line up with the music
+            // held to the sample (PartsForPlay); on bands otherwise, as before.
+            val parts = if (saved.lanes != LaneSet.PARTS) null else partsCache?.let { dir ->
+                runCatching {
+                    val channels = held.channels
+                    val aParts = PartsForPlay.lineUp(dir, t.a.id, "tail", ring, frames.toInt(), channels, rate, t.tailStartMs.toDouble())
+                    val bParts = aParts?.let { PartsForPlay.lineUp(dir, b.id, "head", copy, t.copyFrames, channels, rate, 0.0) }
+                    if (aParts != null && bParts != null) aParts to bParts else null
+                }.onFailure { Log.w(TAG, "AutoMix: the parts could not be read", it) }.getOrNull()
+            }
+            if (saved.lanes == LaneSet.PARTS) {
+                Log.i(TAG, if (parts != null) "AutoMix: the saved change plays on parts" else "AutoMix: the saved change plays on bands: its parts are not at hand or do not line up")
+            }
+            val spec = if (parts != null) saved else Presets.onBands(saved)
             var lanePlan: LanePlan? = null
             Placing.facts(spec, rate, held.channels, t.tailStartMs.toDouble(), frames, tail, t.copyFrames.toLong(), earliest).fold(
-                onSuccess = { facts: ChangeFacts ->
+                onSuccess = { found: ChangeFacts ->
+                    val facts = if (parts != null) found.withParts() else found
                     when (val r = SpecPlan.plan(spec, facts)) {
                         is SpecPlan.Result.Planned -> lanePlan = r.plan
                         is SpecPlan.Result.Refused -> why = "; the saved change cannot play: ${r.why}"
@@ -1262,7 +1282,7 @@ class AutomixController(
             )
             lanePlan?.let { p ->
                 val renderStarted = SystemClock.elapsedRealtime()
-                val render = LaneMixer(p).render(ring, copy, attenuationA, attenuationB)
+                val render = LaneMixer(p).render(ring, copy, attenuationA, attenuationB, parts?.first, parts?.second)
                 // This phone's pace: the work before the change, per second held, and the change's own, per second of it.
                 val analyseMs = renderStarted - workStarted
                 val spanSeconds = (p.mixTo - p.mixFrom).toDouble() / rate

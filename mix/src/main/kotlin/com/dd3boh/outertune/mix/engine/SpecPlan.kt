@@ -50,7 +50,10 @@ class ChangeFacts(
     val anchors: DoubleArray? = null,
     /** Both songs' parts are at hand (the editor's parts store), so a change made on parts plays on them. */
     val parts: Boolean = false,
-)
+) {
+    /** The same facts, with both songs' parts at hand. */
+    fun withParts() = ChangeFacts(sampleRate, channels, aBar1, aFrames, bBar1, bFrames, earliest, aMap, anchors, parts = true)
+}
 
 /**
  * A change as the engine plays it: the spec, and every frame it happens on. Output frames are

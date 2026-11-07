@@ -1262,6 +1262,8 @@ class MusicService : MediaLibraryService(),
                             // This phone's pace for far changes, kept between starts in a few lines of its own.
                             loadPace = { AutomixPace.read(filesDir) },
                             savePace = { pace -> AutomixPace.write(filesDir, pace) },
+                            // A change saved on parts plays on the editor's parts where they line up.
+                            partsCache = cacheDir,
                         ).also { addListener(it) }
                     }
                 }
