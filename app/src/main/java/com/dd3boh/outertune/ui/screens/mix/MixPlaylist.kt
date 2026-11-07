@@ -73,6 +73,8 @@ import com.dd3boh.outertune.mix.pill.Pill
 import com.dd3boh.outertune.mix.pill.PillSong
 import com.dd3boh.outertune.mix.pill.Pills
 import com.dd3boh.outertune.mix.pill.PlainReason
+import com.dd3boh.outertune.playback.automix.AutomixPace
+import com.dd3boh.outertune.playback.automix.AutomixSchedule
 import com.dd3boh.outertune.playback.automix.MixStores
 import com.dd3boh.outertune.playback.automix.MixSwitches
 import com.dd3boh.outertune.ui.component.ExplainButton
@@ -155,10 +157,32 @@ fun rememberMixPlanner(songs: List<PillSong>): PairPlanner {
             fun head(id: String) = heads.getOrPut(id) { cache.get(id, RegionKind.HEAD) }
             val pairs = songs.zipWithNext { a, b -> SongPair(a.id, b.id) }
             val choices = AnalysedPlanner.plan(pairs, ::tail, ::head, { fixes[it] }, { albums[it] })
-            AnalysedPlanner(HeardPlanner(heard, changes), choices, tails.mapNotNull { (id, end) -> end?.let { id to it } }.toMap())
+            // This phone's pace as playback keeps it, as playback reads it: a saved change it cannot
+            // hold in time plays plain, and its pill says so.
+            val pace = AutomixPace.read(context.filesDir) ?: AutomixPace()
+            val tailEnds = tails.mapNotNull { (id, end) -> end?.let { id to it } }.toMap()
+            PacedPlanner(AnalysedPlanner(HeardPlanner(heard, changes), choices, tailEnds), pace) { id -> tailEnds[id]?.songMs }
         }
     }
     return planner
+}
+
+/**
+ * [planner] on this phone's [pace]: a saved change whose end the phone cannot hold in time
+ * ([AutomixSchedule.savedLead], as playback decides it) is said "too far for this phone". The
+ * song's length is taken as analysed ([lengthOf], to the ms, as playback and the editor have it)
+ * where its end was, the playlist's whole seconds otherwise: a change the editor placed just inside
+ * the limit read as too far on a length a fraction of a second longer.
+ */
+internal class PacedPlanner(
+    private val planner: PairPlanner,
+    private val pace: AutomixPace,
+    private val lengthOf: (String) -> Double? = { null },
+) : PairPlanner by planner {
+    override fun heldInTime(spec: TransitionSpec, aDurationMs: Long): Boolean {
+        val length = lengthOf(spec.a.song)?.takeIf { it > 0 } ?: aDurationMs.takeIf { it > 0 }?.toDouble() ?: return true
+        return AutomixSchedule.savedLead(spec, length, pace)?.fits != false
+    }
 }
 
 /** The memory as it stood at one count of [MixStores.changes]: a new value each time, so what shows it draws again. */

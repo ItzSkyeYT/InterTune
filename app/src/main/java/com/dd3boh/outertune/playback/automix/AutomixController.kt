@@ -781,7 +781,7 @@ class AutomixController(
         if (!lead.fits) {
             // Never held to be refused late: today's change, said now.
             t.finished = true
-            decide(t, AutoChoice.Plain(PlainReason.NO_TIME))
+            decide(t, AutoChoice.Plain(PlainReason.TOO_FAR))
             say("$whose for ${t.a.id} into ${t.b?.id}: ${saved.label}, it starts " + "%.1f s before the end".format(changeLeft / 1000.0) + from +
                 ", too far ahead for this phone: " + AutomixPace.tooFarWords(need) + "; a plain change")
             return
