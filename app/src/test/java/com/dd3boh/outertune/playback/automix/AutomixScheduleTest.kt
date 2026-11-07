@@ -138,7 +138,33 @@ class AutomixScheduleTest {
         assertEquals(AutomixSchedule.HEAD_SECONDS + AutomixSchedule.COPY_MARGIN_S, AutomixSchedule.copySecondsFor(null), 1e-9)
         assertEquals(AutomixSchedule.HEAD_SECONDS + AutomixSchedule.COPY_MARGIN_S, AutomixSchedule.copySecondsFor(spec.copy(plain = true)), 1e-9)
     }
-
+    @Test
+    fun `a saved change's lead is worked out in one place, from its first frame, its span and its entry`() {
+        val fade = Presets.moves(Preset.FADE, LaneSet.BANDS, 8.0, 0.25)!!
+        val spec = TransitionSpec(
+            a = Anchor("a", 200_000.0, 128.0), b = Anchor("b", 31_000.0, 128.0), lanes = LaneSet.BANDS,
+            bars = 8, beatMatch = true, preset = Preset.CUSTOM, moves = fade, bStartMs = 30_000.0,
+        )
+        assertTrue(spec.problems().toString(), spec.isValid)
+        val pace = AutomixPace()
+        val duration = 301_700.0
+        val lead = AutomixSchedule.savedLead(spec, duration, pace)!!
+        val bands = Presets.onBands(spec)
+        val first = SpecPlan.firstChangeMs(bands)
+        assertEquals((duration - first).toLong(), lead.changeLeftMs)
+        assertEquals(30.0, lead.entrySeconds, 0.0)
+        // To its last bar and the pad: no echo, A adjusted.
+        assertEquals((bands.aMsAt(8.0) - first + Engine.HEADROOM_PAD_S * 1000).toLong(), lead.spanMs)
+        assertEquals(pace.armFromMs(lead.changeLeftMs, lead.spanMs, lead.entrySeconds), lead.armFromMs)
+        assertEquals(lead.armFromMs <= AutomixSchedule.ARM_FROM_LEFT_MAX_MS, lead.fits)
+        // The next song adjusted: the way back to its own tempo and its own next bar line count too.
+        val bLead = AutomixSchedule.savedLead(spec.copy(matchSide = Side.B), duration, pace)!!
+        val bBands = Presets.onBands(spec.copy(matchSide = Side.B))
+        val bFirst = SpecPlan.firstChangeMs(bBands)
+        assertEquals((bBands.aMsAt(8.0 + SpecPlan.GLIDE_BARS + 1.0) - bFirst + Engine.HEADROOM_PAD_S * 1000).toLong(), bLead.spanMs)
+        // A plain change has no lead.
+        assertNull(AutomixSchedule.savedLead(spec.copy(plain = true), duration, pace))
+    }
     @Test
     fun `a change that adjusts the next song copies it as far as its way back to its own tempo`() {
         // 16 bars, A at 88 and B at 90 BPM from its first second, A fading out: B is slowed to A's

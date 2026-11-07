@@ -30,9 +30,13 @@ class MixGuardTest {
         val screen = File(dir, "MixEditorScreen.kt").readText()
         assertTrue("val blocker = rememberMixBlocker()" in screen)
         assertTrue("else -> blocker?.let { MixWords.blocked(it) }?.let { stringResource(it) }" in screen)
-        assertTrue("if (guard != null) GuardBand(guard, guardSetting)" in screen)
+        assertTrue("if (guard != null) GuardBand(guard, guardSetting, phoneFix)" in screen)
         assertTrue("guardSetting = guardSetting," in screen)
-        assertTrue("if (guard != null) GuardBand(guard, guardSetting)" in File(dir, "MixSimpleSheet.kt").readText())
+        assertTrue("guardFix = phoneFix," in screen)
+        assertTrue("if (guard != null) GuardBand(guard, guardSetting, guardFix)" in File(dir, "MixSimpleSheet.kt").readText())
+        // A change past what this phone holds in time: said, with the fix that moves it closer.
+        assertTrue("phoneGuard != null -> words.phoneGuard(phoneGuard)" in screen)
+        assertTrue("vm.edit { fitToPhone() }" in screen)
     }
 
     @Test

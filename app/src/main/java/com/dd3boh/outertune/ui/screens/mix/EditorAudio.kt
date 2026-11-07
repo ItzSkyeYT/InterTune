@@ -28,6 +28,7 @@ import com.dd3boh.outertune.mix.edit.TransitionJson
 import com.dd3boh.outertune.mix.edit.TransitionSpec
 import com.dd3boh.outertune.mix.engine.AutoOnBands
 import com.dd3boh.outertune.mix.engine.Copy
+import com.dd3boh.outertune.playback.automix.AutomixPace
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
 import java.io.DataInputStream
@@ -230,8 +231,12 @@ class PairLoader(
         val fix: BeatFix,
     )
 
-    /** [levelA] and [levelB]: each song's level as the phone plays it now, which Auto's proofs hear it at. */
-    fun load(a: SongInput, b: SongInput, levelA: Double = 1.0, levelB: Double = 1.0, stage: (Stage) -> Unit, cancelled: () -> Boolean): LoadedPair {
+    /**
+     * [levelA] and [levelB]: each song's level as the phone plays it now, which Auto's proofs hear
+     * it at. [pace]: this phone's, as playback keeps it, which says how far before A's end a change
+     * may start ([PairFacts.pace]).
+     */
+    fun load(a: SongInput, b: SongInput, levelA: Double = 1.0, levelB: Double = 1.0, pace: AutomixPace? = null, stage: (Stage) -> Unit, cancelled: () -> Boolean): LoadedPair {
         val started = System.nanoTime()
         stage(Stage.READING_A)
         val (aWindow, aBands) = try {
@@ -286,7 +291,7 @@ class PairLoader(
         )
         val facts = PairFacts(
             a = aFacts, b = bFacts,
-            playReachMs = PairFacts.PLAY_REACH_MS,
+            pace = pace,
             active = { side, lane: Lane, ms ->
                 val w = if (side == Side.A) aWindow.info else bWindow.info
                 (if (side == Side.A) aBands else bBands).active(lane, ms - w.startMs)

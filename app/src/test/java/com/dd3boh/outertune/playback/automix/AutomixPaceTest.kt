@@ -7,6 +7,7 @@
 package com.dd3boh.outertune.playback.automix
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -97,8 +98,46 @@ class AutomixPaceTest {
         // Its window is the schedule's, from 40 s left: nothing here moves it.
         assertEquals(40_000L, AutomixSchedule.ARM_FROM_LEFT_MS)
         val controller = java.io.File("src/main/java/com/dd3boh/outertune/playback/automix/AutomixController.kt").readText()
-        // The pace sets only a saved change's (or the trial's) arm point.
-        assertTrue(controller.contains("pace.armFromMs("))
-        assertEquals(1, Regex("""pace\.armFromMs\(""").findAll(controller).count())
+        // The pace sets only a saved change's (or the trial's) arm point, through the lead the
+        // editor works out too.
+        assertEquals(1, Regex("""AutomixSchedule\.savedLead\(""").findAll(controller).count())
+        assertFalse(controller.contains("armFromMs("))
+    }
+
+    @Test
+    fun `the furthest a change can start before the end is where its lead just fits`() {
+        // His Pixel 5's kept pace of 7 Nov: an 8-bar change at 128 BPM (15.4 s with the pad),
+        // the next song in from 30 s, fits to about 84 s before the end.
+        val kept = AutomixPace(holdSpeed = 11.06, skipSpeed = 17.19, analyseMsPerS = 35.5, renderMsPerS = 417.0)
+        val reach = kept.reachMs(spanMs = 15_400, entrySeconds = 30.0)
+        assertTrue("$reach", reach in 83_000L..85_000L)
+        for ((span, entry) in listOf(15_400L to 30.0, 15_400L to 0.0, 45_000L to 0.0, 1_000L to 90.0, 0L to 0.0)) {
+            val r = kept.reachMs(span, entry)
+            assertTrue("$span $entry: $r", kept.armFromMs(r, span, entry) <= AutomixSchedule.ARM_FROM_LEFT_MAX_MS)
+            assertTrue("$span $entry: $r", kept.armFromMs(r + 1, span, entry) > AutomixSchedule.ARM_FROM_LEFT_MAX_MS)
+        }
+        // A longer change, or a slower phone, starts nearer the end.
+        assertTrue(kept.reachMs(25_000, 30.0) < reach)
+        assertTrue(kept.withHold(60.0, 20_000).reachMs(15_400, 30.0) < reach)
+        // A phone that cannot hold anything in time: nothing fits.
+        assertEquals(-1L, AutomixPace(holdSpeed = 1.0).reachMs(15_400, 0.0))
+    }
+
+    @Test
+    fun `the editor reads the pace playback keeps`() {
+        val dir = kotlin.io.path.createTempDirectory("pace").toFile()
+        try {
+            assertNull(AutomixPace.read(dir))
+            AutomixPace.write(dir, pixel)
+            assertEquals(pixel, AutomixPace.read(dir))
+            assertEquals(pixel.encode(), java.io.File(dir, "mix-pace.txt").readText())
+            java.io.File(dir, "mix-pace.txt").writeText("holdSpeed=fast")
+            assertNull(AutomixPace.read(dir))
+        } finally {
+            dir.deleteRecursively()
+        }
+        val service = java.io.File("src/main/java/com/dd3boh/outertune/playback/MusicService.kt").readText()
+        assertTrue(service.contains("AutomixPace.read(filesDir)"))
+        assertTrue(service.contains("AutomixPace.write(filesDir, "))
     }
 }

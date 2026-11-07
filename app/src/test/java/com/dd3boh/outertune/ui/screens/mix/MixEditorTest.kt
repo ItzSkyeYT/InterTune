@@ -31,6 +31,8 @@ import com.dd3boh.outertune.mix.edit.toJson
 import com.dd3boh.outertune.mix.edit.transitionSpecOf
 import com.dd3boh.outertune.mix.engine.SpecPlan
 import com.dd3boh.outertune.mix.pill.Pills
+import com.dd3boh.outertune.playback.automix.AutomixPace
+import com.dd3boh.outertune.playback.automix.AutomixSchedule
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -48,17 +50,19 @@ import kotlin.math.abs
 class MixEditorTest {
 
     /**
-     * What playback held of A's end before changes could start anywhere (46 s, less the 15 s lead):
-     * the rule that a change starts no further from the end than playback holds is tested at it,
-     * since playback now holds more (PairFacts.PLAY_REACH_MS, 93 s) than the design's reach of A.
+     * A phone slow enough (it holds an end at twice the speed it plays) that this pair's 8-bar
+     * change can start only about half a minute before A's end: the rule that a change starts no
+     * further from the end than this phone can hold it is tested on it.
      */
-    private val HELD_31_S = 31_000.0
+    private val slowPhone = AutomixPace(holdSpeed = 2.0, skipSpeed = 17.0, analyseMsPerS = 30.0, renderMsPerS = 370.0)
 
-    @Test
-    fun `playback now holds more of A's end than the editor reaches`() {
-        assertEquals(93_000.0, PairFacts.PLAY_REACH_MS, 0.0)
-        assertTrue(PairFacts.PLAY_REACH_MS > PairFacts.REACH_A_MS)
+    /** As far before A's end as [pace] can hold [s]'s end in time, worked out as playback does. */
+    private fun phoneReach(f: PairFacts, s: TransitionSpec, pace: AutomixPace = f.pace!!): Double {
+        val lead = AutomixSchedule.savedLead(s, f.a.durationMs, pace)!!
+        return pace.reachMs(lead.spanMs, lead.entrySeconds).toDouble()
     }
+
+    private fun fits(f: PairFacts, s: TransitionSpec): Boolean = AutomixSchedule.savedLead(s, f.a.durationMs, f.pace!!)!!.fits
 
     private val gridA = SongGrid(t0Ms = 281_340.0, periodMs = 60_000.0 / 111)
     private val gridB = SongGrid(t0Ms = 1_210.0, periodMs = 60_000.0 / 109)
@@ -252,9 +256,51 @@ class MixEditorTest {
         val room = editor(facts(bWindowEndMs = bReads + 10_000.0, bGrid = faster))
         assertTrue(room.setMatchSide(Side.B))
         val (far, end) = room.anchorMoved(room.spec, Side.B, -70_000.0, byBeats = false)
-        assertTrue("$end", end is Limit.APlays || end is Limit.BReach)
+        assertTrue("$end", end is Limit.PhoneReach || end is Limit.BReach)
         assertTrue("${far.b.atMs} from ${room.spec.b.atMs}", far.b.atMs > room.spec.b.atMs)
         assertTrue(SpecPlan.bReadToMs(far)!! <= bReads + 10_000.0 + 0.5)
+    }
+
+    @Test
+    fun `the editor's limit is worked out by playback's own functions, on the pace playback keeps`() {
+        val model = java.io.File("src/main/java/com/dd3boh/outertune/ui/screens/mix/EditorModel.kt").readText()
+        assertTrue(model.contains("AutomixSchedule.savedLead("))
+        assertFalse(model.contains("armFromMs("))
+        assertFalse(model.contains("changeSpanMs"))
+        val vm = java.io.File("src/main/java/com/dd3boh/outertune/ui/screens/mix/MixEditorViewModel.kt").readText()
+        assertTrue(vm.contains("AutomixPace.read(context.filesDir)"))
+        val controller = java.io.File("src/main/java/com/dd3boh/outertune/playback/automix/AutomixController.kt").readText()
+        assertFalse(controller.contains("fun changeSpanMs"))
+    }
+
+    @Test
+    fun `a change saved past this phone's limit opens as saved, says why, and can be brought in`() {
+        val base = facts()
+        // Saved where nothing held it back, 20 s earlier than Auto's.
+        val free = MixEditor(base, AutoSpec.fallback(base), null)
+        val far = free.anchorMoved(free.spec, Side.A, 20_000.0, byBeats = false).first
+        val f = PairFacts(base.a, base.b, pace = slowPhone)
+        val e = MixEditor(f, AutoSpec.fallback(f), far)
+        // Opened where it was saved (named by the preset its moves are, no longer Auto's).
+        val opened = e.spec
+        assertEquals(far.copy(preset = opened.preset), opened)
+        val why = e.playLimitOf(opened)
+        assertTrue("$why", why is Limit.PhoneReach)
+        assertEquals(phoneReach(f, far), (why as Limit.PhoneReach).reachMs, 0.0)
+        val guard = e.phoneGuard()!!
+        assertEquals(f.a.durationMs - SpecPlan.firstChangeMs(Presets.onBands(opened)), guard.startsMs, 1e-6)
+        assertEquals(why.reachMs, guard.reachMs, 0.0)
+        assertTrue(guard.startsMs > guard.reachMs)
+        // The fix: the change moved later in A by whole bars until this phone holds it in time.
+        assertTrue(e.fitToPhone())
+        assertNull(e.playLimitOf(e.spec))
+        assertNull(e.phoneGuard())
+        assertTrue(fits(f, e.spec))
+        assertEquals(opened.copy(a = opened.a.copy(atMs = e.spec.a.atMs)), e.spec)
+        val bars = (e.spec.a.atMs - far.a.atMs) / f.a.grid!!.barMs
+        assertTrue("$bars", bars >= 1)
+        assertEquals(Math.round(bars).toDouble(), bars, 1e-6)
+        assertFalse(e.fitToPhone())
     }
 
     @Test
@@ -328,18 +374,20 @@ class MixEditorTest {
     }
 
     @Test
-    fun `B moves only as far as playback holds A's end before its first frame, and says why`() {
+    fun `B moves only as far as this phone can hold A's end before its first frame, and says why`() {
         val base = facts()
-        val f = PairFacts(base.a, base.b, playReachMs = HELD_31_S)
+        val f = PairFacts(base.a, base.b, pace = slowPhone)
         val e = MixEditor(f, AutoSpec.fallback(f), null)
         val (moved, limit) = e.anchorMoved(e.spec, Side.B, -40_000.0, byBeats = false)
-        assertEquals(Limit.APlays(HELD_31_S), limit)
-        val left = f.a.durationMs - SpecPlan.firstChangeMs(Presets.onBands(moved))
-        assertTrue("$left", left <= HELD_31_S + 0.5)
+        assertTrue("$limit", limit is Limit.PhoneReach)
+        assertEquals(phoneReach(f, moved), (limit as Limit.PhoneReach).reachMs, 0.0)
+        // Exactly what playback decides: this one is held in time, a beat further would not be.
+        assertTrue(fits(f, moved))
+        assertFalse(fits(f, moved.copy(b = moved.b.copy(atMs = moved.b.atMs + f.b.grid!!.periodMs))))
         assertTrue("B moved on: ${moved.b.atMs}", moved.b.atMs > e.spec.b.atMs)
         // What was read of B ends the other way: its 60 s window holds the change and two bars more.
         val (far, end) = e.anchorMoved(e.spec, Side.B, -70_000.0, byBeats = false)
-        assertTrue("$end", end is Limit.APlays || end is Limit.BReach)
+        assertTrue("$end", end is Limit.PhoneReach || end is Limit.BReach)
         assertTrue(far.b.atMs + (far.lengthBars + 2) * far.b.barMs <= 60_000.0 + 0.5)
     }
 
@@ -467,23 +515,36 @@ class MixEditorTest {
     }
 
     @Test
-    fun `a change starts no further from A's end than playback can hold it, and says why`() {
+    fun `a change starts no further from A's end than this phone can hold it, and says why`() {
         val base = facts()
-        val f = PairFacts(base.a, base.b, playReachMs = HELD_31_S)
+        val f = PairFacts(base.a, base.b, pace = slowPhone)
         val e = MixEditor(f, AutoSpec.fallback(f), null)
         // Auto's own change saves nothing to hold, so it is never refused for it.
         assertNull(e.playLimitOf(e.spec))
-        // Dragged 20 s earlier, bar 1 stops where the change's first frame is 31 s before A's end.
+        // Dragged 20 s earlier, bar 1 stops on the last bar this phone holds in time.
         val (moved, limit) = e.anchorMoved(e.spec, Side.A, 20_000.0, byBeats = false)
-        assertEquals(Limit.APlays(HELD_31_S), limit)
+        assertTrue("$limit", limit is Limit.PhoneReach)
+        val reach = (limit as Limit.PhoneReach).reachMs
+        assertEquals(phoneReach(f, moved), reach, 0.0)
+        assertTrue("$reach", reach in 25_000.0..45_000.0)
         val left = f.a.durationMs - SpecPlan.firstChangeMs(Presets.onBands(moved))
-        assertTrue("$left", left <= HELD_31_S + 0.5)
-        assertTrue("$left", left > HELD_31_S - f.a.grid!!.barMs)
+        assertTrue("$left", left <= reach + 0.5)
+        assertTrue("$left", left > reach - f.a.grid!!.barMs)
+        assertTrue(fits(f, moved))
+        assertFalse(fits(f, moved.copy(a = moved.a.copy(atMs = moved.a.atMs - f.a.grid!!.barMs))))
         assertNull(e.reachOf(moved))
-        // 16 bars at 109 BPM take 35 s: more than playback holds for now.
-        assertEquals(Limit.APlays(HELD_31_S), e.lengthOptions().first { it.bars == 16 }.refused)
+        // 16 bars at 109 BPM take 35 s: more than this phone holds in time.
+        assertTrue("${e.lengthOptions().first { it.bars == 16 }.refused}", e.lengthOptions().first { it.bars == 16 }.refused is Limit.PhoneReach)
         assertFalse(e.setLength(16))
         assertNull(e.lengthOptions().first { it.bars == 8 }.refused)
+        // A faster phone holds them.
+        val fast = PairFacts(base.a, base.b, pace = AutomixPace(holdSpeed = 80.0, skipSpeed = 80.0, analyseMsPerS = 5.0, renderMsPerS = 60.0))
+        assertNull(MixEditor(fast, AutoSpec.fallback(fast), null).lengthOptions().first { it.bars == 16 }.refused)
+        assertTrue(phoneReach(fast, moved) > reach)
+        // With the next song adjusted, its way back to its own tempo is held too: it reaches less far.
+        val matched = moved.copy(beatMatch = true)
+        assertTrue(matched.beatMatched)
+        assertTrue(phoneReach(f, matched.copy(matchSide = Side.B)) < phoneReach(f, matched))
         // Where nothing holds it back, the design's reach is the only limit.
         val free = MixEditor(base, AutoSpec.fallback(base), null)
         assertNull(free.lengthOptions().first { it.bars == 16 }.refused)

@@ -769,16 +769,16 @@ class AutomixController(
             return
         }
         val duration = t.a.durationMs.takeIf { it > 0 } ?: player.duration.takeIf { it > 0 } ?: return
-        val bands = Presets.onBands(saved)
-        val firstMs = runCatching { SpecPlan.firstChangeMs(bands) }.getOrNull() ?: return
-        val changeLeft = (duration - firstMs).toLong()
-        val entrySeconds = saved.bStartMs / 1000.0
+        // The end is held as early as this phone needs to hold it, skip the next song to its entry
+        // and work the change out before its first frame, from what it measured on its own changes:
+        // worked out where the editor works out how far it lets a change go.
+        val lead = AutomixSchedule.savedLead(saved, duration.toDouble(), pace) ?: return
+        val changeLeft = lead.changeLeftMs
+        val entrySeconds = lead.entrySeconds
         val whose = if (t.trial) "forced for a trial" else "saved"
         val from = if (entrySeconds > 0) ", the next song in from %.1f s".format(entrySeconds) else ""
-        // The end is held as early as this phone needs to hold it, skip the next song to its entry
-        // and work the change out before its first frame, from what it measured on its own changes.
-        val need = pace.armFromMs(changeLeft, changeSpanMs(bands, firstMs), entrySeconds)
-        if (need > AutomixSchedule.ARM_FROM_LEFT_MAX_MS) {
+        val need = lead.armFromMs
+        if (!lead.fits) {
             // Never held to be refused late: today's change, said now.
             t.finished = true
             decide(t, AutoChoice.Plain(PlainReason.NO_TIME))
@@ -789,14 +789,6 @@ class AutomixController(
         t.armFromMs = max(need, AutomixSchedule.ARM_FROM_LEFT_MS)
         say("$whose for ${t.a.id} into ${t.b?.id}: ${saved.label}, it starts " + "%.1f s before the end".format(changeLeft / 1000.0) + from +
             ", held from " + "%.1f s before it".format(t.armFromMs / 1000.0))
-    }
-
-    /** How long a saved change runs from its first frame, in A's own ms: to its last bar, the echo's two after it where A leaves by one, and the headroom's pad. */
-    private fun changeSpanMs(spec: TransitionSpec, firstMs: Double): Long {
-        val echo = if (spec.moves.values.any { it.how == How.ECHO }) Engine.ECHO_MAX_BARS_AFTER else 0.0
-        // Where B is the song adjusted, it glides home and goes on to its own next bar line inside the change.
-        val glide = if (spec.bAdjusted) SpecPlan.GLIDE_BARS + 1.0 else 0.0
-        return (spec.aMsAt(spec.lengthBars + echo + glide) - firstMs + Engine.HEADROOM_PAD_S * 1000).toLong().coerceAtLeast(0)
     }
 
     /** This phone's pace, as measured on its own changes and kept between starts; the Pixel 5's until then. */

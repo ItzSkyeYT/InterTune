@@ -158,7 +158,7 @@
     <string name="mix_edit_limit_b_first">%1$s always starts at its first second.</string>
     <string name="mix_edit_limit_b_reach">%1$s opening is read up to %2$s.</string>
     <string name="mix_edit_limit_a_needs">This needs %1$s of %2$s end; only the last %3$s can be used.</string>
-    <string name="mix_edit_limit_a_plays">For now a saved change can start at most %1$s before the end of %2$s.</string>
+    <string name="mix_edit_limit_phone">This phone\'s limit: %1$s before the end</string>
 
     <!-- fix the beat -->
     <string name="mix_fix_title">Fix the beat: %1$s</string>
@@ -259,6 +259,8 @@
     <string name="mix_edit_guard_skip_silence">Skip silence is on, so this plays as a plain change for now.</string>
     <string name="mix_edit_guard_formats">The two songs come in different formats, so this plays as a plain change for now.</string>
     <string name="mix_edit_guard_same_song">A song into itself plays as a plain change.</string>
+    <string name="mix_edit_guard_phone">Plays plain: starts %1$s before the end, this phone\'s limit %2$s</string>
+    <string name="mix_edit_guard_phone_fix">Move closer</string>
     <!-- Mix (Unreleased.AUTOMIX_EDITOR): the playlist's Mix row, the line between two songs, the queue's line, Settings > Mixing. -->
     <string name="mix">Mix</string>
     <string name="mix_off">Songs flow into each other, like a DJ set.</string>

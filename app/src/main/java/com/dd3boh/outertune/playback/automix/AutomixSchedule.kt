@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.playback.automix
 
+import com.dd3boh.outertune.mix.edit.How
 import com.dd3boh.outertune.mix.edit.Presets
 import com.dd3boh.outertune.mix.edit.TransitionSpec
 import com.dd3boh.outertune.mix.engine.Engine
@@ -195,5 +196,41 @@ object AutomixSchedule {
             max(change, wayBack) + Engine.HEADROOM_PAD_S + COPY_MARGIN_S
         } ?: 0.0
         return need.coerceAtLeast(HEAD_SECONDS + COPY_MARGIN_S).coerceAtMost(COPY_MAX_S)
+    }
+
+    /**
+     * How long a saved change runs from its first frame [firstMs], in A's own ms: to its last bar,
+     * the echo's two after it where A leaves by one, the next song's way back to its own tempo and
+     * on to its own next bar line where it is the song adjusted, and the headroom's pad.
+     */
+    fun changeSpanMs(spec: TransitionSpec, firstMs: Double): Long {
+        val echo = if (spec.moves.values.any { it.how == How.ECHO }) Engine.ECHO_MAX_BARS_AFTER else 0.0
+        val glide = if (spec.bAdjusted) SpecPlan.GLIDE_BARS + 1.0 else 0.0
+        return (spec.aMsAt(spec.lengthBars + echo + glide) - firstMs + Engine.HEADROOM_PAD_S * 1000).toLong().coerceAtLeast(0)
+    }
+
+    /**
+     * Where the end has to be held from for a saved change on this phone ([AutomixPace.armFromMs]),
+     * and what that was worked out from: its first frame [changeLeftMs] before the song's end,
+     * [spanMs] long, the next song coming in [entrySeconds] into it. Playback holds it from there
+     * where it [fits], and plays a plain change where it does not; the editor offers only what fits.
+     */
+    class SavedLead(val changeLeftMs: Long, val spanMs: Long, val entrySeconds: Double, val armFromMs: Long) {
+        val fits: Boolean get() = armFromMs <= ARM_FROM_LEFT_MAX_MS
+    }
+
+    /**
+     * [saved]'s lead in a song [durationMs] long, at this phone's [pace]: the one place playback and
+     * the editor work it out. Null for a plain change, which holds nothing, or one whose first
+     * frame cannot be worked out.
+     */
+    fun savedLead(saved: TransitionSpec, durationMs: Double, pace: AutomixPace): SavedLead? {
+        if (saved.plain) return null
+        val bands = Presets.onBands(saved)
+        val firstMs = runCatching { SpecPlan.firstChangeMs(bands) }.getOrNull() ?: return null
+        val changeLeft = (durationMs - firstMs).toLong()
+        val entrySeconds = saved.bStartMs / 1000.0
+        val span = changeSpanMs(bands, firstMs)
+        return SavedLead(changeLeft, span, entrySeconds, pace.armFromMs(changeLeft, span, entrySeconds))
     }
 }

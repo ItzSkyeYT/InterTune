@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.playback.automix
 
+import java.io.File
 import java.util.Locale
 import kotlin.math.ceil
 import kotlin.math.max
@@ -63,6 +64,24 @@ data class AutomixPace(
         return ceil(max(withWork, withSkip) * 1000).toLong()
     }
 
+    /**
+     * The furthest before the song's end, in ms, the first frame of a change [spanMs] long, the
+     * next song coming in [entrySeconds] into it, can be and still be held in time ([armFromMs]
+     * within [AutomixSchedule.ARM_FROM_LEFT_MAX_MS]); -1 where nowhere is.
+     */
+    fun reachMs(spanMs: Long, entrySeconds: Double): Long {
+        val cap = AutomixSchedule.ARM_FROM_LEFT_MAX_MS
+        if (armFromMs(0, spanMs, entrySeconds) > cap) return -1
+        // The lead only grows with the first frame's distance from the end, and never falls short of it.
+        var fits = 0L
+        var past = cap + 1
+        while (past - fits > 1) {
+            val mid = (fits + past) / 2
+            if (armFromMs(mid, spanMs, entrySeconds) <= cap) fits = mid else past = mid
+        }
+        return fits
+    }
+
     /** One line a field, read back to the bit. */
     fun encode(): String = "holdSpeed=$holdSpeed\nskipSpeed=$skipSpeed\nanalyseMsPerS=$analyseMsPerS\nrenderMsPerS=$renderMsPerS\n"
 
@@ -90,6 +109,13 @@ data class AutomixPace(
             val worse = if (speed) new < old else new > old
             return if (worse) new else old + (new - old) * FASTER_STEP
         }
+
+        /** The file this phone's pace is kept in, in the app's own files: written by playback, read by the editor too. */
+        const val FILE_NAME = "mix-pace.txt"
+
+        fun read(dir: File): AutomixPace? = runCatching { File(dir, FILE_NAME).takeIf { it.isFile }?.readText()?.let(::decode) }.getOrNull()
+
+        fun write(dir: File, pace: AutomixPace) = File(dir, FILE_NAME).writeText(pace.encode())
 
         fun decode(text: String): AutomixPace? = runCatching {
             val fields = text.lines().filter { '=' in it }.associate { it.substringBefore('=').trim() to it.substringAfter('=').trim().toDouble() }
