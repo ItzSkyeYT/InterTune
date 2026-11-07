@@ -115,6 +115,61 @@ class WsolaTest {
         for (i in part.indices) assertEquals(whole[(7 * rate * 2) + i], part[i], 0.0)
     }
 
+    /**
+     * His word of 7 Nov 2026, a song sped up or slowed down "sounds really wrong... like there's
+     * sound effects and sound tearing": the stretch spliced up to 36 times a second. Now the song
+     * plays as itself, sample for sample, between a few splices a second, which keep off its drum
+     * hits, and its beats land within a millisecond.
+     */
+    @Test
+    fun betweenAFewSplicesTheSongIsItselfAndItsBeatsLandOnTime() {
+        val song = Synth.song(SynthSpec(bpm = 124.0, bars = 24, seed = 5))
+        val tail = song.samples
+        val anchors = DoubleArray(song.beats.size) { song.beats[it] * rate }
+        for (speed in doubleArrayOf(0.97, 1.03)) {
+            val map = TimeMap(rampStart = 1.0 * rate, rampLength = 0.5 * rate, speed = speed)
+            val length = map.outAt(40.0 * rate).toLong()
+            val frames = wsola(tail, anchors).frames(map, 0, length)
+            val x = DoubleArray(2)
+            var splices = 0
+            var onHits = 0
+            for (j in 1 until frames.positions.size) {
+                val k = frames.kFirst + j
+                val at = frames.startOf(k)
+                val p = frames.positions[j]
+                if (p == frames.positions[j - 1] + Wsola.HOP) {
+                    // The song itself through the first half of this grid frame.
+                    for (i in 0 until Wsola.HOP step 37) {
+                        if (at + i !in 0 until length) continue
+                        frames.frame(at + i, x)
+                        assertEquals(tail[((p + i) * 2).toInt()].toDouble(), x[0], 0.0)
+                    }
+                    continue
+                }
+                splices++
+                // Neither side of the splice holds a beat's hit.
+                val a = frames.positions[j - 1] + Wsola.HOP
+                if (anchors.any { (it >= a && it < a + Wsola.HOP) || (it >= p && it < p + Wsola.HOP) }) onHits++
+            }
+            val perSecond = splices / (length.toDouble() / rate)
+            println("speed $speed: %.1f splices a second, $onHits of $splices on a beat".format(perSecond))
+            assertTrue("$perSecond", perSecond <= 6.0)
+            assertTrue("$onHits of $splices", onHits * 10 <= splices)
+            // The beats land where the map puts them.
+            for (b in anchors) {
+                val want = map.outAt(b)
+                if (want < rate * 2 || want > length - rate) continue
+                var best = Double.MAX_VALUE
+                for (j in frames.positions.indices) {
+                    val start = frames.startOf(frames.kFirst + j)
+                    val p = frames.positions[j]
+                    if (b >= p && b < p + Wsola.FRAME) best = minOf(best, abs(start + (b - p) - want))
+                }
+                assertTrue("beat at ${b / rate} s off by ${best / rate * 1000} ms", best <= 0.0011 * rate)
+            }
+        }
+    }
+
     @Test
     fun theStretchJoinsTheRawTailWithoutAStep() {
         val tail = Synth.sine(330.0, 10.0, rate, amplitude = 0.5)

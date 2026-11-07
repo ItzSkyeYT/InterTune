@@ -7,6 +7,7 @@
 package com.dd3boh.outertune.mix
 
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.floor
 import kotlin.math.max
@@ -15,23 +16,27 @@ import kotlin.math.roundToLong
 import kotlin.math.sqrt
 
 /**
- * The outgoing song played faster or slower with its pitch kept: our own waveform-similarity
- * overlap-add, after Verhelst and Roelands (1993), driven by a [TimeMap].
+ * A song played faster or slower with its pitch kept: waveform-similarity overlap-add, after
+ * Verhelst and Roelands (1993), driven by a [FrameMap].
  *
- * Output is built from Hann frames of [FRAME] samples at half overlap, laid on an absolute grid of
- * output frames. Each frame is taken from the tail within ±5 ms of where the map says it belongs,
- * at the offset whose start best matches the natural continuation of the frame before it, so the
- * waveforms join without a seam; never further than 5 ms, so a beat is never more than 5 ms from
- * where the map puts it. The search runs on the decimated guide the analysis already made, then is
- * refined over four frames either way at the full rate. Where the map is the identity, frames are
- * taken from exactly where they are and the tail is copied, sample for sample.
+ * Output is laid on an absolute grid of grid frames of [FRAME] samples at half overlap. Where the
+ * map is the identity the tail is copied, sample for sample. Elsewhere each grid frame goes on from
+ * the one before it exactly (the tail as it is, again sample for sample), and the speed comes from
+ * a few splices: between two of [anchors], the song's beats, the music has to lose or gain what the
+ * map asks of that beat, and it does so in as few splices as keep it within [SPLICE_S] / 2 of the
+ * map, each one in its own share of the beat, at the grid frame and the jump whose two sides are
+ * most alike (searched on the decimated guide the analysis already made, the best few again at the
+ * full rate on both channels), where no drum hit falls if it can be helped; the last one lands the
+ * next beat within [ANCHOR_S] of where the map puts it. A splice crossfades over [FADE_S] where its
+ * two sides are most alike, its level kept by how alike they are. Where the song has no beat to
+ * land, every [SOFT_HOPS] grid frames stand in for one, within [SOFT_S] of the map.
  *
- * Left alone, WSOLA keeps taking the natural continuation until its drift reaches the edge of the
- * search and only then jumps, so a beat lands up to 5 ms off, and mostly near that edge. [anchors]
- * are the tail frames that must land where the map says, the outgoing song's beats in a mix: a
- * frame is placed so the anchor lands within a millisecond of its mapped time, at the best match
- * there, and the frames after it continue from it exactly. The jump this needs falls 25 to 50 ms
- * before the beat, at the best waveform match, where the beat's onset covers it.
+ * Measured on his reels' songs (experiments/features/automix/stretch, 7 Nov 2026): the way before
+ * took every frame within ±5 ms of the map and landed each beat with a jump a frame before it,
+ * searched within a millisecond. At 3% it spliced 20 times a second, half of the splices joining
+ * unlike sides over a 21 ms crossfade, which was heard as tearing and phasing; this one splices 4
+ * times a second at 3% and twice at 1%, and does a third of the harm to the spectrum (a sixth in
+ * the mids, an eighth in the highs).
  */
 class Wsola(
     private val tail: ShortArray,
@@ -45,13 +50,18 @@ class Wsola(
     /**
      * Where grid frame 0 starts, in output frames. The prototype's grid starts at frame 0 of the
      * held end; the change on bands starts it on bar 1, the same music in any copy, so a copy of
-     * the song that starts elsewhere is stretched with the same joins.
+     * the song that starts elsewhere is stretched with the same splices.
      */
     private val phase: Long = 0,
     /** The tail frame guide sample 0 was taken at: the guide is every [factor]-th frame from there. */
     private val guideFrom: Long = 0,
 ) {
-    private val anchorRadius = (ANCHOR_S * sampleRate).roundToInt()
+    private val anchorRadius = Math.round(ANCHOR_S * sampleRate)
+    private val spliceFrames = SPLICE_S * sampleRate
+    private val flex = Math.round(FLEX_S * sampleRate)
+    private val softRadius = Math.round(SOFT_S * sampleRate)
+    private val fadeFrames = max(2, (FADE_S * sampleRate).roundToInt() / 2 * 2)
+    private val drift = DRIFT_S * sampleRate
     private val tailFrames = tail.size / channels
     private val search = (SEARCH_S * sampleRate).roundToInt()
     private val window = DoubleArray(FRAME) { 0.5 - 0.5 * cos(2.0 * PI * it / FRAME) }
@@ -75,74 +85,255 @@ class Wsola(
 
     /**
      * Where every grid frame that output frames [from] to [to] are built from is taken in the
-     * tail: a few numbers a hop, from which any output frame can then be made on demand, so a long
-     * stretch is never held whole.
+     * tail, and where its splice crossfades: a few numbers a grid frame, from which any output
+     * frame can then be made on demand, so a long stretch is never held whole.
      */
     fun frames(map: FrameMap, from: Long, to: Long): Frames {
         // Each output frame lies in the first half of grid frame k2 and the second half of k2 - 1.
         val kFirst = Math.floorDiv(from - phase, HOP.toLong()) - 1
         val kLast = Math.floorDiv(max(from, to - 1) - phase, HOP.toLong())
-        // Each search continues the frame before it, so the chain starts from the last grid frame
-        // the map leaves alone; it is the same chain whatever stretch is asked for. A song
-        // stretched from its first frame heard starts it where the map puts its first frame.
+        // The chain starts from the last grid frame the map leaves alone, and plans whole stretches
+        // from beat to beat whatever end is asked for, so it is the same chain whatever stretch of
+        // it is asked for. A song stretched from its first frame heard starts where the map puts it.
         var k0 = kFirst
         val inPlace = map.inPlaceUntil != Double.NEGATIVE_INFINITY
         if (inPlace) while (!isIdentityFrame(map, k0)) k0--
-        val positions = LongArray((kLast - kFirst + 1).toInt())
-        var previous = if (inPlace) start(k0) else (map.tailAt(start(k0) + FRAME / 2.0) - FRAME / 2.0).roundToLong()
-        if (k0 >= kFirst) positions[(k0 - kFirst).toInt()] = previous
-        var continuing = 0
-        for (k in k0 + 1..kLast) {
-            var anchored = false
-            val p = when {
-                isIdentityFrame(map, k) -> start(k)
-                // The two frames after an anchored one, the two that hold the anchor, continue it exactly.
-                continuing > 0 -> previous + HOP
-                else -> {
-                    val target = (map.tailAt(start(k) + FRAME / 2.0) - FRAME / 2.0).roundToLong()
-                    // An anchor heard in the second half of the frame after this one: the jump
-                    // that puts it on time is made here, a frame early, so that both frames that
-                    // hold the anchor continue each other exactly and neither leaves an early
-                    // ghost of it near the edge of its window.
-                    val anchor = anchorIn(map.tailAt(start(k + 2).toDouble()), map.tailAt(start(k + 3).toDouble()))
-                    val desired = anchor?.let { (start(k) + it - map.outAt(it)).roundToLong() }
-                    val lo = if (desired == null) target - search else max(target - search, desired - anchorRadius)
-                    val hi = if (desired == null) target + search else kotlin.math.min(target + search, desired + anchorRadius)
-                    if (desired != null && lo <= hi) {
-                        anchored = true
-                        bestOffset(desired.coerceIn(lo, hi), previous + HOP, lo, hi, desired)
-                    } else bestOffset(target, previous + HOP, target - search, target + search, null)
-                }
-            }
-            continuing = if (anchored) 2 else max(0, continuing - 1)
-            if (k >= kFirst) positions[(k - kFirst).toInt()] = p
-            previous = p
+        val n = (kLast - kFirst + 1).toInt()
+        val positions = LongArray(n)
+        var before = Long.MIN_VALUE
+        fun put(k: Long, p: Long) {
+            if (k == kFirst - 1) before = p
+            if (k in kFirst..kLast) positions[(k - kFirst).toInt()] = p
         }
-        return Frames(kFirst, positions)
+        var k = k0
+        var p = if (inPlace) start(k0) else (map.tailAt(start(k0) + FRAME / 2.0) - FRAME / 2.0).roundToLong()
+        put(k, p)
+        // The first grid frame a splice may fall on: never on the two that hold a beat just landed.
+        var free = k + 1
+        while (k < kLast) {
+            if (isIdentityFrame(map, k + 1)) {
+                k++
+                p = start(k)
+                put(k, p)
+                free = k + 1
+                continue
+            }
+            val stop = nextStop(map, k)
+            val jumps = planSplices(map, k, p, max(free, k + 1), stop)
+            for (h in k + 1..stop.k) {
+                p += HOP + (jumps[h] ?: 0L)
+                put(h, p)
+            }
+            k = stop.k
+            free = if (stop.anchored) k + 3 else k + 1
+        }
+        // Each splice's crossfade, where its two sides are most alike, and how alike they are there.
+        val fadeAt = IntArray(n) { -1 }
+        val fadeLike = DoubleArray(n)
+        for (i in 0 until n) {
+            val prev = if (i == 0) before else positions[i - 1]
+            if (prev == Long.MIN_VALUE || positions[i] == prev + HOP) continue
+            val (at, like) = bestFade(prev + HOP, positions[i])
+            fadeAt[i] = at
+            fadeLike[i] = like
+        }
+        return Frames(kFirst, positions, fadeAt, fadeLike)
     }
 
-    /** The positions [frames] chose, ready to make output frames from. */
-    inner class Frames(private val kFirst: Long, private val positions: LongArray) {
+    /** Where a stretch between splices ends: grid frame [k] taken from [p], within [tolerance] frames. */
+    private class Stop(val k: Long, val p: Long, val tolerance: Long, val anchored: Boolean)
+
+    /**
+     * The next stretch's end after grid frame [k]: the grid frame that lands the next anchor, heard
+     * in the second half of the grid frame after it, so both that hold it go on from it exactly;
+     * with none within [ANCHOR_HOPS], the map's own place [SOFT_HOPS] on.
+     */
+    private fun nextStop(map: FrameMap, k: Long): Stop {
+        for (h in k + 1..k + ANCHOR_HOPS) {
+            val anchor = anchorIn(map.tailAt(start(h + 2).toDouble()), map.tailAt(start(h + 3).toDouble())) ?: continue
+            val desired = (start(h) + anchor - map.outAt(anchor)).roundToLong()
+            val target = (map.tailAt(start(h) + FRAME / 2.0) - FRAME / 2.0).roundToLong()
+            // An anchor the map does not put near where the music is, is not one to land.
+            if (abs(desired - target) > search) continue
+            return Stop(h, desired, anchorRadius, true)
+        }
+        val h = k + SOFT_HOPS
+        return Stop(h, (map.tailAt(start(h) + FRAME / 2.0) - FRAME / 2.0).roundToLong(), softRadius, false)
+    }
+
+    /**
+     * The splices from grid frame [k], taken from [p], to [stop], as jumps by the grid frame they
+     * fall on, none before [first]: as many as keep each under [SPLICE_S], each in its own share of
+     * the stretch, at the grid frame and jump whose two sides are most alike and hold no drum hit,
+     * and which keep the music within [DRIFT_S] of the straight way from where the stretch starts
+     * against the map to where it ends.
+     */
+    private fun planSplices(map: FrameMap, k: Long, p: Long, first: Long, stop: Stop): Map<Long, Long> {
+        val total = stop.p - (p + (stop.k - k) * HOP)
+        if (abs(total) <= stop.tolerance || first > stop.k) return emptyMap()
+        fun target(h: Long) = map.tailAt(start(h) + FRAME / 2.0) - FRAME / 2.0
+        val startOff = p - target(k)
+        val endOff = stop.p - target(stop.k)
+        // How far the music at grid frame h, taken from [at], is from the straight way.
+        fun off(h: Long, at: Long): Double = at - target(h) - (startOff + (endOff - startOff) * (h - k) / (stop.k - k).toDouble())
+        val count = (stop.k - first + 1).toInt()
+        val splices = max(1, Math.round(abs(total) / spliceFrames).toInt()).coerceAtMost(count)
+        val jumps = HashMap<Long, Long>()
+        var left = total
+        var taken = 0L
+        var at = first
+        val candidates = ArrayList<Candidate>()
+        for (i in 0 until splices) {
+            val end = first + (count.toLong() * (i + 1)) / splices - 1
+            val last = i == splices - 1
+            val share = left.toDouble() / (splices - i)
+            val lo = if (last) left - stop.tolerance else Math.round(share) - flex
+            val hi = if (last) left + stop.tolerance else Math.round(share) + flex
+            // On the guide, every grid frame of this share and every jump, a step of the guide apart.
+            candidates.clear()
+            for (h in at..end) {
+                val natural = p + (h - k) * HOP + taken
+                val hit = hitIn(natural)
+                val before = off(h, natural)
+                var j = lo
+                while (j <= hi) {
+                    var score = guideLikeness(natural, natural + j)
+                    if (hit || hitIn(natural + j)) score -= HIT_COST
+                    // Too far from the map on either side of the splice: only where nothing else is.
+                    if (abs(before) > drift || abs(before + j) > drift) score -= DRIFT_COST
+                    candidates += Candidate(h, j, score)
+                    j += factor
+                }
+            }
+            // The best few again at the full rate, both channels, then the jump to the sample around the best.
+            candidates.sortByDescending { it.score }
+            var best = candidates.firstOrNull() ?: Candidate(at, Math.round(share).coerceIn(lo, hi), 0.0)
+            var bestScore = Double.NEGATIVE_INFINITY
+            for (c in candidates.take(FINAL_CANDIDATES)) {
+                val natural = p + (c.h - k) * HOP + taken
+                var score = alike(natural, natural + c.j)
+                if (hitIn(natural) || hitIn(natural + c.j)) score -= HIT_COST
+                val before = off(c.h, natural)
+                if (abs(before) > drift || abs(before + c.j) > drift) score -= DRIFT_COST
+                if (score > bestScore) {
+                    bestScore = score
+                    best = c
+                }
+            }
+            val natural = p + (best.h - k) * HOP + taken
+            var jump = best.j
+            var jumpScore = Double.NEGATIVE_INFINITY
+            for (d in -factor..factor) {
+                val j = (best.j + d).coerceIn(lo, hi)
+                val score = alike(natural, natural + j)
+                if (score > jumpScore) {
+                    jumpScore = score
+                    jump = j
+                }
+            }
+            jumps[best.h] = jump
+            taken += jump
+            left -= jump
+            at = end + 1
+        }
+        return jumps
+    }
+
+    private class Candidate(val h: Long, val j: Long, val score: Double)
+
+    /** How alike the half frames of the tail from [a] and from [b] are on the guide: their normalised correlation. */
+    private fun guideLikeness(a: Long, b: Long): Double {
+        val n = (FRAME - HOP) / factor
+        val aG = Math.floorDiv(a - guideFrom, factor.toLong())
+        val bG = Math.floorDiv(b - guideFrom, factor.toLong())
+        return correlation(bG, aG, n) { guideAt(it) }
+    }
+
+    /**
+     * How alike the half frames of the tail from [a] and from [b] are at the full rate, both
+     * channels, weighted as the two windows of an overlap blend them: 1 for the same music.
+     */
+    private fun alike(a: Long, b: Long): Double {
+        var ab = 0.0
+        var aa = 0.0
+        var bb = 0.0
+        for (i in 0 until HOP) {
+            val w = window[i + HOP] * window[i]
+            for (c in 0 until channels) {
+                val x = sample(a + i, c)
+                val y = sample(b + i, c)
+                ab += w * x * y
+                aa += w * x * x
+                bb += w * y * y
+            }
+        }
+        val norm = sqrt(aa * bb)
+        return if (norm < 1e-9) 1.0 else ab / norm
+    }
+
+    /**
+     * Where in the overlap a crossfade of [fadeFrames] from the tail at [a] into the tail at [b]
+     * is best centred, a step of 32 frames apart, and how alike the two are over it there.
+     */
+    private fun bestFade(a: Long, b: Long): Pair<Int, Double> {
+        var best = HOP / 2
+        var bestLike = Double.NEGATIVE_INFINITY
+        val half = fadeFrames / 2
+        var c = half
+        while (c <= HOP - half) {
+            var ab = 0.0
+            var aa = 0.0
+            var bb = 0.0
+            for (i in c - half until c + half) for (ch in 0 until channels) {
+                val x = sample(a + i, ch)
+                val y = sample(b + i, ch)
+                ab += x * y
+                aa += x * x
+                bb += y * y
+            }
+            val norm = sqrt(aa * bb)
+            val like = if (norm < 1e-9) 1.0 else ab / norm
+            if (like > bestLike) {
+                bestLike = like
+                best = c
+            }
+            c += FADE_STEP
+        }
+        return best to bestLike
+    }
+
+    /** The positions [frames] chose and their splices' crossfades, ready to make output frames from. */
+    inner class Frames(internal val kFirst: Long, internal val positions: LongArray, private val fadeAt: IntArray, internal val fadeLike: DoubleArray) {
+
+        /** The output frame grid frame [k] starts on. */
+        internal fun startOf(k: Long): Long = start(k)
 
         /** Output frame [o], one sample per channel into [into]. */
         fun frame(o: Long, into: DoubleArray) {
             val k2 = Math.floorDiv(o - phase, HOP.toLong())
             val i2 = (o - start(k2)).toInt()
-            val k1 = k2 - 1
-            val i1 = i2 + HOP
-            val j1 = (k1 - kFirst).toInt()
             val j2 = (k2 - kFirst).toInt()
-            val p1 = positions[j1]
             val p2 = positions[j2]
-            // Two frames taken from exactly where they are add up to the sample itself; adding
-            // their windowed halves would only get there to within a rounding, which can tip a
-            // sample's rounding later, so the tail is copied instead and joins the raw tail before
-            // it to the bit. That holds wherever both frames are in place, not only where the map
-            // is still the identity: the first frames of a ramp are often still in place too.
-            val copy = p1 == start(k1) && p2 == start(k2)
-            for (c in 0 until channels) {
-                into[c] = if (copy) sample(o, c) else window[i1] * sample(p1 + i1, c) + window[i2] * sample(p2 + i2, c)
+            val fade = fadeAt[j2]
+            if (fade < 0) {
+                // The tail as it is: where the map leaves it alone, and where a grid frame goes on
+                // from the one before it, whose second half is the same samples.
+                for (c in 0 until channels) into[c] = sample(p2 + i2, c)
+                return
             }
+            // A splice: the grid frame before it goes on until the crossfade, which is centred where
+            // the two sides are most alike, and its level kept by how alike they are there.
+            val p1 = positions[j2 - 1]
+            val x = (i2 - (fade - fadeFrames / 2) + 0.5) / fadeFrames
+            val w2 = when {
+                x <= 0.0 -> 0.0
+                x >= 1.0 -> 1.0
+                else -> 0.5 - 0.5 * cos(PI * x)
+            }
+            val w1 = 1.0 - w2
+            val like = fadeLike[j2].coerceIn(0.0, 1.0)
+            val gain = 1.0 / sqrt(w1 * w1 + w2 * w2 + 2 * like * w1 * w2)
+            for (c in 0 until channels) into[c] = (w1 * sample(p1 + HOP + i2, c) + w2 * sample(p2 + i2, c)) * gain
         }
     }
 
@@ -167,48 +358,6 @@ class Wsola(
         return if (lo < anchors.size && anchors[lo] < to) anchors[lo] else null
     }
 
-    /**
-     * The tail position between [lo] and [hi], searched around [target], whose next half frame best
-     * matches the half frame at [natural], by normalised correlation: first on the guide, then at
-     * the full rate.
-     */
-    private fun bestOffset(target: Long, natural: Long, lo: Long, hi: Long, prefer: Long?): Long {
-        // Near an anchor, an offset pays for straying from where the anchor wants it, so where the
-        // waveforms do not decide (silence between two clicks, a held note) the anchor's own
-        // position wins.
-        fun cost(p: Long): Double = if (prefer == null) 0.0 else {
-            val d = (p - prefer).toDouble() / max(1, anchorRadius)
-            ANCHOR_PULL * d * d
-        }
-        val overlap = FRAME - HOP
-        val g = overlap / factor
-        val naturalG = Math.floorDiv(natural - guideFrom, factor.toLong())
-        val loG = Math.floorDiv(lo - guideFrom, factor.toLong())
-        val hiG = Math.floorDiv(hi - guideFrom, factor.toLong())
-        var bestG = Math.floorDiv(target - guideFrom, factor.toLong())
-        var bestScore = Double.NEGATIVE_INFINITY
-        for (p in loG..hiG) {
-            val score = correlation(p, naturalG, g) { guideAt(it) } - cost(p * factor + guideFrom)
-            if (score > bestScore) {
-                bestScore = score
-                bestG = p
-            }
-        }
-        // At the full rate, around the guide's answer, never outside the window.
-        val centre = (bestG * factor + guideFrom).coerceIn(lo, hi)
-        var best = centre
-        bestScore = Double.NEGATIVE_INFINITY
-        for (d in -REFINE..REFINE) {
-            val p = (centre + d).coerceIn(lo, hi)
-            val score = correlation(p, natural, overlap) { monoAt(it) } - cost(p)
-            if (score > bestScore) {
-                bestScore = score
-                best = p
-            }
-        }
-        return best
-    }
-
     private inline fun correlation(a: Long, b: Long, length: Int, value: (Long) -> Double): Double {
         var ab = 0.0
         var aa = 0.0
@@ -226,21 +375,94 @@ class Wsola(
 
     private fun guideAt(i: Long): Double = if (i in guide.indices) guide[i.toInt()].toDouble() else 0.0
 
-    private fun monoAt(t: Long): Double {
-        if (t !in 0 until tailFrames) return 0.0
-        var sum = 0.0
-        val base = (t * channels).toInt()
-        for (c in 0 until channels) sum += tail[base + c]
-        return sum
+    /**
+     * Whether a drum hit falls in the half frame of the tail from [t]: on the guide's first
+     * difference, which leaves the bass out, a stretch of [HIT_BLOCK] samples [HIT_RISE] times as
+     * loud as the four before it, and loud enough to be heard.
+     */
+    private fun hitIn(t: Long): Boolean {
+        val g0 = Math.floorDiv(t - guideFrom, factor.toLong())
+        val last = g0 + (FRAME - HOP) / factor - HIT_BLOCK
+        val flags = hits
+        var g = max(0L, g0)
+        while (g <= last && g < flags.size) {
+            if (flags[g.toInt()]) return true
+            g++
+        }
+        return false
+    }
+
+    /**
+     * Where a drum hit starts on the guide, sample by sample, each worked out from the samples
+     * around it only, so any copy of the song finds the same hits at the same music.
+     */
+    private val hits: BooleanArray by lazy {
+        val n = guide.size
+        val out = BooleanArray(n)
+        val back = 4 * HIT_BLOCK
+        if (n < back + HIT_BLOCK + 1) return@lazy out
+        fun e(i: Int): Double {
+            if (i < 1) return 0.0
+            val d = (guide[i] - guide[i - 1]).toDouble()
+            return d * d
+        }
+        var now = 0.0
+        var then = 0.0
+        for (i in back until n - HIT_BLOCK) {
+            if ((i - back) % RESUM == 0) {
+                // Summed afresh now and then, so the running sums never drift.
+                now = 0.0
+                for (j in i until i + HIT_BLOCK) now += e(j)
+                then = 0.0
+                for (j in i - back until i) then += e(j)
+            }
+            out[i] = now / HIT_BLOCK > HIT_FLOOR && now / HIT_BLOCK > HIT_RISE * (then / back)
+            now += e(i + HIT_BLOCK) - e(i)
+            then += e(i) - e(i - back)
+        }
+        out
     }
 
     companion object {
         const val FRAME = 2048
         const val HOP = FRAME / 2
+
+        /** How far from the map an anchor may sit and still be landed. */
         const val SEARCH_S = 0.005
+
+        /** How near where the map puts it a beat lands. */
         const val ANCHOR_S = 0.001
-        private const val ANCHOR_PULL = 0.5
-        private const val REFINE = 4
+
+        /** The most one splice moves the music: enough splices that between two beats it keeps within half of this of the map. */
+        const val SPLICE_S = 0.007
+
+        /** How far a splice that is not a beat's last may take more or less than its share, to find two alike sides. */
+        const val FLEX_S = 0.003
+
+        /** How near the map a stretch with no beat to land ends. */
+        const val SOFT_S = 0.0025
+
+        /** A splice's crossfade, a raised cosine. */
+        const val FADE_S = 0.008
+
+        /** How far the music may stray from the straight way between two beats, either side of a splice. */
+        const val DRIFT_S = 0.0045
+
+        /** How far ahead the next beat is looked for, and where a stretch with none ends, in grid frames. */
+        const val ANCHOR_HOPS = 48
+        const val SOFT_HOPS = 24
+
+        /** How many of the guide's best splices are judged again at the full rate. */
+        private const val FINAL_CANDIDATES = 12
+        private const val FADE_STEP = 32
+
+        /** What a drum hit on either side of a splice costs it, against two sides alike to 1. */
+        private const val HIT_COST = 0.5
+        private const val DRIFT_COST = 0.5
+        private const val HIT_BLOCK = 32
+        private const val HIT_RISE = 4.0
+        private const val HIT_FLOOR = 1e-7
+        private const val RESUM = 4096
     }
 }
 
