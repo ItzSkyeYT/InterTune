@@ -301,6 +301,7 @@ import com.dd3boh.outertune.ui.utils.LocalGlassStill
 import com.dd3boh.outertune.ui.utils.Animations
 import com.dd3boh.outertune.ui.utils.stillGlass
 import com.dd3boh.outertune.ui.utils.LocalAppBackdropAvailable
+import com.dd3boh.outertune.ui.utils.LocalPlainDock
 import com.dd3boh.outertune.ui.utils.Landscape
 import com.dd3boh.outertune.ui.utils.LocalLandscape
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -1464,6 +1465,7 @@ class MainActivity : ComponentActivity() {
                         LocalSnackbarHostState provides snackbarHostState,
                         LocalAppBackdrop provides (if (navGlass) appBackdrop else null),
                         LocalAppBackdropAvailable provides backdropAvailable,
+                        LocalPlainDock provides plainDock,
                         LocalLandscape provides landscape,
                         LocalGlassIntensity provides glassIntensity,
                         LocalBatteryMode provides batteryMode,

@@ -19,6 +19,7 @@ import com.dd3boh.outertune.utils.ShareLinks
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberUpdatedState
 import com.dd3boh.outertune.ui.utils.LocalAppBackdrop
+import com.dd3boh.outertune.ui.utils.LocalPlainDock
 import com.dd3boh.outertune.ui.utils.LocalGlassStill
 import com.dd3boh.outertune.ui.utils.stillGlass
 import com.dd3boh.outertune.ui.utils.LocalLandscape
@@ -885,7 +886,7 @@ fun BottomSheetPlayer(
         // Only when the app backdrop exists, though, not whenever the setting is on: the rail
         // layout and anything below API 33 have none, the mini player then draws no panel of its
         // own, and a transparent sheet left its title lying over the list underneath.
-        collapsedBackgroundColor = if (liquidGlass && LocalAppBackdrop.current != null) Color.Transparent
+        collapsedBackgroundColor = if ((liquidGlass && LocalAppBackdrop.current != null) || LocalPlainDock.current) Color.Transparent
         else MaterialTheme.colorScheme.surfaceColorAtElevation(6.dp),
         // performFling only dismisses when this is non-null and falls back to collapse() when it
         // is not, so withholding the callback is what actually prevents the dismiss. BottomSheet
