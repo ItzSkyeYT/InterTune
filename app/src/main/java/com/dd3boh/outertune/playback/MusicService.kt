@@ -6373,7 +6373,8 @@ class MusicService : MediaLibraryService(),
      * `play` plays those songs as the queue of a Mix playlist, `end <ms>` goes to that long before
      * the end of the song playing, `pause` pauses. `queue` plays them as the same playlist's queue
      * without touching its Mix switch, which `mix on` and `mix off` set; `crossfade on` and
-     * `crossfade off` set Crossfade. Several commands are separated by `;`.
+     * `crossfade off` set Crossfade. `parts`, then `key=value` words, times the parts model on this
+     * phone (Unreleased.AUTOMIX_PARTS, PartsBench). Several commands are separated by `;`.
      */
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (BuildConfig.BUILD_TYPE == "debug" && Unreleased.AUTOMIX_EDITOR) intent?.getStringExtra("mixtrial")?.let { mixTrial(it) }
@@ -6414,8 +6415,22 @@ class MusicService : MediaLibraryService(),
                     val on = words.getOrNull(1) == "on"
                     scope.launch { dataStore.edit { it[CrossfadeKey] = on } }
                 }
+                "parts" -> if (Unreleased.AUTOMIX_PARTS) partsBench(words.drop(1))
             }
         }
+    }
+
+    /**
+     * The parts model timed on this phone (Unreleased.AUTOMIX_PARTS). PartsBench sits in the debug
+     * source set beside ONNX Runtime, which only the debug build carries (debugImplementation), so
+     * it is found by name rather than linked from here.
+     */
+    private fun partsBench(words: List<String>) {
+        runCatching {
+            Class.forName("com.dd3boh.outertune.playback.parts.PartsBench")
+                .getMethod("start", android.app.Service::class.java, List::class.java)
+                .invoke(null, this, words)
+        }.onFailure { Log.w(TAG, "Parts bench: not in this build", it) }
     }
 
     override fun onDestroy() {

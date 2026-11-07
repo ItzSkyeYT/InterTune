@@ -297,6 +297,14 @@ android {
         unitTests.isReturnDefaultValues = true
     }
 
+    packaging {
+        jniLibs {
+            // ONNX Runtime, in debug builds only for the parts bench (Unreleased.AUTOMIX_PARTS), for
+            // arm64 phones only: its three other ABIs would add 105 MB more to every debug APK.
+            excludes += listOf("lib/armeabi-v7a/libonnxruntime*.so", "lib/x86/libonnxruntime*.so", "lib/x86_64/libonnxruntime*.so")
+        }
+    }
+
     lint {
         lintConfig = file("lint.xml")
     }
@@ -388,6 +396,10 @@ dependencies {
     implementation(project(":fingerprint"))
     // AutoMix's analysis, planning and mixing, pure Kotlin like the fingerprint code (Unreleased.AUTOMIX).
     implementation(project(":mix"))
+    // Parts (Unreleased.AUTOMIX_PARTS): SCNet's transforms and runner, and ONNX Runtime from Maven to
+    // run it, in debug builds only. The runtime's telemetry is taken out in src/debug/AndroidManifest.xml.
+    debugImplementation(project(":parts"))
+    debugImplementation(libs.onnxruntime.android)
     implementation(project(":innertube"))
     implementation(project(":sabr"))
     implementation(libs.ktor.client.okhttp)

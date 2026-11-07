@@ -106,11 +106,12 @@ class ReleasedFlagsTest {
     }
 
     @Test
-    fun `Mix stays in debug builds, the mixer, its editor and Crossfade`() {
+    fun `Mix stays in debug builds, the mixer, its editor, Crossfade and Parts`() {
         // Held back until it has been heard on a phone and the words have a yes. Named here so
         // that shipping any of them takes more than adding a name to the list above. Debug builds
-        // only, out of the previews testers get, as AutoMix has been since 26 Oct 2026.
-        for (flag in listOf("AUTOMIX", "AUTOMIX_EDITOR", "CROSSFADE")) {
+        // only, out of the previews testers get, as AutoMix has been since 26 Oct 2026. Parts also
+        // need ONNX Runtime built from source before any release (PartsHeldBackTest).
+        for (flag in listOf("AUTOMIX", "AUTOMIX_EDITOR", "CROSSFADE", "AUTOMIX_PARTS")) {
             assertEquals(flag, DEBUG_ONLY, flags[flag])
             assertFalse(flag, flag in inEveryBuild)
         }
