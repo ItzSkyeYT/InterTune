@@ -29,7 +29,6 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -310,9 +309,9 @@ private const val COUNTDOWN_SHOWN_MS = 1_500L
 
 /**
  * The card, shown: the screen dims, the card turns in from its edge with a little overshoot and a
- * tap of the phone's vibration as it lands, then a soft band of light lies across it and follows
- * the phone as it is tilted. Without a sensor for that the light crosses it once; with animations
- * off it is simply there. Save and Share under it; a tap beside it or Back closes it.
+ * tap of the phone's vibration as it lands, a band of light crosses it once, and from then on it
+ * leans with the phone as the phone is tilted (7 Nov 2026: the card moves, not the light). With
+ * animations off it is simply there. Save and Share under it; a tap beside it or Back closes it.
  */
 @Composable
 fun VersionCardDialog(onDismiss: () -> Unit) {
@@ -393,9 +392,8 @@ fun VersionCardDialog(onDismiss: () -> Unit) {
         if (!landed) return@LaunchedEffect
         launch { after.animateTo(1f, tween(260)) }
         if (still) return@LaunchedEffect
-        // In from the top left to where the phone's tilt puts it; once across where nothing tilts it.
-        if (tilt.available) sweep.animateTo(0f, tween(1300, easing = FastOutSlowInEasing))
-        else sweep.animateTo(1.9f, tween(2600, easing = LinearOutSlowInEasing))
+        // Once across as it lands; after that the card itself moves with the phone, not the light.
+        sweep.animateTo(1.9f, tween(2600, easing = LinearOutSlowInEasing))
     }
 
     fun leave() {
@@ -504,9 +502,9 @@ private fun ShownCard(
             // A tap on the card is not a tap beside it.
             .pointerInput(Unit) { detectTapGestures { } }
             .graphicsLayer {
-                // It leans a few degrees with the phone, as a card in the hand does.
-                rotationY = turn.value + tilt.x * 4f
-                rotationX = -tilt.y * 4f
+                // It leans with the phone, up to [TILT_DEGREES] each way, as a card held in the hand.
+                rotationY = turn.value + tilt.x * TILT_DEGREES
+                rotationX = -tilt.y * TILT_DEGREES
                 val scale = 1f - 0.08f * (abs(turn.value) / 90f)
                 scaleX = scale
                 scaleY = scale
@@ -518,7 +516,7 @@ private fun ShownCard(
                 }
                 onDrawWithContent {
                     drawContent()
-                    if (!still && card != null) clipPath(shape) { shine(sweep.value + tilt.along) }
+                    if (!still && card != null) clipPath(shape) { shine(sweep.value) }
                 }
             },
     ) {
@@ -561,15 +559,17 @@ private fun DrawScope.shine(at: Float) {
 
 /**
  * How the phone is tilted from where it was held when the card landed, -1 to 1 each way: [x] to
- * the right, [y] towards the person, and [along] the two as one, along the card's diagonal. From
+ * the right and [y] towards the person. From
  * the gravity sensor, or the accelerometer smoothed, while the screen is in front; nothing is
  * listened to once the card closes or the app goes to the background.
  */
 private class Tilt(val available: Boolean) {
     var x by mutableFloatStateOf(0f)
     var y by mutableFloatStateOf(0f)
-    val along: Float get() = (x - y).coerceIn(-1f, 1f)
 }
+
+/** How far the card leans with the phone at most, each way: about 25 degrees of the phone's tilt. */
+private const val TILT_DEGREES = 14f
 
 @Composable
 private fun rememberTilt(enabled: Boolean): Tilt {
