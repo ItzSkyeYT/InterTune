@@ -120,6 +120,7 @@
 
     <string name="mix_edit_beat_matching">Calage du tempo</string>
     <string name="mix_edit_bm_adjust">Ajuster</string>
+    <string name="mix_edit_bm_read_to">%1$s lu jusqu\'à %2$s</string>
     <string name="mix_edit_bm_slower">%1$s −%2$s %%</string>
     <string name="mix_edit_bm_faster">%1$s +%2$s %%</string>
     <string name="mix_edit_bm_same">Même tempo</string>

@@ -829,7 +829,7 @@ class AutomixController(
         t.sampleRate = rate
         t.expectedTailMs = left
         // A change that brings the next song in at a later bar: only on bands, where its plan is made for that bar.
-        // The frame the song as it plays comes in on: its entry, moved by what B's stretch gains or loses where B is the song adjusted.
+        // The frame the song as it plays comes in on: the change's own entry, whichever song is adjusted.
         t.entryFrames = if (lanes && way().auto) t.saved?.takeIf { !it.plain }?.let { SpecPlan.liveEntryFrames(Presets.onBands(it), rate) } ?: 0L else 0L
         val entry = t.entryFrames
         val ringFrames = AutomixSchedule.ringFrames(rate, max(t.armFromMs, left))
