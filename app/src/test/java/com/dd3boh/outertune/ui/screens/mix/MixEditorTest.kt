@@ -33,6 +33,7 @@ import com.dd3boh.outertune.mix.engine.SpecPlan
 import com.dd3boh.outertune.mix.pill.Pills
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -200,6 +201,28 @@ class MixEditorTest {
         assertTrue(sixteen.refused is Limit.BReach)
         assertFalse(e.setLength(16))
         assertNull(e.lengthOptions().first { it.bars == 8 }.refused)
+    }
+
+    @Test
+    fun `the beat matcher adjusts A unless the next song is picked, and a loop keeps it on A`() {
+        val e = editor()
+        assertTrue(e.spec.beatMatched)
+        assertEquals(Side.A, e.spec.matchSide)
+        assertTrue(e.bAdjustPossible)
+        assertTrue(e.setMatchSide(Side.B))
+        assertTrue(e.spec.bAdjusted)
+        // No longer Auto's own change, and saved as it is.
+        assertNotEquals(Preset.AUTO, e.lit())
+        // The bars are the same; a bar heard lasts A's own.
+        assertEquals(4 * 60_000.0 / 111, e.spec.heardBarMs, 0.5)
+        // A loop is not played with B adjusted: none can be set, and B cannot be picked with one.
+        assertFalse(e.setIntroLoop(2))
+        assertTrue(e.setMatchSide(Side.A))
+        assertTrue(e.setIntroLoop(2))
+        assertFalse(e.setMatchSide(Side.B))
+        // Without B's beats there is nothing to lay it on.
+        val noBeat = editor(facts(bGrid = null))
+        assertFalse(noBeat.bAdjustPossible)
     }
 
     @Test

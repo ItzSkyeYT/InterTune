@@ -228,7 +228,7 @@ class MixEditor(
     fun sameAsAuto(s: TransitionSpec): Boolean =
         s.plain == auto.plain && s.bars == auto.bars && near(s.seconds, auto.seconds, 1e-3) &&
             near(s.a.atMs, auto.a.atMs, 0.5) && near(s.b.atMs, auto.b.atMs, 0.5) &&
-            s.beatMatch == auto.beatMatch && s.introTwice == auto.introTwice && s.introLoop == auto.introLoop && s.outroLoop == auto.outroLoop &&
+            s.beatMatch == auto.beatMatch && s.matchSide == auto.matchSide && s.introTwice == auto.introTwice && s.introLoop == auto.introLoop && s.outroLoop == auto.outroLoop &&
             s.curves.isEmpty() && s.muted.isEmpty() && s.a.fix == auto.a.fix && s.b.fix == auto.b.fix &&
             EditorPresets.sameMoves(s.moves, auto.moves)
 
@@ -432,6 +432,15 @@ class MixEditor(
         return apply(spec.copy(beatMatch = on))
     }
 
+    /** Whether the next song can be the one adjusted: its beats found, and no loop in the change, which that does not play yet. */
+    val bAdjustPossible: Boolean get() = facts.b.grid != null && spec.introLoop == null && spec.outroLoop == null && spec.introTwice == 0
+
+    /** The song the beat matcher adjusts: A, at B's tempo through the change, or B, at A's. */
+    fun setMatchSide(side: Side): Boolean {
+        if (side == Side.B && !bAdjustPossible) return false
+        return apply(spec.copy(matchSide = side))
+    }
+
     fun setIntroTwice(bars: Int): Boolean {
         if (bars !in TransitionSpec.INTRO_TWICE_BARS) return false
         return apply(spec.copy(introTwice = bars))
@@ -443,6 +452,7 @@ class MixEditor(
      */
     fun setOutroLoop(bars: Int?, times: Int = 1): Boolean {
         if (bars == null) return apply(spec.copy(outroLoop = null))
+        if (spec.bAdjusted) return false
         if (bars !in IntroLoop.BARS || times !in 1..IntroLoop.MAX_TIMES) return false
         return apply(spec.copy(outroLoop = OutroLoop(bars, spec.outroLoop?.atMs ?: spec.a.atMs, times)))
     }
@@ -453,6 +463,7 @@ class MixEditor(
      */
     fun setIntroLoop(bars: Int?, times: Int = 1): Boolean {
         if (bars == null) return apply(spec.copy(introLoop = null))
+        if (spec.bAdjusted) return false
         if (bars !in IntroLoop.BARS || times !in 1..IntroLoop.MAX_TIMES) return false
         return apply(spec.copy(introLoop = IntroLoop(bars, spec.introLoop?.fromMs ?: spec.b.atMs, times), introTwice = 0))
     }

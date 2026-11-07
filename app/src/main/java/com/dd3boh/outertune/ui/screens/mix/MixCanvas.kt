@@ -747,7 +747,7 @@ private fun DrawScope.drawTicks(c: CanvasInputs) {
         val msB = gridB.beatMs(gridB.downbeatNear(spec.bMsAt(k.toDouble())))
         val uA = (msA - spec.a.atMs) / g.perA
         val uB = (msB - spec.b.atMs) / spec.b.barMs
-        val ok = abs((uA - uB) * spec.b.barMs) <= 10.5
+        val ok = abs((uA - uB) * spec.heardBarMs) <= 10.5
         val colour = if (ok) c.colors.tickOk else c.colors.tickDrift
         if (uA <= aEnd) drawRect(colour, Offset(g.x(uA) - g.dp + c.state.overA, g.a.bottom - 4 * g.dp), Size(2 * g.dp, 4 * g.dp))
         if (uB >= bStart) drawRect(colour, Offset(g.x(uB) - g.dp + c.state.overB, g.b.top), Size(2 * g.dp, 4 * g.dp))
