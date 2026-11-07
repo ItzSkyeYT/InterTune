@@ -261,6 +261,7 @@ class ChangeRender(
             anchors = plan.anchors,
             alignedUntil = plan.outro?.let { floor(plan.aMap.outAt(it.end.toDouble())).toLong() - it.seam } ?: Long.MAX_VALUE,
             bEntry = plan.bEntry,
+            incomingOwnFrom = plan.bStretch?.let { it.switchAt + it.switchFrames } ?: Long.MIN_VALUE,
         )
     }
 }

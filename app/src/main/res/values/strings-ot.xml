@@ -566,7 +566,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="dl_calculate_size">Tap to calculate download size</string>
     <string name="player_liquid_glass">Liquid glass</string>
     <string name="player_liquid_glass_description">Floating glass panels for the navigation bar, mini player and transport controls, and richer artwork colours behind the now playing screen</string>
-    <string name="player_liquid_glass_description_legacy">Richer artwork colours behind the now playing screen. The floating glass panels need Android 13 or newer</string>
+    <string name="player_liquid_glass_description_legacy">Richer artwork colours behind the now playing screen, and the tabs and mini player float as a dock. The glass itself needs Android 13 or newer</string>
     <string name="player_glass_intensity">Glass intensity</string>
     <string name="player_glass_intensity_description">Higher is more see-through and more strongly refracted; lower is closer to plain solid surfaces</string>
     <string name="player_glass_intensity_value">%1$d%%</string>

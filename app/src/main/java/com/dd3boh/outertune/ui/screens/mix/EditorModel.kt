@@ -243,7 +243,9 @@ class MixEditor(
         // A loop or the intro twice plays only with A adjusted (the plan refuses them with B). One
         // set while B was not heard (beat matching off, or a length it is not allowed at) takes the
         // adjusted song back to A, so the change never holds both and silently plays Auto.
-        val sided = if (s.matchSide == Side.B && (s.introLoop != null || s.outroLoop != null || s.introTwice != 0)) s.copy(matchSide = Side.A) else s
+        // So does an edit that takes B's way back to its own tempo past what was read of it (an
+        // echo on A, which leaves later): the change stays playable, and the Adjust row says why.
+        val sided = if (s.matchSide == Side.B && (s.introLoop != null || s.outroLoop != null || s.introTwice != 0 || bReadsPast(s))) s.copy(matchSide = Side.A) else s
         val preset = presetOf(sided)
         return if (sided.preset == preset) sided else sided.copy(preset = preset)
     }
@@ -359,7 +361,9 @@ class MixEditor(
     private fun lengthOption(bars: Int, seconds: Double): LengthOption {
         val s = withLength(spec, bars, seconds)
         val lit = if (bars > 0) spec.bars == bars else spec.bars == 0 && near(spec.seconds, seconds, 1e-3)
-        return LengthOption(bars, seconds, s.lengthMs, lit, s.a.atMs, unheardMs(s), reachOf(s))
+        // As long as it is heard: with the next song adjusted, a bar lasts the song before's.
+        val ms = if (s.bars > 0) s.lengthBars * s.heardBarMs else s.lengthMs
+        return LengthOption(bars, seconds, ms, lit, s.a.atMs, unheardMs(s), reachOf(s))
     }
 
     /** Why [s] cannot be had at all, or null. */
@@ -372,6 +376,13 @@ class MixEditor(
 
     /** How far into B [s] reads it, in B's ms: the canvas's end, or with B adjusted, its way back to its own tempo. */
     private fun bReadTo(s: TransitionSpec): Double = max(s.bMsAt(fitEnd(s)), SpecPlan.bReadToMs(s) ?: 0.0)
+
+    /** Whether [s], B adjusted, would read B past what was read of it. */
+    private fun bReadsPast(s: TransitionSpec): Boolean = s.bAdjusted && bReadTo(s) > facts.bReachEndMs + 0.5
+
+    /** Where B's way back would read past what was read of it, how far B was read, for the Adjust row's label; null otherwise. */
+    val bAdjustReadLimit: Double?
+        get() = if (spec.beatMatched && facts.b.grid != null && bReadsPast(spec.copy(matchSide = Side.B))) facts.bReachEndMs else null
 
     /**
      * Why [s] would never be played as made, or null: its first frame comes further before A's end
@@ -608,8 +619,11 @@ class MixEditor(
             while (at + need > facts.bReachEndMs + 0.5 && at - stepMs >= -0.5) at -= stepMs
         }
         var next = from.copy(b = from.b.copy(atMs = max(0.0, at)), bStartMs = 0.0)
-        // B's first frame, further before bar 1, only as far before A's end as this phone holds in time.
-        if (!next.plain) {
+        // B's first frame, further before bar 1, only as far before A's end as this phone holds in time;
+        // left where the finger put it when the song before is what reaches too far, as no place of B helps.
+        val hopeless = !next.plain && playLimitOf(next.copy(b = next.b.copy(atMs = 0.0))) != null
+        if (hopeless) limit = playLimitOf(next) ?: limit
+        if (!next.plain && !hopeless) {
             var stopped = false
             while (next.b.atMs - stepMs >= -0.5) {
                 playLimitOf(next) ?: break

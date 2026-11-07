@@ -537,7 +537,9 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
      * since what plays is that part; where the two differ, the change crosses over to the song as
      * it plays at once, and the outgoing song fades over a beat. An abort fades the outgoing song
      * over its beat and brings the incoming one to itself over the same beat: the part and the song
-     * are the same music, so the crossing cannot be heard.
+     * are the same music, so the crossing cannot be heard. Where the part plays the incoming song at
+     * the outgoing one's tempo, they are the same music only from [MixPlan.incomingOwnFrom]: the
+     * part plays on until there, and the crossing is made there.
      */
     private fun mixParts(input: ShortArray, inOffset: Int, frames: Int, output: ShortArray, outOffset: Int): Int {
         val p = plan!!
@@ -545,9 +547,11 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
         val b = incoming!!
         lastConsumed = frames
         var done = 0
+        val own = p.incomingOwnFrom
         while (done < frames) {
             val o = p.bStart + incomingFrames
-            val end = if (fadeFrom >= 0) fadeFrom + fadeLength else p.shapedUntil
+            // Given up before the incoming part is the song's own music, it plays on to there.
+            val end = if (fadeFrom < 0) p.shapedUntil else min(max(fadeFrom + fadeLength, if (own > fadeFrom) own + BACK_FRAMES else 0L), b.endFrame)
             if (o >= end) {
                 release()
                 state = State.PASS
@@ -563,7 +567,15 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
                 if (!joinDone) join(input, inFrame, incomingFrames + i, at, b)
                 val bScale = if (b.attenuation > 0.0) attenuation / b.attenuation else 1.0
                 val g = fadeGain(at)
-                val live = max(if (liveFrom >= 0) ((at - liveFrom + 1).toDouble() / BACK_FRAMES).coerceIn(0.0, 1.0) else 0.0, if (fadeFrom >= 0) 1.0 - g else 0.0)
+                // To the song as it plays only where the part is the same music: at once for a
+                // part at the song's own speed, from its own samples on for one at the other's tempo.
+                val crossFrom = if (liveFrom >= 0) max(liveFrom, own) else -1L
+                val toLive = when {
+                    fadeFrom < 0 -> 0.0
+                    own <= fadeFrom -> 1.0 - g
+                    else -> ((at - own + 1).toDouble() / BACK_FRAMES).coerceIn(0.0, 1.0)
+                }
+                val live = max(if (crossFrom >= 0) ((at - crossFrom + 1).toDouble() / BACK_FRAMES).coerceIn(0.0, 1.0) else 0.0, toLive)
                 val to = (outOffset + done + i) * channels
                 for (c in 0 until channels) {
                     var vb = b.at(at, c).toDouble()

@@ -65,7 +65,10 @@ class HeldEntryTest {
         val buffersPerTick: Int = 4,
         /** The song the beat matcher adjusts. */
         val side: Side = Side.A,
+        /** Given up once the blend reaches this output frame, as AutoMix turned off mid-change does. */
+        val abortAt: Long? = null,
     ) {
+        var aborted = false
         val held = HeldTail(2, rate, (capacityS * rate).toInt()).also {
             it.setAttenuation(attA)
             it.setNextAttenuation(attB)
@@ -139,6 +142,10 @@ class HeldEntryTest {
                 render = r
                 heldPlan = r.heldPlan()
                 held.offer(heldPlan!!, r.outgoing, r.incoming)
+            }
+            if (abortAt != null && !aborted && held.state == HeldTail.State.MIX && heldPlan!!.bStart + held.incomingFrames >= abortAt) {
+                held.abort("a test")
+                aborted = true
             }
         }
 
@@ -221,6 +228,35 @@ class HeldEntryTest {
             assertEquals(0, run.model.underruns)
             assertEquals(0L, run.held.clipped)
         }
+    }
+
+    @Test
+    fun `with B adjusted, a change given up mid-blend keeps B's part until it is B's own music, never two places of B at once`() {
+        val plain = Run(side = Side.B).go()
+        val lp = plain.lanePlan!!
+        val s = lp.bStretch!!
+        val own = s.switchAt + s.switchFrames
+        val abortAt = lp.bStart + (s.switchAt - lp.bStart) / 2
+        val run = Run(side = Side.B, abortAt = abortAt).go()
+        assertTrue(run.aborted)
+        assertEquals(own, run.heldPlan!!.incomingOwnFrom)
+        val heard = run.model.heard.toArray()
+        val r = run.render!!
+        // Once the song before has faded (half a second, a tick late at most), B goes on as its part,
+        // at the song before's tempo: not the song as it plays, which is elsewhere in B until then.
+        var compared = 0
+        for (o in abortAt + rate * 6 / 10 until own) for (c in 0 until 2) {
+            assertEquals("frame $o", r.incoming.at(o, c), heard[((run.armFrame + o) * 2 + c).toInt()])
+            compared++
+        }
+        assertTrue(compared > rate)
+        // From B's own samples on, the song as it plays, as when nothing was given up.
+        val expected = plain.expected()
+        for (o in own + 441 until own + 10 * rate) for (c in 0 until 2) {
+            val i = ((run.armFrame + o) * 2 + c).toInt()
+            assertEquals("frame $o", expected[((plain.armFrame + o) * 2 + c).toInt()], heard[i])
+        }
+        assertEquals(0, run.model.underruns)
     }
 
     @Test

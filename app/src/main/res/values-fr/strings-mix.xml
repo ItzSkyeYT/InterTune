@@ -120,6 +120,7 @@
 
     <string name="mix_edit_beat_matching">Calage du tempo</string>
     <string name="mix_edit_bm_adjust">Ajuster</string>
+    <string name="mix_edit_bm_read_to">%1$s lu jusqu\'à %2$s</string>
     <string name="mix_edit_bm_slower">%1$s −%2$s %%</string>
     <string name="mix_edit_bm_faster">%1$s +%2$s %%</string>
     <string name="mix_edit_bm_same">Même tempo</string>
@@ -293,6 +294,7 @@
     <string name="mix_plain_formats">formats différents</string>
     <string name="mix_plain_not_ready">pas prêt à temps</string>
     <string name="mix_plain_no_time">pas le temps de préparer</string>
+    <string name="mix_plain_too_far">commence trop tôt pour ce téléphone</string>
     <string name="mix_plain_from_next">dès le titre suivant</string>
     <string name="mix_plain_no_fit">rien ne convient</string>
     <string name="mix_plain_your_choice">votre choix</string>

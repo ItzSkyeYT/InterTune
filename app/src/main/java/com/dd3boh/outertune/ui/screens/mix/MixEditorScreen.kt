@@ -786,6 +786,15 @@ private fun Lowers(
                 )
             }
         }
+        // Why the next song cannot be the one adjusted here: its way back would read past what was read.
+        editor.bAdjustReadLimit?.let { readTo ->
+            Text(
+                stringResource(R.string.mix_edit_bm_read_to, words.bTitle, words.clock(readTo)),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 88.dp, end = 12.dp),
+            )
+        }
     }
     // A loop on either song, as a DJ app has one on each deck: 1, 2 or 4 bars, 1, 2 or 4 times.
     // On the next song it plays in front of it from bar 1, under the outgoing one, which then

@@ -350,6 +350,13 @@ class MixPlan(
      * where the change brings it in later. Its frames before it are skipped, never heard.
      */
     val bEntry: Long = 0,
+    /**
+     * The first output frame from which the incoming part is the song as it plays, frame for
+     * frame: everywhere for a change that plays it at its own speed, from where its own samples
+     * take over for one that brings it to the outgoing song's tempo. The change crosses to the
+     * song as it plays (an abort, a copy that differs) only from here, never between two places of it.
+     */
+    val incomingOwnFrom: Long = Long.MIN_VALUE,
 ) {
     val isGapless: Boolean get() = style == Style.GAPLESS
 

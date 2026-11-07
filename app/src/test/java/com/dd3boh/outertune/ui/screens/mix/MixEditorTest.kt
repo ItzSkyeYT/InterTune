@@ -334,6 +334,45 @@ class MixEditorTest {
     }
 
     @Test
+    fun `an edit that takes the next song's way back past what was read takes the side back to A, with how far it was read`() {
+        val faster = SongGrid(t0Ms = 1_210.0, periodMs = 60_000.0 / 113)
+        val bReads = SpecPlan.bReadToMs(editor(facts(bGrid = faster)).spec.copy(matchSide = Side.B))!!
+        val e = editor(facts(bWindowEndMs = bReads + 1.0, bGrid = faster))
+        assertTrue(e.setMatchSide(Side.B))
+        assertNull(e.bAdjustReadLimit)
+        // A leaving by echo goes two bars later, and B's way back with it: past what was read.
+        assertTrue(e.setHow(listOf(LaneId(Side.A, Lane.MIDS)), How.ECHO))
+        assertEquals(Side.A, e.spec.matchSide)
+        assertNull(e.reachOf(e.spec))
+        assertEquals(bReads + 1.0, e.bAdjustReadLimit!!, 1e-9)
+        assertFalse(e.setMatchSide(Side.B))
+    }
+
+    @Test
+    fun `B is not walked to its first beat where the song before is what this phone cannot hold`() {
+        val base = facts()
+        val free = MixEditor(base, AutoSpec.fallback(base), null)
+        val far = free.anchorMoved(free.spec, Side.A, 20_000.0, byBeats = false).first
+        val f = PairFacts(base.a, base.b, pace = slowPhone)
+        val e = MixEditor(f, AutoSpec.fallback(f), far)
+        assertTrue(e.playLimitOf(e.spec) is Limit.PhoneReach)
+        val barB = f.b.grid!!.barMs
+        val (moved, limit) = e.anchorMoved(e.spec, Side.B, -barB, byBeats = false)
+        // Where the finger put it, a bar on, on B's bar line: no place of B would have helped.
+        assertEquals(e.spec.b.atMs + barB, moved.b.atMs, 1.0)
+        assertTrue("$limit", limit is Limit.PhoneReach)
+    }
+
+    @Test
+    fun `the lengths say how long the change is heard, with the next song adjusted too`() {
+        val e = editor()
+        assertTrue(e.setMatchSide(Side.B))
+        for (o in e.lengthOptions().filter { it.bars > 0 }) {
+            assertEquals("${o.bars} bars", o.bars * e.spec.heardBarMs, o.ms, 1e-6)
+        }
+    }
+
+    @Test
     fun `the lengths offered are bars, and seconds too with beat matching off`() {
         val e = editor()
         assertEquals(listOf(2, 4, 8, 16), e.lengthOptions().map { it.bars })
