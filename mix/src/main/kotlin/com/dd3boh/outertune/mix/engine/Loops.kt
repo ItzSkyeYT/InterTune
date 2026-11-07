@@ -173,6 +173,53 @@ class PlannedOutroLoop(val srcFrom: Long, val frames: Long, val times: Int, val 
     /** Where a frame of A's music is heard in A as looped. */
     fun virtual(frame: Double): Double = if (frame >= end) frame + shift else frame
 
+    /**
+     * A part of A (its frames for A's frames) with the loop in it, read frame by frame as [extend]
+     * lays the loop into A, each join as [join], chosen on A itself: the looped parts add up to A
+     * looped, and nothing is copied (four parts of A would weigh four copies of it).
+     */
+    fun partLooped(part: java.nio.ShortBuffer, channels: Int, aFrames: Long, join: Loops.Join): com.dd3boh.outertune.mix.Samples {
+        val n = aFrames.coerceAtMost((part.limit() / channels).toLong())
+        fun orig(f: Long, c: Int): Double = if (f in 0 until n) part.get((f * channels).toInt() + c).toDouble() else 0.0
+        return com.dd3boh.outertune.mix.Samples { t, c ->
+            when {
+                t >= end + shift -> orig(t - shift, c)
+                t < end -> {
+                    val i = t - (end - seam)
+                    if (join == Loops.Join.AFTER || i < 0) orig(t, c) else {
+                        // The bars as first played, coming into the first pass.
+                        val w = (i + 0.5) / seam
+                        if (join == Loops.Join.BEFORE) orig(t, c) * (1 - w) + orig(srcFrom - seam + i, c) * w else orig(t, c) * (1 - w)
+                    }
+                }
+                else -> {
+                    val k = (t - end) / frames
+                    val m = t - end - k * frames
+                    var v = orig(srcFrom + m, c)
+                    if (m < seam) {
+                        val w = (m + 0.5) / seam
+                        v = when (join) {
+                            Loops.Join.AFTER -> v * w + orig(end + m, c) * (1 - w)
+                            Loops.Join.DIP -> v * w
+                            Loops.Join.BEFORE -> v
+                        }
+                    }
+                    val i = m - (frames - seam)
+                    if (join != Loops.Join.AFTER && i >= 0 && k + 1 < times) {
+                        // The end of this pass, coming into the next.
+                        val w = (i + 0.5) / seam
+                        v = if (join == Loops.Join.BEFORE) v * (1 - w) + orig(srcFrom - seam + i, c) * w else v * (1 - w)
+                    }
+                    v
+                }
+            }
+        }
+    }
+
+    /** The join [extend] makes for A's [aFrames] frames of [a]. */
+    fun joinOf(a: ShortArray, channels: Int, aFrames: Long, rate: Int): Loops.Join =
+        Loops.joinFor(a, channels, aFrames.coerceAtMost((a.size / channels).toLong()), srcFrom, frames, rate)
+
     /** A's music with the loop in it: the bars [times] more times, each join made as [Loops.joinFor] chose for them. */
     fun extend(a: ShortArray, channels: Int, aFrames: Long, rate: Int): ShortArray {
         val n = aFrames.coerceAtMost((a.size / channels).toLong())

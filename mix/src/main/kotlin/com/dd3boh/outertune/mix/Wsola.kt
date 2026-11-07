@@ -321,6 +321,9 @@ class Wsola(
             frameWith(o, into) { t, c -> if (t in 0 until partFrames) part.get((t * channels + c).toInt()).toDouble() else 0.0 }
         }
 
+        /** The same over music read through [samples]: a part of A with A's loop of its bars in it. */
+        fun frameOf(samples: Samples, o: Long, into: DoubleArray) = frameWith(o, into) { t, c -> samples.at(t, c) }
+
         private inline fun frameWith(o: Long, into: DoubleArray, sampleOf: (Long, Int) -> Double) {
             val k2 = Math.floorDiv(o - phase, HOP.toLong())
             val i2 = (o - start(k2)).toInt()
@@ -479,6 +482,11 @@ class Wsola(
 }
 
 /** Rounds and clamps to 16 bit, the one rounding every path in AutoMix shares. */
+/** Some music's sample at frame [at]'s channel, 0 outside it: a part, as a stretch or a loop reads it. */
+fun interface Samples {
+    fun at(t: Long, c: Int): Double
+}
+
 internal fun toPcm16(v: Double): Short {
     val r = floor(v + 0.5)
     return when {

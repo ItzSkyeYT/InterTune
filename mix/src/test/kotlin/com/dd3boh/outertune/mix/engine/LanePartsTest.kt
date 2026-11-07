@@ -124,6 +124,30 @@ class LanePartsTest {
     }
 
     @Test
+    fun `with A's loop of its bars, stretched or not, the parts still add up to A looped`() {
+        val a32 = Synth.song(SynthSpec(bpm = 120.0, bars = 32, seed = 41)).samples
+        val b32 = Synth.song(SynthSpec(bpm = 120.0, bars = 32, seed = 42)).samples
+        val moves = every(Side.A, Move(4.0, 4.0, How.FADE)) + every(Side.B, Move(0.0, 4.0, How.FADE))
+        for (bBpm in listOf(120.0, 122.0)) {
+            val s = TransitionSpec(
+                a = Anchor("song-a", 40_000.0, 120.0), b = Anchor("song-b", 1_000.0, bBpm), lanes = LaneSet.PARTS,
+                bars = 8, beatMatch = bBpm != 120.0, preset = Preset.CUSTOM, moves = moves,
+                outroLoop = com.dd3boh.outertune.mix.edit.OutroLoop(2, 38_000.0, 3),
+            )
+            val f = ChangeFacts(rate, 2, 40.0 * rate, (a32.size / 2).toLong(), 1.0 * rate, (b32.size / 2).toLong(), parts = true)
+            val plan = planned(s, f)
+            assertTrue("A is looped", plan.outro != null)
+            val split = LaneMixer(plan).render(a32, b32, 1.0, 1.0, quarters(a32), quarters(b32))
+            val whole = LaneMixer(plan).render(a32, b32, 1.0, 1.0, alone(a32, 0), alone(b32, 3))
+            val x = split.mix(a32, b32, plan.mixFrom, plan.mixTo)
+            val y = whole.mix(a32, b32, plan.mixFrom, plan.mixTo)
+            var worst = 0
+            for (i in x.indices) worst = maxOf(worst, abs(x[i] - y[i]))
+            assertTrue("$bBpm bpm: the looped parts' sum strays $worst from A looped", worst <= 4)
+        }
+    }
+
+    @Test
     fun `a part taken away takes exactly its own samples with it`() {
         val voice = LaneId(Side.A, Lane.VOCALS)
         // Every lane of A stays at full through the change but A's voice, which is taken away.

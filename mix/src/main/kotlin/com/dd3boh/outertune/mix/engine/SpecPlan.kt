@@ -176,14 +176,11 @@ object SpecPlan {
         if (spec.plain) return Result.Refused("a plain change")
         if (spec.lanes == LaneSet.PARTS) {
             if (!facts.parts) return Result.Refused("made on parts, which this phone does not split into")
-            // A stretch takes the parts at the song's own positions (Wsola.Frames.frameOf), B's loop
-            // joins them where B's music says (LoopedSource.ofPart). A's loop is laid into a copy
-            // of A, and B's into the music its stretch reads: not for parts yet, which would be
-            // copied whole on the heap.
+            // A stretch takes the parts at the song's own positions (Wsola.Frames.frameOf), a loop
+            // joins them where the song's own music says (LoopedSource.ofPart, PlannedOutroLoop.partLooped).
+            // B's loop laid into the music its stretch reads is not for parts yet: it would copy them whole.
             val bLoops = spec.introTwice > 0 || spec.introLoop != null
-            if (spec.outroLoop != null || (bLoops && spec.bAdjusted)) {
-                return Result.Refused("parts with this loop are not played yet")
-            }
+            if (bLoops && spec.bAdjusted) return Result.Refused("parts with a loop on the next song, stretched, are not played yet")
         } else if (spec.lanes != LaneSet.BANDS) return Result.Refused("made on ${spec.lanes.key}, which this phone does not split into")
         spec.problems().takeIf { it.isNotEmpty() }?.let { return Result.Refused(it.joinToString("; ")) }
         // The intro twice is a loop of B's first bars, played once.

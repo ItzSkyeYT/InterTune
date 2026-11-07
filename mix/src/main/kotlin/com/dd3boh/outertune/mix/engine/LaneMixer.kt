@@ -16,6 +16,7 @@ import com.dd3boh.outertune.mix.MixPlan
 import com.dd3boh.outertune.mix.Pcm
 import com.dd3boh.outertune.mix.RenderedIncoming
 import com.dd3boh.outertune.mix.RenderedOutgoing
+import com.dd3boh.outertune.mix.Samples
 import com.dd3boh.outertune.mix.Style
 import com.dd3boh.outertune.mix.Wsola
 import com.dd3boh.outertune.mix.edit.Lane
@@ -41,13 +42,20 @@ internal class StretchSource(internal val frames: Wsola.Frames, internal val fro
 }
 
 /** A part of A by output frame, stretched with A: at A's own positions and splices ([Wsola.Frames.frameOf]). */
-internal class StretchPartSource(private val song: StretchSource, private val part: java.nio.ShortBuffer, private val channels: Int) : FrameSource {
+internal class StretchPartSource(private val song: StretchSource, private val part: Samples, private val channels: Int) : FrameSource {
     override fun frame(t: Long, into: DoubleArray) {
         if (t < song.from || t >= song.to) {
             for (c in 0 until channels) into[c] = 0.0
             return
         }
         song.frames.frameOf(part, t, into)
+    }
+}
+
+/** A part of A by frame of A as heard, with A's loop of its bars in it ([PlannedOutroLoop.partLooped]), where A keeps its tempo. */
+internal class SamplesSource(private val samples: Samples, private val channels: Int, private val frames: Long) : FrameSource {
+    override fun frame(t: Long, into: DoubleArray) {
+        for (c in 0 until channels) into[c] = if (t in 0 until frames) samples.at(t, c) else 0.0
     }
 }
 
@@ -349,10 +357,22 @@ class LaneMixer(private val plan: LanePlan) {
         val onParts = plan.spec.lanes == LaneSet.PARTS
         val aPartSources = if (!onParts) null else {
             val partsOfA = requireNotNull(aParts) { "a change made on parts needs A's parts" }
-            check(plan.outro == null) { "parts with a loop are not played yet" }
             val aFrames = plan.facts.aFrames.coerceAtMost((a.size / channels).toLong())
-            // Stretched with A where A is stretched: at its positions and splices, so they still add up to A.
-            partsOfA.map { part -> (aSource as? StretchSource)?.let { StretchPartSource(it, part, channels) } ?: BufferSource(part, channels, aFrames) }
+            // A's loop of its bars, joined where A's own music says, read through each part as it goes.
+            val outro = plan.outro
+            val join = outro?.joinOf(a, channels, plan.facts.aFrames, rate)
+            partsOfA.map { part ->
+                val samples: Samples = if (outro != null) outro.partLooped(part, channels, plan.facts.aFrames, join!!) else {
+                    val n = part.limit() / channels
+                    Samples { t, c -> if (t in 0 until n) part.get((t * channels + c).toInt()).toDouble() else 0.0 }
+                }
+                // Stretched with A where A is stretched: at its positions and splices, so they still add up to A.
+                when {
+                    aSource is StretchSource -> StretchPartSource(aSource, samples, channels)
+                    outro != null -> SamplesSource(samples, channels, aFrames + outro.shift)
+                    else -> BufferSource(part, channels, aFrames)
+                }
+            }
         }
         val bPartSources = if (!onParts) null else {
             val partsOfB = requireNotNull(bParts) { "a change made on parts needs B's parts" }
