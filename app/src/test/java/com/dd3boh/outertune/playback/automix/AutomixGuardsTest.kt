@@ -33,10 +33,9 @@ class AutomixGuardsTest {
         ambience: Boolean = false,
         ffmpeg: Boolean = false,
         sleepTimer: Boolean = false,
-        seekedLate: Boolean = false,
     ) = AutomixGuards.Snapshot(
         settingOn, stageInChain, casting, repeatOne, current, next, speed, pitch, skipSilence,
-        headTracking, upmix, ambience, ffmpeg, sleepTimer, seekedLate,
+        headTracking, upmix, ambience, ffmpeg, sleepTimer,
     )
 
     @Test
@@ -65,7 +64,6 @@ class AutomixGuardsTest {
             "the spatial Ambience is on" to snapshot(ambience = true),
             "FFmpeg decodes this build's audio" to snapshot(ffmpeg = true),
             "a sleep timer is set" to snapshot(sleepTimer = true),
-            "the song was moved within its last minute" to snapshot(seekedLate = true),
             "AutoMix was not on yet as this song started" to snapshot(stageInChain = false),
         )
         for ((why, s) in refusals) assertEquals(why, AutomixGuards.whyNot(s))
@@ -112,7 +110,6 @@ class AutomixGuardsTest {
             "the spatial Ambience is on" to snapshot(settingOn = false, ambience = true),
             "FFmpeg decodes this build's audio" to snapshot(settingOn = false, ffmpeg = true),
             "a sleep timer is set" to snapshot(settingOn = false, sleepTimer = true),
-            "the song was moved within its last minute" to snapshot(settingOn = false, seekedLate = true),
             "AutoMix was not on yet as this song started" to snapshot(settingOn = false, stageInChain = false),
         )
         for ((why, s) in refusals) assertEquals(why, AutomixGuards.whyNot(s.withCrossfade()))
@@ -121,7 +118,7 @@ class AutomixGuardsTest {
     /** [this] with Crossfade on and the rest as it is. */
     private fun AutomixGuards.Snapshot.withCrossfade() = AutomixGuards.Snapshot(
         settingOn, stageInChain, casting, repeatOne, current, next, speed, pitch, skipSilence,
-        headTracking, upmix, ambience, ffmpeg, sleepTimer, seekedLate, crossfadeOn = true,
+        headTracking, upmix, ambience, ffmpeg, sleepTimer, crossfadeOn = true,
     )
 
     @Test

@@ -6337,7 +6337,9 @@ class MusicService : MediaLibraryService(),
      *         --es mixtrial "'play <id> <id>'"
      *
      * `play` plays those songs as the queue of a Mix playlist, `end <ms>` goes to that long before
-     * the end of the song playing, `pause` pauses. Several commands are separated by `;`.
+     * the end of the song playing, `pause` pauses. `queue` plays them as the same playlist's queue
+     * without touching its Mix switch, which `mix on` and `mix off` set; `crossfade on` and
+     * `crossfade off` set Crossfade. Several commands are separated by `;`.
      */
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (BuildConfig.BUILD_TYPE == "debug" && Unreleased.AUTOMIX_EDITOR) intent?.getStringExtra("mixtrial")?.let { mixTrial(it) }
@@ -6350,10 +6352,11 @@ class MusicService : MediaLibraryService(),
             if (words.isEmpty()) continue
             Log.i(TAG, "AutoMix trial: ${words.joinToString(" ")}")
             when (words.first()) {
-                "play" -> {
+                "play", "queue" -> {
                     val ids = words.drop(1)
+                    val switchOn = words.first() == "play"
                     scope.launch {
-                        dataStore.edit { it[MixPlaylistsKey] = (it[MixPlaylistsKey] ?: emptySet()) + MIX_TRIAL_PLAYLIST }
+                        if (switchOn) dataStore.edit { it[MixPlaylistsKey] = (it[MixPlaylistsKey] ?: emptySet()) + MIX_TRIAL_PLAYLIST }
                         val songs = withContext(Dispatchers.IO) { YouTube.queue(ids) }.getOrNull().orEmpty()
                         if (songs.isEmpty()) Log.w(TAG, "AutoMix trial: no songs for $ids")
                         // From the shell, outside the app: listens it plays are counted as another app's.
@@ -6366,6 +6369,14 @@ class MusicService : MediaLibraryService(),
                     if (duration > 0) exoPlayer.seekTo(maxOf(0L, duration - left))
                 }
                 "pause" -> exoPlayer.pause()
+                "mix" -> {
+                    val on = words.getOrNull(1) != "off"
+                    scope.launch { dataStore.edit { it[MixPlaylistsKey] = (it[MixPlaylistsKey] ?: emptySet()).let { s -> if (on) s + MIX_TRIAL_PLAYLIST else s - MIX_TRIAL_PLAYLIST } } }
+                }
+                "crossfade" -> {
+                    val on = words.getOrNull(1) == "on"
+                    scope.launch { dataStore.edit { it[CrossfadeKey] = on } }
+                }
             }
         }
     }

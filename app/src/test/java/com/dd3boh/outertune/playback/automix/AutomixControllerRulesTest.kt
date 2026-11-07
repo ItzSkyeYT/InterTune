@@ -54,7 +54,8 @@ class AutomixControllerRulesTest {
     fun `new playback parameters drop whatever the stage holds, whether AutoMix is on or not`() {
         val parameters = body(controller, "private fun parametersChanged(")
         assertFalse(parameters, "if (!enabled) return" in parameters)
-        assertTrue(parameters, "if (stage.state == HeldTail.State.CAPTURE || stage.state == HeldTail.State.DRAIN) player.seekTo(player.currentPosition)" in parameters)
+        // A seek the player really makes: one to the very millisecond it is at is dropped (seekInPlace).
+        assertTrue(parameters, "if (stage.state == HeldTail.State.CAPTURE || stage.state == HeldTail.State.DRAIN) seekInPlace()" in parameters)
     }
 
     @Test

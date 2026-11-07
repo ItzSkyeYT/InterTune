@@ -58,10 +58,59 @@ class MixNoCommentsTest {
         }
     }
 
+    /**
+     * 7 Nov 2026: the last sentences went too. What keeps a change plain, the limits a drag meets,
+     * the undo bars and the length sheet's note are labels, in the pills' words ("Plain · ...").
+     */
+    @Test
+    fun `the warning bands, the limits and the notes are labels too`() {
+        val en = "src/main/res/values/strings-mix.xml"
+        val fr = "src/main/res/values-fr/strings-mix.xml"
+        assertEquals("Plain · Skip silence", value(en, "mix_edit_guard_skip_silence"))
+        assertEquals("Plain · %1\$s before the end · limit %2\$s", value(en, "mix_edit_guard_phone"))
+        assertEquals("Limit · %1\$s before the end", value(en, "mix_edit_limit_phone"))
+        assertEquals("Sans mix · diffusion", value(fr, "mix_blocked_casting"))
+        val names = listOf(
+            "mix_edit_guard_skip_silence", "mix_edit_guard_formats", "mix_edit_guard_same_song", "mix_edit_guard_phone",
+            "mix_blocked_casting", "mix_blocked_together", "mix_blocked_repeat_one", "mix_blocked_speed",
+            "mix_blocked_skip_silence", "mix_blocked_spatial", "mix_blocked_decoder", "mix_blocked_sleep_timer",
+            "mix_edit_limit_a_reach", "mix_edit_limit_a_ends", "mix_edit_limit_b_first", "mix_edit_limit_b_reach",
+            "mix_edit_limit_a_needs", "mix_edit_limit_phone", "mix_edit_replaced", "mix_simple_replaced",
+            "mix_edit_length_no_32", "mix_edit_parts_need",
+        )
+        for (name in names) {
+            for (file in listOf(en, fr)) {
+                val v = value(file, name)
+                assertFalse("$name in $file ends a sentence: $v", v.trimEnd().endsWith("."))
+                assertFalse("$name in $file explains itself: $v", ", so " in v || "; " in v || " : " in v.substringAfter("·"))
+                assertTrue("$name in $file is a sentence: $v", v.split(' ').filter { it != "·" }.size <= 8)
+            }
+        }
+    }
+
     @Test
     fun `a dot's bar of choices closes on a second tap and on any other tap of the canvas`() {
         val view = source("MixCanvasView.kt")
         assertTrue("state.selection = if (state.selection == tappedOn) null else tappedOn" in view)
         assertTrue("if (tappedOn == null && hit !is CanvasLayout.Hit.Point) state.selection = null" in view)
+    }
+
+    /**
+     * His order of 7 Nov 2026: "NUKE the moments thing. DELETE IT". No list of the change's moments,
+     * and no line narrating it, playing or stopped, on either level: a refusal or the loading stage only.
+     */
+    @Test
+    fun `no moments sheet and no line narrating the change`() {
+        val dir = File("src/main/java/com/dd3boh/outertune/ui/screens/mix")
+        for (name in listOf("MixSheets.kt", "MixEditorScreen.kt", "MixSimpleSheet.kt")) {
+            assertFalse(name, "MomentsSheet" in File(dir, name).readText())
+        }
+        val screen = File(dir, "MixEditorScreen.kt").readText()
+        val now = screen.substringAfter("private fun NowLine(").substringBefore("\n}\n")
+        val simple = File(dir, "MixSimpleSheet.kt").readText()
+        val where = simple.substringAfter("private fun WhereLine(").substringBefore("\n}\n")
+        for ((name, body) in listOf("NowLine" to now, "WhereLine" to where)) {
+            assertFalse(name, "nowPlaying(" in body || "nowStopped(" in body || "mix_simple_starts" in body || "clickable(" in body)
+        }
     }
 }

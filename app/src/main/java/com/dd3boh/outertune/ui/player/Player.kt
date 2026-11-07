@@ -135,6 +135,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -181,6 +182,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -1560,9 +1562,8 @@ fun BottomSheetPlayer(
                         },
                         gutter = hPadding,
                         color = onBackgroundColor,
+                        below = controlSizes.gapAboveTransport,
                     )
-
-                    Spacer(Modifier.height(controlSizes.gapAboveTransport))
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -2383,9 +2384,27 @@ private fun SeekBar(
     onKey: (KeyEvent) -> Boolean,
     gutter: Dp,
     color: Color,
+    /** The room under the times, down to the buttons: part of the strip a drag is taken on. */
+    below: Dp,
 ) {
     val shown = sliderPosition() ?: position()
     val seekInteraction = remember { MutableInteractionSource() }
+    // The bar's own height, under which a drag must go across to be the bar's.
+    var barBottom by remember { mutableIntStateOf(0) }
+    // The bar, its times and the room under them take a drag (SeekDrag.kt): the bar alone was 48 dp
+    // to catch. Half the bar thumb's 4 dp width, inside the side padding, is where the track starts.
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .seekDrag(
+                duration,
+                trackInset = gutter + 2.dp,
+                rtl = LocalLayoutDirection.current == LayoutDirection.Rtl,
+                barBottom = { barBottom.toFloat() },
+                onSlide = onSlide,
+                onSlideDone = onSlideDone,
+            )
+    ) {
     Slider(
         value = shown.toFloat(),
         valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
@@ -2410,9 +2429,7 @@ private fun SeekBar(
         },
         modifier = Modifier
             .padding(horizontal = gutter)
-            // A drag that starts on the bar is the bar's, even when the thumb goes down first:
-            // half the bar thumb's 4 dp width is where the track starts.
-            .seekDrag(duration, trackInset = 2.dp, rtl = LocalLayoutDirection.current == LayoutDirection.Rtl, onSlide = onSlide, onSlideDone = onSlideDone)
+            .onSizeChanged { barBottom = it.height }
             .onPreviewKeyEvent(onKey)
     )
 
@@ -2438,6 +2455,9 @@ private fun SeekBar(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+    }
+
+    Spacer(Modifier.height(below))
     }
 }
 

@@ -179,7 +179,6 @@ fun MixEditorScreen(navController: NavController) {
     var lanesView by rememberSaveable { mutableStateOf(false) }
     var lengthOpen by remember { mutableStateOf(false) }
     var fixOpen by remember { mutableStateOf<Side?>(null) }
-    var momentsOpen by remember { mutableStateOf(false) }
     var discardOpen by remember { mutableStateOf(false) }
     var clicking by remember { mutableStateOf(false) }
     var loop by rememberSaveable { mutableStateOf(true) }
@@ -387,7 +386,7 @@ fun MixEditorScreen(navController: NavController) {
             }
             SongRow(songB, bTitle, spec?.let { words.clock(it.b.atMs) }, spec?.let { vm.editor?.shownBpm(Side.B, it) }, spec?.b?.fix?.isNone == false, words, landscape, spec?.let { vm.editor?.beatNote(Side.B, it) }) { fixOpen = Side.B }
             BarRow(spec, words, lanesView, canvas.adjust, { lengthOpen = true }, { lanesView = it }) { leaveAdjust(vm, canvas) }
-            NowLine(vm, editor, spec, words, phase, playing, { playU }, said) { if (phase is MixEditorViewModel.Phase.Ready) momentsOpen = true }
+            NowLine(vm, editor, spec, words, phase, playing, { playU }, said)
         }
 
         @Composable
@@ -531,7 +530,6 @@ fun MixEditorScreen(navController: NavController) {
             if (on) play(e.fitStart())
         }) { fixOpen = null; if (clicking) stop() }
     }
-    if (momentsOpen && e != null) MomentsSheet(e, words, onPlay = { play(it) }) { momentsOpen = false }
     if (discardOpen) {
         AlertDialog(
             onDismissRequest = { discardOpen = false },
@@ -674,7 +672,7 @@ private fun BarRow(
     }
 }
 
-/** The now line: what is happening as it plays, the length and its cost when stopped. A tap opens the moments. */
+/** The line under the bars: a refusal, or the loading stage. No narration of the change (his rule: no comments in the mixer). */
 @Composable
 private fun NowLine(
     vm: MixEditorViewModel,
@@ -685,7 +683,6 @@ private fun NowLine(
     playing: Boolean,
     playU: () -> Double,
     said: String?,
-    onTap: () -> Unit,
 ) {
     val text by remember(editor, spec, words, phase, playing, said) {
         derivedStateOf {
@@ -696,9 +693,7 @@ private fun NowLine(
                     PairLoader.Stage.READING_B -> words.readingB()
                     PairLoader.Stage.ANALYSING -> words.analysing()
                 }
-                editor == null || spec == null -> ""
-                playing -> words.nowPlaying(editor, playU())
-                else -> words.nowStopped(editor)
+                else -> ""
             }
         }
     }
@@ -711,7 +706,6 @@ private fun NowLine(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 32.dp)
-            .clickable(enabled = phase is MixEditorViewModel.Phase.Ready, onClick = onTap)
             .semantics { liveRegion = LiveRegionMode.Polite }
             .padding(horizontal = 12.dp, vertical = 6.dp),
     )
