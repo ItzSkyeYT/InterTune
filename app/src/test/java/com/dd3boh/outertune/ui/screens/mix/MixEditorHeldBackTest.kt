@@ -81,10 +81,13 @@ class MixEditorHeldBackTest {
     @Test
     fun `loops are offered because playback plays them`() {
         // The page offers a loop on either song only because SpecPlan plays it: the intro twice
-        // too, as a loop of B's first bars once, where it used to be refused and Auto played.
+        // too, as a loop of B's first bars once, where it used to be refused and Auto played;
+        // and with either song adjusted.
         val plan = File("../mix/src/main/kotlin/com/dd3boh/outertune/mix/engine/SpecPlan.kt").readText()
         assertTrue("if (spec.introTwice > 0) return Result.Refused(" !in plan)
-        assertTrue("introLoop = IntroLoop(spec.introTwice, spec.b.atMs, 1)" in plan)
+        assertTrue("introLoop = introLoopOf(spec)" in plan)
+        assertTrue("IntroLoop(it, spec.b.atMs, 1)" in plan)
+        assertTrue("a loop in a change that adjusts the next song is not played yet" !in plan)
         val screen = code("ui/screens/mix/MixEditorScreen.kt")
         assertTrue(screen, "setOutroLoop(n, k) else setIntroLoop(n, k)" in screen)
         assertTrue("INTRO_TWICE_PLAYS" !in screen)

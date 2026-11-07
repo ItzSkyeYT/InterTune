@@ -240,12 +240,10 @@ class MixEditor(
     } ?: Preset.FADE
 
     private fun normalised(s: TransitionSpec): TransitionSpec {
-        // A loop or the intro twice plays only with A adjusted (the plan refuses them with B). One
-        // set while B was not heard (beat matching off, or a length it is not allowed at) takes the
-        // adjusted song back to A, so the change never holds both and silently plays Auto.
-        // So does an edit that takes B's way back to its own tempo past what was read of it (an
-        // echo on A, which leaves later): the change stays playable, and the Adjust row says why.
-        val sided = if (s.matchSide == Side.B && (s.introLoop != null || s.outroLoop != null || s.introTwice != 0 || bReadsPast(s))) s.copy(matchSide = Side.A) else s
+        // An edit that takes B's way back to its own tempo past what was read of it (an echo on A,
+        // which leaves later) takes the adjusted song back to A: the change stays playable, and the
+        // Adjust row says why.
+        val sided = if (s.matchSide == Side.B && bReadsPast(s)) s.copy(matchSide = Side.A) else s
         val preset = presetOf(sided)
         return if (sided.preset == preset) sided else sided.copy(preset = preset)
     }
@@ -492,11 +490,10 @@ class MixEditor(
     }
 
     /**
-     * Whether the next song can be the one adjusted: its beats found, no loop in the change, which
-     * that does not play yet, and enough of it read for its way back to its own tempo.
+     * Whether the next song can be the one adjusted: its beats found, and enough of it read for its
+     * way back to its own tempo. Loops play with either song adjusted.
      */
-    val bAdjustPossible: Boolean get() = facts.b.grid != null && spec.introLoop == null && spec.outroLoop == null && spec.introTwice == 0 &&
-        bReadTo(spec.copy(matchSide = Side.B)) <= facts.bReachEndMs + 0.5
+    val bAdjustPossible: Boolean get() = facts.b.grid != null && bReadTo(spec.copy(matchSide = Side.B)) <= facts.bReachEndMs + 0.5
 
     /** The song the beat matcher adjusts: A, at B's tempo through the change, or B, at A's. */
     fun setMatchSide(side: Side): Boolean {
@@ -506,7 +503,6 @@ class MixEditor(
 
     fun setIntroTwice(bars: Int): Boolean {
         if (bars !in TransitionSpec.INTRO_TWICE_BARS) return false
-        if (bars != 0 && spec.bAdjusted) return false
         return apply(spec.copy(introTwice = bars))
     }
 
@@ -516,7 +512,6 @@ class MixEditor(
      */
     fun setOutroLoop(bars: Int?, times: Int = 1): Boolean {
         if (bars == null) return apply(spec.copy(outroLoop = null))
-        if (spec.bAdjusted) return false
         if (bars !in IntroLoop.BARS || times !in 1..IntroLoop.MAX_TIMES) return false
         return apply(spec.copy(outroLoop = OutroLoop(bars, spec.outroLoop?.atMs ?: spec.a.atMs, times)))
     }
@@ -527,7 +522,6 @@ class MixEditor(
      */
     fun setIntroLoop(bars: Int?, times: Int = 1): Boolean {
         if (bars == null) return apply(spec.copy(introLoop = null))
-        if (spec.bAdjusted) return false
         if (bars !in IntroLoop.BARS || times !in 1..IntroLoop.MAX_TIMES) return false
         return apply(spec.copy(introLoop = IntroLoop(bars, spec.introLoop?.fromMs ?: spec.b.atMs, times), introTwice = 0))
     }

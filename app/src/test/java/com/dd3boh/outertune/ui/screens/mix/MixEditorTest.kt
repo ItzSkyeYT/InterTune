@@ -29,6 +29,7 @@ import com.dd3boh.outertune.mix.edit.TransitionSpec
 import com.dd3boh.outertune.mix.edit.VolumeRow
 import com.dd3boh.outertune.mix.edit.toJson
 import com.dd3boh.outertune.mix.edit.transitionSpecOf
+import com.dd3boh.outertune.mix.engine.ChangeFacts
 import com.dd3boh.outertune.mix.engine.SpecPlan
 import com.dd3boh.outertune.mix.pill.Pills
 import com.dd3boh.outertune.playback.automix.AutomixPace
@@ -208,7 +209,7 @@ class MixEditorTest {
     }
 
     @Test
-    fun `the beat matcher adjusts A unless the next song is picked, and a loop keeps it on A`() {
+    fun `the beat matcher adjusts A unless the next song is picked, loops or not`() {
         val e = editor()
         assertTrue(e.spec.beatMatched)
         assertEquals(Side.A, e.spec.matchSide)
@@ -219,44 +220,62 @@ class MixEditorTest {
         assertNotEquals(Preset.AUTO, e.lit())
         // The bars are the same; a bar heard lasts A's own.
         assertEquals(4 * 60_000.0 / 111, e.spec.heardBarMs, 0.5)
-        // A loop is not played with B adjusted: none can be set, and B cannot be picked with one.
-        assertFalse(e.setIntroLoop(2))
-        assertTrue(e.setMatchSide(Side.A))
+        // A loop plays with B adjusted: it is set, and B stays the song adjusted.
         assertTrue(e.setIntroLoop(2))
-        assertFalse(e.setMatchSide(Side.B))
+        assertTrue(e.spec.bAdjusted)
+        assertNotNull(e.spec.introLoop)
+        // B can be picked with a loop already set.
+        assertTrue(e.setMatchSide(Side.A))
+        assertTrue(e.bAdjustPossible)
+        assertTrue(e.setMatchSide(Side.B))
+        assertTrue(e.spec.bAdjusted)
         // Without B's beats there is nothing to lay it on.
         val noBeat = editor(facts(bGrid = null))
         assertFalse(noBeat.bAdjustPossible)
     }
 
-    /**
-     * A loop or the intro twice plays only with A adjusted (the plan refuses them with B), so the
-     * change must never hold both: the preview dropped it and playback played Auto (review of
-     * 7 Nov 2026: beat matching off, a loop on B, beat matching on again).
-     */
+    /** [s] as playback and the preview plan it, from copies as long as the editor's of this pair. */
+    private fun plays(f: PairFacts, s: TransitionSpec): String? {
+        val rate = 48_000
+        val facts = ChangeFacts(
+            rate, 2, (s.a.atMs - f.a.windowStartMs) * rate / 1000, ((f.a.windowEndMs - f.a.windowStartMs) * rate / 1000).toLong(),
+            s.b.atMs * rate / 1000, (f.b.windowEndMs * rate / 1000).toLong(),
+        )
+        return when (val r = SpecPlan.plan(Presets.onBands(s), facts)) {
+            is SpecPlan.Result.Planned -> null
+            is SpecPlan.Result.Refused -> r.why
+        }
+    }
+
     @Test
-    fun `a loop or the intro twice never sits beside the next song adjusted, whatever the order`() {
-        val e = editor()
+    fun `a loop or the intro twice sits beside the next song adjusted, whatever the order, and plays as made`() {
+        val f = facts()
+        val e = editor(f)
         assertTrue(e.setMatchSide(Side.B))
+        assertTrue(e.setIntroTwice(2))
         assertTrue(e.spec.bAdjusted)
-        // The intro twice is refused while B is adjusted, as a loop is.
-        assertFalse(e.setIntroTwice(2))
-        // Beat matching off, a loop on B, beat matching on again: the loop takes the adjusted song back to A.
-        assertTrue(e.setBeatMatch(false))
-        assertTrue(e.setIntroLoop(2))
-        assertEquals(Side.A, e.spec.matchSide)
-        assertTrue(e.setBeatMatch(true))
-        assertFalse(e.spec.bAdjusted)
-        assertNotNull(e.spec.introLoop)
-        // The same with the intro twice.
-        val f = editor()
-        assertTrue(f.setMatchSide(Side.B))
-        assertTrue(f.setBeatMatch(false))
-        assertTrue(f.setIntroTwice(2))
-        assertEquals(Side.A, f.spec.matchSide)
-        assertTrue(f.setBeatMatch(true))
-        assertFalse(f.spec.bAdjusted)
-        assertEquals(2, f.spec.introTwice)
+        assertEquals(2, e.spec.introTwice)
+        assertNull(plays(f, e.spec))
+        // A loop of the song before, too.
+        assertTrue(e.setOutroLoop(1, 2))
+        assertTrue(e.spec.bAdjusted)
+        assertNotNull(e.spec.outroLoop)
+        assertNull(plays(f, e.spec))
+        // Beat matching off, a loop on B, beat matching on again: the next song is still the one adjusted.
+        val g = editor(f)
+        assertTrue(g.setMatchSide(Side.B))
+        assertTrue(g.setBeatMatch(false))
+        assertTrue(g.setIntroLoop(2, 2))
+        assertEquals(Side.B, g.spec.matchSide)
+        assertTrue(g.setBeatMatch(true))
+        assertTrue(g.spec.bAdjusted)
+        assertNotNull(g.spec.introLoop)
+        assertNull(g.reachOf(g.spec))
+        assertNull(plays(f, g.spec))
+        // A loop longer than the change, which runs on after the song before is gone.
+        assertTrue(g.setIntroLoop(4, 4))
+        assertTrue(g.spec.bAdjusted)
+        assertNull(plays(f, g.spec))
     }
 
     @Test
