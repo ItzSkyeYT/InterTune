@@ -57,6 +57,8 @@ class MixGuardTest {
         assertTrue("TextButton(onClick = { MixWords.openSetting(setting) })" in File(dir, "MixGuard.kt").readText())
         assertTrue("onClick = { MixWords.openSetting(settings) }," in File(dir, "MixPlaylist.kt").readText())
         assertTrue("SettingJump.go(it.jump())" in File(dir, "MixWords.kt").readText())
+        // And the row comes to rest clear of the mini player and the tabs, not behind them.
+        assertTrue("TourTargets.bring(row, maxOf(room, third))" in File("src/main/java/com/dd3boh/outertune/ui/screens/settings/SettingJump.kt").readText())
     }
 
     @Test
