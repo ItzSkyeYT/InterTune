@@ -56,6 +56,9 @@ class AutomixAudioProcessor(
         /** The held end said something: a plan taken or refused, a fall back, an abort. */
         fun note(id: Long, text: String)
 
+        /** The next song's first [seconds] were skipped to its entry in [millis]: how fast this phone does it. */
+        fun skipTook(id: Long, seconds: Double, millis: Long) {}
+
         /** The next song started, laid under the held end ([mixing]) or after all of it. */
         fun songChanged(id: Long, mixing: Boolean)
 
@@ -380,6 +383,7 @@ class AutomixAudioProcessor(
     override fun entrySkipTook(frames: Long, millis: Long, encoderDelay: Int) {
         val rate = held?.sampleRate ?: return
         tell { note(armId, "the next song's first %.1f s skipped in %d ms, its encoder delay %d frames".format(java.util.Locale.ROOT, frames.toDouble() / rate, millis, encoderDelay)) }
+        tell { skipTook(armId, frames.toDouble() / rate, millis) }
     }
 
     /** What changed with the last call, said once. */

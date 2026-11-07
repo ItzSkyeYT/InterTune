@@ -183,6 +183,7 @@ import com.dd3boh.outertune.playback.automix.AutomixAudioProcessor
 import com.dd3boh.outertune.playback.automix.AutomixAudioSink
 import com.dd3boh.outertune.playback.automix.AutomixController
 import com.dd3boh.outertune.playback.automix.AutomixLoadControl
+import com.dd3boh.outertune.playback.automix.AutomixPace
 import com.dd3boh.outertune.playback.automix.AutomixProcessorChain
 import com.dd3boh.outertune.playback.automix.AutomixVolume
 import com.dd3boh.outertune.playback.automix.Crossfade
@@ -1257,6 +1258,9 @@ class MusicService : MediaLibraryService(),
                             // A change far from the end forced on every pair while its file is there: the debug app only, for trying the engine.
                             entryTrial = { if (BuildConfig.BUILD_TYPE == "debug") EntryTrial.read(java.io.File(filesDir, EntryTrial.FILE)) else null },
                             loadAhead = { on -> automixLoadControl?.ahead = on },
+                            // This phone's pace for far changes, kept between starts in a few lines of its own.
+                            loadPace = { java.io.File(filesDir, "mix-pace.txt").takeIf { it.isFile }?.readText()?.let { AutomixPace.decode(it) } },
+                            savePace = { pace -> java.io.File(filesDir, "mix-pace.txt").writeText(pace.encode()) },
                         ).also { addListener(it) }
                     }
                 }
