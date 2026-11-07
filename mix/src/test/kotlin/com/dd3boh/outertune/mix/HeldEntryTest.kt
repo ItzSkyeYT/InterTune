@@ -8,10 +8,12 @@ package com.dd3boh.outertune.mix
 
 import com.dd3boh.outertune.mix.edit.Anchor
 import com.dd3boh.outertune.mix.edit.How
+import com.dd3boh.outertune.mix.edit.IntroLoop
 import com.dd3boh.outertune.mix.edit.Lane
 import com.dd3boh.outertune.mix.edit.LaneId
 import com.dd3boh.outertune.mix.edit.LaneSet
 import com.dd3boh.outertune.mix.edit.Move
+import com.dd3boh.outertune.mix.edit.OutroLoop
 import com.dd3boh.outertune.mix.edit.Preset
 import com.dd3boh.outertune.mix.edit.Side
 import com.dd3boh.outertune.mix.edit.TransitionSpec
@@ -67,6 +69,12 @@ class HeldEntryTest {
         val side: Side = Side.A,
         /** Given up once the blend reaches this output frame, as AutoMix turned off mid-change does. */
         val abortAt: Long? = null,
+        /** B from its first frame, its bar nearest [entryS] on the box's first bar: what a loop in front of it needs. */
+        val bFromStart: Boolean = false,
+        /** A loop of B's first bars from its bar 1, in front of it: bars and times, none at 0 bars. */
+        val introLoop: Pair<Int, Int> = 0 to 1,
+        /** A loop of A's bars from the box's first bar: bars and more times, none at 0 bars. */
+        val outroLoop: Pair<Int, Int> = 0 to 1,
     ) {
         var aborted = false
         val held = HeldTail(2, rate, (capacityS * rate).toInt()).also {
@@ -75,8 +83,9 @@ class HeldEntryTest {
         }
         val model = SinkModel(held, listOf(ModelSong("A", songA.samples), ModelSong("B", songB.samples)), Random(seed), buffersPerTick = buffersPerTick)
 
-        /** B's bar it comes in on, in its frames, and the spec of the box. */
-        val entry: Long = Math.round(songB.downbeats.minBy { abs(it - entryS) } * rate)
+        /** B's bar it comes in on, in its frames (its first frame from its start), and the spec of the box. */
+        val bar: Long = Math.round(songB.downbeats.minBy { abs(it - entryS) } * rate)
+        val entry: Long = if (bFromStart) 0L else bar
         val spec: TransitionSpec = box()
         var armFrame = -1
         var tail: ShortArray? = null
@@ -94,7 +103,7 @@ class HeldEntryTest {
             val aBar = 4 * 60.0 / songA.spec.bpm
             val start = line - boxBars * aBar
             // B's anchor is its entry, to the frame, so its bar 1 is the frame it comes in on.
-            val bMs = entry * 1000.0 / rate
+            val bMs = bar * 1000.0 / rate
             val half = boxBars / 2.0
             val moves = mapOf(
                 // One bass at a time: A's goes and B's comes on the middle bar line.
@@ -108,7 +117,9 @@ class HeldEntryTest {
             return TransitionSpec(
                 a = Anchor("a", start * 1000.0, songA.spec.bpm), b = Anchor("b", bMs, songB.spec.bpm),
                 lanes = LaneSet.BANDS, bars = boxBars, beatMatch = true, preset = Preset.CUSTOM, moves = moves,
-                bStartMs = bMs, matchSide = side,
+                bStartMs = entry * 1000.0 / rate, matchSide = side,
+                introLoop = introLoop.takeIf { it.first > 0 }?.let { IntroLoop(it.first, bMs, it.second) },
+                outroLoop = outroLoop.takeIf { it.first > 0 }?.let { OutroLoop(it.first, start * 1000.0, it.second) },
             )
         }
 
@@ -257,6 +268,27 @@ class HeldEntryTest {
             assertEquals("frame $o", expected[((plain.armFrame + o) * 2 + c).toInt()], heard[i])
         }
         assertEquals(0, run.model.underruns)
+    }
+
+    @Test
+    fun `with B adjusted, loops in front of B and of A play to the bit, B counted from its first frame`() {
+        for ((intro, outro) in listOf((1 to 2) to (0 to 1), (0 to 1) to (1 to 2), (2 to 2) to (2 to 1))) {
+            val run = Run(side = Side.B, bFromStart = true, entryS = 2.0, introLoop = intro, outroLoop = outro).go()
+            val lp = run.lanePlan!!
+            println("B's loop $intro, A's loop $outro: ${run.heldPlan!!.describe()}; ${run.held.note}")
+            assertTrue(run.held.note, run.held.note.startsWith("planned"))
+            assertEquals(intro.first > 0, lp.bStretch!!.loop != null)
+            assertEquals(outro.first > 0, lp.outro != null)
+            // The song as it plays comes in from its first frame, counted from there by the sink.
+            assertEquals(0L, run.heldPlan!!.bEntry)
+            val cp = run.model.checkpoints.first { it.song == 1 }
+            assertEquals(run.armFrame + lp.bStart, cp.trackFrame)
+            assertEquals(0L, cp.songFrame)
+            assertArrayEquals(run.expected(), run.model.heard.toArray())
+            assertEquals(0, run.model.stalls)
+            assertEquals(0, run.model.underruns)
+            assertEquals(0L, run.held.clipped)
+        }
     }
 
     @Test
