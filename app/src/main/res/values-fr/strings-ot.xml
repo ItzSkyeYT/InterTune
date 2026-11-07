@@ -552,6 +552,7 @@
     <string name="playback_auth_always">Toujours</string>
     <string name="err_age_restricted">YouTube ne lira pas ce titre sans un compte ayant l\'âge requis. Les autres titres ne sont pas concernés.</string>
     <string name="err_song_unavailable">YouTube n\'a plus ce titre, ou pas là où vous êtes.</string>
+    <string name="err_not_audio">Ce qui est arrivé pour ce titre n\'est pas de l\'audio. Quelque chose sur cette connexion répond peut-être à la place de YouTube, comme un VPN ou un bloqueur de pubs.</string>
     <string name="err_sign_in_wanted">YouTube demande de se connecter pour lire depuis ce réseau. Les VPN et les connexions partagées sont souvent refusés.</string>
     <string name="gone_song_skipped">Titre passé, indisponible sur YouTube : « %1$s »</string>
     <!-- Dialog -->
