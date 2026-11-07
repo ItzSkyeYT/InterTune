@@ -309,7 +309,7 @@
     <string name="mix_plain_formats">different formats</string>
     <string name="mix_plain_not_ready">not ready in time</string>
     <string name="mix_plain_no_time">no time to prepare</string>
-    <string name="mix_plain_too_far">too far for this phone</string>
+    <string name="mix_plain_too_far">starts too early for this phone</string>
     <string name="mix_plain_from_next">from the next song</string>
     <string name="mix_plain_no_fit">nothing fits</string>
     <string name="mix_plain_your_choice">your choice</string>

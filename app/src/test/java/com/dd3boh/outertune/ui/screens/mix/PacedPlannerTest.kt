@@ -26,7 +26,7 @@ import java.io.File
 
 /**
  * The playlist's pills and the queue's line on a saved change this phone cannot hold in time: said
- * as playback decides it, "Plain · too far for this phone", from the same lead and the pace
+ * as playback decides it, "Plain · starts too early for this phone", from the same lead and the pace
  * playback keeps, read off the main thread.
  */
 class PacedPlannerTest {
