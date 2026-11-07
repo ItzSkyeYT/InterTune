@@ -142,6 +142,23 @@ object ProblemLog {
         .replace(PICKED, "$1…")
 
     /**
+     * A report opened from the player's error screen: the player's [lines] (its error, the client
+     * the song's stream came from, what each client answered) at the end of the heading block,
+     * which [fitted] always keeps, and the error in [full] as the last block.
+     */
+    fun withPlayerError(report: String, lines: List<String>, full: String?): String {
+        val cut = report.indexOf("\n\n")
+        val head = if (cut < 0) report.trimEnd() else report.substring(0, cut)
+        val rest = if (cut < 0) "" else report.substring(cut).trimEnd()
+        return buildString {
+            append(head)
+            lines.forEach { append('\n').append(it) }
+            append(rest)
+            full?.trim()?.takeIf { it.isNotEmpty() }?.let { append("\n\nThe player's error in full:\n").append(it) }
+        }
+    }
+
+    /**
      * What is copied: the build, the phone and where the app came from ([installedFrom]), the
      * [settings] that bear on the problem, then the [trail] of what was done before it, then the
      * lines, then the last times the music stopped with nobody asking
