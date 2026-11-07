@@ -1175,8 +1175,8 @@ class MainActivity : ComponentActivity() {
 
                 val liquidGlass by rememberPreference(PlayerLiquidGlassKey, defaultValue = false)
                 val glassIntensity by rememberPreference(PlayerGlassIntensityKey, defaultValue = 1f)
-                // TIRAMISU because lens() needs a RuntimeShader and the settings toggle is only
-                // offered at 33+. !useNavRail because playerAwareWindowInsets reserves left = 80dp
+                // TIRAMISU because lens() needs a RuntimeShader; below it the switch still gives the
+                // richer colours and the plain dock (plainDock). !useNavRail because playerAwareWindowInsets reserves left = 80dp
                 // on tablets, so nothing ever scrolls behind the rail and a glass rail would be a
                 // full offscreen pass refracting the flat surface fill. A phone on its side has
                 // the rail too, and still has the page scrolling behind its search pill and its

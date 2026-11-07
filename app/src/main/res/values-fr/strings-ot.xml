@@ -312,7 +312,7 @@
     <string name="player_glass_intensity_value">%1$d%%</string>
     <string name="player_liquid_glass">Liquid glass</string>
     <string name="player_liquid_glass_description">Panneaux de verre flottants pour la barre de navigation, le mini lecteur et les commandes de lecture, et des couleurs de pochette plus riches derrière l\'écran de lecture</string>
-    <string name="player_liquid_glass_description_legacy">Des couleurs de pochette plus riches derrière l\'écran de lecture. Les panneaux de verre flottants nécessitent Android 13 ou plus récent</string>
+    <string name="player_liquid_glass_description_legacy">Des couleurs de pochette plus riches derrière l\'écran de lecture, et les onglets et le mini-lecteur flottent comme un dock. Le verre lui-même nécessite Android 13 ou plus récent</string>
     <string name="sleep_timer_fade">Fondu avant l\'arrêt</string>
     <string name="sleep_timer_fade_description">Baisse doucement le volume à la fin de la minuterie de sommeil, au lieu de couper net</string>
     <string name="sleep_timer_fade_duration">Durée du fondu</string>
