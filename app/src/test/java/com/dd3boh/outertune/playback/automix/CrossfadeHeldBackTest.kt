@@ -131,8 +131,10 @@ class CrossfadeHeldBackTest {
     @Test
     fun `a crossfade is planned by Planner_crossfade, alone or where Auto stays gapless, and never on bands`() {
         val plan = body(controller, "private fun plan(t: Transition, held: HeldTail, ring: ShortArray, frames: Long) {")
-        assertTrue(plan, "val autoPlan = if (crossfadeFirst) null else Planner.plan(planInput)" in plan)
-        assertTrue(plan, "val crossfadeNow = crossfadeFirst || (crossfadeAfter && autoPlan!!.isGapless)" in plan)
+        // No first plan only where the end was held for a later entry, which only the change on bands plays.
+        assertTrue(plan, "val forEntry = t.entryFrames > 0L" in plan)
+        assertTrue(plan, "val autoPlan = if (crossfadeFirst || forEntry) null else Planner.plan(planInput)" in plan)
+        assertTrue(plan, "val crossfadeNow = crossfadeFirst || (crossfadeAfter && autoPlan?.isGapless == true)" in plan)
         assertTrue(plan, "val crossfade = if (crossfadeNow && seconds != null) Planner.crossfade(planInput, seconds) else null" in plan)
         assertTrue(plan, "val bands = lanes && !crossfaded" in plan)
         // Set before the plan is handed over, which the song change reads.
