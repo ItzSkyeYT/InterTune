@@ -40,6 +40,7 @@ import com.dd3boh.outertune.utils.albumWithOrderedSongs
 import com.dd3boh.outertune.utils.dataStore
 import com.dd3boh.outertune.utils.get
 import com.dd3boh.outertune.utils.reportException
+import com.dd3boh.outertune.utils.FaultInjection
 import com.dd3boh.outertune.widget.WidgetList
 import com.dd3boh.outertune.widget.WidgetStore
 import com.zionhuang.innertube.YouTube
@@ -61,6 +62,7 @@ import kotlinx.coroutines.guava.future
 import kotlinx.coroutines.plus
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.delay
 import javax.inject.Inject
 
 /** The longest a request to play waits for the saved queues to load at the service's start. */
@@ -135,9 +137,28 @@ class MediaLibrarySessionCallback @Inject constructor(
     ): ListenableFuture<MediaItemsWithStartPosition> = scope.future {
         // TODO: when this is stable, change to debug
         Log.i(TAG, "onPlaybackResumption() called")
-        resumptionItems() ?: run {
-            Log.w(TAG, "No resumption queue data. Loading empty list")
-            MediaItemsWithStartPosition(emptyList(), C.INDEX_UNSET, C.TIME_UNSET)
+        service.resumptionRunning = true
+        try {
+            val fault = FaultInjection.resumeFault(context)
+            fault?.delayMs?.takeIf { it > 0 }?.let {
+                Log.w(TAG, "Resumption held $it ms (fault injection)")
+                delay(it)
+            }
+            // A media button's start with nothing to resume lets go of the foreground it held, after
+            // media3 has put this answer in the player (MediaButtonStart).
+            val items = try {
+                if (fault?.empty == true) null else resumptionItems()
+            } catch (e: Exception) {
+                service.letGoOfMediaButtonHoldSoon("the saved queue could not be read")
+                throw e
+            }
+            items ?: run {
+                Log.w(TAG, "No resumption queue data. Loading empty list")
+                service.letGoOfMediaButtonHoldSoon("no saved queue to resume")
+                MediaItemsWithStartPosition(emptyList(), C.INDEX_UNSET, C.TIME_UNSET)
+            }
+        } finally {
+            service.resumptionRunning = false
         }
     }
 

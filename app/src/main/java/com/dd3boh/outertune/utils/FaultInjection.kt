@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.utils
 
+import android.content.Context
 import android.util.Log
 import com.dd3boh.outertune.BuildConfig
 import okhttp3.Interceptor
@@ -17,6 +18,7 @@ import okio.Buffer
 import okio.BufferedSource
 import okio.ForwardingSource
 import okio.buffer
+import java.io.File
 import java.io.IOException
 import java.net.SocketTimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
@@ -89,6 +91,27 @@ object FaultInjection {
         val first = synchronized(this) { gone ?: videoId.also { gone = it } }
         if (first == videoId) Log.w(TAG, "fault injection: $videoId is called gone")
         return first == videoId
+    }
+
+    /**
+     * A cold start from a media button, slowed or emptied (issue #98). The row above is lost with
+     * the process, so this one is a file in the app's own files, written from the shell while the
+     * app is closed: `adb shell run-as <debug package> sh -c 'echo "slow 12000" > files/fault-resume'`.
+     * "slow <ms>" holds the resumption that long, "empty" finds no saved queue, and "nohold" with
+     * either leaves out the placeholder notification of MediaButtonStart, as before it. Removed
+     * with `rm files/fault-resume`. Read only by a debug build.
+     */
+    class ResumeFault(val delayMs: Long, val empty: Boolean, val noHold: Boolean)
+
+    fun resumeFault(context: Context): ResumeFault? {
+        if (!enabled) return null
+        val words = runCatching { File(context.filesDir, "fault-resume").takeIf { it.isFile }?.readText() }
+            .getOrNull()?.trim()?.split(Regex("\\s+"))?.filter { it.isNotEmpty() } ?: return null
+        if (words.isEmpty()) return null
+        val slow = words.indexOf("slow").takeIf { it >= 0 }?.let { words.getOrNull(it + 1)?.toLongOrNull() } ?: 0L
+        return ResumeFault(delayMs = slow, empty = "empty" in words, noHold = "nohold" in words).also {
+            Log.w(TAG, "fault injection: resumption ${words.joinToString(" ")}")
+        }
     }
 
     /** Whether a /player request of [client] is to hang. */

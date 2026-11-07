@@ -2544,4 +2544,6 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="version_card_more" translatable="false">%1$d more</string>
     <string name="version_card_found" translatable="false">Found %1$s</string>
     <string name="version_card_number" translatable="false">No.</string>
+    <!-- The notification a headset or widget press shows for the moment between the app starting and the song's own notification (MediaButtonStart, issue #98). Held for translators. -->
+    <string name="media_button_resuming" translatable="false">Resuming your queue</string>
 </resources>
