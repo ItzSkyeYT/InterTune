@@ -48,7 +48,9 @@ class LanePartsTest {
     }
 
     /** [music] cut into four parts that add up to it: a third, a quarter, a sixth and the rest. */
-    private fun quarters(music: ShortArray): List<ShortArray> {
+    private fun quarters(music: ShortArray): List<java.nio.ShortBuffer> = quarterArrays(music).map { java.nio.ShortBuffer.wrap(it) }
+
+    private fun quarterArrays(music: ShortArray): List<ShortArray> {
         val v = ShortArray(music.size) { (music[it] / 3).toShort() }
         val d = ShortArray(music.size) { (music[it] / 4).toShort() }
         val b = ShortArray(music.size) { (music[it] / 6).toShort() }
@@ -56,7 +58,7 @@ class LanePartsTest {
         return listOf(v, d, b, m)
     }
 
-    private fun alone(music: ShortArray, at: Int): List<ShortArray> = List(4) { if (it == at) music else ShortArray(music.size) }
+    private fun alone(music: ShortArray, at: Int): List<java.nio.ShortBuffer> = List(4) { java.nio.ShortBuffer.wrap(if (it == at) music else ShortArray(music.size)) }
 
     private val a = Synth.song(SynthSpec(bpm = 120.0, bars = 24, seed = 31)).samples
     private val b = Synth.song(SynthSpec(bpm = 120.0, bars = 24, seed = 32)).samples
@@ -95,8 +97,9 @@ class LanePartsTest {
         // B comes in only at the very end, so A plays alone where it is looked at, under no headroom.
         val moves = every(Side.A, Move(6.0, 0.0, How.CUT)) + every(Side.B, Move(7.9, 0.0, How.CUT))
         val plan = planned(spec(moves, muted = setOf(voice)), facts(a, b))
-        val parts = quarters(a)
-        val withoutVoice = ShortArray(a.size) { (a[it] - parts[0][it]).toShort() }
+        val pieces = quarterArrays(a)
+        val parts = pieces.map { java.nio.ShortBuffer.wrap(it) }
+        val withoutVoice = ShortArray(a.size) { (a[it] - pieces[0][it]).toShort() }
         val render = LaneMixer(plan).render(a, b, 1.0, 1.0, parts, alone(b, 3))
         val at = plan.mixFrom + (plan.mixTo - plan.mixFrom) / 4
         val bar = render.outgoing

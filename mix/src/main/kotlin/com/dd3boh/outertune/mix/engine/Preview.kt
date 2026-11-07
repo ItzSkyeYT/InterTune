@@ -7,6 +7,7 @@
 package com.dd3boh.outertune.mix.engine
 
 import com.dd3boh.outertune.mix.RegionAnalysis
+import com.dd3boh.outertune.mix.edit.LaneSet
 import com.dd3boh.outertune.mix.edit.Presets
 import com.dd3boh.outertune.mix.edit.TransitionSpec
 import kotlin.math.ceil
@@ -17,7 +18,15 @@ import kotlin.math.roundToInt
  * One song's music at hand: interleaved 16-bit frames from [startMs] of the song's own clock, the
  * first [frames] of [pcm] (all of it unless said: a held end is a ring only partly written).
  */
-class Copy(val pcm: ShortArray, val sampleRate: Int, val channels: Int, val startMs: Double = 0.0, val frames: Int = pcm.size / channels)
+class Copy(
+    val pcm: ShortArray,
+    val sampleRate: Int,
+    val channels: Int,
+    val startMs: Double = 0.0,
+    val frames: Int = pcm.size / channels,
+    /** The song's parts over the same frames, in [LaneSet.PARTS]'s order, where the parts store has them. */
+    val parts: List<java.nio.ShortBuffer>? = null,
+)
 
 /**
  * A change as it will play, ready to be heard: [pcm] holds output frames [fromFrame] until
@@ -52,9 +61,10 @@ object Preview {
 
     /**
      * The window for [spec] from A's copy [a] and B's copy [b]. A change made on parts is heard on
-     * bands until parts are there, as it would play. [aAnalysis], an analysis of A's copy, gives
-     * the stretch A's own beats to land, where it was made already. Fails with why when the copies
-     * cannot hold the change, or are not in one format.
+     * the parts where both copies have them and the plan reads them as they are; on bands
+     * otherwise, as it would play. [aAnalysis], an analysis of A's copy, gives the stretch A's own
+     * beats to land, where it was made already. Fails with why when the copies cannot hold the
+     * change, or are not in one format.
      */
     fun render(
         spec: TransitionSpec, a: Copy, b: Copy, aAnalysis: RegionAnalysis? = null,
@@ -62,6 +72,9 @@ object Preview {
     ): Result<PreviewWindow> {
         if (a.sampleRate != b.sampleRate || a.channels != b.channels) {
             return Result.failure(IllegalArgumentException("the two copies are in different formats"))
+        }
+        if (spec.lanes == LaneSet.PARTS && a.parts != null && b.parts != null) {
+            onParts(spec, a, b, attenuationA, attenuationB)?.let { return Result.success(it) }
         }
         val bands = Presets.onBands(spec)
         val rate = a.sampleRate
@@ -83,5 +96,24 @@ object Preview {
         val from = floor(plan.out(-AROUND_BARS)).toLong().coerceAtLeast(0)
         val to = maxOf(ceil(plan.out(bands.lengthBars + AROUND_BARS)).toLong(), plan.mixTo)
         return Result.success(PreviewWindow(render, render.mix(a.pcm, b.pcm, from, to), from, to))
+    }
+
+    /** [spec] on the two copies' parts, or null where the plan does not read parts (a stretch, a loop). */
+    private fun onParts(spec: TransitionSpec, a: Copy, b: Copy, attenuationA: Double, attenuationB: Double): PreviewWindow? {
+        val rate = a.sampleRate
+        val facts = ChangeFacts(
+            sampleRate = rate,
+            channels = a.channels,
+            aBar1 = (spec.a.atMs - a.startMs) * rate / 1000.0,
+            aFrames = a.frames.toLong(),
+            bBar1 = (spec.b.atMs - b.startMs) * rate / 1000.0,
+            bFrames = b.frames.toLong(),
+            parts = true,
+        )
+        val plan = (SpecPlan.plan(spec, facts) as? SpecPlan.Result.Planned)?.plan ?: return null
+        val render = LaneMixer(plan).render(a.pcm, b.pcm, attenuationA, attenuationB, a.parts, b.parts)
+        val from = floor(plan.out(-AROUND_BARS)).toLong().coerceAtLeast(0)
+        val to = maxOf(ceil(plan.out(spec.lengthBars + AROUND_BARS)).toLong(), plan.mixTo)
+        return PreviewWindow(render, render.mix(a.pcm, b.pcm, from, to), from, to)
     }
 }

@@ -22,6 +22,33 @@ fun interface FrameSource {
 }
 
 /** Interleaved 16-bit frames as a [FrameSource], frame 0 of [pcm] at frame [startFrame] of the clock. */
+/**
+ * [PcmSource] over a buffer of interleaved 16-bit frames rather than an array: a song's parts are
+ * read from their files mapped into memory, off the app's heap (a window's four parts weigh four
+ * times the window). Absolute reads only, so renders running side by side can share it.
+ */
+class BufferSource(
+    private val pcm: java.nio.ShortBuffer,
+    private val channels: Int,
+    private val frames: Long = (pcm.limit() / channels).toLong(),
+    private val startFrame: Long = 0,
+    /** B from a later frame: silence before its frame [entry], rising over [fadeFrames] as [EntrySource] does. */
+    private val entry: Long = 0,
+    private val fadeFrames: Int = 0,
+) : FrameSource {
+    override fun frame(t: Long, into: DoubleArray) {
+        val i = t - startFrame
+        if (i < entry || i >= frames) {
+            for (c in 0 until channels) into[c] = 0.0
+            return
+        }
+        val k = i - entry
+        val g = if (entry == 0L || k >= fadeFrames) 1.0 else 0.5 - 0.5 * kotlin.math.cos(Math.PI * (k + 1) / (fadeFrames + 1))
+        val base = (i * channels).toInt()
+        for (c in 0 until channels) into[c] = pcm.get(base + c) * g
+    }
+}
+
 class PcmSource(
     private val pcm: ShortArray,
     private val channels: Int,

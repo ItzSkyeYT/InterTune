@@ -310,9 +310,9 @@ class LaneMixer(private val plan: LanePlan) {
         attenuationA: Double,
         attenuationB: Double,
         /** A's parts in [LaneSet.PARTS]'s order, each frame for frame with [a]: for a change made on parts. */
-        aParts: List<ShortArray>? = null,
+        aParts: List<java.nio.ShortBuffer>? = null,
         /** B's, frame for frame with [b]. */
-        bParts: List<ShortArray>? = null,
+        bParts: List<java.nio.ShortBuffer>? = null,
     ): ChangeRender {
         val started = System.nanoTime()
         val channels = plan.channels
@@ -334,12 +334,16 @@ class LaneMixer(private val plan: LanePlan) {
             val partsOfA = requireNotNull(aParts) { "a change made on parts needs A's parts" }
             check(plan.aMap.isIdentity && plan.outro == null) { "parts are read as they are" }
             val aFrames = plan.facts.aFrames.coerceAtMost((a.size / channels).toLong())
-            partsOfA.map { PcmSource(it, channels, aFrames) }
+            partsOfA.map { BufferSource(it, channels, aFrames) }
         }
         val bPartSources = if (!onParts) null else {
             val partsOfB = requireNotNull(bParts) { "a change made on parts needs B's parts" }
             check(plan.bStretch == null && plan.loop == null) { "parts are read as they are" }
-            partsOfB.map { bSourceOf(it) }
+            // As B's own copy is read: from its first frame at bStart, or from its entry with the same rise.
+            partsOfB.map {
+                if (plan.bEntry > 0) BufferSource(it, channels, bFrames0, plan.bOrigin, plan.bEntry, ENTRY_FADE_MS * rate / 1000)
+                else BufferSource(it, channels, bFrames0, plan.bStart)
+            }
         }
         val from = plan.mixFrom
         val to = plan.mixTo
