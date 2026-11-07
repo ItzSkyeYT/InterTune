@@ -27,6 +27,7 @@ import com.dd3boh.outertune.mix.edit.TransitionSpec
 import com.dd3boh.outertune.mix.edit.aGoneAt
 import com.dd3boh.outertune.mix.edit.laneAt
 import com.dd3boh.outertune.mix.edit.unheardMs
+import com.dd3boh.outertune.mix.engine.BHeard
 import com.dd3boh.outertune.mix.engine.SpecPlan
 import com.dd3boh.outertune.playback.automix.AutomixSchedule
 import kotlin.math.abs
@@ -189,8 +190,8 @@ class MixEditor(
     /** The wall: A cannot be heard before this, in bars of the change. */
     fun aWallU(s: TransitionSpec = spec): Double = (facts.aReachStartMs - s.a.atMs) / perA(s)
 
-    /** The wall: B is not read past this. */
-    fun bWallU(s: TransitionSpec = spec): Double = (facts.bReachEndMs - s.b.atMs) / s.b.barMs
+    /** The wall: B is not read past this, where it is heard on the change's bars (after its loop, through its way back to its own tempo). */
+    fun bWallU(s: TransitionSpec = spec): Double = BHeard(s).uAt(facts.bReachEndMs)
 
     /** One beat of B in bars, or half a second where the change is timed in seconds. */
     fun step(s: TransitionSpec = spec): Double = if (s.bars == 0) HALF_SECOND_MS / s.b.barMs else s.beat
@@ -373,7 +374,7 @@ class MixEditor(
     }
 
     /** How far into B [s] reads it, in B's ms: the canvas's end, or with B adjusted, its way back to its own tempo. */
-    private fun bReadTo(s: TransitionSpec): Double = max(s.bMsAt(fitEnd(s)), SpecPlan.bReadToMs(s) ?: 0.0)
+    private fun bReadTo(s: TransitionSpec): Double = max(BHeard(s).msAt(fitEnd(s)), SpecPlan.bReadToMs(s) ?: 0.0)
 
     /** Whether [s], B adjusted, would read B past what was read of it. */
     private fun bReadsPast(s: TransitionSpec): Boolean = s.bAdjusted && bReadTo(s) > facts.bReachEndMs + 0.5

@@ -39,6 +39,7 @@ import com.dd3boh.outertune.mix.edit.LaneState
 import com.dd3boh.outertune.mix.edit.Shapes
 import com.dd3boh.outertune.mix.edit.Side
 import com.dd3boh.outertune.mix.edit.TransitionSpec
+import com.dd3boh.outertune.mix.engine.BHeard
 import com.dd3boh.outertune.mix.edit.aGoneAt
 import com.dd3boh.outertune.mix.edit.laneAt
 import kotlin.math.abs
@@ -200,6 +201,12 @@ class CanvasLayout(
     val start: Double = if (zoom <= 1.001f || startWanted.isNaN()) fitStart else startWanted.coerceIn(fitStart, max(fitStart, fitEnd - axis / ppb))
     val length = spec.lengthBars
     val perA = editor.perA(spec)
+
+    /** Where the next song is heard on the change's bars, its way back to its own tempo included. */
+    val bHeard = BHeard(spec)
+
+    /** The next song's own ms heard at bar position [u]. */
+    fun bMs(u: Double): Double = bHeard.msAt(u)
 
     fun x(u: Double): Float = (pad + (u - start) * ppb).toFloat()
     fun u(x: Float): Double = start + (x - pad) / ppb
@@ -506,8 +513,8 @@ private fun levels(c: CanvasInputs, side: Side): SideLevels {
         val st = Array(n) { i ->
             val u0 = g.columnU(i) - du / 2
             val u1 = u0 + du
-            val ms0 = (if (side == Side.A) spec.aHeardMsAt(u0) else spec.bMsAt(u0)) - origin
-            val ms1 = (if (side == Side.A) spec.aHeardMsAt(u1) else spec.bMsAt(u1)) - origin
+            val ms0 = (if (side == Side.A) spec.aHeardMsAt(u0) else g.bMs(u0)) - origin
+            val ms1 = (if (side == Side.A) spec.aHeardMsAt(u1) else g.bMs(u1)) - origin
             var v = bands.peak(lane, ms0, ms1) / ref
             // Walls fade over 12 dp; B is nothing before its first frame.
             val x = g.x(g.columnU(i))
@@ -744,9 +751,10 @@ private fun DrawScope.drawTicks(c: CanvasInputs) {
     val bStart = g.editor.bStartU(spec)
     for (k in 0..floor(g.length + 1e-9).toInt()) {
         val msA = gridA.beatMs(gridA.downbeatNear(spec.aMsAt(k.toDouble())))
-        val msB = gridB.beatMs(gridB.downbeatNear(spec.bMsAt(k.toDouble())))
-        val uA = (msA - spec.a.atMs) / g.perA
-        val uB = (msB - spec.b.atMs) / spec.b.barMs
+        val msB = gridB.beatMs(gridB.downbeatNear(g.bMs(k.toDouble())))
+        val uA = k + (msA - spec.aMsAt(k.toDouble())) / g.perA
+        // Where B's downbeat is heard: in its loop, on the loop's bars; after A, on its own tempo.
+        val uB = g.bHeard.uNear(msB, k.toDouble())
         val ok = abs((uA - uB) * spec.heardBarMs) <= 10.5
         val colour = if (ok) c.colors.tickOk else c.colors.tickDrift
         if (uA <= aEnd) drawRect(colour, Offset(g.x(uA) - g.dp + c.state.overA, g.a.bottom - 4 * g.dp), Size(2 * g.dp, 4 * g.dp))
@@ -898,7 +906,7 @@ private fun DrawScope.drawOverview(c: CanvasInputs, r: CanvasLayout.Band) {
     for (i in 0 until n step 2) {
         val u = g.fitStart + span * i / n
         val a = c.aBands.peak(Lane.MIDS, spec.aMsAt(u) - c.aStartMs, spec.aMsAt(u + span / n) - c.aStartMs) / c.aBands.reference
-        val b = c.bBands.peak(Lane.MIDS, spec.bMsAt(u) - c.bStartMs, spec.bMsAt(u + span / n) - c.bStartMs) / c.bBands.reference
+        val b = c.bBands.peak(Lane.MIDS, g.bMs(u) - c.bStartMs, g.bMs(u + span / n) - c.bStartMs) / c.bBands.reference
         val x = g.pad + i * g.dp
         drawRect(c.colors.onSurfaceVariant.copy(alpha = 0.45f), Offset(x, r.centre - min(7 * g.dp, a * 10 * g.dp)), Size(1.5f * g.dp, min(7 * g.dp, a * 10 * g.dp)))
         drawRect(c.colors.onSurfaceVariant.copy(alpha = 0.45f), Offset(x, r.centre), Size(1.5f * g.dp, min(7 * g.dp, b * 10 * g.dp)))
@@ -925,8 +933,8 @@ private fun DrawScope.drawAdjust(c: CanvasInputs) {
         for (pass in 0..1) {
             val v = FloatArray(n) { i ->
                 val u = g.columnU(i)
-                val ms0 = (if (side == Side.A) spec.aMsAt(u - du / 2) else spec.bMsAt(u - du / 2)) - origin
-                val ms1 = (if (side == Side.A) spec.aMsAt(u + du / 2) else spec.bMsAt(u + du / 2)) - origin
+                val ms0 = (if (side == Side.A) spec.aMsAt(u - du / 2) else g.bMs(u - du / 2)) - origin
+                val ms1 = (if (side == Side.A) spec.aMsAt(u + du / 2) else g.bMs(u + du / 2)) - origin
                 val full = bands.peak(lane, ms0, ms1) / bands.reference
                 if (pass == 0) full else spec.laneAt(id, u).let { (full * it.gain * passed(lane, it)).toFloat() }
             }
