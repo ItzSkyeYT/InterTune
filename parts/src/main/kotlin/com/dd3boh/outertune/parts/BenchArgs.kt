@@ -11,7 +11,7 @@ package com.dd3boh.outertune.parts
  * in the debug hook, each `key=value`:
  *
  * - `model`: the model file, a name in the app's files/parts or a full path (scnet.ort);
- * - `in`: the song, a 44.1 kHz WAV, a name in the app's external files/parts or a full path (in.wav);
+ * - `in`: the song, a 44.1 kHz WAV, a name in the app's files/parts or a full path (in.wav);
  * - `segments`: how many 11 s segments to separate (10), from the start of the WAV;
  * - `overlap`: segments per sample, as stemlib counts it (1.33);
  * - `threads`: the runtime's threads in each session (1);

@@ -20,6 +20,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
 import android.os.Process
+import android.os.SharedMemory
 import android.os.SystemClock
 import android.system.Os
 import android.system.OsConstants
@@ -39,9 +40,11 @@ import com.dd3boh.outertune.parts.ScnetSegment
 import com.dd3boh.outertune.parts.SegmentTime
 import com.dd3boh.outertune.parts.Wav
 import java.io.File
+import java.nio.ByteBuffer
 import java.text.SimpleDateFormat
 import java.util.Collections
 import java.util.Date
+import java.util.IdentityHashMap
 import java.util.Locale
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicBoolean
@@ -52,9 +55,8 @@ import kotlin.concurrent.thread
  * Parts on this phone, timed (Unreleased.AUTOMIX_PARTS, debug app only): SCNet over the first N
  * 11 s segments of a WAV, as stemlib cuts them at the chosen overlap, by one session or several
  * side by side, the STFT, the model and the inverse timed apart. Started from MusicService's debug
- * hook (`parts`, then BenchArgs' words); the model is put in the app's files/parts with run-as and
- * the WAV in its external files/parts. The PC's side and the commands: experiments/features/
- * automix/parts/PARTS-NOW.md.
+ * hook (`parts`, then BenchArgs' words); the model and the WAV are put in the app's files/parts
+ * with run-as. The commands: experiments/features/automix/parts/notes/bench-commands.md.
  *
  * Every line goes to the log under PartsBench and to external files/parts/bench.txt; each run gets
  * a folder in external files/parts/out with its report and the kept segment as float WAVs: the
@@ -150,7 +152,7 @@ object PartsBench {
 
         fun go() {
             val modelFile = if ('/' in args.model) File(args.model) else File(context.filesDir, "parts/${args.model}")
-            val inputFile = if ('/' in args.input) File(args.input) else File(external, args.input)
+            val inputFile = if ('/' in args.input) File(args.input) else File(context.filesDir, "parts/${args.input}")
             val debuggable = context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
             report.line("== parts bench $stamp")
             report.line(
@@ -159,25 +161,30 @@ object PartsBench {
                     "debuggable=$debuggable, Java heap limit ${Runtime.getRuntime().maxMemory() shr 20} MB",
             )
             report.line("args $args")
-            require(modelFile.isFile) { "no model at $modelFile: put it there with run-as (PARTS-NOW.md)" }
-            require(inputFile.isFile) { "no WAV at $inputFile: adb push it there (PARTS-NOW.md)" }
+            require(modelFile.isFile) { "no model at $modelFile: put it there with run-as (parts/notes/bench-commands.md)" }
+            require(inputFile.isFile) { "no WAV at $inputFile: put it there with run-as (parts/notes/bench-commands.md)" }
             report.line("model $modelFile, ${modelFile.length()} bytes")
 
             val wav = Wav.read(inputFile)
             require(wav.rate == Scnet.RATE) { "$inputFile is at ${wav.rate} Hz; the model wants ${Scnet.RATE}" }
             val frames = minOf(wav.frames, ScnetPlan.framesFor(args.segments, args.overlap))
             val plan = ScnetPlan(frames, args.overlap)
-            val left = wav.left.copyOf(frames)
-            val right = wav.right.copyOf(frames)
+            val left = if (frames == wav.frames) wav.left else wav.left.copyOf(frames)
+            val right = if (frames == wav.frames) wav.right else wav.right.copyOf(frames)
             val keep = args.keep.coerceIn(0, plan.count - 1)
             report.line(
                 "input $inputFile: ${"%.1f".format(frames / 44100.0)} s of ${"%.1f".format(wav.frames / 44100.0)} s, " +
                     "${plan.count} segments at overlap ${args.overlap} (asked ${args.segments}), segment $keep kept " +
                     "(starts at frame ${plan.startInStretch(keep)} of the WAV)",
             )
-            val heapNeed = args.sessions * 50L + (frames * 8L shr 20) + 20
+            // Each session's 78 MB of runtime buffers in shared memory, off the Java heap where Android
+            // puts ByteBuffer.allocateDirect; its arrays (about 50 MB) and the song stay on the heap.
+            val buffers = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) SharedBuffers() else OrtSpecModel.Buffers.Direct
+            val shared = buffers !== OrtSpecModel.Buffers.Direct
+            val heapNeed = args.sessions * (if (shared) 50L else 128L) + (frames * 8L shr 20) + 20
+            report.line("runtime buffers in ${if (shared) "shared memory" else "the Java heap"}; about $heapNeed MB of Java heap wanted")
             if (heapNeed > Runtime.getRuntime().maxMemory() shr 20) {
-                report.line("warning: about $heapNeed MB of Java heap wanted, ${Runtime.getRuntime().maxMemory() shr 20} MB allowed")
+                report.line("warning: more than the ${Runtime.getRuntime().maxMemory() shr 20} MB allowed")
             }
             report.line("start ${conditions()}")
 
@@ -202,6 +209,7 @@ object PartsBench {
                         model = OrtSpecModel(
                             env, modelFile.path,
                             OrtSpecModel.Options(threads = args.threads, lowMemory = args.lowMemory, spinning = args.spinning),
+                            buffers,
                         )
                         loads[w] = (SystemClock.elapsedRealtimeNanos() - t0) / 1e9
                     } catch (t: Throwable) {
@@ -295,6 +303,25 @@ object PartsBench {
             return "battery %.1f C %d%% plugged=%d, thermal status %d, headroom %.2f, screen %s".format(
                 temperature, level, plugged, thermal, headroom, if (power.isInteractive) "on" else "off",
             )
+        }
+    }
+
+    /** The runtime's buffers in shared memory: native, mapped, freed when the session closes. */
+    @RequiresApi(Build.VERSION_CODES.O_MR1)
+    private class SharedBuffers : OrtSpecModel.Buffers {
+        private val held = IdentityHashMap<ByteBuffer, SharedMemory>()
+
+        override fun allocate(bytes: Int): ByteBuffer {
+            val memory = SharedMemory.create("intertune-parts", bytes)
+            val buffer = memory.mapReadWrite()
+            synchronized(held) { held[buffer] = memory }
+            return buffer
+        }
+
+        override fun free(buffer: ByteBuffer) {
+            val memory = synchronized(held) { held.remove(buffer) } ?: return
+            SharedMemory.unmap(buffer)
+            memory.close()
         }
     }
 

@@ -11,18 +11,21 @@ import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import java.nio.FloatBuffer
 
 /**
- * SCNet through ONNX Runtime: one session, the input and the output held in native memory that
- * the runtime reads and writes in place, so a segment's 62 MB of output never lands on the Java
- * heap. Not thread-safe: one per thread, created on that thread (its pool of [Options.threads] is
- * made with it and takes its priority).
+ * SCNet through ONNX Runtime: one session, its input and output in [Buffers] the runtime reads and
+ * writes in place, so a segment's 62 MB of output is never copied. Not thread-safe: one per thread,
+ * created on that thread (its pool of [Options.threads] is made with it and takes its priority).
  *
  * The runtime's Java API is compiled against here and supplied by the build that uses it: the
  * debug app's onnxruntime-android, the desktop runtime in the tests.
  */
-class OrtSpecModel(env: OrtEnvironment, modelPath: String, val options: Options = Options()) : SpecModel, AutoCloseable {
+class OrtSpecModel(
+    env: OrtEnvironment,
+    modelPath: String,
+    val options: Options = Options(),
+    private val buffers: Buffers = Buffers.Direct,
+) : SpecModel, AutoCloseable {
 
     /**
      * [threads] for the runtime's own pool inside one run; [lowMemory] turns off its arena and the
@@ -30,6 +33,22 @@ class OrtSpecModel(env: OrtEnvironment, modelPath: String, val options: Options 
      * faster there); [spinning] lets idle pool threads spin, which costs battery for little.
      */
     data class Options(val threads: Int = 1, val lowMemory: Boolean = false, val spinning: Boolean = false)
+
+    /** Where the runtime's input and output live: 78 MB a session, in native byte order once made. */
+    interface Buffers {
+        fun allocate(bytes: Int): ByteBuffer
+
+        fun free(buffer: ByteBuffer) {}
+
+        /**
+         * ByteBuffer.allocateDirect: native memory on a desktop JVM. On Android it comes from the
+         * Java heap and counts against the app's limit (256 MB on the Pixel 5), so the debug app
+         * passes shared memory instead.
+         */
+        object Direct : Buffers {
+            override fun allocate(bytes: Int): ByteBuffer = ByteBuffer.allocateDirect(bytes)
+        }
+    }
 
     private val sessionOptions = OrtSession.SessionOptions().apply {
         setIntraOpNumThreads(options.threads)
@@ -44,8 +63,10 @@ class OrtSpecModel(env: OrtEnvironment, modelPath: String, val options: Options 
 
     val session: OrtSession = env.createSession(modelPath, sessionOptions)
 
-    private val inputBuffer = direct(Scnet.SPEC_SIZE)
-    private val outputBuffer = direct(Scnet.OUTPUT_SIZE)
+    private val inputBytes = buffers.allocate(Scnet.SPEC_SIZE * 4)
+    private val outputBytes = buffers.allocate(Scnet.OUTPUT_SIZE * 4)
+    private val inputBuffer = inputBytes.order(ByteOrder.nativeOrder()).asFloatBuffer()
+    private val outputBuffer = outputBytes.order(ByteOrder.nativeOrder()).asFloatBuffer()
     private val input = OnnxTensor.createTensor(env, inputBuffer, longArrayOf(1, 4, Scnet.BINS.toLong(), Scnet.FRAMES.toLong()))
     private val output = OnnxTensor.createTensor(env, outputBuffer, longArrayOf(1, 16, Scnet.BINS.toLong(), Scnet.FRAMES.toLong()))
 
@@ -67,6 +88,8 @@ class OrtSpecModel(env: OrtEnvironment, modelPath: String, val options: Options 
         output.close()
         session.close()
         sessionOptions.close()
+        buffers.free(inputBytes)
+        buffers.free(outputBytes)
     }
 
     companion object {
@@ -76,8 +99,5 @@ class OrtSpecModel(env: OrtEnvironment, modelPath: String, val options: Options 
          * out of the debug app's manifest as well).
          */
         fun environment(): OrtEnvironment = OrtEnvironment.getEnvironment().also { it.setTelemetry(false) }
-
-        private fun direct(floats: Int): FloatBuffer =
-            ByteBuffer.allocateDirect(floats * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
     }
 }
