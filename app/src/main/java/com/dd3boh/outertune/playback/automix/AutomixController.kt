@@ -259,7 +259,9 @@ class AutomixController(
     private var joiningSince = 0L
 
     /** Whether a join asked for is still to be waited for: a seek the player did not make must not hold the guard for good. */
-    private fun stillJoining(): Boolean = joining && SystemClock.elapsedRealtime() - joiningSince < JOIN_WAIT_MS
+    /** Joining, and still in time: the song may load for longer than that before the sink takes it. */
+    private fun stillJoining(): Boolean =
+        joining && (player.playbackState == Player.STATE_BUFFERING || SystemClock.elapsedRealtime() - joiningSince < JOIN_WAIT_MS)
 
     /** AutoMix's setting for the queue playing: with Mix ([lanes]), the switch of the playlist it came from. */
     private var auto = false
@@ -428,7 +430,12 @@ class AutomixController(
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
         syncNormalising()
         if (!enabled) return levelsWhileOff()
-        joining = false
+        // A song that starts with AutoMix on is set up with the stage as the sink takes it, a moment
+        // after this. Until then the stage counts as joining, so the song's change is not called off
+        // as from a song that started before AutoMix was on: a playlist started from silence 4 s
+        // after AutoMix came on played its first change plain (Mr. Saxobeat, 7 Nov 2026).
+        joining = stage.wanted && !stage.activeForStream
+        joiningSince = SystemClock.elapsedRealtime()
         refresh()
     }
 
@@ -1258,7 +1265,9 @@ class AutomixController(
         latestSaved?.let { saved ->
             // A change saved on parts plays on them where both songs' parts line up with the music
             // held to the sample (PartsForPlay); on bands otherwise, as before.
-            val parts = if (saved.lanes != LaneSet.PARTS) null else partsCache?.let { dir ->
+            // A change saved on bands plays on parts too where both songs' parts line up: the bands
+            // were the cut until parts were there (his ask of 8 Nov 2026).
+            val parts = partsCache?.let { dir ->
                 runCatching {
                     val channels = held.channels
                     val aParts = PartsForPlay.lineUp(dir, t.a.id, "tail", ring, frames.toInt(), channels, rate, t.tailStartMs.toDouble())
@@ -1266,10 +1275,8 @@ class AutomixController(
                     if (aParts != null && bParts != null) aParts to bParts else null
                 }.onFailure { Log.w(TAG, "AutoMix: the parts could not be read", it) }.getOrNull()
             }
-            if (saved.lanes == LaneSet.PARTS) {
-                Log.i(TAG, if (parts != null) "AutoMix: the saved change plays on parts" else "AutoMix: the saved change plays on bands: its parts are not at hand or do not line up")
-            }
-            val spec = if (parts != null) saved else Presets.onBands(saved)
+            Log.i(TAG, if (parts != null) "AutoMix: the saved change plays on parts" else "AutoMix: the saved change plays on bands: its parts are not at hand or do not line up")
+            val spec = if (parts != null) Presets.onParts(saved) else Presets.onBands(saved)
             var lanePlan: LanePlan? = null
             Placing.facts(spec, rate, held.channels, t.tailStartMs.toDouble(), frames, tail, t.copyFrames.toLong(), earliest).fold(
                 onSuccess = { found: ChangeFacts ->

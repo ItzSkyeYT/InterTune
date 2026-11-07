@@ -41,10 +41,19 @@ class PartsForPlayTest {
     @Test
     fun `saved changes and Auto's both play on parts where the parts line up, on bands otherwise`() {
         val controller = java.io.File("src/main/java/com/dd3boh/outertune/playback/automix/AutomixController.kt").readText()
-        assertTrue("val spec = if (parts != null) saved else Presets.onBands(saved)" in controller)
+        assertTrue("a change saved on bands plays on parts too", "val spec = if (parts != null) Presets.onParts(saved) else Presets.onBands(saved)" in controller)
         assertTrue("LaneMixer(p).render(ring, copy, attenuationA, attenuationB, parts?.first, parts?.second)" in controller)
         assertTrue("val played = onParts ?: render" in controller)
         assertTrue("stage.offer(held, played.heldPlan(), played.outgoing, played.incoming, replaces = true)" in controller)
+    }
+
+    @Test
+    fun `a song started with AutoMix on counts as joining until the sink takes it`() {
+        val controller = java.io.File("src/main/java/com/dd3boh/outertune/playback/automix/AutomixController.kt").readText()
+        val transition = controller.substringAfter("override fun onMediaItemTransition(").substringBefore("\n    }\n")
+        assertTrue(transition, "joining = stage.wanted && !stage.activeForStream" in transition)
+        val still = controller.substringAfter("private fun stillJoining(): Boolean =").substringBefore("\n\n")
+        assertTrue("a song still loading is still joining", "player.playbackState == Player.STATE_BUFFERING" in still)
     }
 
     @Test
