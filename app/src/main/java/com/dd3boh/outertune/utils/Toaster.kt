@@ -34,12 +34,4 @@ object Toaster {
 
     fun show(context: Context, @StringRes text: Int, duration: Int = Toast.LENGTH_SHORT) =
         show(context, context.getString(text), duration)
-
-    /** The toast showing taken away, where what it said is over: the countdown under the version once the card is there. */
-    fun cancel() {
-        synchronized(this) {
-            showing?.cancel()
-            showing = null
-        }
-    }
 }

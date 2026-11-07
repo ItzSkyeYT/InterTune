@@ -108,6 +108,7 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.dd3boh.outertune.LocalSnackbarHostState
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.VersionCardFoundKey
 import com.dd3boh.outertune.constants.VersionCardIdKey
@@ -131,6 +132,8 @@ import java.util.Locale
 import java.util.UUID
 import kotlin.math.abs
 import kotlin.math.sqrt
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * This device's card ([DeviceCard]), drawn, and the screen that shows it: About's version line
@@ -271,14 +274,28 @@ fun rememberVersionTap(onCard: () -> Unit): () -> Unit {
     val found = rememberPreference(VersionCardFoundKey, "")
     val open = rememberUpdatedState(onCard)
     val taps = remember { VersionTaps() }
+    // The countdown is the app's own snackbar, not a toast: Android queues an app's toasts and
+    // shows each for its whole length, so "3 more", "2 more" and "1 more" came one after the other
+    // and "1 more" sat over the card for four seconds (Pixel 5, 7 Nov 2026). A snackbar is replaced
+    // at the next tap and gone the moment the card comes.
+    val snackbar = LocalSnackbarHostState.current
+    val scope = rememberCoroutineScope()
+    val saying = remember { arrayOfNulls<Job>(1) }
     return remember(code) {
         {
             if (DeviceCard.foundOn(found.value, code) != null) open.value()
             else when (val answer = taps.tap(SystemClock.uptimeMillis())) {
-                is VersionTaps.Answer.Left -> Toaster.show(context, resources.getString(R.string.version_card_more, answer.taps))
+                is VersionTaps.Answer.Left -> {
+                    saying[0]?.cancel()
+                    saying[0] = scope.launch {
+                        withTimeoutOrNull(COUNTDOWN_SHOWN_MS) {
+                            snackbar.showSnackbar(resources.getString(R.string.version_card_more, answer.taps))
+                        }
+                    }
+                }
                 VersionTaps.Answer.Card -> {
                     // "1 more" is over once the card is there.
-                    Toaster.cancel()
+                    saying[0]?.cancel()
                     found.value = DeviceCard.foundValue(code, LocalDate.now())
                     open.value()
                 }
@@ -287,6 +304,9 @@ fun rememberVersionTap(onCard: () -> Unit): () -> Unit {
         }
     }
 }
+
+/** How long each "N more" stays when no tap follows: the taps' own gap. */
+private const val COUNTDOWN_SHOWN_MS = 1_500L
 
 /**
  * The card, shown: the screen dims, the card turns in from its edge with a little overshoot and a
