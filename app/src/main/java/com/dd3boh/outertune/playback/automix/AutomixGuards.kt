@@ -43,9 +43,10 @@ object AutomixGuards {
         val skipSilence: Boolean,
         /**
          * Head tracking, kept for the log's picture of the player but no reason to refuse (his word
-         * of 6 Nov 2026, "it should play regardless"): the stage mixes before the spatial stage, which
-         * goes on tracking the head live on the mixed sound. It was refused with the switch alone, so a
-         * switch left on with spatial audio off held every change back.
+         * of 6 Nov 2026, "it should play regardless"). It was refused with the switch alone, so a
+         * switch left on with spatial audio off held every change back. The cost, with head
+         * tracking really running: the stage sits after spatial audio (withAutomix), so the end it
+         * holds carries the head's direction of when it was held, up to the hold's length.
          */
         val headTracking: Boolean,
         val upmix: Boolean,
