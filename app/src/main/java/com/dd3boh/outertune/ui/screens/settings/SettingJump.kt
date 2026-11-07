@@ -237,8 +237,9 @@ private suspend fun arrived(jump: Jump): String? {
 fun SettingJumpHost(navController: NavController) {
     val jump = SettingJump.asked
     val room = with(LocalDensity.current) { 96.dp.toPx() }
-    // A search result's row comes to rest a third of the way into the window, as a linked song
-    // does on its album, and not against the bar along the bottom.
+    // The row comes to rest a third of the way into the window, as a linked song does on its album:
+    // the page scrolls on under the mini player and the tabs, and a row brought only [room] above
+    // the bottom sat behind them (seen on the Pixel 5, 7 Nov 2026).
     val third = with(LocalDensity.current) { LocalLandscape.current.windowHeight.toPx() } / 3f
     val resources = LocalResources.current
     LaunchedEffect(jump) {
@@ -253,7 +254,7 @@ fun SettingJumpHost(navController: NavController) {
             val row = arrived(jump)
             if (row != null) {
                 delay(SETTLE_MS)
-                TourTargets.bring(row, if (searched) maxOf(room, third) else room)
+                TourTargets.bring(row, maxOf(room, third))
                 if (searched) SettingJump.lit = row else SettingJump.flashing = row
             }
         } finally {

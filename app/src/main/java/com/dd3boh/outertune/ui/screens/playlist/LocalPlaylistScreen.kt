@@ -1264,7 +1264,7 @@ fun LocalPlaylistHeader(
         }
 
         if (Unreleased.AUTOMIX_EDITOR && navController != null) {
-            MixRow(playlistId = playlist.id, songCount = songs.size, navController = navController)
+            MixRow(playlistId = playlist.id, songCount = songs.size)
         }
     }
 }

@@ -185,7 +185,6 @@ fun rememberMixMenuSwitch(playlistId: String): Pair<Boolean, () -> Unit> {
 fun MixRow(
     playlistId: String,
     songCount: Int,
-    navController: NavController,
     modifier: Modifier = Modifier,
 ) {
     if (!Unreleased.AUTOMIX_EDITOR || songCount < 2) return
@@ -233,7 +232,7 @@ fun MixRow(
         val settings = (line as? MixRowLine.Blocked)?.let { MixWords.blockedSetting(it.reason) }
         if (settings != null) {
             TextButton(
-                onClick = { navController.navigate(settings) },
+                onClick = { MixWords.openSetting(settings) },
                 // Under the line's words: the icon and its gap before them.
                 modifier = Modifier.padding(start = 32.dp),
             ) {

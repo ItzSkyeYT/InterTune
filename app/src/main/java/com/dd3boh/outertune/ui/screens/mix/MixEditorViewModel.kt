@@ -186,7 +186,7 @@ class MixEditorViewModel @Inject constructor(
                 val levelB = withContext(Dispatchers.IO) { runCatching { levelOf(toId) }.getOrDefault(1.0) }
                 val volume = runCatching { volumeOf() }.getOrDefault(1f)
                 val loaded = withContext(Dispatchers.IO) {
-                    PairLoader(source, EditorCache(context.cacheDir), { id, end -> MixStores.analysed(context, id, end) }, { id -> MixStores.wholeSongs(context).get(id) }, wholeReader(source)).load(
+                    PairLoader(source, EditorCache(context.cacheDir, buildStamp()), { id, end -> MixStores.analysed(context, id, end) }, { id -> MixStores.wholeSongs(context).get(id) }, wholeReader(source)).load(
                         inputA, inputB, levelA, levelB,
                         stage = { phase.value = Phase.Loading(it) },
                         cancelled = { cancelled.get() },
@@ -214,6 +214,9 @@ class MixEditorViewModel @Inject constructor(
             }
         }
     }
+
+    /** The build the editor's cache was filled by: the time this app was installed or updated. */
+    private fun buildStamp(): String = runCatching { context.packageManager.getPackageInfo(context.packageName, 0).lastUpdateTime.toString() }.getOrDefault("")
 
     private fun input(id: String, song: Song?, fix: BeatFix) = PairLoader.SongInput(
         id = id,

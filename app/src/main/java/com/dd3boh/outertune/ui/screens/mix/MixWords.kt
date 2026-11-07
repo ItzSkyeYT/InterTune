@@ -18,6 +18,9 @@ import com.dd3boh.outertune.mix.pill.MixRowLine
 import com.dd3boh.outertune.mix.pill.Pill
 import com.dd3boh.outertune.mix.pill.PillLength
 import com.dd3boh.outertune.mix.pill.PlainReason
+import com.dd3boh.outertune.ui.screens.settings.SETTINGS_INDEX
+import com.dd3boh.outertune.ui.screens.settings.SettingJump
+import com.dd3boh.outertune.ui.screens.settings.jump
 
 /**
  * Mix's words on screen, from the states in com.dd3boh.outertune.mix.pill. One place, so the
@@ -75,10 +78,21 @@ object MixWords {
         else -> null
     }
 
-    /** Where the setting behind a blocking reason is changed, for the button beside the line; null where no page has it. */
-    fun blockedSetting(reason: PlainReason): String? = when (reason) {
-        PlainReason.SKIP_SILENCE, PlainReason.SPATIAL, PlainReason.DECODER -> "settings/player"
+    /** The row of settings behind a blocking reason, by its title, for the button beside the line; null where no setting has it. */
+    @StringRes
+    fun blockedSetting(reason: PlainReason): Int? = when (reason) {
+        PlainReason.SKIP_SILENCE -> R.string.skip_silence
+        PlainReason.SPATIAL -> R.string.spatial_audio
+        PlainReason.DECODER -> R.string.audio_decoder_preference
         else -> null
+    }
+
+    /**
+     * Opens the settings at the row titled [title], brought into view and flashed, over the screen
+     * the button was on, so Back returns to it: the switch itself, not the top of a long page.
+     */
+    fun openSetting(@StringRes title: Int) {
+        SETTINGS_INDEX.firstOrNull { it.title == title }?.let { SettingJump.go(it.jump()) }
     }
 
     @StringRes
