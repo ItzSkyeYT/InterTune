@@ -65,6 +65,55 @@ internal class EntrySource(
 }
 
 /**
+ * B stretched by the beat matcher, by output frame: silence before it is heard, then the stretch
+ * along its map, rising over a few milliseconds where B comes in after its first frame, then its
+ * own samples from where it is back at its own speed, crossed over to in [BStretch.switchFrames],
+ * so the change ends on B's own frames, the ones the song as it plays goes on with.
+ */
+internal class GlideSource(
+    private val stretched: Wsola.Frames,
+    private val pcm: ShortArray,
+    private val channels: Int,
+    private val frames: Long,
+    private val s: BStretch,
+    private val fadeFrames: Int,
+) : FrameSource {
+    private val own = DoubleArray(channels)
+    private val rising = s.map.t0 > 0
+
+    override fun frame(t: Long, into: DoubleArray) {
+        if (t < s.heardFrom) {
+            for (c in 0 until channels) into[c] = 0.0
+            return
+        }
+        if (t >= s.switchAt + s.switchFrames) {
+            ownAt(s.switchFrame + (t - s.switchAt), into)
+            return
+        }
+        stretched.frame(t, into)
+        val k = t - s.heardFrom
+        if (rising && k < fadeFrames) {
+            val g = 0.5 - 0.5 * kotlin.math.cos(Math.PI * (k + 1) / (fadeFrames + 1))
+            for (c in 0 until channels) into[c] *= g
+        }
+        if (t >= s.switchAt) {
+            val w = (t - s.switchAt + 1).toDouble() / (s.switchFrames + 1)
+            ownAt(s.switchFrame + (t - s.switchAt), own)
+            for (c in 0 until channels) into[c] = into[c] * (1 - w) + own[c] * w
+        }
+    }
+
+    private fun ownAt(i: Long, into: DoubleArray) {
+        if (i < 0 || i >= frames) {
+            for (c in 0 until channels) into[c] = 0.0
+            return
+        }
+        val base = (i * channels).toInt()
+        for (c in 0 until channels) into[c] = pcm[base + c].toDouble()
+    }
+}
+
+/**
  * One song's side of a change, frame after frame from [origin]: its music cut into bands, each
  * band shaped by its lane, and the lanes added back. Where every lane is at full and nothing
  * rings, the music itself is given out, not the sum of its bands, so it is the song's own
@@ -238,6 +287,7 @@ class LaneMixer(private val plan: LanePlan) {
         val aSource = aSource(a)
         val bFrames0 = plan.facts.bFrames.coerceAtMost((b.size / channels).toLong())
         val bSource = when {
+            plan.bStretch != null -> stretchedB(b, bFrames0)
             plan.loop != null -> LoopedSource(b, channels, bFrames0, plan.bStart, plan.loop, rate)
             // B from a later bar: none of it before, and no click where it starts.
             plan.bEntry > 0 -> EntrySource(b, channels, bFrames0, plan.bOrigin, plan.bEntry, ENTRY_FADE_MS * rate / 1000)
@@ -346,6 +396,29 @@ class LaneMixer(private val plan: LanePlan) {
     companion object {
         /** How long B takes to start when it comes in after its first frame: no click, nothing heard as a fade. */
         const val ENTRY_FADE_MS = 5
+    }
+
+    /** B at A's tempo along its map, laid on its own beats, back to its own samples where it is back at its own speed. */
+    private fun stretchedB(b: ShortArray, frames: Long): FrameSource {
+        val s = plan.bStretch!!
+        val channels = plan.channels
+        val factor = Pcm.decimationFor(plan.sampleRate)
+        val decimator = Decimator(plan.sampleRate, factor)
+        val mono = FloatList((frames / factor + 1).toInt())
+        val inverse = 1.0 / (Pcm.FULL_SCALE * channels)
+        var i = 0
+        val end = (frames * channels).toInt()
+        while (i < end) {
+            var sum = 0
+            for (c in 0 until channels) sum += b[i + c]
+            decimator.push(sum * inverse, mono)
+            i += channels
+        }
+        // Laid out for every frame a band split may read before B is heard, up to where its own samples have taken over.
+        val from = s.heardFrom - (Engine.SETTLE_S * plan.sampleRate).toLong() - 1
+        val to = s.switchAt + s.switchFrames + 1
+        val wsola = Wsola(b, channels, plan.sampleRate, mono.toArray(), factor, s.anchors, phase = plan.gridOrigin).frames(s.map, from, to)
+        return GlideSource(wsola, b, channels, frames, s, ENTRY_FADE_MS * plan.sampleRate / 1000)
     }
 
     /** A's music by output frame as the change takes it, before any lane is shaped: stretched where the plan stretches it. For a change's proof. */

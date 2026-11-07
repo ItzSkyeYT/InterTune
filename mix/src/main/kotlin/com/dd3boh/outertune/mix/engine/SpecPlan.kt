@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.mix.engine
 
+import com.dd3boh.outertune.mix.GlideMap
 import com.dd3boh.outertune.mix.TimeMap
 import com.dd3boh.outertune.mix.edit.How
 import com.dd3boh.outertune.mix.edit.IntroLoop
@@ -89,12 +90,14 @@ class LanePlan internal constructor(
     val outro: PlannedOutroLoop? = null,
     /** B's own frame heard first, at [bStart]: 0, or the bar it comes in on. Its frames before are never heard. */
     val bEntry: Long = 0,
+    /** Where B is the song adjusted: how it is stretched, where it is first heard and where its own music takes over again. */
+    val bStretch: BStretch? = null,
 ) {
     /** The output frame B's frame 0 would be heard on, had it been played from its start. */
     val bOrigin: Long get() = bStart - bEntry
 
-    /** The first output frame B's side gives anything: its loop's, or its own first frame. */
-    val bFrom: Long get() = loop?.let { minOf(it.outFrom, bStart) } ?: bStart
+    /** The first output frame B's side gives anything: its loop's, where it is first heard when stretched, or its own first frame. */
+    val bFrom: Long get() = bStretch?.heardFrom ?: loop?.let { minOf(it.outFrom, bStart) } ?: bStart
 
     val sampleRate: Int get() = facts.sampleRate
     val channels: Int get() = facts.channels
@@ -122,9 +125,24 @@ class LanePlan internal constructor(
         val tempo = if (speed == 1.0) "A at its own speed" else "A at %.4f".format(speed)
         val name = if (spec.preset == Preset.AUTO) "Auto (${AutoSpec.label(spec)})" else AutoSpec.label(spec.copy(from = spec.preset))
         val from = if (bEntry > 0) " from its frame $bEntry" else ""
-        return "$name on ${spec.lanes.key}, $tempo, B at frame $bStart$from, A gone at frame $aGone"
+        val b = bStretch?.let { ", B at %.4f till A is gone, its own from frame %d".format(it.map.speed, it.switchAt) } ?: ""
+        return "$name on ${spec.lanes.key}, $tempo$b, B at frame $bStart$from, A gone at frame $aGone"
     }
 }
+
+/**
+ * B stretched by the beat matcher: its frames by output frame ([map]), heard from [heardFrom], its
+ * own samples taking over at output frame [switchAt] with its frame [switchFrame], crossed over
+ * to in [switchFrames], and its beats ([anchors], in its own frames) for the stretch to land.
+ */
+class BStretch(
+    val map: GlideMap,
+    val heardFrom: Long,
+    val switchAt: Long,
+    val switchFrame: Long,
+    val switchFrames: Int,
+    val anchors: DoubleArray,
+)
 
 /** Turns a spec and the music at hand into the [LanePlan] the engine plays, or says why it cannot. */
 object SpecPlan {
@@ -143,6 +161,7 @@ object SpecPlan {
         if (spec.plain) return Result.Refused("a plain change")
         if (spec.lanes != LaneSet.BANDS) return Result.Refused("made on ${spec.lanes.key}, which this phone does not split into")
         spec.problems().takeIf { it.isNotEmpty() }?.let { return Result.Refused(it.joinToString("; ")) }
+        if (spec.bAdjusted) return planBAdjusted(spec, facts)
         // Neither is played yet: a change that asks for one is not played as something else.
         if (spec.introTwice > 0 && spec.introLoop == null) return plan(spec.copy(introTwice = 0, introLoop = IntroLoop(spec.introTwice, spec.b.atMs, 1)), facts)
         val rate = facts.sampleRate
@@ -315,11 +334,155 @@ object SpecPlan {
         val bStartU = (spec.bStartMs - spec.b.atMs) / spec.b.barMs + loopU
         val bFirst = minOf(if (loopU > 0) minOf(0.0, bStartU) else bStartU, bLanes.minOf { firstHeardU(spec, it) ?: bStartU })
         var ms = spec.aMsAt(minOf(aFirst, bFirst))
-        if (spec.beatMatched) {
+        if (spec.beatMatched && !spec.bAdjusted) {
             val beats = if (abs(spec.tempoRatio() - 1) > LONG_RAMP_ABOVE) LONG_RAMP_BEATS else RAMP_BEATS
             ms = minOf(ms, spec.a.atMs - beats * 60_000.0 / spec.a.bpm)
         }
         return ms - Engine.HEADROOM_PAD_S * 1000
+    }
+
+    /** How long B takes to come back to its own tempo once A is gone, in bars of the change. */
+    const val GLIDE_BARS = 2.0
+
+    /** How long the stretched B crosses over to its own samples where it is back at its own speed: 10 ms. */
+    const val SWITCH_MS = 10.0
+
+    /**
+     * Where B is the song adjusted, all counted from the output frame B is first heard on, so the
+     * same numbers come out wherever A's bar 1 falls: B at A's tempo from its entry, back to its
+     * own over [GLIDE_BARS] bars from the first bar line after A is gone, then its own music from
+     * its own next bar line on, frame for frame. The song as it plays (the live stream, one output
+     * frame for each of its frames) must reach that bar line on the same frame, so it comes in at
+     * [liveEntry], earlier or later than B is heard by what the stretch lost or gained; where that
+     * would be before B's first frame, it starts that much later instead ([liveDelay]), the
+     * change playing B from its copy until then.
+     */
+    class BLayout(
+        val entry: Long,
+        val speed: Double,
+        val glideFrom: Double,
+        val glideTo: Double,
+        /** Output frames after B is first heard where B's own samples take over, and B's frame there. */
+        val switchAt: Long,
+        val switchFrame: Long,
+        val liveEntry: Long,
+        val liveDelay: Long,
+    )
+
+    /** [spec]'s layout for B adjusted, at [rate]; null where B is not the song adjusted. */
+    fun bLayout(spec: TransitionSpec, rate: Int): BLayout? {
+        if (!spec.bAdjusted) return null
+        val entry = (spec.bStartMs * rate / 1000.0).roundToLong()
+        val speed = 1.0 / spec.tempoRatio()
+        val barFrames = spec.heardBarMs * rate / 1000.0
+        val bAt = spec.b.atMs * rate / 1000.0
+        val bBarOwn = spec.b.barMs * rate / 1000.0
+        // B's entry, in bars of the change.
+        val uEntry = (entry - bAt) / bBarOwn
+        // The first bar line once every lane of A is gone, its echo rung out.
+        val aLanes = spec.lanes.lanes.map { LaneId(Side.A, it) }
+        val echo = aLanes.any { id -> spec.curves[id] == null && id !in spec.muted && spec.moves[id]?.how == How.ECHO }
+        val gone = aLanes.maxOf { spec.goneAt(it) } + if (echo) Engine.ECHO_MAX_BARS_AFTER else 0.0
+        val glideFrom = max(0.0, (ceil(gone - 1e-9) - uEntry) * barFrames)
+        val glideTo = glideFrom + GLIDE_BARS * barFrames
+        val map = GlideMap(0.0, entry.toDouble(), speed, glideFrom, glideTo)
+        // B's own next bar line once it is back at its own speed: its music from there on is its own.
+        val atGlideTo = map.tailAt(glideTo)
+        val switchFrame = Math.round(bAt + ceil((atGlideTo - bAt) / bBarOwn - 1e-9) * bBarOwn)
+        val switchAt = Math.round(glideTo + (switchFrame - atGlideTo))
+        val live = switchFrame - switchAt
+        return BLayout(entry, speed, glideFrom, glideTo, switchAt, switchFrame, max(0L, live), max(0L, -live))
+    }
+
+    /**
+     * The frame of B the song as it plays comes in on: its entry, or where B is the song adjusted,
+     * the entry moved by what the stretch loses or gains before B's own music takes over. What the
+     * end is held for, before there is a plan.
+     */
+    fun liveEntryFrames(spec: TransitionSpec, rate: Int): Long =
+        bLayout(spec, rate)?.liveEntry ?: (spec.bStartMs * rate / 1000.0).roundToLong()
+
+    /** The change with B adjusted: A at its own speed throughout, B at A's tempo while both are heard. See [bLayout]. */
+    private fun planBAdjusted(spec: TransitionSpec, facts: ChangeFacts): Result {
+        if (facts.aMap != null) return Result.Refused("the next song adjusted on a time map worked out for the song before it")
+        if (spec.introLoop != null || spec.introTwice > 0 || spec.outroLoop != null) return Result.Refused("a loop in a change that adjusts the next song is not played yet")
+        val rate = facts.sampleRate
+        val layout = bLayout(spec, rate)!!
+        val barFrames = spec.heardBarMs * rate / 1000.0
+        val beatFrames = barFrames * spec.beat
+        val bBarOwn = spec.b.barMs * rate / 1000.0
+        // A is heard as it is: bar 1 is its anchor, and B's anchor falls on it within half a frame.
+        val bar1 = facts.aBar1
+        fun out(u: Double) = bar1 + u * barFrames
+        val bHeard = (bar1 + (layout.entry - facts.bBar1) / layout.speed).roundToLong()
+        val map = GlideMap(bHeard.toDouble(), layout.entry.toDouble(), layout.speed, bHeard + layout.glideFrom, bHeard + layout.glideTo)
+        val switchAt = bHeard + layout.switchAt
+        val bStart = bHeard + layout.liveDelay
+
+        val aLanes = spec.lanes.lanes.map { LaneId(Side.A, it) }
+        val bLanes = spec.lanes.lanes.map { LaneId(Side.B, it) }
+        val echoing = aLanes.filter { id -> spec.curves[id] == null && id !in spec.muted && spec.moves[id]?.how == How.ECHO }.toSet()
+        val echoFrames = max(1, (Shapes.ECHO_BEATS * beatFrames).roundToInt())
+        val cutFrames = ceil(Shapes.CUT_MS / 1000.0 * rate).toLong()
+        val dryGone = ceil(out(aLanes.maxOf { spec.goneAt(it) })).toLong() + cutFrames
+        val aGone = if (echoing.isEmpty()) dryGone else {
+            val rung = dryGone + Engine.ECHO_REPEATS.toLong() * echoFrames
+            min(rung, ceil(out(spec.lengthBars + Engine.ECHO_MAX_BARS_AFTER)).toLong()).coerceAtLeast(dryGone + echoFrames)
+        }
+        val aChangeFrom = floor(out(aLanes.minOf { firstMoveU(spec, it) })).toLong()
+        val bHeardFrom = max(bHeard, floor(bLanes.minOf { firstHeardU(spec, it)?.let(::out) ?: Double.NEGATIVE_INFINITY }).toLong())
+        val bypass = ceil(Engine.BYPASS_S * rate).toLong()
+        val bPlain = max(bHeard, ceil(out(bLanes.maxOf { plainFromU(spec, it) })).toLong() + bypass + cutFrames)
+        val pad = ceil(Engine.HEADROOM_PAD_S * rate).toLong()
+        val switchFrames = ceil(SWITCH_MS / 1000.0 * rate).toLong()
+        val mixFrom = minOf(aChangeFrom, bHeardFrom - pad, bHeard)
+        // The change runs on B's own samples for a moment after they have taken over, so the song
+        // as it plays meets them there, sample for sample.
+        val mixTo = maxOf(aGone, aGone + pad, bPlain, switchAt + 2 * switchFrames, bStart + 1)
+        // B's beats, its own grid, for the stretch to land each one where the map puts it.
+        val bBeatOwn = bBarOwn * spec.beat
+        val bAnchors = run {
+            val k0 = floor((layout.entry - facts.bBar1) / bBeatOwn).toInt() - 1
+            val k1 = ceil((layout.switchFrame - facts.bBar1) / bBeatOwn).toInt() + 1
+            DoubleArray(max(0, k1 - k0 + 1)) { facts.bBar1 + (k0 + it) * bBeatOwn }
+        }
+        when {
+            mixFrom < facts.earliest -> return Result.Refused(
+                "it starts %.1f s before it can be ready".format((facts.earliest - mixFrom).toDouble() / rate),
+            )
+            mixFrom < 0 -> return Result.Refused("it starts before the music at hand")
+            bHeard > facts.aFrames -> return Result.Refused("B would start after the end of A")
+            layout.switchFrame + (mixTo - switchAt) > facts.bFrames -> return Result.Refused(
+                "B's copy holds %.1f s, the change needs %.1f s of it".format(facts.bFrames.toDouble() / rate, (layout.switchFrame + mixTo - switchAt).toDouble() / rate),
+            )
+            (mixTo - mixFrom).toDouble() / rate > Engine.MAX_SPAN_S -> return Result.Refused(
+                "it takes %.1f s".format((mixTo - mixFrom).toDouble() / rate),
+            )
+        }
+        return Result.Planned(
+            LanePlan(
+                spec = spec,
+                facts = facts,
+                aMap = TimeMap.IDENTITY,
+                anchors = DoubleArray(0),
+                bar1 = bar1,
+                barFrames = barFrames,
+                bStart = bStart,
+                mixFrom = mixFrom,
+                mixTo = mixTo,
+                aGone = aGone,
+                bPlain = bPlain,
+                bothFrom = bHeardFrom,
+                bothTo = aGone,
+                echoFrames = echoFrames,
+                speed = 1.0,
+                bEntry = layout.liveEntry,
+                bStretch = BStretch(map, bHeard, switchAt, layout.switchFrame, switchFrames.toInt(), bAnchors),
+            ).also {
+                it.echoingLanes = echoing
+                if (echoing.isNotEmpty()) it.echoFadeFrom = max(dryGone, aGone - echoFrames)
+            },
+        )
     }
 
     /** Where A's lane [id] first differs from full, in bars. */

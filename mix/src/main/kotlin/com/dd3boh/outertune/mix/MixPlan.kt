@@ -36,6 +36,18 @@ enum class Style {
     CUT,
 }
 
+/** Where each output frame takes a song from, in its own frames: what the stretcher follows. */
+interface FrameMap {
+    /** The song's frame heard at output frame [out]. */
+    fun tailAt(out: Double): Double
+
+    /** The output frame at which the song's frame [tail] is heard: the inverse of [tailAt]. */
+    fun outAt(tail: Double): Double
+
+    /** Before this output frame the song is heard as it is, frame for frame; never, for a song stretched from its first frame heard. */
+    val inPlaceUntil: Double
+}
+
 /**
  * Where each output frame takes the outgoing song from, in frames of its held tail.
  *
@@ -43,12 +55,14 @@ enum class Style {
  * [rampLength] output frames, and holds. The tail's position is the integral of that speed, so it
  * runs on without a jump: a parabola through the ramp and a straight line after it.
  */
-class TimeMap(val rampStart: Double, val rampLength: Double, val speed: Double) {
+class TimeMap(val rampStart: Double, val rampLength: Double, val speed: Double) : FrameMap {
+
+    override val inPlaceUntil: Double get() = if (isIdentity) Double.POSITIVE_INFINITY else rampStart
 
     val isIdentity: Boolean get() = speed == 1.0
 
     /** The tail frame heard at output frame [out]. */
-    fun tailAt(out: Double): Double {
+    override fun tailAt(out: Double): Double {
         if (isIdentity || out <= rampStart) return out
         val u = out - rampStart
         if (u <= rampLength) return rampStart + u + (speed - 1.0) * u * u / (2.0 * rampLength)
@@ -63,7 +77,7 @@ class TimeMap(val rampStart: Double, val rampLength: Double, val speed: Double) 
     }
 
     /** The output frame at which tail frame [tail] is heard: the inverse of [tailAt]. */
-    fun outAt(tail: Double): Double {
+    override fun outAt(tail: Double): Double {
         if (isIdentity || tail <= rampStart) return tail
         val rampTail = rampLength * (1.0 + speed) / 2.0
         val v = tail - rampStart
@@ -77,6 +91,48 @@ class TimeMap(val rampStart: Double, val rampLength: Double, val speed: Double) 
     companion object {
         val IDENTITY = TimeMap(Double.MAX_VALUE, 0.0, 1.0)
     }
+}
+
+/**
+ * The incoming song's frames by output frame where the beat matcher adjusts it: its frame [t0] on
+ * output frame [o0], then at [speed] (A's tempo over its own) until [glideFrom], the speed moving
+ * straight back to 1 by [glideTo], and its own speed after, as a DJ brings the pitch fader home
+ * once the other song is gone. The position is the integral of that speed, so it never jumps.
+ */
+class GlideMap(val o0: Double, val t0: Double, val speed: Double, val glideFrom: Double, val glideTo: Double) : FrameMap {
+    init {
+        require(speed > 0 && glideTo >= glideFrom && glideFrom >= o0)
+    }
+
+    private val atGlideFrom = t0 + (glideFrom - o0) * speed
+    private val glideLength = glideTo - glideFrom
+    private val atGlideTo = atGlideFrom + glideLength * (speed + 1.0) / 2.0
+
+    /** The speed at output frame [out]. */
+    fun speedAt(out: Double): Double = when {
+        out < glideFrom -> speed
+        out >= glideTo || glideLength <= 0.0 -> 1.0
+        else -> speed + (1.0 - speed) * (out - glideFrom) / glideLength
+    }
+
+    override fun tailAt(out: Double): Double {
+        if (out <= glideFrom) return t0 + (out - o0) * speed
+        if (out >= glideTo) return atGlideTo + (out - glideTo)
+        val u = out - glideFrom
+        return atGlideFrom + speed * u + (1.0 - speed) * u * u / (2.0 * glideLength)
+    }
+
+    override fun outAt(tail: Double): Double {
+        if (tail <= atGlideFrom) return o0 + (tail - t0) / speed
+        if (tail >= atGlideTo) return glideTo + (tail - atGlideTo)
+        // Solve speed u + (1 - speed) u² / 2G = v for the root that starts at zero.
+        val v = tail - atGlideFrom
+        val a = (1.0 - speed) / (2.0 * glideLength)
+        val u = if (kotlin.math.abs(a) < 1e-15) v / speed else (-speed + sqrt(speed * speed + 4.0 * a * v)) / (2.0 * a)
+        return glideFrom + u
+    }
+
+    override val inPlaceUntil: Double get() = Double.NEGATIVE_INFINITY
 }
 
 /** How a gain moves across one stretch of output frames. */
