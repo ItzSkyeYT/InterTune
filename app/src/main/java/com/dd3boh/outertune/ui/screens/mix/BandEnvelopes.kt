@@ -29,7 +29,12 @@ class BandEnvelopes(
     val lows: FloatArray,
     val mids: FloatArray,
     val highs: FloatArray,
+    /** The parts' own peaks, where the song's parts are at hand ([PartsStore]); the bands stand in for them otherwise. */
+    val parts: Map<Lane, FloatArray>? = null,
 ) {
+    /** The same, with the parts' envelopes for the part lanes to be drawn from. */
+    fun withParts(parts: Map<Lane, FloatArray>) = BandEnvelopes(hopMs, lows, mids, highs, parts)
+
     init {
         require(lows.size == mids.size && mids.size == highs.size)
     }
@@ -46,12 +51,12 @@ class BandEnvelopes(
 
     /** Each band's own typical level when it plays: its 75th percentile, for whether a band has music. */
     private val typical: Map<Lane, Float> by lazy {
-        mapOf(Lane.LOWS to lows, Lane.MIDS to mids, Lane.HIGHS to highs).mapValues { (_, v) ->
+        (mapOf(Lane.LOWS to lows, Lane.MIDS to mids, Lane.HIGHS to highs) + parts.orEmpty()).mapValues { (_, v) ->
             if (v.isEmpty()) 0f else v.copyOf().also { it.sort() }[min(v.size - 1, (v.size * 0.75).toInt())]
         }
     }
 
-    fun band(lane: Lane): FloatArray = when (lane) {
+    fun band(lane: Lane): FloatArray = parts?.get(lane) ?: when (lane) {
         Lane.LOWS, Lane.BASS -> lows
         Lane.HIGHS, Lane.DRUMS -> highs
         else -> mids

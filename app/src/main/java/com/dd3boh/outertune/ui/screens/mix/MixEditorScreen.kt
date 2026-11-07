@@ -121,6 +121,7 @@ import com.dd3boh.outertune.mix.edit.Preset
 import com.dd3boh.outertune.mix.edit.Side
 import com.dd3boh.outertune.mix.edit.IntroLoop
 import com.dd3boh.outertune.mix.edit.TransitionSpec
+import com.dd3boh.outertune.mix.edit.Presets
 import com.dd3boh.outertune.ui.component.FloatingTopBar
 import com.dd3boh.outertune.ui.component.LocalPlayerSheet
 import com.dd3boh.outertune.ui.component.ScreenBackHandler
@@ -385,7 +386,15 @@ fun MixEditorScreen(navController: NavController) {
                 }
             }
             SongRow(songB, bTitle, spec?.let { words.clock(it.b.atMs) }, spec?.let { vm.editor?.shownBpm(Side.B, it) }, spec?.b?.fix?.isNone == false, words, landscape, spec?.let { vm.editor?.beatNote(Side.B, it) }) { fixOpen = Side.B }
-            BarRow(spec, words, lanesView, canvas.adjust, { lengthOpen = true }, { lanesView = it }) { leaveAdjust(vm, canvas) }
+            BarRow(
+                spec, words, lanesView, canvas.adjust, { lengthOpen = true }, { lanesView = it },
+                partsReady = vm.pair?.partsReady == true,
+                onLanes = { set ->
+                    lanesView = true
+                    // Bands and parts are two ways to cut the same change: its timing and choices go across.
+                    vm.edit { if (this.spec.lanes != set) apply(if (set == LaneSet.PARTS) Presets.onParts(this.spec) else Presets.onBands(this.spec)) }
+                },
+            ) { leaveAdjust(vm, canvas) }
             NowLine(vm, editor, spec, words, phase, playing, { playU }, said)
         }
 
@@ -634,6 +643,9 @@ private fun BarRow(
     adjust: com.dd3boh.outertune.mix.edit.Lane?,
     onLength: () -> Unit,
     onView: (Boolean) -> Unit,
+    /** Both songs' parts are at hand: Songs, Bands and Parts, three ways. */
+    partsReady: Boolean = false,
+    onLanes: (LaneSet) -> Unit = {},
     onDone: () -> Unit,
 ) {
     Row(
@@ -662,11 +674,22 @@ private fun BarRow(
         }
         val second = if (spec?.lanes == LaneSet.PARTS) R.string.mix_edit_view_parts else R.string.mix_edit_view_bands
         SingleChoiceSegmentedButtonRow(Modifier.height(32.dp)) {
-            SegmentedButton(selected = !lanesView, onClick = { onView(false) }, shape = SegmentedButtonDefaults.itemShape(0, 2)) {
+            val count = if (partsReady) 3 else 2
+            SegmentedButton(selected = !lanesView, onClick = { onView(false) }, shape = SegmentedButtonDefaults.itemShape(0, count)) {
                 Text(stringResource(R.string.mix_edit_view_songs), maxLines = 1)
             }
-            SegmentedButton(selected = lanesView, onClick = { onView(true) }, shape = SegmentedButtonDefaults.itemShape(1, 2)) {
-                Text(stringResource(second), maxLines = 1)
+            if (partsReady) {
+                val onParts = spec?.lanes == LaneSet.PARTS
+                SegmentedButton(selected = lanesView && !onParts, onClick = { onLanes(LaneSet.BANDS) }, shape = SegmentedButtonDefaults.itemShape(1, 3)) {
+                    Text(stringResource(R.string.mix_edit_view_bands), maxLines = 1)
+                }
+                SegmentedButton(selected = lanesView && onParts, onClick = { onLanes(LaneSet.PARTS) }, shape = SegmentedButtonDefaults.itemShape(2, 3)) {
+                    Text(stringResource(R.string.mix_edit_view_parts), maxLines = 1)
+                }
+            } else {
+                SegmentedButton(selected = lanesView, onClick = { onView(true) }, shape = SegmentedButtonDefaults.itemShape(1, 2)) {
+                    Text(stringResource(second), maxLines = 1)
+                }
             }
         }
     }

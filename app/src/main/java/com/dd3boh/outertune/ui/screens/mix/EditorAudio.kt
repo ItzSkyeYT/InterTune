@@ -68,7 +68,10 @@ class LoadedPair(
     val autoWhy: String = "",
     /** How long each part took and what came from the cache. */
     val took: LoadTimes? = null,
-)
+) {
+    /** Both songs' parts are at hand: the page offers Parts beside Bands. */
+    val partsReady: Boolean get() = aCopy.parts != null && bCopy.parts != null
+}
 
 /** How long a pair took to load and which parts came from the editor's cache, for the log and the tests. */
 class LoadTimes(val readMs: Double, val analysisMs: Double, val autoMs: Double, val analysisKept: Boolean, val autoKept: Boolean) {
@@ -174,7 +177,7 @@ class EditorCache(cacheDir: File, private val stamp: String = "") {
         }.onFailure { Log.w(TAG, "Could not keep ${file.name}", it) }
     }
 
-    private companion object {
+    internal companion object {
         const val TAG = "MixEditor"
         const val KEPT = 8
         const val KEPT_PICKS = 64
@@ -300,8 +303,16 @@ class PairLoader(
         )
         // The windows as the engine renders from them, on the heap: Auto's proofs and the preview
         // play the change from these, exactly as the phone will.
-        val aCopy = copyOf(aWindow)
-        val bCopy = copyOf(bWindow)
+        // The songs' parts where the parts store has them for both windows: a change made on parts is
+        // then drawn and heard on them.
+        val partsStore = PartsStore(cache.dir.parentFile!!)
+        val aParts = partsStore.map(a.id, TAIL, aWindow.frames.toLong() * aWindow.info.channels)
+        val bParts = partsStore.map(b.id, HEAD, bWindow.frames.toLong() * bWindow.info.channels)
+        val bothParts = aParts != null && bParts != null
+        val aCopy = copyOf(aWindow, aParts.takeIf { bothParts })
+        val bCopy = copyOf(bWindow, bParts.takeIf { bothParts })
+        val aDrawn = if (bothParts) aBands.withParts(PartsStore.envelopes(aParts!!, aWindow.info.channels, aWindow.info.sampleRate, aBands.hopMs)) else aBands
+        val bDrawn = if (bothParts) bBands.withParts(PartsStore.envelopes(bParts!!, bWindow.info.channels, bWindow.info.sampleRate, bBands.hopMs)) else bBands
         var autoWhy = "no analysis"
         var aKey: KeyEstimate? = null
         var bKey: KeyEstimate? = null
@@ -348,8 +359,8 @@ class PairLoader(
         )
         Log.i(TAG, "Pair loaded: $took")
         return LoadedPair(
-            LoadedSong(a.id, a.title, aWindow, aBands, aAnalysis, aGrid, aKey),
-            LoadedSong(b.id, b.title, bWindow, bBands, bAnalysis, bGrid, bKey),
+            LoadedSong(a.id, a.title, aWindow, aDrawn, aAnalysis, aGrid, aKey),
+            LoadedSong(b.id, b.title, bWindow, bDrawn, bAnalysis, bGrid, bKey),
             facts, auto ?: AutoSpec.fallback(facts), aCopy, bCopy, autoWhy, took,
         )
     }
@@ -365,10 +376,10 @@ class PairLoader(
     }
 
     /** A window read whole into the heap, the form the engine renders from. */
-    private fun copyOf(window: PcmWindow): Copy {
+    private fun copyOf(window: PcmWindow, parts: List<java.nio.ShortBuffer>? = null): Copy {
         val pcm = ShortArray(window.frames * window.info.channels)
         window.read(0, window.frames, pcm)
-        return Copy(pcm, window.info.sampleRate, window.info.channels, window.info.startMs)
+        return Copy(pcm, window.info.sampleRate, window.info.channels, window.info.startMs, parts = parts)
     }
 
     /**
