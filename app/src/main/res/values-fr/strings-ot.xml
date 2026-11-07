@@ -2431,4 +2431,5 @@
     <string name="version_card_more" translatable="false">Encore %1$d</string>
     <string name="version_card_found" translatable="false">Trouvée le %1$s</string>
     <string name="version_card_number" translatable="false">N°</string>
+    <string name="media_button_resuming" translatable="false">Reprise de votre file d\'attente</string>
 </resources>

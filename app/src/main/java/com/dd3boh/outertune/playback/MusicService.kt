@@ -37,6 +37,7 @@ import android.os.SystemClock
 import android.util.AtomicFile
 import android.util.Log
 import android.widget.Toast
+import androidx.core.app.ServiceCompat
 import androidx.core.content.getSystemService
 import androidx.core.net.toUri
 import androidx.datastore.preferences.core.Preferences
@@ -6266,6 +6267,102 @@ class MusicService : MediaLibraryService(),
     }
 
 
+    /** A media button started this service with nothing running, and nothing has been decided yet ([MediaButtonStart]). */
+    private var mediaButtonPending = false
+
+    /** The plain notification is up, holding the foreground for a media button's start. */
+    private var holdingForMediaButton = false
+
+    private val mediaButtonHandler = Handler(Looper.getMainLooper())
+
+    /** A resumption media3 asked for is being read (MediaLibrarySessionCallback). */
+    @Volatile
+    var resumptionRunning = false
+
+    /**
+     * Started by a media button with nothing in the player (issue #98). Android then waits for
+     * startForeground: 5 or 10 s before Android 12, so the plain notification goes up at once, and
+     * media3's own replaces it as the song loads. From Android 12 there are 30 s, and media3 may
+     * come into the foreground from the background only while Android is still waiting for this
+     * start: held at once, the foreground was gone again by the time the queue was in (media3
+     * takes the plain notification away for an empty player), and media3 could not come back
+     * (Pixel 5, a resumption held 40 s, 7 Nov 2026). So there it is held only by [mediaButtonGuard],
+     * near the end of the 30 s, or given and left at once when there is nothing to play.
+     */
+    private fun holdForegroundForMediaButton() {
+        // Already seen to, or a song in the player, which media3 plays and shows at once.
+        if (mediaButtonPending || foregroundNow() || (::player.isInitialized && player.mediaItemCount > 0)) return
+        if (FaultInjection.resumeFault(this)?.noHold == true) {
+            Log.w(TAG, "Started by a media button: left to media3 alone (fault injection)")
+            return
+        }
+        mediaButtonPending = true
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) holdForeground()
+        mediaButtonHandler.postDelayed(mediaButtonGuard, MediaButtonStart.guardMs(Build.VERSION.SDK_INT))
+    }
+
+    /** The plain notification, under media3's notification id, in the foreground. */
+    private fun holdForeground(): Boolean = try {
+        ServiceCompat.startForeground(
+            this,
+            NOTIFICATION_ID,
+            MediaButtonStart.placeholder(this, CHANNEL_ID),
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK,
+        )
+        holdingForMediaButton = true
+        Log.i(TAG, "Media button start: in the foreground with the plain notification")
+        true
+    } catch (e: Exception) {
+        Log.w(TAG, "Could not hold the foreground for a media button start", e)
+        false
+    }
+
+    /** Whether the service is in the foreground now, media3's notification or the plain one. */
+    private fun foregroundNow(): Boolean =
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && foregroundServiceType != 0
+
+    /** Near the end of Android's time for a media button's start: see [holdForegroundForMediaButton]. */
+    private val mediaButtonGuard = object : Runnable {
+        override fun run() {
+            if (!mediaButtonPending || destroyed) return
+            val hasSong = ::player.isInitialized && player.mediaItemCount > 0
+            when {
+                // media3's notification is up: nothing more to do.
+                !holdingForMediaButton && foregroundNow() -> mediaButtonPending = false
+                // The song is in and media3's notification on its way: Android's time is kept.
+                hasSong -> {
+                    mediaButtonPending = false
+                    if (!holdingForMediaButton && !foregroundNow()) holdForeground()
+                }
+                // Held since the press (before Android 12) while the queue is still being read.
+                holdingForMediaButton && resumptionRunning -> mediaButtonHandler.postDelayed(this, 10_000)
+                else -> giveUpMediaButtonStart("nothing to play ${MediaButtonStart.guardMs(Build.VERSION.SDK_INT) / 1000} s after the press")
+            }
+        }
+    }
+
+    /**
+     * Nothing comes of a media button's start: no saved queue after all, it could not be read, or
+     * it is not in yet near the end of Android's time. Android's demand for the foreground is met
+     * and left at once, and the service stops; a player with a song keeps media3's notification.
+     */
+    private fun giveUpMediaButtonStart(why: String) {
+        if (!mediaButtonPending || destroyed) return
+        mediaButtonPending = false
+        mediaButtonHandler.removeCallbacks(mediaButtonGuard)
+        if (::player.isInitialized && player.mediaItemCount > 0) return
+        Log.i(TAG, "Media button start: $why, so the service stops")
+        if (!holdingForMediaButton && !foregroundNow()) holdForeground()
+        holdingForMediaButton = false
+        ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+        stopSelf()
+    }
+
+    /** The resumption found nothing: [giveUpMediaButtonStart] after media3 has put that answer in the player. */
+    fun letGoOfMediaButtonHoldSoon(why: String) {
+        mediaButtonHandler.post { giveUpMediaButtonStart(why) }
+    }
+
     override fun onUpdateNotification(
         session: MediaSession,
         startInForegroundRequired: Boolean,
@@ -6343,6 +6440,9 @@ class MusicService : MediaLibraryService(),
      */
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (BuildConfig.BUILD_TYPE == "debug" && Unreleased.AUTOMIX_EDITOR) intent?.getStringExtra("mixtrial")?.let { mixTrial(it) }
+        // media3's media button receiver starts the service with startForegroundService, whether
+        // it was running or not (MediaButtonStart).
+        if (intent?.action == Intent.ACTION_MEDIA_BUTTON) holdForegroundForMediaButton()
         return super.onStartCommand(intent, flags, startId)
     }
 
@@ -6387,6 +6487,7 @@ class MusicService : MediaLibraryService(),
         // no scope this method cancels (see the comment at its launch site), so this is the only
         // way it can find out the service is gone before touching the queue board or the player.
         destroyed = true
+        mediaButtonHandler.removeCallbacksAndMessages(null)
         // Back on the phone before anything is saved or released: the queue then saves the
         // receiver's song and position, and the release below reaches the phone's own player.
         castSession?.release()
