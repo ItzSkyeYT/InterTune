@@ -10,6 +10,7 @@ import com.dd3boh.outertune.ui.screens.mix.PcmWindow
 import com.dd3boh.outertune.ui.screens.mix.WindowInfo
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.nio.ShortBuffer
 import kotlin.random.Random
@@ -35,6 +36,15 @@ class PartsForPlayTest {
         for ((truth, guess) in listOf(123_457 to 123_457L, 123_457 to 123_000L, 300_001 to 305_000L)) {
             assertEquals(truth.toLong(), PartsForPlay.find(window, musicFrom(truth, frames), frames, channels, guess, rate / 4))
         }
+    }
+
+    @Test
+    fun `saved changes and Auto's both play on parts where the parts line up, on bands otherwise`() {
+        val controller = java.io.File("src/main/java/com/dd3boh/outertune/playback/automix/AutomixController.kt").readText()
+        assertTrue("val spec = if (parts != null) saved else Presets.onBands(saved)" in controller)
+        assertTrue("LaneMixer(p).render(ring, copy, attenuationA, attenuationB, parts?.first, parts?.second)" in controller)
+        assertTrue("val played = onParts ?: render" in controller)
+        assertTrue("stage.offer(held, played.heldPlan(), played.outgoing, played.incoming, replaces = true)" in controller)
     }
 
     @Test

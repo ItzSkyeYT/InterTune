@@ -40,6 +40,7 @@ import com.dd3boh.outertune.mix.edit.TransitionSpec
 import com.dd3boh.outertune.mix.engine.AutoOnBands
 import com.dd3boh.outertune.mix.engine.ChangeFacts
 import com.dd3boh.outertune.mix.engine.Copy
+import com.dd3boh.outertune.mix.engine.ChangeRender
 import com.dd3boh.outertune.mix.engine.LaneMixer
 import com.dd3boh.outertune.mix.engine.LanePlan
 import com.dd3boh.outertune.mix.engine.Placing
@@ -1341,15 +1342,46 @@ class AutomixController(
                 auto = if (pick.isPlain) AnalysedPlanner.choiceOf(pick) else AutoChoice.Plain(PlainReason.NO_FIT),
             )
         }
-        stage.offer(held, render.heldPlan(), render.outgoing, render.incoming, replaces = true)
+        // The same change on parts where both songs' parts line up with the music held: each part
+        // takes its band's move (Presets.onParts), and the parts are the song's own sounds where the
+        // bands were filters.
+        val onParts = autoOnParts(t, b, render, ring, frames, copy, rate, attenuationA, attenuationB)
+        val played = onParts ?: render
+        stage.offer(held, played.heldPlan(), played.outgoing, played.incoming, replaces = true)
         recentMoves.addFirst(pick.move)
         while (recentMoves.size > 2) recentMoves.removeLast()
         return BandsOutcome(
-            "on bands: Auto ${pick.describe()}; ${render.plan.describe()}, " + "%d proofs in %.0f ms, headroom %.1f dB, peak %.2f".format(
-                chosen.proofs, chosen.millis, render.headroom.deepestDb, render.peakAfter,
-            ) + why,
+            "on ${if (onParts != null) "parts" else "bands"}: Auto ${pick.describe()}; ${played.plan.describe()}, " +
+                "%d proofs in %.0f ms, headroom %.1f dB, peak %.2f".format(chosen.proofs, chosen.millis, played.headroom.deepestDb, played.peakAfter) + why,
             auto = AnalysedPlanner.choiceOf(pick),
         )
+    }
+
+    /** Auto's [render] on bands made again on parts, where both songs' parts line up with the music held ([PartsForPlay]); null otherwise. */
+    private fun autoOnParts(
+        t: Transition, b: AutomixGuards.Song, render: ChangeRender, ring: ShortArray, frames: Long, copy: ShortArray,
+        rate: Int, attenuationA: Double, attenuationB: Double,
+    ): ChangeRender? {
+        val dir = partsCache ?: return null
+        return runCatching {
+            val channels = render.plan.channels
+            val aParts = PartsForPlay.lineUp(dir, t.a.id, "tail", ring, frames.toInt(), channels, rate, t.tailStartMs.toDouble())
+            val bParts = aParts?.let { PartsForPlay.lineUp(dir, b.id, "head", copy, t.copyFrames, channels, rate, 0.0) }
+            if (aParts == null || bParts == null) {
+                Log.i(TAG, "AutoMix: Auto plays on bands: the parts are not at hand or do not line up")
+                return null
+            }
+            val spec = Presets.onParts(render.plan.spec)
+            when (val r = SpecPlan.plan(spec, render.plan.facts.withParts())) {
+                is SpecPlan.Result.Refused -> {
+                    Log.i(TAG, "AutoMix: Auto plays on bands: on parts ${r.why}")
+                    null
+                }
+                is SpecPlan.Result.Planned -> LaneMixer(r.plan).render(ring, copy, attenuationA, attenuationB, aParts, bParts).also {
+                    Log.i(TAG, "AutoMix: Auto's change plays on parts")
+                }
+            }
+        }.onFailure { Log.w(TAG, "AutoMix: Auto on parts failed", it) }.getOrNull()
     }
 
     private fun work(): ExecutorService? {
