@@ -2343,4 +2343,8 @@
     <string name="stats_found" translatable="false">InterTune vous a fait découvrir %1$s des titres que vous aimez.</string>
     <string name="found_way_radios" translatable="false">Radios</string>
     <string name="found_way_home" translatable="false">Autres rangées de l\'accueil</string>
+    <string name="version_card_title" translatable="false">Votre carte</string>
+    <string name="version_card_more" translatable="false">Encore %1$d</string>
+    <string name="version_card_found" translatable="false">Trouvée le %1$s</string>
+    <string name="version_card_number" translatable="false">N°</string>
 </resources>

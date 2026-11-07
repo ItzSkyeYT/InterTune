@@ -109,6 +109,10 @@ fun AboutScreen(
     var supporting by rememberSaveable { mutableStateOf(false) }
     if (supporting) SupportDialog(onDismiss = { supporting = false })
     if (reportingProblem) ProblemReportDialog(onDismiss = { reportingProblem = false })
+    // This device's card, under the version line: seven quick taps find it (VersionCard).
+    var cardOpen by rememberSaveable { mutableStateOf(false) }
+    if (cardOpen) VersionCardDialog(onDismiss = { cardOpen = false })
+    val versionTap = rememberVersionTap(onCard = { cardOpen = true })
 
     val showDebugInfo = BuildConfig.DEBUG || BuildConfig.BUILD_TYPE == "userdebug"
 
@@ -155,7 +159,9 @@ fun AboutScreen(
             Text(
                 text = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) | ${BuildConfig.FLAVOR}",
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.secondary
+                color = MaterialTheme.colorScheme.secondary,
+                // No ripple and nothing else that gives the card away before it is found.
+                modifier = Modifier.clickable(interactionSource = null, indication = null, onClick = versionTap),
             )
 
             Spacer(Modifier.width(4.dp))

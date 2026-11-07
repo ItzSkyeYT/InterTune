@@ -872,6 +872,16 @@ val UsageCountLastDayKey = stringPreferencesKey("usageCountLastDay")
 /** The receivers cast to before, the latest first, as cast/RecentReceivers writes them. */
 val CastRecentKey = stringPreferencesKey("castRecent")
 
+/**
+ * The day this device's card was found under About's version line (VersionCard): its code and the
+ * date, "3F9AC21B 2026-11-07". The code is there so that a backup restored on another device does
+ * not count as found there.
+ */
+val VersionCardFoundKey = stringPreferencesKey("versionCardFound")
+
+/** A random id the card is drawn from where Android gives the app none (VersionCard). Never sent anywhere. */
+val VersionCardIdKey = stringPreferencesKey("versionCardId")
+
 val LanguageCodeToName = mapOf(
     "af" to "Afrikaans",
     "az" to "Azərbaycan",

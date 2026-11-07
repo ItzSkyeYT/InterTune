@@ -2539,4 +2539,9 @@ while also allowing users to translate our app as well. New, specific strings to
     <!-- Where the first plays came from: radios, and the songs played next after one picked by hand; then Home's rows other than Quick picks and Discover something new. -->
     <string name="found_way_radios" translatable="false">Radios</string>
     <string name="found_way_home" translatable="false">Other rows of Home</string>
+    <!-- About, the card under the version line (VersionCard): seven quick taps on the version give a card drawn from this device alone. version_card_more counts down the last taps, as Android's build number does; version_card_found is printed on the card, %1$s the day it was found. Held for translators. -->
+    <string name="version_card_title" translatable="false">Your card</string>
+    <string name="version_card_more" translatable="false">%1$d more</string>
+    <string name="version_card_found" translatable="false">Found %1$s</string>
+    <string name="version_card_number" translatable="false">No.</string>
 </resources>
