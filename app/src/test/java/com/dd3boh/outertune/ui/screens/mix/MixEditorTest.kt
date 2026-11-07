@@ -229,6 +229,36 @@ class MixEditorTest {
         assertFalse(noBeat.bAdjustPossible)
     }
 
+    /**
+     * A loop or the intro twice plays only with A adjusted (the plan refuses them with B), so the
+     * change must never hold both: the preview dropped it and playback played Auto (review of
+     * 7 Nov 2026: beat matching off, a loop on B, beat matching on again).
+     */
+    @Test
+    fun `a loop or the intro twice never sits beside the next song adjusted, whatever the order`() {
+        val e = editor()
+        assertTrue(e.setMatchSide(Side.B))
+        assertTrue(e.spec.bAdjusted)
+        // The intro twice is refused while B is adjusted, as a loop is.
+        assertFalse(e.setIntroTwice(2))
+        // Beat matching off, a loop on B, beat matching on again: the loop takes the adjusted song back to A.
+        assertTrue(e.setBeatMatch(false))
+        assertTrue(e.setIntroLoop(2))
+        assertEquals(Side.A, e.spec.matchSide)
+        assertTrue(e.setBeatMatch(true))
+        assertFalse(e.spec.bAdjusted)
+        assertNotNull(e.spec.introLoop)
+        // The same with the intro twice.
+        val f = editor()
+        assertTrue(f.setMatchSide(Side.B))
+        assertTrue(f.setBeatMatch(false))
+        assertTrue(f.setIntroTwice(2))
+        assertEquals(Side.A, f.spec.matchSide)
+        assertTrue(f.setBeatMatch(true))
+        assertFalse(f.spec.bAdjusted)
+        assertEquals(2, f.spec.introTwice)
+    }
+
     @Test
     fun `with the next song adjusted, what was read of it holds its way back to its own tempo too`() {
         // B at 113 here, faster than A: slowed to A's tempo through the change, its way back to its

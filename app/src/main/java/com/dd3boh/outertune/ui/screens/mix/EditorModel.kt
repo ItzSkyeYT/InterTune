@@ -240,8 +240,12 @@ class MixEditor(
     } ?: Preset.FADE
 
     private fun normalised(s: TransitionSpec): TransitionSpec {
-        val preset = presetOf(s)
-        return if (s.preset == preset) s else s.copy(preset = preset)
+        // A loop or the intro twice plays only with A adjusted (the plan refuses them with B). One
+        // set while B was not heard (beat matching off, or a length it is not allowed at) takes the
+        // adjusted song back to A, so the change never holds both and silently plays Auto.
+        val sided = if (s.matchSide == Side.B && (s.introLoop != null || s.outroLoop != null || s.introTwice != 0)) s.copy(matchSide = Side.A) else s
+        val preset = presetOf(sided)
+        return if (sided.preset == preset) sided else sided.copy(preset = preset)
     }
 
     // ---- undo ----
@@ -491,6 +495,7 @@ class MixEditor(
 
     fun setIntroTwice(bars: Int): Boolean {
         if (bars !in TransitionSpec.INTRO_TWICE_BARS) return false
+        if (bars != 0 && spec.bAdjusted) return false
         return apply(spec.copy(introTwice = bars))
     }
 
