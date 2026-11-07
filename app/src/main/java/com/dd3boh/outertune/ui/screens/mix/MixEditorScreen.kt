@@ -178,6 +178,9 @@ fun MixEditorScreen(navController: NavController) {
     val canvas = remember { CanvasState() }
     val wordsNow by androidx.compose.runtime.rememberUpdatedState(words)
     var lanesView by rememberSaveable { mutableStateOf(false) }
+    // The four parts are the page where they are at hand: open on them.
+    val partsReady = vm.pair?.partsReady == true
+    LaunchedEffect(partsReady) { if (partsReady) lanesView = true }
     var lengthOpen by remember { mutableStateOf(false) }
     var fixOpen by remember { mutableStateOf<Side?>(null) }
     var discardOpen by remember { mutableStateOf(false) }
@@ -386,15 +389,7 @@ fun MixEditorScreen(navController: NavController) {
                 }
             }
             SongRow(songB, bTitle, spec?.let { words.clock(it.b.atMs) }, spec?.let { vm.editor?.shownBpm(Side.B, it) }, spec?.b?.fix?.isNone == false, words, landscape, spec?.let { vm.editor?.beatNote(Side.B, it) }) { fixOpen = Side.B }
-            BarRow(
-                spec, words, lanesView, canvas.adjust, { lengthOpen = true }, { lanesView = it },
-                partsReady = vm.pair?.partsReady == true,
-                onLanes = { set ->
-                    lanesView = true
-                    // Bands and parts are two ways to cut the same change: its timing and choices go across.
-                    vm.edit { if (this.spec.lanes != set) apply(if (set == LaneSet.PARTS) Presets.onParts(this.spec) else Presets.onBands(this.spec)) }
-                },
-            ) { leaveAdjust(vm, canvas) }
+            BarRow(spec, words, lanesView, canvas.adjust, { lengthOpen = true }, { lanesView = it }, partsReady = vm.pair?.partsReady == true) { leaveAdjust(vm, canvas) }
             NowLine(vm, editor, spec, words, phase, playing, { playU }, said)
         }
 
@@ -419,7 +414,7 @@ fun MixEditorScreen(navController: NavController) {
                 }
                 Column(Modifier.weight(1f).fillMaxHeight()) {
                     Spacer(Modifier.windowInsetsTopHeight(androidx.compose.foundation.layout.WindowInsets.statusBars))
-                    SideBar(ui, ::close, vm, onSave = { save(vm, context, haptic, navController) })
+                    SideBar(ui, ::close, onStep = { back -> step(vm, canvas, back) }, onSave = { if (canvas.adjust != null) leaveAdjust(vm, canvas); save(vm, context, haptic, navController) })
                     LevelSwitch(simple = false, onSimple = { vm.showSimple(true) }, onAdvanced = {}, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp))
                     Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
                         Lower()
@@ -486,16 +481,20 @@ fun MixEditorScreen(navController: NavController) {
                 onBack = ::close,
                 actions = {
                     TopBarActions {
-                        IconButton(onClick = { vm.edit { undo() } }, enabled = ui?.canUndo == true && canvas.adjust == null) {
+                        IconButton(onClick = { step(vm, canvas, back = true) }, enabled = ui?.canUndo == true) {
                             Icon(Icons.AutoMirrored.Rounded.Undo, stringResource(R.string.mix_edit_undo))
                         }
-                        IconButton(onClick = { vm.edit { redo() } }, enabled = ui?.canRedo == true && canvas.adjust == null) {
+                        IconButton(onClick = { step(vm, canvas, back = false) }, enabled = ui?.canRedo == true) {
                             Icon(Icons.AutoMirrored.Rounded.Redo, stringResource(R.string.mix_edit_redo))
                         }
                     }
                     FilledTonalButton(
-                        onClick = { save(vm, context, haptic, navController) },
-                        enabled = ui?.dirty == true && canvas.adjust == null && phase is MixEditorViewModel.Phase.Ready,
+                        onClick = {
+                            // Save keeps what Adjust shows: it closes Adjust first.
+                            if (canvas.adjust != null) leaveAdjust(vm, canvas)
+                            save(vm, context, haptic, navController)
+                        },
+                        enabled = ui?.dirty == true && phase is MixEditorViewModel.Phase.Ready,
                         modifier = Modifier.padding(end = 8.dp),
                     ) { Text(stringResource(R.string.mix_edit_save), maxLines = 1) }
                 },
@@ -524,7 +523,7 @@ fun MixEditorScreen(navController: NavController) {
                 playerSheet?.collapseSoft()
             },
             onClose = ::close,
-            onSave = { save(vm, context, haptic, navController) },
+            onSave = { if (canvas.adjust != null) leaveAdjust(vm, canvas); save(vm, context, haptic, navController) },
             onFix = { fixOpen = it },
         )
     }
@@ -553,12 +552,25 @@ private fun leaveAdjust(vm: MixEditorViewModel, canvas: CanvasState) {
     val e = vm.editor ?: return
     val before = vm.adjustBefore
     canvas.adjust = null
-    if (before != null) {
-        if (vm.adjustEdited) e.commit(before) else e.live(before)
-    }
+    // Each edit made in Adjust is an undo step already (adjustStep); Adjust opened and left with
+    // none takes back the curve it drew for the lane.
+    if (before != null && !vm.adjustEdited) e.live(before)
     vm.adjustBefore = null
     vm.adjustEdited = false
     vm.publish()
+}
+
+/** Undo or redo, in Adjust too: Adjust closes where the step taken back leaves the lane with no curve to adjust. */
+private fun step(vm: MixEditorViewModel, canvas: CanvasState, back: Boolean) {
+    vm.edit { if (back) undo() else redo() }
+    val lane = canvas.adjust ?: return
+    val spec = vm.editor?.spec ?: return
+    if (Side.entries.none { com.dd3boh.outertune.mix.edit.LaneId(it, lane) in spec.curves }) {
+        canvas.adjust = null
+        vm.adjustBefore = null
+        vm.adjustEdited = false
+        vm.publish()
+    }
 }
 
 private fun save(vm: MixEditorViewModel, context: android.content.Context, haptic: androidx.compose.ui.hapticfeedback.HapticFeedback, navController: NavController) {
@@ -643,9 +655,8 @@ private fun BarRow(
     adjust: com.dd3boh.outertune.mix.edit.Lane?,
     onLength: () -> Unit,
     onView: (Boolean) -> Unit,
-    /** Both songs' parts are at hand: Songs, Bands and Parts, three ways. */
+    /** Both songs' parts are at hand: the page shows them, and there is no other view to switch to. */
     partsReady: Boolean = false,
-    onLanes: (LaneSet) -> Unit = {},
     onDone: () -> Unit,
 ) {
     Row(
@@ -673,23 +684,14 @@ private fun BarRow(
             Icon(Icons.Rounded.KeyboardArrowDown, null, Modifier.size(18.dp))
         }
         val second = if (spec?.lanes == LaneSet.PARTS) R.string.mix_edit_view_parts else R.string.mix_edit_view_bands
-        SingleChoiceSegmentedButtonRow(Modifier.height(32.dp)) {
-            val count = if (partsReady) 3 else 2
-            SegmentedButton(selected = !lanesView, onClick = { onView(false) }, shape = SegmentedButtonDefaults.itemShape(0, count)) {
+        // With the parts at hand the page is the four parts, his choice of 7 Nov 2026: Songs and
+        // Bands stay only for a pair whose parts are not made yet.
+        if (!partsReady) SingleChoiceSegmentedButtonRow(Modifier.height(32.dp)) {
+            SegmentedButton(selected = !lanesView, onClick = { onView(false) }, shape = SegmentedButtonDefaults.itemShape(0, 2)) {
                 Text(stringResource(R.string.mix_edit_view_songs), maxLines = 1)
             }
-            if (partsReady) {
-                val onParts = spec?.lanes == LaneSet.PARTS
-                SegmentedButton(selected = lanesView && !onParts, onClick = { onLanes(LaneSet.BANDS) }, shape = SegmentedButtonDefaults.itemShape(1, 3)) {
-                    Text(stringResource(R.string.mix_edit_view_bands), maxLines = 1)
-                }
-                SegmentedButton(selected = lanesView && onParts, onClick = { onLanes(LaneSet.PARTS) }, shape = SegmentedButtonDefaults.itemShape(2, 3)) {
-                    Text(stringResource(R.string.mix_edit_view_parts), maxLines = 1)
-                }
-            } else {
-                SegmentedButton(selected = lanesView, onClick = { onView(true) }, shape = SegmentedButtonDefaults.itemShape(1, 2)) {
-                    Text(stringResource(second), maxLines = 1)
-                }
+            SegmentedButton(selected = lanesView, onClick = { onView(true) }, shape = SegmentedButtonDefaults.itemShape(1, 2)) {
+                Text(stringResource(second), maxLines = 1)
             }
         }
     }
@@ -931,12 +933,12 @@ private fun Transport(
 
 /** On its side, the top bar's controls sit over the right half: X, Undo, Redo and Save, no title. */
 @Composable
-private fun SideBar(ui: MixEditorViewModel.Ui?, onClose: () -> Unit, vm: MixEditorViewModel, onSave: () -> Unit) {
+private fun SideBar(ui: MixEditorViewModel.Ui?, onClose: () -> Unit, onStep: (back: Boolean) -> Unit, onSave: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 8.dp)) {
         IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, stringResource(R.string.mix_edit_close)) }
         Spacer(Modifier.weight(1f))
-        IconButton(onClick = { vm.edit { undo() } }, enabled = ui?.canUndo == true) { Icon(Icons.AutoMirrored.Rounded.Undo, stringResource(R.string.mix_edit_undo)) }
-        IconButton(onClick = { vm.edit { redo() } }, enabled = ui?.canRedo == true) { Icon(Icons.AutoMirrored.Rounded.Redo, stringResource(R.string.mix_edit_redo)) }
+        IconButton(onClick = { onStep(true) }, enabled = ui?.canUndo == true) { Icon(Icons.AutoMirrored.Rounded.Undo, stringResource(R.string.mix_edit_undo)) }
+        IconButton(onClick = { onStep(false) }, enabled = ui?.canRedo == true) { Icon(Icons.AutoMirrored.Rounded.Redo, stringResource(R.string.mix_edit_redo)) }
         FilledTonalButton(onClick = onSave, enabled = ui?.dirty == true, modifier = Modifier.padding(start = 4.dp)) { Text(stringResource(R.string.mix_edit_save), maxLines = 1) }
     }
 }

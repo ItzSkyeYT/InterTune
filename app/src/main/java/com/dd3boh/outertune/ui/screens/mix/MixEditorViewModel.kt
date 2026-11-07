@@ -27,6 +27,7 @@ import com.dd3boh.outertune.mix.edit.SongPair
 import com.dd3boh.outertune.mix.edit.TransitionSpec
 import com.dd3boh.outertune.mix.edit.toJson
 import com.dd3boh.outertune.mix.edit.transitionSpecOf
+import com.dd3boh.outertune.mix.edit.Presets
 import com.dd3boh.outertune.playback.BatteryUse
 import com.dd3boh.outertune.playback.automix.MixStores
 import com.dd3boh.outertune.playback.batteryModeNow
@@ -206,7 +207,16 @@ class MixEditorViewModel @Inject constructor(
                 )
                 val restoredSpec = saved.get<String>(KEY_SPEC)?.let(::transitionSpecOf)?.takeIf { it.pair == SongPair(fromId, toId) }
                 val restoredUndo = saved.get<ArrayList<String>>(KEY_UNDO)?.mapNotNull(::transitionSpecOf).orEmpty()
-                val e = MixEditor(loaded.facts, loaded.auto, usable, restoredUndo, restoredSpec)
+                // Where both songs' parts are at hand the page is on parts, Auto's pick and the saved
+                // change opened on them (bands to parts: Presets.onParts), so it opens unchanged.
+                val onParts = loaded.partsReady
+                val e = MixEditor(
+                    loaded.facts,
+                    if (onParts) Presets.onParts(loaded.auto) else loaded.auto,
+                    if (onParts) usable?.let(Presets::onParts) else usable,
+                    restoredUndo,
+                    if (onParts) restoredSpec?.let(Presets::onParts) else restoredSpec,
+                )
                 preview?.release()
                 pair = loaded
                 editor = e
