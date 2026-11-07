@@ -176,17 +176,24 @@ fun CrashReportDialog() {
                     // GitHub knows who files there: the way to reach someone is for anonymous reports only.
                     if (!withGitHub) {
                         Spacer(Modifier.height(8.dp))
-                        val failed = outcome is ReportRelay.Outcome.Failed
                         OutlinedTextField(
                             value = words.contact,
                             onValueChange = words::typeContact,
                             label = { Text(stringResource(R.string.problem_report_contact)) },
                             placeholder = { Text(stringResource(R.string.problem_report_contact_hint)) },
-                            supportingText = { Text(stringResource(if (failed) R.string.problem_report_send_failed else R.string.problem_report_contact_note)) },
-                            isError = failed,
+                            supportingText = { Text(stringResource(R.string.problem_report_contact_note)) },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                         )
+                        // A send that failed says so on its own line, not on the contact box (see ProblemReportDialog).
+                        if (outcome is ReportRelay.Outcome.Failed) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                stringResource(R.string.problem_report_send_failed),
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        }
                     }
                 }
                 Spacer(Modifier.height(12.dp))

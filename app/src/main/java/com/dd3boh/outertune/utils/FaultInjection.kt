@@ -38,6 +38,7 @@ object FaultInjection {
         STREAM_STOPS("The stream stops after 1 MB, once"),
         STREAM_403("The stream gets 403 after 1 MB"),
         SONG_GONE("The next song fetched is gone from YouTube"),
+        NOT_AUDIO("The stream answers with a page, not audio"),
     }
 
     /** Where an interceptor sits. */
@@ -113,6 +114,17 @@ object FaultInjection {
                     .code(403)
                     .message("Forbidden (fault injection)")
                     .body("".toResponseBody(null))
+                    .build()
+            // What a network, a VPN or an ad blocker answering in YouTube's place sends: a page with a
+            // 200, which no extractor reads (a Discord report of 7 Nov 2026, "Source error (3003)").
+            target == Target.STREAM && now == Mode.NOT_AUDIO ->
+                Response.Builder()
+                    .request(request)
+                    .protocol(Protocol.HTTP_1_1)
+                    .code(200)
+                    .message("OK")
+                    .header("Content-Type", "text/html")
+                    .body("<!doctype html><html><body><h1>This site is blocked</h1><p>fault injection</p></body></html>".toResponseBody(null))
                     .build()
             target == Target.STREAM && (now == Mode.STREAM_STOPS || now == Mode.STREAM_403) -> {
                 val response = chain.proceed(request)
