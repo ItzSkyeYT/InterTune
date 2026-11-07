@@ -162,4 +162,11 @@ class SettingJumpTest {
         assertEquals(setOf("ui/component/Explain.kt"), readers)
         assertFalse("EXPLANATION_LINKS = true" in File(sources, "constants/Unreleased.kt").readText())
     }
+
+    @Test
+    fun `a row jumped to comes to rest clear of the mini player and the tabs, not behind them`() {
+        // The page scrolls on under the mini player and the tabs: every row jumped to rests a third
+        // of the way into the window, as a search result already did (7 Nov 2026).
+        assertTrue("TourTargets.bring(row, maxOf(room, third))" in File(sources, "ui/screens/settings/SettingJump.kt").readText())
+    }
 }
