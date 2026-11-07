@@ -560,7 +560,7 @@ fun PitchTempoDialog(
                 ValueAdjuster(
                     icon = Icons.Rounded.SlowMotionVideo,
                     currentValue = tempo,
-                    values = (0..35).map { round((0.25f + it * 0.05f) * 100) / 100 },
+                    values = TEMPO_STEPS,
                     onValueUpdate = {
                         tempo = it
                         updatePlaybackParameters()
@@ -582,6 +582,13 @@ fun PitchTempoDialog(
         }
     )
 }
+
+/**
+ * Tempo and Pitch's speeds: 1% at a time from 0.90 to 1.10, where a song is nudged a little faster
+ * or slower, and 5% beyond, so a big change is not fifty taps (his ask of 6 Nov 2026, "change a
+ * song's bpm by little bits"). Whole percents, so each is exact and shown as it is.
+ */
+internal val TEMPO_STEPS: List<Float> = ((25..85 step 5) + (90..110) + (115..200 step 5)).map { it / 100f }
 
 /**
  * The value one step below or above [current] on [values], which run upwards, also when [current]
