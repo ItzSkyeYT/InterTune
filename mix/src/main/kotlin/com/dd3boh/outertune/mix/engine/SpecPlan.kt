@@ -334,6 +334,8 @@ object SpecPlan {
         val bStartU = (spec.bStartMs - spec.b.atMs) / spec.b.barMs + loopU
         val bFirst = minOf(if (loopU > 0) minOf(0.0, bStartU) else bStartU, bLanes.minOf { firstHeardU(spec, it) ?: bStartU })
         var ms = spec.aMsAt(minOf(aFirst, bFirst))
+        // With B adjusted, the song as it plays comes in before B is heard by what the stretch gains.
+        bLayout(spec, READ_RATE)?.let { ms = minOf(ms, spec.aMsAt(bStartU) + min(0L, it.bStartAt) * 1000.0 / READ_RATE) }
         if (spec.beatMatched && !spec.bAdjusted) {
             val beats = if (abs(spec.tempoRatio() - 1) > LONG_RAMP_ABOVE) LONG_RAMP_BEATS else RAMP_BEATS
             ms = minOf(ms, spec.a.atMs - beats * 60_000.0 / spec.a.bpm)
@@ -352,10 +354,11 @@ object SpecPlan {
      * same numbers come out wherever A's bar 1 falls: B at A's tempo from its entry, back to its
      * own over [GLIDE_BARS] bars from the first bar line after A is gone, then its own music from
      * its own next bar line on, frame for frame. The song as it plays (the live stream, one output
-     * frame for each of its frames) must reach that bar line on the same frame, so it comes in at
-     * [liveEntry], earlier or later than B is heard by what the stretch lost or gained; where that
-     * would be before B's first frame, it starts that much later instead ([liveDelay]), the
-     * change playing B from its copy until then.
+     * frame for each of its frames) must reach that bar line on the same frame. It comes in on the
+     * change's own entry, as it does with A adjusted, so the end is held for the same frame
+     * whichever song is adjusted, and a change saved while the song before plays can be played as
+     * saved; what the stretch gains or loses moves where it comes in instead ([bStartAt]), earlier
+     * or later than B is heard, the change playing B from its copy until its own samples take over.
      */
     class BLayout(
         val entry: Long,
@@ -365,8 +368,8 @@ object SpecPlan {
         /** Output frames after B is first heard where B's own samples take over, and B's frame there. */
         val switchAt: Long,
         val switchFrame: Long,
-        val liveEntry: Long,
-        val liveDelay: Long,
+        /** Output frames after B is first heard where the song as it plays comes in with frame [entry]: before it where B's stretch gains frames. */
+        val bStartAt: Long,
     )
 
     /** [spec]'s layout for B adjusted, at [rate]; null where B is not the song adjusted. */
@@ -390,17 +393,15 @@ object SpecPlan {
         val atGlideTo = map.tailAt(glideTo)
         val switchFrame = Math.round(bAt + ceil((atGlideTo - bAt) / bBarOwn - 1e-9) * bBarOwn)
         val switchAt = Math.round(glideTo + (switchFrame - atGlideTo))
-        val live = switchFrame - switchAt
-        return BLayout(entry, speed, glideFrom, glideTo, switchAt, switchFrame, max(0L, live), max(0L, -live))
+        // Its frame [entry] then, one for one, is on frame switchFrame at switchAt.
+        return BLayout(entry, speed, glideFrom, glideTo, switchAt, switchFrame, switchAt - (switchFrame - entry))
     }
 
     /**
-     * The frame of B the song as it plays comes in on: its entry, or where B is the song adjusted,
-     * the entry moved by what the stretch loses or gains before B's own music takes over. What the
-     * end is held for, before there is a plan.
+     * The frame of B the song as it plays comes in on, whichever song is adjusted: its entry. What
+     * the end is held for, before there is a plan; see [BLayout].
      */
-    fun liveEntryFrames(spec: TransitionSpec, rate: Int): Long =
-        bLayout(spec, rate)?.liveEntry ?: (spec.bStartMs * rate / 1000.0).roundToLong()
+    fun liveEntryFrames(spec: TransitionSpec, rate: Int): Long = (spec.bStartMs * rate / 1000.0).roundToLong()
 
     /**
      * How far into B a change with B adjusted reads it, in B's ms: to its own bar line after its
@@ -429,7 +430,7 @@ object SpecPlan {
         val bHeard = (bar1 + (layout.entry - facts.bBar1) / layout.speed).roundToLong()
         val map = GlideMap(bHeard.toDouble(), layout.entry.toDouble(), layout.speed, bHeard + layout.glideFrom, bHeard + layout.glideTo)
         val switchAt = bHeard + layout.switchAt
-        val bStart = bHeard + layout.liveDelay
+        val bStart = bHeard + layout.bStartAt
 
         val aLanes = spec.lanes.lanes.map { LaneId(Side.A, it) }
         val bLanes = spec.lanes.lanes.map { LaneId(Side.B, it) }
@@ -447,7 +448,7 @@ object SpecPlan {
         val bPlain = max(bHeard, ceil(out(bLanes.maxOf { plainFromU(spec, it) })).toLong() + bypass + cutFrames)
         val pad = ceil(Engine.HEADROOM_PAD_S * rate).toLong()
         val switchFrames = ceil(SWITCH_MS / 1000.0 * rate).toLong()
-        val mixFrom = minOf(aChangeFrom, bHeardFrom - pad, bHeard)
+        val mixFrom = minOf(aChangeFrom, bHeardFrom - pad, bHeard, bStart)
         // The change runs on B's own samples for a moment after they have taken over, so the song
         // as it plays meets them there, sample for sample.
         val mixTo = maxOf(aGone, aGone + pad, bPlain, switchAt + 2 * switchFrames, bStart + 1)
@@ -488,7 +489,7 @@ object SpecPlan {
                 bothTo = aGone,
                 echoFrames = echoFrames,
                 speed = 1.0,
-                bEntry = layout.liveEntry,
+                bEntry = layout.entry,
                 bStretch = BStretch(map, bHeard, switchAt, layout.switchFrame, switchFrames.toInt(), bAnchors),
             ).also {
                 it.echoingLanes = echoing

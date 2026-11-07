@@ -76,10 +76,14 @@ class MatchSideTest {
         assertEquals(4 * 60_000.0 / 124, a.heardBarMs, 1e-9)
         assertEquals(4 * 60_000.0 / 128, b.heardBarMs, 1e-9)
         // A's tempo ramps before bar 1 only where A is the one adjusted: with B in on its anchor,
-        // the change starts 8 of A's beats earlier with A adjusted.
+        // the change starts 8 of A's beats earlier with A adjusted. With B adjusted, it starts
+        // where the song as it plays comes in, before B is heard by what B's stretch gains (B is
+        // the slower here, so it gains).
         val aIn = spec(Side.A, entryMs = 4_000.0)
         val bIn = spec(Side.B, entryMs = 4_000.0)
-        assertEquals(8 * 60_000.0 / 128, SpecPlan.firstChangeMs(bIn) - SpecPlan.firstChangeMs(aIn), 1e-6)
+        val gainMs = -SpecPlan.bLayout(bIn, 48_000)!!.bStartAt * 1000.0 / 48_000
+        assertTrue("$gainMs", gainMs > 0)
+        assertEquals(8 * 60_000.0 / 128 - gainMs, SpecPlan.firstChangeMs(bIn) - SpecPlan.firstChangeMs(aIn), 1e-6)
     }
 
     @Test
@@ -135,8 +139,12 @@ class MatchSideTest {
             // The editor's preview after the change: the song as it plays.
             val after = render.mix(songA, songB, plan.mixTo, plan.mixTo + 50)
             for (i in 0 until 50) assertEquals(songB[((plan.mixTo + i - plan.bOrigin) * 2).toInt()], after[i * 2])
-            // The end is held for the frame the song as it plays comes in on.
+            // The end is held for the frame the song as it plays comes in on: the change's own
+            // entry, as with the song before adjusted, so a change saved with the next song
+            // adjusted after the end was held for the song before adjusted still plays.
             assertEquals(plan.bEntry, SpecPlan.liveEntryFrames(spec, rate))
+            assertEquals(Math.round(entryMs * rate / 1000), plan.bEntry)
+            assertEquals(SpecPlan.liveEntryFrames(spec.copy(matchSide = Side.A), rate), plan.bEntry)
             // What the editor makes sure was read of B is what the change reads of it.
             val reads = s.switchFrame + (plan.mixTo - s.switchAt)
             assertEquals(reads * 1000.0 / rate, SpecPlan.bReadToMs(spec)!!, 1.5)
