@@ -86,10 +86,16 @@ internal class LoopedSource(
     private val frames: Long,
     private val bStart: Long,
     private val loop: PlannedLoop,
-    rate: Int,
+    private val rate: Int,
+    /** A part of B (its frames for B's frames) to loop instead of B, joined as B is ([ofPart]). */
+    private val part: java.nio.ShortBuffer? = null,
+    joinOfB: Loops.Join? = null,
 ) : FrameSource {
     private val own = DoubleArray(channels)
-    private val join = Loops.joinFor(b, channels, frames, loop.srcFrom, loop.frames, rate)
+    private val join = joinOfB ?: Loops.joinFor(b, channels, frames, loop.srcFrom, loop.frames, rate)
+
+    /** The same loop over [part] of B, joined where B's own music says: the looped parts still add up to B looped. */
+    fun ofPart(part: java.nio.ShortBuffer) = LoopedSource(b, channels, frames, bStart, loop, rate, part, join)
     private val seam = loop.seam
     private val end = loop.srcFrom + loop.frames
 
@@ -144,11 +150,14 @@ internal class LoopedSource(
 
     private fun ownFrame(t: Long, into: DoubleArray) {
         val j = t - bStart
-        for (c in 0 until channels) into[c] = if (j in 0 until frames) b[(j * channels).toInt() + c].toDouble() else 0.0
+        for (c in 0 until channels) into[c] = sample(j, c)
     }
 
-    private fun sample(frame: Long, c: Int): Double =
-        if (frame in 0 until frames) b[(frame * channels).toInt() + c].toDouble() else 0.0
+    private fun sample(frame: Long, c: Int): Double = when {
+        frame !in 0 until frames -> 0.0
+        part != null -> part.get((frame * channels).toInt() + c).toDouble()
+        else -> b[(frame * channels).toInt() + c].toDouble()
+    }
 }
 
 /**

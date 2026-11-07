@@ -72,8 +72,22 @@ class LanePartsTest {
         val stretched = spec(moves, beatMatch = true).copy(b = Anchor("song-b", 1_000.0, 122.0))
         assertTrue(stretched.beatMatched)
         assertTrue("a stretch takes the parts at the song's positions", SpecPlan.plan(stretched, facts(a, b)) is SpecPlan.Result.Planned)
-        val looped = SpecPlan.plan(spec(moves).copy(introTwice = 1), facts(a, b))
-        assertTrue("a loop would be joined on each part on its own", looped is SpecPlan.Result.Refused)
+        val looped = SpecPlan.plan(spec(moves).copy(introLoop = com.dd3boh.outertune.mix.edit.IntroLoop(1, 0.0, 4)), facts(a, b))
+        assertTrue("B's loop joins the parts where B's music says", looped is SpecPlan.Result.Planned)
+    }
+
+    @Test
+    fun `looped, B's parts still add up to B looped`() {
+        val moves = every(Side.A, Move(2.0, 4.0, How.FADE)) + every(Side.B, Move(2.0, 4.0, How.FADE))
+        val plan = planned(spec(moves).copy(introLoop = com.dd3boh.outertune.mix.edit.IntroLoop(1, 0.0, 4)), facts(a, b))
+        assertTrue("B is looped", plan.loop != null)
+        val split = LaneMixer(plan).render(a, b, 1.0, 1.0, quarters(a), quarters(b))
+        val whole = LaneMixer(plan).render(a, b, 1.0, 1.0, alone(a, 0), alone(b, 3))
+        val x = split.mix(a, b, plan.mixFrom, plan.mixTo)
+        val y = whole.mix(a, b, plan.mixFrom, plan.mixTo)
+        var worst = 0
+        for (i in x.indices) worst = maxOf(worst, abs(x[i] - y[i]))
+        assertTrue("looped: the parts' sum strays $worst from the song's", worst <= 3)
     }
 
     @Test

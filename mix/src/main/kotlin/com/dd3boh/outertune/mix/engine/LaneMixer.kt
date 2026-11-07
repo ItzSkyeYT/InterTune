@@ -356,11 +356,13 @@ class LaneMixer(private val plan: LanePlan) {
         }
         val bPartSources = if (!onParts) null else {
             val partsOfB = requireNotNull(bParts) { "a change made on parts needs B's parts" }
-            check(plan.loop == null && plan.bStretch?.loop == null) { "parts with a loop are not played yet" }
+            check(plan.bStretch?.loop == null) { "parts with a loop on a stretched B are not played yet" }
             partsOfB.map { part ->
                 when {
                     // Stretched with B where B is the one adjusted: its positions, splices and switch to its own.
                     bSource is GlideSource -> bSource.ofPart(part)
+                    // Looped with B: its passes joined where B's own music says.
+                    bSource is LoopedSource -> bSource.ofPart(part)
                     // As B's own copy is read: from its entry with the same rise, or from its first frame at bStart.
                     plan.bEntry > 0 -> BufferSource(part, channels, bFrames0, plan.bOrigin, plan.bEntry, ENTRY_FADE_MS * rate / 1000)
                     else -> BufferSource(part, channels, bFrames0, plan.bStart)
