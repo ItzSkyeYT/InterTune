@@ -389,7 +389,8 @@ fun MixEditorScreen(navController: NavController) {
                 }
             }
             SongRow(songB, bTitle, spec?.let { words.clock(it.b.atMs) }, spec?.let { vm.editor?.shownBpm(Side.B, it) }, spec?.b?.fix?.isNone == false, words, landscape, spec?.let { vm.editor?.beatNote(Side.B, it) }) { fixOpen = Side.B }
-            BarRow(spec, words, lanesView, canvas.adjust, { lengthOpen = true }, { lanesView = it }, partsReady = vm.pair?.partsReady == true) { leaveAdjust(vm, canvas) }
+            // Songs and Bands only for a pair loaded without parts: never while it loads, when it is not known yet.
+            BarRow(spec, words, lanesView, canvas.adjust, { lengthOpen = true }, { lanesView = it }, partsReady = vm.pair?.partsReady != false) { leaveAdjust(vm, canvas) }
             NowLine(vm, editor, spec, words, phase, playing, { playU }, said)
         }
 
