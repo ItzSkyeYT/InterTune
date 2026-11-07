@@ -142,6 +142,13 @@ private class LogChoice(
 }
 
 /**
+ * The player's error, opened from its error screen: [lines] for the report's heading (the error, the
+ * client the stream came from, what each client answered), the error in [full] for its end, and the
+ * issue's [title] when it is sent.
+ */
+class PlayerErrorReport(val lines: List<String>, val full: String, val title: String)
+
+/**
  * The last thing that went wrong, as the app noted it, to copy or to take to the bug form.
  *
  * Opened from About. The log is read when this opens and shown before anything is done with it:
@@ -150,7 +157,14 @@ private class LogChoice(
  * the newest first and picked, so a fault from before an update can be sent too.
  */
 @Composable
-fun ProblemReportDialog(onDismiss: () -> Unit) {
+fun ProblemReportDialog(
+    onDismiss: () -> Unit,
+    /**
+     * Opened from the player's error screen (7 Nov 2026: whoever meets an error there can send it
+     * in a tap): this run's report carries it, and the issue is named after it.
+     */
+    playerError: PlayerErrorReport? = null,
+) {
     val context = LocalContext.current
     var choices by remember { mutableStateOf<List<LogChoice>?>(null) }
     var picked by rememberSaveable { mutableIntStateOf(0) }
@@ -191,7 +205,11 @@ fun ProblemReportDialog(onDismiss: () -> Unit) {
     val all = choices
     val choice = all?.getOrNull(picked)
     val found = choice?.excerpt
-    val text = remember(choice) { choice?.report() }
+    // The player's error goes with this run's report only: an earlier run's log is not where it happened.
+    val withPlayer = playerError != null && choice != null && choice.run == null
+    val text = remember(choice, playerError) {
+        choice?.report()?.let { if (withPlayer) ProblemLog.withPlayerError(it, playerError!!.lines, playerError.full) else it }
+    }
 
     // Send to InterTune (Unreleased.REPORT_RELAY): the report goes to intertune.app, which files the issue
     // and gives back its link (ReportRelay). A fork keeps Copy only (FORKS.md).
@@ -242,6 +260,7 @@ fun ProblemReportDialog(onDismiss: () -> Unit) {
                     stringResource(
                         when {
                             found == null -> R.string.problem_report_reading
+                            withPlayer -> R.string.problem_report_player
                             found.lines.isEmpty() -> if (choice?.run == null) R.string.problem_report_empty else R.string.problem_report_nothing_then
                             found.faultAt == null -> if (choice?.run == null) R.string.problem_report_none else R.string.problem_report_none_then
                             else -> R.string.problem_report_found
@@ -253,7 +272,8 @@ fun ProblemReportDialog(onDismiss: () -> Unit) {
                     // The steps are this run's; a run before it, or a quiet one, has its settings only.
                     Text(stringResource(if (choice.trail != null) R.string.problem_report_extras else R.string.problem_report_extras_settings))
                 }
-                if (all != null && all.size > 1) {
+                // From the player's error the report is that error's: no list of earlier runs to choose among.
+                if (all != null && all.size > 1 && playerError == null) {
                     Spacer(Modifier.height(12.dp))
                     LogList(all, picked, showAll, onPick = { picked = it }, onShowAll = { showAll = true })
                 }
@@ -272,20 +292,28 @@ fun ProblemReportDialog(onDismiss: () -> Unit) {
                     // GitHub knows who files there: the way to reach someone is for anonymous reports only.
                     if (!withGitHub) {
                         Spacer(Modifier.height(8.dp))
-                        val failed = outcome is ReportRelay.Outcome.Failed
                         OutlinedTextField(
                             value = words.contact,
                             onValueChange = words::typeContact,
                             label = { Text(stringResource(R.string.problem_report_contact)) },
                             placeholder = { Text(stringResource(R.string.problem_report_contact_hint)) },
-                            supportingText = { Text(stringResource(if (failed) R.string.problem_report_send_failed else R.string.problem_report_contact_note)) },
-                            isError = failed,
+                            supportingText = { Text(stringResource(R.string.problem_report_contact_note)) },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                         )
+                        // A send that failed says so on its own line: on the contact box it read as if
+                        // that box were wrong (7 Nov 2026), when the site had turned the build away.
+                        if (outcome is ReportRelay.Outcome.Failed) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                stringResource(R.string.problem_report_send_failed),
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        }
                     }
                 }
-                if (text != null && (found?.lines?.isNotEmpty() == true || choice?.hasExtras == true)) {
+                if (text != null && (found?.lines?.isNotEmpty() == true || choice?.hasExtras == true || withPlayer)) {
                     Spacer(Modifier.height(12.dp))
                     Text(
                         text = text,
@@ -310,7 +338,7 @@ fun ProblemReportDialog(onDismiss: () -> Unit) {
                             build = choice?.build ?: ProblemLog.build(),
                             device = ProblemLog.device(),
                             report = text.orEmpty(),
-                            title = ReportRelay.title(found) ?: words.what.lineSequence().firstOrNull()?.trim(),
+                            title = (if (withPlayer) playerError?.title else null) ?: ReportRelay.title(found) ?: words.what.lineSequence().firstOrNull()?.trim(),
                             contact = words.contact,
                             what = words.what,
                         )

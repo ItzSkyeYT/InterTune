@@ -7,6 +7,7 @@
 package com.dd3boh.outertune.utils
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -36,9 +37,24 @@ class ReportWayTest {
     fun `the way to reach someone is asked only for an anonymous report`() {
         for (path in dialogs) {
             val source = read(path)
-            val guarded = source.substringAfter("if (!withGitHub) {").substringBefore("isError = failed")
+            val guarded = source.substringAfter("if (!withGitHub) {").substringBefore("singleLine = true")
             assertTrue(path, "R.string.problem_report_contact" in guarded)
             assertEquals(path, 1, Regex("R\\.string\\.problem_report_contact\\)").findAll(source).count())
+        }
+    }
+
+    /**
+     * 7 Nov 2026: a send the site turned away (the app's build, which it did not take) painted the
+     * contact box red with "Couldn't send it", as if the address were the fault. The failure has a
+     * line of its own, and the box stays as it was.
+     */
+    @Test
+    fun `a failed send says so on its own line, not on the contact box`() {
+        for (path in dialogs) {
+            val source = read(path)
+            assertFalse(path, "isError = failed" in source)
+            assertTrue(path, "if (outcome is ReportRelay.Outcome.Failed) {" in source)
+            assertTrue(path, "supportingText = { Text(stringResource(R.string.problem_report_contact_note)) }" in source)
         }
     }
 

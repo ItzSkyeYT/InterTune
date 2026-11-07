@@ -16,6 +16,9 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material.icons.rounded.BugReport
+import com.dd3boh.outertune.ui.component.ProblemReportDialog
+import com.dd3boh.outertune.ui.component.PlayerErrorReport
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -109,8 +112,12 @@ fun ThumbnailPlaybackError(
     // And a song YouTube no longer serves, which every client turned down and no other copy of
     // the recording could stand in for: "Unexpected SongUnavailable" under the same wrapper.
     val isGone = remember(error) { YTPlayerUtils.isUnavailableSong(error) }
+    // And what came back not being audio at all ("Source error (3003): None of the available
+    // extractors ... could read the stream"): said plainly, with what usually causes it.
+    val isNotAudio = remember(error) { ErrorText.isNotAudio(error) }
 
     var showStackTrace by remember { mutableStateOf(false) }
+    var reporting by remember { mutableStateOf(false) }
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -138,6 +145,8 @@ fun ThumbnailPlaybackError(
                     stringResource(R.string.err_age_restricted)
                 } else if (isGone) {
                     stringResource(R.string.err_song_unavailable)
+                } else if (isNotAudio) {
+                    stringResource(R.string.err_not_audio)
                 } else {
                     // What the error says of itself goes through ErrorText, here and below: a
                     // connection that failed names the phone's own address, and this screen is
@@ -149,21 +158,39 @@ fun ThumbnailPlaybackError(
             )
         }
         // The retry this screen is handed was never drawn: the play button was the only way to try
-        // again, and nothing said so.
-        TextButton(onClick = retry) {
-            Icon(
-                imageVector = Icons.Rounded.Refresh,
-                contentDescription = null,
-                tint = textColor,
-                modifier = Modifier.size(18.dp),
-            )
-            Spacer(Modifier.width(8.dp))
-            Text(
-                text = stringResource(R.string.retry),
-                color = textColor,
-                style = MaterialTheme.typography.labelLarge,
-            )
+        // again, and nothing said so. Beside it, Report: the error, which client served the song and
+        // what each one answered, straight into Report a problem, anonymous or with GitHub (7 Nov 2026).
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TextButton(onClick = retry) {
+                Icon(
+                    imageVector = Icons.Rounded.Refresh,
+                    contentDescription = null,
+                    tint = textColor,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = stringResource(R.string.retry),
+                    color = textColor,
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
+            TextButton(onClick = { reporting = true }) {
+                Icon(
+                    imageVector = Icons.Rounded.BugReport,
+                    contentDescription = null,
+                    tint = textColor,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = stringResource(R.string.player_error_report),
+                    color = textColor,
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
         }
+        if (reporting) ProblemReportDialog(onDismiss = { reporting = false }, playerError = playerErrorReport(error))
         // Copying used to be a hidden tap on the stack trace itself, which meant nobody found it
         // and bug reports arrived as photographs of a screen. It is a button now, and it says when
         // it has worked.
@@ -174,14 +201,7 @@ fun ThumbnailPlaybackError(
                 appendLine("${Build.BRAND} ${Build.DEVICE} (${Build.MODEL})")
                 appendLine("Installed from: ${context.installedFrom()}")
                 appendLine("Android ${Build.VERSION.RELEASE}, API ${Build.VERSION.SDK_INT} (${Build.ID})")
-                // Which of the player clients produced the url. Without it a report of a 403
-                // partway through a song says nothing about which of three clients to go and
-                // look at, and that is the question every one of these has turned out to be.
-                appendLine("stream client: ${YTPlayerUtils.lastStreamClient ?: "unknown"}")
-                // And what every client answered on the way there. The one that ended the chain is
-                // rarely the cause: issue #17 reported IOS's 403, and VISIONOS had refused first.
-                // For a song looked for under another id, every walk of that lookup: see StandIns.
-                appendLine("stream chain: ${YTPlayerUtils.lastStreamTrail ?: "unknown"}")
+                streamLines().forEach { appendLine(it) }
             }
             // The lines about the app and the phone go in as they are. Only the error's own words
             // are given to ErrorText, which would take a version for an address.
@@ -228,3 +248,22 @@ fun ThumbnailPlaybackError(
         Spacer(Modifier.height(64.dp))
     }
 }
+
+/**
+ * Which of the player clients produced the url. Without it a report of a 403 partway through a song
+ * says nothing about which of three clients to go and look at, and that is the question every one
+ * of these has turned out to be. And what every client answered on the way there: the one that ended
+ * the chain is rarely the cause (issue #17 reported IOS's 403, and VISIONOS had refused first). For a
+ * song looked for under another id, every walk of that lookup: see StandIns.
+ */
+internal fun streamLines(): List<String> = listOf(
+    "stream client: ${YTPlayerUtils.lastStreamClient ?: "unknown"}",
+    "stream chain: ${YTPlayerUtils.lastStreamTrail ?: "unknown"}",
+)
+
+/** The player's [error] for Report a problem: its line and the stream's, the error in full, and the issue's name. */
+internal fun playerErrorReport(error: PlaybackException) = PlayerErrorReport(
+    lines = listOf("Player error: ${ErrorText.playerLine(error)}") + streamLines(),
+    full = ErrorText.of(error),
+    title = "Player error: ${error.errorCodeName}",
+)

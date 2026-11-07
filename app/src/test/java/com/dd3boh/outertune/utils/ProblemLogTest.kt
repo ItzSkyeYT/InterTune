@@ -307,4 +307,36 @@ class ProblemLogTest {
         // What is not a file on the phone is left alone.
         assertEquals("W/LocalMediaScanner: 3/4 read", ProblemLog.scrub("W/LocalMediaScanner: 3/4 read"))
     }
+    /**
+     * 7 Nov 2026: Report a problem opened from the player's error screen carries the player's error, the
+     * client the song came from and what each client answered, in the heading every cut keeps, and the
+     * error in full at the end.
+     */
+    @Test
+    fun `the player's error sits in the heading a cut keeps, and in full at the end`() {
+        val log = (1..400).joinToString("\n") { "11-07 17:${(it / 60).toString().padStart(2, '0')}:${(it % 60).toString().padStart(2, '0')}.000 I/MusicService: line $it of what led up to it" }
+        val report = "InterTune 0.12.9 (101, core release)\nsamsung SM-S938B, Android 17 (API 37)\nInstalled from: Google Play\n\n$log"
+        val lines = listOf("Player error: Source error (3003): None of the available extractors could read the stream.", "stream client: VISIONOS", "stream chain: VISIONOS OK, HEAD 200")
+        val with = ProblemLog.withPlayerError(report, lines, "K2.p: Source error\n  at K2.U.t(SourceFile:17)")
+        val head = with.substringBefore("\n\n")
+        for (line in lines) assertTrue(line, line in head)
+        assertTrue(head.startsWith("InterTune 0.12.9 (101, core release)"))
+        assertTrue(with.endsWith("The player's error in full:\nK2.p: Source error\n  at K2.U.t(SourceFile:17)"))
+        val cut = ProblemLog.fitted(with, 1500)
+        for (line in lines) assertTrue("kept by a cut: $line", line in cut)
+        // Without the error in full, nothing is added at the end.
+        assertTrue(ProblemLog.withPlayerError(report, lines, null).endsWith("line 400 of what led up to it"))
+    }
+
+    @Test
+    fun `the player's error screen opens Report a problem with the error`() {
+        val screen = java.io.File("src/main/java/com/dd3boh/outertune/ui/player/ThumbnailPlaybackError.kt").readText()
+        assertTrue("ProblemReportDialog(onDismiss = { reporting = false }, playerError = playerErrorReport(error))" in screen)
+        assertTrue("R.string.player_error_report" in screen)
+        val dialog = java.io.File("src/main/java/com/dd3boh/outertune/ui/component/ProblemReportDialog.kt").readText()
+        assertTrue("ProblemLog.withPlayerError(it, playerError!!.lines, playerError.full)" in dialog)
+        assertTrue("(if (withPlayer) playerError?.title else null) ?: ReportRelay.title(found)" in dialog)
+        // That error's report only: no earlier runs to pick from.
+        assertTrue("if (all != null && all.size > 1 && playerError == null) {" in dialog)
+    }
 }

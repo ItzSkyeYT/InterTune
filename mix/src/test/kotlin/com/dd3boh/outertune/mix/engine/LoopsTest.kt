@@ -18,6 +18,7 @@ import com.dd3boh.outertune.mix.edit.Preset
 import com.dd3boh.outertune.mix.edit.Side
 import com.dd3boh.outertune.mix.edit.TransitionJson
 import com.dd3boh.outertune.mix.edit.TransitionSpec
+import com.dd3boh.outertune.mix.toPcm16
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -142,6 +143,31 @@ class LoopsTest {
         val render = LaneMixer(plan).render(a, b, 1.0, 1.0)
         assertTrue(render.heldPlan().alignedUntil <= end)
         assertEquals((a.size / 2).toLong(), render.heldPlan().tailFrames)
+    }
+
+    @Test
+    fun `a loop longer than the change plays to its end, and only then is B's part the song as it plays`() {
+        // 4 bars four times in front of an 8-bar change: A is gone at bar 8, the loop runs to bar 16.
+        // B's bar 1 two bars into it, so the song as it plays has begun long before the loop ends.
+        val s = spec(IntroLoop(4, 4_000.0, 4)).copy(b = Anchor("song-b", 4_000.0, 120.0))
+        val plan = when (val r = SpecPlan.plan(s, ChangeFacts(rate, 2, 40.0 * rate, (a.size / 2).toLong(), 4.0 * rate, (b.size / 2).toLong()))) {
+            is SpecPlan.Result.Planned -> r.plan
+            is SpecPlan.Result.Refused -> throw AssertionError("refused: ${r.why}")
+        }
+        val l = plan.loop!!
+        assertTrue("the change ends at ${plan.mixTo}, the loop at ${l.outTo}", plan.mixTo >= l.outTo + l.seam)
+        val render = LaneMixer(plan).render(a, b, 1.0, 1.0)
+        // The last pass is heard whole, B's looped bars, not B's frames before its bar 1.
+        val src = LoopedSource(b, 2, (b.size / 2).toLong(), plan.bStart, l, rate)
+        val x = DoubleArray(2)
+        val lastPass = l.outTo - l.frames
+        val heard = render.mix(a, b, lastPass, l.outTo)
+        for (o in lastPass until l.outTo step 11) {
+            src.frame(o, x)
+            for (c in 0 until 2) assertEquals("frame $o", toPcm16(x[c] * render.headroom.at(o)), heard[((o - lastPass) * 2 + c).toInt()])
+        }
+        // Given up mid-blend, B's part plays on to past the loop, where it is B's own music.
+        assertEquals(l.outTo + l.seam, render.heldPlan().incomingOwnFrom)
     }
 
     @Test
