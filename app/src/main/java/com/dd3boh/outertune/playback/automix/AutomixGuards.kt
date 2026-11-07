@@ -55,8 +55,6 @@ object AutomixGuards {
         /** The full build's FFmpeg decoders, which the next song's opening is not read with. */
         val ffmpeg: Boolean,
         val sleepTimer: Boolean,
-        /** The listener seeked within the last minute of the song playing. */
-        val seekedLate: Boolean,
         /** Crossfade's setting (Unreleased.CROSSFADE), which may make a change with AutoMix off. */
         val crossfadeOn: Boolean = false,
     )
@@ -91,7 +89,6 @@ object AutomixGuards {
             s.ambience -> no(PlainReason.SPATIAL, "the spatial Ambience is on")
             s.ffmpeg -> no(PlainReason.DECODER, "FFmpeg decodes this build's audio")
             s.sleepTimer -> no(PlainReason.SLEEP_TIMER, "a sleep timer is set")
-            s.seekedLate -> no(PlainReason.NO_TIME, "the song was moved within its last minute")
             !s.stageInChain -> no(PlainReason.FROM_NEXT, "AutoMix was not on yet as this song started")
             else -> null
         }

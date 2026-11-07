@@ -156,10 +156,10 @@ class MixHeldBackTest {
         fun snapshot(
             casting: Boolean = false, repeatOne: Boolean = false, next: AutomixGuards.Song? = b, speed: Float = 1f,
             skipSilence: Boolean = false, headTracking: Boolean = false, upmix: Boolean = false, ambience: Boolean = false,
-            ffmpeg: Boolean = false, sleepTimer: Boolean = false, seekedLate: Boolean = false, stageInChain: Boolean = true,
+            ffmpeg: Boolean = false, sleepTimer: Boolean = false, stageInChain: Boolean = true,
         ) = AutomixGuards.Snapshot(
             true, stageInChain, casting, repeatOne, a, next, speed, 1f, skipSilence,
-            headTracking, upmix, ambience, ffmpeg, sleepTimer, seekedLate,
+            headTracking, upmix, ambience, ffmpeg, sleepTimer,
         )
         val reasons = mapOf(
             PlainReason.CASTING to snapshot(casting = true),
@@ -172,7 +172,6 @@ class MixHeldBackTest {
             PlainReason.SPATIAL to snapshot(upmix = true),
             PlainReason.DECODER to snapshot(ffmpeg = true),
             PlainReason.SLEEP_TIMER to snapshot(sleepTimer = true),
-            PlainReason.NO_TIME to snapshot(seekedLate = true),
             PlainReason.FROM_NEXT to snapshot(stageInChain = false),
         )
         for ((reason, s) in reasons) {
