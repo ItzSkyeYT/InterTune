@@ -444,13 +444,15 @@ fun MixEditorScreen(navController: NavController) {
             playing = playing,
             enabled = phase is MixEditorViewModel.Phase.Ready,
             // Read in the transport itself, so the page is not composed again on every frame it plays.
+            // The playhead and the page's state first, whatever else is missing: they are what makes the clock move on.
             time = {
+                val u = playU
+                val s = ui?.spec
                 val e = vm.editor
-                val s = vm.ui.value?.spec
                 if (e == null || s == null) "0:00 / 0:00" else {
                     // A bar as it is heard: B's, or A's where B is the song adjusted.
                     val span = (e.fitEnd() - e.fitStart()) * s.heardBarMs
-                    val at = ((playU - e.fitStart()) * s.heardBarMs).coerceIn(0.0, span)
+                    val at = ((u - e.fitStart()) * s.heardBarMs).coerceIn(0.0, span)
                     "${wordsNow.clock(at)} / ${wordsNow.clock(span)}"
                 }
             },
