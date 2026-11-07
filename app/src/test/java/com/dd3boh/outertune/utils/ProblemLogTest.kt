@@ -339,4 +339,26 @@ class ProblemLogTest {
         // That error's report only: no earlier runs to pick from.
         assertTrue("if (all != null && all.size > 1 && playerError == null) {" in dialog)
     }
+    /**
+     * #97 (7 Nov 2026) was sent right after the app was opened again: the run picked, this one, had
+     * nothing in it, and the fault was in the run before. The newest run in which something went
+     * wrong now comes first, is picked, and is marked.
+     */
+    @Test
+    fun `the newest run with a problem comes first and is marked`() {
+        val runs = listOf("now" to false, "18:30" to false, "16:19" to true, "16:02" to true)
+        val (ordered, marked) = com.dd3boh.outertune.ui.component.latestProblemFirst(runs) { it.second }
+        assertEquals(listOf("16:19", "now", "18:30", "16:02"), ordered.map { it.first })
+        assertEquals(0, marked)
+        // This run with the problem stays where it is, first.
+        val (same, markedNow) = com.dd3boh.outertune.ui.component.latestProblemFirst(listOf("now" to true, "18:30" to true)) { it.second }
+        assertEquals(listOf("now", "18:30"), same.map { it.first })
+        assertEquals(0, markedNow)
+        // None with a problem: the order as it was, nothing marked.
+        val (asWas, none) = com.dd3boh.outertune.ui.component.latestProblemFirst(listOf("now" to false, "18:30" to false)) { it.second }
+        assertEquals(listOf("now", "18:30"), asWas.map { it.first })
+        assertEquals(-1, none)
+        val dialog = java.io.File("src/main/java/com/dd3boh/outertune/ui/component/ProblemReportDialog.kt").readText()
+        assertTrue("color = MaterialTheme.colorScheme.error" in dialog.substringAfter("if (choice.latestProblem) {"))
+    }
 }

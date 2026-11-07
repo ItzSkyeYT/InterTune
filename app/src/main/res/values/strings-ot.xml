@@ -253,7 +253,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="checking_for_update">Checking for updates</string>
     <string name="device_info_title">Device information</string>
     <string name="ffmpeg_lgpl">This software uses libraries from the FFmpeg project under the LGPLv2.1</string>
-    <string name="help_bug_report_action">Submit a bug report (Via GitHub)</string>
+    <string name="help_bug_report_action">Report a problem</string>
     <string name="help_contact_email_inquiries">Other inquiries (Tap to copy email)</string>
     <string name="help_support_forum">Help and support (Via GitHub)</string>
     <string name="help_discord">Community chat (Via Discord)</string>
@@ -2007,6 +2007,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <!-- Report a problem (ProblemReportDialog), opened from About. -->
     <string name="problem_report_title">Report a problem</string>
     <string name="problem_report_found">This is the last thing that went wrong, as the app noted it, with what led up to it. It names the songs that were playing. Nothing leaves the phone unless you send it.</string>
+    <string name="problem_report_latest_problem">Latest session with a problem</string>
     <string name="problem_report_player">This is the player\'s error, with what the app noted before it. It names the songs that were playing. Nothing leaves the phone unless you send it.</string>
     <string name="problem_report_none">Nothing that looks like a fault has been noted since the app was opened. These are its last lines.</string>
     <string name="problem_report_empty">The phone\'s log could not be read. The form still opens with the version and the phone filled in.</string>

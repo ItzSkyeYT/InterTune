@@ -227,7 +227,7 @@
     <string name="scanner_sensitivity_L0">Prendre le premier résultat fourni par YouTube lorsque la recherche sur YouTube est activée ; sinon, rechercher une correspondance avec le titre</string>
     <string name="app_info_title">Informations sur l\'application</string>
     <string name="device_info_title">Informations sur l\'appareil</string>
-    <string name="help_bug_report_action">Soumettre un rapport de bogue (via GitHub)</string>
+    <string name="help_bug_report_action">Signaler un problème</string>
     <string name="help_contact_email_inquiries">Autres demandes (Appuyez pour copier l\'adresse e-mail)</string>
     <string name="help_support_forum">Aide et support (via GitHub)</string>
     <string name="wiki">Wiki</string>
@@ -1672,6 +1672,7 @@
     <string name="android_auto_missing_body">Android Auto n\'affiche que les applications installées par Google Play, il masque donc InterTune. Pour l\'ajouter : ouvrez les paramètres d\'Android Auto sur votre téléphone et touchez dix fois la ligne Version. Ouvrez ensuite les paramètres pour les développeurs depuis le menu en haut et activez Sources inconnues.</string>
     <string name="problem_report_title">Signaler un problème</string>
     <string name="problem_report_found">Voici la dernière chose qui a mal tourné, telle que l\'application l\'a notée, avec ce qui l\'a précédée. Les titres en cours de lecture y figurent. Rien ne quitte le téléphone sauf si vous l\'envoyez.</string>
+    <string name="problem_report_latest_problem">Dernière session avec un problème</string>
     <string name="problem_report_player">Voici l\'erreur du lecteur, avec ce que l\'application a noté avant. Les titres en cours de lecture y figurent. Rien ne quitte le téléphone sauf si vous l\'envoyez.</string>
     <string name="problem_report_none">Aucune erreur n\'a été notée depuis l\'ouverture de l\'application. Voici ses dernières lignes.</string>
     <string name="problem_report_empty">Le journal du téléphone n\'a pas pu être lu. Le formulaire s\'ouvre quand même avec la version et le téléphone déjà remplis.</string>
