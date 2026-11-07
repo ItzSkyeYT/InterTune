@@ -252,7 +252,7 @@
     <string name="mix_blocked_repeat_one">Pas de mix tant que la répétition du titre est activée.</string>
     <string name="mix_blocked_speed">Pas de mix tant que la vitesse ou la hauteur est modifiée.</string>
     <string name="mix_blocked_skip_silence">Pas de mix tant que « Ignorer le silence » est activé.</string>
-    <string name="mix_blocked_spatial">Pas de mix avec le suivi de la tête, l\'upmix surround ou Ambience activés.</string>
+    <string name="mix_blocked_spatial">Pas de mix avec l\'upmix surround ou Ambience activés.</string>
     <string name="mix_blocked_decoder">Pas de mix tant que le décodeur FFmpeg est activé.</string>
     <string name="mix_blocked_sleep_timer">Pas de mix tant qu\'une minuterie est réglée.</string>
     <string name="mix_pill_auto">Auto</string>
