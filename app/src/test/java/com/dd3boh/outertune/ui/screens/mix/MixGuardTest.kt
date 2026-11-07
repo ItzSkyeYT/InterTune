@@ -6,7 +6,10 @@
 
 package com.dd3boh.outertune.ui.screens.mix
 
+import com.dd3boh.outertune.R
 import com.dd3boh.outertune.mix.pill.PlainReason
+import com.dd3boh.outertune.ui.screens.settings.SETTINGS_INDEX
+import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -16,28 +19,44 @@ import java.io.File
 
 /**
  * 6 Nov 2026: a saved change did not play and nothing in the editor said why. The editor says when a
- * setting keeps every change plain right now, as the playlist's lines do, with the page that changes
- * it (his rule: say why, and offer the fix).
+ * setting keeps every change plain right now, as the playlist's lines do, with a button that opens
+ * the settings at that setting's row (his rule: say why, and offer the fix).
  */
 class MixGuardTest {
     private val dir = File("src/main/java/com/dd3boh/outertune/ui/screens/mix")
 
     @Test
-    fun `the editor names what keeps a change plain now, on both levels, with its settings page`() {
+    fun `the editor names what keeps a change plain now, on both levels, with its setting`() {
         val screen = File(dir, "MixEditorScreen.kt").readText()
         assertTrue("val blocker = rememberMixBlocker()" in screen)
         assertTrue("else -> blocker?.let { MixWords.blocked(it) }?.let { stringResource(it) }" in screen)
-        assertTrue("if (guard != null) GuardBand(guard, guardRoute, openGuard)" in screen)
-        assertTrue("guardRoute = guardRoute," in screen && "onOpenGuard = openGuard," in screen)
-        assertTrue("if (guard != null) GuardBand(guard, guardRoute, onOpenGuard)" in File(dir, "MixSimpleSheet.kt").readText())
+        assertTrue("if (guard != null) GuardBand(guard, guardSetting)" in screen)
+        assertTrue("guardSetting = guardSetting," in screen)
+        assertTrue("if (guard != null) GuardBand(guard, guardSetting)" in File(dir, "MixSimpleSheet.kt").readText())
     }
 
     @Test
-    fun `the button opens the page behind the reason, none where no page has it`() {
-        assertEquals("settings/player", guardRoute(skipSilence = true, blocker = null))
-        assertEquals("settings/player", guardRoute(skipSilence = false, blocker = PlainReason.SPATIAL))
-        assertNull(guardRoute(skipSilence = false, blocker = PlainReason.CASTING))
-        assertNull(guardRoute(skipSilence = false, blocker = null))
+    fun `the button names the setting behind the reason, none where no setting has it`() {
+        assertEquals(R.string.skip_silence, guardSetting(skipSilence = true, blocker = null))
+        assertEquals(R.string.spatial_audio, guardSetting(skipSilence = false, blocker = PlainReason.SPATIAL))
+        assertEquals(R.string.audio_decoder_preference, guardSetting(skipSilence = false, blocker = PlainReason.DECODER))
+        assertNull(guardSetting(skipSilence = false, blocker = PlainReason.CASTING))
+        assertNull(guardSetting(skipSilence = false, blocker = PlainReason.SPEED))
+        assertNull(guardSetting(skipSilence = false, blocker = null))
+    }
+
+    /** The jump finds a row by its title in the index: a title it does not know would stop at nothing. */
+    @Test
+    fun `every setting a reason names is a row of Player and audio, and both buttons jump to it`() {
+        for (reason in PlainReason.entries) {
+            val title = MixWords.blockedSetting(reason) ?: continue
+            val rows = SETTINGS_INDEX.filter { it.title == title }
+            assertEquals("$reason", 1, rows.size)
+            assertEquals("$reason", Tour.ROUTE_PLAYER, rows.single().route)
+        }
+        assertTrue("TextButton(onClick = { MixWords.openSetting(setting) })" in File(dir, "MixGuard.kt").readText())
+        assertTrue("onClick = { MixWords.openSetting(settings) }," in File(dir, "MixPlaylist.kt").readText())
+        assertTrue("SettingJump.go(it.jump())" in File(dir, "MixWords.kt").readText())
     }
 
     @Test

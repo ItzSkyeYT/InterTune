@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.ui.screens.mix
 
+import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -224,8 +225,7 @@ fun MixSimpleSheet(
     words: EditorWords,
     colors: MixColors,
     guard: String?,
-    guardRoute: String? = null,
-    onOpenGuard: (String) -> Unit = {},
+    @StringRes guardSetting: Int? = null,
     playing: Boolean,
     playU: () -> Double,
     said: String?,
@@ -314,7 +314,7 @@ fun MixSimpleSheet(
                     onAdvanced = ::toAdvanced,
                 )
                 // A guard that will refuse at playback: editing and saving still work.
-                if (guard != null) GuardBand(guard, guardRoute, onOpenGuard)
+                if (guard != null) GuardBand(guard, guardSetting)
                 @Composable
                 fun SongsPart(waveHeight: Dp) {
                     SongLine(songA, words.aTitle, spec?.let { editor?.shownBpm(Side.A, it) }, vm.pair?.a?.key, words, look.dark, spec?.let { editor?.beatNote(Side.A, it) }) { onFix(Side.A) }
