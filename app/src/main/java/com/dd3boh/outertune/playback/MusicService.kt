@@ -9,6 +9,7 @@
 
 package com.dd3boh.outertune.playback
 
+import com.dd3boh.outertune.playback.automix.KeptChanges
 import kotlinx.coroutines.flow.drop
 import com.dd3boh.outertune.models.blockedArtists
 import com.dd3boh.outertune.constants.ContextChipKey
@@ -1264,6 +1265,8 @@ class MusicService : MediaLibraryService(),
                             savePace = { pace -> AutomixPace.write(filesDir, pace) },
                             // A change saved on parts plays on the editor's parts where they line up.
                             partsCache = cacheDir,
+                            // A change saved in the editor plays as the editor rendered it, where the music is the same.
+                            keptChanges = KeptChanges(noBackupFilesDir),
                         ).also { addListener(it) }
                     }
                 }

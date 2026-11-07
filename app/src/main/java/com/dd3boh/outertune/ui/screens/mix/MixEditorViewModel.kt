@@ -28,7 +28,10 @@ import com.dd3boh.outertune.mix.edit.TransitionSpec
 import com.dd3boh.outertune.mix.edit.toJson
 import com.dd3boh.outertune.mix.edit.transitionSpecOf
 import com.dd3boh.outertune.mix.edit.Presets
+import com.dd3boh.outertune.mix.engine.Preview
+import com.dd3boh.outertune.mix.engine.StoredChange
 import com.dd3boh.outertune.playback.BatteryUse
+import com.dd3boh.outertune.playback.automix.KeptChanges
 import com.dd3boh.outertune.playback.automix.MixStores
 import com.dd3boh.outertune.playback.batteryModeNow
 import com.dd3boh.outertune.utils.get
@@ -104,6 +107,9 @@ class MixEditorViewModel @Inject constructor(
         private set
     var pair: LoadedPair? = null
         private set
+
+    /** Each song's level as the phone plays it now, which the preview and the change kept on Save are heard at. */
+    private var levels: Pair<Double, Double> = 1.0 to 1.0
     var preview: MixPreview? = null
         private set
 
@@ -219,11 +225,20 @@ class MixEditorViewModel @Inject constructor(
                 )
                 preview?.release()
                 pair = loaded
+                levels = levelA to levelB
                 editor = e
                 // The change as the phone will play it, from the engine's own render of the two copies.
                 preview = EnginePreview(loaded.aCopy, loaded.bCopy, loaded.a.analysis, levelA, levelB, volume)
                 publish()
                 phase.value = Phase.Ready
+                // A change saved before changes were kept, or kept on bands before the parts came:
+                // kept now, as the page plays it, so the playlist plays it without a render.
+                if (stored != null && !stored.plain) {
+                    val keep = withContext(Dispatchers.IO) {
+                        runCatching { !KeptChanges(context.noBackupFilesDir).holds(fromId, toId, stored, loaded.partsReady) }.getOrDefault(false)
+                    }
+                    if (keep) keepRendered(SongPair(fromId, toId))
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {
@@ -285,14 +300,49 @@ class MixEditorViewModel @Inject constructor(
                 runCatching {
                     val store = MixStores.transitions(context)
                     when (action) {
-                        is SaveAction.Forget -> store.delete(action.pair)
+                        is SaveAction.Forget -> {
+                            store.delete(action.pair)
+                            KeptChanges(context.noBackupFilesDir).delete(action.pair.from, action.pair.to)
+                        }
                         is SaveAction.Keep -> store.put(action.spec)
                     }
                     val fixes = MixStores.beatFixes(context)
                     action.fixes.forEach { (song, fix) -> fixes.put(song, fix) }
                 }.onFailure { Log.w(TAG, "The change could not be saved", it) }.isSuccess
             }
+            if (ok && action is SaveAction.Keep) keepRendered(action.spec.pair)
             done(ok)
+        }
+    }
+
+    /**
+     * The change just saved for [saved] rendered once more as the page plays it, and kept beside it
+     * (KeptChanges), so the playlist plays what was heard here without rendering it again. In the
+     * background, since Save closes the page. A plain change has nothing to render.
+     */
+    private fun keepRendered(saved: SongPair) {
+        val loaded = pair ?: return
+        val (levelA, levelB) = levels
+        val kept = KeptChanges(context.noBackupFilesDir)
+        KeptChanges.scope.launch {
+            val started = System.nanoTime()
+            runCatching {
+                val spec = MixStores.transitions(context).get(saved)
+                if (spec == null || spec.plain) {
+                    kept.delete(saved.from, saved.to)
+                    return@launch
+                }
+                // As the page plays it: a change saved on bands on the parts, where both songs have them.
+                val heard = if (loaded.partsReady) Presets.onParts(spec) else spec
+                val window = Preview.render(heard, loaded.aCopy, loaded.bCopy, loaded.a.analysis, levelA, levelB).getOrThrow()
+                val change = StoredChange.of(KeptChanges.written(spec), window.render, loaded.aCopy.pcm, loaded.aCopy.startMs, loaded.bCopy.pcm)
+                if (kept.put(saved.from, saved.to, change)) {
+                    Log.i(TAG, "The saved change is kept as rendered, on " + (if (change.onParts) "parts" else "bands") + ", in %.0f ms".format((System.nanoTime() - started) / 1e6))
+                }
+            }.onFailure {
+                kept.delete(saved.from, saved.to)
+                Log.w(TAG, "The saved change could not be kept as rendered", it)
+            }
         }
     }
 

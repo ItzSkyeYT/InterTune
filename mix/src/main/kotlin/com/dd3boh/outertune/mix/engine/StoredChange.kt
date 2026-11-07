@@ -10,6 +10,7 @@ import com.dd3boh.outertune.mix.Headroom
 import com.dd3boh.outertune.mix.RenderedIncoming
 import com.dd3boh.outertune.mix.RenderedOutgoing
 import com.dd3boh.outertune.mix.edit.LaneSet
+import com.dd3boh.outertune.mix.edit.Presets
 import com.dd3boh.outertune.mix.edit.TransitionSpec
 import java.io.DataInputStream
 import java.io.DataOutputStream
@@ -29,6 +30,8 @@ import kotlin.math.roundToLong
  */
 class StoredChange(
     val spec: String,
+    /** Whether it was rendered on the songs' parts; on bands otherwise (the editor had no parts for them). */
+    val onParts: Boolean,
     val rate: Int,
     val channels: Int,
     /** A's music it was rendered from: its frame 0 at [aStartMs] of A. */
@@ -86,9 +89,12 @@ class StoredChange(
         val facts = ChangeFacts(
             rate, channels, aBar1 - shift, heldFrames, bBar1, copyFrames.toLong(), earliest,
             anchors = anchors?.let { a -> DoubleArray(a.size) { a[it] - shift } },
-            parts = parsed.lanes == LaneSet.PARTS,
+            parts = onParts,
         )
-        val plan = when (val r = SpecPlan.plan(parsed, facts)) {
+        // Planned as it was rendered: on parts where the editor had them for the two (a change saved
+        // on bands among them, as the editor opens it), on bands otherwise.
+        val rendered = if (onParts) Presets.onParts(parsed) else Presets.onBands(parsed)
+        val plan = when (val r = SpecPlan.plan(rendered, facts)) {
             is SpecPlan.Result.Planned -> r.plan
             is SpecPlan.Result.Refused -> return Result.failure(IllegalStateException(r.why))
         }
@@ -104,6 +110,7 @@ class StoredChange(
     fun write(out: DataOutputStream) {
         out.writeInt(MAGIC)
         out.writeUTF(spec.take(60_000))
+        out.writeBoolean(onParts)
         out.writeInt(rate); out.writeInt(channels)
         out.writeDouble(aStartMs); out.writeDouble(aBar1); out.writeDouble(bBar1)
         out.writeInt(anchors?.size ?: -1); anchors?.forEach { out.writeDouble(it) }
@@ -138,11 +145,12 @@ class StoredChange(
             val ch = plan.channels
             val rate = plan.sampleRate
             val probe = rate.toLong()
-            val aFrom = plan.mixFrom.coerceIn(0, maxOf(0L, a.size / ch - probe))
-            val bFrom = (rate / 2L).coerceAtMost(maxOf(0L, b.size / ch - probe))
+            // Where each song sounds: silence would be found anywhere.
+            val aFrom = audibleFrom(a, ch, probe, plan.mixFrom, -probe)
+            val bFrom = audibleFrom(b, ch, probe, rate / 2L, probe)
             fun cut(x: ShortArray, from: Long) = x.copyOfRange((from * ch).toInt(), minOf(x.size, ((from + probe) * ch).toInt()))
             return StoredChange(
-                spec = written, rate = rate, channels = ch, aStartMs = aStartMs,
+                spec = written, onParts = plan.spec.lanes == LaneSet.PARTS, rate = rate, channels = ch, aStartMs = aStartMs,
                 aBar1 = plan.facts.aBar1, bBar1 = plan.facts.bBar1, anchors = plan.facts.anchors,
                 attenuationA = render.attenuationA, attenuationB = render.attenuationB,
                 mixFrom = plan.mixFrom, bStart = plan.bStart, mixTo = plan.mixTo,
@@ -155,9 +163,50 @@ class StoredChange(
             )
         }
 
+        /**
+         * Where a second of [music] to find it by starts: [from] where the music sounds there, else
+         * the first second that does, [step] by [step], ten at most; the loudest of those where none does.
+         */
+        private fun audibleFrom(music: ShortArray, channels: Int, probe: Long, from: Long, step: Long): Long {
+            val last = maxOf(0L, music.size / channels - probe)
+            var best = from.coerceIn(0, last)
+            var bestLevel = -1.0
+            for (i in 0..10) {
+                val at = (from + i * step).coerceIn(0, last)
+                val level = meanLevel(music, channels, at, probe)
+                if (level >= AUDIBLE) return at
+                if (level > bestLevel) {
+                    best = at
+                    bestLevel = level
+                }
+                if (at == 0L || at == last) break
+            }
+            return best
+        }
+
+        private fun meanLevel(music: ShortArray, channels: Int, from: Long, frames: Long): Double {
+            val start = (from * channels).toInt()
+            val end = minOf(music.size, ((from + frames) * channels).toInt())
+            if (end <= start) return 0.0
+            var sum = 0.0
+            for (i in start until end) sum += abs(music[i].toInt())
+            return sum / (end - start)
+        }
+
+        /** A mean sample this loud or louder is music to look for: about -45 dB of full scale. */
+        private const val AUDIBLE = 180.0
+
+        /** The change a kept file was rendered for and whether on parts, read from its head alone; null where it is not one. */
+        fun headOf(input: DataInputStream): Pair<String, Boolean>? = try {
+            if (input.readInt() != MAGIC) null else input.readUTF() to input.readBoolean()
+        } catch (_: IOException) {
+            null
+        }
+
         fun read(input: DataInputStream): StoredChange? = try {
             if (input.readInt() != MAGIC) throw IOException("not a kept change")
             val spec = input.readUTF()
+            val onParts = input.readBoolean()
             val rate = input.readInt(); val channels = input.readInt()
             val aStartMs = input.readDouble(); val aBar1 = input.readDouble(); val bBar1 = input.readDouble()
             val n = input.readInt()
@@ -172,7 +221,7 @@ class StoredChange(
             val aProbeFrom = input.readLong(); val aProbe = shorts(input)
             val bProbeFrom = input.readLong(); val bProbe = shorts(input)
             StoredChange(
-                spec, rate, channels, aStartMs, aBar1, bBar1, anchors, attA, attB, mixFrom, bStart, mixTo,
+                spec, onParts, rate, channels, aStartMs, aBar1, bBar1, anchors, attA, attB, mixFrom, bStart, mixTo,
                 outFirst, outSamples, headStart, headStep, headValues, inFirst, inSamples, inEntry, inBeat,
                 peakBefore, peakAfter, aProbeFrom, aProbe, bProbeFrom, bProbe,
             )

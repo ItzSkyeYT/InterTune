@@ -148,6 +148,8 @@ class AutomixController(
      * parts to play on them ([PartsForPlay]); null for bands only.
      */
     private val partsCache: java.io.File? = null,
+    /** The changes the editor rendered when they were saved, played as kept where the music is the same (KeptChanges). */
+    private val keptChanges: KeptChanges? = null,
 ) : Player.Listener, AutomixAudioProcessor.Events {
 
     /**
@@ -1263,6 +1265,27 @@ class AutomixController(
             return BandsOutcome("on bands: a plain change, saved for these two", auto = AutoChoice.Plain(PlainReason.YOUR_CHOICE))
         }
         latestSaved?.let { saved ->
+            // The change as the editor rendered it on Save, where what is held of A and copied of B is
+            // the music it was rendered from, to the sample, at the same levels: what was heard in the
+            // editor, with no render here. Rendered again below otherwise.
+            keptChanges?.let { kept ->
+                val replay = runCatching { kept.get(t.a.id, b.id) }.getOrNull()?.replay(
+                    KeptChanges.written(saved), saved, ring, frames, t.tailStartMs.toDouble(), copy, t.copyFrames,
+                    earliest, attenuationA, attenuationB,
+                )
+                replay?.onSuccess { render ->
+                    if (t.abandoned.get()) return BandsOutcome("on bands, not used: the change was given up")
+                    val check = if (t.entryFrames > 0L) ENTRY_CHECK_FRAMES.toLong() else 0L
+                    val heldPlan = render.heldPlan(check)
+                    stage.offer(held, heldPlan, render.outgoing, render.incoming, replaces = true)
+                    Log.i(TAG, "AutoMix: the saved change plays as kept, on " + if (render.plan.spec.lanes == LaneSet.PARTS) "parts" else "bands")
+                    return BandsOutcome(
+                        "kept, saved: ${render.plan.describe()}, headroom %.1f dB, peak %.2f".format(render.headroom.deepestDb, render.peakAfter),
+                        saved = true,
+                        plan = heldPlan,
+                    )
+                }?.onFailure { e -> Log.i(TAG, "AutoMix: the kept change does not play here: ${e.message}") }
+            }
             // A change saved on parts plays on them where both songs' parts line up with the music
             // held to the sample (PartsForPlay); on bands otherwise, as before.
             // A change saved on bands plays on parts too where both songs' parts line up: the bands

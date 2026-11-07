@@ -754,6 +754,7 @@ private fun Lowers(
     // The lit chip is kept in view, as on Simple (PresetRow).
     val presetRow = rememberPresetRow(ui.lit, 12.dp)
     val chips: @Composable () -> Unit = {
+        DefaultChip(lit = spec.plain, enabled = ready) { vm.edit { plainChange() } }
         for (p in EditorPresets.ORDER) {
             val lit = ui.lit == p
             val allowed = !p.needsParts || spec.lanes == LaneSet.PARTS
