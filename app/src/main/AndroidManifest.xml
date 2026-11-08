@@ -36,6 +36,9 @@
          that type (recognition/PhoneAudio). Nothing is projected without the user's yes each time. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
+    <!-- Listen together's Scan button reads a room's QR code (RoomScanDialog), and asks for the camera only then. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
 
@@ -104,7 +107,9 @@
                  intertune://playlist/..., the rows SystemSearchProvider serves, and it is the
                  phone's search that builds that intent, so nothing here says it names this
                  activity. And the app's own scheme is no web address: with two apps that take it,
-                 Android asks which one. -->
+                 Android asks which one.
+
+                 A listening room's invite, intertune://together/<code> (together/RoomCode), comes in here too. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
 

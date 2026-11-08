@@ -193,6 +193,10 @@ import com.dd3boh.outertune.playback.MusicService
 import com.dd3boh.outertune.playback.PlayerConnection
 import com.dd3boh.outertune.search.SystemSearch
 import com.dd3boh.outertune.utils.YouTubeLink
+import com.dd3boh.outertune.ui.dialog.TogetherInviteDialog
+import com.dd3boh.outertune.ui.dialog.TogetherProposalDialog
+import com.dd3boh.outertune.ui.dialog.togetherAvailable
+import com.dd3boh.outertune.together.RoomCode
 import com.dd3boh.outertune.utils.urlEncode
 import com.dd3boh.outertune.ui.component.LocalHiddenByPlayer
 import com.dd3boh.outertune.ui.component.LocalPlayerSheet
@@ -1414,6 +1418,11 @@ class MainActivity : ComponentActivity() {
                             )
                         )
                     }
+                    // A listening room's invite, opened from a link: asked before joining.
+                    var togetherInvite by remember { mutableStateOf<RoomCode?>(null) }
+                    togetherInvite?.let { code -> TogetherInviteDialog(code, playerConnection, onDone = { togetherInvite = null }) }
+                    // A guest's song proposed to this phone as the room's leader: asked wherever the app is.
+                    TogetherProposalDialog(playerConnection)
                     LaunchedEffect(pendingLaunchLink, pendingLink.link, playerConnection, oobeStatus) {
                         val link = pendingLaunchLink ?: pendingLink.link ?: return@LaunchedEffect
                         // A live one, as for the widget's songs: see PlayerConnection.isAlive.
@@ -1426,7 +1435,10 @@ class MainActivity : ComponentActivity() {
                         // has no YouTube page: it opens here.
                         val libraryPlaylist = SystemSearch.playlistOf(link)
                         val searchWords = SystemSearch.searchOf(link)
-                        if (libraryPlaylist != null) {
+                        val invite = if (togetherAvailable && link.startsWith("intertune://together/", ignoreCase = true)) RoomCode.parse(link) else null
+                        if (invite != null) {
+                            togetherInvite = invite
+                        } else if (libraryPlaylist != null) {
                             navController.navigate("local_playlist/$libraryPlaylist")
                         } else if (SystemSearch.isHeard(link)) {
                             // Songs named once the phone was back online (RecogniseLaterWorker).

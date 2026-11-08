@@ -29,6 +29,7 @@ import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.AddCircleOutline
 import androidx.compose.material.icons.rounded.Equalizer
+import androidx.compose.material.icons.rounded.Group
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Route
 import androidx.compose.material.icons.rounded.LibraryAdd
@@ -102,6 +103,8 @@ import com.dd3boh.outertune.ui.dialog.AddToQueueDialog
 import com.dd3boh.outertune.ui.dialog.ArtistDialog
 import com.dd3boh.outertune.ui.dialog.DetailsDialog
 import com.dd3boh.outertune.ui.dialog.SignalPathDialog
+import com.dd3boh.outertune.ui.dialog.TogetherSheet
+import com.dd3boh.outertune.ui.dialog.togetherAvailable
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberPreference
 import com.dd3boh.outertune.utils.syncCoroutine
@@ -197,6 +200,14 @@ fun PlayerMenu(
             local = mediaMetadata.isLocal,
             onDismiss = { showSignalPath = false },
         )
+    }
+
+    var showTogether by rememberSaveable {
+        mutableStateOf(false)
+    }
+
+    if (showTogether) {
+        TogetherSheet(onDismiss = { showTogether = false })
     }
 
     if (showDetailsDialog) {
@@ -405,6 +416,14 @@ fun PlayerMenu(
             title = R.string.signal_path
         ) {
             showSignalPath = true
+        }
+        if (togetherAvailable) {
+            GridMenuItem(
+                icon = Icons.Rounded.Group,
+                title = R.string.together_title
+            ) {
+                showTogether = true
+            }
         }
         // Mix: the change from this song into the next, shaped by hand, only while a Mix queue
         // plays, so after every item that is always there. Just after a change it opens that one.

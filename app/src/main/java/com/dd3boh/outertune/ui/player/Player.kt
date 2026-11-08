@@ -9,6 +9,8 @@
 
 package com.dd3boh.outertune.ui.player
 
+import com.dd3boh.outertune.ui.dialog.TogetherSheet
+import androidx.compose.material.icons.rounded.Group
 import com.dd3boh.outertune.playback.PlayerConnection
 import com.dd3boh.outertune.playback.BatteryUse
 import com.dd3boh.outertune.LocalBatteryMode
@@ -955,6 +957,13 @@ fun BottomSheetPlayer(
                 SleepTimerDialog(playerConnection) { showSleepTimerDialog = false }
             }
 
+            // A listening room's button, only while one is on. In both styles it comes right before
+            // the menu, so that the menu stays last (his word of 17 Oct 2026). It opens the room.
+            val room by playerConnection.service.together.collectAsState()
+            val inRoom = room != null
+            var showRoom by rememberSaveable { mutableStateOf(false) }
+            if (showRoom) TogetherSheet(onDismiss = { showRoom = false })
+
             // Glass for the connected buttons whenever the player has it, grouped controls or not:
             // they are separate buttons either way.
             val buttonBackdrop = if (liquidGlass) playerBackdrop else null
@@ -1015,6 +1024,15 @@ fun BottomSheetPlayer(
                     container = MaterialTheme.colorScheme.primary,
                     content = MaterialTheme.colorScheme.onPrimary,
                     onClick = playerConnection::toggleLike
+                )
+            }
+            val roomCircle: @Composable () -> Unit = {
+                PlayerCircleButton(
+                    painter = rememberVectorPainter(Icons.Rounded.Group),
+                    contentDescription = stringResource(R.string.together_in_room),
+                    container = MaterialTheme.colorScheme.primary,
+                    content = MaterialTheme.colorScheme.onPrimary,
+                    onClick = { showRoom = true }
                 )
             }
             val menuCircle: @Composable () -> Unit = {
@@ -1080,6 +1098,10 @@ fun BottomSheetPlayer(
                     pinCircle(pin)
                     Spacer(modifier = Modifier.width(7.dp))
                 }
+                if (inRoom) {
+                    roomCircle()
+                    Spacer(modifier = Modifier.width(7.dp))
+                }
                 menuCircle()
             }
 
@@ -1096,15 +1118,17 @@ fun BottomSheetPlayer(
                     verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    // The queue first and the menu last with the pins between, half on each side.
+                    // The queue first and the menu last with the pins between, half on each side; a
+                    // listening room's circle, while one is on, right before the menu.
                     val pinned = classicPins(queueCircle = true)
-                    val count = pinned.size + 2
+                    val count = pinned.size + 2 + (if (inRoom) 1 else 0)
                     val onLeft = (count + 1) / 2
                     for (i in 0 until count) {
                         if ((i < onLeft) != left) continue
-                        when (i) {
-                            0 -> queueCircle()
-                            count - 1 -> menuCircle()
+                        when {
+                            i == 0 -> queueCircle()
+                            i == count - 1 -> menuCircle()
+                            inRoom && i == count - 2 -> roomCircle()
                             else -> pinCircle(pinned[i - 1])
                         }
                     }
@@ -1220,8 +1244,8 @@ fun BottomSheetPlayer(
                 val actionWidth = if (compactPlayer) {
                     compactQuickActionWidth(
                         rowWidth = windowWidth() - hPadding * 2,
-                        // The queue, the pins and the menu.
-                        count = rowPins.size + 2,
+                        // The queue, the pins, the room while one is on, and the menu.
+                        count = rowPins.size + 2 + (if (inRoom) 1 else 0),
                         gap = ConnectedButtonGap,
                         preferred = QuickActionWidth,
                     )
@@ -1309,10 +1333,24 @@ fun BottomSheetPlayer(
                             )
                         }
                     }
+                    if (inRoom) {
+                        PlayerActionSegment(
+                            painter = rememberVectorPainter(Icons.Rounded.Group),
+                            contentDescription = stringResource(R.string.together_in_room),
+                            shape = connectedShape(first = rowPins.isEmpty() && !queueLayout.queueButton, last = false),
+                            container = MaterialTheme.colorScheme.primary,
+                            filled = true,
+                            content = MaterialTheme.colorScheme.onPrimary,
+                            width = actionWidth,
+                            backdrop = buttonBackdrop,
+                            glassIntensity = glassIntensity,
+                            onClick = { showRoom = true },
+                        )
+                    }
                     PlayerActionSegment(
                         painter = rememberVectorPainter(Icons.Rounded.MoreVert),
                         contentDescription = stringResource(R.string.options),
-                        shape = connectedShape(first = rowPins.isEmpty() && !queueLayout.queueButton, last = true),
+                        shape = connectedShape(first = rowPins.isEmpty() && !inRoom && !queueLayout.queueButton, last = true),
                         container = inactive,
                         filled = false,
                         content = onBackgroundColor,

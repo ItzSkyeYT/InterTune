@@ -276,6 +276,7 @@ object Tour {
     const val ROUTE_WIDGETS = "settings/widgets"
     const val ROUTE_RECOGNITION = "settings/recognition"
     const val ROUTE_LYRICS = "settings/library/lyrics"
+    const val ROUTE_TOGETHER = "settings/together"
     const val ROUTE_STORAGE = "settings/storage"
     const val ROUTE_BATTERY = "settings/battery"
     const val ROUTE_BACKUP = "settings/backup"

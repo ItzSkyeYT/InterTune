@@ -233,6 +233,8 @@ import com.dd3boh.outertune.playback.ListenReporting.AddressFrom
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.playback.queues.Queue
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
+import com.dd3boh.outertune.together.TogetherSession
+import com.dd3boh.outertune.together.RoomCode
 import com.dd3boh.outertune.utils.PhoneState
 import com.dd3boh.outertune.utils.SoundRoute
 import com.dd3boh.outertune.utils.SessionBitmapLoader
@@ -496,6 +498,30 @@ class MusicService : MediaLibraryService(),
      * with the phone's sound while casting, and must never reach a receiver.
      */
     lateinit var exoPlayer: ExoPlayer
+
+    /** A listening room while one lasts (together/TogetherSession), null otherwise. */
+    val together = MutableStateFlow<TogetherSession?>(null)
+
+    /** Opens a room, hosting or following, in place of any already open. Main thread. */
+    fun startTogether(code: RoomCode, owner: Boolean, relays: List<String>, name: String): TogetherSession {
+        together.value?.stop()
+        return TogetherSession(this, code, owner, relays, name).also {
+            together.value = it
+            it.start()
+        }
+    }
+
+    /** The room carries on under [code], each phone as it was: what its owner does after sending someone out. */
+    fun moveTogether(code: RoomCode) {
+        val room = together.value ?: return
+        startTogether(code, room.owner, room.relays, room.name)
+    }
+
+    fun stopTogether() {
+        together.value?.stop()
+        together.value = null
+    }
+
     private var routedPlayer: RoutedPlayer? = null
 
     /**
@@ -4077,6 +4103,8 @@ class MusicService : MediaLibraryService(),
      * @param held the queue sheet held this back, and showed the songs it now locks as settled.
      */
     private fun replanQueueTail(strong: Boolean = false, skip: Boolean = false, like: Boolean = false, held: Boolean = false) {
+        // A follower's queue is the leader's, song for song: nothing is changed in it here.
+        if (together.value?.following == true) return
         if (!adaptiveQueueMode.isOn) return
         val q = queueBoard.getCurrentQueue() ?: return
         // A radio tail is one the app chose; a playlist, an album or a list made by hand is one
@@ -5413,7 +5441,10 @@ class MusicService : MediaLibraryService(),
         // Not on a transition to no song at all. That is the player being emptied, by a swipe of
         // the mini player or a queue with nothing left in it, and an empty player reads as having
         // no songs left, so every swipe during a radio asked for another page.
+        // Nor in a listening room that follows someone: its queue is the leader's, and a page of
+        // its own made it longer than the leader's and different (his find of 17 Oct 2026).
         if (autoLoadMore &&
+            together.value?.following != true &&
             q != null &&
             mediaItem != null &&
             reason != Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT &&
@@ -6180,8 +6211,11 @@ class MusicService : MediaLibraryService(),
             else -> null
         }
         lastRepeatMode = repeatMode
-        if (kind != null && !isCasting) activePlayer.currentMediaItem?.mediaId?.let { id -> noteSignal(id, kind, activePlayer.currentPosition) }
         updateNotification()
+        // In a listening room that follows someone, the repeat mode is the room's: neither this
+        // listener's choice to learn from nor their setting to keep.
+        if (together.value?.following == true) return
+        if (kind != null && !isCasting) activePlayer.currentMediaItem?.mediaId?.let { id -> noteSignal(id, kind, activePlayer.currentPosition) }
         offloadScope.launch {
             runCatching {
                 dataStore.edit { settings ->
@@ -6421,6 +6455,7 @@ class MusicService : MediaLibraryService(),
     }
 
     override fun onDestroy() {
+        stopTogether()
         // Checked by playQueue's resolve coroutine each time it resumes: that coroutine belongs to
         // no scope this method cancels (see the comment at its launch site), so this is the only
         // way it can find out the service is gone before touching the queue board or the player.
