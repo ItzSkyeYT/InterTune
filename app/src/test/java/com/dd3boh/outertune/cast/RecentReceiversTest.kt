@@ -67,7 +67,7 @@ class RecentReceiversTest {
         assertEquals(emptyList<CastDevice>(), RecentReceivers.decode("not json"))
         assertEquals(emptyList<CastDevice>(), RecentReceivers.decode("{}"))
         val one = RecentReceivers.encode(listOf(pixel))
-        val withJunk = "[" + "{\"protocol\":\"AIRPLAY\",\"id\":\"x\",\"name\":\"x\",\"host\":\"x\",\"port\":1}," + one.removePrefix("[")
+        val withJunk = "[" + "{\"protocol\":\"MIRACAST\",\"id\":\"x\",\"name\":\"x\",\"host\":\"x\",\"port\":1}," + one.removePrefix("[")
         assertEquals(listOf(pixel), RecentReceivers.decode(withJunk))
     }
 
@@ -91,6 +91,19 @@ class RecentReceiversTest {
     }
 
     @Test
+    fun `a speaker typed in by address that the search finds too is listed once, by its own name`() {
+        // An AirPlay speaker typed in is "airplay:<host>:<port>"; found on the Wi-Fi it is "airplay:<its MAC>" (5 Nov 2026: listed twice).
+        val found = CastDevice(CastProtocol.AIRPLAY, "airplay:AABBCCDDEEFF", "Zeppelin", "192.168.1.70", 7000)
+        val typed = CastDevice(CastProtocol.AIRPLAY, "airplay:192.168.1.70:7000", "192.168.1.70", "192.168.1.70", 7000)
+        assertEquals(listOf(found), RecentReceivers.listed(listOf(found), listOf(typed), emptyList(), emptySet(), emptySet()))
+        // Not found yet: the typed one stands, as before.
+        assertEquals(listOf(typed), RecentReceivers.listed(emptyList(), listOf(typed), emptyList(), emptySet(), emptySet()))
+        // Another port is another receiver.
+        val elsewhere = typed.copy(id = "airplay:192.168.1.70:5000", port = 5000)
+        assertEquals(2, RecentReceivers.listed(listOf(found), listOf(elsewhere), emptyList(), emptySet(), emptySet()).size)
+    }
+
+    @Test
     fun `a remembered receiver is listed only once it has answered, and a found one goes when it stops answering`() {
         val recent = listOf(tv, pixel, renderer)
         // Nothing has answered yet: none of the remembered ones shows, not even for a moment (20 Oct 2026).
@@ -104,6 +117,28 @@ class RecentReceiversTest {
         // One typed in by address stays, whatever the checks say: it was asked for.
         val typed = pixel.copy(id = "typed", name = "Typed", host = "10.0.0.9")
         assertTrue(typed in RecentReceivers.listed(emptyList(), listOf(typed), recent, emptySet(), setOf(typed)))
+    }
+
+    @Test
+    fun `an AirPlay speaker is left out where AirPlay is off, whatever a restored backup holds`() {
+        val speaker = CastDevice(CastProtocol.AIRPLAY, "airplay:AABBCCDDEEFF", "Zeppelin", "192.168.1.70", 7000, model = "Zeppelin Wireless", audioOnly = true)
+        // Kept by a debug or Preview build, and restored into a release: read as nothing, as before AirPlay came.
+        val saved = RecentReceivers.encode(listOf(speaker, pixel))
+        assertEquals(listOf(pixel), RecentReceivers.decode(saved, airPlay = false))
+        // And never listed, wherever it came from.
+        assertEquals(emptyList<CastDevice>(), RecentReceivers.listed(listOf(speaker), listOf(speaker), listOf(speaker), setOf(speaker), emptySet(), airPlay = false))
+        // Where AirPlay is on, it is kept and listed like any other receiver.
+        assertEquals(listOf(speaker, pixel), RecentReceivers.decode(saved, airPlay = true))
+        assertEquals(listOf(speaker), RecentReceivers.listed(emptyList(), emptyList(), listOf(speaker), setOf(speaker), emptySet(), airPlay = true))
+    }
+
+    @Test
+    fun `the app reads the list and the picker lists it with AirPlay only where its flag is on`() {
+        val code = java.io.File("src/main/java/com/dd3boh/outertune/cast/RecentReceivers.kt").readText()
+        assertEquals(2, Regex("""\bairPlay: Boolean = Unreleased\.CAST_AIRPLAY\b""").findAll(code).count())
+        // Both read with that default: the cast session's list, and the picker's (checked below).
+        val session = java.io.File("src/main/java/com/dd3boh/outertune/playback/CastSession.kt").readText()
+        assertTrue(session.contains("RecentReceivers.decode(service.dataStore.get(CastRecentKey, \"\"))"))
     }
 
     @Test

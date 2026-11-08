@@ -14,8 +14,11 @@ sealed interface FormatSupport {
      */
     data object Unknown : FormatSupport
 
-    /** It listed the types it takes, lower case and without parameters. */
-    data class Listed(val mimeTypes: Set<String>) : FormatSupport
+    /**
+     * It listed the types it takes, lower case and without parameters, and apart from them its
+     * audio/L16 entries with the rates and channels they name ([pcm]), which raw audio is sent in.
+     */
+    data class Listed(val mimeTypes: Set<String>, val pcm: List<PcmOffer> = emptyList()) : FormatSupport
 }
 
 /** How one song goes to one receiver. */
@@ -26,18 +29,31 @@ sealed interface FormatChoice {
     /** Fetched again as AAC in MP4 (YouTube's itag 140), because the receiver will not take ours. */
     data object Aac : FormatChoice
 
+    /**
+     * Decoded on the phone and sent as raw audio, audio/L16 or WAV, to a renderer that takes
+     * neither the song as it is nor AAC; [target] is what it listed of raw audio (PcmFormats.pick).
+     */
+    data class Pcm(val target: PcmTarget) : FormatChoice {
+        override fun toString() = "Pcm"
+    }
+
     /** Nothing this receiver lists can be made from this song. */
     data class Unplayable(val mimeType: String) : FormatChoice
 }
 
 /**
- * Opus where the receiver says it plays it, AAC otherwise.
+ * Opus where the receiver says it plays it, AAC otherwise, and raw audio where it takes neither.
  *
  * YouTube songs usually come as Opus in WebM, which every FCast receiver plays and most DLNA TVs,
  * AV receivers and speakers do not. YouTube also offers the same song as AAC in MP4, so a renderer
  * that lists MP4 and not WebM is sent that, and so is one that names AAC only by its bare names
  * (3 Nov 2026: a Zeppelin Wireless that plays M4A was refused every song). A local file has only
- * itself, so a renderer that does not list its type cannot be sent it.
+ * itself, so a renderer that does not list its type cannot be sent it as it is.
+ *
+ * Last comes raw audio, decoded on the phone (4 Nov 2026: a Zeppelin Wireless that lists only
+ * audio/L16 and audio/L8). DLNA makes LPCM the one audio format every renderer must take, so this
+ * reaches nearly every network speaker, a file on the phone included, at about 1.5 Mbit/s on the
+ * Wi-Fi. Only for a renderer that listed it: one that said nothing gets the song as it is.
  */
 object CastFormats {
     /** What an AAC fetch is served as. */
@@ -72,6 +88,8 @@ object CastFormats {
      * a type they did not list in those words. The type itself where the receiver listed nothing like it.
      */
     fun spelling(listed: Set<String>, mimeType: String): String {
+        // Raw audio's rate and channels are part of its type, and it is already in the renderer's words (PcmFormats.pick).
+        if (PcmFormats.isL16(mimeType)) return mimeType.trim()
         val type = CastMime.bare(mimeType)
         if (type in listed) return type
         families.firstOrNull { type in it }?.let { family -> listed.firstOrNull { it in family }?.let { return it } }
@@ -89,20 +107,28 @@ object CastFormats {
 
     /**
      * How a song of [mimeType] goes to a receiver with [support]. [canFetchAac] says whether an AAC
-     * copy can be had at all: true for a YouTube song, false for a local file.
+     * copy can be had at all: true for a YouTube song, false for a local file. [canDecode] says
+     * whether raw audio may be sent (Unreleased.CAST_PCM): the song as it is first, then AAC, and
+     * only when the renderer takes neither, raw audio, if it listed any.
      *
      * [refused] is what this receiver has shown it does not play, though it never said so: types
      * it failed and then played the same song as AAC. Its later songs of that type go as AAC
      * straight away rather than each failing first, which on a real receiver can take seconds.
      */
-    fun choose(support: FormatSupport, mimeType: String, canFetchAac: Boolean, refused: Set<String> = emptySet()): FormatChoice = when (support) {
+    fun choose(
+        support: FormatSupport,
+        mimeType: String,
+        canFetchAac: Boolean,
+        refused: Set<String> = emptySet(),
+        canDecode: Boolean = false,
+    ): FormatChoice = when (support) {
         FormatSupport.Unknown ->
             if (canFetchAac && !isAac(mimeType) && CastMime.bare(mimeType) in refused) FormatChoice.Aac else FormatChoice.AsIs
         is FormatSupport.Listed -> when {
             plays(support.mimeTypes, mimeType) -> FormatChoice.AsIs
             isAac(mimeType) && takesAac(support.mimeTypes) -> FormatChoice.AsIs
             canFetchAac && !isAac(mimeType) && takesAac(support.mimeTypes) -> FormatChoice.Aac
-            else -> FormatChoice.Unplayable(CastMime.bare(mimeType))
+            else -> PcmFormats.target(support)?.takeIf { canDecode }?.let { FormatChoice.Pcm(it) } ?: FormatChoice.Unplayable(CastMime.bare(mimeType))
         }
     }
 
