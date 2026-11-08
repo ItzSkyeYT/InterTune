@@ -24,13 +24,14 @@ import com.zionhuang.innertube.models.response.PlayerResponse
  * that is not metered. Low takes the smallest stream, with the old 10 kbps nudge towards Opus between
  * streams of about the same size.
  *
- * Auto on metered data takes the middle stream (#88, 8 Nov 2026), where it took the smallest: the
- * streams ranked as the higher tiers rank them, and the one in the middle, the lower one when two
- * share the middle. Of the five streams YouTube sends for a song, ranked 139, 249, 250, 140, 251,
- * that is Opus 250 at about 75 kbps in place of 249 at about 55: clearly better for about a third
- * more data. Without 250 it is 249; with a Premium account's 141 and 774 on offer as well, AAC 140.
- * It is never a stream worth less than the one Low takes, so of two streams it takes that one, and
- * of one, that one.
+ * Auto on metered data takes a middle stream (#88, 8 Nov 2026), where it took the smallest. With
+ * two or more Opus streams on offer, the middle one of those, the lower one when two share the
+ * middle: of the five streams YouTube sends for a song, 139, 140, 249, 250 and 251, that is Opus
+ * 250 at about 75 kbps in place of 249 at about 55, clearly better for about a third more data.
+ * Without 250 it is 249, and with a Premium account's 141 and 774 on offer as well, still 250,
+ * where the middle of all seven would be AAC 140 at about 130 kbps. With fewer Opus streams, the
+ * middle of them all as the higher tiers rank them, but never one worth less than the one Low
+ * takes. Of two streams it takes the one Low takes, and of one, that one.
  */
 internal object AudioPick {
     const val OPUS_WORTH = 1.5
@@ -60,7 +61,12 @@ internal object AudioPick {
         formats.maxByOrNull { -it.bitrate + if (it.isOpus) OPUS_NUDGE else 0 }
 
     private fun middle(formats: List<PlayerResponse.StreamingData.Format>): PlayerResponse.StreamingData.Format? {
-        val ranked = formats.sortedWith(byWorth)
-        return listOfNotNull(ranked.getOrNull((ranked.size - 1) / 2), smallest(formats)).maxWithOrNull(byWorth)
+        val opus = formats.filter { it.isOpus }
+        if (opus.size >= 2) return lowerMiddle(opus)
+        return listOfNotNull(lowerMiddle(formats), smallest(formats)).maxWithOrNull(byWorth)
     }
+
+    /** The middle one as [byWorth] ranks them, the lower one when two share the middle. */
+    private fun lowerMiddle(formats: List<PlayerResponse.StreamingData.Format>) =
+        formats.sortedWith(byWorth).let { it.getOrNull((it.size - 1) / 2) }
 }

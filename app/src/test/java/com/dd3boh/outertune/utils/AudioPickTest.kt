@@ -113,7 +113,7 @@ class AudioPickTest {
 
     @Test
     fun `without 250 Auto on metered data still takes a middle one`() {
-        // Ranked 139, 249, 140, 251: of the two in the middle the lower, 249, not the 130 kbps AAC.
+        // Opus 249 and 251: of the two the lower, 249, not the 130 kbps AAC.
         assertEquals(249, pick(logged.without(250), AudioQuality.AUTO, metered = true))
         assertEquals(250, pick(logged.without(249), AudioQuality.AUTO, metered = true))
         assertEquals(250, pick(logged.without(139), AudioQuality.AUTO, metered = true))
@@ -132,11 +132,24 @@ class AudioPickTest {
     }
 
     @Test
-    fun `with a Premium account's streams on offer as well, the middle moves up with them`() {
-        // 141 added: six streams, and the lower of the two middles is still 250.
+    fun `with a Premium account's streams on offer as well, Auto on metered data still takes Opus 250`() {
+        // 141 added: the Opus streams are still 249, 250 and 251.
         assertEquals(250, pick(logged + premiumExtras.first(), AudioQuality.AUTO, metered = true))
-        // 141 and 774: seven, ranked 139, 249, 250, 140, 251, 141, 774, and the middle is AAC 140.
-        assertEquals(140, pick(logged + premiumExtras, AudioQuality.AUTO, metered = true))
+        // 141 and 774: of the Opus 249, 250, 251 and 774 the lower middle one, not the 130 kbps AAC
+        // 140 in the middle of all seven.
+        assertEquals(250, pick(logged + premiumExtras, AudioQuality.AUTO, metered = true))
+    }
+
+    @Test
+    fun `where two or more Opus streams are on offer, Auto on metered data takes the middle one of them`() {
+        val opusOnly = logged.filter { it.mimeType.startsWith("audio/webm") }
+        assertEquals(250, pick(opusOnly, AudioQuality.AUTO, metered = true))
+        assertEquals(250, pick(opusOnly + premiumExtras.last(), AudioQuality.AUTO, metered = true))
+        assertEquals(249, pick(opusOnly.without(250), AudioQuality.AUTO, metered = true))
+        // Of 140, 250 and 251, Opus 250, not the AAC stream in the middle of all three.
+        assertEquals(250, pick(logged.without(139).without(249), AudioQuality.AUTO, metered = true))
+        // With one Opus stream, the middle of them all as before: of 139, 140 and 251, AAC 140.
+        assertEquals(140, pick(logged.without(249).without(250), AudioQuality.AUTO, metered = true))
     }
 
     @Test
