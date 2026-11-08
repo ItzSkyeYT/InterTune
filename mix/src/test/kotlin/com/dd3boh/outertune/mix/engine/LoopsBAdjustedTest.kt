@@ -159,22 +159,39 @@ class LoopsBAdjustedTest {
             val x = DoubleArray(2)
             return DoubleArray((to - from).toInt()) { i -> source.frame(from + i, x); x[0] + x[1] }
         }
-        fun similar(p: DoubleArray, q: DoubleArray): Double {
-            val n = minOf(p.size, q.size)
-            var pq = 0.0
-            var pp = 0.0
-            var qq = 0.0
-            for (i in 0 until n) {
-                pq += p[i] * q[i]
-                pp += p[i] * p[i]
-                qq += q[i] * q[i]
+        // Alike slice by slice: each 50 ms of [q] found in [p] within 12 ms either way, weighted by its energy. The
+        // stretch splices a few times a second where its two sides are most alike, so each pass is cut in its own
+        // places and is not the first sample for sample (8 Nov 2026: 0.90 that way, 0.985 slice by slice, against
+        // 0.82 for two of B's own bars).
+        fun alike(p: DoubleArray, q: DoubleArray): Double {
+            val w = rate / 20
+            val most = rate * 12 / 1000
+            var sum = 0.0
+            var weight = 0.0
+            var at = most
+            while (at + w + most < minOf(p.size, q.size)) {
+                var qq = 0.0
+                for (i in 0 until w) qq += q[at + i] * q[at + i]
+                var best = -1.0
+                for (lag in -most..most) {
+                    var pq = 0.0
+                    var pp = 0.0
+                    for (i in 0 until w) {
+                        pq += q[at + i] * p[at + i + lag]
+                        pp += p[at + i + lag] * p[at + i + lag]
+                    }
+                    if (pp > 0 && qq > 0) best = maxOf(best, pq / sqrt(pp * qq))
+                }
+                sum += best * qq
+                weight += qq
+                at += w
             }
-            return pq / sqrt(pp * qq)
+            return sum / weight
         }
         val first = bar(0.0)
-        val passes = listOf(1.0, 2.0).map { similar(first, bar(it)) }
+        val passes = listOf(1.0, 2.0).map { alike(first, bar(it)) }
         // B's own bar 2 after the loop: another chord and bass, so the passes are not alike by chance.
-        val next = similar(bar(3.0), bar(4.0))
+        val next = alike(bar(3.0), bar(4.0))
         println("passes against the first: $passes; two of B's own bars: $next")
         for (p in passes) assertTrue("$p", p > 0.95)
         assertTrue("$next", next < passes.min() - 0.1)
