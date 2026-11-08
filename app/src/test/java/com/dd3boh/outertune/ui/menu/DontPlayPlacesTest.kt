@@ -48,7 +48,7 @@ class DontPlayPlacesTest {
     }
 
     @Test
-    fun `both song menus offer it under the flag, last but for Block artist, which stays last`() {
+    fun `both song menus offer it under the flag, last but for Block artist, which stays last of the items every song has`() {
         for (path in listOf("ui/menu/SongMenu.kt", "ui/menu/YouTubeSongMenu.kt")) {
             val grid = grid(path)
             val item = grid.indexOf("dontPlayMenuItem(")
@@ -58,7 +58,9 @@ class DontPlayPlacesTest {
             val block = grid.indexOf("title = R.string.menu_block_artist")
             assertTrue("$path: Block artist moved before it", item < block)
             assertFalse("$path: an item between it and Block artist", "GridMenuItem(" in grid.substring(item, grid.lastIndexOf("GridMenuItem(", block)))
-            assertEquals("$path: Block artist is no longer last", grid.lastIndexOf("GridMenuItem("), grid.lastIndexOf("GridMenuItem(", block))
+            // A room guest's Suggest comes after Block artist on purpose: only a guest has it.
+            val everySong = grid.substringBefore("guestIn != null")
+            assertEquals("$path: Block artist is no longer last of the items every song has", everySong.lastIndexOf("GridMenuItem("), grid.lastIndexOf("GridMenuItem(", block))
             assertTrue("$path lost Never this artist", "R.string.menu_never_artist" in grid)
             assertTrue("$path lost Not this song", "R.string.menu_not_this_song" in grid)
         }
