@@ -2466,6 +2466,15 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="blocked_search_note" translatable="false">%1$s is blocked, so nothing of theirs shows.</string>
     <string name="blocked_song_skipped" translatable="false">%1$s is blocked, so their song was skipped.</string>
     <string name="blocked_songs_left" translatable="false">The songs left are all by blocked artists, so the music stopped.</string>
+    <!-- Don't play this song (DontPlay, Unreleased.ARTIST_BLOCK), the song half of Block artist (#78): an item of the song menus beside Block artist and of the player's menu, its twin for a song set so, the lines said when it acts, and its reason and note in Settings > Recommendations > Exclusions. Held from translators until the words are agreed, their French beside them in values-fr. %1$s is the song's title. -->
+    <string name="menu_dont_play_song" translatable="false">Don\'t play this song</string>
+    <string name="menu_dont_play_lift" translatable="false">Allow this song again</string>
+    <string name="dont_play_done" translatable="false">From now on it plays only when you pick it.</string>
+    <string name="dont_play_lifted" translatable="false">It plays like any other song again.</string>
+    <string name="dont_play_skipped" translatable="false">Skipped a song you chose not to play: “%1$s”</string>
+    <string name="dont_play_songs_left" translatable="false">The songs left are ones you chose not to play, so the music stopped.</string>
+    <string name="exclusion_reason_dont_play" translatable="false">Don\'t play this song</string>
+    <string name="exclusions_dont_play_note" translatable="false">Don\'t play this song goes further: the song stays out of radios and autoplay, and plays only when you pick it.</string>
     <!-- The settings search's words for Blocked artists: open to translators, as every search word is (SettingsSearchTest). -->
     <string name="search_words_blocked_artists">ban, hide, mute, blocklist</string>
     <!-- The crash page when the update check has already found a newer version (CrashReportDialog, the dead-ends audit 1.10): held from translators until his go. -->

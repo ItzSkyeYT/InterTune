@@ -17,6 +17,10 @@ import kotlinx.coroutines.flow.map
 val blockedArtists: Flow<ArtistBlock>
     get() = ContentFilter.changes.map { it.blocked }.distinctUntilChanged()
 
+/** The songs the listener chose not to play (DontPlay), the same way. */
+val dontPlaySongs: Flow<DontPlay>
+    get() = ContentFilter.changes.map { it.dontPlay }.distinctUntilChanged()
+
 /**
  * A list of the library without the blocked artists' songs, albums and artists (ArtistBlock),
  * again whenever a block changes. With nothing blocked the list goes through as it came.

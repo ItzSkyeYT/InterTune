@@ -34,12 +34,18 @@ import kotlinx.coroutines.flow.StateFlow
  * The blocked artists ([blocked], Unreleased.ARTIST_BLOCK) are hidden here too, with whatever
  * they are on. Unlike the switches they also leave the library and the listener's playlists,
  * and their songs are never played (ArtistBlock).
+ *
+ * The songs the listener chose not to play ([dontPlay], with the same flag) are hidden nowhere:
+ * search, Home and an artist's page still show them, to be picked. Only what a radio or autoplay
+ * adds leaves them out ([radio], [queue]), and the player passes over one it comes to (DontPlay).
  */
 data class ContentFilter(
     val explicit: Boolean = false,
     val videoSongs: Boolean = false,
     val blocked: ArtistBlock = ArtistBlock.NONE,
+    val dontPlay: DontPlay = DontPlay.NONE,
 ) {
+    /** Nothing hidden from the pages. A radio may still leave a song out: see [dontPlay]. */
     val isOff: Boolean
         get() = !explicit && !videoSongs && blocked.isEmpty
 
@@ -52,20 +58,28 @@ data class ContentFilter(
 
     fun <T : YTItem> apply(items: List<T>): List<T> = if (isOff) items else items.filterNot(::hides)
 
+    /** Whether a radio or autoplay leaves [item] out: what is hidden, and a song not to play. */
+    fun leavesOut(item: SongItem): Boolean = hides(item) || dontPlay.covers(item)
+
     /**
-     * A radio's first page without what is hidden, but with the song at [start] even when it is
-     * one of them: the listener chose that one. Gives the songs and where that song now stands.
+     * A radio's first page without what is hidden or not to play, but with the song at [start]
+     * even when it is one of them: the listener chose that one. Gives the songs and where that
+     * song now stands.
      */
     fun radio(items: List<SongItem>, start: Int): Pair<List<SongItem>, Int> {
-        if (isOff) return items to start
+        if (isOff && dontPlay.isEmpty) return items to start
         val kept = ArrayList<SongItem>(items.size)
         var at = 0
         items.forEachIndexed { index, item ->
             if (index == start) at = kept.size
-            if (index == start || !hides(item)) kept += item
+            if (index == start || !leavesOut(item)) kept += item
         }
         return kept to at
     }
+
+    /** A radio's or autoplay's next page, its top-up included, without what is hidden or not to play. */
+    fun queue(items: List<SongItem>): List<SongItem> =
+        if (isOff && dontPlay.isEmpty) items else items.filterNot(::leavesOut)
 
     /** Home's rows without what is hidden; a row left empty goes. */
     fun home(page: HomePage): HomePage = if (isOff) page else

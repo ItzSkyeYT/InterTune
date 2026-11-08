@@ -74,7 +74,7 @@ object QueueFit {
         val habits: SkipHabits,
         val weights: Weights,
         val songs: Map<String, SongRow>,
-        /** Songs banned or snoozed, by id and by title and first artist ([versionKey]), so their other uploads go too. */
+        /** Songs banned, snoozed or not to play, by id and by title and first artist ([versionKey]), so their other uploads go too. */
         val bannedSongIds: Set<String> = emptySet(),
         val bannedSongKeys: Set<String> = emptySet(),
         /** Artists banned or snoozed, by id and by name in lower case. */
@@ -129,7 +129,11 @@ object QueueFit {
                 val input = rows.input
                 val now = input.now
                 val inForce = rows.exclusions
-                val bans = inForce.filter { it.reason == ExclusionsViewModel.REASON_BAN || it.reason == ExclusionsViewModel.REASON_SNOOZE }
+                // A song the listener chose not to play is never a pick either, nor kept ahead (DontPlay).
+                val bans = inForce.filter {
+                    it.reason == ExclusionsViewModel.REASON_BAN || it.reason == ExclusionsViewModel.REASON_SNOOZE ||
+                        it.reason == ExclusionsViewModel.REASON_DONT_PLAY
+                }
                 val bannedSongIds = bans.filter { it.kind == ExclusionsViewModel.KIND_SONG }.mapTo(HashSet()) { it.targetId }
                 // A song ban's label is the song's title; its artist comes from the song itself
                 // where the library has it, as Home's tidy pass matches a ban's other uploads.

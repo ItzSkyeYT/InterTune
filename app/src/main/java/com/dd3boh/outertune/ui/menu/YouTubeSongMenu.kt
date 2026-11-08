@@ -50,6 +50,7 @@ import com.dd3boh.outertune.constants.ListThumbnailSize
 import com.dd3boh.outertune.constants.ThumbnailCornerRadius
 import com.dd3boh.outertune.db.entities.SongEntity
 import com.dd3boh.outertune.extensions.toMediaItem
+import com.dd3boh.outertune.models.DontPlay
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.ListQueue
@@ -103,6 +104,7 @@ fun YouTubeSongMenu(
     }
     var showBlockArtist by rememberSaveable { mutableStateOf(false) }
     val blockable = remember(song.id) { blockChoices(song.artists) }
+    val dontPlay = if (Unreleased.ARTIST_BLOCK) rememberDontPlay() else DontPlay.NONE
 
 
     ListItem(
@@ -248,6 +250,15 @@ fun YouTubeSongMenu(
         ) {
             ActivityLog.note(context, database, song.id, SignalKind.SHARE)
             shareLink(ShareLinks.song(song.id, song.title, song.artists.map { it.name }, song.duration ?: 0, song.album != null), onDismiss)
+        }
+        // Beside Block artist, before it as the song comes before its artist, and after every item
+        // anyone knows the place of (DontPlay).
+        if (Unreleased.ARTIST_BLOCK) {
+            val held = dontPlay.has(song.id)
+            dontPlayMenuItem(held) {
+                toggleDontPlay(context, database, song.toMediaMetadata(), held)
+                onDismiss()
+            }
         }
         // Last, so that nothing anyone knows the place of moves.
         if (Unreleased.ARTIST_BLOCK && blockable.isNotEmpty()) {
