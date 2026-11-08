@@ -18,8 +18,9 @@ import org.junit.Test
  * is the one measured on 28 Oct 2026 (experiments/bugs/57-opus/probe.py): on Bohemian Rhapsody the
  * AAC stream and the Opus one were both 148 kbps, and Highest took the AAC (#57). The logged offer
  * is the one in the debug log, and what YouTube sent for each of 15 public songs on 8 Nov 2026 give
- * or take a few kbps: the same five streams every time, 139 and 249 at 49 to 63 kbps, 250 at 65 to
- * 80, 140 at 130 to 148 and 251 at 132 to 154 (#88).
+ * or take a few kbps (experiments/bugs/88-auto-middle/probe.py, its run in run-2026-11-08.txt
+ * beside it): the same five streams every time, 139 and 249 at 49 to 63 kbps, 250 at 65 to 80, 140
+ * at 130 to 148 and 251 at 132 to 154 (#88).
  */
 class AudioPickTest {
 
