@@ -684,7 +684,7 @@ fun ColumnScope.HeadTrackingFrag() {
     )
 }
 
-private const val HEAD_TRACKING_WIKI = "https://github.com/ItzSkyeYT/InterTune/wiki/Head-tracking"
+private const val HEAD_TRACKING_WIKI = com.dd3boh.outertune.constants.WikiLinks.HEAD_TRACKING
 
 /** Pre-filled so a report arrives with the one thing that actually identifies the problem. */
 private const val HEAD_TRACKING_ISSUE =
