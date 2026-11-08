@@ -176,6 +176,9 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
     private var joinSignal = 0.0
     private var joinError = 0.0
     private var joinDone = false
+
+    /** The incoming frame the check against the copy starts from: its first, or a moment after a blend taken up again ([resume]). */
+    private var joinFrom = 0L
     private var liveFrom = -1L
     private var laneClipped = 0L
     private var shaper: IncomingShaper? = null
@@ -686,8 +689,9 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
      * as it plays from output frame [at].
      */
     private fun join(input: ShortArray, inFrame: Int, n: Long, at: Long, b: RenderedIncoming) {
+        if (n < joinFrom) return
         val bFrame = b.entry + n
-        if (bFrame >= b.copyFrames || n >= JOIN_FRAMES_S * sampleRate) {
+        if (bFrame >= b.copyFrames || n - joinFrom >= JOIN_FRAMES_S * sampleRate) {
             joinDone = true
             return
         }
@@ -794,6 +798,7 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
                     joinSignal = 0.0
                     joinError = 0.0
                     joinDone = false
+                    joinFrom = 0
                     liveFrom = -1
                     shaper = IncomingShaper(p!!, rendered!!.headroom)
                 } else {
@@ -826,7 +831,7 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
         val p = k.plan
         val n = min(frames, RESUME_FRAMES)
         val at = findInCopy(live, n, b, guess, radius) ?: run {
-            note = "not picked up again after a jump inside the next song: its music there was not found"
+            note = "not picked up again after a jump inside the next song: $resumeWhy"
             return false
         }
         val heard = at - p.bEntry
@@ -843,43 +848,90 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
         joinSignal = 0.0
         joinError = 0.0
         joinDone = false
+        // The decoder starts again at the jump, and its first frames may not be its copy's to the
+        // bit: the song is held against its copy once it has settled.
+        joinFrom = heard + (RESUME_SETTLE_S * sampleRate).toLong()
         liveFrom = -1
         fadeFrom = -1
         fadeLength = 0
         backFrom = -1
         shaper = null
         state = State.MIX
-        note = "picked up again after a jump inside the next song, at its frame $at"
+        note = "picked up again after a jump inside the next song, at its frame " + at + ", " + (at - guess) + " frames from where its times put it"
         return true
     }
 
     /**
-     * Where in [b]'s copy the [n] frames of [live] are, near [guess]: the nearest that matches but
-     * for a decoder's rounding, and only music, never silence, which would match anywhere.
+     * Where in [b]'s copy the [n] frames of [live] are, within [radius] of [guess]: the place that
+     * matches best, where it matches within [RESUME_MATCH] of the music's own level. The decoder
+     * starts again at a jump, so its first frames are near its copy's, not equal to them. Never
+     * silence, which would match anywhere. Its first frames at every place first, then all of them
+     * at the few that matched best.
      */
     private fun findInCopy(live: ShortArray, n: Int, b: RenderedIncoming, guess: Long, radius: Int): Long? {
         val copy = b.copy
         val copyFrames = b.copyFrames.toLong()
+        val samples = n * channels
         var energy = 0.0
-        for (i in 0 until n * channels) energy += live[i].toDouble() * live[i]
-        if (energy < RESUME_SIGNAL * n * channels) return null
-        val quick = min(n * channels, 64)
-        for (d in 0..radius) for (sign in if (d == 0) intArrayOf(1) else intArrayOf(1, -1)) {
-            val f = guess + sign * d
+        for (i in 0 until samples) energy += live[i].toDouble() * live[i]
+        if (energy < RESUME_SIGNAL * samples) {
+            resumeWhy = "too quiet there to find"
+            return null
+        }
+        val quick = min(samples, RESUME_QUICK_FRAMES * channels)
+        val keep = RESUME_CANDIDATES
+        val bestAt = LongArray(keep) { Long.MIN_VALUE }
+        val bestErr = DoubleArray(keep) { Double.MAX_VALUE }
+        for (d in -radius..radius) {
+            val f = guess + d
             if (f < 0 || f + n > copyFrames) continue
             val base = (f * channels).toInt()
-            var ok = true
-            for (i in 0 until quick) if (kotlin.math.abs(copy[base + i] - live[i]) > RESUME_TOLERANCE) { ok = false; break }
-            if (!ok) continue
+            val worst = bestErr[keep - 1]
             var err = 0.0
-            for (i in 0 until n * channels) {
+            var i = 0
+            while (i < quick) {
+                val e = (copy[base + i] - live[i]).toDouble()
+                err += e * e
+                if (err >= worst) break
+                i++
+            }
+            if (i < quick) continue
+            // Into the few best, in order.
+            var k = keep - 1
+            while (k > 0 && bestErr[k - 1] > err) {
+                bestErr[k] = bestErr[k - 1]
+                bestAt[k] = bestAt[k - 1]
+                k--
+            }
+            bestErr[k] = err
+            bestAt[k] = f
+        }
+        var found = Long.MIN_VALUE
+        var foundErr = Double.MAX_VALUE
+        for (k in 0 until keep) {
+            val f = bestAt[k]
+            if (f == Long.MIN_VALUE) continue
+            val base = (f * channels).toInt()
+            var err = 0.0
+            for (i in 0 until samples) {
                 val e = (copy[base + i] - live[i]).toDouble()
                 err += e * e
             }
-            if (err <= energy * JOIN_TOLERANCE) return f
+            if (err < foundErr) {
+                foundErr = err
+                found = f
+            }
         }
-        return null
+        if (found == Long.MIN_VALUE || foundErr > energy * RESUME_MATCH) {
+            resumeWhy = if (found == Long.MIN_VALUE) "nothing of its copy is there" else
+                "its music there was not found (%.0f dB off at best, %d frames from where its times put it)".format(10 * kotlin.math.log10(foundErr / energy), found - guess)
+            return null
+        }
+        return found
     }
+
+    /** Why the last blend was not taken up again, for the logs. */
+    private var resumeWhy = ""
 
     /**
      * Gives up on the transition, for good: a plan that arrives after this is refused. Before
@@ -987,8 +1039,15 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
         /** How much of the first buffer after a jump inside the next song is looked for in its copy. */
         private const val RESUME_FRAMES = 2048
 
-        /** A sample further from its copy than this rules a place out at once. */
-        private const val RESUME_TOLERANCE = 64
+        /** The first frames held against the copy at every place, and how many places are then held against it whole. */
+        private const val RESUME_QUICK_FRAMES = 256
+        private const val RESUME_CANDIDATES = 8
+
+        /** How near its copy the song after a jump must be, as a share of its own energy: 20 dB under it. */
+        private const val RESUME_MATCH = 1e-2
+
+        /** How long after a blend is taken up again the song is held against its copy: the decoder settles first. */
+        private const val RESUME_SETTLE_S = 0.5
 
         /** The least mean squared sample that is music to look for, not silence: about -50 dBFS. */
         private const val RESUME_SIGNAL = 100.0 * 100.0
