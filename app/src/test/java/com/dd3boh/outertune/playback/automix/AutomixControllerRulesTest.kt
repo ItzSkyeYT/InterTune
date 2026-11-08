@@ -74,9 +74,44 @@ class AutomixControllerRulesTest {
     }
 
     @Test
+    fun `a jump lets go of the change before it for good, and nothing of it reaches the change started over`() {
+        // 8 Nov 2026: a plan worked out before a jump was refused after it ("the plan came after
+        // the change"); one could have been taken by the end held after it.
+        val seek = body(controller, "override fun onPositionDiscontinuity(")
+        assertTrue(seek, "old.abandoned.set(true)" in seek)
+        assertTrue(seek, "stage.withdrawArmsBefore(old.id + 1)" in seek)
+        assertTrue(seek, "if (old.planning) stopWork()" in seek)
+        assertTrue(seek, seek.indexOf("old.abandoned.set(true)") < seek.indexOf("transition = old.startedOver(nextTransitionId++)"))
+        // Every plan handed to the stage names the end it was worked out on (HeldTail refuses it for another).
+        val offers = Regex("""stage\.offer\(([^\n]*)""").findAll(controller).map { it.groupValues[1] }.toList()
+        assertTrue(offers.toString(), offers.size >= 8)
+        for (o in offers) assertTrue(o, "ring = ring)" in o)
+        // The kept change goes over the jump with the rest, not read again.
+        val over = body(controller, "fun startedOver(id: Long): Transition")
+        for (field in listOf("keptFound", "kept", "changeLeftMs", "entrySeconds")) assertTrue(field, "it.$field = $field" in over)
+    }
+
+    @Test
+    fun `a saved change kept as rendered plays as kept before anything is worked out, and its end is held until five seconds before the end`() {
+        val plan = body(controller, "private fun plan(")
+        assertTrue(plan, "if (kept) {" in plan && "playKept(t, held, ring, frames" in plan)
+        assertTrue(plan, plan.indexOf("playKept(") < plan.indexOf("RegionAnalysis.analyse("))
+        // Not as kept: the next song comes in where the change held for brings it in.
+        assertTrue(plan, "if (t.entryOpen) stage.decideEntry(held, t.entryFrames, ring)" in plan)
+        assertTrue("AutomixSchedule.due(left, t.armFromMs, holdUntil(t))" in controller)
+        assertTrue(body(controller, "private fun holdUntil(").contains("AutomixSchedule.KEPT_UNTIL_LEFT_MS"))
+        // Held too late to be heard whole, the next song's entry is the change's to say.
+        val arm = body(controller, "private fun arm(")
+        assertTrue(arm, "entryOpen = open" in arm)
+        val kept = body(controller, "private fun playKept(")
+        assertTrue(kept, "stored.replayFrom(" in kept && "StoredChange.EntryRule.Open(" in kept && "StoredChange.EntryRule.Fixed(t.entryFrames)" in kept)
+        assertTrue(kept, "t.entryFrames = play.plan.bEntry" in kept)
+    }
+
+    @Test
     fun `a plan worked out for a change given up is not handed to the stage, and a dropped end is let go`() {
         assertTrue("t.abandoned.set(true)" in body(controller, "private fun abort("))
-        assertTrue("if (!t.abandoned.get() && t.entryFrames == 0L) stage.offer(held, plan, rendered)" in controller)
+        assertTrue("if (!t.abandoned.get() && t.entryFrames == 0L) stage.offer(held, plan, rendered, ring = ring)" in controller)
         val dropped = controller.substringAfter("override fun dropped(id: Long)").substringBefore("\n    }\n")
         assertTrue(dropped, "t.finished = true" in dropped)
     }
@@ -110,7 +145,7 @@ class AutomixControllerRulesTest {
         // then hands the stage a gapless plan, as the queue's line says, instead of Auto's mix.
         val bands = controller.substringAfter("private fun onBands(").substringBefore("val allowance = ")
         val plain = bands.substringAfter("if (latestSaved?.plain == true) {").substringBefore("\n        }\n")
-        assertTrue(plain, "stage.offer(held, MixPlan.gapless(" in plain && "replaces = true)" in plain)
+        assertTrue(plain, "stage.offer(held, MixPlan.gapless(" in plain && "replaces = true, ring = ring)" in plain)
         assertTrue(plain, "auto = AutoChoice.Plain(PlainReason.YOUR_CHOICE)" in plain)
         assertFalse(bands, ".takeIf { !it.plain }" in bands)
     }

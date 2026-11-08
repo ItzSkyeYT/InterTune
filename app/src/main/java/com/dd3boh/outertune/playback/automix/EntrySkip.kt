@@ -10,6 +10,7 @@ import androidx.media3.common.C
 import androidx.media3.common.Format
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.util.Util
+import com.dd3boh.outertune.mix.HeldTail
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.min
@@ -33,7 +34,10 @@ import kotlin.math.min
 internal class EntrySkip(private val stage: Stage, private val nanoTime: () -> Long = System::nanoTime) {
 
     interface Stage {
-        /** How many of the new stream's first frames to drop: 0 to let it in from its first. */
+        /**
+         * How many of the new stream's first frames to drop: 0 to let it in from its first, or
+         * HeldTail.ENTRY_WAIT while the change has not said yet, which asks again at the next call.
+         */
         fun entryToSkip(): Long
 
         /** Some of them were dropped, all of them when [done]. */
@@ -82,7 +86,15 @@ internal class EntrySkip(private val stage: Stage, private val nanoTime: () -> L
     fun handle(buffer: ByteBuffer, timeUs: Long, sink: (ByteBuffer, Long) -> Boolean): Boolean {
         if (!newStream) return sink(buffer, timeUs)
         if (target < 0) {
-            target = stage.entryToSkip()
+            val asked = stage.entryToSkip()
+            if (asked == HeldTail.ENTRY_WAIT) {
+                // The change has not said yet where this song comes in (a jump into it, joined where
+                // it can still be heard): the held end drains on meanwhile, and this buffer waits. Should
+                // the drain close on this call, the song comes in from its first frame, as timed here.
+                sink(EMPTY, timeUs)
+                return false
+            }
+            target = asked
             if (target <= 0) {
                 newStream = false
                 return sink(buffer, timeUs)

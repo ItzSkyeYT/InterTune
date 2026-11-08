@@ -42,14 +42,21 @@ class KeptChanges(filesDir: File) {
 
     /**
      * Whether the change kept for the pair was rendered for [spec] as written, on parts where [parts]
-     * says the songs have them: read from the file's head alone.
+     * says the songs have them, with A's music across it to find it by after a jump into it (a file
+     * kept before 8 Nov 2026 has none, and is kept again): read from the file's head alone.
      */
     fun holds(from: String, to: String, spec: TransitionSpec, parts: Boolean): Boolean {
+        val head = head(from, to) ?: return false
+        return head.spec == written(spec) && (head.onParts || !parts) && head.probes
+    }
+
+    /** Whether a change is kept for the pair as rendered for [spec] as written, whatever it was rendered on: it can be played as kept. */
+    fun keeps(from: String, to: String, spec: TransitionSpec): Boolean = head(from, to)?.spec == written(spec)
+
+    private fun head(from: String, to: String): StoredChange.Head? {
         val f = file(from, to)
-        if (!f.isFile) return false
-        val head = runCatching { DataInputStream(BufferedInputStream(f.inputStream(), 4096)).use { StoredChange.headOf(it) } }.getOrNull()
-            ?: return false
-        return head.first == written(spec) && (head.second || !parts)
+        if (!f.isFile) return null
+        return runCatching { DataInputStream(BufferedInputStream(f.inputStream(), 4096)).use { StoredChange.headOf(it) } }.getOrNull()
     }
 
     fun put(from: String, to: String, change: StoredChange): Boolean = synchronized(LOCK) { write(from, to, change) }

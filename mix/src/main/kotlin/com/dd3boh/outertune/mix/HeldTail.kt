@@ -64,7 +64,14 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
      * song's part where it was rendered from a copy too. One that [replaces] may take the place of
      * a plan already taken, as long as nothing planned has been heard yet.
      */
-    class Offer(val plan: MixPlan, val rendered: RenderedOutgoing, val incoming: RenderedIncoming? = null, val replaces: Boolean = false)
+    class Offer(
+        val plan: MixPlan,
+        val rendered: RenderedOutgoing,
+        val incoming: RenderedIncoming? = null,
+        val replaces: Boolean = false,
+        /** The held end it was planned on, where it says: taken only while that is the end held, never by one held after a jump. */
+        val ring: ShortArray? = null,
+    )
 
     var state = State.PASS
         private set
@@ -121,6 +128,37 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
 
     /** Whether any frame before [entry] has been skipped: from then on the next song comes in at its entry, mixed or not. */
     private var entryStarted = false
+
+    /**
+     * Whether the incoming song's entry is still the change's to say: an end held after a jump
+     * into the change, which is joined where it can still be heard, B coming in where it would have
+     * been by then. Until a plan is taken or the entry is decided ([decideEntry]), its first frames
+     * wait in front of the sink ([ENTRY_WAIT]) while the held end drains on; given up, it comes in
+     * from its first frame.
+     */
+    var entryOpen = false
+        private set
+
+    /** The entry decided from another thread for an open one, with the held end it was decided for. */
+    private class EntryDecision(val ring: ShortArray, val frames: Long)
+
+    @Volatile
+    private var entryDecision: EntryDecision? = null
+
+    /**
+     * A blend of both songs' parts let go by a jump inside the incoming song (a flush from the
+     * renderer while it played), kept for the first buffer after it: where that is the incoming
+     * song's music still inside the blend, the blend is taken up again there ([resume]).
+     */
+    private class Paused(val plan: MixPlan, val rendered: RenderedOutgoing, val incoming: RenderedIncoming, val outgoingScale: Double)
+
+    private var paused: Paused? = null
+
+    /** Whether a blend let go by a jump inside the incoming song may be taken up again ([resume]). */
+    val resumable: Boolean get() = paused != null
+
+    /** The incoming song's own frame its part was heard from as the blend began, for where a jump inside it went. */
+    val pausedEntry: Long get() = paused?.plan?.bEntry ?: 0L
 
     @Volatile
     private var offered: Offer? = null
@@ -215,8 +253,9 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
      * incoming song's frame the change brings it in on, 0 for its first.
      */
     @JvmOverloads
-    fun arm(preallocated: ShortArray? = null, entry: Long = 0): Boolean {
+    fun arm(preallocated: ShortArray? = null, entry: Long = 0, entryOpen: Boolean = false): Boolean {
         if (state != State.PASS || inputEnded) return false
+        paused = null
         if (preallocated != null && (preallocated.size > capacityFrames * channels || preallocated.size % channels != 0 || preallocated.isEmpty())) {
             note = "the ring made for the end is the wrong size"
             return false
@@ -238,9 +277,11 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
         fadeFrom = -1
         fadeLength = 0
         backFrom = -1
-        this.entry = entry.coerceAtLeast(0)
+        this.entryOpen = entryOpen
+        this.entry = if (entryOpen) 0L else entry.coerceAtLeast(0)
         entryReady = this.entry == 0L
         entryStarted = false
+        entryDecision = null
         state = State.CAPTURE
         note = ""
         return true
@@ -252,12 +293,41 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
      * Asked as the next song's first frames are decoded; once skipping has begun it goes on to the
      * entry whatever happens to the plan.
      */
-    fun entryToSkip(): Long = when {
-        entry <= 0L -> 0L
-        state != State.CAPTURE && state != State.DRAIN -> 0L
-        entryStarted -> entry
-        aborted || overflowed -> 0L
-        else -> entry
+    fun entryToSkip(): Long {
+        takeEntryDecision()
+        if (entryOpen) {
+            if ((state == State.CAPTURE || state == State.DRAIN) && !aborted && !overflowed) return ENTRY_WAIT
+            // Given up before the change said where: the next song from its first frame.
+            closeEntry(0L)
+        }
+        return when {
+            entry <= 0L -> 0L
+            state != State.CAPTURE && state != State.DRAIN -> 0L
+            entryStarted -> entry
+            aborted || overflowed -> 0L
+            else -> entry
+        }
+    }
+
+    /**
+     * Says where the incoming song comes in for an entry still open ([entryOpen]), from any thread:
+     * on its frame [frames], for the end held in [ring] only. Taken on the next call; a plan for
+     * it must then bring it in there.
+     */
+    fun decideEntry(frames: Long, ring: ShortArray) {
+        entryDecision = EntryDecision(ring, frames.coerceAtLeast(0))
+    }
+
+    private fun takeEntryDecision() {
+        val d = entryDecision ?: return
+        entryDecision = null
+        if (entryOpen && d.ring === ring) closeEntry(d.frames)
+    }
+
+    private fun closeEntry(frames: Long) {
+        entryOpen = false
+        entry = frames
+        entryReady = frames == 0L
     }
 
     /** The sink has skipped the incoming song's first frames up to its entry ([done]), or begun to. */
@@ -276,13 +346,19 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
      * what has already gone out; otherwise refused, and the change stays gapless.
      */
     @JvmOverloads
-    fun offer(plan: MixPlan, rendered: RenderedOutgoing, incoming: RenderedIncoming? = null, replaces: Boolean = false) {
-        offered = Offer(plan, rendered, incoming, replaces)
+    fun offer(plan: MixPlan, rendered: RenderedOutgoing, incoming: RenderedIncoming? = null, replaces: Boolean = false, ring: ShortArray? = null) {
+        offered = Offer(plan, rendered, incoming, replaces, ring)
     }
 
     private fun takeOffer() {
+        takeEntryDecision()
         val o = offered ?: return
         offered = null
+        if (o.ring != null && o.ring !== ring) {
+            // Planned on an end held before a jump: that music is not the one held now.
+            note = "refused: planned on an end held before"
+            return
+        }
         val current = plan
         if (current != null) {
             // A better plan for the same change, worked out after a first one was handed over so
@@ -315,8 +391,12 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
         }
         val p = o.plan
         when {
-            p.isGapless -> note = "gapless: ${p.reason}"
-            p.bEntry != entry -> note = "refused: planned for the next song from its frame ${p.bEntry}, held for its frame $entry"
+            p.isGapless -> {
+                note = "gapless: ${p.reason}"
+                // The change will not say where the next song comes in: from where the plan has it.
+                if (entryOpen) closeEntry(p.bEntry)
+            }
+            !entryOpen && p.bEntry != entry -> note = "refused: planned for the next song from its frame ${p.bEntry}, held for its frame $entry"
             o.incoming != null && o.incoming.entry != p.bEntry -> note = "refused: the incoming part starts elsewhere in the song"
             !songChange -> note = "refused: no song change to mix into"
             !formatMatches -> note = "refused: the next song's format differs"
@@ -327,10 +407,12 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
             o.incoming != null && (o.incoming.firstFrame != p.bStart || o.incoming.endFrame < p.shapedUntil || o.incoming.channels != channels) ->
                 note = "refused: the incoming part does not cover the blend"
             else -> {
-                note = (if (current != null) "planned again: " else "planned: ") + p.describe()
+                note = (if (current != null) "planned again: " else "planned: ") + p.describe() +
+                    (if (p.crossIn > 0) ", joined part-way" else "")
                 plan = p
                 rendered = o.rendered
                 incoming = o.incoming
+                if (entryOpen) closeEntry(p.bEntry)
             }
         }
     }
@@ -422,9 +504,12 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
                 // rendered at, unless the volume or the song's loudness moved since.
                 val scale = if (p.attenuationA > 0.0) attenuation / p.attenuationA else 1.0
                 val back = if (backFrom >= 0) ((o - backFrom + 1).toDouble() / BACK_FRAMES).coerceIn(0.0, 1.0) else 0.0
+                // Joined part-way: from the end as held into the change, which there is other music.
+                val into = if (p.crossIn > 0 && o < p.aFirstProcessed + p.crossIn) (o - p.aFirstProcessed + 1).toDouble() / p.crossIn else 1.0
                 for (c in 0 until channels) {
                     var v = r.at(o, c).toDouble()
                     if (scale != 1.0) v *= scale
+                    if (into < 1.0) v = v * into + (if (o < written) ring[from + c] else 0) * attenuation * (1.0 - into)
                     if (fadeFrom >= 0) v *= fadeGain(o)
                     // Back on what was held: past the held end (a change that runs on through a
                     // loop of the next song) there is nothing held to go back to.
@@ -680,12 +765,19 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
         inputEnded = false
         when (kind) {
             Flush.RENDERER -> {
+                // A jump inside the incoming song while both songs' parts play: the blend is kept,
+                // to be taken up again where the jump went if that is still inside it.
+                val p = plan
+                val r = rendered
+                val b = incoming
+                paused = if (state == State.MIX && p != null && r != null && b != null && fadeFrom < 0 && backFrom < 0 && liveFrom < 0) Paused(p, r, b, outgoingScale) else null
                 if (state != State.PASS) note = "dropped: ${state.name.lowercase()} interrupted"
                 release()
                 state = State.PASS
                 snapAttenuation = true
             }
             Flush.SONG_CHANGE -> {
+                paused = null
                 val p = plan
                 // A plan for a later entry only once the frames before it are skipped, so the frame
                 // that comes in next is the one the plan puts on its bar.
@@ -719,6 +811,77 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
     }
 
     /**
+     * The blend let go by a jump inside the incoming song taken up again on its first buffer
+     * after the jump, [frames] frames of [live]: found in the copy its part was rendered from,
+     * within [radius] frames of [guess] (where the sink's times put it), it plays on from there as
+     * rendered, A's part and B's together, B's own music still held against its copy. False, and
+     * the song plays on alone as before, where it is not found, or the jump went outside the blend.
+     * Tried once; the player's thread.
+     */
+    fun resume(live: ShortArray, frames: Int, guess: Long, radius: Int): Boolean {
+        val k = paused ?: return false
+        paused = null
+        if (state != State.PASS || frames <= 0) return false
+        val b = k.incoming
+        val p = k.plan
+        val n = min(frames, RESUME_FRAMES)
+        val at = findInCopy(live, n, b, guess, radius) ?: run {
+            note = "not picked up again after a jump inside the next song: its music there was not found"
+            return false
+        }
+        val heard = at - p.bEntry
+        val o = p.bStart + heard
+        if (heard < 0 || o >= p.shapedUntil || o >= b.endFrame) {
+            note = "not picked up again after a jump inside the next song: it went outside the blend"
+            return false
+        }
+        plan = p
+        rendered = k.rendered
+        incoming = b
+        outgoingScale = k.outgoingScale
+        incomingFrames = heard
+        joinSignal = 0.0
+        joinError = 0.0
+        joinDone = false
+        liveFrom = -1
+        fadeFrom = -1
+        fadeLength = 0
+        backFrom = -1
+        shaper = null
+        state = State.MIX
+        note = "picked up again after a jump inside the next song, at its frame $at"
+        return true
+    }
+
+    /**
+     * Where in [b]'s copy the [n] frames of [live] are, near [guess]: the nearest that matches but
+     * for a decoder's rounding, and only music, never silence, which would match anywhere.
+     */
+    private fun findInCopy(live: ShortArray, n: Int, b: RenderedIncoming, guess: Long, radius: Int): Long? {
+        val copy = b.copy
+        val copyFrames = b.copyFrames.toLong()
+        var energy = 0.0
+        for (i in 0 until n * channels) energy += live[i].toDouble() * live[i]
+        if (energy < RESUME_SIGNAL * n * channels) return null
+        val quick = min(n * channels, 64)
+        for (d in 0..radius) for (sign in if (d == 0) intArrayOf(1) else intArrayOf(1, -1)) {
+            val f = guess + sign * d
+            if (f < 0 || f + n > copyFrames) continue
+            val base = (f * channels).toInt()
+            var ok = true
+            for (i in 0 until quick) if (kotlin.math.abs(copy[base + i] - live[i]) > RESUME_TOLERANCE) { ok = false; break }
+            if (!ok) continue
+            var err = 0.0
+            for (i in 0 until n * channels) {
+                val e = (copy[base + i] - live[i]).toDouble()
+                err += e * e
+            }
+            if (err <= energy * JOIN_TOLERANCE) return f
+        }
+        return null
+    }
+
+    /**
      * Gives up on the transition, for good: a plan that arrives after this is refused. Before
      * anything planned is heard, the held end plays out as it is, so the change stays gapless.
      * Once the planned part is playing but the outgoing song still runs at its own speed, it
@@ -730,6 +893,7 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
     fun abort(why: String, fadeFrames: Long = sampleRate / 2L) {
         takeOffer()
         aborted = true
+        if (entryOpen && !entryStarted) closeEntry(0L)
         val p = plan
         when (state) {
             State.CAPTURE -> {
@@ -790,29 +954,43 @@ class HeldTail(val channels: Int, val sampleRate: Int, private val capacityFrame
         entry = 0
         entryReady = true
         entryStarted = false
+        entryOpen = false
+        entryDecision = null
     }
 
-    private companion object {
-        const val MIX_BLOCK = 1024
+    companion object {
+        /** What [entryToSkip] says while the change has not said yet where the incoming song comes in: its first frames wait. */
+        const val ENTRY_WAIT = -1L
+
+        private const val MIX_BLOCK = 1024
 
         /** A change of level within a song takes a fortieth of a second: 25 ms. */
-        const val RAMP_PARTS = 40
+        private const val RAMP_PARTS = 40
 
         /** How long an abort takes to cross back to the held end as it was: 10 ms at 44.1 kHz. */
-        const val BACK_FRAMES = 441
+        private const val BACK_FRAMES = 441
 
         /** A plan whose entry is not in hand is let go this long, a fifth of a second, before its first change. */
-        const val ENTRY_MARGIN_PARTS = 5
+        private const val ENTRY_MARGIN_PARTS = 5
 
         /**
          * The incoming song is held against its copy over its first seconds, and judged once the
          * copy has had this much energy, in squared samples: a tenth of a second of stereo at
          * 44.1 kHz and -40 dBFS.
          */
-        const val JOIN_FRAMES_S = 4L
-        const val JOIN_SIGNAL = 327.68 * 327.68 * 2 * 4410
+        private const val JOIN_FRAMES_S = 4L
+        private const val JOIN_SIGNAL = 327.68 * 327.68 * 2 * 4410
 
         /** The two may differ by a rounding here and there, a decoder's last bit, and no more: 40 dB under the song. */
-        const val JOIN_TOLERANCE = 1e-4
+        private const val JOIN_TOLERANCE = 1e-4
+
+        /** How much of the first buffer after a jump inside the next song is looked for in its copy. */
+        private const val RESUME_FRAMES = 2048
+
+        /** A sample further from its copy than this rules a place out at once. */
+        private const val RESUME_TOLERANCE = 64
+
+        /** The least mean squared sample that is music to look for, not silence: about -50 dBFS. */
+        private const val RESUME_SIGNAL = 100.0 * 100.0
     }
 }

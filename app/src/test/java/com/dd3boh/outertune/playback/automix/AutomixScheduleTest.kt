@@ -88,6 +88,44 @@ class AutomixScheduleTest {
     }
 
     @Test
+    fun `a change kept as rendered may have its end held until five seconds before the end, and is looked at till then`() {
+        // 8 Nov 2026, 13:05: a jump to 29 s before the end of a song whose saved change started
+        // 14.5 s before it was too late for Auto's window, and nothing played.
+        val until = AutomixSchedule.KEPT_UNTIL_LEFT_MS
+        assertEquals(Step.ARM, AutomixSchedule.due(24_999, AutomixSchedule.ARM_FROM_LEFT_MS, until))
+        assertEquals(Step.ARM, AutomixSchedule.due(until, AutomixSchedule.ARM_FROM_LEFT_MS, until))
+        assertEquals(Step.TOO_LATE, AutomixSchedule.due(until - 1, AutomixSchedule.ARM_FROM_LEFT_MS, until))
+        assertEquals(500L, AutomixSchedule.nextLookMs(20_000, 1f, AutomixSchedule.ARM_FROM_LEFT_MS, until))
+        assertNull(AutomixSchedule.nextLookMs(until - 1, 1f, AutomixSchedule.ARM_FROM_LEFT_MS, until))
+        // Auto's own and a change rendered as it plays: as before.
+        assertEquals(Step.TOO_LATE, AutomixSchedule.due(24_999))
+        assertNull(AutomixSchedule.nextLookMs(20_000, 1f))
+    }
+
+    @Test
+    fun `a kept change is heard whole held from far less before it than a render needs`() {
+        val pace = AutomixPace()
+        // That change: held, found and planned before its first frame, 14.5 s before the end.
+        val kept = pace.keptArmFromMs(14_500, 0.0)
+        assertEquals(kotlin.math.ceil((14.5 + AutomixSchedule.KEPT_WORK_MS / 1000.0 + AutomixPace.FIXED_S) / (1 - 1.1 / AutomixPace.HOLD_SPEED_GUESS) * 1000).toLong(), kept)
+        assertTrue(kept < AutomixSchedule.ARM_UNTIL_LEFT_MS)
+        assertTrue(kept < pace.armFromMs(14_500, 4_000, 0.0))
+        // A phone that holds faster holds later; a next song coming in 30 s into it, earlier.
+        assertTrue(AutomixPace(holdSpeed = 40.0).keptArmFromMs(14_500, 0.0) < kept)
+        assertTrue(pace.keptArmFromMs(14_500, 30.0) > kept)
+    }
+
+    @Test
+    fun `a saved change asks the player to load on till its end can no longer be held`() {
+        // 34.5 s left, this song loaded to its end and the next not: on 8 Nov the change waited 5 s for the control's rest.
+        assertTrue(AutomixSchedule.loadAhead(AutomixSchedule.ARM_FROM_LEFT_MS, 34_500, loaded = false, armRequested = false, saved = true))
+        assertFalse("Auto's own never asks", AutomixSchedule.loadAhead(AutomixSchedule.ARM_FROM_LEFT_MS, 34_500, loaded = false, armRequested = false))
+        assertTrue(AutomixSchedule.loadAhead(AutomixSchedule.ARM_FROM_LEFT_MS, 10_000, loaded = false, armRequested = false, AutomixSchedule.KEPT_UNTIL_LEFT_MS, saved = true))
+        assertFalse(AutomixSchedule.loadAhead(AutomixSchedule.ARM_FROM_LEFT_MS, 10_000, loaded = false, armRequested = false, saved = true))
+        assertFalse(AutomixSchedule.loadAhead(AutomixSchedule.ARM_FROM_LEFT_MS, 34_500, loaded = true, armRequested = false, saved = true))
+    }
+
+    @Test
     fun `holding the end waits for the song to be loaded to its end and the next one for five seconds`() {
         // 40 s left of a 200 s song, loaded to its end, and 6 s of the next one.
         assertTrue(AutomixSchedule.loaded(200_000, 160_000, 200_000, 46_000))

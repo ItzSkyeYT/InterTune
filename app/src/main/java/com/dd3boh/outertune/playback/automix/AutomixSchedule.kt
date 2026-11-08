@@ -33,6 +33,21 @@ object AutomixSchedule {
     const val ARM_UNTIL_LEFT_MS = 25_000L
 
     /**
+     * A saved change kept as rendered (KeptChanges) may have its end held until this much of the
+     * song is left: it takes no work once the end is held, and where its start has gone by (a jump
+     * close to it or into it), it is joined where it can still be heard. Later, a few seconds held
+     * leave no room to be heard (8 Nov 2026: a jump 29 s before the end of a song whose change
+     * started 14.5 s before it played no change at all).
+     */
+    const val KEPT_UNTIL_LEFT_MS = 5_000L
+
+    /** What a change played as kept is given to be found in what is held and planned, once the end is held: a few ms on any phone. */
+    const val KEPT_WORK_MS = 500L
+
+    /** A next song brought in after its first frame by a change joined part-way has its frames before skipped this long before it is heard. */
+    const val ENTRY_SKIP_MARGIN_MS = 500L
+
+    /**
      * The most of a song's end that can be held: enough for a change whose box starts about 90 s
      * before the end, the outgoing song cut on a line up to about 70 to 75 s before it, with the
      * time a slow phone takes to hold it, work it out and skip the next song to its entry. In
@@ -80,8 +95,8 @@ object AutomixSchedule {
      * What is due with [leftMs] of the song left, the end being held from [armFromMs] left: earlier
      * than usual for a saved change that starts further from the end (see [armFromFor]).
      */
-    fun due(leftMs: Long, armFromMs: Long = ARM_FROM_LEFT_MS): Step = when {
-        leftMs < ARM_UNTIL_LEFT_MS -> Step.TOO_LATE
+    fun due(leftMs: Long, armFromMs: Long = ARM_FROM_LEFT_MS, holdUntilMs: Long = ARM_UNTIL_LEFT_MS): Step = when {
+        leftMs < holdUntilMs -> Step.TOO_LATE
         leftMs <= armFromMs -> Step.ARM
         leftMs <= READ_LEFT_MS -> Step.READ
         else -> Step.WAIT
@@ -116,14 +131,14 @@ object AutomixSchedule {
      * How long to wait, at [speed], before looking again with [leftMs] left: until the next step is
      * due, and every half second through the window where the end may be held, since what it waits
      * for (the songs loaded, the opening read) arrives by itself. Null when nothing is left to do
-     * for this song.
+     * for this song, its end being held until [holdUntilMs] are left.
      */
-    fun nextLookMs(leftMs: Long, speed: Float, armFromMs: Long = ARM_FROM_LEFT_MS): Long? {
+    fun nextLookMs(leftMs: Long, speed: Float, armFromMs: Long = ARM_FROM_LEFT_MS, holdUntilMs: Long = ARM_UNTIL_LEFT_MS): Long? {
         val s = speed.takeIf { it > 0.01f } ?: 1f
         val untilMs = when {
             leftMs > READ_LEFT_MS -> leftMs - READ_LEFT_MS
             leftMs > armFromMs -> leftMs - armFromMs
-            leftMs >= ARM_UNTIL_LEFT_MS -> return WINDOW_LOOK_MS
+            leftMs >= holdUntilMs -> return WINDOW_LOOK_MS
             else -> return null
         }
         return (untilMs / s).toLong().coerceIn(WINDOW_LOOK_MS, MAX_WAIT_MS)
@@ -144,11 +159,13 @@ object AutomixSchedule {
      * Whether the player is to load on for the change of this song, past where its load control
      * rests, which is short of the song's end for a song over five minutes, with nothing of the
      * next one, until 30 s before its end: only for a change whose end is held earlier than
-     * Auto's usual window ([armFromMs] past [ARM_FROM_LEFT_MS]), from where the next song's
-     * opening is read until its end is held, and while what holding it needs is not yet loaded.
+     * Auto's usual window ([armFromMs] past [ARM_FROM_LEFT_MS]), or for any change saved for the
+     * pair ([saved]), which is to be held as soon as it is due, from where the next song's opening
+     * is read until its end can no longer be held ([holdUntilMs] left), and while what holding it
+     * needs is not yet loaded. On 8 Nov 2026 a saved change waited 5 s for the control's rest to end.
      */
-    fun loadAhead(armFromMs: Long, leftMs: Long, loaded: Boolean, armRequested: Boolean): Boolean =
-        armFromMs > ARM_FROM_LEFT_MS && !loaded && !armRequested && leftMs <= READ_LEFT_MS && leftMs >= ARM_UNTIL_LEFT_MS
+    fun loadAhead(armFromMs: Long, leftMs: Long, loaded: Boolean, armRequested: Boolean, holdUntilMs: Long = ARM_UNTIL_LEFT_MS, saved: Boolean = false): Boolean =
+        (armFromMs > ARM_FROM_LEFT_MS || saved) && !loaded && !armRequested && leftMs <= READ_LEFT_MS && leftMs >= holdUntilMs
 
     /**
      * Whether a held end is the end of the song: as long as what was left of it when it began to be

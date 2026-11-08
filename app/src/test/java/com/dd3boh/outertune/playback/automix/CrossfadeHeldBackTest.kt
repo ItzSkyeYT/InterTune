@@ -138,7 +138,7 @@ class CrossfadeHeldBackTest {
         assertTrue(plan, "val crossfade = if (crossfadeNow && seconds != null) Planner.crossfade(planInput, seconds) else null" in plan)
         assertTrue(plan, "val bands = lanes && !crossfaded" in plan)
         // Set before the plan is handed over, which the song change reads.
-        assertTrue(plan, plan.indexOf("t.crossfaded = crossfaded") in 1 until plan.indexOf("stage.offer(held, plan, rendered)"))
+        assertTrue(plan, plan.indexOf("t.crossfaded = crossfaded") in 1 until plan.indexOf("stage.offer(held, plan, rendered, ring = ring)"))
         // Mix's line and the heard changes name Auto's changes only.
         assertTrue(plan, "t.crossfaded -> decide(t, null)" in plan)
         assertTrue("val said = choice?.takeIf { auto }" in controller)

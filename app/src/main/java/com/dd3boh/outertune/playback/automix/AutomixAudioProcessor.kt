@@ -98,9 +98,19 @@ class AutomixAudioProcessor(
      * next buffer, and only within a second of [atNanos]: a request that waited for a stream the
      * stage is not part of must not start holding some later song in its middle. [entryFrames] is
      * the next song's frame the change brings it in on, 0 for its first: its frames before are
-     * dropped in front of the sink as they are decoded, whether the change is mixed or not.
+     * dropped in front of the sink as they are decoded, whether the change is mixed or not. With
+     * [entryOpen] the change says it once it is worked out (HeldTail.entryOpen): an end held after a
+     * jump into the change, joined where it can still be heard.
      */
-    class Arm(val id: Long, val ring: ShortArray, val sampleRate: Int, val channels: Int, val atNanos: Long, val entryFrames: Long = 0)
+    class Arm(
+        val id: Long,
+        val ring: ShortArray,
+        val sampleRate: Int,
+        val channels: Int,
+        val atNanos: Long,
+        val entryFrames: Long = 0,
+        val entryOpen: Boolean = false,
+    )
 
     private class Abort(val id: Long, val why: String, val fadeFrames: Long)
 
@@ -123,6 +133,18 @@ class AutomixAudioProcessor(
 
     fun cancelArm() = armRequest.set(null)
 
+    /**
+     * Requests to hold the end for a change before [id] are not taken any more, however late they
+     * come: after a jump, the worker may still hand over a ring made for the change before it, and
+     * an end held for that one would keep the change started over from being held at all.
+     */
+    fun withdrawArmsBefore(id: Long) {
+        armsFrom = max(armsFrom, id)
+    }
+
+    @Volatile
+    private var armsFrom = Long.MIN_VALUE
+
     /** Gives up on transition [id]: gapless while nothing planned is heard, then a fade over [fadeFrames]. */
     fun requestAbort(id: Long, why: String, fadeFrames: Long) = abortRequest.set(Abort(id, why, fadeFrames))
 
@@ -131,8 +153,13 @@ class AutomixAudioProcessor(
      * [incoming], the next song's part is played from its copy too; one that [replaces] may take the
      * place of a plan handed over before it, while nothing planned has been heard.
      */
-    fun offer(held: HeldTail, plan: MixPlan, rendered: RenderedOutgoing, incoming: RenderedIncoming? = null, replaces: Boolean = false) {
-        if (held === this.held) held.offer(plan, rendered, incoming, replaces)
+    fun offer(held: HeldTail, plan: MixPlan, rendered: RenderedOutgoing, incoming: RenderedIncoming? = null, replaces: Boolean = false, ring: ShortArray? = null) {
+        if (held === this.held) held.offer(plan, rendered, incoming, replaces, ring)
+    }
+
+    /** Says where the next song comes in for an end held with its entry open ([Arm.entryOpen]), for the end held in [ring] only; from any thread. */
+    fun decideEntry(held: HeldTail, frames: Long, ring: ShortArray) {
+        if (held === this.held) held.decideEntry(frames, ring)
     }
 
     // ---- read from other threads
@@ -214,6 +241,7 @@ class AutomixAudioProcessor(
 
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
         configureSeen = true
+        configuredSinceJump = true
         val current = this.inputAudioFormat
         formatMatches = inputAudioFormat.encoding == current.encoding &&
             inputAudioFormat.sampleRate == current.sampleRate &&
@@ -250,6 +278,11 @@ class AutomixAudioProcessor(
             passPlain(input)
             return
         }
+        // The first buffer with music in it after a jump inside the next song while its blend played.
+        if (lookToResume && frames > 0) {
+            lookToResume = false
+            if (held.resumable && !configuredSinceJump) resume(held, input, frames)
+        }
         applyLevels(held, frames)
         if (held.isPlain) {
             // The usual case, and the only one with AutoMix on and nothing held: through as it is.
@@ -267,6 +300,7 @@ class AutomixAudioProcessor(
         val consumed = held.lastConsumed
         input.position(input.position() + consumed * frameBytes)
         if (before == HeldTail.State.MIX) {
+            if (incomingBefore == 0L && consumed > 0 && blendStartUs == C.TIME_UNSET) blendStartUs = sinkInputUs
             keepLockFrames(incomingBefore, consumed, channels)
             for (i in 0 until produced * channels) mixPeak = max(mixPeak, abs(outShorts[i].toInt()))
         }
@@ -342,13 +376,14 @@ class AutomixAudioProcessor(
         }
         val arm = armRequest.getAndSet(null) ?: return
         val why = when {
+            arm.id < armsFrom -> "the request was for a change given up"
             nanoTime() - arm.atNanos > ARM_WAIT_NANOS -> "the request came too long ago"
             held == null -> "the stage has no stream"
             !activeForStream -> "AutoMix was not on as this song started"
             held.state != HeldTail.State.PASS -> "an end is held already"
             arm.sampleRate != held.sampleRate || arm.channels != held.channels -> "the song's format changed"
             sinkPositionUs == C.TIME_UNSET -> "the output has no position yet"
-            !held.arm(arm.ring, arm.entryFrames) -> held.note.ifEmpty { "the end could not be held" }
+            !held.arm(arm.ring, arm.entryFrames, arm.entryOpen) -> held.note.ifEmpty { "the end could not be held" }
             else -> null
         }
         if (why != null) {
@@ -361,6 +396,45 @@ class AutomixAudioProcessor(
         state = held.state
         readMark = 0
         tell { armed(arm.id, held.sampleRate, held.channels, sinkInputUs, sinkPositionUs) }
+    }
+
+    // ---- a jump inside the next song while the blend plays
+
+    /**
+     * Whether the next buffer is the first after a jump inside the next song while its blend
+     * played. The sink flushes its chain once more as that buffer comes, which this outlives.
+     */
+    private var lookToResume = false
+
+    /** A stream was configured since the last flush the renderer asked for: a jump to another song, which no blend is taken up in. */
+    private var configuredSinceJump = false
+
+    /** The sink's time of the next song's first frame heard in the blend, its frame HeldTail.pausedEntry: where a jump inside it went is counted from it. */
+    private var blendStartUs = C.TIME_UNSET
+
+    /**
+     * The blend let go by the jump taken up again where the jump went (HeldTail.resume): the
+     * next song's frame there, where the sink's times put it, give or take its encoder delay and
+     * a packet or two, found in its copy to the frame.
+     */
+    private fun resume(held: HeldTail, input: ByteBuffer, frames: Int) {
+        val start = blendStartUs
+        if (start == C.TIME_UNSET || sinkInputUs == C.TIME_UNSET) return
+        val channels = inputAudioFormat.channelCount
+        val n = min(frames, RESUME_LOOK_FRAMES)
+        if (inShorts.size < n * channels) inShorts = ShortArray(max(n, OUT_MAX) * channels)
+        input.duplicate().order(input.order()).asShortBuffer().get(inShorts, 0, n * channels)
+        val guess = held.pausedEntry + Math.round((sinkInputUs - start) * held.sampleRate / 1_000_000.0)
+        val wasState = held.state
+        if (held.resume(inShorts, n, guess, RESUME_RADIUS_FRAMES)) {
+            state = held.state
+            mixClippedBefore = held.clipped
+            mixPeak = 0
+            lockBuffer = null
+        } else {
+            state = wasState
+        }
+        sayNote(held)
     }
 
     // ---- the next song's frames before its entry, dropped in front of the sink (EntrySkip)
@@ -500,6 +574,7 @@ class AutomixAudioProcessor(
         var held = held
         val wasHolding = held != null && held.state != HeldTail.State.PASS
         if (wasHolding && kind == HeldTail.Flush.RENDERER) tell { dropped(armId) }
+        if (kind == HeldTail.Flush.SONG_CHANGE) blendStartUs = C.TIME_UNSET
         val blendGoesOn = held != null && held.state == HeldTail.State.MIX && drainInBlend && kind == HeldTail.Flush.PARAMETERS
         if (held != null && !blendGoesOn) {
             val before = held.state
@@ -523,6 +598,14 @@ class AutomixAudioProcessor(
                 sinceRendererFlush = false
             }
             if (wasHolding && held.state == HeldTail.State.PASS) lockBuffer = null
+            // A jump inside the next song while the blend played: its first buffer may take it up
+            // again, unless another song is configured first.
+            if (kind == HeldTail.Flush.RENDERER) {
+                lookToResume = held.resumable
+                configuredSinceJump = false
+            } else if (kind == HeldTail.Flush.SONG_CHANGE) {
+                lookToResume = false
+            }
             sayNote(held)
         }
         // A held end of another format never meets a stream of another format: it is let go above.
@@ -555,6 +638,8 @@ class AutomixAudioProcessor(
     }
 
     override fun onReset() {
+        lookToResume = false
+        blendStartUs = C.TIME_UNSET
         held = null
         armId = -1
         configureSeen = false
@@ -646,6 +731,12 @@ class AutomixAudioProcessor(
         private const val STEPS_A_SECOND = 10
         private const val STALL_NANOS = 150_000_000L
         private const val ARM_WAIT_NANOS = 1_000_000_000L
+
+        /** How much of the first buffer after a jump inside the next song is held against its copy. */
+        private const val RESUME_LOOK_FRAMES = 2048
+
+        /** How far from where the sink's times put it the next song's frame is looked for after the jump: its encoder delay and a few packets, either way. */
+        private const val RESUME_RADIUS_FRAMES = 4096
 
         /** How long a song's level is held for it after a song change by itself, if the controller never names it. */
         private const val PIN_LIMIT_SECONDS = 1.5

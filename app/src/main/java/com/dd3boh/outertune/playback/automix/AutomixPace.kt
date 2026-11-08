@@ -65,6 +65,22 @@ data class AutomixPace(
     }
 
     /**
+     * Where the end of a change kept as rendered must be held from for it to be heard from its
+     * first frame, [changeLeftMs] before the end, the next song coming in [entrySeconds] into it:
+     * as [armFromMs], with no work on the held end and nothing to render, only the hold, the kept
+     * change's few ms and the skip to the next song's entry. Held later, it is joined part-way.
+     */
+    fun keptArmFromMs(changeLeftMs: Long, entrySeconds: Double): Long {
+        val change = changeLeftMs / 1000.0
+        val k = 1 + MARGIN_SHARE
+        val perHeld = k / holdSpeed
+        if (perHeld >= 1) return Long.MAX_VALUE
+        val fixed = AutomixSchedule.KEPT_WORK_MS / 1000.0 + FIXED_S
+        val withSkip = (change + k * entrySeconds / skipSpeed + fixed) / (1 - perHeld)
+        return ceil(withSkip * 1000).toLong()
+    }
+
+    /**
      * The furthest before the song's end, in ms, the first frame of a change [spanMs] long, the
      * next song coming in [entrySeconds] into it, can be and still be held in time ([armFromMs]
      * within [AutomixSchedule.ARM_FROM_LEFT_MAX_MS]); -1 where nowhere is.

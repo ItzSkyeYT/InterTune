@@ -155,6 +155,8 @@ class SinkDriver(
 
     /** A seek, or a song chosen by hand: the renderer flushes the sink and starts again at [toFrame] of [toSong]. */
     fun seek(toSong: Int, toFrame: Int) {
+        // AutomixAudioSink.flush: nothing is being dropped in front of the sink any more.
+        entrySkip?.reset()
         stage.rendererFlushing = true
         try {
             pipeline.flush()

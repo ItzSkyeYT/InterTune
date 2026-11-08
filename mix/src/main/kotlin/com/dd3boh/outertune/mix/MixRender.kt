@@ -51,6 +51,22 @@ class RenderedIncoming(
         val i = frame - firstFrame
         return if (i < 0 || i >= frames) 0 else samples[(i * channels + channel).toInt()]
     }
+
+    /**
+     * The same part from output frame [frame] on, where the song as it plays comes in at its own
+     * frame [entry], rising from silence over its first [rise] frames: a change joined part-way,
+     * after a jump into it, which the song comes into under way.
+     */
+    fun from(frame: Long, entry: Long, rise: Int = 0): RenderedIncoming {
+        val skip = (frame - firstFrame).coerceIn(0, frames.toLong()).toInt()
+        val rest = samples.copyOfRange(skip * channels, frames * channels)
+        val n = rest.size / channels
+        for (k in 0 until min(rise, n)) {
+            val g = (k + 1).toDouble() / rise
+            for (c in 0 until channels) rest[k * channels + c] = toPcm16(rest[k * channels + c] * g)
+        }
+        return RenderedIncoming(frame, n, channels, rest, copy, attenuation, beatFrames, entry)
+    }
 }
 
 /**

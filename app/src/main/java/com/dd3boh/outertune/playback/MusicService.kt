@@ -6376,7 +6376,7 @@ class MusicService : MediaLibraryService(),
      *         --es mixtrial "'play <id> <id>'"
      *
      * `play` plays those songs as the queue of a Mix playlist, `end <ms>` goes to that long before
-     * the end of the song playing, `pause` pauses, `windows <id> <id>` reads and keeps the pair's
+     * the end of the song playing, `at <ms>` to that far into it, `pause` pauses, `windows <id> <id>` reads and keeps the pair's
      * end and opening as the Mix editor does, and `keep <id> <id>` keeps its saved change as
      * rendered too (KeptChanges), as the editor does on opening the pair. `queue` plays them as the same playlist's queue
      * without touching its Mix switch, which `mix on` and `mix off` set; `crossfade on` and
@@ -6413,6 +6413,7 @@ class MusicService : MediaLibraryService(),
                     val duration = exoPlayer.duration
                     if (duration > 0) exoPlayer.seekTo(maxOf(0L, duration - left))
                 }
+                "at" -> words.getOrNull(1)?.toLongOrNull()?.let { exoPlayer.seekTo(it.coerceAtLeast(0L)) }
                 "pause" -> exoPlayer.pause()
                 "windows", "keep" -> {
                     // The editor's own read of the two songs' end and opening, kept where the editor

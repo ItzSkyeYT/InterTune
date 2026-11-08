@@ -358,8 +358,59 @@ class MixPlan(
      * differs) only from here, never between two places of it.
      */
     val incomingOwnFrom: Long = Long.MIN_VALUE,
+    /**
+     * Joined part-way, after a jump into the change: the outgoing song is crossed from its held end
+     * as it is into the planned part over this many frames from [aFirstProcessed], since there the
+     * two are not the same music. 0 for a change heard from its start, where they are.
+     */
+    val crossIn: Int = 0,
 ) {
     val isGapless: Boolean get() = style == Style.GAPLESS
+
+    /**
+     * The same change on an end held from [by] frames further on in the outgoing song, the
+     * [tailFrames] held there: every output frame [by] earlier. The incoming song's own frames
+     * ([bEntry], [lockFrom], [lockTo]) do not move.
+     */
+    fun translated(by: Long, tailFrames: Long): MixPlan {
+        val d = -by.toDouble()
+        fun ramps(c: Curve) = Curve(c.initial, c.ramps.map { Ramp(it.start + d, it.end + d, it.from, it.to, it.shape) })
+        fun filters(f: List<FilterMove>) = f.map {
+            FilterMove(it.kind, it.order, it.start - by, it.end - by, it.fadeIn, it.fadeOut, it.sweepFrom + d, it.sweepTo + d, it.fromHz, it.toHz)
+        }
+        return MixPlan(
+            style = style, reason = reason, sampleRate = sampleRate, channels = channels, tailFrames = tailFrames,
+            bStart = bStart - by,
+            aMap = if (aMap.isIdentity) aMap else TimeMap(aMap.rampStart + d, aMap.rampLength, aMap.speed),
+            aFirstProcessed = aFirstProcessed - by, aGone = aGone - by,
+            overlapStart = overlapStart + d, overlapEnd = overlapEnd + d,
+            gainA = ramps(gainA), gainB = ramps(gainB), filtersA = filters(filtersA), filtersB = filters(filtersB),
+            headroom = Headroom(headroom.start - by, headroom.step, headroom.values), incomingLoad = incomingLoad,
+            attenuationA = attenuationA, attenuationB = attenuationB, shapedUntil = shapedUntil - by,
+            lockFrom = lockFrom, lockTo = lockTo, speed = speed, bars = bars, beats = beats,
+            anchors = DoubleArray(anchors.size) { anchors[it] + d },
+            alignedUntil = if (alignedUntil == Long.MAX_VALUE) alignedUntil else alignedUntil - by,
+            bEntry = bEntry,
+            incomingOwnFrom = if (incomingOwnFrom == Long.MIN_VALUE) incomingOwnFrom else incomingOwnFrom - by,
+            crossIn = crossIn,
+        )
+    }
+
+    /**
+     * This change joined part-way, after a jump into it: the outgoing song as it is held until
+     * output frame [join], then crossed into the planned part over [crossIn] frames; the incoming
+     * song in on output frame [songChange], with its own frame [entry] (where it would have been
+     * by then), and [checkFrames] of it handed back for the check that it came in there.
+     */
+    fun joinedAt(join: Long, songChange: Long, entry: Long, crossIn: Int, checkFrames: Long = lockTo): MixPlan = MixPlan(
+        style = style, reason = reason, sampleRate = sampleRate, channels = channels, tailFrames = tailFrames,
+        bStart = songChange, aMap = aMap, aFirstProcessed = join, aGone = aGone,
+        overlapStart = max(overlapStart, join.toDouble()), overlapEnd = max(overlapEnd, join.toDouble()),
+        gainA = gainA, gainB = gainB, filtersA = filtersA, filtersB = filtersB, headroom = headroom, incomingLoad = incomingLoad,
+        attenuationA = attenuationA, attenuationB = attenuationB, shapedUntil = max(shapedUntil, songChange),
+        lockFrom = 0, lockTo = checkFrames, speed = speed, bars = bars, beats = beats, anchors = anchors,
+        alignedUntil = alignedUntil, bEntry = entry, incomingOwnFrom = incomingOwnFrom, crossIn = crossIn,
+    )
 
     /** The first output frame where anything differs from today's gapless change. */
     val firstChange: Long get() = min(aFirstProcessed, bStart)

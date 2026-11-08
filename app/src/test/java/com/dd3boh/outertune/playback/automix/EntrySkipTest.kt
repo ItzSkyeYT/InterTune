@@ -141,6 +141,39 @@ class EntrySkipTest {
     }
 
     @Test
+    fun `while the change has not said where the song comes in, its first buffer waits and the held end drains on`() {
+        // A jump into a kept change (8 Nov 2026): the end is held before the change is found in it.
+        val stage = Stage(com.dd3boh.outertune.mix.HeldTail.ENTRY_WAIT)
+        val sink = Sink()
+        val skip = EntrySkip(stage)
+        skip.configured(format)
+        val b = buffer(0, 4096)
+        repeat(3) { assertFalse(skip.handle(b, 0) { x, t -> sink.handle(x, t) }) }
+        // Nothing of the song went in, the sink was given an empty buffer each time, at its first frame's time.
+        assertTrue(sink.frames.isEmpty())
+        assertEquals(listOf(0L, 0L, 0L), sink.emptyTimes)
+        assertEquals(4096 * 4, b.remaining())
+        // Said: from its frame 3000, the same buffer dropped to it, at the entry's time.
+        stage.entry = 3000
+        assertTrue(skip.handle(b, 0) { x, t -> sink.handle(x, t) })
+        assertEquals(3000, sink.frames[0].toInt())
+        assertEquals(listOf(us(3000)), sink.times)
+        assertEquals(3000L, stage.tookFrames)
+
+        // Given up meanwhile: from its first frame.
+        val given = Stage(com.dd3boh.outertune.mix.HeldTail.ENTRY_WAIT)
+        val other = Sink()
+        val skip2 = EntrySkip(given)
+        skip2.configured(format)
+        val c = buffer(0, 512)
+        assertFalse(skip2.handle(c, 0) { x, t -> other.handle(x, t) })
+        given.entry = 0
+        assertTrue(skip2.handle(c, 0) { x, t -> other.handle(x, t) })
+        assertEquals(0, other.frames[0].toInt())
+        assertEquals(listOf(0L), other.times)
+    }
+
+    @Test
     fun `nothing is dropped from a song coming in from its first frame, or after a flush`() {
         val stage = Stage(0)
         val sink = Sink()

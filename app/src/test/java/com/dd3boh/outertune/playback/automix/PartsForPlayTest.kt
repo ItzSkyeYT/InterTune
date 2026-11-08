@@ -44,7 +44,7 @@ class PartsForPlayTest {
         assertTrue("a change saved on bands plays on parts too", "val spec = if (parts != null) Presets.onParts(saved) else Presets.onBands(saved)" in controller)
         assertTrue("LaneMixer(p).render(ring, copy, attenuationA, attenuationB, parts?.first, parts?.second)" in controller)
         assertTrue("val played = onParts ?: render" in controller)
-        assertTrue("stage.offer(held, played.heldPlan(), played.outgoing, played.incoming, replaces = true)" in controller)
+        assertTrue("stage.offer(held, played.heldPlan(), played.outgoing, played.incoming, replaces = true, ring = ring)" in controller)
     }
 
     @Test

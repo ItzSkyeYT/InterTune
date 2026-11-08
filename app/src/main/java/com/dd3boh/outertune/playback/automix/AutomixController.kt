@@ -409,6 +409,30 @@ class AutomixController(
         @Volatile var crossfaded = false
 
         /**
+         * The saved change is kept as rendered for the pair (KeptChanges), as read with the opening:
+         * it needs no work once the end is held, so the end may be held later than Auto's window,
+         * and a change whose start has gone by (a jump close to it or into it) is joined part-way.
+         */
+        var keptFound = false
+
+        /** That change, read from its file as the end begins to be held, or before a jump. Set on the main thread or the worker. */
+        @Volatile var kept: StoredChange? = null
+        var keptReading: Job? = null
+
+        /** The change it was last tried for as kept, as written, so the change on bands does not try it again. Worker only. */
+        @Volatile var keptTried: String? = null
+
+        /** The saved change's first frame, this far before the end of the song, and the next song's entry, in seconds into it; -1 for none. */
+        var changeLeftMs = -1L
+        var entrySeconds = 0.0
+
+        /** Held too late for the kept change to be heard whole: joined part-way, the next song coming in where the change says. Main thread. */
+        var entryOpen = false
+
+        /** Its change is being worked out on the worker: a jump leaves that worker to finish it alone. */
+        @Volatile var planning = false
+
+        /**
          * This change started over after a seek, with everything read with the opening: the
          * opening, its copy and the songs' beats read whole, the saved change and whether it is the
          * debug app's trial, the queue's shuffle as it was read, and how early the end is held.
@@ -425,6 +449,10 @@ class AutomixController(
             it.gridA = gridA
             it.gridB = gridB
             it.armFromMs = armFromMs
+            it.keptFound = keptFound
+            it.kept = kept
+            it.changeLeftMs = changeLeftMs
+            it.entrySeconds = entrySeconds
         }
     }
 
@@ -451,9 +479,18 @@ class AutomixController(
             // minute, to hear the change, is mixed as long as there is time to hold the end and
             // work it out (AutomixSchedule.due).
             stage.cancelArm()
-            mixing = null
+            // A jump inside the next song while the blend plays: the stage may take the blend up
+            // again where it went (HeldTail.resume), and says so when it is done.
+            if (stage.state != HeldTail.State.MIX) mixing = null
             transition?.takeIf { it.armRequested || it.holding }?.let { old ->
                 if (old.holding) say("dropped: a seek")
+                // Nothing worked out for the end let go is handed to the stage, and a ring made for
+                // it is never taken, so it cannot be mistaken for the change started over; whatever
+                // is still being worked out for it does not hold that one up: the worker it runs on
+                // is left to finish it alone.
+                old.abandoned.set(true)
+                stage.withdrawArmsBefore(old.id + 1)
+                if (old.planning) stopWork()
                 transition = old.startedOver(nextTransitionId++)
             }
         }
@@ -596,11 +633,11 @@ class AutomixController(
             }
             // Conditions can change (a sleep timer cancelled, skip silence turned off), and each
             // is looked at again when its event comes; nothing ticks for a change that cannot be.
-            return later(AutomixSchedule.nextLookMs(left, player.playbackParameters.speed, t.armFromMs))
+            return later(AutomixSchedule.nextLookMs(left, player.playbackParameters.speed, t.armFromMs, holdUntil(t)))
         }
         t.refusal = null
         val b = t.b!!
-        when (AutomixSchedule.due(left, t.armFromMs)) {
+        when (AutomixSchedule.due(left, t.armFromMs, holdUntil(t))) {
             AutomixSchedule.Step.WAIT -> Unit
             AutomixSchedule.Step.READ -> readHead(t, b, way)
             AutomixSchedule.Step.ARM -> {
@@ -623,8 +660,19 @@ class AutomixController(
                 say("not $doing ${t.a.id} into ${b.id}: $what")
             }
         }
-        if (!t.armRequested) later(AutomixSchedule.nextLookMs(left, player.playbackParameters.speed, t.armFromMs))
+        if (!t.armRequested) later(AutomixSchedule.nextLookMs(left, player.playbackParameters.speed, t.armFromMs, holdUntil(t)))
     }
+
+    /**
+     * How late the end may still be held for [t], in ms before the song's end: a saved change kept
+     * as rendered needs no work once held, and is joined part-way where its start has gone by.
+     */
+    private fun holdUntil(t: Transition): Long =
+        if (keptFirst(t)) AutomixSchedule.KEPT_UNTIL_LEFT_MS else AutomixSchedule.ARM_UNTIL_LEFT_MS
+
+    /** Whether [t]'s change is played as kept before anything is worked out: the listener's saved change, kept as rendered, on bands or parts. */
+    private fun keptFirst(t: Transition): Boolean =
+        t.keptFound && keptChanges != null && lanes && way().auto && t.saved?.plain == false && !t.trial && !t.shuffled
 
     /** Whether the player was last asked to load on ([loadAhead]), so each change is said once. */
     private var loadingAhead = false
@@ -648,6 +696,8 @@ class AutomixController(
                 t.armFromMs, duration - player.currentPosition,
                 loaded = AutomixSchedule.loaded(duration, player.currentPosition, player.bufferedPosition, player.totalBufferedDuration),
                 armRequested = t.armRequested,
+                holdUntilMs = holdUntil(t),
+                saved = true,
             )
         if (want && !loadingAhead) say("loading on for the change of ${t.a.id}: " + "this one to %.1f s of %.1f, %.1f s ahead in all".format(
             player.bufferedPosition / 1000.0, duration / 1000.0, player.totalBufferedDuration / 1000.0,
@@ -689,6 +739,10 @@ class AutomixController(
                 }
             }
             val listeners = if (bands && !shuffled) withContext(Dispatchers.IO) { runCatching { savedChange(aId, b.id) }.getOrNull() } else null
+            // Whether that change is kept as rendered, which lets its end be held later.
+            val keptFor = listeners?.takeIf { !it.plain }?.let { spec ->
+                keptChanges?.let { k -> withContext(Dispatchers.IO) { runCatching { k.keeps(aId, b.id, spec) }.getOrDefault(false) } }
+            } ?: false
             val (gridA, gridB) = wholeSongs?.takeIf { grids }?.let { store ->
                 withContext(Dispatchers.IO) { runCatching { store.get(aId) }.getOrNull() to runCatching { store.get(b.id) }.getOrNull() }
             } ?: (null to null)
@@ -731,6 +785,7 @@ class AutomixController(
                     val trim = if (read.trimmed > 0) ", its encoder delay of ${read.trimmed} frames trimmed" else ""
                     say("opening of ${b.id}: ${describe(head)}, read in ${read.readMs} ms, analysed in ${head.analysisMillis.toLong()} ms$trim")
                     t.trial = saved != null && saved === trial
+                    t.keptFound = keptFor && saved === listeners
                     if (saved != null) savedFor(t, saved)
                     // A song with no grid yet is read whole now, the next one first: its opening is
                     // what a change reads most of. Not for a crossfade, which has no beat to lay.
@@ -829,10 +884,15 @@ class AutomixController(
         val lead = AutomixSchedule.savedLead(saved, duration.toDouble(), pace) ?: return
         val changeLeft = lead.changeLeftMs
         val entrySeconds = lead.entrySeconds
+        t.changeLeftMs = changeLeft
+        t.entrySeconds = entrySeconds
         val whose = if (t.trial) "forced for a trial" else "saved"
         val from = if (entrySeconds > 0) ", the next song in from %.1f s".format(entrySeconds) else ""
-        val need = lead.armFromMs
-        if (!lead.fits) {
+        // Kept as rendered, it needs no work once held: where a render would come too late, the
+        // kept change is still held for.
+        val keptNeed = if (keptFirst(t)) pace.keptArmFromMs(changeLeft, entrySeconds) else Long.MAX_VALUE
+        val need = if (lead.fits || keptNeed > AutomixSchedule.ARM_FROM_LEFT_MAX_MS) lead.armFromMs else keptNeed
+        if (!lead.fits && keptNeed > AutomixSchedule.ARM_FROM_LEFT_MAX_MS) {
             // Never held to be refused late: today's change, said now.
             t.finished = true
             decide(t, AutoChoice.Plain(PlainReason.TOO_FAR))
@@ -842,7 +902,8 @@ class AutomixController(
         }
         t.armFromMs = max(need, AutomixSchedule.ARM_FROM_LEFT_MS)
         say("$whose for ${t.a.id} into ${t.b?.id}: ${saved.label}, it starts " + "%.1f s before the end".format(changeLeft / 1000.0) + from +
-            ", held from " + "%.1f s before it".format(t.armFromMs / 1000.0))
+            ", held from " + "%.1f s before it".format(t.armFromMs / 1000.0) +
+            if (keptFirst(t)) ", kept as rendered: held until %.1f s before it".format(AutomixSchedule.KEPT_UNTIL_LEFT_MS / 1000.0) else "")
     }
 
     /** This phone's pace, as measured on its own changes and kept between starts; the Pixel 5's until then. */
@@ -886,6 +947,12 @@ class AutomixController(
         // The frame the song as it plays comes in on: the change's own entry, whichever song is adjusted.
         t.entryFrames = if (lanes && way().auto) t.saved?.takeIf { !it.plain }?.let { SpecPlan.liveEntryFrames(Presets.onBands(it), rate) } ?: 0L else 0L
         val entry = t.entryFrames
+        // Held too late for a change kept as rendered to be heard from its start (a jump close to it
+        // or into it): it is joined where it can still be heard, and where the next song comes in is
+        // the change's to say once it is found in what is held.
+        val open = keptFirst(t) && t.changeLeftMs >= 0 && left < pace.keptArmFromMs(t.changeLeftMs, t.entrySeconds)
+        t.entryOpen = open
+        if (open) say("held late for the kept change of ${t.a.id}, " + "%.1f s before its end: joined where it can still be heard".format(left / 1000.0))
         val ringFrames = AutomixSchedule.ringFrames(rate, max(t.armFromMs, left))
         val work = work() ?: return
         val id = t.id
@@ -896,7 +963,21 @@ class AutomixController(
                 main.post { say("not holding the end of ${t.a.id}: no memory for it") }
                 return@execute
             }
-            stage.requestArm(AutomixAudioProcessor.Arm(id, ring, rate, channels, System.nanoTime(), entry))
+            stage.requestArm(AutomixAudioProcessor.Arm(id, ring, rate, channels, System.nanoTime(), entry, entryOpen = open))
+        }
+        readKept(t)
+    }
+
+    /** The kept change read from its file while the end is held, off the worker, which may be busy. */
+    private fun readKept(t: Transition) {
+        val kept = keptChanges ?: return
+        val b = t.b ?: return
+        if (!keptFirst(t) || t.kept != null || t.keptReading != null) return
+        val a = t.a.id
+        t.keptReading = scope.launch {
+            val read = withContext(Dispatchers.IO) { runCatching { kept.get(a, b.id) }.getOrNull() }
+            t.keptReading = null
+            if (read != null && t.kept == null) t.kept = read
         }
     }
 
@@ -917,6 +998,7 @@ class AutomixController(
         if (!t.holding && !t.armRequested) return
         t.abandoned.set(true)
         stage.cancelArm()
+        stage.withdrawArmsBefore(t.id + 1)
         if (t.holding) stage.requestAbort(t.id, why, beatFrames(t))
         t.holding = false
         t.armRequested = true
@@ -1157,8 +1239,23 @@ class AutomixController(
                 beatRefused = if (t.b?.id in lockFailed) "the next song did not line up with its opening when it last came in on the beat" else null,
             )
         }
+        val kept = keptFirst(t) && !c.soundBeforeMix
+        t.planning = true
         work.execute {
             val started = SystemClock.elapsedRealtime()
+            // The saved change as kept first: no analysis, no render, so it is in time where nothing
+            // else would be (a jump close to it or into it).
+            if (kept) {
+                val played = runCatching { playKept(t, held, ring, frames, levels.now.attenuation, levels.next.attenuation, started) }
+                    .onFailure { Log.w(TAG, "AutoMix: the kept change failed", it) }.getOrDefault(false)
+                if (played) {
+                    t.planning = false
+                    return@execute
+                }
+                // Not as kept: the next song comes in where the change held for brings it in, as
+                // it would have without the kept change, and its frames before are skipped meanwhile.
+                if (t.entryOpen) stage.decideEntry(held, t.entryFrames, ring)
+            }
             val outcome = runCatching {
                 // Its place in the song is known to a buffer or so: enough to count beats and bars, not to lay them.
                 val tail = RegionAnalysis.analyse(FrontEnd.of(ring, held.sampleRate, held.channels, 0, frames.toInt()), RegionKind.TAIL)
@@ -1180,7 +1277,7 @@ class AutomixController(
                 // Given up while it was worked out (a sleep timer set, AutoMix switched off): the
                 // stage would refuse it anyway, so it is not handed over. Nor where the end was held
                 // for the next song to come in at a later bar, which only the change on bands plays.
-                if (!t.abandoned.get() && t.entryFrames == 0L) stage.offer(held, plan, rendered)
+                if (!t.abandoned.get() && t.entryFrames == 0L) stage.offer(held, plan, rendered, ring = ring)
                 // Then Auto's same change on bands, from copies, to take the place of that one if in
                 // time; never for a crossfade.
                 val bands = lanes && !crossfaded
@@ -1196,6 +1293,7 @@ class AutomixController(
                 Planned(plan, onBands, declined = autoPlan?.takeIf { crossfaded }?.reason)
             }
             val workMs = SystemClock.elapsedRealtime() - started
+            t.planning = false
             main.post {
                 val (plan, onBands, declined) = outcome.getOrElse { e ->
                     Log.w(TAG, "AutoMix: planning failed", e)
@@ -1224,6 +1322,67 @@ class AutomixController(
                 say("plan ${plan.describe()}${timesOf(t, plan)}, worked out in $workMs ms$after")
             }
         }
+    }
+
+    /**
+     * The pair's saved change as kept (KeptChanges), handed to the stage before anything is worked
+     * out on the held end: whole, or joined part-way where its start has gone by (his word of 8 Nov
+     * 2026: "that's unacceptable that it drops the transition just cuz i jumped through the
+     * song"), the next song coming in where it would have been. False where it does not play as
+     * kept here, and the change is worked out as before. On the worker.
+     */
+    private fun playKept(t: Transition, held: HeldTail, ring: ShortArray, frames: Long, levelA: Double, levelB: Double, started: Long): Boolean {
+        val saved = t.saved ?: return false
+        val b = t.b ?: return false
+        val copy = t.copy ?: return false
+        val written = KeptChanges.written(saved)
+        t.keptTried = written
+        val stored = t.kept ?: runCatching { keptChanges?.get(t.a.id, b.id) }.getOrNull()?.also { t.kept = it } ?: run {
+            Log.i(TAG, "AutoMix: the kept change could not be read")
+            return false
+        }
+        val rate = held.sampleRate
+        val readMark = stage.readMark
+        val earliest = AutomixSchedule.earliestChange(readMark, rate, AutomixSchedule.KEPT_WORK_MS)
+        // Held late, the next song comes in where it would have been by the time the change is
+        // heard from, and is skipped to there at this phone's pace, a tenth slower to be safe.
+        val entry = if (t.entryOpen) StoredChange.EntryRule.Open(
+            from = readMark + AutomixSchedule.KEPT_WORK_MS * rate / 1000,
+            speed = pace.skipSpeed / (1 + AutomixPace.MARGIN_SHARE),
+            margin = AutomixSchedule.ENTRY_SKIP_MARGIN_MS * rate / 1000,
+        ) else StoredChange.EntryRule.Fixed(t.entryFrames)
+        val check = if (t.entryFrames > 0L) ENTRY_CHECK_FRAMES.toLong() else 0L
+        val play = stored.replayFrom(written, saved, ring, frames, t.tailStartMs.toDouble(), copy, t.copyFrames, earliest, levelA, levelB, entry, check)
+            .getOrElse { e ->
+                Log.i(TAG, "AutoMix: the kept change does not play here: ${e.message}")
+                return false
+            }
+        if (t.abandoned.get()) return true
+        stage.offer(held, play.plan, play.outgoing, play.incoming, ring = ring)
+        val on = if (play.lanePlan.spec.lanes == LaneSet.PARTS) "parts" else "bands"
+        Log.i(TAG, "AutoMix: the saved change plays as kept, on $on" + if (play.joinedAt != null) ", joined part-way" else "")
+        // Kept before it held A's music across the change: kept again with it, from what is held,
+        // so that a jump into the change finds A there next time.
+        if (stored.probes.isEmpty() && play.joinedAt == null) keptChanges?.let { kept ->
+            runCatching { stored.withProbes(ring, frames, play.shift) }.getOrNull()?.takeIf { it.probes.isNotEmpty() }?.let { more ->
+                t.kept = more
+                KeptChanges.scope.launch { if (kept.put(t.a.id, b.id, more)) Log.i(TAG, "AutoMix: the kept change is kept again with the music across it") }
+            }
+        }
+        val workMs = SystemClock.elapsedRealtime() - started
+        main.post {
+            if (t.abandoned.get()) return@post
+            t.plan = play.plan
+            t.entryFrames = play.plan.bEntry
+            decide(t, null)
+            val joined = play.joinedAt?.let { at ->
+                val first = play.lanePlan.mixFrom - play.shift
+                ", joined %.1f s into it after a jump, the next song in from %.1f s".format((at - first).toDouble() / rate, play.plan.bEntry.toDouble() / rate)
+            } ?: ""
+            say("kept, saved: " + play.lanePlan.describe() + ", headroom %.1f dB, peak %.2f".format(play.headroomDb, play.peakAfter) + joined)
+            say("plan ${play.plan.describe()}${timesOf(t, play.plan)}, worked out in $workMs ms")
+        }
+        return true
     }
 
     /**
@@ -1276,14 +1435,14 @@ class AutomixController(
             // Plain saved for these two after the end began to be held: they meet as they would
             // without Mix, as the line now says, not as Auto would mix them.
             if (t.abandoned.get()) return BandsOutcome("on bands, not used: the change was given up")
-            stage.offer(held, MixPlan.gapless(rate, held.channels, frames, attenuationA, attenuationB, "a plain change, saved"), EMPTY_PART, replaces = true)
+            stage.offer(held, MixPlan.gapless(rate, held.channels, frames, attenuationA, attenuationB, "a plain change, saved"), EMPTY_PART, replaces = true, ring = ring)
             return BandsOutcome("on bands: a plain change, saved for these two", auto = AutoChoice.Plain(PlainReason.YOUR_CHOICE))
         }
         latestSaved?.let { saved ->
             // The change as the editor rendered it on Save, where what is held of A and copied of B is
             // the music it was rendered from, to the sample, at the same levels: what was heard in the
             // editor, with no render here. Rendered again below otherwise.
-            keptChanges?.let { kept ->
+            keptChanges?.takeIf { t.keptTried != KeptChanges.written(saved) }?.let { kept ->
                 val replay = runCatching { kept.get(t.a.id, b.id) }.getOrNull()?.replay(
                     KeptChanges.written(saved), saved, ring, frames, t.tailStartMs.toDouble(), copy, t.copyFrames,
                     earliest, attenuationA, attenuationB,
@@ -1292,7 +1451,7 @@ class AutomixController(
                     if (t.abandoned.get()) return BandsOutcome("on bands, not used: the change was given up")
                     val check = if (t.entryFrames > 0L) ENTRY_CHECK_FRAMES.toLong() else 0L
                     val heldPlan = render.heldPlan(check)
-                    stage.offer(held, heldPlan, render.outgoing, render.incoming, replaces = true)
+                    stage.offer(held, heldPlan, render.outgoing, render.incoming, replaces = true, ring = ring)
                     Log.i(TAG, "AutoMix: the saved change plays as kept, on " + if (render.plan.spec.lanes == LaneSet.PARTS) "parts" else "bands")
                     return BandsOutcome(
                         "kept, saved: " + render.plan.describe() + ", headroom %.1f dB, peak %.2f".format(render.headroom.deepestDb, render.peakAfter),
@@ -1338,7 +1497,7 @@ class AutomixController(
                 // A later entry hands its first frames back, for the check that it came in where the copy has it.
                 val check = if (t.entryFrames > 0L) ENTRY_CHECK_FRAMES.toLong() else 0L
                 val heldPlan = render.heldPlan(check)
-                stage.offer(held, heldPlan, render.outgoing, render.incoming, replaces = true)
+                stage.offer(held, heldPlan, render.outgoing, render.incoming, replaces = true, ring = ring)
                 // Played on parts, kept as played: the next time it plays from here, whatever the
                 // editor's own cache (a few pairs) has let go of since (8 Nov 2026: a change heard on
                 // bands because its parts were being made again as it came).
@@ -1356,7 +1515,7 @@ class AutomixController(
             // The end was held for the next song to come in at a later bar, and Auto's change
             // brings it in from its first: the end plays out as it is, the next song from its entry.
             if (t.abandoned.get()) return BandsOutcome("on bands, not used: the change was given up")
-            stage.offer(held, MixPlan.gapless(rate, held.channels, frames, attenuationA, attenuationB, "the change held for cannot play"), EMPTY_PART, replaces = true)
+            stage.offer(held, MixPlan.gapless(rate, held.channels, frames, attenuationA, attenuationB, "the change held for cannot play"), EMPTY_PART, replaces = true, ring = ring)
             return BandsOutcome("on bands: gapless, the next song from its entry$why", auto = AutoChoice.Plain(PlainReason.NO_FIT))
         }
         // Auto on bands. By now the first plan has taken its time: the change may start only past
@@ -1385,7 +1544,7 @@ class AutomixController(
         if (t.abandoned.get()) return BandsOutcome("on bands, not used: the change was given up")
         val render = chosen.render
         if (pick.isPlain || render == null) {
-            stage.offer(held, MixPlan.gapless(rate, held.channels, frames, attenuationA, attenuationB, "Auto: ${pick.describe()}"), EMPTY_PART, replaces = true)
+            stage.offer(held, MixPlan.gapless(rate, held.channels, frames, attenuationA, attenuationB, "Auto: ${pick.describe()}"), EMPTY_PART, replaces = true, ring = ring)
             return BandsOutcome(
                 "on bands: Auto stays gapless, ${pick.describe()}, " + "%d proofs in %.0f ms".format(chosen.proofs, chosen.millis) + why,
                 auto = if (pick.isPlain) AnalysedPlanner.choiceOf(pick) else AutoChoice.Plain(PlainReason.NO_FIT),
@@ -1396,7 +1555,7 @@ class AutomixController(
         // bands were filters.
         val onParts = autoOnParts(t, b, render, ring, frames, copy, rate, attenuationA, attenuationB)
         val played = onParts ?: render
-        stage.offer(held, played.heldPlan(), played.outgoing, played.incoming, replaces = true)
+        stage.offer(held, played.heldPlan(), played.outgoing, played.incoming, replaces = true, ring = ring)
         recentMoves.addFirst(pick.move)
         while (recentMoves.size > 2) recentMoves.removeLast()
         return BandsOutcome(

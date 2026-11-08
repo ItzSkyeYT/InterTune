@@ -7,6 +7,7 @@
 package com.dd3boh.outertune.mix.engine
 
 import com.dd3boh.outertune.mix.Headroom
+import com.dd3boh.outertune.mix.MixPlan
 import com.dd3boh.outertune.mix.RenderedIncoming
 import com.dd3boh.outertune.mix.RenderedOutgoing
 import com.dd3boh.outertune.mix.edit.LaneSet
@@ -16,6 +17,8 @@ import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.io.IOException
 import kotlin.math.abs
+import kotlin.math.ceil
+import kotlin.math.max
 import kotlin.math.roundToLong
 
 /**
@@ -27,6 +30,10 @@ import kotlin.math.roundToLong
  * old render), the anchors and the places it was rendered on, the headroom, and a second of each
  * song's own music ([aProbe], [bProbe]) to find them in what plays. Nothing in it needs the songs'
  * parts any more: a change made on parts plays from here without them.
+ *
+ * Since 8 Nov 2026 also short stretches of A's music across the change and on to its end
+ * ([probes]): after a jump into the change, its start is not in what is held, and A's music is
+ * found by one of those instead, so the change plays on from there ([replayFrom]).
  */
 class StoredChange(
     val spec: String,
@@ -59,7 +66,42 @@ class StoredChange(
     val aProbe: ShortArray,
     val bProbeFrom: Long,
     val bProbe: ShortArray,
+    /** A's music every [PROBE_STEP_MS] after the change's start, [PROBE_MS] each, in A's frames as kept; none in a file kept before them. */
+    val probes: List<Probe> = emptyList(),
 ) {
+
+    /** [samples] of A's music from its frame [from], as kept. */
+    class Probe(val from: Long, val samples: ShortArray)
+
+    /** Where the next song may come in, for a change joined part-way ([replayFrom]). */
+    sealed class EntryRule {
+        /** On its frame [frames], which the end was held for: its frames before are skipped already. */
+        class Fixed(val frames: Long) : EntryRule()
+
+        /**
+         * Wherever the change brings it in: its frames before are skipped from output frame [from]
+         * on, [speed] of them for each frame given out, and done [margin] frames before the change
+         * is first heard.
+         */
+        class Open(val from: Long, val speed: Double, val margin: Long) : EntryRule()
+    }
+
+    /**
+     * The change on the music held, for the stage: [plan] and both songs' parts in the held end's
+     * frames. [joinedAt] is the output frame it is joined on after a jump into it, null where it
+     * plays from its start; [shift] is how much later in A the kept frames count than the held
+     * end's.
+     */
+    class KeptPlay(
+        val plan: MixPlan,
+        val outgoing: RenderedOutgoing,
+        val incoming: RenderedIncoming,
+        val lanePlan: LanePlan,
+        val joinedAt: Long?,
+        val shift: Long,
+        val headroomDb: Double,
+        val peakAfter: Double,
+    )
 
     /**
      * This change for the stage, on A's [held] music (its frame 0 near [heldStartMs] of A, the
@@ -79,10 +121,8 @@ class StoredChange(
         if (abs(levelA / attenuationA - 1) > LEVEL_REACH || abs(levelB / attenuationB - 1) > LEVEL_REACH) {
             return Result.failure(IllegalStateException("a song's level moved since it was rendered"))
         }
-        val guess = aProbeFrom - ((heldStartMs - aStartMs) * rate / 1000.0).roundToLong()
-        val at = find(aProbe, held, heldFrames, channels, guess, SEARCH_MS * rate / 1000)
+        val shift = locate(held, heldFrames, heldStartMs)
             ?: return Result.failure(IllegalStateException("the song playing is not the music it was rendered from"))
-        val shift = aProbeFrom - at
         if (!same(bProbe, copy, copyFrames, channels, bProbeFrom)) {
             return Result.failure(IllegalStateException("the next song is not the music it was rendered from"))
         }
@@ -107,8 +147,134 @@ class StoredChange(
         return Result.success(ChangeRender(plan, outgoing, incoming, headroom, peakBefore, peakAfter, attenuationA, attenuationB, 0.0))
     }
 
+    /**
+     * This change for the stage on A's [held] music and B's [copy], as [replay] finds it, from
+     * wherever it can still be heard: whole where its first frame is at or after [earliest];
+     * joined part-way otherwise, after a jump into it (his word of 8 Nov 2026: "that's
+     * unacceptable that it drops the transition just cuz i jumped through the song"). Joined, A
+     * plays as held until the first frame the change can be heard from, then is crossed into the
+     * change as rendered over [CROSS_IN_MS]; B comes in where it would have been by then, as
+     * [entry] allows, never before the change has been heard from; and the change plays on as
+     * rendered from there. Refused where A's music is not found, B would come in after the end of
+     * what is held, or the next song's frames before its entry cannot be skipped in time.
+     */
+    fun replayFrom(
+        written: String, parsed: TransitionSpec,
+        held: ShortArray, heldFrames: Long, heldStartMs: Double,
+        copy: ShortArray, copyFrames: Int,
+        earliest: Long, levelA: Double, levelB: Double,
+        entry: EntryRule,
+        /** The incoming song's first frames handed back for the check that it came in where planned, where it comes in after its first. */
+        checkFrames: Long = 0,
+    ): Result<KeptPlay> {
+        if (written != spec) return Result.failure(IllegalStateException("the change was written since it was rendered"))
+        if (abs(levelA / attenuationA - 1) > LEVEL_REACH || abs(levelB / attenuationB - 1) > LEVEL_REACH) {
+            return Result.failure(IllegalStateException("a song's level moved since it was rendered"))
+        }
+        val shift = locate(held, heldFrames, heldStartMs)
+            ?: return Result.failure(IllegalStateException("the song playing is not the music it was rendered from"))
+        if (!same(bProbe, copy, copyFrames, channels, bProbeFrom)) {
+            return Result.failure(IllegalStateException("the next song is not the music it was rendered from"))
+        }
+        // Planned again where it was rendered, on the frames as kept, where it starts on music it
+        // was rendered from even when what is held starts after it: what is held runs from frame
+        // [shift] as kept to [shift] + [heldFrames].
+        val facts = ChangeFacts(rate, channels, aBar1, shift + heldFrames, bBar1, copyFrames.toLong(), Long.MIN_VALUE, anchors = anchors, parts = onParts)
+        val rendered = if (onParts) Presets.onParts(parsed) else Presets.onBands(parsed)
+        val lanePlan = when (val r = SpecPlan.plan(rendered, facts)) {
+            is SpecPlan.Result.Planned -> r.plan
+            is SpecPlan.Result.Refused -> return Result.failure(IllegalStateException(r.why))
+        }
+        if (lanePlan.mixFrom != mixFrom || lanePlan.bStart != bStart || lanePlan.mixTo != mixTo) {
+            return Result.failure(IllegalStateException("the change works out elsewhere on the music playing"))
+        }
+        val keptHeadroom = Headroom(headStart, headStep, headValues)
+        val keptRender = ChangeRender(
+            lanePlan,
+            RenderedOutgoing(outFirst, outSamples.size / channels, channels, outSamples, keptHeadroom),
+            RenderedIncoming(inFirst, inSamples.size / channels, channels, inSamples, copy, attenuationB, inBeatFrames, inEntry),
+            keptHeadroom, peakBefore, peakAfter, attenuationA, attenuationB, 0.0,
+        )
+        // In the held end's frames from here on.
+        val whole = keptRender.heldPlan(checkFrames).translated(shift, heldFrames)
+        val headroom = Headroom(headStart - shift, headStep, headValues)
+        val outgoing = RenderedOutgoing(outFirst - shift, outSamples.size / channels, channels, outSamples, headroom)
+        val incoming = RenderedIncoming(inFirst - shift, inSamples.size / channels, channels, inSamples, copy, attenuationB, inBeatFrames, inEntry)
+        val first = mixFrom - shift
+        val songChange = bStart - shift
+        val bEntry = lanePlan.bEntry
+
+        // Whether the next song, in at its frame [e], is skipped to it by output frame [heard].
+        fun skipped(heard: Long, e: Long): Boolean = when (entry) {
+            is EntryRule.Fixed -> true
+            is EntryRule.Open -> e <= 0L || heard >= entry.from + ceil(e / entry.speed).toLong() + entry.margin
+        }
+        if (entry is EntryRule.Fixed && entry.frames != bEntry) {
+            return Result.failure(IllegalStateException("held for the next song from its frame ${entry.frames}, the change brings it in from $bEntry"))
+        }
+        if (first >= earliest && skipped(first, bEntry)) {
+            return Result.success(KeptPlay(whole, outgoing, incoming, lanePlan, null, shift, headroom.deepestDb, peakAfter))
+        }
+
+        // Joined part-way: on the first frame from which it can be heard, A crossed into the change
+        // before B comes in, which the held end does as it drains.
+        val crossIn = max(1, (CROSS_IN_MS * rate / 1000).toInt())
+        var join = max(earliest, first)
+        if (entry is EntryRule.Open && !skipped(join, bEntry)) join = max(join, entry.from + ceil(bEntry / entry.speed).toLong() + entry.margin)
+        var change = songChange
+        if (join + crossIn > songChange) {
+            if (entry !is EntryRule.Open) return Result.failure(IllegalStateException("the next song would come in at another frame than the one held for"))
+            // B comes in where it would have been by then, which is further in the later it is:
+            // the skip to it has to be done by the time anything of the change is heard.
+            if (entry.speed <= 1.0) return Result.failure(IllegalStateException("the next song cannot be skipped to where it would be"))
+            val needed = ceil((entry.from + entry.margin + crossIn + (bEntry - songChange) / entry.speed) / (1.0 - 1.0 / entry.speed)).toLong()
+            change = maxOf(join + crossIn, songChange + 1, needed)
+            join = change - crossIn
+        }
+        val enteredAt = bEntry + (change - songChange)
+        if (change > heldFrames) return Result.failure(IllegalStateException("the next song would come in after the end of what is held"))
+        val check = if (enteredAt > 0L) max(checkFrames, ENTRY_CHECK_FRAMES) else 0L
+        val joined = whole.joinedAt(join, change, enteredAt, crossIn, check)
+        // B's part from where it comes in, rising over the same few ms: it comes in on music under way.
+        val joinedIncoming = if (change == songChange) incoming else incoming.from(change, enteredAt, crossIn)
+        return Result.success(KeptPlay(joined, outgoing, joinedIncoming, lanePlan, join, shift, headroom.deepestDb, peakAfter))
+    }
+
+    /**
+     * Where A's music as kept is in [held] (its frame 0 near [heldStartMs] of A): how much later in
+     * A the kept frames count than [held]'s, or null where it is not found. By the second at the
+     * change's start, where that is held; after a jump into the change, by the first of [probes]
+     * that is surely in what is held, or the next few.
+     */
+    fun locate(held: ShortArray, heldFrames: Long, heldStartMs: Double): Long? {
+        val radius = SEARCH_MS * rate / 1000
+        val clock = ((heldStartMs - aStartMs) * rate / 1000.0).roundToLong()
+        find(aProbe, held, heldFrames, channels, aProbeFrom - clock, radius)?.let { return aProbeFrom - it }
+        // First the stretches the clock puts well inside what is held, then any that may straddle its start.
+        val inside = probes.filter { it.from - clock >= radius && it.from - clock + it.samples.size / channels + radius <= heldFrames }
+        val edge = probes.filter { it.from - clock in 0 until radius && it.from - clock + it.samples.size / channels <= heldFrames }
+        for (p in inside.take(PROBES_TRIED) + edge.take(1)) {
+            find(p.samples, held, heldFrames, channels, p.from - clock, radius)?.let { return p.from - it }
+        }
+        return null
+    }
+
+    /**
+     * The same change with stretches of A's music across it ([probes]) taken from [held], where
+     * the kept frames count [shift] later than [held]'s: for a file kept before they were, once
+     * it has been found whole in what plays.
+     */
+    fun withProbes(held: ShortArray, heldFrames: Long, shift: Long): StoredChange {
+        val cut = probesOf(held, channels, rate, mixFrom - shift, heldFrames).map { Probe(it.from + shift, it.samples) }
+        return StoredChange(
+            spec, onParts, rate, channels, aStartMs, aBar1, bBar1, anchors, attenuationA, attenuationB, mixFrom, bStart, mixTo,
+            outFirst, outSamples, headStart, headStep, headValues, inFirst, inSamples, inEntry, inBeatFrames,
+            peakBefore, peakAfter, aProbeFrom, aProbe, bProbeFrom, bProbe, cut,
+        )
+    }
+
     fun write(out: DataOutputStream) {
-        out.writeInt(MAGIC)
+        out.writeInt(MAGIC_PROBES)
         out.writeUTF(spec.take(60_000))
         out.writeBoolean(onParts)
         out.writeInt(rate); out.writeInt(channels)
@@ -122,10 +288,22 @@ class StoredChange(
         out.writeDouble(peakBefore); out.writeDouble(peakAfter)
         out.writeLong(aProbeFrom); shorts(out, aProbe)
         out.writeLong(bProbeFrom); shorts(out, bProbe)
+        out.writeInt(probes.size)
+        for (p in probes) {
+            out.writeLong(p.from)
+            shorts(out, p.samples)
+        }
     }
 
+    /** What a kept file says of itself in its first bytes: the change it was rendered for, whether on parts, and whether it holds [probes]. */
+    class Head(val spec: String, val onParts: Boolean, val probes: Boolean)
+
     companion object {
-        private const val MAGIC = 0x4D584331 // "MXC1"
+        /** "MXC1": a file kept before [probes]. */
+        private const val MAGIC = 0x4D584331
+
+        /** "MXC2": with them. */
+        private const val MAGIC_PROBES = 0x4D584332
 
         /**
          * How far either side of the clock's guess A's music is looked for: the clock counts what is
@@ -133,6 +311,22 @@ class StoredChange(
          * 2026: on a WH-1000XM5 every kept change missed at 250 ms).
          */
         internal const val SEARCH_MS = 2_000
+
+        /** A stretch of A's music to find it by after a jump into the change, every so often across it. */
+        const val PROBE_MS = 200
+        const val PROBE_STEP_MS = 1_000
+
+        /** How many stretches are looked for before A's music is taken for other music. */
+        private const val PROBES_TRIED = 4
+
+        /** At most this many stretches kept: two and a half minutes of them. */
+        private const val PROBES_MAX = 150
+
+        /** Joined part-way, A crosses from its held end into the change as rendered over this long. */
+        const val CROSS_IN_MS = 30
+
+        /** The incoming song's first frames handed back for the check where it comes in after its first. */
+        private const val ENTRY_CHECK_FRAMES = 8192L
 
         /** How far a song's level may have moved, as a ratio: about half a dB. */
         private const val LEVEL_REACH = 0.06
@@ -142,7 +336,8 @@ class StoredChange(
 
         /**
          * The change [render] made from A's music [a] (frame 0 at [aStartMs] of A) and B's copy [b]
-         * from its first frame, for [spec] written as [written], kept with a second of each song.
+         * from its first frame, for [spec] written as [written], kept with a second of each song
+         * and stretches of A across the change and on to the end of [a].
          */
         fun of(written: String, render: ChangeRender, a: ShortArray, aStartMs: Double, b: ShortArray): StoredChange {
             val plan = render.plan
@@ -164,7 +359,27 @@ class StoredChange(
                 inEntry = render.incoming.entry, inBeatFrames = render.incoming.beatFrames,
                 peakBefore = render.peakBefore, peakAfter = render.peakAfter,
                 aProbeFrom = aFrom, aProbe = cut(a, aFrom), bProbeFrom = bFrom, bProbe = cut(b, bFrom),
+                probes = probesOf(a, ch, rate, plan.mixFrom, minOf(plan.facts.aFrames, (a.size / ch).toLong())),
             )
+        }
+
+        /**
+         * Stretches of [music] (its first [frames]) to find it by, every [PROBE_STEP_MS] from a
+         * step after [from] to its end, where it sounds.
+         */
+        private fun probesOf(music: ShortArray, channels: Int, rate: Int, from: Long, frames: Long): List<Probe> {
+            val step = rate.toLong() * PROBE_STEP_MS / 1000
+            val length = rate.toLong() * PROBE_MS / 1000
+            val last = minOf(frames, (music.size / channels).toLong()) - length
+            val out = ArrayList<Probe>()
+            var at = max(0L, from + step)
+            while (at <= last && out.size < PROBES_MAX) {
+                if (meanLevel(music, channels, at, length) >= AUDIBLE) {
+                    out += Probe(at, music.copyOfRange((at * channels).toInt(), ((at + length) * channels).toInt()))
+                }
+                at += step
+            }
+            return out
         }
 
         /**
@@ -200,15 +415,20 @@ class StoredChange(
         /** A mean sample this loud or louder is music to look for: about -45 dB of full scale. */
         private const val AUDIBLE = 180.0
 
-        /** The change a kept file was rendered for and whether on parts, read from its head alone; null where it is not one. */
-        fun headOf(input: DataInputStream): Pair<String, Boolean>? = try {
-            if (input.readInt() != MAGIC) null else input.readUTF() to input.readBoolean()
+        /** What a kept file says of itself, read from its head alone; null where it is not one. */
+        fun headOf(input: DataInputStream): Head? = try {
+            when (input.readInt()) {
+                MAGIC -> Head(input.readUTF(), input.readBoolean(), probes = false)
+                MAGIC_PROBES -> Head(input.readUTF(), input.readBoolean(), probes = true)
+                else -> null
+            }
         } catch (_: IOException) {
             null
         }
 
         fun read(input: DataInputStream): StoredChange? = try {
-            if (input.readInt() != MAGIC) throw IOException("not a kept change")
+            val magic = input.readInt()
+            if (magic != MAGIC && magic != MAGIC_PROBES) throw IOException("not a kept change")
             val spec = input.readUTF()
             val onParts = input.readBoolean()
             val rate = input.readInt(); val channels = input.readInt()
@@ -224,10 +444,15 @@ class StoredChange(
             val peakBefore = input.readDouble(); val peakAfter = input.readDouble()
             val aProbeFrom = input.readLong(); val aProbe = shorts(input)
             val bProbeFrom = input.readLong(); val bProbe = shorts(input)
+            val probes = if (magic != MAGIC_PROBES) emptyList() else {
+                val count = input.readInt()
+                if (count !in 0..PROBES_MAX) throw IOException("$count stretches")
+                List(count) { Probe(input.readLong(), shorts(input)) }
+            }
             StoredChange(
                 spec, onParts, rate, channels, aStartMs, aBar1, bBar1, anchors, attA, attB, mixFrom, bStart, mixTo,
                 outFirst, outSamples, headStart, headStep, headValues, inFirst, inSamples, inEntry, inBeat,
-                peakBefore, peakAfter, aProbeFrom, aProbe, bProbeFrom, bProbe,
+                peakBefore, peakAfter, aProbeFrom, aProbe, bProbeFrom, bProbe, probes,
             )
         } catch (_: IOException) {
             null

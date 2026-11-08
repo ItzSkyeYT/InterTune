@@ -45,10 +45,13 @@ class AutomixAudioSink(sink: AudioSink, private val stage: AutomixAudioProcessor
         entrySkip.configured(inputFormat)
     }
 
-    override fun handleBuffer(buffer: ByteBuffer, presentationTimeUs: Long, encodedAccessUnitCount: Int): Boolean {
-        stage.sinkInput(presentationTimeUs)
-        return entrySkip.handle(buffer, presentationTimeUs) { b, t -> super.handleBuffer(b, t, if (b.hasRemaining()) encodedAccessUnitCount else 0) }
-    }
+    override fun handleBuffer(buffer: ByteBuffer, presentationTimeUs: Long, encodedAccessUnitCount: Int): Boolean =
+        // The time the sink is handed, the entry's for a song brought in at a bar: the stage counts
+        // where a jump inside the next song went from it.
+        entrySkip.handle(buffer, presentationTimeUs) { b, t ->
+            stage.sinkInput(t)
+            super.handleBuffer(b, t, if (b.hasRemaining()) encodedAccessUnitCount else 0)
+        }
 
     override fun getCurrentPositionUs(sourceEnded: Boolean): Long =
         super.getCurrentPositionUs(sourceEnded).also {
