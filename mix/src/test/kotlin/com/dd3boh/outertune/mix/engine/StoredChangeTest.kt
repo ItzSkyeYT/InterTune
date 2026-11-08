@@ -115,7 +115,10 @@ class StoredChangeTest {
         val other = Synth.song(SynthSpec(bpm = 120.0, bars = 24, seed = 43)).samples
         assertTrue("another A", replay(held = other).isFailure)
         assertTrue("another B", replay(copy = other).isFailure)
-        assertTrue("A's music too far from where the clock says", replay(held = a.copyOfRange(rate * channels, a.size)).isFailure)
+        assertTrue("A's music too far from where the clock says", replay(held = a.copyOfRange(3 * rate * channels, a.size)).isFailure)
+        // Bluetooth: heard 400 ms after it is held, still found (8 Nov 2026).
+        val late = (0.4 * rate).toInt()
+        assertTrue("a clock 400 ms behind the music held", replay(held = a.copyOfRange(late * channels, a.size)).isSuccess)
         assertTrue("it would start before what has gone out", replay(earliest = frames).isFailure)
     }
 

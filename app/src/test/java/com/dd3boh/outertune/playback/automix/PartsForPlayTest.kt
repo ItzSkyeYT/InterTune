@@ -57,6 +57,18 @@ class PartsForPlayTest {
     }
 
     @Test
+    fun `music heard on Bluetooth, a few hundred ms after it was held, is still found`() {
+        // 8 Nov 2026: on a WH-1000XM5 the parts never lined up while the search reached 250 ms.
+        val frames = 6 * rate
+        val radius = PartsForPlay.SEARCH_MS * rate / 1000
+        for (lateMs in listOf(400, -400, 900)) {
+            val truth = 300_000
+            val guess = truth - lateMs * rate / 1000L
+            assertEquals("$lateMs ms", truth.toLong(), PartsForPlay.find(window, musicFrom(truth, frames), frames, channels, guess, radius))
+        }
+    }
+
+    @Test
     fun `a decoder's rounding is let through, other music is not`() {
         val frames = 6 * rate
         val rounded = musicFrom(200_000, frames).also { m -> for (i in m.indices step 7) m[i] = (m[i] + 1).toShort() }

@@ -25,8 +25,12 @@ import kotlin.math.roundToLong
  */
 internal object PartsForPlay {
 
-    /** How far either side of the clock's guess the music is looked for. */
-    private const val SEARCH_MS = 250
+    /**
+     * How far either side of the clock's guess the music is looked for: the clock counts what is
+     * heard, and Bluetooth headphones hear it a few hundred ms after the stage held it (8 Nov 2026:
+     * on a WH-1000XM5 the parts never lined up at 250 ms).
+     */
+    internal const val SEARCH_MS = 2_000
 
     /** Samples compared before an offset is believed, and how far one may stray (decoders round alike, not always to the bit). */
     private const val PROBE = 512
@@ -46,7 +50,11 @@ internal object PartsForPlay {
         val parts = PartsStore(File(cacheDir, "mix")).map(id, end, info.frames * channels) ?: return null
         val window = PcmWindow.map(pcmFile, info)
         val guess = ((startMs - info.startMs) * rate / 1000.0).roundToLong()
-        val offset = find(window, music, frames, channels, guess, SEARCH_MS * rate / 1000) ?: return null
+        val offset = find(window, music, frames, channels, guess, SEARCH_MS * rate / 1000) ?: run {
+            android.util.Log.i("AutoMix", "AutoMix: the parts of $end of $id: the music held is not found within ${SEARCH_MS} ms of the clock")
+            return null
+        }
+        android.util.Log.i("AutoMix", "AutoMix: the parts of $end of $id line up, " + "%.0f ms from the clock".format(java.util.Locale.ROOT, (offset - guess) * 1000.0 / rate))
         if (offset < 0 || offset + frames > info.frames) return null
         return parts.map { slice(it, offset, frames, channels) }
     }

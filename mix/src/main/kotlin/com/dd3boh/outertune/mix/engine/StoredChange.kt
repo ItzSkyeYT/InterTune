@@ -127,8 +127,12 @@ class StoredChange(
     companion object {
         private const val MAGIC = 0x4D584331 // "MXC1"
 
-        /** How far either side of the clock's guess A's music is looked for. */
-        private const val SEARCH_MS = 250
+        /**
+         * How far either side of the clock's guess A's music is looked for: the clock counts what is
+         * heard, and Bluetooth headphones hear it a few hundred ms after the stage held it (8 Nov
+         * 2026: on a WH-1000XM5 every kept change missed at 250 ms).
+         */
+        internal const val SEARCH_MS = 2_000
 
         /** How far a song's level may have moved, as a ratio: about half a dB. */
         private const val LEVEL_REACH = 0.06
