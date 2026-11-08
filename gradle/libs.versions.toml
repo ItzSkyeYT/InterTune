@@ -54,6 +54,8 @@ glance-material3 = { group = "androidx.glance", name = "glance-material3", versi
 adaptive = { module = "androidx.compose.material3.adaptive:adaptive", version.ref = "adaptive" }
 material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
 palette = { group = "androidx.palette", name = "palette", version = "1.0.0" }
+# The covers' shapes while a change plays as a mix: Material's cookie and the morph into it. The version Wear's material3 takes.
+graphics-shapes = { group = "androidx.graphics", name = "graphics-shapes", version = "1.0.1" }
 
 # viewmodel
 viewmodel = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-ktx", version.ref = "lifecycle" }

@@ -90,6 +90,8 @@ class AutomixHeldBackTest {
                 "ui/screens/settings/fragments/PlayerFrag.kt",
                 "ui/screens/settings/fragments/DeveloperFrag.kt",
                 "playback/MusicService.kt",
+                // The player while a change plays as a mix (MixPlayerHeldBackTest).
+                "ui/player/MixPlayer.kt",
             ),
             readers,
         )

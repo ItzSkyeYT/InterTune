@@ -42,7 +42,9 @@ class PlaybackOrderTest {
             assertTrue(thing, thing in block)
         }
         val bar = File(player, "Player.kt").readText().substringAfter("private fun SeekBar(").substringBefore("\n}\n")
-        for (thing in listOf("Slider(", "makeTimeString(shown)", "makeTimeString(duration)")) {
+        // The two times are the bar's: the song playing, or while a change plays as a mix the
+        // outgoing song until the incoming one takes over (MixLook.bar).
+        for (thing in listOf("Slider(", "makeTimeString(bar.at)", "makeTimeString(bar.length)")) {
             assertTrue(thing, thing in bar)
         }
         // Previous is drawn before next, which is left of it once the order is left to right.

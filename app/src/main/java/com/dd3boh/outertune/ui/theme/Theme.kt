@@ -24,6 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.SaverScope
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
@@ -48,31 +49,12 @@ fun OuterTuneTheme(
     content: @Composable () -> Unit,
 ) {
     val colorScheme = remember(darkTheme, pureBlack, themeColor) {
-       if (themeColor == DefaultThemeColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val systemTheme = if (darkTheme) {
-                dynamicDarkColorScheme(context).pureBlack(pureBlack)
-            } else {
-                dynamicLightColorScheme(context)
-            }
-
-
-            // when high contrast mode Android collapses all accent colours into (more or less) one shade. We use
-            // secondaryContainer and onSecondaryContainer weirdly in several places in terms of theming so just replace
-            // those with shades that make sense
-            if (highContrastCompat) {
-                systemTheme.copy(
-                    secondaryContainer = systemTheme.surfaceContainerHigh,
-                    onSecondaryContainer = systemTheme.secondary,
-                )
-            } else {
-                systemTheme
-            }
-        } else {
-            val source = Hct.fromInt(themeColor.toArgb())
-            (if (Unreleased.COVER_ACCENT) CoverAccent.scheme(source, darkTheme) else SchemeTonalSpot(source, darkTheme, 0.0))
-                .toColorScheme()
-                .pureBlack(darkTheme && pureBlack)
-        }
+        themeColours(context, darkTheme, pureBlack, highContrastCompat, themeColor)
+    }
+    // What any cover would make the theme now, for the player while a change plays as a mix: its
+    // colours turn from the outgoing cover's to the incoming one's (MixScreen).
+    val coverColours = remember(context, darkTheme, pureBlack, highContrastCompat) {
+        { color: Color -> themeColours(context, darkTheme, pureBlack, highContrastCompat, color) }
     }
 
     MaterialTheme(
@@ -84,10 +66,45 @@ fun OuterTuneTheme(
         // never gives these controls focus in the first place.
         CompositionLocalProvider(
             LocalRippleConfiguration provides RippleConfiguration(rippleAlpha = KeyFocusRippleAlpha),
+            LocalCoverColours provides coverColours,
             content = content,
         )
     }
 }
+
+/** The theme's colours for [themeColor], the colour taken from the cover playing, or the default one. */
+private fun themeColours(context: Context, darkTheme: Boolean, pureBlack: Boolean, highContrastCompat: Boolean, themeColor: Color): ColorScheme =
+    if (themeColor == DefaultThemeColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        val systemTheme = if (darkTheme) {
+            dynamicDarkColorScheme(context).pureBlack(pureBlack)
+        } else {
+            dynamicLightColorScheme(context)
+        }
+
+
+        // when high contrast mode Android collapses all accent colours into (more or less) one shade. We use
+        // secondaryContainer and onSecondaryContainer weirdly in several places in terms of theming so just replace
+        // those with shades that make sense
+        if (highContrastCompat) {
+            systemTheme.copy(
+                secondaryContainer = systemTheme.surfaceContainerHigh,
+                onSecondaryContainer = systemTheme.secondary,
+            )
+        } else {
+            systemTheme
+        }
+    } else {
+        val source = Hct.fromInt(themeColor.toArgb())
+        (if (Unreleased.COVER_ACCENT) CoverAccent.scheme(source, darkTheme) else SchemeTonalSpot(source, darkTheme, 0.0))
+            .toColorScheme()
+            .pureBlack(darkTheme && pureBlack)
+    }
+
+/**
+ * The theme's colours for a cover's colour, as the theme makes them now (dark or light, pure
+ * black, high contrast): what the app would look like with that cover playing. Null outside the theme.
+ */
+val LocalCoverColours = staticCompositionLocalOf<((Color) -> ColorScheme)?> { null }
 
 /** Material's own ripple alphas, with the focused state raised from 0.1 to stand out under a D-pad. */
 private val KeyFocusRippleAlpha = RippleAlpha(

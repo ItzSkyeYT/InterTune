@@ -261,7 +261,11 @@ import com.dd3boh.outertune.utils.makeTimeString
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.rememberNullablePreference
 import com.dd3boh.outertune.utils.rememberPreference
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.unit.IntSize
+import android.content.Context
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import kotlin.math.max
@@ -269,13 +273,30 @@ import kotlin.math.max
 /** The repeat button off: the repeat icon at this strength, as the media notification draws it (his word, 5 Nov 2026). */
 internal const val REPEAT_OFF_ALPHA = 0.4f
 
-@SuppressLint("UnusedBoxWithConstraintsScope")
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
 fun BottomSheetPlayer(
     state: BottomSheetState,
     navController: NavController,
     modifier: Modifier = Modifier,
+) {
+    val playerConnection = LocalPlayerConnection.current ?: return
+    // A change that plays as a mix (MixScreen): both covers, the words on the outgoing song until
+    // the incoming one takes over, the colours turning with the music. Null without AutoMix.
+    val lyricsShown = rememberPreference(ShowLyricsKey, defaultValue = false)
+    val mix = rememberMixScreen(playerConnection, lyricsShown) { !state.isCollapsed && !state.isDismissed }
+    MixColours(mix) {
+        PlayerSheet(state, navController, modifier, mix)
+    }
+}
+
+@SuppressLint("UnusedBoxWithConstraintsScope")
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
+@Composable
+private fun PlayerSheet(
+    state: BottomSheetState,
+    navController: NavController,
+    modifier: Modifier,
+    mix: MixScreen?,
 ) {
     val TAG = "BottomSheetPlayer"
     Log.v(TAG, "PLR-1")
@@ -301,6 +322,18 @@ fun BottomSheetPlayer(
     val repeatMode by playerConnection.repeatMode.collectAsState()
     val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
     val currentSong by playerConnection.currentSong.collectAsState(initial = null)
+
+    // While a change plays as a mix the title, the like and share buttons and the seek bar are the
+    // outgoing song's until the incoming one takes over (MixScreen); the song playing otherwise.
+    val outgoingShown = mix?.takeIf { it.showsOutgoing }?.target?.outgoing
+    val shownMetadata = outgoingShown ?: mediaMetadata
+    val outgoingSong by remember(outgoingShown?.id) {
+        outgoingShown?.let { database.song(it.id) } ?: flowOf(null)
+    }.collectAsState(initial = null)
+    val likedShown = if (outgoingShown != null) outgoingSong?.song?.liked == true else currentSong?.song?.liked == true
+    val toggleLikeShown: () -> Unit = {
+        if (outgoingShown != null) playerConnection.service.toggleLike(outgoingShown.id) else playerConnection.toggleLike()
+    }
 
     val canSkipPrevious by playerConnection.canSkipPrevious.collectAsState()
     val canSkipNext by playerConnection.canSkipNext.collectAsState()
@@ -789,11 +822,13 @@ fun BottomSheetPlayer(
                 val artworkAlpha = lerp(1f, 0.5f, glassT)
                 val gradientAlpha = lerp(0.8f, 0.4f, glassT)
                 val blurRadius = lerp(if (useDarkTheme) 150f else 100f, 100f, glassT).dp
+                // A change playing as a mix, while the screen shows it (MixScreen).
+                val mixShown = mix?.takeIf { it.active }?.target
                 if (effectivePlayerBackground == PlayerBackgroundStyle.LIVING) {
                     // Not inside the AnimatedContent below: it turns one cover's colours into the
                     // next one's by itself, and a crossfade would restart its motion at every song.
                     LivingBackground(
-                        cover = mediaMetadata?.getThumbnailModel(100, 100),
+                        cover = (mixShown?.outgoing ?: mediaMetadata)?.getThumbnailModel(100, 100),
                         tap = playerConnection.service.levelTap,
                         playing = isPlaying,
                         onScreen = !state.isCollapsed && !state.isDismissed,
@@ -804,7 +839,11 @@ fun BottomSheetPlayer(
                         // its own, not a modifier's: that one costs a buffer the size of the
                         // screen at every redraw
                         alpha = artworkAlpha,
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier.fillMaxSize(),
+                        // While a change plays as a mix, from the outgoing cover's colours to the
+                        // incoming one's with the music.
+                        blendCover = mixShown?.incoming?.getThumbnailModel(100, 100),
+                        blend = { mix?.livingShare ?: 0f },
                     )
                     Box(
                         modifier = Modifier
@@ -822,19 +861,10 @@ fun BottomSheetPlayer(
                     if (effectivePlayerBackground == PlayerBackgroundStyle.BLUR) {
                         Log.v(TAG, "PLR-2.2a")
                         // Blurred once, on the thumbnail (CoverBlur), and no longer by the GPU on
-                        // every frame the window draws. Its spread is the GPU blur's sigma (Skia's
-                        // 0.57735 r + 0.5) as a share of the window it is stretched over.
+                        // every frame the window draws (blurredCover).
                         val window = LocalWindowInfo.current.containerSize
-                        val sigma = with(LocalDensity.current) { blurRadius.toPx() } * 0.57735f + 0.5f
-                        val blurred = remember(metadata, sigma, window) {
-                            ImageRequest.Builder(context)
-                                .data(metadata?.getThumbnailModel(100, 100))
-                                .size(100, 100)
-                                .transformations(
-                                    CoverBlur(sigma / window.width.coerceAtLeast(1), sigma / window.height.coerceAtLeast(1))
-                                )
-                                .build()
-                        }
+                        val radius = with(LocalDensity.current) { blurRadius.toPx() }
+                        val blurred = remember(metadata, radius, window) { blurredCover(context, metadata, radius, window) }
                         AsyncImage(
                             model = blurred,
                             contentDescription = null,
@@ -872,6 +902,19 @@ fun BottomSheetPlayer(
                         )
                     }
                 }
+
+                // While a change plays as a mix, the outgoing cover's Blur or Gradient turns into
+                // the incoming one's with the music, drawn whole over the usual one.
+                if (mix != null) MixBackdrop(
+                    mix = mix,
+                    style = effectivePlayerBackground,
+                    base = MaterialTheme.colorScheme.surfaceColorAtElevation(NavigationBarDefaults.Elevation),
+                    overlay = overlayColor,
+                    artwork = artworkAlpha,
+                    gradient = gradientAlpha,
+                    blurRadius = with(LocalDensity.current) { blurRadius.toPx() },
+                    window = LocalWindowInfo.current.containerSize,
+                )
 
                 if (playerBackground != PlayerBackgroundStyle.FOLLOW_THEME && showLyrics) {
                     Log.v(TAG, "PLR-2.2c")
@@ -961,7 +1004,7 @@ fun BottomSheetPlayer(
 
             val shareLink = rememberShareLink()
             val shareSong: () -> Unit = {
-                mediaMetadata?.let { song ->
+                shownMetadata?.let { song ->
                     ActivityLog.note(context, database, song.id, SignalKind.SHARE)
                     shareLink(ShareLinks.song(song.id, song.title, song.artists.map { it.name }, song.duration, song.album != null)) {}
                 }
@@ -1010,11 +1053,11 @@ fun BottomSheetPlayer(
             }
             val likeCircle: @Composable () -> Unit = {
                 PlayerCircleButton(
-                    painter = painterResource(if (currentSong?.song?.liked == true) R.drawable.favorite else R.drawable.favorite_border),
-                    contentDescription = likeName(currentSong?.song?.liked == true),
+                    painter = painterResource(if (likedShown) R.drawable.favorite else R.drawable.favorite_border),
+                    contentDescription = likeName(likedShown),
                     container = MaterialTheme.colorScheme.primary,
                     content = MaterialTheme.colorScheme.onPrimary,
-                    onClick = playerConnection::toggleLike
+                    onClick = toggleLikeShown
                 )
             }
             val menuCircle: @Composable () -> Unit = {
@@ -1033,7 +1076,7 @@ fun BottomSheetPlayer(
                 showLyrics = !showLyrics
             }
             // A local file has no link to share, so a pinned share stays away while one plays.
-            val canShareSong = mediaMetadata?.isLocal == false
+            val canShareSong = shownMetadata?.isLocal == false
             val shareCircle: @Composable () -> Unit = {
                 PlayerCircleButton(
                     painter = rememberVectorPainter(Icons.Rounded.Share),
@@ -1116,7 +1159,7 @@ fun BottomSheetPlayer(
             // Connected's pair by the title: share and like as they have always been, and the timer
             // and lyrics in share's colours while off, their own while on.
             val titleSegment: @Composable (PlayerPin, Shape) -> Unit = { pin, shape ->
-                val liked = currentSong?.song?.liked == true
+                val liked = likedShown
                 when (pin) {
                     PlayerPin.SHARE -> PlayerActionSegment(
                         painter = rememberVectorPainter(Icons.Rounded.Share),
@@ -1135,7 +1178,7 @@ fun BottomSheetPlayer(
                         shape = shape,
                         container = MaterialTheme.colorScheme.primary,
                         content = MaterialTheme.colorScheme.onPrimary,
-                        onClick = playerConnection::toggleLike,
+                        onClick = toggleLikeShown,
                         backdrop = buttonBackdrop,
                         glassIntensity = glassIntensity,
                     )
@@ -1252,7 +1295,7 @@ fun BottomSheetPlayer(
                     if (compactPlayer) queueSegment()
                     rowPins.forEachIndexed { i, pin ->
                         val shape = connectedShape(first = i == 0 && !queueLayout.queueButton, last = false)
-                        val liked = currentSong?.song?.liked == true
+                        val liked = likedShown
                         when (pin) {
                             PlayerPin.LYRICS -> PlayerActionSegment(
                                 painter = rememberVectorPainter(Icons.Rounded.Lyrics),
@@ -1305,7 +1348,7 @@ fun BottomSheetPlayer(
                                 width = actionWidth,
                                 backdrop = buttonBackdrop,
                                 glassIntensity = glassIntensity,
-                                onClick = playerConnection::toggleLike,
+                                onClick = toggleLikeShown,
                             )
                         }
                     }
@@ -1355,8 +1398,9 @@ fun BottomSheetPlayer(
                 ) {
                     // The title and artists only ever get the width left of the buttons. They
                     // scroll when they do not fit, and fade out at the end rather than stopping
-                    // mid-letter against the first button.
-                    Column(modifier = Modifier.weight(1f)) {
+                    // mid-letter against the first button. While a change plays as a mix they
+                    // fade through to the incoming song as it takes over.
+                    Column(modifier = Modifier.weight(1f).then(if (mix != null) Modifier.graphicsLayer { alpha = mix.wordsAlpha } else Modifier)) {
                         // The title scrolls, and fades, in the direction of its own letters. In
                         // the app's direction a title written the other way began at its far
                         // end: "…Julian Casablancas)" in the Arabic app. The column still puts
@@ -1480,6 +1524,7 @@ fun BottomSheetPlayer(
                         gutter = hPadding,
                         color = onBackgroundColor,
                         below = controlSizes.gapAboveTransport,
+                        mix = mix,
                     )
 
                     Row(
@@ -1711,7 +1756,8 @@ fun BottomSheetPlayer(
                                     .animateContentSize(),
                                 showLyricsOnClick = true,
                                 customMediaMetadata = mediaMetadata,
-                                lyricsBottomPadding = queueClearance
+                                lyricsBottomPadding = queueClearance,
+                                mix = mix,
                             )
                         } else {
                             SwipeableArtwork(
@@ -1721,6 +1767,7 @@ fun BottomSheetPlayer(
                                 expanded = state.isExpanded,
                                 contentPadding = PaddingValues(vertical = 16.dp),
                                 onSkip = { forward -> skipFromArtwork(playerConnection, forward) },
+                                jump = mix?.bringsIn(mediaMetadata?.id) == true,
                             ) {
                                 Thumbnail(
                                     sliderPositionProvider = { sliderPosition },
@@ -1729,7 +1776,8 @@ fun BottomSheetPlayer(
                                         .animateContentSize(),
                                     showLyricsOnClick = true,
                                     customMediaMetadata = it,
-                                    lyricsBottomPadding = queueClearance
+                                    lyricsBottomPadding = queueClearance,
+                                    mix = mix,
                                 )
                             }
                         }
@@ -1771,7 +1819,7 @@ fun BottomSheetPlayer(
 
                         Spacer(Modifier.weight(1f))
 
-                        mediaMetadata?.let {
+                        shownMetadata?.let {
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 modifier = Modifier.shrinkToFitHeight()
@@ -1831,7 +1879,8 @@ fun BottomSheetPlayer(
                                     .animateContentSize(),
                                 sliderPositionProvider = { sliderPosition },
                                 showLyricsOnClick = true,
-                                customMediaMetadata = mediaMetadata
+                                customMediaMetadata = mediaMetadata,
+                                mix = mix,
                             )
                         } else {
                             SwipeableArtwork(
@@ -1841,6 +1890,7 @@ fun BottomSheetPlayer(
                                 expanded = state.isExpanded,
                                 modifier = Modifier.padding(vertical = queueLayout.artworkPadding),
                                 onSkip = { forward -> skipFromArtwork(playerConnection, forward) },
+                                jump = mix?.bringsIn(mediaMetadata?.id) == true,
                             ) {
                                 Thumbnail(
                                     smallWindow = compactPlayer,
@@ -1849,7 +1899,8 @@ fun BottomSheetPlayer(
                                         .animateContentSize(),
                                     sliderPositionProvider = { sliderPosition },
                                     showLyricsOnClick = true,
-                                    customMediaMetadata = it
+                                    customMediaMetadata = it,
+                                    mix = mix,
                                 )
                             }
                         }
@@ -1908,7 +1959,7 @@ fun BottomSheetPlayer(
                     // into a pill and that row gone. The cover above had already given up all its
                     // height by then, so the top of the block also keeps clear of the status bar,
                     // which the cover had been covering for.
-                    val controlsFor = mediaMetadata
+                    val controlsFor = shownMetadata
                     if (controlsFor != null) {
                         val statusBar = WindowInsets.systemBars.getTop(LocalDensity.current)
                         Column(
@@ -2037,6 +2088,22 @@ fun BottomSheetPlayer(
             )
         }
     }
+}
+
+/**
+ * The Blur background's picture of [metadata]'s cover: blurred once, on its thumbnail (CoverBlur),
+ * by the spread of the GPU blur of [blurRadius] px it replaced (Skia's sigma, 0.57735 r + 0.5) as
+ * a share of the [window] it is stretched over.
+ */
+internal fun blurredCover(context: Context, metadata: MediaMetadata?, blurRadius: Float, window: IntSize): ImageRequest {
+    val sigma = blurRadius * 0.57735f + 0.5f
+    return ImageRequest.Builder(context)
+        .data(metadata?.getThumbnailModel(100, 100))
+        .size(100, 100)
+        .transformations(
+            CoverBlur(sigma / window.width.coerceAtLeast(1), sigma / window.height.coerceAtLeast(1))
+        )
+        .build()
 }
 
 /**
@@ -2303,8 +2370,19 @@ private fun SeekBar(
     color: Color,
     /** The room under the times, down to the buttons: part of the strip a drag is taken on. */
     below: Dp,
+    /** A change playing as a mix, whose outgoing song the bar shows until the incoming one takes over. */
+    mix: MixScreen? = null,
 ) {
     val shown = sliderPosition() ?: position()
+    // The outgoing song's place and length until the incoming one takes over (MixLook.bar); a
+    // drag is in the song the player has, as always.
+    val bar = MixLook.bar(
+        change = mix?.target,
+        outgoing = mix?.showsOutgoing == true,
+        at = shown,
+        length = duration,
+        dragging = sliderPosition() != null,
+    )
     val seekInteraction = remember { MutableInteractionSource() }
     // The bar's own height, under which a drag must go across to be the bar's.
     var barBottom by remember { mutableIntStateOf(0) }
@@ -2321,9 +2399,10 @@ private fun SeekBar(
                 onSlide = onSlide,
                 onSlideDone = onSlideDone,
             )
+            .then(if (mix != null) Modifier.graphicsLayer { alpha = mix.wordsAlpha } else Modifier)
     ) {
     Slider(
-        value = shown.toFloat(),
+        value = bar.thumb,
         valueRange = 0f..(if (duration == C.TIME_UNSET) 0f else duration.toFloat()),
         onValueChange = { onSlide(it.toLong()) },
         onValueChangeFinished = onSlideDone,
@@ -2358,7 +2437,7 @@ private fun SeekBar(
             .padding(horizontal = gutter + 4.dp)
     ) {
         Text(
-            text = makeTimeString(shown),
+            text = makeTimeString(bar.at),
             style = MaterialTheme.typography.labelMedium,
             color = color,
             maxLines = 1,
@@ -2366,7 +2445,7 @@ private fun SeekBar(
         )
 
         Text(
-            text = if (duration != C.TIME_UNSET) makeTimeString(duration) else "",
+            text = if (bar.length != C.TIME_UNSET) makeTimeString(bar.length) else "",
             style = MaterialTheme.typography.labelMedium,
             color = color,
             maxLines = 1,
@@ -2512,6 +2591,8 @@ private fun SwipeableArtwork(
     onSkip: (forward: Boolean) -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(),
+    /** Whether the song is the one a change playing as a mix brings in: its cover holds both covers as they were, so the strip jumps to it. */
+    jump: Boolean = false,
     item: @Composable (MediaMetadata) -> Unit,
 ) {
     val gridState = rememberLazyGridState()
@@ -2523,10 +2604,10 @@ private fun SwipeableArtwork(
     val following = remember { booleanArrayOf(false) }
 
     // Follows the song: when it changes, the strip moves to it. Animated only while the player is
-    // open, where the animation can run.
+    // open, where the animation can run, and not into a mix, whose covers part where they are.
     LaunchedEffect(mediaItems.getOrNull(currentIndex)?.id, currentIndex) {
         following[0] = true
-        if (expanded) gridState.animateScrollToItem(currentIndex) else gridState.scrollToItem(currentIndex)
+        if (expanded && !jump) gridState.animateScrollToItem(currentIndex) else gridState.scrollToItem(currentIndex)
         following[0] = false
     }
 

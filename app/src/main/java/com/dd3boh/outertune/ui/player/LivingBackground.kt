@@ -102,6 +102,8 @@ import kotlin.math.min
  *   the song is in its shape.
  * @param coverPlace where the cover it stands behind is, in the root's measure, or null for none.
  *   The player's own by default; the sample in Settings has a small cover of its own.
+ * @param blendCover a second cover the colours go [blend] of the way to from [cover]'s, read at
+ *   every step: the incoming song's while a change plays as a mix (MixScreen). Null for none.
  */
 @Composable
 fun LivingBackground(
@@ -116,11 +118,13 @@ fun LivingBackground(
     alpha: Float = 1f,
     covered: Boolean = false,
     coverPlace: () -> Rect? = { PlayerCoverPlace.bounds },
+    blendCover: Any? = null,
+    blend: () -> Float = { 0f },
 ) {
     // The grid is made for the room the picture is given, not for the window: in the player the
     // two are the same, in the Settings sample the picture is a strip.
     BoxWithConstraints(modifier) {
-        LivingPicture(cover, tap, playing, onScreen, covered, strength, smoothing, colours, alpha, coverPlace, constraints.maxWidth, constraints.maxHeight)
+        LivingPicture(cover, tap, playing, onScreen, covered, strength, smoothing, colours, alpha, coverPlace, blendCover, blend, constraints.maxWidth, constraints.maxHeight)
     }
 }
 
@@ -136,6 +140,8 @@ private fun LivingPicture(
     colours: LivingColours,
     alpha: Float,
     coverPlace: () -> Rect?,
+    blendCover: Any?,
+    blend: () -> Float,
     wide: Int,
     tall: Int,
 ) {
@@ -179,26 +185,38 @@ private fun LivingPicture(
     // Counts the covers, so a cover that changes while nothing moves starts the frames again.
     var covers by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(cover, motion, colours) {
-        // the patches, or for the main colours those three, the bass's first
-        val (patches, mains) = withContext(coilCoroutine) {
-            val bitmap = context.imageLoader.execute(
-                ImageRequest.Builder(context)
-                    .data(cover)
-                    .allowHardware(false)
-                    .build()
-            ).image?.toBitmap() ?: return@withContext null
-            val pixels = IntArray(bitmap.width * bitmap.height)
-            bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
-            when (colours) {
-                // what is under the ribbons, should they leave anything uncovered, is the bass's
-                LivingColours.MAIN -> LivingField.mainColours(pixels, bitmap.width, bitmap.height).let { three ->
-                    IntArray(motion.count) { three[MusicLevels.BASS] } to three
-                }
-                LivingColours.COVER -> LivingField.patches(pixels, bitmap.width, bitmap.height, motion.columns, motion.rows) to null
+    // the patches of a cover, or for the main colours those three, the bass's first
+    suspend fun patchesOf(cover: Any?): Pair<IntArray, IntArray?>? = withContext(coilCoroutine) {
+        val bitmap = context.imageLoader.execute(
+            ImageRequest.Builder(context)
+                .data(cover)
+                .allowHardware(false)
+                .build()
+        ).image?.toBitmap() ?: return@withContext null
+        val pixels = IntArray(bitmap.width * bitmap.height)
+        bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+        when (colours) {
+            // what is under the ribbons, should they leave anything uncovered, is the bass's
+            LivingColours.MAIN -> LivingField.mainColours(pixels, bitmap.width, bitmap.height).let { three ->
+                IntArray(motion.count) { three[MusicLevels.BASS] } to three
             }
-        } ?: return@LaunchedEffect
+            LivingColours.COVER -> LivingField.patches(pixels, bitmap.width, bitmap.height, motion.columns, motion.rows) to null
+        }
+    }
+
+    LaunchedEffect(cover, motion, colours) {
+        val (patches, mains) = patchesOf(cover) ?: return@LaunchedEffect
         motion.turnTo(patches, glow = mains?.get(MusicLevels.BASS), mains = mains)
+        covers++
+    }
+
+    // The incoming song's cover while a change plays as a mix: the colours go to it with the
+    // music. The blend ends with the next cover turned into, which by then is that one.
+    val blendNow by rememberUpdatedState(blend)
+    LaunchedEffect(blendCover, motion, colours) {
+        if (blendCover == null) return@LaunchedEffect
+        val (patches, mains) = patchesOf(blendCover) ?: return@LaunchedEffect
+        motion.blendTo(patches, glow = mains?.get(MusicLevels.BASS), mains = mains)
         covers++
     }
 
@@ -212,6 +230,7 @@ private fun LivingPicture(
             return@LaunchedEffect
         }
         if (still) {
+            motion.blend = blendNow()
             motion.settle()
             frame++
             return@LaunchedEffect
@@ -239,6 +258,7 @@ private fun LivingPicture(
                 while (playing || !motion.atRest()) {
                     withFrameNanos { now ->
                         frameAt = now
+                        motion.blend = blendNow()
                         // Thirty times a second at most, and on the screen's other frames nothing
                         // is stepped and nothing drawn: see RedrawPace.
                         if (motion.frame(now, redraws, playing, heard)) frame = now

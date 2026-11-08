@@ -350,6 +350,8 @@ dependencies {
     implementation(libs.adaptive)
     implementation(libs.material3)
     implementation(libs.palette)
+    // The covers' shapes while a change plays as a mix (Unreleased.AUTOMIX, MixShapes): Material's cookie and the morph into it.
+    implementation(libs.graphics.shapes)
 
     // viewmodel
     implementation(libs.viewmodel)

@@ -526,7 +526,8 @@ object Unreleased {
      * For 0.13. Its analysis and its mixes were checked on the PC (AutomixTrial, 38 songs, through
      * a model of media3's audio sink), not yet heard on a phone. The setting starts off, and with
      * it off, or this off, playback is what it was. To ship: set this to true, or delete it with
-     * the checks that read it, in MusicService, PlayerSettings, PlayerFrag and DeveloperFrag.
+     * the checks that read it, in MusicService, PlayerSettings, PlayerFrag, DeveloperFrag and
+     * MixPlayer (the player showing both covers while a change plays as a mix).
      *
      * Debug builds only since 26 Oct 2026: kept out of the previews that testers get.
      */

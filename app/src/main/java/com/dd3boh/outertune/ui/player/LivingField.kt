@@ -932,14 +932,9 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
      * colours of the ranges ([LivingField.mainColours]), for a picture made of those.
      */
     fun turnTo(patches: IntArray, glow: Int? = null, mains: IntArray? = null) {
-        val next = IntArray(count + 2 + LivingField.MAINS)
-        patches.copyInto(next, endIndex = minOf(count, patches.size))
-        for (i in patches.size until count) next[i] = LivingField.GREY
-        val cover = next.copyOf(count)
-        next[count] = LivingField.lit(LivingField.average(cover), LivingField.REST_LIGHT)
-        next[count + 1] = LivingField.lit(glow ?: LivingField.strongest(cover), LivingField.GLOW_LIGHT)
-        for (k in 0 until LivingField.MAINS) next[mainsAt + k] = mains?.getOrNull(k) ?: LivingField.GREY
-        wanted = next
+        wanted = coloursOf(patches, glow, mains)
+        // A new cover ends a blend: it is what the blend was going to.
+        blendWanted = null
         if (!coverKnown) {
             wanted.copyInto(colors)
             coverKnown = true
@@ -951,6 +946,36 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
             turn = 0f
         }
     }
+
+    /** Every colour [turnTo] or [blendTo] keeps for a cover: the patches, what lies under them, the glow, the main colours. */
+    private fun coloursOf(patches: IntArray, glow: Int?, mains: IntArray?): IntArray {
+        val next = IntArray(count + 2 + LivingField.MAINS)
+        patches.copyInto(next, endIndex = minOf(count, patches.size))
+        for (i in patches.size until count) next[i] = LivingField.GREY
+        val cover = next.copyOf(count)
+        next[count] = LivingField.lit(LivingField.average(cover), LivingField.REST_LIGHT)
+        next[count + 1] = LivingField.lit(glow ?: LivingField.strongest(cover), LivingField.GLOW_LIGHT)
+        for (k in 0 until LivingField.MAINS) next[mainsAt + k] = mains?.getOrNull(k) ?: LivingField.GREY
+        return next
+    }
+
+    /**
+     * A second cover the colours are [blend] of the way to, from [turnTo]'s: the incoming song's
+     * while a change plays as a mix (MixScreen), so they turn with the music rather than at once.
+     * Ended by the next [turnTo], which the blend has come to by then.
+     */
+    private var blendWanted: IntArray? = null
+
+    /** How far the colours are from [turnTo]'s cover to [blendTo]'s, 0 to 1, as the music has it. */
+    var blend = 0f
+
+    /** The second cover of a blend: see [blendWanted]. */
+    fun blendTo(patches: IntArray, glow: Int? = null, mains: IntArray? = null) {
+        blendWanted = coloursOf(patches, glow, mains)
+    }
+
+    /** The colour [i] the picture is on its way to: the cover's, or the blend's between two. */
+    private fun target(i: Int): Int = blendWanted?.let { LivingField.between(wanted[i], it[i], blend.coerceIn(0f, 1f)) } ?: wanted[i]
 
     /**
      * Moves on by [seconds]. [levels] is what is being heard (the three ranges, and after them how
@@ -1025,7 +1050,9 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
         if (turn < 1f) {
             turn = min(1f, turn + dt / LivingField.COVER_TURN)
             val by = LivingField.eased(turn)
-            for (i in colors.indices) colors[i] = LivingField.between(turnedFrom[i], wanted[i], by)
+            for (i in colors.indices) colors[i] = LivingField.between(turnedFrom[i], target(i), by)
+        } else if (blendWanted != null) {
+            for (i in colors.indices) colors[i] = target(i)
         }
     }
 
@@ -1085,7 +1112,7 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
      * come back in the colours of whatever song it was showing when it left, and then turn.
      */
     fun arrive() {
-        wanted.copyInto(colors)
+        for (i in colors.indices) colors[i] = target(i)
         turn = 1f
     }
 
@@ -1108,7 +1135,13 @@ class LivingMotion(val columns: Int = LivingField.ACROSS, val rows: Int = Living
     /** True when nothing would change on another [step] without music: the frames can stop. */
     fun atRest(): Boolean = pace < 0.01f && shown.all { it < 0.005f } && auraShown.all { it < 0.005f } &&
         gathered < 0.005f && burst < 0.005f && driven < 0.005f &&
-        kotlin.math.abs(auraPresence - (if (coverThere) 1f else 0f)) < 0.01f && turn >= 1f && colors.contentEquals(wanted)
+        kotlin.math.abs(auraPresence - (if (coverThere) 1f else 0f)) < 0.01f && turn >= 1f && arrived()
+
+    /** Whether every colour is the one it is on its way to. */
+    private fun arrived(): Boolean {
+        for (i in colors.indices) if (colors[i] != target(i)) return false
+        return true
+    }
 
     /** The share of the way covered in [dt] by something that takes [within] seconds to get most of the way. */
     private fun part(dt: Float, within: Float) = 1f - exp(-dt / within)

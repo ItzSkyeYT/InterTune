@@ -96,7 +96,9 @@ fun Thumbnail(
      * (portrait, tablet) leave this at zero; the landscape two-pane player does not, since the
      * artwork itself does not need the room, and passes its own queue clearance through here.
      */
-    lyricsBottomPadding: Dp = 0.dp
+    lyricsBottomPadding: Dp = 0.dp,
+    /** A change playing as a mix: the cover of the song it brings in holds both covers while it plays (MixScreen). */
+    mix: MixScreen? = null,
 ) {
     val context = LocalContext.current
     val database = LocalDatabase.current
@@ -188,6 +190,12 @@ fun Thumbnail(
                     DisposableEffect(Unit) {
                         onDispose { if (showsWhatPlays) PlayerCoverPlace.bounds = null }
                     }
+                    // While a change plays as a mix, this box holds both covers, on the cover of
+                    // the song it brings in: the one going out under this one, each in its own
+                    // shape (MixScreen.covers), and none for the box.
+                    val mixed = mix?.takeIf { ownsError && it.active && it.target?.incoming?.id == mediaMetadata?.id }
+                    val outgoing = mixed?.target?.outgoing
+                    val morphs = remember { CoverMorphs(ThumbnailCornerRadius * 2) }
                     Box(
                         modifier = Modifier
                             .aspectRatio(1f)
@@ -196,7 +204,7 @@ fun Thumbnail(
                                 place.value = at
                                 if (showsWhatPlays) PlayerCoverPlace.bounds = at
                             }
-                            .clip(RoundedCornerShape(ThumbnailCornerRadius * 2))
+                            .then(if (outgoing == null) Modifier.clip(RoundedCornerShape(ThumbnailCornerRadius * 2)) else Modifier)
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null,
@@ -207,32 +215,49 @@ fun Thumbnail(
                                 haptic.performHapticFeedback(HapticFeedbackType.Confirm)
                             }
                     ) {
-                        // Low resolution underlay, drawn first and left in place.
-                        //
-                        // This is the whole progressive-loading trick, and it needs no measurement
-                        // of the connection. The small cover is a few kB and lands almost at once,
-                        // so a slow or flaky link shows the artwork immediately instead of an empty
-                        // square; the full size version is still fetched, and simply covers this
-                        // when it arrives, however long that takes. Fast link: the sharp one wins so
-                        // quickly the underlay is never really seen. Slow link: blurry now, sharp
-                        // later. Permanently slow link: still sharp eventually, just later.
-                        //
-                        // Deliberately NOT bucketed to artPx. It is one fixed small size, so it is
-                        // fetched once per cover ever and is a cache hit for every later play, on
-                        // any screen and either orientation.
-                        AsyncImage(
-                            model = mediaMetadata?.getThumbnailModel(
-                                ART_PREVIEW_PX,
-                                ART_PREVIEW_PX
-                            ),
-                            contentDescription = null,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                        AsyncImage(
-                            model = mediaMetadata?.getThumbnailModel(artPx, artPx),
-                            contentDescription = null,
-                            modifier = Modifier.fillMaxSize()
-                        )
+                        if (mixed != null && outgoing != null) {
+                            // The song going out, as it was drawn here a moment ago.
+                            Box(Modifier.fillMaxSize().mixCover(mixed, outgoing = true, morphs)) {
+                                AsyncImage(
+                                    model = outgoing.getThumbnailModel(ART_PREVIEW_PX, ART_PREVIEW_PX),
+                                    contentDescription = null,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                                AsyncImage(
+                                    model = outgoing.getThumbnailModel(artPx, artPx),
+                                    contentDescription = null,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                        }
+                        Box(Modifier.fillMaxSize().then(if (mixed != null && outgoing != null) Modifier.mixCover(mixed, outgoing = false, morphs) else Modifier)) {
+                            // Low resolution underlay, drawn first and left in place.
+                            //
+                            // This is the whole progressive-loading trick, and it needs no measurement
+                            // of the connection. The small cover is a few kB and lands almost at once,
+                            // so a slow or flaky link shows the artwork immediately instead of an empty
+                            // square; the full size version is still fetched, and simply covers this
+                            // when it arrives, however long that takes. Fast link: the sharp one wins so
+                            // quickly the underlay is never really seen. Slow link: blurry now, sharp
+                            // later. Permanently slow link: still sharp eventually, just later.
+                            //
+                            // Deliberately NOT bucketed to artPx. It is one fixed small size, so it is
+                            // fetched once per cover ever and is a cache hit for every later play, on
+                            // any screen and either orientation.
+                            AsyncImage(
+                                model = mediaMetadata?.getThumbnailModel(
+                                    ART_PREVIEW_PX,
+                                    ART_PREVIEW_PX
+                                ),
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                            AsyncImage(
+                                model = mediaMetadata?.getThumbnailModel(artPx, artPx),
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
                     }
                 }
             }
