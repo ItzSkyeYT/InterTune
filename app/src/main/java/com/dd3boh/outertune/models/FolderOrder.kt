@@ -65,21 +65,39 @@ object FolderOrder {
 
 /**
  * Names compared as people read them: a run of digits as a number, so "CD 2" comes before
- * "CD 10", and letters without regard to case or accent, so "Édith" comes among the E's and not
- * after Z. Names that still tie are told apart by their plain text, so the order is a total one.
+ * "CD 10", and letters without regard to case or to the accent on a Latin letter, so "Édith"
+ * comes among the E's and not after Z. Names that still tie are told apart by their plain text,
+ * so the order is a total one.
  */
 internal object NaturalOrder : Comparator<String> {
     private fun Char.isDigit09() = this in '0'..'9'
 
     /**
-     * [name] with its letters and their accents apart and the accents left out. Latin accents
-     * only, as SimilarMatch takes them off: Japanese voicing marks are combining too, and が is
-     * not か. Most names are plain ASCII and have none, and this runs at every comparison.
+     * [name] with the accents on its Latin letters left out: its letters and their marks apart,
+     * a mark dropped when the letter it sits on is Latin, and the rest put back together. The
+     * Japanese voicing mark and the Cyrillic breve are marks too, but ガ is not カ and Й is not И:
+     * each is a letter of its own that comes after. Most names are plain ASCII and have none, and
+     * this runs at every comparison.
      */
     private fun withoutAccents(name: String): String {
         if (name.all { it < '\u0080' }) return name
         val apart = Normalizer.normalize(name, Normalizer.Form.NFD)
-        return buildString(apart.length) { for (c in apart) if (c !in '\u0300'..'\u036F') append(c) }
+        val kept = StringBuilder(apart.length)
+        // A mark has no script of its own (INHERITED): it takes that of the letter before it.
+        var onLatin = false
+        var i = 0
+        while (i < apart.length) {
+            val c = apart.codePointAt(i)
+            i += Character.charCount(c)
+            val script = Character.UnicodeScript.of(c)
+            if (script != Character.UnicodeScript.INHERITED) {
+                onLatin = script == Character.UnicodeScript.LATIN
+            } else if (onLatin && c in 0x300..0x36F) {
+                continue
+            }
+            kept.appendCodePoint(c)
+        }
+        return Normalizer.normalize(kept, Normalizer.Form.NFC)
     }
 
     override fun compare(a: String, b: String): Int {

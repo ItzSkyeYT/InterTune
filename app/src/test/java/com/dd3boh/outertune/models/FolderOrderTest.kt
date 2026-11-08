@@ -90,6 +90,24 @@ class FolderOrderTest {
         // が is not か: the mark is combining, as an accent is, and a name keeps it.
         val top = tree(music, "がっこう/a.mp3", "かっこう/a.mp3", "かっこう 2/a.mp3")
         assertEquals(listOf("かっこう", "かっこう 2", "がっこう"), names(FolderOrder.sorted(top.subdirs, descending = false)))
+        // Katakana the same way: カ's names, then ガ's. Left apart from its letter, ガ's mark comes
+        // before every katakana letter and put each ガ name before the カ ones.
+        val katakana = tree(music, "ガルニデリア/a.mp3", "キリンジ/a.mp3", "カメラ/a.mp3", "ガム/a.mp3", "カネコアヤノ/a.mp3")
+        assertEquals(
+            listOf("カネコアヤノ", "カメラ", "ガム", "ガルニデリア", "キリンジ"),
+            names(FolderOrder.sorted(katakana.subdirs, descending = false)),
+        )
+    }
+
+    @Test
+    fun `only a Latin letter's accent is set aside, and Й stays a letter of its own after И`() {
+        // Й is И with a breve, as É is E with an accent. É goes among the E's, whether the name
+        // holds it whole or as an E and its accent apart, as a Mac writes it; Й goes after И.
+        val top = tree(music, "Йога/a.mp3", "Zazie/a.mp3", "Ия/a.mp3", "E\u0301tienne/a.mp3", "Иван/a.mp3", "Elvis/a.mp3", "Édith Piaf/a.mp3", "Eve 10/a.mp3")
+        assertEquals(
+            listOf("Édith Piaf", "Elvis", "E\u0301tienne", "Eve 10", "Zazie", "Иван", "Ия", "Йога"),
+            names(FolderOrder.sorted(top.subdirs, descending = false)),
+        )
     }
 
     @Test
