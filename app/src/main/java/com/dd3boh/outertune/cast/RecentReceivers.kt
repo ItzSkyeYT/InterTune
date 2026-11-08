@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.cast
 
+import com.dd3boh.outertune.constants.Unreleased
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonArray
@@ -47,6 +48,7 @@ object RecentReceivers {
      * the receivers [added] by address, and the remembered ones the search has not found, but only
      * those that have [answered]. A remembered receiver that is off is never shown, not even for
      * the moment its check takes (his note of 20 Oct 2026: they flashed up and went).
+     * An AirPlay speaker is listed only where [airPlay] is on.
      */
     fun listed(
         found: List<CastDevice>,
@@ -54,12 +56,14 @@ object RecentReceivers {
         recent: List<CastDevice>,
         answered: Set<CastDevice>,
         silent: Set<CastDevice>,
+        airPlay: Boolean = Unreleased.CAST_AIRPLAY,
     ): List<CastDevice> {
         val live = found.filterNot { it in silent }
         // A receiver typed in by address that the search finds too is one receiver: the found one,
         // with its own name (an AirPlay speaker was listed twice, 5 Nov 2026).
         val typed = added.filterNot { a -> live.any { it.samePlace(a) } }
         return (live + typed + notFound(recent.filter { it in answered }, live + typed))
+            .filter { castable(it, airPlay) }
             .distinctBy { it.protocol to it.id }
             .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
     }
@@ -106,8 +110,12 @@ object RecentReceivers {
         })
     }.toString()
 
-    /** What [encode] wrote. Anything it cannot read is left out rather than failing the picker. */
-    fun decode(text: String?): List<CastDevice> {
+    /**
+     * What [encode] wrote. Anything it cannot read is left out rather than failing the picker, and
+     * so is an AirPlay speaker where [airPlay] is off: the list travels with the settings, so a
+     * backup from a debug or Preview build can bring one into a release, which cannot play to it.
+     */
+    fun decode(text: String?, airPlay: Boolean = Unreleased.CAST_AIRPLAY): List<CastDevice> {
         if (text.isNullOrBlank()) return emptyList()
         val array = runCatching { Json.parseToJsonElement(text).jsonArray }.getOrNull() ?: return emptyList()
         return array.mapNotNull { element ->
@@ -125,8 +133,11 @@ object RecentReceivers {
                     audioOnly = o["audioOnly"]?.jsonPrimitive?.booleanOrNull ?: false,
                 )
             }.getOrNull()
-        }.take(MOST)
+        }.filter { castable(it, airPlay) }.take(MOST)
     }
+
+    /** Whether this build casts to [device]: an AirPlay speaker only with [airPlay] (Unreleased.CAST_AIRPLAY). */
+    private fun castable(device: CastDevice, airPlay: Boolean) = airPlay || device.protocol != CastProtocol.AIRPLAY
 
     /** Whether anything takes a connection at [device]'s address. Nothing is sent. It blocks: never on the main thread. */
     fun answers(device: CastDevice, timeoutMs: Int = PROBE_MS): Boolean = runCatching {
