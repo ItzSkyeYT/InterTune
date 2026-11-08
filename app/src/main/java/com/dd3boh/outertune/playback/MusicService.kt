@@ -1102,6 +1102,8 @@ class MusicService : MediaLibraryService(),
 
         exoPlayer = ExoPlayer.Builder(this)
             .setMediaSourceFactory(DefaultMediaSourceFactory(createDataSourceFactory()))
+            // media3's analytics, told each queued period once: a period listed twice closed the app (#102, #103).
+            .setAnalyticsCollector(UniqueQueueAnalytics())
             .setRenderersFactory(createRenderersFactory(isGaplessOffloadAllowed))
             .setHandleAudioBecomingNoisy(true)
             .setWakeMode(C.WAKE_MODE_NETWORK)
