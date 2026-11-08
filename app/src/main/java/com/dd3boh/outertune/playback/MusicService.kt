@@ -6376,7 +6376,8 @@ class MusicService : MediaLibraryService(),
      *         --es mixtrial "'play <id> <id>'"
      *
      * `play` plays those songs as the queue of a Mix playlist, `end <ms>` goes to that long before
-     * the end of the song playing, `pause` pauses. `queue` plays them as the same playlist's queue
+     * the end of the song playing, `pause` pauses, `windows <id> <id>` reads and keeps the pair's
+     * end and opening as the Mix editor does. `queue` plays them as the same playlist's queue
      * without touching its Mix switch, which `mix on` and `mix off` set; `crossfade on` and
      * `crossfade off` set Crossfade. Several commands are separated by `;`.
      */
@@ -6411,6 +6412,26 @@ class MusicService : MediaLibraryService(),
                     if (duration > 0) exoPlayer.seekTo(maxOf(0L, duration - left))
                 }
                 "pause" -> exoPlayer.pause()
+                "windows" -> {
+                    // The editor's own read of the two songs' end and opening, kept where the editor
+                    // keeps them (EditorCache): parts can then be made of exactly what this phone decodes.
+                    val ids = words.drop(1)
+                    if (ids.size == 2) scope.launch(Dispatchers.IO) {
+                        runCatching {
+                            val songs = YouTube.queue(ids).getOrNull().orEmpty().associateBy { it.id }
+                            fun input(id: String) = com.dd3boh.outertune.ui.screens.mix.PairLoader.SongInput(
+                                id, songs[id]?.title ?: id, (songs[id]?.duration ?: -1) * 1000.0, null,
+                                MixStores.beatFixes(this@MusicService).get(id) ?: com.dd3boh.outertune.mix.edit.BeatFix.NONE,
+                            )
+                            val loaded = com.dd3boh.outertune.ui.screens.mix.PairLoader(
+                                songSource(),
+                                com.dd3boh.outertune.ui.screens.mix.EditorCache(cacheDir, com.dd3boh.outertune.mix.MixCode.ANALYSIS, com.dd3boh.outertune.mix.MixCode.AUTO),
+                                grids = { id -> MixStores.wholeSongs(this@MusicService).get(id) },
+                            ).load(input(ids[0]), input(ids[1]), stage = {}, cancelled = { false })
+                            Log.i(TAG, "AutoMix trial: windows of ${ids[0]} and ${ids[1]} kept, parts at hand ${loaded.partsReady}, ${loaded.took}")
+                        }.onFailure { Log.w(TAG, "AutoMix trial: windows of $ids failed", it) }
+                    }
+                }
                 "mix" -> {
                     val on = words.getOrNull(1) != "off"
                     scope.launch { dataStore.edit { it[MixPlaylistsKey] = (it[MixPlaylistsKey] ?: emptySet()).let { s -> if (on) s + MIX_TRIAL_PLAYLIST else s - MIX_TRIAL_PLAYLIST } } }
