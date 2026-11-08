@@ -1613,6 +1613,8 @@
     <string name="stats_nothing_played">Rien n\'a été joué sur cette période.</string>
     <string name="sort_order_ascending">Ordre croissant</string>
     <string name="sort_order_descending">Ordre décroissant</string>
+    <string name="folder_order_a_to_z">Dossiers de A à Z</string>
+    <string name="folder_order_z_to_a">Dossiers de Z à A</string>
     <string name="home_play_at_random">Lancer quelque chose au hasard</string>
     <string name="view_as_list">Affiché en liste</string>
     <string name="view_as_grid">Affiché en grille</string>

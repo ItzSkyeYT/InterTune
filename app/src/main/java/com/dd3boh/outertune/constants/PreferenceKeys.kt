@@ -507,6 +507,8 @@ val MediaControlButtonsKey = stringPreferencesKey("mediaControlButtons")
 val SongSortTypeKey = stringPreferencesKey("songSortType")
 val SongSortDescendingKey = booleanPreferencesKey("songSortDescending")
 val FolderSortTypeKey = stringPreferencesKey("folderSortType")
+/** The Folders tab's own arrow for its folders, which always go by name: false is A to Z. The songs have theirs. */
+val FolderSortDescendingKey = booleanPreferencesKey("folderSortDescending")
 val FolderSongSortTypeKey = stringPreferencesKey("folderSongSortType")
 val FolderSongSortDescendingKey = booleanPreferencesKey("folderSongSortDescending")
 val PlaylistSongSortTypeKey = stringPreferencesKey("playlistSongSortType")
