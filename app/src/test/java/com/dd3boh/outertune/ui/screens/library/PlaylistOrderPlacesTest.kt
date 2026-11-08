@@ -57,7 +57,7 @@ class PlaylistOrderPlacesTest {
     @Test
     fun `Add to playlist lists them in the same order, and follows a sort changed there`() {
         val dialog = code("ui/dialog/AddToPlaylistDialog.kt")
-        assertTrue("PlaylistOrder.apply(it, PlaylistOrder.decode(customOrder))" in dialog)
-        assertTrue("LaunchedEffect(sortType, sortDescending, customOrder)" in dialog)
+        assertTrue("PlaylistOrder.apply(it, LibraryOrder.playlistIds(LibraryOrder.saved(libraryOrder, customOrder)))" in dialog)
+        assertTrue("LaunchedEffect(sortType, sortDescending, customOrder, libraryOrder)" in dialog)
     }
 }

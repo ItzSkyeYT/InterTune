@@ -24,6 +24,8 @@ import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.GridView
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -35,6 +37,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -64,6 +67,8 @@ import com.dd3boh.outertune.constants.LibraryFilterKey
 import com.dd3boh.outertune.constants.LibrarySortDescendingKey
 import com.dd3boh.outertune.constants.LibrarySortType
 import com.dd3boh.outertune.constants.LibrarySortTypeKey
+import com.dd3boh.outertune.constants.PlaylistsOrderLockKey
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.constants.LibraryViewType
 import com.dd3boh.outertune.constants.LibraryViewTypeKey
 import com.dd3boh.outertune.constants.LocalLibraryEnableKey
@@ -102,6 +107,9 @@ import com.dd3boh.outertune.ui.utils.SideBySide
 import com.dd3boh.outertune.ui.utils.itemsInColumns
 import com.dd3boh.outertune.ui.utils.rememberListColumns
 import com.dd3boh.outertune.viewmodels.libraryKey
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyGridState
+import sh.calvin.reorderable.rememberReorderableLazyListState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -124,8 +132,15 @@ fun LibraryScreen(
     var filter by rememberEnumPreference(LibraryFilterKey, LibraryFilter.ALL)
     val localLibEnable by rememberPreference(LocalLibraryEnableKey, defaultValue = true)
 
-    val (sortType, onSortTypeChange) = rememberEnumPreference(LibrarySortTypeKey, LibrarySortType.CREATE_DATE)
+    val (storedSortType, onSortTypeChange) = rememberEnumPreference(LibrarySortTypeKey, LibrarySortType.CREATE_DATE)
+    // A stored Custom order reads as Date added where it is not offered (Unreleased.PLAYLIST_ORDER).
+    val sortType = if (storedSortType == LibrarySortType.CUSTOM && !Unreleased.PLAYLIST_ORDER) LibrarySortType.CREATE_DATE else storedSortType
     val (sortDescending, onSortDescendingChange) = rememberPreference(LibrarySortDescendingKey, true)
+    // Custom order: everything here is dragged by its handle, as under Playlists, with the same lock;
+    // one row to a line. It is one order with the Playlists page's (LibraryOrder).
+    val customOrder = Unreleased.PLAYLIST_ORDER && sortType == LibrarySortType.CUSTOM
+    var orderLocked by rememberPreference(PlaylistsOrderLockKey, defaultValue = false)
+    val canDrag = customOrder && !orderLocked
     val (showLikedAndDownloadedPlaylist) = rememberPreference(ShowLikedAndDownloadedPlaylist, true)
 
     val allItems by viewModel.allItems.collectAsState()
@@ -157,6 +172,113 @@ fun LibraryScreen(
         CreatePlaylistDialog(onDismiss = { showCreatePlaylistDialog = false })
     }
     val lazyGridState = rememberLazyGridState()
+
+    // The items as they are dragged, and the database's between drags, as under Playlists.
+    val dragged = remember { mutableStateListOf<Any>() }
+    // The order just dropped, until the list read back from the preferences has it.
+    var droppedOrder by remember { mutableStateOf<List<Any>?>(null) }
+    var wasDragging by remember { mutableStateOf(false) }
+    val moveItem: (Any?, Any?) -> Unit = { fromKey, toKey ->
+        // By key, not place: the headers and the three automatic playlists sit above the rows.
+        val from = dragged.indexOfFirst { libraryKey(it) == fromKey }
+        val to = dragged.indexOfFirst { libraryKey(it) == toKey }
+        if (from >= 0 && to >= 0) dragged.add(to, dragged.removeAt(from))
+    }
+    val reorderableListState = rememberReorderableLazyListState(lazyListState) { from, to -> moveItem(from.key, to.key) }
+    val reorderableGridState = rememberReorderableLazyGridState(lazyGridState) { from, to -> moveItem(from.key, to.key) }
+    val dragging = reorderableListState.isAnyItemDragging || reorderableGridState.isAnyItemDragging
+    LaunchedEffect(allItems, dragging) {
+        if (dragging) {
+            wasDragging = true
+            return@LaunchedEffect
+        }
+        val keys = allItems.map(::libraryKey)
+        if (wasDragging) {
+            wasDragging = false
+            val shown = dragged.map(::libraryKey)
+            if (customOrder && shown != keys && shown.toSet() == keys.toSet()) {
+                droppedOrder = shown
+                viewModel.saveCustomOrder(shown.map { it.toString() })
+                return@LaunchedEffect
+            }
+        }
+        // The rows stay where they were dropped until the order kept comes back, not the old one.
+        val waiting = droppedOrder
+        if (waiting != null && keys != waiting && keys.toSet() == waiting.toSet()) return@LaunchedEffect
+        droppedOrder = null
+        dragged.clear()
+        dragged.addAll(allItems)
+    }
+    val shownItems: List<Any> = if (customOrder && dragged.isNotEmpty()) dragged else allItems
+
+    // A row and a tile of the list of everything, with the handle each is dragged by in Custom order.
+    val libraryRow: @Composable (Any, Modifier, Modifier?) -> Unit = { item, modifier, dragHandle ->
+        when (item) {
+            is Album -> LibraryAlbumListItem(
+                navController = navController,
+                menuState = menuState,
+                album = item,
+                isActive = item.id == mediaMetadata?.album?.id,
+                isPlaying = isPlaying,
+                modifier = modifier,
+                dragHandle = dragHandle,
+            )
+
+            is Artist -> LibraryArtistListItem(
+                navController = navController,
+                menuState = menuState,
+                coroutineScope = coroutineScope,
+                modifier = modifier,
+                artist = item,
+                dragHandle = dragHandle,
+            )
+
+            is Playlist -> LibraryPlaylistListItem(
+                navController = navController,
+                menuState = menuState,
+                coroutineScope = coroutineScope,
+                playlist = item,
+                modifier = modifier,
+                dragHandle = dragHandle,
+            )
+
+            else -> {}
+        }
+    }
+    val libraryTile: @Composable (Any, Modifier, Modifier?) -> Unit = { item, modifier, dragHandle ->
+        when (item) {
+            is Album -> LibraryAlbumGridItem(
+                navController = navController,
+                menuState = menuState,
+                coroutineScope = coroutineScope,
+                album = item,
+                isActive = item.id == mediaMetadata?.album?.id,
+                isPlaying = isPlaying,
+                modifier = modifier,
+                dragHandle = dragHandle,
+            )
+
+            is Artist -> LibraryArtistGridItem(
+                navController = navController,
+                menuState = menuState,
+                coroutineScope = coroutineScope,
+                modifier = modifier,
+                artist = item,
+                dragHandle = dragHandle,
+            )
+
+            is Playlist -> LibraryPlaylistGridItem(
+                navController = navController,
+                menuState = menuState,
+                coroutineScope = coroutineScope,
+                playlist = item,
+                modifier = modifier,
+                dragHandle = dragHandle,
+            )
+
+            else -> {}
+        }
+    }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val scrollToTop = backStackEntry?.savedStateHandle?.getStateFlow("scrollToTop", false)?.collectAsState()
 
@@ -272,19 +394,35 @@ fun LibraryScreen(
     }
 
     val headerContent = @Composable {
-        SortHeader(
-            sortType = sortType,
-            sortDescending = sortDescending,
-            onSortTypeChange = onSortTypeChange,
-            onSortDescendingChange = onSortDescendingChange,
-            sortTypeText = { sortType ->
-                when (sortType) {
-                    LibrarySortType.CREATE_DATE -> R.string.sort_by_create_date
-                    LibrarySortType.NAME -> R.string.sort_by_name
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            SortHeader(
+                sortType = sortType,
+                sortDescending = sortDescending,
+                onSortTypeChange = onSortTypeChange,
+                onSortDescendingChange = onSortDescendingChange,
+                sortTypeText = { sortType ->
+                    when (sortType) {
+                        LibrarySortType.CREATE_DATE -> R.string.sort_by_create_date
+                        LibrarySortType.NAME -> R.string.sort_by_name
+                        LibrarySortType.CUSTOM -> R.string.sort_by_custom
+                    }
+                },
+                offered = { it != LibrarySortType.CUSTOM || Unreleased.PLAYLIST_ORDER },
+                modifier = Modifier.padding(start = 16.dp)
+            )
+            // The same lock as under Playlists, beside the sort: whether the rows can be dragged.
+            if (customOrder) {
+                IconButton(
+                    onClick = { orderLocked = !orderLocked },
+                    modifier = Modifier.padding(horizontal = 6.dp)
+                ) {
+                    Icon(
+                        imageVector = if (orderLocked) Icons.Rounded.Lock else Icons.Rounded.LockOpen,
+                        contentDescription = stringResource(if (orderLocked) R.string.playlist_order_locked else R.string.playlist_order_unlocked)
+                    )
                 }
-            },
-            modifier = Modifier.padding(start = 16.dp)
-        )
+            }
+        }
     }
 
     if (filter != LibraryFilter.ALL) {
@@ -451,9 +589,9 @@ fun LibraryScreen(
                                 // when anything about its item changes.
                                 val gathered: List<Any> =
                                     if (showLikedAndDownloadedPlaylist && columns > 1) {
-                                        autoPlaylists + allItems
+                                        autoPlaylists + shownItems
                                     } else {
-                                        allItems
+                                        shownItems
                                     }
                                 itemsInColumns(
                                     items = gathered,
@@ -461,51 +599,22 @@ fun LibraryScreen(
                                     key = { _, item -> if (item is PlaylistEntity) item.id else libraryKey(item) },
                                     contentType = { _, _ -> CONTENT_TYPE_LIST }
                                 ) { _, item ->
-                                    when (item) {
-                                        is PlaylistEntity -> {
-                                            AutoPlaylistListItem(
-                                                playlist = item,
-                                                thumbnail = autoPlaylistIcons.getValue(item.id),
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .clickable {
-                                                        navController.navigate("auto_playlist/${item.id}")
-                                                    }
-                                            )
+                                    if (item is PlaylistEntity) {
+                                        AutoPlaylistListItem(
+                                            playlist = item,
+                                            thumbnail = autoPlaylistIcons.getValue(item.id),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable {
+                                                    navController.navigate("auto_playlist/${item.id}")
+                                                }
+                                        )
+                                    } else if (canDrag && columns == 1) {
+                                        ReorderableItem(state = reorderableListState, key = libraryKey(item)) {
+                                            libraryRow(item, Modifier, Modifier.draggableHandle())
                                         }
-
-                                        is Album -> {
-                                            LibraryAlbumListItem(
-                                                navController = navController,
-                                                menuState = menuState,
-                                                album = item,
-                                                isActive = item.id == mediaMetadata?.album?.id,
-                                                isPlaying = isPlaying,
-                                                modifier = Modifier.animateItem()
-                                            )
-                                        }
-
-                                        is Artist -> {
-                                            LibraryArtistListItem(
-                                                navController = navController,
-                                                menuState = menuState,
-                                                coroutineScope = coroutineScope,
-                                                modifier = Modifier.animateItem(),
-                                                artist = item
-                                            )
-                                        }
-
-                                        is Playlist -> {
-                                            LibraryPlaylistListItem(
-                                                navController = navController,
-                                                menuState = menuState,
-                                                coroutineScope = coroutineScope,
-                                                playlist = item,
-                                                modifier = Modifier.animateItem()
-                                            )
-                                        }
-
-                                        else -> {}
+                                    } else {
+                                        libraryRow(item, Modifier.animateItem(), null)
                                     }
                                 }
                             }
@@ -609,44 +718,16 @@ fun LibraryScreen(
                                 }
 
                                 items(
-                                    items = allItems,
+                                    items = shownItems,
                                     key = { libraryKey(it) },
                                     contentType = { CONTENT_TYPE_LIST }
                                 ) { item ->
-                                    when (item) {
-                                        is Album -> {
-                                            LibraryAlbumGridItem(
-                                                navController = navController,
-                                                menuState = menuState,
-                                                coroutineScope = coroutineScope,
-                                                album = item,
-                                                isActive = item.id == mediaMetadata?.album?.id,
-                                                isPlaying = isPlaying,
-                                                modifier = Modifier.animateItem()
-                                            )
+                                    if (canDrag) {
+                                        ReorderableItem(state = reorderableGridState, key = libraryKey(item)) {
+                                            libraryTile(item, Modifier, Modifier.draggableHandle())
                                         }
-
-                                        is Artist -> {
-                                            LibraryArtistGridItem(
-                                                navController = navController,
-                                                menuState = menuState,
-                                                coroutineScope = coroutineScope,
-                                                modifier = Modifier.animateItem(),
-                                                artist = item
-                                            )
-                                        }
-
-                                        is Playlist -> {
-                                            LibraryPlaylistGridItem(
-                                                navController = navController,
-                                                menuState = menuState,
-                                                coroutineScope = coroutineScope,
-                                                playlist = item,
-                                                modifier = Modifier.animateItem()
-                                            )
-                                        }
-
-                                        else -> {}
+                                    } else {
+                                        libraryTile(item, Modifier.animateItem(), null)
                                     }
                                 }
                             }

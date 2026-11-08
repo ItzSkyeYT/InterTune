@@ -488,7 +488,7 @@ enum class PlaylistSortType {
 }
 
 enum class LibrarySortType {
-    CREATE_DATE, NAME
+    CREATE_DATE, NAME, CUSTOM
 }
 
 enum class SongFilter {
