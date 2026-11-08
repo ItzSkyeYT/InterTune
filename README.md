@@ -188,7 +188,8 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[ ]` Downloads in their own quality, with tags and a cover so other players can use them *(in progress)*\
 `[~]` Liked songs kept in sync with your downloads: unliking removes a download the app made itself ([#64](https://github.com/ItzSkyeYT/InterTune/issues/64))\
 `[ ]` Choose what's in the three-dot menus\
-`[x]` Lyrics videos that light each word as it is sung\
+`[ ]` Lyrics videos 
+`[ ]` Better word by word lyrics\
 `[x]` Stats shows how many of the songs you liked InterTune found for you, and where\
 `[~]` Your library in your own order: playlists, albums and artists dragged where you want them\
 `[ ]` Tablets: settings in two panes, and the player as a side pane *(in progress)*\
