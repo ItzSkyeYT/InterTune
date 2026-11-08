@@ -117,10 +117,10 @@ object BatteryUse {
 
     /**
      * Whether Saver streams something else than [chosen] would on mobile data, for the line under
-     * Audio quality. Auto already takes the smallest stream there, so only High and Highest change.
+     * Audio quality. Only Low already takes the smallest stream there: Auto takes the middle one (#88).
      */
     fun lowersQuality(chosen: AudioQuality, mode: BatteryMode): Boolean =
-        mode == BatteryMode.SAVER && (chosen == AudioQuality.HIGH || chosen == AudioQuality.MAX)
+        mode == BatteryMode.SAVER && chosen != AudioQuality.LOW
 
     // The sound effects, which Saver turns off (his answer of 24 Oct 2026). With none of them on,
     // the song can go to the phone's low-power audio path.

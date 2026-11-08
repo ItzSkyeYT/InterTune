@@ -20,8 +20,17 @@ import com.zionhuang.innertube.models.response.PlayerResponse
  * over the 160 kbps Opus.
  *
  * Highest and High ignore whether the connection is metered: a tier called highest that quietly
- * drops on mobile data would be lying about what it does. Low, and Auto on metered data, take the
- * smallest stream, with the old 10 kbps nudge towards Opus between streams of about the same size.
+ * drops on mobile data would be lying about what it does. Auto takes what they take on a connection
+ * that is not metered. Low takes the smallest stream, with the old 10 kbps nudge towards Opus between
+ * streams of about the same size.
+ *
+ * Auto on metered data takes the middle stream (#88, 8 Nov 2026), where it took the smallest: the
+ * streams ranked as the higher tiers rank them, and the one in the middle, the lower one when two
+ * share the middle. Of the five streams YouTube sends for a song, ranked 139, 249, 250, 140, 251,
+ * that is Opus 250 at about 75 kbps in place of 249 at about 55: clearly better for about a third
+ * more data. Without 250 it is 249; with a Premium account's 141 and 774 on offer as well, AAC 140.
+ * It is never a stream worth less than the one Low takes, so of two streams it takes that one, and
+ * of one, that one.
  */
 internal object AudioPick {
     const val OPUS_WORTH = 1.5
@@ -34,15 +43,24 @@ internal object AudioPick {
     fun worth(format: PlayerResponse.StreamingData.Format): Double =
         if (format.isOpus) format.bitrate * OPUS_WORTH else format.bitrate.toDouble()
 
+    /** The higher tiers' order: what a stream is worth, then its sample rate. */
+    private val byWorth = compareBy<PlayerResponse.StreamingData.Format> { worth(it) }.thenBy { it.audioSampleRate ?: 0 }
+
     fun choose(
         formats: List<PlayerResponse.StreamingData.Format>,
         quality: AudioQuality,
         metered: Boolean,
-    ): PlayerResponse.StreamingData.Format? {
-        val smallest = quality == AudioQuality.LOW || (quality == AudioQuality.AUTO && metered)
-        if (smallest) return formats.maxByOrNull { -it.bitrate + if (it.isOpus) OPUS_NUDGE else 0 }
-        return formats.maxWithOrNull(
-            compareBy<PlayerResponse.StreamingData.Format> { worth(it) }.thenBy { it.audioSampleRate ?: 0 }
-        )
+    ): PlayerResponse.StreamingData.Format? = when {
+        quality == AudioQuality.LOW -> smallest(formats)
+        quality == AudioQuality.AUTO && metered -> middle(formats)
+        else -> formats.maxWithOrNull(byWorth)
+    }
+
+    private fun smallest(formats: List<PlayerResponse.StreamingData.Format>) =
+        formats.maxByOrNull { -it.bitrate + if (it.isOpus) OPUS_NUDGE else 0 }
+
+    private fun middle(formats: List<PlayerResponse.StreamingData.Format>): PlayerResponse.StreamingData.Format? {
+        val ranked = formats.sortedWith(byWorth)
+        return listOfNotNull(ranked.getOrNull((ranked.size - 1) / 2), smallest(formats)).maxWithOrNull(byWorth)
     }
 }
