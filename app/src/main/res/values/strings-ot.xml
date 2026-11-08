@@ -2343,65 +2343,65 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="player_pin_lyrics">Lyrics</string>
     <string name="player_pins_reset">Reset to default</string>
     <!-- Saved twice (issue #47, Unreleased.SAVED_TWICE): held back from translators until his yes on the words, their French beside them in values-fr. The place in each is the list the screen was opened from. -->
-    <string name="saved_twice" translatable="false">Saved twice</string>
+    <string name="saved_twice">Saved twice</string>
     <!-- For a screen reader: the round button beside Play and Shuffle, and the number on it. -->
-    <plurals name="saved_twice_button" translatable="false">
+    <plurals name="saved_twice_button">
         <item quantity="one">%1$d song saved twice</item>
         <item quantity="other">%1$d songs saved twice</item>
     </plurals>
-    <plurals name="saved_twice_intro_liked" translatable="false">
+    <plurals name="saved_twice_intro_liked">
         <item quantity="one">%1$d song is in Liked more than once. Pick the one to keep.</item>
         <item quantity="other">%1$d songs are in Liked more than once. Pick the one to keep.</item>
     </plurals>
-    <plurals name="saved_twice_intro_library" translatable="false">
+    <plurals name="saved_twice_intro_library">
         <item quantity="one">%1$d song is in your library more than once. Pick the one to keep.</item>
         <item quantity="other">%1$d songs are in your library more than once. Pick the one to keep.</item>
     </plurals>
     <!-- %2$s is the playlist's name. -->
-    <plurals name="saved_twice_intro_playlist" translatable="false">
+    <plurals name="saved_twice_intro_playlist">
         <item quantity="one">%1$d song is in %2$s more than once. Pick the one to keep.</item>
         <item quantity="other">%1$d songs are in %2$s more than once. Pick the one to keep.</item>
     </plurals>
     <!-- Under the copy that stays. -->
-    <string name="saved_twice_keep" translatable="false">Keep</string>
+    <string name="saved_twice_keep">Keep</string>
     <!-- Under each copy that goes. %1$s is the playlist's name. -->
-    <string name="saved_twice_out_liked" translatable="false">Take out of Liked</string>
-    <string name="saved_twice_out_library" translatable="false">Take out of your library</string>
-    <string name="saved_twice_out_playlist" translatable="false">Take out of %1$s</string>
+    <string name="saved_twice_out_liked">Take out of Liked</string>
+    <string name="saved_twice_out_library">Take out of your library</string>
+    <string name="saved_twice_out_playlist">Take out of %1$s</string>
     <!-- The button at the bottom. %2$s is the playlist's name. -->
-    <plurals name="saved_twice_take_liked" translatable="false">
+    <plurals name="saved_twice_take_liked">
         <item quantity="one">Take %1$d copy out of Liked</item>
         <item quantity="other">Take %1$d copies out of Liked</item>
     </plurals>
-    <plurals name="saved_twice_take_library" translatable="false">
+    <plurals name="saved_twice_take_library">
         <item quantity="one">Take %1$d copy out of your library</item>
         <item quantity="other">Take %1$d copies out of your library</item>
     </plurals>
-    <plurals name="saved_twice_take_playlist" translatable="false">
+    <plurals name="saved_twice_take_playlist">
         <item quantity="one">Take %1$d copy out of %2$s</item>
         <item quantity="other">Take %1$d copies out of %2$s</item>
     </plurals>
-    <string name="saved_twice_note" translatable="false">Nothing is deleted from your phone, and Undo brings them back.</string>
+    <string name="saved_twice_note">Nothing is deleted from your phone, and Undo brings them back.</string>
     <!-- Said once the button is tapped, with Undo beside it. %2$s is the playlist's name. -->
-    <plurals name="saved_twice_done_liked" translatable="false">
+    <plurals name="saved_twice_done_liked">
         <item quantity="one">%1$d copy taken out of Liked</item>
         <item quantity="other">%1$d copies taken out of Liked</item>
     </plurals>
-    <plurals name="saved_twice_done_library" translatable="false">
+    <plurals name="saved_twice_done_library">
         <item quantity="one">%1$d copy taken out of your library</item>
         <item quantity="other">%1$d copies taken out of your library</item>
     </plurals>
-    <plurals name="saved_twice_done_playlist" translatable="false">
+    <plurals name="saved_twice_done_playlist">
         <item quantity="one">%1$d copy taken out of %2$s</item>
         <item quantity="other">%1$d copies taken out of %2$s</item>
     </plurals>
     <!-- What a copy is, first on its line: "Song · Riot! · 3:31", "Music video · 3:42", a file on the phone. -->
-    <string name="saved_twice_song" translatable="false">Song</string>
-    <string name="saved_twice_music_video" translatable="false">Music video</string>
-    <string name="saved_twice_file" translatable="false">File</string>
+    <string name="saved_twice_song">Song</string>
+    <string name="saved_twice_music_video">Music video</string>
+    <string name="saved_twice_file">File</string>
     <!-- An album that is the song's single: "Houdini (single)". -->
-    <string name="saved_twice_single" translatable="false">%1$s (single)</string>
-    <string name="saved_twice_none" translatable="false">Nothing in here is saved twice.</string>
+    <string name="saved_twice_single">%1$s (single)</string>
+    <string name="saved_twice_none">Nothing in here is saved twice.</string>
     <!-- #68: where YouTube Music has no free plan (South Korea), on Home, above search results and on an album that did not load. -->
     <string name="region_note_title">YouTube Music in South Korea</string>
     <string name="region_note_body">YouTube Music has no free plan in South Korea, so YouTube shows songs, albums and mixes there only to Premium members. Songs in your playlists still play, and search still finds videos. A Premium account, or a VPN or proxy outside Korea, brings the rest back.</string>
@@ -2427,18 +2427,18 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="proxy_not_used_at_start" translatable="false">No proxy is in use: its address could not be read.</string>
     <string name="sync_progress_busy" translatable="false">A sync is already running. Its changes show up when it ends.</string>
     <!-- What's playing with no connection (issue #48, RecogniseLater, Unreleased.RECOGNISE_OFFLINE): a listen kept to be named once the phone is back online. Held back from translators until the words are agreed, the French beside them in values-fr. -->
-    <string name="recognise_later_kept" translatable="false">No connection. It kept what it heard and will name the song once you are back online.</string>
-    <string name="recognise_later_keeping" translatable="false">No connection. Keeping what it hears for later</string>
-    <string name="recognise_later_waiting" translatable="false">Waiting for a connection</string>
-    <string name="recognise_later_channel" translatable="false">Songs heard offline</string>
-    <plurals name="recognise_later_named" translatable="false">
+    <string name="recognise_later_kept">No connection. It kept what it heard and will name the song once you are back online.</string>
+    <string name="recognise_later_keeping">No connection. Keeping what it hears for later</string>
+    <string name="recognise_later_waiting">Waiting for a connection</string>
+    <string name="recognise_later_channel">Songs heard offline</string>
+    <plurals name="recognise_later_named">
         <item quantity="one">Found the song you heard offline</item>
         <item quantity="other">Found %1$d songs you heard offline</item>
     </plurals>
-    <string name="recognise_later_none" translatable="false">Nothing found for what you heard offline</string>
+    <string name="recognise_later_none">Nothing found for what you heard offline</string>
     <!-- Liked songs kept in sync with their downloads (issue #64, Unreleased.LIKED_SYNC): held from translators until he says. -->
-    <string name="liked_download_sync" translatable="false">Remove the download with the like</string>
-    <string name="liked_download_sync_description" translatable="false">Only songs this setting downloaded. A song you downloaded yourself stays.</string>
+    <string name="liked_download_sync">Remove the download with the like</string>
+    <string name="liked_download_sync_description">Only songs this setting downloaded. A song you downloaded yourself stays.</string>
     <!-- Playlist cover (PlaylistCovers, PlaylistCoverSheet, Unreleased.PLAYLIST_COVER): the choice in Edit playlist and in the sheet that opens from it and from the cover in a playlist's header. Held from translators until the words are agreed, their French beside them in values-fr. -->
     <string name="playlist_cover_change" translatable="false">Change cover</string>
     <string name="playlist_cover_title" translatable="false">Playlist cover</string>
@@ -2449,23 +2449,23 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="playlist_cover_photo_note" translatable="false">From your phone</string>
     <string name="playlist_cover_songs" translatable="false">A song from this playlist</string>
     <!-- Block artist (ArtistBlock, Unreleased.ARTIST_BLOCK): the last item of the song menus, the first button of an artist page's pill, Settings > Library and content > Blocked artists, and the line a search for a blocked artist shows. Held from translators until the words are agreed, their French beside them in values-fr. %1$s is the artist's name. -->
-    <string name="menu_block_artist" translatable="false">Block artist</string>
-    <string name="block_artist_which" translatable="false">Block which artist?</string>
-    <string name="block_artist_title" translatable="false">Block %1$s?</string>
-    <string name="block_artist_body" translatable="false">Their songs, albums and face disappear from InterTune: search, Home, radios, your library and playlists. Their songs are skipped. Unblock any time in Settings &gt; Library and content &gt; Blocked artists.</string>
-    <string name="block_artist_confirm" translatable="false">Block</string>
-    <string name="unblock" translatable="false">Unblock</string>
-    <string name="blocked_artists" translatable="false">Blocked artists</string>
-    <string name="blocked_artists_none" translatable="false">None</string>
-    <string name="blocked_artists_intro" translatable="false">Blocked artists are gone from search, Home, radios, your library and playlists, and their songs are skipped.</string>
-    <string name="blocked_artists_add" translatable="false">Add an artist</string>
-    <string name="blocked_artists_not_found" translatable="false">No artist found.</string>
-    <string name="blocked_today" translatable="false">Blocked today</string>
-    <string name="blocked_on" translatable="false">Blocked %1$s</string>
-    <string name="unblocked" translatable="false">%1$s unblocked</string>
-    <string name="blocked_search_note" translatable="false">%1$s is blocked, so nothing of theirs shows.</string>
-    <string name="blocked_song_skipped" translatable="false">%1$s is blocked, so their song was skipped.</string>
-    <string name="blocked_songs_left" translatable="false">The songs left are all by blocked artists, so the music stopped.</string>
+    <string name="menu_block_artist">Block artist</string>
+    <string name="block_artist_which">Block which artist?</string>
+    <string name="block_artist_title">Block %1$s?</string>
+    <string name="block_artist_body">Their songs, albums and face disappear from InterTune: search, Home, radios, your library and playlists. Their songs are skipped. Unblock any time in Settings &gt; Library and content &gt; Blocked artists.</string>
+    <string name="block_artist_confirm">Block</string>
+    <string name="unblock">Unblock</string>
+    <string name="blocked_artists">Blocked artists</string>
+    <string name="blocked_artists_none">None</string>
+    <string name="blocked_artists_intro">Blocked artists are gone from search, Home, radios, your library and playlists, and their songs are skipped.</string>
+    <string name="blocked_artists_add">Add an artist</string>
+    <string name="blocked_artists_not_found">No artist found.</string>
+    <string name="blocked_today">Blocked today</string>
+    <string name="blocked_on">Blocked %1$s</string>
+    <string name="unblocked">%1$s unblocked</string>
+    <string name="blocked_search_note">%1$s is blocked, so nothing of theirs shows.</string>
+    <string name="blocked_song_skipped">%1$s is blocked, so their song was skipped.</string>
+    <string name="blocked_songs_left">The songs left are all by blocked artists, so the music stopped.</string>
     <!-- Don't play this song (DontPlay, Unreleased.ARTIST_BLOCK), the song half of Block artist (#78): an item of the song menus beside Block artist and of the player's menu, its twin for a song set so, the lines said when it acts, and its reason and note in Settings > Recommendations > Exclusions. Held from translators until the words are agreed, their French beside them in values-fr. %1$s is the song's title. -->
     <string name="menu_dont_play_song" translatable="false">Don\'t play this song</string>
     <string name="menu_dont_play_lift" translatable="false">Allow this song again</string>
@@ -2515,10 +2515,10 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="backup_part_signins_warning" translatable="false">Anyone with this file could use these accounts.</string>
     <string name="backup_parts_confirm" translatable="false">Back up</string>
     <!-- The Animations switch, first row of Look and feel (Animations, his yes of 4 Nov 2026): held from translators until his go, their French beside them in values-fr. -->
-    <string name="animations_title" translatable="false">Animations</string>
-    <string name="animations_description" translatable="false">When off, screens change at once and backgrounds stand still. Easier on older phones.</string>
-    <string name="animations_held_note" translatable="false">Off while animations are off in Android\'s settings.</string>
-    <string name="living_blur_still_switch" translatable="false">Stands still while \"Animations\" is off, at the top of this page.</string>
+    <string name="animations_title">Animations</string>
+    <string name="animations_description">When off, screens change at once and backgrounds stand still. Easier on older phones.</string>
+    <string name="animations_held_note">Off while animations are off in Android\'s settings.</string>
+    <string name="living_blur_still_switch">Stands still while \"Animations\" is off, at the top of this page.</string>
     <!-- The settings search's words for Animations: open to translators, as every search word is (SettingsSearchTest). -->
     <string name="search_words_animations">motion, transitions, effects, slow phone, lag</string>
     <!-- Settings > Widgets (WidgetsSettings, Unreleased.WIDGETS_PAGE): its row in Settings, its parts, All options' lines for each style, Add, and the note where the home screen takes no widget from an app. Held from translators until his go, their French beside them in values-fr. widgets_cells is a widget's size in cells, figures and a sign: nothing to translate. -->
