@@ -666,7 +666,7 @@ object Unreleased {
      * translators, their French beside them in values-fr. When it is agreed: set this to true and
      * make its texts translatable.
      */
-    val SAVED_TWICE = BuildConfig.DEBUG
+    val SAVED_TWICE = true
 
     /**
      * An album carries on after its last song when Auto load more songs is on, as YouTube Music
@@ -682,7 +682,7 @@ object Unreleased {
      * stops at its end, as before. When it is agreed: set this to true, or delete it with the one
      * check that reads it, in MusicService.onMediaItemTransition.
      */
-    val ENDLESS_QUEUE = BuildConfig.DEBUG
+    val ENDLESS_QUEUE = true
 
     /**
      * Report a problem and the crash page say more (ReportSettings, ReportTrail, ReportExtras): the settings
@@ -728,7 +728,7 @@ object Unreleased {
      * checks that read it, in RecognitionEngine.keepForLater, RecogniseLaterWorker and
      * RecognitionHistoryScreen.
      */
-    val RECOGNISE_OFFLINE = BuildConfig.DEBUG
+    val RECOGNISE_OFFLINE = true
 
     /**
      * Liked songs kept in sync with their downloads (issue #64, on the 0.13 roadmap): under "Liked
@@ -736,7 +736,7 @@ object Unreleased {
      * setting made for that song, and never one downloaded by hand (LikedDownloads). Its words are held
      * from translators until he says.
      */
-    val LIKED_SYNC = BuildConfig.DEBUG
+    val LIKED_SYNC = true
 
     /**
      * Change a playlist's cover (PlaylistCovers, PlaylistCoverSheet), asked for in #general on 31 Oct
@@ -768,12 +768,21 @@ object Unreleased {
      * name. A search for a blocked artist's name shows one quiet line and Unblock. "Never this
      * artist" stays as it was, for the recommendation rows only.
      *
+     * Its song half, Don't play this song (DontPlay, #78), stands beside Block artist in the song
+     * menus and after the player menu's items that are always there: radios and autoplay never
+     * bring the song nor another upload of it, the player passes over it where it comes to it by
+     * itself (DontPlaySkip), and it still plays when the listener picks it. Kept as a row of
+     * Exclusions of its own reason, where Lift takes it back, as does the same menu item; "Not this
+     * song" stays as it was, for the recommendation rows only.
+     *
      * Kept in one setting (BlockedArtistsKey), read only with this on, so a release that restores
-     * a backup from a debug build hides nothing. Its texts are held from translators, their
-     * French beside them in values-fr. Seen on an emulator only. Without it no menu or page has
-     * any of it. When it is agreed: set this to true, make its texts translatable.
+     * a backup from a debug build hides nothing. Its texts, Don't play this song's with them, are
+     * open to translators, their French beside them in values-fr. Seen on an emulator only.
+     * Without it no menu or page has any of it.
+     *
+     * On in every build from 0.13, Don't play this song with it, picked on 8 Nov 2026.
      */
-    val ARTIST_BLOCK = BuildConfig.DEBUG
+    val ARTIST_BLOCK = true
 
     /**
      * The Animations switch in Look and feel (Animations, ThemeFrag): off, screens and controls
@@ -784,7 +793,7 @@ object Unreleased {
      * translators, their French beside them in values-fr. When it is agreed: set this to true and
      * make its texts translatable.
      */
-    val ANIMATIONS_SWITCH = BuildConfig.DEBUG
+    val ANIMATIONS_SWITCH = true
 
     /**
      * Share as a file under a report's text, in Report a problem and the crash page (ReportFile,
@@ -923,4 +932,15 @@ object Unreleased {
      * queue's skip). To drop it instead: this flag and those reads, then AiFilter and its calls.
      */
     val AI_FILTER = BuildConfig.DEBUG
+
+    /**
+     * Playlists in an order of your own (a listener's ask, relayed 8 Nov 2026: to reorganise the
+     * playlists in the library exactly like songs in a playlist). Custom order in Library >
+     * Playlists' sort, then each playlist is dragged by its handle as a playlist's songs are, with
+     * the same lock. The order is one preference of ids (PlaylistOrder); playlists made or saved
+     * since come first, newest first. Add to playlist lists them in the same order. Its words are
+     * the playlist's own, already translated. Without the flag Custom order is not offered and a
+     * stored one reads as Date added. To ship: set this to true and add it to ReleasedFlagsTest.
+     */
+    val PLAYLIST_ORDER = BuildConfig.DEBUG
 }

@@ -514,6 +514,8 @@ val MediaControlButtonsKey = stringPreferencesKey("mediaControlButtons")
 val SongSortTypeKey = stringPreferencesKey("songSortType")
 val SongSortDescendingKey = booleanPreferencesKey("songSortDescending")
 val FolderSortTypeKey = stringPreferencesKey("folderSortType")
+/** The Folders tab's own arrow for its folders, which always go by name: false is A to Z. The songs have theirs. */
+val FolderSortDescendingKey = booleanPreferencesKey("folderSortDescending")
 val FolderSongSortTypeKey = stringPreferencesKey("folderSongSortType")
 val FolderSongSortDescendingKey = booleanPreferencesKey("folderSongSortDescending")
 val PlaylistSongSortTypeKey = stringPreferencesKey("playlistSongSortType")
@@ -540,6 +542,10 @@ val LibraryFilterKey = stringPreferencesKey("libraryFilter")
 val LibraryViewTypeKey = stringPreferencesKey("libraryViewType")
 
 val PlaylistEditLockKey = booleanPreferencesKey("playlistEditLock")
+// Library > Playlists in Custom order: the playlists' ids in that order, one a line (PlaylistOrder),
+// and whether their order is locked against a stray drag, as a playlist's songs are.
+val PlaylistCustomOrderKey = stringPreferencesKey("playlistCustomOrder")
+val PlaylistsOrderLockKey = booleanPreferencesKey("playlistsOrderLock")
 
 val SearchSourceKey = stringPreferencesKey("searchSource")
 

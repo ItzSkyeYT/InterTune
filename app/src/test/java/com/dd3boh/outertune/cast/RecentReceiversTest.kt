@@ -120,6 +120,28 @@ class RecentReceiversTest {
     }
 
     @Test
+    fun `an AirPlay speaker is left out where AirPlay is off, whatever a restored backup holds`() {
+        val speaker = CastDevice(CastProtocol.AIRPLAY, "airplay:AABBCCDDEEFF", "Zeppelin", "192.168.1.70", 7000, model = "Zeppelin Wireless", audioOnly = true)
+        // Kept by a debug or Preview build, and restored into a release: read as nothing, as before AirPlay came.
+        val saved = RecentReceivers.encode(listOf(speaker, pixel))
+        assertEquals(listOf(pixel), RecentReceivers.decode(saved, airPlay = false))
+        // And never listed, wherever it came from.
+        assertEquals(emptyList<CastDevice>(), RecentReceivers.listed(listOf(speaker), listOf(speaker), listOf(speaker), setOf(speaker), emptySet(), airPlay = false))
+        // Where AirPlay is on, it is kept and listed like any other receiver.
+        assertEquals(listOf(speaker, pixel), RecentReceivers.decode(saved, airPlay = true))
+        assertEquals(listOf(speaker), RecentReceivers.listed(emptyList(), emptyList(), listOf(speaker), setOf(speaker), emptySet(), airPlay = true))
+    }
+
+    @Test
+    fun `the app reads the list and the picker lists it with AirPlay only where its flag is on`() {
+        val code = java.io.File("src/main/java/com/dd3boh/outertune/cast/RecentReceivers.kt").readText()
+        assertEquals(2, Regex("""\bairPlay: Boolean = Unreleased\.CAST_AIRPLAY\b""").findAll(code).count())
+        // Both read with that default: the cast session's list, and the picker's (checked below).
+        val session = java.io.File("src/main/java/com/dd3boh/outertune/playback/CastSession.kt").readText()
+        assertTrue(session.contains("RecentReceivers.decode(service.dataStore.get(CastRecentKey, \"\"))"))
+    }
+
+    @Test
     fun `the picker lists what answers and asks again while it is open`() {
         val picker = java.io.File("src/main/java/com/dd3boh/outertune/ui/player/CastPicker.kt").readText()
         assertTrue(picker.contains("RecentReceivers.listed(found, added, recent, answered, silent)"))

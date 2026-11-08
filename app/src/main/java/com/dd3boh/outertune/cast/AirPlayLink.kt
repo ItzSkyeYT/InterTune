@@ -169,7 +169,9 @@ class AirPlayLink(
             _status.update { it.copy(link = LinkState.CONNECTING) }
         }
         try {
-            session = withContext(Dispatchers.IO) { open() }
+            // Kept from inside: a cast given up while this connects gets nothing back from
+            // withContext, and its close() must still reach the stream, sending since RECORD.
+            withContext(Dispatchers.IO) { keep(open()) }
         } catch (e: IOException) {
             val failure = e as? CastLinkException ?: CastLinkException("Could not reach ${device.name}: ${e.message}", e, LinkProblem.UNREACHABLE)
             lose(failure.message ?: "Could not reach ${device.name}", failure.problem)
@@ -177,10 +179,8 @@ class AirPlayLink(
         }
         caps = LinkCaps(formats = FORMATS, canSetSpeed = false, hasVolume = true)
         synchronized(state) {
-            if (closed) {
-                session?.close()
-                throw CastLinkException("Closed")
-            }
+            // A close() since then has taken the session with it.
+            if (closed) throw CastLinkException("Closed")
             _status.update { it.copy(link = LinkState.CONNECTED) }
         }
         Log.i(TAG, "Connected to ${device.name} at ${device.host}:${device.port}")
@@ -237,6 +237,23 @@ class AirPlayLink(
         }
         opened = made
         synchronized(state) { endedAt = clock.nanos() }
+        return made
+    }
+
+    /**
+     * [made] as the session, unless the link was closed while it was being made: then it is torn
+     * down at once and this throws, so no stream is left sending to a speaker nobody casts to. Torn
+     * down outside [state], which the sender takes while it holds the stream's lock.
+     */
+    private fun keep(made: Session): Session {
+        val kept = synchronized(state) {
+            if (!closed) session = made
+            !closed
+        }
+        if (!kept) {
+            tearDown(made)
+            throw CastLinkException("Closed")
+        }
         return made
     }
 
@@ -311,9 +328,7 @@ class AirPlayLink(
         if (!now.hungUp) return now
         Log.i(TAG, "${device.name} hung up while idle; connecting again")
         now.close()
-        val fresh = open()
-        session = fresh
-        return fresh
+        return keep(open())
     }
 
     override suspend fun load(item: CastItem, startMs: Long, play: Boolean) {
@@ -474,14 +489,17 @@ class AirPlayLink(
             _status.update { it.copy(link = LinkState.CLOSED) }
         }
         watchdog?.cancel()
-        if (session != null) {
-            session.stream.close()
-            // TEARDOWN tells the speaker it is free at once rather than when it gives up waiting.
-            Thread({
-                if (!session.hungUp) runCatching { session.rtsp.exchange("TEARDOWN") }
-                session.rtsp.close()
-            }, "AirPlay-teardown").apply { isDaemon = true; start() }
-        }
+        session?.let(::tearDown)
+    }
+
+    /** Stops [session]'s stream and lets the speaker go. Never holding [state]. */
+    private fun tearDown(session: Session) {
+        session.stream.close()
+        // TEARDOWN tells the speaker it is free at once rather than when it gives up waiting.
+        Thread({
+            if (!session.hungUp) runCatching { session.rtsp.exchange("TEARDOWN") }
+            session.rtsp.close()
+        }, "AirPlay-teardown").apply { isDaemon = true; start() }
     }
 
     // Sending

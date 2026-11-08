@@ -117,6 +117,13 @@ internal class QueueStart(private val service: Target) {
          */
         fun keepPlayNext(queue: MultiQueueObject, taken: PlayNextWaiting.Taken)
 
+        /**
+         * [ids], songs of [queue] the listener put in by hand, noted so in its run before it is
+         * loaded: Play next or Add to queue with no queue to go to, whose songs play as a queue of
+         * their own (AdaptiveQueue.Heard.putInByHand). Never throws.
+         */
+        fun putInByHand(queue: MultiQueueObject, ids: List<String>) {}
+
         /** Whether the board holds a queue of this title. */
         fun hasQueue(title: String): Boolean
 
@@ -168,6 +175,8 @@ internal class QueueStart(private val service: Target) {
      * and never for a start dropped or failed before that. Mix links the current queue to its
      * playlist there, so its stage is in the chain for the queue's first song: linked after the
      * start, the first song played without it and its change into the second always stayed plain.
+     * @param byHand the listener put the queue's songs in by hand (Play next or Add to queue with no
+     * queue to go to): they are noted so ([Target.putInByHand]) before the queue loads.
      * @return whether this queue was started: false for a start dropped for a newer one or for a
      * service torn down, so the caller leaves alone the queue that plays.
      * @throws Exception whatever the queue's answer failed with. The caller reports it.
@@ -183,6 +192,7 @@ internal class QueueStart(private val service: Target) {
         originSlot: Int,
         runId: Long,
         beforeStart: () -> Unit = {},
+        byHand: Boolean = false,
     ): Boolean {
         val number = ++lastStart
         var queueTitle = title
@@ -296,6 +306,8 @@ internal class QueueStart(private val service: Target) {
             full?.runId = runId
             // Into the queue before it is loaded, so the player gets them with the rest of it.
             if (full != null && waiting != null) service.keepPlayNext(full, waiting)
+            // Noted before the load as well, which is the first of them becoming current.
+            if (full != null && byHand) service.putInByHand(full, items.map { it.id })
             service.setCurrQueue(full, shouldResume)
             if (full != null && initialStatus.fromInterTune) service.pickedByInterTune(full)
             // After the load, so the song is never without a queue.

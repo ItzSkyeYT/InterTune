@@ -10,6 +10,15 @@
 package com.dd3boh.outertune.ui.component
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.rounded.DragHandle
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -186,7 +195,9 @@ fun LibraryPlaylistListItem(
     menuState: MenuState,
     coroutineScope: CoroutineScope,
     playlist: Playlist,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    // In an order of your own, unlocked: the handle the row is dragged by, as a playlist's songs.
+    dragHandle: Modifier? = null,
 ) = PlaylistListItem(
     playlist = playlist,
     trailingContent = {
@@ -239,6 +250,17 @@ fun LibraryPlaylistListItem(
                 contentDescription = stringResource(R.string.options)
             )
         }
+        if (dragHandle != null) {
+            IconButton(
+                onClick = { },
+                modifier = dragHandle
+            ) {
+                Icon(
+                    Icons.Rounded.DragHandle,
+                    contentDescription = null
+                )
+            }
+        }
     },
     modifier = modifier
         .fillMaxWidth()
@@ -254,12 +276,11 @@ fun LibraryPlaylistGridItem(
     menuState: MenuState,
     coroutineScope: CoroutineScope,
     playlist: Playlist,
-    modifier: Modifier = Modifier
-) = PlaylistGridItem(
-    playlist = playlist,
-    fillMaxWidth = true,
-    modifier = modifier
-        .fillMaxWidth()
+    modifier: Modifier = Modifier,
+    // In an order of your own, unlocked: the handle the tile is dragged by, on its cover's corner.
+    dragHandle: Modifier? = null,
+) {
+    val clicks = Modifier
         .combinedClickable(
             onClick = {
                 navController.navigate(playlist.navigationRoute)
@@ -305,4 +326,38 @@ fun LibraryPlaylistGridItem(
                 }
             }
         )
-)
+    if (dragHandle == null) {
+        PlaylistGridItem(
+            playlist = playlist,
+            fillMaxWidth = true,
+            modifier = modifier
+                .fillMaxWidth()
+                .then(clicks)
+        )
+    } else {
+        Box(modifier.fillMaxWidth()) {
+            PlaylistGridItem(
+                playlist = playlist,
+                fillMaxWidth = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .then(clicks)
+            )
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(14.dp)
+                    .size(36.dp)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.9f), CircleShape)
+                    .then(dragHandle)
+            ) {
+                Icon(
+                    Icons.Rounded.DragHandle,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+    }
+}

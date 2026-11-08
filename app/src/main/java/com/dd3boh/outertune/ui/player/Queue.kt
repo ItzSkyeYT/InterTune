@@ -514,6 +514,27 @@ fun BoxScope.QueueContent(
         inSelectMode = false
         selectedItems.clear()
     }
+    // The songs picked, taken out of the queue in one go, each as a swipe takes one: the last place
+    // first, so the places still to go keep their songs. Offered only where a swipe is: the queue
+    // unlocked and the queue shown the one playing. A song in the queue twice shows both rows
+    // picked, so both go.
+    val removeSelected: (() -> Unit)? = if (lockQueue || detachedHead) null else {
+        {
+            val picked = selectedItems.toSet()
+            val places = mutableSongs.indices.filter { mutableSongs[it].hashCode() in picked }.sortedDescending()
+            for (place in places) {
+                val song = mutableSongs.getOrNull(place) ?: continue
+                if (qb.removeCurrentQueueSong(place)) {
+                    playerConnection.service.noteRemovedByHand(song)
+                    ActivityLog.note(context, database, song.id, SignalKind.REMOVED_FROM_QUEUE)
+                    playerConnection.player.removeMediaItem(place)
+                    mutableSongs.removeAt(place)
+                }
+            }
+            haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+            onExitSelectionMode()
+        }
+    }
 
     // search
     var isSearching by rememberSaveable { mutableStateOf(false) }
@@ -1593,7 +1614,8 @@ fun BoxScope.QueueContent(
                         },
                         onDeselectAll = { selectedItems.clear() },
                         menuState = menuState,
-                        onDismiss = onExitSelectionMode
+                        onDismiss = onExitSelectionMode,
+                        onRemoveFromQueue = removeSelected,
                     )
                 } else {
                     // queue title and show multiqueue button
@@ -1898,7 +1920,8 @@ fun BoxScope.QueueContent(
                                     },
                                     onDeselectAll = { selectedItems.clear() },
                                     menuState = menuState,
-                                    onDismiss = onExitSelectionMode
+                                    onDismiss = onExitSelectionMode,
+                                    onRemoveFromQueue = removeSelected,
                                 )
                             }
                         }
@@ -1977,7 +2000,8 @@ fun BoxScope.QueueContent(
                                     },
                                     onDeselectAll = { selectedItems.clear() },
                                     menuState = menuState,
-                                    onDismiss = onExitSelectionMode
+                                    onDismiss = onExitSelectionMode,
+                                    onRemoveFromQueue = removeSelected,
                                 )
                             }
                         }

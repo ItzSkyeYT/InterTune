@@ -1,5 +1,6 @@
 package com.dd3boh.outertune.ui.screens
 
+import com.dd3boh.outertune.ui.component.button.IconButton
 import com.dd3boh.outertune.ui.component.ScreenBackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.horizontalScroll
@@ -67,6 +68,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.Casino
 import androidx.compose.material.icons.rounded.Group
@@ -185,9 +187,9 @@ import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeBanner
 import com.dd3boh.outertune.ui.screens.walkthrough.WelcomeCard
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
+import androidx.compose.foundation.lazy.itemsIndexed
 import com.dd3boh.outertune.ui.dialog.TogetherSheet
 import com.dd3boh.outertune.ui.dialog.togetherAvailable
-import androidx.compose.foundation.lazy.itemsIndexed
 
 internal enum class QuickPicksLabelKind { NONE, TRY_BOTH, LIBRARY, YOUTUBE, LEAN }
 
@@ -889,10 +891,35 @@ fun HomeScreen(
                                     items = ytPicks,
                                     key = { _, it -> it.id }
                                 ) { slot, song ->
+                                    // The song's menu, from a long press or the row's dots: YouTube's
+                                    // picks had no dots while the library's rows beside them did.
+                                    val openMenu = {
+                                        menuState.show {
+                                            YouTubeSongMenu(
+                                                song = song,
+                                                navController = navController,
+                                                onDismiss = menuState::dismiss,
+                                                onExclude = if (Unreleased.ENGINE) ({ kind, reason -> viewModel.excludeYt(song, kind, reason) }) else null
+                                            )
+                                        }
+                                    }
                                     YouTubeListItem(
                                         item = song,
                                         isActive = song.id == mediaMetadata?.id,
                                         isPlaying = isPlaying,
+                                        trailingContent = {
+                                            IconButton(
+                                                onClick = {
+                                                    openMenu()
+                                                    haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                                                }
+                                            ) {
+                                                Icon(
+                                                    Icons.Rounded.MoreVert,
+                                                    contentDescription = stringResource(R.string.options)
+                                                )
+                                            }
+                                        },
                                         modifier = Modifier
                                             .width(horizontalLazyGridItemWidth)
                                             .combinedClickable(
@@ -913,14 +940,7 @@ fun HomeScreen(
                                                 },
                                                 onLongClick = {
                                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                    menuState.show {
-                                                        YouTubeSongMenu(
-                                                            song = song,
-                                                            navController = navController,
-                                                            onDismiss = menuState::dismiss,
-                                                            onExclude = if (Unreleased.ENGINE) ({ kind, reason -> viewModel.excludeYt(song, kind, reason) }) else null
-                                                        )
-                                                    }
+                                                    openMenu()
                                                 }
                                             )
                                     )

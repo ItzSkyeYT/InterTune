@@ -27,6 +27,7 @@ import com.dd3boh.outertune.engine.EngineSeenRow
 import com.dd3boh.outertune.engine.EngineEdgeRow
 import com.dd3boh.outertune.engine.EngineSongRow
 import com.dd3boh.outertune.engine.PlayedSong
+import com.dd3boh.outertune.models.DontPlaySong
 import com.dd3boh.outertune.engine.LegacyEventRow
 import androidx.room.Transaction
 import androidx.room.Dao
@@ -267,6 +268,24 @@ interface ListenDao {
 
     @Query("DELETE FROM recommendation_exclusion WHERE id = :id")
     fun deleteExclusion(id: Long)
+
+    /**
+     * The songs the listener chose not to play (reason 5, ExclusionsViewModel.REASON_DONT_PLAY),
+     * each with its title and first artist as the library has them, so that its other uploads are
+     * known by them (DontPlay). Followed by App while Unreleased.ARTIST_BLOCK is on.
+     */
+    @Query(
+        "SELECT x.targetId AS id, COALESCE(song.title, x.label) AS title, " +
+            "(SELECT artist.name FROM song_artist_map JOIN artist ON artist.id = song_artist_map.artistId " +
+            "WHERE song_artist_map.songId = x.targetId ORDER BY song_artist_map.position LIMIT 1) AS artist " +
+            "FROM recommendation_exclusion x LEFT JOIN song ON song.id = x.targetId " +
+            "WHERE x.kind = 1 AND x.reason = 5"
+    )
+    fun dontPlaySongs(): Flow<List<DontPlaySong>>
+
+    /** Lifts Don't play this song from [songId], from its menu: a row of another reason is left as it is. */
+    @Query("DELETE FROM recommendation_exclusion WHERE kind = 1 AND reason = 5 AND targetId = :songId")
+    fun liftDontPlay(songId: String)
 
     @Query("SELECT * FROM recommendation_exclusion ORDER BY createdAt DESC")
     fun exclusions(): Flow<List<RecommendationExclusion>>

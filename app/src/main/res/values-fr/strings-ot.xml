@@ -1613,6 +1613,8 @@
     <string name="stats_nothing_played">Rien n\'a été joué sur cette période.</string>
     <string name="sort_order_ascending">Ordre croissant</string>
     <string name="sort_order_descending">Ordre décroissant</string>
+    <string name="folder_order_a_to_z">Dossiers de A à Z</string>
+    <string name="folder_order_z_to_a">Dossiers de Z à A</string>
     <string name="home_play_at_random">Lancer quelque chose au hasard</string>
     <string name="view_as_list">Affiché en liste</string>
     <string name="view_as_grid">Affiché en grille</string>
@@ -2352,7 +2354,7 @@
     <string name="playlist_cover_photo">Une photo</string>
     <string name="playlist_cover_photo_note">Depuis votre téléphone</string>
     <string name="playlist_cover_songs">Un titre de cette playlist</string>
-    <!-- Bloquer l'artiste (ArtistBlock, Unreleased.ARTIST_BLOCK): held from translators in values until the words are agreed. -->
+    <!-- Bloquer l'artiste (ArtistBlock, Unreleased.ARTIST_BLOCK): open to translators in values, on for everyone from 0.13. -->
     <string name="menu_block_artist">Bloquer l\'artiste</string>
     <string name="block_artist_which">Bloquer quel artiste\u00A0?</string>
     <string name="block_artist_title">Bloquer %1$s\u00A0?</string>
@@ -2370,6 +2372,15 @@
     <string name="blocked_search_note">%1$s est bloqué, donc rien de cet artiste ne s\'affiche.</string>
     <string name="blocked_song_skipped">%1$s est bloqué, donc son titre a été passé.</string>
     <string name="blocked_songs_left">Il ne reste que des titres d\'artistes bloqués : la musique s\'arrête.</string>
+    <!-- Ne plus jouer ce titre (DontPlay, Unreleased.ARTIST_BLOCK): open to translators in values, on for everyone from 0.13. -->
+    <string name="menu_dont_play_song">Ne plus jouer ce titre</string>
+    <string name="menu_dont_play_lift">Réautoriser ce titre</string>
+    <string name="dont_play_done">Désormais, il n\'est joué que si vous le choisissez.</string>
+    <string name="dont_play_lifted">Il est de nouveau joué comme les autres titres.</string>
+    <string name="dont_play_skipped">Titre passé, à ne plus jouer : « %1$s »</string>
+    <string name="dont_play_songs_left">Il ne reste que des titres à ne plus jouer : la musique s\'arrête.</string>
+    <string name="exclusion_reason_dont_play">Ne plus jouer ce titre</string>
+    <string name="exclusions_dont_play_note">Ne plus jouer ce titre va plus loin : le titre reste hors des radios et de la lecture automatique, et n\'est joué que si vous le choisissez.</string>
     <string name="search_words_blocked_artists">bannir, masquer, ignorer, liste noire</string>
     <string name="crash_newer_title">InterTune %1$s est disponible</string>
     <string name="crash_newer_body">Cette version corrige peut-être déjà ce plantage. Mettez à jour d\'abord, puis signalez-le s\'il revient.</string>

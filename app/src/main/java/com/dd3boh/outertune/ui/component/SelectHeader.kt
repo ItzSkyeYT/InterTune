@@ -42,7 +42,8 @@ fun RowScope.SelectHeader(
     menuState: MenuState,
     onDismiss: () -> Unit = {},
     onRemoveFromHistory: (() -> Unit)? = null,
-    onRemoveFromPlaylist: (() -> Unit)? = null
+    onRemoveFromPlaylist: (() -> Unit)? = null,
+    onRemoveFromQueue: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
 
@@ -67,7 +68,8 @@ fun RowScope.SelectHeader(
                         onDismiss = menuState::dismiss,
                         clearAction = onDeselectAll,
                         onRemoveFromHistory = onRemoveFromHistory,
-                        onRemoveFromPlaylist = onRemoveFromPlaylist
+                        onRemoveFromPlaylist = onRemoveFromPlaylist,
+                        onRemoveFromQueue = onRemoveFromQueue,
                     )
                 }
             }

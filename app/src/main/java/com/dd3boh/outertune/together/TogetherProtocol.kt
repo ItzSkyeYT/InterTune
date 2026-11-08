@@ -205,6 +205,51 @@ sealed interface Follow {
         fun target(state: TogetherMessage.State, hostNowMs: Long): Long =
             if (state.playing) state.positionMs + ((hostNowMs - state.atMs) * state.speed).toLong() else state.positionMs
 
+        /**
+         * Where the host is now by its last [state], heard at [heardAtMs], before the gap between
+         * the clocks is known, all by this phone's clock: by the host's clock as if the two agreed
+         * when its word took a believable time to come ([TRIP_MS] at most), else by when the word
+         * came, which is behind by its trip alone. Taken as agreeing whatever they said, a phone
+         * whose clock was off went to a spot off by as much (14 s on an emulator).
+         */
+        fun guess(state: TogetherMessage.State, heardAtMs: Long, nowMs: Long): Long = when {
+            heardAtMs - state.atMs in 0..TRIP_MS -> target(state, nowMs)
+            state.playing -> state.positionMs + ((nowMs - heardAtMs) * state.speed).toLong()
+            else -> state.positionMs
+        }
+
+        /** The longest a word of the host's is believed to take to come, through the relays. */
+        const val TRIP_MS = 2_000L
+
+        /**
+         * Where a guest whose song is still loading at [positionMs] goes, or null to let it load
+         * there: the host's spot [targetMs] when that is more than [DRIFT_MS] on, unless it lies at
+         * or past the song's end [durationMs] (null while not known), where the host is moving on.
+         */
+        fun arrival(targetMs: Long, positionMs: Long, durationMs: Long?): Long? = when {
+            targetMs - positionMs <= DRIFT_MS -> null
+            durationMs != null && targetMs >= durationMs -> null
+            else -> targetMs
+        }
+
+        /**
+         * Whether a guest too far from the host to nudge, playing at [localMs] with the song come
+         * in up to [bufferedMs], jumps to the host's spot [targetMs] now: back, or into what has
+         * come in, at once; past it, only once that is more than [WAIT_FOR_DATA_MS] away. A jump
+         * past what has come in asks for the song again from there, and on a slow line it landed
+         * as far behind as that took and jumped again, for good: a guest on a 32 KB/s line was
+         * never in step in 75 s, silent most of it (28 Oct 2026). Until then it plays on, behind,
+         * while what has come in catches up with the host.
+         */
+        fun jumpNow(targetMs: Long, localMs: Long, bufferedMs: Long): Boolean =
+            targetMs < localMs || targetMs + LANDING_MS <= bufferedMs || targetMs - bufferedMs > WAIT_FOR_DATA_MS
+
+        /** Room to play on after a jump into what has come in, so that it does not land on its edge. */
+        const val LANDING_MS = 500L
+
+        /** How far past what has come in a guest still waits for it, rather than asking for the song there. */
+        const val WAIT_FOR_DATA_MS = 10_000L
+
         /** What to do, playing at [localMs] while the host is at [targetMs], nudging by [maxNudge] at most. */
         fun decide(targetMs: Long, localMs: Long, hostSpeed: Double, maxNudge: Double = MAX_NUDGE): Follow {
             val drift = targetMs - localMs

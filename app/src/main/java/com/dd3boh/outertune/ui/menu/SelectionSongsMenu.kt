@@ -58,6 +58,7 @@ fun SelectionMediaMetadataMenu(
     clearAction: () -> Unit,
     onRemoveFromHistory: (() -> Unit)? = null,
     onRemoveFromPlaylist: (() -> Unit)? = null,
+    onRemoveFromQueue: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val database = LocalDatabase.current
@@ -270,6 +271,18 @@ fun SelectionMediaMetadataMenu(
                 title = R.string.remove_from_playlist,
             ) {
                 onRemoveFromPlaylist()
+                onDismiss()
+                clearAction()
+            }
+        }
+
+        // The queue's own: last, so nothing anyone knows the place of moves.
+        if (onRemoveFromQueue != null) {
+            GridMenuItem(
+                icon = Icons.Rounded.PlaylistRemove,
+                title = R.string.remove_from_queue,
+            ) {
+                onRemoveFromQueue()
                 onDismiss()
                 clearAction()
             }

@@ -30,10 +30,10 @@ import com.dd3boh.outertune.constants.ArtistSongSortTypeKey
 import com.dd3boh.outertune.constants.ArtistSortDescendingKey
 import com.dd3boh.outertune.constants.ArtistSortType
 import com.dd3boh.outertune.constants.ArtistSortTypeKey
-import com.dd3boh.outertune.constants.FolderSongSortType
 import com.dd3boh.outertune.constants.LibrarySortDescendingKey
 import com.dd3boh.outertune.constants.LibrarySortType
 import com.dd3boh.outertune.constants.LibrarySortTypeKey
+import com.dd3boh.outertune.constants.PlaylistCustomOrderKey
 import com.dd3boh.outertune.constants.PlaylistFilter
 import com.dd3boh.outertune.constants.PlaylistFilterKey
 import com.dd3boh.outertune.constants.PlaylistSortDescendingKey
@@ -44,16 +44,16 @@ import com.dd3boh.outertune.constants.SongFilterKey
 import com.dd3boh.outertune.constants.SongSortDescendingKey
 import com.dd3boh.outertune.constants.SongSortType
 import com.dd3boh.outertune.constants.SongSortTypeKey
-import com.dd3boh.outertune.db.LocalFolderDates
 import com.dd3boh.outertune.db.MusicDatabase
 import com.dd3boh.outertune.db.entities.Album
 import com.dd3boh.outertune.db.entities.Artist
 import com.dd3boh.outertune.db.entities.Playlist
 import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.extensions.toEnum
+import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.models.ContentFilter
+import com.dd3boh.outertune.models.PlaylistOrder
 import com.dd3boh.outertune.models.DirectoryTree
-import com.dd3boh.outertune.models.FolderOrder
 import com.dd3boh.outertune.models.withoutBlocked
 import com.dd3boh.outertune.ui.utils.STORAGE_ROOT
 import com.dd3boh.outertune.ui.utils.cacheDirectoryTree
@@ -66,6 +66,7 @@ import com.dd3boh.outertune.utils.scanners.TrackTagReread
 import com.zionhuang.innertube.YouTube
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import androidx.datastore.preferences.core.edit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -145,10 +146,6 @@ class LibraryFoldersViewModel @Inject constructor(
     var uiInit = false
     var lastLocalScan = 0L
 
-    /** LocalSql.LOCAL_FOLDER_DATES for this folder, read for the first date sort after each load. */
-    @Volatile
-    private var folderDateRows: List<LocalFolderDates>? = null
-
     init {
         // Numbers the one-time tag pass gives while this folder is open (TrackTagReread). Without
         // this the folder kept the old order until it was left and opened again.
@@ -169,18 +166,8 @@ class LibraryFoldersViewModel @Inject constructor(
         Log.d(TAG, "Loading folders page: ${dir ?: path}")
         val dt = refreshLocal(database, dir ?: path)
         dt.isSkeleton = false
-        folderDateRows = null
         cacheDirectoryTree(dt)
         localSongDirectoryTree.value = dt
-    }
-
-    /**
-     * The date of each folder under this one for a date sort, by path (FolderOrder.newestDates):
-     * the newest of that date among the songs under it.
-     */
-    suspend fun folderDates(sortType: FolderSongSortType): Map<String, Long> = withContext(Dispatchers.IO) {
-        val rows = folderDateRows ?: database.localFolderDates(path).also { folderDateRows = it }
-        FolderOrder.newestDates(rows, sortType)
     }
 
     /**
@@ -341,25 +328,45 @@ class LibraryAlbumsViewModel @Inject constructor(
 
 @HiltViewModel
 class LibraryPlaylistsViewModel @Inject constructor(
-    @ApplicationContext context: Context,
+    @ApplicationContext private val context: Context,
     database: MusicDatabase,
     private val syncUtils: SyncUtils,
 ) : ViewModel() {
     val isSyncingRemotePlaylists = syncUtils.isSyncingRemotePlaylists
 
+    private data class Listing(val filter: PlaylistFilter, val sortType: PlaylistSortType, val descending: Boolean, val order: String?)
+
     val allPlaylists = context.dataStore.data
         .map {
-            Triple(
+            Listing(
                 it[PlaylistFilterKey].toEnum(PlaylistFilter.LIBRARY),
-                it[PlaylistSortTypeKey].toEnum(PlaylistSortType.CREATE_DATE),
-                it[PlaylistSortDescendingKey] ?: true
+                it[PlaylistSortTypeKey].toEnum(PlaylistSortType.CREATE_DATE).let { sort ->
+                    // A stored Custom order reads as Date added where it is not offered.
+                    if (sort == PlaylistSortType.CUSTOM && !Unreleased.PLAYLIST_ORDER) PlaylistSortType.CREATE_DATE else sort
+                },
+                it[PlaylistSortDescendingKey] ?: true,
+                it[PlaylistCustomOrderKey],
             )
         }
         .distinctUntilChanged()
-        .flatMapLatest { (filter, sortType, descending) ->
-            database.playlists(filter, sortType, descending)
+        .flatMapLatest { (filter, sortType, descending, order) ->
+            if (sortType == PlaylistSortType.CUSTOM) {
+                // No way round in an order of your own: it is the one dragged.
+                database.playlists(filter, sortType, false).map { playlists ->
+                    PlaylistOrder.apply(playlists, PlaylistOrder.decode(order)) { it.id }
+                }
+            } else {
+                database.playlists(filter, sortType, descending)
+            }
         }
         .stateIn(viewModelScope, SharingStarted.Lazily, null)
+
+    /** The playlists' order after a drag, every playlist of the library, as shown. */
+    fun saveCustomOrder(ids: List<String>) {
+        viewModelScope.launch(Dispatchers.IO) {
+            context.dataStore.edit { it[PlaylistCustomOrderKey] = PlaylistOrder.encode(ids) }
+        }
+    }
 
     fun syncPlaylists(bypassCd: Boolean = false) {
         viewModelScope.launch(Dispatchers.IO) { syncUtils.syncRemotePlaylists(bypassCd) }

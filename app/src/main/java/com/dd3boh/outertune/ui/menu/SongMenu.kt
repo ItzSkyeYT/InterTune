@@ -68,6 +68,7 @@ import com.dd3boh.outertune.db.entities.Playlist
 import com.dd3boh.outertune.db.entities.PlaylistSong
 import com.dd3boh.outertune.db.entities.Song
 import com.dd3boh.outertune.extensions.toMediaItem
+import com.dd3boh.outertune.models.DontPlay
 import com.dd3boh.outertune.models.toMediaMetadata
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
@@ -84,6 +85,7 @@ import com.dd3boh.outertune.utils.joinByBullet
 import com.dd3boh.outertune.utils.makeTimeString
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.utils.syncCoroutine
+import com.dd3boh.outertune.utils.Toaster
 import com.zionhuang.innertube.YouTube
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -154,6 +156,7 @@ fun SongMenu(
     }
     var showBlockArtist by rememberSaveable { mutableStateOf(false) }
     val blockable = remember(song.artists) { blockChoices(song.artists) }
+    val dontPlay = if (Unreleased.ARTIST_BLOCK) rememberDontPlay() else DontPlay.NONE
 
     ListItem(
         title = song.song.title,
@@ -355,6 +358,15 @@ fun SongMenu(
                 database.query {
                     delete(event)
                 }
+            }
+        }
+        // Beside Block artist, before it as the song comes before its artist, and after every item
+        // anyone knows the place of (DontPlay).
+        if (Unreleased.ARTIST_BLOCK) {
+            val held = dontPlay.has(song.id)
+            dontPlayMenuItem(held) {
+                toggleDontPlay(context, database, song.toMediaMetadata(), held)
+                onDismiss()
             }
         }
         // Last of the items every song has, so that nothing anyone knows the place of moves.

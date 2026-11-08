@@ -107,7 +107,9 @@
                  intertune://playlist/..., the rows SystemSearchProvider serves, and it is the
                  phone's search that builds that intent, so nothing here says it names this
                  activity. And the app's own scheme is no web address: with two apps that take it,
-                 Android asks which one. -->
+                 Android asks which one.
+
+                 A listening room's invite, intertune://together/<code> (together/RoomCode), comes in here too. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
 

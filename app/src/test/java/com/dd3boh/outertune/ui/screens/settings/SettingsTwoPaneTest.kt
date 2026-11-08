@@ -17,6 +17,7 @@ class SettingsTwoPaneTest {
     @Test
     fun `the list has the four groups of the upright cards, sixteen screens in all`() {
         // Widgets (Unreleased.WIDGETS_PAGE, 4 Nov 2026) is the second group's fifth, under Look and feel.
+        // Listen together, only where rooms are offered, is the next test's.
         val groups = settingsGroups(engine = true, together = false, battery = true, widgets = true)
         assertEquals(listOf(3, 5, 4, 4), groups.map { it.size })
         assertEquals("settings/account_sync", groups.first().first().route)
