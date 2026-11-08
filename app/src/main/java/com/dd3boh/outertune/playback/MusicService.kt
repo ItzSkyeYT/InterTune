@@ -6377,7 +6377,8 @@ class MusicService : MediaLibraryService(),
      *
      * `play` plays those songs as the queue of a Mix playlist, `end <ms>` goes to that long before
      * the end of the song playing, `pause` pauses, `windows <id> <id>` reads and keeps the pair's
-     * end and opening as the Mix editor does. `queue` plays them as the same playlist's queue
+     * end and opening as the Mix editor does, and `keep <id> <id>` keeps its saved change as
+     * rendered too (KeptChanges), as the editor does on opening the pair. `queue` plays them as the same playlist's queue
      * without touching its Mix switch, which `mix on` and `mix off` set; `crossfade on` and
      * `crossfade off` set Crossfade. Several commands are separated by `;`.
      */
@@ -6412,7 +6413,7 @@ class MusicService : MediaLibraryService(),
                     if (duration > 0) exoPlayer.seekTo(maxOf(0L, duration - left))
                 }
                 "pause" -> exoPlayer.pause()
-                "windows" -> {
+                "windows", "keep" -> {
                     // The editor's own read of the two songs' end and opening, kept where the editor
                     // keeps them (EditorCache): parts can then be made of exactly what this phone decodes.
                     val ids = words.drop(1)
@@ -6429,6 +6430,14 @@ class MusicService : MediaLibraryService(),
                                 grids = { id -> MixStores.wholeSongs(this@MusicService).get(id) },
                             ).load(input(ids[0]), input(ids[1]), stage = {}, cancelled = { false })
                             Log.i(TAG, "AutoMix trial: windows of ${ids[0]} and ${ids[1]} kept, parts at hand ${loaded.partsReady}, ${loaded.took}")
+                            // `keep`: the saved change kept as rendered too, as the editor keeps it on opening.
+                            if (words.first() == "keep") {
+                                val change = com.dd3boh.outertune.ui.screens.mix.keepRender(
+                                    this@MusicService, loaded, mixLevelOf(ids[0]), mixLevelOf(ids[1]),
+                                    com.dd3boh.outertune.mix.edit.SongPair(ids[0], ids[1]),
+                                )
+                                Log.i(TAG, "AutoMix trial: kept ${if (change == null) "nothing" else if (change.onParts) "on parts" else "on bands"}")
+                            }
                         }.onFailure { Log.w(TAG, "AutoMix trial: windows of $ids failed", it) }
                     }
                 }

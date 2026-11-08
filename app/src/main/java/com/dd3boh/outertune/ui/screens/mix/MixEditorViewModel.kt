@@ -29,8 +29,6 @@ import com.dd3boh.outertune.mix.edit.TransitionSpec
 import com.dd3boh.outertune.mix.edit.toJson
 import com.dd3boh.outertune.mix.edit.transitionSpecOf
 import com.dd3boh.outertune.mix.edit.Presets
-import com.dd3boh.outertune.mix.engine.Preview
-import com.dd3boh.outertune.mix.engine.StoredChange
 import com.dd3boh.outertune.playback.BatteryUse
 import com.dd3boh.outertune.playback.automix.KeptChanges
 import com.dd3boh.outertune.playback.automix.MixStores
@@ -364,27 +362,7 @@ class MixEditorViewModel @Inject constructor(
     private fun keepRendered(saved: SongPair) {
         val loaded = pair ?: return
         val (levelA, levelB) = levels
-        val kept = KeptChanges(context.noBackupFilesDir)
-        KeptChanges.scope.launch {
-            val started = System.nanoTime()
-            runCatching {
-                val spec = MixStores.transitions(context).get(saved)
-                if (spec == null || spec.plain) {
-                    kept.delete(saved.from, saved.to)
-                    return@launch
-                }
-                // As the page plays it: a change saved on bands on the parts, where both songs have them.
-                val heard = if (loaded.partsReady) Presets.onParts(spec) else spec
-                val window = Preview.render(heard, loaded.aCopy, loaded.bCopy, loaded.a.analysis, levelA, levelB).getOrThrow()
-                val change = StoredChange.of(KeptChanges.written(spec), window.render, loaded.aCopy.pcm, loaded.aCopy.startMs, loaded.bCopy.pcm)
-                if (kept.put(saved.from, saved.to, change)) {
-                    Log.i(TAG, "The saved change is kept as rendered, on " + (if (change.onParts) "parts" else "bands") + ", in %.0f ms".format((System.nanoTime() - started) / 1e6))
-                }
-            }.onFailure {
-                kept.delete(saved.from, saved.to)
-                Log.w(TAG, "The saved change could not be kept as rendered", it)
-            }
-        }
+        KeptChanges.scope.launch { keepRender(context, loaded, levelA, levelB, saved) }
     }
 
     override fun onCleared() {
