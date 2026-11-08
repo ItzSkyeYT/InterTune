@@ -169,7 +169,6 @@ import androidx.compose.ui.window.DialogWindowProvider
 import com.dd3boh.outertune.together.RoomQr
 import kotlin.math.floor
 import kotlin.math.roundToInt
-import com.dd3boh.outertune.utils.Toaster
 
 /**
  * Whether Listen together is offered: while it is built (Unreleased.LISTEN_TOGETHER), and from

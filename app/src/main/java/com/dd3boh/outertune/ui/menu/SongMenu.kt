@@ -90,7 +90,6 @@ import com.zionhuang.innertube.YouTube
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
-import com.dd3boh.outertune.utils.Toaster
 
 @Composable
 fun SongMenu(

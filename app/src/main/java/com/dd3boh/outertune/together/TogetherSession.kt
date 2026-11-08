@@ -42,7 +42,6 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import okhttp3.OkHttpClient
 import kotlin.math.abs
-import com.dd3boh.outertune.utils.Toaster
 
 /**
  * A listening room while it lasts, held by the [MusicService] (his yes of 17 Oct 2026 for 0.13).
