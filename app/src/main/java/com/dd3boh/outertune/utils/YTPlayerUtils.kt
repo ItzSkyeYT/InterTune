@@ -2439,7 +2439,7 @@ object YTPlayerUtils {
         return LoudnessResult.Found(db)
     }
 
-    /** Prints what YouTube offered and what was taken. Debug only; four tiers, two outcomes. */
+    /** Prints what YouTube offered and what was taken. Debug only; four tiers, three outcomes. */
     private val TRACE_FORMATS = com.dd3boh.outertune.BuildConfig.DEBUG
 
     private fun findFormat(
