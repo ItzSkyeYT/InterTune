@@ -2424,7 +2424,8 @@ object YTPlayerUtils {
         }
 
         // The tiers are AudioPick's: Highest and High count Opus at what it is worth to the ear
-        // (#57) and never drop on mobile data; Low, and Auto on metered data, take the smallest.
+        // (#57) and never drop on mobile data; Low takes the smallest, and Auto on metered data the
+        // middle one (#88).
         return AudioPick.choose(audioFormats, audioQuality, connectivityManager.isActiveNetworkMetered).also {
             if (TRACE_FORMATS) {
                 android.util.Log.d(
