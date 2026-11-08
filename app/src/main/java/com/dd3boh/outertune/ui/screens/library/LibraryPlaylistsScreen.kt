@@ -25,6 +25,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Input
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.LockOpen
+import androidx.compose.runtime.mutableStateListOf
+import com.dd3boh.outertune.constants.PlaylistsOrderLockKey
+import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.ui.component.button.IconButton
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyGridState
+import sh.calvin.reorderable.rememberReorderableLazyListState
 import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.Favorite
@@ -120,8 +129,15 @@ fun LibraryPlaylistsScreen(
     val libraryViewType by rememberEnumPreference(LibraryViewTypeKey, LibraryViewType.GRID)
     val viewType = if (libraryFilterContent != null) libraryViewType else playlistViewType
 
-    val (sortType, onSortTypeChange) = rememberEnumPreference(PlaylistSortTypeKey, PlaylistSortType.CREATE_DATE)
+    val (storedSortType, onSortTypeChange) = rememberEnumPreference(PlaylistSortTypeKey, PlaylistSortType.CREATE_DATE)
+    // A stored Custom order reads as Date added where it is not offered (Unreleased.PLAYLIST_ORDER).
+    val sortType = if (storedSortType == PlaylistSortType.CUSTOM && !Unreleased.PLAYLIST_ORDER) PlaylistSortType.CREATE_DATE else storedSortType
     val (sortDescending, onSortDescendingChange) = rememberPreference(PlaylistSortDescendingKey, true)
+    // Custom order: the playlists are dragged by their handles as a playlist's songs are, with the
+    // same lock; only the whole library's list, and one row to a line.
+    val customOrder = Unreleased.PLAYLIST_ORDER && sortType == PlaylistSortType.CUSTOM
+    var orderLocked by rememberPreference(PlaylistsOrderLockKey, defaultValue = false)
+    val canDrag = customOrder && !orderLocked && filter == PlaylistFilter.LIBRARY
     val (showLikedAndDownloadedPlaylist) = rememberPreference(ShowLikedAndDownloadedPlaylist, true)
 
     val playlists by viewModel.allPlaylists.collectAsState()
@@ -143,6 +159,45 @@ fun LibraryPlaylistsScreen(
 
     val lazyListState = rememberLazyListState()
     val lazyGridState = rememberLazyGridState()
+
+    // The playlists as they are dragged, and the database's between drags, as a playlist's songs.
+    val dragged = remember { mutableStateListOf<Playlist>() }
+    // The order just dropped, until the list read back from the preferences has it.
+    var droppedOrder by remember { mutableStateOf<List<String>?>(null) }
+    var wasDragging by remember { mutableStateOf(false) }
+    val moveRow: (Any?, Any?) -> Unit = { fromKey, toKey ->
+        // By key, not place: the headers and the three automatic playlists sit above the rows.
+        val from = dragged.indexOfFirst { it.id == fromKey }
+        val to = dragged.indexOfFirst { it.id == toKey }
+        if (from >= 0 && to >= 0) dragged.add(to, dragged.removeAt(from))
+    }
+    val reorderableListState = rememberReorderableLazyListState(lazyListState) { from, to -> moveRow(from.key, to.key) }
+    val reorderableGridState = rememberReorderableLazyGridState(lazyGridState) { from, to -> moveRow(from.key, to.key) }
+    val dragging = reorderableListState.isAnyItemDragging || reorderableGridState.isAnyItemDragging
+    LaunchedEffect(playlists, dragging) {
+        if (dragging) {
+            wasDragging = true
+            return@LaunchedEffect
+        }
+        val listed = playlists ?: return@LaunchedEffect
+        val ids = listed.map { it.id }
+        if (wasDragging) {
+            wasDragging = false
+            val shown = dragged.map { it.id }
+            if (customOrder && shown != ids && shown.toSet() == ids.toSet()) {
+                droppedOrder = shown
+                viewModel.saveCustomOrder(shown)
+                return@LaunchedEffect
+            }
+        }
+        // The rows stay where they were dropped until the order kept comes back, not the old one.
+        val waiting = droppedOrder
+        if (waiting != null && ids != waiting && ids.toSet() == waiting.toSet()) return@LaunchedEffect
+        droppedOrder = null
+        dragged.clear()
+        dragged.addAll(listed)
+    }
+    val shownPlaylists: List<Playlist>? = if (customOrder && dragged.isNotEmpty()) dragged else playlists
 
     var showImportM3uDialog by rememberSaveable { mutableStateOf(false) }
     var showCreatePlaylistDialog by rememberSaveable { mutableStateOf(false) }
@@ -202,19 +257,35 @@ fun LibraryPlaylistsScreen(
                 .fillMaxWidth()
                 .padding(start = 16.dp, top = 16.dp, end = 8.dp, bottom = 16.dp)
         ) {
-            SortHeader(
-                sortType = sortType,
-                sortDescending = sortDescending,
-                onSortTypeChange = onSortTypeChange,
-                onSortDescendingChange = onSortDescendingChange,
-                sortTypeText = { sortType ->
-                    when (sortType) {
-                        PlaylistSortType.CREATE_DATE -> R.string.sort_by_create_date
-                        PlaylistSortType.NAME -> R.string.sort_by_name
-                        PlaylistSortType.SONG_COUNT -> R.string.sort_by_song_count
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                SortHeader(
+                    sortType = sortType,
+                    sortDescending = sortDescending,
+                    onSortTypeChange = onSortTypeChange,
+                    onSortDescendingChange = onSortDescendingChange,
+                    sortTypeText = { sortType ->
+                        when (sortType) {
+                            PlaylistSortType.CREATE_DATE -> R.string.sort_by_create_date
+                            PlaylistSortType.NAME -> R.string.sort_by_name
+                            PlaylistSortType.SONG_COUNT -> R.string.sort_by_song_count
+                            PlaylistSortType.CUSTOM -> R.string.sort_by_custom
+                        }
+                    },
+                    offered = { it != PlaylistSortType.CUSTOM || Unreleased.PLAYLIST_ORDER },
+                )
+                // The playlist's own lock, beside the sort as there: whether the rows can be dragged.
+                if (customOrder) {
+                    IconButton(
+                        onClick = { orderLocked = !orderLocked },
+                        modifier = Modifier.padding(horizontal = 6.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (orderLocked) Icons.Rounded.Lock else Icons.Rounded.LockOpen,
+                            contentDescription = stringResource(if (orderLocked) R.string.playlist_order_locked else R.string.playlist_order_unlocked)
+                        )
                     }
                 }
-            )
+            }
 
             Row(
                 verticalAlignment = Alignment.CenterVertically
@@ -354,7 +425,7 @@ fun LibraryPlaylistsScreen(
                         }
                     }
 
-                    playlists?.let { playlists ->
+                    shownPlaylists?.let { playlists ->
                         if (playlists.isEmpty() && !showLikedAndDownloadedPlaylist) {
                             item {
                                 EmptyPlaceholder(
@@ -374,13 +445,25 @@ fun LibraryPlaylistsScreen(
                             contentType = { _, _ -> CONTENT_TYPE_PLAYLIST }
                         ) { _, row ->
                             when (row) {
-                                is Playlist -> LibraryPlaylistListItem(
-                                    navController = navController,
-                                    menuState = menuState,
-                                    coroutineScope = coroutineScope,
-                                    playlist = row,
-                                    modifier = Modifier.animateItem()
-                                )
+                                is Playlist -> if (canDrag && columns == 1) {
+                                    ReorderableItem(state = reorderableListState, key = row.id) {
+                                        LibraryPlaylistListItem(
+                                            navController = navController,
+                                            menuState = menuState,
+                                            coroutineScope = coroutineScope,
+                                            playlist = row,
+                                            dragHandle = Modifier.draggableHandle(),
+                                        )
+                                    }
+                                } else {
+                                    LibraryPlaylistListItem(
+                                        navController = navController,
+                                        menuState = menuState,
+                                        coroutineScope = coroutineScope,
+                                        playlist = row,
+                                        modifier = Modifier.animateItem()
+                                    )
+                                }
 
                                 is PlaylistEntity -> AutoPlaylistListItem(
                                     playlist = row,
@@ -482,7 +565,7 @@ fun LibraryPlaylistsScreen(
                         }
                     }
 
-                    playlists?.let { playlists ->
+                    shownPlaylists?.let { playlists ->
                         if (playlists.isEmpty() && !showLikedAndDownloadedPlaylist) {
                             item(span = { GridItemSpan(maxLineSpan) }) {
                                 EmptyPlaceholder(
@@ -497,13 +580,25 @@ fun LibraryPlaylistsScreen(
                             key = { it.id },
                             contentType = { CONTENT_TYPE_PLAYLIST }
                         ) { playlist ->
-                            LibraryPlaylistGridItem(
-                                navController = navController,
-                                menuState = menuState,
-                                coroutineScope = coroutineScope,
-                                playlist = playlist,
-                                modifier = Modifier.animateItem()
-                            )
+                            if (canDrag) {
+                                ReorderableItem(state = reorderableGridState, key = playlist.id) {
+                                    LibraryPlaylistGridItem(
+                                        navController = navController,
+                                        menuState = menuState,
+                                        coroutineScope = coroutineScope,
+                                        playlist = playlist,
+                                        dragHandle = Modifier.draggableHandle(),
+                                    )
+                                }
+                            } else {
+                                LibraryPlaylistGridItem(
+                                    navController = navController,
+                                    menuState = menuState,
+                                    coroutineScope = coroutineScope,
+                                    playlist = playlist,
+                                    modifier = Modifier.animateItem()
+                                )
+                            }
                         }
                     }
                 }

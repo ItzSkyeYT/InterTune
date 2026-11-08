@@ -915,4 +915,15 @@ object Unreleased {
      * queue's skip). To drop it instead: this flag and those reads, then AiFilter and its calls.
      */
     val AI_FILTER = BuildConfig.DEBUG
+
+    /**
+     * Playlists in an order of your own (a listener's ask, relayed 8 Nov 2026: to reorganise the
+     * playlists in the library exactly like songs in a playlist). Custom order in Library >
+     * Playlists' sort, then each playlist is dragged by its handle as a playlist's songs are, with
+     * the same lock. The order is one preference of ids (PlaylistOrder); playlists made or saved
+     * since come first, newest first. Add to playlist lists them in the same order. Its words are
+     * the playlist's own, already translated. Without the flag Custom order is not offered and a
+     * stored one reads as Date added. To ship: set this to true and add it to ReleasedFlagsTest.
+     */
+    val PLAYLIST_ORDER = BuildConfig.DEBUG
 }

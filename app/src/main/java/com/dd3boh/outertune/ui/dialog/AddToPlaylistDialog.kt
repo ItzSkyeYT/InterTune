@@ -40,6 +40,9 @@ import com.dd3boh.outertune.LocalDatabase
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.ListThumbnailSize
 import com.dd3boh.outertune.constants.PlaylistFilter
+import com.dd3boh.outertune.constants.PlaylistCustomOrderKey
+import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.models.PlaylistOrder
 import com.dd3boh.outertune.constants.PlaylistSortDescendingKey
 import com.dd3boh.outertune.constants.PlaylistSortType
 import com.dd3boh.outertune.constants.PlaylistSortTypeKey
@@ -85,7 +88,10 @@ fun AddToPlaylistDialog(
     val database = LocalDatabase.current
     val coroutineScope = rememberCoroutineScope()
 
-    val (sortType, onSortTypeChange) = rememberEnumPreference(PlaylistSortTypeKey, PlaylistSortType.CREATE_DATE)
+    val (storedSortType, onSortTypeChange) = rememberEnumPreference(PlaylistSortTypeKey, PlaylistSortType.CREATE_DATE)
+    val sortType = if (storedSortType == PlaylistSortType.CUSTOM && !Unreleased.PLAYLIST_ORDER) PlaylistSortType.CREATE_DATE else storedSortType
+    // In Custom order, the library's own: the playlists in the order dragged there.
+    val customOrder by rememberPreference(PlaylistCustomOrderKey, "")
     val (sortDescending, onSortDescendingChange) = rememberPreference(PlaylistSortDescendingKey, true)
     val syncMode by rememberEnumPreference(key = YtmSyncModeKey, defaultValue = SyncMode.RW)
 
@@ -124,15 +130,12 @@ fun AddToPlaylistDialog(
         mutableStateOf(false)
     }
 
-    LaunchedEffect(Unit) {
-        if (syncMode == SyncMode.RO) {
-            database.playlists(PlaylistFilter.LIBRARY, sortType, sortDescending, 1).collect {
-                playlists = it
-            }
-        } else {
-            database.playlists(PlaylistFilter.LIBRARY, sortType, sortDescending, 2).collect {
-                playlists = it
-            }
+    // Read again when the sort is changed here: it was read once, so a new sort showed nothing new.
+    LaunchedEffect(sortType, sortDescending, customOrder) {
+        val custom = sortType == PlaylistSortType.CUSTOM
+        val variant = if (syncMode == SyncMode.RO) 1 else 2
+        database.playlists(PlaylistFilter.LIBRARY, sortType, sortDescending && !custom, variant).collect {
+            playlists = if (custom) PlaylistOrder.apply(it, PlaylistOrder.decode(customOrder)) { p -> p.id } else it
         }
     }
 
@@ -190,10 +193,12 @@ fun AddToPlaylistDialog(
                         PlaylistSortType.CREATE_DATE -> R.string.sort_by_create_date
                         PlaylistSortType.NAME -> R.string.sort_by_name
                         PlaylistSortType.SONG_COUNT -> R.string.sort_by_song_count
+                        PlaylistSortType.CUSTOM -> R.string.sort_by_custom
                     }
                 },
                 modifier = Modifier
-                    .padding(horizontal = 16.dp)
+                    .padding(horizontal = 16.dp),
+                offered = { it != PlaylistSortType.CUSTOM || Unreleased.PLAYLIST_ORDER },
             )
         }
 

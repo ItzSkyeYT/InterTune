@@ -535,6 +535,10 @@ val LibraryFilterKey = stringPreferencesKey("libraryFilter")
 val LibraryViewTypeKey = stringPreferencesKey("libraryViewType")
 
 val PlaylistEditLockKey = booleanPreferencesKey("playlistEditLock")
+// Library > Playlists in Custom order: the playlists' ids in that order, one a line (PlaylistOrder),
+// and whether their order is locked against a stray drag, as a playlist's songs are.
+val PlaylistCustomOrderKey = stringPreferencesKey("playlistCustomOrder")
+val PlaylistsOrderLockKey = booleanPreferencesKey("playlistsOrderLock")
 
 val SearchSourceKey = stringPreferencesKey("searchSource")
 

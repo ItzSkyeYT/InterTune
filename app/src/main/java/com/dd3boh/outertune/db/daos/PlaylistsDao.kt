@@ -130,6 +130,8 @@ interface PlaylistsDao {
             PlaylistSortType.CREATE_DATE -> "p.rowId ASC"
             PlaylistSortType.NAME -> "p.name COLLATE NOCASE ASC"
             PlaylistSortType.SONG_COUNT -> "songCount ASC"
+            // The order of your own is put on the list afterwards (PlaylistOrder), from this one.
+            PlaylistSortType.CUSTOM -> "p.rowId ASC"
         }
 
         val having = when (filter) {
