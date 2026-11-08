@@ -14,7 +14,6 @@ import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.LibraryAdd
 import androidx.compose.material.icons.rounded.LibraryAddCheck
 import androidx.compose.material.icons.rounded.PlaylistRemove
-import androidx.compose.material.icons.rounded.RemoveFromQueue
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -280,7 +279,7 @@ fun SelectionMediaMetadataMenu(
         // The queue's own: last, so nothing anyone knows the place of moves.
         if (onRemoveFromQueue != null) {
             GridMenuItem(
-                icon = Icons.Rounded.RemoveFromQueue,
+                icon = Icons.Rounded.PlaylistRemove,
                 title = R.string.remove_from_queue,
             ) {
                 onRemoveFromQueue()
