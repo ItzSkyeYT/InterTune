@@ -109,6 +109,24 @@ class AutomixControllerRulesTest {
     }
 
     @Test
+    fun `a request to hold the end lost to the flush of a jump is asked again, never twice at once`() {
+        // 8 Nov 2026 on the emulator: a jump to 30 s before the end, the ring handed over before the
+        // jump's flush, which let the request go without a word, and the end was never held.
+        val arm = body(controller, "private fun arm(")
+        val handed = arm.substringAfter("stage.requestArm(")
+        assertTrue(arm, "t.armAskedAtMs = SystemClock.elapsedRealtime()" in handed && "main.postDelayed({ armLost(t) }, ARM_LOST_MS)" in handed)
+        val lost = body(controller, "private fun armLost(")
+        assertTrue(lost, "!t.armRequested || t.holding || t.finished" in lost && "t.armRequested = false" in lost)
+        // Longer than the stage waits for a request, so the one lost can no longer be taken.
+        assertTrue(1_500L > 1_000L && "const val ARM_LOST_MS = 1_500L" in controller)
+        val stage = code("playback/automix/AutomixAudioProcessor.kt")
+        assertTrue("private const val ARM_WAIT_NANOS = 1_000_000_000L" in stage)
+        // A request asked again and refused once the first was taken does not undo the end held.
+        val note = body(controller, "override fun note(")
+        assertTrue(note, "t.id == id && !t.holding && text.startsWith(\"not holding the end\")" in note)
+    }
+
+    @Test
     fun `a plan worked out for a change given up is not handed to the stage, and a dropped end is let go`() {
         assertTrue("t.abandoned.set(true)" in body(controller, "private fun abort("))
         assertTrue("if (!t.abandoned.get() && t.entryFrames == 0L) stage.offer(held, plan, rendered, ring = ring)" in controller)
