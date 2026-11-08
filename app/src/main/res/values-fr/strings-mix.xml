@@ -6,6 +6,7 @@
     <string name="mix_edit_redo">Rétablir</string>
     <string name="mix_edit_close">Fermer</string>
     <string name="mix_edit_save">Enregistrer</string>
+    <string name="mix_edit_saved_state">Enregistré</string>
 
     <string name="mix_edit_bpm">%1$s BPM</string>
     <string name="mix_edit_bpm_unknown">\? BPM</string>

@@ -9,6 +9,7 @@
     <string name="mix_edit_redo">Redo</string>
     <string name="mix_edit_close">Close</string>
     <string name="mix_edit_save">Save</string>
+    <string name="mix_edit_saved_state">Saved</string>
 
     <!-- the two song rows -->
     <string name="mix_edit_bpm">%1$s BPM</string>

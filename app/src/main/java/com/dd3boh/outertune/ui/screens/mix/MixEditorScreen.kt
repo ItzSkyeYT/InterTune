@@ -53,7 +53,6 @@ import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material.icons.rounded.Stop
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -183,7 +182,6 @@ fun MixEditorScreen(navController: NavController) {
     LaunchedEffect(partsReady) { if (partsReady) lanesView = true }
     var lengthOpen by remember { mutableStateOf(false) }
     var fixOpen by remember { mutableStateOf<Side?>(null) }
-    var discardOpen by remember { mutableStateOf(false) }
     var clicking by remember { mutableStateOf(false) }
     var loop by rememberSaveable { mutableStateOf(true) }
     var said by remember { mutableStateOf<String?>(null) }
@@ -278,9 +276,8 @@ fun MixEditorScreen(navController: NavController) {
     val editor = vm.editor
     val spec = ui?.spec
 
-    fun close() {
-        if (ui?.dirty == true) discardOpen = true else navController.navigateUp()
-    }
+    // The change saves itself (autosave): leaving keeps it, with nothing to ask.
+    fun close() = navController.navigateUp()
     // A preset chip, on either level: what it replaced is said where the level shows its messages.
     fun presetTapped(p: Preset, host: SnackbarHostState) {
         when (vm.edit { tapPreset(p) }) {
@@ -294,10 +291,8 @@ fun MixEditorScreen(navController: NavController) {
         canvas.flash = 1f
         scope.launch { Animatable(1f).animateTo(0f, tween(200)) { canvas.flash = value } }
     }
-    // Back leaves Adjust, then asks before changes are lost; with the player open over the page it is the player's.
-    ScreenBackHandler(enabled = canvas.adjust != null || ui?.dirty == true) {
-        if (canvas.adjust != null) leaveAdjust(vm, canvas) else discardOpen = true
-    }
+    // Back leaves Adjust first; with the player open over the page it is the player's.
+    ScreenBackHandler(enabled = canvas.adjust != null) { leaveAdjust(vm, canvas) }
 
     val actions = remember {
         object : CanvasActions {
@@ -497,7 +492,7 @@ fun MixEditorScreen(navController: NavController) {
                         },
                         enabled = ui?.dirty == true && phase is MixEditorViewModel.Phase.Ready,
                         modifier = Modifier.padding(end = 8.dp),
-                    ) { Text(stringResource(R.string.mix_edit_save), maxLines = 1) }
+                    ) { Text(stringResource(if (ui?.dirty == true) R.string.mix_edit_save else R.string.mix_edit_saved_state), maxLines = 1) }
                 },
             )
         }
@@ -538,14 +533,6 @@ fun MixEditorScreen(navController: NavController) {
             vm.preview?.click(if (on) side else null)
             if (on) play(e.fitStart())
         }) { fixOpen = null; if (clicking) stop() }
-    }
-    if (discardOpen) {
-        AlertDialog(
-            onDismissRequest = { discardOpen = false },
-            title = { Text(stringResource(R.string.mix_edit_discard_title)) },
-            confirmButton = { TextButton(onClick = { discardOpen = false; navController.navigateUp() }) { Text(stringResource(R.string.mix_edit_discard)) } },
-            dismissButton = { TextButton(onClick = { discardOpen = false }) { Text(stringResource(R.string.mix_edit_keep_editing)) } },
-        )
     }
 }
 
@@ -941,7 +928,7 @@ private fun SideBar(ui: MixEditorViewModel.Ui?, onClose: () -> Unit, onStep: (ba
         Spacer(Modifier.weight(1f))
         IconButton(onClick = { onStep(true) }, enabled = ui?.canUndo == true) { Icon(Icons.AutoMirrored.Rounded.Undo, stringResource(R.string.mix_edit_undo)) }
         IconButton(onClick = { onStep(false) }, enabled = ui?.canRedo == true) { Icon(Icons.AutoMirrored.Rounded.Redo, stringResource(R.string.mix_edit_redo)) }
-        FilledTonalButton(onClick = onSave, enabled = ui?.dirty == true, modifier = Modifier.padding(start = 4.dp)) { Text(stringResource(R.string.mix_edit_save), maxLines = 1) }
+        FilledTonalButton(onClick = onSave, enabled = ui?.dirty == true, modifier = Modifier.padding(start = 4.dp)) { Text(stringResource(if (ui?.dirty == true) R.string.mix_edit_save else R.string.mix_edit_saved_state), maxLines = 1) }
     }
 }
 

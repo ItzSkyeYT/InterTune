@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.ui.screens.mix
 
+import kotlinx.coroutines.delay
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
@@ -278,6 +279,7 @@ class MixEditorViewModel @Inject constructor(
             keptUndoSize = steps.size
             keptUndoLast = steps.lastOrNull()
         }
+        scheduleAutosave()
     }
 
     private var keptUndoSize = -1
@@ -291,28 +293,67 @@ class MixEditorViewModel @Inject constructor(
         return result
     }
 
-    /** Saves the change for the pair, and the songs' beat fixes, then calls [done] on the main thread. */
-    fun save(done: (Boolean) -> Unit) {
+    /** The save a moment after the last edit (his ask of 8 Nov 2026: "make it so the transitions AUTOSAVE"). */
+    private var autosave: Job? = null
+
+    /** A change saved since it was last kept as rendered for the playlist (KeptChanges). */
+    private var keptStale = false
+
+    /** Saves the page's change [AUTOSAVE_AFTER_MS] after the last edit, where it has one. */
+    private fun scheduleAutosave() {
         val e = editor ?: return
+        if (!e.dirty) return
+        autosave?.cancel()
+        autosave = viewModelScope.launch {
+            delay(AUTOSAVE_AFTER_MS)
+            saveNow()
+        }
+    }
+
+    /** Writes the page's change and the songs' beat fixes where anything changed; true when nothing is left unsaved. */
+    private suspend fun saveNow(): Boolean {
+        val e = editor ?: return false
+        if (!e.dirty) return true
+        val written = e.spec
         val action = e.saveAction(System.currentTimeMillis())
-        viewModelScope.launch {
-            val ok = withContext(Dispatchers.IO) {
-                runCatching {
-                    val store = MixStores.transitions(context)
-                    when (action) {
-                        is SaveAction.Forget -> {
-                            store.delete(action.pair)
-                            KeptChanges(context.noBackupFilesDir).delete(action.pair.from, action.pair.to)
-                        }
-                        is SaveAction.Keep -> store.put(action.spec)
-                    }
-                    val fixes = MixStores.beatFixes(context)
-                    action.fixes.forEach { (song, fix) -> fixes.put(song, fix) }
-                }.onFailure { Log.w(TAG, "The change could not be saved", it) }.isSuccess
+        val ok = withContext(Dispatchers.IO) { write(action) }
+        if (ok) {
+            e.markSaved(written)
+            keptStale = true
+            publish()
+        }
+        return ok
+    }
+
+    /** The change for the pair, and the songs' beat fixes, into their stores. Blocking. */
+    private fun write(action: SaveAction): Boolean = runCatching {
+        val store = MixStores.transitions(context)
+        when (action) {
+            is SaveAction.Forget -> {
+                store.delete(action.pair)
+                KeptChanges(context.noBackupFilesDir).delete(action.pair.from, action.pair.to)
             }
-            if (ok && action is SaveAction.Keep) keepRendered(action.spec.pair)
+            is SaveAction.Keep -> store.put(action.spec)
+        }
+        val fixes = MixStores.beatFixes(context)
+        action.fixes.forEach { (song, fix) -> fixes.put(song, fix) }
+    }.onFailure { Log.w(TAG, "The change could not be saved", it) }.isSuccess
+
+    /** Save: the change saved now and kept as rendered, then [done] on the main thread. */
+    fun save(done: (Boolean) -> Unit) {
+        autosave?.cancel()
+        viewModelScope.launch {
+            val ok = saveNow()
+            if (ok) keepIfStale()
             done(ok)
         }
+    }
+
+    /** The change kept as rendered for the playlist, where it was saved since it last was. */
+    private fun keepIfStale() {
+        if (!keptStale) return
+        keptStale = false
+        keepRendered(SongPair(fromId, toId))
     }
 
     /**
@@ -348,6 +389,20 @@ class MixEditorViewModel @Inject constructor(
 
     override fun onCleared() {
         cancelled.set(true)
+        autosave?.cancel()
+        // Leaving the page keeps what it had: what was not saved yet is saved, and the change kept
+        // as rendered, past the page, which is gone.
+        editor?.let { e ->
+            val pending = if (e.dirty) e.saveAction(System.currentTimeMillis()) else null
+            if (pending != null || keptStale) {
+                keptStale = false
+                val pair = SongPair(fromId, toId)
+                KeptChanges.scope.launch {
+                    if (pending != null) write(pending)
+                    keepRendered(pair)
+                }
+            }
+        }
         preview?.release()
         preview = null
         pausedPlayer?.let { if (!it.isPlaying) it.play() }
@@ -360,5 +415,8 @@ class MixEditorViewModel @Inject constructor(
         const val KEY_UNDO = "mix_undo"
         const val KEY_SIMPLE = "mix_simple"
         const val ROW_WAIT_MS = 2_000L
+
+        /** How long after the last edit the change is saved by itself. */
+        const val AUTOSAVE_AFTER_MS = 1_500L
     }
 }
