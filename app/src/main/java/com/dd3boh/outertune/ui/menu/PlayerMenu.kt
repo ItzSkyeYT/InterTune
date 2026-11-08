@@ -91,6 +91,7 @@ import com.dd3boh.outertune.constants.MAX_PLAYER_VOLUME
 import com.dd3boh.outertune.constants.ShowLyricsKey
 import com.dd3boh.outertune.constants.SyncMode
 import com.dd3boh.outertune.constants.YtmSyncModeKey
+import com.dd3boh.outertune.models.DontPlay
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.models.withArtistIds
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
@@ -174,6 +175,7 @@ fun PlayerMenu(
 
     val (sleepTimerEnabled, sleepTimerTimeLeft) = rememberSleepTimerState(playerConnection)
     val mixEntry = if (Unreleased.AUTOMIX_EDITOR) rememberMixMenuEntry(mediaMetadata.id) else null
+    val dontPlay = if (Unreleased.ARTIST_BLOCK) rememberDontPlay() else DontPlay.NONE
 
     var showSleepTimerDialog by remember {
         mutableStateOf(false)
@@ -405,6 +407,16 @@ fun PlayerMenu(
             title = R.string.signal_path
         ) {
             showSignalPath = true
+        }
+        // Don't play this song, as in the song menus, where Block artist stands beside it: after
+        // every item that is always there, before the ones only some moments have (DontPlay). The
+        // song playing is passed over at once.
+        if (Unreleased.ARTIST_BLOCK) {
+            val held = dontPlay.has(mediaMetadata.id)
+            dontPlayMenuItem(held) {
+                toggleDontPlay(context, database, mediaMetadata, held)
+                onDismiss()
+            }
         }
         // Mix: the change from this song into the next, shaped by hand, only while a Mix queue
         // plays, so after every item that is always there. Just after a change it opens that one.

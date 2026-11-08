@@ -34,10 +34,11 @@ class YouTubeAlbumRadio(
             // same action worked on short ones. drop is the total version of the same slice and
             // returns empty instead of throwing, so the album plays and tops up from the
             // continuation on the next page.
-            // The album as it is, since it was chosen; what the radio adds past it is filtered.
-            // The album's own artists stay in the radio with the AI filter (AiFilter.forQueue).
+            // The album as it is, since it was chosen; what the radio adds past it is filtered, a
+            // song not to play included (DontPlay). The album's own artists stay in the radio with
+            // the AI filter (AiFilter.forQueue).
             items = (albumSongs.also { songs -> AiFilter.startedFrom(songs.flatMap { s -> s.artists.map { it.id } }) } +
-                AiFilter.forQueue().recommendations(ContentFilter.current.apply(nextResult.items.drop(albumSongs.size)))).map { it.toMediaMetadata() },
+                AiFilter.forQueue().recommendations(ContentFilter.current.queue(nextResult.items.drop(albumSongs.size)))).map { it.toMediaMetadata() },
             mediaItemIndex = nextResult.currentIndex ?: 0
         )
     }
@@ -49,6 +50,6 @@ class YouTubeAlbumRadio(
             YouTube.next(endpoint, continuation).getOrThrow()
         }
         continuation = nextResult.continuation
-        return AiFilter.forQueue().recommendations(ContentFilter.current.apply(nextResult.items)).map { it.toMediaMetadata() }
+        return AiFilter.forQueue().recommendations(ContentFilter.current.queue(nextResult.items)).map { it.toMediaMetadata() }
     }
 }

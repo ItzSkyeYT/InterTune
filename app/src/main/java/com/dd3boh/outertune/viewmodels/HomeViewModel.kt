@@ -524,7 +524,12 @@ class HomeViewModel @Inject constructor(
             expiresAt = if (reason == ExclusionsViewModel.REASON_SNOOZE) now + ExclusionsViewModel.SNOOZE_MS else null,
         )
         viewModelScope.launch(Dispatchers.IO) {
-            runCatching { database.transactionNow { insertExclusion(exclusion) } }.onFailure { Log.w("HomeViewModel", "Could not write an exclusion", it) }
+            // Never in place of Don't play this song, which also keeps the song out of radios.
+            runCatching {
+                database.transactionNow {
+                    if (ExclusionsViewModel.mayReplace(this.exclusion(kind, targetId)?.reason, reason)) insertExclusion(exclusion)
+                }
+            }.onFailure { Log.w("HomeViewModel", "Could not write an exclusion", it) }
             lastEngineBuildAt = 0L
             tidyRows()
             refresh()

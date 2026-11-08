@@ -156,7 +156,8 @@ class QueueBoard(
      * if the queue already exists
      * @param origin Where the queue began, for a queue made by hand outside playQueue: a new one,
      * or one that says nothing yet, takes it, with a run of its own. A queue that already says
-     * where it began keeps that. Null for the callers that set it on the queue themselves.
+     * where it began keeps that. Null for the callers that set it on the queue themselves. With
+     * PlayOrigin.QUEUE, the menus' Add to queue, the songs are noted as the listener's ([noteAddedByHand]).
      * @param startFirst With [shuffled]: the song at [startIndex] plays first and the others are
      * shuffled after it, for a song picked out of a list while shuffle is on (QueueStart). Without
      * it a shuffled queue begins on any song, as a list's Shuffle button asks.
@@ -277,6 +278,7 @@ class QueueBoard(
                     Log.d(TAG, "Adding to queue: extension queue additive")
                 // add items to existing queue unconditionally
                 if (anyExts != null) {
+                    noteAddedByHand(anyExts, mediaList, origin)
                     addSongsToQueue(anyExts, Int.MAX_VALUE, mediaList.filterNotNull(), saveToDb = false)
                     if (shuffled) {
                         shuffle(anyExts, false, true)
@@ -284,6 +286,7 @@ class QueueBoard(
                         anyExts.playlistId = continuationEndpoint
                     }
                 } else {
+                    noteAddedByHand(match, mediaList, origin)
                     addSongsToQueue(match, Int.MAX_VALUE, mediaList.filterNotNull(), saveToDb = false)
                     if (shuffled) {
                         shuffle(match, false, true)
@@ -302,6 +305,7 @@ class QueueBoard(
                 if (QUEUE_DEBUG)
                     Log.d(TAG, "Adding to queue: extension queue rename + extension queue additive")
                 // add items to existing queue unconditionally
+                noteAddedByHand(match, mediaList, origin)
                 addSongsToQueue(match, Int.MAX_VALUE, mediaList.filterNotNull(), saveToDb = false)
                 if (shuffled) {
                     shuffle(match, false, true)
@@ -338,6 +342,8 @@ class QueueBoard(
                 continuationEndpoint
             )
             newQueue.startedByHand(origin, System.currentTimeMillis())
+            // In the run it has just been given, which its first song makes current.
+            noteAddedByHand(newQueue, q, origin)
             masterQueues.add(newQueue)
             if (shuffled) {
                 shuffle(masterQueues.size - 1, startFirst, true)
@@ -349,6 +355,16 @@ class QueueBoard(
         }
     }
 
+
+    /**
+     * [mediaList] went into [q] with a menu's Add to queue, [origin] PlayOrigin.QUEUE: the songs are
+     * the listener's, noted so in [q]'s run before they load (MusicService.notePutInByHand). Nothing
+     * for addQueue's other callers, playQueue's starts and the car's lists, which pass no origin. A
+     * radio picked there goes through MusicService.addToQueue, which notes them itself.
+     */
+    private fun noteAddedByHand(q: MultiQueueObject, mediaList: List<MediaMetadata?>, origin: PlayOrigin?) {
+        if (origin == PlayOrigin.QUEUE) player.notePutInByHand(q, mediaList.mapNotNull { it?.id })
+    }
 
     /**
      * Add songs to end of CURRENT QUEUE & update it in the player

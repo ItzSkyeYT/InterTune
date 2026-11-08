@@ -183,6 +183,10 @@ class QueueStartTest {
             queue.queue.addAll(queue.queuePos + 1, taken.songs)
         }
 
+        override fun putInByHand(queue: MultiQueueObject, ids: List<String>) {
+            asked += "by hand $ids in '${queue.title}' (run ${queue.runId})"
+        }
+
         /** The songs stored as related to a song, by its id, and those on YouTube's related page. */
         val stored = mutableMapOf<String, List<MediaMetadata>>()
         val relatedPage = mutableMapOf<String, List<MediaMetadata>>()
@@ -233,6 +237,7 @@ class QueueStartTest {
         playWhenReady: Boolean = true,
         runId: Long = 7,
         beforeStart: () -> Unit = {},
+        byHand: Boolean = false,
     ) = run(
         queue = queue,
         playWhenReady = playWhenReady,
@@ -244,6 +249,7 @@ class QueueStartTest {
         originSlot = 2,
         runId = runId,
         beforeStart = beforeStart,
+        byHand = byHand,
     )
 
     private val started = "player: prepare, playWhenReady true"
@@ -1315,6 +1321,40 @@ class QueueStartTest {
         assertEquals(listOf("keep [X, Y] after D in 'Playlist'"), service.asked.filter { it.startsWith("keep") })
         assertEquals(1, service.waitingAsked)
         assertEquals("load 'Playlist' [A, B, C, D, X, Y, E] at 3 (origin 3, slot 2, run 8)", service.board().last())
+    }
+
+    // Songs put in with Play next or Add to queue while no queue was on the board play as a
+    // queue of their own. They are the listener's, every one of them: a song not to play among
+    // them plays (DontPlaySkip), and the second and later used to be passed over.
+
+    @Test
+    fun `songs put in by hand are noted so in the queue they make, in its run, before it loads`() = runBlocking {
+        val service = Service()
+        QueueStart(service).play(ListQueue(title = "A", items = listOf(song("A"), song("B"), song("C"))), byHand = true)
+
+        assertEquals(
+            listOf(
+                "add 'A' [A, B, C] at 0 replace",
+                "by hand [A, B, C] in 'A' (run 7)",
+                "load 'A' [A, B, C] at 0 $tags",
+                started,
+            ),
+            service.asked,
+        )
+    }
+
+    @Test
+    fun `any other start notes nothing by hand`() = runBlocking {
+        val service = Service()
+        QueueStart(service).play(ListQueue(title = "Playlist", items = list))
+        QueueStart(service).play(picked())
+        val radio = LateQueue(song("A"))
+        val job = launch { QueueStart(service).play(radio) }
+        radio.asked.await()
+        radio.answer.complete(Queue.Status("A Mix", listOf(song("A"), song("B")), 0))
+        job.join()
+
+        assertTrue(service.asked.toString(), service.asked.none { it.startsWith("by hand") })
     }
 
     private fun <T> List<T>.repeat(times: Int) = List(times) { this }.flatten()

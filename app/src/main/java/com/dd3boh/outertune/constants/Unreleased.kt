@@ -746,10 +746,19 @@ object Unreleased {
      * name. A search for a blocked artist's name shows one quiet line and Unblock. "Never this
      * artist" stays as it was, for the recommendation rows only.
      *
+     * Its song half, Don't play this song (DontPlay, #78), stands beside Block artist in the song
+     * menus and after the player menu's items that are always there: radios and autoplay never
+     * bring the song nor another upload of it, the player passes over it where it comes to it by
+     * itself (DontPlaySkip), and it still plays when the listener picks it. Kept as a row of
+     * Exclusions of its own reason, where Lift takes it back, as does the same menu item; "Not this
+     * song" stays as it was, for the recommendation rows only.
+     *
      * Kept in one setting (BlockedArtistsKey), read only with this on, so a release that restores
-     * a backup from a debug build hides nothing. Its texts are held from translators, their
-     * French beside them in values-fr. Seen on an emulator only. Without it no menu or page has
-     * any of it. When it is agreed: set this to true, make its texts translatable.
+     * a backup from a debug build hides nothing. Its texts, Don't play this song's with them, are
+     * open to translators, their French beside them in values-fr. Seen on an emulator only.
+     * Without it no menu or page has any of it.
+     *
+     * On in every build from 0.13, Don't play this song with it, picked on 8 Nov 2026.
      */
     val ARTIST_BLOCK = true
 

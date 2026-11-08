@@ -13,6 +13,7 @@ import com.dd3boh.outertune.utils.AppProxySelector
 import com.dd3boh.outertune.utils.ProxyAddress
 import com.dd3boh.outertune.utils.ProxyAtStart
 import com.dd3boh.outertune.models.ContentFilter
+import com.dd3boh.outertune.models.DontPlay
 import com.dd3boh.outertune.models.AiArtistList
 import com.dd3boh.outertune.models.AiFilter
 import com.dd3boh.outertune.models.AiFilterMode
@@ -20,6 +21,8 @@ import com.dd3boh.outertune.widget.WidgetEntryPoint
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import com.dd3boh.outertune.utils.BuiltInKeys
@@ -230,8 +233,20 @@ class App : Application(), SingletonImageLoader.Factory {
         // straight away already follows them, then followed. See ContentFilter.
         ContentFilter.current = ContentFilter.of(dataStore.current)
         GlobalScope.launch {
-            dataStore.data
-                .map { ContentFilter.of(it) }
+            // And the songs the listener chose not to play, which the database keeps, only in a
+            // build with the feature (DontPlay). None until it answers, and none if it fails: a
+            // radio then brings them, which is how it was before.
+            val dontPlay = if (!Unreleased.ARTIST_BLOCK) flowOf(DontPlay.NONE) else {
+                EntryPointAccessors.fromApplication(this@App, WidgetEntryPoint::class.java).database()
+                    .dontPlaySongs()
+                    .map { DontPlay(it) }
+                    .onStart { emit(DontPlay.NONE) }
+                    .catch { e ->
+                        Log.w(TAG, "Could not read the songs not to play", e)
+                        emit(DontPlay.NONE)
+                    }
+            }
+            combine(dataStore.data.map { ContentFilter.of(it) }, dontPlay) { filter, songs -> filter.copy(dontPlay = songs) }
                 .distinctUntilChanged()
                 .collect { ContentFilter.current = it }
         }
