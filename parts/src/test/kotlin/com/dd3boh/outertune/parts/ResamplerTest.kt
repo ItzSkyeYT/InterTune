@@ -91,13 +91,14 @@ class ResamplerTest {
             val x = FloatArray(16_000).also { it[at] = 1f }
             val there = resampleAll(r, x)
             val again = resampleAll(back, there)
-            // There and back: the peak where the impulse was, and the same on both sides of it. Off
-            // the grid both rates share (every 160 frames), only nearly: the little that folds back
-            // near 22 kHz is not mirrored.
+            // There and back: the peak where the impulse was, and the same on both sides of it. On the
+            // grid both rates share (every 160 frames) to 1e-5: torchaudio's taps are placed in float32,
+            // which leaves its filter that far from mirrored. Off the grid only nearly: the little that
+            // folds back near 22 kHz is not mirrored.
             var peak = 0
             for (i in again.indices) if (again[i] > again[peak]) peak = i
             assertEquals("impulse at $at", at, peak)
-            val tolerance = if (at % 160 == 0) 2e-7f else 1e-3f
+            val tolerance = if (at % 160 == 0) 1e-5f else 1e-3f
             for (m in 1..400) assertEquals("impulse at $at, $m either side", again[at - m], again[at + m], tolerance)
             if (at % 160 == 0) {
                 // On a block's edge the impulse lands on an output frame: there too it stays put, even on both sides.
@@ -105,7 +106,7 @@ class ResamplerTest {
                 var p = 0
                 for (i in there.indices) if (there[i] > there[p]) p = i
                 assertEquals(o, p)
-                for (m in 1..400) assertEquals(there[o - m], there[o + m], 2e-7f)
+                for (m in 1..400) assertEquals(there[o - m], there[o + m], 1e-5f)
             }
         }
     }
@@ -235,10 +236,10 @@ class ResamplerTest {
                 }
                 val db = 10 * log10(signal / error)
                 println("resampler: $name channel $c against torchaudio: %.1f dB, worst sample %.2e (%.4f of a 16-bit step)".format(db, worst, worst * 32768))
-                // torchaudio works out its taps in float32, this in float64: about 107 dB apart, and never
-                // half a 16-bit step, so a stored sample is the same or one step off.
-                assertTrue("$name channel $c: $db dB", db > 100)
-                assertTrue("$name channel $c: worst $worst", worst < 0.5f / 32768)
+                // torchaudio's own taps summed in float64 land 130 to 133 dB from it (its float32 sums);
+                // these 127 to 128. Taps worked out wholly in float64 were 107 dB off.
+                assertTrue("$name channel $c: $db dB", db > 125)
+                assertTrue("$name channel $c: worst $worst", worst < 0.05f / 32768)
             }
         }
     }

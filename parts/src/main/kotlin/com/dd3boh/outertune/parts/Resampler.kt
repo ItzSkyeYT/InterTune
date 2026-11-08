@@ -19,10 +19,16 @@ import kotlin.math.sqrt
  * split_windows.py: a Kaiser window of beta 14.77 over 64 zero crossings, roll-off 0.9476,
  * librosa's "kaiser_best"), so the phone's parts and the PC's come through the same filter.
  *
+ * torchaudio places each tap in float32, and that rounding is most of what sets its filter apart
+ * from the exact one: on music the exact taps land 107 dB from its output. So each tap's place is
+ * worked out here in float32, step by step as torchaudio does, and the window and the sinc in
+ * float64 from there: 127 dB from its output, where its own taps summed in float64 reach 130 to
+ * 133 dB (the rest is its float32 sums, and its float32 square root and sine, which come from MKL).
+ *
  * No delay: output frame j is the input at time j / [to], input frame i is at i / [from], so a
  * sample stays where it was. The input is silence outside its length, and n frames give
  * ceil(n * to / from), as torchaudio's do. Up to 0.9476 of the lower rate's half (20.9 kHz at
- * 44.1 kHz) passes; what would fold back is held about 140 dB down (ResamplerTest). Rates go by
+ * 44.1 kHz) passes; what would fold back is held more than 90 dB down (ResamplerTest). Rates go by
  * their greatest common divisor: 48 kHz to 44.1 kHz is 160 frames to 147, with 147 sets of about
  * 147 taps.
  */
@@ -61,6 +67,10 @@ class Resampler(val from: Int, val to: Int) {
             require(up.toLong() * (2L * width + down) <= MAX_TAPS) { "$from Hz to $to Hz takes too large a filter" }
             val scale = base / down
             val i0Beta = besselI0(BETA)
+            // torchaudio's float32 steps: idx = arange(-width, width + down) / down, then
+            // t = (arange(0, -up, -1) / up + idx) * base, each rounded to float32 on the way.
+            val base32 = base.toFloat()
+            val zeros32 = ZEROS.toFloat()
             first = IntArray(up)
             start = IntArray(up + 1)
             val all = DoubleArray(up * (2 * width + down))
@@ -68,19 +78,22 @@ class Resampler(val from: Int, val to: Int) {
             var widest = 0
             for (p in 0 until up) {
                 start[p] = n
+                val q = (-p).toFloat() / up.toFloat()
                 var firstK = -1
                 for (k in 0 until 2 * width + down) {
-                    // torchaudio's t: the tap's distance from the output frame, in input frames scaled
-                    // by the cut-off. At 64 zero crossings and past it the window is closed: the tap is 0.
-                    val t = ((k - width).toDouble() / down - p.toDouble() / up) * base
-                    if (abs(t) >= ZEROS) {
+                    val t = (q + (k - width).toFloat() / down.toFloat()) * base32
+                    // At 64 zero crossings and past it the window is closed: torchaudio's taps there
+                    // are about 1e-13, left out.
+                    if (abs(t) >= zeros32) {
                         if (firstK >= 0) break
                         continue
                     }
                     if (firstK < 0) firstK = k
-                    val r = t / ZEROS
-                    val window = besselI0(BETA * sqrt(1 - r * r)) / i0Beta
-                    val sinc = if (t == 0.0) 1.0 else sin(PI * t) / (PI * t)
+                    val u = t / zeros32
+                    val inside = 1f - u * u
+                    val window = besselI0(BETA * sqrt(inside.toDouble())) / i0Beta
+                    val angle = (t * PI_32).toDouble()
+                    val sinc = if (t == 0f) 1.0 else sin(angle) / angle
                     all[n++] = sinc * window * scale
                 }
                 first[p] = firstK - width
@@ -120,8 +133,25 @@ class Resampler(val from: Int, val to: Int) {
             val n = start[p + 1] - t0
             var acc = 0.0
             if (i0 >= 0 && i0 + n <= inputCount) {
+                // Four sums side by side: one chain of adds waits on each add before it.
                 val i = i0.toInt()
-                for (k in 0 until n) acc += taps[t0 + k] * input[i + k]
+                var a0 = 0.0
+                var a1 = 0.0
+                var a2 = 0.0
+                var a3 = 0.0
+                var k = 0
+                while (k + 3 < n) {
+                    a0 += taps[t0 + k] * input[i + k]
+                    a1 += taps[t0 + k + 1] * input[i + k + 1]
+                    a2 += taps[t0 + k + 2] * input[i + k + 2]
+                    a3 += taps[t0 + k + 3] * input[i + k + 3]
+                    k += 4
+                }
+                while (k < n) {
+                    a0 += taps[t0 + k] * input[i + k]
+                    k++
+                }
+                acc = (a0 + a1) + (a2 + a3)
             } else {
                 for (k in 0 until n) {
                     val i = i0 + k
@@ -141,6 +171,9 @@ class Resampler(val from: Int, val to: Int) {
         const val ZEROS = 64
         const val ROLLOFF = 0.9475937167399596
         const val BETA = 14.769656459379492
+
+        /** Pi as torchaudio's float32 tensor holds it. */
+        private val PI_32 = PI.toFloat()
 
         /** A filter of more taps than this is refused: rates with a small common divisor (44,101 Hz to 44,100). */
         private const val MAX_TAPS = 4_000_000L

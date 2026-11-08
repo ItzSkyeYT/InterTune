@@ -25,8 +25,9 @@ import kotlin.random.Random
 
 /**
  * A window split into its four parts with stand-ins for the network: the files named and sized as
- * asked, the four adding up to the window, nothing moved in time, the segments added back as
- * stemlib adds them to the bit, and a cancelled split leaving nothing behind.
+ * asked, the four adding up to the window within the PC's rounding, nothing moved in time, the
+ * segments added back as stemlib adds them to the bit, melody taken as split_windows.py takes it,
+ * and a cancelled or failed split leaving nothing behind.
  */
 class WindowSplitterTest {
 
@@ -118,8 +119,10 @@ class WindowSplitterTest {
                 assertEquals("${f.name} at $rate Hz", pcm.size * 2L, f.length())
                 read(f)
             }
+            // Each part rounded on its own, as on the PC: the four are the window within two steps.
             for (i in pcm.indices) {
-                assertEquals("sample $i at $rate Hz, $channels channels", pcm[i].toInt(), parts.sumOf { it[i].toInt() })
+                val off = parts.sumOf { it[i].toInt() } - pcm[i]
+                assertTrue("sample $i at $rate Hz, $channels channels: $off steps", abs(off) <= 2)
             }
             // Each part is its share of the window, nothing moved: vocals were given 0.4 of it.
             var worst = 0
@@ -150,6 +153,33 @@ class WindowSplitterTest {
                 assertEquals("part $t frame $f right", WindowSplitter.quantize(want[2 * stem + 1][f]), got[2 * f + 1].toInt())
             }
         }
+        // Melody: ((window - vocals) - drums) - bass in float32, as numpy takes it, then rounded.
+        val melody = read(out[3])
+        for (f in 0 until frames) {
+            for (c in 0..1) {
+                val w = pcm[2 * f + c] / 32768f
+                val m = ((w - want[6 + c][f]) - want[c][f]) - want[2 + c][f]
+                assertEquals("melody frame $f channel $c", WindowSplitter.quantize(m), melody[2 * f + c].toInt())
+            }
+        }
+    }
+
+    @Test
+    fun `a mono window's parts are the mean of the two channels the network was given`() {
+        val rate = Scnet.RATE
+        val pcm = window(rate, 14.0, 1, seed = 4)
+        val out = targets(folder.newFolder(), "m-head")
+        assertTrue(WindowSplitter(Changing()).split(ShortBuffer.wrap(pcm), rate, 1, out))
+        val stereo = FloatArray(pcm.size) { pcm[it] / 32768f }
+        val want = ScnetSegment.separate(stereo, stereo.copyOf(), WindowSplitter.OVERLAP, Changing())
+        val parts = out.map { read(it) }
+        for ((t, stem) in listOf(0 to 3, 1 to 0, 2 to 1)) {
+            assertEquals(pcm.size * 2L, out[t].length())
+            for (f in pcm.indices) {
+                assertEquals("part $t frame $f", WindowSplitter.quantize((want[2 * stem][f] + want[2 * stem + 1][f]) * 0.5f), parts[t][f].toInt())
+            }
+        }
+        for (f in pcm.indices) assertTrue(abs(parts.sumOf { it[f].toInt() } - pcm[f]) <= 2)
     }
 
     @Test
@@ -160,7 +190,7 @@ class WindowSplitterTest {
         assertTrue(WindowSplitter(model).split(ShortBuffer.wrap(pcm), 48_000, 2, out))
         assertEquals(1, model.runs)
         val parts = out.map { read(it) }
-        for (i in pcm.indices) assertEquals(pcm[i].toInt(), parts.sumOf { it[i].toInt() })
+        for (i in pcm.indices) assertTrue(abs(parts.sumOf { it[i].toInt() } - pcm[i]) <= 2)
     }
 
     @Test
