@@ -413,6 +413,9 @@ class MediaLibrarySessionCallback @Inject constructor(
     ): ListenableFuture<MediaItemsWithStartPosition> {
         // Play from Android Auto, the assistant, or any controller that plays by id or by search
         Log.d(TAG, "MediaLibrarySessionCallback.onSetMediaItems")
+        // A queue the listener starts, as playQueue's: a stop on a song not to play or a blocked
+        // artist's in the queue before passes over nothing in this one.
+        service.letGoOfBlockedStop()
         val request = mediaItems.firstOrNull()
         val resolved = scope.future { request?.let { resolvePlayRequest(it, startPositionMs) } }
         // A request this cannot place fails rather than answering with an empty list. media3 puts

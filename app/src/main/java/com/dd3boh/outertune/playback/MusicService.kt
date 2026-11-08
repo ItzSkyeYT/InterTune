@@ -2471,6 +2471,11 @@ class MusicService : MediaLibraryService(),
             // after each point where it suspends.
             if (destroyed) return@launch
             Log.d(TAG, "playQueue: Resolving additional queue data...")
+            // Before the queue loads, whose song changes are this start's: the stop on a song not
+            // to play or a blocked artist's is the queue before's, and a list's Play or Shuffle
+            // starts on a song nobody picked (DontPlaySkip).
+            letGoOfBlockedStop()
+            unpickedStart = if (DontPlaySkip.startIsPick(queue)) 0L else runId
             try {
                 queueStart.run(
                     queue = queue,
@@ -2482,6 +2487,9 @@ class MusicService : MediaLibraryService(),
                     origin = playOrigin.code,
                     originSlot = originSlot,
                     runId = runId,
+                    // Play next or Add to queue with no queue to go to: every song is the listener's,
+                    // a song not to play among them as well (DontPlay).
+                    byHand = Unreleased.ARTIST_BLOCK && playOrigin == PlayOrigin.QUEUE,
                     // Only a queue this tap starts is linked to its Mix playlist, or unlinked, and
                     // before its first song starts, so Mix's stage is in the chain for that song.
                     // Linked after the start, the first song played without it and its change into
@@ -2575,8 +2583,14 @@ class MusicService : MediaLibraryService(),
                 val kept = queueBoard.putInAfterStart(queue, PlayNextWaiting.toKeep(taken.songs, queue.getCurrentSong()?.id))
                 if (taken.from !== queue) queueBoard.takeOut(taken.from, taken.songs)
                 playNextWaiting.movedTo(queue, kept)
+                // Still put in by hand in the new queue's run, so a song not to play among them plays.
+                if (Unreleased.ARTIST_BLOCK) noteByHand(queue, kept.map { it.id })
                 Log.d(TAG, "playQueue: ${kept.size} songs put in with Play next go on after the picked song")
             }.onFailure { Log.w(TAG, "Could not keep the songs put in with Play next", it) }
+        }
+
+        override fun putInByHand(queue: MultiQueueObject, ids: List<String>) {
+            runCatching { noteByHand(queue, ids) }.onFailure { Log.w(TAG, "Could not note the songs put in by hand", it) }
         }
 
         override fun hasQueue(title: String) = queueBoard.masterQueues.any { it.title == title }
@@ -2819,6 +2833,9 @@ class MusicService : MediaLibraryService(),
         )
         if (heard.runKey == before) return
         heard.takeRestored()?.let { Log.d(TAG, AdaptivePass.restoredLine(it)) }
+        // A list's Play or Shuffle that began on the song playing has no song change of its own:
+        // that song goes on, as the listener had it (unpickedStart).
+        if (q.runId == unpickedStart) unpickedStart = 0L
         choiceCarriedOn = true
         dropPasses()
         adaptiveChanged()
@@ -4064,6 +4081,22 @@ class MusicService : MediaLibraryService(),
     private var stoppedOnBlocked = false
 
     /**
+     * Where that stop was, the run of the queue and the song ([playingAt]). Songs coming in behind
+     * pass over a song not to play only while it is still that song of that run: one current
+     * since became so by the listener's pick. Main thread.
+     */
+    private var stoppedAt: String? = null
+
+    /**
+     * The run of a queue playQueue started on a song nobody picked, a list or an album of more
+     * than one song started whole with its Play or Shuffle button (DontPlaySkip.startIsPick), until
+     * that start's own song change reads it: a song not to play it lands on is passed over. 0 for
+     * none, so the song every other load starts on plays, the car's lists and the queue restored
+     * at launch among them. Main thread.
+     */
+    private var unpickedStart = 0L
+
+    /**
      * The blocked song the music last stopped on and when, elapsed time: the same stop made again
      * straight after, while its queue is still loading or as its start asks to play, says nothing
      * a second time. Three lines in a row were seen on the emulator for one link (1 Nov 2026).
@@ -4388,7 +4421,13 @@ class MusicService : MediaLibraryService(),
         }
         val liked = snap.view.likePending
         val seeds = (listOfNotNull(liked) + snap.view.seeds).distinct()
-        fun sources() = seeds.mapNotNull { seed -> listFor(seed, snap.explicitHidden) }
+        // Never a song not to play, as the songs are now: a list is kept for the whole run, and
+        // the taste that leaves them out too for half an hour or more (DontPlay, tasteFor).
+        fun sources(): List<AdaptivePass.Source> {
+            val dontPlay = ContentFilter.current.dontPlay
+            return seeds.mapNotNull { seed -> listFor(seed, snap.explicitHidden) }
+                .map { source -> if (dontPlay.isEmpty) source else source.copy(songs = source.songs.filterNot(dontPlay::covers)) }
+        }
         val skippedRelated = snap.view.lastSkipped?.takeIf { snap.ask.skip }?.let { id ->
             runCatching { database.youtubeRelatedSongs(id).mapTo(HashSet()) { it.id } }.getOrDefault(emptySet())
         }.orEmpty()
@@ -4875,6 +4914,7 @@ class MusicService : MediaLibraryService(),
             activePlayer.pause()
             activePlayer.seekTo(from, 0)
             stoppedOnBlocked = stoppedOnBlocked || wasPlaying
+            stoppedAt = playingAt()
             val now = SystemClock.elapsedRealtime()
             val again = lastBlockedStop?.let { (id, at) -> id == playing.id && now - at < BLOCKED_STOP_QUIET_MS } == true
             lastBlockedStop = playing.id to now
@@ -4903,13 +4943,34 @@ class MusicService : MediaLibraryService(),
         super.onTimelineChanged(timeline, reason)
         // Songs come in behind a blocked one the music stopped on: see stoppedOnBlocked. Said
         // nothing of when they are blocked as well: the stop was said already. A song not to play
-        // the music stopped on is passed over in the same way, as it was when it stopped.
+        // the music stopped on is passed over in the same way, as it was when it stopped: that
+        // very song of that run only (stoppedAt), as any other is current by the listener's pick.
         if (Unreleased.ARTIST_BLOCK && stoppedOnBlocked) {
             scope.launch {
                 // Still: a play pressed meanwhile on a song not to play has picked it.
-                if (stoppedOnBlocked) runCatching { passOverBlocked(quiet = true, dontPlay = true) }.onFailure { Log.w(TAG, "Could not pass over a blocked song", it) }
+                if (stoppedOnBlocked) {
+                    val same = stoppedAt != null && stoppedAt == playingAt()
+                    runCatching { passOverBlocked(quiet = true, dontPlay = same) }.onFailure { Log.w(TAG, "Could not pass over a blocked song", it) }
+                }
             }
         }
+    }
+
+    /** The run of the queue playing and the song playing, for [stoppedAt]; null without either. Main thread. */
+    private fun playingAt(): String? {
+        val q = queueBoard.getCurrentQueue() ?: return null
+        val id = activePlayer.currentMediaItem?.mediaId ?: return null
+        return "${AdaptiveQueue.runKey(q.id, q.runId)} $id"
+    }
+
+    /**
+     * The listener starts a queue: playQueue, or a list from the car (MediaLibrarySessionCallback).
+     * A stop on a blocked artist's song or a song not to play ([stoppedOnBlocked]) was the queue
+     * before's, and passes nothing over in the new one, whose own song changes stop again where
+     * they have to. A song not to play picked after such a stop was lost to it. Main thread.
+     */
+    fun letGoOfBlockedStop() {
+        stoppedOnBlocked = false
     }
 
     /** The music stops on the current song's error, and which song that is: see [stoppedOn]. */
@@ -5578,11 +5639,14 @@ class MusicService : MediaLibraryService(),
         // shared link, is passed over (ArtistBlock), once this transition has been seen through
         // like any other. Back for one reached by going back, so the previous button still works.
         // So is a song the listener chose not to play, where the player came to it by itself
-        // (DontPlaySkip): one they picked plays.
+        // (DontPlaySkip): one they picked plays. The song a list's Play or Shuffle starts on is no
+        // pick, read at that start's own song change only (unpickedStart).
+        val startPicked = reason != Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED || unpickedStart == 0L || q?.runId != unpickedStart
+        if (!startPicked) unpickedStart = 0L
         if (Unreleased.ARTIST_BLOCK && mediaItem != null && (!ContentFilter.current.blocked.isEmpty || !ContentFilter.current.dontPlay.isEmpty)) {
             val id = mediaItem.mediaId
             val back = !isCasting && transitionWentBack
-            val dontPlay = DontPlaySkip.passes(reason, chosen = chosen, byHand = id in heard.byHand, casting = isCasting)
+            val dontPlay = DontPlaySkip.passes(reason, chosen = chosen, byHand = id in heard.byHand, casting = isCasting, startPicked = startPicked)
             scope.launch {
                 if (activePlayer.currentMediaItem?.mediaId == id) {
                     runCatching { passOverBlocked(back, dontPlay = dontPlay) }.onFailure { Log.w(TAG, "Could not pass over $id", it) }
