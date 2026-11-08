@@ -179,7 +179,7 @@ fun ColumnScope.DeveloperFrag(navController: NavController) {
         PreferenceEntry(
             title = { Text("Important: About audio offload compatibility and issues") },
             onClick = {
-                uriHandler.openUri("https://github.com/ItzSkyeYT/InterTune/wiki/Audio-offload")
+                uriHandler.openUri(com.dd3boh.outertune.constants.WikiLinks.AUDIO_OFFLOAD)
             }
         )
 
