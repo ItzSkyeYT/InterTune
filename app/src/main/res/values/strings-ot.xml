@@ -2179,9 +2179,10 @@ while also allowing users to translate our app as well. New, specific strings to
     </plurals>
     <string name="queue_from_search">“%1$s”</string>
     <string name="support_title">Support InterTune</string>
-    <string name="support_text">InterTune is free and has no ads. If you would like to donate, send the developer a direct message on the InterTune Discord server.</string>
+    <string name="support_text">InterTune is free and has no ads. To give something back, use InterTune\'s Ko-fi and say in your message if you want your name here. For crypto, message the developer on Discord.</string>
     <string name="support_thanks">Thanks to those who already gave:</string>
     <string name="support_discord">Open Discord</string>
+    <string name="support_kofi">Donate on Ko-fi</string>
     <plurals name="list_queued_here">
         <item quantity="one">%1$d song added to the end of this queue</item>
         <item quantity="other">%1$d songs added to the end of this queue</item>
