@@ -45,11 +45,14 @@ class PlacingTest {
     }
 
     @Test
-    fun `a change in bars is not placed on an end with no beat to find`() {
+    fun `a change in bars on an end with no beat to find is placed by the clock, never dropped`() {
         val pad = RegionAnalysis.analyse(Synth.pad(40.0, rate), rate, 2, RegionKind.TAIL)
+        // 8 Nov 2026: a saved 16-bar change gave way to Auto's blend where the end had no trusted beat.
         val result = Placing.facts(spec(10_000.0), rate, 2, 0.0, pad.frames, pad, 30L * rate, 0)
-        assertTrue(result.isFailure)
-        // One timed in seconds is placed by the clock: it has no beat to meet.
+        assertEquals(10.0 * rate, result.getOrThrow().aBar1, 1e-6)
+        // No analysis at all: the same.
+        assertEquals(10.0 * rate, Placing.facts(spec(10_000.0), rate, 2, 0.0, pad.frames, null, 30L * rate, 0).getOrThrow().aBar1, 1e-6)
+        // One timed in seconds is placed by the clock as it always was.
         val seconds = spec(10_000.0).copy(bars = 0, seconds = 6.0)
         assertEquals(10.0 * rate, Placing.facts(seconds, rate, 2, 0.0, pad.frames, pad, 30L * rate, 0).getOrThrow().aBar1, 1e-6)
     }

@@ -106,9 +106,10 @@ class KeptChangesTest {
         val load = vm.substringAfter("phase.value = Phase.Ready").substringBefore("} catch (e: CancellationException)")
         assertTrue("a saved pair's change is kept when the page opens it, where it is not yet", "holds(fromId, toId, stored, loaded.partsReady)" in load && "keepRendered(SongPair(fromId, toId))" in load)
         val keep = vm.substringAfter("private fun keepRendered(").substringBefore("\n    }\n")
-        assertTrue("rendered past the page, which Save closes", "KeptChanges.scope.launch" in keep)
-        assertTrue("rendered from what the playlist will read", "MixStores.transitions(context).get(saved)" in keep)
-        assertTrue("at the levels the page plays", "Preview.render(heard, loaded.aCopy, loaded.bCopy, loaded.a.analysis, levelA, levelB)" in keep)
-        assertTrue("on parts where the page has them", "val heard = if (loaded.partsReady) Presets.onParts(spec) else spec" in keep)
+        assertTrue("rendered past the page, which Save closes", "KeptChanges.scope.launch { keepRender(context, loaded, levelA, levelB, saved) }" in keep)
+        val render = File("src/main/java/com/dd3boh/outertune/ui/screens/mix/KeptRender.kt").readText()
+        assertTrue("rendered from what the playlist will read", "MixStores.transitions(context).get(saved)" in render)
+        assertTrue("at the levels the page plays", "Preview.render(heard, loaded.aCopy, loaded.bCopy, loaded.a.analysis, levelA, levelB)" in render)
+        assertTrue("on parts where the page has them", "val heard = if (loaded.partsReady) Presets.onParts(spec) else spec" in render)
     }
 }

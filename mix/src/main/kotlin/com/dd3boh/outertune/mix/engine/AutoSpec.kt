@@ -149,13 +149,16 @@ object Placing {
             val found = t.bpm
             if (hand != null && (!t.beatsConfident || found == null || SongEnd.octaveOf(hand, found) == null)) t.atTempo(hand) ?: t else t
         }
-        val aBar1 = if (spec.bars == 0) near else {
-            if (tail == null || !tail.beatsConfident) return Result.failure(IllegalStateException("the end of A has no beat to find its anchor on"))
+        // On A's own beat where the held end's analysis finds one near the anchor; otherwise by the
+        // clock, where the editor put it: a few ms out at worst, and still the change that was saved,
+        // never Auto's in its place (8 Nov 2026: a saved 16-bar change gave way to a 6 s blend on a
+        // phone that had not read the song whole yet).
+        val onBeat = if (spec.bars == 0 || tail == null || !tail.beatsConfident) null else {
             val at = tail.beatFrame(tail.beatNear(near))
-            if (abs(at - near) > 30.0 / spec.a.bpm * sampleRate) return Result.failure(IllegalStateException("no beat of A within half a beat of its anchor"))
             // A grid nudged by hand in Fix the beat sits that far from the beats the analysis finds.
-            at + spec.a.fix.nudgeMs * sampleRate / 1000.0
+            if (abs(at - near) > 30.0 / spec.a.bpm * sampleRate) null else at + spec.a.fix.nudgeMs * sampleRate / 1000.0
         }
+        val aBar1 = onBeat ?: near
         // The stretch lands A's own beats as the analysis heard them.
         val anchors = tail?.takeIf { it.beatsConfident && spec.beatMatched }?.beatFrames()
         return Result.success(ChangeFacts(sampleRate, channels, aBar1, aFrames, spec.b.atMs * sampleRate / 1000.0, bFrames, earliest, anchors = anchors))
