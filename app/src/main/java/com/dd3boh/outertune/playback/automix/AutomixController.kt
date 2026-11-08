@@ -20,6 +20,7 @@ import androidx.media3.common.Timeline
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import com.dd3boh.outertune.extensions.metadata
+import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.utils.ErrorText
 import com.dd3boh.outertune.mix.FrontEnd
 import com.dd3boh.outertune.mix.HeldTail
@@ -202,6 +203,18 @@ class AutomixController(
 
     private val _decided = MutableStateFlow<Decided?>(null)
     val decided: StateFlow<Decided?> = _decided.asStateFlow()
+
+    /**
+     * The change that plays as a mix, for the player's screen (MixOnScreen): from its song change
+     * until the next song starts or a jump ends it, and taken off at once when the blend is dropped
+     * part way (MixScreenState). Null for a plain change, a crossfade and a change too short to
+     * show. Main thread.
+     */
+    private val screen = MixScreenState(::say)
+    val onScreen: StateFlow<MixOnScreen?> = screen.shown
+
+    /** Watches for a blend let go by a jump to be taken up again (watchResume). */
+    private var resumeWatch: Job? = null
 
     /**
      * Either setting, AutoMix or Crossfade (see [setModes]): the stage is wanted in the chain and
@@ -429,6 +442,13 @@ class AutomixController(
         /** Held too late for the kept change to be heard whole: joined part-way, the next song coming in where the change says. Main thread. */
         var entryOpen = false
 
+        /** Both songs as the queue has them, for the player's screen (MixOnScreen). */
+        var aShown: MediaMetadata? = null
+        var bShown: MediaMetadata? = null
+
+        /** The end held for it, which says at the song change which plan plays. Main thread. */
+        var held: HeldTail? = null
+
         /** Its change is being worked out on the worker: a jump leaves that worker to finish it alone. */
         @Volatile var planning = false
 
@@ -453,12 +473,16 @@ class AutomixController(
             it.kept = kept
             it.changeLeftMs = changeLeftMs
             it.entrySeconds = entrySeconds
+            it.aShown = aShown
+            it.bShown = bShown
         }
     }
 
     // ---- the player
 
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+        // The change on screen goes on into the song it brings in, and no further.
+        screen.songStarted(mediaItem?.mediaId)
         syncNormalising()
         if (!enabled) return levelsWhileOff()
         // A song that starts with AutoMix on is set up with the stage as the sink takes it, a moment
@@ -471,6 +495,9 @@ class AutomixController(
     }
 
     override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
+        // A jump once the blend is over: the screen shows the one song from here. A jump inside
+        // the blend is the stage's to keep or drop (watchResume).
+        if (reason == Player.DISCONTINUITY_REASON_SEEK) screen.jumped(blendPlaying = stage.state == HeldTail.State.MIX)
         syncNormalising()
         if (!enabled) return levelsWhileOff()
         if (reason == Player.DISCONTINUITY_REASON_SEEK) {
@@ -499,6 +526,7 @@ class AutomixController(
 
     override fun onPlaybackStateChanged(playbackState: Int) {
         syncNormalising()
+        if (playbackState == Player.STATE_IDLE || playbackState == Player.STATE_ENDED) screen.hide(null, "playback stopped")
     }
 
     override fun onEvents(player: Player, events: Player.Events) {
@@ -565,6 +593,7 @@ class AutomixController(
         transition?.reading?.cancel()
         queueSavedJob?.cancel()
         stopWork()
+        screen.hide(null, "the player is let go")
     }
 
     // ---- what happens for each song
@@ -591,6 +620,8 @@ class AutomixController(
                 if (old.a.id == current.mediaId) abort(old, "the next song changed")
             }
             val fresh = Transition(nextTransitionId++, song(current, player.duration), next?.let { song(it, -1) })
+            fresh.aShown = current.metadata
+            fresh.bShown = next?.metadata
             transition = fresh
             decide(fresh, null)
         }
@@ -995,6 +1026,7 @@ class AutomixController(
      */
     private fun abort(t: Transition, why: String) {
         setLoadAhead(false)
+        screen.hide(t.id, why)
         if (!t.holding && !t.armRequested) return
         t.abandoned.set(true)
         stage.cancelArm()
@@ -1041,6 +1073,7 @@ class AutomixController(
 
     override fun tailHeld(id: Long, held: HeldTail, ring: ShortArray, frames: Long, songChange: Boolean, formatMatches: Boolean) = main.postFor(id) { t ->
         if (t.finished) return@postFor
+        t.held = held
         val heldMs = frames * 1000 / held.sampleRate
         val holdMs = SystemClock.elapsedRealtime() - t.armedAtMs
         say("end held, %.1f s in %.1f s".format(heldMs / 1000.0, holdMs / 1000.0))
@@ -1067,6 +1100,8 @@ class AutomixController(
     override fun note(id: Long, text: String) {
         main.post {
             say(text)
+            screen.stageSaid(id, text, resumable = screenHeld?.resumable == true)
+            if (screen.resumePending) watchResume(id)
             // A request to hold the end that the stage could not take: tried again at the next
             // look, while there is still time.
             val t = transition
@@ -1089,6 +1124,8 @@ class AutomixController(
         if (mixing && !t.crossfaded) queueAutoMixed = true
         val how = if (t.crossfaded) "crossfade" else style.name.lowercase()
         say(if (mixing) "song change: ${t.b?.id} comes in under ${t.a.id}, $how" else "song change: ${t.b?.id} after the whole of ${t.a.id}")
+        // Both covers on the player's screen while the blend plays; never for a crossfade.
+        showMix(t.takeIf { mixing && !it.crossfaded })
     }
 
     override fun blendDone(id: Long, clipped: Long, peak: Int) = main.postFor(id) { t ->
@@ -1119,6 +1156,7 @@ class AutomixController(
                 if (!AutomixLock.holds(r)) {
                     t.b?.id?.let { if (lockFailed.size < LOCK_FAILED_KEPT) lockFailed += it }
                     stage.requestAbort(t.id, "the incoming song does not line up with its opening (%.1f ms, match %.2f)".format(r.offsetMs, r.match), beatFrames(t))
+                    screen.hide(t.id, "the incoming song does not line up with its opening")
                 }
             }
         }
@@ -1166,6 +1204,9 @@ class AutomixController(
     }
 
     override fun dropped(id: Long) = main.postFor(id) { t ->
+        // A jump inside the next song while its blend plays: the stage may take the blend up
+        // again where it went, and the screen keeps both covers while it may (watchResume).
+        if (screen.dropped(t.id)) watchResume(t.id)
         // A seek has already started the change over with a new transition, and an abort has
         // finished it. Anything else that flushes the renderer while an end is held is the player
         // starting the song over from where it is heard: what comes next changed (a song played
@@ -1677,6 +1718,39 @@ class AutomixController(
         _decided.value = if (said == null || b == null) null else Decided(SongPair(t.a.id, b.id), said)
     }
 
+    // ---- the player's screen
+
+    /** The end held for the change on screen, which says whether a blend let go by a jump can be taken up again. */
+    private var screenHeld: HeldTail? = null
+
+    /** Puts the change [t] on the player's screen as its blend starts, or with none takes off whatever is there. */
+    private fun showMix(t: Transition?) {
+        val plan = t?.held?.takenPlan
+        val a = t?.aShown
+        val b = t?.bShown
+        val shown = if (t != null && plan != null && a != null && b != null && b.id == t.b?.id) {
+            MixOnScreen.of(t.id, plan, t.tailStartMs, a, t.a.durationMs, b)
+        } else null
+        if (shown == null) return screen.hide(null, if (t == null) "the change is not mixed" else "the mix is too short to show, or its plan is not known")
+        screenHeld = t?.held
+        screen.show(shown, player.currentMediaItem?.mediaId)
+    }
+
+    /**
+     * After a jump inside the incoming song while its blend plays, the stage takes the blend up
+     * again on the jump's first buffer where it can (HeldTail.resume): both covers stay while it
+     * may (MixScreenState.resumeLook).
+     */
+    private fun watchResume(id: Long) {
+        if (resumeWatch?.isActive == true) return
+        val from = player.currentPosition
+        resumeWatch = scope.launch {
+            do {
+                delay(RESUME_LOOK_MS)
+            } while (screen.resumeLook(id, blendPlaying = stage.state == HeldTail.State.MIX, playedMs = player.currentPosition - from))
+        }
+    }
+
     // ---- Crossfade's rule
 
     /** How the change after the song playing is made, from the settings and the queue playing. */
@@ -1840,6 +1914,9 @@ class AutomixController(
         const val ENTRY_CHECK_FRAMES = 8192
         const val ENTRY_CHECK_REACH = 4096
         const val HOLDING_LOOK_MS = 1_000L
+
+        /** After a jump inside a blend on screen: how often the stage is looked at, to see it taken up again. */
+        const val RESUME_LOOK_MS = 250L
 
         /** How long a join asked for keeps the guard waiting before the change is called plain after all. */
         const val JOIN_WAIT_MS = 3_000L

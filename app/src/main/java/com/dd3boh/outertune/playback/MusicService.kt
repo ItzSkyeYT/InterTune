@@ -869,6 +869,9 @@ class MusicService : MediaLibraryService(),
     /** What the change after the song playing has come to, for the queue's line. Null without AutoMix. */
     val mixDecided get() = automix?.decided
 
+    /** The change that plays as a mix, for the player's screen (MixOnScreen). Null without AutoMix. */
+    val mixOnScreen get() = automix?.onScreen
+
     private val sleepTimerNotification by lazy { SleepTimerNotification(this) }
 
     /**
