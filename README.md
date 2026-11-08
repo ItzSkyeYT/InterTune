@@ -168,41 +168,62 @@ Every change in detail, and why this fork exists: [docs/FEATURES.md](https://git
 What's being worked on, roughly in order. `[x]` is done, `[~]` is built and being tested, `[ ]` is still to do. Nothing here has a date, and plans can change. Ideas are welcome in #feature-requests on [Discord](https://discord.gg/68jmqhMjXk) or as a [GitHub issue](https://github.com/ItzSkyeYT/InterTune/issues/new/choose).
 
 <details>
-<summary><b>Next: 0.13</b> · 8 of 25 done, 9 to test</summary>
+<summary><b>Next: 0.13</b> · 8 of 39 done, 22 to test</summary>
 
-`[ ]` Listen together: one person plays, friends follow the same song in real time *(in progress)*\
-`[ ]` Your year in InterTune, a recap *(in progress)*\
+`[~]` Listen together: one person plays, friends follow the same song in real time\
+`[x]` AirPlay speakers in the cast list\
+`[~]` Casting to speakers that only take uncompressed audio, like a Zeppelin Wireless\
+`[~]` InterTune's own screen on Chromecasts, with Google Home's Next button working\
+`[~]` Don't play this song: radios, autoplay and Shuffle never bring it back ([#78](https://github.com/ItzSkyeYT/InterTune/issues/78))\
+`[~]` Pick several songs in the queue and remove them at once\
+`[~]` Block an artist\
+`[~]` Your playlists in your own order, dragged where you want them\
 `[~]` What's playing works offline and names the song once you're back online ([#48](https://github.com/ItzSkyeYT/InterTune/issues/48))\
+`[~]` The app says why search, radios, mixes or Home stopped, with the button that fixes it\
+`[~]` Albums carry on into a radio when they end\
+`[~]` Save a lyrics card or video to the phone\
+`[~]` Pick a playlist's cover\
+`[~]` Downloads other apps can use: .m4a or .opus files with the title, artist and cover\
+`[~]` Liked songs kept in sync with your downloads: unliking removes a download the app made itself ([#64](https://github.com/ItzSkyeYT/InterTune/issues/64))\
+`[~]` The volume past 100% turns the music up without distorting it ([#93](https://github.com/ItzSkyeYT/InterTune/issues/93))\
+`[~]` On mobile data, Auto quality takes a middle stream instead of the smallest ([#88](https://github.com/ItzSkyeYT/InterTune/issues/88))\
+`[~]` A floating dock without the glass on Android 11 and 12\
+`[~]` Tempo in 1% steps between 90% and 110%\
+`[~]` The playing song stays in view at the top or bottom of a long queue ([#81](https://github.com/ItzSkyeYT/InterTune/issues/81))\
+`[~]` Spatial audio for surround recordings, and Strength, Room and Ambience controls\
+`[~]` Choose which lyrics sources are used, and in what order\
+`[~]` Similar artists in the Favourite artists mix\
 `[x]` Report a problem without a GitHub account, and follow it on GitHub from a link *(in 0.12.8)*\
 `[x]` Find songs you saved twice, in Liked or your library ([#47](https://github.com/ItzSkyeYT/InterTune/issues/47))\
 `[x]` A Widgets page in Settings: each widget on your home screen, how it looks and its main choices\
 `[x]` An Animations switch, for older and smaller phones\
 `[x]` Backups leave your sign-ins out unless you tick them, and you choose what goes in *(in 0.12.8)*\
-`[~]` Casting to speakers that only take uncompressed audio, like a Zeppelin Wireless\
-`[~]` AirPlay speakers in the cast list\
 `[x]` A radio keeps going when YouTube Music refuses it: other ways to ask, then picks from your own listening\
-`[ ]` Premium accounts get the 256 kbps stream\
-`[~]` Spatial audio for surround recordings, and Strength, Room and Ambience controls\
-`[~]` Choose which lyrics sources are used, and in what order\
-`[~]` Similar artists in the Favourite artists mix\
-`[ ]` Downloads in their own quality, with tags and a cover so other players can use them *(in progress)*\
-`[~]` Liked songs kept in sync with your downloads: unliking removes a download the app made itself ([#64](https://github.com/ItzSkyeYT/InterTune/issues/64))\
-`[ ]` Choose what's in the three-dot menus\
-`[ ]` Lyrics videos 
-`[ ]` Better word by word lyrics\
 `[x]` Stats shows how many of the songs you liked InterTune found for you, and where\
-`[~]` Your library in your own order: playlists, albums and artists dragged where you want them\
+`[ ]` Your year in InterTune, a recap *(in progress)*\
+`[ ]` Premium accounts get the 256 kbps stream\
+`[ ]` Choose what's in the three-dot menus\
+`[ ]` Lyrics videos\
+`[ ]` Better word by word lyrics\
+`[ ]` Albums and artists in your own order too\
 `[ ]` Tablets: settings in two panes, and the player as a side pane *(in progress)*\
 `[ ]` A look made for foldable and flip phones *(in progress)*\
-`[ ]` Match your library from another service by logging in to it\
-`[~]` A filter for AI-made songs (the poll in #general said yes)
+`[ ]` Match your library from another service by logging in to it
 
 </details>
 
 <details>
 <summary><b>Later</b></summary>
 
-`[ ]` Mix: songs in a playlist blend into each other like a DJ set, with an editor to shape each change *(in progress)*
+`[ ]` Mix: songs in a playlist blend into each other like a DJ set, with an editor to shape each change *(in progress)*\
+`[~]` A filter for AI-made songs (the poll in #general said yes)\
+`[ ]` Share a playlist you made with a link that opens it in InterTune\
+`[ ]` Your library in sync with YouTube Music both ways, changes made offline sent when you're back\
+`[ ]` Copy your library to another YouTube account\
+`[ ]` AirPlay 2 speakers\
+`[ ]` A web player, to listen from a computer's browser\
+`[ ]` A Wear OS app: a remote for your phone, and music on the watch itself *(in progress)*\
+`[ ]` What you're playing on your Discord profile *(being looked at)*
 
 </details>
 
