@@ -644,7 +644,7 @@ object Unreleased {
      * translators, their French beside them in values-fr. When it is agreed: set this to true and
      * make its texts translatable.
      */
-    val SAVED_TWICE = BuildConfig.DEBUG
+    val SAVED_TWICE = true
 
     /**
      * An album carries on after its last song when Auto load more songs is on, as YouTube Music
@@ -660,7 +660,7 @@ object Unreleased {
      * stops at its end, as before. When it is agreed: set this to true, or delete it with the one
      * check that reads it, in MusicService.onMediaItemTransition.
      */
-    val ENDLESS_QUEUE = BuildConfig.DEBUG
+    val ENDLESS_QUEUE = true
 
     /**
      * Report a problem and the crash page say more (ReportSettings, ReportTrail, ReportExtras): the settings
@@ -706,7 +706,7 @@ object Unreleased {
      * checks that read it, in RecognitionEngine.keepForLater, RecogniseLaterWorker and
      * RecognitionHistoryScreen.
      */
-    val RECOGNISE_OFFLINE = BuildConfig.DEBUG
+    val RECOGNISE_OFFLINE = true
 
     /**
      * Liked songs kept in sync with their downloads (issue #64, on the 0.13 roadmap): under "Liked
@@ -714,7 +714,7 @@ object Unreleased {
      * setting made for that song, and never one downloaded by hand (LikedDownloads). Its words are held
      * from translators until he says.
      */
-    val LIKED_SYNC = BuildConfig.DEBUG
+    val LIKED_SYNC = true
 
     /**
      * Change a playlist's cover (PlaylistCovers, PlaylistCoverSheet), asked for in #general on 31 Oct
@@ -751,7 +751,7 @@ object Unreleased {
      * French beside them in values-fr. Seen on an emulator only. Without it no menu or page has
      * any of it. When it is agreed: set this to true, make its texts translatable.
      */
-    val ARTIST_BLOCK = BuildConfig.DEBUG
+    val ARTIST_BLOCK = true
 
     /**
      * The Animations switch in Look and feel (Animations, ThemeFrag): off, screens and controls
@@ -762,7 +762,7 @@ object Unreleased {
      * translators, their French beside them in values-fr. When it is agreed: set this to true and
      * make its texts translatable.
      */
-    val ANIMATIONS_SWITCH = BuildConfig.DEBUG
+    val ANIMATIONS_SWITCH = true
 
     /**
      * Share as a file under a report's text, in Report a problem and the crash page (ReportFile,
