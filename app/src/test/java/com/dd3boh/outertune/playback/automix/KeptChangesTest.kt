@@ -94,6 +94,12 @@ class KeptChangesTest {
         val saved = controller.substringAfter("latestSaved?.let { saved ->")
         assertTrue("the kept change is tried first", saved.indexOf("kept.get(t.a.id, b.id)") in 0 until saved.indexOf("PartsForPlay.lineUp("))
         assertTrue(saved, "KeptChanges.written(saved), saved, ring, frames, t.tailStartMs.toDouble(), copy, t.copyFrames" in saved)
+        // A saved change the playlist rendered on parts is kept as played (8 Nov 2026).
+        val played = controller.substringAfter("private fun keepPlayed(").substringBefore("\n    }\n")
+        assertTrue("kept only where no kept one on parts is there", "kept.holds(from, to, saved, parts = true)" in played)
+        assertTrue("A's probe taken while the ring holds it", "StoredChange.of(KeptChanges.written(saved), render, ring, ringStartMs, copy)" in played)
+        assertTrue("written off the worker", "KeptChanges.scope.launch" in played)
+        assertTrue("only a change played on parts", "if (parts != null) keptChanges?.let { kept -> keepPlayed(" in controller)
         val service = File("src/main/java/com/dd3boh/outertune/playback/MusicService.kt").readText()
         assertTrue("kept where backups do not go", "keptChanges = KeptChanges(noBackupFilesDir)" in service)
         val vm = File("src/main/java/com/dd3boh/outertune/ui/screens/mix/MixEditorViewModel.kt").readText()

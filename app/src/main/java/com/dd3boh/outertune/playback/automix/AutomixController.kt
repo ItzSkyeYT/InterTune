@@ -6,6 +6,7 @@
 
 package com.dd3boh.outertune.playback.automix
 
+import com.dd3boh.outertune.mix.engine.StoredChange
 import android.os.Handler
 import android.os.Looper
 import android.os.Process
@@ -1225,6 +1226,20 @@ class AutomixController(
         }
     }
 
+    /**
+     * The saved change [render] played, kept (KeptChanges) unless one kept for it on parts is there
+     * already: the probe of A's music is taken now, while [ring] still holds it, the file written
+     * off the worker.
+     */
+    private fun keepPlayed(kept: KeptChanges, from: String, to: String, saved: TransitionSpec, render: ChangeRender, ring: ShortArray, ringStartMs: Double, copy: ShortArray) {
+        if (runCatching { kept.holds(from, to, saved, parts = true) }.getOrDefault(true)) return
+        val change = runCatching { StoredChange.of(KeptChanges.written(saved), render, ring, ringStartMs, copy) }
+            .onFailure { Log.w(TAG, "AutoMix: the change played could not be kept", it) }.getOrNull() ?: return
+        KeptChanges.scope.launch {
+            if (kept.put(from, to, change)) Log.i(TAG, "AutoMix: the saved change is kept as played, on parts")
+        }
+    }
+
     /** What the worker came to: the plan handed over, the change on bands, and Auto's reason where a crossfade took its place. */
     private data class Planned(val plan: MixPlan, val onBands: BandsOutcome?, val declined: String?)
 
@@ -1324,6 +1339,10 @@ class AutomixController(
                 val check = if (t.entryFrames > 0L) ENTRY_CHECK_FRAMES.toLong() else 0L
                 val heldPlan = render.heldPlan(check)
                 stage.offer(held, heldPlan, render.outgoing, render.incoming, replaces = true)
+                // Played on parts, kept as played: the next time it plays from here, whatever the
+                // editor's own cache (a few pairs) has let go of since (8 Nov 2026: a change heard on
+                // bands because its parts were being made again as it came).
+                if (parts != null) keptChanges?.let { kept -> keepPlayed(kept, t.a.id, b.id, saved, render, ring, t.tailStartMs.toDouble(), copy) }
                 return BandsOutcome(
                     "on bands, saved: ${p.describe()}, " + "rendered in %.0f ms, headroom %.1f dB, peak %.2f".format(
                         render.renderMillis, render.headroom.deepestDb, render.peakAfter,
