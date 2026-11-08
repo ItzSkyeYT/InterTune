@@ -9,6 +9,7 @@
     <string name="mix_edit_redo">Redo</string>
     <string name="mix_edit_close">Close</string>
     <string name="mix_edit_save">Save</string>
+    <string name="mix_edit_saved_state">Saved</string>
 
     <!-- the two song rows -->
     <string name="mix_edit_bpm">%1$s BPM</string>
@@ -107,6 +108,7 @@
     <string name="mix_preset_blend">Blend</string>
     <string name="mix_preset_echo_out">Echo out</string>
     <string name="mix_preset_cut">Cut</string>
+    <string name="mix_preset_default">Default</string>
     <string name="mix_line_custom">Your own moves for these two songs.</string>
     <string name="mix_line_auto">The app\'s pick for these two songs.</string>
     <string name="mix_line_auto_plain">Auto plays these two as a plain change.</string>

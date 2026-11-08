@@ -79,7 +79,7 @@ class PairLoaderCacheTest {
     private val aInfo = WindowInfo(rate, 2, startMs = 170_000.0, frames = 30L * rate, durationMs = 200_000.0)
     private val bInfo = WindowInfo(rate, 2, startMs = 0.0, frames = 30L * rate, durationMs = 180_000.0)
 
-    private fun cache(stamp: String) = EditorCache(tmp.root, stamp).also {
+    private fun cache(stamp: String, autoStamp: String = stamp) = EditorCache(tmp.root, stamp, autoStamp).also {
         if (!it.files("songA", "tail").first.exists()) {
             keep(it, "songA", "tail", aInfo, beat(30.0, 124.0))
             keep(it, "songB", "head", bInfo, beat(30.0, 126.0))
@@ -135,8 +135,20 @@ class PairLoaderCacheTest {
     @Test
     fun `the editor keeps its finds under the Mix code's stamp, not the install's`() {
         val model = File("src/main/java/com/dd3boh/outertune/ui/screens/mix/MixEditorViewModel.kt").readText()
-        assertTrue("EditorCache(context.cacheDir, MixCode.STAMP)" in model)
+        assertTrue("EditorCache(context.cacheDir, MixCode.ANALYSIS, MixCode.AUTO)" in model)
         assertFalse("lastUpdateTime" in model)
+    }
+
+    /** 8 Nov 2026, "WHY ISNT IT CACHED": a build that changes how changes are rendered keeps both. */
+    @Test
+    fun `a change to the renderer keeps the analysis and Auto's pick, a change to Auto's rules only the analysis`() {
+        load(cache("analysis-1", "auto-1"))
+        val same = load(cache("analysis-1", "auto-1"))
+        assertTrue(same.took!!.analysisKept)
+        assertTrue(same.took!!.autoKept)
+        val autoChanged = load(cache("analysis-1", "auto-2"))
+        assertTrue(autoChanged.took!!.analysisKept)
+        assertFalse(autoChanged.took!!.autoKept)
     }
 
     @Test

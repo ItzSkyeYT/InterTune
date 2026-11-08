@@ -40,6 +40,7 @@ import com.dd3boh.outertune.mix.edit.TransitionSpec
 import com.dd3boh.outertune.mix.engine.AutoOnBands
 import com.dd3boh.outertune.mix.engine.ChangeFacts
 import com.dd3boh.outertune.mix.engine.Copy
+import com.dd3boh.outertune.mix.engine.ChangeRender
 import com.dd3boh.outertune.mix.engine.LaneMixer
 import com.dd3boh.outertune.mix.engine.LanePlan
 import com.dd3boh.outertune.mix.engine.Placing
@@ -47,6 +48,7 @@ import com.dd3boh.outertune.mix.engine.SpecPlan
 import com.dd3boh.outertune.mix.engine.Engine
 import com.dd3boh.outertune.mix.edit.SongPair
 import com.dd3boh.outertune.mix.edit.How
+import com.dd3boh.outertune.mix.edit.LaneSet
 import com.dd3boh.outertune.mix.pill.AutoChoice
 import com.dd3boh.outertune.mix.pill.AnalysedPlanner
 import com.dd3boh.outertune.mix.pill.PlainReason
@@ -141,6 +143,13 @@ class AutomixController(
     private val loadPace: () -> AutomixPace? = { null },
     /** Keeps this phone's pace for the next start. Blocking, so called on IO. */
     private val savePace: (AutomixPace) -> Unit = {},
+    /**
+     * Where the editor keeps its windows and their parts (the app's cache), for a change saved on
+     * parts to play on them ([PartsForPlay]); null for bands only.
+     */
+    private val partsCache: java.io.File? = null,
+    /** The changes the editor rendered when they were saved, played as kept where the music is the same (KeptChanges). */
+    private val keptChanges: KeptChanges? = null,
 ) : Player.Listener, AutomixAudioProcessor.Events {
 
     /**
@@ -252,7 +261,9 @@ class AutomixController(
     private var joiningSince = 0L
 
     /** Whether a join asked for is still to be waited for: a seek the player did not make must not hold the guard for good. */
-    private fun stillJoining(): Boolean = joining && SystemClock.elapsedRealtime() - joiningSince < JOIN_WAIT_MS
+    /** Joining, and still in time: the song may load for longer than that before the sink takes it. */
+    private fun stillJoining(): Boolean =
+        joining && (player.playbackState == Player.STATE_BUFFERING || SystemClock.elapsedRealtime() - joiningSince < JOIN_WAIT_MS)
 
     /** AutoMix's setting for the queue playing: with Mix ([lanes]), the switch of the playlist it came from. */
     private var auto = false
@@ -421,7 +432,12 @@ class AutomixController(
     override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
         syncNormalising()
         if (!enabled) return levelsWhileOff()
-        joining = false
+        // A song that starts with AutoMix on is set up with the stage as the sink takes it, a moment
+        // after this. Until then the stage counts as joining, so the song's change is not called off
+        // as from a song that started before AutoMix was on: a playlist started from silence 4 s
+        // after AutoMix came on played its first change plain (Mr. Saxobeat, 7 Nov 2026).
+        joining = stage.wanted && !stage.activeForStream
+        joiningSince = SystemClock.elapsedRealtime()
         refresh()
     }
 
@@ -1249,10 +1265,45 @@ class AutomixController(
             return BandsOutcome("on bands: a plain change, saved for these two", auto = AutoChoice.Plain(PlainReason.YOUR_CHOICE))
         }
         latestSaved?.let { saved ->
-            val spec = Presets.onBands(saved)
+            // The change as the editor rendered it on Save, where what is held of A and copied of B is
+            // the music it was rendered from, to the sample, at the same levels: what was heard in the
+            // editor, with no render here. Rendered again below otherwise.
+            keptChanges?.let { kept ->
+                val replay = runCatching { kept.get(t.a.id, b.id) }.getOrNull()?.replay(
+                    KeptChanges.written(saved), saved, ring, frames, t.tailStartMs.toDouble(), copy, t.copyFrames,
+                    earliest, attenuationA, attenuationB,
+                )
+                replay?.onSuccess { render ->
+                    if (t.abandoned.get()) return BandsOutcome("on bands, not used: the change was given up")
+                    val check = if (t.entryFrames > 0L) ENTRY_CHECK_FRAMES.toLong() else 0L
+                    val heldPlan = render.heldPlan(check)
+                    stage.offer(held, heldPlan, render.outgoing, render.incoming, replaces = true)
+                    Log.i(TAG, "AutoMix: the saved change plays as kept, on " + if (render.plan.spec.lanes == LaneSet.PARTS) "parts" else "bands")
+                    return BandsOutcome(
+                        "kept, saved: ${render.plan.describe()}, headroom %.1f dB, peak %.2f".format(render.headroom.deepestDb, render.peakAfter),
+                        saved = true,
+                        plan = heldPlan,
+                    )
+                }?.onFailure { e -> Log.i(TAG, "AutoMix: the kept change does not play here: ${e.message}") }
+            }
+            // A change saved on parts plays on them where both songs' parts line up with the music
+            // held to the sample (PartsForPlay); on bands otherwise, as before.
+            // A change saved on bands plays on parts too where both songs' parts line up: the bands
+            // were the cut until parts were there (his ask of 8 Nov 2026).
+            val parts = partsCache?.let { dir ->
+                runCatching {
+                    val channels = held.channels
+                    val aParts = PartsForPlay.lineUp(dir, t.a.id, "tail", ring, frames.toInt(), channels, rate, t.tailStartMs.toDouble())
+                    val bParts = aParts?.let { PartsForPlay.lineUp(dir, b.id, "head", copy, t.copyFrames, channels, rate, 0.0) }
+                    if (aParts != null && bParts != null) aParts to bParts else null
+                }.onFailure { Log.w(TAG, "AutoMix: the parts could not be read", it) }.getOrNull()
+            }
+            Log.i(TAG, if (parts != null) "AutoMix: the saved change plays on parts" else "AutoMix: the saved change plays on bands: its parts are not at hand or do not line up")
+            val spec = if (parts != null) Presets.onParts(saved) else Presets.onBands(saved)
             var lanePlan: LanePlan? = null
             Placing.facts(spec, rate, held.channels, t.tailStartMs.toDouble(), frames, tail, t.copyFrames.toLong(), earliest).fold(
-                onSuccess = { facts: ChangeFacts ->
+                onSuccess = { found: ChangeFacts ->
+                    val facts = if (parts != null) found.withParts() else found
                     when (val r = SpecPlan.plan(spec, facts)) {
                         is SpecPlan.Result.Planned -> lanePlan = r.plan
                         is SpecPlan.Result.Refused -> why = "; the saved change cannot play: ${r.why}"
@@ -1262,7 +1313,7 @@ class AutomixController(
             )
             lanePlan?.let { p ->
                 val renderStarted = SystemClock.elapsedRealtime()
-                val render = LaneMixer(p).render(ring, copy, attenuationA, attenuationB)
+                val render = LaneMixer(p).render(ring, copy, attenuationA, attenuationB, parts?.first, parts?.second)
                 // This phone's pace: the work before the change, per second held, and the change's own, per second of it.
                 val analyseMs = renderStarted - workStarted
                 val spanSeconds = (p.mixTo - p.mixFrom).toDouble() / rate
@@ -1321,15 +1372,46 @@ class AutomixController(
                 auto = if (pick.isPlain) AnalysedPlanner.choiceOf(pick) else AutoChoice.Plain(PlainReason.NO_FIT),
             )
         }
-        stage.offer(held, render.heldPlan(), render.outgoing, render.incoming, replaces = true)
+        // The same change on parts where both songs' parts line up with the music held: each part
+        // takes its band's move (Presets.onParts), and the parts are the song's own sounds where the
+        // bands were filters.
+        val onParts = autoOnParts(t, b, render, ring, frames, copy, rate, attenuationA, attenuationB)
+        val played = onParts ?: render
+        stage.offer(held, played.heldPlan(), played.outgoing, played.incoming, replaces = true)
         recentMoves.addFirst(pick.move)
         while (recentMoves.size > 2) recentMoves.removeLast()
         return BandsOutcome(
-            "on bands: Auto ${pick.describe()}; ${render.plan.describe()}, " + "%d proofs in %.0f ms, headroom %.1f dB, peak %.2f".format(
-                chosen.proofs, chosen.millis, render.headroom.deepestDb, render.peakAfter,
-            ) + why,
+            "on ${if (onParts != null) "parts" else "bands"}: Auto ${pick.describe()}; ${played.plan.describe()}, " +
+                "%d proofs in %.0f ms, headroom %.1f dB, peak %.2f".format(chosen.proofs, chosen.millis, played.headroom.deepestDb, played.peakAfter) + why,
             auto = AnalysedPlanner.choiceOf(pick),
         )
+    }
+
+    /** Auto's [render] on bands made again on parts, where both songs' parts line up with the music held ([PartsForPlay]); null otherwise. */
+    private fun autoOnParts(
+        t: Transition, b: AutomixGuards.Song, render: ChangeRender, ring: ShortArray, frames: Long, copy: ShortArray,
+        rate: Int, attenuationA: Double, attenuationB: Double,
+    ): ChangeRender? {
+        val dir = partsCache ?: return null
+        return runCatching {
+            val channels = render.plan.channels
+            val aParts = PartsForPlay.lineUp(dir, t.a.id, "tail", ring, frames.toInt(), channels, rate, t.tailStartMs.toDouble())
+            val bParts = aParts?.let { PartsForPlay.lineUp(dir, b.id, "head", copy, t.copyFrames, channels, rate, 0.0) }
+            if (aParts == null || bParts == null) {
+                Log.i(TAG, "AutoMix: Auto plays on bands: the parts are not at hand or do not line up")
+                return null
+            }
+            val spec = Presets.onParts(render.plan.spec)
+            when (val r = SpecPlan.plan(spec, render.plan.facts.withParts())) {
+                is SpecPlan.Result.Refused -> {
+                    Log.i(TAG, "AutoMix: Auto plays on bands: on parts ${r.why}")
+                    null
+                }
+                is SpecPlan.Result.Planned -> LaneMixer(r.plan).render(ring, copy, attenuationA, attenuationB, aParts, bParts).also {
+                    Log.i(TAG, "AutoMix: Auto's change plays on parts")
+                }
+            }
+        }.onFailure { Log.w(TAG, "AutoMix: Auto on parts failed", it) }.getOrNull()
     }
 
     private fun work(): ExecutorService? {

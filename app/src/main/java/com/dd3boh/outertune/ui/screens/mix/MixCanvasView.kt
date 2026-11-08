@@ -174,8 +174,7 @@ fun MixCanvasView(
                                         actions.note(R.string.mix_adjust_two_points)
                                     } else {
                                         editor.live(editor.curveSet(editor.spec, h.id, keys.filterIndexed { i, _ -> i != h.index }))
-                                        vm.adjustEdited = true
-                                        vm.publish()
+                                        adjustStep(vm, editor, before)
                                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     }
                                     // The finger is done with this point, however long it stays.
@@ -466,8 +465,7 @@ private fun finish(
                 if (keys.any { abs(it.u - u) < 1e-9 }) return
                 val value = (Shapes.eased(keys, u) * 20).roundToInt() / 20.0
                 editor.live(editor.curveSet(editor.spec, hit.id, keys + CurveKey(u, value)))
-                vm.adjustEdited = true
-                vm.publish()
+                adjustStep(vm, editor, before)
                 haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
             }
             is CanvasLayout.Hit.Point, is CanvasLayout.Hit.LabelHit -> {}
@@ -501,12 +499,21 @@ private fun finish(
             editor.commit(before)
             vm.publish()
         }
-        is CanvasLayout.Hit.Point -> {
-            vm.adjustEdited = true
-            vm.publish()
-        }
+        is CanvasLayout.Hit.Point -> adjustStep(vm, editor, before)
         else -> {}
     }
+}
+
+/**
+ * One finished edit while a lane is adjusted: an undo step of its own, as every other edit is. The
+ * first goes back to the page as it was before Adjust opened, the curve Adjust drew for the lane
+ * included; Save, undo and redo work in Adjust as everywhere else.
+ */
+internal fun adjustStep(vm: MixEditorViewModel, editor: MixEditor, gestureBefore: TransitionSpec) {
+    val from = if (vm.adjustEdited) gestureBefore else vm.adjustBefore ?: gestureBefore
+    vm.adjustEdited = true
+    editor.commit(from)
+    vm.publish()
 }
 
 private const val HOLD_MS = 400L

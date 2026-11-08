@@ -6,6 +6,7 @@
     <string name="mix_edit_redo">Rétablir</string>
     <string name="mix_edit_close">Fermer</string>
     <string name="mix_edit_save">Enregistrer</string>
+    <string name="mix_edit_saved_state">Enregistré</string>
 
     <string name="mix_edit_bpm">%1$s BPM</string>
     <string name="mix_edit_bpm_unknown">\? BPM</string>
@@ -100,6 +101,7 @@
     <string name="mix_preset_blend">Mélange</string>
     <string name="mix_preset_echo_out">Écho</string>
     <string name="mix_preset_cut">Coupe</string>
+    <string name="mix_preset_default">Par défaut</string>
     <string name="mix_line_custom">Vos propres réglages pour ces deux morceaux.</string>
     <string name="mix_line_auto">Le choix de l\'appli pour ces deux morceaux.</string>
     <string name="mix_line_auto_plain">Auto enchaîne ces deux morceaux sans mixage.</string>

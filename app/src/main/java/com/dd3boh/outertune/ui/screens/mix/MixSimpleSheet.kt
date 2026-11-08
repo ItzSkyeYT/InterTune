@@ -197,6 +197,22 @@ internal class PresetRow(val scroll: ScrollState, private val padPx: Int) {
     }
 }
 
+/**
+ * Default, first among the presets: the two songs meet as they would without Mix, one after the
+ * other with nothing added (his ask of 8 Nov 2026). Lit whenever the change is plain, Auto's own
+ * plain pick included.
+ */
+@Composable
+internal fun DefaultChip(lit: Boolean, enabled: Boolean, onClick: () -> Unit) {
+    FilterChip(
+        selected = lit,
+        enabled = enabled,
+        onClick = onClick,
+        label = { Text(stringResource(R.string.mix_preset_default), maxLines = 1) },
+        leadingIcon = if (lit) { { Icon(Icons.Rounded.Check, null, Modifier.size(FilterChipDefaults.IconSize)) } } else null,
+    )
+}
+
 @Composable
 internal fun rememberPresetRow(lit: Preset?, pad: Dp): PresetRow {
     val padPx = with(LocalDensity.current) { pad.roundToPx() }
@@ -671,6 +687,7 @@ private fun ColumnScope.Choices(
     // The lit chip is kept in view (PresetRow).
     val presetRow = rememberPresetRow(ui.lit, 16.dp)
     val chips: @Composable () -> Unit = {
+        DefaultChip(lit = spec.plain, enabled = true) { vm.edit { plainChange() } }
         for (p in EditorPresets.ORDER) {
             val lit = ui.lit == p
             val enabled = (!p.needsParts || spec.lanes == LaneSet.PARTS) && !(p == Preset.CUSTOM && !lit && editor.lastCustom == null)

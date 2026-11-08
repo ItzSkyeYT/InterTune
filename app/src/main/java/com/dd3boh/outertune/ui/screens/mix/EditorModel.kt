@@ -146,7 +146,13 @@ class MixEditor(
     val auto: TransitionSpec = pick.copy(from = Preset.AUTO)
 
     /** What Save compares the page with, its preset worked out as the page works it out. */
-    val opened: TransitionSpec = normalised(saved ?: auto)
+    /** The change as last saved: as the page opened, then as each save left it (autosave, 8 Nov 2026). */
+    var opened: TransitionSpec = normalised(saved ?: auto)
+        private set
+
+    /** Each song's beat fix as last saved: the one kept when the page opened, then each save's. */
+    private var savedFixA: BeatFix = facts.a.fix
+    private var savedFixB: BeatFix = facts.b.fix
 
     var spec: TransitionSpec = restoredSpec?.let(::normalised) ?: opened
         private set
@@ -835,8 +841,15 @@ class MixEditor(
 
     /** The fixes Save keeps for the songs: each song's, where it differs from what was kept. */
     fun fixesChanged(): Map<String, BeatFix> = buildMap {
-        if (spec.a.fix.withoutSource() != facts.a.fix.withoutSource()) put(facts.a.id, spec.a.fix)
-        if (spec.b.fix.withoutSource() != facts.b.fix.withoutSource()) put(facts.b.id, spec.b.fix)
+        if (spec.a.fix.withoutSource() != savedFixA.withoutSource()) put(facts.a.id, spec.a.fix)
+        if (spec.b.fix.withoutSource() != savedFixB.withoutSource()) put(facts.b.id, spec.b.fix)
+    }
+
+    /** [written], the page's change when it was saved, is now what is saved: clean until the next edit. */
+    fun markSaved(written: TransitionSpec) {
+        opened = normalised(written)
+        savedFixA = written.a.fix
+        savedFixB = written.b.fix
     }
 
     private fun BeatFix.withoutSource() = copy(source = "")

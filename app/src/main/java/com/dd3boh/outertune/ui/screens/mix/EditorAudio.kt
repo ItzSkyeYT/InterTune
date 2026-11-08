@@ -88,10 +88,11 @@ class KeptAuto(val spec: TransitionSpec, val why: String, val aEnd: SongEnd, val
  * Where the editor's windows are kept between openings, in the app's cache: Android may clear it,
  * and that only costs a read. Beside each window, what the analysis found in it, and for each pair
  * Auto's pick, so going back to a pair takes a moment instead of analysing it again (his ask of
- * 6 Nov 2026). Both are kept under [stamp], the code that made them (MixCode.STAMP, a stamp of
- * the Mix module's sources): a build whose Mix code changed analyses afresh, any other keeps them.
+ * 6 Nov 2026). Each is kept under a stamp of the code that made it: the analysis under [stamp]
+ * (MixCode.ANALYSIS, the analysis code alone), Auto's pick under [autoStamp] (MixCode.AUTO, that
+ * and Auto's rules). A build that changes how changes are rendered keeps both (8 Nov 2026).
  */
-class EditorCache(cacheDir: File, private val stamp: String = "") {
+class EditorCache(cacheDir: File, private val stamp: String = "", private val autoStamp: String = stamp) {
     val dir = File(cacheDir, "mix/editor")
     private val autoDir = File(dir, "auto")
 
@@ -132,7 +133,7 @@ class EditorCache(cacheDir: File, private val stamp: String = "") {
         if (!file.isFile) return null
         return runCatching {
             DataInputStream(BufferedInputStream(file.inputStream(), BUFFER)).use { input ->
-                if (text(input) != "$stamp\n$key") return null
+                if (text(input) != "$autoStamp\n$key") return null
                 val why = text(input)
                 val spec = TransitionJson.decode(text(input)) ?: return null
                 val aEnd = SongEndJson.decode(text(input)) ?: return null
@@ -146,7 +147,7 @@ class EditorCache(cacheDir: File, private val stamp: String = "") {
     fun keepAuto(key: String, kept: KeptAuto) {
         autoDir.mkdirs()
         write(File(autoDir, digest(key))) { out ->
-            text("$stamp\n$key", out)
+            text("$autoStamp\n$key", out)
             text(kept.why, out)
             text(TransitionJson.encode(kept.spec), out)
             text(SongEndJson.encode(kept.aEnd), out)
