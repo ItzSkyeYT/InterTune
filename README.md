@@ -239,18 +239,16 @@ Thank you so much, everyone, for your support in this growing project!
 
 <p align="center">InterTune is free and has no ads. These people gave something back anyway, and that keeps the project going. It means a lot, <b>thank you!</b></p>
 
-<div align="center">
-<table>
-  <tr>
-    <td valign="middle"><img src="https://raw.githubusercontent.com/ItzSkyeYT/InterTune/visionos-fix/assets/donors/dnr.png" width="42" height="42" alt="Dismorphism"></td>
-    <td valign="middle"><b>Dismorphism</b><br><sub>The very first donation</sub><br><sub>October 2026</sub></td>
-    <td valign="middle"><img src="https://raw.githubusercontent.com/ItzSkyeYT/InterTune/visionos-fix/assets/donors/tidie.png" width="42" height="42" alt="Ti-Die"></td>
-    <td valign="middle"><b>Ti-Die</b><br><sub>The first on Ko-fi</sub><br><sub>November 2026</sub></td>
-    <td valign="middle"><img src="https://raw.githubusercontent.com/ItzSkyeYT/InterTune/visionos-fix/assets/donors/frances.png" width="42" height="42" alt="frances"></td>
-    <td valign="middle"><b>frances</b><br><sub>Gave on Ko-fi</sub><br><sub>November 2026</sub></td>
-  </tr>
-</table>
-</div>
+<p align="center"><img src="https://raw.githubusercontent.com/ItzSkyeYT/InterTune/visionos-fix/assets/donors/dnr.png" width="64" height="64" alt="Dismorphism"><br><b>Dismorphism</b><br><sub>The very first donation · October 2026</sub></p>
+
+<p align="center"><img src="https://raw.githubusercontent.com/ItzSkyeYT/InterTune/visionos-fix/assets/donors/tidie.png" width="64" height="64" alt="Ti-Die"><br><b>Ti-Die</b><br><sub>The first on Ko-fi · November 2026</sub></p>
+
+<p align="center"><img src="https://raw.githubusercontent.com/ItzSkyeYT/InterTune/visionos-fix/assets/donors/frances.png" width="64" height="64" alt="frances"><br><b>frances</b><br><sub>Gave on Ko-fi · November 2026</sub></p>
+
+<!-- The app's About > Support InterTune and the site read the donors' names from this table (utils/Donors.kt, tools/site/build.py):
+     one cell a donor, the name in bold first. A new donor goes in both here and above.
+<table><tr><td><b>Dismorphism</b></td><td><b>Ti-Die</b></td><td><b>frances</b></td></tr></table>
+-->
 
 <br>
 
