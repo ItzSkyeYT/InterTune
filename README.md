@@ -168,7 +168,7 @@ Every change in detail, and why this fork exists: [docs/FEATURES.md](https://git
 What's being worked on, roughly in order. `[x]` is done, `[~]` is built and being tested, `[ ]` is still to do. Nothing here has a date, and plans can change. Ideas are welcome in #feature-requests on [Discord](https://discord.gg/68jmqhMjXk) or as a [GitHub issue](https://github.com/ItzSkyeYT/InterTune/issues/new/choose).
 
 <details>
-<summary><b>Next: 0.13</b> · 8 of 24 done, 8 to test</summary>
+<summary><b>Next: 0.13</b> · 8 of 25 done, 9 to test</summary>
 
 `[ ]` Listen together: one person plays, friends follow the same song in real time *(in progress)*\
 `[ ]` Your year in InterTune, a recap *(in progress)*\
@@ -190,6 +190,7 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[ ]` Choose what's in the three-dot menus\
 `[x]` Lyrics videos that light each word as it is sung\
 `[x]` Stats shows how many of the songs you liked InterTune found for you, and where\
+`[~]` Your library in your own order: playlists, albums and artists dragged where you want them\
 `[ ]` Tablets: settings in two panes, and the player as a side pane *(in progress)*\
 `[ ]` A look made for foldable and flip phones *(in progress)*\
 `[ ]` Match your library from another service by logging in to it\
