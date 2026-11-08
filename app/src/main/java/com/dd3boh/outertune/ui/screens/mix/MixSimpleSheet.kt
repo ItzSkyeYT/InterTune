@@ -554,6 +554,7 @@ private fun WhereLine(
                 phase is MixEditorViewModel.Phase.Loading -> when (phase.stage) {
                     PairLoader.Stage.READING_A -> words.readingA()
                     PairLoader.Stage.READING_B -> words.readingB()
+                    PairLoader.Stage.SPLITTING -> words.splitting(phase.progress)
                     PairLoader.Stage.ANALYSING -> words.analysing()
                 }
                 // No narration of the change, playing or stopped (his rule: no comments in the mixer).

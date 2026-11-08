@@ -15,11 +15,12 @@ import java.io.File
 import java.lang.reflect.Modifier
 
 /**
- * Parts are held back to the debug app: the flag, the one place that reads it (the debug hook's
- * `parts` command), ONNX Runtime and the :parts module as debug dependencies only, the bench in the
- * debug source set alone, and the runtime's telemetry provider taken out of the debug manifest.
- * This reads the source and the build file, as AutomixHeldBackTest does, because a flag and a
- * dependency are part of the build and a test cannot turn them.
+ * Parts are held back to the debug app: the flag, the two places that read it (the debug hook's
+ * `parts` command, and the editor's PartsMaker.open, which finds the debug app's maker), ONNX
+ * Runtime and the :parts module as debug dependencies only, the bench and the maker in the debug
+ * source set alone, and the runtime's telemetry provider taken out of the debug manifest. This
+ * reads the source and the build file, as AutomixHeldBackTest does, because a flag and a dependency
+ * are part of the build and a test cannot turn them.
  */
 class PartsHeldBackTest {
 
@@ -38,17 +39,21 @@ class PartsHeldBackTest {
     }
 
     @Test
-    fun `the flag is read by the debug hook alone`() {
+    fun `the flag is read by the debug hook and the editor's maker alone`() {
         val readers = sources.walkTopDown()
             .filter { it.extension == "kt" && it.name != "Unreleased.kt" }
             .filter { Regex("""Unreleased\.AUTOMIX_PARTS\b""").containsMatchIn(code(it.readText())) }
             .map { it.relativeTo(sources).path }
             .toSet()
-        assertEquals(setOf("playback/MusicService.kt"), readers)
+        assertEquals(setOf("playback/MusicService.kt", "ui/screens/mix/PartsMaker.kt"), readers)
         val service = code(File(sources, "playback/MusicService.kt").readText())
         assertTrue("\"parts\" -> if (Unreleased.AUTOMIX_PARTS) partsBench(words.drop(1))" in service.lines().map { it.trim() })
         // The hook itself answers in the debug build only.
         assertTrue(service.contains("if (BuildConfig.BUILD_TYPE == \"debug\" && Unreleased.AUTOMIX_EDITOR) intent?.getStringExtra(\"mixtrial\")?.let { mixTrial(it) }"))
+        // The editor's maker: nothing at all where the flag is off, before any name is looked up.
+        val maker = code(File(sources, "ui/screens/mix/PartsMaker.kt").readText())
+        val open = maker.substring(maker.indexOf("fun open(context: Context): PartsMaker?"))
+        assertTrue(open.indexOf("if (!Unreleased.AUTOMIX_PARTS) return null") in 0 until open.indexOf("Class.forName"))
     }
 
     @Test
@@ -63,6 +68,7 @@ class PartsHeldBackTest {
     @Test
     fun `the bench and the runtime are in the debug source set alone`() {
         assertTrue(File("src/debug/java/com/dd3boh/outertune/playback/parts/PartsBench.kt").isFile)
+        assertTrue(File("src/debug/java/com/dd3boh/outertune/playback/parts/PartsOnPhone.kt").isFile)
         for (set in listOf("main", "preview", "release")) {
             val found = File("src/$set").walkTopDown()
                 .filter { it.extension == "kt" }
@@ -81,6 +87,26 @@ class PartsHeldBackTest {
         assumeTrue("$name is not in this build", bench != null)
         val start = bench!!.getMethod("start", android.app.Service::class.java, List::class.java)
         assertTrue("start is not static", Modifier.isStatic(start.modifiers))
+    }
+
+    @Test
+    fun `the editor finds the debug app's maker by the name and the method it asks for`() {
+        val maker = code(File(sources, "ui/screens/mix/PartsMaker.kt").readText())
+        val name = Regex("""const val DEBUG_MAKER = "([^"]+)"""").find(maker)!!.groupValues[1]
+        assertTrue("Class.forName(DEBUG_MAKER).getMethod(\"open\", Context::class.java).invoke(null, context) as PartsMaker?" in maker)
+        val source = File("src/debug/java/" + name.replace('.', '/') + ".kt")
+        assertTrue("$source", source.isFile)
+        // The model where the notes say to put it, and one in the app at a time.
+        val text = code(source.readText())
+        assertTrue("const val MODEL = \"mix/models/scnet-int8.ort\"" in text)
+        assertTrue("File(context.filesDir, MODEL)" in text)
+        assertTrue("private val one = Semaphore(1)" in text)
+        // Only a debug build's tests have the debug source set; a release's skip this.
+        val found = runCatching { Class.forName(name) }.getOrNull()
+        assumeTrue("$name is not in this build", found != null)
+        val open = found!!.getMethod("open", android.content.Context::class.java)
+        assertTrue("open is not static", Modifier.isStatic(open.modifiers))
+        assertTrue(com.dd3boh.outertune.ui.screens.mix.PartsMaker::class.java.isAssignableFrom(open.returnType))
     }
 
     @Test

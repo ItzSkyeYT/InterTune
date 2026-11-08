@@ -574,11 +574,12 @@ object Unreleased {
     /**
      * Parts for Mix: a song split into vocals, drums, bass and the rest by a model on the phone
      * (SCNet, MIT weights), in place of today's lows, mids and highs (experiments/features/automix/
-     * STEMS-PLAN.md; where it stands, experiments/features/automix/parts/PARTS-NOW.md). For now only
-     * a benchmark: the debug hook's `parts` command (MusicService.mixTrial, PartsBench in src/debug)
-     * times the model on a phone and writes one segment's parts out. ONNX Runtime comes with the
-     * debug build alone (debugImplementation, arm64 only, its telemetry taken out of the manifest),
-     * and the model is put on the phone by hand with run-as. Nothing else reads this.
+     * STEMS-PLAN.md; where it stands, experiments/features/automix/parts/PARTS-NOW.md). For now two
+     * things: the debug hook's `parts` command (MusicService.mixTrial, PartsBench in src/debug) times
+     * the model on a phone and writes one segment's parts out, and the Mix editor splits a window
+     * that has no parts as it opens a pair (PartsMaker.open, PartsOnPhone in src/debug). ONNX Runtime
+     * comes with the debug build alone (debugImplementation, arm64 only, its telemetry taken out of
+     * the manifest), and the model is put on the phone by hand with run-as. Nothing else reads this.
      *
      * Debug builds only, as AutoMix is. To ship: the runtime built from source (STEMS-PLAN.md, F2),
      * the model downloaded from a Settings button, then this set to true with the checks that read it.

@@ -54,6 +54,7 @@
     <string name="mix_edit_reading_a">Lecture de la fin de %1$s…</string>
     <string name="mix_edit_reading_b">Lecture du début de %1$s…</string>
     <string name="mix_edit_analysing">Recherche des temps…</string>
+    <string name="mix_edit_splitting">Séparation des pistes · %1$d %%</string>
 
     <bool name="mix_edit_plural_lows">true</bool>
     <bool name="mix_edit_plural_mids">true</bool>

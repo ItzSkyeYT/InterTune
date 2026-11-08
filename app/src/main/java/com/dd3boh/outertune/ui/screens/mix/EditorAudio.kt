@@ -36,6 +36,7 @@ import java.io.DataOutputStream
 import java.io.File
 import java.io.IOException
 import java.security.MessageDigest
+import java.util.concurrent.CancellationException
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -155,13 +156,17 @@ class EditorCache(cacheDir: File, private val stamp: String = "", private val au
         }
     }
 
-    /** Keeps the newest windows, about four pairs' worth, with their analyses, and the newest picks. */
+    /** Keeps the newest windows, about four pairs' worth, with their analyses and parts, and the newest picks. */
     fun prune() {
         val sets = dir.listFiles()?.filter { it.name.endsWith(".pcm") }?.sortedByDescending { it.lastModified() } ?: return
+        val parts = PartsStore(dir.parentFile!!)
         for (old in sets.drop(KEPT)) {
             val stem = old.name.removeSuffix(".pcm")
             listOf(".pcm", ".info", ".bands", ".analysis").forEach { File(dir, stem + it).delete() }
+            // Its parts, made from this window, are of no use without it: four windows' worth each.
+            parts.deleteOf(stem)
         }
+        parts.deleteLeftovers(System.currentTimeMillis())
         autoDir.listFiles()?.sortedByDescending { it.lastModified() }?.drop(KEPT_PICKS)?.forEach { it.delete() }
     }
 
@@ -204,9 +209,10 @@ class EditorCache(cacheDir: File, private val stamp: String = "", private val au
 
 /**
  * Reads the end of A and the opening of B for the editor, or takes them from its cache, measures
- * their bands, analyses them with :mix and asks Auto for its pick, each candidate rendered and
- * judged as the phone does before it plays one. Blocking, on Dispatchers.IO;
- * [stage] is told which song is being read, for the now line.
+ * their bands, splits them into parts where the phone can and the parts store has none, analyses
+ * them with :mix and asks Auto for its pick, each candidate rendered and judged as the phone does
+ * before it plays one. Blocking, on Dispatchers.IO; [stage] is told which song is being read, for
+ * the now line.
  */
 @OptIn(UnstableApi::class)
 class PairLoader(
@@ -221,9 +227,14 @@ class PairLoader(
      * are not read whole here (the player's cache off: the song would be fetched twice). Blocking.
      */
     private val readWhole: ((id: String, durationMs: Double, cancelled: () -> Boolean) -> WholeSongGrid?)? = null,
+    /**
+     * A maker of parts on this phone ([PartsMaker.open]: the debug app, with the model on the
+     * phone), opened only where a window has none; null, or giving null, where none can be made.
+     */
+    private val parts: (() -> PartsMaker?)? = null,
 ) {
 
-    enum class Stage { READING_A, READING_B, ANALYSING }
+    enum class Stage { READING_A, READING_B, SPLITTING, ANALYSING }
 
     /** Thrown when a song could not be read at all; [side] says which. */
     class ReadFailed(val side: Side, cause: Throwable) : IOException(cause)
@@ -239,9 +250,20 @@ class PairLoader(
     /**
      * [levelA] and [levelB]: each song's level as the phone plays it now, which Auto's proofs hear
      * it at. [pace]: this phone's, as playback keeps it, which says how far before A's end a change
-     * may start ([PairFacts.pace]).
+     * may start ([PairFacts.pace]). [splitting] hears how far the splitting into parts is, from 0
+     * to 1, after [Stage.SPLITTING]. A cancel during the split ends the load with a
+     * CancellationException.
      */
-    fun load(a: SongInput, b: SongInput, levelA: Double = 1.0, levelB: Double = 1.0, pace: AutomixPace? = null, stage: (Stage) -> Unit, cancelled: () -> Boolean): LoadedPair {
+    fun load(
+        a: SongInput,
+        b: SongInput,
+        levelA: Double = 1.0,
+        levelB: Double = 1.0,
+        pace: AutomixPace? = null,
+        stage: (Stage) -> Unit,
+        cancelled: () -> Boolean,
+        splitting: (Double) -> Unit = {},
+    ): LoadedPair {
         val started = System.nanoTime()
         stage(Stage.READING_A)
         val (aWindow, aBands) = try {
@@ -259,6 +281,9 @@ class PairLoader(
         }
         val bWhole = wholeOf(b.id) ?: readWhole?.let { r -> runCatching { r(b.id, b.durationMs, cancelled) }.getOrNull() }
         cache.prune()
+        // Each window's parts where the store has none and this phone can make them: the pair then
+        // opens on them below, as with parts made on the PC.
+        makeParts(listOf(Triple(a.id, TAIL, aWindow), Triple(b.id, HEAD, bWindow)), stage, splitting, cancelled)
         stage(Stage.ANALYSING)
         val readAt = System.nanoTime()
         // What was found in each window, from the cache when this build kept it for that window.
@@ -368,6 +393,43 @@ class PairLoader(
 
     private fun wholeOf(id: String): WholeSongGrid? = grids?.let { runCatching { it(id) }.getOrNull() }
 
+    /**
+     * Splits each of [windows] (song id, end, window) the parts store has no parts of, where
+     * [parts] gives a maker. A window's four files go in whole, so one window split is kept when
+     * the other is not; anything that goes wrong leaves the pair on bands, with why in the log.
+     */
+    private fun makeParts(windows: List<Triple<String, String, PcmWindow>>, stage: (Stage) -> Unit, splitting: (Double) -> Unit, cancelled: () -> Boolean) {
+        val open = parts ?: return
+        val store = PartsStore(cache.dir.parentFile!!)
+        val missing = windows.filter { (id, end, w) -> !store.has(id, end, w.frames.toLong() * w.info.channels) }
+        if (missing.isEmpty()) return
+        val maker = runCatching { open() }.onFailure { Log.w(TAG, "No parts maker", it) }.getOrNull() ?: return
+        try {
+            stage(Stage.SPLITTING)
+            splitting(0.0)
+            for ((k, w) in missing.withIndex()) {
+                val (id, end, window) = w
+                if (cancelled()) throw CancellationException("the editor was closed")
+                val started = System.nanoTime()
+                val made = try {
+                    maker.split(
+                        window.samples(), window.info.sampleRate, window.info.channels, store.files(id, end),
+                        { f -> splitting((k + f.coerceIn(0.0, 1.0)) / missing.size) }, cancelled,
+                    )
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Throwable) {
+                    Log.w(TAG, "The $end window could not be split into parts: the pair stays on bands", e)
+                    return
+                }
+                if (!made) throw CancellationException("the editor was closed")
+                Log.i(TAG, "The $end window split into parts in %.1f s".format((System.nanoTime() - started) / 1e9))
+            }
+        } finally {
+            maker.close()
+        }
+    }
+
     /** What was found in [window], and whether it came from the cache; analysed and kept where it did not. */
     private fun analysed(id: String, end: String, window: PcmWindow, kind: RegionKind): Pair<RegionAnalysis?, Boolean> {
         cache.analysis(id, end, window.info)?.let { return it to true }
@@ -409,6 +471,8 @@ class PairLoader(
         }
         cache.dir.mkdirs()
         cache.analysisFile(song.id, end).delete()
+        // Parts made from a window read before are not this one's.
+        PartsStore(cache.dir.parentFile!!).delete(song.id, end)
         val part = File(pcm.path + ".part")
         var meter: BandMeter? = null
         val info = WindowDecoder(source).decode(

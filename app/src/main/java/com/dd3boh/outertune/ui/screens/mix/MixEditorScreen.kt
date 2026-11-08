@@ -704,6 +704,7 @@ private fun NowLine(
                 phase is MixEditorViewModel.Phase.Loading -> when (phase.stage) {
                     PairLoader.Stage.READING_A -> words.readingA()
                     PairLoader.Stage.READING_B -> words.readingB()
+                    PairLoader.Stage.SPLITTING -> words.splitting(phase.progress)
                     PairLoader.Stage.ANALYSING -> words.analysing()
                 }
                 else -> ""

@@ -20,7 +20,6 @@ import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
 import android.os.Process
-import android.os.SharedMemory
 import android.os.SystemClock
 import android.system.Os
 import android.system.OsConstants
@@ -40,11 +39,9 @@ import com.dd3boh.outertune.parts.ScnetSegment
 import com.dd3boh.outertune.parts.SegmentTime
 import com.dd3boh.outertune.parts.Wav
 import java.io.File
-import java.nio.ByteBuffer
 import java.text.SimpleDateFormat
 import java.util.Collections
 import java.util.Date
-import java.util.IdentityHashMap
 import java.util.Locale
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicBoolean
@@ -303,25 +300,6 @@ object PartsBench {
             return "battery %.1f C %d%% plugged=%d, thermal status %d, headroom %.2f, screen %s".format(
                 temperature, level, plugged, thermal, headroom, if (power.isInteractive) "on" else "off",
             )
-        }
-    }
-
-    /** The runtime's buffers in shared memory: native, mapped, freed when the session closes. */
-    @RequiresApi(Build.VERSION_CODES.O_MR1)
-    private class SharedBuffers : OrtSpecModel.Buffers {
-        private val held = IdentityHashMap<ByteBuffer, SharedMemory>()
-
-        override fun allocate(bytes: Int): ByteBuffer {
-            val memory = SharedMemory.create("intertune-parts", bytes)
-            val buffer = memory.mapReadWrite()
-            synchronized(held) { held[buffer] = memory }
-            return buffer
-        }
-
-        override fun free(buffer: ByteBuffer) {
-            val memory = synchronized(held) { held.remove(buffer) } ?: return
-            SharedMemory.unmap(buffer)
-            memory.close()
         }
     }
 

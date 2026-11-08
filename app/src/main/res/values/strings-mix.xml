@@ -59,6 +59,7 @@
     <string name="mix_edit_reading_a">Reading the end of %1$s…</string>
     <string name="mix_edit_reading_b">Reading the start of %1$s…</string>
     <string name="mix_edit_analysing">Finding the beats…</string>
+    <string name="mix_edit_splitting">Splitting parts · %1$d%%</string>
 
     <!-- moments: %1$s is the song's owner form, %2$s the lane in lower case -->
     <bool name="mix_edit_plural_lows">true</bool>

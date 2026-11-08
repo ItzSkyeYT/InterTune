@@ -226,6 +226,9 @@ class EditorWords(private val res: Resources, val aTitle: String, val bTitle: St
     fun readingB() = res.getString(R.string.mix_edit_reading_b, bTitle)
     fun analysing() = res.getString(R.string.mix_edit_analysing)
 
+    /** "Splitting parts · 40%": how far the window or windows are split, from 0 to 1. */
+    fun splitting(progress: Double) = res.getString(R.string.mix_edit_splitting, (progress * 100).toInt().coerceIn(0, 100))
+
     /** "4:41.3", for where bar 1 sits while a song is dragged. */
     fun clockTenths(ms: Double): String {
         val tenths = (maxOf(0.0, ms) / 100).roundToInt()

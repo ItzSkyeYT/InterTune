@@ -54,6 +54,12 @@ class PcmWindow(val info: WindowInfo, private val samples: ShortBuffer) {
         return samples.get(frame * info.channels + c)
     }
 
+    /** The window's samples, interleaved, frame 0 at index 0: a view of its own to read as it likes. */
+    fun samples(): ShortBuffer = samples.duplicate().also {
+        it.clear()
+        it.limit(frames * info.channels)
+    }
+
     /** [count] frames from [from] into [into], interleaved; silence outside the window. */
     fun read(from: Int, count: Int, into: ShortArray) {
         val n = count * info.channels

@@ -76,7 +76,8 @@ class MixEditorViewModel @Inject constructor(
     val songB: StateFlow<Song?> = database.song(toId).stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     sealed interface Phase {
-        data class Loading(val stage: PairLoader.Stage) : Phase
+        /** [progress]: how far [stage] is, from 0 to 1, where it is measured (the splitting into parts). */
+        data class Loading(val stage: PairLoader.Stage, val progress: Double = 0.0) : Phase
         data class Failed(val side: Side, val offline: Boolean) : Phase
         data object Ready : Phase
     }
@@ -125,7 +126,9 @@ class MixEditorViewModel @Inject constructor(
     private var levelOf: (String) -> Double = { 1.0 }
     private var volumeOf: () -> Float = { 1f }
     private var job: Job? = null
-    private val cancelled = AtomicBoolean(false)
+
+    /** The running load's own stop, set by a new load or the page's end: it stops a split into parts too. */
+    private var cancelled = AtomicBoolean(false)
 
     /**
      * Starts reading the pair through the player's way to the songs, once. [levelOf] gives a song's
@@ -178,7 +181,8 @@ class MixEditorViewModel @Inject constructor(
     private fun load() {
         val source = source ?: return
         job?.cancel()
-        cancelled.set(false)
+        cancelled.set(true)
+        val stop = AtomicBoolean(false).also { cancelled = it }
         phase.value = Phase.Loading(PairLoader.Stage.READING_A)
         job = viewModelScope.launch {
             try {
@@ -199,10 +203,16 @@ class MixEditorViewModel @Inject constructor(
                 // playback does: how far before the end it can hold a change in time.
                 val pace = withContext(Dispatchers.IO) { AutomixPace.read(context.filesDir) } ?: AutomixPace()
                 val loaded = withContext(Dispatchers.IO) {
-                    PairLoader(source, EditorCache(context.cacheDir, MixCode.ANALYSIS, MixCode.AUTO), { id, end -> MixStores.analysed(context, id, end) }, { id -> MixStores.wholeSongs(context).get(id) }, wholeReader(source)).load(
+                    PairLoader(
+                        source, EditorCache(context.cacheDir, MixCode.ANALYSIS, MixCode.AUTO), { id, end -> MixStores.analysed(context, id, end) },
+                        { id -> MixStores.wholeSongs(context).get(id) }, wholeReader(source),
+                        // A window with no parts is split on this phone where it can be (the debug app, with the model).
+                        parts = { PartsMaker.open(context) },
+                    ).load(
                         inputA, inputB, levelA, levelB, pace,
                         stage = { phase.value = Phase.Loading(it) },
-                        cancelled = { cancelled.get() },
+                        cancelled = { stop.get() },
+                        splitting = { phase.value = Phase.Loading(PairLoader.Stage.SPLITTING, it) },
                     )
                 }
                 val stored = withContext(Dispatchers.IO) { runCatching { MixStores.transitions(context).get(SongPair(fromId, toId)) }.getOrNull() }

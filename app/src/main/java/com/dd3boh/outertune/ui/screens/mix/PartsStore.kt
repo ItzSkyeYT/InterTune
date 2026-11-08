@@ -21,18 +21,36 @@ import kotlin.math.max
  * An editor window's parts, where they have been made: vocals, drums, bass and melody (in
  * [LaneSet.PARTS]'s order), each `<key>-<end>.<part>.pcm` in the cache's `mix/parts`, 16-bit
  * interleaved at the window's rate and channels and of its length, the four adding up to the
- * window. Made on the PC for now from the editor's own windows (experiments/features/automix/parts/
- * tools/split_windows.py, SCNet Standard at overlap 1.33) and copied in; the phone's own splitting
- * comes later. Mapped from their files, off the app's heap: a window's four parts weigh four
- * windows.
+ * window. Made from the editor's own windows by SCNet Standard at overlap 1.33: on the PC
+ * (experiments/features/automix/parts/tools/split_windows.py) and copied in, or in the debug app
+ * on the phone as the editor opens ([PartsMaker]). Mapped from their files, off the app's heap: a
+ * window's four parts weigh four windows. They go with their window ([EditorCache.prune]).
  */
 internal class PartsStore(mixDir: File) {
     val dir = File(mixDir, "parts")
 
+    /** [id]'s [end] window's four files, in [NAMES]' order, there or not. */
+    fun files(id: String, end: String): List<File> = filesOf("${EditorCache.digest(id)}-$end")
+
+    private fun filesOf(stem: String): List<File> = NAMES.map { File(dir, "$stem.$it.pcm") }
+
+    /** Whether all four of [id]'s [end] window's parts are there, at [samples] samples each. */
+    fun has(id: String, end: String, samples: Long): Boolean = files(id, end).all { it.isFile && it.length() == samples * 2 }
+
+    /** Drops [id]'s [end] window's parts, as its window is read again. */
+    fun delete(id: String, end: String) = files(id, end).forEach { it.delete() }
+
+    /** Drops the parts of the window kept as `<stem>.pcm`, as it leaves the editor's cache. */
+    fun deleteOf(stem: String) = filesOf(stem).forEach { it.delete() }
+
+    /** Drops what a split cut short left behind (its process ended), untouched for [STALE_MS]. */
+    fun deleteLeftovers(now: Long) {
+        dir.listFiles()?.filter { it.name.endsWith(".part") && now - it.lastModified() > STALE_MS }?.forEach { it.delete() }
+    }
+
     /** [id]'s [end] window's four parts, mapped, when all four are there at [samples] samples each; null otherwise. */
     fun map(id: String, end: String, samples: Long): List<ShortBuffer>? {
-        val key = EditorCache.digest(id)
-        val files = NAMES.map { File(dir, "$key-$end.$it.pcm") }
+        val files = files(id, end)
         if (files.any { !it.isFile || it.length() != samples * 2 }) return null
         return try {
             files.map { f ->
@@ -48,6 +66,9 @@ internal class PartsStore(mixDir: File) {
     companion object {
         /** The file names of the parts, in [LaneSet.PARTS]'s order. */
         val NAMES = listOf("vocals", "drums", "bass", "melody")
+
+        /** A split writes its files as it goes, so one an hour old was cut short. */
+        const val STALE_MS = 60 * 60 * 1000L
 
         init {
             check(LaneSet.PARTS.lanes == listOf(Lane.VOCALS, Lane.DRUMS, Lane.BASS, Lane.MELODY))
