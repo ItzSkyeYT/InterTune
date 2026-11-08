@@ -145,10 +145,11 @@ class DontPlayPlacesTest {
         Regex("""<string name="$name"[^>]*>(.*?)</string>""").find(File("src/main/res/$folder/strings-ot.xml").readText())?.groupValues?.get(1)
 
     @Test
-    fun `its words are held from translators, have their French, and are short and plain`() {
+    fun `its words are open to translators, have their French, and are short and plain`() {
+        // Held until it shipped; on for everyone from 0.13 with Block artist (his pick of 8 Nov 2026).
         val english = File("src/main/res/values/strings-ot.xml").readText()
         for (name in words) {
-            assertTrue("$name is not held from translators", "<string name=\"$name\" translatable=\"false\">" in english)
+            assertTrue("$name is still held from translators", "<string name=\"$name\">" in english)
             for (folder in listOf("values", "values-fr")) {
                 val said = text(folder, name)
                 assertTrue("$folder $name is missing", said != null)

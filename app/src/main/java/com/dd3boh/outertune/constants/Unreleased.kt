@@ -754,9 +754,11 @@ object Unreleased {
      * song" stays as it was, for the recommendation rows only.
      *
      * Kept in one setting (BlockedArtistsKey), read only with this on, so a release that restores
-     * a backup from a debug build hides nothing. Its texts are held from translators, their
-     * French beside them in values-fr. Seen on an emulator only. Without it no menu or page has
-     * any of it. When it is agreed: set this to true, make its texts translatable.
+     * a backup from a debug build hides nothing. Its texts, Don't play this song's with them, are
+     * open to translators, their French beside them in values-fr. Seen on an emulator only.
+     * Without it no menu or page has any of it.
+     *
+     * On in every build from 0.13, Don't play this song with it, picked on 8 Nov 2026.
      */
     val ARTIST_BLOCK = true
 

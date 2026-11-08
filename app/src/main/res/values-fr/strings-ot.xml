@@ -2268,7 +2268,7 @@
     <string name="playlist_cover_photo">Une photo</string>
     <string name="playlist_cover_photo_note">Depuis votre téléphone</string>
     <string name="playlist_cover_songs">Un titre de cette playlist</string>
-    <!-- Bloquer l'artiste (ArtistBlock, Unreleased.ARTIST_BLOCK): held from translators in values until the words are agreed. -->
+    <!-- Bloquer l'artiste (ArtistBlock, Unreleased.ARTIST_BLOCK): open to translators in values, on for everyone from 0.13. -->
     <string name="menu_block_artist">Bloquer l\'artiste</string>
     <string name="block_artist_which">Bloquer quel artiste\u00A0?</string>
     <string name="block_artist_title">Bloquer %1$s\u00A0?</string>
@@ -2286,7 +2286,7 @@
     <string name="blocked_search_note">%1$s est bloqué, donc rien de cet artiste ne s\'affiche.</string>
     <string name="blocked_song_skipped">%1$s est bloqué, donc son titre a été passé.</string>
     <string name="blocked_songs_left">Il ne reste que des titres d\'artistes bloqués : la musique s\'arrête.</string>
-    <!-- Ne plus jouer ce titre (DontPlay, Unreleased.ARTIST_BLOCK): held from translators in values until the words are agreed. -->
+    <!-- Ne plus jouer ce titre (DontPlay, Unreleased.ARTIST_BLOCK): open to translators in values, on for everyone from 0.13. -->
     <string name="menu_dont_play_song">Ne plus jouer ce titre</string>
     <string name="menu_dont_play_lift">Réautoriser ce titre</string>
     <string name="dont_play_done">Désormais, il n\'est joué que si vous le choisissez.</string>
