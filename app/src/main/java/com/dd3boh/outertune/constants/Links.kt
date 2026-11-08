@@ -26,6 +26,9 @@ object Links {
     /** Weblate's page for newcomers to the project: pick a language and start. */
     const val TRANSLATE = "https://hosted.weblate.org/engage/intertune/"
 
+    /** InterTune's Ko-fi (8 Nov 2026): donations by card, and PayPal once its account is checked. Crypto goes through Discord. */
+    const val KOFI = "https://ko-fi.com/intertune"
+
     /** The project's own address, for whatever is not a bug or a translation. */
     const val EMAIL = "intertune.dev@gmail.com"
 
