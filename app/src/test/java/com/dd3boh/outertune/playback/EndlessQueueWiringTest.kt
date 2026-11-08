@@ -140,9 +140,10 @@ class EndlessQueueWiringTest {
     }
 
     @Test
-    fun `the flag is held back, on in debug and preview builds only`() {
+    fun `the flag is on for everyone from 0_13`() {
+        // His pick of 8 Nov 2026: albums go on as a radio in 0.13 (ReleasedFlagsTest lists it).
         val flag = File(sources, "constants/Unreleased.kt").readText()
-        assertEquals(1, Regex("""val ENDLESS_QUEUE = BuildConfig\.DEBUG""").findAll(flag).count())
+        assertEquals(1, Regex("""val ENDLESS_QUEUE = true""").findAll(flag).count())
     }
 
     @Test

@@ -13,9 +13,9 @@ import org.junit.Test
 import java.io.File
 
 /**
- * The words of Saved twice wait for his yes before they go to translators, so they are held
- * (translatable="false") with their French beside them, every count a plural, and the French
- * carrying the same numbers and names as the English.
+ * The words of Saved twice, open to translators since it ships in 0.13 (his pick of 8 Nov 2026),
+ * with their French beside them, every count a plural, and the French carrying the same numbers
+ * and names as the English.
  */
 class SavedTwiceTextsTest {
 
@@ -36,10 +36,10 @@ class SavedTwiceTextsTest {
     private fun placeholders(text: String) = Regex("""%\d\$[ds]""").findAll(text).map { it.value }.toSortedSet()
 
     @Test
-    fun `every text is held from translators and has its French`() {
+    fun `every text is open to translators and has its French`() {
         assertEquals(en.keys.toString(), 21, en.size)
         for ((name, element) in en) {
-            assertTrue("$name is open to translators before his yes", element.substringBefore(">").contains("translatable=\"false\""))
+            assertFalse("$name is still held from translators", element.substringBefore(">").contains("translatable=\"false\""))
             assertTrue("$name has no French", name in fr)
         }
         assertEquals("French with no English", emptySet<String>(), fr.keys - en.keys)
