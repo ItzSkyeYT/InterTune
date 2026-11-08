@@ -6429,6 +6429,8 @@ class MusicService : MediaLibraryService(),
                                 songSource(),
                                 com.dd3boh.outertune.ui.screens.mix.EditorCache(cacheDir, com.dd3boh.outertune.mix.MixCode.ANALYSIS, com.dd3boh.outertune.mix.MixCode.AUTO),
                                 grids = { id -> MixStores.wholeSongs(this@MusicService).get(id) },
+                                // The parts made on this phone where a window has none, as the editor does.
+                                parts = { com.dd3boh.outertune.ui.screens.mix.PartsMaker.open(this@MusicService) },
                             ).load(input(ids[0]), input(ids[1]), stage = {}, cancelled = { false })
                             Log.i(TAG, "AutoMix trial: windows of ${ids[0]} and ${ids[1]} kept, parts at hand ${loaded.partsReady}, ${loaded.took}")
                             // `keep`: the saved change kept as rendered too, as the editor keeps it on opening.
