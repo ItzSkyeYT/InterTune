@@ -10,7 +10,9 @@ import androidx.media3.common.Player.MEDIA_ITEM_TRANSITION_REASON_AUTO
 import androidx.media3.common.Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED
 import androidx.media3.common.Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT
 import androidx.media3.common.Player.MEDIA_ITEM_TRANSITION_REASON_SEEK
+import com.dd3boh.outertune.constants.PlayOrigin
 import com.dd3boh.outertune.models.MediaMetadata
+import com.dd3boh.outertune.models.MultiQueueObject
 import com.dd3boh.outertune.playback.queues.ListQueue
 import com.dd3boh.outertune.playback.queues.YouTubeAlbumRadio
 import com.dd3boh.outertune.playback.queues.YouTubeQueue
@@ -98,8 +100,67 @@ class DontPlaySkipTest {
         assertEquals(setOf("X", "Y"), heard.byHand)
     }
 
+    @Test
+    fun `songs added with a menu's Add to queue are the listener's in the queue they go to, a new one made there too`() {
+        // A queue made in the dialog: its songs are noted in the run startedByHand gives it, before
+        // it loads, and its first song makes that run current. Only that first one used to play:
+        // the player passed over a song not to play among the others when it came to it.
+        val heard = AdaptiveQueue.Heard()
+        heard.note(1L, "P", "Playing", runId = 10L)
+        val made = MultiQueueObject(id = 2, title = "Mine", queue = three.toMutableList(), index = 0)
+        made.startedByHand(PlayOrigin.QUEUE, now = 20L)
+        heard.putInByHand(made.id, made.runId, made.queue.map { it.id }, radio = false)
+        heard.note(made.id, "A", "A", runId = made.runId)
+        assertFalse(passes(MEDIA_ITEM_TRANSITION_REASON_AUTO, byHand = "B" in heard.byHand))
+        assertFalse(passes(MEDIA_ITEM_TRANSITION_REASON_SEEK, byHand = "C" in heard.byHand))
+        // A list that said nothing of where it began takes a run of its own as the songs go in
+        // (addQueue's startedByHand comes first): noted in that run, they are the listener's once
+        // it plays. Noted in the run it had before, they were lost.
+        val old = MultiQueueObject(id = 3, title = "Old", queue = mutableListOf(song("D")), index = 1)
+        heard.putInByHand(old.id, old.runId, listOf("E"), radio = false)
+        old.startedByHand(PlayOrigin.QUEUE, now = 30L)
+        heard.putInByHand(old.id, old.runId, listOf("F"), radio = false)
+        heard.note(old.id, "D", "D", runId = old.runId)
+        assertEquals(setOf("F"), heard.byHand)
+        assertTrue(passes(MEDIA_ITEM_TRANSITION_REASON_AUTO, byHand = "E" in heard.byHand))
+    }
+
     private val sources = File("src/main/java/com/dd3boh/outertune")
     private val service = File(sources, "playback/MusicService.kt").readText()
+
+    @Test
+    fun `the Add to queue dialog's songs are noted in each list branch of addQueue and in the new queue, before they load`() {
+        val board = File(sources, "playback/QueueBoard.kt").readText()
+        val add = body(board, "fun addQueue(")
+        // The extension queue that exists, the queue picked, and the queue picked that becomes one:
+        // each notes the songs in the queue they go into, right before they go in.
+        val lists = Regex("""addSongsToQueue\((\w+), Int\.MAX_VALUE""").findAll(add).toList()
+        assertEquals(listOf("anyExts", "match", "match"), lists.map { it.groupValues[1] })
+        for (m in lists) {
+            assertEquals("noteAddedByHand(${m.groupValues[1]}, mediaList, origin)", add.substring(0, m.range.first).trimEnd().lines().last().trim())
+        }
+        // A new queue, in the run it has just been given.
+        val made = add.substringAfter("val newQueue = MultiQueueObject(")
+        val started = made.indexOf("newQueue.startedByHand(origin, System.currentTimeMillis())")
+        val noted = made.indexOf("noteAddedByHand(newQueue, q, origin)")
+        assertTrue(started in 0 until noted)
+        assertTrue(noted < made.indexOf("return newQueue"))
+        // A radio's go through addToQueue, which notes them itself (AddToQueueTest).
+        assertFalse("noteAddedByHand(" in add.substringAfter("match.playlistId != null").substringBefore("} else if"))
+        // Only for the dialog, whose callers all say so: playQueue and the car's lists pass no origin.
+        assertTrue("if (origin == PlayOrigin.QUEUE) player.notePutInByHand(q, mediaList.mapNotNull { it?.id })" in body(board, "private fun noteAddedByHand("))
+        val callers = sources.walkTopDown().filter { it.extension == "kt" && it.name != "QueueDialogs.kt" && "AddToQueueDialog(" in it.readText() }.toList()
+        assertTrue("the dialog's callers were not found", callers.size >= 11)
+        for (file in callers) {
+            val onAdd = file.readText().substringAfter("AddToQueueDialog(").substringBefore("onDismiss")
+            assertTrue(file.name, "addQueue(" in onAdd && "origin = PlayOrigin.QUEUE" in onAdd)
+        }
+        // The service's hook, beside addToQueue, under the flag as the rest of DontPlay.
+        val hook = body(service, "fun notePutInByHand(")
+        assertTrue("if (!Unreleased.ARTIST_BLOCK || ids.isEmpty()) return" in hook)
+        assertTrue("runCatching { noteByHand(q, ids) }" in hook)
+        assertTrue(service.indexOf("fun notePutInByHand(") in service.indexOf("fun addToQueue(") until service.indexOf("private fun noteByHand("))
+    }
 
     /** The text of the function or block whose head is [head], braces matched. */
     private fun body(text: String, head: String): String {

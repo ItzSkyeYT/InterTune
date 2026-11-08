@@ -2791,6 +2791,18 @@ class MusicService : MediaLibraryService(),
     }
 
     /**
+     * [ids] put into the list [q] by a menu's Add to queue with [q] picked, or made into the new
+     * queue [q] there (QueueBoard.addQueue, PlayOrigin.QUEUE): the listener's, as the swipe's are in
+     * addToQueue, so a song not to play among them plays when the player comes to it (DontPlay).
+     * Noted in [q]'s run before they load. A radio picked there goes through addToQueue, which
+     * notes them itself. Never throws. Main thread.
+     */
+    fun notePutInByHand(q: MultiQueueObject, ids: List<String>) {
+        if (!Unreleased.ARTIST_BLOCK || ids.isEmpty()) return
+        runCatching { noteByHand(q, ids) }.onFailure { Log.w(TAG, "Could not note the songs added to a queue", it) }
+    }
+
+    /**
      * The songs [ids] go into [q] by the listener's hand, not the radio's: the adaptive queue leaves
      * them where they are put. Before play after a restart that is the saved queue's run, which this
      * brings back first if the last process saved it. Main thread.
