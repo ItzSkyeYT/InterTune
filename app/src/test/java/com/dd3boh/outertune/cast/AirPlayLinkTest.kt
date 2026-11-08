@@ -6,11 +6,13 @@
 
 package com.dd3boh.outertune.cast
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.After
@@ -32,6 +34,8 @@ import java.security.PrivateKey
 import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import javax.crypto.Cipher
 import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.SecretKeySpec
@@ -88,6 +92,10 @@ class AirPlayLinkTest {
 
         @Volatile
         var socket: Socket? = null
+
+        /** While set, RECORD is answered only once it is counted down: a speaker slow to take the stream. */
+        @Volatile
+        var recordHeld: CountDownLatch? = null
 
         private var announces = 0
         private var aesKey: ByteArray? = null
@@ -152,7 +160,10 @@ class AirPlayLinkTest {
                             extra.append("Transport: RTP/AVP/UDP;unicast;mode=record;server_port=${audio.localPort};control_port=${control.localPort};timing_port=${timing.localPort}\r\n")
                             extra.append("Session: 1\r\n")
                         }
-                        "RECORD" -> extra.append("Audio-Latency: 0\r\n")
+                        "RECORD" -> {
+                            recordHeld?.await(5, TimeUnit.SECONDS)
+                            extra.append("Audio-Latency: 0\r\n")
+                        }
                         "FLUSH" -> status = flushStatus
                     }
                     out.write("RTSP/1.0 $status ${if (status == 200) "OK" else "Nope"}\r\nCSeq: $cseq\r\nServer: AirTunes/366.0\r\n$extra\r\n".toByteArray())
@@ -318,6 +329,17 @@ class AirPlayLinkTest {
             if (System.nanoTime() > deadline) fail("Never: $what")
             Thread.sleep(20)
         }
+    }
+
+    /** Nothing reaches [speaker] any more: no audio, and no answer when it asks about the clock. */
+    private fun assertNothingMoreSent(speaker: FakeSpeaker) {
+        // What was already on its way lands first.
+        Thread.sleep(200)
+        val packets = speaker.packets.size
+        val answers = speaker.timingReplies.size
+        Thread.sleep(600)
+        assertEquals("audio packets after the cast ended", packets, speaker.packets.size)
+        assertEquals("clock answers after the cast ended", answers, speaker.timingReplies.size)
     }
 
     @Test
@@ -631,6 +653,53 @@ class AirPlayLinkTest {
         link.load(item(songs, "a", 88_200), 500, play = true)
         link.waitFor(ReceiverState.PLAYING, load = 2)
         assertEquals(2, speaker.methods().count { it == "ANNOUNCE" })
+    }
+
+    @Test
+    fun `a cast given up while the speaker is still connecting leaves nothing sending to it`() = runBlocking {
+        val speaker = FakeSpeaker()
+        val held = CountDownLatch(1)
+        speaker.recordHeld = held
+        val link = link(speaker)
+        val attempt = scope.launch {
+            try {
+                link.connect()
+            } catch (e: CancellationException) {
+                // What CastSession does with a cast given up while it connects: Stop, or another receiver tapped.
+                link.close()
+                throw e
+            }
+        }
+        eventually(what = "RECORD") { "RECORD" in speaker.methods() }
+        attempt.cancel()
+        // The speaker takes the stream after all, and the link starts sending into a cast that has ended.
+        held.countDown()
+        withTimeout(5_000) { attempt.join() }
+        assertEquals(LinkState.CLOSED, link.status.value.link)
+        assertNothingMoreSent(speaker)
+        eventually(what = "TEARDOWN") { "TEARDOWN" in speaker.methods() }
+    }
+
+    @Test
+    fun `a link closed while it connects again to a speaker that hung up leaves nothing sending to it`() = runBlocking {
+        val speaker = FakeSpeaker()
+        val songs = songServer()
+        val link = link(speaker)
+        link.connect()
+        link.load(item(songs, "a", 88_200), 0, play = false)
+        link.waitFor(ReceiverState.PAUSED, load = 1)
+        speaker.hangUp()
+        link.waitFor(ReceiverState.IDLE, load = 1)
+        val held = CountDownLatch(1)
+        speaker.recordHeld = held
+        // Play connects again, and the cast ends before the speaker has taken the new stream.
+        val play = scope.launch { runCatching { link.load(item(songs, "a", 88_200), 0, play = true) } }
+        eventually(what = "the second RECORD") { speaker.methods().count { it == "RECORD" } == 2 }
+        link.close()
+        held.countDown()
+        withTimeout(5_000) { play.join() }
+        assertNothingMoreSent(speaker)
+        eventually(what = "TEARDOWN") { "TEARDOWN" in speaker.methods() }
     }
 
     @Test
