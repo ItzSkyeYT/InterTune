@@ -171,17 +171,8 @@ class AirPlayStream(
     private val backlogLength = IntArray(BACKLOG)
     private val backlogSeq = IntArray(BACKLOG) { -1 }
 
-    // What was sent where, for working out what the speaker is playing.
-    private val spans = ArrayDeque<Span>()
-    private var heardLoad = 0
-    private var heardSong = false
-
-    /** The song and frame where the last song span let go of before the speaker's point ended. */
-    private var lastSongEnd: Pair<Int, Long>? = null
-
-    private class Span(val start: Long, var end: Long, val load: Int, val songFrame: Long) {
-        val song: Boolean get() = load != 0
-    }
+    // What was sent where, for working out what the speaker is playing. Under [lock].
+    private val hearing = AirPlayHearing(MAX_SPANS)
 
     init {
         Thread({ answerTiming() }, "AirPlay-timing").apply { isDaemon = true; start() }
@@ -221,14 +212,7 @@ class AirPlayStream(
      */
     fun position(nanos: Long): Pair<Int, Long>? {
         val heard = heardFrame(nanos)
-        synchronized(lock) {
-            var last = lastSongEnd
-            for (span in spans) {
-                if (span.start > heard) break
-                if (span.song) last = span.load to (span.songFrame + (minOf(heard, span.end) - span.start))
-            }
-            return last
-        }
+        synchronized(lock) { return hearing.position(heard) }
     }
 
     /**
@@ -244,10 +228,7 @@ class AirPlayStream(
             firstPacket = true
             firstSync = true
             running = true
-            spans.clear()
-            heardSong = false
-            heardLoad = 0
-            lastSongEnd = null
+            hearing.clear()
             sender = Thread({ sendLoop() }, "AirPlay-send").apply {
                 isDaemon = true
                 priority = Thread.MAX_PRIORITY
@@ -357,53 +338,20 @@ class AirPlayStream(
 
     /** Notes what the packet at [frame] holds, joined to the stretch before it when it carries on from it. */
     private fun record(frame: Long, packet: AirPlayPacket) {
-        val songFrames = if (packet.load == 0) 0 else packet.frames
-        val end = frame + AirPlay.FRAMES_PER_PACKET
-        if (songFrames > 0) {
-            val last = spans.lastOrNull()
-            if (last != null && last.song && last.load == packet.load && last.end == frame &&
-                last.songFrame + (last.end - last.start) == packet.songFrame
-            ) {
-                last.end = frame + songFrames
-            } else {
-                spans.addLast(Span(frame, frame + songFrames, packet.load, packet.songFrame))
-            }
-            if (songFrames < AirPlay.FRAMES_PER_PACKET) spans.addLast(Span(frame + songFrames, end, 0, 0))
-        } else {
-            val last = spans.lastOrNull()
-            if (last != null && !last.song && last.end == frame) last.end = end else spans.addLast(Span(frame, end, 0, 0))
-        }
-        // Only what the speaker has yet to play is needed, with room for a stall.
-        while (spans.size > MAX_SPANS) spans.removeFirst()
+        hearing.record(frame, AirPlay.FRAMES_PER_PACKET, packet.load, if (packet.load == 0) 0 else packet.frames, packet.songFrame)
     }
 
-    /** Where the speaker is listening at [frame] (the clock's): tells [events] when that moves into a song or out of one. */
+    /**
+     * Where the speaker is listening at [frame] (the clock's): tells [events] when that moves into a
+     * song or out of one, a song passed through between two looks included ([AirPlayHearing]). Each is
+     * said as of the moment the speaker reached it, which the loop notices a few milliseconds later.
+     */
     private fun listen(frame: Long) {
-        val heard = frame - latencyFrames - outputLatencyFrames
-        var news: Triple<Int, Long, Boolean>? = null
-        var at = 0L
-        synchronized(lock) {
-            while (spans.size > 1 && spans.first().end <= heard) {
-                val gone = spans.removeFirst()
-                if (gone.song) lastSongEnd = gone.load to gone.songFrame + (gone.end - gone.start)
-            }
-            val span = spans.firstOrNull()?.takeIf { it.start <= heard && heard < it.end } ?: return
-            // Said as of the moment the speaker reached the span, which the loop notices a few
-            // milliseconds later: the song's frame there, and when that was.
-            at = nanosOf(span.start + latencyFrames + outputLatencyFrames)
-            if (span.song) {
-                if (!heardSong || heardLoad != span.load) {
-                    heardSong = true
-                    heardLoad = span.load
-                    news = Triple(span.load, span.songFrame, true)
-                }
-            } else if (heardSong) {
-                heardSong = false
-                news = Triple(heardLoad, -1L, false)
-            }
+        val news = synchronized(lock) { hearing.listen(frame - latencyFrames - outputLatencyFrames) }
+        for (n in news) {
+            val at = nanosOf(n.atFrame + latencyFrames + outputLatencyFrames)
+            if (n.song) events.heard(n.load, n.songFrame, at) else events.gap(n.load, n.songFrame, at)
         }
-        val (load, songFrame, song) = news ?: return
-        if (song) events.heard(load, songFrame, at) else events.gap(load, songFrame, at)
     }
 
     /** Answers the speaker's clock questions: when each came and when the answer left, as NTP. */
