@@ -50,7 +50,13 @@ class SinkDriver(
     private val reportsNewStream: Boolean = true,
     /** Whether AutomixAudioSink's EntrySkip sits in front of the sink, dropping a next song's frames before its entry. */
     skipsEntries: Boolean = false,
+    /**
+     * Whether the renderer configures the sink again a buffer into each next song, in the same
+     * format, as the emulator's decoder reports its output format 648 frames in (8 Nov 2026).
+     */
+    private val reconfiguresAfterFirstBuffer: Boolean = false,
 ) {
+    private var reconfigured = 0
     private val format = AudioProcessor.AudioFormat(rate, channels, C.ENCODING_PCM_16BIT)
     private val entrySkip = if (skipsEntries) EntrySkip(stage) { clockMs * 1_000_000L } else null
     private val mediaFormat = androidx.media3.common.Format.Builder().setSampleMimeType(androidx.media3.common.MimeTypes.AUDIO_RAW)
@@ -193,6 +199,13 @@ class SinkDriver(
             if (!taken) return
             buffer = null
             handed++
+            // The new decoder's output format, reported after its first buffer: configured again.
+            if (reconfiguresAfterFirstBuffer && b.song > reconfigured) {
+                reconfigured = b.song
+                pipeline.configure(format)
+                entrySkip?.configured(mediaFormat)
+                pendingConfiguration = b.song
+            }
             // The renderer says a new stream began once the last buffer of the old one is taken.
             if (reportsNewStream && b.firstFrame + b.bytes.limit() / frameBytes >= songs[b.song].size / channels && b.song + 1 < songs.size) needsSync = true
         }

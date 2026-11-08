@@ -6414,6 +6414,7 @@ class MusicService : MediaLibraryService(),
                     if (duration > 0) exoPlayer.seekTo(maxOf(0L, duration - left))
                 }
                 "at" -> words.getOrNull(1)?.toLongOrNull()?.let { exoPlayer.seekTo(it.coerceAtLeast(0L)) }
+                "stage" -> Log.i(TAG, "AutoMix trial: ${automixStage?.describe()}, player at ${exoPlayer.currentPosition} of ${exoPlayer.duration}, item ${exoPlayer.currentMediaItem?.mediaId}")
                 "pause" -> exoPlayer.pause()
                 "windows", "keep" -> {
                     // The editor's own read of the two songs' end and opening, kept where the editor

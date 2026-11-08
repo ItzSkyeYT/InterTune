@@ -246,6 +246,13 @@ class AutomixAudioProcessor(
         formatMatches = inputAudioFormat.encoding == current.encoding &&
             inputAudioFormat.sampleRate == current.sampleRate &&
             inputAudioFormat.channelCount == current.channelCount
+        // The renderer configures the sink again a buffer into a song, as its new decoder reports
+        // its output format (648 frames in, on the emulator): inside the blend's first second, in
+        // the same format, that is the song that just came in going on, and its drain does not end
+        // the blend as the next song would (8 Nov 2026: every change bringing the next song in from
+        // its first frame stopped 648 frames in, the outgoing song cut off, and nothing said so).
+        val h = held
+        sameSongAgain = h != null && h.state == HeldTail.State.MIX && formatMatches && h.incomingFrames < h.sampleRate
         val holding = held?.state?.let { it != HeldTail.State.PASS } == true
         // In the chain, the stage levels each song, and the volume takes that over only as the
         // player names the next song, a moment after its first frames are heard. So it stays in
@@ -398,6 +405,15 @@ class AutomixAudioProcessor(
         tell { armed(arm.id, held.sampleRate, held.channels, sinkInputUs, sinkPositionUs) }
     }
 
+    /** Where the stage is, for the debug app's trial hook; read from another thread, so only roughly. */
+    fun describe(): String {
+        val h = held
+        val p = h?.takenPlan
+        return "stage $state, active $activeForStream, failed $failed, arm $armId, read $readMark, held ${h?.state}, written ${h?.written}, " +
+            "in ${h?.incomingFrames}, plan ${p?.let { "bStart ${it.bStart} until ${it.shapedUntil} entry ${it.bEntry}" }}, " +
+            "entry ${h?.entry} open ${h?.entryOpen} resumable ${h?.resumable}, request ${armRequest.get()?.id}, input $sinkInputUs, position $sinkPositionUs"
+    }
+
     // ---- a jump inside the next song while the blend plays
 
     /**
@@ -408,6 +424,9 @@ class AutomixAudioProcessor(
 
     /** A stream was configured since the last flush the renderer asked for: a jump to another song, which no blend is taken up in. */
     private var configuredSinceJump = false
+
+    /** The song in the blend configured again as it starts (onConfigure): its drain is the blend going on, not a song change. */
+    private var sameSongAgain = false
 
     /** The sink's time of the next song's first frame heard in the blend, its frame HeldTail.pausedEntry: where a jump inside it went is counted from it. */
     private var blendStartUs = C.TIME_UNSET
@@ -537,6 +556,7 @@ class AutomixAudioProcessor(
         configureSeen = false
         endOfStreamSeen = false
         drainInBlend = false
+        sameSongAgain = false
         val active = isActive
         if (active != activeForStream) {
             // Back in the chain after songs it was out of: the level it held is long gone, and the
@@ -550,7 +570,7 @@ class AutomixAudioProcessor(
     private fun flushHeld() {
         val kind = when {
             rendererFlushing -> HeldTail.Flush.RENDERER
-            configureSeen && endOfStreamSeen -> HeldTail.Flush.SONG_CHANGE
+            configureSeen && endOfStreamSeen && !sameSongAgain -> HeldTail.Flush.SONG_CHANGE
             else -> HeldTail.Flush.PARAMETERS
         }
         if (kind == HeldTail.Flush.RENDERER) {
