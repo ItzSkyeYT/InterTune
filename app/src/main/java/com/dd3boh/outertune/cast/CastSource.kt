@@ -30,11 +30,17 @@ fun interface CastSource {
 
 /** A song ready to be served: its type, its length, and a way to read it from any byte. */
 interface CastSong {
-    /** The Content-Type to send, without parameters. */
+    /**
+     * The Content-Type to send, without parameters, but for raw audio, whose rate and channels are
+     * part of its type (`audio/L16;rate=44100;channels=2`, PcmCastSong).
+     */
     val mimeType: String
 
     /** In bytes, or -1 when nothing recorded it. */
     val length: Long
+
+    /** Made on the phone from the song rather than the song's own bytes: raw audio decoded for a renderer that takes nothing else (DLNA.ORG_CI=1). */
+    val converted: Boolean get() = false
 
     /** A reader starting at [position]. The caller closes it. */
     fun openAt(position: Long): CastReader

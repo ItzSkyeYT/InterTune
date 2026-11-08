@@ -56,7 +56,10 @@ object RecentReceivers {
         silent: Set<CastDevice>,
     ): List<CastDevice> {
         val live = found.filterNot { it in silent }
-        return (live + added + notFound(recent.filter { it in answered }, live + added))
+        // A receiver typed in by address that the search finds too is one receiver: the found one,
+        // with its own name (an AirPlay speaker was listed twice, 5 Nov 2026).
+        val typed = added.filterNot { a -> live.any { it.samePlace(a) } }
+        return (live + typed + notFound(recent.filter { it in answered }, live + typed))
             .distinctBy { it.protocol to it.id }
             .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
     }

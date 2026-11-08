@@ -584,6 +584,21 @@ object Unreleased {
     val OWN_CAST_RECEIVER = BuildConfig.DEBUG
 
     /**
+     * Casting to AirPlay speakers the classic way (AirPlay 1, RAOP), his ask of 5 Nov 2026 after a
+     * Zeppelin Wireless refused every DLNA form: the picker lists what answers `_raop._tcp` on the
+     * Wi-Fi (AirPlayDevices), and AirPlayLink plays there. Unlike DLNA and Chromecast, AirPlay is
+     * pushed: the phone decodes each song (the cast server's raw audio, so it needs [CAST_PCM]) and
+     * sends it in real time over RTP, two seconds ahead of the speaker, as uncompressed Apple
+     * Lossless or L16. Unencrypted only, the way most AirPlay 2 speakers still take it, with the
+     * auth-setup step for those that ask it; speakers that need a password or a pairing code are
+     * refused with the picker's words for a receiver it cannot cast to.
+     *
+     * Without it nothing looks for AirPlay speakers, and nothing else changes. No new texts. When
+     * it is agreed: set this to true and add its name to ReleasedFlagsTest.
+     */
+    val CAST_AIRPLAY = BuildConfig.DEBUG
+
+    /**
      * Songs put in with Play next stay next when a song is picked out of a list: they play right
      * after the picked song, in the order they stood, then the list (PlayNextWaiting), as Spotify's
      * "Next in queue" does. Asked for in issue #42 (23 Oct 2026). Without it a pick leaves them in
@@ -824,6 +839,22 @@ object Unreleased {
      * agreed: set this to true and add its name to ReleasedFlagsTest.
      */
     val POLL_FOLLOW_UPS = BuildConfig.DEBUG
+
+    /**
+     * Casting to a DLNA speaker that takes only raw audio (Geogos's Zeppelin Wireless, 4 Nov 2026:
+     * "does not play audio/webm (it lists audio/l16, audio/l8)"): when the speaker takes neither
+     * the song as it is nor AAC, the phone decodes the song itself (MediaCodecPcmDecoder) and the
+     * cast server sends it as audio/L16, big-endian 16-bit at a rate the speaker lists, or as WAV
+     * to one that lists WAV and not L16 (CastFormats.choose, PcmFormats, PcmCastSong). Never L8.
+     * About 1.5 Mbit/s on the Wi-Fi, no loss beyond the decode the phone does anyway, and a
+     * windowed-sinc resampler only when the speaker lists no rate the song decodes at. His "we do
+     * that" of 4 Nov 2026, for 0.13.
+     *
+     * Without it such a speaker is refused every song with the message naming what it lists, as
+     * before. No new texts. When it is agreed: set this to true and add its name to
+     * ReleasedFlagsTest.
+     */
+    val CAST_PCM = BuildConfig.DEBUG
 
     /**
      * A radio YouTube Music refuses still plays (his word of 4 Nov 2026, after Val's radio of one

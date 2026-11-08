@@ -194,6 +194,34 @@ class CastHttpTest {
     }
 
     @Test
+    fun `raw audio has a url of its own that names its form`() {
+        val form = PcmForm(PcmContainer.L16, 44_100, 2)
+        val url = CastHttp.songUrl(InetAddress.getByName("192.168.1.20"), 47800, token, "dQw4w9WgXcQ", form.extension, pcm = form)
+        assertEquals("http://192.168.1.20:47800/c/$token/l16-44100-2/dQw4w9WgXcQ.pcm", url)
+        assertEquals(CastPath(token, "dQw4w9WgXcQ", pcm = form), CastHttp.parsePath(url))
+        assertEquals(CastPath(token, "abc", pcm = PcmForm(PcmContainer.WAV, 48_000, 1)), CastHttp.parsePath("/c/$token/wav-48000-1/abc.wav"))
+        for (path in listOf("/c/$token/l8-44100-2/abc.pcm", "/c/$token/l16-44100-6/abc.pcm", "/c/$token/L16-44100-2/abc.pcm", "/c/$token/l16-9-2/abc.pcm")) {
+            assertNull(path, CastHttp.parsePath(path))
+        }
+    }
+
+    @Test
+    fun `raw audio is served under its full type, as LPCM made on the phone`() {
+        val reply = CastHttp.songReply(request(), "audio/L16;rate=44100;channels=2", 176_400, converted = true)
+        assertEquals("audio/L16;rate=44100;channels=2", reply.header("Content-Type"))
+        assertEquals("176400", reply.header("Content-Length"))
+        assertEquals(
+            "DLNA.ORG_PN=LPCM;DLNA.ORG_OP=01;DLNA.ORG_CI=1;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+            reply.header("contentFeatures.dlna.org"),
+        )
+        // A rate outside the profile names no profile.
+        assertEquals(
+            "DLNA.ORG_OP=01;DLNA.ORG_CI=1;DLNA.ORG_FLAGS=01700000000000000000000000000000",
+            CastHttp.songReply(request(), "audio/L16;rate=32000;channels=2", 10, converted = true).header("contentFeatures.dlna.org"),
+        )
+    }
+
+    @Test
     fun `anything that is not a song url is refused`() {
         for (path in listOf(
             "/", "", "/c", "/c/$token", "/c/$token/s", "/c/$token/s/", "/c/$token/s/.webm",
