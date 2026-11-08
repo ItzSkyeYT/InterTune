@@ -1280,7 +1280,7 @@ class AutomixController(
                     stage.offer(held, heldPlan, render.outgoing, render.incoming, replaces = true)
                     Log.i(TAG, "AutoMix: the saved change plays as kept, on " + if (render.plan.spec.lanes == LaneSet.PARTS) "parts" else "bands")
                     return BandsOutcome(
-                        "kept, saved: ${render.plan.describe()}, headroom %.1f dB, peak %.2f".format(render.headroom.deepestDb, render.peakAfter),
+                        "kept, saved: " + render.plan.describe() + ", headroom %.1f dB, peak %.2f".format(render.headroom.deepestDb, render.peakAfter),
                         saved = true,
                         plan = heldPlan,
                     )

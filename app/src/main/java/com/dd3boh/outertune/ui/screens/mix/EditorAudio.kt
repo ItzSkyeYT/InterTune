@@ -423,7 +423,7 @@ class PairLoader(
                     return
                 }
                 if (!made) throw CancellationException("the editor was closed")
-                Log.i(TAG, "The $end window split into parts in %.1f s".format((System.nanoTime() - started) / 1e9))
+                Log.i(TAG, "The $end window split into parts in " + "%.1f s".format(java.util.Locale.ROOT, (System.nanoTime() - started) / 1e9))
             }
         } finally {
             maker.close()
