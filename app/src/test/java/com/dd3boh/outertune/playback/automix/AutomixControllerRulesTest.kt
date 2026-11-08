@@ -106,6 +106,8 @@ class AutomixControllerRulesTest {
         val kept = body(controller, "private fun playKept(")
         assertTrue(kept, "stored.replayFrom(" in kept && "StoredChange.EntryRule.Open(" in kept && "StoredChange.EntryRule.Fixed(t.entryFrames)" in kept)
         assertTrue(kept, "t.entryFrames = play.plan.bEntry" in kept)
+        // Skipped to where it would be at the pace the decoder keeps at the least, never this phone's best (8 Nov 2026, emulator).
+        assertTrue(kept, "minOf(pace.skipSpeed / (1 + AutomixPace.MARGIN_SHARE), AutomixSchedule.ENTRY_SKIP_SPEED)" in kept)
     }
 
     @Test

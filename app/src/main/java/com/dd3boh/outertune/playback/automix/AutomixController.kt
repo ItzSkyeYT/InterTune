@@ -1364,10 +1364,12 @@ class AutomixController(
         val readMark = stage.readMark
         val earliest = AutomixSchedule.earliestChange(readMark, rate, AutomixSchedule.KEPT_WORK_MS)
         // Held late, the next song comes in where it would have been by the time the change is
-        // heard from, and is skipped to there at this phone's pace, a tenth slower to be safe.
+        // heard from, and is skipped to there at the pace the decoder keeps at the least, or this
+        // phone's where slower: a skip still under way when the change is due lets the change go
+        // (8 Nov 2026 on the emulator: 14 s skipped in 1.4 s where 0.9 s was allowed).
         val entry = if (t.entryOpen) StoredChange.EntryRule.Open(
             from = readMark + AutomixSchedule.KEPT_WORK_MS * rate / 1000,
-            speed = pace.skipSpeed / (1 + AutomixPace.MARGIN_SHARE),
+            speed = minOf(pace.skipSpeed / (1 + AutomixPace.MARGIN_SHARE), AutomixSchedule.ENTRY_SKIP_SPEED),
             margin = AutomixSchedule.ENTRY_SKIP_MARGIN_MS * rate / 1000,
         ) else StoredChange.EntryRule.Fixed(t.entryFrames)
         val check = if (t.entryFrames > 0L) ENTRY_CHECK_FRAMES.toLong() else 0L
