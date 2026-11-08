@@ -755,8 +755,12 @@ class AutomixAudioProcessor(
         /** How much of the first buffer after a jump inside the next song is held against its copy. */
         private const val RESUME_LOOK_FRAMES = 2048
 
-        /** How far from where the sink's times put it the next song's frame is looked for after the jump: its encoder delay and a few packets, either way. */
-        private const val RESUME_RADIUS_FRAMES = 4096
+        /**
+         * How far from where the sink's times put it the next song's frame is looked for after the
+         * jump, either way: on the emulator it was 3480 frames off (8 Nov 2026), about the 80 ms an
+         * Opus stream is decoded ahead of a seek less its encoder delay.
+         */
+        private const val RESUME_RADIUS_FRAMES = 8192
 
         /** How long a song's level is held for it after a song change by itself, if the controller never names it. */
         private const val PIN_LIMIT_SECONDS = 1.5
