@@ -72,6 +72,8 @@ class AutomixAudioProcessorTest {
         val bands: Bands? = null,
         /** The ring the end is held in, in seconds: as big as it can be unless a test asks for less. */
         val ringSeconds: Int = AutomixSchedule.CAPACITY_SECONDS,
+        /** The next song's decoder configures the sink again a buffer in, as on the emulator. */
+        val reconfigures: Boolean = false,
     ) {
         var clockNanos = 0L
         val notes = ArrayList<String>()
@@ -150,7 +152,7 @@ class AutomixAudioProcessorTest {
                     drops += id
                 }
             }
-            driver = SinkDriver(stage, songs, Random(seed), rate, reportsNewStream = reportsNewStream)
+            driver = SinkDriver(stage, songs, Random(seed), rate, reportsNewStream = reportsNewStream, reconfiguresAfterFirstBuffer = reconfigures)
         }
 
         fun go(maxSeconds: Double = 200.0): Run {
@@ -344,6 +346,21 @@ class AutomixAudioProcessorTest {
             assertEquals(0, run.driver.stalls)
             assertEquals(0, run.driver.underruns)
             assertTrue(run.positionsRunForward())
+        }
+    }
+
+    @Test
+    fun `a blend goes on through the next song's decoder configuring the sink again a buffer in`() {
+        // 8 Nov 2026 on the emulator: every change bringing the next song in from its first frame
+        // stopped 648 frames in, the outgoing song cut off, as that drain was taken for a song change.
+        for (bands in listOf(null, Bands.ALONE)) {
+            val run = Run(levelA = 0.9, levelB = 0.7, bands = bands, reconfigures = true).go()
+            assertTrue(run.notes.toString(), run.taken)
+            assertEquals(listOf(true), run.songChanges)
+            assertEquals("the blend ran to its end", 1, run.blendsDone)
+            assertEquals(-1, run.firstDifference())
+            assertEquals(0, run.driver.stalls)
+            assertEquals(0, run.driver.underruns)
         }
     }
 

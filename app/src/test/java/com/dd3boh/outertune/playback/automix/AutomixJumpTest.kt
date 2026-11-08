@@ -74,7 +74,13 @@ class AutomixJumpTest {
     /** The jumps: to A's frame [to] once [after] says so, and whether a ring and a plan made for the end before arrive late. */
     class Jump(val to: Long, val after: (Run) -> Boolean, val staleAfter: Boolean = false, val song: Int = 0)
 
-    inner class Run(private val jumps: List<Jump>, private val clockErrorMs: Double = 350.0, private val skipSpeed: Double = 8.0) {
+    inner class Run(
+        private val jumps: List<Jump>,
+        private val clockErrorMs: Double = 350.0,
+        private val skipSpeed: Double = 8.0,
+        /** B as it plays, where it differs from its copy: a decoder started again at a jump. */
+        private val liveB: ShortArray = songB,
+    ) {
         var clock = 0L
         val notes = ArrayList<String>()
         val stage = AutomixAudioProcessor(log = { notes += it }, nanoTime = { clock }).also { it.wanted = true }
@@ -128,7 +134,7 @@ class AutomixJumpTest {
                 override fun activeChanged(active: Boolean) = Unit
                 override fun dropped(id: Long) = Unit
             }
-            driver = SinkDriver(stage, listOf(songA, songB), Random(7), rate, skipsEntries = true)
+            driver = SinkDriver(stage, listOf(songA, liveB), Random(7), rate, skipsEntries = true)
         }
 
         fun go(): Run {
@@ -297,6 +303,32 @@ class AutomixJumpTest {
         for (i in want.indices) if (want[i] != got[i]) throw AssertionError("sample $i of ${want.size} differs: ${got[i]} for ${want[i]}")
         assertEquals(0, run.driver.stalls)
         // Nothing crossed over to the song as it plays: it was its copy to the frame.
+        assertTrue(run.notes.toString(), run.notes.none { it.contains("crossing over") })
+    }
+
+    @Test
+    fun `a jump inside the next song is taken up where its decoder, started again, is near its copy but not equal`() {
+        // On the emulator (8 Nov 2026) the first frames after a jump were not the copy's to the bit,
+        // and no place was found: the song played on alone. Here a fifth of a second after the jump
+        // carries noise 26 dB under the song.
+        val back = stored.inEntry + 1L * rate
+        val noisy = songB.copyOf().also { m ->
+            val random = Random(5)
+            for (i in (back * 2).toInt() until ((back + rate / 5) * 2).toInt()) m[i] = (m[i] + (random.nextInt(1001) - 500)).toShort()
+        }
+        val forward = stored.inEntry + 3L * rate
+        val run = Run(listOf(
+            Jump(mixFromA - 6L * rate, { it.driver.clockMs >= 100 }),
+            Jump(forward, { it.driver.position().first == 1 && it.driver.position().second >= stored.inEntry + 2L * rate }, song = 1),
+            Jump(back, { it.driver.position().first == 1 && it.driver.position().second >= forward + rate / 2 }, song = 1),
+        ), liveB = noisy).go()
+        assertEquals(run.notes.toString(), 2, run.notes.count { it.startsWith("picked up again after a jump inside the next song, at its frame $back, 0 frames") || it.startsWith("picked up again after a jump inside the next song, at its frame $forward") })
+        // The blend as rendered from its copy; the song as it plays only after it, which is its own again by then.
+        val heard = run.driver.heard.toArray()
+        val want = run.expectedInB(back)
+        val got = heard.copyOfRange(run.seekAt, heard.size)
+        assertEquals(want.size, got.size)
+        for (i in want.indices) if (want[i] != got[i]) throw AssertionError("sample $i of ${want.size} differs: ${got[i]} for ${want[i]}")
         assertTrue(run.notes.toString(), run.notes.none { it.contains("crossing over") })
     }
 

@@ -375,6 +375,9 @@ class AutomixController(
         var armTries = 0
         var armRequested = false
         var armedAtMs = 0L
+
+        /** When the stage was last handed a request to hold the end, to ask again if that request was lost. Set on the worker. */
+        @Volatile var armAskedAtMs = 0L
         var expectedTailMs = 0L
         var tailStartMs = 0L
         var sampleRate = 0
@@ -1003,8 +1006,23 @@ class AutomixController(
                 return@execute
             }
             stage.requestArm(AutomixAudioProcessor.Arm(id, ring, rate, channels, System.nanoTime(), entry, entryOpen = open))
+            // A request that reaches the stage just before the flush of a jump made a moment before
+            // is let go with it, and nothing says so (8 Nov 2026, on the emulator: a jump to 30 s
+            // before the end, the end never held). The stage never takes one older than a second:
+            // asked again after that.
+            t.armAskedAtMs = SystemClock.elapsedRealtime()
+            main.postDelayed({ armLost(t) }, ARM_LOST_MS)
         }
         readKept(t)
+    }
+
+    /** The request to hold [t]'s end, made [ARM_LOST_MS] ago, neither taken nor refused: lost, and asked again while there is time. */
+    private fun armLost(t: Transition) {
+        if (transition !== t || !enabled || !t.armRequested || t.holding || t.finished) return
+        if (SystemClock.elapsedRealtime() - t.armAskedAtMs < ARM_LOST_MS) return
+        say("the request to hold the end of ${t.a.id} was lost: asked again")
+        t.armRequested = false
+        tick()
     }
 
     /** The kept change read from its file while the end is held, off the worker, which may be busy. */
@@ -1114,7 +1132,8 @@ class AutomixController(
             // A request to hold the end that the stage could not take: tried again at the next
             // look, while there is still time.
             val t = transition
-            if (t != null && t.id == id && text.startsWith("not holding the end")) {
+            // Not for an end held already: a request asked again for one lost, refused once the first was taken.
+            if (t != null && t.id == id && !t.holding && text.startsWith("not holding the end")) {
                 t.armRequested = false
                 t.holding = false
                 tick()
@@ -1395,10 +1414,12 @@ class AutomixController(
         val readMark = stage.readMark
         val earliest = AutomixSchedule.earliestChange(readMark, rate, AutomixSchedule.KEPT_WORK_MS)
         // Held late, the next song comes in where it would have been by the time the change is
-        // heard from, and is skipped to there at this phone's pace, a tenth slower to be safe.
+        // heard from, and is skipped to there at the pace the decoder keeps at the least, or this
+        // phone's where slower: a skip still under way when the change is due lets the change go
+        // (8 Nov 2026 on the emulator: 14 s skipped in 1.4 s where 0.9 s was allowed).
         val entry = if (t.entryOpen) StoredChange.EntryRule.Open(
             from = readMark + AutomixSchedule.KEPT_WORK_MS * rate / 1000,
-            speed = pace.skipSpeed / (1 + AutomixPace.MARGIN_SHARE),
+            speed = minOf(pace.skipSpeed / (1 + AutomixPace.MARGIN_SHARE), AutomixSchedule.ENTRY_SKIP_SPEED),
             margin = AutomixSchedule.ENTRY_SKIP_MARGIN_MS * rate / 1000,
         ) else StoredChange.EntryRule.Fixed(t.entryFrames)
         val check = if (t.entryFrames > 0L) ENTRY_CHECK_FRAMES.toLong() else 0L
@@ -1918,6 +1939,9 @@ class AutomixController(
         const val HEAD_CACHE = 8
         const val NORMALIZATION_CACHE = 64
         const val ARM_TRIES = 3
+
+        /** A request to hold the end neither taken nor refused by then is taken for lost: the stage takes none older than a second. */
+        const val ARM_LOST_MS = 1_500L
 
         /** How many of a later entry's first frames are held against the copy, and how far either side. */
         const val ENTRY_CHECK_FRAMES = 8192
