@@ -252,7 +252,7 @@ Thank you so much, everyone, for your support in this growing project!
 
 <p align="center"><a href="https://ko-fi.com/intertune"><img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Support InterTune on Ko-fi"></a></p>
 
-<p align="center"><b>Want your name here?</b> Give on <a href="https://ko-fi.com/intertune">Ko-fi</a> and say so in your message, or tell us on the <a href="https://discord.gg/68jmqhMjXk">Discord server</a>! Prefer crypto? Message us on Discord.</p>
+<p align="center"><b>Want your name here?</b> Give on <a href="https://ko-fi.com/intertune">Ko-fi</a> and say so in your message, or tell me on the <a href="https://discord.gg/68jmqhMjXk">Discord server</a>! Prefer crypto? Message me on Discord.</p>
 
 ## Special thanks
 
