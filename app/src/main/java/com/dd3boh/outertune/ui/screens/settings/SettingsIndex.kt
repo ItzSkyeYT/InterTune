@@ -19,6 +19,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.ENABLE_FFMETADATAEX
 import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.ui.dialog.togetherAvailable
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
 import com.dd3boh.outertune.ui.screens.walkthrough.TourTargets
 import java.text.Normalizer
@@ -210,6 +211,9 @@ val SETTINGS_INDEX: List<SettingEntry> = listOf(
     SettingEntry(Tour.ROUTE_LYRICS, R.string.lyrics_auto_scroll, R.string.lyrics_auto_scroll_description, fold = R.string.advanced),
     SettingEntry(Tour.ROUTE_LYRICS, R.string.lyrics_karaoke_title, R.string.lyrics_karaoke_description, fold = R.string.advanced),
     SettingEntry(Tour.ROUTE_LYRICS, R.string.lyrics_karaoke_hz_title, fold = R.string.advanced),
+
+    // Listen together, where rooms are offered
+    SettingEntry("settings/together", R.string.together_name_setting, there = togetherAvailable),
 
     // Storage and downloads
     SettingEntry(Tour.ROUTE_STORAGE, R.string.download_on_wifi_only_title, R.string.download_on_wifi_only_description, words = listOf(R.string.search_words_mobile_data)),

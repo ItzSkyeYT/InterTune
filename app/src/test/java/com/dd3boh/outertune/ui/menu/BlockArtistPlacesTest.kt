@@ -50,7 +50,8 @@ class BlockArtistPlacesTest {
     @Test
     fun `Block artist is the last item of both song menus, and Never this artist is still there`() {
         for (path in listOf("ui/menu/SongMenu.kt", "ui/menu/YouTubeSongMenu.kt")) {
-            val titles = items(grid(path))
+            // A listening room's guest also has Suggest, after it: only in a room, so Block artist keeps its place.
+            val titles = items(grid(path)).filter { it != "together_suggest" }
             assertEquals("$path: $titles", "menu_block_artist", titles.last())
             assertEquals(1, titles.count { it == "menu_block_artist" })
             assertTrue("$path lost Never this artist", "menu_never_artist" in titles)
