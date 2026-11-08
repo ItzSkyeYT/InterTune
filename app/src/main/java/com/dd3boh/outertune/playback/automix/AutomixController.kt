@@ -446,6 +446,13 @@ class AutomixController(
         var aShown: MediaMetadata? = null
         var bShown: MediaMetadata? = null
 
+        /**
+         * The outgoing song's length as the player has it while its end is held, -1 before: what
+         * its seek bar shows, and so what the screen shows through the change. The queue's own
+         * length can be a second longer (3:22 against 3:21, Pixel 5, 8 Nov 2026).
+         */
+        var aLengthMs = -1L
+
         /** The end held for it, which says at the song change which plan plays. Main thread. */
         var held: HeldTail? = null
 
@@ -475,6 +482,7 @@ class AutomixController(
             it.entrySeconds = entrySeconds
             it.aShown = aShown
             it.bShown = bShown
+            it.aLengthMs = aLengthMs
         }
     }
 
@@ -1068,6 +1076,7 @@ class AutomixController(
         val position = player.currentPosition
         t.tailStartMs = position + ahead
         t.expectedTailMs = (player.duration - position - ahead).coerceAtLeast(0)
+        if (player.currentMediaItem?.mediaId == t.a.id && player.duration > 0) t.aLengthMs = player.duration
         say("holding the end of ${t.a.id}, " + "%.1f s left".format(t.expectedTailMs / 1000.0))
     }
 
@@ -1729,7 +1738,7 @@ class AutomixController(
         val a = t?.aShown
         val b = t?.bShown
         val shown = if (t != null && plan != null && a != null && b != null && b.id == t.b?.id) {
-            MixOnScreen.of(t.id, plan, t.tailStartMs, a, t.a.durationMs, b)
+            MixOnScreen.of(t.id, plan, t.tailStartMs, a, t.aLengthMs.takeIf { it > 0 } ?: t.a.durationMs, b)
         } else null
         if (shown == null) return screen.hide(null, if (t == null) "the change is not mixed" else "the mix is too short to show, or its plan is not known")
         screenHeld = t?.held

@@ -57,6 +57,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalView
 import coil3.compose.AsyncImage
+import coil3.compose.AsyncImagePainter
+import androidx.compose.runtime.mutableFloatStateOf
 import com.dd3boh.outertune.LocalPlayerConnection
 import com.dd3boh.outertune.constants.PlayerHorizontalPadding
 import com.dd3boh.outertune.constants.ShowLyricsKey
@@ -196,6 +198,13 @@ fun Thumbnail(
                     val mixed = mix?.takeIf { ownsError && it.active && it.target?.incoming?.id == mediaMetadata?.id }
                     val outgoing = mixed?.target?.outgoing
                     val morphs = remember { CoverMorphs(ThumbnailCornerRadius * 2) }
+                    // Each picture's width over its height, for a cookie filled as a square crop
+                    // of it (mixCrop): told by Coil as it loads, and only while a mix can be shown.
+                    val playingAspect = remember(mediaMetadata?.id) { mutableFloatStateOf(0f) }
+                    val outgoingAspect = remember(outgoing?.id) { mutableFloatStateOf(0f) }
+                    val playingLoaded: ((AsyncImagePainter.State) -> Unit)? = if (mix == null) null else remember(playingAspect) {
+                        { state -> aspectOf(state)?.let { playingAspect.floatValue = it } }
+                    }
                     Box(
                         modifier = Modifier
                             .aspectRatio(1f)
@@ -217,20 +226,22 @@ fun Thumbnail(
                     ) {
                         if (mixed != null && outgoing != null) {
                             // The song going out, as it was drawn here a moment ago.
-                            Box(Modifier.fillMaxSize().mixCover(mixed, outgoing = true, morphs)) {
+                            Box(Modifier.fillMaxSize().mixCover(mixed, outgoing = true, morphs).mixCrop(mixed, outgoing = true) { outgoingAspect.floatValue }) {
                                 AsyncImage(
                                     model = outgoing.getThumbnailModel(ART_PREVIEW_PX, ART_PREVIEW_PX),
                                     contentDescription = null,
-                                    modifier = Modifier.fillMaxSize()
+                                    modifier = Modifier.fillMaxSize(),
+                                    onState = { state -> aspectOf(state)?.let { outgoingAspect.floatValue = it } },
                                 )
                                 AsyncImage(
                                     model = outgoing.getThumbnailModel(artPx, artPx),
                                     contentDescription = null,
-                                    modifier = Modifier.fillMaxSize()
+                                    modifier = Modifier.fillMaxSize(),
+                                    onState = { state -> aspectOf(state)?.let { outgoingAspect.floatValue = it } },
                                 )
                             }
                         }
-                        Box(Modifier.fillMaxSize().then(if (mixed != null && outgoing != null) Modifier.mixCover(mixed, outgoing = false, morphs) else Modifier)) {
+                        Box(Modifier.fillMaxSize().then(if (mixed != null && outgoing != null) Modifier.mixCover(mixed, outgoing = false, morphs).mixCrop(mixed, outgoing = false) { playingAspect.floatValue } else Modifier)) {
                             // Low resolution underlay, drawn first and left in place.
                             //
                             // This is the whole progressive-loading trick, and it needs no measurement
@@ -250,12 +261,14 @@ fun Thumbnail(
                                     ART_PREVIEW_PX
                                 ),
                                 contentDescription = null,
-                                modifier = Modifier.fillMaxSize()
+                                modifier = Modifier.fillMaxSize(),
+                                onState = playingLoaded,
                             )
                             AsyncImage(
                                 model = mediaMetadata?.getThumbnailModel(artPx, artPx),
                                 contentDescription = null,
-                                modifier = Modifier.fillMaxSize()
+                                modifier = Modifier.fillMaxSize(),
+                                onState = playingLoaded,
                             )
                         }
                     }

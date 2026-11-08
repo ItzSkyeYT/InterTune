@@ -42,6 +42,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.Player
 import coil3.compose.AsyncImage
+import coil3.compose.AsyncImagePainter
 import coil3.imageLoader
 import coil3.request.ImageRequest
 import coil3.request.allowHardware
@@ -100,15 +101,26 @@ class MixScreen internal constructor(
     /** Where the incoming song is, in ms, as [follow] read it last: at each frame while the covers can be seen. */
     private var atNow by mutableLongStateOf(0L)
 
-    /** The title's, the buttons' and the bar's song: the outgoing one until the incoming one takes over. */
-    var showsOutgoing by mutableStateOf(false)
-        private set
+    /** The words' song as [follow] keeps it, swapped with the fade as the incoming song takes over. */
+    private var followedOutgoing by mutableStateOf(false)
 
     /** The title's and the bar's opacity, which dips as they swap to the incoming song. */
     private val words = Animatable(1f)
 
     /** Where the incoming song is: as [follow] read it last, or for a change it has not started on, as the player says now. */
     private fun at(t: MixOnScreen): Long = if (followed == t.id) atNow else player.currentPosition
+
+    /**
+     * The title's, the buttons' and the bar's song: the outgoing one until the incoming one takes
+     * over. Decided with the covers, from the same place in the music, on the very frame the player
+     * names the incoming song: one frame of its title over the outgoing cover was seen on the
+     * Pixel 5 (8 Nov 2026) while [follow] had not started yet.
+     */
+    val showsOutgoing: Boolean
+        get() {
+            val t = target ?: return false
+            return if (followed == t.id) followedOutgoing else MixLook.showsOutgoing(t.heard(player.currentPosition), t.handover)
+        }
 
     /** How much of [target] is heard, 0 to 1. */
     val heard: Float
@@ -158,21 +170,23 @@ class MixScreen internal constructor(
     internal suspend fun follow(next: MixOnScreen?, frames: () -> Boolean) {
         if (next == null) {
             followed = NONE
-            showsOutgoing = false
+            followedOutgoing = false
             words.snapTo(1f)
             return
         }
+        // What the screen showed before this started, taken over as it is: the words are set
+        // before the change counts as followed, with nothing in between to draw a frame on.
         atNow = player.currentPosition
+        followedOutgoing = MixLook.showsOutgoing(next.heard(atNow), next.handover)
         followed = next.id
         words.snapTo(1f)
-        showsOutgoing = MixLook.showsOutgoing(next.heard(atNow), next.handover)
         coroutineScope {
             var swap: Job? = null
             while (MixLook.shows(next, atNow)) {
                 if (frames()) withFrameNanos { } else delay(LOOK_MS)
                 atNow = player.currentPosition
                 val outgoing = MixLook.showsOutgoing(next.heard(atNow), next.handover)
-                if (outgoing != showsOutgoing && swap?.isActive != true) swap = launch { swapTo(outgoing) }
+                if (outgoing != followedOutgoing && swap?.isActive != true) swap = launch { swapTo(outgoing) }
             }
         }
     }
@@ -180,7 +194,7 @@ class MixScreen internal constructor(
     /** The title and the bar fade out, change song, and fade back in: Material's fade through. */
     private suspend fun swapTo(outgoing: Boolean) {
         words.animateTo(0f, tween(MixLook.SWAP_OUT_MS, easing = FastOutLinearInEasing))
-        showsOutgoing = outgoing
+        followedOutgoing = outgoing
         words.animateTo(1f, tween(MixLook.SWAP_MS - MixLook.SWAP_OUT_MS, easing = LinearOutSlowInEasing))
     }
 
@@ -366,4 +380,23 @@ internal fun Modifier.mixCover(mix: MixScreen, outgoing: Boolean, morphs: CoverM
     alpha = spot.alpha
     shape = morphs.shape(spot.cookie)
     clip = true
+}
+
+/**
+ * The picture inside one of those covers, after [mixCover]: enlarged about its middle so that it
+ * fills the cookie as a square crop, and drawn whole in the rounded square as today
+ * (MixLook.cropScale), so a video's 16:9 thumbnail keeps the cookie's scallops all round.
+ * [aspect] is the picture's width over its height, 0 while it is not known.
+ */
+internal fun Modifier.mixCrop(mix: MixScreen, outgoing: Boolean, aspect: () -> Float): Modifier = graphicsLayer {
+    val covers = mix.covers()
+    val scale = MixLook.cropScale(aspect(), (if (outgoing) covers.outgoing else covers.incoming).cookie)
+    scaleX = scale
+    scaleY = scale
+}
+
+/** A loaded picture's width over its height, from Coil's state; null until it is loaded. */
+internal fun aspectOf(state: AsyncImagePainter.State): Float? {
+    val size = (state as? AsyncImagePainter.State.Success)?.painter?.intrinsicSize ?: return null
+    return if (size.width > 0f && size.height > 0f && size.width.isFinite() && size.height.isFinite()) size.width / size.height else null
 }

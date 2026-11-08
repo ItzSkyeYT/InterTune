@@ -85,9 +85,24 @@ class MixPlayerHeldBackTest {
         assertEquals("the player's covers", 4, covers.size)
         for (call in covers) assertTrue(call, "mix = mix," in call)
         assertTrue(thumbnail, "val mixed = mix?.takeIf { ownsError && it.active && it.target?.incoming?.id == mediaMetadata?.id }" in thumbnail)
-        // Today's rounded box, unless both covers are in it, each in its own shape.
+        // Today's rounded box, unless both covers are in it, each in its own shape, its picture
+        // filling the cookie as a square crop (a video's 16:9 thumbnail was letterboxed in it on
+        // the Pixel 5, 8 Nov 2026).
         assertTrue(".then(if (outgoing == null) Modifier.clip(RoundedCornerShape(ThumbnailCornerRadius * 2)) else Modifier)" in thumbnail)
-        assertTrue("Box(Modifier.fillMaxSize().then(if (mixed != null && outgoing != null) Modifier.mixCover(mixed, outgoing = false, morphs) else Modifier)) {" in thumbnail)
+        assertTrue("Box(Modifier.fillMaxSize().then(if (mixed != null && outgoing != null) Modifier.mixCover(mixed, outgoing = false, morphs).mixCrop(mixed, outgoing = false) { playingAspect.floatValue } else Modifier)) {" in thumbnail)
+        assertTrue("Box(Modifier.fillMaxSize().mixCover(mixed, outgoing = true, morphs).mixCrop(mixed, outgoing = true) { outgoingAspect.floatValue }) {" in thumbnail)
+        // Today's pictures are told nothing new without a mix: no callback of Coil's.
+        assertTrue("val playingLoaded: ((AsyncImagePainter.State) -> Unit)? = if (mix == null) null else remember(playingAspect) {" in thumbnail)
+        assertEquals(2, Regex("""onState = playingLoaded,""").findAll(thumbnail).count())
+    }
+
+    @Test
+    fun `the outgoing song's length is the one its own bar showed`() {
+        // The player's own length for it, taken while its end is held, as today's bar reads it; the
+        // queue's could be a second longer (3:22 against 3:21 on the Pixel 5, 8 Nov 2026).
+        val held = controller.substringAfter("private fun armedFor(").substringBefore("\n    }\n")
+        assertTrue(held, "if (player.currentMediaItem?.mediaId == t.a.id && player.duration > 0) t.aLengthMs = player.duration" in held)
+        assertTrue("MixOnScreen.of(t.id, plan, t.tailStartMs, a, t.aLengthMs.takeIf { it > 0 } ?: t.a.durationMs, b)" in controller)
     }
 
     @Test

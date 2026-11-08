@@ -125,6 +125,18 @@ object MixLook {
     fun showsOutgoing(heard: Float, handover: Float): Boolean = heard < handover
 
     /**
+     * How much a cover's picture is enlarged in its shape, [cookie] of the way into the cookie: a
+     * picture of [aspect] (width over height; 16:9 for a video's thumbnail) is drawn whole in
+     * today's square, as today, and fills the cookie as a square crop of it, so the cookie keeps
+     * its scallops all round. 1 for a square picture, and while its aspect is not known (0).
+     */
+    fun cropScale(aspect: Float, cookie: Float): Float {
+        if (aspect <= 0f || !aspect.isFinite()) return 1f
+        val crop = if (aspect >= 1f) aspect else 1f / aspect
+        return lerp(1f, crop, cookie.coerceIn(0f, 1f))
+    }
+
+    /**
      * How far the covers have come apart [sinceStartMs] of the incoming song after the change
      * began, 0 to 1 over [MORPH_MS] (eased in [covers]). Counted in the music, so a player opened
      * late finds them apart, and a pause holds them where they are.

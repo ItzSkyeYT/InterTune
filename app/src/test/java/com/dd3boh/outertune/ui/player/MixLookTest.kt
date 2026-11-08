@@ -153,6 +153,19 @@ class MixLookTest {
     }
 
     @Test
+    fun `a wide picture fills the cookie as a square crop, and is drawn whole in today's square`() {
+        val wide = 16f / 9f
+        // Today's rounded square: the picture whole, as today, so nothing jumps as the covers part or come together.
+        assertEquals(1f, MixLook.cropScale(wide, cookie = 0f), 0f)
+        // The cookie: enlarged until its height fills the square, the sides cut, the scallops all round.
+        assertEquals(wide, MixLook.cropScale(wide, cookie = 1f), e)
+        assertEquals((1f + wide) / 2, MixLook.cropScale(wide, cookie = 0.5f), e)
+        assertEquals("tall the same way", wide, MixLook.cropScale(9f / 16f, cookie = 1f), e)
+        assertEquals("a square cover as it is", 1f, MixLook.cropScale(1f, cookie = 1f), 0f)
+        assertEquals("not known yet: as it is", 1f, MixLook.cropScale(0f, cookie = 1f), 0f)
+    }
+
+    @Test
     fun `the title, the buttons' song and the bar are the outgoing song's until the incoming one takes over`() {
         assertTrue(MixLook.showsOutgoing(0f, 0.5f))
         assertTrue(MixLook.showsOutgoing(0.499f, 0.5f))
