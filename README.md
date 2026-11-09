@@ -168,7 +168,7 @@ Every change in detail, and why this fork exists: [docs/FEATURES.md](https://git
 What's being worked on, roughly in order. `[x]` is done, `[~]` is built and being tested, `[ ]` is still to do. Nothing here has a date, and plans can change. Ideas are welcome in #feature-requests on [Discord](https://discord.gg/68jmqhMjXk) or as a [GitHub issue](https://github.com/ItzSkyeYT/InterTune/issues/new/choose).
 
 <details>
-<summary><b>Next: 0.13</b> · 8 of 39 done, 22 to test</summary>
+<summary><b>Next: 0.13</b> · 6 of 35 done, 20 to test</summary>
 
 `[~]` Listen together: one person plays, friends follow the same song in real time\
 `[x]` AirPlay speakers in the cast list\
@@ -179,9 +179,7 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[~]` Block an artist\
 `[~]` Your playlists in your own order, dragged where you want them\
 `[~]` What's playing works offline and names the song once you're back online ([#48](https://github.com/ItzSkyeYT/InterTune/issues/48))\
-`[~]` The app says why search, radios, mixes or Home stopped, with the button that fixes it\
 `[~]` Albums carry on into a radio when they end\
-`[~]` Save a lyrics card or video to the phone\
 `[~]` Pick a playlist's cover\
 `[~]` Downloads other apps can use: .m4a or .opus files with the title, artist and cover\
 `[~]` Liked songs kept in sync with your downloads: unliking removes a download the app made itself ([#64](https://github.com/ItzSkyeYT/InterTune/issues/64))\
@@ -193,11 +191,9 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[~]` Spatial audio for surround recordings, and Strength, Room and Ambience controls\
 `[~]` Choose which lyrics sources are used, and in what order\
 `[~]` Similar artists in the Favourite artists mix\
-`[x]` Report a problem without a GitHub account, and follow it on GitHub from a link *(in 0.12.8)*\
 `[x]` Find songs you saved twice, in Liked or your library ([#47](https://github.com/ItzSkyeYT/InterTune/issues/47))\
 `[x]` A Widgets page in Settings: each widget on your home screen, how it looks and its main choices\
 `[x]` An Animations switch, for older and smaller phones\
-`[x]` Backups leave your sign-ins out unless you tick them, and you choose what goes in *(in 0.12.8)*\
 `[x]` A radio keeps going when YouTube Music refuses it: other ways to ask, then picks from your own listening\
 `[x]` Stats shows how many of the songs you liked InterTune found for you, and where\
 `[ ]` Your year in InterTune, a recap *(in progress)*\
