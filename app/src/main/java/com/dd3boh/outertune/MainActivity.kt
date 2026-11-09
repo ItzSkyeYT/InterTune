@@ -265,6 +265,8 @@ import com.dd3boh.outertune.utils.installSource
 import com.dd3boh.outertune.utils.NetworkConnectivityObserver
 import com.dd3boh.outertune.utils.LoudnessRepair
 import com.dd3boh.outertune.utils.Scrobbler
+import com.dd3boh.outertune.utils.SavedStateSize
+import com.dd3boh.outertune.ui.navigation.KeptHistory
 import com.dd3boh.outertune.utils.SyncUtils
 import com.dd3boh.outertune.utils.AutoBackup
 import com.dd3boh.outertune.utils.BackgroundCheckWorker
@@ -651,6 +653,14 @@ class MainActivity : ComponentActivity() {
         // scan ends with one) goes out now that it is in front. The class is asked, not the
         // injected instance, which would be built at every launch (DownloadServiceSends).
         if (DownloadUtil.resumeOwed) downloadUtil.resumeDownloadsOnStart()
+    }
+
+    // What Android keeps of the app when it is left: the navigation's history cut to its newest
+    // pages (#107, see KeptHistory), and in debug builds its size in the log when it is large.
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        KeptHistory.cut(outState)
+        if (BuildConfig.DEBUG) SavedStateSize.log(outState)
     }
 
     // The person has left: coming back is what a tap on Open Auto Blocker waits for.
