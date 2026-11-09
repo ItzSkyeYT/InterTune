@@ -231,32 +231,34 @@ fun LibraryArtistsScreen(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(horizontal = 16.dp)
         ) {
-            SortHeader(
-                sortType = sortType,
-                sortDescending = sortDescending,
-                onSortTypeChange = onSortTypeChange,
-                onSortDescendingChange = onSortDescendingChange,
-                sortTypeText = { sortType ->
-                    when (sortType) {
-                        ArtistSortType.CREATE_DATE -> R.string.sort_by_create_date
-                        ArtistSortType.NAME -> R.string.sort_by_name
-                        ArtistSortType.SONG_COUNT -> R.string.sort_by_song_count
-                        ArtistSortType.CUSTOM -> R.string.sort_by_custom
+            // The sort and, in Custom order, the lock right after it, as on the Playlists page.
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                SortHeader(
+                    sortType = sortType,
+                    sortDescending = sortDescending,
+                    onSortTypeChange = onSortTypeChange,
+                    onSortDescendingChange = onSortDescendingChange,
+                    sortTypeText = { sortType ->
+                        when (sortType) {
+                            ArtistSortType.CREATE_DATE -> R.string.sort_by_create_date
+                            ArtistSortType.NAME -> R.string.sort_by_name
+                            ArtistSortType.SONG_COUNT -> R.string.sort_by_song_count
+                            ArtistSortType.CUSTOM -> R.string.sort_by_custom
+                        }
+                    },
+                    offered = { it != ArtistSortType.CUSTOM || Unreleased.PLAYLIST_ORDER },
+                )
+                // The page's own lock, beside the sort as the playlists' is: whether the rows can be dragged.
+                if (customOrder) {
+                    IconButton(
+                        onClick = { orderLocked = !orderLocked },
+                        modifier = Modifier.padding(horizontal = 6.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (orderLocked) Icons.Rounded.Lock else Icons.Rounded.LockOpen,
+                            contentDescription = stringResource(if (orderLocked) R.string.playlist_order_locked else R.string.playlist_order_unlocked)
+                        )
                     }
-                },
-                offered = { it != ArtistSortType.CUSTOM || Unreleased.PLAYLIST_ORDER },
-                modifier = Modifier.weight(1f)
-            )
-            // The page's own lock, beside the sort as the playlists' is: whether the rows can be dragged.
-            if (customOrder) {
-                IconButton(
-                    onClick = { orderLocked = !orderLocked },
-                    modifier = Modifier.padding(horizontal = 6.dp)
-                ) {
-                    Icon(
-                        imageVector = if (orderLocked) Icons.Rounded.Lock else Icons.Rounded.LockOpen,
-                        contentDescription = stringResource(if (orderLocked) R.string.playlist_order_locked else R.string.playlist_order_unlocked)
-                    )
                 }
             }
 

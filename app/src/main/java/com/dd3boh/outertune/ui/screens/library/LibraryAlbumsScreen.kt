@@ -227,35 +227,37 @@ fun LibraryAlbumsScreen(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(horizontal = 16.dp)
         ) {
-            SortHeader(
-                sortType = sortType,
-                sortDescending = sortDescending,
-                onSortTypeChange = onSortTypeChange,
-                onSortDescendingChange = onSortDescendingChange,
-                sortTypeText = { sortType ->
-                    when (sortType) {
-                        AlbumSortType.CREATE_DATE -> R.string.sort_by_create_date
-                        AlbumSortType.NAME -> R.string.sort_by_name
-                        AlbumSortType.ARTIST -> R.string.sort_by_artist
-                        AlbumSortType.YEAR -> R.string.sort_by_year
-                        AlbumSortType.SONG_COUNT -> R.string.sort_by_song_count
-                        AlbumSortType.LENGTH -> R.string.sort_by_length
-                        AlbumSortType.CUSTOM -> R.string.sort_by_custom
+            // The sort and, in Custom order, the lock right after it, as on the Playlists page.
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                SortHeader(
+                    sortType = sortType,
+                    sortDescending = sortDescending,
+                    onSortTypeChange = onSortTypeChange,
+                    onSortDescendingChange = onSortDescendingChange,
+                    sortTypeText = { sortType ->
+                        when (sortType) {
+                            AlbumSortType.CREATE_DATE -> R.string.sort_by_create_date
+                            AlbumSortType.NAME -> R.string.sort_by_name
+                            AlbumSortType.ARTIST -> R.string.sort_by_artist
+                            AlbumSortType.YEAR -> R.string.sort_by_year
+                            AlbumSortType.SONG_COUNT -> R.string.sort_by_song_count
+                            AlbumSortType.LENGTH -> R.string.sort_by_length
+                            AlbumSortType.CUSTOM -> R.string.sort_by_custom
+                        }
+                    },
+                    offered = { it != AlbumSortType.CUSTOM || Unreleased.PLAYLIST_ORDER },
+                )
+                // The page's own lock, beside the sort as the playlists' is: whether the rows can be dragged.
+                if (customOrder) {
+                    IconButton(
+                        onClick = { orderLocked = !orderLocked },
+                        modifier = Modifier.padding(horizontal = 6.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (orderLocked) Icons.Rounded.Lock else Icons.Rounded.LockOpen,
+                            contentDescription = stringResource(if (orderLocked) R.string.playlist_order_locked else R.string.playlist_order_unlocked)
+                        )
                     }
-                },
-                offered = { it != AlbumSortType.CUSTOM || Unreleased.PLAYLIST_ORDER },
-                modifier = Modifier.weight(1f)
-            )
-            // The page's own lock, beside the sort as the playlists' is: whether the rows can be dragged.
-            if (customOrder) {
-                IconButton(
-                    onClick = { orderLocked = !orderLocked },
-                    modifier = Modifier.padding(horizontal = 6.dp)
-                ) {
-                    Icon(
-                        imageVector = if (orderLocked) Icons.Rounded.Lock else Icons.Rounded.LockOpen,
-                        contentDescription = stringResource(if (orderLocked) R.string.playlist_order_locked else R.string.playlist_order_unlocked)
-                    )
                 }
             }
 
