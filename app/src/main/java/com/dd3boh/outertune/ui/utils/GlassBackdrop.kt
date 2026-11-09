@@ -8,6 +8,9 @@ package com.dd3boh.outertune.ui.utils
 
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.drawOutline
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.backdrops.emptyBackdrop
 import androidx.compose.material3.MaterialTheme
@@ -169,6 +172,31 @@ fun Modifier.stillGlass(shape: () -> Shape): Modifier = drawBackdrop(backdrop = 
  * a layer that was not recorded.
  */
 val LocalGlassStill = staticCompositionLocalOf { false }
+
+/**
+ * Asked as each pane of the player's glass is drawn: while it says yes the pane shows nothing of
+ * what is behind it, its own rim and shadow and the still glass's fill stand in, and the pane stays
+ * as it is from frame to frame. The player says yes while a change plays as a mix (MixScreen.active),
+ * when the covers move behind the glass at every frame and every pane was made again at each one.
+ * A question rather than a value: its answer changing draws the panes again and composes nothing.
+ */
+val LocalGlassHeld = staticCompositionLocalOf { NOT_HELD }
+
+/** [LocalGlassHeld] everywhere but the player: never held. */
+val NOT_HELD: () -> Boolean = { false }
+
+/** drawBackdrop's onDrawBackdrop for [LocalGlassHeld]: what is behind the pane, drawn only while it is not held. */
+fun heldBackdrop(held: () -> Boolean): DrawScope.(DrawScope.() -> Unit) -> Unit =
+    { drawWhatIsBehind -> if (!held()) drawWhatIsBehind() }
+
+/**
+ * [fill] in [shape] while [held] says yes, decided as the pane is drawn: the still glass's fill where
+ * the glass would have shown what is behind it. Laid over the pane's drawBackdrop, as the still pane
+ * lays it over [stillGlass].
+ */
+fun Modifier.fillWhileHeld(held: () -> Boolean, shape: Shape, fill: Color): Modifier =
+    if (held === NOT_HELD) this
+    else drawBehind { if (held()) drawOutline(shape.createOutline(size, layoutDirection, this), fill) }
 
 /**
  * The glass intensity, handed down by MainActivity, which already reads the preference.

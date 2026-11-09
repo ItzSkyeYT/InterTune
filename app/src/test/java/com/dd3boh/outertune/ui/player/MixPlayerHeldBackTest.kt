@@ -127,6 +127,27 @@ class MixPlayerHeldBackTest {
     }
 
     @Test
+    fun `the glass is held still while a change is on screen, and Living blur moves on`() {
+        // His pick of 9 Nov 2026: the covers move behind the glass at every frame of a change, and
+        // each pane was made again at each one. Without a mix nothing is ever held.
+        val player = code("ui/player/Player.kt")
+        assertTrue("val glassHeld = remember(mix) { if (mix == null) NOT_HELD else { { mix.active } } }" in player)
+        assertTrue("CompositionLocalProvider(LocalGlassHeld provides glassHeld)" in player)
+        // Every pane drawn from the player's backdrop asks as it is drawn, so nothing is composed again.
+        for (path in listOf("ui/player/Player.kt", "ui/player/CastPicker.kt")) {
+            val text = code(path)
+            val panes = Regex("""\bdrawBackdrop\(""").findAll(text).count()
+            val asking = Regex("""onDrawBackdrop = heldBackdrop\(""").findAll(text).count()
+            assertTrue(path, panes > 0)
+            assertEquals(path, panes, asking)
+        }
+        // The play bar keeps its still look's wash while held.
+        assertTrue(".fillWhileHeld(glassHeld, RoundedCornerShape(32.dp)" in player)
+        // Living blur is not held: it keeps moving through the change.
+        assertFalse("held" in code("ui/player/LivingBackground.kt").substringAfter("fun LivingBackground(").substringBefore(") {"))
+    }
+
+    @Test
     fun `its words have no em dash`() {
         for (path in listOf("ui/player/MixPlayer.kt", "ui/player/MixLook.kt", "playback/automix/MixOnScreen.kt")) {
             assertFalse(path, '\u2014' in File(sources, path).readText())

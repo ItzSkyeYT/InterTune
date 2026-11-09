@@ -23,6 +23,10 @@ import androidx.compose.runtime.rememberUpdatedState
 import com.dd3boh.outertune.ui.utils.LocalAppBackdrop
 import com.dd3boh.outertune.ui.utils.LocalPlainDock
 import com.dd3boh.outertune.ui.utils.LocalGlassStill
+import com.dd3boh.outertune.ui.utils.LocalGlassHeld
+import com.dd3boh.outertune.ui.utils.NOT_HELD
+import com.dd3boh.outertune.ui.utils.heldBackdrop
+import com.dd3boh.outertune.ui.utils.fillWhileHeld
 import com.dd3boh.outertune.ui.utils.stillGlass
 import com.dd3boh.outertune.ui.utils.LocalLandscape
 import com.dd3boh.outertune.ui.utils.CoverBlur
@@ -286,8 +290,13 @@ fun BottomSheetPlayer(
     // the incoming one takes over, the colours turning with the music. Null without AutoMix.
     val lyricsShown = rememberPreference(ShowLyricsKey, defaultValue = false)
     val mix = rememberMixScreen(playerConnection, lyricsShown) { !state.isCollapsed && !state.isDismissed }
+    // While the change is on the screen its covers move behind the glass at every frame, and each pane
+    // was made again at each one: the glass is held still then (LocalGlassHeld), Living blur moves on.
+    val glassHeld = remember(mix) { if (mix == null) NOT_HELD else { { mix.active } } }
     MixColours(mix) {
-        PlayerSheet(state, navController, modifier, mix)
+        CompositionLocalProvider(LocalGlassHeld provides glassHeld) {
+            PlayerSheet(state, navController, modifier, mix)
+        }
     }
 }
 
@@ -410,6 +419,8 @@ private fun PlayerSheet(
     // Battery use on Saver: the glass keeps its shapes and places and is drawn still, so the
     // player's background is not recorded for it and nothing blurs or bends it (LocalGlassStill).
     val glassStill = LocalGlassStill.current
+    // While a change plays as a mix: the panes show their still look, decided as they are drawn.
+    val glassHeld = LocalGlassHeld.current
 
     val seekIncrement by rememberEnumPreference(
         key = SeekIncrementKey,
@@ -846,9 +857,6 @@ private fun PlayerSheet(
                         // incoming one's with the music.
                         blendCover = mixShown?.incoming?.getThumbnailModel(100, 100),
                         blend = { mix?.livingShare ?: 0f },
-                        // Still while the covers turn in and out: each redraw of it makes the glass over it
-                        // refract the background again, and on those frames the turn missed its frame.
-                        held = { mix?.turning() == true },
                     )
                     Box(
                         modifier = Modifier
@@ -1589,8 +1597,9 @@ private fun PlayerSheet(
                                             depthEffect = true,
                                             chromaticAberration = true
                                         )
-                                    }
-                                )
+                                    },
+                                    onDrawBackdrop = heldBackdrop(glassHeld),
+                                ).fillWhileHeld(glassHeld, RoundedCornerShape(32.dp), onBackgroundColor.copy(alpha = 0.10f))
                             } else Modifier
                         )
                     ) {
@@ -2563,6 +2572,7 @@ private fun PlayerActionSegment(
     /** Moves the icon sideways, for a glyph whose weight is off its middle ([SHARE_NUDGE]). */
     nudge: Dp = 0.dp,
 ) {
+    val held = LocalGlassHeld.current
     Row(
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
@@ -2587,6 +2597,8 @@ private fun PlayerActionSegment(
                         // The library's default highlight and shadow are the rim.
                         highlight = { null },
                         shadow = { null },
+                        // Held while a change plays as a mix (LocalGlassHeld): the fill and wash alone, as on Saver.
+                        onDrawBackdrop = heldBackdrop(held),
                     ))
                     .background(
                         if (filled) container.copy(alpha = lerp(0.95f, 0.8f, glassIntensity.coerceIn(0f, 1f)))
