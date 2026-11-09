@@ -934,7 +934,7 @@ class MainActivity : ComponentActivity() {
                     // covers are one again; the background turns with the music meanwhile (Living blur, MixBackdrop).
                     val mix = playerConnection.service.mixOnScreen?.value
                     if (Unreleased.AUTOMIX && mix != null && song != null && mix.incoming.id == song.id) {
-                        val left = mix.entryMs + mix.lengthMs + MixLook.MORPH_MS - playerConnection.player.currentPosition
+                        val left = mix.entryMs + mix.lengthMs + MixLook.MORPH_MS + MixLook.RECOLOUR_AFTER_MS - playerConnection.player.currentPosition
                         if (left > 0) delay(left.coerceAtMost(60_000L))
                     }
                     // Done inside collectLatest rather than launched from it. Launching made the

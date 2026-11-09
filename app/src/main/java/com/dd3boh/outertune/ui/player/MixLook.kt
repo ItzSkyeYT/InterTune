@@ -146,6 +146,13 @@ object MixLook {
     const val SETTLE_MS = 400
 
     /**
+     * How long after the covers are one again the app takes the incoming cover's colours (MainActivity):
+     * a new theme makes the whole app again, and right at the end of the covers' turn it took the turn's
+     * last frames.
+     */
+    const val RECOLOUR_AFTER_MS = 300
+
+    /**
      * How far the covers have come apart [sinceStartMs] of the incoming song after the change
      * began, 0 to 1 over [MORPH_MS] once [SETTLE_MS] have passed (eased in [covers]). Counted in
      * the music, so a player opened late finds them apart, and a pause holds them where they are.
@@ -175,6 +182,19 @@ object MixLook {
 
     /** How far they have come together [sinceEndMs] after the outgoing song was gone, the same way. */
     fun going(sinceEndMs: Long): Float = (sinceEndMs.toFloat() / MORPH_MS).coerceIn(0f, 1f)
+
+    /** The covers' turn with the incoming song at [atMs] in [change], in words: for a log line. */
+    fun turn(change: MixOnScreen, atMs: Long): String {
+        val apart = coming(atMs - change.entryMs)
+        val together = going(atMs - change.entryMs - change.lengthMs)
+        return when {
+            apart <= 0f -> "holding still"
+            apart < 1f -> "coming apart"
+            together <= 0f -> "apart"
+            together < 1f -> "coming together"
+            else -> "one"
+        }
+    }
 
     /** Both covers with the incoming song at [atMs] in [change]. */
     fun covers(change: MixOnScreen, atMs: Long): Covers = covers(

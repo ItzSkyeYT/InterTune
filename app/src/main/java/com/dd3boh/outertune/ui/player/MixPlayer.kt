@@ -7,6 +7,7 @@
 package com.dd3boh.outertune.ui.player
 
 import android.content.Context
+import android.util.Log
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
@@ -186,10 +187,15 @@ class MixScreen internal constructor(
         coroutineScope {
             var swap: Job? = null
             var lastFrame = 0L
+            var turn = ""
             while (MixLook.shows(next, atNow)) {
                 val frame = if (frames()) withFrameNanos { it } else { delay(LOOK_MS); 0L }
                 atNow = MixLook.paced(atNow, player.currentPosition, if (lastFrame != 0L && frame != 0L) frame - lastFrame else 0L, player.isPlaying)
                 lastFrame = frame
+                // Where the covers are in their turns, on the frames' own clock, for a trial to lay over
+                // the phone's frame stats (experiments/features/mix-player/smooth).
+                val now = MixLook.turn(next, atNow)
+                if (now != turn) { Log.d(TAG, "covers $now at ${System.nanoTime()} ns"); turn = now }
                 val outgoing = MixLook.showsOutgoing(next.heard(atNow), next.handover)
                 if (outgoing != followedOutgoing && swap?.isActive != true) swap = launch { swapTo(outgoing) }
             }
@@ -235,6 +241,7 @@ class MixScreen internal constructor(
     }
 
     private companion object {
+        const val TAG = "MixScreen"
         const val NONE = -1L
 
         /** How often the share heard is read while no frame of the covers is drawn: paused, the player closed or out of view. */
