@@ -275,6 +275,14 @@ val DownloadOnWifiOnlyKey = booleanPreferencesKey("downloadOnWifiOnly")
  */
 val DownloadQualityKey = stringPreferencesKey("downloadQuality")
 
+/**
+ * The file format of a download in the download folder, a DownloadFormat by name (Unreleased.DOWNLOAD_FORMATS),
+ * and the bitrate of an MP3 or an M4A, a DownloadBitrate by name. Written only by their own rows;
+ * absent they read as Original and Auto, so nothing changes for anyone who never touches them.
+ */
+val DownloadFormatKey = stringPreferencesKey("downloadFormat")
+val DownloadBitrateKey = stringPreferencesKey("downloadBitrate")
+
 val MaxImageCacheSizeKey = intPreferencesKey("maxImageCacheSize")
 
 /**

@@ -2502,6 +2502,25 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="download_quality" translatable="false">Download quality</string>
     <string name="download_quality_same" translatable="false">Same as playback</string>
     <string name="download_quality_description" translatable="false">Better quality takes more space. Songs you already downloaded stay as they are.</string>
+    <!-- File format and Bitrate (DownloadsFrag, Unreleased.DOWNLOAD_FORMATS), under the download folder: the row titles, Original's name, Bitrate's choices and the notes under the rows. MP3, M4A (AAC), FLAC and WAV are named in the row itself. Held from translators until the setting ships. -->
+    <string name="download_format" translatable="false">File format</string>
+    <string name="download_format_original" translatable="false">Original</string>
+    <string name="download_format_description" translatable="false">Original keeps the best quality. Other formats are converted on the phone after the download.</string>
+    <string name="download_bitrate" translatable="false">Bitrate</string>
+    <string name="download_bitrate_auto" translatable="false">Auto</string>
+    <string name="download_bitrate_kbps" translatable="false">%1$d kbps</string>
+    <string name="download_bitrate_description" translatable="false">Auto fits each song to what YouTube sent. Converting cannot add quality YouTube did not send.</string>
+    <string name="download_bitrate_aac_kept" translatable="false">Songs YouTube sent as AAC are kept as they are.</string>
+    <!-- Converting songs (ConvertNotice, Unreleased.DOWNLOAD_FORMATS): the notice while it runs and the line that stays when some songs could not be converted. Held from translators until the setting ships. -->
+    <string name="convert_notice_title" translatable="false">Converting to %1$s</string>
+    <string name="convert_notice_text" translatable="false">%1$d of %2$d</string>
+    <string name="convert_fallback_title" translatable="false">Some songs were not converted</string>
+    <plurals name="convert_fallback_text" translatable="false">
+        <item quantity="one">%1$d song could not be converted and was saved as it came.</item>
+        <item quantity="other">%1$d songs could not be converted and were saved as they came.</item>
+    </plurals>
+    <!-- The settings search's words for File format: open to translators, as every search word is (SettingsSearchTest). -->
+    <string name="search_words_download_format">mp3, flac, wav, aac, m4a, convert, format, file type</string>
     <!-- What's new in 0.12.8 (Walkthrough.kt, V0_12_8): held from translators until his go. -->
     <string name="new_report_send_title" translatable="false">Send a report to InterTune</string>
     <string name="new_report_send_body" translatable="false">Report a problem can now send the report to InterTune itself, no GitHub account needed. Or share it as a file to post on Discord.</string>

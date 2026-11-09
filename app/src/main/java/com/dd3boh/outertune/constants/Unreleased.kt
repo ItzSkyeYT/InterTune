@@ -948,6 +948,41 @@ object Unreleased {
     val DOWNLOAD_QUALITY = BuildConfig.DEBUG
 
     /**
+     * Downloads in the file format of your choice, and Export to folder (9 Nov 2026, the MP3 that
+     * DOWNLOAD_FILES left out): File format under the download folder in Settings > Storage
+     * and downloads, with Original (the Opus or M4A YouTube sent, rewrapped and never encoded again, as
+     * DOWNLOAD_FILES makes them), MP3, M4A (AAC), FLAC and WAV (DownloadFormat), and, for MP3 and M4A
+     * only, a Bitrate row of Auto, 128, 192, 256 and 320 kbps (DownloadBitrate). Auto follows the
+     * stream the song was downloaded as (AudioBitrate.auto), since a file cannot be better than what
+     * YouTube sent, and a fixed rate above it is honoured with a plain note that it only makes the
+     * file bigger.
+     *
+     * The phone converts after the bytes have landed, in the download's own work (SongConverter, from
+     * DownloadUtil.saveSongFile): it decodes with MediaExtractor and MediaCodec (MediaCodecPcmDecoder,
+     * the cast server's decoder) and encodes with LAME's Java port jump3r (MP3), MediaCodec's AAC
+     * encoder (M4A), and writers of its own (FLAC, WAV). A song YouTube sent as AAC is never encoded to
+     * AAC again: its .m4a is Original's. The title, artists, album, year, track, cover and the song's
+     * link are written by the writers themselves, as DOWNLOAD_FILES does (ID3v2.3 in an MP3 and in a
+     * WAV, Vorbis comments and a picture block in a FLAC, iTunes atoms in an M4A), and read back from
+     * the file's first bytes (SongFileIds). Everything is written to a temporary file in the app's
+     * own work folder (files/convert, not the cache, which Android empties when storage runs low)
+     * first and put in the folder only when whole; a conversion that fails or is cancelled leaves
+     * nothing in the folder and the song is saved as Original instead, with the reason in the log.
+     * It builds on DOWNLOAD_FILES: nothing is converted without it.
+     *
+     * Export to folder, in the songs' selection menu and a song's own menu, converts songs that are
+     * downloaded or cached whole to a format and a folder picked in a sheet, and says how many were
+     * exported and why some were not; songs not on the phone are named, never fetched.
+     *
+     * Without the flag the setting reads as Original whatever is stored (a restored backup can bring
+     * it), the rows and the menu entry are not there, and the files are made as they were. Its texts
+     * (download_format*, download_bitrate*, export_*) are held from translators, their French beside
+     * them in values-fr. When it is agreed: set this to true, add its name to ReleasedFlagsTest, make
+     * its texts translatable.
+     */
+    val DOWNLOAD_FORMATS = BuildConfig.DEBUG
+
+    /**
      * The adaptive queue reads a skip by what the skipped song is like (an idea of 9 Nov 2026). A song
      * skipped early and not gone back to has its related list asked for when the phone has none (one radio
      * page of it, online only, never while YouTube refuses us, once a song in a run and one every

@@ -13,6 +13,10 @@ import com.dd3boh.outertune.constants.AudioQuality
 import com.dd3boh.outertune.constants.AudioQualityKey
 import com.dd3boh.outertune.constants.BatteryModeKey
 import com.dd3boh.outertune.constants.DownloadOnWifiOnlyKey
+import com.dd3boh.outertune.constants.DownloadBitrate
+import com.dd3boh.outertune.constants.DownloadBitrateKey
+import com.dd3boh.outertune.constants.DownloadFormat
+import com.dd3boh.outertune.constants.DownloadFormatKey
 import com.dd3boh.outertune.constants.DownloadQuality
 import com.dd3boh.outertune.constants.DownloadQualityKey
 import com.dd3boh.outertune.constants.Unreleased
@@ -129,6 +133,10 @@ object ReportSettings {
     private val likedDownload = Choice(LikedAutoDownloadKey, "download liked songs", LikedAutodownloadMode.OFF.name)
     private val downloadFolder = Custom(DownloadPathKey, "download folder", "custom")
 
+    /** File format and Bitrate (Unreleased.DOWNLOAD_FORMATS): what a song file is converted to, the first thing to know when one is the wrong size or will not play. */
+    private val fileFormat = Choice(DownloadFormatKey, "file format", DownloadFormat.ORIGINAL.name)
+    private val bitrate = Choice(DownloadBitrateKey, "bitrate", DownloadBitrate.AUTO.name)
+
     private val kuGou = Flag(EnableKugouKey, "KuGou", true)
     private val lrcLib = Flag(EnableLrcLibKey, "LrcLib", true)
     private val betterLyrics = Flag(EnableBetterLyricsKey, "Better Lyrics", true)
@@ -147,7 +155,7 @@ object ReportSettings {
     /** Each area's settings, in the order they are shown. */
     private val AREAS: Map<Area, List<Spec>> = mapOf(
         Area.PLAYBACK to listOf(audioQuality, normalisation, skipSilence, offload, equalizer, spatial, fade, skipOnError, ProxySpec, battery),
-        Area.DOWNLOADS to listOfNotNull(audioQuality, DownloadQualitySpec.takeIf { Unreleased.DOWNLOAD_QUALITY }, wifiOnly, likedDownload, downloadFolder, ProxySpec, battery),
+        Area.DOWNLOADS to listOfNotNull(audioQuality, DownloadQualitySpec.takeIf { Unreleased.DOWNLOAD_QUALITY }, wifiOnly, likedDownload, downloadFolder, fileFormat.takeIf { Unreleased.DOWNLOAD_FORMATS }, bitrate.takeIf { Unreleased.DOWNLOAD_FORMATS }, ProxySpec, battery),
         Area.LYRICS to listOf(kuGou, lrcLib, betterLyrics, youTubeLyrics, youTubeCaptions, localFirst, trim, sourceOrder),
         Area.RECOGNITION to listOf(keepListening, pauseOnSpeaker, listenSeconds, autoAdd, keepAwake),
         Area.CASTING to listOf(audioQuality, ProxySpec, battery),

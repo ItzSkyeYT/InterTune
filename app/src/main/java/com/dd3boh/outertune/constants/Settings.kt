@@ -444,6 +444,59 @@ enum class DownloadQuality(val tier: AudioQuality?) {
 }
 
 /**
+ * The file a download in the download folder is saved as (Unreleased.DOWNLOAD_FORMATS), stored by
+ * name under DownloadFormatKey. [ORIGINAL] is what DOWNLOAD_FILES makes: the Opus or the AAC YouTube
+ * sent, rewrapped and never encoded again, the best quality there is. The others are converted on
+ * the phone after the download (SongConverter).
+ *
+ * @param extension the file's extension, or null for [ORIGINAL], which is an .opus or an .m4a by
+ *   what was sent.
+ * @param mimeType what the extension stands for, or null for [ORIGINAL].
+ * @param encoder what makes the file ([Encoder.NONE] for [ORIGINAL]: nothing is encoded).
+ */
+enum class DownloadFormat(val extension: String?, val mimeType: String?, val encoder: Encoder) {
+    ORIGINAL(null, null, Encoder.NONE),
+    MP3("mp3", "audio/mpeg", Encoder.LAME),
+    M4A("m4a", "audio/mp4", Encoder.AAC),
+    FLAC("flac", "audio/flac", Encoder.FLAC),
+    WAV("wav", "audio/x-wav", Encoder.WAV);
+
+    /** What makes the file: see [DownloadFormat.encoder]. */
+    enum class Encoder {
+        /** Nothing: the stream YouTube sent is rewrapped. */
+        NONE,
+
+        /** LAME's Java port, jump3r (Mp3Encoder): Android has no MP3 encoder. */
+        LAME,
+
+        /** MediaCodec's AAC encoder (AacFileEncoder). */
+        AAC,
+
+        /** A FLAC writer of the app's own (FlacFileEncoder). */
+        FLAC,
+
+        /** 16-bit PCM in a RIFF file (WavFileEncoder). */
+        WAV,
+    }
+
+    /** Lossy formats made by encoding have a Bitrate to choose: MP3 and M4A (AAC). */
+    val hasBitrate: Boolean get() = this == MP3 || this == M4A
+}
+
+/**
+ * The bitrate of an MP3 or an M4A (AAC) a download is converted to (Unreleased.DOWNLOAD_FORMATS),
+ * stored by name under DownloadBitrateKey. [AUTO] follows the stream each song was downloaded as
+ * (AudioBitrate.auto); the others are fixed rates in kilobits a second.
+ */
+enum class DownloadBitrate(val kbps: Int?) {
+    AUTO(null),
+    K128(128),
+    K192(192),
+    K256(256),
+    K320(320),
+}
+
+/**
  * How much the app does while music plays (Battery use). FULL is the app as it always was,
  * BALANCED everyone's default, SAVER the least. What each one turns down is in
  * playback/BatteryUse.kt; the order here is the order of the choices.

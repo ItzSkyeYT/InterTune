@@ -279,6 +279,12 @@ android {
             // comes in unseen under the same vague name.
             allowedLicensesMap.put("44d1a25c593283261968a15c8cc213cd", listOf("androidx.camera:camera-core"))
 
+            // jump3r, the Java port of the LAME MP3 encoder behind MP3 downloads (Mp3FileEncoder), says
+            // "LGPL v2.1+" in its POM, a name AboutLibraries has no id for. LGPL 2.1 or later may be
+            // used under the GPL (its section 3), which is the licence of the app. Allowed for that
+            // library alone, by the name its POM gives.
+            allowedLicensesMap.put("LGPL v2.1+", listOf("de.sciss:jump3r"))
+
             // Full license text for license IDs mentioned here will be included, even if no detected dependency uses them.
              additionalLicenses.addAll("apache_2_0", "gpl_2_1") // taglib, ffMpeg in ffMetadataEx
         }
@@ -374,6 +380,8 @@ dependencies {
     implementation(libs.room.ktx)
 
     implementation(libs.apache.lang3)
+    // MP3 files made on the phone (Unreleased.DOWNLOAD_FORMATS, Mp3FileEncoder): LAME's Java port.
+    implementation(libs.jump3r)
 
     implementation(libs.hilt)
     ksp(libs.hilt.compiler)

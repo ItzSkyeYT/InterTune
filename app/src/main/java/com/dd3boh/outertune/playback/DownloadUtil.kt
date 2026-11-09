@@ -32,6 +32,10 @@ import com.dd3boh.outertune.constants.Unreleased
 import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.AudioQuality
 import com.dd3boh.outertune.constants.AudioQualityKey
+import com.dd3boh.outertune.constants.DownloadBitrate
+import com.dd3boh.outertune.constants.DownloadBitrateKey
+import com.dd3boh.outertune.constants.DownloadFormat
+import com.dd3boh.outertune.constants.DownloadFormatKey
 import com.dd3boh.outertune.constants.DownloadQuality
 import com.dd3boh.outertune.constants.DownloadQualityKey
 import com.dd3boh.outertune.utils.ReportTrail
@@ -54,8 +58,12 @@ import com.dd3boh.outertune.di.DownloadCache
 import com.dd3boh.outertune.models.MediaMetadata
 import com.dd3boh.outertune.playback.DownloadUtil.Companion.STATE_DOWNLOADING
 import com.dd3boh.outertune.playback.DownloadUtil.Companion.STATE_INVALID
+import com.dd3boh.outertune.playback.downloadManager.ConvertNotice
 import com.dd3boh.outertune.playback.downloadManager.DownloadDirectoryManagerOt
+import com.dd3boh.outertune.playback.downloadManager.DownloadFormats
 import com.dd3boh.outertune.playback.downloadManager.DownloadManagerOt
+import com.dd3boh.outertune.playback.downloadManager.SongConversion
+import com.dd3boh.outertune.playback.downloadManager.SongConverter
 import com.dd3boh.outertune.playback.downloadManager.SongFileCover
 import com.dd3boh.outertune.playback.downloadManager.SongFiles
 import com.dd3boh.outertune.playback.downloadManager.SongTags
@@ -111,6 +119,7 @@ import java.io.InputStream
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
+import java.util.concurrent.CancellationException
 import java.util.concurrent.Executor
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -132,6 +141,17 @@ class DownloadUtil @Inject constructor(
     private fun metered(): Boolean = runCatching { connectivityManager.isActiveNetworkMetered }.getOrDefault(true)
     private val audioQuality by enumPreference(context, AudioQualityKey, AudioQuality.AUTO)
     private val downloadQuality by enumPreference(context, DownloadQualityKey, DownloadQuality.SAME)
+
+    // The file a download in the folder is saved as and the bitrate of an MP3 or an M4A (Unreleased.DOWNLOAD_FORMATS),
+    // read for each song as it is saved, so that a change is for the next one.
+    private val downloadFormat by enumPreference(context, DownloadFormatKey, DownloadFormat.ORIGINAL)
+    private val downloadBitrate by enumPreference(context, DownloadBitrateKey, DownloadBitrate.AUTO)
+
+    /**
+     * Converts downloads to the format chosen, in the app's own files until a file is whole (SongConverter): not in the
+     * cache, which Android empties when the phone is short of space, in the middle of a conversion if it comes to that.
+     */
+    private val converter by lazy { SongConverter(File(context.filesDir, "convert"), MediaCodecPcmDecoder()) { Log.i(TAG, it) } }
 
     /** The quality a download asks for now: the Download quality, or Audio quality for Same as playback (see [qualityForDownload]). */
     private fun qualityNow(): AudioQuality = qualityForDownload(downloadQuality, audioQuality)
@@ -1072,6 +1092,7 @@ class DownloadUtil @Inject constructor(
         isProcessingDownloads.value = true
 
         var runs = 0
+        var notice: ConvertNotice? = null
         try {
             // What media3 holds, read from its index. A second DownloadManager over it, as this
             // used to make for the same list, started a thread of its own that was never let go.
@@ -1083,6 +1104,13 @@ class DownloadUtil @Inject constructor(
 
             // copy all completed downloads
             val toMigrate = downloadedSongs.filter { it.value.state == Download.STATE_COMPLETED && (only == null || it.key in only) }
+            // Songs made another format (Unreleased.DOWNLOAD_FORMATS) take a while each: the phone says so.
+            val format = DownloadFormats.effective(downloadFormat, Unreleased.DOWNLOAD_FORMATS)
+            if (Unreleased.DOWNLOAD_FILES && format != DownloadFormat.ORIGINAL && toMigrate.isNotEmpty()) {
+                notice = ConvertNotice(context, format, toMigrate.size)
+                converter.sweep()
+            }
+            var position = 0
             toMigrate.forEach { s ->
                 if (runs++ % 10 == 0) {
                     Log.d(TAG, "Migrating download: $runs/${toMigrate.size}")
@@ -1095,6 +1123,9 @@ class DownloadUtil @Inject constructor(
                 // Copied from the cache's files as the new file is written: read whole into memory
                 // first, a long mix ran the app out of memory (#67).
                 val fromCache = openFromCache(downloadCache, s.key) ?: return@forEach
+                // The notice says Converting only for a song that is encoded, not for one saved as it came.
+                val index = position++
+                val title = if (notice != null) runCatching { database.song(s.key).first()?.title }.getOrNull() else null
                 // The file written and checked, the song's row pointing to it, and only then the
                 // copy in the app gone, one song at a time (moveIntoFolder). The cache used to be
                 // emptied first and a failed write swallowed, so a folder that refused the file cost
@@ -1107,7 +1138,7 @@ class DownloadUtil @Inject constructor(
                             localMgr.getFilePathIfExists(s.key)
                                 // A file other players open, with the song's tags and cover inside; the
                                 // stream as it is when the song cannot be one (saveSongFile).
-                                ?: (if (Unreleased.DOWNLOAD_FILES) saveSongFile(s.key) else null)
+                                ?: (if (Unreleased.DOWNLOAD_FILES) saveSongFile(s.key, notice) { notice?.starting(index, title) } else null)
                                 ?: runCatching {
                                     localMgr.saveFile(s.key, stream, displayName)
                                 }.onFailure { reportException(it) }.getOrNull()
@@ -1139,6 +1170,7 @@ class DownloadUtil @Inject constructor(
         } catch (e: Exception) {
             reportException(e)
         } finally {
+            notice?.finish()
             isProcessingDownloads.value = false
         }
     }
@@ -1149,15 +1181,34 @@ class DownloadUtil @Inject constructor(
      * open (Unreleased.DOWNLOAD_FILES, SongFiles): Opus as .opus, AAC as .m4a, the same packets, its
      * title, artists, album, year, track and cover inside, named "Artist - Title". Null when it
      * cannot be one, and then nothing was written.
+     *
+     * With a File format other than Original (Unreleased.DOWNLOAD_FORMATS) the song is converted
+     * first, off the main thread and below the music's priority, into a temporary file, and put in
+     * the folder only when whole; a conversion that fails is saved as Original, and [notice] counts
+     * it. A conversion that is stopped (the coroutine is cancelled) stops the move.
      */
-    private suspend fun saveSongFile(id: String): android.net.Uri? = withContext(Dispatchers.IO) {
-        runCatching {
-            val files = downloadCache.getCachedSpans(id).mapNotNull { span: CacheSpan -> span.file }
-            val song = database.song(id).first()
-            if (files.isEmpty() || song == null) return@runCatching null
-            SongFiles.save(files, songTags(song)) { name, write -> localMgr.saveSongFile(id, name, write) }
-        }.onFailure { Log.w(TAG, "Could not save $id as a song file, it is saved as the stream", it) }.getOrNull()
+    private suspend fun saveSongFile(id: String, notice: ConvertNotice? = null, onEncode: () -> Unit = {}): android.net.Uri? = withContext(Dispatchers.IO) {
+        val job = currentCoroutineContext()[Job]
+        val format = DownloadFormats.effective(downloadFormat, Unreleased.DOWNLOAD_FORMATS)
+        val conversion = if (format == DownloadFormat.ORIGINAL) null else SongConversion(format, downloadBitrate, converter, { job?.isActive == false }, onEncode)
+        // A conversion takes a core for as long as the song lasts: never at the expense of what plays.
+        val priority = conversion?.let { android.os.Process.getThreadPriority(android.os.Process.myTid()) }
+        if (conversion != null) android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
+        try {
+            runCatching {
+                val files = downloadCache.getCachedSpans(id).mapNotNull { span: CacheSpan -> span.file }
+                val song = database.song(id).first()
+                if (files.isEmpty() || song == null) return@runCatching null
+                SongFiles.save(files, songTags(song), conversion) { name, write -> localMgr.saveSongFile(id, name, write) }
+            }.onFailure {
+                if (it is CancellationException) throw it
+                Log.w(TAG, "Could not save $id as a song file, it is saved as the stream", it)
+            }.getOrNull().also { if (conversion?.failure != null) notice?.fellBack() }
+        } finally {
+            if (priority != null) android.os.Process.setThreadPriority(priority)
+        }
     }
+
 
     /** What a song file says of [song]: see SongTags. The track number only from an album page seen. */
     private fun songTags(song: Song): SongTags {
@@ -1394,6 +1445,10 @@ class DownloadUtil @Inject constructor(
 
     init {
         Log.i(TAG, "DownloadUtil init")
+        // A "Converting" notice an earlier run left up when Android ended the app: nothing converts at the start.
+        ConvertNotice.clearStale(context)
+        // ... and nor does a conversion's temporary file belong to anything: one left by an app that was ended mid-song goes.
+        CoroutineScope(Dispatchers.IO).launch { runCatching { converter.sweep(olderThanMs = 0) } }
         // TODO: make sure db is update when download is queued
         CoroutineScope(dlCoroutine).launch {
             try {
