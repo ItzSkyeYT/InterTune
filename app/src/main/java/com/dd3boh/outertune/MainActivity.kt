@@ -165,6 +165,7 @@ import com.dd3boh.outertune.constants.DarkMode
 import com.dd3boh.outertune.constants.DarkModeKey
 import com.dd3boh.outertune.constants.DefaultOpenTabKey
 import com.dd3boh.outertune.constants.DynamicThemeKey
+import com.dd3boh.outertune.ui.player.MixLook
 import com.dd3boh.outertune.constants.EnabledTabsKey
 import com.dd3boh.outertune.constants.HighContrastKey
 import com.dd3boh.outertune.constants.LibraryFilterKey
@@ -927,6 +928,15 @@ class MainActivity : ComponentActivity() {
                     return@LaunchedEffect
                 }
                 playerConnection.service.currentMediaMetadata.collectLatest { song ->
+                    // A change playing as a mix names the incoming song as its covers start to turn, and a new
+                    // theme recolours the whole app at once, the screens under the player too: on the Pixel 5 that
+                    // was one frame of 691 ms, right as the covers came in (9 Nov 2026). The theme waits until the
+                    // covers are one again; the player's own colours turn with the music meanwhile (MixColours).
+                    val mix = playerConnection.service.mixOnScreen?.value
+                    if (Unreleased.AUTOMIX && mix != null && song != null && mix.incoming.id == song.id) {
+                        val left = mix.entryMs + mix.lengthMs + MixLook.MORPH_MS - playerConnection.player.currentPosition
+                        if (left > 0) delay(left.coerceAtMost(60_000L))
+                    }
                     // Done inside collectLatest rather than launched from it. Launching made the
                     // lambda return the moment the job was handed off, so collectLatest had
                     // nothing left to cancel when the next song arrived: every skip added another
