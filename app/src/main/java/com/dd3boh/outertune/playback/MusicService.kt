@@ -4533,15 +4533,17 @@ class MusicService : MediaLibraryService(),
 
     /**
      * The related lists of the run's skipped songs (ADAPTIVE_SIMILAR), newest first as
-     * AdaptiveQueue.View.skippedIds has them, each in YouTube's order: a radio page asked earlier in the run,
+     * AdaptiveQueue.View.skippedIds has them, each in YouTube's order and each song by its version
+     * (SkipSimilar.keyOf): a radio page asked earlier in the run,
      * or the list stored on the phone. On the pass after a skip, the song just skipped with neither has its
      * radio page asked for ([skipPage]): a song skipped in its first seconds is often one whose own lookup had
      * not landed yet. Adaptive dispatcher.
      */
     private suspend fun skippedLists(snap: PassSnapshot): List<List<String>> = snap.view.skippedIds.mapNotNull { id ->
-        relatedCache[id]?.songs?.map { it.id }?.takeIf { it.isNotEmpty() }
-            ?: runCatching { database.youtubeRelatedSongs(id).map { it.id } }.getOrDefault(emptyList()).takeIf { it.isNotEmpty() }
-            ?: if (snap.ask.skip && id == snap.view.lastSkipped) skipPage(id, snap)?.map { it.id } else null
+        (relatedCache[id]?.songs?.takeIf { it.isNotEmpty() }
+            ?: runCatching { database.youtubeRelatedSongs(id).map { it.toMediaMetadata() } }.getOrDefault(emptyList()).takeIf { it.isNotEmpty() }
+            ?: if (snap.ask.skip && id == snap.view.lastSkipped) skipPage(id, snap) else null)
+            ?.map(SkipSimilar::keyOf)
     }
 
     /**

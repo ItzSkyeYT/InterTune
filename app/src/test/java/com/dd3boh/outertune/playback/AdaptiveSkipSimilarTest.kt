@@ -27,8 +27,11 @@ class AdaptiveSkipSimilarTest {
     private val now = 1_000L * 86_400_000L
     private val empty = QueueFit.Taste.empty(now)
 
-    private fun song(id: String, artist: String = "Artist $id") =
-        MediaMetadata(id = id, title = "Song $id", artists = listOf(MediaMetadata.Artist(null, artist)), duration = 200, genre = null)
+    private fun song(id: String, artist: String = "Artist $id", title: String = "Song $id") =
+        MediaMetadata(id = id, title = title, artists = listOf(MediaMetadata.Artist(null, artist)), duration = 200, genre = null)
+
+    /** What the lists hold of a song: its version, as MusicService.skippedLists gives them. */
+    private fun key(id: String, artist: String = "Artist $id") = SkipSimilar.keyOf(song(id, artist))
 
     private fun heard(vararg songs: Pair<MediaMetadata, Leave?>): AdaptiveQueue.Heard {
         val h = AdaptiveQueue.Heard(clock = { now })
@@ -109,9 +112,9 @@ class AdaptiveSkipSimilarTest {
         val tail = input(h, queue, AdaptivePass.Kind.SKIP, emptyList(), similar = true).tail.map { it.song.id }
         val nearOnlyLikeSkip = tail[0]
         val nearAlsoKept = tail[1]
-        val skippedList = listOf(nearOnlyLikeSkip, "other", nearAlsoKept)
+        val skippedList = listOf(key(nearOnlyLikeSkip), key("other"), key(nearAlsoKept))
         val keptList = listOf(nearAlsoKept) + (1..12).map { "pick$it" }
-        val sources = listOf(AdaptivePass.Source("k1", keptList.map { song(it, artist = "Kept $it") }))
+        val sources = listOf(AdaptivePass.Source("k1", keptList.map { song(it) }))
         val r = AdaptivePass.run(input(h, queue, AdaptivePass.Kind.SKIP, sources, skippedLists = listOf(skippedList), similar = true))
         val bySong = r.slots.associateBy { it.id }
         assertEquals("like the song skipped", bySong.getValue(nearOnlyLikeSkip).byScore)
@@ -144,7 +147,7 @@ class AdaptiveSkipSimilarTest {
         val far = tail.last()
         val sources = listOf(AdaptivePass.Source("k1", (1..12).map { song("pick$it", artist = "Kept $it") }))
         val r = AdaptivePass.run(
-            input(h, queue, AdaptivePass.Kind.ORDINARY, sources, skippedLists = listOf(listOf("a", far), listOf(far, "b")), similar = true),
+            input(h, queue, AdaptivePass.Kind.ORDINARY, sources, skippedLists = listOf(listOf(key("a"), key(far)), listOf(key(far), key("b"))), similar = true),
         )
         assertEquals(QueuePlanner.Unwanted.LIKE_SONGS_SKIPPED, r.slots.single { it.id == far }.unwanted)
         assertTrue(r.plan.replaced.any { it.slot.id == far } || r.plan.dropped.any { it.slot.id == far })
@@ -153,11 +156,27 @@ class AdaptiveSkipSimilarTest {
     }
 
     @Test
+    fun `another upload of a song ahead, on a skipped song's list, counts as that song`() {
+        // The emulator, 9 Nov 2026: the related lists named the radio's songs by other uploads, so by id
+        // nothing was ever like a skip. By version, the music video on the list is the song in the queue.
+        val (h, queue) = scene()
+        val ahead = input(h, queue, AdaptivePass.Kind.SKIP, emptyList(), similar = true).tail.first().song
+        val otherUpload = song("${ahead.id}-video", artist = ahead.artists.first().name, title = "${ahead.title} (Official Video)")
+        assertEquals(SkipSimilar.keyOf(ahead), SkipSimilar.keyOf(otherUpload))
+        val sources = listOf(AdaptivePass.Source("k1", (1..12).map { song("pick$it", artist = "Kept $it") }))
+        val r = AdaptivePass.run(input(h, queue, AdaptivePass.Kind.SKIP, sources, skippedLists = listOf(listOf(SkipSimilar.keyOf(otherUpload))), similar = true))
+        assertEquals("like the song skipped", r.slots.single { it.id == ahead.id }.byScore)
+        // Without the flag, as before: by id, the other upload is not the song.
+        val before = AdaptivePass.run(input(h, queue, AdaptivePass.Kind.SKIP, sources, skippedRelated = setOf(otherUpload.id), similar = false))
+        assertEquals(null, before.slots.single { it.id == ahead.id }.byScore)
+    }
+
+    @Test
     fun `a pick closer to a skipped song than to its own seed is not picked`() {
         val (h, queue) = scene()
         val sources = listOf(AdaptivePass.Source("k1", (0 until 12).map { song("pick$it", artist = "Kept $it") }))
         // pick11 is last on its seed's list and first on the skipped song's: like the skip.
-        val r = AdaptivePass.run(input(h, queue, AdaptivePass.Kind.SKIP, sources, skippedLists = listOf(listOf("pick11", "pick0")), similar = true))
+        val r = AdaptivePass.run(input(h, queue, AdaptivePass.Kind.SKIP, sources, skippedLists = listOf(listOf(key("pick11", "Kept 11"), key("pick0", "Kept 0"))), similar = true))
         assertFalse("pick11" in r.songs)
         // pick0 is first on both: as close to what is kept, so it may still be picked.
         assertTrue("pick0" in r.songs)
@@ -179,6 +198,8 @@ class AdaptiveSkipSimilarTest {
         // only the song just skipped, only on the pass after its skip, and only when nothing is held for it
         val lists = service.substringAfter("private suspend fun skippedLists(").substringBefore("\n    }\n")
         assertTrue(lists, "?: if (snap.ask.skip && id == snap.view.lastSkipped) skipPage(id, snap)" in lists)
+        // every list by version, as the pass reads the seeds' lists
+        assertTrue(lists, "?.map(SkipSimilar::keyOf)" in lists)
         assertTrue("val ADAPTIVE_SIMILAR = BuildConfig.DEBUG" in File("src/main/java/com/dd3boh/outertune/constants/Unreleased.kt").readText())
     }
 
@@ -273,7 +294,7 @@ class AdaptiveSkipSimilarTest {
                     taste = empty,
                     sources = sources,
                     skippedRelated = view.lastSkipped?.takeIf { kind == AdaptivePass.Kind.SKIP && stored.getValue(it) }?.let { id -> related[id].orEmpty().map { it.id }.toSet() }.orEmpty(),
-                    skippedLists = if (similar) view.skippedIds.map { id -> related[id].orEmpty().map { it.id } } else emptyList(),
+                    skippedLists = if (similar) view.skippedIds.map { id -> related[id].orEmpty().map(SkipSimilar::keyOf) } else emptyList(),
                     similar = similar,
                 ),
             )

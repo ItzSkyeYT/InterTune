@@ -17,6 +17,14 @@ package com.dd3boh.outertune.playback
  */
 object SkipSimilar {
 
+    /**
+     * What a song is compared by: its version (RadioPage.versionOf, the base title and the artist), and its
+     * id when it has none. A related list names a song by one upload and a radio by another (the official
+     * audio and the music video), so by id alone a radio's songs were on no skipped song's list at all
+     * (emulator, 9 Nov 2026: 0 of 19 ids for each of five skipped songs, 1 to 4 of 19 by title).
+     */
+    fun keyOf(song: com.dd3boh.outertune.models.MediaMetadata): String = RadioPage.versionOf(song) ?: song.id
+
     /** The place on a list at which a song counts half as close as the first. */
     const val HALF_AT = 10.0
 
@@ -32,8 +40,9 @@ object SkipSimilar {
 
     /**
      * [skipped]: the related lists of the run's skipped songs, newest first, each in YouTube's order;
-     * [kept]: those of its songs kept and liked. [lastJustSkipped]: the newest of [skipped] was skipped just
-     * now, on the pass after the skip; only then is anything like the last one, as before.
+     * [kept]: those of its songs kept and liked; every song on them by its [keyOf]. [lastJustSkipped]:
+     * the newest of [skipped] was skipped just now, on the pass after the skip; only then is anything
+     * like the last one, as before.
      */
     fun read(skipped: List<List<String>>, kept: List<List<String>>, lastJustSkipped: Boolean): Read {
         if (skipped.isEmpty()) return Read(emptySet(), emptySet())
