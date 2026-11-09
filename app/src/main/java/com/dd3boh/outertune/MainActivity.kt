@@ -2335,6 +2335,10 @@ class MainActivity : ComponentActivity() {
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
+                                    // Under the fully open player the pages cannot be seen, and the phone drew
+                                    // them again under each of the player's frames: not drawn then, decided
+                                    // as they are drawn, back as soon as the player moves.
+                                    .graphicsLayer { alpha = if (pagesHiddenByPlayer()) 0f else 1f }
                                     .then(
                                         // Not recorded while the glass is still (Saver): no panel reads it then.
                                         if (navGlass && !glassStill) {
