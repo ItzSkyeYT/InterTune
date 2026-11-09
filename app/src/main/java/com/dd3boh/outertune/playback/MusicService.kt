@@ -6393,6 +6393,9 @@ class MusicService : MediaLibraryService(),
                             outOfTimeAt = asked.outOfTimeAt,
                         )
                         Log.d(TAG, line)
+                        // Which Premium streams the account was offered (PremiumFormats), from the
+                        // answer in hand: no request of its own. It lands in Report a problem's log.
+                        asked.answer?.getOrNull()?.let { Log.i(TAG, PremiumFormats.offeredLine(it.streamingData?.adaptiveFormats)) }
                     }
                     // Never the address itself, nor a failure's own words, which can quote it: its
                     // parameters name the video, the session and the player.
