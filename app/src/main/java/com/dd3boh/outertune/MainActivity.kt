@@ -2318,10 +2318,14 @@ class MainActivity : ComponentActivity() {
                             }
 
                             val bottomSheetMenu: @Composable() (() -> Unit) = @Composable {
-                                BottomSheetMenu(
-                                    state = LocalMenuState.current,
-                                    modifier = Modifier.align(Alignment.BottomCenter)
-                                )
+                                // In the song's colours, as the player is: a menu opened from the open player
+                                // after a song change matches it, while the pages wait (pagesThemeColor).
+                                PlayerTheme(useDarkTheme, pureBlack, highContrastCompat, { themeColor }) {
+                                    BottomSheetMenu(
+                                        state = LocalMenuState.current,
+                                        modifier = Modifier.align(Alignment.BottomCenter)
+                                    )
+                                }
                             }
 
                             // Over the page colour, like the app backdrop, so the blur has something between rows.

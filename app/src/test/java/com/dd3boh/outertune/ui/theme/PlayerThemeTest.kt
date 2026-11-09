@@ -25,10 +25,12 @@ class PlayerThemeTest {
         // The app's theme follows the pages' colours, not the song's.
         assertTrue("themeColor = pagesThemeColor" in main)
         assertEquals(1, Regex("""OuterTuneTheme\(""").findAll(main).count())
-        // The player in a theme of its own, which reads the song's colour inside it.
-        assertTrue("PlayerTheme(useDarkTheme, pureBlack, highContrastCompat, { themeColor }) {" in main)
-        val player = main.substringAfter("PlayerTheme(useDarkTheme, pureBlack, highContrastCompat, { themeColor }) {").substringBefore("}")
-        assertTrue(player, "BottomSheetPlayer(" in player)
+        // The player, and the menus the app draws over it, in a theme of their own that reads the song's
+        // colour inside it: a menu opened from the open player after a song change matches it.
+        val themed = main.split("PlayerTheme(useDarkTheme, pureBlack, highContrastCompat, { themeColor }) {").drop(1).map { it.substringBefore("}") }
+        assertEquals(2, themed.size)
+        assertTrue(themed.toString(), themed.any { "BottomSheetPlayer(" in it })
+        assertTrue(themed.toString(), themed.any { "BottomSheetMenu(" in it })
         // The pages catch up only with the player down: collapsed or dismissed, never while it moves.
         assertTrue("snapshotFlow { themeColor to (playerBottomSheetState.isCollapsed || playerBottomSheetState.isDismissed) }" in main)
         assertTrue(".collect { (colour, down) -> if (down && pagesThemeColor != colour) pagesThemeColor = colour }" in main)
