@@ -21,6 +21,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.rounded.FilterAlt
 import androidx.compose.material.icons.rounded.GridView
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -32,6 +34,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -54,6 +57,12 @@ import com.dd3boh.outertune.constants.ArtistFilterKey
 import com.dd3boh.outertune.constants.ArtistSortDescendingKey
 import com.dd3boh.outertune.constants.ArtistSortType
 import com.dd3boh.outertune.constants.ArtistSortTypeKey
+import com.dd3boh.outertune.constants.ArtistsOrderLockKey
+import com.dd3boh.outertune.constants.Unreleased
+import com.dd3boh.outertune.db.entities.Artist
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyGridState
+import sh.calvin.reorderable.rememberReorderableLazyListState
 import com.dd3boh.outertune.constants.ArtistViewTypeKey
 import com.dd3boh.outertune.constants.CONTENT_TYPE_ARTIST
 import com.dd3boh.outertune.constants.CONTENT_TYPE_HEADER
@@ -100,8 +109,15 @@ fun LibraryArtistsScreen(
     val libraryViewType by rememberEnumPreference(LibraryViewTypeKey, LibraryViewType.GRID)
     val viewType = if (libraryFilterContent != null) libraryViewType else artistViewType
 
-    val (sortType, onSortTypeChange) = rememberEnumPreference(ArtistSortTypeKey, ArtistSortType.CREATE_DATE)
+    val (storedSortType, onSortTypeChange) = rememberEnumPreference(ArtistSortTypeKey, ArtistSortType.CREATE_DATE)
+    // A stored Custom order reads as Date added where it is not offered (Unreleased.PLAYLIST_ORDER).
+    val sortType = if (storedSortType == ArtistSortType.CUSTOM && !Unreleased.PLAYLIST_ORDER) ArtistSortType.CREATE_DATE else storedSortType
     val (sortDescending, onSortDescendingChange) = rememberPreference(ArtistSortDescendingKey, true)
+    // Custom order: the artists are dragged by their handles as the playlists are, with a lock of their
+    // own; only the liked ones, which the Library page shows in the same order, and one row to a line.
+    val customOrder = Unreleased.PLAYLIST_ORDER && sortType == ArtistSortType.CUSTOM
+    var orderLocked by rememberPreference(ArtistsOrderLockKey, defaultValue = false)
+    val canDrag = customOrder && !orderLocked && filter == ArtistFilter.LIKED
 
     val artists by viewModel.allArtists.collectAsState()
     val isSyncingRemoteArtists by viewModel.isSyncingRemoteArtists.collectAsState()
@@ -109,6 +125,45 @@ fun LibraryArtistsScreen(
 
     val lazyListState = rememberLazyListState()
     val lazyGridState = rememberLazyGridState()
+
+    // The artists as they are dragged, and the database's between drags, as the playlists.
+    val dragged = remember { mutableStateListOf<Artist>() }
+    // The order just dropped, until the list read back from the preferences has it.
+    var droppedOrder by remember { mutableStateOf<List<String>?>(null) }
+    var wasDragging by remember { mutableStateOf(false) }
+    val moveRow: (Any?, Any?) -> Unit = { fromKey, toKey ->
+        // By key, not place: the headers sit above the rows.
+        val from = dragged.indexOfFirst { it.id == fromKey }
+        val to = dragged.indexOfFirst { it.id == toKey }
+        if (from >= 0 && to >= 0) dragged.add(to, dragged.removeAt(from))
+    }
+    val reorderableListState = rememberReorderableLazyListState(lazyListState) { from, to -> moveRow(from.key, to.key) }
+    val reorderableGridState = rememberReorderableLazyGridState(lazyGridState) { from, to -> moveRow(from.key, to.key) }
+    val dragging = reorderableListState.isAnyItemDragging || reorderableGridState.isAnyItemDragging
+    LaunchedEffect(artists, dragging) {
+        if (dragging) {
+            wasDragging = true
+            return@LaunchedEffect
+        }
+        val listed = artists ?: return@LaunchedEffect
+        val ids = listed.map { it.id }
+        if (wasDragging) {
+            wasDragging = false
+            val shown = dragged.map { it.id }
+            if (customOrder && shown != ids && shown.toSet() == ids.toSet()) {
+                droppedOrder = shown
+                viewModel.saveCustomOrder(shown)
+                return@LaunchedEffect
+            }
+        }
+        // The rows stay where they were dropped until the order kept comes back, not the old one.
+        val waiting = droppedOrder
+        if (waiting != null && ids != waiting && ids.toSet() == waiting.toSet()) return@LaunchedEffect
+        droppedOrder = null
+        dragged.clear()
+        dragged.addAll(listed)
+    }
+    val shownArtists: List<Artist>? = if (customOrder && dragged.isNotEmpty()) dragged else artists
 
     LaunchedEffect(Unit) { viewModel.syncArtists() }
 
@@ -186,12 +241,26 @@ fun LibraryArtistsScreen(
                         ArtistSortType.CREATE_DATE -> R.string.sort_by_create_date
                         ArtistSortType.NAME -> R.string.sort_by_name
                         ArtistSortType.SONG_COUNT -> R.string.sort_by_song_count
+                        ArtistSortType.CUSTOM -> R.string.sort_by_custom
                     }
                 },
+                offered = { it != ArtistSortType.CUSTOM || Unreleased.PLAYLIST_ORDER },
                 modifier = Modifier.weight(1f)
             )
+            // The page's own lock, beside the sort as the playlists' is: whether the rows can be dragged.
+            if (customOrder) {
+                IconButton(
+                    onClick = { orderLocked = !orderLocked },
+                    modifier = Modifier.padding(horizontal = 6.dp)
+                ) {
+                    Icon(
+                        imageVector = if (orderLocked) Icons.Rounded.Lock else Icons.Rounded.LockOpen,
+                        contentDescription = stringResource(if (orderLocked) R.string.playlist_order_locked else R.string.playlist_order_unlocked)
+                    )
+                }
+            }
 
-            artists?.let { artists ->
+            shownArtists?.let { artists ->
                 Text(
                     text = pluralStringResource(R.plurals.n_artist, artists.size, artists.size),
                     style = MaterialTheme.typography.titleSmall,
@@ -269,7 +338,7 @@ fun LibraryArtistsScreen(
                         headerContent()
                     }
 
-                    artists?.let { artists ->
+                    shownArtists?.let { artists ->
                         if (artists.isEmpty()) {
                             item {
                                 EmptyPlaceholder(
@@ -286,13 +355,25 @@ fun LibraryArtistsScreen(
                             key = { _, artist -> artist.id },
                             contentType = { _, _ -> CONTENT_TYPE_ARTIST }
                         ) { _, artist ->
-                            LibraryArtistListItem(
-                                navController = navController,
-                                menuState = menuState,
-                                coroutineScope = coroutineScope,
-                                modifier = Modifier.animateItem(),
-                                artist = artist
-                            )
+                            if (canDrag && columns == 1) {
+                                ReorderableItem(state = reorderableListState, key = artist.id) {
+                                    LibraryArtistListItem(
+                                        navController = navController,
+                                        menuState = menuState,
+                                        coroutineScope = coroutineScope,
+                                        artist = artist,
+                                        dragHandle = Modifier.draggableHandle(),
+                                    )
+                                }
+                            } else {
+                                LibraryArtistListItem(
+                                    navController = navController,
+                                    menuState = menuState,
+                                    coroutineScope = coroutineScope,
+                                    modifier = Modifier.animateItem(),
+                                    artist = artist
+                                )
+                            }
                         }
                     }
                 }
@@ -327,7 +408,7 @@ fun LibraryArtistsScreen(
                         headerContent()
                     }
 
-                    artists?.let { artists ->
+                    shownArtists?.let { artists ->
                         if (artists.isEmpty()) {
                             item(span = { GridItemSpan(maxLineSpan) }) {
                                 EmptyPlaceholder(
@@ -342,13 +423,25 @@ fun LibraryArtistsScreen(
                             key = { it.id },
                             contentType = { CONTENT_TYPE_ARTIST }
                         ) { artist ->
-                            LibraryArtistGridItem(
-                                navController = navController,
-                                menuState = menuState,
-                                coroutineScope = coroutineScope,
-                                modifier = Modifier.animateItem(),
-                                artist = artist
-                            )
+                            if (canDrag) {
+                                ReorderableItem(state = reorderableGridState, key = artist.id) {
+                                    LibraryArtistGridItem(
+                                        navController = navController,
+                                        menuState = menuState,
+                                        coroutineScope = coroutineScope,
+                                        artist = artist,
+                                        dragHandle = Modifier.draggableHandle(),
+                                    )
+                                }
+                            } else {
+                                LibraryArtistGridItem(
+                                    navController = navController,
+                                    menuState = menuState,
+                                    coroutineScope = coroutineScope,
+                                    modifier = Modifier.animateItem(),
+                                    artist = artist
+                                )
+                            }
                         }
                     }
                 }

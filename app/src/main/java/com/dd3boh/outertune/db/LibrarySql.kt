@@ -131,6 +131,8 @@ object LibrarySql {
             ArtistSortType.CREATE_DATE -> "artist.rowId ASC"
             ArtistSortType.NAME -> "artist.name COLLATE NOCASE ASC"
             ArtistSortType.SONG_COUNT -> "songCount ASC"
+            // An order of your own: oldest first here, then the library's one order (LibraryArtistsViewModel).
+            ArtistSortType.CUSTOM -> "artist.rowId ASC"
         }
 
         val where = when (filter) {

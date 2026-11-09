@@ -15,6 +15,8 @@ package com.dd3boh.outertune.models
 object LibraryOrder {
 
     const val PLAYLIST = "playlist:"
+    const val ALBUM = "album:"
+    const val ARTIST = "artist:"
 
     /**
      * The order kept: [library], or, until something is dragged after an update, the playlists'
@@ -24,8 +26,11 @@ object LibraryOrder {
         PlaylistOrder.decode(library).ifEmpty { PlaylistOrder.decode(playlists).map { PLAYLIST + it } }
 
     /** The playlists' ids, in the order kept. */
-    fun playlistIds(saved: List<String>): List<String> =
-        saved.filter { it.startsWith(PLAYLIST) }.map { it.removePrefix(PLAYLIST) }
+    fun playlistIds(saved: List<String>): List<String> = idsOf(saved, PLAYLIST)
+
+    /** The ids of one kind ([prefix]: [ALBUM], [ARTIST] or [PLAYLIST]), in the order kept. */
+    fun idsOf(saved: List<String>, prefix: String): List<String> =
+        saved.filter { it.startsWith(prefix) }.map { it.removePrefix(prefix) }
 
     /**
      * The whole order after a drag on a page that shows a part of the library, [part] being that
