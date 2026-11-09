@@ -137,6 +137,7 @@ fun YouTubeAlbumMenu(
     HorizontalDivider()
 
     GridMenu(
+        kind = MenuKind.ALBUM,
         contentPadding = PaddingValues(
             start = 8.dp,
             top = 8.dp,

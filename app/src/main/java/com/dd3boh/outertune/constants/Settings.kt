@@ -429,6 +429,21 @@ enum class AudioQuality {
 }
 
 /**
+ * What a download is fetched at (Unreleased.DOWNLOAD_QUALITY), stored by name under
+ * DownloadQualityKey. [SAME] follows Audio quality, as every download did before the setting; the
+ * others are the tiers of [AudioQuality] of the same name. Auto is not among them: it follows the
+ * connection, and a download may run on Wi-Fi hours after it was asked for.
+ *
+ * @param tier the quality a download asks for, or null for [SAME]: whatever playback is set to.
+ */
+enum class DownloadQuality(val tier: AudioQuality?) {
+    SAME(null),
+    MAX(AudioQuality.MAX),
+    HIGH(AudioQuality.HIGH),
+    LOW(AudioQuality.LOW),
+}
+
+/**
  * How much the app does while music plays (Battery use). FULL is the app as it always was,
  * BALANCED everyone's default, SAVER the least. What each one turns down is in
  * playback/BatteryUse.kt; the order here is the order of the choices.

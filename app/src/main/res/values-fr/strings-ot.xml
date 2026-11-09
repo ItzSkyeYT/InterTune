@@ -2395,6 +2395,9 @@
     <string name="crash_newer_update">Mettre à jour</string>
     <string name="problem_report_share_file">Partager en fichier</string>
     <string name="dl_song_files_note">Chaque titre y est enregistré en Opus ou en M4A, avec son nom, son artiste et sa pochette, pour que d\'autres applis et les voitures puissent le lire.</string>
+    <string name="download_quality">Qualité des téléchargements</string>
+    <string name="download_quality_same">Comme la lecture</string>
+    <string name="download_quality_description">Une meilleure qualité prend plus de place. Les titres déjà téléchargés ne changent pas.</string>
     <string name="new_shelf_looks_title">L\'Étagère en trois looks</string>
     <string name="new_shelf_looks_body">Grande pochette, Bac à disques ou Vinyles, à choisir sous Look dans les réglages du widget.</string>
     <string name="new_lyrics_video_long_title">Des vidéos de paroles jusqu\'à dix minutes</string>
@@ -2451,4 +2454,19 @@
     <string name="version_card_found" translatable="false">Trouvée le %1$s</string>
     <string name="version_card_number" translatable="false">N°</string>
     <string name="media_button_resuming" translatable="false">Reprise de votre file d\'attente</string>
+    <string name="menu_hidden">Masquées</string>
+    <string name="menu_hidden_hint">Touchez une entrée pour la mettre ici, ou la remettre.</string>
+    <string name="menu_edit_done">Terminé</string>
+    <string name="menu_edit_hide">Masquer</string>
+    <string name="menu_edit_show">Afficher</string>
+    <string name="menu_edit_start">Modifier ce menu</string>
+    <string name="menu_choices_title">Menus à trois points</string>
+    <string name="menu_choices_description">Maintenez une entrée d\'un menu pour choisir ce qu\'il affiche.</string>
+    <string name="menu_choices_show_all">Tout afficher</string>
+    <string name="search_words_menus">menu, trois points, options, masquer, entrées</string>
+    <plurals name="menu_hidden_count">
+        <item quantity="one">%1$d masquée</item>
+        <item quantity="many">%1$d masquées</item>
+        <item quantity="other">%1$d masquées</item>
+    </plurals>
 </resources>

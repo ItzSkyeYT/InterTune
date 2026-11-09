@@ -79,6 +79,7 @@ fun ArtistMenu(
     HorizontalDivider()
 
     GridMenu(
+        kind = MenuKind.ARTIST,
         contentPadding = PaddingValues(
             start = 8.dp,
             top = 8.dp,

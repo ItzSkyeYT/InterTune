@@ -121,6 +121,31 @@ class FolderOrderTest {
     }
 
     @Test
+    fun `names made ready once sort exactly as names compared afresh each time`() {
+        // the way before: every comparison set the accents aside again
+        val afresh = compareBy<DirectoryTree, String>(NaturalOrder) { FolderOrder.shownName(it) }.thenBy { it.getFullPath() }
+        val words = listOf(
+            "Édith", "edith", "Zoë", "Ångström", "CD 2", "CD 10", "cd 1", "カ", "ガ", "Ия", "Йога",
+            "Ölfass", "Oslo", "Abba", "abba", "Ça", "Ca", "Ćevapi", "Ü", "U", "Ñandú", "Nada",
+        )
+        val random = java.util.Random(7)
+        val files = (0 until 2000).map { i -> "${words[random.nextInt(words.size)]} ${random.nextInt(40)}/x$i/a.mp3" }
+        val folders = tree(music, *files.toTypedArray()).getFlattenedSubdirs()
+        for (descending in listOf(false, true)) {
+            val before = folders.sortedWith(if (descending) afresh.reversed() else afresh).map { it.getFullPath() }
+            assertEquals(before, FolderOrder.sorted(folders, descending).map { it.getFullPath() })
+        }
+        // how long each way takes, for the log (not a pass mark: a test machine's time says little)
+        val accented = tree(music, *(0 until 2000).map { i -> "${words[i % words.size]} ${i / words.size}/a.mp3" }.toTypedArray()).subdirs
+        assertEquals(accented.sortedWith(afresh), FolderOrder.sorted(accented, false))
+        repeat(3) { accented.sortedWith(afresh); FolderOrder.sorted(accented, false) }
+        val t0 = System.nanoTime(); accented.sortedWith(afresh)
+        val t1 = System.nanoTime(); FolderOrder.sorted(accented, false)
+        val t2 = System.nanoTime()
+        println("FolderOrder ${accented.size} folders named with accents: afresh ${(t1 - t0) / 1000} us, made ready once ${(t2 - t1) / 1000} us")
+    }
+
+    @Test
     fun `a squashed folder goes by the path its row shows`() {
         // Artist folders that each hold one album folder show as "Artist/Album".
         val top = tree(music, "Beta/Second/a.mp3", "Alpha/First/a.mp3", "Alpha2/a.mp3")

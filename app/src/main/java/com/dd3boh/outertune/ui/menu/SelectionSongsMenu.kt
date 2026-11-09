@@ -104,6 +104,7 @@ fun SelectionMediaMetadataMenu(
 
 
     GridMenu(
+        kind = MenuKind.SELECTION,
         contentPadding = PaddingValues(
             start = 8.dp,
             top = 8.dp,

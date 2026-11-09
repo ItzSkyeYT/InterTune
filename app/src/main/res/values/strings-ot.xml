@@ -1988,6 +1988,8 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="history_address_check" translatable="false">Check the history address</string>
     <string name="history_address_check_description" translatable="false">Asks YouTube where a play of the song now playing would be reported, as your account and as a visitor, and shows what came back. Nothing is reported.</string>
     <string name="history_address_check_asking" translatable="false">Asking YouTube</string>
+    <string name="premium_check" translatable="false">Check Premium formats</string>
+    <string name="premium_check_description" translatable="false">Asks YouTube, as your account, which audio streams it offers for the song now playing. A Premium account may get 256 kbps.</string>
     <string name="stats_nothing_played">Nothing was played in this period.</string>
     <string name="sort_order_ascending">Ascending order</string>
     <string name="sort_order_descending">Descending order</string>
@@ -2590,6 +2592,10 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="problem_report_share_file" translatable="false">Share as a file</string>
     <!-- Downloads saved as song files (SongFiles, Unreleased.DOWNLOAD_FILES), after the folder's warning: held from translators until his go. -->
     <string name="dl_song_files_note" translatable="false">Songs are saved as Opus or M4A files with their title, artist and cover, so other apps and cars can play them.</string>
+    <!-- Download quality (DownloadsFrag, Unreleased.DOWNLOAD_QUALITY): the row's title, the choice that follows Audio quality, and the line under the row. The other three choices are the Audio quality ones (audio_quality_max, _high, _low). Held from translators until the setting ships. -->
+    <string name="download_quality" translatable="false">Download quality</string>
+    <string name="download_quality_same" translatable="false">Same as playback</string>
+    <string name="download_quality_description" translatable="false">Better quality takes more space. Songs you already downloaded stay as they are.</string>
     <!-- What's new in 0.12.8 (Walkthrough.kt, V0_12_8): held from translators until his go. -->
     <string name="new_report_send_title" translatable="false">Send a report to InterTune</string>
     <string name="new_report_send_body" translatable="false">Report a problem can now send the report to InterTune itself, no GitHub account needed. Or share it as a file to post on Discord.</string>
@@ -2660,4 +2666,19 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="version_card_number" translatable="false">No.</string>
     <!-- The notification a headset or widget press shows for the moment between the app starting and the song's own notification (MediaButtonStart, issue #98). Held for translators. -->
     <string name="media_button_resuming" translatable="false">Resuming your queue</string>
+    <!-- Choose what's in the three-dot menus (MENU_CHOICES): a menu being edited, and the line under a trimmed one. Held from translators. -->
+    <string name="menu_hidden" translatable="false">Hidden</string>
+    <string name="menu_hidden_hint" translatable="false">Tap an entry to move it here, or back.</string>
+    <string name="menu_edit_done" translatable="false">Done</string>
+    <string name="menu_edit_hide" translatable="false">Hide</string>
+    <string name="menu_edit_show" translatable="false">Show</string>
+    <string name="menu_edit_start" translatable="false">Edit this menu</string>
+    <string name="menu_choices_title" translatable="false">Three-dot menus</string>
+    <string name="menu_choices_description" translatable="false">Hold any entry of a menu to choose what the menu shows.</string>
+    <string name="menu_choices_show_all" translatable="false">Show all</string>
+    <string name="search_words_menus">menu, three dots, options, hide, entries</string>
+    <plurals name="menu_hidden_count" translatable="false">
+        <item quantity="one">%1$d hidden</item>
+        <item quantity="other">%1$d hidden</item>
+    </plurals>
 </resources>

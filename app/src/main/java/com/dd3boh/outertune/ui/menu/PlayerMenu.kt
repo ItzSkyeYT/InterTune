@@ -252,6 +252,7 @@ fun PlayerMenu(
     }
 
     GridMenu(
+        kind = MenuKind.PLAYER,
         contentPadding = PaddingValues(
             start = 8.dp,
             top = 8.dp,

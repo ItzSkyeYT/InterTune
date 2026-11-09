@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Downloading
 import androidx.compose.material.icons.rounded.FolderCopy
+import androidx.compose.material.icons.rounded.HighQuality
 import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material3.Button
@@ -54,6 +55,8 @@ import com.dd3boh.outertune.R
 import com.dd3boh.outertune.constants.DownloadExtraPathKey
 import com.dd3boh.outertune.constants.DownloadPathKey
 import com.dd3boh.outertune.constants.DownloadOnWifiOnlyKey
+import com.dd3boh.outertune.constants.DownloadQuality
+import com.dd3boh.outertune.constants.DownloadQualityKey
 import com.dd3boh.outertune.constants.ScanPathsKey
 import com.dd3boh.outertune.constants.ThumbnailCornerRadius
 import com.dd3boh.outertune.extensions.tryOrNull
@@ -85,6 +88,7 @@ import com.dd3boh.outertune.playback.DownloadUtil
 import com.dd3boh.outertune.ui.component.EnumListPreference
 import com.dd3boh.outertune.utils.rememberEnumPreference
 import com.dd3boh.outertune.ui.screens.walkthrough.Tour
+import com.dd3boh.outertune.ui.screens.settings.MeaningLine
 import com.dd3boh.outertune.ui.screens.settings.settingRow
 import com.dd3boh.outertune.ui.screens.walkthrough.tourTarget
 
@@ -171,6 +175,30 @@ fun ColumnScope.DownloadsFrag() {
         }
     )
     if (heldOn) SaverHoldsLabel()
+
+    // Downloads in their own quality (Unreleased.DOWNLOAD_QUALITY): Same as playback, or one of the
+    // Audio quality tiers (Highest, High, Low) under the words that row gives them. The download
+    // resolver reads it for each song it fetches, so a change is for the next one: no download is
+    // touched when it changes, and the ones already made stay as they are.
+    if (Unreleased.DOWNLOAD_QUALITY) {
+        val (downloadQuality, onDownloadQualityChange) = rememberEnumPreference(DownloadQualityKey, DownloadQuality.SAME)
+        EnumListPreference(
+            modifier = Modifier.settingRow(R.string.download_quality),
+            title = { Text(stringResource(R.string.download_quality)) },
+            icon = { Icon(Icons.Rounded.HighQuality, null) },
+            content = { MeaningLine(stringResource(R.string.download_quality_description)) },
+            selectedValue = downloadQuality,
+            onValueSelected = onDownloadQualityChange,
+            valueText = {
+                when (it) {
+                    DownloadQuality.SAME -> stringResource(R.string.download_quality_same)
+                    DownloadQuality.MAX -> stringResource(R.string.audio_quality_max)
+                    DownloadQuality.HIGH -> stringResource(R.string.audio_quality_high)
+                    DownloadQuality.LOW -> stringResource(R.string.audio_quality_low)
+                }
+            }
+        )
+    }
 
     EnumListPreference(
         modifier = Modifier.tourTarget(Tour.SETTING_LIKED_AUTODOWNLOAD).settingRow(R.string.like_autodownload),

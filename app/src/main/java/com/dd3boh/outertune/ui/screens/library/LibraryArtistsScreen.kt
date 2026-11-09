@@ -170,7 +170,7 @@ fun LibraryArtistsScreen(
     // On a phone on its side the chips and the sort row share a line, a half each (Landscape.kt).
     val oneHeaderLine = LocalLandscape.current.active
     // The list view runs two rows abreast there, as Songs does.
-    val columns = rememberListColumns()
+    val columns = columnsWhileOrdering(rememberListColumns(), canDrag)
     val filterContent = @Composable {
         var showStoragePerm by remember {
             mutableStateOf(context.checkSelfPermission(MEDIA_PERMISSION_LEVEL) != PackageManager.PERMISSION_GRANTED)

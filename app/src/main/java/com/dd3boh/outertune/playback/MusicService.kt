@@ -371,6 +371,12 @@ private const val PASS_WAIT_MS = 1_000L
 /** At most one radio page this often in a run, for the adaptive queue's picks: about a song, never faster than songs play. */
 private const val PAGE_EVERY_MS = 3L * 60 * 1000
 
+/**
+ * At most one radio page of a skipped song this often in a run (ADAPTIVE_SIMILAR): a run of quick skips,
+ * which the pass's wait already folds into one pass, asks for one.
+ */
+private const val SKIP_PAGE_EVERY_MS = 20_000L
+
 /** A related list older than this is fetched again, within the daily budget. */
 private const val RELATED_STALE_MS = 90L * 24 * 60 * 60 * 1000
 private const val RELATED_REFRESH_PER_DAY = 10
@@ -4340,6 +4346,9 @@ class MusicService : MediaLibraryService(),
     /** Radio pages asked for in each run, by seed, and when the last was. Adaptive dispatcher only. */
     private val pagesAsked = HashMap<String, MutableSet<String>>()
     private val lastPageAt = HashMap<String, Long>()
+    /** By run: the skipped songs whose radio page was asked for (skipPage), and when the last one was. */
+    private val skipPagesAsked = HashMap<String, MutableSet<String>>()
+    private val lastSkipPageAt = HashMap<String, Long>()
 
     /** This run's picks still ahead, for the queue sheet's marks. */
     val adaptivePicks = MutableStateFlow<Set<String>>(emptySet())
@@ -4515,15 +4524,24 @@ class MusicService : MediaLibraryService(),
         val skippedRelated = snap.view.lastSkipped?.takeIf { snap.ask.skip }?.let { id ->
             runCatching { database.youtubeRelatedSongs(id).mapTo(HashSet()) { it.id } }.getOrDefault(emptySet())
         }.orEmpty()
+        // With ADAPTIVE_SIMILAR the lists of the run's skipped songs, read against the seeds' own lists in
+        // the pass (SkipSimilar), the song just skipped's asked for when the phone holds none.
+        val similar = Unreleased.ADAPTIVE_SIMILAR
+        val skippedLists = if (similar) skippedLists(snap) else emptyList()
         fun input(sources: List<AdaptivePass.Source>) = AdaptivePass.Input(
             kind = snap.kind, tail = snap.tail, head = snap.head, queue = snap.queue, view = snap.view, taste = taste,
-            sources = sources, skippedRelated = skippedRelated, offline = !snap.online,
+            sources = sources, skippedRelated = skippedRelated, skippedLists = skippedLists, similar = similar, offline = !snap.online,
             // A download in a folder is in neither cache: the downloads say it has landed. The song
             // cache's copy of it used to answer for it, and a download is no longer copied there
             // (KeptOnce). The download cache too, for the moment at start before the map is read.
             playsOffline = { s -> s.isLocal || downloadUtil.isDownloaded(s.id) || downloadCache.holdsWhole(s.id) || playerCache.holdsWhole(s.id) },
         )
-        var result = AdaptivePass.run(input(sources()))
+        val first = input(sources())
+        if (similar && skippedLists.isNotEmpty()) {
+            Log.d(TAG, "Adaptive queue: ${skippedLists.size} skipped songs' lists, ${first.likeSkipped.size} songs like the last skip, " +
+                "${first.likeSkippedTwice.size} like two")
+        }
+        var result = AdaptivePass.run(first)
         // Too few picks from what is stored, or nothing stored can be used because explicit songs
         // are hidden and a stored song does not say whether it is one: the radio page of the newest
         // seed not asked yet, which comes through the content filter.
@@ -4531,6 +4549,50 @@ class MusicService : MediaLibraryService(),
             pageFor(seeds, key, snap)?.let { result = AdaptivePass.run(input(sources())) }
         }
         return result
+    }
+
+    /**
+     * The related lists of the run's skipped songs (ADAPTIVE_SIMILAR), newest first as
+     * AdaptiveQueue.View.skippedIds has them, each in YouTube's order and each song by its version
+     * (SkipSimilar.keyOf): a radio page asked earlier in the run,
+     * or the list stored on the phone. On the pass after a skip, the song just skipped with neither has its
+     * radio page asked for ([skipPage]): a song skipped in its first seconds is often one whose own lookup had
+     * not landed yet. Adaptive dispatcher.
+     */
+    private suspend fun skippedLists(snap: PassSnapshot): List<List<String>> = snap.view.skippedIds.mapNotNull { id ->
+        (relatedCache[id]?.songs?.takeIf { it.isNotEmpty() }
+            ?: runCatching { database.youtubeRelatedSongs(id).map { it.toMediaMetadata() } }.getOrDefault(emptyList()).takeIf { it.isNotEmpty() }
+            ?: if (snap.ask.skip && id == snap.view.lastSkipped) skipPage(id, snap) else null)
+            ?.map(SkipSimilar::keyOf)
+    }
+
+    /**
+     * Asks for the radio page of [id], the song just skipped, which the phone holds no list for
+     * (ADAPTIVE_SIMILAR): online only, never while YouTube is refusing us, once a song in a run and one every
+     * [SKIP_PAGE_EVERY_MS] at most. Kept as that song's list for the run. Null when none was asked or it
+     * failed. Adaptive dispatcher.
+     */
+    private suspend fun skipPage(id: String, snap: PassSnapshot): List<MediaMetadata>? {
+        fun noPage(why: String): List<MediaMetadata>? { Log.d(TAG, "Adaptive queue: no page for the skipped song ($why)"); return null }
+        if (!snap.online) return noPage("offline")
+        if (Throttle.isBlocked) return noPage("throttled")
+        val key = snap.view.key
+        if (snap.now - (lastSkipPageAt[key] ?: 0L) < SKIP_PAGE_EVERY_MS) return noPage("too soon")
+        if (!skipPagesAsked.getOrPut(key) { HashSet() }.add(id)) return noPage("asked already")
+        lastSkipPageAt[key] = snap.now
+        // Seen through even when a newer ask cancels this pass, as a seed's page is (pageFor).
+        return withContext(NonCancellable) {
+            val page = try {
+                YouTubeQueue(WatchEndpoint(id)).nextPage().drop(1)
+            } catch (e: Exception) {
+                Log.w(TAG, "Adaptive queue: the radio page of a skipped song failed", e)
+                emptyList()
+            }
+            Log.d(TAG, "Adaptive queue: page of the skipped song $id, ${page.size} songs")
+            if (page.isEmpty()) return@withContext null
+            relatedCache[id] = AdaptivePass.Source(id, page, page = true)
+            page
+        }
     }
 
     /** [seed]'s related list for this run: a radio page asked earlier, or the list stored on the phone. Adaptive dispatcher. */
@@ -6359,6 +6421,9 @@ class MusicService : MediaLibraryService(),
                             outOfTimeAt = asked.outOfTimeAt,
                         )
                         Log.d(TAG, line)
+                        // Which Premium streams the account was offered (PremiumFormats), from the
+                        // answer in hand: no request of its own. It lands in Report a problem's log.
+                        asked.answer?.getOrNull()?.let { Log.i(TAG, PremiumFormats.offeredLine(it.streamingData?.adaptiveFormats)) }
                     }
                     // Never the address itself, nor a failure's own words, which can quote it: its
                     // parameters name the video, the session and the player.

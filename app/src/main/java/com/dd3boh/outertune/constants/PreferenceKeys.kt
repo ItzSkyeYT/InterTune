@@ -267,6 +267,14 @@ val LyricLatinKey = booleanPreferencesKey("lyricLatin")
 val DownloadExtraPathKey = stringPreferencesKey("dlExtraPath") // previously "downloadExtraPath"
 val DownloadPathKey = stringPreferencesKey("dlPath") // previously "downloadPath"
 val DownloadOnWifiOnlyKey = booleanPreferencesKey("downloadOnWifiOnly")
+
+/**
+ * What downloads are fetched at, a DownloadQuality by name (Unreleased.DOWNLOAD_QUALITY). Never
+ * written but by its own row, and never written for anybody who has not picked one: absent, it
+ * reads as Same as playback, so nothing changes for anyone who never touches it.
+ */
+val DownloadQualityKey = stringPreferencesKey("downloadQuality")
+
 val MaxImageCacheSizeKey = intPreferencesKey("maxImageCacheSize")
 
 /**
@@ -553,6 +561,9 @@ val ArtistsOrderLockKey = booleanPreferencesKey("artistsOrderLock")
 // playlist by its key, one a line (LibraryOrder). Until something is dragged after an update it
 // starts from the playlists' order above; the lock above is the lock of both.
 val LibraryCustomOrderKey = stringPreferencesKey("libraryCustomOrder")
+// Entries taken out of the three-dot menus (MENU_CHOICES): "kind:name" pairs one a line, the name being the
+// entry's text resource's name (MenuChoices). Empty: every menu as it comes.
+val MenuHiddenEntriesKey = stringPreferencesKey("menuHiddenEntries")
 
 val SearchSourceKey = stringPreferencesKey("searchSource")
 
