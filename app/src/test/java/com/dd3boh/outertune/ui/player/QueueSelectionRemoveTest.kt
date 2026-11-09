@@ -28,7 +28,10 @@ class QueueSelectionRemoveTest {
     @Test
     fun `the picked songs go as a swipe takes one, the last place first, only where a swipe is`() {
         val body = queue.substringAfter("val removeSelected").substringBefore("\n    }\n")
-        assertTrue("not on a locked queue nor on one that is not playing", "if (lockQueue || detachedHead) null" in body)
+        assertTrue(
+            "not on a locked queue, nor on another queue looked at; on the saved queue before play, where the player holds nothing (QueueRemoveBeforePlayTest)",
+            "if (lockQueue || (detachedHead && !movesStoredQueue)) null" in body
+        )
         assertTrue("the last place first", ".sortedDescending()" in body)
         for (step in listOf(
             "qb.removeCurrentQueueSong(place)",

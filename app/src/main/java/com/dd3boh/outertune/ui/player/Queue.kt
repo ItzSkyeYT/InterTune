@@ -515,22 +515,28 @@ fun BoxScope.QueueContent(
         selectedItems.clear()
     }
     // The songs picked, taken out of the queue in one go, each as a swipe takes one: the last place
-    // first, so the places still to go keep their songs. Offered only where a swipe is: the queue
-    // unlocked and the queue shown the one playing. A song in the queue twice shows both rows
-    // picked, so both go.
-    val removeSelected: (() -> Unit)? = if (lockQueue || detachedHead) null else {
+    // first, so the places still to go keep their songs. Offered where the rows are the queue being
+    // listened to: unlocked, and the one playing or the one that will play before play after a
+    // restart (movesStoredQueue), not another queue looked at from the list. Before play the player
+    // holds nothing, and it is not asked to remove what it does not hold: the songs come out of the
+    // queue board alone, as a drag moves them, and the song on the mini player is read from the
+    // board again, since the one it showed may be among them. A song in the queue twice shows both
+    // rows picked, so both go.
+    val removeSelected: (() -> Unit)? = if (lockQueue || (detachedHead && !movesStoredQueue)) null else {
         {
             val picked = selectedItems.toSet()
             val places = mutableSongs.indices.filter { mutableSongs[it].hashCode() in picked }.sortedDescending()
+            val loaded = playerConnection.player.mediaItemCount > 0
             for (place in places) {
                 val song = mutableSongs.getOrNull(place) ?: continue
                 if (qb.removeCurrentQueueSong(place)) {
                     playerConnection.service.noteRemovedByHand(song)
                     ActivityLog.note(context, database, song.id, SignalKind.REMOVED_FROM_QUEUE)
-                    playerConnection.player.removeMediaItem(place)
+                    if (loaded) playerConnection.player.removeMediaItem(place)
                     mutableSongs.removeAt(place)
                 }
             }
+            if (!loaded) playerConnection.storedQueueEdited()
             haptic.performHapticFeedback(HapticFeedbackType.Confirm)
             onExitSelectionMode()
         }
