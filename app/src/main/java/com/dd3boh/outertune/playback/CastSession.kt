@@ -35,6 +35,7 @@ import com.dd3boh.outertune.cast.PhoneName
 import com.dd3boh.outertune.cast.ReceiverLink
 import com.dd3boh.outertune.cast.ReceiverStatus
 import com.dd3boh.outertune.cast.RecentReceivers
+import com.dd3boh.outertune.cast.SentForm
 import com.dd3boh.outertune.constants.CastRecentKey
 import com.dd3boh.outertune.constants.LyricsTimingKey
 import com.dd3boh.outertune.constants.ShowLyricsKey
@@ -200,7 +201,9 @@ class CastSession(
                 return@launch
             }
             val sender = FCastLink.Sender(Build.MODEL, service.getString(R.string.app_name), BuildConfig.VERSION_NAME)
-            val link = CastLinks.create(device, scope, sender, CastNetwork.wifi(connectivityManager)?.network)
+            // The equalizer and the levelling, for the raw audio the phone makes for a receiver.
+            val sound = service.castSound()
+            val link = CastLinks.create(device, scope, sender, CastNetwork.wifi(connectivityManager)?.network, sound)
             try {
                 // Straight back to a receiver just left, its stop must not land after the new song.
                 stopping.filter { (left, _) -> left.protocol == device.protocol && left.host == device.host }
@@ -220,6 +223,10 @@ class CastSession(
             }
             // InterTune's own receiver's idle screen says who is connected while the first song loads.
             tell("The phone's name") { link.hello(phoneName()) }
+            // The sound goes on raw audio once, where its last samples are made: an AirPlay link
+            // puts it on each packet as it sends it, the server on what a renderer fetches. Before
+            // the hand-over, which sends the first song.
+            server.pcmSound = if (link.caps.shapesSound) null else sound
             val remote = service.handOverTo(link, server, play = carryOn, onLost = ::lost)
             if (remote == null) {
                 link.close()
@@ -255,12 +262,19 @@ class CastSession(
             lyricsJob = scope.launch { followLyrics(link) }
             queueJob = scope.launch { followQueue(link, remote) }
             roomJob = scope.launch { followRoom(link) }
+            formJob = scope.launch { remote.sentForm.collect { _sentForm.value = it } }
         }
     }
 
     private var lyricsJob: Job? = null
     private var queueJob: Job? = null
     private var roomJob: Job? = null
+    private var formJob: Job? = null
+
+    private val _sentForm = MutableStateFlow<SentForm?>(null)
+
+    /** How the song playing went to the receiver, for Signal path; null while the phone plays. */
+    val sentForm: StateFlow<SentForm?> = _sentForm.asStateFlow()
 
     /** What the TV's idle screen calls this phone: the name set in its system settings, else its model. */
     private fun phoneName(): String {
@@ -404,6 +418,9 @@ class CastSession(
         queueJob = null
         roomJob?.cancel()
         roomJob = null
+        formJob?.cancel()
+        formJob = null
+        _sentForm.value = null
         val remote = remote
         val link = link
         val server = server

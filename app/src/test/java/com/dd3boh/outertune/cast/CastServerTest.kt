@@ -428,6 +428,28 @@ class CastServerTest {
     }
 
     @Test
+    fun `the app's sound goes on the raw audio served, unless the link puts it on itself`() {
+        val target = PcmTarget(listOf(PcmOffer("audio/L16;rate=48000;channels=2", 48_000, 2, "LPCM")))
+        fun firstSample(server: CastServer): Short {
+            val offer = server.preparePcm("v", target)
+            assertEquals(48_000, offer.rate)
+            return get(offer.url, "bytes=96000-").use {
+                val body = it.body!!.bytes()
+                ((body[0].toInt() shl 8) or (body[1].toInt() and 0xFF)).toShort()
+            }
+        }
+        val sound = MarkingSound()
+        val shaped = serve(FakeSource("v" to FakeSong(6000)), pcmDecoder = ToneDecoder(48_000, 48_000)).apply { pcmSound = sound }
+        assertEquals((-pcmAt(24_000, 0)).toShort(), firstSample(shaped))
+        assertEquals("the song's level looked up as it was prepared", listOf("v"), sound.prepared)
+        // An AirPlay link's server: the samples as they were decoded, which the link shapes as it sends.
+        val plain = serve(FakeSource("v" to FakeSong(6000)), pcmDecoder = ToneDecoder(48_000, 48_000))
+        assertEquals(pcmAt(24_000, 0), firstSample(plain))
+        // A song as it is says no rate: the receiver decodes it.
+        assertEquals(-1, plain.prepare("v").rate)
+    }
+
+    @Test
     fun `a server that cannot decode says so, and sends no raw audio`() {
         val server = serve(FakeSource("v" to FakeSong(6000)))
         try {

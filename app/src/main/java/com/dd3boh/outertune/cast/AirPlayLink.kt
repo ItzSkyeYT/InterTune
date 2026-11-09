@@ -54,6 +54,11 @@ import javax.net.SocketFactory
  * lost when its RTSP connection breaks while it plays, or when it stops asking about the clock.
  * A speaker that hangs up while paused or idle, as one does when another sender takes it over, is
  * taken as stopped on the device, and connected to again on the next play.
+ *
+ * The app's sound ([sound]: the equalizer, each song's levelling) goes on each packet as it is
+ * sent, not on what the server decodes: the pipe holds seconds of audio, and a band moved would
+ * wait for all of it. So a change is heard after AirPlay's own two seconds, and the link says so
+ * in its [caps], for the server to send it the samples as they were decoded.
  */
 class AirPlayLink(
     device: CastDevice,
@@ -73,6 +78,8 @@ class AirPlayLink(
     /** A song's cover as a speaker with a screen takes it: its type and bytes, or null. Blocking. */
     private val covers: (url: String) -> Pair<String, ByteArray>? = AirPlayCovers::fetch,
     private val leadNanos: Long = AirPlayStream.LEAD_NANOS,
+    /** The app's sound, put on each packet as it is sent; null sends the samples as the server decoded them. */
+    private val sound: PcmSound? = null,
 ) : ReceiverLink {
     @Volatile
     override var device: CastDevice = device
@@ -104,6 +111,9 @@ class AirPlayLink(
 
     /** When the last song's last frame was sent, on the clock; the stretch stops a little after it is heard. */
     private var endedAt = 0L
+
+    /** [sound]'s stage for the one stream of samples sent. Guarded by [state], like everything it shapes. */
+    private val stage: PcmStage? = sound?.stage(AirPlay.RATE, AirPlay.CHANNELS)
 
     private inner class Song(val number: Int, val item: CastItem, val totalFrames: Long) {
         var pipe = PcmPipe(pipeFrames)
@@ -142,6 +152,8 @@ class AirPlayLink(
             endPending = false
             failed = false
             heardFrame = -1
+            // What is sent next does not carry on from what was sent before: the filters start afresh.
+            stage?.reset()
             fetch = AirPlayFetch(item.url, frame, totalFrames, pipe, sockets, "AirPlay-fetch-$number").start()
         }
 
@@ -177,7 +189,7 @@ class AirPlayLink(
             lose(failure.message ?: "Could not reach ${device.name}", failure.problem)
             throw failure
         }
-        caps = LinkCaps(formats = FORMATS, canSetSpeed = false, hasVolume = true)
+        caps = LinkCaps(formats = FORMATS, canSetSpeed = false, hasVolume = true, shapesSound = sound != null)
         synchronized(state) {
             // A close() since then has taken the session with it.
             if (closed) throw CastLinkException("Closed")
@@ -359,6 +371,8 @@ class AirPlayLink(
             // does one after silence.
             val interrupts = before != null && before.playing && !before.done && !before.failed
             before?.release()
+            // The song's level is looked up here, off the sender's thread, which only reads it.
+            sound?.prepare(item.mediaId)
             val session = live()
             if (interrupts && session.stream.isRunning) flush(session)
             synchronized(state) {
@@ -536,6 +550,8 @@ class AirPlayLink(
                     else -> song.primed = false
                 }
             } else {
+                // The app's sound on the very samples that go out now, as it is set now.
+                stage?.shape(song.item.mediaId, samples, 0, samples, 0, given)
                 packet.load = song.number
                 packet.songFrame = song.nextFrame
                 packet.frames = given

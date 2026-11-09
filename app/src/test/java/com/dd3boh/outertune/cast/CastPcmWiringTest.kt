@@ -47,6 +47,24 @@ class CastPcmWiringTest {
     }
 
     @Test
+    fun `the app's sound goes on raw audio once, by the link that says it shapes it or else by the server`() {
+        val session = code("playback/CastSession.kt")
+        val castTo = session.substringAfter("fun castTo(").substringBefore("private var lyricsJob")
+        // One sound for the cast, handed to the link and, unless the link puts it on itself, to the server.
+        assertTrue("val sound = service.castSound()" in castTo)
+        assertTrue("CastLinks.create(device, scope, sender, CastNetwork.wifi(connectivityManager)?.network, sound)" in castTo)
+        val assigned = castTo.indexOf("server.pcmSound = if (link.caps.shapesSound) null else sound")
+        assertTrue("the server is told before the first song goes", assigned in 0 until castTo.indexOf("service.handOverTo("))
+        assertEquals(1, Regex("""\.pcmSound =""").findAll(session).count())
+        // The AirPlay link is the one that does, with the sound it is given.
+        assertTrue("sound = sound," in code("cast/CastLinks.kt"))
+        assertTrue("shapesSound = sound != null" in code("cast/AirPlayLink.kt"))
+        // The sound is the phone's own equalizer, as set now.
+        val service = code("playback/MusicService.kt").substringAfter("fun castSound(): CastSound").substringBefore("private fun createRenderersFactory")
+        assertTrue("equalizer = { equalizerProcessor.settings }" in service)
+    }
+
+    @Test
     fun `a song is decoded on the remote player's worker, inside its send`() {
         val player = code("playback/RemotePlayer.kt")
         val send = player.substringAfter("private suspend fun send(").substringBefore("private suspend fun failed(")

@@ -2334,6 +2334,10 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="signal_wired">Wired headphones</string>
     <string name="signal_other_output">Another device</string>
     <string name="signal_volume">Phone volume</string>
+    <string name="signal_receiver">%1$s, %2$s</string>
+    <string name="signal_receiver_rate">%1$s, %2$s, %3$s kHz</string>
+    <string name="signal_not_on_receiver">Not on this receiver, which gets the song as it is</string>
+    <string name="signal_not_while_casting">Not while casting</string>
     <string name="signal_percent">%1$d%%</string>
     <string name="signal_legend_untouched">Untouched</string>
     <string name="signal_legend_changed">Changed by a setting you chose</string>

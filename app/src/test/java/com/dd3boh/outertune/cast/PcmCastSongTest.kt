@@ -317,6 +317,32 @@ class PcmCastSongTest {
     }
 
     @Test
+    fun `the app's sound goes on every sample once, one stage a decode, carried on with a parked one`() {
+        val sound = MarkingSound()
+        val decoder = FakeDecoder(44_100, 2, 441_000)
+        val song = PcmCastSong(asIs, cd, decoder.probe(asIs), decoder, PcmParking(), mediaId = "song", sound = sound)
+        val plain = song(FakeDecoder(44_100, 2, 441_000), cd).bytes(0)
+        val pieces = ByteArrayOutputStream()
+        var position = 0L
+        while (position < song.length) {
+            val part = song.bytes(position, 100_000, pieceBytes = 7_000)
+            pieces.write(part)
+            position += part.size
+        }
+        val shaped = pieces.toByteArray()
+        assertEquals(plain.size, shaped.size)
+        for (at in plain.indices step 2) {
+            val before = ((plain[at].toInt() shl 8) or (plain[at + 1].toInt() and 0xFF)).toShort()
+            val after = ((shaped[at].toInt() shl 8) or (shaped[at + 1].toInt() and 0xFF)).toShort()
+            if (after != (-before).toShort()) fail("Sample ${at / 2} is $after for $before")
+        }
+        assertEquals("one decode, one stage, its filters carried across the requests", 1, sound.stages.get())
+        assertEquals(setOf("song"), sound.shapedSongs)
+        // Without a sound the samples go as they were decoded.
+        assertArrayEquals(plain, song(FakeDecoder(44_100, 2, 441_000), cd).bytes(0))
+    }
+
+    @Test
     fun `a song that ended or failed is never kept`() {
         val parking = PcmParking()
         val ended = FakeDecoder(44_100, 2, 4_410)
