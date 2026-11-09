@@ -342,53 +342,7 @@ class LaneMixer(private val plan: LanePlan) {
         val started = System.nanoTime()
         val channels = plan.channels
         val rate = plan.sampleRate
-        val aSource = aSource(a)
-        val bFrames0 = plan.facts.bFrames.coerceAtMost((b.size / channels).toLong())
-        fun bSourceOf(music: ShortArray): FrameSource = when {
-            plan.bStretch != null -> stretchedB(music, bFrames0)
-            plan.loop != null -> LoopedSource(music, channels, bFrames0, plan.bStart, plan.loop, rate)
-            // B from a later bar: none of it before, and no click where it starts.
-            plan.bEntry > 0 -> EntrySource(music, channels, bFrames0, plan.bOrigin, plan.bEntry, ENTRY_FADE_MS * rate / 1000)
-            else -> PcmSource(music, channels, bFrames0, plan.bStart)
-        }
-        val bSource = bSourceOf(b)
-        // A change made on parts: each part read the way its song is, which the plan keeps to
-        // reading as it is (no stretch, no loop: see SpecPlan).
-        val onParts = plan.spec.lanes == LaneSet.PARTS
-        val aPartSources = if (!onParts) null else {
-            val partsOfA = requireNotNull(aParts) { "a change made on parts needs A's parts" }
-            val aFrames = plan.facts.aFrames.coerceAtMost((a.size / channels).toLong())
-            // A's loop of its bars, joined where A's own music says, read through each part as it goes.
-            val outro = plan.outro
-            val join = outro?.joinOf(a, channels, plan.facts.aFrames, rate)
-            partsOfA.map { part ->
-                val samples: Samples = if (outro != null) outro.partLooped(part, channels, plan.facts.aFrames, join!!) else {
-                    val n = part.limit() / channels
-                    Samples { t, c -> if (t in 0 until n) part.get((t * channels + c).toInt()).toDouble() else 0.0 }
-                }
-                // Stretched with A where A is stretched: at its positions and splices, so they still add up to A.
-                when {
-                    aSource is StretchSource -> StretchPartSource(aSource, samples, channels)
-                    outro != null -> SamplesSource(samples, channels, aFrames + outro.shift)
-                    else -> BufferSource(part, channels, aFrames)
-                }
-            }
-        }
-        val bPartSources = if (!onParts) null else {
-            val partsOfB = requireNotNull(bParts) { "a change made on parts needs B's parts" }
-            check(plan.bStretch?.loop == null) { "parts with a loop on a stretched B are not played yet" }
-            partsOfB.map { part ->
-                when {
-                    // Stretched with B where B is the one adjusted: its positions, splices and switch to its own.
-                    bSource is GlideSource -> bSource.ofPart(part)
-                    // Looped with B: its passes joined where B's own music says.
-                    bSource is LoopedSource -> bSource.ofPart(part)
-                    // As B's own copy is read: from its entry with the same rise, or from its first frame at bStart.
-                    plan.bEntry > 0 -> BufferSource(part, channels, bFrames0, plan.bOrigin, plan.bEntry, ENTRY_FADE_MS * rate / 1000)
-                    else -> BufferSource(part, channels, bFrames0, plan.bStart)
-                }
-            }
-        }
+        val (aSource, bSource, aPartSources, bPartSources) = sources(a, b, aParts, bParts)
         val from = plan.mixFrom
         val to = plan.mixTo
         val aTo = min(plan.aGone, to)
@@ -487,6 +441,72 @@ class LaneMixer(private val plan: LanePlan) {
             attenuationB = attenuationB,
             renderMillis = (System.nanoTime() - started) / 1e6,
         )
+    }
+
+    /** Each song's music by output frame as the change takes it, and its parts where the change is made on parts. */
+    internal data class Sources(val a: FrameSource, val b: FrameSource, val aParts: List<FrameSource>?, val bParts: List<FrameSource>?)
+
+    /**
+     * The sources [render] reads, worked out once: A stretched where the plan stretches it, B
+     * stretched, looped or from its entry, and each song's parts read the same way. The stretch is
+     * the costly part of a render's setup.
+     */
+    internal fun sources(
+        a: ShortArray,
+        b: ShortArray,
+        aParts: List<java.nio.ShortBuffer>? = null,
+        bParts: List<java.nio.ShortBuffer>? = null,
+    ): Sources {
+        val channels = plan.channels
+        val rate = plan.sampleRate
+        val aSource = aSource(a)
+        val bFrames0 = plan.facts.bFrames.coerceAtMost((b.size / channels).toLong())
+        fun bSourceOf(music: ShortArray): FrameSource = when {
+            plan.bStretch != null -> stretchedB(music, bFrames0)
+            plan.loop != null -> LoopedSource(music, channels, bFrames0, plan.bStart, plan.loop, rate)
+            // B from a later bar: none of it before, and no click where it starts.
+            plan.bEntry > 0 -> EntrySource(music, channels, bFrames0, plan.bOrigin, plan.bEntry, ENTRY_FADE_MS * rate / 1000)
+            else -> PcmSource(music, channels, bFrames0, plan.bStart)
+        }
+        val bSource = bSourceOf(b)
+        // A change made on parts: each part read the way its song is, which the plan keeps to
+        // reading as it is (no stretch, no loop: see SpecPlan).
+        val onParts = plan.spec.lanes == LaneSet.PARTS
+        val aPartSources = if (!onParts) null else {
+            val partsOfA = requireNotNull(aParts) { "a change made on parts needs A's parts" }
+            val aFrames = plan.facts.aFrames.coerceAtMost((a.size / channels).toLong())
+            // A's loop of its bars, joined where A's own music says, read through each part as it goes.
+            val outro = plan.outro
+            val join = outro?.joinOf(a, channels, plan.facts.aFrames, rate)
+            partsOfA.map { part ->
+                val samples: Samples = if (outro != null) outro.partLooped(part, channels, plan.facts.aFrames, join!!) else {
+                    val n = part.limit() / channels
+                    Samples { t, c -> if (t in 0 until n) part.get((t * channels + c).toInt()).toDouble() else 0.0 }
+                }
+                // Stretched with A where A is stretched: at its positions and splices, so they still add up to A.
+                when {
+                    aSource is StretchSource -> StretchPartSource(aSource, samples, channels)
+                    outro != null -> SamplesSource(samples, channels, aFrames + outro.shift)
+                    else -> BufferSource(part, channels, aFrames)
+                }
+            }
+        }
+        val bPartSources = if (!onParts) null else {
+            val partsOfB = requireNotNull(bParts) { "a change made on parts needs B's parts" }
+            check(plan.bStretch?.loop == null) { "parts with a loop on a stretched B are not played yet" }
+            partsOfB.map { part ->
+                when {
+                    // Stretched with B where B is the one adjusted: its positions, splices and switch to its own.
+                    bSource is GlideSource -> bSource.ofPart(part)
+                    // Looped with B: its passes joined where B's own music says.
+                    bSource is LoopedSource -> bSource.ofPart(part)
+                    // As B's own copy is read: from its entry with the same rise, or from its first frame at bStart.
+                    plan.bEntry > 0 -> BufferSource(part, channels, bFrames0, plan.bOrigin, plan.bEntry, ENTRY_FADE_MS * rate / 1000)
+                    else -> BufferSource(part, channels, bFrames0, plan.bStart)
+                }
+            }
+        }
+        return Sources(aSource, bSource, aPartSources, bPartSources)
     }
 
     companion object {

@@ -308,6 +308,13 @@ class AutomixController(
     }
 
     private val main = Handler(Looper.getMainLooper())
+
+    /** The editor's edits, taken on the main thread as they come (MixLive). */
+    private val liveListener: (SongPair) -> Unit = { pair -> main.post { liveEdited(pair) } }
+
+    init {
+        MixLive.listen(liveListener)
+    }
     private var worker: ExecutorService? = null
     private var tickJob: Job? = null
     private var transition: Transition? = null
@@ -462,6 +469,12 @@ class AutomixController(
         /** Its change is being worked out on the worker: a jump leaves that worker to finish it alone. */
         @Volatile var planning = false
 
+        /** The end held and the opening it was planned on, to plan it again from an edit made in the editor (MixLive). Main thread. */
+        var planned: Replan? = null
+
+        /** An edit came while the change was being worked out: planned again once that is done. Main thread. */
+        var replanAsked = false
+
         /**
          * This change started over after a seek, with everything read with the opening: the
          * opening, its copy and the songs' beats read whole, the saved change and whether it is the
@@ -598,6 +611,7 @@ class AutomixController(
     }
 
     fun release() {
+        MixLive.stopListening(liveListener)
         enabled = false
         setLoadAhead(false)
         tickJob?.cancel()
@@ -1309,6 +1323,8 @@ class AutomixController(
             )
         }
         val kept = keptFirst(t) && !c.soundBeforeMix
+        val replan = Replan(held, ring, frames, head)
+        t.planned = replan
         t.planning = true
         work.execute {
             val started = SystemClock.elapsedRealtime()
@@ -1319,6 +1335,7 @@ class AutomixController(
                     .onFailure { Log.w(TAG, "AutoMix: the kept change failed", it) }.getOrDefault(false)
                 if (played) {
                     t.planning = false
+                    main.post { replanIfAsked(t) }
                     return@execute
                 }
                 // Not as kept: the next song comes in where the change held for brings it in, as
@@ -1329,6 +1346,7 @@ class AutomixController(
                 // Its place in the song is known to a buffer or so: enough to count beats and bars, not to lay them.
                 val tail = RegionAnalysis.analyse(FrontEnd.of(ring, held.sampleRate, held.channels, 0, frames.toInt()), RegionKind.TAIL)
                     .let { r -> gridA?.let { r.onSong(it, tailStartMs, exact = false) } ?: r }
+                replan.tail = tail
                 val planInput = input(stage.readMark, tail)
                 // Held for the next song to come in at a later bar, only the change on bands can play:
                 // no first plan is worked out, which would only cost the time that change needs.
@@ -1389,6 +1407,87 @@ class AutomixController(
                 }
                 val after = declined?.let { "; Auto stays gapless: $it" } ?: ""
                 say("plan ${plan.describe()}${timesOf(t, plan)}, worked out in $workMs ms$after")
+                replanIfAsked(t)
+            }
+        }
+    }
+
+    /** What a held end was planned on: the end, and the next song's opening; A's end analysed once. */
+    private class Replan(val held: HeldTail, val ring: ShortArray, val frames: Long, val head: RegionAnalysis) {
+        @Volatile var tail: RegionAnalysis? = null
+    }
+
+    /**
+     * An edit made in the editor (MixLive) of the change coming up: not held yet, it is planned from
+     * the edit when it is due; held and planned already, it is planned again now from what is held
+     * and handed to the stage in place of the one before, which takes it while nothing of the
+     * change has been heard (HeldTail). Once heard, the edit plays the next time. Main thread.
+     */
+    private fun liveEdited(pair: SongPair) {
+        val t = transition ?: return
+        val b = t.b ?: return
+        if (t.a.id != pair.from || b.id != pair.to || t.finished || t.shuffled || t.trial) return
+        if (!enabled || !lanes || !way().auto) return
+        val edit = MixLive[pair] ?: return
+        // What is kept as rendered for the pair is the change before the edit.
+        t.kept = null
+        t.keptFound = false
+        t.keptTried = null
+        if (t.planned == null) {
+            t.saved = edit.spec
+            if (!t.holding) edit.spec?.let { savedFor(t, it) }
+            say("edited in the editor: the change to come plays as edited, ${edit.spec?.label ?: "Auto"}")
+            return
+        }
+        if (t.planning) {
+            t.replanAsked = true
+            return
+        }
+        replan(t)
+    }
+
+    /** An edit that came while the change was being worked out: planned again from it now. */
+    private fun replanIfAsked(t: Transition) {
+        if (!t.replanAsked) return
+        t.replanAsked = false
+        if (transition === t && !t.finished && !t.abandoned.get()) replan(t)
+    }
+
+    /** [t]'s held end planned again from the editor's edit, handed over in place of the plan before. */
+    private fun replan(t: Transition) {
+        val r = t.planned ?: return
+        val b = t.b ?: return
+        val work = work() ?: return
+        val gridA = t.gridA
+        val tailStartMs = t.tailStartMs.toDouble()
+        val levels = stage.levels
+        val asked = MixLive[SongPair(t.a.id, b.id)]?.atNanos ?: System.nanoTime()
+        t.planning = true
+        work.execute {
+            val started = SystemClock.elapsedRealtime()
+            val outcome = runCatching {
+                val tail = r.tail ?: RegionAnalysis.analyse(FrontEnd.of(r.ring, r.held.sampleRate, r.held.channels, 0, r.frames.toInt()), RegionKind.TAIL)
+                    .let { x -> gridA?.let { x.onSong(it, tailStartMs, exact = false) } ?: x }
+                    .also { r.tail = it }
+                val earliest = AutomixSchedule.earliestChange(stage.readMark, r.held.sampleRate, AutomixSchedule.workAllowanceMs(lastWorkMs))
+                onBands(t, r.held, r.ring, r.frames, tail, r.head, earliest, levels.now.attenuation, levels.next.attenuation, started)
+            }
+            t.planning = false
+            val offeredMs = (System.nanoTime() - asked) / 1e6
+            main.post {
+                outcome.onSuccess { o ->
+                    say(o.log)
+                    if (!t.abandoned.get()) {
+                        o.plan?.let { t.plan = it }
+                        when {
+                            o.saved -> decide(t, null)
+                            o.auto != null -> decide(t, o.auto)
+                        }
+                    }
+                    say("edited in the editor: planned again and handed over %.0f ms after the edit".format(offeredMs))
+                    Log.i("MixEditLatency", "player: the edited change handed to the stage %.0f ms after the edit".format(offeredMs))
+                }.onFailure { e -> Log.w(TAG, "AutoMix: planning again after an edit failed", e) }
+                replanIfAsked(t)
             }
         }
     }
@@ -1496,9 +1595,12 @@ class AutomixController(
         // Read again here, so a change saved in the editor while this song played is the one
         // heard, if what was read of the next song's opening holds it; otherwise it plays next time.
         // Shuffled, Auto alone.
+        // The editor's edit first, while it is open (MixLive): heard without waiting for its save.
+        val live = MixLive[SongPair(t.a.id, b.id)]
         val latest = when {
             t.shuffled -> Result.success(null)
             t.trial -> Result.success(t.saved)
+            live != null -> Result.success(live.spec)
             else -> runCatching { savedChange(t.a.id, b.id) }
         }
         val latestSaved = if (latest.isSuccess) latest.getOrNull() else t.saved

@@ -31,6 +31,7 @@ import com.dd3boh.outertune.mix.edit.transitionSpecOf
 import com.dd3boh.outertune.mix.edit.Presets
 import com.dd3boh.outertune.playback.BatteryUse
 import com.dd3boh.outertune.playback.automix.KeptChanges
+import com.dd3boh.outertune.playback.automix.MixLive
 import com.dd3boh.outertune.playback.automix.MixStores
 import com.dd3boh.outertune.playback.batteryModeNow
 import com.dd3boh.outertune.utils.get
@@ -237,7 +238,10 @@ class MixEditorViewModel @Inject constructor(
                 levels = levelA to levelB
                 editor = e
                 // The change as the phone will play it, from the engine's own render of the two copies.
-                preview = EnginePreview(loaded.aCopy, loaded.bCopy, loaded.a.analysis, levelA, levelB, volume)
+                preview = EnginePreview(loaded.aCopy, loaded.bCopy, loaded.a.analysis, levelA, levelB, volume).also {
+                    // The debug app's switch for measuring the old way: each edit rendered whole before it is heard.
+                    it.streamEdits = !(com.dd3boh.outertune.BuildConfig.DEBUG && java.io.File(context.filesDir, WHOLE_RENDER_SWITCH).exists())
+                }
                 publish()
                 phase.value = Phase.Ready
                 // A change saved before changes were kept, or kept on bands before the parts came:
@@ -273,10 +277,23 @@ class MixEditorViewModel @Inject constructor(
         return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
 
+    /** When the page's spec last changed, for the log of how long an edit takes to be heard. */
+    @Volatile private var editedNanos = 0L
+    private var publishedSpec: TransitionSpec? = null
+
     /** Hands the page and the preview the spec as it is now, and keeps it for the process's end. */
     fun publish() {
         val e = editor ?: return
         val spec = e.spec
+        if (spec != publishedSpec) {
+            // An edit, not the page opening: handed to playback at once, as it would be saved, so
+            // the change coming up or held already is heard as edited without waiting for the save.
+            if (publishedSpec != null) {
+                MixLive.edited(SongPair(fromId, toId), (e.saveAction(0) as? SaveAction.Keep)?.spec)
+            }
+            publishedSpec = spec
+            editedNanos = System.nanoTime()
+        }
         ui.value = Ui(spec, e.lit(), e.canUndo, e.canRedo, e.dirty)
         preview?.update(spec, e.fitStart(), e.fitEnd())
         saved[KEY_SPEC] = spec.toJson()
@@ -326,6 +343,7 @@ class MixEditorViewModel @Inject constructor(
         val action = e.saveAction(System.currentTimeMillis())
         val ok = withContext(Dispatchers.IO) { write(action) }
         if (ok) {
+            Log.i(EnginePreview.LATENCY, "saved for the player %.0f ms after the last edit".format((System.nanoTime() - editedNanos) / 1e6))
             e.markSaved(written)
             keptStale = true
             publish()
@@ -382,13 +400,17 @@ class MixEditorViewModel @Inject constructor(
         // as rendered, past the page, which is gone.
         editor?.let { e ->
             val pending = if (e.dirty) e.saveAction(System.currentTimeMillis()) else null
+            val pair = SongPair(fromId, toId)
             if (pending != null || keptStale) {
                 keptStale = false
-                val pair = SongPair(fromId, toId)
                 KeptChanges.scope.launch {
                     if (pending != null) write(pending)
+                    // Playback reads the store again from here: what was just saved.
+                    MixLive.closed(pair)
                     keepRendered(pair)
                 }
+            } else {
+                MixLive.closed(pair)
             }
         }
         preview?.release()
@@ -406,5 +428,8 @@ class MixEditorViewModel @Inject constructor(
 
         /** How long after the last edit the change is saved by itself. */
         const val AUTOSAVE_AFTER_MS = 1_500L
+
+        /** A file in the debug app's files: the preview renders each edit whole before it is heard, as it did before 9 Nov 2026. */
+        const val WHOLE_RENDER_SWITCH = "mix-whole-render"
     }
 }
