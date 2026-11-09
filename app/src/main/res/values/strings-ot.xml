@@ -2496,7 +2496,7 @@ while also allowing users to translate our app as well. New, specific strings to
     <string name="problem_report_share_file" translatable="false">Share as a file</string>
     <!-- Downloads saved as song files (SongFiles, Unreleased.DOWNLOAD_FILES), after the folder's warning: held from translators until his go. -->
     <string name="dl_song_files_note" translatable="false">Songs are saved as Opus or M4A files with their title, artist and cover, so other apps and cars can play them.</string>
-    <!-- Download quality (DownloadsFrag, Unreleased.DOWNLOAD_QUALITY): the row's title, the choice that follows Audio quality, and the line under the row. The other three choices are the Audio quality ones (audio_quality_max, _high, _low). Held from translators until his go. -->
+    <!-- Download quality (DownloadsFrag, Unreleased.DOWNLOAD_QUALITY): the row's title, the choice that follows Audio quality, and the line under the row. The other three choices are the Audio quality ones (audio_quality_max, _high, _low). Held from translators until the setting ships. -->
     <string name="download_quality" translatable="false">Download quality</string>
     <string name="download_quality_same" translatable="false">Same as playback</string>
     <string name="download_quality_description" translatable="false">Better quality takes more space. Songs you already downloaded stay as they are.</string>
