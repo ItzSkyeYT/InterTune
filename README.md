@@ -168,7 +168,7 @@ Every change in detail, and why this fork exists: [docs/FEATURES.md](https://git
 What's being worked on, roughly in order. `[x]` is done, `[~]` is built and being tested, `[ ]` is still to do. Nothing here has a date, and plans can change. Ideas are welcome in #feature-requests on [Discord](https://discord.gg/68jmqhMjXk) or as a [GitHub issue](https://github.com/ItzSkyeYT/InterTune/issues/new/choose).
 
 <details>
-<summary><b>Next: 0.13</b> · 6 of 37 done, 23 to test</summary>
+<summary><b>Next: 0.13</b> · 6 of 38 done, 24 to test</summary>
 
 `[~]` Listen together: one person plays, friends follow the same song in real time\
 `[x]` AirPlay speakers in the cast list\
@@ -184,6 +184,7 @@ What's being worked on, roughly in order. `[x]` is done, `[~]` is built and bein
 `[~]` Albums carry on into a radio when they end\
 `[~]` Pick a playlist's cover\
 `[~]` Downloads other apps can use: .m4a or .opus files with the title, artist and cover\
+`[~]` Downloads at a quality of their own, apart from the streaming quality\
 `[~]` Liked songs kept in sync with your downloads: unliking removes a download the app made itself ([#64](https://github.com/ItzSkyeYT/InterTune/issues/64))\
 `[~]` The volume past 100% turns the music up without distorting it ([#93](https://github.com/ItzSkyeYT/InterTune/issues/93))\
 `[~]` On mobile data, Auto quality takes a middle stream instead of the smallest ([#88](https://github.com/ItzSkyeYT/InterTune/issues/88))\
