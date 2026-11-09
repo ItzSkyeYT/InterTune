@@ -319,6 +319,11 @@ class PcmParking(
  * Decoding happens in [CastReader.read], on the server's thread for that connection, so the
  * renderer's reading paces it: a renderer that stops reading stops the decoder, and closing the
  * connection, which the end of the cast does, releases it.
+ *
+ * The app's sound ([sound]: the equalizer, the song's levelling) goes on the samples as they are
+ * made, one stage per decode, so a request that carries on a parked decode carries on its filters
+ * too. A band moved is in the next bytes made; the renderer hears them once it has played what it
+ * holds.
  */
 class PcmCastSong(
     private val asIs: CastSong,
@@ -326,6 +331,10 @@ class PcmCastSong(
     val source: PcmSource,
     private val decoder: PcmDecoder,
     private val parking: PcmParking? = null,
+    /** The song's id in the queue, which its level is looked up by. */
+    private val mediaId: String = "",
+    /** The app's sound, or null to serve the samples as they were decoded. */
+    private val sound: PcmSound? = null,
 ) : CastSong, Closeable {
     /** Frames served, or -1 when the duration is not known. */
     val frames: Long = PcmFormats.frames(source.durationUs, form.rate)
@@ -361,6 +370,10 @@ class PcmCastSong(
         private var bytes = ByteArray(0)
         private var bytesStart = 0
         private var bytesEnd = 0
+
+        /** The app's sound for this decode, and the samples it gives back, kept from one piece to the next. */
+        private val stage: PcmStage? = sound?.stage(form.rate, form.channels)
+        private var shaped = ShortArray(0)
 
         override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
             if (length <= 0) return 0
@@ -422,17 +435,26 @@ class PcmCastSong(
         /** [frames] frames of [samples] from index [from], as bytes in the form's order, after those waiting. */
         private fun append(samples: ShortArray, from: Int, frames: Int) {
             val count = frames * form.channels
+            var source = samples
+            var first = from
+            if (stage != null) {
+                // Into an array of its own: the converter hands the same silence over more than once.
+                if (shaped.size < count) shaped = ShortArray(count)
+                stage.shape(mediaId, samples, from, shaped, 0, frames)
+                source = shaped
+                first = 0
+            }
             if (bytes.size < bytesEnd + count * 2) bytes = bytes.copyOf(maxOf(bytesEnd + count * 2, bytes.size * 2))
             var at = bytesEnd
             if (form.bigEndian) {
-                for (index in from until from + count) {
-                    val sample = samples[index].toInt()
+                for (index in first until first + count) {
+                    val sample = source[index].toInt()
                     bytes[at++] = (sample shr 8).toByte()
                     bytes[at++] = sample.toByte()
                 }
             } else {
-                for (index in from until from + count) {
-                    val sample = samples[index].toInt()
+                for (index in first until first + count) {
+                    val sample = source[index].toInt()
                     bytes[at++] = sample.toByte()
                     bytes[at++] = (sample shr 8).toByte()
                 }

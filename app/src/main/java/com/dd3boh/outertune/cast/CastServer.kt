@@ -28,9 +28,10 @@ import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * What a receiver is told about a song: where to fetch it, what it is, and how long in bytes; for
- * raw audio also in milliseconds, worked out from its frames ([durationMs], -1 otherwise).
+ * raw audio also in milliseconds, worked out from its frames ([durationMs], -1 otherwise), and
+ * its rate in Hz ([rate], -1 for the song as it is, which the receiver decodes itself).
  */
-data class CastOffer(val url: String, val mimeType: String, val length: Long, val durationMs: Long = -1)
+data class CastOffer(val url: String, val mimeType: String, val length: Long, val durationMs: Long = -1, val rate: Int = -1)
 
 /**
  * The HTTP server a receiver fetches the queue's songs from while the phone is casting.
@@ -68,6 +69,8 @@ data class CastOffer(val url: String, val mimeType: String, val length: Long, va
  * For a renderer that takes neither the song as it is nor AAC, [pcmDecoder] decodes the song as it
  * is into raw audio ([preparePcm], PcmCastSong), on the worker sending it, so the renderer's reading
  * paces the decoding and closing the connection ends it. Null where that is off (Unreleased.CAST_PCM).
+ * The app's sound goes on that raw audio as it is made ([pcmSound]), unless the link sends it on
+ * with the sound put on there (AirPlay).
  */
 class CastServer(
     private val source: CastSource,
@@ -113,6 +116,14 @@ class CastServer(
     /** Each song's length as the queue knows it, for a decode that cannot tell its own. */
     private val durationHints = ConcurrentHashMap<String, Long>()
     private val parking = PcmParking()
+
+    /**
+     * The app's sound, put on the raw audio this server decodes as a renderer fetches it; null to
+     * send it as decoded, as for an AirPlay link, which puts the sound on each packet itself.
+     * Set by the cast session once the link has said which, before the first song is prepared.
+     */
+    @Volatile
+    var pcmSound: PcmSound? = null
 
     val isRunning: Boolean get() = serverSocket?.isClosed == false
 
@@ -262,9 +273,12 @@ class CastServer(
         val decoded = pcmSourceFor(mediaId)
         val form = PcmFormats.pick(target, decoded.rate, decoded.channels)
         pcmForms[form.key] = form
+        // The song's level, looked up here on the remote player's worker rather than on the
+        // renderer's, which only reads it.
+        pcmSound?.prepare(mediaId)
         val song = pcmSongFor(mediaId, form)
         Log.i(TAG, "$mediaId decodes at ${decoded.rate} Hz in ${decoded.channels} channels; serving ${song.mimeType}, ${song.length} bytes, ${song.durationMs} ms")
-        return CastOffer(urlFor(mediaId, form), song.mimeType, song.length, song.durationMs)
+        return CastOffer(urlFor(mediaId, form), song.mimeType, song.length, song.durationMs, form.rate)
     }
 
     /** Resolves [mediaId] afresh on its next request, after the receiver said it failed. */
@@ -300,7 +314,10 @@ class CastServer(
     private fun pcmSongFor(mediaId: String, form: PcmForm): PcmCastSong =
         pcmSongs.getOrPut("$mediaId/${form.key}") {
             lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
-                PcmCastSong(songFor(mediaId), form, pcmSourceFor(mediaId), pcmDecoder ?: throw CastUnavailableException("No decoder"), parking)
+                PcmCastSong(
+                    songFor(mediaId), form, pcmSourceFor(mediaId), pcmDecoder ?: throw CastUnavailableException("No decoder"), parking,
+                    mediaId = mediaId, sound = pcmSound,
+                )
             }
         }.value
 

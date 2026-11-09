@@ -2157,6 +2157,10 @@
     <string name="signal_wired">Casque filaire</string>
     <string name="signal_other_output">Un autre appareil</string>
     <string name="signal_volume">Volume du téléphone</string>
+    <string name="signal_receiver">%1$s, %2$s</string>
+    <string name="signal_receiver_rate">%1$s, %2$s, %3$s kHz</string>
+    <string name="signal_not_on_receiver">Pas sur ce récepteur, qui reçoit le titre tel quel</string>
+    <string name="signal_not_while_casting">Pas pendant un cast</string>
     <string name="signal_percent">%1$d %%</string>
     <string name="signal_legend_untouched">Intact</string>
     <string name="signal_legend_changed">Modifié par un réglage que vous avez choisi</string>

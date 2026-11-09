@@ -942,6 +942,9 @@ class MusicService : MediaLibraryService(),
     /** The volume levelling applied to the song playing, as a linear factor: what the Signal path sheet shows. */
     val loudnessFactor: StateFlow<Float> get() = normalizeFactor
 
+    /** Whether normalisation is on, for the raw audio cast from the phone, which reads it from its own threads. */
+    @Volatile private var castNormalizeAudio = true
+
     private val audioDecoder = dataStore.get(AudioDecoderKey, DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF)
 
     /**
@@ -2068,6 +2071,7 @@ class MusicService : MediaLibraryService(),
                 val (format, isLocal) = formatAndLocal
                 // The rule is in Normalization, which AutoMix also asks about the next song.
                 normalizeFactor.value = Normalization.factor(format?.loudnessDb, isLocal, normalizeAudio)
+                castNormalizeAudio = normalizeAudio
                 if (Unreleased.AUTOMIX) {
                     // AutoMix's stage scales the song playing by this as well, from the moment its
                     // row is written, as the volume does: not at the player's next event.
@@ -3834,10 +3838,26 @@ class MusicService : MediaLibraryService(),
     /** A song's normalisation by the rule the player uses, from what is stored: the bounded read, on IO. */
     private fun automixNormalization(id: String): Pair<Float, Boolean>? {
         val normalize = automixNormalizeAudio
-        val loudness = database.readOrNull { formatRow(id) }?.loudnessDb
-        val isLocal = queueBoard.getCurrentQueue()?.findSong(id)?.isLocal ?: (database.readOrNull { songRow(id) }?.isLocal == true)
+        val (loudness, isLocal) = storedLoudness(id)
         return Normalization.factor(loudness, isLocal, normalize) to Normalization.isFinal(loudness, isLocal, normalize)
     }
+
+    /** A song's stored loudness, null when none, and whether it is a file on the phone: the bounded read, on IO. */
+    private fun storedLoudness(id: String): Pair<Double?, Boolean> {
+        val loudness = database.readOrNull { formatRow(id) }?.loudnessDb
+        val isLocal = queueBoard.getCurrentQueue()?.findSong(id)?.isLocal ?: (database.readOrNull { songRow(id) }?.isLocal == true)
+        return loudness to isLocal
+    }
+
+    /**
+     * The equalizer and the levelling for the raw audio a cast sends (CastSound), as the phone's own
+     * player has them now: a new one for each cast, which keeps the loudness of the songs it sends.
+     */
+    fun castSound(): CastSound = CastSound(
+        equalizer = { equalizerProcessor.settings },
+        normalize = { castNormalizeAudio },
+        loudness = { id -> storedLoudness(id).let { (db, local) -> CastSound.Loudness(db, local) } },
+    )
 
     private fun createRenderersFactory(gaplessOffloadAllowed: Boolean): DefaultRenderersFactory {
         if (ENABLE_FFMETADATAEX) {
