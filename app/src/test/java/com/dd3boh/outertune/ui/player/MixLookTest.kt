@@ -120,9 +120,12 @@ class MixLookTest {
     fun `the covers take 1_1 s of the music each way, and a change is shown only when it is longer than both`() {
         assertEquals(1_100, MixLook.MORPH_MS)
         assertEquals(2L * MixLook.MORPH_MS, MixOnScreen.SHORTEST_MS)
+        // Still through the change's heavy first moment, then apart over 1.1 s, all of it inside the shortest change.
         assertEquals(0f, MixLook.coming(0), 0f)
-        assertEquals(0.5f, MixLook.coming(550), e)
-        assertEquals(1f, MixLook.coming(1_100), 0f)
+        assertEquals(0f, MixLook.coming(MixLook.SETTLE_MS.toLong()), 0f)
+        assertEquals(0.5f, MixLook.coming(MixLook.SETTLE_MS + 550L), e)
+        assertEquals(1f, MixLook.coming(MixLook.SETTLE_MS + 1_100L), 0f)
+        assertTrue(MixLook.SETTLE_MS + MixLook.MORPH_MS <= MixOnScreen.SHORTEST_MS)
         assertEquals("a player opened late finds them apart", 1f, MixLook.coming(20_000), 0f)
         assertEquals(0f, MixLook.going(-500), 0f)
         assertEquals(1f, MixLook.going(5_000), 0f)
@@ -134,7 +137,8 @@ class MixLookTest {
         // As the incoming song comes in: today's cover.
         assertEquals(MixLook.WHOLE, MixLook.covers(change, atMs = 0).outgoing)
         // Half way through the covers coming apart.
-        assertEquals(MixLook.covers(change.heard(550), null, 0.5f, 0f), MixLook.covers(change, atMs = 550))
+        val halfApart = MixLook.SETTLE_MS + 550L
+        assertEquals(MixLook.covers(change.heard(halfApart), null, 0.5f, 0f), MixLook.covers(change, atMs = halfApart))
         // Apart, sized by the music, half way: the incoming song taking over.
         val half = MixLook.covers(change, atMs = 21_000)
         assertSpot("outgoing half way", 0.328f, 0.693f, 0.333f + 0.222f * cos(PI / 4).toFloat(), half.outgoing)

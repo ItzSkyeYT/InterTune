@@ -136,11 +136,21 @@ object MixLook {
     }
 
     /**
-     * How far the covers have come apart [sinceStartMs] of the incoming song after the change
-     * began, 0 to 1 over [MORPH_MS] (eased in [covers]). Counted in the music, so a player opened
-     * late finds them apart, and a pause holds them where they are.
+     * How long the covers hold still once a change has begun, before they come apart. The incoming
+     * song becoming the player's is the heaviest moment of a change (the player made again for it,
+     * the phone's notification drawn again), and covers that came apart right then lost their first
+     * frames to it: two frames of about 180 ms on the Pixel 5's debug app (9 Nov 2026). Held through
+     * it, they then move at every frame. The music comes in under the outgoing song, so the wait is
+     * not heard against it.
      */
-    fun coming(sinceStartMs: Long): Float = (sinceStartMs.toFloat() / MORPH_MS).coerceIn(0f, 1f)
+    const val SETTLE_MS = 400
+
+    /**
+     * How far the covers have come apart [sinceStartMs] of the incoming song after the change
+     * began, 0 to 1 over [MORPH_MS] once [SETTLE_MS] have passed (eased in [covers]). Counted in
+     * the music, so a player opened late finds them apart, and a pause holds them where they are.
+     */
+    fun coming(sinceStartMs: Long): Float = ((sinceStartMs - SETTLE_MS).toFloat() / MORPH_MS).coerceIn(0f, 1f)
 
     /**
      * Where the incoming song is for this frame, in ms: [was] moved on by the frame's [frameNanos] while it plays,
