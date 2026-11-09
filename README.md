@@ -268,6 +268,8 @@ Thank you so much, everyone, for your support in this growing project!
 
 <p align="center"><img src="https://raw.githubusercontent.com/ItzSkyeYT/InterTune/visionos-fix/assets/donors/geogos.png" width="64" height="64" alt="Geogos"><br><b>Geogos</b><br><sub>The first on PayPal · November 2026</sub></p>
 
+<p align="center"><sub>Some donors chose not to be named here. Thank you to them too.</sub></p>
+
 <!-- The app's About > Support InterTune and the site read the donors' names from this table (utils/Donors.kt, tools/site/build.py):
      one cell a donor, the name in bold first. A new donor goes in both here and above.
 <table><tr><td><b>Dismorphism</b></td><td><b>Ti-Die</b></td><td><b>frances</b></td><td><b>Geogos</b></td></tr></table>
