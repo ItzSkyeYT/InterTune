@@ -318,6 +318,62 @@ class MixEditorViewModel @Inject constructor(
         return result
     }
 
+    // ---- the listener's own presets (his ask of 9 Nov 2026: "let me create saved presets for the transitions")
+
+    /** The presets, in the order they were made. */
+    val presets = MutableStateFlow<List<com.dd3boh.outertune.mix.edit.MixPreset>>(emptyList())
+
+    init {
+        viewModelScope.launch {
+            presets.value = withContext(Dispatchers.IO) { runCatching { MixStores.presets(context).all() }.getOrDefault(emptyList()) }
+        }
+    }
+
+    /** The change on the page kept as a preset named [name]; [done] told whether it was, on the main thread. */
+    fun savePreset(name: String, done: (Boolean) -> Unit = {}) {
+        val shape = editor?.presetShape() ?: return done(false)
+        val p = com.dd3boh.outertune.mix.edit.MixPreset(java.util.UUID.randomUUID().toString(), name.trim(), shape)
+        viewModelScope.launch {
+            val ok = withContext(Dispatchers.IO) { runCatching { MixStores.presets(context).put(p) }.onFailure { Log.w(TAG, "The preset could not be kept", it) }.isSuccess }
+            if (ok) presets.value = presets.value + p
+            done(ok)
+        }
+    }
+
+    /** [p] named [name], in its place. */
+    fun renamePreset(p: com.dd3boh.outertune.mix.edit.MixPreset, name: String) {
+        val renamed = p.copy(name = name.trim())
+        viewModelScope.launch {
+            val ok = withContext(Dispatchers.IO) { runCatching { MixStores.presets(context).put(renamed) }.isSuccess }
+            if (ok) presets.value = presets.value.map { if (it.id == p.id) renamed else it }
+        }
+    }
+
+    /** [p] deleted; [restore] puts it back where it was, for Undo. */
+    fun deletePreset(p: com.dd3boh.outertune.mix.edit.MixPreset) {
+        viewModelScope.launch {
+            val ok = withContext(Dispatchers.IO) { runCatching { MixStores.presets(context).delete(p.id) }.getOrDefault(false) }
+            if (ok) presets.value = presets.value.filter { it.id != p.id }
+        }
+    }
+
+    /** [p] back after a delete, at [index] of the list. */
+    fun restorePreset(p: com.dd3boh.outertune.mix.edit.MixPreset, index: Int) {
+        viewModelScope.launch {
+            val ok = withContext(Dispatchers.IO) {
+                runCatching {
+                    val store = MixStores.presets(context)
+                    // Put back in its place: the ones after it go after it again.
+                    val after = store.all().drop(index)
+                    after.forEach { store.delete(it.id) }
+                    store.put(p)
+                    after.forEach { store.put(it) }
+                }.isSuccess
+            }
+            if (ok) presets.value = withContext(Dispatchers.IO) { runCatching { MixStores.presets(context).all() }.getOrDefault(presets.value) }
+        }
+    }
+
     /** The save a moment after the last edit (his ask of 8 Nov 2026: "make it so the transitions AUTOSAVE"). */
     private var autosave: Job? = null
 

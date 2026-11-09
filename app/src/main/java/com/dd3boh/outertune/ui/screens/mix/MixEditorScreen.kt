@@ -407,7 +407,20 @@ fun MixEditorScreen(navController: NavController) {
                 return
             }
             // Adjust holds its own undo step until Done: everything below waits for it.
-            Lowers(vm, e, s, ui!!, words, phase is MixEditorViewModel.Phase.Ready && canvas.adjust == null, landscape, onPreset = { p -> presetTapped(p, snackbar) })
+            Lowers(
+                vm, e, s, ui!!, words, phase is MixEditorViewModel.Phase.Ready && canvas.adjust == null, landscape, onPreset = { p -> presetTapped(p, snackbar) },
+                onUserPreset = {
+                    canvas.flash = 1f
+                    scope.launch { Animatable(1f).animateTo(0f, tween(200)) { canvas.flash = value } }
+                },
+                onLimit = { actions.say(it) },
+                onPresetDeleted = { p, i ->
+                    scope.launch {
+                        val r = snackbar.showSnackbar(resources.getString(R.string.mix_preset_deleted), resources.getString(R.string.mix_edit_undo), duration = SnackbarDuration.Short)
+                        if (r == SnackbarResult.ActionPerformed) vm.restorePreset(p, i)
+                    }
+                },
+            )
         }
 
         if (landscape) {
@@ -758,14 +771,20 @@ private fun Lowers(
     ready: Boolean,
     wrap: Boolean,
     onPreset: (Preset) -> Unit,
+    onUserPreset: () -> Unit = {},
+    onLimit: (Limit) -> Unit = {},
+    onPresetDeleted: (com.dd3boh.outertune.mix.edit.MixPreset, Int) -> Unit = { _, _ -> },
 ) {
     Text(stringResource(R.string.mix_edit_presets), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 6.dp))
     // The lit chip is kept in view, as on Simple (PresetRow).
     val presetRow = rememberPresetRow(ui.lit, 12.dp)
+    // The listener's own presets after the app's; one of them lit, Custom is not.
+    val userPresets by vm.presets.collectAsState()
+    val userLit = remember(spec, userPresets) { editor.litPreset(userPresets, spec) }
     val chips: @Composable () -> Unit = {
         DefaultChip(lit = spec.plain, enabled = ready) { vm.edit { plainChange() } }
         for (p in EditorPresets.ORDER) {
-            val lit = ui.lit == p
+            val lit = ui.lit == p && !(p == Preset.CUSTOM && userLit != null)
             val allowed = !p.needsParts || spec.lanes == LaneSet.PARTS
             val enabled = ready && allowed && !(p == Preset.CUSTOM && !lit && editor.lastCustom == null)
             FilterChip(
@@ -777,6 +796,7 @@ private fun Lowers(
                 modifier = presetRow.chip(p),
             )
         }
+        UserPresetChips(vm, editor, userPresets, userLit, canSave = !spec.plain, enabled = ready, onApplied = onUserPreset, onLimit = onLimit, onDeleted = onPresetDeleted)
     }
     if (wrap) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(horizontal = 12.dp)) { chips() }

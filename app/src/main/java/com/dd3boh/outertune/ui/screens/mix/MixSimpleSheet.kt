@@ -357,7 +357,16 @@ fun MixSimpleSheet(
                 }
                 @Composable
                 fun ColumnScope.ChoicesPart() {
-                    if (ready) Choices(vm, editor!!, spec!!, ui!!, words, look, onPreset = { onPreset(it, host) }, onRow = ::setRow)
+                    if (ready) Choices(
+                        vm, editor!!, spec!!, ui!!, words, look, onPreset = { onPreset(it, host) }, onRow = ::setRow,
+                        onLimit = { onSay(words.limit(it)) },
+                        onPresetDeleted = { p, i ->
+                            scope.launch {
+                                val r = host.showSnackbar(resources.getString(R.string.mix_preset_deleted), resources.getString(R.string.mix_edit_undo), duration = SnackbarDuration.Short)
+                                if (r == SnackbarResult.ActionPerformed) vm.restorePreset(p, i)
+                            }
+                        },
+                    )
                     Spacer(Modifier.height(24.dp))
                 }
                 if (landscape) {
@@ -661,6 +670,8 @@ private fun ColumnScope.Choices(
     look: SimpleLook,
     onPreset: (Preset) -> Unit,
     onRow: ((SimpleRows) -> SimpleRows?) -> Unit,
+    onLimit: (Limit) -> Unit = {},
+    onPresetDeleted: (com.dd3boh.outertune.mix.edit.MixPreset, Int) -> Unit = { _, _ -> },
 ) {
     val res = LocalResources.current
     val allowed = spec.beatMatchAllowed() && editor.beatMatchPossible
@@ -687,10 +698,13 @@ private fun ColumnScope.Choices(
     )
     // The lit chip is kept in view (PresetRow).
     val presetRow = rememberPresetRow(ui.lit, 16.dp)
+    // The listener's own presets after the app's (MixUserPresets).
+    val userPresets by vm.presets.collectAsState()
+    val userLit = remember(spec, userPresets) { editor.litPreset(userPresets, spec) }
     val chips: @Composable () -> Unit = {
         DefaultChip(lit = spec.plain, enabled = true) { vm.edit { plainChange() } }
         for (p in EditorPresets.ORDER) {
-            val lit = ui.lit == p
+            val lit = ui.lit == p && !(p == Preset.CUSTOM && userLit != null)
             val enabled = (!p.needsParts || spec.lanes == LaneSet.PARTS) && !(p == Preset.CUSTOM && !lit && editor.lastCustom == null)
             FilterChip(
                 selected = lit,
@@ -705,6 +719,7 @@ private fun ColumnScope.Choices(
                 modifier = presetRow.chip(p),
             )
         }
+        UserPresetChips(vm, editor, userPresets, userLit, canSave = !spec.plain, enabled = true, onApplied = {}, onLimit = onLimit, onDeleted = onPresetDeleted)
     }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(presetRow.scroll).padding(horizontal = 16.dp)) { chips() }
     // Auto names what it picked when that is a preset, as the mock has it.

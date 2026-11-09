@@ -106,6 +106,14 @@
     <string name="mix_preset_echo_out">Écho</string>
     <string name="mix_preset_cut">Coupe</string>
     <string name="mix_preset_default">Par défaut</string>
+    <!-- the listener's own presets, after the app's in the row of presets -->
+    <string name="mix_preset_new">Nouveau préréglage</string>
+    <string name="mix_preset_name">Nom</string>
+    <string name="mix_preset_rename">Renommer</string>
+    <string name="mix_preset_delete">Supprimer</string>
+    <string name="mix_preset_options">Options du préréglage</string>
+    <string name="mix_preset_default_name">Préréglage %1$d</string>
+    <string name="mix_preset_deleted">Préréglage supprimé</string>
     <string name="mix_line_custom">Vos propres réglages pour ces deux morceaux.</string>
     <string name="mix_line_auto">Le choix de l\'appli pour ces deux morceaux.</string>
     <string name="mix_line_auto_plain">Auto enchaîne ces deux morceaux sans mixage.</string>
