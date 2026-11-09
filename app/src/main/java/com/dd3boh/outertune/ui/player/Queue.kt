@@ -514,6 +514,30 @@ fun BoxScope.QueueContent(
         inSelectMode = false
         selectedItems.clear()
     }
+
+    fun exitDetachHead() {
+        detachedHead = false
+        detachedQueue = null // detachedQueue should only exist in detached mode
+        onExitSelectionMode()
+    }
+
+    /**
+     * A queue with nothing left in it once songs were taken out goes, as the queue list's own Delete
+     * takes one: the next queue is loaded, paused, or with no queue left the player closes. It used
+     * to stay, empty: the sheet said "No queues" over a bar still naming it "1 / 0", the mini player
+     * stayed on with no song and no cover (a tester's screenshot, 9 Nov 2026), and its last songs
+     * came back at the next start, since an empty queue is never saved.
+     */
+    val dropIfEmptied: () -> Unit = {
+        val emptied = qb.getCurrentQueue()?.takeIf { it.getSize() == 0 }
+        if (emptied != null) {
+            playerConnection.player.pause()
+            val remainingQueues = qb.deleteQueue(emptied)
+            qb.setCurrQueue()
+            exitDetachHead()
+            if (remainingQueues < 1) onTerminate()
+        }
+    }
     // The songs picked, taken out of the queue in one go, each as a swipe takes one: the last place
     // first, so the places still to go keep their songs. Offered where the rows are the queue being
     // listened to: unlocked, and the one playing or the one that will play before play after a
@@ -536,6 +560,7 @@ fun BoxScope.QueueContent(
                     mutableSongs.removeAt(place)
                 }
             }
+            dropIfEmptied()
             if (!loaded) playerConnection.storedQueueEdited()
             haptic.performHapticFeedback(HapticFeedbackType.Confirm)
             onExitSelectionMode()
@@ -669,12 +694,6 @@ fun BoxScope.QueueContent(
     }
 
     // Helpers
-    fun exitDetachHead() {
-        detachedHead = false
-        detachedQueue = null // detachedQueue should only exist in detached mode
-        onExitSelectionMode()
-    }
-
     /**
      * Undo the detached state that the fallback seeds on first composition.
      *
@@ -1241,6 +1260,7 @@ fun BoxScope.QueueContent(
                                         mutableSongs.getOrNull(swipedIndex)?.id?.let { ActivityLog.note(context, database, it, SignalKind.REMOVED_FROM_QUEUE) }
                                         playerConnection.player.removeMediaItem(swipedIndex)
                                         mutableSongs.removeAt(swipedIndex)
+                                        dropIfEmptied()
                                     }
                                     haptic.performHapticFeedback(HapticFeedbackType.Confirm)
                                     return@rememberSwipeToDismissBoxState true
@@ -1252,6 +1272,7 @@ fun BoxScope.QueueContent(
                                         mutableSongs.getOrNull(swipedIndex)?.id?.let { ActivityLog.note(context, database, it, SignalKind.REMOVED_FROM_QUEUE) }
                                         playerConnection.player.removeMediaItem(swipedIndex)
                                         mutableSongs.removeAt(swipedIndex)
+                                        dropIfEmptied()
                                     }
                                     haptic.performHapticFeedback(HapticFeedbackType.Confirm)
                                     return@rememberSwipeToDismissBoxState true
