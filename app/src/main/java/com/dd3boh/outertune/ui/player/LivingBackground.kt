@@ -104,6 +104,9 @@ import kotlin.math.min
  *   The player's own by default; the sample in Settings has a small cover of its own.
  * @param blendCover a second cover the colours go [blend] of the way to from [cover]'s, read at
  *   every step: the incoming song's while a change plays as a mix (MixScreen). Null for none.
+ * @param held asked at every frame: while true the picture is not redrawn and does not move, and it
+ *   moves on from where it was after. While the covers of a mix turn (MixScreen.turning): a redraw
+ *   makes the glass over the picture refract it again, and those frames missed the turn's.
  */
 @Composable
 fun LivingBackground(
@@ -120,11 +123,12 @@ fun LivingBackground(
     coverPlace: () -> Rect? = { PlayerCoverPlace.bounds },
     blendCover: Any? = null,
     blend: () -> Float = { 0f },
+    held: () -> Boolean = { false },
 ) {
     // The grid is made for the room the picture is given, not for the window: in the player the
     // two are the same, in the Settings sample the picture is a strip.
     BoxWithConstraints(modifier) {
-        LivingPicture(cover, tap, playing, onScreen, covered, strength, smoothing, colours, alpha, coverPlace, blendCover, blend, constraints.maxWidth, constraints.maxHeight)
+        LivingPicture(cover, tap, playing, onScreen, covered, strength, smoothing, colours, alpha, coverPlace, blendCover, blend, held, constraints.maxWidth, constraints.maxHeight)
     }
 }
 
@@ -142,6 +146,7 @@ private fun LivingPicture(
     coverPlace: () -> Rect?,
     blendCover: Any?,
     blend: () -> Float,
+    held: () -> Boolean,
     wide: Int,
     tall: Int,
 ) {
@@ -261,7 +266,7 @@ private fun LivingPicture(
                         motion.blend = blendNow()
                         // Thirty times a second at most, and on the screen's other frames nothing
                         // is stepped and nothing drawn: see RedrawPace.
-                        if (motion.frame(now, redraws, playing, heard)) frame = now
+                        if (!held() && motion.frame(now, redraws, playing, heard)) frame = now
                     }
                 }
                 // At rest, or never moved at all: drawn once more, for the colours that arrived

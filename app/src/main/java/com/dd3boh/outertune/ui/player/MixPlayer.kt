@@ -149,6 +149,19 @@ class MixScreen internal constructor(
         if (MixLook.coming(at(t) - t.entryMs) < 1f) 0f else MixLook.stepped(heard)
     }
 
+    /**
+     * Whether the covers are turning in or out now: the first and the last MixLook.MORPH_MS of the change on
+     * screen. Living blur holds still then (Player), so that nothing behind the glass changes and every frame of
+     * the turn is a cheap one. Read at each frame, not in composition.
+     */
+    fun turning(): Boolean {
+        val t = target ?: return false
+        if (!active) return false
+        val now = at(t)
+        val going = MixLook.going(now - t.entryMs - t.lengthMs)
+        return MixLook.coming(now - t.entryMs) < 1f || (going > 0f && going < 1f)
+    }
+
     /** The song the change announced brings in, before the player names it: its covers are fetched then (Thumbnail). */
     val upcoming: MediaMetadata? get() = announced.value?.incoming
 

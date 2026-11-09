@@ -846,6 +846,9 @@ private fun PlayerSheet(
                         // incoming one's with the music.
                         blendCover = mixShown?.incoming?.getThumbnailModel(100, 100),
                         blend = { mix?.livingShare ?: 0f },
+                        // Still while the covers turn in and out: each redraw of it makes the glass over it
+                        // refract the background again, and on those frames the turn missed its frame.
+                        held = { mix?.turning() == true },
                     )
                     Box(
                         modifier = Modifier
